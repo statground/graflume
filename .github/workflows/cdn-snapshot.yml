@@ -74,3 +74,33 @@ jobs:
           fi
 
           git push origin HEAD:main
+
+          CDN_URL="https://cdn.jsdelivr.net/gh/statground/graflume@${BUNDLE_SHA}/cdn/graflume.global.js"
+          VERIFIED=false
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent --show-error --location \
+              --connect-timeout 10 --max-time 30 \
+              "$CDN_URL" --output /tmp/graflume.cdn.js; then
+              CDN_SRI="sha384-$(openssl dgst -sha384 -binary /tmp/graflume.cdn.js | openssl base64 -A)"
+              if [ "$CDN_SRI" = "$SRI" ] && cmp -s cdn/graflume.global.js /tmp/graflume.cdn.js; then
+                VERIFIED=true
+                break
+              fi
+            fi
+            sleep 3
+          done
+
+          if [ "$VERIFIED" != true ]; then
+            echo 'The exact jsDelivr response did not match the committed browser bundle.' >&2
+            exit 1
+          fi
+
+          VERIFIED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          BYTE_LENGTH="$(wc -c < /tmp/graflume.cdn.js | tr -d ' ')"
+          printf '{\n  "sourceCommit": "%s",\n  "bundleCommit": "%s",\n  "cdnUrl": "%s",\n  "integrity": "%s",\n  "byteLength": %s,\n  "verifiedAt": "%s"\n}\n' \
+            "$SOURCE_SHA" "$BUNDLE_SHA" "$CDN_URL" "$SRI" "$BYTE_LENGTH" "$VERIFIED_AT" \
+            > cdn/verification.json
+
+          git add cdn/verification.json
+          git commit -m 'Verify Graflume CDN snapshot [skip ci]'
+          git push origin HEAD:main
