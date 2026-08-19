@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="ko" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Graflume CDN 막대그래프</title>
+    <style>
+      :root {
+        font-family:
+          Inter, Pretendard, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        color: #172033;
+        background: #eef3f8;
+      }
+      :root[data-theme='dark'] {
+        color: #f1f5f9;
+        background: #0b1020;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        min-height: 100vh;
+        margin: 0;
+        padding: 28px 18px 44px;
+      }
+      main {
+        width: min(1080px, 100%);
+        margin: 0 auto;
+      }
+      header {
+        display: flex;
+        gap: 18px;
+        align-items: flex-end;
+        justify-content: space-between;
+        margin-bottom: 18px;
+      }
+      h1 {
+        margin: 0;
+        font-size: clamp(1.5rem, 4vw, 2.35rem);
+        letter-spacing: -0.04em;
+      }
+      .lede {
+        max-width: 700px;
+        margin: 8px 0 0;
+        color: #5d6b82;
+        line-height: 1.65;
+      }
+      :root[data-theme='dark'] .lede,
+      :root[data-theme='dark'] .meta {
+        color: #a8b3c7;
+      }
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      button {
+        min-height: 40px;
+        padding: 0 14px;
+        color: inherit;
+        background: rgb(255 255 255 / 82%);
+        border: 1px solid #d8e0ea;
+        border-radius: 999px;
+        cursor: pointer;
+        font: inherit;
+        font-weight: 650;
+      }
+      :root[data-theme='dark'] button {
+        background: rgb(23 30 45 / 92%);
+        border-color: #344057;
+      }
+      button:focus-visible {
+        outline: 3px solid #60a5fa;
+        outline-offset: 2px;
+      }
+      .chart-card {
+        overflow: hidden;
+        background: #fff;
+        border: 1px solid #dce4ee;
+        border-radius: 22px;
+        box-shadow: 0 24px 70px rgb(15 23 42 / 12%);
+      }
+      :root[data-theme='dark'] .chart-card {
+        background: #101522;
+        border-color: #273248;
+        box-shadow: 0 24px 70px rgb(0 0 0 / 35%);
+      }
+      #chart {
+        width: 100%;
+        height: clamp(430px, 58vw, 590px);
+      }
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 18px;
+        padding: 0 26px 22px;
+        color: #5d6b82;
+        font-size: 0.92rem;
+      }
+      :root[data-theme='dark'] .legend {
+        color: #a8b3c7;
+      }
+      .legend span {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .swatch {
+        width: 12px;
+        height: 12px;
+        border-radius: 3px;
+      }
+      .summary {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 14px;
+      }
+      .metric {
+        min-height: 92px;
+        padding: 16px 18px;
+        background: rgb(255 255 255 / 78%);
+        border: 1px solid #dce4ee;
+        border-radius: 16px;
+      }
+      :root[data-theme='dark'] .metric {
+        background: rgb(23 30 45 / 86%);
+        border-color: #273248;
+      }
+      .metric strong {
+        display: block;
+        margin-top: 7px;
+        font-size: 1.35rem;
+      }
+      .meta {
+        color: #5d6b82;
+        font-size: 0.86rem;
+      }
+      details {
+        margin-top: 16px;
+        padding: 14px 18px;
+        background: rgb(255 255 255 / 68%);
+        border: 1px solid #dce4ee;
+        border-radius: 14px;
+      }
+      :root[data-theme='dark'] details {
+        background: rgb(23 30 45 / 76%);
+        border-color: #273248;
+      }
+      summary {
+        cursor: pointer;
+        font-weight: 700;
+      }
+      table {
+        width: 100%;
+        margin-top: 12px;
+        border-collapse: collapse;
+      }
+      th,
+      td {
+        padding: 9px 8px;
+        text-align: right;
+        border-bottom: 1px solid #dce4ee;
+      }
+      th:first-child,
+      td:first-child {
+        text-align: left;
+      }
+      :root[data-theme='dark'] th,
+      :root[data-theme='dark'] td {
+        border-color: #344057;
+      }
+      #error {
+        display: none;
+        margin-bottom: 16px;
+        padding: 14px 16px;
+        color: #991b1b;
+        background: #fee2e2;
+        border: 1px solid #fecaca;
+        border-radius: 12px;
+      }
+      @media (max-width: 760px) {
+        header {
+          display: block;
+        }
+        .toolbar {
+          margin-top: 16px;
+        }
+        .summary {
+          grid-template-columns: 1fr;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          scroll-behavior: auto !important;
+          transition-duration: 0.01ms !important;
+          animation-duration: 0.01ms !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <h1>Graflume 막대그래프</h1>
+          <p class="lede">
+            다운로드한 HTML 파일을 그대로 열어도 동작하는 예제입니다. 두 막대 계열을 그룹으로
+            배치하고, 반응형 렌더링·테마 전환·포인터 상호작용·PNG 저장을 함께 보여줍니다.
+          </p>
+        </div>
+        <div class="toolbar" aria-label="차트 도구">
+          <button id="theme-toggle" type="button">어두운 테마</button>
+          <button id="export-png" type="button">PNG 저장</button>
+        </div>
+      </header>
+
+      <p id="error" role="alert"></p>
+
+      <section class="chart-card" aria-label="월별 계획 대비 실제 매출 그룹 막대그래프">
+        <div id="chart"></div>
+        <div class="legend" aria-label="범례">
+          <span><i class="swatch" style="background: #8b5cf6"></i>계획</span>
+          <span><i class="swatch" style="background: #2563eb"></i>실적</span>
+        </div>
+      </section>
+
+      <section class="summary" aria-live="polite" aria-atomic="true">
+        <div class="metric">
+          <span class="meta">선택한 월</span>
+          <strong id="selected-month">막대에 마우스를 올려보세요</strong>
+        </div>
+        <div class="metric">
+          <span class="meta">계획 / 실적</span>
+          <strong id="selected-values">—</strong>
+        </div>
+        <div class="metric">
+          <span class="meta">달성률</span>
+          <strong id="selected-rate">—</strong>
+        </div>
+      </section>
+
+      <details>
+        <summary>스크린 리더용 데이터 표 보기</summary>
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">월</th>
+              <th scope="col">계획</th>
+              <th scope="col">실적</th>
+              <th scope="col">달성률</th>
+            </tr>
+          </thead>
+          <tbody id="data-table"></tbody>
+        </table>
+      </details>
+    </main>
+
+    <!-- Exact commit pin and SRI are replaced by the repository CDN snapshot workflow. -->
+    <script
+      src="https://cdn.jsdelivr.net/gh/statground/graflume@__GRAFLUME_CDN_COMMIT__/cdn/graflume.global.js"
+      integrity="__GRAFLUME_CDN_SRI__"
+      crossorigin="anonymous"
+    ></script>
+    <script>
+      const data = [
+        { month: '1월', plan: 38, actual: 42 },
+        { month: '2월', plan: 47, actual: 51 },
+        { month: '3월', plan: 52, actual: 49 },
+        { month: '4월', plan: 58, actual: 63 },
+        { month: '5월', plan: 65, actual: 71 },
+        { month: '6월', plan: 70, actual: 68 },
+        { month: '7월', plan: 74, actual: 79 },
+        { month: '8월', plan: 82, actual: 86 },
+      ];
+
+      const errorBox = document.querySelector('#error');
+      const monthOutput = document.querySelector('#selected-month');
+      const valuesOutput = document.querySelector('#selected-values');
+      const rateOutput = document.querySelector('#selected-rate');
+      const tableBody = document.querySelector('#data-table');
+      const themeButton = document.querySelector('#theme-toggle');
+      const exportButton = document.querySelector('#export-png');
+      const root = document.documentElement;
+      const numberFormat = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 1 });
+
+      for (const row of data) {
+        const tr = document.createElement('tr');
+        const rate = (row.actual / row.plan) * 100;
+        for (const value of [
+          row.month,
+          numberFormat.format(row.plan),
+          numberFormat.format(row.actual),
+          `${numberFormat.format(rate)}%`,
+        ]) {
+          const td = document.createElement('td');
+          td.textContent = value;
+          tr.append(td);
+        }
+        tableBody.append(tr);
+      }
+
+      if (!window.Graflume) {
+        errorBox.style.display = 'block';
+        errorBox.textContent =
+          'Graflume CDN 파일을 불러오지 못했습니다. 인터넷 연결 또는 콘텐츠 보안 정책을 확인하세요.';
+        themeButton.disabled = true;
+        exportButton.disabled = true;
+      } else {
+        const baseSpec = {
+          data,
+          title: {
+            text: '2026년 월별 계획 대비 실제 매출',
+            subtitle: '그룹 막대 · 단위: 억 원',
+          },
+          layers: [
+            {
+              id: 'plan',
+              mark: {
+                type: 'bar',
+                position: 'group',
+                fill: '#8b5cf6',
+                opacity: 0.78,
+                cornerRadius: 7,
+              },
+              x: {
+                field: 'month',
+                type: 'ordinal',
+                title: '월',
+                axis: { grid: false },
+              },
+              y: {
+                field: 'plan',
+                type: 'quantitative',
+                title: '매출',
+                scale: { zero: true, nice: true },
+                axis: { grid: true, tickCount: 6 },
+              },
+            },
+            {
+              id: 'actual',
+              mark: {
+                type: 'bar',
+                position: 'group',
+                fill: '#2563eb',
+                opacity: 0.96,
+                cornerRadius: 7,
+              },
+              x: { field: 'month', type: 'ordinal', title: '월' },
+              y: {
+                field: 'actual',
+                type: 'quantitative',
+                title: '매출',
+                scale: { zero: true, nice: true },
+              },
+            },
+          ],
+          locale: 'ko-KR',
+          performance: 'auto',
+          interaction: { hover: true, click: true },
+          accessibility: {
+            label: '2026년 월별 계획 대비 실제 매출 그룹 막대그래프',
+            description:
+              '1월부터 8월까지 계획과 실제 매출을 나란히 놓은 두 계열의 세로 막대그래프입니다.',
+          },
+        };
+
+        let currentTheme = 'graflume-light';
+        const chart = Graflume.create('#chart', { ...baseSpec, theme: currentTheme });
+
+        function showDatum(row) {
+          if (!row) {
+            monthOutput.textContent = '막대에 마우스를 올려보세요';
+            valuesOutput.textContent = '—';
+            rateOutput.textContent = '—';
+            return;
+          }
+          const rate = (row.actual / row.plan) * 100;
+          monthOutput.textContent = row.month;
+          valuesOutput.textContent = `${numberFormat.format(row.plan)} / ${numberFormat.format(row.actual)}`;
+          rateOutput.textContent = `${numberFormat.format(rate)}%`;
+        }
+
+        chart.on('hover', ({ hit }) => showDatum(hit?.datum));
+        chart.on('click', ({ hit }) => showDatum(hit?.datum));
+
+        themeButton.addEventListener('click', () => {
+          const dark = currentTheme === 'graflume-light';
+          currentTheme = dark ? 'graflume-dark' : 'graflume-light';
+          root.dataset.theme = dark ? 'dark' : 'light';
+          themeButton.textContent = dark ? '밝은 테마' : '어두운 테마';
+          chart.setSpec({ ...baseSpec, theme: currentTheme });
+        });
+
+        exportButton.addEventListener('click', () => {
+          const link = document.createElement('a');
+          link.href = chart.toDataURL('image/png');
+          link.download = 'graflume-grouped-bar-chart.png';
+          link.click();
+        });
+
+        window.addEventListener('beforeunload', () => chart.destroy(), { once: true });
+      }
+    </script>
+  </body>
+</html>

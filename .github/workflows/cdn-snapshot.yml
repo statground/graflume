@@ -1,0 +1,76 @@
+name: Build pinned CDN snapshot
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'rollup.config.mjs'
+      - 'tsconfig*.json'
+      - 'scripts/**'
+      - 'tests/**'
+      - 'examples/**'
+      - '.github/workflows/cdn-snapshot.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: graflume-cdn-snapshot
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+
+      - name: Run checks and build
+        run: npm run check
+
+      - name: Commit browser bundle and pin the example
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SOURCE_SHA="$(git rev-parse HEAD)"
+          VERSION="$(node -e "const fs = require('node:fs'); console.log(JSON.parse(fs.readFileSync('package.json', 'utf8')).version)")"
+
+          mkdir -p cdn
+          cp dist/graflume.global.js cdn/graflume.global.js
+          printf '{\n  "package": "graflume",\n  "version": "%s",\n  "sourceCommit": "%s",\n  "entry": "./graflume.global.js"\n}\n' \
+            "$VERSION" "$SOURCE_SHA" > cdn/manifest.json
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          git add cdn/graflume.global.js cdn/manifest.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'Build Graflume CDN snapshot [skip ci]'
+          fi
+
+          BUNDLE_SHA="$(git log -1 --format=%H -- cdn/graflume.global.js)"
+          SRI="sha384-$(openssl dgst -sha384 -binary cdn/graflume.global.js | openssl base64 -A)"
+
+          node scripts/pin-cdn-examples.mjs "$BUNDLE_SHA" "$SRI"
+          git add examples/cdn/bar-chart.html
+          if ! git diff --cached --quiet; then
+            git commit -m 'Pin bar chart CDN example [skip ci]'
+          fi
+
+          git push origin HEAD:main

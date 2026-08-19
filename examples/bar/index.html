@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Graflume 기본 막대그래프</title>
+    <style>
+      :root {
+        font-family:
+          Inter, Pretendard, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        color: #172033;
+        background: #f2f5f9;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        min-height: 100vh;
+        margin: 0;
+        padding: 32px 18px;
+        display: grid;
+        place-items: center;
+      }
+      main {
+        width: min(960px, 100%);
+      }
+      .chart-card {
+        overflow: hidden;
+        background: #fff;
+        border: 1px solid #dfe6ef;
+        border-radius: 20px;
+        box-shadow: 0 20px 55px rgb(15 23 42 / 10%);
+      }
+      #chart {
+        width: 100%;
+        height: 520px;
+      }
+      #error {
+        display: none;
+        margin: 0 0 16px;
+        padding: 14px 16px;
+        color: #991b1b;
+        background: #fee2e2;
+        border-radius: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p id="error" role="alert"></p>
+      <section class="chart-card" aria-label="Graflume 기본 막대그래프 예제">
+        <div id="chart"></div>
+      </section>
+    </main>
+
+    <script src="../../cdn/graflume.global.js"></script>
+    <script>
+      const errorBox = document.querySelector('#error');
+      if (!window.Graflume) {
+        errorBox.style.display = 'block';
+        errorBox.textContent =
+          'cdn/graflume.global.js가 없습니다. npm run build를 실행하거나 CDN snapshot workflow를 완료하세요.';
+      } else {
+        const data = [
+          { month: '1월', sales: 42 },
+          { month: '2월', sales: 51 },
+          { month: '3월', sales: 49 },
+          { month: '4월', sales: 63 },
+          { month: '5월', sales: 71 },
+          { month: '6월', sales: 68 },
+        ];
+
+        Graflume.bar('#chart', data, {
+          title: {
+            text: '2026년 상반기 월별 매출',
+            subtitle: 'Graflume.bar() 빠른 API 예제 · 단위: 억 원',
+          },
+          x: {
+            field: 'month',
+            type: 'ordinal',
+            title: '월',
+            axis: { grid: false },
+          },
+          y: {
+            field: 'sales',
+            type: 'quantitative',
+            title: '매출',
+            scale: { zero: true, nice: true },
+            axis: { grid: true, tickCount: 6 },
+          },
+          mark: {
+            fill: '#2563eb',
+            opacity: 0.94,
+            cornerRadius: 8,
+          },
+          locale: 'ko-KR',
+          accessibility: {
+            label: '2026년 상반기 월별 매출 막대그래프',
+            description: '1월부터 6월까지의 매출을 세로 막대로 비교합니다.',
+          },
+        });
+      }
+    </script>
+  </body>
+</html>

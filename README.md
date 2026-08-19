@@ -69,7 +69,42 @@ After an npm release, load an **exact version** from jsDelivr:
 </script>
 ```
 
-The exact CDN URL becomes valid only after that package version is published. For the repository build, open `examples/cdn/index.html` after running `npm run build`.
+The exact npm CDN URL becomes valid only after that package version is published.
+
+For pre-npm alpha testing, the repository also maintains a source-controlled browser snapshot at `cdn/graflume.global.js`. The snapshot workflow builds the library, commits the browser bundle, then rewrites the downloadable example to an exact Git commit URL with SHA-384 Subresource Integrity. Moving aliases such as `@main` and `@latest` are not used.
+
+## Bar chart examples
+
+The shortest bar chart API is `Graflume.bar()`:
+
+```html
+<div id="chart" style="height: 420px"></div>
+<script>
+  const data = [
+    { month: 'Jan', sales: 42 },
+    { month: 'Feb', sales: 51 },
+    { month: 'Mar', sales: 49 },
+  ];
+
+  Graflume.bar('#chart', data, {
+    title: 'Monthly sales',
+    x: { field: 'month', type: 'ordinal' },
+    y: {
+      field: 'sales',
+      type: 'quantitative',
+      scale: { zero: true, nice: true },
+    },
+    mark: { fill: '#2563eb', cornerRadius: 8 },
+  });
+</script>
+```
+
+Runnable examples:
+
+- [`examples/bar/index.html`](examples/bar/index.html): local single-series bar chart using the committed browser snapshot
+- [`examples/cdn/bar-chart.html`](examples/cdn/bar-chart.html): standalone grouped bar chart that can be downloaded and opened directly; it uses an exact jsDelivr commit pin and SRI
+
+The CDN example also demonstrates responsive rendering, light/dark theme switching, pointer hit testing, PNG export, and a readable data-table fallback.
 
 ## ESM usage
 
