@@ -1,0 +1,73 @@
+{
+  "name": "graflume",
+  "version": "0.1.0-alpha.0",
+  "description": "A CDN-first, spec-driven, composable visualization engine.",
+  "keywords": [
+    "chart",
+    "visualization",
+    "graphics",
+    "canvas",
+    "data",
+    "typescript"
+  ],
+  "homepage": "https://github.com/statground/graflume#readme",
+  "bugs": {
+    "url": "https://github.com/statground/graflume/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/statground/graflume.git"
+  },
+  "license": "UNLICENSED",
+  "type": "module",
+  "main": "./dist/graflume.js",
+  "module": "./dist/graflume.js",
+  "types": "./dist/index.d.ts",
+  "unpkg": "./dist/graflume.min.js",
+  "jsdelivr": "./dist/graflume.min.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/graflume.js",
+      "default": "./dist/graflume.js"
+    },
+    "./schema": "./schema/graflume.schema.json",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "schema",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "clean": "node ./scripts/clean.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:compile": "node ./scripts/clean-tests.mjs && tsc -p tsconfig.test.json",
+    "test": "npm run test:compile && node --test ./tests/*.test.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "build:types": "tsc -p tsconfig.types.json",
+    "build:bundle": "rollup -c",
+    "build:minify": "node ./scripts/minify.mjs",
+    "build:static": "node ./scripts/copy-static.mjs",
+    "build:size": "node ./scripts/check-bundle-size.mjs",
+    "build": "npm run clean && npm run build:types && npm run build:bundle && npm run build:minify && npm run build:static && npm run build:size",
+    "check": "npm run typecheck && npm test && npm run build"
+  },
+  "devDependencies": {
+    "@rollup/plugin-typescript": "^12.3.0",
+    "prettier": "^3.9.6",
+    "rollup": "^4.62.4",
+    "terser": "^5.49.2",
+    "tslib": "^2.8.1",
+    "typescript": "^5.8.3"
+  }
+}

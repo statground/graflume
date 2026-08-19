@@ -1,0 +1,245 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:graflume:schema:0.1",
+  "title": "Graflume ChartSpec",
+  "description": "Portable, versioned chart specification for Graflume 0.1.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "specVersion": { "const": "0.1", "default": "0.1" },
+    "data": { "$ref": "#/$defs/data" },
+    "mark": { "$ref": "#/$defs/mark" },
+    "x": { "$ref": "#/$defs/encoding" },
+    "y": { "$ref": "#/$defs/encoding" },
+    "layers": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/layer" }
+    },
+    "width": {
+      "oneOf": [
+        { "type": "number", "exclusiveMinimum": 0 },
+        { "const": "container" }
+      ]
+    },
+    "height": {
+      "oneOf": [
+        { "type": "number", "exclusiveMinimum": 0 },
+        { "const": "container" }
+      ]
+    },
+    "padding": {
+      "oneOf": [
+        { "type": "number", "minimum": 0 },
+        { "$ref": "#/$defs/padding" }
+      ]
+    },
+    "title": {
+      "oneOf": [
+        { "type": "string" },
+        { "$ref": "#/$defs/title" }
+      ]
+    },
+    "description": { "type": "string" },
+    "renderer": { "type": "string", "default": "auto" },
+    "performance": {
+      "enum": ["auto", "standard", "large", "ultra"],
+      "default": "auto"
+    },
+    "theme": {
+      "oneOf": [
+        { "type": "string" },
+        { "type": "object" }
+      ]
+    },
+    "locale": { "type": "string" },
+    "axes": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "x": { "$ref": "#/$defs/axisOrFalse" },
+        "y": { "$ref": "#/$defs/axisOrFalse" }
+      }
+    },
+    "interaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "hover": { "type": "boolean" },
+        "click": { "type": "boolean" }
+      }
+    },
+    "accessibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "label": { "type": "string" },
+        "description": { "type": "string" }
+      }
+    }
+  },
+  "anyOf": [
+    {
+      "required": ["data", "mark", "x", "y"]
+    },
+    {
+      "required": ["layers"]
+    }
+  ],
+  "$defs": {
+    "primitive": {
+      "type": ["string", "number", "boolean", "null"]
+    },
+    "row": {
+      "type": "object",
+      "propertyNames": {
+        "not": { "enum": ["__proto__", "prototype", "constructor"] }
+      },
+      "additionalProperties": { "$ref": "#/$defs/primitive" }
+    },
+    "data": {
+      "oneOf": [
+        {
+          "type": "array",
+          "items": { "$ref": "#/$defs/row" }
+        },
+        {
+          "type": "object",
+          "required": ["columns"],
+          "additionalProperties": false,
+          "properties": {
+            "columns": {
+              "type": "object",
+              "propertyNames": {
+                "not": { "enum": ["__proto__", "prototype", "constructor"] }
+              },
+              "additionalProperties": {
+                "type": "array",
+                "items": { "$ref": "#/$defs/primitive" }
+              }
+            },
+            "length": { "type": "integer", "minimum": 0 }
+          }
+        }
+      ]
+    },
+    "scale": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": { "enum": ["linear", "band", "time"] },
+        "domain": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "type": ["number", "string"] }
+        },
+        "zero": { "type": "boolean" },
+        "nice": { "type": "boolean" },
+        "clamp": { "type": "boolean" },
+        "paddingInner": { "type": "number", "minimum": 0, "maximum": 1 },
+        "paddingOuter": { "type": "number", "minimum": 0 }
+      }
+    },
+    "axis": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": { "type": "string" },
+        "visible": { "type": "boolean" },
+        "grid": { "type": "boolean" },
+        "tickCount": { "type": "integer", "minimum": 1 },
+        "format": { "type": "string" },
+        "labelAngle": { "type": "number" }
+      }
+    },
+    "axisOrFalse": {
+      "oneOf": [
+        { "$ref": "#/$defs/axis" },
+        { "const": false }
+      ]
+    },
+    "encodingObject": {
+      "type": "object",
+      "required": ["field"],
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "type": "string",
+          "minLength": 1,
+          "not": { "enum": ["__proto__", "prototype", "constructor"] }
+        },
+        "type": { "enum": ["quantitative", "temporal", "ordinal", "nominal"] },
+        "title": { "type": "string" },
+        "scale": { "$ref": "#/$defs/scale" },
+        "axis": { "$ref": "#/$defs/axisOrFalse" }
+      }
+    },
+    "encoding": {
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "not": { "enum": ["__proto__", "prototype", "constructor"] }
+        },
+        { "$ref": "#/$defs/encodingObject" }
+      ]
+    },
+    "markObject": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "type": "string", "minLength": 1 },
+        "stroke": { "type": "string" },
+        "fill": { "type": "string" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "lineWidth": { "type": "number", "minimum": 0 },
+        "radius": { "type": "number", "minimum": 0 },
+        "cornerRadius": { "type": "number", "minimum": 0 },
+        "point": { "type": "boolean" },
+        "position": { "enum": ["overlay", "group"] }
+      }
+    },
+    "mark": {
+      "oneOf": [
+        { "type": "string", "minLength": 1 },
+        { "$ref": "#/$defs/markObject" }
+      ]
+    },
+    "layer": {
+      "type": "object",
+      "required": ["mark", "x", "y"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "data": { "$ref": "#/$defs/data" },
+        "mark": { "$ref": "#/$defs/mark" },
+        "x": { "$ref": "#/$defs/encoding" },
+        "y": { "$ref": "#/$defs/encoding" },
+        "visible": { "type": "boolean" },
+        "zIndex": { "type": "number" }
+      }
+    },
+    "padding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "top": { "type": "number", "minimum": 0 },
+        "right": { "type": "number", "minimum": 0 },
+        "bottom": { "type": "number", "minimum": 0 },
+        "left": { "type": "number", "minimum": 0 }
+      }
+    },
+    "title": {
+      "type": "object",
+      "required": ["text"],
+      "additionalProperties": false,
+      "properties": {
+        "text": { "type": "string" },
+        "subtitle": { "type": "string" },
+        "align": { "enum": ["left", "center", "right"] }
+      }
+    }
+  }
+}

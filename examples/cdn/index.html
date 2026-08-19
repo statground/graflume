@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Graflume CDN example</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 32px;
+        background: #f4f7fb;
+        font-family: system-ui, sans-serif;
+      }
+      #chart {
+        width: min(920px, 100%);
+        height: 460px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 14px;
+        box-shadow: 0 12px 36px rgb(15 23 42 / 10%);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="chart"></div>
+
+    <!-- Local build. After npm publication, pin the exact release on jsDelivr. -->
+    <script src="../../dist/graflume.global.js"></script>
+    <script>
+      const data = [
+        { month: 'Jan', actual: 42, target: 38 },
+        { month: 'Feb', actual: 51, target: 47 },
+        { month: 'Mar', actual: 49, target: 52 },
+        { month: 'Apr', actual: 63, target: 58 },
+        { month: 'May', actual: 71, target: 65 },
+      ];
+
+      Graflume.create('#chart', {
+        data,
+        title: {
+          text: 'Revenue and target',
+          subtitle: 'A shared-scale bar + line composition',
+        },
+        layers: [
+          {
+            id: 'target',
+            mark: { type: 'bar', opacity: 0.3 },
+            x: 'month',
+            y: { field: 'target', type: 'quantitative' },
+          },
+          {
+            id: 'actual',
+            mark: { type: 'line', point: true },
+            x: 'month',
+            y: { field: 'actual', type: 'quantitative' },
+          },
+        ],
+      });
+    </script>
+  </body>
+</html>
