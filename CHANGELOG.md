@@ -4,6 +4,7 @@ All notable changes to Graflume will be recorded here.
 
 ## Unreleased
 
+- Add reproducible visual snapshots of the implemented output to every chart-specific guide.
 - Add detailed, chart-specific guides for bar, line, area, scatter, and shared-scale combination charts.
 - Add dedicated line, area, scatter, and mixed-composition chart examples in a responsive chart-type gallery.
 - Add `scatter()` as a chart-oriented quick API alias for the portable `point` mark.

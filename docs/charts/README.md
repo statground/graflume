@@ -16,6 +16,20 @@ This guide documents the behavior that is implemented today. Planned chart famil
 
 The standalone [chart type gallery](../../examples/cdn/chart-types.html) renders all five choices on one responsive page.
 
+Every chart-specific guide includes a current visual snapshot generated from the actual Graflume `compile()` Scene. Run `npm run docs:snapshots` after a rendering change to rebuild all five assets deterministically.
+
+## Current rendered output
+
+| Bar                                                                        | Line                                                                          |
+| -------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| [![Current Graflume bar chart output](../assets/charts/bar.svg)](./bar.md) | [![Current Graflume line chart output](../assets/charts/line.svg)](./line.md) |
+
+| Area                                                                          | Scatter                                                                                |
+| ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| [![Current Graflume area chart output](../assets/charts/area.svg)](./area.md) | [![Current Graflume scatter chart output](../assets/charts/scatter.svg)](./scatter.md) |
+
+[![Current Graflume combination chart output](../assets/charts/combination.svg)](./combination.md)
+
 ## Common Quick API shape
 
 Every Quick API accepts a target, a row-oriented or columnar data source, and chart options:

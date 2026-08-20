@@ -2,6 +2,12 @@
 
 Use a line chart for an ordered sequence such as time, rank, distance, or another progression. Graflume connects valid input rows in their current order and can add interactive point circles.
 
+## Implemented appearance
+
+This is the current compiled output for a line chart with `mark.point: true`.
+
+![Graflume line chart showing monthly sales as an orange line with circular points](../assets/charts/line.svg)
+
 ## Quick API
 
 ```ts
