@@ -68,23 +68,94 @@ function numericDomain(
 
   for (const { layer, table } of layers) {
     const encoding = layer[axis];
-    const extent = table.extent(encoding.field, fieldType === 'temporal');
-    if (extent !== null) {
-      min = Math.min(min, extent[0]);
-      max = Math.max(max, extent[1]);
+    const fields = axis === 'y' && layer.mark.type === 'histogram' ? [] : [encoding.field];
+    if (axis === 'x' && (layer.mark.type === 'timeline' || layer.mark.type === 'gantt')) {
+      fields.push(layer.mark.fields.end ?? 'end');
+    }
+    if (axis === 'y' && layer.mark.type === 'candlestick') {
+      fields.push(
+        layer.mark.fields.open ?? 'open',
+        layer.mark.fields.high ?? 'high',
+        layer.mark.fields.low ?? 'low',
+        layer.mark.fields.close ?? encoding.field,
+      );
+    }
+    if (axis === 'y' && layer.mark.type === 'interval') {
+      fields.push(layer.mark.fields.low ?? 'low', layer.mark.fields.high ?? 'high');
+    }
+    if (axis === 'y' && layer.mark.type === 'diff') {
+      fields.push(layer.mark.fields.old ?? 'old', layer.mark.fields.new ?? encoding.field);
+    }
+
+    for (const field of new Set(fields)) {
+      if (!table.has(field)) continue;
+      const extent = table.extent(field, fieldType === 'temporal');
+      if (extent !== null) {
+        min = Math.min(min, extent[0]);
+        max = Math.max(max, extent[1]);
+      }
+    }
+
+    if (axis === 'y' && layer.mark.type === 'histogram') {
+      const binCount = Math.max(
+        1,
+        Math.min(
+          100,
+          Math.floor(typeof layer.mark.options.bins === 'number' ? layer.mark.options.bins : 10),
+        ),
+      );
+      const sourceExtent = table.extent(layer.x.field, layer.x.type === 'temporal');
+      if (sourceExtent !== null) {
+        const counts = Array.from({ length: binCount }, () => 0);
+        const span = sourceExtent[1] - sourceExtent[0] || 1;
+        for (let index = 0; index < table.length; index += 1) {
+          const value = table.numericValue(index, layer.x.field);
+          if (value === null) continue;
+          const bin = Math.min(
+            binCount - 1,
+            Math.max(0, Math.floor(((value - sourceExtent[0]) / span) * binCount)),
+          );
+          counts[bin] = (counts[bin] ?? 0) + 1;
+        }
+        min = Math.min(min, 0);
+        max = Math.max(max, ...counts);
+      }
+    }
+
+    if (axis === 'y' && layer.mark.type === 'waterfall') {
+      let total = 0;
+      min = Math.min(min, 0);
+      max = Math.max(max, 0);
+      for (let index = 0; index < table.length; index += 1) {
+        const value = table.numericValue(index, layer.y.field);
+        if (value === null) continue;
+        const previous = total;
+        total += value;
+        min = Math.min(min, previous, total);
+        max = Math.max(max, previous, total);
+      }
     }
     if (
-      axis === 'y' &&
-      (encoding.scale.zero === true || layer.mark.type === 'bar' || layer.mark.type === 'area')
+      encoding.scale.zero === true ||
+      (axis === 'y' &&
+        (layer.mark.type === 'bar' ||
+          layer.mark.type === 'area' ||
+          layer.mark.type === 'histogram' ||
+          layer.mark.type === 'waterfall')) ||
+      (axis === 'x' && layer.mark.type === 'bar' && layer.mark.orientation === 'horizontal')
     ) {
       includeZero = true;
     }
   }
 
   if (!Number.isFinite(min) || !Number.isFinite(max)) {
-    throw new GraflumeError('INVALID_DATA', `No numeric values are available for the ${axis}-axis.`, {
-      path: `$.layers[].${axis}.field`,
-    });
+    throw new GraflumeError(
+      'INVALID_DATA',
+      `No numeric values are available for the ${axis}-axis.`,
+      {
+        path: `$.layers[].${axis}.field`,
+      },
+    );
   }
 
   if (includeZero && fieldType !== 'temporal') {
@@ -142,14 +213,6 @@ export function resolveScales(spec: NormalizedChartSpec, plot: PlotArea): ScaleR
     'y',
   );
 
-  if (typeFamily(yType) === 'categorical') {
-    throw new GraflumeError(
-      'INCOMPATIBLE_SCALE',
-      'The initial Graflume runtime requires a quantitative or temporal y-axis.',
-      { path: '$.layers[].y.type' },
-    );
-  }
-
   const xScale: Scale =
     typeFamily(xType) === 'categorical'
       ? new BandScale({
@@ -174,17 +237,29 @@ export function resolveScales(spec: NormalizedChartSpec, plot: PlotArea): ScaleR
             : { clamp: layers[0].layer.x.scale.clamp }),
         });
 
-  const yScale = new LinearScale({
-    domain: numericDomain(layers, 'y', yType),
-    range: [plot.y + plot.height, plot.y],
-    kind: yType === 'temporal' ? 'time' : 'linear',
-    ...(layers[0]?.layer.y.scale.nice === undefined
-      ? {}
-      : { nice: layers[0].layer.y.scale.nice }),
-    ...(layers[0]?.layer.y.scale.clamp === undefined
-      ? {}
-      : { clamp: layers[0].layer.y.scale.clamp }),
-  });
+  const yScale: Scale =
+    typeFamily(yType) === 'categorical'
+      ? new BandScale({
+          domain: categoricalDomain(layers, 'y'),
+          range: [plot.y, plot.y + plot.height],
+          ...(layers[0]?.layer.y.scale.paddingInner === undefined
+            ? {}
+            : { paddingInner: layers[0].layer.y.scale.paddingInner }),
+          ...(layers[0]?.layer.y.scale.paddingOuter === undefined
+            ? {}
+            : { paddingOuter: layers[0].layer.y.scale.paddingOuter }),
+        })
+      : new LinearScale({
+          domain: numericDomain(layers, 'y', yType),
+          range: [plot.y + plot.height, plot.y],
+          kind: yType === 'temporal' ? 'time' : 'linear',
+          ...(layers[0]?.layer.y.scale.nice === undefined
+            ? {}
+            : { nice: layers[0].layer.y.scale.nice }),
+          ...(layers[0]?.layer.y.scale.clamp === undefined
+            ? {}
+            : { clamp: layers[0].layer.y.scale.clamp }),
+        });
 
   return { layers, xType, yType, xScale, yScale };
 }

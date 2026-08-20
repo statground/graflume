@@ -6,7 +6,8 @@ Graflume is an experimental, CDN-first visualization engine built around a porta
 
 ## What already works
 
-- `line`, `bar`, `point`, and `area` marks
+- 27 portable marks covering 31 user-facing chart families and compatibility names
+- Cartesian, radial, distribution, financial, interval, calendar, timeline/Gantt, table, hierarchy, flow, word, and lightweight map Scenes
 - mixed layers such as bar + line + points on shared axes
 - row-oriented data and zero-copy `TypedArray` columnar input
 - a versioned, function-free `ChartSpec 0.1` plus JSON Schema for portable JSON data
@@ -18,7 +19,7 @@ Graflume is an experimental, CDN-first visualization engine built around a porta
 - standard/large/ultra performance profiles with bounded line, point, and bar rendering
 - a DOM-free `compile()` path for wrappers, SSR pipelines, testing, and future language bindings
 
-WebGL/WebGPU renderers, workers, Arrow/WASM ingestion, statistical transforms, multi-view dashboards, maps, 3D, and Python/R/Java wrappers are planned rather than claimed as complete.
+WebGL/WebGPU renderers, workers, Arrow/WASM ingestion, multi-view dashboards, full GIS/projection packages, 3D, and Python/R/Java wrappers are planned rather than claimed as complete. Some newly added specialist marks intentionally expose an alpha subset; every chart manual states its exact limits.
 
 ## Local development
 
@@ -73,32 +74,24 @@ The exact npm CDN URL becomes valid only after that package version is published
 
 For pre-npm alpha testing, the repository also maintains a source-controlled browser snapshot at `cdn/graflume.global.js`. The snapshot workflow builds the library, commits the browser bundle, then rewrites the downloadable example to an exact Git commit URL with SHA-384 Subresource Integrity. Moving aliases such as `@main` and `@latest` are not used.
 
-## Chart type examples
+## Chart types and examples
 
-Graflume currently provides quick APIs for four renderer-neutral marks and a chart-oriented scatter alias:
+The public catalog covers 31 chart families and compatibility surfaces across Cartesian, radial, financial, time, hierarchy, flow, map, table, and adapter use cases.
 
-| Chart       | Quick API                                  | Portable mark  | Best for                                      |
-| ----------- | ------------------------------------------ | -------------- | --------------------------------------------- |
-| Bar         | `Graflume.bar()`                           | `bar`          | categorical comparison                        |
-| Line        | `Graflume.line()`                          | `line`         | trends and connected change                   |
-| Area        | `Graflume.area()`                          | `area`         | trends with magnitude emphasis                |
-| Scatter     | `Graflume.scatter()` or `Graflume.point()` | `point`        | relationships between two quantitative fields |
-| Combination | `Graflume.create()` with `layers`          | multiple marks | comparison and trends on shared scales        |
+| Family                      | Implemented chart guides                                                                                                                                                                                                                                                            |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cartesian and comparison    | [Bar/Column](docs/charts/bar.md), [Line](docs/charts/line.md), [Area](docs/charts/area.md), [Scatter](docs/charts/scatter.md), [Combo](docs/charts/combination.md), [Stepped Area](docs/charts/stepped-area.md), [Waterfall](docs/charts/waterfall.md), [Diff](docs/charts/diff.md) |
+| Distribution and statistics | [Bubble](docs/charts/bubble.md), [Histogram](docs/charts/histogram.md), [Intervals](docs/charts/intervals.md), [Trendline](docs/charts/trendline.md)                                                                                                                                |
+| Radial and financial        | [Pie](docs/charts/pie.md), [Donut](docs/charts/donut.md), [Gauge](docs/charts/gauge.md), [Candlestick](docs/charts/candlestick.md)                                                                                                                                                  |
+| Time and projects           | [Annotation](docs/charts/annotation.md), [Annotated Timeline](docs/charts/annotated-timeline.md), [Calendar](docs/charts/calendar.md), [Timeline](docs/charts/timeline.md), [Gantt](docs/charts/gantt.md), [Motion](docs/charts/motion.md)                                          |
+| Hierarchy, flow, and text   | [Organization](docs/charts/org.md), [Tree Map](docs/charts/treemap.md), [Sankey](docs/charts/sankey.md), [Word Tree](docs/charts/word-tree.md), [Table](docs/charts/table.md)                                                                                                       |
+| Geographic and adapters     | [GeoChart](docs/charts/geo.md), [Map](docs/charts/map.md), [VegaChart adapter](docs/charts/vega.md)                                                                                                                                                                                 |
 
-[`examples/cdn/chart-types.html`](examples/cdn/chart-types.html) is a responsive, standalone gallery containing all five examples. It can be downloaded and opened directly and uses an exact jsDelivr commit pin with SHA-384 SRI. It also demonstrates theme switching, pointer data events, accessible chart descriptions, and text data summaries.
+Start with the [chart guide index and common options](docs/charts/README.md). Every chart page includes a visual snapshot generated from the current compiled Scene, a Quick API example, portable field contract, missing-value behavior, interaction/accessibility guidance, performance notes, and explicit limitations.
 
-`scatter()` is an ergonomic alias of `point()` and still serializes as the `point` mark in `ChartSpec 0.1`, so the portable schema remains unchanged.
+[`examples/cdn/complete-chart-types.html`](examples/cdn/complete-chart-types.html) is a responsive standalone gallery that executes all 31 types from one exact-commit jsDelivr bundle with SHA-384 SRI. The smaller [`examples/cdn/chart-types.html`](examples/cdn/chart-types.html) remains the core five-chart introduction.
 
-Detailed guides:
-
-- [Chart guide overview and common options](docs/charts/README.md)
-- [Bar charts](docs/charts/bar.md)
-- [Line charts](docs/charts/line.md)
-- [Area charts](docs/charts/area.md)
-- [Scatter charts](docs/charts/scatter.md)
-- [Combination charts](docs/charts/combination.md)
-
-Each chart guide includes a visual snapshot generated from the current compiled Graflume Scene, so users can compare the API with its implemented appearance before running the example.
+Aliases remain canonical and serializable: `scatter()` maps to `point`, `donut()` maps to `pie` plus an inner radius, Bar and Column share `bar` plus orientation, Annotated Timeline maps to `annotation`, and Combo maps to ordinary `layers`.
 
 ### Bar chart
 
@@ -131,6 +124,7 @@ Runnable examples:
 - [`examples/bar/index.html`](examples/bar/index.html): local single-series bar chart using the committed browser snapshot
 - [`examples/cdn/bar-chart.html`](examples/cdn/bar-chart.html): standalone grouped bar chart that can be downloaded and opened directly; it uses an exact jsDelivr commit pin and SRI
 - [`examples/cdn/chart-types.html`](examples/cdn/chart-types.html): standalone bar, line, area, scatter, and mixed-chart gallery
+- [`examples/cdn/complete-chart-types.html`](examples/cdn/complete-chart-types.html): all 31 supported chart families and compatibility names
 
 The CDN example also demonstrates responsive rendering, light/dark theme switching, pointer hit testing, PNG export, and a readable data-table fallback.
 

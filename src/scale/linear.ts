@@ -8,11 +8,15 @@ function tickStep(start: number, stop: number, count: number): number {
   const power = Math.floor(Math.log10(raw));
   const magnitude = 10 ** power;
   const error = raw / magnitude;
-  const factor = error >= Math.sqrt(50) ? 10 : error >= Math.sqrt(10) ? 5 : error >= Math.sqrt(2) ? 2 : 1;
+  const factor =
+    error >= Math.sqrt(50) ? 10 : error >= Math.sqrt(10) ? 5 : error >= Math.sqrt(2) ? 2 : 1;
   return factor * magnitude;
 }
 
-export function niceDomain(domain: readonly [number, number], count = 5): readonly [number, number] {
+export function niceDomain(
+  domain: readonly [number, number],
+  count = 5,
+): readonly [number, number] {
   let [start, stop] = domain;
   if (start === stop) {
     const delta = start === 0 ? 1 : Math.abs(start) * 0.05;
@@ -53,7 +57,11 @@ export class LinearScale implements Scale {
 
   map(input: number | string | Date): number {
     const value =
-      input instanceof Date ? input.getTime() : typeof input === 'string' ? Date.parse(input) : input;
+      input instanceof Date
+        ? input.getTime()
+        : typeof input === 'string'
+          ? Date.parse(input)
+          : input;
     if (!Number.isFinite(value)) return Number.NaN;
     const [domainStart, domainEnd] = this.#domain;
     const [rangeStart, rangeEnd] = this.#range;
@@ -98,6 +106,7 @@ export class LinearScale implements Scale {
         year: 'numeric',
         month: 'short',
         day: 'numeric',
+        timeZone: 'UTC',
       }).format(new Date(value));
     }
     return new Intl.NumberFormat(locale, { maximumFractionDigits: 6 }).format(value);

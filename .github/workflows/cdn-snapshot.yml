@@ -68,7 +68,7 @@ jobs:
           SRI="sha384-$(openssl dgst -sha384 -binary cdn/graflume.global.js | openssl base64 -A)"
 
           node scripts/pin-cdn-examples.mjs "$BUNDLE_SHA" "$SRI"
-          git add examples/cdn/bar-chart.html examples/cdn/chart-types.html
+          git add examples/cdn/bar-chart.html examples/cdn/chart-types.html examples/cdn/complete-chart-types.html
           if ! git diff --cached --quiet; then
             git commit -m 'Pin Graflume CDN examples [skip ci]'
           fi

@@ -39,3 +39,35 @@ test('portable specs reject functions and unsafe field names', () => {
   assert.ok(issues.some((issue) => issue.path === '$.x'));
   assert.ok(issues.some((issue) => issue.message.includes('Functions are not allowed')));
 });
+
+test('normalizes named mark fields and function-free specialist options', () => {
+  const spec = normalizeSpec({
+    data: [
+      { day: 'Mon', open: 10, high: 14, low: 8, close: 12 },
+      { day: 'Tue', open: 12, high: 15, low: 9, close: 11 },
+    ],
+    mark: {
+      type: 'candlestick',
+      fields: { open: 'open', high: 'high', low: 'low', close: 'close' },
+      options: { risingColor: '#10b981', thresholds: [10, 20] },
+    },
+    x: { field: 'day', type: 'ordinal' },
+    y: { field: 'close', type: 'quantitative' },
+  });
+
+  assert.equal(spec.layers[0].mark.fields.high, 'high');
+  assert.equal(spec.layers[0].mark.options.risingColor, '#10b981');
+  assert.deepEqual(spec.layers[0].mark.options.thresholds, [10, 20]);
+});
+
+test('rejects unsafe named mark fields and non-object options', () => {
+  const issues = validateSpec({
+    data,
+    mark: { type: 'pie', fields: { label: 'constructor' }, options: ['not-an-object'] },
+    x: 'month',
+    y: 'value',
+  });
+
+  assert.ok(issues.some((issue) => issue.path === '$.mark.fields.label'));
+  assert.ok(issues.some((issue) => issue.path === '$.mark.options'));
+});

@@ -4,7 +4,6 @@ import assert from 'node:assert/strict';
 import { DataTable } from '../.tmp/src/data/table.js';
 import { minMaxSampleIndices } from '../.tmp/src/data/sample.js';
 
-
 test('columnar typed arrays stay zero-copy until mutation is requested', () => {
   const x = new Float64Array([1, 2, 3]);
   const y = new Float32Array([10, 20, 30]);
@@ -30,8 +29,5 @@ test('min/max sampling keeps extrema and endpoints', () => {
 });
 
 test('mismatched column lengths are rejected', () => {
-  assert.throws(
-    () => DataTable.from({ columns: { x: [1, 2], y: [1] } }),
-    /expected 2/,
-  );
+  assert.throws(() => DataTable.from({ columns: { x: [1, 2], y: [1] } }), /expected 2/);
 });

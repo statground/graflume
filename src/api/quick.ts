@@ -5,13 +5,11 @@ import type {
   EncodingInput,
   MarkSpec,
   MarkType,
+  LayerSpec,
 } from '../spec/types.js';
 import type { Chart } from '../runtime/chart.js';
 
-export type QuickChartOptions = Omit<
-  ChartSpec,
-  'data' | 'layers' | 'mark' | 'x' | 'y'
-> & {
+export type QuickChartOptions = Omit<ChartSpec, 'data' | 'layers' | 'mark' | 'x' | 'y'> & {
   readonly x: EncodingInput;
   readonly y: EncodingInput;
   readonly mark?: Omit<MarkSpec, 'type'>;
@@ -23,6 +21,11 @@ export type CreateChart = (
   spec: ChartSpec,
   options?: ChartCreateOptions,
 ) => Chart;
+
+export type QuickComboOptions = Omit<ChartSpec, 'data' | 'layers' | 'mark' | 'x' | 'y'> & {
+  readonly layers: readonly Omit<LayerSpec, 'data'>[];
+  readonly create?: ChartCreateOptions;
+};
 
 export function quickChart(
   createChart: CreateChart,
@@ -43,4 +46,14 @@ export function quickChart(
     },
     create,
   );
+}
+
+export function quickCombo(
+  createChart: CreateChart,
+  target: ChartTarget,
+  data: DataInput,
+  options: QuickComboOptions,
+): Chart {
+  const { layers, create, ...chartOptions } = options;
+  return createChart(target, { ...chartOptions, data, layers }, create);
 }

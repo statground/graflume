@@ -69,7 +69,6 @@ test('ultra profile bounds point rendering and disables per-mark hit testing', (
   assert.equal(scene.metadata.performanceProfile, 'ultra');
 });
 
-
 test('ultra profile bounds bar rendering and disables per-mark hit testing', () => {
   const length = 100_000;
   const x = new Float64Array(length);

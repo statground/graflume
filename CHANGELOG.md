@@ -4,6 +4,12 @@ All notable changes to Graflume will be recorded here.
 
 ## Unreleased
 
+- Expand the public catalog to 31 user-facing chart types and compatibility APIs backed by 27 canonical marks or layers.
+- Add portable named mark fields and function-free JSON mark options for OHLC, interval, hierarchy, flow, size, date-range, frame, and adapter channels.
+- Add Canvas Scene compilers for bubble, calendar, candlestick, diff, Gantt, gauge, geo, histogram, interval, map, motion, organization, pie/donut, Sankey, stepped area, table, timeline, treemap, trendline, waterfall, word tree, annotation, and a safe Vega mark subset.
+- Add horizontal categorical y scales, horizontal bars, specialist domain resolution, and whole-polygon hit testing.
+- Add a standalone 31-type exact-commit CDN gallery, one detailed guide and compiled visual snapshot per chart, and exhaustive catalog/compile regression tests.
+- Restore a clean repository-wide Prettier gate and exclude the generated CDN bundle from source formatting.
 - Add reproducible visual snapshots of the implemented output to every chart-specific guide.
 - Add detailed, chart-specific guides for bar, line, area, scatter, and shared-scale combination charts.
 - Add dedicated line, area, scatter, and mixed-composition chart examples in a responsive chart-type gallery.

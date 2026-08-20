@@ -1,34 +1,58 @@
 # Chart guides
 
-Graflume `0.1.0-alpha.0` currently renders four portable marks—`bar`, `line`, `area`, and `point`—and composes them as shared-scale layers. `scatter()` is the chart-oriented Quick API name for the portable `point` mark.
+Graflume `0.1.0-alpha.0` covers 31 user-facing chart families and compatibility names across Cartesian, radial, financial, time, hierarchy, flow, map, table, and adapter use cases. They normalize to 27 portable marks or a canonical multi-layer spec.
 
 This guide documents the behavior that is implemented today. Planned chart families are listed separately and are not presented as supported features.
 
 ## Choose a chart
 
-| Goal                                              | Chart                           | Quick API            | Portable mark  |
-| ------------------------------------------------- | ------------------------------- | -------------------- | -------------- |
-| Compare values across categories                  | [Bar](./bar.md)                 | `Graflume.bar()`     | `bar`          |
-| Show an ordered trend                             | [Line](./line.md)               | `Graflume.line()`    | `line`         |
-| Emphasize a trend and its magnitude from zero     | [Area](./area.md)               | `Graflume.area()`    | `area`         |
-| Explore a relationship between two numeric fields | [Scatter](./scatter.md)         | `Graflume.scatter()` | `point`        |
-| Overlay different views on shared axes            | [Combination](./combination.md) | `Graflume.create()`  | multiple marks |
+| Chart                                         | Quick API             | Portable mapping               |
+| --------------------------------------------- | --------------------- | ------------------------------ |
+| [Annotation](./annotation.md)                 | `annotation()`        | `annotation`                   |
+| [Annotated Timeline](./annotated-timeline.md) | `annotatedTimeline()` | `annotation` alias             |
+| [Area](./area.md)                             | `area()`              | `area`                         |
+| [Bar](./bar.md)                               | `horizontalBar()`     | `bar` + horizontal orientation |
+| [Bubble](./bubble.md)                         | `bubble()`            | `bubble`                       |
+| [Calendar](./calendar.md)                     | `calendar()`          | `calendar`                     |
+| [Candlestick](./candlestick.md)               | `candlestick()`       | `candlestick`                  |
+| [Column](./column.md)                         | `column()`            | `bar` + vertical orientation   |
+| [Combo](./combination.md)                     | `combo()`             | canonical `layers`             |
+| [Diff](./diff.md)                             | `diff()`              | `diff`                         |
+| [Donut](./donut.md)                           | `donut()`             | `pie` + inner radius           |
+| [Gantt](./gantt.md)                           | `gantt()`             | `gantt`                        |
+| [Gauge](./gauge.md)                           | `gauge()`             | `gauge`                        |
+| [GeoChart](./geo.md)                          | `geo()`               | `geo`                          |
+| [Histogram](./histogram.md)                   | `histogram()`         | `histogram`                    |
+| [Intervals](./intervals.md)                   | `intervals()`         | `interval`                     |
+| [Line](./line.md)                             | `line()`              | `line`                         |
+| [Map](./map.md)                               | `map()`               | `map`                          |
+| [Motion](./motion.md)                         | `motion()`            | frame-filtered `motion`        |
+| [Organization](./org.md)                      | `org()`               | `org`                          |
+| [Pie](./pie.md)                               | `pie()`               | `pie`                          |
+| [Sankey](./sankey.md)                         | `sankey()`            | `sankey`                       |
+| [Scatter](./scatter.md)                       | `scatter()`           | `point` alias                  |
+| [Stepped Area](./stepped-area.md)             | `steppedArea()`       | `stepped-area`                 |
+| [Table](./table.md)                           | `table()`             | `table`                        |
+| [Timeline](./timeline.md)                     | `timeline()`          | `timeline`                     |
+| [Tree Map](./treemap.md)                      | `treemap()`           | `treemap`                      |
+| [Trendline](./trendline.md)                   | `trendline()`         | `trendline`                    |
+| [VegaChart adapter](./vega.md)                | `vegaChart()`         | safe `vega` subset             |
+| [Waterfall](./waterfall.md)                   | `waterfall()`         | `waterfall`                    |
+| [Word Tree](./word-tree.md)                   | `wordTree()`          | `word-tree`                    |
 
-The standalone [chart type gallery](../../examples/cdn/chart-types.html) renders all five choices on one responsive page.
+The [31-type standalone gallery](../../examples/cdn/complete-chart-types.html) renders every entry on one responsive page. The smaller [core chart gallery](../../examples/cdn/chart-types.html) remains useful for a quick introduction.
 
-Every chart-specific guide includes a current visual snapshot generated from the actual Graflume `compile()` Scene. Run `npm run docs:snapshots` after a rendering change to rebuild all five assets deterministically.
+Every chart-specific guide includes a current visual snapshot generated from the actual Graflume `compile()` Scene. Run `npm run docs:snapshots` after a rendering change to rebuild all 31 assets deterministically.
 
 ## Current rendered output
 
-| Bar                                                                        | Line                                                                          |
-| -------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| [![Current Graflume bar chart output](../assets/charts/bar.svg)](./bar.md) | [![Current Graflume line chart output](../assets/charts/line.svg)](./line.md) |
+The individual pages above show full-width implemented output. The following contact grid links representative families directly to their manuals.
 
-| Area                                                                          | Scatter                                                                                |
-| ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| [![Current Graflume area chart output](../assets/charts/area.svg)](./area.md) | [![Current Graflume scatter chart output](../assets/charts/scatter.svg)](./scatter.md) |
-
-[![Current Graflume combination chart output](../assets/charts/combination.svg)](./combination.md)
+| Cartesian                                                                           | Radial / distribution                                                         | Structure / flow                                                     |
+| ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| [![Current line output](../assets/charts/line.svg)](./line.md)                      | [![Current pie output](../assets/charts/pie.svg)](./pie.md)                   | [![Current Sankey output](../assets/charts/sankey.svg)](./sankey.md) |
+| [![Current candlestick output](../assets/charts/candlestick.svg)](./candlestick.md) | [![Current gauge output](../assets/charts/gauge.svg)](./gauge.md)             | [![Current organization output](../assets/charts/org.svg)](./org.md) |
+| [![Current waterfall output](../assets/charts/waterfall.svg)](./waterfall.md)       | [![Current histogram output](../assets/charts/histogram.svg)](./histogram.md) | [![Current map output](../assets/charts/map.svg)](./map.md)          |
 
 ## Common Quick API shape
 
@@ -112,7 +136,7 @@ An encoding may be a field-name shorthand or a full object.
 | `scale.paddingInner` / `paddingOuter` | Category-band spacing                               |
 | `axis`                                | Axis options or `false` to hide the axis            |
 
-The initial runtime requires a quantitative or temporal y-axis. Layers sharing an axis must use compatible field-type families.
+Both axes can be categorical, quantitative, or temporal. Layers sharing an axis must use compatible field-type families. Specialized marks use `mark.fields` for additional channels such as `high`, `low`, `end`, `parent`, `target`, or `size`.
 
 ## Common chart options
 
@@ -147,6 +171,9 @@ The shared mark style surface is intentionally small:
 | `cornerRadius` | bar                                     |
 | `point`        | line; renders interactive point circles |
 | `position`     | bar layers; `overlay` or `group`        |
+| `orientation`  | horizontal bar or vertical column       |
+| `fields`       | named multi-channel data fields         |
+| `options`      | mark-specific function-free JSON values |
 
 Unsupported options are rejected by portable spec validation rather than silently evaluated as code.
 
@@ -175,12 +202,12 @@ chart.destroy();
 
 ## Interaction by mark
 
-| Mark          | Current hit target                                            |
-| ------------- | ------------------------------------------------------------- |
-| bar           | each rendered rectangle                                       |
-| point/scatter | each rendered circle                                          |
-| line          | optional circles when `mark.point: true`; not the path itself |
-| area          | no per-row hit target in the area path                        |
+| Geometry                     | Current hit target                                                             |
+| ---------------------------- | ------------------------------------------------------------------------------ |
+| Rectangle/circle datum marks | the whole rendered shape                                                       |
+| Closed path datum marks      | the filled polygon, including pie and Sankey flow shapes                       |
+| Line/open path marks         | optional points or companion datum shapes; the path itself is not a row target |
+| Text-only labels             | not individually hit tested                                                    |
 
 For an interactive area or plain line, add a point layer or enable line points. Large and ultra performance profiles disable per-mark hit testing.
 
@@ -211,12 +238,10 @@ Recommended page-level additions:
 
 Automatic data tables and keyboard traversal of individual marks are not implemented yet.
 
-## Currently planned, not yet supported
+## Still planned, not presented as complete
 
-- stacked and normalized stacks;
-- horizontal, range, floating, waterfall, and funnel bars;
-- histogram/bin transforms, box plots, violin plots, and error bars;
-- heatmaps, density/hexbin, financial, network, hierarchy, flow, map, and 3D charts;
-- independent or dual scales, facets, concat, dashboards, and linked views;
-- native legends, tooltip layout, annotations, and regression/forecast layers;
+- stacked/normalized stacks, box/violin plots, heatmap/density, funnel, radar/polar, graph/network, and 3D;
+- full map boundary/projection packages, multi-stage Sankey layout, nested treemap, implicit Word Tree tokenization, and complete Vega grammar conversion;
+- independent/dual scales, facets, concat, dashboards, and linked views;
+- native legends, tooltip layout, label-collision routing, automatic data tables, and keyboard mark traversal;
 - built-in SVG, WebGL2, and WebGPU renderer parity.

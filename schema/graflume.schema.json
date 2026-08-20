@@ -18,28 +18,16 @@
       "items": { "$ref": "#/$defs/layer" }
     },
     "width": {
-      "oneOf": [
-        { "type": "number", "exclusiveMinimum": 0 },
-        { "const": "container" }
-      ]
+      "oneOf": [{ "type": "number", "exclusiveMinimum": 0 }, { "const": "container" }]
     },
     "height": {
-      "oneOf": [
-        { "type": "number", "exclusiveMinimum": 0 },
-        { "const": "container" }
-      ]
+      "oneOf": [{ "type": "number", "exclusiveMinimum": 0 }, { "const": "container" }]
     },
     "padding": {
-      "oneOf": [
-        { "type": "number", "minimum": 0 },
-        { "$ref": "#/$defs/padding" }
-      ]
+      "oneOf": [{ "type": "number", "minimum": 0 }, { "$ref": "#/$defs/padding" }]
     },
     "title": {
-      "oneOf": [
-        { "type": "string" },
-        { "$ref": "#/$defs/title" }
-      ]
+      "oneOf": [{ "type": "string" }, { "$ref": "#/$defs/title" }]
     },
     "description": { "type": "string" },
     "renderer": { "type": "string", "default": "auto" },
@@ -48,10 +36,7 @@
       "default": "auto"
     },
     "theme": {
-      "oneOf": [
-        { "type": "string" },
-        { "type": "object" }
-      ]
+      "oneOf": [{ "type": "string" }, { "type": "object" }]
     },
     "locale": { "type": "string" },
     "axes": {
@@ -154,10 +139,7 @@
       }
     },
     "axisOrFalse": {
-      "oneOf": [
-        { "$ref": "#/$defs/axis" },
-        { "const": false }
-      ]
+      "oneOf": [{ "$ref": "#/$defs/axis" }, { "const": false }]
     },
     "encodingObject": {
       "type": "object",
@@ -198,14 +180,46 @@
         "radius": { "type": "number", "minimum": 0 },
         "cornerRadius": { "type": "number", "minimum": 0 },
         "point": { "type": "boolean" },
-        "position": { "enum": ["overlay", "group"] }
+        "position": { "enum": ["overlay", "group"] },
+        "orientation": { "enum": ["vertical", "horizontal"] },
+        "fields": {
+          "type": "object",
+          "propertyNames": {
+            "not": { "enum": ["__proto__", "prototype", "constructor"] }
+          },
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1,
+            "not": { "enum": ["__proto__", "prototype", "constructor"] }
+          }
+        },
+        "options": {
+          "type": "object",
+          "propertyNames": {
+            "not": { "enum": ["__proto__", "prototype", "constructor"] }
+          },
+          "additionalProperties": { "$ref": "#/$defs/jsonValue" }
+        }
       }
     },
-    "mark": {
+    "jsonValue": {
       "oneOf": [
-        { "type": "string", "minLength": 1 },
-        { "$ref": "#/$defs/markObject" }
+        { "$ref": "#/$defs/primitive" },
+        {
+          "type": "array",
+          "items": { "$ref": "#/$defs/jsonValue" }
+        },
+        {
+          "type": "object",
+          "propertyNames": {
+            "not": { "enum": ["__proto__", "prototype", "constructor"] }
+          },
+          "additionalProperties": { "$ref": "#/$defs/jsonValue" }
+        }
       ]
+    },
+    "mark": {
+      "oneOf": [{ "type": "string", "minLength": 1 }, { "$ref": "#/$defs/markObject" }]
     },
     "layer": {
       "type": "object",

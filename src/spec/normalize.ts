@@ -46,7 +46,10 @@ function normalizeAxis(input: AxisSpec | false | undefined): AxisSpec | false {
   };
 }
 
-function normalizeEncoding(input: EncodingInput, fallbackAxis: AxisSpec | false): NormalizedEncodingSpec {
+function normalizeEncoding(
+  input: EncodingInput,
+  fallbackAxis: AxisSpec | false,
+): NormalizedEncodingSpec {
   const encoding = typeof input === 'string' ? { field: input } : input;
   return {
     field: encoding.field,
@@ -69,6 +72,9 @@ function normalizeMark(input: MarkInput): NormalizedMarkSpec {
     ...(mark.cornerRadius === undefined ? {} : { cornerRadius: mark.cornerRadius }),
     point: mark.point ?? false,
     position: mark.position ?? 'overlay',
+    orientation: mark.orientation ?? 'vertical',
+    fields: { ...mark.fields },
+    options: { ...mark.options },
   };
 }
 
@@ -112,9 +118,7 @@ export function normalizeSpec(input: ChartSpec): NormalizedChartSpec {
         };
 
   const sourceLayers = input.layers ?? (shorthandLayer === undefined ? [] : [shorthandLayer]);
-  const layers = sourceLayers.map((layer, index) =>
-    normalizeLayer(layer, index, input.data, axes),
-  );
+  const layers = sourceLayers.map((layer, index) => normalizeLayer(layer, index, input.data, axes));
 
   const title = normalizeTitle(input.title);
 
@@ -133,9 +137,7 @@ export function normalizeSpec(input: ChartSpec): NormalizedChartSpec {
       click: input.interaction?.click ?? true,
     },
     accessibility: {
-      ...(input.accessibility?.label === undefined
-        ? {}
-        : { label: input.accessibility.label }),
+      ...(input.accessibility?.label === undefined ? {} : { label: input.accessibility.label }),
       ...(input.accessibility?.description === undefined
         ? {}
         : { description: input.accessibility.description }),

@@ -1,6 +1,6 @@
 # Combination charts
 
-Use a combination chart when two or more mark layers should share a viewport and common scales. Graflume can currently overlay `bar`, `line`, `area`, and `point` layers when their axis field types are compatible.
+Use a combination chart when two or more Cartesian mark layers should share a viewport and common scales. `combo()` is the Quick API for the same canonical `layers` contract accepted by `create()`.
 
 ## Implemented appearance
 
@@ -11,7 +11,7 @@ This output combines target bars with an actual-sales line and interactive point
 ## Shared-scale bar + line + points
 
 ```ts
-import { create } from 'graflume';
+import { combo } from 'graflume';
 
 const data = [
   { month: 'Jan', target: 38, actual: 42 },
@@ -19,9 +19,7 @@ const data = [
   { month: 'Mar', target: 52, actual: 49 },
 ];
 
-const chart = create('#chart', {
-  specVersion: '0.1',
-  data,
+const chart = combo('#chart', data, {
   title: {
     text: 'Target and actual sales',
     subtitle: 'Shared y scale',
@@ -74,7 +72,7 @@ The initial composition model resolves one shared x scale and one shared y scale
 - numeric/temporal domains use values from every visible layer;
 - a bar or area y layer forces zero into the shared y domain;
 - categorical and numeric families cannot be mixed on one shared axis;
-- y must remain quantitative or temporal;
+- categorical y scales are supported for horizontal bars and interval layouts, but every layer on a shared axis must use the same type family;
 - the first visible layer supplies shared axis formatting and scale-tuning options.
 
 Independent/dual axes are not implemented yet. Do not imply a second axis by styling a layer differently.
@@ -148,12 +146,13 @@ Use `textContent`, not raw HTML, when displaying user data.
 - no facet, repeat, concat, grid, dashboard, or inset layout;
 - no linked brushing, cross-filtering, synchronized zoom, or crosshair;
 - no native legend merge or multi-layer tooltip;
-- no annotation/reference/regression/forecast semantic layers;
+- annotation, interval, and trendline marks can participate when their shared scales are compatible; reference bands and forecast semantics remain planned;
 - no per-layer renderer selection.
 
 ## Runnable examples and tests
 
 - [chart type gallery](../../examples/cdn/chart-types.html)
+- [31-type complete chart gallery](../../examples/cdn/complete-chart-types.html)
 - [combination regression test](../../tests/chart-types.test.mjs)
 
 [Back to chart guides](./README.md)

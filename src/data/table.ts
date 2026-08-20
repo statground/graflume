@@ -162,7 +162,8 @@ export class DataTable {
 
     for (const field of allFields) {
       const existing = this.#columns.get(field);
-      const mutable: DataValue[] = existing === undefined ? Array(this.#length).fill(null) : Array.from(existing);
+      const mutable: DataValue[] =
+        existing === undefined ? Array(this.#length).fill(null) : Array.from(existing);
       for (const row of rows) mutable.push(ownValue(row, field) as DataValue);
       this.#columns.set(field, mutable);
     }

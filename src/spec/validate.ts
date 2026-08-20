@@ -12,7 +12,8 @@ const UNSAFE_FIELDS = new Set(['__proto__', 'prototype', 'constructor']);
 function validateEncoding(value: unknown, path: string, issues: SpecIssue[]): void {
   if (typeof value === 'string') {
     if (value.trim() === '') issues.push({ path, message: 'Field name must not be empty.' });
-    if (UNSAFE_FIELDS.has(value)) issues.push({ path, message: `Unsafe field "${value}" is forbidden.` });
+    if (UNSAFE_FIELDS.has(value))
+      issues.push({ path, message: `Unsafe field "${value}" is forbidden.` });
     return;
   }
 
@@ -21,7 +22,8 @@ function validateEncoding(value: unknown, path: string, issues: SpecIssue[]): vo
     return;
   }
 
-  if (value.field.trim() === '') issues.push({ path: `${path}.field`, message: 'Field must not be empty.' });
+  if (value.field.trim() === '')
+    issues.push({ path: `${path}.field`, message: 'Field must not be empty.' });
   if (UNSAFE_FIELDS.has(value.field)) {
     issues.push({ path: `${path}.field`, message: `Unsafe field "${value.field}" is forbidden.` });
   }
@@ -34,10 +36,46 @@ function validateMark(value: unknown, path: string, issues: SpecIssue[]): void {
   }
   if (!isPlainObject(value) || typeof value.type !== 'string' || value.type.trim() === '') {
     issues.push({ path, message: 'Mark must be a type string or an object with a type.' });
+    return;
+  }
+
+  if (value.fields !== undefined) {
+    if (!isPlainObject(value.fields)) {
+      issues.push({ path: `${path}.fields`, message: 'Mark fields must be an object.' });
+    } else {
+      for (const [name, field] of Object.entries(value.fields)) {
+        if (UNSAFE_FIELDS.has(name)) {
+          issues.push({
+            path: `${path}.fields.${name}`,
+            message: `Unsafe key "${name}" is forbidden.`,
+          });
+        }
+        if (typeof field !== 'string' || field.trim() === '') {
+          issues.push({
+            path: `${path}.fields.${name}`,
+            message: 'Named mark fields must be non-empty strings.',
+          });
+        } else if (UNSAFE_FIELDS.has(field)) {
+          issues.push({
+            path: `${path}.fields.${name}`,
+            message: `Unsafe field "${field}" is forbidden.`,
+          });
+        }
+      }
+    }
+  }
+
+  if (value.options !== undefined && !isPlainObject(value.options)) {
+    issues.push({ path: `${path}.options`, message: 'Mark options must be a JSON object.' });
   }
 }
 
-function validateLayer(layer: unknown, path: string, hasParentData: boolean, issues: SpecIssue[]): void {
+function validateLayer(
+  layer: unknown,
+  path: string,
+  hasParentData: boolean,
+  issues: SpecIssue[],
+): void {
   if (!isPlainObject(layer)) {
     issues.push({ path, message: 'Layer must be an object.' });
     return;
@@ -48,11 +86,19 @@ function validateLayer(layer: unknown, path: string, hasParentData: boolean, iss
   validateEncoding(layer.y as EncodingInput, `${path}.y`, issues);
 
   if (!hasParentData && layer.data === undefined) {
-    issues.push({ path: `${path}.data`, message: 'Layer data is required when chart-level data is absent.' });
+    issues.push({
+      path: `${path}.data`,
+      message: 'Layer data is required when chart-level data is absent.',
+    });
   }
 }
 
-function findFunctions(value: unknown, path: string, issues: SpecIssue[], seen: WeakSet<object>): void {
+function findFunctions(
+  value: unknown,
+  path: string,
+  issues: SpecIssue[],
+  seen: WeakSet<object>,
+): void {
   if (typeof value === 'function') {
     issues.push({ path, message: 'Functions are not allowed in the portable chart spec.' });
     return;
@@ -108,7 +154,10 @@ export function validateSpec(input: unknown): readonly SpecIssue[] {
     validateEncoding(input.x as EncodingInput, '$.x', issues);
     validateEncoding(input.y as EncodingInput, '$.y', issues);
     if (input.data === undefined) {
-      issues.push({ path: '$.data', message: 'Chart-level data is required for shorthand charts.' });
+      issues.push({
+        path: '$.data',
+        message: 'Chart-level data is required for shorthand charts.',
+      });
     }
   }
 
