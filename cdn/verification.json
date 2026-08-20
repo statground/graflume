@@ -1,8 +1,8 @@
 {
-  "sourceCommit": "bab8da4c2fcab88378fb6487f41fc9dc16b842b6",
+  "sourceCommit": "2ee9d6829589b002d8afdbe5ac26f341054b748d",
   "bundleCommit": "405964ef09938cb2066008eb7608775f3f4948ab",
   "cdnUrl": "https://cdn.jsdelivr.net/gh/statground/graflume@405964ef09938cb2066008eb7608775f3f4948ab/cdn/graflume.global.js",
   "integrity": "sha384-gE60cUP+OiS97/9k4rplcgFKAspiq4NeJnNVQxGFQYw/RTx383XA9NVsPooKPc0+",
   "byteLength": 89249,
-  "verifiedAt": "2026-08-20T14:21:15Z"
+  "verifiedAt": "2026-08-20T15:14:49Z"
 }
