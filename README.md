@@ -89,6 +89,15 @@ Graflume currently provides quick APIs for four renderer-neutral marks and a cha
 
 `scatter()` is an ergonomic alias of `point()` and still serializes as the `point` mark in `ChartSpec 0.1`, so the portable schema remains unchanged.
 
+Detailed guides:
+
+- [Chart guide overview and common options](docs/charts/README.md)
+- [Bar charts](docs/charts/bar.md)
+- [Line charts](docs/charts/line.md)
+- [Area charts](docs/charts/area.md)
+- [Scatter charts](docs/charts/scatter.md)
+- [Combination charts](docs/charts/combination.md)
+
 ### Bar chart
 
 The shortest bar chart API is `Graflume.bar()`:
