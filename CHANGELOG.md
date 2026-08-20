@@ -4,6 +4,10 @@ All notable changes to Graflume will be recorded here.
 
 ## Unreleased
 
+- Add dedicated line, area, scatter, and mixed-composition chart examples in a responsive chart-type gallery.
+- Add `scatter()` as a chart-oriented quick API alias for the portable `point` mark.
+- Add regression coverage for line, area, scatter, and mixed chart scene output.
+- Extend exact-commit CDN pinning and SRI updates to the standalone chart-type gallery.
 - Add dedicated single-series and grouped bar chart examples.
 - Add regression coverage for styled, negative-value, and grouped bar rendering.
 - Add a reproducible browser snapshot workflow that pins the downloadable jsDelivr example to an exact bundle commit with SHA-384 Subresource Integrity.
