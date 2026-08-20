@@ -73,7 +73,23 @@ The exact npm CDN URL becomes valid only after that package version is published
 
 For pre-npm alpha testing, the repository also maintains a source-controlled browser snapshot at `cdn/graflume.global.js`. The snapshot workflow builds the library, commits the browser bundle, then rewrites the downloadable example to an exact Git commit URL with SHA-384 Subresource Integrity. Moving aliases such as `@main` and `@latest` are not used.
 
-## Bar chart examples
+## Chart type examples
+
+Graflume currently provides quick APIs for four renderer-neutral marks and a chart-oriented scatter alias:
+
+| Chart       | Quick API                                  | Portable mark  | Best for                                      |
+| ----------- | ------------------------------------------ | -------------- | --------------------------------------------- |
+| Bar         | `Graflume.bar()`                           | `bar`          | categorical comparison                        |
+| Line        | `Graflume.line()`                          | `line`         | trends and connected change                   |
+| Area        | `Graflume.area()`                          | `area`         | trends with magnitude emphasis                |
+| Scatter     | `Graflume.scatter()` or `Graflume.point()` | `point`        | relationships between two quantitative fields |
+| Combination | `Graflume.create()` with `layers`          | multiple marks | comparison and trends on shared scales        |
+
+[`examples/cdn/chart-types.html`](examples/cdn/chart-types.html) is a responsive, standalone gallery containing all five examples. It can be downloaded and opened directly and uses an exact jsDelivr commit pin with SHA-384 SRI. It also demonstrates theme switching, pointer data events, accessible chart descriptions, and text data summaries.
+
+`scatter()` is an ergonomic alias of `point()` and still serializes as the `point` mark in `ChartSpec 0.1`, so the portable schema remains unchanged.
+
+### Bar chart
 
 The shortest bar chart API is `Graflume.bar()`:
 
@@ -103,6 +119,7 @@ Runnable examples:
 
 - [`examples/bar/index.html`](examples/bar/index.html): local single-series bar chart using the committed browser snapshot
 - [`examples/cdn/bar-chart.html`](examples/cdn/bar-chart.html): standalone grouped bar chart that can be downloaded and opened directly; it uses an exact jsDelivr commit pin and SRI
+- [`examples/cdn/chart-types.html`](examples/cdn/chart-types.html): standalone bar, line, area, scatter, and mixed-chart gallery
 
 The CDN example also demonstrates responsive rendering, light/dark theme switching, pointer hit testing, PNG export, and a readable data-table fallback.
 

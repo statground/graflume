@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="ko" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Graflume 차트 유형 갤러리</title>
+    <style>
+      :root {
+        font-family:
+          Inter,
+          Pretendard,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          sans-serif;
+        color: #172033;
+        background: #eef3f8;
+      }
+      :root[data-theme='dark'] {
+        color: #f1f5f9;
+        background: #0b1020;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        min-height: 100vh;
+        margin: 0;
+        padding: 32px 18px 48px;
+      }
+      main {
+        width: min(1380px, 100%);
+        margin: 0 auto;
+      }
+      header {
+        display: flex;
+        gap: 24px;
+        align-items: flex-end;
+        justify-content: space-between;
+        margin-bottom: 22px;
+      }
+      h1 {
+        margin: 0;
+        font-size: clamp(1.75rem, 5vw, 3rem);
+        letter-spacing: -0.05em;
+      }
+      .lede {
+        max-width: 780px;
+        margin: 10px 0 0;
+        color: #5d6b82;
+        line-height: 1.7;
+      }
+      :root[data-theme='dark'] .lede,
+      :root[data-theme='dark'] .card-copy,
+      :root[data-theme='dark'] .selection-label,
+      :root[data-theme='dark'] .code-label {
+        color: #a8b3c7;
+      }
+      button {
+        min-height: 42px;
+        flex: 0 0 auto;
+        padding: 0 16px;
+        color: inherit;
+        background: rgb(255 255 255 / 85%);
+        border: 1px solid #d8e0ea;
+        border-radius: 999px;
+        cursor: pointer;
+        font: inherit;
+        font-weight: 700;
+      }
+      :root[data-theme='dark'] button {
+        background: rgb(23 30 45 / 92%);
+        border-color: #344057;
+      }
+      button:focus-visible,
+      summary:focus-visible {
+        outline: 3px solid #60a5fa;
+        outline-offset: 2px;
+      }
+      #error {
+        display: none;
+        margin: 0 0 18px;
+        padding: 14px 16px;
+        color: #991b1b;
+        background: #fee2e2;
+        border: 1px solid #fecaca;
+        border-radius: 12px;
+      }
+      .gallery {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+      }
+      .card {
+        min-width: 0;
+        overflow: hidden;
+        background: #fff;
+        border: 1px solid #dce4ee;
+        border-radius: 22px;
+        box-shadow: 0 20px 55px rgb(15 23 42 / 9%);
+      }
+      :root[data-theme='dark'] .card {
+        background: #101522;
+        border-color: #273248;
+        box-shadow: 0 22px 60px rgb(0 0 0 / 32%);
+      }
+      .card-wide {
+        grid-column: 1 / -1;
+      }
+      .card-head {
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+        justify-content: space-between;
+        padding: 20px 22px 0;
+      }
+      .card h2 {
+        margin: 0;
+        font-size: 1.12rem;
+        letter-spacing: -0.02em;
+      }
+      .card-copy {
+        margin: 6px 0 0;
+        color: #5d6b82;
+        font-size: 0.9rem;
+        line-height: 1.55;
+      }
+      .badge {
+        flex: 0 0 auto;
+        padding: 5px 9px;
+        color: #1d4ed8;
+        background: #dbeafe;
+        border-radius: 999px;
+        font-size: 0.74rem;
+        font-weight: 800;
+      }
+      :root[data-theme='dark'] .badge {
+        color: #bfdbfe;
+        background: #1e3a8a;
+      }
+      .chart {
+        width: 100%;
+        height: 360px;
+      }
+      .card-wide .chart {
+        height: 420px;
+      }
+      .selection {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 12px;
+        align-items: baseline;
+        margin-top: 18px;
+        padding: 16px 18px;
+        background: rgb(255 255 255 / 78%);
+        border: 1px solid #dce4ee;
+        border-radius: 16px;
+      }
+      :root[data-theme='dark'] .selection {
+        background: rgb(23 30 45 / 86%);
+        border-color: #273248;
+      }
+      .selection-label {
+        color: #5d6b82;
+        font-size: 0.86rem;
+      }
+      #selection-value {
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+      details {
+        margin-top: 18px;
+        padding: 14px 18px;
+        background: rgb(255 255 255 / 70%);
+        border: 1px solid #dce4ee;
+        border-radius: 14px;
+      }
+      :root[data-theme='dark'] details {
+        background: rgb(23 30 45 / 76%);
+        border-color: #273248;
+      }
+      summary {
+        cursor: pointer;
+        font-weight: 750;
+      }
+      .data-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 12px;
+      }
+      .data-grid p {
+        margin: 0;
+        padding: 10px 12px;
+        border: 1px solid #dce4ee;
+        border-radius: 10px;
+        line-height: 1.55;
+      }
+      :root[data-theme='dark'] .data-grid p {
+        border-color: #344057;
+      }
+      .code-label {
+        display: block;
+        margin-top: 3px;
+        color: #5d6b82;
+        font-size: 0.8rem;
+      }
+      code {
+        color: #7c3aed;
+        font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      }
+      :root[data-theme='dark'] code {
+        color: #c4b5fd;
+      }
+      @media (max-width: 860px) {
+        header {
+          display: block;
+        }
+        header button {
+          margin-top: 16px;
+        }
+        .gallery {
+          grid-template-columns: 1fr;
+        }
+        .card-wide {
+          grid-column: auto;
+        }
+        .chart,
+        .card-wide .chart {
+          height: 340px;
+        }
+      }
+      @media (max-width: 520px) {
+        body {
+          padding-inline: 10px;
+        }
+        .card-head {
+          display: block;
+        }
+        .badge {
+          display: inline-block;
+          margin-top: 10px;
+        }
+        .selection,
+        .data-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          scroll-behavior: auto !important;
+          transition-duration: 0.01ms !important;
+          animation-duration: 0.01ms !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <h1>Graflume 차트 유형 갤러리</h1>
+          <p class="lede">
+            막대·선·영역·산점도와 서로 다른 mark를 겹친 복합 차트를 하나의 Canvas 기반 엔진으로
+            렌더링합니다. 각 예제는 Quick API 또는 직렬화 가능한 ChartSpec 0.1을 사용합니다.
+          </p>
+        </div>
+        <button id="theme-toggle" type="button">어두운 테마</button>
+      </header>
+
+      <p id="error" role="alert"></p>
+
+      <section class="gallery" aria-label="Graflume 차트 유형 예제">
+        <article class="card">
+          <div class="card-head">
+            <div>
+              <h2>막대그래프</h2>
+              <p class="card-copy">범주별 크기를 빠르게 비교합니다.</p>
+              <span class="code-label"><code>Graflume.bar()</code></span>
+            </div>
+            <span class="badge">비교</span>
+          </div>
+          <div id="bar-chart" class="chart"></div>
+        </article>
+
+        <article class="card">
+          <div class="card-head">
+            <div>
+              <h2>선그래프</h2>
+              <p class="card-copy">시간에 따른 흐름과 변화를 연결해 보여줍니다.</p>
+              <span class="code-label"><code>Graflume.line()</code></span>
+            </div>
+            <span class="badge">추세</span>
+          </div>
+          <div id="line-chart" class="chart"></div>
+        </article>
+
+        <article class="card">
+          <div class="card-head">
+            <div>
+              <h2>영역그래프</h2>
+              <p class="card-copy">추세와 누적된 규모감을 함께 강조합니다.</p>
+              <span class="code-label"><code>Graflume.area()</code></span>
+            </div>
+            <span class="badge">규모</span>
+          </div>
+          <div id="area-chart" class="chart"></div>
+        </article>
+
+        <article class="card">
+          <div class="card-head">
+            <div>
+              <h2>산점도</h2>
+              <p class="card-copy">두 정량 변수의 관계와 흩어짐을 관찰합니다.</p>
+              <span class="code-label"><code>Graflume.scatter()</code></span>
+            </div>
+            <span class="badge">관계</span>
+          </div>
+          <div id="scatter-chart" class="chart"></div>
+        </article>
+
+        <article class="card card-wide">
+          <div class="card-head">
+            <div>
+              <h2>복합 차트</h2>
+              <p class="card-copy">목표 막대 위에 실적 선과 포인트를 동일 축으로 조합합니다.</p>
+              <span class="code-label"><code>Graflume.create({ layers: [...] })</code></span>
+            </div>
+            <span class="badge">조합</span>
+          </div>
+          <div id="combo-chart" class="chart"></div>
+        </article>
+      </section>
+
+      <section class="selection" aria-live="polite" aria-atomic="true">
+        <span class="selection-label">가리킨 데이터</span>
+        <strong id="selection-value">차트의 막대나 점에 마우스를 올려보세요.</strong>
+      </section>
+
+      <details>
+        <summary>스크린 리더용 데이터 요약 보기</summary>
+        <div class="data-grid">
+          <p><strong>월별 실적</strong><br />1월 42, 2월 51, 3월 49, 4월 63, 5월 71, 6월 68</p>
+          <p><strong>월별 방문자</strong><br />1월 21, 2월 29, 3월 27, 4월 38, 5월 46, 6월 51</p>
+          <p><strong>학습시간과 점수</strong><br />1.0시간 52점부터 6.8시간 92점까지 8개 관측치</p>
+          <p><strong>목표와 실적</strong><br />목표 38~70, 실적 42~71의 월별 비교</p>
+        </div>
+      </details>
+    </main>
+
+    <!-- Exact commit pin and SRI are replaced by the repository CDN snapshot workflow. -->
+    <script
+      src="https://cdn.jsdelivr.net/gh/statground/graflume@375e502f6ec1315e5fcf4539b9ffe57cdc01f292/cdn/graflume.global.js"
+      integrity="sha384-W6Xb/oqKCwXnuns/uTPfPEPvYTgbZB3Hr2L6E/yAsbueBggfBnWAWav2CV+WLtzO"
+      crossorigin="anonymous"
+    ></script>
+    <script>
+      const monthly = [
+        { month: '1월', actual: 42, target: 38, visitors: 21 },
+        { month: '2월', actual: 51, target: 47, visitors: 29 },
+        { month: '3월', actual: 49, target: 52, visitors: 27 },
+        { month: '4월', actual: 63, target: 58, visitors: 38 },
+        { month: '5월', actual: 71, target: 65, visitors: 46 },
+        { month: '6월', actual: 68, target: 70, visitors: 51 },
+      ];
+      const study = [
+        { hours: 1, score: 52 },
+        { hours: 1.7, score: 58 },
+        { hours: 2.4, score: 61 },
+        { hours: 3.2, score: 70 },
+        { hours: 4.1, score: 76 },
+        { hours: 4.8, score: 83 },
+        { hours: 5.9, score: 88 },
+        { hours: 6.8, score: 92 },
+      ];
+
+      const errorBox = document.querySelector('#error');
+      const selection = document.querySelector('#selection-value');
+      const themeButton = document.querySelector('#theme-toggle');
+      const root = document.documentElement;
+      const charts = [];
+
+      function encoding(field, type, title, grid = true) {
+        return {
+          field,
+          type,
+          title,
+          axis: { grid, tickCount: 5 },
+        };
+      }
+
+      function showDatum(type, row) {
+        if (!row) return;
+        const entries = Object.entries(row)
+          .map(([key, value]) => `${key}: ${value}`)
+          .join(' · ');
+        selection.textContent = `${type} — ${entries}`;
+      }
+
+      function observe(chart, type) {
+        chart.on('hover', ({ hit }) => showDatum(type, hit?.datum));
+        chart.on('click', ({ hit }) => showDatum(type, hit?.datum));
+        charts.push(chart);
+      }
+
+      if (!window.Graflume) {
+        errorBox.style.display = 'block';
+        errorBox.textContent =
+          'Graflume CDN 파일을 불러오지 못했습니다. 인터넷 연결 또는 콘텐츠 보안 정책을 확인하세요.';
+        themeButton.disabled = true;
+      } else {
+        observe(
+          Graflume.bar('#bar-chart', monthly, {
+            title: { text: '월별 실적', subtitle: '단위: 억 원' },
+            x: encoding('month', 'ordinal', '월', false),
+            y: {
+              ...encoding('actual', 'quantitative', '실적'),
+              scale: { zero: true, nice: true },
+            },
+            mark: { fill: '#2563eb', cornerRadius: 7, opacity: 0.94 },
+            accessibility: {
+              label: '월별 실적 막대그래프',
+              description: '1월부터 6월까지의 실적을 세로 막대로 비교합니다.',
+            },
+          }),
+          '막대그래프',
+        );
+
+        observe(
+          Graflume.line('#line-chart', monthly, {
+            title: { text: '월별 실적 추세', subtitle: '포인트를 포함한 선그래프' },
+            x: encoding('month', 'ordinal', '월', false),
+            y: {
+              ...encoding('actual', 'quantitative', '실적'),
+              scale: { zero: false, nice: true },
+            },
+            mark: {
+              stroke: '#f97316',
+              fill: '#ffffff',
+              lineWidth: 3,
+              radius: 5,
+              point: true,
+            },
+            accessibility: {
+              label: '월별 실적 선그래프',
+              description: '1월부터 6월까지의 실적 변화 추세를 연결선으로 보여줍니다.',
+            },
+          }),
+          '선그래프',
+        );
+
+        observe(
+          Graflume.area('#area-chart', monthly, {
+            title: { text: '월별 방문자 규모', subtitle: '0 기준선까지 채운 영역' },
+            x: encoding('month', 'ordinal', '월', false),
+            y: {
+              ...encoding('visitors', 'quantitative', '방문자(천 명)'),
+              scale: { zero: true, nice: true },
+            },
+            mark: {
+              fill: '#99f6e4',
+              stroke: '#0f766e',
+              lineWidth: 2.5,
+              opacity: 0.78,
+            },
+            accessibility: {
+              label: '월별 방문자 영역그래프',
+              description: '1월부터 6월까지 방문자 규모의 변화와 면적을 보여줍니다.',
+            },
+          }),
+          '영역그래프',
+        );
+
+        const scatter = Graflume.scatter ?? Graflume.point;
+        observe(
+          scatter('#scatter-chart', study, {
+            title: { text: '학습시간과 점수', subtitle: '8개 관측치' },
+            x: {
+              ...encoding('hours', 'quantitative', '학습시간'),
+              scale: { zero: true, nice: true },
+            },
+            y: {
+              ...encoding('score', 'quantitative', '점수'),
+              scale: { zero: false, nice: true },
+            },
+            mark: {
+              fill: '#8b5cf6',
+              stroke: '#ffffff',
+              lineWidth: 2,
+              radius: 7,
+              opacity: 0.88,
+            },
+            accessibility: {
+              label: '학습시간과 점수 산점도',
+              description: '학습시간이 길어질수록 점수가 높아지는 관계를 8개 점으로 보여줍니다.',
+            },
+          }),
+          '산점도',
+        );
+
+        const comboSpec = {
+          data: monthly,
+          title: {
+            text: '목표와 실제 실적',
+            subtitle: 'bar + line + point shared-scale composition',
+          },
+          layers: [
+            {
+              id: 'target',
+              mark: {
+                type: 'bar',
+                fill: '#cbd5e1',
+                cornerRadius: 7,
+                opacity: 0.72,
+              },
+              x: encoding('month', 'ordinal', '월', false),
+              y: {
+                ...encoding('target', 'quantitative', '매출'),
+                scale: { zero: true, nice: true },
+              },
+            },
+            {
+              id: 'actual',
+              mark: {
+                type: 'line',
+                point: true,
+                stroke: '#ef4444',
+                fill: '#ffffff',
+                lineWidth: 3,
+                radius: 5,
+              },
+              x: encoding('month', 'ordinal', '월', false),
+              y: {
+                ...encoding('actual', 'quantitative', '매출'),
+                scale: { zero: true, nice: true },
+              },
+            },
+          ],
+          locale: 'ko-KR',
+          accessibility: {
+            label: '월별 목표와 실제 실적 복합 차트',
+            description: '목표 막대 위에 실제 실적의 선과 포인트를 겹쳐 비교합니다.',
+          },
+        };
+        observe(Graflume.create('#combo-chart', comboSpec), '복합 차트');
+
+        let currentTheme = 'graflume-light';
+        themeButton.addEventListener('click', () => {
+          const dark = currentTheme === 'graflume-light';
+          currentTheme = dark ? 'graflume-dark' : 'graflume-light';
+          root.dataset.theme = dark ? 'dark' : 'light';
+          themeButton.textContent = dark ? '밝은 테마' : '어두운 테마';
+          for (const chart of charts) {
+            chart.setSpec({ ...chart.getSpec(), theme: currentTheme });
+          }
+        });
+
+        window.addEventListener(
+          'beforeunload',
+          () => {
+            for (const chart of charts) chart.destroy();
+          },
+          { once: true },
+        );
+      }
+    </script>
+  </body>
+</html>

@@ -1,5 +1,9 @@
 import { quickChart, type QuickChartOptions } from './api/quick.js';
-import { compileWithRegistry, type CompileOptions, type CompileResult } from './compiler/compile.js';
+import {
+  compileWithRegistry,
+  type CompileOptions,
+  type CompileResult,
+} from './compiler/compile.js';
 import type { MarkCompiler } from './compiler/types.js';
 import type { GraflumePlugin } from './core/plugin.js';
 import type { RendererFactory } from './renderer/types.js';
@@ -10,11 +14,7 @@ import type { ChartSpec, DataInput } from './spec/types.js';
 import type { ThemeTokens } from './theme/types.js';
 import { specVersion, version } from './version.js';
 
-export function create(
-  target: ChartTarget,
-  spec: ChartSpec,
-  options?: ChartCreateOptions,
-): Chart {
+export function create(target: ChartTarget, spec: ChartSpec, options?: ChartCreateOptions): Chart {
   return new Chart(target, spec, defaultRegistry, options);
 }
 
@@ -22,35 +22,27 @@ export function compile(spec: ChartSpec, options?: CompileOptions): CompileResul
   return compileWithRegistry(spec, defaultRegistry, options);
 }
 
-export function line(
-  target: ChartTarget,
-  data: DataInput,
-  options: QuickChartOptions,
-): Chart {
+export function line(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
   return quickChart(create, 'line', target, data, options);
 }
 
-export function bar(
-  target: ChartTarget,
-  data: DataInput,
-  options: QuickChartOptions,
-): Chart {
+export function bar(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
   return quickChart(create, 'bar', target, data, options);
 }
 
-export function point(
-  target: ChartTarget,
-  data: DataInput,
-  options: QuickChartOptions,
-): Chart {
+export function point(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
   return quickChart(create, 'point', target, data, options);
 }
 
-export function area(
-  target: ChartTarget,
-  data: DataInput,
-  options: QuickChartOptions,
-): Chart {
+/**
+ * Creates a scatter chart. This is the chart-oriented alias of `point()`;
+ * both APIs compile to the portable `point` mark in ChartSpec 0.1.
+ */
+export function scatter(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
+  return quickChart(create, 'point', target, data, options);
+}
+
+export function area(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
   return quickChart(create, 'area', target, data, options);
 }
 

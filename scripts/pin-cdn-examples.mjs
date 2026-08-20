@@ -9,11 +9,10 @@ if (!/^sha384-[A-Za-z0-9+/]+={0,2}$/.test(integrity ?? '')) {
   throw new Error('Expected a valid SHA-384 Subresource Integrity value.');
 }
 
-const paths = ['examples/cdn/bar-chart.html'];
+const paths = ['examples/cdn/bar-chart.html', 'examples/cdn/chart-types.html'];
 const cdnUrlPattern =
   /https:\/\/cdn\.jsdelivr\.net\/gh\/statground\/graflume@(?:__GRAFLUME_CDN_COMMIT__|[0-9a-f]{40})\/cdn\/graflume\.global\.js/g;
-const integrityPattern =
-  /integrity="(?:__GRAFLUME_CDN_SRI__|sha384-[A-Za-z0-9+/]+={0,2})"/g;
+const integrityPattern = /integrity="(?:__GRAFLUME_CDN_SRI__|sha384-[A-Za-z0-9+/]+={0,2})"/g;
 
 for (const path of paths) {
   const before = await readFile(path, 'utf8');
