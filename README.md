@@ -98,6 +98,8 @@ Detailed guides:
 - [Scatter charts](docs/charts/scatter.md)
 - [Combination charts](docs/charts/combination.md)
 
+Each chart guide includes a visual snapshot generated from the current compiled Graflume Scene, so users can compare the API with its implemented appearance before running the example.
+
 ### Bar chart
 
 The shortest bar chart API is `Graflume.bar()`:

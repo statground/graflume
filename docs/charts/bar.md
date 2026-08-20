@@ -2,6 +2,12 @@
 
 Use a bar chart to compare quantitative values across discrete categories. Graflume currently implements vertical bars, negative/positive values around a zero baseline, grouped bar layers, styling, sampling, and rectangle hit testing.
 
+## Implemented appearance
+
+The following snapshot is generated from the current Graflume `compile()` Scene and uses the same primitives, coordinates, colors, opacity, clipping, and typography instructions as the Canvas renderer.
+
+![Graflume bar chart showing monthly sales as six blue vertical bars](../assets/charts/bar.svg)
+
 ## Quick API
 
 ```ts

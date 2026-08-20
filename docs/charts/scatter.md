@@ -2,6 +2,12 @@
 
 Use a scatter chart to explore the relationship, clustering, spread, or outliers between two quantitative fields. In Graflume, `scatter()` is an ergonomic alias for the portable `point` mark.
 
+## Implemented appearance
+
+The current point compiler renders one circle for every valid x/y pair. This snapshot uses the same canonical `point` mark produced by `scatter()`.
+
+![Graflume scatter chart showing eight purple points for study time and score](../assets/charts/scatter.svg)
+
 ## Quick API
 
 ```ts

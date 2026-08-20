@@ -2,6 +2,12 @@
 
 Use an area chart to show an ordered trend while emphasizing magnitude relative to a baseline. The current Graflume area mark fills a single line down to zero.
 
+## Implemented appearance
+
+This snapshot shows the current zero-baseline polygon, fill opacity, outline, axes, and title layout.
+
+![Graflume area chart showing monthly visitors as a teal area filled to zero](../assets/charts/area.svg)
+
 ## Quick API
 
 ```ts

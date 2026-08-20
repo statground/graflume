@@ -60,7 +60,9 @@
     "build:static": "node ./scripts/copy-static.mjs",
     "build:size": "node ./scripts/check-bundle-size.mjs",
     "build": "npm run clean && npm run build:types && npm run build:bundle && npm run build:minify && npm run build:static && npm run build:size",
-    "check": "npm run typecheck && npm test && npm run build"
+    "docs:snapshots": "npm run build:bundle && node ./scripts/render-chart-guide-snapshots.mjs",
+    "docs:snapshots:check": "npm run build:bundle && node ./scripts/render-chart-guide-snapshots.mjs --check",
+    "check": "npm run typecheck && npm test && npm run build && npm run docs:snapshots:check"
   },
   "devDependencies": {
     "@rollup/plugin-typescript": "^12.3.0",

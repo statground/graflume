@@ -2,6 +2,12 @@
 
 Use a combination chart when two or more mark layers should share a viewport and common scales. Graflume can currently overlay `bar`, `line`, `area`, and `point` layers when their axis field types are compatible.
 
+## Implemented appearance
+
+This output combines target bars with an actual-sales line and interactive point circles on one shared x/y scale.
+
+![Graflume combination chart with gray target bars and a red actual-sales line](../assets/charts/combination.svg)
+
 ## Shared-scale bar + line + points
 
 ```ts
