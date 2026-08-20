@@ -2134,6 +2134,13 @@ var Graflume = (function (exports) {
     function point(target, data, options) {
         return quickChart(create, 'point', target, data, options);
     }
+    /**
+     * Creates a scatter chart. This is the chart-oriented alias of `point()`;
+     * both APIs compile to the portable `point` mark in ChartSpec 0.1.
+     */
+    function scatter(target, data, options) {
+        return quickChart(create, 'point', target, data, options);
+    }
     function area(target, data, options) {
         return quickChart(create, 'area', target, data, options);
     }
@@ -2177,6 +2184,7 @@ var Graflume = (function (exports) {
     exports.registerMark = registerMark;
     exports.registerRenderer = registerRenderer;
     exports.registerTheme = registerTheme;
+    exports.scatter = scatter;
     exports.specVersion = specVersion;
     exports.use = use;
     exports.validateSpec = validateSpec;
