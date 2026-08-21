@@ -1,8 +1,8 @@
 {
-  "sourceCommit": "8f63336fa045748529fcc66929ad351e0bd77b98",
-  "bundleCommit": "a8498b90d8094e93f37461c8361fee82e4e98e18",
-  "cdnUrl": "https://cdn.jsdelivr.net/gh/statground/graflume@a8498b90d8094e93f37461c8361fee82e4e98e18/cdn/graflume.global.js",
-  "integrity": "sha384-wXP6SLJlMkv0jhsQl/0pCEkXP3L0HW+9ueBmgGzXvaDL5VByDuD+xcPczf6UaMsz",
-  "byteLength": 170749,
-  "verifiedAt": "2026-08-21T11:20:32Z"
+  "sourceCommit": "e1dbfff1cf7b537c5e1d6c2717742a5de369747a",
+  "bundleCommit": "295ddbc16beaf4c3b571ecf1b32e6e5642ede1a1",
+  "cdnUrl": "https://cdn.jsdelivr.net/gh/statground/graflume@295ddbc16beaf4c3b571ecf1b32e6e5642ede1a1/cdn/graflume.global.js",
+  "integrity": "sha384-EI+YvvizqBIauDt9fBf647F3P91LgKj3ycje3IvyDt1iK6kBcKoguuMX1kiytYO1",
+  "byteLength": 188198,
+  "verifiedAt": "2026-08-21T11:54:15Z"
 }
