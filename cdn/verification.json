@@ -1,13 +1,13 @@
 {
-  "sourceCommit": "ee407a8127758d0d3c5b4196370a16b48f054cbc",
-  "bundleCommit": "0161dfbca95888bc311db4b5edcd8b99d7aec761",
-  "cdnUrl": "https://cdn.jsdelivr.net/gh/statground/graflume@0161dfbca95888bc311db4b5edcd8b99d7aec761/cdn/graflume.global.js",
-  "integrity": "sha384-VhUQ4IAlPl/vJrOzj3AmWhqCyiAOoQ7SFMMJJrnHeFZoVGa+/qGXc8pq0jAWrYxJ",
-  "byteLength": 191258,
+  "sourceCommit": "8af61023c83b2a1874ab2df9f73b98f4c2301bba",
+  "bundleCommit": "216ec57178f5a037b7d6a8082968d85abc5be10a",
+  "cdnUrl": "https://cdn.jsdelivr.net/gh/statground/graflume@216ec57178f5a037b7d6a8082968d85abc5be10a/cdn/graflume.global.js",
+  "integrity": "sha384-BaJ4gI5p3OTWpdtRrrhH8W5FQmrZQuSgRKIqiNO8SRmYrnisU8JaH6vz+sNGRSf1",
+  "byteLength": 192924,
   "complete": {
-    "cdnUrl": "https://cdn.jsdelivr.net/gh/statground/graflume@0161dfbca95888bc311db4b5edcd8b99d7aec761/cdn/graflume.complete.global.js",
-    "integrity": "sha384-GsME6MMg2GK31yA0+NNQQ7GnkmaO4XdBlHLLuzUZUyXBSIvmBHH3K1Pvpk7zAqr2",
-    "byteLength": 388785
+    "cdnUrl": "https://cdn.jsdelivr.net/gh/statground/graflume@216ec57178f5a037b7d6a8082968d85abc5be10a/cdn/graflume.complete.global.js",
+    "integrity": "sha384-I/YJaZKAWcGW99tx2m28KfePGrXx/25YKQPMoccq8dFUl64q806EKJnHmsnUr80w",
+    "byteLength": 396932
   },
-  "verifiedAt": "2026-08-21T18:03:55Z"
+  "verifiedAt": "2026-08-21T18:53:11Z"
 }
