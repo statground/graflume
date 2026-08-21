@@ -1,0 +1,59 @@
+name: Complete advanced chart catalog
+
+on:
+  push:
+    branches:
+      - codex/complete-advanced-chart-catalog-20260822
+
+permissions:
+  contents: write
+
+jobs:
+  implement:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Generate implementation
+        run: |
+          python3 scripts/complete_advanced_catalog.py
+          python3 scripts/complete_advanced_catalog_fixup.py
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+      - name: Format generated files
+        run: npm run format
+      - name: Validate source and tests
+        run: |
+          npm run typecheck
+          npm test
+      - name: Build all package outputs
+        run: npm run build
+      - name: Generate chart guide images
+        run: npm run docs:snapshots
+      - name: Run final repository gate
+        run: |
+          npm run typecheck
+          npm test
+          npm run build
+          npm run docs:snapshots:check
+          npm run docs:links
+          npm run format:check
+          git diff --check
+      - name: Commit implementation
+        run: |
+          rm -f scripts/complete_advanced_catalog.py
+          rm -f scripts/complete_advanced_catalog_fixup.py
+          rm -f .github/workflows/complete-advanced-catalog.yml
+          rm -f .github/workflows/dev-source-artifact.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- src schema tests scripts docs examples README.md CHANGELOG.md package.json rollup.config.mjs .github/workflows/dev-source-artifact.yml .github/workflows/complete-advanced-catalog.yml
+          git commit -m "Complete the advanced chart catalog"
+          git push origin HEAD
