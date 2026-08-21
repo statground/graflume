@@ -480,6 +480,10 @@ const snapshots = [
   },
 ];
 
+const graphSnapshot = snapshots.find((snapshot) => snapshot.filename === 'graph.svg');
+assert.ok(graphSnapshot, 'graph representative exists');
+snapshots.push({ ...graphSnapshot, filename: 'network.svg' });
+
 await mkdir(outputDirectory, { recursive: true });
 for (const snapshot of snapshots) {
   const { scene } = compile(snapshot.spec, { width: 680, height: 400 });

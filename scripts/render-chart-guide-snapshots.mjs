@@ -859,6 +859,17 @@ const snapshots = [
   },
 ];
 
+for (const [source, filename] of [
+  ['diff.svg', 'difference.svg'],
+  ['intervals.svg', 'interval.svg'],
+  ['treemap.svg', 'hierarchy.svg'],
+  ['sankey.svg', 'flow.svg'],
+]) {
+  const representative = snapshots.find((snapshot) => snapshot.filename === source);
+  assert.ok(representative, `${source} representative exists`);
+  snapshots.push({ ...representative, filename });
+}
+
 await mkdir(outputDirectory, { recursive: true });
 for (const snapshot of snapshots) {
   const { scene } = compile(snapshot.spec, { width: snapshot.width, height: 400 });

@@ -75,6 +75,7 @@ function base(mark, data = trend, x = 'category', y = 'value') {
 
 export function seriesSampleSpec(entry) {
   const { id, mark, name } = entry;
+  const familyId = entry.familyId ?? id;
   let spec;
   if (mark === 'arc-diagram' || mark === 'chord' || mark === 'graph') {
     spec = base({ type: mark, fields: { target: 'target', value: 'value' } }, relation, 'source');
@@ -193,7 +194,7 @@ export function seriesSampleSpec(entry) {
       {
         type: mark,
         fields: { lower: 'lower', upper: 'upper' },
-        options: { kind: id, fields: ['value', 'signal'] },
+        options: { kind: id === 'technical-indicator' ? 'sma' : id, fields: ['value', 'signal'] },
       },
       trend,
       'date',
@@ -244,10 +245,10 @@ export function seriesSampleSpec(entry) {
   const hideAxes = ['map', 'radial', 'relationship'].includes(entry.category);
   return {
     ...spec,
-    title: { text: name, subtitle: `${entry.category} · ${entry.canonicalFamily}` },
+    title: { text: name, subtitle: `${entry.category} · ${familyId}` },
     accessibility: {
       label: `${name} example`,
-      description: `A compiled ${name.toLowerCase()} example using the ${entry.canonicalFamily} family.`,
+      description: `A compiled ${name.toLowerCase()} example using the ${familyId} family.`,
     },
     ...(hideAxes ? { axes: { x: false, y: false } } : {}),
   };

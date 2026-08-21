@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 
-import { seriesChartTypeCatalog } from '../dist/graflume.complete.js';
+import { seriesChartTypeCatalog, seriesChartVariantCatalog } from '../dist/graflume.complete.js';
 import { seriesSampleSpec } from './series-samples.mjs';
 
 const outputDirectory = new URL('../docs/charts/', import.meta.url);
@@ -114,6 +114,7 @@ function limitation(entry) {
 }
 
 function guide(entry) {
+  const variants = seriesChartVariantCatalog.filter(({ familyId }) => familyId === entry.id);
   const spec = seriesSampleSpec(entry);
   const sampleData = Array.isArray(spec.data) ? spec.data.slice(0, 5) : spec.data;
   const portable = { ...spec, data: sampleData };
@@ -161,10 +162,16 @@ ${JSON.stringify(portable, null, 2)}
 - User-facing family: \`${entry.id}\`
 - Quick API: \`${entry.quickApi}()\`
 - Portable mark: \`${entry.mark}\`
-- Canonical family: \`${entry.canonicalFamily}\`
+- Canonical family: \`${entry.id}\`
 - Category: \`${entry.category}\`
 
-When the canonical family differs from the user-facing name, the Quick API supplies safe mark defaults and then enters the same normalize, validate, scale, compiler, Scene, renderer, interaction, and accessibility path. No parallel rendering engine is created.
+The family API and every compatible preset enter the same normalize, validate, scale, compiler, Scene, renderer, interaction, and accessibility path. No parallel rendering engine is created.
+
+## Integrated presets
+
+| Compatible name | Quick API | Mode | Portable mark |
+| --- | --- | --- | --- |
+${variants.map((variant) => `| ${variant.name} | \`${variant.quickApi}()\` | \`${variant.mode}\` | \`${variant.mark}\` |`).join('\n')}
 
 ## Data, ordering, and missing values
 
@@ -227,7 +234,7 @@ const sections = [...categories.entries()]
 
 | Chart | Quick API | Portable mark | Canonical family |
 | --- | --- | --- | --- |
-${entries.map((entry) => `| [${entry.name}](./${entry.id}.md) | \`${entry.quickApi}()\` | \`${entry.mark}\` | \`${entry.canonicalFamily}\` |`).join('\n')}`,
+${entries.map((entry) => `| [${entry.name}](./${entry.id}.md) | \`${entry.quickApi}()\` | \`${entry.mark}\` | \`${entry.id}\` |`).join('\n')}`,
   )
   .join('\n\n');
 

@@ -5,7 +5,14 @@ import { readFile } from 'node:fs/promises';
 import * as Graflume from '../.tmp/src/complete.js';
 import { flattenScene } from '../.tmp/src/scene/walk.js';
 
-const { additionalChartTypeCatalog, capabilities, compile, fullCatalog } = Graflume;
+const {
+  additionalChartTypeCatalog,
+  additionalChartVariantCatalog,
+  capabilities,
+  compile,
+  fullCatalog,
+  fullVariantCatalog,
+} = Graflume;
 
 const fixtures = new Map([
   [
@@ -209,13 +216,13 @@ const fixtures = new Map([
   ],
 ]);
 
-test('the opt-in catalog fuses the established and additional chart families', () => {
-  assert.equal(additionalChartTypeCatalog.length, 14);
-  assert.equal(fullCatalog.length, 141);
-  assert.deepEqual(
-    additionalChartTypeCatalog.map((entry) => entry.id),
-    [...fixtures.keys()],
-  );
+fixtures.set('network', fixtures.get('graph'));
+
+test('the opt-in catalog exposes distinct families and retains every preset', () => {
+  assert.equal(additionalChartTypeCatalog.length, 7);
+  assert.equal(additionalChartVariantCatalog.length, 14);
+  assert.equal(fullCatalog.length, 37);
+  assert.equal(fullVariantCatalog.length, 141);
   const marks = capabilities().marks;
   for (const entry of additionalChartTypeCatalog) {
     assert.ok(
@@ -230,12 +237,12 @@ test('the JSON Schema advertises the full built-in catalog without closing plugi
     await readFile(new URL('../schema/graflume.schema.json', import.meta.url), 'utf8'),
   );
   const catalog = schema['x-graflume-catalog'];
-  assert.equal(catalog.defaultFamilyCount, 31);
-  assert.equal(catalog.fullFamilyCount, 141);
-  assert.deepEqual(
-    catalog.additionalMarks,
-    additionalChartTypeCatalog.map((entry) => entry.mark),
-  );
+  assert.equal(catalog.defaultFamilyCount, 22);
+  assert.equal(catalog.fullFamilyCount, 37);
+  assert.equal(catalog.fullVariantCount, 141);
+  for (const entry of additionalChartTypeCatalog) {
+    assert.ok(catalog.additionalMarks.includes(entry.mark), entry.mark);
+  }
   for (const mark of capabilities().marks) {
     assert.ok(catalog.builtInMarks.includes(mark), `${mark} is represented in schema metadata`);
   }
@@ -243,7 +250,7 @@ test('the JSON Schema advertises the full built-in catalog without closing plugi
 });
 
 test('every additional catalog entry exposes its Quick API', () => {
-  for (const entry of additionalChartTypeCatalog) {
+  for (const entry of additionalChartVariantCatalog) {
     assert.equal(typeof Graflume[entry.quickApi], 'function', `${entry.quickApi} is exported`);
   }
 });

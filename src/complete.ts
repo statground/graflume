@@ -4,11 +4,15 @@ import {
   type QuickChartOptions,
   type QuickComboOptions,
 } from './api/quick.js';
-import { additionalChartTypeCatalog } from './catalog/additional-chart-types.js';
-import { chartTypeCatalog } from './catalog/chart-types.js';
+import {
+  additionalChartTypeCatalog,
+  additionalChartVariantCatalog,
+} from './catalog/additional-chart-types.js';
+import { chartTypeCatalog, chartVariantCatalog } from './catalog/chart-types.js';
 import {
   resolveSeriesType,
   seriesChartTypeCatalog,
+  seriesChartVariantCatalog,
   seriesCompatibilityCatalog,
   seriesCompatibilityIds,
 } from './catalog/series-chart-types.js';
@@ -359,6 +363,19 @@ export function graph(target: ChartTarget, data: DataInput, options: QuickChartO
   return additional('graph', target, data, options);
 }
 
+function selectedMode(options: QuickChartOptions): string | undefined {
+  const mode = options.mark?.options?.mode;
+  return typeof mode === 'string' ? mode : undefined;
+}
+
+/** One family API for node-link, arc, and connection-line layouts. */
+export function network(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
+  const mode = selectedMode(options);
+  if (mode === 'arc') return arcDiagram(target, data, options);
+  if (mode === 'connections') return lines(target, data, options);
+  return graph(target, data, options);
+}
+
 export function chord(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
   return additional('chord', target, data, options);
 }
@@ -497,6 +514,17 @@ export const windBarb = makeSeriesQuick('wind-barb', {
 export const wordCloud = makeSeriesQuick('word-cloud');
 export const xRange = timeline;
 
+/** One family API for arrow and wind-barb vector glyphs. */
+export function vectorField(
+  target: ChartTarget,
+  data: DataInput,
+  options: QuickChartOptions,
+): Chart {
+  return selectedMode(options) === 'wind-barb'
+    ? windBarb(target, data, options)
+    : vector(target, data, options);
+}
+
 export const accelerationBands = makeIndicatorQuick('abands', {
   fields: { lower: 'lower', middle: 'value', upper: 'upper' },
 });
@@ -592,6 +620,25 @@ export const williamsRange = makeIndicatorQuick('williamsr');
 export const weightedMovingAverage = makeIndicatorQuick('wma');
 export const zigzag = makeIndicatorQuick('zigzag');
 
+/** One family API for all indicator presets; select one with mark.options.kind. */
+export const technicalIndicator = makeSeriesQuick('indicator', {
+  options: { kind: 'sma' },
+});
+
+/** One family API for discrete price-block layouts. */
+export function priceBlocks(
+  target: ChartTarget,
+  data: DataInput,
+  options: QuickChartOptions,
+): Chart {
+  return selectedMode(options) === 'point-and-figure'
+    ? pointAndFigure(target, data, options)
+    : renko(target, data, options);
+}
+
+/** Canonical name for the volume-by-price preset. */
+export const volumeProfile = volumeByPrice;
+
 export const flowMap = makeSeriesQuick('geo-flow', {
   fields: { longitude2: 'longitude2', latitude2: 'latitude2', value: 'value' },
 });
@@ -609,13 +656,29 @@ export const fullCatalog = [
   ...seriesChartTypeCatalog,
 ] as const;
 
+/** All historical names as presets mapped onto the consolidated family catalog. */
+export const fullVariantCatalog = [
+  ...chartVariantCatalog,
+  ...additionalChartVariantCatalog,
+  ...seriesChartVariantCatalog,
+] as const;
+
 export {
   additionalChartTypeCatalog,
+  additionalChartVariantCatalog,
   resolveSeriesType,
   seriesChartTypeCatalog,
+  seriesChartVariantCatalog,
   seriesCompatibilityCatalog,
   seriesCompatibilityIds,
 };
 export * from './index.js';
-export type { AdditionalChartTypeId } from './catalog/additional-chart-types.js';
-export type { SeriesChartTypeId, SeriesCompatibilityEntry } from './catalog/series-chart-types.js';
+export type {
+  AdditionalChartTypeId,
+  AdditionalChartVariantId,
+} from './catalog/additional-chart-types.js';
+export type {
+  SeriesChartTypeId,
+  SeriesChartVariantId,
+  SeriesCompatibilityEntry,
+} from './catalog/series-chart-types.js';

@@ -4,9 +4,14 @@
   "title": "Graflume ChartSpec",
   "description": "Portable, versioned chart specification for Graflume 0.1.",
   "x-graflume-catalog": {
-    "defaultFamilyCount": 31,
-    "fullFamilyCount": 141,
-    "seriesFamilyCount": 96,
+    "defaultFamilyCount": 22,
+    "additionalFamilyCount": 7,
+    "seriesFamilyCount": 8,
+    "fullFamilyCount": 37,
+    "defaultVariantCount": 31,
+    "additionalVariantCount": 14,
+    "seriesVariantCount": 96,
+    "fullVariantCount": 141,
     "compatibilitySeriesCount": 117,
     "additionalMarks": [
       "radar",

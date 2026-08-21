@@ -22,13 +22,18 @@ const additionalApis = [
 const defaultModule = await import(new URL('../dist/graflume.js', import.meta.url));
 const completeModule = await import(new URL('../dist/graflume.complete.js', import.meta.url));
 
-assert.equal(defaultModule.chartTypeCatalog.length, 31);
-assert.equal(completeModule.fullCatalog.length, 141);
-assert.equal(completeModule.additionalChartTypeCatalog.length, 14);
-assert.equal(completeModule.seriesChartTypeCatalog.length, 96);
+assert.equal(defaultModule.chartTypeCatalog.length, 22);
+assert.equal(defaultModule.chartVariantCatalog.length, 31);
+assert.equal(completeModule.fullCatalog.length, 37);
+assert.equal(completeModule.fullVariantCatalog.length, 141);
+assert.equal(completeModule.additionalChartTypeCatalog.length, 7);
+assert.equal(completeModule.additionalChartVariantCatalog.length, 14);
+assert.equal(completeModule.seriesChartTypeCatalog.length, 8);
+assert.equal(completeModule.seriesChartVariantCatalog.length, 96);
 assert.equal(completeModule.seriesCompatibilityCatalog.length, 117);
 assert.equal(completeModule.seriesCompatibilityIds.length, 117);
-assert.equal(completeModule.resolveSeriesType('area-spline-range').familyId, 'area-spline-range');
+assert.equal(completeModule.resolveSeriesType('area-spline-range').familyId, 'interval');
+assert.equal(completeModule.resolveSeriesType('area-spline-range').variantId, 'area-spline-range');
 assert.equal(completeModule.capabilities().marks.length, 73);
 for (const api of additionalApis) assert.equal(typeof completeModule[api], 'function', api);
 for (const entry of completeModule.seriesChartTypeCatalog) {
@@ -51,12 +56,16 @@ const completeGlobal = await loadBrowserGlobal('graflume.complete.global.js');
 
 assert.ok(defaultGlobal);
 assert.ok(completeGlobal);
-assert.equal(defaultGlobal.chartTypeCatalog.length, 31);
-assert.equal(completeGlobal.fullCatalog.length, 141);
-assert.equal(completeGlobal.seriesChartTypeCatalog.length, 96);
+assert.equal(defaultGlobal.chartTypeCatalog.length, 22);
+assert.equal(defaultGlobal.chartVariantCatalog.length, 31);
+assert.equal(completeGlobal.fullCatalog.length, 37);
+assert.equal(completeGlobal.fullVariantCatalog.length, 141);
+assert.equal(completeGlobal.seriesChartTypeCatalog.length, 8);
+assert.equal(completeGlobal.seriesChartVariantCatalog.length, 96);
 assert.equal(completeGlobal.seriesCompatibilityCatalog.length, 117);
 assert.equal(completeGlobal.seriesCompatibilityIds.length, 117);
-assert.equal(completeGlobal.resolveSeriesType('area-spline-range').familyId, 'area-spline-range');
+assert.equal(completeGlobal.resolveSeriesType('area-spline-range').familyId, 'interval');
+assert.equal(completeGlobal.resolveSeriesType('area-spline-range').variantId, 'area-spline-range');
 for (const api of additionalApis) assert.equal(typeof completeGlobal[api], 'function', api);
 for (const entry of completeGlobal.seriesChartTypeCatalog) {
   assert.equal(typeof completeGlobal[entry.quickApi], 'function', entry.quickApi);

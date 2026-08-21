@@ -1,33 +1,63 @@
+import type { ChartFamilyEntry, ChartVariantEntry } from './chart-types.js';
+
+const family = (id: string, name: string, quickApi: string, mark: string): ChartFamilyEntry => ({
+  id,
+  name,
+  quickApi,
+  mark,
+});
+
+const variant = (
+  id: string,
+  name: string,
+  quickApi: string,
+  mark: string,
+  familyId: string,
+  mode = 'default',
+): ChartVariantEntry => ({ id, name, quickApi, mark, familyId, mode });
+
+/** Distinct families added by the complete entrypoint. */
 export const additionalChartTypeCatalog = [
-  { id: 'radar', name: 'Radar chart', quickApi: 'radar', mark: 'radar' },
-  { id: 'tree', name: 'Tree chart', quickApi: 'tree', mark: 'tree' },
-  { id: 'graph', name: 'Graph chart', quickApi: 'graph', mark: 'graph' },
-  { id: 'chord', name: 'Chord diagram', quickApi: 'chord', mark: 'chord' },
-  { id: 'funnel', name: 'Funnel chart', quickApi: 'funnel', mark: 'funnel' },
-  { id: 'parallel', name: 'Parallel coordinates', quickApi: 'parallel', mark: 'parallel' },
-  { id: 'boxplot', name: 'Boxplot', quickApi: 'boxplot', mark: 'boxplot' },
-  {
-    id: 'effect-scatter',
-    name: 'Effect scatter chart',
-    quickApi: 'effectScatter',
-    mark: 'effect-scatter',
-  },
-  { id: 'lines', name: 'Connection lines', quickApi: 'lines', mark: 'lines' },
-  { id: 'heatmap', name: 'Heatmap', quickApi: 'heatmap', mark: 'heatmap' },
-  {
-    id: 'pictorial-bar',
-    name: 'Pictorial bar chart',
-    quickApi: 'pictorialBar',
-    mark: 'pictorial-bar',
-  },
-  {
-    id: 'theme-river',
-    name: 'Theme river chart',
-    quickApi: 'themeRiver',
-    mark: 'theme-river',
-  },
-  { id: 'sunburst', name: 'Sunburst chart', quickApi: 'sunburst', mark: 'sunburst' },
-  { id: 'custom', name: 'Declarative custom chart', quickApi: 'custom', mark: 'custom' },
+  family('radar', 'Radar chart', 'radar', 'radar'),
+  family('network', 'Network chart', 'network', 'graph'),
+  family('chord', 'Chord diagram', 'chord', 'chord'),
+  family('funnel', 'Funnel chart', 'funnel', 'funnel'),
+  family('parallel', 'Parallel coordinates', 'parallel', 'parallel'),
+  family('boxplot', 'Boxplot', 'boxplot', 'boxplot'),
+  family('heatmap', 'Heatmap', 'heatmap', 'heatmap'),
+] as const;
+
+/** Existing advanced names retained as compatible presets. */
+export const additionalChartVariantCatalog = [
+  variant('radar', 'Radar chart', 'radar', 'radar', 'radar'),
+  variant('tree', 'Tree chart', 'tree', 'tree', 'hierarchy', 'tree'),
+  variant('graph', 'Graph chart', 'graph', 'graph', 'network', 'node-link'),
+  variant('chord', 'Chord diagram', 'chord', 'chord', 'chord'),
+  variant('funnel', 'Funnel chart', 'funnel', 'funnel', 'funnel'),
+  variant('parallel', 'Parallel coordinates', 'parallel', 'parallel', 'parallel'),
+  variant('boxplot', 'Boxplot', 'boxplot', 'boxplot', 'boxplot'),
+  variant(
+    'effect-scatter',
+    'Effect scatter chart',
+    'effectScatter',
+    'effect-scatter',
+    'scatter',
+    'emphasis',
+  ),
+  variant('lines', 'Connection lines', 'lines', 'lines', 'network', 'connections'),
+  variant('heatmap', 'Heatmap', 'heatmap', 'heatmap', 'heatmap'),
+  variant(
+    'pictorial-bar',
+    'Pictorial bar chart',
+    'pictorialBar',
+    'pictorial-bar',
+    'bar',
+    'pictorial',
+  ),
+  variant('theme-river', 'Theme river chart', 'themeRiver', 'theme-river', 'area', 'stream'),
+  variant('sunburst', 'Sunburst chart', 'sunburst', 'sunburst', 'hierarchy', 'sunburst'),
+  variant('custom', 'Declarative custom chart', 'custom', 'custom', 'custom'),
 ] as const;
 
 export type AdditionalChartTypeId = (typeof additionalChartTypeCatalog)[number]['id'];
+export type AdditionalChartVariantId = (typeof additionalChartVariantCatalog)[number]['id'];

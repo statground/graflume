@@ -9,8 +9,10 @@ const {
   capabilities,
   compile,
   fullCatalog,
+  fullVariantCatalog,
   resolveSeriesType,
   seriesChartTypeCatalog,
+  seriesChartVariantCatalog,
   seriesCompatibilityCatalog,
   seriesCompatibilityIds,
 } = Graflume;
@@ -236,15 +238,20 @@ test('the unified series catalog covers every public series identifier', () => {
   assert.equal(seriesCompatibilityIds.length, 117);
   assert.equal(new Set(seriesCompatibilityIds).size, 117);
   assert.equal(seriesCompatibilityCatalog.length, 117);
-  assert.equal(seriesChartTypeCatalog.length, 96);
-  assert.equal(fullCatalog.length, 141);
-  assert.equal(new Set(fullCatalog.map((entry) => entry.id)).size, 141);
+  assert.equal(seriesChartTypeCatalog.length, 8);
+  assert.equal(seriesChartVariantCatalog.length, 96);
+  assert.equal(fullCatalog.length, 37);
+  assert.equal(fullVariantCatalog.length, 141);
+  assert.equal(new Set(fullCatalog.map((entry) => entry.id)).size, 37);
   const familyIds = new Set(fullCatalog.map((entry) => entry.id));
+  const variantIds = new Set(fullVariantCatalog.map((entry) => entry.id));
   for (const item of seriesCompatibilityCatalog) {
     assert.ok(familyIds.has(item.familyId), `${item.identifier} resolves to ${item.familyId}`);
+    assert.ok(variantIds.has(item.variantId), `${item.identifier} retains ${item.variantId}`);
     assert.deepEqual(resolveSeriesType(item.identifier), item);
   }
-  assert.equal(resolveSeriesType('area-spline-range')?.familyId, 'area-spline-range');
+  assert.equal(resolveSeriesType('area-spline-range')?.familyId, 'interval');
+  assert.equal(resolveSeriesType('area-spline-range')?.variantId, 'area-spline-range');
   assert.equal(resolveSeriesType('unknown-series'), undefined);
 });
 
@@ -253,6 +260,14 @@ test('every specialized series exposes a Quick API and registered canonical mark
   for (const entry of seriesChartTypeCatalog) {
     assert.equal(typeof Graflume[entry.quickApi], 'function', `${entry.quickApi} is exported`);
     assert.ok(marks.includes(entry.mark), `${entry.mark} is registered`);
+  }
+});
+
+test('every specialized preset retains its Quick API and maps to one family', () => {
+  const familyIds = new Set(fullCatalog.map((entry) => entry.id));
+  for (const entry of seriesChartVariantCatalog) {
+    assert.equal(typeof Graflume[entry.quickApi], 'function', `${entry.quickApi} is exported`);
+    assert.ok(familyIds.has(entry.familyId), `${entry.id} maps to ${entry.familyId}`);
   }
 });
 
@@ -274,8 +289,9 @@ test('schema metadata matches the unified runtime catalog', async () => {
     await readFile(new URL('../schema/graflume.schema.json', import.meta.url), 'utf8'),
   );
   const catalog = schema['x-graflume-catalog'];
-  assert.equal(catalog.fullFamilyCount, 141);
-  assert.equal(catalog.seriesFamilyCount, 96);
+  assert.equal(catalog.fullFamilyCount, 37);
+  assert.equal(catalog.seriesFamilyCount, 8);
+  assert.equal(catalog.seriesVariantCount, 96);
   assert.equal(catalog.compatibilitySeriesCount, 117);
   for (const mark of capabilities().marks) assert.ok(catalog.builtInMarks.includes(mark), mark);
 });
