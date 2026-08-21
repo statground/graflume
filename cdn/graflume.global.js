@@ -12,6 +12,10 @@ var Graflume = (function (exports) {
             y,
         }, create);
     }
+    function quickCombo(createChart, target, data, options) {
+        const { layers, create, ...chartOptions } = options;
+        return createChart(target, { ...chartOptions, data, layers }, create);
+    }
 
     const SETTINGS = {
         standard: {
@@ -194,6 +198,37 @@ var Graflume = (function (exports) {
         }
         if (!isPlainObject(value) || typeof value.type !== 'string' || value.type.trim() === '') {
             issues.push({ path, message: 'Mark must be a type string or an object with a type.' });
+            return;
+        }
+        if (value.fields !== undefined) {
+            if (!isPlainObject(value.fields)) {
+                issues.push({ path: `${path}.fields`, message: 'Mark fields must be an object.' });
+            }
+            else {
+                for (const [name, field] of Object.entries(value.fields)) {
+                    if (UNSAFE_FIELDS.has(name)) {
+                        issues.push({
+                            path: `${path}.fields.${name}`,
+                            message: `Unsafe key "${name}" is forbidden.`,
+                        });
+                    }
+                    if (typeof field !== 'string' || field.trim() === '') {
+                        issues.push({
+                            path: `${path}.fields.${name}`,
+                            message: 'Named mark fields must be non-empty strings.',
+                        });
+                    }
+                    else if (UNSAFE_FIELDS.has(field)) {
+                        issues.push({
+                            path: `${path}.fields.${name}`,
+                            message: `Unsafe field "${field}" is forbidden.`,
+                        });
+                    }
+                }
+            }
+        }
+        if (value.options !== undefined && !isPlainObject(value.options)) {
+            issues.push({ path: `${path}.options`, message: 'Mark options must be a JSON object.' });
         }
     }
     function validateLayer(layer, path, hasParentData, issues) {
@@ -205,7 +240,10 @@ var Graflume = (function (exports) {
         validateEncoding(layer.x, `${path}.x`, issues);
         validateEncoding(layer.y, `${path}.y`, issues);
         if (!hasParentData && layer.data === undefined) {
-            issues.push({ path: `${path}.data`, message: 'Layer data is required when chart-level data is absent.' });
+            issues.push({
+                path: `${path}.data`,
+                message: 'Layer data is required when chart-level data is absent.',
+            });
         }
     }
     function findFunctions(value, path, issues, seen) {
@@ -258,7 +296,10 @@ var Graflume = (function (exports) {
             validateEncoding(input.x, '$.x', issues);
             validateEncoding(input.y, '$.y', issues);
             if (input.data === undefined) {
-                issues.push({ path: '$.data', message: 'Chart-level data is required for shorthand charts.' });
+                issues.push({
+                    path: '$.data',
+                    message: 'Chart-level data is required for shorthand charts.',
+                });
             }
         }
         findFunctions(input, '$', issues, new WeakSet());
@@ -327,6 +368,9 @@ var Graflume = (function (exports) {
             ...(mark.cornerRadius === undefined ? {} : { cornerRadius: mark.cornerRadius }),
             point: mark.point ?? false,
             position: mark.position ?? 'overlay',
+            orientation: mark.orientation ?? 'vertical',
+            fields: { ...mark.fields },
+            options: { ...mark.options },
         };
     }
     function normalizeLayer(layer, index, parentData, chartAxes) {
@@ -376,9 +420,7 @@ var Graflume = (function (exports) {
                 click: input.interaction?.click ?? true,
             },
             accessibility: {
-                ...(input.accessibility?.label === undefined
-                    ? {}
-                    : { label: input.accessibility.label }),
+                ...(input.accessibility?.label === undefined ? {} : { label: input.accessibility.label }),
                 ...(input.accessibility?.description === undefined
                     ? {}
                     : { description: input.accessibility.description }),
@@ -634,7 +676,9 @@ var Graflume = (function (exports) {
                 return 'temporal';
             if (typeof value === 'number')
                 return 'quantitative';
-            if (typeof value === 'string' && ISO_DATE_PREFIX.test(value) && Number.isFinite(Date.parse(value))) {
+            if (typeof value === 'string' &&
+                ISO_DATE_PREFIX.test(value) &&
+                Number.isFinite(Date.parse(value))) {
                 return 'temporal';
             }
             return 'nominal';
@@ -733,7 +777,11 @@ var Graflume = (function (exports) {
             return this.#domain;
         }
         map(input) {
-            const value = input instanceof Date ? input.getTime() : typeof input === 'string' ? Date.parse(input) : input;
+            const value = input instanceof Date
+                ? input.getTime()
+                : typeof input === 'string'
+                    ? Date.parse(input)
+                    : input;
             if (!Number.isFinite(value))
                 return Number.NaN;
             const [domainStart, domainEnd] = this.#domain;
@@ -777,6 +825,7 @@ var Graflume = (function (exports) {
                     year: 'numeric',
                     month: 'short',
                     day: 'numeric',
+                    timeZone: 'UTC',
                 }).format(new Date(value));
             }
             return new Intl.NumberFormat(locale, { maximumFractionDigits: 6 }).format(value);
@@ -816,13 +865,66 @@ var Graflume = (function (exports) {
         let includeZero = false;
         for (const { layer, table } of layers) {
             const encoding = layer[axis];
-            const extent = table.extent(encoding.field, fieldType === 'temporal');
-            if (extent !== null) {
-                min = Math.min(min, extent[0]);
-                max = Math.max(max, extent[1]);
+            const fields = axis === 'y' && layer.mark.type === 'histogram' ? [] : [encoding.field];
+            if (axis === 'x' && (layer.mark.type === 'timeline' || layer.mark.type === 'gantt')) {
+                fields.push(layer.mark.fields.end ?? 'end');
             }
-            if (axis === 'y' &&
-                (encoding.scale.zero === true || layer.mark.type === 'bar' || layer.mark.type === 'area')) {
+            if (axis === 'y' && layer.mark.type === 'candlestick') {
+                fields.push(layer.mark.fields.open ?? 'open', layer.mark.fields.high ?? 'high', layer.mark.fields.low ?? 'low', layer.mark.fields.close ?? encoding.field);
+            }
+            if (axis === 'y' && layer.mark.type === 'interval') {
+                fields.push(layer.mark.fields.low ?? 'low', layer.mark.fields.high ?? 'high');
+            }
+            if (axis === 'y' && layer.mark.type === 'diff') {
+                fields.push(layer.mark.fields.old ?? 'old', layer.mark.fields.new ?? encoding.field);
+            }
+            for (const field of new Set(fields)) {
+                if (!table.has(field))
+                    continue;
+                const extent = table.extent(field, fieldType === 'temporal');
+                if (extent !== null) {
+                    min = Math.min(min, extent[0]);
+                    max = Math.max(max, extent[1]);
+                }
+            }
+            if (axis === 'y' && layer.mark.type === 'histogram') {
+                const binCount = Math.max(1, Math.min(100, Math.floor(typeof layer.mark.options.bins === 'number' ? layer.mark.options.bins : 10)));
+                const sourceExtent = table.extent(layer.x.field, layer.x.type === 'temporal');
+                if (sourceExtent !== null) {
+                    const counts = Array.from({ length: binCount }, () => 0);
+                    const span = sourceExtent[1] - sourceExtent[0] || 1;
+                    for (let index = 0; index < table.length; index += 1) {
+                        const value = table.numericValue(index, layer.x.field);
+                        if (value === null)
+                            continue;
+                        const bin = Math.min(binCount - 1, Math.max(0, Math.floor(((value - sourceExtent[0]) / span) * binCount)));
+                        counts[bin] = (counts[bin] ?? 0) + 1;
+                    }
+                    min = Math.min(min, 0);
+                    max = Math.max(max, ...counts);
+                }
+            }
+            if (axis === 'y' && layer.mark.type === 'waterfall') {
+                let total = 0;
+                min = Math.min(min, 0);
+                max = Math.max(max, 0);
+                for (let index = 0; index < table.length; index += 1) {
+                    const value = table.numericValue(index, layer.y.field);
+                    if (value === null)
+                        continue;
+                    const previous = total;
+                    total += value;
+                    min = Math.min(min, previous, total);
+                    max = Math.max(max, previous, total);
+                }
+            }
+            if (encoding.scale.zero === true ||
+                (axis === 'y' &&
+                    (layer.mark.type === 'bar' ||
+                        layer.mark.type === 'area' ||
+                        layer.mark.type === 'histogram' ||
+                        layer.mark.type === 'waterfall')) ||
+                (axis === 'x' && layer.mark.type === 'bar' && layer.mark.orientation === 'horizontal')) {
                 includeZero = true;
             }
         }
@@ -876,9 +978,6 @@ var Graflume = (function (exports) {
         }
         const xType = resolveCommonType(layers.map((layer) => layer.xType), 'x');
         const yType = resolveCommonType(layers.map((layer) => layer.yType), 'y');
-        if (typeFamily(yType) === 'categorical') {
-            throw new GraflumeError('INCOMPATIBLE_SCALE', 'The initial Graflume runtime requires a quantitative or temporal y-axis.', { path: '$.layers[].y.type' });
-        }
         const xScale = typeFamily(xType) === 'categorical'
             ? new BandScale({
                 domain: categoricalDomain(layers, 'x'),
@@ -901,17 +1000,28 @@ var Graflume = (function (exports) {
                     ? {}
                     : { clamp: layers[0].layer.x.scale.clamp }),
             });
-        const yScale = new LinearScale({
-            domain: numericDomain(layers, 'y', yType),
-            range: [plot.y + plot.height, plot.y],
-            kind: yType === 'temporal' ? 'time' : 'linear',
-            ...(layers[0]?.layer.y.scale.nice === undefined
-                ? {}
-                : { nice: layers[0].layer.y.scale.nice }),
-            ...(layers[0]?.layer.y.scale.clamp === undefined
-                ? {}
-                : { clamp: layers[0].layer.y.scale.clamp }),
-        });
+        const yScale = typeFamily(yType) === 'categorical'
+            ? new BandScale({
+                domain: categoricalDomain(layers, 'y'),
+                range: [plot.y, plot.y + plot.height],
+                ...(layers[0]?.layer.y.scale.paddingInner === undefined
+                    ? {}
+                    : { paddingInner: layers[0].layer.y.scale.paddingInner }),
+                ...(layers[0]?.layer.y.scale.paddingOuter === undefined
+                    ? {}
+                    : { paddingOuter: layers[0].layer.y.scale.paddingOuter }),
+            })
+            : new LinearScale({
+                domain: numericDomain(layers, 'y', yType),
+                range: [plot.y + plot.height, plot.y],
+                kind: yType === 'temporal' ? 'time' : 'linear',
+                ...(layers[0]?.layer.y.scale.nice === undefined
+                    ? {}
+                    : { nice: layers[0].layer.y.scale.nice }),
+                ...(layers[0]?.layer.y.scale.clamp === undefined
+                    ? {}
+                    : { clamp: layers[0].layer.y.scale.clamp }),
+            });
         return { layers, xType, yType, xScale, yScale };
     }
 
@@ -930,11 +1040,27 @@ var Graflume = (function (exports) {
         };
     }
 
+    const AXISLESS_MARKS = new Set([
+        'calendar',
+        'gauge',
+        'geo',
+        'map',
+        'org',
+        'pie',
+        'sankey',
+        'table',
+        'treemap',
+        'word-tree',
+    ]);
     function titleNodes(spec, theme, width, titleY, subtitleY) {
         if (spec.title === undefined)
             return [];
         const align = spec.title.align ?? 'left';
-        const x = align === 'left' ? spec.padding.left : align === 'right' ? width - spec.padding.right : width / 2;
+        const x = align === 'left'
+            ? spec.padding.left
+            : align === 'right'
+                ? width - spec.padding.right
+                : width / 2;
         const canvasAlign = align;
         const nodes = [
             {
@@ -987,24 +1113,27 @@ var Graflume = (function (exports) {
         const scales = resolveScales(spec, layout.plot);
         const totalRows = scales.layers.reduce((sum, layer) => sum + layer.table.length, 0);
         const performance = resolvePerformanceSettings(spec.performance, totalRows, layout.plot.width);
-        const axisNodes = [
-            ...compileXAxis({
-                axis: scales.layers[0]?.layer.x.axis ?? spec.axes.x,
-                scale: scales.xScale,
-                plot: layout.plot,
-                theme,
-                title: scales.layers[0]?.layer.x.title ?? '',
-                ...(spec.locale === undefined ? {} : { locale: spec.locale }),
-            }),
-            ...compileYAxis({
-                axis: scales.layers[0]?.layer.y.axis ?? spec.axes.y,
-                scale: scales.yScale,
-                plot: layout.plot,
-                theme,
-                title: scales.layers[0]?.layer.y.title ?? '',
-                ...(spec.locale === undefined ? {} : { locale: spec.locale }),
-            }),
-        ];
+        const showAxes = spec.layers.some((layer) => !AXISLESS_MARKS.has(layer.mark.type));
+        const axisNodes = showAxes
+            ? [
+                ...compileXAxis({
+                    axis: scales.layers[0]?.layer.x.axis ?? spec.axes.x,
+                    scale: scales.xScale,
+                    plot: layout.plot,
+                    theme,
+                    title: scales.layers[0]?.layer.x.title ?? '',
+                    ...(spec.locale === undefined ? {} : { locale: spec.locale }),
+                }),
+                ...compileYAxis({
+                    axis: scales.layers[0]?.layer.y.axis ?? spec.axes.y,
+                    scale: scales.yScale,
+                    plot: layout.plot,
+                    theme,
+                    title: scales.layers[0]?.layer.y.title ?? '',
+                    ...(spec.locale === undefined ? {} : { locale: spec.locale }),
+                }),
+            ]
+            : [];
         const barLayers = scales.layers.filter(({ layer }) => layer.mark.type === 'bar' && layer.mark.position === 'group');
         const layerGroups = scales.layers.map((layerData, layerIndex) => {
             const color = theme.colors.palette[layerIndex % theme.colors.palette.length] ?? theme.colors.focus;
@@ -1092,6 +1221,24 @@ var Graflume = (function (exports) {
         return Math.hypot(x - (x1 + t * dx), y - (y1 + t * dy));
     }
     function pathDistance(node, x, y) {
+        if (node.closed && node.points.length >= 3) {
+            let inside = false;
+            for (let index = 0, previous = node.points.length - 1; index < node.points.length; previous = index, index += 1) {
+                const currentPoint = node.points[index];
+                const previousPoint = node.points[previous];
+                if (currentPoint === undefined || previousPoint === undefined)
+                    continue;
+                const crosses = currentPoint.y > y !== previousPoint.y > y &&
+                    x <
+                        ((previousPoint.x - currentPoint.x) * (y - currentPoint.y)) /
+                            (previousPoint.y - currentPoint.y || Number.EPSILON) +
+                            currentPoint.x;
+                if (crosses)
+                    inside = !inside;
+            }
+            if (inside)
+                return 0;
+        }
         let minimum = Number.POSITIVE_INFINITY;
         for (let index = 1; index < node.points.length; index += 1) {
             const first = node.points[index - 1];
@@ -1282,7 +1429,8 @@ var Graflume = (function (exports) {
             if (this.#spec.layers === undefined) {
                 throw new GraflumeError('INVALID_DATA', 'The chart has no layer data to append to.');
             }
-            const targetLayerId = layerId ?? (this.#spec.layers.length === 1 ? this.#spec.layers[0]?.id ?? 'layer-0' : undefined);
+            const targetLayerId = layerId ??
+                (this.#spec.layers.length === 1 ? (this.#spec.layers[0]?.id ?? 'layer-0') : undefined);
             if (targetLayerId === undefined) {
                 throw new GraflumeError('INVALID_DATA', 'Specify layerId when appending to a multi-layer chart.');
             }
@@ -1389,11 +1537,14 @@ var Graflume = (function (exports) {
             const width = this.#manualWidth ??
                 (typeof this.#spec.width === 'number' ? this.#spec.width : this.#target.clientWidth || 640);
             const height = this.#manualHeight ??
-                (typeof this.#spec.height === 'number' ? this.#spec.height : this.#target.clientHeight || 400);
+                (typeof this.#spec.height === 'number'
+                    ? this.#spec.height
+                    : this.#target.clientHeight || 400);
             return { width: Math.max(1, width), height: Math.max(1, height) };
         }
         #pixelRatio() {
-            const ratio = this.#options.pixelRatio ?? (typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1);
+            const ratio = this.#options.pixelRatio ??
+                (typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1);
             return Math.max(1, Math.min(3, ratio));
         }
         #configureResizeObserver() {
@@ -1567,11 +1718,51 @@ var Graflume = (function (exports) {
 
     const compileBarMark = (context) => {
         const { table, layer, xScale, yScale, color, theme, barGroup, performance, plot } = context;
+        if (layer.mark.orientation === 'horizontal') {
+            const baseline = xScale.map(0);
+            const slotHeight = yScale instanceof BandScale
+                ? yScale.bandwidth / Math.max(1, barGroup.count)
+                : Math.max(1, ((plot.height / Math.max(1, table.length)) * 0.8) / Math.max(1, barGroup.count));
+            const barHeight = Math.max(1, slotHeight * 0.86);
+            const nodes = [];
+            const indices = strideSampleIndices(table.length, performance.maxBarMarks);
+            for (const rowIndex of indices) {
+                const xInput = scaleInput(table.value(rowIndex, layer.x.field));
+                const yInput = scaleInput(table.value(rowIndex, layer.y.field));
+                if (xInput === null || yInput === null)
+                    continue;
+                const xValue = xScale.map(xInput);
+                const yCenter = yScale.map(yInput);
+                if (!Number.isFinite(xValue) || !Number.isFinite(yCenter) || !Number.isFinite(baseline))
+                    continue;
+                const groupOffset = layer.mark.position === 'group'
+                    ? (barGroup.index - (barGroup.count - 1) / 2) * slotHeight
+                    : 0;
+                nodes.push({
+                    type: 'rect',
+                    ...nodeBase(`${layer.id}:bar:${rowIndex}`, {
+                        zIndex: layer.zIndex,
+                        opacity: layer.mark.opacity,
+                        interactive: performance.enableHitTesting,
+                        datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) },
+                    }),
+                    x: Math.min(xValue, baseline),
+                    y: yCenter + groupOffset - barHeight / 2,
+                    width: Math.max(0.5, Math.abs(baseline - xValue)),
+                    height: barHeight,
+                    fill: layer.mark.fill ?? color,
+                    ...(layer.mark.stroke === undefined ? {} : { stroke: layer.mark.stroke }),
+                    lineWidth: layer.mark.lineWidth ?? 0,
+                    cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
+                });
+            }
+            return nodes;
+        }
         const baseline = yScale.map(0);
         const nodes = [];
         const slotWidth = xScale instanceof BandScale
             ? xScale.bandwidth / Math.max(1, barGroup.count)
-            : Math.max(1, (plot.width / Math.max(1, table.length)) * 0.8 / Math.max(1, barGroup.count));
+            : Math.max(1, ((plot.width / Math.max(1, table.length)) * 0.8) / Math.max(1, barGroup.count));
         const barWidth = Math.max(1, slotWidth * 0.86);
         const indices = strideSampleIndices(table.length, performance.maxBarMarks);
         for (const rowIndex of indices) {
@@ -1583,9 +1774,7 @@ var Graflume = (function (exports) {
             const yValue = yScale.map(yInput);
             if (!Number.isFinite(xCenter) || !Number.isFinite(yValue) || !Number.isFinite(baseline))
                 continue;
-            const groupOffset = layer.mark.position === 'group'
-                ? (barGroup.index - (barGroup.count - 1) / 2) * slotWidth
-                : 0;
+            const groupOffset = layer.mark.position === 'group' ? (barGroup.index - (barGroup.count - 1) / 2) * slotWidth : 0;
             const x = xCenter + groupOffset - barWidth / 2;
             const y = Math.min(yValue, baseline);
             const height = Math.max(0.5, Math.abs(baseline - yValue));
@@ -1713,6 +1902,1382 @@ var Graflume = (function (exports) {
                 lineWidth: layer.mark.lineWidth ?? 1,
             });
         }
+        return nodes;
+    };
+
+    function optionNumber$2(options, name, fallback) {
+        const value = options[name];
+        return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+    }
+    function optionString(options, name) {
+        const value = options[name];
+        return typeof value === 'string' ? value : undefined;
+    }
+    function textNode$1(id, x, y, text, context, options = {}) {
+        return {
+            type: 'text',
+            ...nodeBase(id, { zIndex: context.layer.zIndex + 2 }),
+            x,
+            y,
+            text,
+            fill: context.theme.colors.text,
+            fontFamily: context.theme.typography.fontFamily,
+            fontSize: options.size ?? context.theme.typography.fontSize,
+            fontWeight: options.weight ?? 500,
+            align: options.align ?? 'center',
+            baseline: options.baseline ?? 'middle',
+            rotation: 0,
+        };
+    }
+    const compileSteppedAreaMark = (context) => {
+        const { table, layer, xScale, yScale, color, theme } = context;
+        const top = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const xInput = scaleInput(table.value(rowIndex, layer.x.field));
+            const yInput = scaleInput(table.value(rowIndex, layer.y.field));
+            if (xInput === null || yInput === null)
+                continue;
+            const x = xScale.map(xInput);
+            const y = yScale.map(yInput);
+            if (!Number.isFinite(x) || !Number.isFinite(y))
+                continue;
+            const previous = top.at(-1);
+            if (previous !== undefined)
+                top.push({ x, y: previous.y });
+            top.push({ x, y });
+        }
+        const first = top[0];
+        const last = top.at(-1);
+        if (first === undefined || last === undefined)
+            return [];
+        const baseline = yScale.map(0);
+        const area = {
+            type: 'path',
+            ...nodeBase(`${layer.id}:stepped-area`, { zIndex: layer.zIndex, opacity: layer.mark.opacity }),
+            points: [...top, { x: last.x, y: baseline }, { x: first.x, y: baseline }],
+            closed: true,
+            fill: layer.mark.fill ?? color,
+            stroke: layer.mark.stroke ?? color,
+            lineWidth: layer.mark.lineWidth ?? theme.mark.lineWidth,
+        };
+        return [area];
+    };
+    const compileBubbleMark = (context) => {
+        const { table, layer, xScale, yScale, theme, color, performance } = context;
+        const sizeField = layer.mark.fields.size;
+        const colorField = layer.mark.fields.color;
+        const timeField = layer.mark.fields.time;
+        const frame = layer.mark.options.frame;
+        let minimum = Number.POSITIVE_INFINITY;
+        let maximum = Number.NEGATIVE_INFINITY;
+        if (sizeField !== undefined && table.has(sizeField)) {
+            const extent = table.extent(sizeField);
+            if (extent !== null)
+                [minimum, maximum] = extent;
+        }
+        if (!Number.isFinite(minimum) || !Number.isFinite(maximum)) {
+            minimum = 1;
+            maximum = 1;
+        }
+        const categoryColors = new Map();
+        const nodes = [];
+        const minimumRadius = optionNumber$2(layer.mark.options, 'minRadius', layer.mark.radius ?? 5);
+        const maximumRadius = optionNumber$2(layer.mark.options, 'maxRadius', 24);
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            if (timeField !== undefined &&
+                frame !== undefined &&
+                String(table.value(rowIndex, timeField)) !== String(frame)) {
+                continue;
+            }
+            const xInput = scaleInput(table.value(rowIndex, layer.x.field));
+            const yInput = scaleInput(table.value(rowIndex, layer.y.field));
+            if (xInput === null || yInput === null)
+                continue;
+            const cx = xScale.map(xInput);
+            const cy = yScale.map(yInput);
+            if (!Number.isFinite(cx) || !Number.isFinite(cy))
+                continue;
+            const size = sizeField === undefined ? maximum : numericDataValue(table.value(rowIndex, sizeField));
+            const ratio = size === null || maximum === minimum
+                ? 0.5
+                : Math.max(0, Math.min(1, (size - minimum) / (maximum - minimum)));
+            let fill = layer.mark.fill ?? color;
+            if (colorField !== undefined) {
+                const category = String(table.value(rowIndex, colorField) ?? '');
+                let categoryColor = categoryColors.get(category);
+                if (categoryColor === undefined) {
+                    categoryColor =
+                        theme.colors.palette[categoryColors.size % theme.colors.palette.length] ??
+                            theme.colors.focus;
+                    categoryColors.set(category, categoryColor);
+                }
+                fill = categoryColor;
+            }
+            nodes.push({
+                type: 'circle',
+                ...nodeBase(`${layer.id}:bubble:${rowIndex}`, {
+                    zIndex: layer.zIndex,
+                    opacity: layer.mark.opacity,
+                    interactive: performance.enableHitTesting,
+                    datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) },
+                }),
+                cx,
+                cy,
+                radius: minimumRadius + Math.sqrt(ratio) * (maximumRadius - minimumRadius),
+                fill,
+                stroke: layer.mark.stroke ?? theme.colors.background,
+                lineWidth: layer.mark.lineWidth ?? 1.5,
+            });
+        }
+        return nodes;
+    };
+    const compileCandlestickMark = (context) => {
+        const { table, layer, xScale, yScale, plot, theme, performance } = context;
+        const openField = layer.mark.fields.open ?? 'open';
+        const highField = layer.mark.fields.high ?? 'high';
+        const lowField = layer.mark.fields.low ?? 'low';
+        const closeField = layer.mark.fields.close ?? layer.y.field;
+        const width = Math.max(3, xScale instanceof BandScale
+            ? xScale.bandwidth * 0.58
+            : (plot.width / Math.max(1, table.length)) * 0.56);
+        const nodes = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const xInput = scaleInput(table.value(rowIndex, layer.x.field));
+            const open = numericDataValue(table.value(rowIndex, openField));
+            const high = numericDataValue(table.value(rowIndex, highField));
+            const low = numericDataValue(table.value(rowIndex, lowField));
+            const close = numericDataValue(table.value(rowIndex, closeField));
+            if (xInput === null || open === null || high === null || low === null || close === null)
+                continue;
+            const x = xScale.map(xInput);
+            const yOpen = yScale.map(open);
+            const yHigh = yScale.map(high);
+            const yLow = yScale.map(low);
+            const yClose = yScale.map(close);
+            if (![x, yOpen, yHigh, yLow, yClose].every(Number.isFinite))
+                continue;
+            const rising = close >= open;
+            const fill = rising
+                ? (optionString(layer.mark.options, 'risingColor') ?? theme.colors.palette[2] ?? '#10b981')
+                : (optionString(layer.mark.options, 'fallingColor') ?? theme.colors.palette[3] ?? '#ef4444');
+            const datum = { layerId: layer.id, rowIndex, datum: table.row(rowIndex) };
+            nodes.push({
+                type: 'line',
+                ...nodeBase(`${layer.id}:wick:${rowIndex}`, {
+                    zIndex: layer.zIndex,
+                    opacity: layer.mark.opacity,
+                }),
+                x1: x,
+                y1: yHigh,
+                x2: x,
+                y2: yLow,
+                stroke: layer.mark.stroke ?? theme.colors.axis,
+                lineWidth: layer.mark.lineWidth ?? 1.4,
+            });
+            nodes.push({
+                type: 'rect',
+                ...nodeBase(`${layer.id}:body:${rowIndex}`, {
+                    zIndex: layer.zIndex + 0.1,
+                    opacity: layer.mark.opacity,
+                    interactive: performance.enableHitTesting,
+                    datum,
+                }),
+                x: x - width / 2,
+                y: Math.min(yOpen, yClose),
+                width,
+                height: Math.max(1.5, Math.abs(yOpen - yClose)),
+                fill,
+                stroke: layer.mark.stroke ?? fill,
+                lineWidth: layer.mark.lineWidth ?? 1,
+                cornerRadius: layer.mark.cornerRadius ?? 1,
+            });
+        }
+        return nodes;
+    };
+    const compileHistogramMark = (context) => {
+        const { table, layer, xScale, yScale, theme, color, performance } = context;
+        const binCount = Math.max(1, Math.min(100, Math.floor(optionNumber$2(layer.mark.options, 'bins', 10))));
+        const extent = table.extent(layer.x.field, layer.x.type === 'temporal');
+        if (extent === null)
+            return [];
+        const span = extent[1] - extent[0] || 1;
+        const bins = Array.from({ length: binCount }, () => 0);
+        const rows = Array.from({ length: binCount }, () => []);
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const value = numericDataValue(table.value(rowIndex, layer.x.field), layer.x.type === 'temporal');
+            if (value === null)
+                continue;
+            const bin = Math.min(binCount - 1, Math.max(0, Math.floor(((value - extent[0]) / span) * binCount)));
+            bins[bin] = (bins[bin] ?? 0) + 1;
+            rows[bin]?.push(rowIndex);
+        }
+        const baseline = yScale.map(0);
+        const nodes = [];
+        bins.forEach((count, index) => {
+            const start = extent[0] + (span * index) / binCount;
+            const end = extent[0] + (span * (index + 1)) / binCount;
+            const x1 = xScale.map(start);
+            const x2 = xScale.map(end);
+            const y = yScale.map(count);
+            const rowIndex = rows[index]?.[0];
+            if (![x1, x2, y, baseline].every(Number.isFinite))
+                return;
+            nodes.push({
+                type: 'rect',
+                ...nodeBase(`${layer.id}:bin:${index}`, {
+                    zIndex: layer.zIndex,
+                    opacity: layer.mark.opacity,
+                    interactive: performance.enableHitTesting && rowIndex !== undefined,
+                    ...(rowIndex === undefined
+                        ? {}
+                        : { datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) } }),
+                }),
+                x: Math.min(x1, x2) + 1,
+                y: Math.min(y, baseline),
+                width: Math.max(1, Math.abs(x2 - x1) - 2),
+                height: Math.max(0.5, Math.abs(baseline - y)),
+                fill: layer.mark.fill ?? color,
+                stroke: layer.mark.stroke ?? theme.colors.background,
+                lineWidth: layer.mark.lineWidth ?? 1,
+                cornerRadius: layer.mark.cornerRadius ?? 1,
+            });
+        });
+        return nodes;
+    };
+    const compileIntervalMark = (context) => {
+        const { table, layer, xScale, yScale, color, theme, performance } = context;
+        const lowField = layer.mark.fields.low ?? 'low';
+        const highField = layer.mark.fields.high ?? 'high';
+        const nodes = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const xInput = scaleInput(table.value(rowIndex, layer.x.field));
+            const value = numericDataValue(table.value(rowIndex, layer.y.field));
+            const low = numericDataValue(table.value(rowIndex, lowField));
+            const high = numericDataValue(table.value(rowIndex, highField));
+            if (xInput === null || value === null || low === null || high === null)
+                continue;
+            const x = xScale.map(xInput);
+            const y = yScale.map(value);
+            const yLow = yScale.map(low);
+            const yHigh = yScale.map(high);
+            if (![x, y, yLow, yHigh].every(Number.isFinite))
+                continue;
+            const stroke = layer.mark.stroke ?? color;
+            const cap = Math.max(4, (xScale instanceof BandScale ? xScale.bandwidth : 14) * 0.25);
+            const base = `${layer.id}:interval:${rowIndex}`;
+            const lineWidth = layer.mark.lineWidth ?? 2;
+            const lines = [
+                {
+                    type: 'line',
+                    ...nodeBase(`${base}:range`, { zIndex: layer.zIndex }),
+                    x1: x,
+                    y1: yHigh,
+                    x2: x,
+                    y2: yLow,
+                    stroke,
+                    lineWidth,
+                },
+                {
+                    type: 'line',
+                    ...nodeBase(`${base}:high`, { zIndex: layer.zIndex }),
+                    x1: x - cap,
+                    y1: yHigh,
+                    x2: x + cap,
+                    y2: yHigh,
+                    stroke,
+                    lineWidth,
+                },
+                {
+                    type: 'line',
+                    ...nodeBase(`${base}:low`, { zIndex: layer.zIndex }),
+                    x1: x - cap,
+                    y1: yLow,
+                    x2: x + cap,
+                    y2: yLow,
+                    stroke,
+                    lineWidth,
+                },
+            ];
+            nodes.push(...lines);
+            nodes.push({
+                type: 'circle',
+                ...nodeBase(`${base}:value`, {
+                    zIndex: layer.zIndex + 0.1,
+                    interactive: performance.enableHitTesting,
+                    datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) },
+                }),
+                cx: x,
+                cy: y,
+                radius: layer.mark.radius ?? theme.mark.pointRadius + 1,
+                fill: layer.mark.fill ?? theme.colors.background,
+                stroke,
+                lineWidth,
+            });
+        }
+        return nodes;
+    };
+    const compileTrendlineMark = (context) => {
+        const { table, layer, xScale, yScale, color, theme } = context;
+        const points = compilePointMark(context);
+        const pairs = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const x = numericDataValue(table.value(rowIndex, layer.x.field), layer.x.type === 'temporal');
+            const y = numericDataValue(table.value(rowIndex, layer.y.field), layer.y.type === 'temporal');
+            if (x !== null && y !== null)
+                pairs.push({ x, y });
+        }
+        if (pairs.length < 2)
+            return points;
+        const meanX = pairs.reduce((sum, point) => sum + point.x, 0) / pairs.length;
+        const meanY = pairs.reduce((sum, point) => sum + point.y, 0) / pairs.length;
+        const numerator = pairs.reduce((sum, point) => sum + (point.x - meanX) * (point.y - meanY), 0);
+        const denominator = pairs.reduce((sum, point) => sum + (point.x - meanX) ** 2, 0) || 1;
+        const slope = numerator / denominator;
+        const intercept = meanY - slope * meanX;
+        const minimum = Math.min(...pairs.map((point) => point.x));
+        const maximum = Math.max(...pairs.map((point) => point.x));
+        const line = {
+            type: 'path',
+            ...nodeBase(`${layer.id}:trendline`, {
+                zIndex: layer.zIndex + 0.2,
+                opacity: layer.mark.opacity,
+            }),
+            points: [
+                { x: xScale.map(minimum), y: yScale.map(intercept + slope * minimum) },
+                { x: xScale.map(maximum), y: yScale.map(intercept + slope * maximum) },
+            ],
+            closed: false,
+            stroke: layer.mark.stroke ?? color,
+            lineWidth: layer.mark.lineWidth ?? theme.mark.lineWidth + 0.5,
+            dash: [7, 4],
+        };
+        return [...points, line];
+    };
+    const compileWaterfallMark = (context) => {
+        const { table, layer, xScale, yScale, theme, performance, plot } = context;
+        const width = Math.max(3, xScale instanceof BandScale
+            ? xScale.bandwidth * 0.62
+            : (plot.width / Math.max(1, table.length)) * 0.6);
+        const nodes = [];
+        let total = 0;
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const xInput = scaleInput(table.value(rowIndex, layer.x.field));
+            const delta = numericDataValue(table.value(rowIndex, layer.y.field));
+            if (xInput === null || delta === null)
+                continue;
+            const previous = total;
+            total += delta;
+            const x = xScale.map(xInput);
+            const y1 = yScale.map(previous);
+            const y2 = yScale.map(total);
+            if (![x, y1, y2].every(Number.isFinite))
+                continue;
+            const fill = delta >= 0
+                ? (optionString(layer.mark.options, 'positiveColor') ??
+                    theme.colors.palette[2] ??
+                    '#10b981')
+                : (optionString(layer.mark.options, 'negativeColor') ??
+                    theme.colors.palette[3] ??
+                    '#ef4444');
+            nodes.push({
+                type: 'rect',
+                ...nodeBase(`${layer.id}:waterfall:${rowIndex}`, {
+                    zIndex: layer.zIndex,
+                    opacity: layer.mark.opacity,
+                    interactive: performance.enableHitTesting,
+                    datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) },
+                }),
+                x: x - width / 2,
+                y: Math.min(y1, y2),
+                width,
+                height: Math.max(1, Math.abs(y2 - y1)),
+                fill,
+                lineWidth: 0,
+                cornerRadius: layer.mark.cornerRadius ?? 2,
+            });
+            const nextInput = rowIndex + 1 < table.length ? scaleInput(table.value(rowIndex + 1, layer.x.field)) : null;
+            if (nextInput !== null) {
+                const nextX = xScale.map(nextInput);
+                nodes.push({
+                    type: 'line',
+                    ...nodeBase(`${layer.id}:connector:${rowIndex}`, { zIndex: layer.zIndex - 0.1 }),
+                    x1: x + width / 2,
+                    y1: y2,
+                    x2: nextX - width / 2,
+                    y2,
+                    stroke: theme.colors.axis,
+                    lineWidth: 1,
+                    dash: [3, 3],
+                });
+            }
+        }
+        return nodes;
+    };
+    const compileDiffMark = (context) => {
+        const { table, layer, xScale, yScale, theme, performance, plot } = context;
+        const oldField = layer.mark.fields.old ?? 'old';
+        const newField = layer.mark.fields.new ?? layer.y.field;
+        const width = Math.max(4, xScale instanceof BandScale
+            ? xScale.bandwidth * 0.64
+            : (plot.width / Math.max(1, table.length)) * 0.62);
+        const baseline = yScale.map(0);
+        const nodes = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const xInput = scaleInput(table.value(rowIndex, layer.x.field));
+            const oldValue = numericDataValue(table.value(rowIndex, oldField));
+            const newValue = numericDataValue(table.value(rowIndex, newField));
+            if (xInput === null || oldValue === null || newValue === null)
+                continue;
+            const x = xScale.map(xInput);
+            const oldY = yScale.map(oldValue);
+            const newY = yScale.map(newValue);
+            if (![x, oldY, newY, baseline].every(Number.isFinite))
+                continue;
+            nodes.push({
+                type: 'rect',
+                ...nodeBase(`${layer.id}:old:${rowIndex}`, { zIndex: layer.zIndex, opacity: 0.28 }),
+                x: x - width / 2,
+                y: Math.min(oldY, baseline),
+                width,
+                height: Math.max(1, Math.abs(baseline - oldY)),
+                fill: optionString(layer.mark.options, 'oldColor') ?? theme.colors.mutedText,
+                lineWidth: 0,
+                cornerRadius: layer.mark.cornerRadius ?? 2,
+            });
+            nodes.push({
+                type: 'rect',
+                ...nodeBase(`${layer.id}:new:${rowIndex}`, {
+                    zIndex: layer.zIndex + 0.1,
+                    opacity: layer.mark.opacity,
+                    interactive: performance.enableHitTesting,
+                    datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) },
+                }),
+                x: x - width * 0.32,
+                y: Math.min(newY, baseline),
+                width: width * 0.64,
+                height: Math.max(1, Math.abs(baseline - newY)),
+                fill: layer.mark.fill ?? theme.colors.focus,
+                lineWidth: 0,
+                cornerRadius: layer.mark.cornerRadius ?? 2,
+            });
+            nodes.push({
+                type: 'line',
+                ...nodeBase(`${layer.id}:delta:${rowIndex}`, { zIndex: layer.zIndex + 0.2 }),
+                x1: x,
+                y1: oldY,
+                x2: x,
+                y2: newY,
+                stroke: theme.colors.text,
+                lineWidth: 1.5,
+            });
+        }
+        return nodes;
+    };
+    const compileAnnotationMark = (context) => {
+        const nodes = [...compileLineMark(context)];
+        const { table, layer, xScale, plot, theme } = context;
+        const titleField = layer.mark.fields.annotation ?? 'annotation';
+        const textField = layer.mark.fields.annotationText;
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            if (!table.has(titleField))
+                break;
+            const annotation = table.value(rowIndex, titleField);
+            const xInput = scaleInput(table.value(rowIndex, layer.x.field));
+            if (annotation === null || annotation === undefined || annotation === '' || xInput === null)
+                continue;
+            const x = xScale.map(xInput);
+            if (!Number.isFinite(x))
+                continue;
+            nodes.push({
+                type: 'line',
+                ...nodeBase(`${layer.id}:annotation-line:${rowIndex}`, { zIndex: layer.zIndex + 0.5 }),
+                x1: x,
+                y1: plot.y,
+                x2: x,
+                y2: plot.y + plot.height,
+                stroke: layer.mark.stroke ?? theme.colors.focus,
+                lineWidth: 1.25,
+                dash: [4, 3],
+            });
+            const suffix = textField !== undefined && table.has(textField)
+                ? table.value(rowIndex, textField)
+                : undefined;
+            nodes.push(textNode$1(`${layer.id}:annotation-label:${rowIndex}`, Math.min(plot.x + plot.width - 4, x + 5), plot.y + 8, suffix === undefined || suffix === null
+                ? String(annotation)
+                : `${String(annotation)} — ${String(suffix)}`, context, { align: 'left', baseline: 'top', size: 10, weight: 650 }));
+        }
+        return nodes;
+    };
+    const compileVegaMark = (context) => {
+        const mark = optionString(context.layer.mark.options, 'mark') ?? 'line';
+        if (mark === 'bar')
+            return compileBarMark(context);
+        if (mark === 'area')
+            return compileAreaMark(context);
+        if (mark === 'point' || mark === 'circle')
+            return compilePointMark(context);
+        return compileLineMark(context);
+    };
+
+    function optionNumber$1(options, name, fallback) {
+        const value = options[name];
+        return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+    }
+    function arcPoints(cx, cy, outerRadius, startAngle, endAngle, innerRadius) {
+        const span = Math.abs(endAngle - startAngle);
+        const steps = Math.max(8, Math.ceil((span / (Math.PI * 2)) * 72));
+        const outer = Array.from({ length: steps + 1 }, (_, index) => {
+            const angle = startAngle + ((endAngle - startAngle) * index) / steps;
+            return { x: cx + Math.cos(angle) * outerRadius, y: cy + Math.sin(angle) * outerRadius };
+        });
+        if (innerRadius <= 0)
+            return [{ x: cx, y: cy }, ...outer];
+        const inner = Array.from({ length: steps + 1 }, (_, index) => {
+            const angle = endAngle - ((endAngle - startAngle) * index) / steps;
+            return { x: cx + Math.cos(angle) * innerRadius, y: cy + Math.sin(angle) * innerRadius };
+        });
+        return [...outer, ...inner];
+    }
+    function labelNode(id, x, y, text, context, fontSize = 12) {
+        return {
+            type: 'text',
+            ...nodeBase(id, { zIndex: context.layer.zIndex + 1 }),
+            x,
+            y,
+            text,
+            fill: context.theme.colors.text,
+            fontFamily: context.theme.typography.fontFamily,
+            fontSize,
+            fontWeight: 600,
+            align: 'center',
+            baseline: 'middle',
+            rotation: 0,
+        };
+    }
+    const compilePieMark = (context) => {
+        const { table, layer, plot, theme, performance } = context;
+        const values = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const value = numericDataValue(table.value(rowIndex, layer.y.field));
+            const rawLabel = table.value(rowIndex, layer.x.field);
+            if (value === null || value <= 0 || rawLabel === null || rawLabel === undefined)
+                continue;
+            values.push({ rowIndex, value, label: String(rawLabel) });
+        }
+        const total = values.reduce((sum, item) => sum + item.value, 0);
+        if (total <= 0)
+            return [];
+        const cx = plot.x + plot.width / 2;
+        const cy = plot.y + plot.height / 2;
+        const radius = Math.max(8, Math.min(plot.width, plot.height) * 0.39);
+        const innerRatio = Math.max(0, Math.min(0.9, optionNumber$1(layer.mark.options, 'innerRadius', 0)));
+        const innerRadius = radius * innerRatio;
+        const startOffset = optionNumber$1(layer.mark.options, 'startAngle', -Math.PI / 2);
+        const labelLimit = Math.max(0, Math.floor(optionNumber$1(layer.mark.options, 'labelLimit', 8)));
+        const nodes = [];
+        let angle = startOffset;
+        values.forEach((item, index) => {
+            const next = angle + (item.value / total) * Math.PI * 2;
+            const mid = (angle + next) / 2;
+            const fill = theme.colors.palette[index % theme.colors.palette.length] ?? theme.colors.focus;
+            const wedge = {
+                type: 'path',
+                ...nodeBase(`${layer.id}:slice:${item.rowIndex}`, {
+                    zIndex: layer.zIndex,
+                    opacity: layer.mark.opacity,
+                    interactive: performance.enableHitTesting,
+                    datum: { layerId: layer.id, rowIndex: item.rowIndex, datum: table.row(item.rowIndex) },
+                }),
+                points: arcPoints(cx, cy, radius, angle, next, innerRadius),
+                closed: true,
+                fill,
+                stroke: layer.mark.stroke ?? theme.colors.background,
+                lineWidth: layer.mark.lineWidth ?? 2,
+            };
+            nodes.push(wedge);
+            if (index < labelLimit && next - angle >= 0.18) {
+                const labelRadius = innerRadius > 0 ? (innerRadius + radius) / 2 : radius * 0.65;
+                nodes.push(labelNode(`${layer.id}:label:${item.rowIndex}`, cx + Math.cos(mid) * labelRadius, cy + Math.sin(mid) * labelRadius, item.label, context, 11));
+            }
+            angle = next;
+        });
+        return nodes;
+    };
+    const compileGaugeMark = (context) => {
+        const { table, layer, plot, theme, performance } = context;
+        const minimum = optionNumber$1(layer.mark.options, 'min', 0);
+        const maximum = optionNumber$1(layer.mark.options, 'max', 100);
+        const span = maximum - minimum || 1;
+        const count = Math.max(1, table.length);
+        const slotWidth = plot.width / count;
+        const radius = Math.max(12, Math.min(slotWidth * 0.42, plot.height * 0.36));
+        const nodes = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const value = numericDataValue(table.value(rowIndex, layer.y.field));
+            const label = table.value(rowIndex, layer.x.field);
+            if (value === null || label === null || label === undefined)
+                continue;
+            const ratio = Math.max(0, Math.min(1, (value - minimum) / span));
+            const cx = plot.x + slotWidth * (rowIndex + 0.5);
+            const cy = plot.y + plot.height * 0.62;
+            const inner = radius * 0.72;
+            nodes.push({
+                type: 'path',
+                ...nodeBase(`${layer.id}:gauge-background:${rowIndex}`, { zIndex: layer.zIndex }),
+                points: arcPoints(cx, cy, radius, Math.PI, Math.PI * 2, inner),
+                closed: true,
+                fill: theme.colors.grid,
+                lineWidth: 0,
+            });
+            nodes.push({
+                type: 'path',
+                ...nodeBase(`${layer.id}:gauge-value:${rowIndex}`, {
+                    zIndex: layer.zIndex + 0.1,
+                    opacity: layer.mark.opacity,
+                    interactive: performance.enableHitTesting,
+                    datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) },
+                }),
+                points: arcPoints(cx, cy, radius, Math.PI, Math.PI + Math.PI * ratio, inner),
+                closed: true,
+                fill: layer.mark.fill ??
+                    theme.colors.palette[rowIndex % theme.colors.palette.length] ??
+                    theme.colors.focus,
+                lineWidth: 0,
+            });
+            const needleAngle = Math.PI + Math.PI * ratio;
+            const needle = {
+                type: 'line',
+                ...nodeBase(`${layer.id}:gauge-needle:${rowIndex}`, { zIndex: layer.zIndex + 0.5 }),
+                x1: cx,
+                y1: cy,
+                x2: cx + Math.cos(needleAngle) * radius * 0.62,
+                y2: cy + Math.sin(needleAngle) * radius * 0.62,
+                stroke: theme.colors.text,
+                lineWidth: 2,
+            };
+            nodes.push(needle);
+            nodes.push(labelNode(`${layer.id}:gauge-value-label:${rowIndex}`, cx, cy + 18, String(value), context, 16));
+            nodes.push(labelNode(`${layer.id}:gauge-label:${rowIndex}`, cx, cy + 39, String(label), context, 11));
+        }
+        return nodes;
+    };
+
+    function optionNumber(options, name, fallback) {
+        const value = options[name];
+        return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+    }
+    function optionStrings(options, name) {
+        const value = options[name];
+        return Array.isArray(value) && value.every((item) => typeof item === 'string')
+            ? value
+            : undefined;
+    }
+    function textNode(id, x, y, text, context, options = {}) {
+        return {
+            type: 'text',
+            ...nodeBase(id, { zIndex: context.layer.zIndex + 2 }),
+            x,
+            y,
+            text,
+            fill: options.fill ?? context.theme.colors.text,
+            fontFamily: context.theme.typography.fontFamily,
+            fontSize: options.size ?? context.theme.typography.fontSize,
+            fontWeight: options.weight ?? 500,
+            align: options.align ?? 'center',
+            baseline: options.baseline ?? 'middle',
+            rotation: 0,
+        };
+    }
+    function hexChannel(color, index) {
+        const normalized = color.replace('#', '');
+        const offset = normalized.length === 3 ? index : index * 2;
+        const raw = normalized.length === 3 ? normalized[offset]?.repeat(2) : normalized.slice(offset, offset + 2);
+        return Number.parseInt(raw ?? '00', 16);
+    }
+    function mixColor(start, end, ratio) {
+        const bounded = Math.max(0, Math.min(1, ratio));
+        const channels = [0, 1, 2].map((index) => Math.round(hexChannel(start, index) + (hexChannel(end, index) - hexChannel(start, index)) * bounded));
+        return `#${channels.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`;
+    }
+    const compileCalendarMark = (context) => {
+        const { table, layer, plot, theme, performance } = context;
+        const values = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const rawDate = table.value(rowIndex, layer.x.field);
+            const date = rawDate instanceof Date ? rawDate : new Date(String(rawDate));
+            const value = numericDataValue(table.value(rowIndex, layer.y.field));
+            if (!Number.isFinite(date.getTime()) || value === null)
+                continue;
+            values.push({ rowIndex, date, value });
+        }
+        if (values.length === 0)
+            return [];
+        values.sort((left, right) => left.date.getTime() - right.date.getTime());
+        const minimum = Math.min(...values.map((item) => item.value));
+        const maximum = Math.max(...values.map((item) => item.value));
+        const first = values[0]?.date;
+        if (first === undefined)
+            return [];
+        const start = new Date(Date.UTC(first.getUTCFullYear(), 0, 1));
+        const day = 24 * 60 * 60 * 1000;
+        const weekCount = Math.max(1, Math.ceil((Math.max(...values.map((item) => item.date.getTime())) - start.getTime()) / day / 7) + 1);
+        const gap = 2;
+        const cell = Math.max(3, Math.min((plot.width - 36) / weekCount - gap, (plot.height - 34) / 7 - gap));
+        const originX = plot.x + 34;
+        const originY = plot.y + 20;
+        const nodes = [];
+        ['S', 'M', 'T', 'W', 'T', 'F', 'S'].forEach((label, index) => nodes.push(textNode(`${layer.id}:weekday:${index}`, plot.x + 18, originY + index * (cell + gap) + cell / 2, label, context, { size: 9 })));
+        values.forEach((item) => {
+            const offset = Math.floor((item.date.getTime() - start.getTime()) / day);
+            const week = Math.floor((offset + start.getUTCDay()) / 7);
+            const weekday = item.date.getUTCDay();
+            const ratio = maximum === minimum ? 0.6 : (item.value - minimum) / (maximum - minimum);
+            nodes.push({
+                type: 'rect',
+                ...nodeBase(`${layer.id}:day:${item.rowIndex}`, {
+                    zIndex: layer.zIndex,
+                    opacity: layer.mark.opacity,
+                    interactive: performance.enableHitTesting,
+                    datum: { layerId: layer.id, rowIndex: item.rowIndex, datum: table.row(item.rowIndex) },
+                }),
+                x: originX + week * (cell + gap),
+                y: originY + weekday * (cell + gap),
+                width: cell,
+                height: cell,
+                fill: mixColor(theme.colors.sequential[0] ?? '#eff6ff', theme.colors.sequential.at(-1) ?? '#1e3a8a', ratio),
+                stroke: theme.colors.background,
+                lineWidth: 0.5,
+                cornerRadius: Math.min(2, cell * 0.15),
+            });
+        });
+        return nodes;
+    };
+    const countryCentroids = {
+        KR: [127.8, 36.4],
+        KOREA: [127.8, 36.4],
+        US: [-98.5, 39.5],
+        USA: [-98.5, 39.5],
+        CA: [-106, 56],
+        CANADA: [-106, 56],
+        BR: [-51.9, -14.2],
+        BRAZIL: [-51.9, -14.2],
+        GB: [-3.4, 55.4],
+        UK: [-3.4, 55.4],
+        FR: [2.2, 46.2],
+        DE: [10.4, 51.2],
+        RU: [105.3, 61.5],
+        RUSSIA: [105.3, 61.5],
+        IN: [78.9, 20.6],
+        INDIA: [78.9, 20.6],
+        CN: [104.2, 35.9],
+        CHINA: [104.2, 35.9],
+        JP: [138.3, 36.2],
+        JAPAN: [138.3, 36.2],
+        AU: [133.8, -25.3],
+        AUSTRALIA: [133.8, -25.3],
+        ZA: [22.9, -30.6],
+    };
+    const continents = [
+        [
+            [-168, 72],
+            [-52, 72],
+            [-60, 15],
+            [-100, 8],
+            [-126, 30],
+        ],
+        [
+            [-82, 12],
+            [-34, 6],
+            [-52, -56],
+            [-76, -50],
+        ],
+        [
+            [-12, 70],
+            [42, 70],
+            [55, 35],
+            [15, 34],
+            [-10, 45],
+        ],
+        [
+            [-18, 35],
+            [52, 35],
+            [48, -35],
+            [12, -35],
+            [-5, 5],
+        ],
+        [
+            [35, 72],
+            [178, 70],
+            [150, 5],
+            [95, 2],
+            [55, 28],
+        ],
+        [
+            [112, -10],
+            [155, -10],
+            [153, -44],
+            [116, -38],
+        ],
+    ];
+    function project(plot, longitude, latitude) {
+        return {
+            x: plot.x + ((longitude + 180) / 360) * plot.width,
+            y: plot.y + ((90 - latitude) / 180) * plot.height,
+        };
+    }
+    function worldBackground(context) {
+        return continents.map((polygon, index) => ({
+            type: 'path',
+            ...nodeBase(`${context.layer.id}:continent:${index}`, {
+                zIndex: context.layer.zIndex - 2,
+                opacity: 0.86,
+            }),
+            points: polygon.map(([longitude, latitude]) => project(context.plot, longitude, latitude)),
+            closed: true,
+            fill: context.theme.colors.grid,
+            stroke: context.theme.colors.axis,
+            lineWidth: 0.8,
+        }));
+    }
+    const compileGeoMark = (context) => {
+        const { table, layer, plot, theme, performance } = context;
+        const nodes = worldBackground(context);
+        const extent = table.extent(layer.y.field);
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const region = String(table.value(rowIndex, layer.x.field) ?? '').trim();
+            const value = numericDataValue(table.value(rowIndex, layer.y.field));
+            const centroid = countryCentroids[region.toUpperCase()];
+            if (centroid === undefined || value === null)
+                continue;
+            const ratio = extent === null || extent[1] === extent[0]
+                ? 0.6
+                : (value - extent[0]) / (extent[1] - extent[0]);
+            const point = project(plot, centroid[0], centroid[1]);
+            nodes.push({
+                type: 'circle',
+                ...nodeBase(`${layer.id}:region:${rowIndex}`, {
+                    zIndex: layer.zIndex,
+                    opacity: layer.mark.opacity,
+                    interactive: performance.enableHitTesting,
+                    datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) },
+                }),
+                cx: point.x,
+                cy: point.y,
+                radius: 5 + Math.sqrt(Math.max(0, ratio)) * 12,
+                fill: layer.mark.fill ?? theme.colors.focus,
+                stroke: theme.colors.background,
+                lineWidth: 1.5,
+            });
+        }
+        return nodes;
+    };
+    const compileMapMark = (context) => {
+        const { table, layer, plot, theme, performance } = context;
+        const nodes = worldBackground(context);
+        const sizeField = layer.mark.fields.size;
+        const extent = sizeField === undefined || !table.has(sizeField) ? null : table.extent(sizeField);
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const longitude = numericDataValue(table.value(rowIndex, layer.x.field));
+            const latitude = numericDataValue(table.value(rowIndex, layer.y.field));
+            if (longitude === null || latitude === null)
+                continue;
+            const rawSize = sizeField === undefined ? null : numericDataValue(table.value(rowIndex, sizeField));
+            const ratio = rawSize === null || extent === null || extent[1] === extent[0]
+                ? 0.5
+                : (rawSize - extent[0]) / (extent[1] - extent[0]);
+            const point = project(plot, longitude, latitude);
+            nodes.push({
+                type: 'circle',
+                ...nodeBase(`${layer.id}:map-point:${rowIndex}`, {
+                    zIndex: layer.zIndex,
+                    opacity: layer.mark.opacity,
+                    interactive: performance.enableHitTesting,
+                    datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) },
+                }),
+                cx: point.x,
+                cy: point.y,
+                radius: layer.mark.radius ?? 5 + Math.sqrt(Math.max(0, ratio)) * 10,
+                fill: layer.mark.fill ?? theme.colors.focus,
+                stroke: theme.colors.background,
+                lineWidth: layer.mark.lineWidth ?? 1.5,
+            });
+        }
+        return nodes;
+    };
+    function treeItems(context) {
+        const { table, layer } = context;
+        const parentField = layer.mark.fields.parent ?? layer.y.field;
+        const weightField = layer.mark.fields.weight;
+        const idField = layer.mark.fields.id ?? layer.x.field;
+        const items = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const rawId = table.value(rowIndex, idField);
+            if (rawId === null || rawId === undefined)
+                continue;
+            const rawParent = table.has(parentField) ? table.value(rowIndex, parentField) : null;
+            const weight = weightField !== undefined && table.has(weightField)
+                ? (numericDataValue(table.value(rowIndex, weightField)) ?? 1)
+                : (numericDataValue(table.value(rowIndex, layer.y.field)) ?? 1);
+            items.push({
+                rowIndex,
+                id: String(rawId),
+                parent: rawParent === null || rawParent === undefined ? '' : String(rawParent),
+                weight,
+            });
+        }
+        return items;
+    }
+    function treeDepths(items) {
+        const parents = new Map(items.map((item) => [item.id, item.parent]));
+        const depths = new Map();
+        const resolve = (id, trail) => {
+            const existing = depths.get(id);
+            if (existing !== undefined)
+                return existing;
+            const parent = parents.get(id);
+            if (parent === undefined || parent === '' || !parents.has(parent) || trail.has(id)) {
+                depths.set(id, 0);
+                return 0;
+            }
+            const nextTrail = new Set(trail);
+            nextTrail.add(id);
+            const depth = resolve(parent, nextTrail) + 1;
+            depths.set(id, depth);
+            return depth;
+        };
+        items.forEach((item) => resolve(item.id, new Set()));
+        return depths;
+    }
+    const compileOrgMark = (context) => {
+        const { layer, plot, theme, table, performance } = context;
+        const items = treeItems(context);
+        const depths = treeDepths(items);
+        const groups = new Map();
+        items.forEach((item) => {
+            const depth = depths.get(item.id) ?? 0;
+            const group = groups.get(depth) ?? [];
+            group.push(item);
+            groups.set(depth, group);
+        });
+        const maxDepth = Math.max(0, ...groups.keys());
+        const positions = new Map();
+        const nodeWidth = Math.max(64, Math.min(128, plot.width / Math.max(2, Math.max(...[...groups.values()].map((group) => group.length))) - 16));
+        const nodeHeight = Math.max(28, Math.min(44, plot.height / Math.max(2, maxDepth + 1) - 18));
+        for (const [depth, group] of groups) {
+            group.forEach((item, index) => {
+                positions.set(item.id, {
+                    x: plot.x + (plot.width * (index + 1)) / (group.length + 1),
+                    y: plot.y + (plot.height * (depth + 0.5)) / Math.max(1, maxDepth + 1),
+                });
+            });
+        }
+        const nodes = [];
+        items.forEach((item) => {
+            const position = positions.get(item.id);
+            const parent = positions.get(item.parent);
+            if (position === undefined || parent === undefined)
+                return;
+            nodes.push({
+                type: 'line',
+                ...nodeBase(`${layer.id}:edge:${item.rowIndex}`, { zIndex: layer.zIndex - 1 }),
+                x1: parent.x,
+                y1: parent.y + nodeHeight / 2,
+                x2: position.x,
+                y2: position.y - nodeHeight / 2,
+                stroke: theme.colors.axis,
+                lineWidth: 1.3,
+            });
+        });
+        items.forEach((item) => {
+            const position = positions.get(item.id);
+            if (position === undefined)
+                return;
+            nodes.push({
+                type: 'rect',
+                ...nodeBase(`${layer.id}:node:${item.rowIndex}`, {
+                    zIndex: layer.zIndex,
+                    opacity: layer.mark.opacity,
+                    interactive: performance.enableHitTesting,
+                    datum: { layerId: layer.id, rowIndex: item.rowIndex, datum: table.row(item.rowIndex) },
+                }),
+                x: position.x - nodeWidth / 2,
+                y: position.y - nodeHeight / 2,
+                width: nodeWidth,
+                height: nodeHeight,
+                fill: layer.mark.fill ?? theme.colors.surface,
+                stroke: layer.mark.stroke ?? theme.colors.focus,
+                lineWidth: layer.mark.lineWidth ?? 1.5,
+                cornerRadius: layer.mark.cornerRadius ?? 7,
+            });
+            nodes.push(textNode(`${layer.id}:node-label:${item.rowIndex}`, position.x, position.y, item.id, context, { size: 10, weight: 650 }));
+        });
+        return nodes;
+    };
+    const compileSankeyMark = (context) => {
+        const { table, layer, plot, theme, performance } = context;
+        const targetField = layer.mark.fields.target ?? 'target';
+        const edges = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const source = table.value(rowIndex, layer.x.field);
+            const target = table.has(targetField) ? table.value(rowIndex, targetField) : null;
+            const value = numericDataValue(table.value(rowIndex, layer.y.field));
+            if (source === null ||
+                source === undefined ||
+                target === null ||
+                target === undefined ||
+                value === null ||
+                value <= 0)
+                continue;
+            edges.push({ rowIndex, source: String(source), target: String(target), value });
+        }
+        const sources = [...new Set(edges.map((edge) => edge.source))];
+        const targets = [...new Set(edges.map((edge) => edge.target))];
+        const sourceTotals = new Map(sources.map((source) => [
+            source,
+            edges.filter((edge) => edge.source === source).reduce((sum, edge) => sum + edge.value, 0),
+        ]));
+        const targetTotals = new Map(targets.map((target) => [
+            target,
+            edges.filter((edge) => edge.target === target).reduce((sum, edge) => sum + edge.value, 0),
+        ]));
+        const maxTotal = Math.max(1, ...sourceTotals.values(), ...targetTotals.values());
+        const nodeWidth = 14;
+        const sourcePositions = new Map();
+        const targetPositions = new Map();
+        const position = (names, totals, output) => {
+            const gap = 12;
+            const available = Math.max(1, plot.height - gap * Math.max(0, names.length - 1));
+            const sum = names.reduce((total, name) => total + (totals.get(name) ?? 0), 0) || 1;
+            let y = plot.y;
+            names.forEach((name) => {
+                const height = Math.max(10, ((totals.get(name) ?? 0) / sum) * available);
+                output.set(name, { y, height });
+                y += height + gap;
+            });
+        };
+        position(sources, sourceTotals, sourcePositions);
+        position(targets, targetTotals, targetPositions);
+        const sourceOffsets = new Map();
+        const targetOffsets = new Map();
+        const nodes = [];
+        edges.forEach((edge, index) => {
+            const source = sourcePositions.get(edge.source);
+            const target = targetPositions.get(edge.target);
+            if (source === undefined || target === undefined)
+                return;
+            const sourceHeight = Math.max(2, (edge.value / (sourceTotals.get(edge.source) ?? maxTotal)) * source.height);
+            const targetHeight = Math.max(2, (edge.value / (targetTotals.get(edge.target) ?? maxTotal)) * target.height);
+            const sy = source.y + (sourceOffsets.get(edge.source) ?? 0);
+            const ty = target.y + (targetOffsets.get(edge.target) ?? 0);
+            sourceOffsets.set(edge.source, (sourceOffsets.get(edge.source) ?? 0) + sourceHeight);
+            targetOffsets.set(edge.target, (targetOffsets.get(edge.target) ?? 0) + targetHeight);
+            nodes.push({
+                type: 'path',
+                ...nodeBase(`${layer.id}:flow:${edge.rowIndex}`, {
+                    zIndex: layer.zIndex - 0.5,
+                    opacity: Math.min(0.75, layer.mark.opacity * 0.55),
+                    interactive: performance.enableHitTesting,
+                    datum: { layerId: layer.id, rowIndex: edge.rowIndex, datum: table.row(edge.rowIndex) },
+                }),
+                points: [
+                    { x: plot.x + nodeWidth, y: sy },
+                    { x: plot.x + plot.width * 0.46, y: sy },
+                    { x: plot.x + plot.width * 0.54, y: ty },
+                    { x: plot.x + plot.width - nodeWidth, y: ty },
+                    { x: plot.x + plot.width - nodeWidth, y: ty + targetHeight },
+                    { x: plot.x + plot.width * 0.54, y: ty + targetHeight },
+                    { x: plot.x + plot.width * 0.46, y: sy + sourceHeight },
+                    { x: plot.x + nodeWidth, y: sy + sourceHeight },
+                ],
+                closed: true,
+                fill: theme.colors.palette[index % theme.colors.palette.length] ?? theme.colors.focus,
+                lineWidth: 0,
+            });
+        });
+        sources.forEach((name, index) => {
+            const item = sourcePositions.get(name);
+            if (item === undefined)
+                return;
+            nodes.push({
+                type: 'rect',
+                ...nodeBase(`${layer.id}:source:${index}`, { zIndex: layer.zIndex }),
+                x: plot.x,
+                y: item.y,
+                width: nodeWidth,
+                height: item.height,
+                fill: theme.colors.palette[index % theme.colors.palette.length] ?? theme.colors.focus,
+                lineWidth: 0,
+                cornerRadius: 2,
+            });
+            nodes.push(textNode(`${layer.id}:source-label:${index}`, plot.x + nodeWidth + 5, item.y + item.height / 2, name, context, { align: 'left', size: 10 }));
+        });
+        targets.forEach((name, index) => {
+            const item = targetPositions.get(name);
+            if (item === undefined)
+                return;
+            nodes.push({
+                type: 'rect',
+                ...nodeBase(`${layer.id}:target:${index}`, { zIndex: layer.zIndex }),
+                x: plot.x + plot.width - nodeWidth,
+                y: item.y,
+                width: nodeWidth,
+                height: item.height,
+                fill: theme.colors.palette[(sources.length + index) % theme.colors.palette.length] ??
+                    theme.colors.focus,
+                lineWidth: 0,
+                cornerRadius: 2,
+            });
+            nodes.push(textNode(`${layer.id}:target-label:${index}`, plot.x + plot.width - nodeWidth - 5, item.y + item.height / 2, name, context, { align: 'right', size: 10 }));
+        });
+        return nodes;
+    };
+    const compileTableMark = (context) => {
+        const { table, layer, plot, theme, performance } = context;
+        const columns = optionStrings(layer.mark.options, 'columns')?.filter((field) => table.has(field)) ?? [layer.x.field, layer.y.field];
+        const uniqueColumns = [...new Set(columns)];
+        const headerHeight = 30;
+        const rowHeight = Math.max(22, optionNumber(layer.mark.options, 'rowHeight', 28));
+        const maximumRows = Math.max(0, Math.floor((plot.height - headerHeight) / rowHeight));
+        const visibleRows = Math.min(table.length, maximumRows);
+        const columnWidth = plot.width / Math.max(1, uniqueColumns.length);
+        const nodes = [];
+        uniqueColumns.forEach((field, columnIndex) => {
+            nodes.push({
+                type: 'rect',
+                ...nodeBase(`${layer.id}:header-cell:${columnIndex}`, { zIndex: layer.zIndex }),
+                x: plot.x + columnIndex * columnWidth,
+                y: plot.y,
+                width: columnWidth,
+                height: headerHeight,
+                fill: theme.colors.grid,
+                stroke: theme.colors.axis,
+                lineWidth: 0.5,
+                cornerRadius: 0,
+            });
+            nodes.push(textNode(`${layer.id}:header-label:${columnIndex}`, plot.x + columnIndex * columnWidth + 8, plot.y + headerHeight / 2, field, context, { align: 'left', size: 10, weight: 700 }));
+        });
+        for (let rowIndex = 0; rowIndex < visibleRows; rowIndex += 1) {
+            uniqueColumns.forEach((field, columnIndex) => {
+                const y = plot.y + headerHeight + rowIndex * rowHeight;
+                nodes.push({
+                    type: 'rect',
+                    ...nodeBase(`${layer.id}:cell:${rowIndex}:${columnIndex}`, {
+                        zIndex: layer.zIndex,
+                        opacity: layer.mark.opacity,
+                        interactive: performance.enableHitTesting,
+                        datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) },
+                    }),
+                    x: plot.x + columnIndex * columnWidth,
+                    y,
+                    width: columnWidth,
+                    height: rowHeight,
+                    fill: rowIndex % 2 === 0 ? theme.colors.surface : theme.colors.background,
+                    stroke: theme.colors.grid,
+                    lineWidth: 0.5,
+                    cornerRadius: 0,
+                });
+                nodes.push(textNode(`${layer.id}:cell-label:${rowIndex}:${columnIndex}`, plot.x + columnIndex * columnWidth + 8, y + rowHeight / 2, String(table.value(rowIndex, field) ?? ''), context, { align: 'left', size: 10 }));
+            });
+        }
+        return nodes;
+    };
+    function compileTimeline(context, gantt) {
+        const { table, layer, xScale, yScale, theme, performance } = context;
+        const endField = layer.mark.fields.end ?? 'end';
+        const progressField = layer.mark.fields.progress;
+        const idField = layer.mark.fields.id;
+        const dependencyField = layer.mark.fields.dependencies;
+        const barHeight = Math.max(8, yScale instanceof BandScale ? yScale.bandwidth * 0.58 : 18);
+        const nodes = [];
+        const positions = new Map();
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const start = scaleInput(table.value(rowIndex, layer.x.field));
+            const end = table.has(endField) ? scaleInput(table.value(rowIndex, endField)) : null;
+            const row = scaleInput(table.value(rowIndex, layer.y.field));
+            if (start === null || end === null || row === null)
+                continue;
+            const x1 = xScale.map(start);
+            const x2 = xScale.map(end);
+            const y = yScale.map(row);
+            if (![x1, x2, y].every(Number.isFinite))
+                continue;
+            const fill = theme.colors.palette[rowIndex % theme.colors.palette.length] ?? theme.colors.focus;
+            nodes.push({
+                type: 'rect',
+                ...nodeBase(`${layer.id}:${gantt ? 'task' : 'interval'}:${rowIndex}`, {
+                    zIndex: layer.zIndex,
+                    opacity: layer.mark.opacity,
+                    interactive: performance.enableHitTesting,
+                    datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) },
+                }),
+                x: Math.min(x1, x2),
+                y: y - barHeight / 2,
+                width: Math.max(2, Math.abs(x2 - x1)),
+                height: barHeight,
+                fill: layer.mark.fill ?? fill,
+                ...(layer.mark.stroke === undefined ? {} : { stroke: layer.mark.stroke }),
+                lineWidth: layer.mark.lineWidth ?? 0,
+                cornerRadius: layer.mark.cornerRadius ?? 4,
+            });
+            if (gantt && progressField !== undefined && table.has(progressField)) {
+                const progress = numericDataValue(table.value(rowIndex, progressField));
+                if (progress !== null) {
+                    nodes.push({
+                        type: 'rect',
+                        ...nodeBase(`${layer.id}:progress:${rowIndex}`, {
+                            zIndex: layer.zIndex + 0.1,
+                            opacity: 0.45,
+                        }),
+                        x: Math.min(x1, x2),
+                        y: y - barHeight / 2,
+                        width: Math.max(0, (Math.abs(x2 - x1) * Math.max(0, Math.min(100, progress))) / 100),
+                        height: barHeight,
+                        fill: theme.colors.text,
+                        lineWidth: 0,
+                        cornerRadius: layer.mark.cornerRadius ?? 4,
+                    });
+                }
+            }
+            if (idField !== undefined && table.has(idField)) {
+                positions.set(String(table.value(rowIndex, idField)), {
+                    x: Math.max(x1, x2),
+                    y,
+                    width: Math.abs(x2 - x1),
+                });
+            }
+        }
+        if (gantt &&
+            dependencyField !== undefined &&
+            idField !== undefined &&
+            table.has(dependencyField)) {
+            for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+                const id = String(table.value(rowIndex, idField) ?? '');
+                const task = positions.get(id);
+                const dependencies = String(table.value(rowIndex, dependencyField) ?? '')
+                    .split(',')
+                    .map((item) => item.trim())
+                    .filter(Boolean);
+                if (task === undefined)
+                    continue;
+                dependencies.forEach((dependency, index) => {
+                    const parent = positions.get(dependency);
+                    if (parent === undefined)
+                        return;
+                    nodes.push({
+                        type: 'line',
+                        ...nodeBase(`${layer.id}:dependency:${rowIndex}:${index}`, {
+                            zIndex: layer.zIndex + 0.5,
+                        }),
+                        x1: parent.x,
+                        y1: parent.y,
+                        x2: task.x - task.width,
+                        y2: task.y,
+                        stroke: theme.colors.axis,
+                        lineWidth: 1.2,
+                        dash: [4, 2],
+                    });
+                });
+            }
+        }
+        return nodes;
+    }
+    const compileTimelineMark = (context) => compileTimeline(context, false);
+    const compileGanttMark = (context) => compileTimeline(context, true);
+    const compileTreemapMark = (context) => {
+        const { table, layer, plot, theme, performance } = context;
+        const items = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const label = table.value(rowIndex, layer.x.field);
+            const value = numericDataValue(table.value(rowIndex, layer.y.field));
+            if (label === null || label === undefined || value === null || value <= 0)
+                continue;
+            items.push({ rowIndex, label: String(label), value });
+        }
+        const total = items.reduce((sum, item) => sum + item.value, 0);
+        if (total <= 0)
+            return [];
+        const nodes = [];
+        let x = plot.x;
+        items.forEach((item, index) => {
+            const width = index === items.length - 1 ? plot.x + plot.width - x : (item.value / total) * plot.width;
+            const fill = theme.colors.palette[index % theme.colors.palette.length] ?? theme.colors.focus;
+            nodes.push({
+                type: 'rect',
+                ...nodeBase(`${layer.id}:treemap:${item.rowIndex}`, {
+                    zIndex: layer.zIndex,
+                    opacity: layer.mark.opacity,
+                    interactive: performance.enableHitTesting,
+                    datum: { layerId: layer.id, rowIndex: item.rowIndex, datum: table.row(item.rowIndex) },
+                }),
+                x,
+                y: plot.y,
+                width: Math.max(1, width),
+                height: plot.height,
+                fill: layer.mark.fill ?? fill,
+                stroke: theme.colors.background,
+                lineWidth: 2,
+                cornerRadius: layer.mark.cornerRadius ?? 3,
+            });
+            if (width > 42) {
+                nodes.push(textNode(`${layer.id}:treemap-label:${item.rowIndex}`, x + width / 2, plot.y + plot.height / 2, item.label, context, { size: Math.max(9, Math.min(15, width / 8)), weight: 700, fill: '#ffffff' }));
+            }
+            x += width;
+        });
+        return nodes;
+    };
+    const compileWordTreeMark = (context) => {
+        const { layer, plot, theme, table, performance } = context;
+        const items = treeItems(context);
+        const depths = treeDepths(items);
+        const groups = new Map();
+        items.forEach((item) => {
+            const depth = depths.get(item.id) ?? 0;
+            const group = groups.get(depth) ?? [];
+            group.push(item);
+            groups.set(depth, group);
+        });
+        const maxDepth = Math.max(0, ...groups.keys());
+        const positions = new Map();
+        for (const [depth, group] of groups) {
+            group.forEach((item, index) => {
+                positions.set(item.id, {
+                    x: plot.x + (plot.width * (depth + 0.5)) / Math.max(1, maxDepth + 1),
+                    y: plot.y + (plot.height * (index + 1)) / (group.length + 1),
+                });
+            });
+        }
+        const maximumWeight = Math.max(1, ...items.map((item) => item.weight));
+        const nodes = [];
+        items.forEach((item) => {
+            const position = positions.get(item.id);
+            const parent = positions.get(item.parent);
+            if (position === undefined)
+                return;
+            if (parent !== undefined) {
+                nodes.push({
+                    type: 'line',
+                    ...nodeBase(`${layer.id}:branch:${item.rowIndex}`, { zIndex: layer.zIndex - 1 }),
+                    x1: parent.x,
+                    y1: parent.y,
+                    x2: position.x,
+                    y2: position.y,
+                    stroke: theme.colors.grid,
+                    lineWidth: 1.5,
+                });
+            }
+            const fontSize = 10 + Math.sqrt(item.weight / maximumWeight) * 16;
+            const label = textNode(`${layer.id}:word:${item.rowIndex}`, position.x, position.y, item.id, context, {
+                size: fontSize,
+                weight: 650,
+                fill: theme.colors.palette[(depths.get(item.id) ?? 0) % theme.colors.palette.length] ??
+                    theme.colors.focus,
+            });
+            Object.assign(label, {
+                interactive: performance.enableHitTesting,
+                datum: { layerId: layer.id, rowIndex: item.rowIndex, datum: table.row(item.rowIndex) },
+            });
+            nodes.push(label);
+        });
         return nodes;
     };
 
@@ -2115,9 +3680,71 @@ var Graflume = (function (exports) {
         registry.registerMark('bar', compileBarMark);
         registry.registerMark('point', compilePointMark);
         registry.registerMark('area', compileAreaMark);
+        registry.registerMark('annotation', compileAnnotationMark);
+        registry.registerMark('bubble', compileBubbleMark);
+        registry.registerMark('calendar', compileCalendarMark);
+        registry.registerMark('candlestick', compileCandlestickMark);
+        registry.registerMark('diff', compileDiffMark);
+        registry.registerMark('gantt', compileGanttMark);
+        registry.registerMark('gauge', compileGaugeMark);
+        registry.registerMark('geo', compileGeoMark);
+        registry.registerMark('histogram', compileHistogramMark);
+        registry.registerMark('interval', compileIntervalMark);
+        registry.registerMark('map', compileMapMark);
+        registry.registerMark('motion', compileBubbleMark);
+        registry.registerMark('org', compileOrgMark);
+        registry.registerMark('pie', compilePieMark);
+        registry.registerMark('sankey', compileSankeyMark);
+        registry.registerMark('stepped-area', compileSteppedAreaMark);
+        registry.registerMark('table', compileTableMark);
+        registry.registerMark('timeline', compileTimelineMark);
+        registry.registerMark('treemap', compileTreemapMark);
+        registry.registerMark('trendline', compileTrendlineMark);
+        registry.registerMark('vega', compileVegaMark);
+        registry.registerMark('waterfall', compileWaterfallMark);
+        registry.registerMark('word-tree', compileWordTreeMark);
         return registry;
     }
     const defaultRegistry = createDefaultRegistry();
+
+    const chartTypeCatalog = [
+        { id: 'annotation', name: 'Annotation chart', quickApi: 'annotation', mark: 'annotation' },
+        {
+            id: 'annotated-timeline',
+            name: 'Annotated timeline',
+            quickApi: 'annotatedTimeline',
+            mark: 'annotation',
+        },
+        { id: 'area', name: 'Area chart', quickApi: 'area', mark: 'area' },
+        { id: 'bar', name: 'Bar chart', quickApi: 'horizontalBar', mark: 'bar' },
+        { id: 'bubble', name: 'Bubble chart', quickApi: 'bubble', mark: 'bubble' },
+        { id: 'calendar', name: 'Calendar chart', quickApi: 'calendar', mark: 'calendar' },
+        { id: 'candlestick', name: 'Candlestick chart', quickApi: 'candlestick', mark: 'candlestick' },
+        { id: 'column', name: 'Column chart', quickApi: 'column', mark: 'bar' },
+        { id: 'combo', name: 'Combo chart', quickApi: 'combo', mark: 'multiple' },
+        { id: 'diff', name: 'Diff chart', quickApi: 'diff', mark: 'diff' },
+        { id: 'donut', name: 'Donut chart', quickApi: 'donut', mark: 'pie' },
+        { id: 'gantt', name: 'Gantt chart', quickApi: 'gantt', mark: 'gantt' },
+        { id: 'gauge', name: 'Gauge chart', quickApi: 'gauge', mark: 'gauge' },
+        { id: 'geo', name: 'GeoChart', quickApi: 'geo', mark: 'geo' },
+        { id: 'histogram', name: 'Histogram', quickApi: 'histogram', mark: 'histogram' },
+        { id: 'intervals', name: 'Intervals', quickApi: 'intervals', mark: 'interval' },
+        { id: 'line', name: 'Line chart', quickApi: 'line', mark: 'line' },
+        { id: 'map', name: 'Map', quickApi: 'map', mark: 'map' },
+        { id: 'motion', name: 'Motion chart', quickApi: 'motion', mark: 'motion' },
+        { id: 'org', name: 'Organization chart', quickApi: 'org', mark: 'org' },
+        { id: 'pie', name: 'Pie chart', quickApi: 'pie', mark: 'pie' },
+        { id: 'sankey', name: 'Sankey diagram', quickApi: 'sankey', mark: 'sankey' },
+        { id: 'scatter', name: 'Scatter chart', quickApi: 'scatter', mark: 'point' },
+        { id: 'stepped-area', name: 'Stepped area chart', quickApi: 'steppedArea', mark: 'stepped-area' },
+        { id: 'table', name: 'Table chart', quickApi: 'table', mark: 'table' },
+        { id: 'timeline', name: 'Timeline', quickApi: 'timeline', mark: 'timeline' },
+        { id: 'treemap', name: 'Tree map', quickApi: 'treemap', mark: 'treemap' },
+        { id: 'trendline', name: 'Trendline', quickApi: 'trendline', mark: 'trendline' },
+        { id: 'vega', name: 'VegaChart', quickApi: 'vegaChart', mark: 'vega' },
+        { id: 'waterfall', name: 'Waterfall chart', quickApi: 'waterfall', mark: 'waterfall' },
+        { id: 'word-tree', name: 'Word tree', quickApi: 'wordTree', mark: 'word-tree' },
+    ];
 
     function create(target, spec, options) {
         return new Chart(target, spec, defaultRegistry, options);
@@ -2144,6 +3771,97 @@ var Graflume = (function (exports) {
     function area(target, data, options) {
         return quickChart(create, 'area', target, data, options);
     }
+    function specialized(type, target, data, options, markDefaults = {}) {
+        return quickChart(create, type, target, data, {
+            ...options,
+            mark: { ...markDefaults, ...options.mark },
+        });
+    }
+    function annotation(target, data, options) {
+        return specialized('annotation', target, data, options, { point: true });
+    }
+    function annotatedTimeline(target, data, options) {
+        return annotation(target, data, options);
+    }
+    function horizontalBar(target, data, options) {
+        return specialized('bar', target, data, options, { orientation: 'horizontal' });
+    }
+    function column(target, data, options) {
+        return specialized('bar', target, data, options, { orientation: 'vertical' });
+    }
+    function bubble(target, data, options) {
+        return specialized('bubble', target, data, options);
+    }
+    function calendar(target, data, options) {
+        return specialized('calendar', target, data, options);
+    }
+    function candlestick(target, data, options) {
+        return specialized('candlestick', target, data, options);
+    }
+    function combo(target, data, options) {
+        return quickCombo(create, target, data, options);
+    }
+    function diff(target, data, options) {
+        return specialized('diff', target, data, options);
+    }
+    function pie(target, data, options) {
+        return specialized('pie', target, data, options);
+    }
+    function donut(target, data, options) {
+        return specialized('pie', target, data, options, { options: { innerRadius: 0.56 } });
+    }
+    function gantt(target, data, options) {
+        return specialized('gantt', target, data, options);
+    }
+    function gauge(target, data, options) {
+        return specialized('gauge', target, data, options);
+    }
+    function geo(target, data, options) {
+        return specialized('geo', target, data, options);
+    }
+    function histogram(target, data, options) {
+        return specialized('histogram', target, data, options);
+    }
+    function intervals(target, data, options) {
+        return specialized('interval', target, data, options);
+    }
+    const interval = intervals;
+    function map(target, data, options) {
+        return specialized('map', target, data, options);
+    }
+    function motion(target, data, options) {
+        return specialized('motion', target, data, options);
+    }
+    function org(target, data, options) {
+        return specialized('org', target, data, options);
+    }
+    function sankey(target, data, options) {
+        return specialized('sankey', target, data, options);
+    }
+    function steppedArea(target, data, options) {
+        return specialized('stepped-area', target, data, options);
+    }
+    function table(target, data, options) {
+        return specialized('table', target, data, options);
+    }
+    function timeline(target, data, options) {
+        return specialized('timeline', target, data, options);
+    }
+    function treemap(target, data, options) {
+        return specialized('treemap', target, data, options);
+    }
+    function trendline(target, data, options) {
+        return specialized('trendline', target, data, options);
+    }
+    function vegaChart(target, data, options) {
+        return specialized('vega', target, data, options);
+    }
+    function waterfall(target, data, options) {
+        return specialized('waterfall', target, data, options);
+    }
+    function wordTree(target, data, options) {
+        return specialized('word-tree', target, data, options);
+    }
     function registerTheme(theme) {
         defaultRegistry.registerTheme(theme);
     }
@@ -2166,29 +3884,59 @@ var Graflume = (function (exports) {
     exports.DataTable = DataTable;
     exports.GraflumeError = GraflumeError;
     exports.RuntimeRegistry = RuntimeRegistry;
+    exports.annotatedTimeline = annotatedTimeline;
+    exports.annotation = annotation;
     exports.area = area;
     exports.assertValidSpec = assertValidSpec;
     exports.bar = bar;
+    exports.bubble = bubble;
+    exports.calendar = calendar;
+    exports.candlestick = candlestick;
     exports.canvasRendererFactory = canvasRendererFactory;
     exports.capabilities = capabilities;
+    exports.chartTypeCatalog = chartTypeCatalog;
+    exports.column = column;
+    exports.combo = combo;
     exports.compile = compile;
     exports.create = create;
     exports.createRegistry = createRegistry;
+    exports.diff = diff;
+    exports.donut = donut;
+    exports.gantt = gantt;
+    exports.gauge = gauge;
+    exports.geo = geo;
     exports.graflumeDark = graflumeDark;
     exports.graflumeLight = graflumeLight;
+    exports.histogram = histogram;
     exports.hitTestScene = hitTestScene;
+    exports.horizontalBar = horizontalBar;
+    exports.interval = interval;
+    exports.intervals = intervals;
     exports.line = line;
+    exports.map = map;
+    exports.motion = motion;
     exports.normalizeSpec = normalizeSpec;
+    exports.org = org;
+    exports.pie = pie;
     exports.pluginApiVersion = pluginApiVersion;
     exports.point = point;
     exports.registerMark = registerMark;
     exports.registerRenderer = registerRenderer;
     exports.registerTheme = registerTheme;
+    exports.sankey = sankey;
     exports.scatter = scatter;
     exports.specVersion = specVersion;
+    exports.steppedArea = steppedArea;
+    exports.table = table;
+    exports.timeline = timeline;
+    exports.treemap = treemap;
+    exports.trendline = trendline;
     exports.use = use;
     exports.validateSpec = validateSpec;
+    exports.vegaChart = vegaChart;
     exports.version = version;
+    exports.waterfall = waterfall;
+    exports.wordTree = wordTree;
 
     return exports;
 

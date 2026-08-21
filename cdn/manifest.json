@@ -1,6 +1,6 @@
 {
   "package": "graflume",
   "version": "0.1.0-alpha.0",
-  "sourceCommit": "2ee9d6829589b002d8afdbe5ac26f341054b748d",
+  "sourceCommit": "8f63336fa045748529fcc66929ad351e0bd77b98",
   "entry": "./graflume.global.js"
 }
