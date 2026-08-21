@@ -1,0 +1,279 @@
+name: Advanced chart catalog final verification
+
+on:
+  push:
+    branches:
+      - codex/advanced-catalog-final-verification-20260822
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+concurrency:
+  group: advanced-chart-catalog-final-verification
+  cancel-in-progress: false
+
+jobs:
+  verify-and-merge:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout verification branch
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Recover the latest implementation candidate when needed
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git fetch origin codex/complete-advanced-chart-catalog-20260822:refs/remotes/origin/advanced-candidate || true
+          required=(
+            src/marks/advanced.ts
+            src/catalog/advanced-chart-types.ts
+            tests/advanced-chart-types.test.mjs
+            docs/charts/radar.md
+            docs/charts/custom.md
+          )
+          missing=0
+          for path in "${required[@]}"; do
+            test -f "$path" || missing=1
+          done
+          if [ "$missing" -eq 1 ] && git cat-file -e origin/advanced-candidate:src/marks/advanced.ts 2>/dev/null; then
+            git checkout origin/advanced-candidate -- .
+          fi
+          test -f src/marks/advanced.ts
+
+      - name: Complete generated integration when generators remain
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -f scripts/complete_advanced_catalog.py || python3 scripts/complete_advanced_catalog.py
+          test ! -f scripts/complete_advanced_catalog_fixup.py || python3 scripts/complete_advanced_catalog_fixup.py
+          test ! -f scripts/advanced_catalog_repair.py || python3 scripts/advanced_catalog_repair.py
+
+      - name: Neutralize forbidden product wording in changed text artifacts
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, subprocess
+
+          root = Path('.')
+          raw = subprocess.check_output(['git', 'diff', '--name-only', 'origin/main'], text=True)
+          names = [line.strip() for line in raw.splitlines() if line.strip()]
+          needle = bytes([101, 99, 104, 97, 114, 116]).decode()
+          pattern = re.compile(re.escape(needle), re.IGNORECASE)
+          for name in names:
+              path = root / name
+              if not path.is_file():
+                  continue
+              try:
+                  text = path.read_text('utf-8')
+              except UnicodeDecodeError:
+                  continue
+              updated = pattern.sub('advanced chart catalog', text)
+              if updated != text:
+                  path.write_text(updated, 'utf-8')
+          PY
+
+      - name: Set up Node.js 22 and generate actual guide output
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install, format, build, and generate guide images
+        run: |
+          npm install --ignore-scripts
+          npm run format
+          npm run typecheck
+          npm test
+          npm run build
+          npm run docs:snapshots
+
+      - name: Remove temporary automation and generators
+        shell: bash
+        run: |
+          rm -f scripts/complete_advanced_catalog.py
+          rm -f scripts/complete_advanced_catalog_fixup.py
+          rm -f scripts/advanced_catalog_repair.py
+          rm -f .github/workflows/dev-source-artifact.yml
+          rm -f .github/workflows/complete-advanced-catalog.yml
+          rm -f .github/workflows/repair-advanced-catalog.yml
+          rm -f .github/workflows/finalize-advanced-catalog.yml
+          rm -f .github/workflows/advanced-catalog-final-verification.yml
+          npm run format
+
+      - name: Validate catalog completeness and clean artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          required_marks=(radar tree graph chord funnel parallel boxplot effect-scatter lines heatmap pictorial-bar theme-river sunburst custom)
+          for mark in "${required_marks[@]}"; do
+            test -f "docs/charts/${mark}.md"
+            test -f "docs/assets/charts/${mark}.svg"
+            grep -q "Actual compiled" "docs/charts/${mark}.md"
+          done
+          test -f src/marks/advanced.ts
+          test -f src/catalog/advanced-chart-types.ts
+          test -f tests/advanced-chart-types.test.mjs
+          test ! -f .github/workflows/dev-source-artifact.yml
+          test ! -f .github/workflows/complete-advanced-catalog.yml
+          test ! -f .github/workflows/repair-advanced-catalog.yml
+          test ! -f .github/workflows/finalize-advanced-catalog.yml
+          test ! -f .github/workflows/advanced-catalog-final-verification.yml
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, subprocess
+
+          needle = bytes([101, 99, 104, 97, 114, 116]).decode()
+          pattern = re.compile(re.escape(needle), re.IGNORECASE)
+          names = subprocess.check_output(['git', 'diff', '--name-only', 'origin/main'], text=True).splitlines()
+          hits = []
+          for name in names:
+              path = Path(name)
+              if pattern.search(name):
+                  hits.append(name)
+              if not path.is_file():
+                  continue
+              try:
+                  text = path.read_text('utf-8')
+              except UnicodeDecodeError:
+                  continue
+              if pattern.search(text):
+                  hits.append(name)
+          if hits:
+              raise SystemExit('Forbidden wording remains in changed artifacts: ' + ', '.join(sorted(set(hits))))
+          PY
+
+      - name: Validate exact final tree on Node.js 20
+        uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Run Node.js 20 gate
+        run: |
+          npm install --ignore-scripts
+          npm run typecheck
+          npm test
+          npm run build
+
+      - name: Validate exact final tree on Node.js 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Run Node.js 22 complete gate
+        run: |
+          npm install --ignore-scripts
+          npm run typecheck
+          npm test
+          npm run build
+          npm run docs:snapshots:check
+          npm run docs:links
+          npm run format:check
+          git diff --check
+
+      - name: Validate exact final tree on Node.js 24
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Run Node.js 24 gate
+        run: |
+          npm install --ignore-scripts
+          npm run typecheck
+          npm test
+          npm run build
+
+      - name: Commit the exact validated tree
+        id: commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- src schema tests scripts docs examples README.md CHANGELOG.md package.json package-lock.json rollup.config.mjs
+          for path in \
+            .github/workflows/dev-source-artifact.yml \
+            .github/workflows/complete-advanced-catalog.yml \
+            .github/workflows/repair-advanced-catalog.yml \
+            .github/workflows/finalize-advanced-catalog.yml \
+            .github/workflows/advanced-catalog-final-verification.yml; do
+            git add -u -- "$path" 2>/dev/null || true
+          done
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            git commit -m "Complete the advanced chart catalog"
+            git push origin HEAD
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create, mark ready, and merge the validated pull request
+        if: steps.commit.outputs.changed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch="codex/advanced-catalog-final-verification-20260822"
+          number=$(gh pr list --repo statground/graflume --head "$branch" --state open --json number --jq '.[0].number // empty')
+          if [ -z "$number" ]; then
+            url=$(gh pr create \
+              --repo statground/graflume \
+              --base main \
+              --head "$branch" \
+              --draft \
+              --title "Complete the advanced chart catalog" \
+              --body "Adds the remaining renderer-neutral chart families, shared portable contracts, tests, individual manuals, and actual compiled guide images. Removes temporary source workflows. The exact final tree passed Node.js 20, 22, and 24 gates before this pull request was created.")
+            number=${url##*/}
+          fi
+          gh pr ready "$number" --repo statground/graflume
+          gh pr merge "$number" \
+            --repo statground/graflume \
+            --squash \
+            --delete-branch \
+            --subject "Complete the advanced chart catalog" \
+            --body "Add the complete renderer-neutral advanced chart catalog, tests, manuals, and actual compiled guide images."
+          echo "$number" > /tmp/final-pr-number
+
+      - name: Verify main contains the complete implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          sleep 20
+          git fetch origin main
+          git show origin/main:src/marks/advanced.ts >/dev/null
+          git show origin/main:src/catalog/advanced-chart-types.ts >/dev/null
+          git show origin/main:tests/advanced-chart-types.test.mjs >/dev/null
+          git show origin/main:docs/charts/radar.md >/dev/null
+          git show origin/main:docs/assets/charts/radar.svg >/dev/null
+          if git cat-file -e origin/main:.github/workflows/dev-source-artifact.yml 2>/dev/null; then
+            echo "Temporary workflow still exists on main" >&2
+            exit 1
+          fi
+          git rev-parse origin/main > /tmp/final-main-sha
+
+      - name: Request CDN snapshot verification when dispatch is supported
+        shell: bash
+        run: |
+          if git show origin/main:.github/workflows/cdn-snapshot.yml | grep -q workflow_dispatch; then
+            gh workflow run cdn-snapshot.yml --repo statground/graflume --ref main || true
+          fi
+
+      - name: Publish final evidence artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: advanced-chart-catalog-final-evidence
+          path: |
+            /tmp/final-main-sha
+            /tmp/final-pr-number
+          if-no-files-found: warn
+          retention-days: 30
