@@ -1,0 +1,81 @@
+name: Apply complete chart catalog
+
+on:
+  push:
+    branches:
+      - codex/complete-chart-catalog-20260821
+    paths:
+      - '.github/catalog-patch.part-*'
+      - '.github/workflows/apply-complete-catalog.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-complete-chart-catalog
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: codex/complete-chart-catalog-20260821
+
+      - name: Reconstruct and apply the implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          export LC_ALL=C
+          cat .github/catalog-patch.part-* | base64 --decode > /tmp/catalog.patch.xz
+          echo '9b8c0c70669cd70f33b85bd743c92103fd58a36ea94215d2a1cda0f0d02d83fc  /tmp/catalog.patch.xz' | sha256sum --check --strict
+          xz --decompress --stdout /tmp/catalog.patch.xz > /tmp/catalog.patch
+          git apply --binary --index /tmp/catalog.patch
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+
+      - name: Format implementation files
+        run: npm run format
+
+      - name: Stage implementation files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -- \
+            CHANGELOG.md \
+            README.md \
+            docs \
+            examples \
+            package.json \
+            rollup.config.mjs \
+            schema \
+            scripts \
+            src \
+            tests
+
+      - name: Run the complete validation gate
+        run: npm run check
+
+      - name: Commit and push the implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo 'No implementation changes were staged.' >&2
+            exit 1
+          fi
+          git commit -m 'Expand the complete built-in chart catalog'
+          git push origin HEAD:codex/complete-chart-catalog-20260821
