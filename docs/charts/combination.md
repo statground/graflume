@@ -48,7 +48,7 @@ const chart = combo('#chart', data, {
       mark: {
         type: 'line',
         point: true,
-        stroke: '#ef4444',
+        stroke: '#e05260',
         fill: '#ffffff',
         lineWidth: 3,
         radius: 5,
@@ -94,7 +94,7 @@ create('#chart', {
     {
       id: 'forecast',
       data: forecastRows,
-      mark: { type: 'line', stroke: '#f97316' },
+      mark: { type: 'line', stroke: '#ea580c' },
       x: { field: 'date', type: 'temporal' },
       y: { field: 'value', type: 'quantitative' },
     },

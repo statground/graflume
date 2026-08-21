@@ -44,6 +44,18 @@ The [31-type standalone gallery](../../examples/cdn/complete-chart-types.html) r
 
 Every chart-specific guide includes a current visual snapshot generated from the actual Graflume `compile()` Scene. Run `npm run docs:snapshots` after a rendering change to rebuild all 31 assets deterministically.
 
+## Default visual system
+
+The built-in light and dark themes share one presentation-ready visual language:
+
+- a balanced ten-color categorical palette and coordinated sequential/diverging ramps;
+- low-contrast domain lines and grids, with x grids off and y grids on by default;
+- rounded line/path joins, outlined points, airier bars, and a clear title/subtitle rhythm;
+- theme-aware surfaces and labels across radial, table, hierarchy, flow, and map charts;
+- explicit `mark`, `axis`, and custom-theme values continuing to take precedence.
+
+Area marks use separate fill and top-line Scene paths, pie and donut labels include percentages when space permits, donut charts add a center total, and the structured layouts use curved Sankey bands plus two-dimensional treemap tiles. These are compiled Scene primitives rather than CSS or renderer-specific decorations, so the committed snapshots and Canvas renderer follow the same geometry.
+
 ## Current rendered output
 
 The individual pages above show full-width implemented output. The following contact grid links representative families directly to their manuals.
@@ -79,7 +91,7 @@ const chart = line('#chart', data, {
     scale: { zero: false, nice: true },
   },
   mark: {
-    stroke: '#2563eb',
+    stroke: '#4f46e5',
     lineWidth: 3,
     point: true,
   },
@@ -154,6 +166,8 @@ Both axes can be categorical, quantitative, or temporal. Layers sharing an axis 
 | `interaction`   | Enable or disable hover and click handling                    |
 | `accessibility` | Canvas ARIA label and description                             |
 | `axes`          | Chart-level x/y axis defaults                                 |
+
+The default x axis uses `grid: false`; the default y axis uses `grid: true`. Set either value explicitly at the chart or encoding level when a different comparison grid is more appropriate, such as enabling both directions for scatter plots.
 
 Quick APIs also accept `create` options for `autoResize`, manual width/height, and pixel ratio.
 

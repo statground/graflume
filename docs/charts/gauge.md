@@ -28,7 +28,7 @@ The same result can be created with `Graflume.create()` and `mark: { type: 'gaug
 
 ## Data, ordering, and missing values
 
-Each row receives a semicircular track, proportional colored arc, needle, value, and label. Values are clamped to the configured range.
+Each row receives a semicircular track, proportional colored arc, five quiet reference ticks, a rounded needle and hub, value, and label. Values are clamped to the configured range.
 
 Rows keep source order unless the compiler must establish a deterministic temporal or hierarchy order. Unsafe field names are rejected, callbacks are forbidden in portable specs, and invalid or unmappable values are skipped rather than evaluated.
 

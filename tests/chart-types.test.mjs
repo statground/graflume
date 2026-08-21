@@ -40,7 +40,7 @@ test('line charts create a styled path and optional interactive points', () => {
   assert.ok(points.every((point) => point.radius === 5 && point.interactive === true));
 });
 
-test('area charts create a closed baseline polygon with fill and stroke', () => {
+test('area charts separate the translucent fill from the crisp top line', () => {
   const { scene } = compile(
     {
       data: trend,
@@ -60,13 +60,21 @@ test('area charts create a closed baseline polygon with fill and stroke', () => 
     { width: 640, height: 400 },
   );
 
-  const areas = flattenScene(scene.root).filter((node) => node.type === 'path' && node.closed);
-  assert.equal(areas.length, 1);
-  assert.equal(areas[0].fill, '#bfdbfe');
-  assert.equal(areas[0].stroke, '#2563eb');
-  assert.equal(areas[0].opacity, 0.72);
-  assert.equal(areas[0].points.length, trend.length + 2);
-  assert.equal(areas[0].points.at(-1).y, areas[0].points.at(-2).y);
+  const paths = flattenScene(scene.root).filter((node) => node.type === 'path');
+  const area = paths.find((node) => node.id.endsWith(':area-fill'));
+  const line = paths.find((node) => node.id.endsWith(':area-line'));
+  assert.ok(area);
+  assert.ok(line);
+  assert.equal(area.closed, true);
+  assert.equal(area.fill, '#bfdbfe');
+  assert.equal(area.stroke, undefined);
+  assert.equal(area.opacity, 0.72);
+  assert.equal(area.points.length, trend.length + 2);
+  assert.equal(area.points.at(-1).y, area.points.at(-2).y);
+  assert.equal(line.closed, false);
+  assert.equal(line.stroke, '#2563eb');
+  assert.equal(line.lineCap, 'round');
+  assert.equal(line.lineJoin, 'round');
 });
 
 test('scatter charts create one styled point for each valid pair', () => {

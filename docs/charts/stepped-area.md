@@ -21,7 +21,7 @@ Graflume.steppedArea('#chart', data, {
 
 ## Portable ChartSpec mapping
 
-`x` is ordered and `y` is quantitative. The mark uses step-after transitions and fills to zero.
+`x` is ordered and `y` is quantitative. The mark uses step-after transitions, fills to zero, and keeps the stepped top stroke separate so the baseline is not outlined.
 
 The same result can be created with `Graflume.create()` and `mark: { type: 'stepped-area' }`. Named `mark.fields` and `mark.options` values are function-free and JSON-serializable, so they remain portable across JavaScript, future Python/R/Java builders, and stored specs.
 

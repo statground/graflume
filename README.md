@@ -13,7 +13,8 @@ Graflume is an experimental, CDN-first visualization engine built around a porta
 - a versioned, function-free `ChartSpec 0.1` plus JSON Schema for portable JSON data
 - runtime validation and canonical normalization
 - Canvas 2D rendering behind a renderer interface
-- light/dark design-token themes and custom theme registration
+- polished light/dark design-token themes with an accessible categorical palette, quiet axes,
+  rounded data strokes, and custom theme registration
 - custom mark, renderer, and theme plugins
 - responsive chart instances, pointer hit testing, safe data events, and image export
 - standard/large/ultra performance profiles with bounded line, point, and bar rendering
@@ -89,6 +90,8 @@ The public catalog covers 31 chart families and compatibility surfaces across Ca
 
 Start with the [chart guide index and common options](docs/charts/README.md). Every chart page includes a visual snapshot generated from the current compiled Scene, a Quick API example, portable field contract, missing-value behavior, interaction/accessibility guidance, performance notes, and explicit limitations.
 
+The default visual system is intentionally presentation-ready: horizontal grid lines remain available for quantitative comparison, categorical vertical grids are suppressed by default, data strokes use rounded joins and caps, point marks receive a contrasting outline, and structural charts use the same spacing, surface, and palette tokens. Explicit mark and axis styles still override these defaults.
+
 [`examples/cdn/complete-chart-types.html`](examples/cdn/complete-chart-types.html) is a responsive standalone gallery that executes all 31 types from one exact-commit jsDelivr bundle with SHA-384 SRI. The smaller [`examples/cdn/chart-types.html`](examples/cdn/chart-types.html) remains the core five-chart introduction.
 
 Aliases remain canonical and serializable: `scatter()` maps to `point`, `donut()` maps to `pie` plus an inner radius, Bar and Column share `bar` plus orientation, Annotated Timeline maps to `annotation`, and Combo maps to ordinary `layers`.
@@ -114,7 +117,7 @@ The shortest bar chart API is `Graflume.bar()`:
       type: 'quantitative',
       scale: { zero: true, nice: true },
     },
-    mark: { fill: '#2563eb', cornerRadius: 8 },
+    mark: { fill: '#4f46e5', cornerRadius: 8 },
   });
 </script>
 ```

@@ -28,7 +28,7 @@ The same result can be created with `Graflume.create()` and `mark: { type: 'map'
 
 ## Data, ordering, and missing values
 
-Coordinates use an equirectangular projection against the built-in world outline. Markers are interactive scene circles.
+Coordinates use an equirectangular projection against a theme-aware surface, graticule, and built-in world outline. Markers use a quiet halo plus an interactive foreground circle.
 
 Rows keep source order unless the compiler must establish a deterministic temporal or hierarchy order. Unsafe field names are rejected, callbacks are forbidden in portable specs, and invalid or unmappable values are skipped rather than evaluated.
 

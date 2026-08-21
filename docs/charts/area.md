@@ -4,7 +4,7 @@ Use an area chart to show an ordered trend while emphasizing magnitude relative 
 
 ## Implemented appearance
 
-This snapshot shows the current zero-baseline polygon, fill opacity, outline, axes, and title layout.
+This snapshot shows the current zero-baseline fill, separate crisp top line, quiet axes, and title layout. The baseline is no longer outlined as part of the area stroke.
 
 ![Graflume area chart showing monthly visitors as a teal area filled to zero](../assets/charts/area.svg)
 
@@ -23,10 +23,10 @@ const chart = area('#chart', data, {
     scale: { zero: true, nice: true },
   },
   mark: {
-    fill: '#99f6e4',
+    fill: '#ccfbf1',
     stroke: '#0f766e',
     lineWidth: 2.5,
-    opacity: 0.78,
+    opacity: 0.9,
   },
   accessibility: {
     label: 'Monthly visitors area chart',
@@ -43,9 +43,9 @@ Graflume.create('#chart', {
   data,
   mark: {
     type: 'area',
-    fill: '#99f6e4',
+    fill: '#ccfbf1',
     stroke: '#0f766e',
-    opacity: 0.78,
+    opacity: 0.9,
   },
   x: { field: 'month', type: 'ordinal' },
   y: { field: 'visitors', type: 'quantitative' },
@@ -55,7 +55,7 @@ Graflume.create('#chart', {
 ## Baseline and data behavior
 
 - The area mark always includes zero in the y domain.
-- Valid top-line points are closed to the zero baseline at the first and last x positions.
+- Valid top-line points form a fill polygon closed to zero plus a separate open stroke path.
 - Input-row order determines the top-line order; data is not sorted automatically.
 - Invalid x/y pairs are omitted. The current single polygon may bridge across omitted rows, so pre-filter or split discontinuous data into explicit layers.
 - Min/max sampling uses the line-point performance budget.
@@ -70,13 +70,13 @@ Graflume.create('#chart', {
   layers: [
     {
       id: 'area',
-      mark: { type: 'area', fill: '#bfdbfe', opacity: 0.7 },
+      mark: { type: 'area', fill: '#dbeafe', opacity: 0.85 },
       x: { field: 'month', type: 'ordinal' },
       y: { field: 'value', type: 'quantitative' },
     },
     {
       id: 'points',
-      mark: { type: 'point', fill: '#2563eb', radius: 4 },
+      mark: { type: 'point', fill: '#4f46e5', radius: 4 },
       x: { field: 'month', type: 'ordinal' },
       y: { field: 'value', type: 'quantitative' },
     },

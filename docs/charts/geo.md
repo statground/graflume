@@ -27,7 +27,7 @@ The same result can be created with `Graflume.create()` and `mark: { type: 'geo'
 
 ## Data, ordering, and missing values
 
-A built-in renderer-neutral world outline is drawn first. Known country centroids receive size-scaled markers with row hit testing.
+A theme-aware map surface, quiet latitude/longitude graticule, and built-in renderer-neutral world outline are drawn first. Known country centroids receive haloed, size-scaled markers with row hit testing.
 
 Rows keep source order unless the compiler must establish a deterministic temporal or hierarchy order. Unsafe field names are rejected, callbacks are forbidden in portable specs, and invalid or unmappable values are skipped rather than evaluated.
 

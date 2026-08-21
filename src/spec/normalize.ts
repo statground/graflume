@@ -34,11 +34,14 @@ function normalizeTitle(input: ChartSpec['title']): TitleSpec | undefined {
   return { ...input, align: input.align ?? 'left' };
 }
 
-function normalizeAxis(input: AxisSpec | false | undefined): AxisSpec | false {
+function normalizeAxis(
+  input: AxisSpec | false | undefined,
+  defaultGrid: boolean,
+): AxisSpec | false {
   if (input === false) return false;
   return {
     visible: input?.visible ?? true,
-    grid: input?.grid ?? true,
+    grid: input?.grid ?? defaultGrid,
     ...(input?.title === undefined ? {} : { title: input.title }),
     ...(input?.tickCount === undefined ? {} : { tickCount: input.tickCount }),
     ...(input?.format === undefined ? {} : { format: input.format }),
@@ -56,7 +59,13 @@ function normalizeEncoding(
     ...(encoding.type === undefined ? {} : { type: encoding.type }),
     title: encoding.title ?? encoding.field,
     scale: { ...encoding.scale },
-    axis: encoding.axis === undefined ? fallbackAxis : normalizeAxis(encoding.axis),
+    axis:
+      encoding.axis === undefined
+        ? fallbackAxis
+        : normalizeAxis(
+            encoding.axis,
+            fallbackAxis === false ? false : fallbackAxis.grid !== false,
+          ),
   };
 }
 
@@ -103,8 +112,8 @@ export function normalizeSpec(input: ChartSpec): NormalizedChartSpec {
   assertValidSpec(input);
 
   const axes = {
-    x: normalizeAxis(input.axes?.x),
-    y: normalizeAxis(input.axes?.y),
+    x: normalizeAxis(input.axes?.x, false),
+    y: normalizeAxis(input.axes?.y, true),
   } as const;
 
   const shorthandLayer: LayerSpec | undefined =

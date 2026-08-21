@@ -23,16 +23,18 @@ function line(
   stroke: string,
   lineWidth: number,
   zIndex: number,
+  opacity = 1,
 ): LineNode {
   return {
     type: 'line',
-    ...nodeBase(id, { zIndex }),
+    ...nodeBase(id, { zIndex, opacity }),
     x1,
     y1,
     x2,
     y2,
     stroke,
     lineWidth,
+    lineCap: 'round',
   };
 }
 
@@ -67,7 +69,7 @@ export function compileXAxis(context: AxisContext): readonly SceneNode[] {
   if (axis === false || axis.visible === false) return [];
   const nodes: SceneNode[] = [];
   const axisY = plot.y + plot.height;
-  const ticks = scale.ticks(axis.tickCount ?? Math.max(2, Math.floor(plot.width / 90)), locale);
+  const ticks = scale.ticks(axis.tickCount ?? Math.max(2, Math.floor(plot.width / 96)), locale);
   const angle = axis.labelAngle ?? (scale.kind === 'band' && ticks.length > 10 ? -35 : 0);
 
   nodes.push(
@@ -84,7 +86,8 @@ export function compileXAxis(context: AxisContext): readonly SceneNode[] {
   );
 
   ticks.forEach((tick, index) => {
-    if (axis.grid !== false) {
+    if (axis.grid !== false && Math.abs(tick.position - plot.x) > 0.5) {
+      const isZero = typeof tick.value === 'number' && Math.abs(tick.value) < Number.EPSILON;
       nodes.push(
         line(
           `axis-x:grid:${index}`,
@@ -92,24 +95,27 @@ export function compileXAxis(context: AxisContext): readonly SceneNode[] {
           plot.y,
           tick.position,
           axisY,
-          theme.colors.grid,
-          theme.axis.gridLineWidth,
+          isZero ? theme.colors.axis : theme.colors.grid,
+          isZero ? Math.max(1, theme.axis.gridLineWidth) : theme.axis.gridLineWidth,
           -20,
+          isZero ? 0.9 : 0.82,
         ),
       );
     }
-    nodes.push(
-      line(
-        `axis-x:tick:${index}`,
-        tick.position,
-        axisY,
-        tick.position,
-        axisY + theme.axis.tickLength,
-        theme.colors.axis,
-        theme.axis.lineWidth,
-        100,
-      ),
-    );
+    if (theme.axis.tickLength > 0) {
+      nodes.push(
+        line(
+          `axis-x:tick:${index}`,
+          tick.position,
+          axisY,
+          tick.position,
+          axisY + theme.axis.tickLength,
+          theme.colors.axis,
+          theme.axis.lineWidth,
+          100,
+        ),
+      );
+    }
     nodes.push(
       text(
         `axis-x:label:${index}`,
@@ -121,6 +127,7 @@ export function compileXAxis(context: AxisContext): readonly SceneNode[] {
           align: angle === 0 ? 'center' : 'right',
           baseline: 'top',
           rotation: angle,
+          fontWeight: 500,
         },
       ),
     );
@@ -128,7 +135,7 @@ export function compileXAxis(context: AxisContext): readonly SceneNode[] {
 
   if (axis.title !== '' && title !== '') {
     nodes.push(
-      text('axis-x:title', plot.x + plot.width / 2, axisY + 34, axis.title ?? title, theme, {
+      text('axis-x:title', plot.x + plot.width / 2, axisY + 32, axis.title ?? title, theme, {
         align: 'center',
         baseline: 'top',
         fontWeight: 600,
@@ -143,7 +150,7 @@ export function compileYAxis(context: AxisContext): readonly SceneNode[] {
   if (axis === false || axis.visible === false) return [];
   const nodes: SceneNode[] = [];
   const axisX = plot.x;
-  const ticks = scale.ticks(axis.tickCount ?? Math.max(2, Math.floor(plot.height / 60)), locale);
+  const ticks = scale.ticks(axis.tickCount ?? Math.max(2, Math.floor(plot.height / 58)), locale);
 
   nodes.push(
     line(
@@ -159,7 +166,8 @@ export function compileYAxis(context: AxisContext): readonly SceneNode[] {
   );
 
   ticks.forEach((tick, index) => {
-    if (axis.grid !== false) {
+    if (axis.grid !== false && Math.abs(tick.position - (plot.y + plot.height)) > 0.5) {
+      const isZero = typeof tick.value === 'number' && Math.abs(tick.value) < Number.EPSILON;
       nodes.push(
         line(
           `axis-y:grid:${index}`,
@@ -167,24 +175,27 @@ export function compileYAxis(context: AxisContext): readonly SceneNode[] {
           tick.position,
           plot.x + plot.width,
           tick.position,
-          theme.colors.grid,
-          theme.axis.gridLineWidth,
+          isZero ? theme.colors.axis : theme.colors.grid,
+          isZero ? Math.max(1, theme.axis.gridLineWidth) : theme.axis.gridLineWidth,
           -20,
+          isZero ? 0.9 : 0.82,
         ),
       );
     }
-    nodes.push(
-      line(
-        `axis-y:tick:${index}`,
-        axisX - theme.axis.tickLength,
-        tick.position,
-        axisX,
-        tick.position,
-        theme.colors.axis,
-        theme.axis.lineWidth,
-        100,
-      ),
-    );
+    if (theme.axis.tickLength > 0) {
+      nodes.push(
+        line(
+          `axis-y:tick:${index}`,
+          axisX - theme.axis.tickLength,
+          tick.position,
+          axisX,
+          tick.position,
+          theme.colors.axis,
+          theme.axis.lineWidth,
+          100,
+        ),
+      );
+    }
     nodes.push(
       text(
         `axis-y:label:${index}`,
@@ -192,7 +203,7 @@ export function compileYAxis(context: AxisContext): readonly SceneNode[] {
         tick.position,
         tick.label,
         theme,
-        { align: 'right', baseline: 'middle' },
+        { align: 'right', baseline: 'middle', fontWeight: 500 },
       ),
     );
   });

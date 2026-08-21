@@ -28,7 +28,7 @@ The same result can be created with `Graflume.create()` and `mark: { type: 'org'
 
 ## Data, ordering, and missing values
 
-Depth is resolved without evaluating code. Nodes are placed in depth rows, connected to resolved parents, and rendered as interactive rounded rectangles.
+Depth is resolved without evaluating code. Nodes are placed in depth rows, joined by rounded elbow connectors, and rendered as interactive surface cards with depth-colored accents.
 
 Rows keep source order unless the compiler must establish a deterministic temporal or hierarchy order. Unsafe field names are rejected, callbacks are forbidden in portable specs, and invalid or unmappable values are skipped rather than evaluated.
 

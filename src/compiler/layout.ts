@@ -17,7 +17,12 @@ export function createLayout(
   theme: ThemeTokens,
 ): ChartLayout {
   const titleBlock =
-    spec.title === undefined ? 0 : theme.typography.titleSize + (spec.title.subtitle ? 22 : 10);
+    spec.title === undefined
+      ? 0
+      : theme.typography.titleSize +
+        (spec.title.subtitle === undefined
+          ? theme.spacing.lg
+          : theme.typography.subtitleSize + theme.spacing.lg + theme.spacing.xs);
   const plotX = spec.padding.left;
   const plotY = spec.padding.top + titleBlock;
   const plotWidth = Math.max(1, width - spec.padding.left - spec.padding.right);
@@ -28,6 +33,6 @@ export function createLayout(
     height,
     plot: { x: plotX, y: plotY, width: plotWidth, height: plotHeight },
     titleY: spec.padding.top,
-    subtitleY: spec.padding.top + theme.typography.titleSize + 4,
+    subtitleY: spec.padding.top + theme.typography.titleSize + theme.spacing.xs,
   };
 }

@@ -92,6 +92,7 @@ function renderScene(scene) {
         stroke: node.stroke,
         'stroke-width': number(node.lineWidth),
         'stroke-dasharray': dash(node),
+        'stroke-linecap': node.lineCap,
       })}/>`;
     }
 
@@ -110,6 +111,8 @@ function renderScene(scene) {
         stroke: node.stroke,
         'stroke-width': node.stroke === undefined ? undefined : number(node.lineWidth),
         'stroke-dasharray': dash(node),
+        'stroke-linecap': node.lineCap,
+        'stroke-linejoin': node.lineJoin,
       })}/>`;
     }
 
@@ -227,7 +230,7 @@ const snapshots = [
       mark: {
         type: 'bar',
         orientation: 'horizontal',
-        fill: '#2563eb',
+        fill: '#4f46e5',
         cornerRadius: 7,
         opacity: 0.94,
       },
@@ -251,7 +254,7 @@ const snapshots = [
       title: { text: 'Monthly sales trend', subtitle: 'Line chart with points' },
       mark: {
         type: 'line',
-        stroke: '#f97316',
+        stroke: '#ea580c',
         fill: '#ffffff',
         lineWidth: 3,
         radius: 5,
@@ -271,16 +274,16 @@ const snapshots = [
   {
     filename: 'area.svg',
     width: 680,
-    expected: { path: 1 },
+    expected: { path: 2 },
     spec: {
       data: monthly,
       title: { text: 'Monthly visitors', subtitle: 'Area filled to the zero baseline' },
       mark: {
         type: 'area',
-        fill: '#99f6e4',
+        fill: '#ccfbf1',
         stroke: '#0f766e',
         lineWidth: 2.5,
-        opacity: 0.78,
+        opacity: 0.9,
       },
       x: encoding('month', 'ordinal', 'Month', false),
       y: {
@@ -302,7 +305,7 @@ const snapshots = [
       title: { text: 'Study time and score', subtitle: '8 observations' },
       mark: {
         type: 'point',
-        fill: '#8b5cf6',
+        fill: '#7c3aed',
         stroke: '#ffffff',
         lineWidth: 2,
         radius: 7,
@@ -347,7 +350,7 @@ const snapshots = [
           mark: {
             type: 'line',
             point: true,
-            stroke: '#ef4444',
+            stroke: '#e05260',
             fill: '#ffffff',
             lineWidth: 3,
             radius: 5,
@@ -381,7 +384,7 @@ const snapshots = [
         type: 'annotation',
         fields: { annotation: 'annotation' },
         point: true,
-        stroke: '#2563eb',
+        stroke: '#4f46e5',
       },
       x: encoding('date', 'temporal', 'Date', false),
       y: encoding('value', 'quantitative', 'Revenue'),
@@ -473,7 +476,7 @@ const snapshots = [
     spec: {
       data: monthly,
       title: { text: 'Monthly sales', subtitle: 'Vertical column chart' },
-      mark: { type: 'bar', orientation: 'vertical', fill: '#2563eb', cornerRadius: 7 },
+      mark: { type: 'bar', orientation: 'vertical', fill: '#4f46e5', cornerRadius: 7 },
       x: encoding('month', 'ordinal', 'Month', false),
       y: { ...encoding('actual', 'quantitative', 'Sales'), scale: { zero: true, nice: true } },
       accessibility: { label: 'Monthly sales column chart' },
@@ -736,7 +739,7 @@ const snapshots = [
     spec: {
       data: monthly,
       title: { text: 'Inventory level', subtitle: 'Step-after area transitions' },
-      mark: { type: 'stepped-area', fill: '#bfdbfe', stroke: '#1d4ed8', opacity: 0.8 },
+      mark: { type: 'stepped-area', fill: '#dbeafe', stroke: '#4f46e5', opacity: 0.9 },
       x: encoding('month', 'ordinal', 'Month', false),
       y: { ...encoding('actual', 'quantitative', 'Units'), scale: { zero: true } },
       accessibility: { label: 'Inventory stepped area chart' },
@@ -797,7 +800,7 @@ const snapshots = [
     spec: {
       data: study,
       title: { text: 'Study score regression', subtitle: 'Points with a linear trendline' },
-      mark: { type: 'trendline', fill: '#8b5cf6', stroke: '#ef4444', radius: 6 },
+      mark: { type: 'trendline', fill: '#7c3aed', stroke: '#e05260', radius: 6 },
       x: encoding('hours', 'quantitative', 'Hours'),
       y: encoding('score', 'quantitative', 'Score'),
       accessibility: { label: 'Study score trendline chart' },

@@ -15,11 +15,11 @@
           BlinkMacSystemFont,
           'Segoe UI',
           sans-serif;
-        color: #172033;
-        background: #eef3f8;
+        color: #0f172a;
+        background: #f1f5f9;
       }
       :root[data-theme='dark'] {
-        color: #f1f5f9;
+        color: #f8fafc;
         background: #0b1020;
       }
       * {
@@ -49,14 +49,14 @@
       .lede {
         max-width: 780px;
         margin: 10px 0 0;
-        color: #5d6b82;
+        color: #64748b;
         line-height: 1.7;
       }
       :root[data-theme='dark'] .lede,
       :root[data-theme='dark'] .card-copy,
       :root[data-theme='dark'] .selection-label,
       :root[data-theme='dark'] .code-label {
-        color: #a8b3c7;
+        color: #a7b2c5;
       }
       button {
         min-height: 42px;
@@ -64,7 +64,7 @@
         padding: 0 16px;
         color: inherit;
         background: rgb(255 255 255 / 85%);
-        border: 1px solid #d8e0ea;
+        border: 1px solid #dbe3ee;
         border-radius: 999px;
         cursor: pointer;
         font: inherit;
@@ -72,11 +72,11 @@
       }
       :root[data-theme='dark'] button {
         background: rgb(23 30 45 / 92%);
-        border-color: #344057;
+        border-color: #475569;
       }
       button:focus-visible,
       summary:focus-visible {
-        outline: 3px solid #60a5fa;
+        outline: 3px solid #818cf8;
         outline-offset: 2px;
       }
       #error {
@@ -97,13 +97,13 @@
         min-width: 0;
         overflow: hidden;
         background: #fff;
-        border: 1px solid #dce4ee;
+        border: 1px solid #dbe3ee;
         border-radius: 22px;
         box-shadow: 0 20px 55px rgb(15 23 42 / 9%);
       }
       :root[data-theme='dark'] .card {
-        background: #101522;
-        border-color: #273248;
+        background: #111827;
+        border-color: #25314a;
         box-shadow: 0 22px 60px rgb(0 0 0 / 32%);
       }
       .card-wide {
@@ -123,22 +123,22 @@
       }
       .card-copy {
         margin: 6px 0 0;
-        color: #5d6b82;
+        color: #64748b;
         font-size: 0.9rem;
         line-height: 1.55;
       }
       .badge {
         flex: 0 0 auto;
         padding: 5px 9px;
-        color: #1d4ed8;
-        background: #dbeafe;
+        color: #4338ca;
+        background: #eef2ff;
         border-radius: 999px;
         font-size: 0.74rem;
         font-weight: 800;
       }
       :root[data-theme='dark'] .badge {
-        color: #bfdbfe;
-        background: #1e3a8a;
+        color: #c7d2fe;
+        background: #312e81;
       }
       .chart {
         width: 100%;
@@ -155,15 +155,15 @@
         margin-top: 18px;
         padding: 16px 18px;
         background: rgb(255 255 255 / 78%);
-        border: 1px solid #dce4ee;
+        border: 1px solid #dbe3ee;
         border-radius: 16px;
       }
       :root[data-theme='dark'] .selection {
         background: rgb(23 30 45 / 86%);
-        border-color: #273248;
+        border-color: #25314a;
       }
       .selection-label {
-        color: #5d6b82;
+        color: #64748b;
         font-size: 0.86rem;
       }
       #selection-value {
@@ -174,12 +174,12 @@
         margin-top: 18px;
         padding: 14px 18px;
         background: rgb(255 255 255 / 70%);
-        border: 1px solid #dce4ee;
+        border: 1px solid #dbe3ee;
         border-radius: 14px;
       }
       :root[data-theme='dark'] details {
         background: rgb(23 30 45 / 76%);
-        border-color: #273248;
+        border-color: #25314a;
       }
       summary {
         cursor: pointer;
@@ -194,17 +194,17 @@
       .data-grid p {
         margin: 0;
         padding: 10px 12px;
-        border: 1px solid #dce4ee;
+        border: 1px solid #dbe3ee;
         border-radius: 10px;
         line-height: 1.55;
       }
       :root[data-theme='dark'] .data-grid p {
-        border-color: #344057;
+        border-color: #475569;
       }
       .code-label {
         display: block;
         margin-top: 3px;
-        color: #5d6b82;
+        color: #64748b;
         font-size: 0.8rem;
       }
       code {
@@ -421,7 +421,7 @@
               ...encoding('actual', 'quantitative', '실적'),
               scale: { zero: true, nice: true },
             },
-            mark: { fill: '#2563eb', cornerRadius: 7, opacity: 0.94 },
+            mark: { fill: '#4f46e5', cornerRadius: 7, opacity: 0.96 },
             accessibility: {
               label: '월별 실적 막대그래프',
               description: '1월부터 6월까지의 실적을 세로 막대로 비교합니다.',
@@ -439,7 +439,7 @@
               scale: { zero: false, nice: true },
             },
             mark: {
-              stroke: '#f97316',
+              stroke: '#ea580c',
               fill: '#ffffff',
               lineWidth: 3,
               radius: 5,
@@ -462,10 +462,10 @@
               scale: { zero: true, nice: true },
             },
             mark: {
-              fill: '#99f6e4',
+              fill: '#ccfbf1',
               stroke: '#0f766e',
               lineWidth: 2.5,
-              opacity: 0.78,
+              opacity: 0.9,
             },
             accessibility: {
               label: '월별 방문자 영역그래프',
@@ -488,7 +488,7 @@
               scale: { zero: false, nice: true },
             },
             mark: {
-              fill: '#8b5cf6',
+              fill: '#7c3aed',
               stroke: '#ffffff',
               lineWidth: 2,
               radius: 7,
@@ -528,7 +528,7 @@
               mark: {
                 type: 'line',
                 point: true,
-                stroke: '#ef4444',
+                stroke: '#e05260',
                 fill: '#ffffff',
                 lineWidth: 3,
                 radius: 5,

@@ -1,6 +1,7 @@
 import type { MarkCompiler } from '../compiler/types.js';
 import { nodeBase } from '../scene/factory.js';
-import type { LineNode, PathNode, Point, SceneNode, TextNode } from '../scene/types.js';
+import type { CircleNode, LineNode, PathNode, Point, SceneNode, TextNode } from '../scene/types.js';
+import { mixColor, readableTextColor } from '../theme/color.js';
 import { numericDataValue } from './utils.js';
 
 function optionNumber(
@@ -10,6 +11,14 @@ function optionNumber(
 ): number {
   const value = options[name];
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function optionString(
+  options: Readonly<Record<string, unknown>>,
+  name: string,
+): string | undefined {
+  const value = options[name];
+  return typeof value === 'string' ? value : undefined;
 }
 
 function arcPoints(
@@ -41,6 +50,11 @@ function labelNode(
   text: string,
   context: Parameters<MarkCompiler>[0],
   fontSize = 12,
+  options: {
+    align?: CanvasTextAlign;
+    fill?: string;
+    weight?: string | number;
+  } = {},
 ): TextNode {
   return {
     type: 'text',
@@ -48,11 +62,11 @@ function labelNode(
     x,
     y,
     text,
-    fill: context.theme.colors.text,
+    fill: options.fill ?? context.theme.colors.text,
     fontFamily: context.theme.typography.fontFamily,
     fontSize,
-    fontWeight: 600,
-    align: 'center',
+    fontWeight: options.weight ?? 600,
+    align: options.align ?? 'center',
     baseline: 'middle',
     rotation: 0,
   };
@@ -72,7 +86,7 @@ export const compilePieMark: MarkCompiler = (context) => {
 
   const cx = plot.x + plot.width / 2;
   const cy = plot.y + plot.height / 2;
-  const radius = Math.max(8, Math.min(plot.width, plot.height) * 0.39);
+  const radius = Math.max(8, Math.min(plot.width, plot.height) * 0.36);
   const innerRatio = Math.max(0, Math.min(0.9, optionNumber(layer.mark.options, 'innerRadius', 0)));
   const innerRadius = radius * innerRatio;
   const startOffset = optionNumber(layer.mark.options, 'startAngle', -Math.PI / 2);
@@ -99,21 +113,83 @@ export const compilePieMark: MarkCompiler = (context) => {
       lineWidth: layer.mark.lineWidth ?? 2,
     };
     nodes.push(wedge);
-    if (index < labelLimit && next - angle >= 0.18) {
-      const labelRadius = innerRadius > 0 ? (innerRadius + radius) / 2 : radius * 0.65;
-      nodes.push(
-        labelNode(
-          `${layer.id}:label:${item.rowIndex}`,
-          cx + Math.cos(mid) * labelRadius,
-          cy + Math.sin(mid) * labelRadius,
-          item.label,
-          context,
-          11,
-        ),
-      );
+    const share = item.value / total;
+    const span = next - angle;
+    if (index < labelLimit && span >= 0.16) {
+      const percentage = `${Math.round(share * 100)}%`;
+      const inside = innerRadius > 0 || span >= 0.48;
+      const labelRadius = innerRadius > 0 ? (innerRadius + radius) / 2 : radius * 0.64;
+      const text = inside ? `${item.label} · ${percentage}` : `${item.label} ${percentage}`;
+      if (!inside) {
+        const side = Math.cos(mid) >= 0 ? 1 : -1;
+        const edge = {
+          x: cx + Math.cos(mid) * radius * 0.9,
+          y: cy + Math.sin(mid) * radius * 0.9,
+        };
+        const elbow = {
+          x: cx + Math.cos(mid) * radius * 1.06,
+          y: cy + Math.sin(mid) * radius * 1.06,
+        };
+        nodes.push({
+          type: 'path',
+          ...nodeBase(`${layer.id}:leader:${item.rowIndex}`, { zIndex: layer.zIndex + 0.9 }),
+          points: [edge, elbow, { x: elbow.x + side * 10, y: elbow.y }],
+          closed: false,
+          stroke: mixColor(fill, theme.colors.text, 0.18),
+          lineWidth: 1.2,
+          lineCap: 'round',
+          lineJoin: 'round',
+        });
+        nodes.push(
+          labelNode(
+            `${layer.id}:label:${item.rowIndex}`,
+            elbow.x + side * 14,
+            elbow.y,
+            text,
+            context,
+            10.5,
+            { align: side > 0 ? 'left' : 'right', fill: theme.colors.text, weight: 650 },
+          ),
+        );
+      } else {
+        nodes.push(
+          labelNode(
+            `${layer.id}:label:${item.rowIndex}`,
+            cx + Math.cos(mid) * labelRadius,
+            cy + Math.sin(mid) * labelRadius,
+            text,
+            context,
+            10.5,
+            {
+              fill: readableTextColor(fill, '#ffffff', '#0f172a'),
+              weight: 700,
+            },
+          ),
+        );
+      }
     }
     angle = next;
   });
+
+  if (innerRadius > radius * 0.34) {
+    nodes.push(
+      labelNode(
+        `${layer.id}:center-label`,
+        cx,
+        cy - 9,
+        optionString(layer.mark.options, 'centerLabel') ?? 'Total',
+        context,
+        10,
+        { fill: theme.colors.mutedText, weight: 600 },
+      ),
+    );
+    nodes.push(
+      labelNode(`${layer.id}:center-value`, cx, cy + 10, String(total), context, 18, {
+        fill: theme.colors.text,
+        weight: 750,
+      }),
+    );
+  }
 
   return nodes;
 };
@@ -135,13 +211,17 @@ export const compileGaugeMark: MarkCompiler = (context) => {
     const ratio = Math.max(0, Math.min(1, (value - minimum) / span));
     const cx = plot.x + slotWidth * (rowIndex + 0.5);
     const cy = plot.y + plot.height * 0.62;
-    const inner = radius * 0.72;
+    const inner = radius * 0.7;
+    const fill =
+      layer.mark.fill ??
+      theme.colors.palette[rowIndex % theme.colors.palette.length] ??
+      theme.colors.focus;
     nodes.push({
       type: 'path',
       ...nodeBase(`${layer.id}:gauge-background:${rowIndex}`, { zIndex: layer.zIndex }),
       points: arcPoints(cx, cy, radius, Math.PI, Math.PI * 2, inner),
       closed: true,
-      fill: theme.colors.grid,
+      fill: mixColor(theme.colors.grid, theme.colors.surface, 0.3),
       lineWidth: 0,
     });
     nodes.push({
@@ -154,12 +234,26 @@ export const compileGaugeMark: MarkCompiler = (context) => {
       }),
       points: arcPoints(cx, cy, radius, Math.PI, Math.PI + Math.PI * ratio, inner),
       closed: true,
-      fill:
-        layer.mark.fill ??
-        theme.colors.palette[rowIndex % theme.colors.palette.length] ??
-        theme.colors.focus,
+      fill,
       lineWidth: 0,
     });
+    for (let tickIndex = 0; tickIndex <= 4; tickIndex += 1) {
+      const tickAngle = Math.PI + (Math.PI * tickIndex) / 4;
+      nodes.push({
+        type: 'line',
+        ...nodeBase(`${layer.id}:gauge-tick:${rowIndex}:${tickIndex}`, {
+          zIndex: layer.zIndex + 0.35,
+          opacity: 0.72,
+        }),
+        x1: cx + Math.cos(tickAngle) * radius * 0.76,
+        y1: cy + Math.sin(tickAngle) * radius * 0.76,
+        x2: cx + Math.cos(tickAngle) * radius * 0.84,
+        y2: cy + Math.sin(tickAngle) * radius * 0.84,
+        stroke: theme.colors.background,
+        lineWidth: 1.25,
+        lineCap: 'round',
+      });
+    }
     const needleAngle = Math.PI + Math.PI * ratio;
     const needle: LineNode = {
       type: 'line',
@@ -170,20 +264,36 @@ export const compileGaugeMark: MarkCompiler = (context) => {
       y2: cy + Math.sin(needleAngle) * radius * 0.62,
       stroke: theme.colors.text,
       lineWidth: 2,
+      lineCap: 'round',
     };
     nodes.push(needle);
+    const hub: CircleNode = {
+      type: 'circle',
+      ...nodeBase(`${layer.id}:gauge-hub:${rowIndex}`, { zIndex: layer.zIndex + 0.6 }),
+      cx,
+      cy,
+      radius: 4,
+      fill: theme.colors.text,
+      stroke: theme.colors.background,
+      lineWidth: 1.5,
+    };
+    nodes.push(hub);
     nodes.push(
       labelNode(
         `${layer.id}:gauge-value-label:${rowIndex}`,
         cx,
-        cy + 18,
+        cy - 15,
         String(value),
         context,
-        16,
+        17,
+        { weight: 750 },
       ),
     );
     nodes.push(
-      labelNode(`${layer.id}:gauge-label:${rowIndex}`, cx, cy + 39, String(label), context, 11),
+      labelNode(`${layer.id}:gauge-label:${rowIndex}`, cx, cy + 23, String(label), context, 11, {
+        fill: theme.colors.mutedText,
+        weight: 650,
+      }),
     );
   }
 
