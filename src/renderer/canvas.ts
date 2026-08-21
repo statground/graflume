@@ -169,6 +169,7 @@ export class CanvasRenderer implements Renderer {
     context.lineTo(node.x2, node.y2);
     context.strokeStyle = node.stroke;
     context.lineWidth = node.lineWidth;
+    context.lineCap = node.lineCap ?? 'butt';
     context.setLineDash(node.dash ?? []);
     context.stroke();
   }
@@ -184,6 +185,8 @@ export class CanvasRenderer implements Renderer {
     }
     if (node.closed) context.closePath();
     context.setLineDash(node.dash ?? []);
+    context.lineCap = node.lineCap ?? 'round';
+    context.lineJoin = node.lineJoin ?? 'round';
     if (node.fill !== undefined) {
       context.fillStyle = node.fill;
       context.fill();

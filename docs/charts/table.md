@@ -28,7 +28,7 @@ The same result can be created with `Graflume.create()` and `mark: { type: 'tabl
 
 ## Data, ordering, and missing values
 
-Headers, alternating row fills, grid cells, and text are compiled to Scene primitives. Rows that fit in the plot are interactive.
+Theme-tinted headers, alternating row surfaces, subtle grid cells, and stronger type hierarchy are compiled to Scene primitives. Rows that fit in the plot are interactive.
 
 Rows keep source order unless the compiler must establish a deterministic temporal or hierarchy order. Unsafe field names are rejected, callbacks are forbidden in portable specs, and invalid or unmappable values are skipped rather than evaluated.
 

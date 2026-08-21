@@ -15,11 +15,11 @@
           BlinkMacSystemFont,
           'Segoe UI',
           sans-serif;
-        color: #172033;
-        background: #eef3f8;
+        color: #0f172a;
+        background: #f1f5f9;
       }
       :root[data-theme='dark'] {
-        color: #f1f5f9;
+        color: #f8fafc;
         background: #0b1020;
       }
       * {
@@ -49,12 +49,12 @@
       .lede {
         max-width: 700px;
         margin: 8px 0 0;
-        color: #5d6b82;
+        color: #64748b;
         line-height: 1.65;
       }
       :root[data-theme='dark'] .lede,
       :root[data-theme='dark'] .meta {
-        color: #a8b3c7;
+        color: #a7b2c5;
       }
       .toolbar {
         display: flex;
@@ -66,7 +66,7 @@
         padding: 0 14px;
         color: inherit;
         background: rgb(255 255 255 / 82%);
-        border: 1px solid #d8e0ea;
+        border: 1px solid #dbe3ee;
         border-radius: 999px;
         cursor: pointer;
         font: inherit;
@@ -74,22 +74,22 @@
       }
       :root[data-theme='dark'] button {
         background: rgb(23 30 45 / 92%);
-        border-color: #344057;
+        border-color: #475569;
       }
       button:focus-visible {
-        outline: 3px solid #60a5fa;
+        outline: 3px solid #818cf8;
         outline-offset: 2px;
       }
       .chart-card {
         overflow: hidden;
         background: #fff;
-        border: 1px solid #dce4ee;
+        border: 1px solid #dbe3ee;
         border-radius: 22px;
         box-shadow: 0 24px 70px rgb(15 23 42 / 12%);
       }
       :root[data-theme='dark'] .chart-card {
-        background: #101522;
-        border-color: #273248;
+        background: #111827;
+        border-color: #25314a;
         box-shadow: 0 24px 70px rgb(0 0 0 / 35%);
       }
       #chart {
@@ -229,8 +229,8 @@
       <section class="chart-card" aria-label="월별 계획 대비 실제 매출 그룹 막대그래프">
         <div id="chart"></div>
         <div class="legend" aria-label="범례">
-          <span><i class="swatch" style="background: #8b5cf6"></i>계획</span>
-          <span><i class="swatch" style="background: #2563eb"></i>실적</span>
+          <span><i class="swatch" style="background: #7c3aed"></i>계획</span>
+          <span><i class="swatch" style="background: #4f46e5"></i>실적</span>
         </div>
       </section>
 
@@ -328,7 +328,7 @@
               mark: {
                 type: 'bar',
                 position: 'group',
-                fill: '#8b5cf6',
+                fill: '#7c3aed',
                 opacity: 0.78,
                 cornerRadius: 7,
               },
@@ -351,7 +351,7 @@
               mark: {
                 type: 'bar',
                 position: 'group',
-                fill: '#2563eb',
+                fill: '#4f46e5',
                 opacity: 0.96,
                 cornerRadius: 7,
               },

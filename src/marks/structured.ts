@@ -2,6 +2,7 @@ import type { MarkCompiler } from '../compiler/types.js';
 import { BandScale } from '../scale/band.js';
 import { nodeBase } from '../scene/factory.js';
 import type { LineNode, PathNode, Point, RectNode, SceneNode, TextNode } from '../scene/types.js';
+import { colorWithOpacity, mixColor, readableTextColor } from '../theme/color.js';
 import { numericDataValue, scaleInput } from './utils.js';
 
 function optionNumber(
@@ -61,24 +62,6 @@ function textNode(
   };
 }
 
-function hexChannel(color: string, index: number): number {
-  const normalized = color.replace('#', '');
-  const offset = normalized.length === 3 ? index : index * 2;
-  const raw =
-    normalized.length === 3 ? normalized[offset]?.repeat(2) : normalized.slice(offset, offset + 2);
-  return Number.parseInt(raw ?? '00', 16);
-}
-
-function mixColor(start: string, end: string, ratio: number): string {
-  const bounded = Math.max(0, Math.min(1, ratio));
-  const channels = [0, 1, 2].map((index) =>
-    Math.round(
-      hexChannel(start, index) + (hexChannel(end, index) - hexChannel(start, index)) * bounded,
-    ),
-  );
-  return `#${channels.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`;
-}
-
 export const compileCalendarMark: MarkCompiler = (context) => {
   const { table, layer, plot, theme, performance } = context;
   const values: { rowIndex: number; date: Date; value: number }[] = [];
@@ -95,7 +78,8 @@ export const compileCalendarMark: MarkCompiler = (context) => {
   const maximum = Math.max(...values.map((item) => item.value));
   const first = values[0]?.date;
   if (first === undefined) return [];
-  const start = new Date(Date.UTC(first.getUTCFullYear(), 0, 1));
+  const calendarYear = first.getUTCFullYear();
+  const start = new Date(Date.UTC(calendarYear, 0, 1));
   const day = 24 * 60 * 60 * 1000;
   const weekCount = Math.max(
     1,
@@ -111,6 +95,26 @@ export const compileCalendarMark: MarkCompiler = (context) => {
   const originX = plot.x + 34;
   const originY = plot.y + 20;
   const nodes: SceneNode[] = [];
+  const monthPositions = new Map<number, number>();
+  values.forEach((item) => {
+    const offset = Math.floor((item.date.getTime() - start.getTime()) / day);
+    const week = Math.floor((offset + start.getUTCDay()) / 7);
+    const month = item.date.getUTCMonth();
+    if (!monthPositions.has(month)) monthPositions.set(month, week);
+  });
+  const monthFormatter = new Intl.DateTimeFormat('en', { month: 'short', timeZone: 'UTC' });
+  monthPositions.forEach((week, month) => {
+    nodes.push(
+      textNode(
+        `${layer.id}:month:${month}`,
+        originX + week * (cell + gap),
+        plot.y + 7,
+        monthFormatter.format(new Date(Date.UTC(calendarYear, month, 1))),
+        context,
+        { align: 'left', size: 9, weight: 650, fill: theme.colors.mutedText },
+      ),
+    );
+  });
   ['S', 'M', 'T', 'W', 'T', 'F', 'S'].forEach((label, index) =>
     nodes.push(
       textNode(
@@ -181,44 +185,83 @@ const countryCentroids: Readonly<Record<string, readonly [number, number]>> = {
 
 const continents: readonly (readonly [number, number])[][] = [
   [
-    [-168, 72],
-    [-52, 72],
-    [-60, 15],
-    [-100, 8],
-    [-126, 30],
+    [-168, 70],
+    [-150, 60],
+    [-134, 55],
+    [-126, 48],
+    [-124, 32],
+    [-110, 24],
+    [-98, 17],
+    [-82, 23],
+    [-80, 31],
+    [-66, 45],
+    [-58, 52],
+    [-72, 61],
+    [-96, 69],
+    [-126, 72],
   ],
   [
-    [-82, 12],
-    [-34, 6],
-    [-52, -56],
-    [-76, -50],
+    [-81, 12],
+    [-69, 10],
+    [-52, 3],
+    [-35, -7],
+    [-42, -23],
+    [-53, -36],
+    [-68, -55],
+    [-76, -43],
+    [-78, -18],
   ],
   [
-    [-12, 70],
-    [42, 70],
-    [55, 35],
-    [15, 34],
-    [-10, 45],
+    [-10, 36],
+    [-18, 15],
+    [-10, 1],
+    [10, -5],
+    [15, -24],
+    [29, -35],
+    [42, -18],
+    [51, 12],
+    [38, 31],
+    [20, 37],
   ],
   [
-    [-18, 35],
-    [52, 35],
-    [48, -35],
-    [12, -35],
-    [-5, 5],
+    [-11, 36],
+    [-8, 44],
+    [2, 50],
+    [17, 58],
+    [31, 70],
+    [58, 72],
+    [88, 74],
+    [119, 68],
+    [151, 59],
+    [178, 51],
+    [162, 38],
+    [145, 33],
+    [122, 23],
+    [106, 5],
+    [83, 8],
+    [66, 24],
+    [46, 30],
+    [34, 39],
+    [20, 40],
+    [8, 38],
   ],
   [
-    [35, 72],
-    [178, 70],
-    [150, 5],
-    [95, 2],
-    [55, 28],
+    [-52, 83],
+    [-23, 81],
+    [-18, 70],
+    [-31, 60],
+    [-48, 60],
+    [-62, 72],
   ],
   [
-    [112, -10],
-    [155, -10],
-    [153, -44],
-    [116, -38],
+    [112, -11],
+    [131, -12],
+    [145, -19],
+    [154, -28],
+    [148, -39],
+    [132, -43],
+    [116, -35],
+    [113, -22],
   ],
 ];
 
@@ -234,18 +277,71 @@ function project(
 }
 
 function worldBackground(context: Parameters<MarkCompiler>[0]): SceneNode[] {
-  return continents.map((polygon, index): PathNode => ({
-    type: 'path',
-    ...nodeBase(`${context.layer.id}:continent:${index}`, {
-      zIndex: context.layer.zIndex - 2,
-      opacity: 0.86,
-    }),
-    points: polygon.map(([longitude, latitude]) => project(context.plot, longitude, latitude)),
-    closed: true,
-    fill: context.theme.colors.grid,
-    stroke: context.theme.colors.axis,
-    lineWidth: 0.8,
-  }));
+  const { layer, plot, theme } = context;
+  const nodes: SceneNode[] = [
+    {
+      type: 'rect',
+      ...nodeBase(`${layer.id}:map-surface`, { zIndex: layer.zIndex - 4 }),
+      x: plot.x,
+      y: plot.y,
+      width: plot.width,
+      height: plot.height,
+      fill: theme.colors.surface,
+      stroke: theme.colors.grid,
+      lineWidth: 1,
+      cornerRadius: 12,
+    },
+  ];
+  for (let longitude = -120; longitude <= 120; longitude += 60) {
+    const top = project(plot, longitude, 78);
+    const bottom = project(plot, longitude, -60);
+    nodes.push({
+      type: 'line',
+      ...nodeBase(`${layer.id}:longitude:${longitude}`, {
+        zIndex: layer.zIndex - 3,
+        opacity: 0.7,
+      }),
+      x1: top.x,
+      y1: top.y,
+      x2: bottom.x,
+      y2: bottom.y,
+      stroke: theme.colors.grid,
+      lineWidth: 0.8,
+    });
+  }
+  for (let latitude = -60; latitude <= 60; latitude += 30) {
+    const left = project(plot, -180, latitude);
+    const right = project(plot, 180, latitude);
+    nodes.push({
+      type: 'line',
+      ...nodeBase(`${layer.id}:latitude:${latitude}`, {
+        zIndex: layer.zIndex - 3,
+        opacity: 0.7,
+      }),
+      x1: left.x,
+      y1: left.y,
+      x2: right.x,
+      y2: right.y,
+      stroke: theme.colors.grid,
+      lineWidth: 0.8,
+    });
+  }
+  continents.forEach((polygon, index) => {
+    nodes.push({
+      type: 'path',
+      ...nodeBase(`${layer.id}:continent:${index}`, {
+        zIndex: layer.zIndex - 2,
+        opacity: 0.96,
+      }),
+      points: polygon.map(([longitude, latitude]) => project(plot, longitude, latitude)),
+      closed: true,
+      fill: mixColor(theme.colors.surface, theme.colors.grid, 0.72),
+      stroke: theme.colors.axis,
+      lineWidth: 0.8,
+      lineJoin: 'round',
+    });
+  });
+  return nodes;
 }
 
 export const compileGeoMark: MarkCompiler = (context) => {
@@ -262,6 +358,19 @@ export const compileGeoMark: MarkCompiler = (context) => {
         ? 0.6
         : (value - extent[0]) / (extent[1] - extent[0]);
     const point = project(plot, centroid[0], centroid[1]);
+    const radius = 5 + Math.sqrt(Math.max(0, ratio)) * 12;
+    const fill = layer.mark.fill ?? theme.colors.focus;
+    nodes.push({
+      type: 'circle',
+      ...nodeBase(`${layer.id}:region-halo:${rowIndex}`, {
+        zIndex: layer.zIndex - 0.1,
+      }),
+      cx: point.x,
+      cy: point.y,
+      radius: radius + 4,
+      fill: colorWithOpacity(fill, theme.mode === 'dark' ? 0.2 : 0.14),
+      lineWidth: 0,
+    });
     nodes.push({
       type: 'circle',
       ...nodeBase(`${layer.id}:region:${rowIndex}`, {
@@ -272,8 +381,8 @@ export const compileGeoMark: MarkCompiler = (context) => {
       }),
       cx: point.x,
       cy: point.y,
-      radius: 5 + Math.sqrt(Math.max(0, ratio)) * 12,
-      fill: layer.mark.fill ?? theme.colors.focus,
+      radius,
+      fill,
       stroke: theme.colors.background,
       lineWidth: 1.5,
     });
@@ -297,6 +406,17 @@ export const compileMapMark: MarkCompiler = (context) => {
         ? 0.5
         : (rawSize - extent[0]) / (extent[1] - extent[0]);
     const point = project(plot, longitude, latitude);
+    const radius = layer.mark.radius ?? 5 + Math.sqrt(Math.max(0, ratio)) * 10;
+    const fill = layer.mark.fill ?? theme.colors.focus;
+    nodes.push({
+      type: 'circle',
+      ...nodeBase(`${layer.id}:map-halo:${rowIndex}`, { zIndex: layer.zIndex - 0.1 }),
+      cx: point.x,
+      cy: point.y,
+      radius: radius + 4,
+      fill: colorWithOpacity(fill, theme.mode === 'dark' ? 0.2 : 0.14),
+      lineWidth: 0,
+    });
     nodes.push({
       type: 'circle',
       ...nodeBase(`${layer.id}:map-point:${rowIndex}`, {
@@ -307,8 +427,8 @@ export const compileMapMark: MarkCompiler = (context) => {
       }),
       cx: point.x,
       cy: point.y,
-      radius: layer.mark.radius ?? 5 + Math.sqrt(Math.max(0, ratio)) * 10,
-      fill: layer.mark.fill ?? theme.colors.focus,
+      radius,
+      fill,
       stroke: theme.colors.background,
       lineWidth: layer.mark.lineWidth ?? 1.5,
     });
@@ -402,15 +522,21 @@ export const compileOrgMark: MarkCompiler = (context) => {
     const position = positions.get(item.id);
     const parent = positions.get(item.parent);
     if (position === undefined || parent === undefined) return;
+    const middleY = parent.y + (position.y - parent.y) / 2;
     nodes.push({
-      type: 'line',
+      type: 'path',
       ...nodeBase(`${layer.id}:edge:${item.rowIndex}`, { zIndex: layer.zIndex - 1 }),
-      x1: parent.x,
-      y1: parent.y + nodeHeight / 2,
-      x2: position.x,
-      y2: position.y - nodeHeight / 2,
+      points: [
+        { x: parent.x, y: parent.y + nodeHeight / 2 },
+        { x: parent.x, y: middleY },
+        { x: position.x, y: middleY },
+        { x: position.x, y: position.y - nodeHeight / 2 },
+      ],
+      closed: false,
       stroke: theme.colors.axis,
-      lineWidth: 1.3,
+      lineWidth: 1.4,
+      lineCap: 'round',
+      lineJoin: 'round',
     });
   });
   items.forEach((item) => {
@@ -429,9 +555,23 @@ export const compileOrgMark: MarkCompiler = (context) => {
       width: nodeWidth,
       height: nodeHeight,
       fill: layer.mark.fill ?? theme.colors.surface,
-      stroke: layer.mark.stroke ?? theme.colors.focus,
-      lineWidth: layer.mark.lineWidth ?? 1.5,
-      cornerRadius: layer.mark.cornerRadius ?? 7,
+      stroke: layer.mark.stroke ?? theme.colors.axis,
+      lineWidth: layer.mark.lineWidth ?? 1.2,
+      cornerRadius: layer.mark.cornerRadius ?? 9,
+    });
+    const depth = depths.get(item.id) ?? 0;
+    nodes.push({
+      type: 'rect',
+      ...nodeBase(`${layer.id}:node-accent:${item.rowIndex}`, {
+        zIndex: layer.zIndex + 0.1,
+      }),
+      x: position.x - nodeWidth / 2 + 1,
+      y: position.y - nodeHeight / 2 + 1,
+      width: nodeWidth - 2,
+      height: 4,
+      fill: theme.colors.palette[depth % theme.colors.palette.length] ?? theme.colors.focus,
+      lineWidth: 0,
+      cornerRadius: 4,
     });
     nodes.push(
       textNode(
@@ -440,12 +580,60 @@ export const compileOrgMark: MarkCompiler = (context) => {
         position.y,
         item.id,
         context,
-        { size: 10, weight: 650 },
+        { size: 10.5, weight: 700 },
       ),
     );
   });
   return nodes;
 };
+
+function cubicPoint(
+  start: Point,
+  control1: Point,
+  control2: Point,
+  end: Point,
+  ratio: number,
+): Point {
+  const inverse = 1 - ratio;
+  return {
+    x:
+      inverse ** 3 * start.x +
+      3 * inverse ** 2 * ratio * control1.x +
+      3 * inverse * ratio ** 2 * control2.x +
+      ratio ** 3 * end.x,
+    y:
+      inverse ** 3 * start.y +
+      3 * inverse ** 2 * ratio * control1.y +
+      3 * inverse * ratio ** 2 * control2.y +
+      ratio ** 3 * end.y,
+  };
+}
+
+function sankeyBandPoints(
+  sourceX: number,
+  sourceY: number,
+  sourceHeight: number,
+  targetX: number,
+  targetY: number,
+  targetHeight: number,
+): Point[] {
+  const controlOffset = (targetX - sourceX) * 0.44;
+  const sample = (startY: number, endY: number): Point[] =>
+    Array.from({ length: 13 }, (_, index) => {
+      const ratio = index / 12;
+      return cubicPoint(
+        { x: sourceX, y: startY },
+        { x: sourceX + controlOffset, y: startY },
+        { x: targetX - controlOffset, y: endY },
+        { x: targetX, y: endY },
+        ratio,
+      );
+    });
+  return [
+    ...sample(sourceY, targetY),
+    ...sample(sourceY + sourceHeight, targetY + targetHeight).reverse(),
+  ];
+}
 
 export const compileSankeyMark: MarkCompiler = (context) => {
   const { table, layer, plot, theme, performance } = context;
@@ -528,19 +716,18 @@ export const compileSankeyMark: MarkCompiler = (context) => {
         interactive: performance.enableHitTesting,
         datum: { layerId: layer.id, rowIndex: edge.rowIndex, datum: table.row(edge.rowIndex) },
       }),
-      points: [
-        { x: plot.x + nodeWidth, y: sy },
-        { x: plot.x + plot.width * 0.46, y: sy },
-        { x: plot.x + plot.width * 0.54, y: ty },
-        { x: plot.x + plot.width - nodeWidth, y: ty },
-        { x: plot.x + plot.width - nodeWidth, y: ty + targetHeight },
-        { x: plot.x + plot.width * 0.54, y: ty + targetHeight },
-        { x: plot.x + plot.width * 0.46, y: sy + sourceHeight },
-        { x: plot.x + nodeWidth, y: sy + sourceHeight },
-      ],
+      points: sankeyBandPoints(
+        plot.x + nodeWidth,
+        sy,
+        sourceHeight,
+        plot.x + plot.width - nodeWidth,
+        ty,
+        targetHeight,
+      ),
       closed: true,
       fill: theme.colors.palette[index % theme.colors.palette.length] ?? theme.colors.focus,
       lineWidth: 0,
+      lineJoin: 'round',
     });
   });
   sources.forEach((name, index) => {
@@ -555,7 +742,7 @@ export const compileSankeyMark: MarkCompiler = (context) => {
       height: item.height,
       fill: theme.colors.palette[index % theme.colors.palette.length] ?? theme.colors.focus,
       lineWidth: 0,
-      cornerRadius: 2,
+      cornerRadius: 4,
     });
     nodes.push(
       textNode(
@@ -564,7 +751,7 @@ export const compileSankeyMark: MarkCompiler = (context) => {
         item.y + item.height / 2,
         name,
         context,
-        { align: 'left', size: 10 },
+        { align: 'left', size: 10.5, weight: 650 },
       ),
     );
   });
@@ -582,7 +769,7 @@ export const compileSankeyMark: MarkCompiler = (context) => {
         theme.colors.palette[(sources.length + index) % theme.colors.palette.length] ??
         theme.colors.focus,
       lineWidth: 0,
-      cornerRadius: 2,
+      cornerRadius: 4,
     });
     nodes.push(
       textNode(
@@ -591,7 +778,7 @@ export const compileSankeyMark: MarkCompiler = (context) => {
         item.y + item.height / 2,
         name,
         context,
-        { align: 'right', size: 10 },
+        { align: 'right', size: 10.5, weight: 650 },
       ),
     );
   });
@@ -618,9 +805,13 @@ export const compileTableMark: MarkCompiler = (context) => {
       y: plot.y,
       width: columnWidth,
       height: headerHeight,
-      fill: theme.colors.grid,
-      stroke: theme.colors.axis,
-      lineWidth: 0.5,
+      fill: mixColor(
+        theme.colors.surface,
+        theme.colors.focus,
+        theme.mode === 'dark' ? 0.08 : 0.045,
+      ),
+      stroke: theme.colors.grid,
+      lineWidth: 0.75,
       cornerRadius: 0,
     });
     nodes.push(
@@ -630,7 +821,7 @@ export const compileTableMark: MarkCompiler = (context) => {
         plot.y + headerHeight / 2,
         field,
         context,
-        { align: 'left', size: 10, weight: 700 },
+        { align: 'left', size: 10.5, weight: 750 },
       ),
     );
   });
@@ -649,9 +840,9 @@ export const compileTableMark: MarkCompiler = (context) => {
         y,
         width: columnWidth,
         height: rowHeight,
-        fill: rowIndex % 2 === 0 ? theme.colors.surface : theme.colors.background,
+        fill: rowIndex % 2 === 0 ? theme.colors.background : theme.colors.surface,
         stroke: theme.colors.grid,
-        lineWidth: 0.5,
+        lineWidth: 0.65,
         cornerRadius: 0,
       });
       nodes.push(
@@ -661,7 +852,7 @@ export const compileTableMark: MarkCompiler = (context) => {
           y + rowHeight / 2,
           String(table.value(rowIndex, field) ?? ''),
           context,
-          { align: 'left', size: 10 },
+          { align: 'left', size: 10.5, weight: 500 },
         ),
       );
     });
@@ -706,7 +897,7 @@ function compileTimeline(
       fill: layer.mark.fill ?? fill,
       ...(layer.mark.stroke === undefined ? {} : { stroke: layer.mark.stroke }),
       lineWidth: layer.mark.lineWidth ?? 0,
-      cornerRadius: layer.mark.cornerRadius ?? 4,
+      cornerRadius: layer.mark.cornerRadius ?? 6,
     });
     if (gantt && progressField !== undefined && table.has(progressField)) {
       const progress = numericDataValue(table.value(rowIndex, progressField));
@@ -715,15 +906,15 @@ function compileTimeline(
           type: 'rect',
           ...nodeBase(`${layer.id}:progress:${rowIndex}`, {
             zIndex: layer.zIndex + 0.1,
-            opacity: 0.45,
+            opacity: 0.58,
           }),
           x: Math.min(x1, x2),
           y: y - barHeight / 2,
           width: Math.max(0, (Math.abs(x2 - x1) * Math.max(0, Math.min(100, progress))) / 100),
           height: barHeight,
-          fill: theme.colors.text,
+          fill: mixColor(fill, theme.colors.text, theme.mode === 'dark' ? 0.18 : 0.26),
           lineWidth: 0,
-          cornerRadius: layer.mark.cornerRadius ?? 4,
+          cornerRadius: layer.mark.cornerRadius ?? 6,
         });
       }
     }
@@ -764,6 +955,7 @@ function compileTimeline(
           stroke: theme.colors.axis,
           lineWidth: 1.2,
           dash: [4, 2],
+          lineCap: 'round',
         });
       });
     }
@@ -774,23 +966,93 @@ function compileTimeline(
 export const compileTimelineMark: MarkCompiler = (context) => compileTimeline(context, false);
 export const compileGanttMark: MarkCompiler = (context) => compileTimeline(context, true);
 
+interface TreemapItem {
+  readonly rowIndex: number;
+  readonly label: string;
+  readonly value: number;
+}
+
+interface TreemapTile extends TreemapItem {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+function layoutTreemap(
+  items: readonly TreemapItem[],
+  rectangle: {
+    readonly x: number;
+    readonly y: number;
+    readonly width: number;
+    readonly height: number;
+  },
+): TreemapTile[] {
+  if (items.length === 0) return [];
+  const first = items[0];
+  if (items.length === 1 && first !== undefined) return [{ ...first, ...rectangle }];
+
+  const total = items.reduce((sum, item) => sum + item.value, 0);
+  let cumulative = 0;
+  let splitIndex = 1;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (let index = 1; index < items.length; index += 1) {
+    cumulative += items[index - 1]?.value ?? 0;
+    const distance = Math.abs(total / 2 - cumulative);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      splitIndex = index;
+    }
+  }
+  const leading = items.slice(0, splitIndex);
+  const trailing = items.slice(splitIndex);
+  const leadingValue = leading.reduce((sum, item) => sum + item.value, 0);
+  const ratio = total <= 0 ? 0.5 : leadingValue / total;
+
+  if (rectangle.width >= rectangle.height) {
+    const leadingWidth = rectangle.width * ratio;
+    return [
+      ...layoutTreemap(leading, { ...rectangle, width: leadingWidth }),
+      ...layoutTreemap(trailing, {
+        x: rectangle.x + leadingWidth,
+        y: rectangle.y,
+        width: rectangle.width - leadingWidth,
+        height: rectangle.height,
+      }),
+    ];
+  }
+  const leadingHeight = rectangle.height * ratio;
+  return [
+    ...layoutTreemap(leading, { ...rectangle, height: leadingHeight }),
+    ...layoutTreemap(trailing, {
+      x: rectangle.x,
+      y: rectangle.y + leadingHeight,
+      width: rectangle.width,
+      height: rectangle.height - leadingHeight,
+    }),
+  ];
+}
+
 export const compileTreemapMark: MarkCompiler = (context) => {
   const { table, layer, plot, theme, performance } = context;
-  const items: { rowIndex: number; label: string; value: number }[] = [];
+  const items: TreemapItem[] = [];
   for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
     const label = table.value(rowIndex, layer.x.field);
     const value = numericDataValue(table.value(rowIndex, layer.y.field));
     if (label === null || label === undefined || value === null || value <= 0) continue;
     items.push({ rowIndex, label: String(label), value });
   }
-  const total = items.reduce((sum, item) => sum + item.value, 0);
-  if (total <= 0) return [];
+  if (items.length === 0) return [];
   const nodes: SceneNode[] = [];
-  let x = plot.x;
-  items.forEach((item, index) => {
-    const width =
-      index === items.length - 1 ? plot.x + plot.width - x : (item.value / total) * plot.width;
-    const fill = theme.colors.palette[index % theme.colors.palette.length] ?? theme.colors.focus;
+  const tiles = layoutTreemap(items, plot);
+  tiles.forEach((item, index) => {
+    const base = theme.colors.palette[index % theme.colors.palette.length] ?? theme.colors.focus;
+    const fill = mixColor(base, theme.colors.background, theme.mode === 'dark' ? 0.06 : 0.02);
+    const gap = 2;
+    const x = item.x + gap;
+    const y = item.y + gap;
+    const width = Math.max(1, item.width - gap * 2);
+    const height = Math.max(1, item.height - gap * 2);
     nodes.push({
       type: 'rect',
       ...nodeBase(`${layer.id}:treemap:${item.rowIndex}`, {
@@ -800,27 +1062,51 @@ export const compileTreemapMark: MarkCompiler = (context) => {
         datum: { layerId: layer.id, rowIndex: item.rowIndex, datum: table.row(item.rowIndex) },
       }),
       x,
-      y: plot.y,
-      width: Math.max(1, width),
-      height: plot.height,
+      y,
+      width,
+      height,
       fill: layer.mark.fill ?? fill,
-      stroke: theme.colors.background,
-      lineWidth: 2,
-      cornerRadius: layer.mark.cornerRadius ?? 3,
+      stroke: colorWithOpacity(theme.colors.background, 0.72),
+      lineWidth: 1,
+      cornerRadius: layer.mark.cornerRadius ?? 7,
     });
-    if (width > 42) {
+    if (width > 52 && height > 30) {
+      const labelColor = readableTextColor(layer.mark.fill ?? fill, '#ffffff', '#0f172a');
       nodes.push(
         textNode(
           `${layer.id}:treemap-label:${item.rowIndex}`,
-          x + width / 2,
-          plot.y + plot.height / 2,
+          x + 10,
+          y + 13,
           item.label,
           context,
-          { size: Math.max(9, Math.min(15, width / 8)), weight: 700, fill: '#ffffff' },
+          {
+            align: 'left',
+            baseline: 'top',
+            size: Math.max(9, Math.min(14, Math.min(width, height) / 6)),
+            weight: 750,
+            fill: labelColor,
+          },
         ),
       );
+      if (height > 52) {
+        nodes.push(
+          textNode(
+            `${layer.id}:treemap-value:${item.rowIndex}`,
+            x + 10,
+            y + height - 10,
+            String(item.value),
+            context,
+            {
+              align: 'left',
+              baseline: 'bottom',
+              size: 10,
+              weight: 600,
+              fill: colorWithOpacity(labelColor, 0.82),
+            },
+          ),
+        );
+      }
     }
-    x += width;
   });
   return nodes;
 };
@@ -861,7 +1147,8 @@ export const compileWordTreeMark: MarkCompiler = (context) => {
         x2: position.x,
         y2: position.y,
         stroke: theme.colors.grid,
-        lineWidth: 1.5,
+        lineWidth: 1.6,
+        lineCap: 'round',
       });
     }
     const fontSize = 10 + Math.sqrt(item.weight / maximumWeight) * 16;

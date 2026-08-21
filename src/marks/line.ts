@@ -56,6 +56,8 @@ export const compileLineMark: MarkCompiler = (context) => {
       closed: false,
       stroke,
       lineWidth,
+      lineCap: 'round',
+      lineJoin: 'round',
     };
     nodes.push(path);
 
@@ -76,7 +78,7 @@ export const compileLineMark: MarkCompiler = (context) => {
           radius: layer.mark.radius ?? theme.mark.pointRadius,
           fill: layer.mark.fill ?? theme.colors.background,
           stroke,
-          lineWidth: Math.max(1, lineWidth),
+          lineWidth: Math.max(1.5, lineWidth * 0.68),
         };
         nodes.push(circle);
       });

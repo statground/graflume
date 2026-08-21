@@ -42,6 +42,7 @@ export interface LineNode extends BaseNode {
   readonly stroke: string;
   readonly lineWidth: number;
   readonly dash?: readonly number[];
+  readonly lineCap?: CanvasLineCap;
 }
 
 export interface PathNode extends BaseNode {
@@ -52,6 +53,8 @@ export interface PathNode extends BaseNode {
   readonly fill?: string;
   readonly lineWidth: number;
   readonly dash?: readonly number[];
+  readonly lineCap?: CanvasLineCap;
+  readonly lineJoin?: CanvasLineJoin;
 }
 
 export interface RectNode extends BaseNode {

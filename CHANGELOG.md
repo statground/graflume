@@ -4,6 +4,10 @@ All notable changes to Graflume will be recorded here.
 
 ## Unreleased
 
+- Redesign the default light/dark visual system with a more cohesive categorical palette, quieter axes and grids, improved title spacing, rounded data strokes, outlined points, airier bars, and clearer table styling.
+- Render area and stepped-area fills separately from their top strokes so the trend stays crisp without outlining the zero baseline.
+- Add percentage-aware pie labels, donut center summaries, gauge ticks and hubs, annotation pills, map surfaces and marker halos, accented organization nodes, curved Sankey bands, and a deterministic two-dimensional treemap layout.
+- Regenerate all 31 compiled Scene snapshots and add visual-quality regression coverage for the shared theme and specialist layouts.
 - Expand the public catalog to 31 user-facing chart types and compatibility APIs backed by 27 canonical marks or layers.
 - Add portable named mark fields and function-free JSON mark options for OHLC, interval, hierarchy, flow, size, date-range, frame, and adapter channels.
 - Add Canvas Scene compilers for bubble, calendar, candlestick, diff, Gantt, gauge, geo, histogram, interval, map, motion, organization, pie/donut, Sankey, stepped area, table, timeline, treemap, trendline, waterfall, word tree, annotation, and a safe Vega mark subset.

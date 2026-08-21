@@ -13,7 +13,7 @@ const guides = [
     contract:
       '`x` is temporal, `y` is quantitative, and `mark.fields.annotation` names the short event-label field. `annotationText` may name a longer detail field.',
     behavior:
-      'The compiler draws the canonical line path first, then adds a clipped vertical guide and text label for every non-empty annotation value. Missing x/y values split the line; missing annotations only suppress the guide.',
+      'The compiler draws the canonical line path first, then adds a clipped vertical guide and theme-aware label pill for every non-empty annotation value. Missing x/y values split the line; missing annotations only suppress the guide.',
     example: `Graflume.annotation('#chart', data, {
   x: { field: 'date', type: 'temporal' },
   y: { field: 'value', type: 'quantitative' },
@@ -134,15 +134,15 @@ const guides = [
     mark: 'pie',
     use: 'Use a donut chart for a small part-to-whole comparison when the center space is useful.',
     contract:
-      '`donut()` normalizes to `pie` with `mark.options.innerRadius: 0.56`. `x` supplies labels and positive `y` values supply slice angles.',
+      '`donut()` normalizes to `pie` with `mark.options.innerRadius: 0.56`. `x` supplies labels and positive `y` values supply slice angles. The center shows a total with the optional `mark.options.centerLabel` caption.',
     behavior:
-      'Slices retain input order, use the theme categorical palette, and carry row-level hit-test metadata. Non-positive and missing values are omitted.',
+      'Slices retain input order, use the theme categorical palette, show percentage-aware labels, and carry row-level hit-test metadata. Non-positive and missing values are omitted.',
     example: `Graflume.donut('#chart', data, {
   x: { field: 'channel', type: 'nominal' },
   y: { field: 'share', type: 'quantitative' },
 });`,
     limits:
-      'Leader-line collision handling, nested rings, and a center summary label are not implemented yet.',
+      'Dense-label collision solving, nested rings, and custom center value formatting are not implemented yet.',
   },
   {
     id: 'gantt',
@@ -171,7 +171,7 @@ const guides = [
     contract:
       '`x` supplies gauge labels, `y` supplies values, and `mark.options.min`/`max` define the range.',
     behavior:
-      'Each row receives a semicircular track, proportional colored arc, needle, value, and label. Values are clamped to the configured range.',
+      'Each row receives a semicircular track, proportional colored arc, five quiet reference ticks, a rounded needle and hub, value, and label. Values are clamped to the configured range.',
     example: `Graflume.gauge('#chart', data, {
   x: { field: 'metric', type: 'nominal' },
   y: { field: 'value', type: 'quantitative' },
@@ -189,7 +189,7 @@ const guides = [
     contract:
       '`x` supplies a supported country code/name and `y` supplies marker magnitude. Rendering stays local and sends no data to a map service.',
     behavior:
-      'A built-in renderer-neutral world outline is drawn first. Known country centroids receive size-scaled markers with row hit testing.',
+      'A theme-aware map surface, quiet latitude/longitude graticule, and built-in renderer-neutral world outline are drawn first. Known country centroids receive haloed, size-scaled markers with row hit testing.',
     example: `Graflume.geo('#chart', data, {
   x: { field: 'country', type: 'nominal' },
   y: { field: 'value', type: 'quantitative' },
@@ -240,7 +240,7 @@ const guides = [
     use: 'Use a map for longitude/latitude point locations without a remote tile dependency.',
     contract: '`x` is longitude, `y` is latitude, and optional `fields.size` scales marker radius.',
     behavior:
-      'Coordinates use an equirectangular projection against the built-in world outline. Markers are interactive scene circles.',
+      'Coordinates use an equirectangular projection against a theme-aware surface, graticule, and built-in world outline. Markers use a quiet halo plus an interactive foreground circle.',
     example: `Graflume.map('#chart', data, {
   x: { field: 'longitude', type: 'quantitative' },
   y: { field: 'latitude', type: 'quantitative' },
@@ -276,7 +276,7 @@ const guides = [
     contract:
       '`x` names node ids/labels and `mark.fields.parent` names the parent field. A blank or missing parent creates a root.',
     behavior:
-      'Depth is resolved without evaluating code. Nodes are placed in depth rows, connected to resolved parents, and rendered as interactive rounded rectangles.',
+      'Depth is resolved without evaluating code. Nodes are placed in depth rows, joined by rounded elbow connectors, and rendered as interactive surface cards with depth-colored accents.',
     example: `Graflume.org('#chart', data, {
   x: { field: 'person', type: 'nominal' },
   y: { field: 'manager', type: 'nominal' },
@@ -294,13 +294,13 @@ const guides = [
     contract:
       '`x` supplies labels and positive quantitative `y` values determine angles. Slice order follows input order.',
     behavior:
-      'The compiler emits closed polygonal arc paths with palette colors, labels, and whole-slice hit testing. Non-positive values are omitted.',
+      'The compiler emits closed polygonal arc paths with palette colors, percentage-aware labels, and whole-slice hit testing. Large slices use high-contrast internal labels; smaller visible slices use short leader lines. Non-positive values are omitted.',
     example: `Graflume.pie('#chart', data, {
   x: { field: 'channel', type: 'nominal' },
   y: { field: 'share', type: 'quantitative' },
 });`,
     limits:
-      'Label collision routing, exploded slices, 3D, and hierarchical rings are not implemented yet.',
+      'Automatic collision solving for dense external labels, exploded slices, 3D, and hierarchical rings are not implemented yet. Use a small number of slices or lower `mark.options.labelLimit` for dense data.',
   },
   {
     id: 'sankey',
@@ -311,14 +311,14 @@ const guides = [
     contract:
       '`x` names source, `fields.target` names target, and positive `y` values are link weights.',
     behavior:
-      'The alpha layout creates source and target columns, proportional node heights, and closed flow polygons with row hit testing.',
+      'The alpha layout creates source and target columns, proportional node heights, and smooth sampled cubic flow bands with whole-band row hit testing.',
     example: `Graflume.sankey('#chart', data, {
   x: { field: 'source', type: 'nominal' },
   y: { field: 'amount', type: 'quantitative' },
   mark: { fields: { target: 'target' } },
 });`,
     limits:
-      'This is a two-column layout. Multi-stage DAG depth assignment, cycle handling, crossing minimization, and curved links remain planned.',
+      'This is a two-column layout. Multi-stage DAG depth assignment, cycle handling, and crossing minimization remain planned.',
   },
   {
     id: 'stepped-area',
@@ -327,7 +327,7 @@ const guides = [
     mark: 'stepped-area',
     use: 'Use a stepped area chart when values change at discrete boundaries rather than continuously.',
     contract:
-      '`x` is ordered and `y` is quantitative. The mark uses step-after transitions and fills to zero.',
+      '`x` is ordered and `y` is quantitative. The mark uses step-after transitions, fills to zero, and keeps the stepped top stroke separate so the baseline is not outlined.',
     behavior:
       'Each new x adds a horizontal segment at the previous y and then a vertical transition. Missing values are skipped.',
     example: `Graflume.steppedArea('#chart', data, {
@@ -346,7 +346,7 @@ const guides = [
     contract:
       '`mark.options.columns` is an ordered string array of data fields. Without it, x and y fields are shown.',
     behavior:
-      'Headers, alternating row fills, grid cells, and text are compiled to Scene primitives. Rows that fit in the plot are interactive.',
+      'Theme-tinted headers, alternating row surfaces, subtle grid cells, and stronger type hierarchy are compiled to Scene primitives. Rows that fit in the plot are interactive.',
     example: `Graflume.table('#chart', data, {
   x: { field: 'name', type: 'nominal' },
   y: { field: 'value', type: 'quantitative' },
@@ -380,13 +380,13 @@ const guides = [
     use: 'Use a treemap for part-to-whole comparison when rectangles are more space-efficient than slices.',
     contract: '`x` supplies labels and positive `y` values supply area. Input order is retained.',
     behavior:
-      'The alpha compiler performs a deterministic slice-and-dice layout and labels rectangles that have enough width.',
+      'The compiler recursively splits the available width and height into deterministic two-dimensional area tiles. Input order remains stable, area is proportional to positive `y`, and tiles with sufficient room show both label and value.',
     example: `Graflume.treemap('#chart', data, {
   x: { field: 'product', type: 'nominal' },
   y: { field: 'revenue', type: 'quantitative' },
 });`,
     limits:
-      'Nested hierarchy, squarified layout, drill-down, color values, and breadcrumb navigation are not implemented yet.',
+      'Nested hierarchy, optimized squarification, drill-down, color-value encodings, and breadcrumb navigation are not implemented yet.',
   },
   {
     id: 'trendline',

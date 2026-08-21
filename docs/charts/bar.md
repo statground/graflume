@@ -30,8 +30,8 @@ const chart = horizontalBar('#chart', data, {
     axis: { grid: false },
   },
   mark: {
-    fill: '#2563eb',
-    stroke: '#1d4ed8',
+    fill: '#4f46e5',
+    stroke: '#3730a3',
     lineWidth: 1,
     cornerRadius: 8,
     opacity: 0.94,
@@ -49,7 +49,7 @@ const chart = horizontalBar('#chart', data, {
 const spec = {
   specVersion: '0.1',
   data,
-  mark: { type: 'bar', orientation: 'horizontal', fill: '#2563eb', cornerRadius: 8 },
+  mark: { type: 'bar', orientation: 'horizontal', fill: '#4f46e5', cornerRadius: 8 },
   x: {
     field: 'sales',
     type: 'quantitative',
@@ -86,13 +86,13 @@ Graflume.create('#chart', {
   layers: [
     {
       id: 'plan',
-      mark: { type: 'bar', position: 'group', fill: '#8b5cf6' },
+      mark: { type: 'bar', position: 'group', fill: '#7c3aed' },
       x: { field: 'month', type: 'ordinal' },
       y: { field: 'plan', type: 'quantitative' },
     },
     {
       id: 'actual',
-      mark: { type: 'bar', position: 'group', fill: '#2563eb' },
+      mark: { type: 'bar', position: 'group', fill: '#4f46e5' },
       x: { field: 'month', type: 'ordinal' },
       y: { field: 'actual', type: 'quantitative' },
     },

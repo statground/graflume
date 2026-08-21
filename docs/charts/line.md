@@ -25,7 +25,7 @@ const chart = line('#chart', data, {
     scale: { zero: false, nice: true },
   },
   mark: {
-    stroke: '#f97316',
+    stroke: '#ea580c',
     lineWidth: 3,
     point: true,
     radius: 5,
@@ -42,7 +42,7 @@ Graflume.create('#chart', {
   data,
   mark: {
     type: 'line',
-    stroke: '#f97316',
+    stroke: '#ea580c',
     lineWidth: 3,
     point: true,
   },

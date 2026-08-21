@@ -27,7 +27,7 @@ The same result can be created with `Graflume.create()` and `mark: { type: 'pie'
 
 ## Data, ordering, and missing values
 
-The compiler emits closed polygonal arc paths with palette colors, labels, and whole-slice hit testing. Non-positive values are omitted.
+The compiler emits closed polygonal arc paths with palette colors, percentage-aware labels, and whole-slice hit testing. Large slices use high-contrast internal labels; smaller visible slices use short leader lines. Non-positive values are omitted.
 
 Rows keep source order unless the compiler must establish a deterministic temporal or hierarchy order. Unsafe field names are rejected, callbacks are forbidden in portable specs, and invalid or unmappable values are skipped rather than evaluated.
 
@@ -45,7 +45,7 @@ The same `standard`, `large`, `ultra`, and `auto` profiles apply. Complex layout
 
 ## Current limitations
 
-Label collision routing, exploded slices, 3D, and hierarchical rings are not implemented yet.
+Automatic collision solving for dense external labels, exploded slices, 3D, and hierarchical rings are not implemented yet. Use a small number of slices or lower `mark.options.labelLimit` for dense data.
 
 ## Runnable example and regression coverage
 

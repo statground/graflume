@@ -28,7 +28,7 @@ const chart = scatter('#chart', data, {
     scale: { zero: false, nice: true },
   },
   mark: {
-    fill: '#8b5cf6',
+    fill: '#7c3aed',
     stroke: '#ffffff',
     lineWidth: 2,
     radius: 7,
@@ -59,7 +59,7 @@ There is no `scatter` portable mark in `ChartSpec 0.1`. Serialize the chart as `
   ],
   "mark": {
     "type": "point",
-    "fill": "#8b5cf6",
+    "fill": "#7c3aed",
     "radius": 7
   },
   "x": { "field": "hours", "type": "quantitative" },

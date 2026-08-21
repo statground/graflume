@@ -10,6 +10,7 @@ import type {
   SceneNode,
   TextNode,
 } from '../scene/types.js';
+import { colorWithOpacity, mixColor } from '../theme/color.js';
 import { compileAreaMark } from './area.js';
 import { compileBarMark } from './bar.js';
 import { compileLineMark } from './line.js';
@@ -82,14 +83,29 @@ export const compileSteppedAreaMark: MarkCompiler = (context) => {
   const baseline = yScale.map(0);
   const area: PathNode = {
     type: 'path',
-    ...nodeBase(`${layer.id}:stepped-area`, { zIndex: layer.zIndex, opacity: layer.mark.opacity }),
+    ...nodeBase(`${layer.id}:stepped-area-fill`, {
+      zIndex: layer.zIndex,
+      opacity: layer.mark.opacity,
+    }),
     points: [...top, { x: last.x, y: baseline }, { x: first.x, y: baseline }],
     closed: true,
-    fill: layer.mark.fill ?? color,
+    fill: layer.mark.fill ?? colorWithOpacity(color, theme.mode === 'dark' ? 0.28 : 0.2),
+    lineWidth: 0,
+  };
+  const outline: PathNode = {
+    type: 'path',
+    ...nodeBase(`${layer.id}:stepped-area-line`, {
+      zIndex: layer.zIndex + 0.1,
+      opacity: layer.mark.opacity,
+    }),
+    points: top,
+    closed: false,
     stroke: layer.mark.stroke ?? color,
     lineWidth: layer.mark.lineWidth ?? theme.mark.lineWidth,
+    lineCap: 'round',
+    lineJoin: 'round',
   };
-  return [area];
+  return [area, outline];
 };
 
 export const compileBubbleMark: MarkCompiler = (context) => {
@@ -158,7 +174,7 @@ export const compileBubbleMark: MarkCompiler = (context) => {
       radius: minimumRadius + Math.sqrt(ratio) * (maximumRadius - minimumRadius),
       fill,
       stroke: layer.mark.stroke ?? theme.colors.background,
-      lineWidth: layer.mark.lineWidth ?? 1.5,
+      lineWidth: layer.mark.lineWidth ?? 2,
     });
   }
   return nodes;
@@ -194,7 +210,7 @@ export const compileCandlestickMark: MarkCompiler = (context) => {
     if (![x, yOpen, yHigh, yLow, yClose].every(Number.isFinite)) continue;
     const rising = close >= open;
     const fill = rising
-      ? (optionString(layer.mark.options, 'risingColor') ?? theme.colors.palette[2] ?? '#10b981')
+      ? (optionString(layer.mark.options, 'risingColor') ?? theme.colors.palette[1] ?? '#0f9f8a')
       : (optionString(layer.mark.options, 'fallingColor') ?? theme.colors.palette[3] ?? '#ef4444');
     const datum = { layerId: layer.id, rowIndex, datum: table.row(rowIndex) };
     nodes.push({
@@ -207,8 +223,9 @@ export const compileCandlestickMark: MarkCompiler = (context) => {
       y1: yHigh,
       x2: x,
       y2: yLow,
-      stroke: layer.mark.stroke ?? theme.colors.axis,
-      lineWidth: layer.mark.lineWidth ?? 1.4,
+      stroke: layer.mark.stroke ?? mixColor(fill, theme.colors.text, 0.28),
+      lineWidth: layer.mark.lineWidth ?? 1.5,
+      lineCap: 'round',
     });
     nodes.push({
       type: 'rect',
@@ -275,14 +292,14 @@ export const compileHistogramMark: MarkCompiler = (context) => {
           ? {}
           : { datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) } }),
       }),
-      x: Math.min(x1, x2) + 1,
+      x: Math.min(x1, x2) + 2,
       y: Math.min(y, baseline),
-      width: Math.max(1, Math.abs(x2 - x1) - 2),
+      width: Math.max(1, Math.abs(x2 - x1) - 4),
       height: Math.max(0.5, Math.abs(baseline - y)),
       fill: layer.mark.fill ?? color,
       stroke: layer.mark.stroke ?? theme.colors.background,
       lineWidth: layer.mark.lineWidth ?? 1,
-      cornerRadius: layer.mark.cornerRadius ?? 1,
+      cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
     });
   });
   return nodes;
@@ -318,6 +335,7 @@ export const compileIntervalMark: MarkCompiler = (context) => {
         y2: yLow,
         stroke,
         lineWidth,
+        lineCap: 'round',
       },
       {
         type: 'line',
@@ -328,6 +346,7 @@ export const compileIntervalMark: MarkCompiler = (context) => {
         y2: yHigh,
         stroke,
         lineWidth,
+        lineCap: 'round',
       },
       {
         type: 'line',
@@ -338,6 +357,7 @@ export const compileIntervalMark: MarkCompiler = (context) => {
         y2: yLow,
         stroke,
         lineWidth,
+        lineCap: 'round',
       },
     ];
     nodes.push(...lines);
@@ -391,6 +411,8 @@ export const compileTrendlineMark: MarkCompiler = (context) => {
     stroke: layer.mark.stroke ?? color,
     lineWidth: layer.mark.lineWidth ?? theme.mark.lineWidth + 0.5,
     dash: [7, 4],
+    lineCap: 'round',
+    lineJoin: 'round',
   };
   return [...points, line];
 };
@@ -418,8 +440,8 @@ export const compileWaterfallMark: MarkCompiler = (context) => {
     const fill =
       delta >= 0
         ? (optionString(layer.mark.options, 'positiveColor') ??
-          theme.colors.palette[2] ??
-          '#10b981')
+          theme.colors.palette[1] ??
+          '#0f9f8a')
         : (optionString(layer.mark.options, 'negativeColor') ??
           theme.colors.palette[3] ??
           '#ef4444');
@@ -437,7 +459,7 @@ export const compileWaterfallMark: MarkCompiler = (context) => {
       height: Math.max(1, Math.abs(y2 - y1)),
       fill,
       lineWidth: 0,
-      cornerRadius: layer.mark.cornerRadius ?? 2,
+      cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
     });
     const nextInput =
       rowIndex + 1 < table.length ? scaleInput(table.value(rowIndex + 1, layer.x.field)) : null;
@@ -453,6 +475,7 @@ export const compileWaterfallMark: MarkCompiler = (context) => {
         stroke: theme.colors.axis,
         lineWidth: 1,
         dash: [3, 3],
+        lineCap: 'round',
       });
     }
   }
@@ -489,7 +512,7 @@ export const compileDiffMark: MarkCompiler = (context) => {
       height: Math.max(1, Math.abs(baseline - oldY)),
       fill: optionString(layer.mark.options, 'oldColor') ?? theme.colors.mutedText,
       lineWidth: 0,
-      cornerRadius: layer.mark.cornerRadius ?? 2,
+      cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
     });
     nodes.push({
       type: 'rect',
@@ -505,7 +528,7 @@ export const compileDiffMark: MarkCompiler = (context) => {
       height: Math.max(1, Math.abs(baseline - newY)),
       fill: layer.mark.fill ?? theme.colors.focus,
       lineWidth: 0,
-      cornerRadius: layer.mark.cornerRadius ?? 2,
+      cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
     });
     nodes.push({
       type: 'line',
@@ -516,6 +539,7 @@ export const compileDiffMark: MarkCompiler = (context) => {
       y2: newY,
       stroke: theme.colors.text,
       lineWidth: 1.5,
+      lineCap: 'round',
     });
   }
   return nodes;
@@ -549,16 +573,35 @@ export const compileAnnotationMark: MarkCompiler = (context) => {
       textField !== undefined && table.has(textField)
         ? table.value(rowIndex, textField)
         : undefined;
+    const label =
+      suffix === undefined || suffix === null
+        ? String(annotation)
+        : `${String(annotation)} — ${String(suffix)}`;
+    const width = Math.min(190, Math.max(54, label.length * 6.1 + 16));
+    const labelX = Math.min(plot.x + plot.width - width - 4, x + 6);
+    nodes.push({
+      type: 'rect',
+      ...nodeBase(`${layer.id}:annotation-pill:${rowIndex}`, {
+        zIndex: layer.zIndex + 0.6,
+        opacity: 0.96,
+      }),
+      x: labelX,
+      y: plot.y + 4,
+      width,
+      height: 22,
+      fill: theme.colors.surface,
+      stroke: colorWithOpacity(layer.mark.stroke ?? theme.colors.focus, 0.46),
+      lineWidth: 1,
+      cornerRadius: 6,
+    });
     nodes.push(
       textNode(
         `${layer.id}:annotation-label:${rowIndex}`,
-        Math.min(plot.x + plot.width - 4, x + 5),
-        plot.y + 8,
-        suffix === undefined || suffix === null
-          ? String(annotation)
-          : `${String(annotation)} — ${String(suffix)}`,
+        labelX + 8,
+        plot.y + 15,
+        label,
         context,
-        { align: 'left', baseline: 'top', size: 10, weight: 650 },
+        { align: 'left', baseline: 'middle', size: 10, weight: 650 },
       ),
     );
   }

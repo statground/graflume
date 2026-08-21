@@ -16,7 +16,7 @@ export const compileBarMark: MarkCompiler = (context) => {
             1,
             ((plot.height / Math.max(1, table.length)) * 0.8) / Math.max(1, barGroup.count),
           );
-    const barHeight = Math.max(1, slotHeight * 0.86);
+    const barHeight = Math.max(1, slotHeight * 0.74);
     const nodes: RectNode[] = [];
     const indices = strideSampleIndices(table.length, performance.maxBarMarks);
 
@@ -59,7 +59,7 @@ export const compileBarMark: MarkCompiler = (context) => {
     xScale instanceof BandScale
       ? xScale.bandwidth / Math.max(1, barGroup.count)
       : Math.max(1, ((plot.width / Math.max(1, table.length)) * 0.8) / Math.max(1, barGroup.count));
-  const barWidth = Math.max(1, slotWidth * 0.86);
+  const barWidth = Math.max(1, slotWidth * 0.74);
 
   const indices = strideSampleIndices(table.length, performance.maxBarMarks);
 

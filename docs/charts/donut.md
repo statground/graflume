@@ -21,13 +21,13 @@ Graflume.donut('#chart', data, {
 
 ## Portable ChartSpec mapping
 
-`donut()` normalizes to `pie` with `mark.options.innerRadius: 0.56`. `x` supplies labels and positive `y` values supply slice angles.
+`donut()` normalizes to `pie` with `mark.options.innerRadius: 0.56`. `x` supplies labels and positive `y` values supply slice angles. The center shows a total with the optional `mark.options.centerLabel` caption.
 
 The same result can be created with `Graflume.create()` and `mark: { type: 'pie' }`. Named `mark.fields` and `mark.options` values are function-free and JSON-serializable, so they remain portable across JavaScript, future Python/R/Java builders, and stored specs.
 
 ## Data, ordering, and missing values
 
-Slices retain input order, use the theme categorical palette, and carry row-level hit-test metadata. Non-positive and missing values are omitted.
+Slices retain input order, use the theme categorical palette, show percentage-aware labels, and carry row-level hit-test metadata. Non-positive and missing values are omitted.
 
 Rows keep source order unless the compiler must establish a deterministic temporal or hierarchy order. Unsafe field names are rejected, callbacks are forbidden in portable specs, and invalid or unmappable values are skipped rather than evaluated.
 
@@ -45,7 +45,7 @@ The same `standard`, `large`, `ultra`, and `auto` profiles apply. Complex layout
 
 ## Current limitations
 
-Leader-line collision handling, nested rings, and a center summary label are not implemented yet.
+Dense-label collision solving, nested rings, and custom center value formatting are not implemented yet.
 
 ## Runnable example and regression coverage
 

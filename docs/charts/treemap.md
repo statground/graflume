@@ -27,7 +27,7 @@ The same result can be created with `Graflume.create()` and `mark: { type: 'tree
 
 ## Data, ordering, and missing values
 
-The alpha compiler performs a deterministic slice-and-dice layout and labels rectangles that have enough width.
+The compiler recursively splits the available width and height into deterministic two-dimensional area tiles. Input order remains stable, area is proportional to positive `y`, and tiles with sufficient room show both label and value.
 
 Rows keep source order unless the compiler must establish a deterministic temporal or hierarchy order. Unsafe field names are rejected, callbacks are forbidden in portable specs, and invalid or unmappable values are skipped rather than evaluated.
 
@@ -45,7 +45,7 @@ The same `standard`, `large`, `ultra`, and `auto` profiles apply. Complex layout
 
 ## Current limitations
 
-Nested hierarchy, squarified layout, drill-down, color values, and breadcrumb navigation are not implemented yet.
+Nested hierarchy, optimized squarification, drill-down, color-value encodings, and breadcrumb navigation are not implemented yet.
 
 ## Runnable example and regression coverage
 

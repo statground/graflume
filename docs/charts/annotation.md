@@ -28,7 +28,7 @@ The same result can be created with `Graflume.create()` and `mark: { type: 'anno
 
 ## Data, ordering, and missing values
 
-The compiler draws the canonical line path first, then adds a clipped vertical guide and text label for every non-empty annotation value. Missing x/y values split the line; missing annotations only suppress the guide.
+The compiler draws the canonical line path first, then adds a clipped vertical guide and theme-aware label pill for every non-empty annotation value. Missing x/y values split the line; missing annotations only suppress the guide.
 
 Rows keep source order unless the compiler must establish a deterministic temporal or hierarchy order. Unsafe field names are rejected, callbacks are forbidden in portable specs, and invalid or unmappable values are skipped rather than evaluated.
 

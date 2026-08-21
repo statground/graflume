@@ -28,7 +28,7 @@ The same result can be created with `Graflume.create()` and `mark: { type: 'sank
 
 ## Data, ordering, and missing values
 
-The alpha layout creates source and target columns, proportional node heights, and closed flow polygons with row hit testing.
+The alpha layout creates source and target columns, proportional node heights, and smooth sampled cubic flow bands with whole-band row hit testing.
 
 Rows keep source order unless the compiler must establish a deterministic temporal or hierarchy order. Unsafe field names are rejected, callbacks are forbidden in portable specs, and invalid or unmappable values are skipped rather than evaluated.
 
@@ -46,7 +46,7 @@ The same `standard`, `large`, `ultra`, and `auto` profiles apply. Complex layout
 
 ## Current limitations
 
-This is a two-column layout. Multi-stage DAG depth assignment, cycle handling, crossing minimization, and curved links remain planned.
+This is a two-column layout. Multi-stage DAG depth assignment, cycle handling, and crossing minimization remain planned.
 
 ## Runnable example and regression coverage
 

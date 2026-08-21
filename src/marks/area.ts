@@ -2,6 +2,7 @@ import type { MarkCompiler } from '../compiler/types.js';
 import { minMaxSampleIndices } from '../data/sample.js';
 import { nodeBase } from '../scene/factory.js';
 import type { PathNode, Point } from '../scene/types.js';
+import { colorWithOpacity } from '../theme/color.js';
 import { numericDataValue, scaleInput } from './utils.js';
 
 export const compileAreaMark: MarkCompiler = (context) => {
@@ -27,17 +28,29 @@ export const compileAreaMark: MarkCompiler = (context) => {
   const last = top.at(-1);
   if (first === undefined || last === undefined) return [];
   const points: Point[] = [...top, { x: last.x, y: baseline }, { x: first.x, y: baseline }];
-  const node: PathNode = {
+  const fill: PathNode = {
     type: 'path',
-    ...nodeBase(`${layer.id}:area`, {
+    ...nodeBase(`${layer.id}:area-fill`, {
       zIndex: layer.zIndex,
       opacity: layer.mark.opacity,
     }),
     points,
     closed: true,
-    fill: layer.mark.fill ?? color,
+    fill: layer.mark.fill ?? colorWithOpacity(color, theme.mode === 'dark' ? 0.28 : 0.2),
+    lineWidth: 0,
+  };
+  const stroke: PathNode = {
+    type: 'path',
+    ...nodeBase(`${layer.id}:area-line`, {
+      zIndex: layer.zIndex + 0.1,
+      opacity: layer.mark.opacity,
+    }),
+    points: top,
+    closed: false,
     stroke: layer.mark.stroke ?? color,
     lineWidth: layer.mark.lineWidth ?? theme.mark.lineWidth,
+    lineCap: 'round',
+    lineJoin: 'round',
   };
-  return [node];
+  return [fill, stroke];
 };
