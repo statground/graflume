@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - codex/expand-advanced-chart-catalog-20260821
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
