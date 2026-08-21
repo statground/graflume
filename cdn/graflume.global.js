@@ -334,12 +334,12 @@ var Graflume = (function (exports) {
             return { text: input, align: 'left' };
         return { ...input, align: input.align ?? 'left' };
     }
-    function normalizeAxis(input) {
+    function normalizeAxis(input, defaultGrid) {
         if (input === false)
             return false;
         return {
             visible: input?.visible ?? true,
-            grid: input?.grid ?? true,
+            grid: input?.grid ?? defaultGrid,
             ...(input?.title === undefined ? {} : { title: input.title }),
             ...(input?.tickCount === undefined ? {} : { tickCount: input.tickCount }),
             ...(input?.format === undefined ? {} : { format: input.format }),
@@ -353,7 +353,9 @@ var Graflume = (function (exports) {
             ...(encoding.type === undefined ? {} : { type: encoding.type }),
             title: encoding.title ?? encoding.field,
             scale: { ...encoding.scale },
-            axis: encoding.axis === undefined ? fallbackAxis : normalizeAxis(encoding.axis),
+            axis: encoding.axis === undefined
+                ? fallbackAxis
+                : normalizeAxis(encoding.axis, fallbackAxis === false ? false : fallbackAxis.grid !== false),
         };
     }
     function normalizeMark(input) {
@@ -391,8 +393,8 @@ var Graflume = (function (exports) {
     function normalizeSpec(input) {
         assertValidSpec(input);
         const axes = {
-            x: normalizeAxis(input.axes?.x),
-            y: normalizeAxis(input.axes?.y),
+            x: normalizeAxis(input.axes?.x, false),
+            y: normalizeAxis(input.axes?.y, true),
         };
         const shorthandLayer = input.mark === undefined || input.x === undefined || input.y === undefined
             ? undefined
@@ -432,16 +434,17 @@ var Graflume = (function (exports) {
         return normalized;
     }
 
-    function line$1(id, x1, y1, x2, y2, stroke, lineWidth, zIndex) {
+    function line$1(id, x1, y1, x2, y2, stroke, lineWidth, zIndex, opacity = 1) {
         return {
             type: 'line',
-            ...nodeBase(id, { zIndex }),
+            ...nodeBase(id, { zIndex, opacity }),
             x1,
             y1,
             x2,
             y2,
             stroke,
             lineWidth,
+            lineCap: 'round',
         };
     }
     function text(id, x, y, value, theme, options = {}) {
@@ -466,22 +469,26 @@ var Graflume = (function (exports) {
             return [];
         const nodes = [];
         const axisY = plot.y + plot.height;
-        const ticks = scale.ticks(axis.tickCount ?? Math.max(2, Math.floor(plot.width / 90)), locale);
+        const ticks = scale.ticks(axis.tickCount ?? Math.max(2, Math.floor(plot.width / 96)), locale);
         const angle = axis.labelAngle ?? (scale.kind === 'band' && ticks.length > 10 ? -35 : 0);
         nodes.push(line$1('axis-x:line', plot.x, axisY, plot.x + plot.width, axisY, theme.colors.axis, theme.axis.lineWidth, 100));
         ticks.forEach((tick, index) => {
-            if (axis.grid !== false) {
-                nodes.push(line$1(`axis-x:grid:${index}`, tick.position, plot.y, tick.position, axisY, theme.colors.grid, theme.axis.gridLineWidth, -20));
+            if (axis.grid !== false && Math.abs(tick.position - plot.x) > 0.5) {
+                const isZero = typeof tick.value === 'number' && Math.abs(tick.value) < Number.EPSILON;
+                nodes.push(line$1(`axis-x:grid:${index}`, tick.position, plot.y, tick.position, axisY, isZero ? theme.colors.axis : theme.colors.grid, isZero ? Math.max(1, theme.axis.gridLineWidth) : theme.axis.gridLineWidth, -20, isZero ? 0.9 : 0.82));
             }
-            nodes.push(line$1(`axis-x:tick:${index}`, tick.position, axisY, tick.position, axisY + theme.axis.tickLength, theme.colors.axis, theme.axis.lineWidth, 100));
+            if (theme.axis.tickLength > 0) {
+                nodes.push(line$1(`axis-x:tick:${index}`, tick.position, axisY, tick.position, axisY + theme.axis.tickLength, theme.colors.axis, theme.axis.lineWidth, 100));
+            }
             nodes.push(text(`axis-x:label:${index}`, tick.position, axisY + theme.axis.tickLength + theme.axis.labelPadding, tick.label, theme, {
                 align: angle === 0 ? 'center' : 'right',
                 baseline: 'top',
                 rotation: angle,
+                fontWeight: 500,
             }));
         });
         if (axis.title !== '' && title !== '') {
-            nodes.push(text('axis-x:title', plot.x + plot.width / 2, axisY + 34, axis.title ?? title, theme, {
+            nodes.push(text('axis-x:title', plot.x + plot.width / 2, axisY + 32, axis.title ?? title, theme, {
                 align: 'center',
                 baseline: 'top',
                 fontWeight: 600,
@@ -495,14 +502,17 @@ var Graflume = (function (exports) {
             return [];
         const nodes = [];
         const axisX = plot.x;
-        const ticks = scale.ticks(axis.tickCount ?? Math.max(2, Math.floor(plot.height / 60)), locale);
+        const ticks = scale.ticks(axis.tickCount ?? Math.max(2, Math.floor(plot.height / 58)), locale);
         nodes.push(line$1('axis-y:line', axisX, plot.y, axisX, plot.y + plot.height, theme.colors.axis, theme.axis.lineWidth, 100));
         ticks.forEach((tick, index) => {
-            if (axis.grid !== false) {
-                nodes.push(line$1(`axis-y:grid:${index}`, axisX, tick.position, plot.x + plot.width, tick.position, theme.colors.grid, theme.axis.gridLineWidth, -20));
+            if (axis.grid !== false && Math.abs(tick.position - (plot.y + plot.height)) > 0.5) {
+                const isZero = typeof tick.value === 'number' && Math.abs(tick.value) < Number.EPSILON;
+                nodes.push(line$1(`axis-y:grid:${index}`, axisX, tick.position, plot.x + plot.width, tick.position, isZero ? theme.colors.axis : theme.colors.grid, isZero ? Math.max(1, theme.axis.gridLineWidth) : theme.axis.gridLineWidth, -20, isZero ? 0.9 : 0.82));
             }
-            nodes.push(line$1(`axis-y:tick:${index}`, axisX - theme.axis.tickLength, tick.position, axisX, tick.position, theme.colors.axis, theme.axis.lineWidth, 100));
-            nodes.push(text(`axis-y:label:${index}`, axisX - theme.axis.tickLength - theme.axis.labelPadding, tick.position, tick.label, theme, { align: 'right', baseline: 'middle' }));
+            if (theme.axis.tickLength > 0) {
+                nodes.push(line$1(`axis-y:tick:${index}`, axisX - theme.axis.tickLength, tick.position, axisX, tick.position, theme.colors.axis, theme.axis.lineWidth, 100));
+            }
+            nodes.push(text(`axis-y:label:${index}`, axisX - theme.axis.tickLength - theme.axis.labelPadding, tick.position, tick.label, theme, { align: 'right', baseline: 'middle', fontWeight: 500 }));
         });
         if (axis.title !== '' && title !== '') {
             nodes.push(text('axis-y:title', Math.max(12, axisX - 46), plot.y + plot.height / 2, axis.title ?? title, theme, {
@@ -1026,7 +1036,12 @@ var Graflume = (function (exports) {
     }
 
     function createLayout(spec, width, height, theme) {
-        const titleBlock = spec.title === undefined ? 0 : theme.typography.titleSize + (spec.title.subtitle ? 22 : 10);
+        const titleBlock = spec.title === undefined
+            ? 0
+            : theme.typography.titleSize +
+                (spec.title.subtitle === undefined
+                    ? theme.spacing.lg
+                    : theme.typography.subtitleSize + theme.spacing.lg + theme.spacing.xs);
         const plotX = spec.padding.left;
         const plotY = spec.padding.top + titleBlock;
         const plotWidth = Math.max(1, width - spec.padding.left - spec.padding.right);
@@ -1036,7 +1051,7 @@ var Graflume = (function (exports) {
             height,
             plot: { x: plotX, y: plotY, width: plotWidth, height: plotHeight },
             titleY: spec.padding.top,
-            subtitleY: spec.padding.top + theme.typography.titleSize + 4,
+            subtitleY: spec.padding.top + theme.typography.titleSize + theme.spacing.xs,
         };
     }
 
@@ -1659,6 +1674,49 @@ var Graflume = (function (exports) {
         return [...selected].sort((left, right) => left - right);
     }
 
+    function normalizedHex(color) {
+        const value = color.trim().replace(/^#/, '');
+        if (/^[0-9a-f]{3}$/i.test(value)) {
+            return value
+                .split('')
+                .map((channel) => `${channel}${channel}`)
+                .join('');
+        }
+        return /^[0-9a-f]{6}$/i.test(value) ? value : null;
+    }
+    function channel(color, index) {
+        return Number.parseInt(color.slice(index * 2, index * 2 + 2), 16);
+    }
+    function mixColor(start, end, ratio) {
+        const startHex = normalizedHex(start);
+        const endHex = normalizedHex(end);
+        if (startHex === null || endHex === null)
+            return ratio < 0.5 ? start : end;
+        const bounded = Math.max(0, Math.min(1, ratio));
+        const channels = [0, 1, 2].map((index) => Math.round(channel(startHex, index) + (channel(endHex, index) - channel(startHex, index)) * bounded));
+        return `#${channels.map((value) => value.toString(16).padStart(2, '0')).join('')}`;
+    }
+    function colorWithOpacity(color, opacity) {
+        const hex = normalizedHex(color);
+        if (hex === null)
+            return color;
+        const alpha = Math.round(Math.max(0, Math.min(1, opacity)) * 255)
+            .toString(16)
+            .padStart(2, '0');
+        return `#${hex}${alpha}`;
+    }
+    function readableTextColor(color, light, dark) {
+        const hex = normalizedHex(color);
+        if (hex === null)
+            return light;
+        const linear = [0, 1, 2].map((index) => {
+            const value = channel(hex, index) / 255;
+            return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+        });
+        const luminance = 0.2126 * (linear[0] ?? 0) + 0.7152 * (linear[1] ?? 0) + 0.0722 * (linear[2] ?? 0);
+        return luminance > 0.42 ? dark : light;
+    }
+
     function scaleInput(value) {
         if (value === null || value === undefined || typeof value === 'boolean')
             return null;
@@ -1701,19 +1759,31 @@ var Graflume = (function (exports) {
         if (first === undefined || last === undefined)
             return [];
         const points = [...top, { x: last.x, y: baseline }, { x: first.x, y: baseline }];
-        const node = {
+        const fill = {
             type: 'path',
-            ...nodeBase(`${layer.id}:area`, {
+            ...nodeBase(`${layer.id}:area-fill`, {
                 zIndex: layer.zIndex,
                 opacity: layer.mark.opacity,
             }),
             points,
             closed: true,
-            fill: layer.mark.fill ?? color,
+            fill: layer.mark.fill ?? colorWithOpacity(color, theme.mode === 'dark' ? 0.28 : 0.2),
+            lineWidth: 0,
+        };
+        const stroke = {
+            type: 'path',
+            ...nodeBase(`${layer.id}:area-line`, {
+                zIndex: layer.zIndex + 0.1,
+                opacity: layer.mark.opacity,
+            }),
+            points: top,
+            closed: false,
             stroke: layer.mark.stroke ?? color,
             lineWidth: layer.mark.lineWidth ?? theme.mark.lineWidth,
+            lineCap: 'round',
+            lineJoin: 'round',
         };
-        return [node];
+        return [fill, stroke];
     };
 
     const compileBarMark = (context) => {
@@ -1723,7 +1793,7 @@ var Graflume = (function (exports) {
             const slotHeight = yScale instanceof BandScale
                 ? yScale.bandwidth / Math.max(1, barGroup.count)
                 : Math.max(1, ((plot.height / Math.max(1, table.length)) * 0.8) / Math.max(1, barGroup.count));
-            const barHeight = Math.max(1, slotHeight * 0.86);
+            const barHeight = Math.max(1, slotHeight * 0.74);
             const nodes = [];
             const indices = strideSampleIndices(table.length, performance.maxBarMarks);
             for (const rowIndex of indices) {
@@ -1763,7 +1833,7 @@ var Graflume = (function (exports) {
         const slotWidth = xScale instanceof BandScale
             ? xScale.bandwidth / Math.max(1, barGroup.count)
             : Math.max(1, ((plot.width / Math.max(1, table.length)) * 0.8) / Math.max(1, barGroup.count));
-        const barWidth = Math.max(1, slotWidth * 0.86);
+        const barWidth = Math.max(1, slotWidth * 0.74);
         const indices = strideSampleIndices(table.length, performance.maxBarMarks);
         for (const rowIndex of indices) {
             const xInput = scaleInput(table.value(rowIndex, layer.x.field));
@@ -1844,6 +1914,8 @@ var Graflume = (function (exports) {
                 closed: false,
                 stroke,
                 lineWidth,
+                lineCap: 'round',
+                lineJoin: 'round',
             };
             nodes.push(path);
             if (layer.mark.point) {
@@ -1864,7 +1936,7 @@ var Graflume = (function (exports) {
                         radius: layer.mark.radius ?? theme.mark.pointRadius,
                         fill: layer.mark.fill ?? theme.colors.background,
                         stroke,
-                        lineWidth: Math.max(1, lineWidth),
+                        lineWidth: Math.max(1.5, lineWidth * 0.68),
                     };
                     nodes.push(circle);
                 });
@@ -1898,8 +1970,8 @@ var Graflume = (function (exports) {
                 cy,
                 radius: layer.mark.radius ?? theme.mark.pointRadius,
                 fill: layer.mark.fill ?? color,
-                ...(layer.mark.stroke === undefined ? {} : { stroke: layer.mark.stroke }),
-                lineWidth: layer.mark.lineWidth ?? 1,
+                stroke: layer.mark.stroke ?? theme.colors.background,
+                lineWidth: layer.mark.lineWidth ?? 1.75,
             });
         }
         return nodes;
@@ -1909,7 +1981,7 @@ var Graflume = (function (exports) {
         const value = options[name];
         return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
     }
-    function optionString(options, name) {
+    function optionString$1(options, name) {
         const value = options[name];
         return typeof value === 'string' ? value : undefined;
     }
@@ -1953,14 +2025,29 @@ var Graflume = (function (exports) {
         const baseline = yScale.map(0);
         const area = {
             type: 'path',
-            ...nodeBase(`${layer.id}:stepped-area`, { zIndex: layer.zIndex, opacity: layer.mark.opacity }),
+            ...nodeBase(`${layer.id}:stepped-area-fill`, {
+                zIndex: layer.zIndex,
+                opacity: layer.mark.opacity,
+            }),
             points: [...top, { x: last.x, y: baseline }, { x: first.x, y: baseline }],
             closed: true,
-            fill: layer.mark.fill ?? color,
+            fill: layer.mark.fill ?? colorWithOpacity(color, theme.mode === 'dark' ? 0.28 : 0.2),
+            lineWidth: 0,
+        };
+        const outline = {
+            type: 'path',
+            ...nodeBase(`${layer.id}:stepped-area-line`, {
+                zIndex: layer.zIndex + 0.1,
+                opacity: layer.mark.opacity,
+            }),
+            points: top,
+            closed: false,
             stroke: layer.mark.stroke ?? color,
             lineWidth: layer.mark.lineWidth ?? theme.mark.lineWidth,
+            lineCap: 'round',
+            lineJoin: 'round',
         };
-        return [area];
+        return [area, outline];
     };
     const compileBubbleMark = (context) => {
         const { table, layer, xScale, yScale, theme, color, performance } = context;
@@ -2026,7 +2113,7 @@ var Graflume = (function (exports) {
                 radius: minimumRadius + Math.sqrt(ratio) * (maximumRadius - minimumRadius),
                 fill,
                 stroke: layer.mark.stroke ?? theme.colors.background,
-                lineWidth: layer.mark.lineWidth ?? 1.5,
+                lineWidth: layer.mark.lineWidth ?? 2,
             });
         }
         return nodes;
@@ -2058,8 +2145,8 @@ var Graflume = (function (exports) {
                 continue;
             const rising = close >= open;
             const fill = rising
-                ? (optionString(layer.mark.options, 'risingColor') ?? theme.colors.palette[2] ?? '#10b981')
-                : (optionString(layer.mark.options, 'fallingColor') ?? theme.colors.palette[3] ?? '#ef4444');
+                ? (optionString$1(layer.mark.options, 'risingColor') ?? theme.colors.palette[1] ?? '#0f9f8a')
+                : (optionString$1(layer.mark.options, 'fallingColor') ?? theme.colors.palette[3] ?? '#ef4444');
             const datum = { layerId: layer.id, rowIndex, datum: table.row(rowIndex) };
             nodes.push({
                 type: 'line',
@@ -2071,8 +2158,9 @@ var Graflume = (function (exports) {
                 y1: yHigh,
                 x2: x,
                 y2: yLow,
-                stroke: layer.mark.stroke ?? theme.colors.axis,
-                lineWidth: layer.mark.lineWidth ?? 1.4,
+                stroke: layer.mark.stroke ?? mixColor(fill, theme.colors.text, 0.28),
+                lineWidth: layer.mark.lineWidth ?? 1.5,
+                lineCap: 'round',
             });
             nodes.push({
                 type: 'rect',
@@ -2132,14 +2220,14 @@ var Graflume = (function (exports) {
                         ? {}
                         : { datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) } }),
                 }),
-                x: Math.min(x1, x2) + 1,
+                x: Math.min(x1, x2) + 2,
                 y: Math.min(y, baseline),
-                width: Math.max(1, Math.abs(x2 - x1) - 2),
+                width: Math.max(1, Math.abs(x2 - x1) - 4),
                 height: Math.max(0.5, Math.abs(baseline - y)),
                 fill: layer.mark.fill ?? color,
                 stroke: layer.mark.stroke ?? theme.colors.background,
                 lineWidth: layer.mark.lineWidth ?? 1,
-                cornerRadius: layer.mark.cornerRadius ?? 1,
+                cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
             });
         });
         return nodes;
@@ -2176,6 +2264,7 @@ var Graflume = (function (exports) {
                     y2: yLow,
                     stroke,
                     lineWidth,
+                    lineCap: 'round',
                 },
                 {
                     type: 'line',
@@ -2186,6 +2275,7 @@ var Graflume = (function (exports) {
                     y2: yHigh,
                     stroke,
                     lineWidth,
+                    lineCap: 'round',
                 },
                 {
                     type: 'line',
@@ -2196,6 +2286,7 @@ var Graflume = (function (exports) {
                     y2: yLow,
                     stroke,
                     lineWidth,
+                    lineCap: 'round',
                 },
             ];
             nodes.push(...lines);
@@ -2250,6 +2341,8 @@ var Graflume = (function (exports) {
             stroke: layer.mark.stroke ?? color,
             lineWidth: layer.mark.lineWidth ?? theme.mark.lineWidth + 0.5,
             dash: [7, 4],
+            lineCap: 'round',
+            lineJoin: 'round',
         };
         return [...points, line];
     };
@@ -2273,10 +2366,10 @@ var Graflume = (function (exports) {
             if (![x, y1, y2].every(Number.isFinite))
                 continue;
             const fill = delta >= 0
-                ? (optionString(layer.mark.options, 'positiveColor') ??
-                    theme.colors.palette[2] ??
-                    '#10b981')
-                : (optionString(layer.mark.options, 'negativeColor') ??
+                ? (optionString$1(layer.mark.options, 'positiveColor') ??
+                    theme.colors.palette[1] ??
+                    '#0f9f8a')
+                : (optionString$1(layer.mark.options, 'negativeColor') ??
                     theme.colors.palette[3] ??
                     '#ef4444');
             nodes.push({
@@ -2293,7 +2386,7 @@ var Graflume = (function (exports) {
                 height: Math.max(1, Math.abs(y2 - y1)),
                 fill,
                 lineWidth: 0,
-                cornerRadius: layer.mark.cornerRadius ?? 2,
+                cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
             });
             const nextInput = rowIndex + 1 < table.length ? scaleInput(table.value(rowIndex + 1, layer.x.field)) : null;
             if (nextInput !== null) {
@@ -2308,6 +2401,7 @@ var Graflume = (function (exports) {
                     stroke: theme.colors.axis,
                     lineWidth: 1,
                     dash: [3, 3],
+                    lineCap: 'round',
                 });
             }
         }
@@ -2340,9 +2434,9 @@ var Graflume = (function (exports) {
                 y: Math.min(oldY, baseline),
                 width,
                 height: Math.max(1, Math.abs(baseline - oldY)),
-                fill: optionString(layer.mark.options, 'oldColor') ?? theme.colors.mutedText,
+                fill: optionString$1(layer.mark.options, 'oldColor') ?? theme.colors.mutedText,
                 lineWidth: 0,
-                cornerRadius: layer.mark.cornerRadius ?? 2,
+                cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
             });
             nodes.push({
                 type: 'rect',
@@ -2358,7 +2452,7 @@ var Graflume = (function (exports) {
                 height: Math.max(1, Math.abs(baseline - newY)),
                 fill: layer.mark.fill ?? theme.colors.focus,
                 lineWidth: 0,
-                cornerRadius: layer.mark.cornerRadius ?? 2,
+                cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
             });
             nodes.push({
                 type: 'line',
@@ -2369,6 +2463,7 @@ var Graflume = (function (exports) {
                 y2: newY,
                 stroke: theme.colors.text,
                 lineWidth: 1.5,
+                lineCap: 'round',
             });
         }
         return nodes;
@@ -2402,14 +2497,32 @@ var Graflume = (function (exports) {
             const suffix = textField !== undefined && table.has(textField)
                 ? table.value(rowIndex, textField)
                 : undefined;
-            nodes.push(textNode$1(`${layer.id}:annotation-label:${rowIndex}`, Math.min(plot.x + plot.width - 4, x + 5), plot.y + 8, suffix === undefined || suffix === null
+            const label = suffix === undefined || suffix === null
                 ? String(annotation)
-                : `${String(annotation)} — ${String(suffix)}`, context, { align: 'left', baseline: 'top', size: 10, weight: 650 }));
+                : `${String(annotation)} — ${String(suffix)}`;
+            const width = Math.min(190, Math.max(54, label.length * 6.1 + 16));
+            const labelX = Math.min(plot.x + plot.width - width - 4, x + 6);
+            nodes.push({
+                type: 'rect',
+                ...nodeBase(`${layer.id}:annotation-pill:${rowIndex}`, {
+                    zIndex: layer.zIndex + 0.6,
+                    opacity: 0.96,
+                }),
+                x: labelX,
+                y: plot.y + 4,
+                width,
+                height: 22,
+                fill: theme.colors.surface,
+                stroke: colorWithOpacity(layer.mark.stroke ?? theme.colors.focus, 0.46),
+                lineWidth: 1,
+                cornerRadius: 6,
+            });
+            nodes.push(textNode$1(`${layer.id}:annotation-label:${rowIndex}`, labelX + 8, plot.y + 15, label, context, { align: 'left', baseline: 'middle', size: 10, weight: 650 }));
         }
         return nodes;
     };
     const compileVegaMark = (context) => {
-        const mark = optionString(context.layer.mark.options, 'mark') ?? 'line';
+        const mark = optionString$1(context.layer.mark.options, 'mark') ?? 'line';
         if (mark === 'bar')
             return compileBarMark(context);
         if (mark === 'area')
@@ -2422,6 +2535,10 @@ var Graflume = (function (exports) {
     function optionNumber$1(options, name, fallback) {
         const value = options[name];
         return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+    }
+    function optionString(options, name) {
+        const value = options[name];
+        return typeof value === 'string' ? value : undefined;
     }
     function arcPoints(cx, cy, outerRadius, startAngle, endAngle, innerRadius) {
         const span = Math.abs(endAngle - startAngle);
@@ -2438,18 +2555,18 @@ var Graflume = (function (exports) {
         });
         return [...outer, ...inner];
     }
-    function labelNode(id, x, y, text, context, fontSize = 12) {
+    function labelNode(id, x, y, text, context, fontSize = 12, options = {}) {
         return {
             type: 'text',
             ...nodeBase(id, { zIndex: context.layer.zIndex + 1 }),
             x,
             y,
             text,
-            fill: context.theme.colors.text,
+            fill: options.fill ?? context.theme.colors.text,
             fontFamily: context.theme.typography.fontFamily,
             fontSize,
-            fontWeight: 600,
-            align: 'center',
+            fontWeight: options.weight ?? 600,
+            align: options.align ?? 'center',
             baseline: 'middle',
             rotation: 0,
         };
@@ -2469,7 +2586,7 @@ var Graflume = (function (exports) {
             return [];
         const cx = plot.x + plot.width / 2;
         const cy = plot.y + plot.height / 2;
-        const radius = Math.max(8, Math.min(plot.width, plot.height) * 0.39);
+        const radius = Math.max(8, Math.min(plot.width, plot.height) * 0.36);
         const innerRatio = Math.max(0, Math.min(0.9, optionNumber$1(layer.mark.options, 'innerRadius', 0)));
         const innerRadius = radius * innerRatio;
         const startOffset = optionNumber$1(layer.mark.options, 'startAngle', -Math.PI / 2);
@@ -2495,12 +2612,51 @@ var Graflume = (function (exports) {
                 lineWidth: layer.mark.lineWidth ?? 2,
             };
             nodes.push(wedge);
-            if (index < labelLimit && next - angle >= 0.18) {
-                const labelRadius = innerRadius > 0 ? (innerRadius + radius) / 2 : radius * 0.65;
-                nodes.push(labelNode(`${layer.id}:label:${item.rowIndex}`, cx + Math.cos(mid) * labelRadius, cy + Math.sin(mid) * labelRadius, item.label, context, 11));
+            const share = item.value / total;
+            const span = next - angle;
+            if (index < labelLimit && span >= 0.16) {
+                const percentage = `${Math.round(share * 100)}%`;
+                const inside = innerRadius > 0 || span >= 0.48;
+                const labelRadius = innerRadius > 0 ? (innerRadius + radius) / 2 : radius * 0.64;
+                const text = inside ? `${item.label} · ${percentage}` : `${item.label} ${percentage}`;
+                if (!inside) {
+                    const side = Math.cos(mid) >= 0 ? 1 : -1;
+                    const edge = {
+                        x: cx + Math.cos(mid) * radius * 0.9,
+                        y: cy + Math.sin(mid) * radius * 0.9,
+                    };
+                    const elbow = {
+                        x: cx + Math.cos(mid) * radius * 1.06,
+                        y: cy + Math.sin(mid) * radius * 1.06,
+                    };
+                    nodes.push({
+                        type: 'path',
+                        ...nodeBase(`${layer.id}:leader:${item.rowIndex}`, { zIndex: layer.zIndex + 0.9 }),
+                        points: [edge, elbow, { x: elbow.x + side * 10, y: elbow.y }],
+                        closed: false,
+                        stroke: mixColor(fill, theme.colors.text, 0.18),
+                        lineWidth: 1.2,
+                        lineCap: 'round',
+                        lineJoin: 'round',
+                    });
+                    nodes.push(labelNode(`${layer.id}:label:${item.rowIndex}`, elbow.x + side * 14, elbow.y, text, context, 10.5, { align: side > 0 ? 'left' : 'right', fill: theme.colors.text, weight: 650 }));
+                }
+                else {
+                    nodes.push(labelNode(`${layer.id}:label:${item.rowIndex}`, cx + Math.cos(mid) * labelRadius, cy + Math.sin(mid) * labelRadius, text, context, 10.5, {
+                        fill: readableTextColor(fill, '#ffffff', '#0f172a'),
+                        weight: 700,
+                    }));
+                }
             }
             angle = next;
         });
+        if (innerRadius > radius * 0.34) {
+            nodes.push(labelNode(`${layer.id}:center-label`, cx, cy - 9, optionString(layer.mark.options, 'centerLabel') ?? 'Total', context, 10, { fill: theme.colors.mutedText, weight: 600 }));
+            nodes.push(labelNode(`${layer.id}:center-value`, cx, cy + 10, String(total), context, 18, {
+                fill: theme.colors.text,
+                weight: 750,
+            }));
+        }
         return nodes;
     };
     const compileGaugeMark = (context) => {
@@ -2520,13 +2676,16 @@ var Graflume = (function (exports) {
             const ratio = Math.max(0, Math.min(1, (value - minimum) / span));
             const cx = plot.x + slotWidth * (rowIndex + 0.5);
             const cy = plot.y + plot.height * 0.62;
-            const inner = radius * 0.72;
+            const inner = radius * 0.7;
+            const fill = layer.mark.fill ??
+                theme.colors.palette[rowIndex % theme.colors.palette.length] ??
+                theme.colors.focus;
             nodes.push({
                 type: 'path',
                 ...nodeBase(`${layer.id}:gauge-background:${rowIndex}`, { zIndex: layer.zIndex }),
                 points: arcPoints(cx, cy, radius, Math.PI, Math.PI * 2, inner),
                 closed: true,
-                fill: theme.colors.grid,
+                fill: mixColor(theme.colors.grid, theme.colors.surface, 0.3),
                 lineWidth: 0,
             });
             nodes.push({
@@ -2539,11 +2698,26 @@ var Graflume = (function (exports) {
                 }),
                 points: arcPoints(cx, cy, radius, Math.PI, Math.PI + Math.PI * ratio, inner),
                 closed: true,
-                fill: layer.mark.fill ??
-                    theme.colors.palette[rowIndex % theme.colors.palette.length] ??
-                    theme.colors.focus,
+                fill,
                 lineWidth: 0,
             });
+            for (let tickIndex = 0; tickIndex <= 4; tickIndex += 1) {
+                const tickAngle = Math.PI + (Math.PI * tickIndex) / 4;
+                nodes.push({
+                    type: 'line',
+                    ...nodeBase(`${layer.id}:gauge-tick:${rowIndex}:${tickIndex}`, {
+                        zIndex: layer.zIndex + 0.35,
+                        opacity: 0.72,
+                    }),
+                    x1: cx + Math.cos(tickAngle) * radius * 0.76,
+                    y1: cy + Math.sin(tickAngle) * radius * 0.76,
+                    x2: cx + Math.cos(tickAngle) * radius * 0.84,
+                    y2: cy + Math.sin(tickAngle) * radius * 0.84,
+                    stroke: theme.colors.background,
+                    lineWidth: 1.25,
+                    lineCap: 'round',
+                });
+            }
             const needleAngle = Math.PI + Math.PI * ratio;
             const needle = {
                 type: 'line',
@@ -2554,10 +2728,25 @@ var Graflume = (function (exports) {
                 y2: cy + Math.sin(needleAngle) * radius * 0.62,
                 stroke: theme.colors.text,
                 lineWidth: 2,
+                lineCap: 'round',
             };
             nodes.push(needle);
-            nodes.push(labelNode(`${layer.id}:gauge-value-label:${rowIndex}`, cx, cy + 18, String(value), context, 16));
-            nodes.push(labelNode(`${layer.id}:gauge-label:${rowIndex}`, cx, cy + 39, String(label), context, 11));
+            const hub = {
+                type: 'circle',
+                ...nodeBase(`${layer.id}:gauge-hub:${rowIndex}`, { zIndex: layer.zIndex + 0.6 }),
+                cx,
+                cy,
+                radius: 4,
+                fill: theme.colors.text,
+                stroke: theme.colors.background,
+                lineWidth: 1.5,
+            };
+            nodes.push(hub);
+            nodes.push(labelNode(`${layer.id}:gauge-value-label:${rowIndex}`, cx, cy - 15, String(value), context, 17, { weight: 750 }));
+            nodes.push(labelNode(`${layer.id}:gauge-label:${rowIndex}`, cx, cy + 23, String(label), context, 11, {
+                fill: theme.colors.mutedText,
+                weight: 650,
+            }));
         }
         return nodes;
     };
@@ -2588,17 +2777,6 @@ var Graflume = (function (exports) {
             rotation: 0,
         };
     }
-    function hexChannel(color, index) {
-        const normalized = color.replace('#', '');
-        const offset = normalized.length === 3 ? index : index * 2;
-        const raw = normalized.length === 3 ? normalized[offset]?.repeat(2) : normalized.slice(offset, offset + 2);
-        return Number.parseInt(raw ?? '00', 16);
-    }
-    function mixColor(start, end, ratio) {
-        const bounded = Math.max(0, Math.min(1, ratio));
-        const channels = [0, 1, 2].map((index) => Math.round(hexChannel(start, index) + (hexChannel(end, index) - hexChannel(start, index)) * bounded));
-        return `#${channels.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`;
-    }
     const compileCalendarMark = (context) => {
         const { table, layer, plot, theme, performance } = context;
         const values = [];
@@ -2618,7 +2796,8 @@ var Graflume = (function (exports) {
         const first = values[0]?.date;
         if (first === undefined)
             return [];
-        const start = new Date(Date.UTC(first.getUTCFullYear(), 0, 1));
+        const calendarYear = first.getUTCFullYear();
+        const start = new Date(Date.UTC(calendarYear, 0, 1));
         const day = 24 * 60 * 60 * 1000;
         const weekCount = Math.max(1, Math.ceil((Math.max(...values.map((item) => item.date.getTime())) - start.getTime()) / day / 7) + 1);
         const gap = 2;
@@ -2626,6 +2805,18 @@ var Graflume = (function (exports) {
         const originX = plot.x + 34;
         const originY = plot.y + 20;
         const nodes = [];
+        const monthPositions = new Map();
+        values.forEach((item) => {
+            const offset = Math.floor((item.date.getTime() - start.getTime()) / day);
+            const week = Math.floor((offset + start.getUTCDay()) / 7);
+            const month = item.date.getUTCMonth();
+            if (!monthPositions.has(month))
+                monthPositions.set(month, week);
+        });
+        const monthFormatter = new Intl.DateTimeFormat('en', { month: 'short', timeZone: 'UTC' });
+        monthPositions.forEach((week, month) => {
+            nodes.push(textNode(`${layer.id}:month:${month}`, originX + week * (cell + gap), plot.y + 7, monthFormatter.format(new Date(Date.UTC(calendarYear, month, 1))), context, { align: 'left', size: 9, weight: 650, fill: theme.colors.mutedText }));
+        });
         ['S', 'M', 'T', 'W', 'T', 'F', 'S'].forEach((label, index) => nodes.push(textNode(`${layer.id}:weekday:${index}`, plot.x + 18, originY + index * (cell + gap) + cell / 2, label, context, { size: 9 })));
         values.forEach((item) => {
             const offset = Math.floor((item.date.getTime() - start.getTime()) / day);
@@ -2679,44 +2870,83 @@ var Graflume = (function (exports) {
     };
     const continents = [
         [
-            [-168, 72],
-            [-52, 72],
-            [-60, 15],
-            [-100, 8],
-            [-126, 30],
+            [-168, 70],
+            [-150, 60],
+            [-134, 55],
+            [-126, 48],
+            [-124, 32],
+            [-110, 24],
+            [-98, 17],
+            [-82, 23],
+            [-80, 31],
+            [-66, 45],
+            [-58, 52],
+            [-72, 61],
+            [-96, 69],
+            [-126, 72],
         ],
         [
-            [-82, 12],
-            [-34, 6],
-            [-52, -56],
-            [-76, -50],
+            [-81, 12],
+            [-69, 10],
+            [-52, 3],
+            [-35, -7],
+            [-42, -23],
+            [-53, -36],
+            [-68, -55],
+            [-76, -43],
+            [-78, -18],
         ],
         [
-            [-12, 70],
-            [42, 70],
-            [55, 35],
-            [15, 34],
-            [-10, 45],
+            [-10, 36],
+            [-18, 15],
+            [-10, 1],
+            [10, -5],
+            [15, -24],
+            [29, -35],
+            [42, -18],
+            [51, 12],
+            [38, 31],
+            [20, 37],
         ],
         [
-            [-18, 35],
-            [52, 35],
-            [48, -35],
-            [12, -35],
-            [-5, 5],
+            [-11, 36],
+            [-8, 44],
+            [2, 50],
+            [17, 58],
+            [31, 70],
+            [58, 72],
+            [88, 74],
+            [119, 68],
+            [151, 59],
+            [178, 51],
+            [162, 38],
+            [145, 33],
+            [122, 23],
+            [106, 5],
+            [83, 8],
+            [66, 24],
+            [46, 30],
+            [34, 39],
+            [20, 40],
+            [8, 38],
         ],
         [
-            [35, 72],
-            [178, 70],
-            [150, 5],
-            [95, 2],
-            [55, 28],
+            [-52, 83],
+            [-23, 81],
+            [-18, 70],
+            [-31, 60],
+            [-48, 60],
+            [-62, 72],
         ],
         [
-            [112, -10],
-            [155, -10],
-            [153, -44],
-            [116, -38],
+            [112, -11],
+            [131, -12],
+            [145, -19],
+            [154, -28],
+            [148, -39],
+            [132, -43],
+            [116, -35],
+            [113, -22],
         ],
     ];
     function project(plot, longitude, latitude) {
@@ -2726,18 +2956,71 @@ var Graflume = (function (exports) {
         };
     }
     function worldBackground(context) {
-        return continents.map((polygon, index) => ({
-            type: 'path',
-            ...nodeBase(`${context.layer.id}:continent:${index}`, {
-                zIndex: context.layer.zIndex - 2,
-                opacity: 0.86,
-            }),
-            points: polygon.map(([longitude, latitude]) => project(context.plot, longitude, latitude)),
-            closed: true,
-            fill: context.theme.colors.grid,
-            stroke: context.theme.colors.axis,
-            lineWidth: 0.8,
-        }));
+        const { layer, plot, theme } = context;
+        const nodes = [
+            {
+                type: 'rect',
+                ...nodeBase(`${layer.id}:map-surface`, { zIndex: layer.zIndex - 4 }),
+                x: plot.x,
+                y: plot.y,
+                width: plot.width,
+                height: plot.height,
+                fill: theme.colors.surface,
+                stroke: theme.colors.grid,
+                lineWidth: 1,
+                cornerRadius: 12,
+            },
+        ];
+        for (let longitude = -120; longitude <= 120; longitude += 60) {
+            const top = project(plot, longitude, 78);
+            const bottom = project(plot, longitude, -60);
+            nodes.push({
+                type: 'line',
+                ...nodeBase(`${layer.id}:longitude:${longitude}`, {
+                    zIndex: layer.zIndex - 3,
+                    opacity: 0.7,
+                }),
+                x1: top.x,
+                y1: top.y,
+                x2: bottom.x,
+                y2: bottom.y,
+                stroke: theme.colors.grid,
+                lineWidth: 0.8,
+            });
+        }
+        for (let latitude = -60; latitude <= 60; latitude += 30) {
+            const left = project(plot, -180, latitude);
+            const right = project(plot, 180, latitude);
+            nodes.push({
+                type: 'line',
+                ...nodeBase(`${layer.id}:latitude:${latitude}`, {
+                    zIndex: layer.zIndex - 3,
+                    opacity: 0.7,
+                }),
+                x1: left.x,
+                y1: left.y,
+                x2: right.x,
+                y2: right.y,
+                stroke: theme.colors.grid,
+                lineWidth: 0.8,
+            });
+        }
+        continents.forEach((polygon, index) => {
+            nodes.push({
+                type: 'path',
+                ...nodeBase(`${layer.id}:continent:${index}`, {
+                    zIndex: layer.zIndex - 2,
+                    opacity: 0.96,
+                }),
+                points: polygon.map(([longitude, latitude]) => project(plot, longitude, latitude)),
+                closed: true,
+                fill: mixColor(theme.colors.surface, theme.colors.grid, 0.72),
+                stroke: theme.colors.axis,
+                lineWidth: 0.8,
+                lineJoin: 'round',
+            });
+        });
+        return nodes;
     }
     const compileGeoMark = (context) => {
         const { table, layer, plot, theme, performance } = context;
@@ -2753,6 +3036,19 @@ var Graflume = (function (exports) {
                 ? 0.6
                 : (value - extent[0]) / (extent[1] - extent[0]);
             const point = project(plot, centroid[0], centroid[1]);
+            const radius = 5 + Math.sqrt(Math.max(0, ratio)) * 12;
+            const fill = layer.mark.fill ?? theme.colors.focus;
+            nodes.push({
+                type: 'circle',
+                ...nodeBase(`${layer.id}:region-halo:${rowIndex}`, {
+                    zIndex: layer.zIndex - 0.1,
+                }),
+                cx: point.x,
+                cy: point.y,
+                radius: radius + 4,
+                fill: colorWithOpacity(fill, theme.mode === 'dark' ? 0.2 : 0.14),
+                lineWidth: 0,
+            });
             nodes.push({
                 type: 'circle',
                 ...nodeBase(`${layer.id}:region:${rowIndex}`, {
@@ -2763,8 +3059,8 @@ var Graflume = (function (exports) {
                 }),
                 cx: point.x,
                 cy: point.y,
-                radius: 5 + Math.sqrt(Math.max(0, ratio)) * 12,
-                fill: layer.mark.fill ?? theme.colors.focus,
+                radius,
+                fill,
                 stroke: theme.colors.background,
                 lineWidth: 1.5,
             });
@@ -2786,6 +3082,17 @@ var Graflume = (function (exports) {
                 ? 0.5
                 : (rawSize - extent[0]) / (extent[1] - extent[0]);
             const point = project(plot, longitude, latitude);
+            const radius = layer.mark.radius ?? 5 + Math.sqrt(Math.max(0, ratio)) * 10;
+            const fill = layer.mark.fill ?? theme.colors.focus;
+            nodes.push({
+                type: 'circle',
+                ...nodeBase(`${layer.id}:map-halo:${rowIndex}`, { zIndex: layer.zIndex - 0.1 }),
+                cx: point.x,
+                cy: point.y,
+                radius: radius + 4,
+                fill: colorWithOpacity(fill, theme.mode === 'dark' ? 0.2 : 0.14),
+                lineWidth: 0,
+            });
             nodes.push({
                 type: 'circle',
                 ...nodeBase(`${layer.id}:map-point:${rowIndex}`, {
@@ -2796,8 +3103,8 @@ var Graflume = (function (exports) {
                 }),
                 cx: point.x,
                 cy: point.y,
-                radius: layer.mark.radius ?? 5 + Math.sqrt(Math.max(0, ratio)) * 10,
-                fill: layer.mark.fill ?? theme.colors.focus,
+                radius,
+                fill,
                 stroke: theme.colors.background,
                 lineWidth: layer.mark.lineWidth ?? 1.5,
             });
@@ -2877,15 +3184,21 @@ var Graflume = (function (exports) {
             const parent = positions.get(item.parent);
             if (position === undefined || parent === undefined)
                 return;
+            const middleY = parent.y + (position.y - parent.y) / 2;
             nodes.push({
-                type: 'line',
+                type: 'path',
                 ...nodeBase(`${layer.id}:edge:${item.rowIndex}`, { zIndex: layer.zIndex - 1 }),
-                x1: parent.x,
-                y1: parent.y + nodeHeight / 2,
-                x2: position.x,
-                y2: position.y - nodeHeight / 2,
+                points: [
+                    { x: parent.x, y: parent.y + nodeHeight / 2 },
+                    { x: parent.x, y: middleY },
+                    { x: position.x, y: middleY },
+                    { x: position.x, y: position.y - nodeHeight / 2 },
+                ],
+                closed: false,
                 stroke: theme.colors.axis,
-                lineWidth: 1.3,
+                lineWidth: 1.4,
+                lineCap: 'round',
+                lineJoin: 'round',
             });
         });
         items.forEach((item) => {
@@ -2905,14 +3218,52 @@ var Graflume = (function (exports) {
                 width: nodeWidth,
                 height: nodeHeight,
                 fill: layer.mark.fill ?? theme.colors.surface,
-                stroke: layer.mark.stroke ?? theme.colors.focus,
-                lineWidth: layer.mark.lineWidth ?? 1.5,
-                cornerRadius: layer.mark.cornerRadius ?? 7,
+                stroke: layer.mark.stroke ?? theme.colors.axis,
+                lineWidth: layer.mark.lineWidth ?? 1.2,
+                cornerRadius: layer.mark.cornerRadius ?? 9,
             });
-            nodes.push(textNode(`${layer.id}:node-label:${item.rowIndex}`, position.x, position.y, item.id, context, { size: 10, weight: 650 }));
+            const depth = depths.get(item.id) ?? 0;
+            nodes.push({
+                type: 'rect',
+                ...nodeBase(`${layer.id}:node-accent:${item.rowIndex}`, {
+                    zIndex: layer.zIndex + 0.1,
+                }),
+                x: position.x - nodeWidth / 2 + 1,
+                y: position.y - nodeHeight / 2 + 1,
+                width: nodeWidth - 2,
+                height: 4,
+                fill: theme.colors.palette[depth % theme.colors.palette.length] ?? theme.colors.focus,
+                lineWidth: 0,
+                cornerRadius: 4,
+            });
+            nodes.push(textNode(`${layer.id}:node-label:${item.rowIndex}`, position.x, position.y, item.id, context, { size: 10.5, weight: 700 }));
         });
         return nodes;
     };
+    function cubicPoint(start, control1, control2, end, ratio) {
+        const inverse = 1 - ratio;
+        return {
+            x: inverse ** 3 * start.x +
+                3 * inverse ** 2 * ratio * control1.x +
+                3 * inverse * ratio ** 2 * control2.x +
+                ratio ** 3 * end.x,
+            y: inverse ** 3 * start.y +
+                3 * inverse ** 2 * ratio * control1.y +
+                3 * inverse * ratio ** 2 * control2.y +
+                ratio ** 3 * end.y,
+        };
+    }
+    function sankeyBandPoints(sourceX, sourceY, sourceHeight, targetX, targetY, targetHeight) {
+        const controlOffset = (targetX - sourceX) * 0.44;
+        const sample = (startY, endY) => Array.from({ length: 13 }, (_, index) => {
+            const ratio = index / 12;
+            return cubicPoint({ x: sourceX, y: startY }, { x: sourceX + controlOffset, y: startY }, { x: targetX - controlOffset, y: endY }, { x: targetX, y: endY }, ratio);
+        });
+        return [
+            ...sample(sourceY, targetY),
+            ...sample(sourceY + sourceHeight, targetY + targetHeight).reverse(),
+        ];
+    }
     const compileSankeyMark = (context) => {
         const { table, layer, plot, theme, performance } = context;
         const targetField = layer.mark.fields.target ?? 'target';
@@ -2979,19 +3330,11 @@ var Graflume = (function (exports) {
                     interactive: performance.enableHitTesting,
                     datum: { layerId: layer.id, rowIndex: edge.rowIndex, datum: table.row(edge.rowIndex) },
                 }),
-                points: [
-                    { x: plot.x + nodeWidth, y: sy },
-                    { x: plot.x + plot.width * 0.46, y: sy },
-                    { x: plot.x + plot.width * 0.54, y: ty },
-                    { x: plot.x + plot.width - nodeWidth, y: ty },
-                    { x: plot.x + plot.width - nodeWidth, y: ty + targetHeight },
-                    { x: plot.x + plot.width * 0.54, y: ty + targetHeight },
-                    { x: plot.x + plot.width * 0.46, y: sy + sourceHeight },
-                    { x: plot.x + nodeWidth, y: sy + sourceHeight },
-                ],
+                points: sankeyBandPoints(plot.x + nodeWidth, sy, sourceHeight, plot.x + plot.width - nodeWidth, ty, targetHeight),
                 closed: true,
                 fill: theme.colors.palette[index % theme.colors.palette.length] ?? theme.colors.focus,
                 lineWidth: 0,
+                lineJoin: 'round',
             });
         });
         sources.forEach((name, index) => {
@@ -3007,9 +3350,9 @@ var Graflume = (function (exports) {
                 height: item.height,
                 fill: theme.colors.palette[index % theme.colors.palette.length] ?? theme.colors.focus,
                 lineWidth: 0,
-                cornerRadius: 2,
+                cornerRadius: 4,
             });
-            nodes.push(textNode(`${layer.id}:source-label:${index}`, plot.x + nodeWidth + 5, item.y + item.height / 2, name, context, { align: 'left', size: 10 }));
+            nodes.push(textNode(`${layer.id}:source-label:${index}`, plot.x + nodeWidth + 5, item.y + item.height / 2, name, context, { align: 'left', size: 10.5, weight: 650 }));
         });
         targets.forEach((name, index) => {
             const item = targetPositions.get(name);
@@ -3025,9 +3368,9 @@ var Graflume = (function (exports) {
                 fill: theme.colors.palette[(sources.length + index) % theme.colors.palette.length] ??
                     theme.colors.focus,
                 lineWidth: 0,
-                cornerRadius: 2,
+                cornerRadius: 4,
             });
-            nodes.push(textNode(`${layer.id}:target-label:${index}`, plot.x + plot.width - nodeWidth - 5, item.y + item.height / 2, name, context, { align: 'right', size: 10 }));
+            nodes.push(textNode(`${layer.id}:target-label:${index}`, plot.x + plot.width - nodeWidth - 5, item.y + item.height / 2, name, context, { align: 'right', size: 10.5, weight: 650 }));
         });
         return nodes;
     };
@@ -3049,12 +3392,12 @@ var Graflume = (function (exports) {
                 y: plot.y,
                 width: columnWidth,
                 height: headerHeight,
-                fill: theme.colors.grid,
-                stroke: theme.colors.axis,
-                lineWidth: 0.5,
+                fill: mixColor(theme.colors.surface, theme.colors.focus, theme.mode === 'dark' ? 0.08 : 0.045),
+                stroke: theme.colors.grid,
+                lineWidth: 0.75,
                 cornerRadius: 0,
             });
-            nodes.push(textNode(`${layer.id}:header-label:${columnIndex}`, plot.x + columnIndex * columnWidth + 8, plot.y + headerHeight / 2, field, context, { align: 'left', size: 10, weight: 700 }));
+            nodes.push(textNode(`${layer.id}:header-label:${columnIndex}`, plot.x + columnIndex * columnWidth + 8, plot.y + headerHeight / 2, field, context, { align: 'left', size: 10.5, weight: 750 }));
         });
         for (let rowIndex = 0; rowIndex < visibleRows; rowIndex += 1) {
             uniqueColumns.forEach((field, columnIndex) => {
@@ -3071,12 +3414,12 @@ var Graflume = (function (exports) {
                     y,
                     width: columnWidth,
                     height: rowHeight,
-                    fill: rowIndex % 2 === 0 ? theme.colors.surface : theme.colors.background,
+                    fill: rowIndex % 2 === 0 ? theme.colors.background : theme.colors.surface,
                     stroke: theme.colors.grid,
-                    lineWidth: 0.5,
+                    lineWidth: 0.65,
                     cornerRadius: 0,
                 });
-                nodes.push(textNode(`${layer.id}:cell-label:${rowIndex}:${columnIndex}`, plot.x + columnIndex * columnWidth + 8, y + rowHeight / 2, String(table.value(rowIndex, field) ?? ''), context, { align: 'left', size: 10 }));
+                nodes.push(textNode(`${layer.id}:cell-label:${rowIndex}:${columnIndex}`, plot.x + columnIndex * columnWidth + 8, y + rowHeight / 2, String(table.value(rowIndex, field) ?? ''), context, { align: 'left', size: 10.5, weight: 500 }));
             });
         }
         return nodes;
@@ -3117,7 +3460,7 @@ var Graflume = (function (exports) {
                 fill: layer.mark.fill ?? fill,
                 ...(layer.mark.stroke === undefined ? {} : { stroke: layer.mark.stroke }),
                 lineWidth: layer.mark.lineWidth ?? 0,
-                cornerRadius: layer.mark.cornerRadius ?? 4,
+                cornerRadius: layer.mark.cornerRadius ?? 6,
             });
             if (gantt && progressField !== undefined && table.has(progressField)) {
                 const progress = numericDataValue(table.value(rowIndex, progressField));
@@ -3126,15 +3469,15 @@ var Graflume = (function (exports) {
                         type: 'rect',
                         ...nodeBase(`${layer.id}:progress:${rowIndex}`, {
                             zIndex: layer.zIndex + 0.1,
-                            opacity: 0.45,
+                            opacity: 0.58,
                         }),
                         x: Math.min(x1, x2),
                         y: y - barHeight / 2,
                         width: Math.max(0, (Math.abs(x2 - x1) * Math.max(0, Math.min(100, progress))) / 100),
                         height: barHeight,
-                        fill: theme.colors.text,
+                        fill: mixColor(fill, theme.colors.text, theme.mode === 'dark' ? 0.18 : 0.26),
                         lineWidth: 0,
-                        cornerRadius: layer.mark.cornerRadius ?? 4,
+                        cornerRadius: layer.mark.cornerRadius ?? 6,
                     });
                 }
             }
@@ -3175,6 +3518,7 @@ var Graflume = (function (exports) {
                         stroke: theme.colors.axis,
                         lineWidth: 1.2,
                         dash: [4, 2],
+                        lineCap: 'round',
                     });
                 });
             }
@@ -3183,6 +3527,51 @@ var Graflume = (function (exports) {
     }
     const compileTimelineMark = (context) => compileTimeline(context, false);
     const compileGanttMark = (context) => compileTimeline(context, true);
+    function layoutTreemap(items, rectangle) {
+        if (items.length === 0)
+            return [];
+        const first = items[0];
+        if (items.length === 1 && first !== undefined)
+            return [{ ...first, ...rectangle }];
+        const total = items.reduce((sum, item) => sum + item.value, 0);
+        let cumulative = 0;
+        let splitIndex = 1;
+        let bestDistance = Number.POSITIVE_INFINITY;
+        for (let index = 1; index < items.length; index += 1) {
+            cumulative += items[index - 1]?.value ?? 0;
+            const distance = Math.abs(total / 2 - cumulative);
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                splitIndex = index;
+            }
+        }
+        const leading = items.slice(0, splitIndex);
+        const trailing = items.slice(splitIndex);
+        const leadingValue = leading.reduce((sum, item) => sum + item.value, 0);
+        const ratio = total <= 0 ? 0.5 : leadingValue / total;
+        if (rectangle.width >= rectangle.height) {
+            const leadingWidth = rectangle.width * ratio;
+            return [
+                ...layoutTreemap(leading, { ...rectangle, width: leadingWidth }),
+                ...layoutTreemap(trailing, {
+                    x: rectangle.x + leadingWidth,
+                    y: rectangle.y,
+                    width: rectangle.width - leadingWidth,
+                    height: rectangle.height,
+                }),
+            ];
+        }
+        const leadingHeight = rectangle.height * ratio;
+        return [
+            ...layoutTreemap(leading, { ...rectangle, height: leadingHeight }),
+            ...layoutTreemap(trailing, {
+                x: rectangle.x,
+                y: rectangle.y + leadingHeight,
+                width: rectangle.width,
+                height: rectangle.height - leadingHeight,
+            }),
+        ];
+    }
     const compileTreemapMark = (context) => {
         const { table, layer, plot, theme, performance } = context;
         const items = [];
@@ -3193,14 +3582,18 @@ var Graflume = (function (exports) {
                 continue;
             items.push({ rowIndex, label: String(label), value });
         }
-        const total = items.reduce((sum, item) => sum + item.value, 0);
-        if (total <= 0)
+        if (items.length === 0)
             return [];
         const nodes = [];
-        let x = plot.x;
-        items.forEach((item, index) => {
-            const width = index === items.length - 1 ? plot.x + plot.width - x : (item.value / total) * plot.width;
-            const fill = theme.colors.palette[index % theme.colors.palette.length] ?? theme.colors.focus;
+        const tiles = layoutTreemap(items, plot);
+        tiles.forEach((item, index) => {
+            const base = theme.colors.palette[index % theme.colors.palette.length] ?? theme.colors.focus;
+            const fill = mixColor(base, theme.colors.background, theme.mode === 'dark' ? 0.06 : 0.02);
+            const gap = 2;
+            const x = item.x + gap;
+            const y = item.y + gap;
+            const width = Math.max(1, item.width - gap * 2);
+            const height = Math.max(1, item.height - gap * 2);
             nodes.push({
                 type: 'rect',
                 ...nodeBase(`${layer.id}:treemap:${item.rowIndex}`, {
@@ -3210,18 +3603,33 @@ var Graflume = (function (exports) {
                     datum: { layerId: layer.id, rowIndex: item.rowIndex, datum: table.row(item.rowIndex) },
                 }),
                 x,
-                y: plot.y,
-                width: Math.max(1, width),
-                height: plot.height,
+                y,
+                width,
+                height,
                 fill: layer.mark.fill ?? fill,
-                stroke: theme.colors.background,
-                lineWidth: 2,
-                cornerRadius: layer.mark.cornerRadius ?? 3,
+                stroke: colorWithOpacity(theme.colors.background, 0.72),
+                lineWidth: 1,
+                cornerRadius: layer.mark.cornerRadius ?? 7,
             });
-            if (width > 42) {
-                nodes.push(textNode(`${layer.id}:treemap-label:${item.rowIndex}`, x + width / 2, plot.y + plot.height / 2, item.label, context, { size: Math.max(9, Math.min(15, width / 8)), weight: 700, fill: '#ffffff' }));
+            if (width > 52 && height > 30) {
+                const labelColor = readableTextColor(layer.mark.fill ?? fill, '#ffffff', '#0f172a');
+                nodes.push(textNode(`${layer.id}:treemap-label:${item.rowIndex}`, x + 10, y + 13, item.label, context, {
+                    align: 'left',
+                    baseline: 'top',
+                    size: Math.max(9, Math.min(14, Math.min(width, height) / 6)),
+                    weight: 750,
+                    fill: labelColor,
+                }));
+                if (height > 52) {
+                    nodes.push(textNode(`${layer.id}:treemap-value:${item.rowIndex}`, x + 10, y + height - 10, String(item.value), context, {
+                        align: 'left',
+                        baseline: 'bottom',
+                        size: 10,
+                        weight: 600,
+                        fill: colorWithOpacity(labelColor, 0.82),
+                    }));
+                }
             }
-            x += width;
         });
         return nodes;
     };
@@ -3262,7 +3670,8 @@ var Graflume = (function (exports) {
                     x2: position.x,
                     y2: position.y,
                     stroke: theme.colors.grid,
-                    lineWidth: 1.5,
+                    lineWidth: 1.6,
+                    lineCap: 'round',
                 });
             }
             const fontSize = 10 + Math.sqrt(item.weight / maximumWeight) * 16;
@@ -3418,6 +3827,7 @@ var Graflume = (function (exports) {
             context.lineTo(node.x2, node.y2);
             context.strokeStyle = node.stroke;
             context.lineWidth = node.lineWidth;
+            context.lineCap = node.lineCap ?? 'butt';
             context.setLineDash(node.dash ?? []);
             context.stroke();
         }
@@ -3435,6 +3845,8 @@ var Graflume = (function (exports) {
             if (node.closed)
                 context.closePath();
             context.setLineDash(node.dash ?? []);
+            context.lineCap = node.lineCap ?? 'round';
+            context.lineJoin = node.lineJoin ?? 'round';
             if (node.fill !== undefined) {
                 context.fillStyle = node.fill;
                 context.fill();
@@ -3491,43 +3903,43 @@ var Graflume = (function (exports) {
     const pluginApiVersion = '0.1';
 
     const palette = [
-        '#3b82f6',
-        '#f97316',
-        '#10b981',
-        '#ef4444',
-        '#8b5cf6',
-        '#06b6d4',
-        '#eab308',
-        '#ec4899',
-        '#64748b',
-        '#84cc16',
+        '#4f46e5',
+        '#0f9f8a',
+        '#f59e0b',
+        '#e05260',
+        '#7c3aed',
+        '#0e7490',
+        '#db2777',
+        '#65a30d',
+        '#475569',
+        '#ea580c',
     ];
     const graflumeLight = {
         name: 'graflume-light',
         mode: 'light',
         colors: {
             background: '#ffffff',
-            surface: '#ffffff',
-            text: '#172033',
-            mutedText: '#5d6b82',
-            axis: '#5d6b82',
-            grid: '#e5eaf2',
-            focus: '#2563eb',
+            surface: '#f8fafc',
+            text: '#0f172a',
+            mutedText: '#64748b',
+            axis: '#cbd5e1',
+            grid: '#e8eef6',
+            focus: '#4f46e5',
             palette,
-            sequential: ['#eff6ff', '#bfdbfe', '#60a5fa', '#2563eb', '#1e3a8a'],
-            diverging: ['#b91c1c', '#fca5a5', '#f8fafc', '#93c5fd', '#1d4ed8'],
+            sequential: ['#eef2ff', '#c7d2fe', '#818cf8', '#4f46e5', '#312e81'],
+            diverging: ['#b42318', '#f79084', '#f8fafc', '#84adff', '#3448c5'],
         },
         typography: {
             fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
             fontSize: 12,
-            titleSize: 18,
-            subtitleSize: 13,
-            lineHeight: 1.4,
+            titleSize: 20,
+            subtitleSize: 12,
+            lineHeight: 1.45,
         },
         spacing: { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 },
-        axis: { lineWidth: 1, tickLength: 5, labelPadding: 7, gridLineWidth: 1 },
-        mark: { lineWidth: 2, pointRadius: 3.5, barRadius: 2, opacity: 1 },
-        motion: { duration: 250, easing: 'ease-out' },
+        axis: { lineWidth: 1, tickLength: 0, labelPadding: 9, gridLineWidth: 1 },
+        mark: { lineWidth: 2.5, pointRadius: 4.5, barRadius: 5, opacity: 1 },
+        motion: { duration: 280, easing: 'ease-out' },
     };
     const graflumeDark = {
         ...graflumeLight,
@@ -3535,25 +3947,27 @@ var Graflume = (function (exports) {
         mode: 'dark',
         colors: {
             ...graflumeLight.colors,
-            background: '#101522',
-            surface: '#171e2d',
-            text: '#f1f5f9',
-            mutedText: '#a8b3c7',
-            axis: '#a8b3c7',
-            grid: '#2c3547',
-            focus: '#60a5fa',
+            background: '#0b1020',
+            surface: '#111827',
+            text: '#f8fafc',
+            mutedText: '#a7b2c5',
+            axis: '#475569',
+            grid: '#25314a',
+            focus: '#818cf8',
             palette: [
-                '#60a5fa',
-                '#fb923c',
-                '#34d399',
-                '#f87171',
+                '#818cf8',
+                '#2dd4bf',
+                '#fbbf24',
+                '#fb7185',
                 '#a78bfa',
                 '#22d3ee',
-                '#facc15',
                 '#f472b6',
-                '#94a3b8',
                 '#a3e635',
+                '#94a3b8',
+                '#fb923c',
             ],
+            sequential: ['#1e293b', '#3730a3', '#6366f1', '#a5b4fc', '#eef2ff'],
+            diverging: ['#fb7185', '#be123c', '#334155', '#4f46e5', '#a5b4fc'],
         },
     };
 
