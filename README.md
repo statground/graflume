@@ -6,7 +6,7 @@ Graflume is an experimental, CDN-first visualization engine built around a porta
 
 ## What already works
 
-- 41 portable marks covering 45 user-facing chart families and compatibility names through default and opt-in entrypoints
+- 73 portable marks covering 141 user-facing chart families and 117 public compatibility identifiers through default and opt-in entrypoints
 - Cartesian, radial, distribution, financial, interval, calendar, timeline/Gantt, table, hierarchy, flow, word, and lightweight map Scenes
 - mixed layers such as bar + line + points on shared axes
 - row-oriented data and zero-copy `TypedArray` columnar input
@@ -81,7 +81,7 @@ For pre-npm alpha testing, the repository maintains source-controlled default an
 
 ## Chart types and examples
 
-The public catalog covers 45 chart families and compatibility surfaces. The default `graflume` entrypoint exposes the established 31-family catalog. The optional `graflume/complete` entrypoint adds 14 specialist marks while reusing the same data table, validation, normalization, scales, theme tokens, renderer-neutral Scene, Canvas renderer, interactions, and accessibility metadata.
+The public catalog covers 141 chart families and 117 compatibility identifiers. The default `graflume` entrypoint exposes the established 31-family catalog. The optional `graflume/complete` entrypoint adds 14 advanced families and 96 specialized series while reusing the same data table, validation, normalization, scales, theme tokens, renderer-neutral Scene, Canvas renderer, interactions, and accessibility metadata.
 
 | Family                        | Implemented chart guides                                                                                                                                                                                                                                                                                                                                                     |
 | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -91,34 +91,35 @@ The public catalog covers 45 chart families and compatibility surfaces. The defa
 | Time and projects             | [Annotation](docs/charts/annotation.md), [Annotated Timeline](docs/charts/annotated-timeline.md), [Calendar](docs/charts/calendar.md), [Timeline](docs/charts/timeline.md), [Gantt](docs/charts/gantt.md), [Motion](docs/charts/motion.md), [Theme river](docs/charts/theme-river.md)                                                                                        |
 | Hierarchy, flow, and networks | [Organization](docs/charts/org.md), [Tree Map](docs/charts/treemap.md), [Tree](docs/charts/tree.md), [Graph](docs/charts/graph.md), [Sankey](docs/charts/sankey.md), [Funnel](docs/charts/funnel.md), [Parallel coordinates](docs/charts/parallel.md), [Word Tree](docs/charts/word-tree.md), [Table](docs/charts/table.md)                                                  |
 | Geographic and adapters       | [GeoChart](docs/charts/geo.md), [Map](docs/charts/map.md), [VegaChart adapter](docs/charts/vega.md), [Declarative custom](docs/charts/custom.md)                                                                                                                                                                                                                             |
+| Specialized series catalog    | [Range and smooth series](docs/charts/area-range.md), [financial series](docs/charts/open-high-low-close.md), [technical indicators](docs/charts/relative-strength-index.md), [maps](docs/charts/flow-map.md), [relationships](docs/charts/arc-diagram.md), and the [full catalog index](docs/charts/README.md#specialized-series-catalog)                                   |
 
 Start with the [chart guide index and common options](docs/charts/README.md). Every chart page includes a visual snapshot generated from the current compiled Scene, a Quick API example, portable field contract, missing-value behavior, interaction/accessibility guidance, performance notes, and explicit limitations.
 
 The default visual system is intentionally presentation-ready: horizontal grid lines remain available for quantitative comparison, categorical vertical grids are suppressed by default, data strokes use rounded joins and caps, point marks receive a contrasting outline, and structural charts use the same spacing, surface, and palette tokens. Explicit mark and axis styles still override these defaults.
 
-[`examples/cdn/complete-chart-types.html`](examples/cdn/complete-chart-types.html) renders the default 31-family catalog. [`examples/cdn/additional-chart-types.html`](examples/cdn/additional-chart-types.html) renders all 14 opt-in families from the dedicated complete bundle. Together they cover the full 45-family catalog. The smaller [`examples/cdn/chart-types.html`](examples/cdn/chart-types.html) remains the introductory gallery.
+[`examples/cdn/complete-chart-types.html`](examples/cdn/complete-chart-types.html) renders the default 31-family catalog. [`examples/cdn/additional-chart-types.html`](examples/cdn/additional-chart-types.html) renders 14 advanced families, and [`examples/cdn/series-chart-types.html`](examples/cdn/series-chart-types.html) renders all 96 specialized series from the dedicated complete bundle. Together they cover the full 141-family catalog. The smaller [`examples/cdn/chart-types.html`](examples/cdn/chart-types.html) remains the introductory gallery.
 
 Aliases remain canonical and serializable: `scatter()` maps to `point`, `donut()` maps to `pie` plus an inner radius, Bar and Column share `bar` plus orientation, Annotated Timeline maps to `annotation`, and Combo maps to ordinary `layers`.
 
 ### Complete-catalog ESM usage
 
 ```ts
-import { boxplot, heatmap, radar, type ChartSpec } from 'graflume/complete';
+import { areaRange, flowMap, openHighLowClose, relativeStrengthIndex } from 'graflume/complete';
 
-radar('#radar', profileRows, {
-  x: { field: 'indicator', type: 'nominal' },
-  y: { field: 'value', type: 'quantitative' },
-  mark: { fields: { series: 'series' }, options: { max: 100 } },
+areaRange('#forecast', forecastRows, {
+  x: { field: 'date', type: 'temporal' },
+  y: { field: 'midpoint', type: 'quantitative' },
+  mark: { fields: { low: 'minimum', high: 'maximum' } },
 });
 
-heatmap('#heatmap', cells, {
-  x: { field: 'day', type: 'ordinal' },
-  y: { field: 'period', type: 'ordinal' },
-  mark: { fields: { value: 'activity' } },
+openHighLowClose('#prices', priceRows, {
+  x: { field: 'date', type: 'temporal' },
+  y: { field: 'close', type: 'quantitative' },
+  mark: { fields: { open: 'open', high: 'high', low: 'low', close: 'close' } },
 });
 ```
 
-Importing `graflume/complete` registers only the additional portable mark compilers and re-exports the default API. It does not embed a second rendering engine. Portable custom charts remain function-free and may emit only the declared Scene primitive subset.
+`flowMap()` and `relativeStrengthIndex()` follow the same Quick API shape for geographic routes and precomputed indicator columns. `resolveSeriesType('area-spline-range')` returns the single canonical family used for a supported compatibility identifier, so overlapping catalog names never create a second renderer path. Importing `graflume/complete` registers only additional portable mark compilers and re-exports the default API. It does not embed a second rendering engine. Portable custom charts remain function-free and may emit only the declared Scene primitive subset.
 
 ### Bar chart
 
@@ -153,6 +154,7 @@ Runnable examples:
 - [`examples/cdn/chart-types.html`](examples/cdn/chart-types.html): standalone bar, line, area, scatter, and mixed-chart gallery
 - [`examples/cdn/complete-chart-types.html`](examples/cdn/complete-chart-types.html): the default 31 chart families and compatibility names
 - [`examples/cdn/additional-chart-types.html`](examples/cdn/additional-chart-types.html): the 14 opt-in specialist families from the complete browser bundle
+- [`examples/cdn/series-chart-types.html`](examples/cdn/series-chart-types.html): all 96 specialized series, including financial, indicator, map, relationship, radial, range, and distribution examples
 
 The CDN example also demonstrates responsive rendering, light/dark theme switching, pointer hit testing, PNG export, and a readable data-table fallback.
 
