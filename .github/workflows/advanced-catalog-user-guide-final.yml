@@ -130,32 +130,32 @@ jobs:
 
           content = '''# Complete chart catalog
 
-Graflume exposes **45 user-facing chart families** through one portable specification, one canonical visual IR, and the same renderer-neutral Scene pipeline. Semantically overlapping families reuse the existing scale, theme, interaction, accessibility, export, and renderer contracts instead of introducing duplicate implementations.
+          Graflume exposes **45 user-facing chart families** through one portable specification, one canonical visual IR, and the same renderer-neutral Scene pipeline. Semantically overlapping families reuse the existing scale, theme, interaction, accessibility, export, and renderer contracts instead of introducing duplicate implementations.
 
-Every linked manual includes the data contract, Quick API, portable specification, interaction and accessibility notes, performance guidance, current limits, and an image generated from the actual `compile()` Scene.
+          Every linked manual includes the data contract, Quick API, portable specification, interaction and accessibility notes, performance guidance, current limits, and an image generated from the actual `compile()` Scene.
 
-## All 45 chart families
+          ## All 45 chart families
 
-| Chart guide | Quick API | Actual compiled output |
-|---|---|---|
-''' + '\n'.join(rows) + '''
+          | Chart guide | Quick API | Actual compiled output |
+          |---|---|---|
+          ''' + '\n'.join(rows) + '''
 
-## Newly completed advanced families
+          ## Newly completed advanced families
 
-''' + '\n\n---\n\n'.join(gallery) + '''
+          ''' + '\n\n---\n\n'.join(gallery) + '''
 
-## Browser gallery
+          ## Browser gallery
 
-Open [`examples/cdn/advanced-chart-types.html`](../../examples/cdn/advanced-chart-types.html) after building the package to inspect the new families with the browser global and Canvas renderer.
+          Open [`examples/cdn/advanced-chart-types.html`](../../examples/cdn/advanced-chart-types.html) after building the package to inspect the new families with the browser global and Canvas renderer.
 
-## Contract rules
+          ## Contract rules
 
-- Portable specifications remain JSON-serializable and function-free.
-- `custom()` accepts only validated declarative Scene primitives; it does not evaluate arbitrary code.
-- Existing and newly completed chart families compile into the same Scene node types.
-- Exact data tables and explicit accessibility descriptions remain recommended for dense or highly specialized charts.
-- Large networks, hierarchies, matrices, and streams should use aggregation or an optional specialized package before rendering.
-'''
+          - Portable specifications remain JSON-serializable and function-free.
+          - `custom()` accepts only validated declarative Scene primitives; it does not evaluate arbitrary code.
+          - Existing and newly completed chart families compile into the same Scene node types.
+          - Exact data tables and explicit accessibility descriptions remain recommended for dense or highly specialized charts.
+          - Large networks, hierarchies, matrices, and streams should use aggregation or an optional specialized package before rendering.
+          '''
           guide = root / 'docs/charts/advanced-catalog.md'
           guide.write_text(content, 'utf-8')
 
