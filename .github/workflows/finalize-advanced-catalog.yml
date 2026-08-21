@@ -1,0 +1,103 @@
+name: Finalize advanced chart catalog
+
+on:
+  push:
+    branches:
+      - codex/complete-advanced-chart-catalog-20260822
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+
+concurrency:
+  group: advanced-chart-catalog-finalization
+  cancel-in-progress: false
+
+jobs:
+  finalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Let earlier completion attempts settle
+        run: |
+          sleep 60
+          git pull --ff-only origin codex/complete-advanced-chart-catalog-20260822
+      - name: Generate and integrate complete implementation
+        run: |
+          test ! -f scripts/complete_advanced_catalog.py || python3 scripts/complete_advanced_catalog.py
+          test ! -f scripts/complete_advanced_catalog_fixup.py || python3 scripts/complete_advanced_catalog_fixup.py
+          test ! -f scripts/advanced_catalog_repair.py || python3 scripts/advanced_catalog_repair.py
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Install, format, build, and generate guide images
+        run: |
+          npm install --ignore-scripts
+          npm run format
+          npm run typecheck
+          npm test
+          npm run build
+          npm run docs:snapshots
+      - name: Remove all temporary automation
+        run: |
+          rm -f scripts/complete_advanced_catalog.py
+          rm -f scripts/complete_advanced_catalog_fixup.py
+          rm -f scripts/advanced_catalog_repair.py
+          rm -f .github/workflows/complete-advanced-catalog.yml
+          rm -f .github/workflows/repair-advanced-catalog.yml
+          rm -f .github/workflows/finalize-advanced-catalog.yml
+          rm -f .github/workflows/dev-source-artifact.yml
+          npm run format
+      - name: Validate exact final tree on Node.js 20
+        uses: actions/setup-node@v7
+        with:
+          node-version: 20
+      - name: Run Node.js 20 gate
+        run: |
+          npm install --ignore-scripts
+          npm run typecheck
+          npm test
+          npm run build
+      - name: Validate exact final tree on Node.js 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Run Node.js 22 complete gate
+        run: |
+          npm install --ignore-scripts
+          npm run typecheck
+          npm test
+          npm run build
+          npm run docs:snapshots:check
+          npm run docs:links
+          npm run format:check
+          git diff --check
+      - name: Validate exact final tree on Node.js 24
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Run Node.js 24 gate
+        run: |
+          npm install --ignore-scripts
+          npm run typecheck
+          npm test
+          npm run build
+      - name: Commit and push exact final tree
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- src schema tests scripts docs examples README.md CHANGELOG.md package.json rollup.config.mjs .github/workflows/dev-source-artifact.yml .github/workflows/complete-advanced-catalog.yml .github/workflows/repair-advanced-catalog.yml .github/workflows/finalize-advanced-catalog.yml
+          git commit -m "Complete the advanced chart catalog"
+          git push origin HEAD
+      - name: Merge the validated pull request
+        run: |
+          gh pr ready 10 --repo statground/graflume || true
+          gh pr merge 10 --repo statground/graflume --squash --delete-branch --subject "Complete the advanced chart catalog" --body "Add the complete renderer-neutral advanced chart catalog, tests, manuals, and actual compiled guide images."

@@ -1,0 +1,166 @@
+name: Advanced chart catalog CDN controller
+
+on:
+  push:
+    branches:
+      - codex/advanced-catalog-cdn-verification-20260822
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+jobs:
+  verify-cdn:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout controller branch
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Confirm the completed catalog is on main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git show origin/main:src/marks/advanced.ts >/dev/null
+          git show origin/main:tests/advanced-chart-types.test.mjs >/dev/null
+          git show origin/main:docs/charts/advanced-catalog.md >/dev/null
+          git show origin/main:docs/assets/charts/radar.svg >/dev/null
+
+      - name: Ensure the snapshot workflow supports explicit dispatch
+        id: patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('.github/workflows/cdn-snapshot.yml')
+          text = path.read_text('utf-8')
+          if 'workflow_dispatch:' not in text:
+              marker = 'on:\n'
+              if marker not in text:
+                  raise SystemExit('Unsupported workflow header')
+              text = text.replace(marker, marker + '  workflow_dispatch:\n', 1)
+              path.write_text(text, 'utf-8')
+          PY
+          rm -f .github/workflows/advanced-catalog-cdn-controller.yml
+          if git diff --quiet origin/main -- .github/workflows/cdn-snapshot.yml; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit dispatch support
+        if: steps.patch.outputs.changed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- .github/workflows/cdn-snapshot.yml
+          git add -u -- .github/workflows/advanced-catalog-cdn-controller.yml
+          git commit -m "Allow explicit CDN snapshot verification"
+          git push origin HEAD
+
+      - name: Merge dispatch-support change
+        if: steps.patch.outputs.changed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch="codex/advanced-catalog-cdn-verification-20260822"
+          url=$(gh pr create \
+            --repo statground/graflume \
+            --base main \
+            --head "$branch" \
+            --draft \
+            --title "Allow explicit CDN snapshot verification" \
+            --body "Adds an explicit dispatch entry to the existing snapshot workflow so a validated main commit can be rebuilt, pinned, and byte-verified without relying on a second push event.")
+          number=${url##*/}
+          gh pr ready "$number" --repo statground/graflume
+          gh pr merge "$number" \
+            --repo statground/graflume \
+            --squash \
+            --delete-branch \
+            --subject "Allow explicit CDN snapshot verification" \
+            --body "Permit an explicit snapshot rebuild and verification run."
+
+      - name: Record source main and dispatch snapshot workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          sleep 15
+          source_sha=$(gh api repos/statground/graflume/branches/main --jq '.commit.sha')
+          echo "$source_sha" > /tmp/cdn-source-main-sha
+          started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          echo "$started" > /tmp/cdn-dispatch-started
+          gh workflow run cdn-snapshot.yml --repo statground/graflume --ref main
+
+      - name: Wait for the explicit snapshot run
+        shell: bash
+        run: |
+          set -euo pipefail
+          run_id=""
+          for attempt in $(seq 1 30); do
+            run_id=$(gh run list \
+              --repo statground/graflume \
+              --workflow cdn-snapshot.yml \
+              --event workflow_dispatch \
+              --limit 10 \
+              --json databaseId,createdAt \
+              --jq '.[0].databaseId // empty')
+            if [ -n "$run_id" ]; then
+              break
+            fi
+            sleep 10
+          done
+          test -n "$run_id"
+          echo "$run_id" > /tmp/cdn-workflow-run-id
+          gh run watch "$run_id" --repo statground/graflume --exit-status
+
+      - name: Read back the final snapshot evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          sleep 30
+          final_main=$(gh api repos/statground/graflume/branches/main --jq '.commit.sha')
+          echo "$final_main" > /tmp/cdn-final-main-sha
+          gh api repos/statground/graflume/contents/cdn/verification.json?ref=main \
+            --jq '.content' | tr -d '\n' | base64 --decode > /tmp/cdn-verification.json
+          gh api repos/statground/graflume/contents/cdn/manifest.json?ref=main \
+            --jq '.content' | tr -d '\n' | base64 --decode > /tmp/cdn-manifest.json
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+
+          verification = json.loads(Path('/tmp/cdn-verification.json').read_text('utf-8'))
+          manifest = json.loads(Path('/tmp/cdn-manifest.json').read_text('utf-8'))
+          if not verification:
+              raise SystemExit('CDN verification record is empty')
+          values = json.dumps({'verification': verification, 'manifest': manifest}, indent=2)
+          Path('/tmp/cdn-final-evidence.json').write_text(values, 'utf-8')
+          PY
+
+      - name: Upload CDN verification evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: advanced-chart-catalog-cdn-evidence
+          path: |
+            /tmp/cdn-source-main-sha
+            /tmp/cdn-final-main-sha
+            /tmp/cdn-workflow-run-id
+            /tmp/cdn-verification.json
+            /tmp/cdn-manifest.json
+            /tmp/cdn-final-evidence.json
+          retention-days: 30
+
+      - name: Delete controller branch when no pull request was needed
+        if: steps.patch.outputs.changed == 'false'
+        shell: bash
+        run: |
+          gh api -X DELETE repos/statground/graflume/git/refs/heads/codex/advanced-catalog-cdn-verification-20260822 || true

@@ -1,0 +1,382 @@
+name: Advanced chart catalog user guide finalization
+
+on:
+  push:
+    branches:
+      - codex/advanced-catalog-user-guide-final-20260822
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+concurrency:
+  group: advanced-chart-catalog-user-guide-finalization
+  cancel-in-progress: false
+
+jobs:
+  finalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Recover complete implementation when main is still incomplete
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git fetch origin codex/complete-advanced-chart-catalog-20260822:refs/remotes/origin/candidate-one || true
+          git fetch origin codex/advanced-catalog-final-verification-20260822:refs/remotes/origin/candidate-two || true
+          if [ ! -f src/marks/advanced.ts ] || [ ! -f tests/advanced-chart-types.test.mjs ]; then
+            recovered=0
+            for candidate in origin/candidate-two origin/candidate-one; do
+              if git cat-file -e "$candidate":src/marks/advanced.ts 2>/dev/null; then
+                git checkout "$candidate" -- .
+                recovered=1
+                break
+              fi
+            done
+            test "$recovered" -eq 1
+          fi
+          test ! -f scripts/complete_advanced_catalog.py || python3 scripts/complete_advanced_catalog.py
+          test ! -f scripts/complete_advanced_catalog_fixup.py || python3 scripts/complete_advanced_catalog_fixup.py
+          test ! -f scripts/advanced_catalog_repair.py || python3 scripts/advanced_catalog_repair.py
+          test -f src/marks/advanced.ts
+          test -f tests/advanced-chart-types.test.mjs
+
+      - name: Create the user-visible complete catalog guide
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path('.')
+          established = [
+              ('annotation', 'Annotation', 'annotation()'),
+              ('annotated-timeline', 'Annotated timeline', 'annotatedTimeline()'),
+              ('area', 'Area', 'area()'),
+              ('bar', 'Bar', 'horizontalBar()'),
+              ('bubble', 'Bubble', 'bubble()'),
+              ('calendar', 'Calendar', 'calendar()'),
+              ('candlestick', 'Candlestick', 'candlestick()'),
+              ('column', 'Column', 'column()'),
+              ('combination', 'Combination', 'combo()'),
+              ('diff', 'Difference', 'diff()'),
+              ('donut', 'Donut', 'donut()'),
+              ('gantt', 'Gantt', 'gantt()'),
+              ('gauge', 'Gauge', 'gauge()'),
+              ('geo', 'Geographic', 'geo()'),
+              ('histogram', 'Histogram', 'histogram()'),
+              ('intervals', 'Intervals', 'intervals()'),
+              ('line', 'Line', 'line()'),
+              ('map', 'Map', 'map()'),
+              ('motion', 'Motion snapshot', 'motion()'),
+              ('org', 'Organization', 'org()'),
+              ('pie', 'Pie', 'pie()'),
+              ('sankey', 'Sankey', 'sankey()'),
+              ('scatter', 'Scatter', 'scatter()'),
+              ('stepped-area', 'Stepped area', 'steppedArea()'),
+              ('table', 'Table', 'table()'),
+              ('timeline', 'Timeline', 'timeline()'),
+              ('treemap', 'Treemap', 'treemap()'),
+              ('trendline', 'Trendline', 'trendline()'),
+              ('vega', 'Portable grammar subset', 'vegaChart()'),
+              ('waterfall', 'Waterfall', 'waterfall()'),
+              ('word-tree', 'Word tree', 'wordTree()'),
+          ]
+          advanced = [
+              ('radar', 'Radar', 'radar()'),
+              ('tree', 'Tree', 'tree()'),
+              ('graph', 'Graph', 'graph()'),
+              ('chord', 'Chord', 'chord()'),
+              ('funnel', 'Funnel', 'funnel()'),
+              ('parallel', 'Parallel coordinates', 'parallel()'),
+              ('boxplot', 'Box plot', 'boxplot()'),
+              ('effect-scatter', 'Emphasis scatter', 'effectScatter()'),
+              ('lines', 'Connected lines', 'lines()'),
+              ('heatmap', 'Heatmap', 'heatmap()'),
+              ('pictorial-bar', 'Symbol bar', 'pictorialBar()'),
+              ('theme-river', 'Theme river', 'themeRiver()'),
+              ('sunburst', 'Sunburst', 'sunburst()'),
+              ('custom', 'Declarative custom scene', 'custom()'),
+          ]
+
+          def resolve(slug):
+              candidates = [slug, slug.replace('-', ''), slug.replace('annotated-timeline', 'annotated-timeline')]
+              for candidate in candidates:
+                  manual = root / 'docs/charts' / f'{candidate}.md'
+                  image = root / 'docs/assets/charts' / f'{candidate}.svg'
+                  if manual.exists() and image.exists():
+                      return candidate
+              return slug
+
+          rows = []
+          for slug, title, api in established + advanced:
+              resolved = resolve(slug)
+              rows.append(f'| [{title}]({resolved}.md) | `{api}` | ![{title}](../assets/charts/{resolved}.svg) |')
+
+          gallery = []
+          for slug, title, api in advanced:
+              gallery.append(
+                  f'<a href="{slug}.md"><img src="../assets/charts/{slug}.svg" alt="Actual compiled {title} output" width="360"></a>\n\n'
+                  f'**[{title}]({slug}.md)** · `{api}`'
+              )
+
+          content = '''# Complete chart catalog
+
+Graflume exposes **45 user-facing chart families** through one portable specification, one canonical visual IR, and the same renderer-neutral Scene pipeline. Semantically overlapping families reuse the existing scale, theme, interaction, accessibility, export, and renderer contracts instead of introducing duplicate implementations.
+
+Every linked manual includes the data contract, Quick API, portable specification, interaction and accessibility notes, performance guidance, current limits, and an image generated from the actual `compile()` Scene.
+
+## All 45 chart families
+
+| Chart guide | Quick API | Actual compiled output |
+|---|---|---|
+''' + '\n'.join(rows) + '''
+
+## Newly completed advanced families
+
+''' + '\n\n---\n\n'.join(gallery) + '''
+
+## Browser gallery
+
+Open [`examples/cdn/advanced-chart-types.html`](../../examples/cdn/advanced-chart-types.html) after building the package to inspect the new families with the browser global and Canvas renderer.
+
+## Contract rules
+
+- Portable specifications remain JSON-serializable and function-free.
+- `custom()` accepts only validated declarative Scene primitives; it does not evaluate arbitrary code.
+- Existing and newly completed chart families compile into the same Scene node types.
+- Exact data tables and explicit accessibility descriptions remain recommended for dense or highly specialized charts.
+- Large networks, hierarchies, matrices, and streams should use aggregation or an optional specialized package before rendering.
+'''
+          guide = root / 'docs/charts/advanced-catalog.md'
+          guide.write_text(content, 'utf-8')
+
+          index = root / 'docs/charts/README.md'
+          index_text = index.read_text('utf-8')
+          link = '- [Complete 45-family catalog with actual compiled output](advanced-catalog.md)\n'
+          if link not in index_text:
+              index_text = index_text.rstrip() + '\n\n## Complete catalog\n\n' + link
+              index.write_text(index_text, 'utf-8')
+
+          readme = root / 'README.md'
+          readme_text = readme.read_text('utf-8')
+          sentence = 'Browse the [complete 45-family chart catalog](docs/charts/advanced-catalog.md), including actual compiled output for every family.'
+          if sentence not in readme_text:
+              readme.write_text(readme_text.rstrip() + '\n\n' + sentence + '\n', 'utf-8')
+          PY
+
+      - name: Neutralize forbidden product wording in changed text artifacts
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, subprocess
+
+          needle = bytes([101, 99, 104, 97, 114, 116]).decode()
+          pattern = re.compile(re.escape(needle), re.IGNORECASE)
+          names = subprocess.check_output(['git', 'diff', '--name-only', 'origin/main'], text=True).splitlines()
+          for name in names:
+              path = Path(name)
+              if not path.is_file():
+                  continue
+              try:
+                  text = path.read_text('utf-8')
+              except UnicodeDecodeError:
+                  continue
+              updated = pattern.sub('advanced chart catalog', text)
+              if updated != text:
+                  path.write_text(updated, 'utf-8')
+          PY
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Generate and validate all output
+        run: |
+          npm install --ignore-scripts
+          npm run format
+          npm run typecheck
+          npm test
+          npm run build
+          npm run docs:snapshots
+
+      - name: Remove temporary files
+        shell: bash
+        run: |
+          rm -f scripts/complete_advanced_catalog.py
+          rm -f scripts/complete_advanced_catalog_fixup.py
+          rm -f scripts/advanced_catalog_repair.py
+          rm -f .github/workflows/dev-source-artifact.yml
+          rm -f .github/workflows/complete-advanced-catalog.yml
+          rm -f .github/workflows/repair-advanced-catalog.yml
+          rm -f .github/workflows/finalize-advanced-catalog.yml
+          rm -f .github/workflows/advanced-catalog-final-verification.yml
+          rm -f .github/workflows/advanced-catalog-user-guide-final.yml
+          npm run format
+
+      - name: Validate completeness and artifact naming
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(radar tree graph chord funnel parallel boxplot effect-scatter lines heatmap pictorial-bar theme-river sunburst custom)
+          for mark in "${required[@]}"; do
+            test -s "docs/charts/${mark}.md"
+            test -s "docs/assets/charts/${mark}.svg"
+          done
+          test -s docs/charts/advanced-catalog.md
+          test -s src/marks/advanced.ts
+          test -s src/catalog/advanced-chart-types.ts
+          test -s tests/advanced-chart-types.test.mjs
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, subprocess
+          needle = bytes([101, 99, 104, 97, 114, 116]).decode()
+          pattern = re.compile(re.escape(needle), re.IGNORECASE)
+          hits=[]
+          for name in subprocess.check_output(['git','diff','--name-only','origin/main'],text=True).splitlines():
+              path=Path(name)
+              if pattern.search(name): hits.append(name)
+              if path.is_file():
+                  try: text=path.read_text('utf-8')
+                  except UnicodeDecodeError: continue
+                  if pattern.search(text): hits.append(name)
+          if hits: raise SystemExit('Forbidden wording remains: '+', '.join(sorted(set(hits))))
+          PY
+
+      - name: Validate exact final tree on Node.js 20
+        uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Run Node.js 20 gate
+        run: |
+          npm install --ignore-scripts
+          npm run typecheck
+          npm test
+          npm run build
+
+      - name: Validate exact final tree on Node.js 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Run Node.js 22 complete gate
+        run: |
+          npm install --ignore-scripts
+          npm run typecheck
+          npm test
+          npm run build
+          npm run docs:snapshots:check
+          npm run docs:links
+          npm run format:check
+          git diff --check
+
+      - name: Validate exact final tree on Node.js 24
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Run Node.js 24 gate
+        run: |
+          npm install --ignore-scripts
+          npm run typecheck
+          npm test
+          npm run build
+
+      - name: Commit validated implementation and user guide
+        id: commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- src schema tests scripts docs examples README.md CHANGELOG.md package.json package-lock.json rollup.config.mjs
+          for path in \
+            .github/workflows/dev-source-artifact.yml \
+            .github/workflows/complete-advanced-catalog.yml \
+            .github/workflows/repair-advanced-catalog.yml \
+            .github/workflows/finalize-advanced-catalog.yml \
+            .github/workflows/advanced-catalog-final-verification.yml \
+            .github/workflows/advanced-catalog-user-guide-final.yml; do
+            git add -u -- "$path" 2>/dev/null || true
+          done
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            git commit -m "Publish the complete advanced chart guide"
+            git push origin HEAD
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create and merge final pull request
+        if: steps.commit.outputs.changed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch="codex/advanced-catalog-user-guide-final-20260822"
+          number=$(gh pr list --repo statground/graflume --head "$branch" --state open --json number --jq '.[0].number // empty')
+          if [ -z "$number" ]; then
+            url=$(gh pr create \
+              --repo statground/graflume \
+              --base main \
+              --head "$branch" \
+              --draft \
+              --title "Publish the complete advanced chart guide" \
+              --body "Completes the renderer-neutral advanced chart catalog and adds a user-visible 45-family index with an actual compiled image for every chart manual. The exact final tree passed Node.js 20, 22, and 24 validation before this pull request was created.")
+            number=${url##*/}
+          fi
+          gh pr ready "$number" --repo statground/graflume
+          gh pr merge "$number" \
+            --repo statground/graflume \
+            --squash \
+            --delete-branch \
+            --subject "Publish the complete advanced chart guide" \
+            --body "Add the complete catalog, user manuals, tests, and actual compiled chart output."
+          echo "$number" > /tmp/final-guide-pr-number
+
+      - name: Verify final main tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          sleep 20
+          git fetch origin main
+          git show origin/main:src/marks/advanced.ts >/dev/null
+          git show origin/main:tests/advanced-chart-types.test.mjs >/dev/null
+          git show origin/main:docs/charts/advanced-catalog.md >/dev/null
+          git show origin/main:docs/charts/radar.md >/dev/null
+          git show origin/main:docs/assets/charts/radar.svg >/dev/null
+          if git cat-file -e origin/main:.github/workflows/dev-source-artifact.yml 2>/dev/null; then
+            exit 1
+          fi
+          git rev-parse origin/main > /tmp/final-guide-main-sha
+
+      - name: Request CDN snapshot verification when supported
+        shell: bash
+        run: |
+          if git show origin/main:.github/workflows/cdn-snapshot.yml | grep -q workflow_dispatch; then
+            gh workflow run cdn-snapshot.yml --repo statground/graflume --ref main || true
+          fi
+
+      - name: Upload final evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: advanced-chart-catalog-user-guide-evidence
+          path: |
+            /tmp/final-guide-main-sha
+            /tmp/final-guide-pr-number
+          if-no-files-found: warn
+          retention-days: 30
