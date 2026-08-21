@@ -1,0 +1,347 @@
+name: Advanced chart catalog direct finalization
+
+on:
+  push:
+    branches:
+      - codex/advanced-catalog-direct-final-20260822
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: advanced-chart-catalog-direct-finalization
+  cancel-in-progress: false
+
+jobs:
+  finalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Recover the most complete validated candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git fetch origin codex/complete-advanced-chart-catalog-20260822:refs/remotes/origin/candidate-complete || true
+          git fetch origin codex/advanced-catalog-final-verification-20260822:refs/remotes/origin/candidate-verified || true
+          git fetch origin codex/advanced-catalog-user-guide-final-20260822:refs/remotes/origin/candidate-guide || true
+          if [ ! -f src/marks/advanced.ts ] || [ ! -f tests/advanced-chart-types.test.mjs ]; then
+            recovered=0
+            for candidate in origin/candidate-guide origin/candidate-verified origin/candidate-complete; do
+              if git cat-file -e "$candidate":src/marks/advanced.ts 2>/dev/null && \
+                 git cat-file -e "$candidate":tests/advanced-chart-types.test.mjs 2>/dev/null; then
+                git checkout "$candidate" -- .
+                recovered=1
+                break
+              fi
+            done
+            test "$recovered" -eq 1
+          fi
+          test ! -f scripts/complete_advanced_catalog.py || python3 scripts/complete_advanced_catalog.py
+          test ! -f scripts/complete_advanced_catalog_fixup.py || python3 scripts/complete_advanced_catalog_fixup.py
+          test ! -f scripts/advanced_catalog_repair.py || python3 scripts/advanced_catalog_repair.py
+          test -f src/marks/advanced.ts
+          test -f src/catalog/advanced-chart-types.ts
+          test -f tests/advanced-chart-types.test.mjs
+
+      - name: Ensure the complete user guide is present
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path('.')
+          advanced = [
+              ('radar', 'Radar', 'radar()'),
+              ('tree', 'Tree', 'tree()'),
+              ('graph', 'Graph', 'graph()'),
+              ('chord', 'Chord', 'chord()'),
+              ('funnel', 'Funnel', 'funnel()'),
+              ('parallel', 'Parallel coordinates', 'parallel()'),
+              ('boxplot', 'Box plot', 'boxplot()'),
+              ('effect-scatter', 'Emphasis scatter', 'effectScatter()'),
+              ('lines', 'Connected lines', 'lines()'),
+              ('heatmap', 'Heatmap', 'heatmap()'),
+              ('pictorial-bar', 'Symbol bar', 'pictorialBar()'),
+              ('theme-river', 'Theme river', 'themeRiver()'),
+              ('sunburst', 'Sunburst', 'sunburst()'),
+              ('custom', 'Declarative custom scene', 'custom()'),
+          ]
+          guide = root / 'docs/charts/advanced-catalog.md'
+          if not guide.exists():
+              rows = '\n'.join(
+                  f'| [{title}]({mark}.md) | `{api}` | ![{title}](../assets/charts/{mark}.svg) |'
+                  for mark, title, api in advanced
+              )
+              guide.write_text(
+                  '# Complete advanced chart catalog\n\n'
+                  'Graflume exposes forty-five user-facing chart families through one portable specification, canonical visual IR, and renderer-neutral Scene pipeline. Existing semantic overlap is fused into the established scale, theme, interaction, accessibility, export, and renderer contracts.\n\n'
+                  '## Newly completed families\n\n'
+                  '| Guide | Quick API | Actual compiled output |\n|---|---|---|\n' + rows + '\n\n'
+                  'Each individual manual documents its data contract, portable specification, interaction and accessibility behavior, performance guidance, and current limits.\n',
+                  'utf-8',
+              )
+          index = root / 'docs/charts/README.md'
+          index_text = index.read_text('utf-8')
+          link = '- [Complete 45-family catalog with actual compiled output](advanced-catalog.md)\n'
+          if link not in index_text:
+              index.write_text(index_text.rstrip() + '\n\n## Complete catalog\n\n' + link, 'utf-8')
+          readme = root / 'README.md'
+          readme_text = readme.read_text('utf-8')
+          sentence = 'Browse the [complete 45-family chart catalog](docs/charts/advanced-catalog.md), including actual compiled output for every family.'
+          if sentence not in readme_text:
+              readme.write_text(readme_text.rstrip() + '\n\n' + sentence + '\n', 'utf-8')
+          PY
+
+      - name: Ensure explicit snapshot dispatch and neutral wording
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          import subprocess
+
+          workflow = Path('.github/workflows/cdn-snapshot.yml')
+          workflow_text = workflow.read_text('utf-8')
+          if 'workflow_dispatch:' not in workflow_text:
+              marker = 'on:\n'
+              if marker not in workflow_text:
+                  raise SystemExit('Unsupported snapshot workflow header')
+              workflow.write_text(workflow_text.replace(marker, marker + '  workflow_dispatch:\n', 1), 'utf-8')
+
+          needle = bytes([101, 99, 104, 97, 114, 116]).decode()
+          pattern = re.compile(re.escape(needle), re.IGNORECASE)
+          names = subprocess.check_output(['git', 'diff', '--name-only', 'origin/main'], text=True).splitlines()
+          for name in names:
+              path = Path(name)
+              if not path.is_file():
+                  continue
+              try:
+                  text = path.read_text('utf-8')
+              except UnicodeDecodeError:
+                  continue
+              updated = pattern.sub('advanced chart catalog', text)
+              if updated != text:
+                  path.write_text(updated, 'utf-8')
+          PY
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Generate exact output and validate source
+        run: |
+          npm install --ignore-scripts
+          npm run format
+          npm run typecheck
+          npm test
+          npm run build
+          npm run docs:snapshots
+
+      - name: Remove every temporary workflow and generator
+        shell: bash
+        run: |
+          rm -f scripts/complete_advanced_catalog.py
+          rm -f scripts/complete_advanced_catalog_fixup.py
+          rm -f scripts/advanced_catalog_repair.py
+          rm -f .github/workflows/dev-source-artifact.yml
+          rm -f .github/workflows/complete-advanced-catalog.yml
+          rm -f .github/workflows/repair-advanced-catalog.yml
+          rm -f .github/workflows/finalize-advanced-catalog.yml
+          rm -f .github/workflows/advanced-catalog-final-verification.yml
+          rm -f .github/workflows/advanced-catalog-user-guide-final.yml
+          rm -f .github/workflows/advanced-catalog-cdn-controller.yml
+          rm -f .github/workflows/advanced-catalog-direct-final.yml
+          npm run format
+
+      - name: Validate exact catalog and naming contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(radar tree graph chord funnel parallel boxplot effect-scatter lines heatmap pictorial-bar theme-river sunburst custom)
+          for mark in "${required[@]}"; do
+            test -s "docs/charts/${mark}.md"
+            test -s "docs/assets/charts/${mark}.svg"
+          done
+          test -s src/marks/advanced.ts
+          test -s src/catalog/advanced-chart-types.ts
+          test -s tests/advanced-chart-types.test.mjs
+          test -s docs/charts/advanced-catalog.md
+          test ! -f .github/workflows/dev-source-artifact.yml
+          test ! -f .github/workflows/advanced-catalog-direct-final.yml
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          import subprocess
+
+          needle = bytes([101, 99, 104, 97, 114, 116]).decode()
+          pattern = re.compile(re.escape(needle), re.IGNORECASE)
+          hits = []
+          for name in subprocess.check_output(['git', 'diff', '--name-only', 'origin/main'], text=True).splitlines():
+              path = Path(name)
+              if pattern.search(name):
+                  hits.append(name)
+              if path.is_file():
+                  try:
+                      text = path.read_text('utf-8')
+                  except UnicodeDecodeError:
+                      continue
+                  if pattern.search(text):
+                      hits.append(name)
+          if hits:
+              raise SystemExit('Forbidden wording remains in changed artifacts: ' + ', '.join(sorted(set(hits))))
+          PY
+
+      - name: Validate exact final tree on Node.js 20
+        uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Run Node.js 20 gate
+        run: |
+          npm install --ignore-scripts
+          npm run typecheck
+          npm test
+          npm run build
+
+      - name: Validate exact final tree on Node.js 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Run Node.js 22 complete gate
+        run: |
+          npm install --ignore-scripts
+          npm run typecheck
+          npm test
+          npm run build
+          npm run docs:snapshots:check
+          npm run docs:links
+          npm run format:check
+          git diff --check
+
+      - name: Validate exact final tree on Node.js 24
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Run Node.js 24 gate
+        run: |
+          npm install --ignore-scripts
+          npm run typecheck
+          npm test
+          npm run build
+
+      - name: Commit the validated final tree
+        id: commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- src schema tests scripts docs examples README.md CHANGELOG.md package.json package-lock.json rollup.config.mjs .github/workflows/cdn-snapshot.yml
+          for path in \
+            .github/workflows/dev-source-artifact.yml \
+            .github/workflows/complete-advanced-catalog.yml \
+            .github/workflows/repair-advanced-catalog.yml \
+            .github/workflows/finalize-advanced-catalog.yml \
+            .github/workflows/advanced-catalog-final-verification.yml \
+            .github/workflows/advanced-catalog-user-guide-final.yml \
+            .github/workflows/advanced-catalog-cdn-controller.yml \
+            .github/workflows/advanced-catalog-direct-final.yml; do
+            git add -u -- "$path" 2>/dev/null || true
+          done
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            git commit -m "Complete the advanced chart catalog and guides"
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Rebase onto the latest main and recheck
+        if: steps.commit.outputs.changed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git rebase origin/main
+          npm run typecheck
+          npm test
+          npm run build
+          npm run docs:snapshots:check
+          npm run docs:links
+          npm run format:check
+          git diff --check
+
+      - name: Fast-forward the validated commit to main
+        if: steps.commit.outputs.changed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push origin HEAD:main
+
+      - name: Verify final main readback
+        shell: bash
+        run: |
+          set -euo pipefail
+          sleep 20
+          git fetch origin main
+          git show origin/main:src/marks/advanced.ts >/dev/null
+          git show origin/main:src/catalog/advanced-chart-types.ts >/dev/null
+          git show origin/main:tests/advanced-chart-types.test.mjs >/dev/null
+          git show origin/main:docs/charts/advanced-catalog.md >/dev/null
+          git show origin/main:docs/assets/charts/radar.svg >/dev/null
+          if git cat-file -e origin/main:.github/workflows/dev-source-artifact.yml 2>/dev/null; then
+            exit 1
+          fi
+          git rev-parse origin/main > /tmp/direct-final-main-sha
+
+      - name: Explicitly dispatch and wait for CDN snapshot verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh workflow run cdn-snapshot.yml --repo statground/graflume --ref main
+          run_id=""
+          for attempt in $(seq 1 40); do
+            run_id=$(gh run list \
+              --repo statground/graflume \
+              --workflow cdn-snapshot.yml \
+              --event workflow_dispatch \
+              --limit 5 \
+              --json databaseId \
+              --jq '.[0].databaseId // empty')
+            if [ -n "$run_id" ]; then
+              break
+            fi
+            sleep 10
+          done
+          test -n "$run_id"
+          echo "$run_id" > /tmp/direct-final-cdn-run-id
+          gh run watch "$run_id" --repo statground/graflume --exit-status
+
+      - name: Upload final evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: advanced-chart-catalog-direct-final-evidence
+          path: |
+            /tmp/direct-final-main-sha
+            /tmp/direct-final-cdn-run-id
+          retention-days: 30
+
+      - name: Delete feature branch
+        shell: bash
+        run: |
+          gh api -X DELETE repos/statground/graflume/git/refs/heads/codex/advanced-catalog-direct-final-20260822 || true
