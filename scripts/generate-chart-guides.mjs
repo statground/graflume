@@ -456,6 +456,300 @@ const guides = [
     limits:
       'Implicit phrase tokenization, prefix/suffix/double modes, collision avoidance, and click-to-reroot navigation are not implemented yet.',
   },
+  ,
+  {
+    id: 'radar',
+    title: 'Radar charts',
+    api: 'radar',
+    mark: 'radar',
+    entrypoint: 'complete',
+    use: 'Use a radar chart to compare a small number of profiles across the same three-or-more indicators.',
+    contract:
+      '`x` names the indicator, quantitative `y` supplies the score, and `mark.fields.series` optionally groups rows into overlaid profiles. `mark.options.max` fixes the shared maximum and `rings` controls the polygon grid count.',
+    behavior:
+      'Indicator order follows first appearance. The compiler draws shared polygon rings and spokes, one filled/stroked profile per series, and interactive points for observed rows. Missing indicators fall back to zero inside a profile; negative values are clamped to zero.',
+    example: `import { radar } from 'graflume/complete';
+
+radar('#chart', data, {
+  x: { field: 'indicator', type: 'nominal' },
+  y: { field: 'score', type: 'quantitative' },
+  mark: { fields: { series: 'profile' }, options: { max: 100, rings: 5 } },
+});`,
+    limits:
+      'Per-indicator minima/maxima, automatic legends, dense-label collision solving, filled-area stacking, and polar interaction gestures are not implemented yet.',
+  },
+  {
+    id: 'tree',
+    title: 'Tree charts',
+    api: 'tree',
+    mark: 'tree',
+    entrypoint: 'complete',
+    use: 'Use a tree chart for an explicit parent-child hierarchy where ancestry matters more than area.',
+    contract:
+      '`x` or `mark.fields.id` names the node id, `mark.fields.parent` names its parent, `label` may override displayed text, and `value` may provide weight. Blank or missing parents create roots. `mark.options.orientation` accepts `vertical` or `horizontal`.',
+    behavior:
+      'The compiler resolves deterministic hierarchy depths, distributes nodes evenly within each level, draws elbow connectors, and places every row in a theme-aware interactive card. Duplicate ids use the final position while source-row metadata stays attached to the rendered node.',
+    example: `import { tree } from 'graflume/complete';
+
+tree('#chart', data, {
+  x: { field: 'id', type: 'nominal' },
+  y: { field: 'value', type: 'quantitative' },
+  mark: { fields: { parent: 'parent', label: 'name' } },
+});`,
+    limits:
+      'Tidy-tree leaf balancing, collapse/expand, drag editing, routed cross-links, duplicate-id diagnostics, and animated rerooting remain planned.',
+  },
+  {
+    id: 'graph',
+    title: 'Graph charts',
+    api: 'graph',
+    mark: 'graph',
+    entrypoint: 'complete',
+    use: 'Use a graph chart to show weighted relationships among a modest set of nodes.',
+    contract:
+      '`x` or `mark.fields.source` names the edge source, `mark.fields.target` names the target, and quantitative `y` or `fields.value` supplies edge weight. Optional `id`/`label` fields can add explicit node rows.',
+    behavior:
+      'Nodes are deduplicated by id and placed in deterministic circular order. Edge width follows weight, node radius follows degree, and both nodes and edges retain source-row hit-test metadata.',
+    example: `import { graph } from 'graflume/complete';
+
+graph('#chart', links, {
+  x: { field: 'source', type: 'nominal' },
+  y: { field: 'weight', type: 'quantitative' },
+  mark: { fields: { target: 'target' } },
+});`,
+    limits:
+      'Force-directed layout, clustering, directed arrowheads, multi-edge separation, node pinning, pan/zoom, and WebGL acceleration are not implemented yet.',
+  },
+  {
+    id: 'chord',
+    title: 'Chord diagrams',
+    api: 'chord',
+    mark: 'chord',
+    entrypoint: 'complete',
+    use: 'Use a chord diagram for weighted many-to-many relationships among a small number of categories.',
+    contract:
+      '`x` or `fields.source` supplies source, `fields.target` supplies target, and quantitative `y` or `fields.value` supplies the relationship weight.',
+    behavior:
+      'Category arcs are sized from total incident weight and separated by deterministic gaps. Each row becomes a curved, width-scaled connection through the center, while arcs and connections remain interactive Scene paths.',
+    example: `import { chord } from 'graflume/complete';
+
+chord('#chart', flows, {
+  x: { field: 'source', type: 'nominal' },
+  y: { field: 'amount', type: 'quantitative' },
+  mark: { fields: { target: 'target' } },
+});`,
+    limits:
+      'Connections are rounded weighted strokes rather than fully allocated source/target ribbons. Directional split arcs, crossing minimization, custom ordering, gradients, and bundled labels remain planned.',
+  },
+  {
+    id: 'funnel',
+    title: 'Funnel charts',
+    api: 'funnel',
+    mark: 'funnel',
+    entrypoint: 'complete',
+    use: 'Use a funnel chart for ordered stages whose retained volume decreases through a process.',
+    contract:
+      '`x` supplies the stage label and non-negative quantitative `y` supplies stage volume. Rows sort descending by default; set `mark.options.sort: false` to preserve source order.',
+    behavior:
+      'Every stage becomes an interactive trapezoid. Top and bottom widths follow the current and next values, labels show stage and raw value, and theme colors maintain readable foreground contrast.',
+    example: `import { funnel } from 'graflume/complete';
+
+funnel('#chart', stages, {
+  x: { field: 'stage', type: 'ordinal' },
+  y: { field: 'users', type: 'quantitative' },
+});`,
+    limits:
+      'Neck configuration, side labels, conversion percentages, multi-series comparison, horizontal orientation, and negative/diverging funnels are not implemented yet.',
+  },
+  {
+    id: 'parallel',
+    title: 'Parallel-coordinate charts',
+    api: 'parallel',
+    mark: 'parallel',
+    entrypoint: 'complete',
+    use: 'Use parallel coordinates to compare several dimensions for each row and reveal trade-offs or clusters.',
+    contract:
+      '`mark.options.dimensions` is the preferred ordered array of field names. Without it, x, y, and named mark fields become dimensions. Numeric dimensions normalize by extent; categorical dimensions normalize by first-seen order. `fields.color` or `group` assigns palette groups.',
+    behavior:
+      'The compiler draws one vertical axis per dimension and one interactive polyline per complete row. A row with a missing or unmappable dimension is skipped rather than partially connected.',
+    example: `import { parallel } from 'graflume/complete';
+
+parallel('#chart', products, {
+  x: { field: 'name', type: 'nominal' },
+  y: { field: 'speed', type: 'quantitative' },
+  mark: { options: { dimensions: ['speed', 'quality', 'cost'] } },
+});`,
+    limits:
+      'Per-axis ticks and formatting, axis inversion/reordering, brushing, bundled polylines, missing-value gaps, and large-data density rendering remain planned.',
+  },
+  {
+    id: 'boxplot',
+    title: 'Boxplot charts',
+    api: 'boxplot',
+    mark: 'boxplot',
+    entrypoint: 'complete',
+    use: 'Use a boxplot to compare precomputed distribution summaries across categories.',
+    contract:
+      '`x` supplies the group and named fields supply `min`, `q1`, `median`, `q3`, and `max`. Quantitative `y` normally points to the median so the shared axis remains explicit.',
+    behavior:
+      'The y domain includes all five summary channels. Each row creates a whisker, end caps, an interactive interquartile box, and a distinct median line. Input should satisfy min ≤ q1 ≤ median ≤ q3 ≤ max.',
+    example: `import { boxplot } from 'graflume/complete';
+
+boxplot('#chart', summaries, {
+  x: { field: 'group', type: 'nominal' },
+  y: { field: 'median', type: 'quantitative' },
+  mark: { fields: { min: 'min', q1: 'q1', median: 'median', q3: 'q3', max: 'max' } },
+});`,
+    limits:
+      'Raw-sample quartile calculation, outlier points, notches, variable box width, horizontal orientation, and invalid-order diagnostics are not implemented yet.',
+  },
+  {
+    id: 'effect-scatter',
+    title: 'Emphasis scatter charts',
+    api: 'effectScatter',
+    mark: 'effect-scatter',
+    entrypoint: 'complete',
+    use: 'Use an emphasis scatter chart to call attention to a small set of important quantitative points.',
+    contract:
+      '`x` and `y` define point position. `mark.fields.size` optionally scales point radius and `mark.options.rings` controls one to four static emphasis rings.',
+    behavior:
+      'Each valid row draws quiet concentric halos below an interactive foreground point. Radius uses the square root of normalized size so visual area responds more naturally to magnitude.',
+    example: `import { effectScatter } from 'graflume/complete';
+
+effectScatter('#chart', data, {
+  x: { field: 'reach', type: 'quantitative' },
+  y: { field: 'impact', type: 'quantitative' },
+  mark: { fields: { size: 'priority' }, options: { rings: 2 } },
+});`,
+    limits:
+      'The rings are intentionally static and reduced-motion safe. Pulse animation, ripple timing, symbol images, label collision handling, and GPU particle effects are not implemented yet.',
+  },
+  {
+    id: 'lines',
+    title: 'Connection-line charts',
+    api: 'lines',
+    mark: 'lines',
+    entrypoint: 'complete',
+    use: 'Use connection lines to show directed links between start and end coordinates on a shared Cartesian plane.',
+    contract:
+      '`x`/`y` supply start coordinates, `mark.fields.x2`/`y2` supply end coordinates, and optional `fields.value` scales line width. `mark.options.curvature` accepts -1 through 1.',
+    behavior:
+      'Every valid row compiles to a straight or sampled quadratic path plus a terminal arrowhead. Start and end fields jointly expand both numeric domains, and the path carries the row hit target.',
+    example: `import { lines } from 'graflume/complete';
+
+lines('#chart', links, {
+  x: { field: 'startX', type: 'quantitative' },
+  y: { field: 'startY', type: 'quantitative' },
+  mark: { fields: { x2: 'endX', y2: 'endY', value: 'weight' } },
+});`,
+    limits:
+      'Geographic projections, obstacle routing, edge bundling, moving particles, endpoint symbols, and automatic label placement are not implemented yet.',
+  },
+  {
+    id: 'heatmap',
+    title: 'Heatmaps',
+    api: 'heatmap',
+    mark: 'heatmap',
+    entrypoint: 'complete',
+    use: 'Use a heatmap to compare intensity across a two-dimensional categorical or numeric grid.',
+    contract:
+      '`x` and `y` locate each cell and `mark.fields.value` names the quantitative intensity field, defaulting to `value`.',
+    behavior:
+      'Cell width and height use categorical bandwidth or the smallest numeric spacing. Values map through the active sequential palette, large enough cells show contrast-aware values, and missing cells remain blank.',
+    example: `import { heatmap } from 'graflume/complete';
+
+heatmap('#chart', cells, {
+  x: { field: 'day', type: 'ordinal' },
+  y: { field: 'period', type: 'ordinal' },
+  mark: { fields: { value: 'activity' } },
+});`,
+    limits:
+      'A built-in color legend, configurable color domain, missing-value pattern, clustering, dendrograms, tiled large-data rendering, and continuous raster mode remain planned.',
+  },
+  {
+    id: 'pictorial-bar',
+    title: 'Pictorial bar charts',
+    api: 'pictorialBar',
+    mark: 'pictorial-bar',
+    entrypoint: 'complete',
+    use: 'Use a pictorial bar when repeated simple symbols make modest category totals easier to scan.',
+    contract:
+      '`x` supplies category and quantitative `y` supplies magnitude. `mark.options.symbol` accepts `circle`, `square`, or `diamond`; `unit`, `maxSymbols`, and `symbolSize` control repetition.',
+    behavior:
+      'Symbols repeat from the zero baseline toward the value and remain tied to the source row for hit testing. Positive and negative values use the same axis semantics as ordinary bars.',
+    example: `import { pictorialBar } from 'graflume/complete';
+
+pictorialBar('#chart', data, {
+  x: { field: 'category', type: 'ordinal' },
+  y: { field: 'value', type: 'quantitative' },
+  mark: { options: { symbol: 'diamond', unit: 5, maxSymbols: 12 } },
+});`,
+    limits:
+      'Arbitrary SVG/image symbols, partial-symbol clipping, horizontal orientation, stacking, symbol rotation, and labels are not implemented yet.',
+  },
+  {
+    id: 'theme-river',
+    title: 'Theme-river charts',
+    api: 'themeRiver',
+    mark: 'theme-river',
+    entrypoint: 'complete',
+    use: 'Use a theme river to compare how several non-negative series expand and contract over an ordered x domain.',
+    contract:
+      '`x` is ordered or temporal, quantitative `y` supplies magnitude, and `mark.fields.series` or `category` names the series. Series order follows first appearance.',
+    behavior:
+      'At each x value the compiler sums series, centers the stack around zero, and connects each series lower/upper boundaries into an interactive closed band. The y domain uses the maximum stacked total rather than raw rows.',
+    example: `import { themeRiver } from 'graflume/complete';
+
+themeRiver('#chart', data, {
+  x: { field: 'date', type: 'temporal' },
+  y: { field: 'value', type: 'quantitative' },
+  mark: { fields: { series: 'channel' } },
+});`,
+    limits:
+      'Bands use deterministic linear boundary segments. Smooth interpolation, missing-time imputation, negative streams, ordering optimization, legends, and direct labels remain planned.',
+  },
+  {
+    id: 'sunburst',
+    title: 'Sunburst charts',
+    api: 'sunburst',
+    mark: 'sunburst',
+    entrypoint: 'complete',
+    use: 'Use a sunburst for part-to-whole hierarchy when both ancestry and angular share matter.',
+    contract:
+      '`x` or `fields.id` names the node, `fields.parent` names its parent, optional `fields.label` changes text, and quantitative `y` or `fields.value` supplies weight. Blank parents create roots.',
+    behavior:
+      'Hierarchy depth determines rings and recursive totals determine angular spans. Each node becomes an interactive annular sector; sufficiently large sectors receive contrast-aware rotated labels.',
+    example: `import { sunburst } from 'graflume/complete';
+
+sunburst('#chart', nodes, {
+  x: { field: 'id', type: 'nominal' },
+  y: { field: 'value', type: 'quantitative' },
+  mark: { fields: { parent: 'parent', label: 'name' } },
+});`,
+    limits:
+      'Drill-down, breadcrumbs, focus-root transitions, minimum-angle aggregation, sophisticated label collision solving, and hierarchy validation diagnostics remain planned.',
+  },
+  {
+    id: 'custom',
+    title: 'Declarative custom charts',
+    api: 'custom',
+    mark: 'custom',
+    entrypoint: 'complete',
+    use: 'Use the declarative custom mark for a small function-free set of row-level Scene primitives while keeping the spec portable.',
+    contract:
+      '`x`/`y` locate rows. `fields.shape` or `primitive` may select `circle`, `diamond`, `rect`, `round-rect`, `square`, `text`, or `line`; `size`, `radius`, `width`, `height`, `label`, `x2`, and `y2` supply optional channels. A default primitive may be set in `mark.options`.',
+    behavior:
+      'Each row is converted only into audited renderer-neutral primitives. No callback, expression, runtime evaluation, raw HTML, or shader is accepted. Non-text shapes may add a simple label when a label field is present.',
+    example: `import { custom } from 'graflume/complete';
+
+custom('#chart', data, {
+  x: { field: 'x', type: 'quantitative' },
+  y: { field: 'y', type: 'quantitative' },
+  mark: { fields: { shape: 'shape', size: 'size', label: 'label' } },
+});`,
+    limits:
+      'The portable custom vocabulary is intentionally bounded. Arbitrary callbacks, Canvas commands, DOM nodes, and shaders belong in explicit JavaScript plugins or future versioned scene/shader packages.',
+  },
 ];
 
 function page(guide) {
@@ -507,8 +801,9 @@ ${guide.limits}
 
 ## Runnable example and regression coverage
 
-- [31-type standalone CDN gallery](../../examples/cdn/complete-chart-types.html)
-- [Chart catalog compile tests](../../tests/extended-chart-types.test.mjs)
+- [45-type standalone CDN gallery](../../examples/cdn/complete-chart-types.html)
+- [Established catalog compile tests](../../tests/extended-chart-types.test.mjs)
+- [Additional catalog compile tests](../../tests/complete-chart-types.test.mjs)
 - [Generated visual asset](../assets/charts/${guide.id}.svg)
 
 [Back to chart guides](./README.md)

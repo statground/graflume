@@ -32,7 +32,12 @@
       "default": "./dist/graflume.js"
     },
     "./schema": "./schema/graflume.schema.json",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./complete": {
+      "types": "./dist/complete.d.ts",
+      "import": "./dist/graflume.complete.js",
+      "default": "./dist/graflume.complete.js"
+    }
   },
   "files": [
     "dist",
@@ -59,11 +64,14 @@
     "build:minify": "node ./scripts/minify.mjs",
     "build:static": "node ./scripts/copy-static.mjs",
     "build:size": "node ./scripts/check-bundle-size.mjs",
-    "build": "npm run clean && npm run build:types && npm run build:bundle && npm run build:minify && npm run build:static && npm run build:size",
-    "docs:snapshots": "npm run build:bundle && node ./scripts/render-chart-guide-snapshots.mjs",
-    "docs:snapshots:check": "npm run build:bundle && node ./scripts/render-chart-guide-snapshots.mjs --check",
+    "build": "npm run clean && npm run build:types && npm run build:bundle && npm run build:minify && npm run build:static && npm run build:size && npm run build:verify",
+    "docs:snapshots": "npm run build:bundle && node ./scripts/render-chart-guide-snapshots.mjs && node ./scripts/render-additional-chart-snapshots.mjs",
+    "docs:snapshots:check": "npm run build:bundle && node ./scripts/render-chart-guide-snapshots.mjs --check && node ./scripts/render-additional-chart-snapshots.mjs --check",
     "docs:links": "node ./scripts/check-doc-links.mjs",
-    "check": "npm run typecheck && npm test && npm run build && npm run docs:snapshots:check && npm run docs:links"
+    "check": "npm run naming:check && npm run typecheck && npm test && npm run build && npm run docs:snapshots:check && npm run docs:links && npm run format:check && npm run package:check",
+    "build:verify": "node ./scripts/check-built-bundles.mjs",
+    "naming:check": "node ./scripts/check-neutral-naming.mjs",
+    "package:check": "npm pack --dry-run"
   },
   "devDependencies": {
     "@rollup/plugin-typescript": "^12.3.0",

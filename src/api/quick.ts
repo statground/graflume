@@ -16,7 +16,7 @@ export type QuickChartOptions = Omit<ChartSpec, 'data' | 'layers' | 'mark' | 'x'
   readonly create?: ChartCreateOptions;
 };
 
-export type CreateChart = (
+export type ChartFactory = (
   target: ChartTarget,
   spec: ChartSpec,
   options?: ChartCreateOptions,
@@ -28,14 +28,14 @@ export type QuickComboOptions = Omit<ChartSpec, 'data' | 'layers' | 'mark' | 'x'
 };
 
 export function quickChart(
-  createChart: CreateChart,
+  chartFactory: ChartFactory,
   type: MarkType,
   target: ChartTarget,
   data: DataInput,
   options: QuickChartOptions,
 ): Chart {
   const { x, y, mark, create, ...chartOptions } = options;
-  return createChart(
+  return chartFactory(
     target,
     {
       ...chartOptions,
@@ -49,11 +49,11 @@ export function quickChart(
 }
 
 export function quickCombo(
-  createChart: CreateChart,
+  chartFactory: ChartFactory,
   target: ChartTarget,
   data: DataInput,
   options: QuickComboOptions,
 ): Chart {
   const { layers, create, ...chartOptions } = options;
-  return createChart(target, { ...chartOptions, data, layers }, create);
+  return chartFactory(target, { ...chartOptions, data, layers }, create);
 }
