@@ -62,7 +62,8 @@
     "build": "npm run clean && npm run build:types && npm run build:bundle && npm run build:minify && npm run build:static && npm run build:size",
     "docs:snapshots": "npm run build:bundle && node ./scripts/render-chart-guide-snapshots.mjs",
     "docs:snapshots:check": "npm run build:bundle && node ./scripts/render-chart-guide-snapshots.mjs --check",
-    "check": "npm run typecheck && npm test && npm run build && npm run docs:snapshots:check"
+    "docs:links": "node ./scripts/check-doc-links.mjs",
+    "check": "npm run typecheck && npm test && npm run build && npm run docs:snapshots:check && npm run docs:links"
   },
   "devDependencies": {
     "@rollup/plugin-typescript": "^12.3.0",

@@ -4,7 +4,6 @@ import assert from 'node:assert/strict';
 import { BandScale } from '../.tmp/src/scale/band.js';
 import { LinearScale } from '../.tmp/src/scale/linear.js';
 
-
 test('linear scales map and invert values', () => {
   const scale = new LinearScale({ domain: [0, 100], range: [10, 210], nice: false });
   assert.equal(scale.map(50), 110);

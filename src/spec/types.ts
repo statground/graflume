@@ -2,6 +2,8 @@ import type { DeepPartial } from '../utils/object.js';
 import type { ThemeTokens } from '../theme/types.js';
 
 export type JsonPrimitive = string | number | boolean | null;
+export type JsonValue =
+  JsonPrimitive | readonly JsonValue[] | { readonly [key: string]: JsonValue };
 export type DataValue = JsonPrimitive | Date | undefined;
 export type DataRow = Readonly<Record<string, DataValue>>;
 export type ColumnLike = ArrayLike<DataValue>;
@@ -13,7 +15,34 @@ export interface ColumnarData {
 
 export type DataInput = readonly DataRow[] | ColumnarData;
 export type FieldType = 'quantitative' | 'temporal' | 'ordinal' | 'nominal';
-export type MarkType = 'line' | 'bar' | 'point' | 'area';
+export type MarkType =
+  | 'annotation'
+  | 'area'
+  | 'bar'
+  | 'bubble'
+  | 'calendar'
+  | 'candlestick'
+  | 'diff'
+  | 'gantt'
+  | 'gauge'
+  | 'geo'
+  | 'histogram'
+  | 'interval'
+  | 'line'
+  | 'map'
+  | 'motion'
+  | 'org'
+  | 'pie'
+  | 'point'
+  | 'sankey'
+  | 'stepped-area'
+  | 'table'
+  | 'timeline'
+  | 'treemap'
+  | 'trendline'
+  | 'vega'
+  | 'waterfall'
+  | 'word-tree';
 export type PerformanceProfile = 'auto' | 'standard' | 'large' | 'ultra';
 export type RendererPreference = 'auto' | 'canvas' | 'svg' | 'webgl' | 'webgpu' | string;
 
@@ -56,6 +85,11 @@ export interface MarkSpec {
   readonly cornerRadius?: number;
   readonly point?: boolean;
   readonly position?: 'overlay' | 'group';
+  readonly orientation?: 'vertical' | 'horizontal';
+  /** Named data fields used by multi-channel marks such as candlestick, Sankey, or Gantt. */
+  readonly fields?: Readonly<Record<string, string>>;
+  /** Function-free, JSON-serializable options interpreted by the selected portable mark. */
+  readonly options?: Readonly<Record<string, JsonValue>>;
 }
 
 export type MarkInput = MarkType | MarkSpec;
@@ -138,6 +172,9 @@ export interface NormalizedMarkSpec {
   readonly cornerRadius?: number;
   readonly point: boolean;
   readonly position: 'overlay' | 'group';
+  readonly orientation: 'vertical' | 'horizontal';
+  readonly fields: Readonly<Record<string, string>>;
+  readonly options: Readonly<Record<string, JsonValue>>;
 }
 
 export interface NormalizedLayerSpec {

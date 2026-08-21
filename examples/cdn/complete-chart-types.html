@@ -1,0 +1,716 @@
+<!doctype html>
+<html lang="ko" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Graflume 전체 차트 유형 갤러리</title>
+    <style>
+      :root {
+        font-family:
+          Inter,
+          Pretendard,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          sans-serif;
+        color: #172033;
+        background: #eef3f8;
+      }
+      :root[data-theme='dark'] {
+        color: #f1f5f9;
+        background: #0b1020;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 28px 16px 52px;
+      }
+      main {
+        width: min(1500px, 100%);
+        margin: 0 auto;
+      }
+      header {
+        display: flex;
+        gap: 24px;
+        align-items: end;
+        justify-content: space-between;
+        margin-bottom: 18px;
+      }
+      h1 {
+        margin: 0;
+        font-size: clamp(1.8rem, 4vw, 3rem);
+        letter-spacing: -0.05em;
+      }
+      .lede {
+        max-width: 920px;
+        margin: 10px 0 0;
+        color: #5d6b82;
+        line-height: 1.7;
+      }
+      :root[data-theme='dark'] .lede,
+      :root[data-theme='dark'] .copy {
+        color: #a8b3c7;
+      }
+      button {
+        min-height: 42px;
+        padding: 0 16px;
+        color: inherit;
+        background: #fff;
+        border: 1px solid #d8e0ea;
+        border-radius: 999px;
+        cursor: pointer;
+        font: inherit;
+        font-weight: 700;
+      }
+      :root[data-theme='dark'] button {
+        background: #171e2d;
+        border-color: #344057;
+      }
+      button:focus-visible {
+        outline: 3px solid #60a5fa;
+        outline-offset: 2px;
+      }
+      #status {
+        margin: 0 0 18px;
+        padding: 12px 15px;
+        background: #dbeafe;
+        border-radius: 12px;
+      }
+      #status.error {
+        color: #991b1b;
+        background: #fee2e2;
+      }
+      .gallery {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+      }
+      article {
+        min-width: 0;
+        overflow: hidden;
+        background: #fff;
+        border: 1px solid #dce4ee;
+        border-radius: 18px;
+        box-shadow: 0 14px 42px rgb(15 23 42 / 8%);
+      }
+      :root[data-theme='dark'] article {
+        background: #101522;
+        border-color: #273248;
+        box-shadow: 0 18px 48px rgb(0 0 0 / 30%);
+      }
+      .head {
+        display: flex;
+        gap: 12px;
+        align-items: start;
+        justify-content: space-between;
+        padding: 17px 18px 0;
+      }
+      h2 {
+        margin: 0;
+        font-size: 1.05rem;
+      }
+      .copy {
+        margin: 5px 0 0;
+        color: #5d6b82;
+        font-size: 0.82rem;
+        line-height: 1.45;
+      }
+      code {
+        color: #7c3aed;
+        font-size: 0.75rem;
+      }
+      :root[data-theme='dark'] code {
+        color: #c4b5fd;
+      }
+      .badge {
+        flex: 0 0 auto;
+        padding: 4px 8px;
+        color: #1d4ed8;
+        background: #dbeafe;
+        border-radius: 999px;
+        font-size: 0.7rem;
+        font-weight: 800;
+      }
+      :root[data-theme='dark'] .badge {
+        color: #bfdbfe;
+        background: #1e3a8a;
+      }
+      .chart {
+        width: 100%;
+        height: 310px;
+      }
+      @media (max-width: 1120px) {
+        .gallery {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+      @media (max-width: 720px) {
+        header {
+          display: block;
+        }
+        header button {
+          margin-top: 14px;
+        }
+        .gallery {
+          grid-template-columns: 1fr;
+        }
+        .chart {
+          height: 330px;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <h1>Graflume 전체 차트 유형 갤러리</h1>
+          <p class="lede">
+            Cartesian, radial, financial, time, hierarchy, flow, map 유형과 호환 별칭까지 총 31개를
+            Graflume의 portable ChartSpec과 renderer-neutral Scene으로 실제 렌더링합니다.
+          </p>
+        </div>
+        <button id="theme" type="button">어두운 테마</button>
+      </header>
+      <p id="status" role="status">31개 차트를 렌더링하고 있습니다…</p>
+      <section id="gallery" class="gallery" aria-label="Graflume 전체 차트 유형 갤러리"></section>
+    </main>
+
+    <!-- Exact commit pin and SRI are replaced by the repository CDN snapshot workflow. -->
+    <script
+      src="https://cdn.jsdelivr.net/gh/statground/graflume@405964ef09938cb2066008eb7608775f3f4948ab/cdn/graflume.global.js"
+      integrity="sha384-gE60cUP+OiS97/9k4rplcgFKAspiq4NeJnNVQxGFQYw/RTx383XA9NVsPooKPc0+"
+      crossorigin="anonymous"
+    ></script>
+    <script>
+      const trend = [
+        {
+          date: '2026-01-01',
+          category: 'Jan',
+          value: 12,
+          old: 9,
+          low: 8,
+          high: 15,
+          note: 'Launch',
+        },
+        { date: '2026-02-01', category: 'Feb', value: 18, old: 14, low: 14, high: 22, note: null },
+        {
+          date: '2026-03-01',
+          category: 'Mar',
+          value: 15,
+          old: 17,
+          low: 11,
+          high: 19,
+          note: 'Campaign',
+        },
+        { date: '2026-04-01', category: 'Apr', value: 24, old: 18, low: 20, high: 27, note: null },
+      ];
+      const xy = [
+        { name: 'A', x: 1, y: 3, size: 20, group: 'A', time: '2025' },
+        { name: 'B', x: 2, y: 7, size: 70, group: 'B', time: '2025' },
+        { name: 'A', x: 3, y: 5, size: 45, group: 'A', time: '2026' },
+        { name: 'B', x: 4, y: 10, size: 100, group: 'B', time: '2026' },
+      ];
+      const enc = (field, type, title = field, grid = true) => ({
+        field,
+        type,
+        title,
+        axis: { grid, tickCount: 4 },
+      });
+      const base = (
+        mark,
+        data = trend,
+        x = enc('category', 'ordinal'),
+        y = enc('value', 'quantitative'),
+        extra = {},
+      ) => ({
+        data,
+        mark,
+        x,
+        y,
+        height: 310,
+        accessibility: { label: `${typeof mark === 'string' ? mark : mark.type} chart example` },
+        ...extra,
+      });
+      const definitions = [
+        [
+          'annotation',
+          'Annotation',
+          'Graflume.annotation()',
+          '사건이 표시된 시계열',
+          base(
+            { type: 'annotation', fields: { annotation: 'note' }, point: true },
+            trend,
+            enc('date', 'temporal', 'Date', false),
+          ),
+        ],
+        [
+          'annotated-timeline',
+          'Annotated Timeline',
+          'Graflume.annotatedTimeline()',
+          'Annotation의 호환 이름',
+          base(
+            { type: 'annotation', fields: { annotation: 'note' } },
+            trend,
+            enc('date', 'temporal', 'Date', false),
+          ),
+        ],
+        ['area', 'Area', 'Graflume.area()', '값과 규모를 채운 추세', base('area')],
+        [
+          'bar',
+          'Bar',
+          'Graflume.horizontalBar()',
+          '가로 범주 비교',
+          base(
+            { type: 'bar', orientation: 'horizontal' },
+            trend,
+            enc('value', 'quantitative'),
+            enc('category', 'ordinal', 'Category', false),
+          ),
+        ],
+        [
+          'bubble',
+          'Bubble',
+          'Graflume.bubble()',
+          '위치·크기·그룹의 다변량 비교',
+          base(
+            { type: 'bubble', fields: { size: 'size', color: 'group' } },
+            xy,
+            enc('x', 'quantitative'),
+            enc('y', 'quantitative'),
+          ),
+        ],
+        [
+          'calendar',
+          'Calendar',
+          'Graflume.calendar()',
+          '날짜별 강도',
+          base(
+            'calendar',
+            Array.from({ length: 49 }, (_, index) => ({
+              date: new Date(2026, 0, index + 1),
+              value: (index * 13) % 47,
+            })),
+            enc('date', 'temporal'),
+            enc('value', 'quantitative'),
+          ),
+        ],
+        [
+          'candlestick',
+          'Candlestick',
+          'Graflume.candlestick()',
+          'OHLC 금융 구간',
+          base(
+            {
+              type: 'candlestick',
+              fields: { open: 'open', high: 'high', low: 'low', close: 'close' },
+            },
+            [
+              { day: 'Mon', open: 42, high: 51, low: 39, close: 48 },
+              { day: 'Tue', open: 48, high: 53, low: 43, close: 45 },
+              { day: 'Wed', open: 45, high: 57, low: 44, close: 54 },
+              { day: 'Thu', open: 54, high: 56, low: 47, close: 49 },
+            ],
+            enc('day', 'ordinal'),
+            enc('close', 'quantitative'),
+          ),
+        ],
+        [
+          'column',
+          'Column',
+          'Graflume.column()',
+          '세로 범주 비교',
+          base({ type: 'bar', orientation: 'vertical' }),
+        ],
+        [
+          'combo',
+          'Combo',
+          'Graflume.combo()',
+          '막대와 선의 shared-scale 조합',
+          {
+            data: trend,
+            height: 310,
+            layers: [
+              {
+                mark: { type: 'bar', opacity: 0.35 },
+                x: enc('category', 'ordinal'),
+                y: enc('old', 'quantitative'),
+              },
+              {
+                mark: { type: 'line', point: true },
+                x: enc('category', 'ordinal'),
+                y: enc('value', 'quantitative'),
+              },
+            ],
+          },
+        ],
+        [
+          'diff',
+          'Diff',
+          'Graflume.diff()',
+          '이전 값과 새 값의 차이',
+          base({ type: 'diff', fields: { old: 'old', new: 'value' } }),
+        ],
+        [
+          'donut',
+          'Donut',
+          'Graflume.donut()',
+          '가운데가 빈 구성비',
+          base(
+            { type: 'pie', options: { innerRadius: 0.56 } },
+            [
+              { label: 'A', value: 46 },
+              { label: 'B', value: 29 },
+              { label: 'C', value: 25 },
+            ],
+            enc('label', 'nominal'),
+            enc('value', 'quantitative'),
+          ),
+        ],
+        [
+          'gantt',
+          'Gantt',
+          'Graflume.gantt()',
+          '작업·진척도·의존성',
+          base(
+            {
+              type: 'gantt',
+              fields: { id: 'id', end: 'end', progress: 'progress', dependencies: 'dependencies' },
+            },
+            [
+              {
+                id: 'r',
+                task: 'Research',
+                start: '2026-01-01',
+                end: '2026-01-07',
+                progress: 100,
+                dependencies: '',
+              },
+              {
+                id: 'd',
+                task: 'Design',
+                start: '2026-01-06',
+                end: '2026-01-14',
+                progress: 70,
+                dependencies: 'r',
+              },
+              {
+                id: 'b',
+                task: 'Build',
+                start: '2026-01-13',
+                end: '2026-01-27',
+                progress: 40,
+                dependencies: 'd',
+              },
+            ],
+            enc('start', 'temporal'),
+            enc('task', 'ordinal', 'Task', false),
+          ),
+        ],
+        [
+          'gauge',
+          'Gauge',
+          'Graflume.gauge()',
+          '목표 범위 안의 현재 값',
+          base(
+            { type: 'gauge', options: { min: 0, max: 100 } },
+            [
+              { label: 'CPU', value: 68 },
+              { label: 'SLA', value: 91 },
+            ],
+            enc('label', 'nominal'),
+            enc('value', 'quantitative'),
+          ),
+        ],
+        [
+          'geo',
+          'GeoChart',
+          'Graflume.geo()',
+          '지역 코드 기반 세계 분포',
+          base(
+            'geo',
+            [
+              { region: 'KR', value: 72 },
+              { region: 'US', value: 88 },
+              { region: 'BR', value: 41 },
+              { region: 'RU', value: 63 },
+            ],
+            enc('region', 'nominal'),
+            enc('value', 'quantitative'),
+          ),
+        ],
+        [
+          'histogram',
+          'Histogram',
+          'Graflume.histogram()',
+          '연속값의 빈도 분포',
+          base(
+            { type: 'histogram', options: { bins: 8 } },
+            Array.from({ length: 60 }, (_, index) => ({
+              score: 42 + ((index * 17) % 49) + Math.sin(index) * 5,
+            })),
+            enc('score', 'quantitative'),
+            enc('score', 'quantitative', 'Count'),
+          ),
+        ],
+        [
+          'intervals',
+          'Intervals',
+          'Graflume.intervals()',
+          '중앙값과 상·하한',
+          base({ type: 'interval', fields: { low: 'low', high: 'high' } }),
+        ],
+        [
+          'line',
+          'Line',
+          'Graflume.line()',
+          '연결된 변화와 추세',
+          base({ type: 'line', point: true }),
+        ],
+        [
+          'map',
+          'Map',
+          'Graflume.map()',
+          '경도·위도 위치 표시',
+          base(
+            { type: 'map', fields: { size: 'size' } },
+            [
+              { longitude: 126.98, latitude: 37.57, size: 88 },
+              { longitude: 37.62, latitude: 55.75, size: 74 },
+              { longitude: -122.42, latitude: 37.77, size: 68 },
+            ],
+            enc('longitude', 'quantitative'),
+            enc('latitude', 'quantitative'),
+          ),
+        ],
+        [
+          'motion',
+          'Motion',
+          'Graflume.motion()',
+          '선택 프레임의 버블 상태',
+          base(
+            {
+              type: 'motion',
+              fields: { size: 'size', color: 'group', time: 'time' },
+              options: { frame: '2026' },
+            },
+            xy,
+            enc('x', 'quantitative'),
+            enc('y', 'quantitative'),
+          ),
+        ],
+        [
+          'org',
+          'Organization',
+          'Graflume.org()',
+          '부모-자식 조직 구조',
+          base(
+            { type: 'org', fields: { parent: 'parent' } },
+            [
+              { id: 'CEO', parent: '' },
+              { id: 'Data', parent: 'CEO' },
+              { id: 'Product', parent: 'CEO' },
+              { id: 'Analytics', parent: 'Data' },
+            ],
+            enc('id', 'nominal'),
+            enc('parent', 'nominal'),
+          ),
+        ],
+        [
+          'pie',
+          'Pie',
+          'Graflume.pie()',
+          '전체 대비 구성비',
+          base(
+            'pie',
+            [
+              { label: 'A', value: 46 },
+              { label: 'B', value: 29 },
+              { label: 'C', value: 25 },
+            ],
+            enc('label', 'nominal'),
+            enc('value', 'quantitative'),
+          ),
+        ],
+        [
+          'sankey',
+          'Sankey',
+          'Graflume.sankey()',
+          '가중 source-target 흐름',
+          base(
+            { type: 'sankey', fields: { target: 'target' } },
+            [
+              { source: 'Visits', target: 'Signup', value: 70 },
+              { source: 'Visits', target: 'Leave', value: 30 },
+              { source: 'Ads', target: 'Signup', value: 35 },
+            ],
+            enc('source', 'nominal'),
+            enc('value', 'quantitative'),
+          ),
+        ],
+        [
+          'scatter',
+          'Scatter',
+          'Graflume.scatter()',
+          '두 정량 변수의 관계',
+          base('point', xy, enc('x', 'quantitative'), enc('y', 'quantitative')),
+        ],
+        [
+          'stepped-area',
+          'Stepped Area',
+          'Graflume.steppedArea()',
+          '계단식 상태 변화',
+          base('stepped-area'),
+        ],
+        [
+          'table',
+          'Table',
+          'Graflume.table()',
+          '정확한 행·열 값',
+          base({ type: 'table', options: { columns: ['category', 'value', 'old'] } }),
+        ],
+        [
+          'timeline',
+          'Timeline',
+          'Graflume.timeline()',
+          '행별 시작·종료 기간',
+          base(
+            { type: 'timeline', fields: { end: 'end' } },
+            [
+              { row: 'A', start: '2026-01-01', end: '2026-01-08' },
+              { row: 'B', start: '2026-01-04', end: '2026-01-15' },
+              { row: 'C', start: '2026-01-11', end: '2026-01-22' },
+            ],
+            enc('start', 'temporal'),
+            enc('row', 'ordinal', 'Team', false),
+          ),
+        ],
+        [
+          'treemap',
+          'Tree Map',
+          'Graflume.treemap()',
+          '값에 비례한 면적',
+          base(
+            'treemap',
+            [
+              { label: 'Core', value: 44 },
+              { label: 'Cloud', value: 28 },
+              { label: 'Mobile', value: 18 },
+              { label: 'Other', value: 10 },
+            ],
+            enc('label', 'nominal'),
+            enc('value', 'quantitative'),
+          ),
+        ],
+        [
+          'trendline',
+          'Trendline',
+          'Graflume.trendline()',
+          '점과 선형 회귀선',
+          base('trendline', xy, enc('x', 'quantitative'), enc('y', 'quantitative')),
+        ],
+        [
+          'vega',
+          'VegaChart',
+          'Graflume.vegaChart()',
+          '안전한 Vega mark 부분집합',
+          base({ type: 'vega', options: { mark: 'line' }, point: true }),
+        ],
+        [
+          'waterfall',
+          'Waterfall',
+          'Graflume.waterfall()',
+          '누적 증감 브리지',
+          base(
+            'waterfall',
+            [
+              { step: 'Start', delta: 40 },
+              { step: 'Sales', delta: 22 },
+              { step: 'Returns', delta: -8 },
+              { step: 'Costs', delta: -19 },
+              { step: 'Growth', delta: 14 },
+            ],
+            enc('step', 'ordinal'),
+            enc('delta', 'quantitative'),
+          ),
+        ],
+        [
+          'word-tree',
+          'Word Tree',
+          'Graflume.wordTree()',
+          '가중 단어 관계',
+          base(
+            { type: 'word-tree', fields: { parent: 'parent' } },
+            [
+              { word: 'Data', parent: '', weight: 14 },
+              { word: 'Charts', parent: 'Data', weight: 10 },
+              { word: 'Stories', parent: 'Data', weight: 8 },
+              { word: 'Explain', parent: 'Stories', weight: 5 },
+            ],
+            enc('word', 'nominal'),
+            enc('weight', 'quantitative'),
+          ),
+        ],
+      ];
+
+      const gallery = document.querySelector('#gallery');
+      const status = document.querySelector('#status');
+      const themeButton = document.querySelector('#theme');
+      const charts = [];
+      let currentTheme = 'graflume-light';
+
+      for (const [id, title, api, summary] of definitions) {
+        const article = document.createElement('article');
+        article.innerHTML = `<div class="head"><div><h2></h2><p class="copy"></p><code></code></div><span class="badge"></span></div><div class="chart"></div>`;
+        article.querySelector('h2').textContent = title;
+        article.querySelector('.copy').textContent = summary;
+        article.querySelector('code').textContent = api;
+        article.querySelector('.badge').textContent = id;
+        article.querySelector('.chart').id = `chart-${id}`;
+        gallery.append(article);
+      }
+
+      if (!window.Graflume) {
+        status.className = 'error';
+        status.textContent =
+          'Graflume CDN 파일을 불러오지 못했습니다. 인터넷 연결 또는 CSP를 확인하세요.';
+        themeButton.disabled = true;
+      } else {
+        try {
+          definitions.forEach(([id, title, , , spec]) => {
+            const chart = Graflume.create(`#chart-${id}`, { ...spec, theme: currentTheme, title });
+            charts.push(chart);
+          });
+          status.textContent = `${charts.length}개 유형 렌더링 완료 · Canvas 2D · ChartSpec 0.1`;
+        } catch (error) {
+          status.className = 'error';
+          status.textContent = `렌더링 오류: ${error instanceof Error ? error.message : String(error)}`;
+        }
+      }
+
+      themeButton.addEventListener('click', () => {
+        const dark = currentTheme === 'graflume-light';
+        currentTheme = dark ? 'graflume-dark' : 'graflume-light';
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+        themeButton.textContent = dark ? '밝은 테마' : '어두운 테마';
+        charts.forEach((chart) => chart.setSpec({ ...chart.getSpec(), theme: currentTheme }));
+      });
+
+      window.addEventListener('beforeunload', () => charts.forEach((chart) => chart.destroy()), {
+        once: true,
+      });
+    </script>
+  </body>
+</html>

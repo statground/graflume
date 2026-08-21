@@ -1,0 +1,57 @@
+# Sankey diagrams
+
+Use a Sankey diagram to show weighted flow from sources to targets.
+
+## Implemented appearance
+
+This image is generated from the current Graflume `compile()` Scene, not a hand-drawn mockup.
+
+![Current Graflume sankey diagrams output](../assets/charts/sankey.svg)
+
+## Quick API
+
+`Graflume.sankey()` creates the portable `sankey` mark (or documented alias mapping) and accepts the common target, data, and options arguments.
+
+```ts
+Graflume.sankey('#chart', data, {
+  x: { field: 'source', type: 'nominal' },
+  y: { field: 'amount', type: 'quantitative' },
+  mark: { fields: { target: 'target' } },
+});
+```
+
+## Portable ChartSpec mapping
+
+`x` names source, `fields.target` names target, and positive `y` values are link weights.
+
+The same result can be created with `Graflume.create()` and `mark: { type: 'sankey' }`. Named `mark.fields` and `mark.options` values are function-free and JSON-serializable, so they remain portable across JavaScript, future Python/R/Java builders, and stored specs.
+
+## Data, ordering, and missing values
+
+The alpha layout creates source and target columns, proportional node heights, and closed flow polygons with row hit testing.
+
+Rows keep source order unless the compiler must establish a deterministic temporal or hierarchy order. Unsafe field names are rejected, callbacks are forbidden in portable specs, and invalid or unmappable values are skipped rather than evaluated.
+
+## Styling and themes
+
+The mark uses shared `fill`, `stroke`, `opacity`, `lineWidth`, `radius`, and `cornerRadius` options where the geometry makes them meaningful. Default colors, text, grid, focus, and palettes come from the active design-token theme and switch at runtime.
+
+## Interaction and accessibility
+
+Rendered datum shapes carry layer id, row index, and the original row for hover/click hit testing in the standard profile. Supply a concise `accessibility.label`, a useful `description`, and an adjacent text or table fallback. Canvas ARIA metadata does not replace keyboard-readable page content.
+
+## Performance profiles
+
+The same `standard`, `large`, `ultra`, and `auto` profiles apply. Complex layout marks currently favor deterministic bounded Scene output; aggregate or filter very large source data before rendering specialized diagrams.
+
+## Current limitations
+
+This is a two-column layout. Multi-stage DAG depth assignment, cycle handling, crossing minimization, and curved links remain planned.
+
+## Runnable example and regression coverage
+
+- [31-type standalone CDN gallery](../../examples/cdn/complete-chart-types.html)
+- [Chart catalog compile tests](../../tests/extended-chart-types.test.mjs)
+- [Generated visual asset](../assets/charts/sankey.svg)
+
+[Back to chart guides](./README.md)

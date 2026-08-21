@@ -42,7 +42,9 @@ function text(
   y: number,
   value: string,
   theme: ThemeTokens,
-  options: Partial<Pick<TextNode, 'align' | 'baseline' | 'rotation' | 'fontWeight' | 'fontSize'>> = {},
+  options: Partial<
+    Pick<TextNode, 'align' | 'baseline' | 'rotation' | 'fontWeight' | 'fontSize'>
+  > = {},
 ): TextNode {
   return {
     type: 'text',
@@ -197,12 +199,19 @@ export function compileYAxis(context: AxisContext): readonly SceneNode[] {
 
   if (axis.title !== '' && title !== '') {
     nodes.push(
-      text('axis-y:title', Math.max(12, axisX - 46), plot.y + plot.height / 2, axis.title ?? title, theme, {
-        align: 'center',
-        baseline: 'middle',
-        rotation: -90,
-        fontWeight: 600,
-      }),
+      text(
+        'axis-y:title',
+        Math.max(12, axisX - 46),
+        plot.y + plot.height / 2,
+        axis.title ?? title,
+        theme,
+        {
+          align: 'center',
+          baseline: 'middle',
+          rotation: -90,
+          fontWeight: 600,
+        },
+      ),
     );
   }
   return nodes;

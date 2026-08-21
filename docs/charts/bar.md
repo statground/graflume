@@ -1,31 +1,33 @@
 # Bar charts
 
-Use a bar chart to compare quantitative values across discrete categories. Graflume currently implements vertical bars, negative/positive values around a zero baseline, grouped bar layers, styling, sampling, and rectangle hit testing.
+Use a bar chart to compare quantitative values across discrete categories. In the explicit orientation APIs, `horizontalBar()` renders horizontal bars and `column()` renders vertical columns. The original `bar()` API remains a backward-compatible vertical alias.
 
 ## Implemented appearance
 
 The following snapshot is generated from the current Graflume `compile()` Scene and uses the same primitives, coordinates, colors, opacity, clipping, and typography instructions as the Canvas renderer.
 
-![Graflume bar chart showing monthly sales as six blue vertical bars](../assets/charts/bar.svg)
+| Horizontal bar                                                                                    | Vertical column                                                                                          |
+| ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| ![Graflume bar chart showing monthly sales as six blue horizontal bars](../assets/charts/bar.svg) | ![Graflume column chart showing monthly sales as six blue vertical columns](../assets/charts/column.svg) |
 
 ## Quick API
 
 ```ts
-import { bar } from 'graflume';
+import { horizontalBar } from 'graflume';
 
-const chart = bar('#chart', data, {
+const chart = horizontalBar('#chart', data, {
   title: 'Monthly sales',
   x: {
-    field: 'month',
-    type: 'ordinal',
-    title: 'Month',
-    axis: { grid: false },
-  },
-  y: {
     field: 'sales',
     type: 'quantitative',
     title: 'Sales',
     scale: { zero: true, nice: true },
+  },
+  y: {
+    field: 'month',
+    type: 'ordinal',
+    title: 'Month',
+    axis: { grid: false },
   },
   mark: {
     fill: '#2563eb',
@@ -47,24 +49,24 @@ const chart = bar('#chart', data, {
 const spec = {
   specVersion: '0.1',
   data,
-  mark: { type: 'bar', fill: '#2563eb', cornerRadius: 8 },
-  x: { field: 'month', type: 'ordinal' },
-  y: {
+  mark: { type: 'bar', orientation: 'horizontal', fill: '#2563eb', cornerRadius: 8 },
+  x: {
     field: 'sales',
     type: 'quantitative',
     scale: { zero: true, nice: true },
   },
+  y: { field: 'month', type: 'ordinal' },
 };
 
 Graflume.create('#chart', spec);
 ```
 
-`Graflume.bar()` compiles to this same portable `bar` mark.
+`horizontalBar()`, `column()`, and the existing `bar()` all compile to the same portable `bar` mark. Orientation is stored explicitly in `mark.orientation`, so serialization is unambiguous.
 
 ## Data behavior
 
-- The typical x encoding is `ordinal` or `nominal`.
-- The y encoding must be quantitative or temporal in the initial runtime.
+- Horizontal bars use quantitative x and categorical y; vertical columns use categorical x and quantitative y.
+- Both axes now support categorical, quantitative, or temporal scales when the selected mark can use them.
 - Bar domains include zero automatically, even when `scale.zero` is omitted.
 - Positive and negative values extend in opposite directions from the zero baseline.
 - Rows with missing or non-mappable x/y pairs are skipped.
@@ -114,9 +116,8 @@ Large and ultra profiles reduce rendered bars and disable per-bar hit testing.
 
 ## Current limitations
 
-- vertical orientation only;
 - no stacked or normalized stack calculation;
-- no horizontal, range, floating, waterfall, or funnel semantics;
+- no range, floating, or funnel semantics; waterfall uses its own portable mark;
 - no native legend, tooltip, or data-label layout;
 - no keyboard traversal of individual bars;
 - no SVG/WebGL renderer parity yet.
@@ -126,6 +127,7 @@ Large and ultra profiles reduce rendered bars and disable per-bar hit testing.
 - [single-series example](../../examples/bar/index.html)
 - [standalone grouped CDN example](../../examples/cdn/bar-chart.html)
 - [chart type gallery](../../examples/cdn/chart-types.html)
+- [31-type complete chart gallery](../../examples/cdn/complete-chart-types.html)
 - [bar regression tests](../../tests/bar.test.mjs)
 
 [Back to chart guides](./README.md)

@@ -16,7 +16,8 @@ export function createLayout(
   height: number,
   theme: ThemeTokens,
 ): ChartLayout {
-  const titleBlock = spec.title === undefined ? 0 : theme.typography.titleSize + (spec.title.subtitle ? 22 : 10);
+  const titleBlock =
+    spec.title === undefined ? 0 : theme.typography.titleSize + (spec.title.subtitle ? 22 : 10);
   const plotX = spec.padding.left;
   const plotY = spec.padding.top + titleBlock;
   const plotWidth = Math.max(1, width - spec.padding.left - spec.padding.right);

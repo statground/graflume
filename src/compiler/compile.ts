@@ -21,6 +21,19 @@ export interface CompileResult {
   readonly theme: ThemeTokens;
 }
 
+const AXISLESS_MARKS = new Set([
+  'calendar',
+  'gauge',
+  'geo',
+  'map',
+  'org',
+  'pie',
+  'sankey',
+  'table',
+  'treemap',
+  'word-tree',
+]);
+
 function titleNodes(
   spec: NormalizedChartSpec,
   theme: ThemeTokens,
@@ -30,7 +43,12 @@ function titleNodes(
 ): readonly SceneNode[] {
   if (spec.title === undefined) return [];
   const align = spec.title.align ?? 'left';
-  const x = align === 'left' ? spec.padding.left : align === 'right' ? width - spec.padding.right : width / 2;
+  const x =
+    align === 'left'
+      ? spec.padding.left
+      : align === 'right'
+        ? width - spec.padding.right
+        : width / 2;
   const canvasAlign: CanvasTextAlign = align;
   const nodes: TextNode[] = [
     {
@@ -89,24 +107,27 @@ export function compileWithRegistry(
   const totalRows = scales.layers.reduce((sum, layer) => sum + layer.table.length, 0);
   const performance = resolvePerformanceSettings(spec.performance, totalRows, layout.plot.width);
 
-  const axisNodes: SceneNode[] = [
-    ...compileXAxis({
-      axis: scales.layers[0]?.layer.x.axis ?? spec.axes.x,
-      scale: scales.xScale,
-      plot: layout.plot,
-      theme,
-      title: scales.layers[0]?.layer.x.title ?? '',
-      ...(spec.locale === undefined ? {} : { locale: spec.locale }),
-    }),
-    ...compileYAxis({
-      axis: scales.layers[0]?.layer.y.axis ?? spec.axes.y,
-      scale: scales.yScale,
-      plot: layout.plot,
-      theme,
-      title: scales.layers[0]?.layer.y.title ?? '',
-      ...(spec.locale === undefined ? {} : { locale: spec.locale }),
-    }),
-  ];
+  const showAxes = spec.layers.some((layer) => !AXISLESS_MARKS.has(layer.mark.type));
+  const axisNodes: SceneNode[] = showAxes
+    ? [
+        ...compileXAxis({
+          axis: scales.layers[0]?.layer.x.axis ?? spec.axes.x,
+          scale: scales.xScale,
+          plot: layout.plot,
+          theme,
+          title: scales.layers[0]?.layer.x.title ?? '',
+          ...(spec.locale === undefined ? {} : { locale: spec.locale }),
+        }),
+        ...compileYAxis({
+          axis: scales.layers[0]?.layer.y.axis ?? spec.axes.y,
+          scale: scales.yScale,
+          plot: layout.plot,
+          theme,
+          title: scales.layers[0]?.layer.y.title ?? '',
+          ...(spec.locale === undefined ? {} : { locale: spec.locale }),
+        }),
+      ]
+    : [];
 
   const barLayers = scales.layers.filter(
     ({ layer }) => layer.mark.type === 'bar' && layer.mark.position === 'group',

@@ -112,7 +112,10 @@ export class Chart {
     this.#configureResizeObserver();
   }
 
-  on<K extends keyof ChartEventMap>(type: K, listener: (event: ChartEventMap[K]) => void): () => void {
+  on<K extends keyof ChartEventMap>(
+    type: K,
+    listener: (event: ChartEventMap[K]) => void,
+  ): () => void {
     this.#assertAlive();
     return this.#events.on(type, listener);
   }
@@ -149,7 +152,10 @@ export class Chart {
           return this.setSpec({ ...this.#spec, layers: [{ ...onlyLayer, data }] });
         }
       }
-      throw new GraflumeError('INVALID_DATA', 'Specify layerId when replacing data in a multi-layer chart.');
+      throw new GraflumeError(
+        'INVALID_DATA',
+        'Specify layerId when replacing data in a multi-layer chart.',
+      );
     }
 
     let matched = false;
@@ -176,9 +182,14 @@ export class Chart {
       throw new GraflumeError('INVALID_DATA', 'The chart has no layer data to append to.');
     }
 
-    const targetLayerId = layerId ?? (this.#spec.layers.length === 1 ? this.#spec.layers[0]?.id ?? 'layer-0' : undefined);
+    const targetLayerId =
+      layerId ??
+      (this.#spec.layers.length === 1 ? (this.#spec.layers[0]?.id ?? 'layer-0') : undefined);
     if (targetLayerId === undefined) {
-      throw new GraflumeError('INVALID_DATA', 'Specify layerId when appending to a multi-layer chart.');
+      throw new GraflumeError(
+        'INVALID_DATA',
+        'Specify layerId when appending to a multi-layer chart.',
+      );
     }
 
     let matched = false;
@@ -191,7 +202,8 @@ export class Chart {
       matched = true;
       return { ...layer, data: appendInput(source, rows) };
     });
-    if (!matched) throw new GraflumeError('INVALID_DATA', `Layer "${targetLayerId}" was not found.`);
+    if (!matched)
+      throw new GraflumeError('INVALID_DATA', `Layer "${targetLayerId}" was not found.`);
     return this.setSpec({ ...this.#spec, layers });
   }
 
@@ -260,7 +272,10 @@ export class Chart {
   toDataURL(type?: string, quality?: number): string {
     this.#assertAlive();
     if (this.#renderer?.toDataURL === undefined) {
-      throw new GraflumeError('UNSUPPORTED_RENDERER', 'The active renderer cannot export a data URL.');
+      throw new GraflumeError(
+        'UNSUPPORTED_RENDERER',
+        'The active renderer cannot export a data URL.',
+      );
     }
     return this.#renderer.toDataURL(type, quality);
   }
@@ -288,12 +303,16 @@ export class Chart {
       (typeof this.#spec.width === 'number' ? this.#spec.width : this.#target.clientWidth || 640);
     const height =
       this.#manualHeight ??
-      (typeof this.#spec.height === 'number' ? this.#spec.height : this.#target.clientHeight || 400);
+      (typeof this.#spec.height === 'number'
+        ? this.#spec.height
+        : this.#target.clientHeight || 400);
     return { width: Math.max(1, width), height: Math.max(1, height) };
   }
 
   #pixelRatio(): number {
-    const ratio = this.#options.pixelRatio ?? (typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1);
+    const ratio =
+      this.#options.pixelRatio ??
+      (typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1);
     return Math.max(1, Math.min(3, ratio));
   }
 

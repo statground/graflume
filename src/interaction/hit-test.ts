@@ -24,6 +24,26 @@ function distanceToSegment(
 }
 
 function pathDistance(node: PathNode, x: number, y: number): number {
+  if (node.closed && node.points.length >= 3) {
+    let inside = false;
+    for (
+      let index = 0, previous = node.points.length - 1;
+      index < node.points.length;
+      previous = index, index += 1
+    ) {
+      const currentPoint = node.points[index];
+      const previousPoint = node.points[previous];
+      if (currentPoint === undefined || previousPoint === undefined) continue;
+      const crosses =
+        currentPoint.y > y !== previousPoint.y > y &&
+        x <
+          ((previousPoint.x - currentPoint.x) * (y - currentPoint.y)) /
+            (previousPoint.y - currentPoint.y || Number.EPSILON) +
+            currentPoint.x;
+      if (crosses) inside = !inside;
+    }
+    if (inside) return 0;
+  }
   let minimum = Number.POSITIVE_INFINITY;
   for (let index = 1; index < node.points.length; index += 1) {
     const first = node.points[index - 1];
