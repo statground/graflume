@@ -889,6 +889,18 @@ var Graflume = (function (exports) {
             if (axis === 'y' && layer.mark.type === 'candlestick') {
                 fields.push(layer.mark.fields.open ?? 'open', layer.mark.fields.high ?? 'high', layer.mark.fields.low ?? 'low', layer.mark.fields.close ?? encoding.field);
             }
+            if (axis === 'y' &&
+                (layer.mark.type === 'financial' ||
+                    layer.mark.type === 'range' ||
+                    layer.mark.type === 'bullet' ||
+                    layer.mark.type === 'indicator' ||
+                    layer.mark.type === 'volume-profile')) {
+                fields.push(...Object.values(layer.mark.fields));
+                const optionFields = layer.mark.options.fields;
+                if (Array.isArray(optionFields)) {
+                    fields.push(...optionFields.filter((field) => typeof field === 'string' && field.trim() !== ''));
+                }
+            }
             if (axis === 'y' && layer.mark.type === 'boxplot') {
                 fields.push(layer.mark.fields.min ?? 'min', layer.mark.fields.q1 ?? 'q1', layer.mark.fields.median ?? encoding.field, layer.mark.fields.q3 ?? 'q3', layer.mark.fields.max ?? 'max');
             }
@@ -960,9 +972,20 @@ var Graflume = (function (exports) {
                 (axis === 'y' &&
                     (layer.mark.type === 'bar' ||
                         layer.mark.type === 'area' ||
+                        layer.mark.type === 'bullet' ||
+                        layer.mark.type === 'cylinder' ||
                         layer.mark.type === 'histogram' ||
+                        layer.mark.type === 'item' ||
+                        layer.mark.type === 'lollipop' ||
+                        layer.mark.type === 'packed-bubble' ||
+                        layer.mark.type === 'pareto' ||
                         layer.mark.type === 'pictorial-bar' ||
+                        layer.mark.type === 'pyramid' ||
+                        layer.mark.type === 'solid-gauge' ||
                         layer.mark.type === 'theme-river' ||
+                        layer.mark.type === 'variable-pie' ||
+                        layer.mark.type === 'variwide' ||
+                        layer.mark.type === 'volume-profile' ||
                         layer.mark.type === 'waterfall')) ||
                 (axis === 'x' && layer.mark.type === 'bar' && layer.mark.orientation === 'horizontal')) {
                 includeZero = true;

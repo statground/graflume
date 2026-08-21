@@ -88,6 +88,243 @@ var Graflume = (function (exports) {
         { id: 'word-tree', name: 'Word tree', quickApi: 'wordTree', mark: 'word-tree' },
     ];
 
+    const entry = (id, name, quickApi, mark, category, canonicalFamily = id) => ({ id, name, quickApi, mark, category, canonicalFamily });
+    /**
+     * Specialized series that extend the established and advanced catalogs.
+     * Existing families are represented once and reused through canonical aliases.
+     */
+    const seriesChartTypeCatalog = [
+        entry('arc-diagram', 'Arc diagram', 'arcDiagram', 'arc-diagram', 'relationship'),
+        entry('area-range', 'Area range chart', 'areaRange', 'range', 'cartesian'),
+        entry('area-spline', 'Smooth area chart', 'areaSpline', 'smooth', 'cartesian'),
+        entry('area-spline-range', 'Smooth area range chart', 'areaSplineRange', 'range', 'cartesian'),
+        entry('bell-curve', 'Bell curve', 'bellCurve', 'distribution', 'distribution'),
+        entry('bullet', 'Bullet chart', 'bullet', 'bullet', 'cartesian'),
+        entry('column-pyramid', 'Column pyramid chart', 'columnPyramid', 'pyramid', 'cartesian'),
+        entry('column-range', 'Column range chart', 'columnRange', 'range', 'cartesian'),
+        entry('contour', 'Contour chart', 'contour', 'contour', 'distribution'),
+        entry('cylinder', 'Cylinder chart', 'cylinder', 'cylinder', 'cartesian'),
+        entry('dependency-wheel', 'Dependency wheel', 'dependencyWheel', 'chord', 'relationship', 'chord'),
+        entry('dumbbell', 'Dumbbell chart', 'dumbbell', 'range', 'cartesian'),
+        entry('error-bar', 'Error bar chart', 'errorBar', 'interval', 'cartesian', 'intervals'),
+        entry('funnel-3d', 'Depth funnel chart', 'funnel3d', 'pyramid', 'radial'),
+        entry('item', 'Item chart', 'itemChart', 'item', 'radial'),
+        entry('lollipop', 'Lollipop chart', 'lollipop', 'lollipop', 'cartesian'),
+        entry('network-graph', 'Network graph', 'networkGraph', 'graph', 'relationship', 'graph'),
+        entry('organization-network', 'Organization network', 'organizationNetwork', 'org', 'relationship', 'org'),
+        entry('packed-bubble', 'Packed bubble chart', 'packedBubble', 'packed-bubble', 'relationship'),
+        entry('pareto', 'Pareto chart', 'pareto', 'pareto', 'distribution'),
+        entry('pictorial-column', 'Pictorial column chart', 'pictorialColumn', 'pictorial-bar', 'cartesian', 'pictorial-bar'),
+        entry('polygon', 'Polygon chart', 'polygon', 'polygon', 'cartesian'),
+        entry('pyramid', 'Pyramid chart', 'pyramid', 'pyramid', 'radial'),
+        entry('pyramid-3d', 'Depth pyramid chart', 'pyramid3d', 'pyramid', 'radial', 'pyramid'),
+        entry('scatter-3d', 'Three-axis scatter chart', 'scatter3d', 'scatter-3d', 'cartesian'),
+        entry('solid-gauge', 'Solid gauge', 'solidGauge', 'solid-gauge', 'radial'),
+        entry('spline', 'Spline chart', 'spline', 'smooth', 'cartesian'),
+        entry('streamgraph', 'Streamgraph', 'streamgraph', 'theme-river', 'distribution', 'theme-river'),
+        entry('tile-map', 'Tile map', 'tileMap', 'tilemap', 'map'),
+        entry('tree-graph', 'Tree graph', 'treeGraph', 'tree', 'relationship', 'tree'),
+        entry('variable-pie', 'Variable radius pie chart', 'variablePie', 'variable-pie', 'radial'),
+        entry('variable-width', 'Variable width column chart', 'variableWidth', 'variwide', 'cartesian'),
+        entry('vector', 'Vector field chart', 'vector', 'vector', 'cartesian'),
+        entry('venn', 'Venn diagram', 'venn', 'venn', 'relationship'),
+        entry('wind-barb', 'Wind barb chart', 'windBarb', 'wind-barb', 'cartesian'),
+        entry('word-cloud', 'Word cloud', 'wordCloud', 'word-cloud', 'relationship'),
+        entry('x-range', 'Horizontal range chart', 'xRange', 'timeline', 'cartesian', 'timeline'),
+        entry('acceleration-bands', 'Acceleration bands', 'accelerationBands', 'indicator', 'indicator'),
+        entry('awesome-oscillator', 'Awesome oscillator', 'awesomeOscillator', 'indicator', 'indicator'),
+        entry('absolute-price-oscillator', 'Absolute price oscillator', 'absolutePriceOscillator', 'indicator', 'indicator'),
+        entry('aroon', 'Aroon indicator', 'aroon', 'indicator', 'indicator'),
+        entry('aroon-oscillator', 'Aroon oscillator', 'aroonOscillator', 'indicator', 'indicator'),
+        entry('average-true-range', 'Average true range', 'averageTrueRange', 'indicator', 'indicator'),
+        entry('volatility-bands', 'Volatility bands', 'volatilityBands', 'indicator', 'indicator'),
+        entry('commodity-channel-index', 'Commodity channel index', 'commodityChannelIndex', 'indicator', 'indicator'),
+        entry('chaikin-oscillator', 'Chaikin oscillator', 'chaikinOscillator', 'indicator', 'indicator'),
+        entry('chaikin-money-flow', 'Chaikin money flow', 'chaikinMoneyFlow', 'indicator', 'indicator'),
+        entry('chande-momentum-oscillator', 'Chande momentum oscillator', 'chandeMomentumOscillator', 'indicator', 'indicator'),
+        entry('double-exponential-average', 'Double exponential moving average', 'doubleExponentialMovingAverage', 'indicator', 'indicator'),
+        entry('disparity-index', 'Disparity index', 'disparityIndex', 'indicator', 'indicator'),
+        entry('directional-movement-index', 'Directional movement index', 'directionalMovementIndex', 'indicator', 'indicator'),
+        entry('detrended-price-oscillator', 'Detrended price oscillator', 'detrendedPriceOscillator', 'indicator', 'indicator'),
+        entry('exponential-moving-average', 'Exponential moving average', 'exponentialMovingAverage', 'indicator', 'indicator'),
+        entry('event-flags', 'Event flags', 'eventFlags', 'flags', 'financial'),
+        entry('heikin-ashi', 'Heikin-Ashi chart', 'heikinAshi', 'financial', 'financial'),
+        entry('high-low-close', 'High-low-close chart', 'highLowClose', 'financial', 'financial'),
+        entry('hollow-candlestick', 'Hollow candlestick chart', 'hollowCandlestick', 'financial', 'financial'),
+        entry('ichimoku-cloud', 'Ichimoku cloud', 'ichimokuCloud', 'indicator', 'indicator'),
+        entry('keltner-channels', 'Keltner channels', 'keltnerChannels', 'indicator', 'indicator'),
+        entry('klinger-oscillator', 'Klinger oscillator', 'klingerOscillator', 'indicator', 'indicator'),
+        entry('linear-regression', 'Linear regression', 'linearRegression', 'indicator', 'indicator'),
+        entry('linear-regression-angle', 'Linear regression angle', 'linearRegressionAngle', 'indicator', 'indicator'),
+        entry('linear-regression-intercept', 'Linear regression intercept', 'linearRegressionIntercept', 'indicator', 'indicator'),
+        entry('linear-regression-slope', 'Linear regression slope', 'linearRegressionSlope', 'indicator', 'indicator'),
+        entry('moving-average-convergence-divergence', 'Moving average convergence divergence', 'movingAverageConvergenceDivergence', 'indicator', 'indicator'),
+        entry('money-flow-index', 'Money flow index', 'moneyFlowIndex', 'indicator', 'indicator'),
+        entry('momentum', 'Momentum indicator', 'momentumIndicator', 'indicator', 'indicator'),
+        entry('normalized-average-true-range', 'Normalized average true range', 'normalizedAverageTrueRange', 'indicator', 'indicator'),
+        entry('on-balance-volume', 'On-balance volume', 'onBalanceVolume', 'indicator', 'indicator'),
+        entry('open-high-low-close', 'Open-high-low-close chart', 'openHighLowClose', 'financial', 'financial'),
+        entry('price-channel', 'Price channel', 'priceChannel', 'indicator', 'indicator'),
+        entry('pivot-points', 'Pivot points', 'pivotPoints', 'indicator', 'indicator'),
+        entry('point-and-figure', 'Point and figure chart', 'pointAndFigure', 'point-figure', 'financial'),
+        entry('percentage-price-oscillator', 'Percentage price oscillator', 'percentagePriceOscillator', 'indicator', 'indicator'),
+        entry('price-envelopes', 'Price envelopes', 'priceEnvelopes', 'indicator', 'indicator'),
+        entry('parabolic-stop-and-reverse', 'Parabolic stop and reverse', 'parabolicStopAndReverse', 'indicator', 'indicator'),
+        entry('renko', 'Renko chart', 'renko', 'renko', 'financial'),
+        entry('rate-of-change', 'Rate of change', 'rateOfChange', 'indicator', 'indicator'),
+        entry('relative-strength-index', 'Relative strength index', 'relativeStrengthIndex', 'indicator', 'indicator'),
+        entry('slow-stochastic', 'Slow stochastic oscillator', 'slowStochastic', 'indicator', 'indicator'),
+        entry('simple-moving-average', 'Simple moving average', 'simpleMovingAverage', 'indicator', 'indicator'),
+        entry('stochastic', 'Stochastic oscillator', 'stochastic', 'indicator', 'indicator'),
+        entry('supertrend', 'Supertrend', 'supertrend', 'indicator', 'indicator'),
+        entry('triple-exponential-average', 'Triple exponential moving average', 'tripleExponentialMovingAverage', 'indicator', 'indicator'),
+        entry('triple-exponential-oscillator', 'Triple exponential average oscillator', 'tripleExponentialAverageOscillator', 'indicator', 'indicator'),
+        entry('volume-by-price', 'Volume by price', 'volumeByPrice', 'volume-profile', 'financial'),
+        entry('volume-weighted-average-price', 'Volume weighted average price', 'volumeWeightedAveragePrice', 'indicator', 'indicator'),
+        entry('williams-range', 'Williams range', 'williamsRange', 'indicator', 'indicator'),
+        entry('weighted-moving-average', 'Weighted moving average', 'weightedMovingAverage', 'indicator', 'indicator'),
+        entry('zigzag', 'Zigzag indicator', 'zigzag', 'indicator', 'indicator'),
+        entry('flow-map', 'Flow map', 'flowMap', 'geo-flow', 'map'),
+        entry('geo-heatmap', 'Geographic heatmap', 'geoHeatmap', 'geo-heatmap', 'map'),
+        entry('map-bubble', 'Map bubble chart', 'mapBubble', 'map', 'map', 'map'),
+        entry('map-line', 'Map line chart', 'mapLine', 'geo-line', 'map'),
+        entry('map-point', 'Map point chart', 'mapPoint', 'map', 'map', 'map'),
+        entry('tiled-map', 'Tiled map', 'tiledMap', 'tiled-map', 'map'),
+    ];
+    const compatibility = (identifier, familyId) => ({
+        identifier,
+        familyId,
+    });
+    /** Public series identifiers and the single catalog family that implements each one. */
+    const seriesCompatibilityCatalog = [
+        compatibility('abands', 'acceleration-bands'),
+        compatibility('ao', 'awesome-oscillator'),
+        compatibility('apo', 'absolute-price-oscillator'),
+        compatibility('arcdiagram', 'arc-diagram'),
+        compatibility('area', 'area'),
+        compatibility('arearange', 'area-range'),
+        compatibility('areaspline', 'area-spline'),
+        compatibility('areasplinerange', 'area-spline-range'),
+        compatibility('aroon', 'aroon'),
+        compatibility('aroonoscillator', 'aroon-oscillator'),
+        compatibility('atr', 'average-true-range'),
+        compatibility('bar', 'bar'),
+        compatibility('bb', 'volatility-bands'),
+        compatibility('bellcurve', 'bell-curve'),
+        compatibility('boxplot', 'boxplot'),
+        compatibility('bubble', 'bubble'),
+        compatibility('bullet', 'bullet'),
+        compatibility('candlestick', 'candlestick'),
+        compatibility('cci', 'commodity-channel-index'),
+        compatibility('chaikin', 'chaikin-oscillator'),
+        compatibility('cmf', 'chaikin-money-flow'),
+        compatibility('cmo', 'chande-momentum-oscillator'),
+        compatibility('column', 'column'),
+        compatibility('columnpyramid', 'column-pyramid'),
+        compatibility('columnrange', 'column-range'),
+        compatibility('contour', 'contour'),
+        compatibility('cylinder', 'cylinder'),
+        compatibility('dema', 'double-exponential-average'),
+        compatibility('dependencywheel', 'dependency-wheel'),
+        compatibility('disparityindex', 'disparity-index'),
+        compatibility('dmi', 'directional-movement-index'),
+        compatibility('dpo', 'detrended-price-oscillator'),
+        compatibility('dumbbell', 'dumbbell'),
+        compatibility('ema', 'exponential-moving-average'),
+        compatibility('errorbar', 'error-bar'),
+        compatibility('flags', 'event-flags'),
+        compatibility('flowmap', 'flow-map'),
+        compatibility('funnel', 'funnel'),
+        compatibility('funnel3d', 'funnel-3d'),
+        compatibility('gantt', 'gantt'),
+        compatibility('gauge', 'gauge'),
+        compatibility('geoheatmap', 'geo-heatmap'),
+        compatibility('heatmap', 'heatmap'),
+        compatibility('heikinashi', 'heikin-ashi'),
+        compatibility('histogram', 'histogram'),
+        compatibility('hlc', 'high-low-close'),
+        compatibility('hollowcandlestick', 'hollow-candlestick'),
+        compatibility('ikh', 'ichimoku-cloud'),
+        compatibility('item', 'item'),
+        compatibility('keltnerchannels', 'keltner-channels'),
+        compatibility('klinger', 'klinger-oscillator'),
+        compatibility('line', 'line'),
+        compatibility('linearregression', 'linear-regression'),
+        compatibility('linearregressionangle', 'linear-regression-angle'),
+        compatibility('linearregressionintercept', 'linear-regression-intercept'),
+        compatibility('linearregressionslope', 'linear-regression-slope'),
+        compatibility('lollipop', 'lollipop'),
+        compatibility('macd', 'moving-average-convergence-divergence'),
+        compatibility('map', 'map'),
+        compatibility('mapbubble', 'map-bubble'),
+        compatibility('mapline', 'map-line'),
+        compatibility('mappoint', 'map-point'),
+        compatibility('mfi', 'money-flow-index'),
+        compatibility('momentum', 'momentum'),
+        compatibility('natr', 'normalized-average-true-range'),
+        compatibility('networkgraph', 'network-graph'),
+        compatibility('obv', 'on-balance-volume'),
+        compatibility('ohlc', 'open-high-low-close'),
+        compatibility('organization', 'organization-network'),
+        compatibility('packedbubble', 'packed-bubble'),
+        compatibility('pareto', 'pareto'),
+        compatibility('pc', 'price-channel'),
+        compatibility('pictorial', 'pictorial-column'),
+        compatibility('pie', 'pie'),
+        compatibility('pivotpoints', 'pivot-points'),
+        compatibility('pointandfigure', 'point-and-figure'),
+        compatibility('polygon', 'polygon'),
+        compatibility('ppo', 'percentage-price-oscillator'),
+        compatibility('priceenvelopes', 'price-envelopes'),
+        compatibility('psar', 'parabolic-stop-and-reverse'),
+        compatibility('pyramid', 'pyramid'),
+        compatibility('pyramid3d', 'pyramid-3d'),
+        compatibility('renko', 'renko'),
+        compatibility('roc', 'rate-of-change'),
+        compatibility('rsi', 'relative-strength-index'),
+        compatibility('sankey', 'sankey'),
+        compatibility('scatter', 'scatter'),
+        compatibility('scatter3d', 'scatter-3d'),
+        compatibility('slowstochastic', 'slow-stochastic'),
+        compatibility('sma', 'simple-moving-average'),
+        compatibility('solidgauge', 'solid-gauge'),
+        compatibility('spline', 'spline'),
+        compatibility('stochastic', 'stochastic'),
+        compatibility('streamgraph', 'streamgraph'),
+        compatibility('sunburst', 'sunburst'),
+        compatibility('supertrend', 'supertrend'),
+        compatibility('tema', 'triple-exponential-average'),
+        compatibility('tiledwebmap', 'tiled-map'),
+        compatibility('tilemap', 'tile-map'),
+        compatibility('timeline', 'timeline'),
+        compatibility('treegraph', 'tree-graph'),
+        compatibility('treemap', 'treemap'),
+        compatibility('trendline', 'trendline'),
+        compatibility('trix', 'triple-exponential-oscillator'),
+        compatibility('variablepie', 'variable-pie'),
+        compatibility('variwide', 'variable-width'),
+        compatibility('vbp', 'volume-by-price'),
+        compatibility('vector', 'vector'),
+        compatibility('venn', 'venn'),
+        compatibility('vwap', 'volume-weighted-average-price'),
+        compatibility('waterfall', 'waterfall'),
+        compatibility('williamsr', 'williams-range'),
+        compatibility('windbarb', 'wind-barb'),
+        compatibility('wma', 'weighted-moving-average'),
+        compatibility('wordcloud', 'word-cloud'),
+        compatibility('xrange', 'x-range'),
+        compatibility('zigzag', 'zigzag'),
+    ];
+    const seriesCompatibilityIds = seriesCompatibilityCatalog.map(({ identifier }) => identifier);
+    const compatibilityByIdentifier = new Map(seriesCompatibilityCatalog.map((item) => [item.identifier, item]));
+    function resolveSeriesType(identifier) {
+        const normalized = identifier
+            .trim()
+            .toLowerCase()
+            .replaceAll(/[^a-z0-9]/g, '');
+        return compatibilityByIdentifier.get(normalized);
+    }
+
     const SETTINGS = {
         standard: {
             profile: 'standard',
@@ -229,7 +466,7 @@ var Graflume = (function (exports) {
         assertSafeKey(key, `data.${key}`);
         return Object.prototype.hasOwnProperty.call(record, key) ? record[key] : null;
     }
-    function clamp$1(value, min, max) {
+    function clamp$2(value, min, max) {
         return Math.min(max, Math.max(min, value));
     }
     function finiteNumber(value) {
@@ -774,7 +1011,7 @@ var Graflume = (function (exports) {
         bandwidth;
         constructor(options) {
             this.#domain = [...options.domain];
-            const paddingInner = clamp$1(options.paddingInner ?? 0.1, 0, 1);
+            const paddingInner = clamp$2(options.paddingInner ?? 0.1, 0, 1);
             const paddingOuter = Math.max(0, options.paddingOuter ?? 0.05);
             const [start, end] = options.range;
             const direction = end >= start ? 1 : -1;
@@ -869,7 +1106,7 @@ var Graflume = (function (exports) {
             const [rangeStart, rangeEnd] = this.#range;
             const denominator = domainEnd - domainStart;
             const ratio = denominator === 0 ? 0.5 : (value - domainStart) / denominator;
-            const normalized = this.#clamp ? clamp$1(ratio, 0, 1) : ratio;
+            const normalized = this.#clamp ? clamp$2(ratio, 0, 1) : ratio;
             return rangeStart + normalized * (rangeEnd - rangeStart);
         }
         invert(position) {
@@ -877,7 +1114,7 @@ var Graflume = (function (exports) {
             const [rangeStart, rangeEnd] = this.#range;
             const denominator = rangeEnd - rangeStart;
             const ratio = denominator === 0 ? 0.5 : (position - rangeStart) / denominator;
-            const normalized = this.#clamp ? clamp$1(ratio, 0, 1) : ratio;
+            const normalized = this.#clamp ? clamp$2(ratio, 0, 1) : ratio;
             return domainStart + normalized * (domainEnd - domainStart);
         }
         ticks(count, locale) {
@@ -960,6 +1197,18 @@ var Graflume = (function (exports) {
             if (axis === 'y' && layer.mark.type === 'candlestick') {
                 fields.push(layer.mark.fields.open ?? 'open', layer.mark.fields.high ?? 'high', layer.mark.fields.low ?? 'low', layer.mark.fields.close ?? encoding.field);
             }
+            if (axis === 'y' &&
+                (layer.mark.type === 'financial' ||
+                    layer.mark.type === 'range' ||
+                    layer.mark.type === 'bullet' ||
+                    layer.mark.type === 'indicator' ||
+                    layer.mark.type === 'volume-profile')) {
+                fields.push(...Object.values(layer.mark.fields));
+                const optionFields = layer.mark.options.fields;
+                if (Array.isArray(optionFields)) {
+                    fields.push(...optionFields.filter((field) => typeof field === 'string' && field.trim() !== ''));
+                }
+            }
             if (axis === 'y' && layer.mark.type === 'boxplot') {
                 fields.push(layer.mark.fields.min ?? 'min', layer.mark.fields.q1 ?? 'q1', layer.mark.fields.median ?? encoding.field, layer.mark.fields.q3 ?? 'q3', layer.mark.fields.max ?? 'max');
             }
@@ -1031,9 +1280,20 @@ var Graflume = (function (exports) {
                 (axis === 'y' &&
                     (layer.mark.type === 'bar' ||
                         layer.mark.type === 'area' ||
+                        layer.mark.type === 'bullet' ||
+                        layer.mark.type === 'cylinder' ||
                         layer.mark.type === 'histogram' ||
+                        layer.mark.type === 'item' ||
+                        layer.mark.type === 'lollipop' ||
+                        layer.mark.type === 'packed-bubble' ||
+                        layer.mark.type === 'pareto' ||
                         layer.mark.type === 'pictorial-bar' ||
+                        layer.mark.type === 'pyramid' ||
+                        layer.mark.type === 'solid-gauge' ||
                         layer.mark.type === 'theme-river' ||
+                        layer.mark.type === 'variable-pie' ||
+                        layer.mark.type === 'variwide' ||
+                        layer.mark.type === 'volume-profile' ||
                         layer.mark.type === 'waterfall')) ||
                 (axis === 'x' && layer.mark.type === 'bar' && layer.mark.orientation === 'horizontal')) {
                 includeZero = true;
@@ -1370,14 +1630,14 @@ var Graflume = (function (exports) {
         return null;
     }
 
-    const TAU = Math.PI * 2;
-    function clamp(value, min, max) {
+    const TAU$1 = Math.PI * 2;
+    function clamp$1(value, min, max) {
         return Math.max(min, Math.min(max, value));
     }
     function finiteOption(value, fallback) {
         return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
     }
-    function stringValue(value) {
+    function stringValue$1(value) {
         if (value === null || value === undefined)
             return null;
         if (value instanceof Date)
@@ -1389,25 +1649,25 @@ var Graflume = (function (exports) {
             return [];
         return value.filter((item) => typeof item === 'string' && item.trim() !== '');
     }
-    function pointOnCircle(cx, cy, radius, angle) {
+    function pointOnCircle$1(cx, cy, radius, angle) {
         return { x: cx + Math.cos(angle) * radius, y: cy + Math.sin(angle) * radius };
     }
-    function sampledArc(cx, cy, radius, startAngle, endAngle, segments = 24) {
+    function sampledArc$1(cx, cy, radius, startAngle, endAngle, segments = 24) {
         const count = Math.max(2, segments);
         return Array.from({ length: count + 1 }, (_, index) => {
             const ratio = index / count;
-            return pointOnCircle(cx, cy, radius, startAngle + (endAngle - startAngle) * ratio);
+            return pointOnCircle$1(cx, cy, radius, startAngle + (endAngle - startAngle) * ratio);
         });
     }
-    function annularSector(cx, cy, innerRadius, outerRadius, startAngle, endAngle) {
+    function annularSector$1(cx, cy, innerRadius, outerRadius, startAngle, endAngle) {
         const span = Math.abs(endAngle - startAngle);
-        const segments = Math.max(4, Math.ceil((span / TAU) * 48));
+        const segments = Math.max(4, Math.ceil((span / TAU$1) * 48));
         return [
-            ...sampledArc(cx, cy, outerRadius, startAngle, endAngle, segments),
-            ...sampledArc(cx, cy, innerRadius, endAngle, startAngle, segments),
+            ...sampledArc$1(cx, cy, outerRadius, startAngle, endAngle, segments),
+            ...sampledArc$1(cx, cy, innerRadius, endAngle, startAngle, segments),
         ];
     }
-    function quadraticPoints(start, control, end, segments = 20) {
+    function quadraticPoints$1(start, control, end, segments = 20) {
         return Array.from({ length: segments + 1 }, (_, index) => {
             const t = index / segments;
             const inverse = 1 - t;
@@ -1421,7 +1681,7 @@ var Graflume = (function (exports) {
         return (context.theme.colors.palette[index % context.theme.colors.palette.length] ??
             context.theme.colors.focus);
     }
-    function textNode$2(id, x, y, text, context, options = {}) {
+    function textNode$3(id, x, y, text, context, options = {}) {
         return {
             type: 'text',
             ...nodeBase(id, { zIndex: options.zIndex ?? context.layer.zIndex + 2 }),
@@ -1437,7 +1697,7 @@ var Graflume = (function (exports) {
             rotation: options.rotation ?? 0,
         };
     }
-    function datumBase(context, id, rowIndex, zIndex = 0) {
+    function datumBase$1(context, id, rowIndex, zIndex = 0) {
         return nodeBase(id, {
             zIndex: context.layer.zIndex + zIndex,
             opacity: context.layer.mark.opacity,
@@ -1467,12 +1727,12 @@ var Graflume = (function (exports) {
         const cy = plot.y + plot.height / 2;
         const radius = Math.max(16, Math.min(plot.width, plot.height) * 0.34);
         const nodes = [];
-        const rings = clamp(Math.floor(finiteOption(layer.mark.options.rings, 5)), 1, 8);
+        const rings = clamp$1(Math.floor(finiteOption(layer.mark.options.rings, 5)), 1, 8);
         for (let ring = 1; ring <= rings; ring += 1) {
             nodes.push({
                 type: 'path',
                 ...nodeBase(`${layer.id}:radar-grid:${ring}`, { zIndex: layer.zIndex }),
-                points: categories.map((_, index) => pointOnCircle(cx, cy, (radius * ring) / rings, -Math.PI / 2 + (index * TAU) / categories.length)),
+                points: categories.map((_, index) => pointOnCircle$1(cx, cy, (radius * ring) / rings, -Math.PI / 2 + (index * TAU$1) / categories.length)),
                 closed: true,
                 stroke: colorWithOpacity(theme.colors.grid, ring === rings ? 0.9 : 0.7),
                 lineWidth: ring === rings ? 1.2 : 1,
@@ -1480,9 +1740,9 @@ var Graflume = (function (exports) {
             });
         }
         categories.forEach((category, index) => {
-            const angle = -Math.PI / 2 + (index * TAU) / categories.length;
-            const edge = pointOnCircle(cx, cy, radius, angle);
-            const label = pointOnCircle(cx, cy, radius + 18, angle);
+            const angle = -Math.PI / 2 + (index * TAU$1) / categories.length;
+            const edge = pointOnCircle$1(cx, cy, radius, angle);
+            const label = pointOnCircle$1(cx, cy, radius + 18, angle);
             nodes.push({
                 type: 'line',
                 ...nodeBase(`${layer.id}:radar-axis:${index}`, { zIndex: layer.zIndex }),
@@ -1494,7 +1754,7 @@ var Graflume = (function (exports) {
                 lineWidth: 1,
                 lineCap: 'round',
             });
-            nodes.push(textNode$2(`${layer.id}:radar-label:${index}`, label.x, label.y, category, context, {
+            nodes.push(textNode$3(`${layer.id}:radar-label:${index}`, label.x, label.y, category, context, {
                 fill: theme.colors.mutedText,
                 size: Math.max(9, theme.typography.fontSize - 1),
                 weight: 600,
@@ -1505,10 +1765,10 @@ var Graflume = (function (exports) {
             const rowIndexes = new Map();
             for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
                 if (seriesField !== undefined &&
-                    stringValue(table.value(rowIndex, seriesField)) !== seriesName) {
+                    stringValue$1(table.value(rowIndex, seriesField)) !== seriesName) {
                     continue;
                 }
-                const category = stringValue(table.value(rowIndex, layer.x.field));
+                const category = stringValue$1(table.value(rowIndex, layer.x.field));
                 const value = numericDataValue(table.value(rowIndex, layer.y.field));
                 if (category === null || value === null)
                     continue;
@@ -1517,8 +1777,8 @@ var Graflume = (function (exports) {
             }
             const color = themeColor(context, seriesIndex);
             const points = categories.map((category, index) => {
-                const ratio = clamp((rows.get(category) ?? 0) / maximum, 0, 1);
-                return pointOnCircle(cx, cy, radius * ratio, -Math.PI / 2 + (index * TAU) / categories.length);
+                const ratio = clamp$1((rows.get(category) ?? 0) / maximum, 0, 1);
+                return pointOnCircle$1(cx, cy, radius * ratio, -Math.PI / 2 + (index * TAU$1) / categories.length);
             });
             nodes.push({
                 type: 'path',
@@ -1539,7 +1799,7 @@ var Graflume = (function (exports) {
                     return;
                 nodes.push({
                     type: 'circle',
-                    ...datumBase(context, `${layer.id}:radar-point:${seriesIndex}:${index}`, rowIndex, 2),
+                    ...datumBase$1(context, `${layer.id}:radar-point:${seriesIndex}:${index}`, rowIndex, 2),
                     cx: point.x,
                     cy: point.y,
                     radius: layer.mark.radius ?? 3.6,
@@ -1559,11 +1819,11 @@ var Graflume = (function (exports) {
         const valueField = layer.mark.fields.value;
         const items = [];
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
-            const id = stringValue(table.value(rowIndex, idField));
+            const id = stringValue$1(table.value(rowIndex, idField));
             if (id === null || id === '')
                 continue;
-            const parentRaw = stringValue(table.value(rowIndex, parentField));
-            const label = stringValue(table.value(rowIndex, labelField)) ?? id;
+            const parentRaw = stringValue$1(table.value(rowIndex, parentField));
+            const label = stringValue$1(table.value(rowIndex, labelField)) ?? id;
             const value = valueField === undefined
                 ? (numericDataValue(table.value(rowIndex, layer.y.field)) ?? 1)
                 : (numericDataValue(table.value(rowIndex, valueField)) ?? 1);
@@ -1644,7 +1904,7 @@ var Graflume = (function (exports) {
                 lineJoin: 'round',
             });
         });
-        const cardWidth = clamp(plot.width / Math.max(3, Math.max(...levels.map((level) => level.length))), 66, 112);
+        const cardWidth = clamp$1(plot.width / Math.max(3, Math.max(...levels.map((level) => level.length))), 66, 112);
         const cardHeight = 30;
         items.forEach((item, index) => {
             const position = positions.get(item.id);
@@ -1653,7 +1913,7 @@ var Graflume = (function (exports) {
             const color = themeColor(context, depths.get(item.id) ?? index);
             nodes.push({
                 type: 'rect',
-                ...datumBase(context, `${layer.id}:tree-node:${item.id}`, item.rowIndex, 1),
+                ...datumBase$1(context, `${layer.id}:tree-node:${item.id}`, item.rowIndex, 1),
                 x: position.x - cardWidth / 2,
                 y: position.y - cardHeight / 2,
                 width: cardWidth,
@@ -1663,7 +1923,7 @@ var Graflume = (function (exports) {
                 lineWidth: layer.mark.lineWidth ?? 1.5,
                 cornerRadius: layer.mark.cornerRadius ?? 8,
             });
-            nodes.push(textNode$2(`${layer.id}:tree-label:${item.id}`, position.x, position.y, item.label, context, {
+            nodes.push(textNode$3(`${layer.id}:tree-label:${item.id}`, position.x, position.y, item.label, context, {
                 size: Math.max(9, theme.typography.fontSize - 1),
                 weight: 650,
                 zIndex: layer.zIndex + 2,
@@ -1690,17 +1950,17 @@ var Graflume = (function (exports) {
         };
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
             if (idField !== undefined && table.has(idField)) {
-                const id = stringValue(table.value(rowIndex, idField));
+                const id = stringValue$1(table.value(rowIndex, idField));
                 if (id !== null && id !== '') {
                     ensureNode(id, rowIndex, labelField !== undefined && table.has(labelField)
-                        ? (stringValue(table.value(rowIndex, labelField)) ?? id)
+                        ? (stringValue$1(table.value(rowIndex, labelField)) ?? id)
                         : id);
                 }
             }
             if (!table.has(sourceField) || !table.has(targetField))
                 continue;
-            const source = stringValue(table.value(rowIndex, sourceField));
-            const target = stringValue(table.value(rowIndex, targetField));
+            const source = stringValue$1(table.value(rowIndex, sourceField));
+            const target = stringValue$1(table.value(rowIndex, targetField));
             if (source === null || target === null || source === '' || target === '')
                 continue;
             const sourceNode = ensureNode(source, rowIndex);
@@ -1724,7 +1984,7 @@ var Graflume = (function (exports) {
         const radius = Math.max(20, Math.min(plot.width, plot.height) * 0.34);
         const positions = new Map();
         graphNodes.forEach((node, index) => {
-            positions.set(node.id, pointOnCircle(cx, cy, radius, -Math.PI / 2 + (index * TAU) / graphNodes.length));
+            positions.set(node.id, pointOnCircle$1(cx, cy, radius, -Math.PI / 2 + (index * TAU$1) / graphNodes.length));
         });
         const maxEdge = Math.max(1, ...edges.map((edge) => edge.value));
         const nodes = [];
@@ -1735,7 +1995,7 @@ var Graflume = (function (exports) {
                 return;
             nodes.push({
                 type: 'line',
-                ...datumBase(context, `${layer.id}:graph-edge:${index}`, edge.rowIndex),
+                ...datumBase$1(context, `${layer.id}:graph-edge:${index}`, edge.rowIndex),
                 x1: source.x,
                 y1: source.y,
                 x2: target.x,
@@ -1754,7 +2014,7 @@ var Graflume = (function (exports) {
             const color = themeColor(context, index);
             nodes.push({
                 type: 'circle',
-                ...datumBase(context, `${layer.id}:graph-node:${node.id}`, node.rowIndex, 1),
+                ...datumBase$1(context, `${layer.id}:graph-node:${node.id}`, node.rowIndex, 1),
                 cx: position.x,
                 cy: position.y,
                 radius: nodeRadius,
@@ -1762,8 +2022,8 @@ var Graflume = (function (exports) {
                 stroke: layer.mark.stroke ?? theme.colors.background,
                 lineWidth: layer.mark.lineWidth ?? 2,
             });
-            const label = pointOnCircle(cx, cy, radius + 20, -Math.PI / 2 + (index * TAU) / graphNodes.length);
-            nodes.push(textNode$2(`${layer.id}:graph-label:${node.id}`, label.x, label.y, node.label, context, {
+            const label = pointOnCircle$1(cx, cy, radius + 20, -Math.PI / 2 + (index * TAU$1) / graphNodes.length);
+            nodes.push(textNode$3(`${layer.id}:graph-label:${node.id}`, label.x, label.y, node.label, context, {
                 fill: theme.colors.mutedText,
                 size: Math.max(9, theme.typography.fontSize - 1),
                 weight: 600,
@@ -1785,11 +2045,11 @@ var Graflume = (function (exports) {
             totals.set(edge.target, (totals.get(edge.target) ?? 0) + edge.value);
         });
         const grandTotal = Math.max(1, [...totals.values()].reduce((sum, value) => sum + value, 0));
-        const gap = Math.min(0.06, TAU / graphNodes.length / 4);
+        const gap = Math.min(0.06, TAU$1 / graphNodes.length / 4);
         let cursor = -Math.PI / 2;
         const spans = new Map();
         graphNodes.forEach((node) => {
-            const rawSpan = (Math.max(1, totals.get(node.id) ?? 1) / grandTotal) * (TAU - gap * graphNodes.length);
+            const rawSpan = (Math.max(1, totals.get(node.id) ?? 1) / grandTotal) * (TAU$1 - gap * graphNodes.length);
             const start = cursor;
             const end = start + rawSpan;
             spans.set(node.id, { start, end, mid: (start + end) / 2 });
@@ -1802,13 +2062,13 @@ var Graflume = (function (exports) {
             const targetSpan = spans.get(edge.target);
             if (sourceSpan === undefined || targetSpan === undefined)
                 return;
-            const source = pointOnCircle(cx, cy, radius - 8, sourceSpan.mid);
-            const target = pointOnCircle(cx, cy, radius - 8, targetSpan.mid);
+            const source = pointOnCircle$1(cx, cy, radius - 8, sourceSpan.mid);
+            const target = pointOnCircle$1(cx, cy, radius - 8, targetSpan.mid);
             const control = { x: cx, y: cy };
             nodes.push({
                 type: 'path',
-                ...datumBase(context, `${layer.id}:chord-ribbon:${index}`, edge.rowIndex),
-                points: quadraticPoints(source, control, target, 24),
+                ...datumBase$1(context, `${layer.id}:chord-ribbon:${index}`, edge.rowIndex),
+                points: quadraticPoints$1(source, control, target, 24),
                 closed: false,
                 stroke: colorWithOpacity(themeColor(context, index), 0.42),
                 lineWidth: 2 + (edge.value / maxEdge) * 9,
@@ -1823,16 +2083,16 @@ var Graflume = (function (exports) {
             const color = themeColor(context, index);
             nodes.push({
                 type: 'path',
-                ...datumBase(context, `${layer.id}:chord-segment:${node.id}`, node.rowIndex, 1),
-                points: sampledArc(cx, cy, radius, span.start, span.end, 24),
+                ...datumBase$1(context, `${layer.id}:chord-segment:${node.id}`, node.rowIndex, 1),
+                points: sampledArc$1(cx, cy, radius, span.start, span.end, 24),
                 closed: false,
                 stroke: layer.mark.stroke ?? color,
                 lineWidth: layer.mark.lineWidth ?? 13,
                 lineCap: 'round',
                 lineJoin: 'round',
             });
-            const label = pointOnCircle(cx, cy, radius + 20, span.mid);
-            nodes.push(textNode$2(`${layer.id}:chord-label:${node.id}`, label.x, label.y, node.label, context, {
+            const label = pointOnCircle$1(cx, cy, radius + 20, span.mid);
+            nodes.push(textNode$3(`${layer.id}:chord-label:${node.id}`, label.x, label.y, node.label, context, {
                 fill: theme.colors.mutedText,
                 size: Math.max(9, theme.typography.fontSize - 1),
                 weight: 650,
@@ -1844,7 +2104,7 @@ var Graflume = (function (exports) {
         const { layer, table, plot, theme } = context;
         const items = [];
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
-            const label = stringValue(table.value(rowIndex, layer.x.field));
+            const label = stringValue$1(table.value(rowIndex, layer.x.field));
             const value = numericDataValue(table.value(rowIndex, layer.y.field));
             if (label === null || value === null || value < 0)
                 continue;
@@ -1859,15 +2119,15 @@ var Graflume = (function (exports) {
         const nodes = [];
         items.forEach((item, index) => {
             const next = items[index + 1];
-            const topWidth = plot.width * clamp(item.value / maxValue, 0.08, 1);
-            const bottomWidth = plot.width * clamp((next?.value ?? item.value * 0.78) / maxValue, 0.06, 1);
+            const topWidth = plot.width * clamp$1(item.value / maxValue, 0.08, 1);
+            const bottomWidth = plot.width * clamp$1((next?.value ?? item.value * 0.78) / maxValue, 0.06, 1);
             const y1 = plot.y + index * stageHeight + 2;
             const y2 = plot.y + (index + 1) * stageHeight - 2;
             const cx = plot.x + plot.width / 2;
             const fill = layer.mark.fill ?? themeColor(context, index);
             nodes.push({
                 type: 'path',
-                ...datumBase(context, `${layer.id}:funnel:${index}`, item.rowIndex),
+                ...datumBase$1(context, `${layer.id}:funnel:${index}`, item.rowIndex),
                 points: [
                     { x: cx - topWidth / 2, y: y1 },
                     { x: cx + topWidth / 2, y: y1 },
@@ -1880,7 +2140,7 @@ var Graflume = (function (exports) {
                 lineWidth: layer.mark.lineWidth ?? 2,
                 lineJoin: 'round',
             });
-            nodes.push(textNode$2(`${layer.id}:funnel-label:${index}`, cx, (y1 + y2) / 2, `${item.label}  ${item.value}`, context, {
+            nodes.push(textNode$3(`${layer.id}:funnel-label:${index}`, cx, (y1 + y2) / 2, `${item.label}  ${item.value}`, context, {
                 fill: readableTextColor(fill, '#ffffff', '#0f172a'),
                 size: Math.max(10, theme.typography.fontSize),
                 weight: 700,
@@ -1924,7 +2184,7 @@ var Graflume = (function (exports) {
                 lineWidth: 1.2,
                 lineCap: 'round',
             });
-            nodes.push(textNode$2(`${layer.id}:parallel-label:${dimension.field}`, x, plot.y + 10, dimension.field, context, {
+            nodes.push(textNode$3(`${layer.id}:parallel-label:${dimension.field}`, x, plot.y + 10, dimension.field, context, {
                 fill: theme.colors.mutedText,
                 size: Math.max(9, theme.typography.fontSize - 1),
                 weight: 650,
@@ -1948,21 +2208,21 @@ var Graflume = (function (exports) {
                             : (value - dimension.min) / (dimension.max - dimension.min);
                 }
                 else {
-                    const value = stringValue(raw);
+                    const value = stringValue$1(raw);
                     const index = value === null ? -1 : dimension.values.indexOf(value);
                     if (index < 0)
                         return;
                     ratio = dimension.values.length <= 1 ? 0.5 : index / (dimension.values.length - 1);
                 }
-                points.push({ x: xFor(dimensionIndex), y: plot.y + plot.height * (1 - clamp(ratio, 0, 1)) });
+                points.push({ x: xFor(dimensionIndex), y: plot.y + plot.height * (1 - clamp$1(ratio, 0, 1)) });
             });
             if (points.length !== dimensions.length)
                 continue;
-            const key = colorField === undefined ? null : stringValue(table.value(rowIndex, colorField));
+            const key = colorField === undefined ? null : stringValue$1(table.value(rowIndex, colorField));
             const colorIndex = key === null ? rowIndex : Math.max(0, colorKeys.indexOf(key));
             nodes.push({
                 type: 'path',
-                ...datumBase(context, `${layer.id}:parallel-row:${rowIndex}`, rowIndex, 1),
+                ...datumBase$1(context, `${layer.id}:parallel-row:${rowIndex}`, rowIndex, 1),
                 points,
                 closed: false,
                 stroke: layer.mark.stroke ?? themeColor(context, colorIndex),
@@ -2028,7 +2288,7 @@ var Graflume = (function (exports) {
             });
             nodes.push({
                 type: 'rect',
-                ...datumBase(context, `${layer.id}:boxplot-box:${rowIndex}`, rowIndex, 1),
+                ...datumBase$1(context, `${layer.id}:boxplot-box:${rowIndex}`, rowIndex, 1),
                 x: x - boxWidth / 2,
                 y: Math.min(yQ1, yQ3),
                 width: boxWidth,
@@ -2061,7 +2321,7 @@ var Graflume = (function (exports) {
             maxSize = Math.max(1, extent?.[1] ?? 1);
         }
         const nodes = [];
-        const ringCount = clamp(Math.floor(finiteOption(layer.mark.options.rings, 2)), 1, 4);
+        const ringCount = clamp$1(Math.floor(finiteOption(layer.mark.options.rings, 2)), 1, 4);
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
             const xValue = scaleInput(table.value(rowIndex, layer.x.field));
             const yValue = scaleInput(table.value(rowIndex, layer.y.field));
@@ -2093,7 +2353,7 @@ var Graflume = (function (exports) {
             }
             nodes.push({
                 type: 'circle',
-                ...datumBase(context, `${layer.id}:effect-point:${rowIndex}`, rowIndex, 2),
+                ...datumBase$1(context, `${layer.id}:effect-point:${rowIndex}`, rowIndex, 2),
                 cx: x,
                 cy: y,
                 radius,
@@ -2109,7 +2369,7 @@ var Graflume = (function (exports) {
         const x2Field = layer.mark.fields.x2 ?? 'x2';
         const y2Field = layer.mark.fields.y2 ?? 'y2';
         const valueField = layer.mark.fields.value;
-        const curvature = clamp(finiteOption(layer.mark.options.curvature, 0.18), -1, 1);
+        const curvature = clamp$1(finiteOption(layer.mark.options.curvature, 0.18), -1, 1);
         const nodes = [];
         let maxValue = 1;
         if (valueField !== undefined && table.has(valueField))
@@ -2134,14 +2394,14 @@ var Graflume = (function (exports) {
                 x: (start.x + end.x) / 2 - (dy / length) * length * curvature,
                 y: (start.y + end.y) / 2 + (dx / length) * length * curvature,
             };
-            const points = Math.abs(curvature) < 0.001 ? [start, end] : quadraticPoints(start, control, end, 24);
+            const points = Math.abs(curvature) < 0.001 ? [start, end] : quadraticPoints$1(start, control, end, 24);
             const value = valueField === undefined || !table.has(valueField)
                 ? 1
                 : (numericDataValue(table.value(rowIndex, valueField)) ?? 1);
             const stroke = layer.mark.stroke ?? context.color;
             nodes.push({
                 type: 'path',
-                ...datumBase(context, `${layer.id}:lines-path:${rowIndex}`, rowIndex),
+                ...datumBase$1(context, `${layer.id}:lines-path:${rowIndex}`, rowIndex),
                 points,
                 closed: false,
                 stroke,
@@ -2157,8 +2417,8 @@ var Graflume = (function (exports) {
                 ...nodeBase(`${layer.id}:lines-arrow:${rowIndex}`, { zIndex: layer.zIndex + 1 }),
                 points: [
                     end,
-                    pointOnCircle(end.x, end.y, arrowSize, angle + Math.PI * 0.82),
-                    pointOnCircle(end.x, end.y, arrowSize, angle - Math.PI * 0.82),
+                    pointOnCircle$1(end.x, end.y, arrowSize, angle + Math.PI * 0.82),
+                    pointOnCircle$1(end.x, end.y, arrowSize, angle - Math.PI * 0.82),
                 ],
                 closed: true,
                 fill: stroke,
@@ -2210,12 +2470,12 @@ var Graflume = (function (exports) {
             const y = yScale.map(yValue);
             if (!Number.isFinite(x) || !Number.isFinite(y))
                 continue;
-            const ratio = max === min ? 0.5 : clamp((value - min) / (max - min), 0, 1);
+            const ratio = max === min ? 0.5 : clamp$1((value - min) / (max - min), 0, 1);
             const palette = theme.colors.sequential;
             const color = layer.mark.fill ?? palette[Math.round(ratio * (palette.length - 1))] ?? theme.colors.focus;
             nodes.push({
                 type: 'rect',
-                ...datumBase(context, `${layer.id}:heatmap:${rowIndex}`, rowIndex),
+                ...datumBase$1(context, `${layer.id}:heatmap:${rowIndex}`, rowIndex),
                 x: x - cellWidth / 2,
                 y: y - cellHeight / 2,
                 width: cellWidth,
@@ -2226,7 +2486,7 @@ var Graflume = (function (exports) {
                 cornerRadius: layer.mark.cornerRadius ?? 3,
             });
             if (cellWidth >= 34 && cellHeight >= 24 && layer.mark.options.labels !== false) {
-                nodes.push(textNode$2(`${layer.id}:heatmap-label:${rowIndex}`, x, y, String(value), context, {
+                nodes.push(textNode$3(`${layer.id}:heatmap-label:${rowIndex}`, x, y, String(value), context, {
                     fill: readableTextColor(color, '#ffffff', '#0f172a'),
                     size: Math.max(9, theme.typography.fontSize - 1),
                     weight: 650,
@@ -2237,7 +2497,7 @@ var Graflume = (function (exports) {
     };
     const compilePictorialBarMark = (context) => {
         const { layer, table, xScale, yScale, plot, theme } = context;
-        const maxSymbols = clamp(Math.floor(finiteOption(layer.mark.options.maxSymbols, 12)), 2, 40);
+        const maxSymbols = clamp$1(Math.floor(finiteOption(layer.mark.options.maxSymbols, 12)), 2, 40);
         let maxAbs = 0;
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
             maxAbs = Math.max(maxAbs, Math.abs(numericDataValue(table.value(rowIndex, layer.y.field)) ?? 0));
@@ -2260,7 +2520,7 @@ var Graflume = (function (exports) {
             const step = Math.abs(end - zero) / count;
             const requestedSize = finiteOption(layer.mark.options.symbolSize, Number.NaN);
             const size = Number.isFinite(requestedSize)
-                ? clamp(Math.abs(requestedSize), 3, Math.max(3, band * 0.9))
+                ? clamp$1(Math.abs(requestedSize), 3, Math.max(3, band * 0.9))
                 : Math.max(3, Math.min(band * 0.62, step * 0.72, 18));
             const color = layer.mark.fill ?? themeColor(context, rowIndex);
             for (let index = 0; index < count; index += 1) {
@@ -2269,7 +2529,7 @@ var Graflume = (function (exports) {
                 if (symbol === 'square') {
                     nodes.push({
                         type: 'rect',
-                        ...datumBase(context, id, rowIndex),
+                        ...datumBase$1(context, id, rowIndex),
                         x: x - size / 2,
                         y: y - size / 2,
                         width: size,
@@ -2283,7 +2543,7 @@ var Graflume = (function (exports) {
                 else if (symbol === 'diamond') {
                     nodes.push({
                         type: 'path',
-                        ...datumBase(context, id, rowIndex),
+                        ...datumBase$1(context, id, rowIndex),
                         points: [
                             { x, y: y - size / 2 },
                             { x: x + size / 2, y },
@@ -2300,7 +2560,7 @@ var Graflume = (function (exports) {
                 else {
                     nodes.push({
                         type: 'circle',
-                        ...datumBase(context, id, rowIndex),
+                        ...datumBase$1(context, id, rowIndex),
                         cx: x,
                         cy: y,
                         radius: size / 2,
@@ -2321,7 +2581,7 @@ var Graflume = (function (exports) {
         const points = [];
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
             const xValue = scaleInput(table.value(rowIndex, layer.x.field));
-            const series = stringValue(table.value(rowIndex, seriesField));
+            const series = stringValue$1(table.value(rowIndex, seriesField));
             const value = numericDataValue(table.value(rowIndex, layer.y.field));
             if (xValue === null || series === null || value === null)
                 continue;
@@ -2430,7 +2690,7 @@ var Graflume = (function (exports) {
         const cx = plot.x + plot.width / 2;
         const cy = plot.y + plot.height / 2;
         const outerRadius = Math.max(20, Math.min(plot.width, plot.height) * 0.42);
-        const innerHole = outerRadius * clamp(finiteOption(layer.mark.options.innerRadius, 0.12), 0, 0.7);
+        const innerHole = outerRadius * clamp$1(finiteOption(layer.mark.options.innerRadius, 0.12), 0, 0.7);
         const ringWidth = (outerRadius - innerHole) / Math.max(1, maxDepth + 1);
         const nodes = [];
         let colorIndex = 0;
@@ -2441,8 +2701,8 @@ var Graflume = (function (exports) {
             colorIndex += 1;
             nodes.push({
                 type: 'path',
-                ...datumBase(context, `${layer.id}:sunburst:${node.id}`, node.rowIndex, depth / 100),
-                points: annularSector(cx, cy, inner, outer, start, end),
+                ...datumBase$1(context, `${layer.id}:sunburst:${node.id}`, node.rowIndex, depth / 100),
+                points: annularSector$1(cx, cy, inner, outer, start, end),
                 closed: true,
                 fill: layer.mark.fill ?? mixColor(color, theme.colors.background, depth * 0.08),
                 stroke: layer.mark.stroke ?? theme.colors.background,
@@ -2451,8 +2711,8 @@ var Graflume = (function (exports) {
             });
             if (end - start > 0.18 && outer - inner > 18) {
                 const angle = (start + end) / 2;
-                const labelPoint = pointOnCircle(cx, cy, (inner + outer) / 2, angle);
-                nodes.push(textNode$2(`${layer.id}:sunburst-label:${node.id}`, labelPoint.x, labelPoint.y, node.label, context, {
+                const labelPoint = pointOnCircle$1(cx, cy, (inner + outer) / 2, angle);
+                nodes.push(textNode$3(`${layer.id}:sunburst-label:${node.id}`, labelPoint.x, labelPoint.y, node.label, context, {
                     fill: readableTextColor(layer.mark.fill ?? color, '#ffffff', '#0f172a'),
                     size: Math.max(8, theme.typography.fontSize - 2),
                     weight: 650,
@@ -2472,7 +2732,7 @@ var Graflume = (function (exports) {
         const rootTotal = Math.max(1, roots.reduce((sum, root) => sum + root.total, 0));
         let cursor = -Math.PI / 2;
         roots.forEach((root) => {
-            const end = cursor + (TAU * root.total) / rootTotal;
+            const end = cursor + (TAU$1 * root.total) / rootTotal;
             drawNode(root, cursor, end, 0);
             cursor = end;
         });
@@ -2500,7 +2760,7 @@ var Graflume = (function (exports) {
             if (!Number.isFinite(x) || !Number.isFinite(y))
                 continue;
             const primitive = primitiveField !== undefined && table.has(primitiveField)
-                ? (stringValue(table.value(rowIndex, primitiveField)) ?? defaultPrimitive)
+                ? (stringValue$1(table.value(rowIndex, primitiveField)) ?? defaultPrimitive)
                 : defaultPrimitive;
             const size = sizeField !== undefined && table.has(sizeField)
                 ? Math.abs(numericDataValue(table.value(rowIndex, sizeField)) ?? 12)
@@ -2521,7 +2781,7 @@ var Graflume = (function (exports) {
                     continue;
                 nodes.push({
                     type: 'line',
-                    ...datumBase(context, `${layer.id}:custom-line:${rowIndex}`, rowIndex),
+                    ...datumBase$1(context, `${layer.id}:custom-line:${rowIndex}`, rowIndex),
                     x1: x,
                     y1: y,
                     x2,
@@ -2544,7 +2804,7 @@ var Graflume = (function (exports) {
                         : finiteOption(layer.mark.options.height, size);
                 nodes.push({
                     type: 'rect',
-                    ...datumBase(context, `${layer.id}:custom-rect:${rowIndex}`, rowIndex),
+                    ...datumBase$1(context, `${layer.id}:custom-rect:${rowIndex}`, rowIndex),
                     x: x - Math.abs(width) / 2,
                     y: y - Math.abs(height) / 2,
                     width: Math.abs(width),
@@ -2561,7 +2821,7 @@ var Graflume = (function (exports) {
                 const radius = Math.max(1, size / 2);
                 nodes.push({
                     type: 'path',
-                    ...datumBase(context, `${layer.id}:custom-diamond:${rowIndex}`, rowIndex),
+                    ...datumBase$1(context, `${layer.id}:custom-diamond:${rowIndex}`, rowIndex),
                     points: [
                         { x, y: y - radius },
                         { x: x + radius, y },
@@ -2577,9 +2837,9 @@ var Graflume = (function (exports) {
             }
             else if (primitive === 'text') {
                 const label = labelField !== undefined && table.has(labelField)
-                    ? (stringValue(table.value(rowIndex, labelField)) ?? '')
+                    ? (stringValue$1(table.value(rowIndex, labelField)) ?? '')
                     : String(layer.mark.options.label ?? '');
-                nodes.push(textNode$2(`${layer.id}:custom-text:${rowIndex}`, x, y, label, context, {
+                nodes.push(textNode$3(`${layer.id}:custom-text:${rowIndex}`, x, y, label, context, {
                     fill: layer.mark.stroke ?? fill,
                     size: finiteOption(layer.mark.options.fontSize, Math.max(theme.typography.fontSize, size)),
                     weight: 650,
@@ -2591,7 +2851,7 @@ var Graflume = (function (exports) {
                     : (layer.mark.radius ?? finiteOption(layer.mark.options.radius, size / 2));
                 nodes.push({
                     type: 'circle',
-                    ...datumBase(context, `${layer.id}:custom-circle:${rowIndex}`, rowIndex),
+                    ...datumBase$1(context, `${layer.id}:custom-circle:${rowIndex}`, rowIndex),
                     cx: x,
                     cy: y,
                     radius: Math.max(0, Math.abs(radius)),
@@ -2604,9 +2864,9 @@ var Graflume = (function (exports) {
                 layer.mark.options.labels !== false &&
                 labelField !== undefined &&
                 table.has(labelField)) {
-                const label = stringValue(table.value(rowIndex, labelField));
+                const label = stringValue$1(table.value(rowIndex, labelField));
                 if (label !== null && label !== '') {
-                    nodes.push(textNode$2(`${layer.id}:custom-label:${rowIndex}`, x, clamp(y - size / 2 - 8, context.plot.y + 8, context.plot.y + context.plot.height - 8), label, context, {
+                    nodes.push(textNode$3(`${layer.id}:custom-label:${rowIndex}`, x, clamp$1(y - size / 2 - 8, context.plot.y + 8, context.plot.y + context.plot.height - 8), label, context, {
                         fill: theme.colors.mutedText,
                         size: Math.max(9, theme.typography.fontSize - 1),
                         weight: 600,
@@ -2617,6 +2877,2194 @@ var Graflume = (function (exports) {
         }
         return nodes;
     };
+
+    const TAU = Math.PI * 2;
+    function clamp(value, minimum, maximum) {
+        return Math.max(minimum, Math.min(maximum, value));
+    }
+    function optionNumber$3(value, fallback) {
+        return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+    }
+    function optionString$2(value, fallback) {
+        return typeof value === 'string' && value.trim() !== '' ? value : fallback;
+    }
+    function stringValue(value) {
+        if (value === null || value === undefined)
+            return null;
+        return value instanceof Date ? value.toISOString() : String(value);
+    }
+    function paletteColor(context, index) {
+        return (context.theme.colors.palette[index % context.theme.colors.palette.length] ??
+            context.theme.colors.focus);
+    }
+    function datumBase(context, id, rowIndex, offset = 0) {
+        return nodeBase(id, {
+            zIndex: context.layer.zIndex + offset,
+            opacity: context.layer.mark.opacity,
+            interactive: context.performance.enableHitTesting,
+            datum: {
+                layerId: context.layer.id,
+                rowIndex,
+                datum: context.table.row(rowIndex),
+            },
+        });
+    }
+    function textNode$2(context, id, x, y, text, options = {}) {
+        return {
+            type: 'text',
+            ...nodeBase(id, { zIndex: context.layer.zIndex + 3 }),
+            x,
+            y,
+            text,
+            fill: options.fill ?? context.theme.colors.text,
+            fontFamily: context.theme.typography.fontFamily,
+            fontSize: options.size ?? context.theme.typography.fontSize,
+            fontWeight: options.weight ?? 600,
+            align: options.align ?? 'center',
+            baseline: options.baseline ?? 'middle',
+            rotation: options.rotation ?? 0,
+        };
+    }
+    function pointOnCircle(cx, cy, radius, angle) {
+        return { x: cx + Math.cos(angle) * radius, y: cy + Math.sin(angle) * radius };
+    }
+    function sampledArc(cx, cy, radius, start, end, segments = 32) {
+        return Array.from({ length: segments + 1 }, (_, index) => pointOnCircle(cx, cy, radius, start + ((end - start) * index) / segments));
+    }
+    function annularSector(cx, cy, innerRadius, outerRadius, start, end) {
+        const segments = Math.max(6, Math.ceil((Math.abs(end - start) / TAU) * 64));
+        return [
+            ...sampledArc(cx, cy, outerRadius, start, end, segments),
+            ...sampledArc(cx, cy, innerRadius, end, start, segments),
+        ];
+    }
+    function quadraticPoints(start, control, end, segments = 24) {
+        return Array.from({ length: segments + 1 }, (_, index) => {
+            const t = index / segments;
+            const inverse = 1 - t;
+            return {
+                x: inverse * inverse * start.x + 2 * inverse * t * control.x + t * t * end.x,
+                y: inverse * inverse * start.y + 2 * inverse * t * control.y + t * t * end.y,
+            };
+        });
+    }
+    function smoothPoints(points, subdivisions = 8) {
+        if (points.length < 3)
+            return [...points];
+        const output = [];
+        for (let index = 0; index < points.length - 1; index += 1) {
+            const p0 = points[Math.max(0, index - 1)] ?? points[0];
+            const p1 = points[index];
+            const p2 = points[index + 1];
+            const p3 = points[Math.min(points.length - 1, index + 2)] ?? p2;
+            for (let step = 0; step < subdivisions; step += 1) {
+                const t = step / subdivisions;
+                const t2 = t * t;
+                const t3 = t2 * t;
+                output.push({
+                    x: 0.5 *
+                        (2 * p1.x +
+                            (-p0.x + p2.x) * t +
+                            (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 +
+                            (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
+                    y: 0.5 *
+                        (2 * p1.y +
+                            (-p0.y + p2.y) * t +
+                            (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 +
+                            (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3),
+                });
+            }
+        }
+        output.push(points.at(-1));
+        return output;
+    }
+    function validCartesianRows(context) {
+        const { table, layer, xScale, yScale } = context;
+        const rows = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const xValue = scaleInput(table.value(rowIndex, layer.x.field));
+            const yValue = scaleInput(table.value(rowIndex, layer.y.field));
+            if (xValue === null || yValue === null)
+                continue;
+            const x = xScale.map(xValue);
+            const y = yScale.map(yValue);
+            if (Number.isFinite(x) && Number.isFinite(y))
+                rows.push({ rowIndex, x, y });
+        }
+        return rows;
+    }
+    const compileSmoothMark = (context) => {
+        const rows = validCartesianRows(context);
+        if (rows.length === 0)
+            return [];
+        const { layer, yScale, theme } = context;
+        const stroke = layer.mark.stroke ?? context.color;
+        const points = smoothPoints(rows.map(({ x, y }) => ({ x, y })));
+        const nodes = [];
+        if (layer.mark.options.area === true) {
+            const baseline = yScale.map(optionNumber$3(layer.mark.options.baseline, 0));
+            nodes.push({
+                type: 'path',
+                ...nodeBase(`${layer.id}:smooth-area`, {
+                    zIndex: layer.zIndex,
+                    opacity: layer.mark.opacity,
+                }),
+                points: [{ x: points[0].x, y: baseline }, ...points, { x: points.at(-1).x, y: baseline }],
+                closed: true,
+                fill: layer.mark.fill ?? colorWithOpacity(stroke, 0.24),
+                lineWidth: 0,
+            });
+        }
+        nodes.push({
+            type: 'path',
+            ...nodeBase(`${layer.id}:smooth-line`, {
+                zIndex: layer.zIndex + 1,
+                opacity: layer.mark.opacity,
+            }),
+            points,
+            closed: false,
+            stroke,
+            lineWidth: layer.mark.lineWidth ?? theme.mark.lineWidth,
+            lineCap: 'round',
+            lineJoin: 'round',
+        });
+        if (layer.mark.point) {
+            for (const row of rows) {
+                nodes.push({
+                    type: 'circle',
+                    ...datumBase(context, `${layer.id}:smooth-point:${row.rowIndex}`, row.rowIndex, 2),
+                    cx: row.x,
+                    cy: row.y,
+                    radius: layer.mark.radius ?? theme.mark.pointRadius,
+                    fill: theme.colors.background,
+                    stroke,
+                    lineWidth: 2,
+                });
+            }
+        }
+        else {
+            rows.forEach((row) => {
+                nodes.push({
+                    type: 'circle',
+                    ...datumBase(context, `${layer.id}:smooth-hit:${row.rowIndex}`, row.rowIndex, 2),
+                    cx: row.x,
+                    cy: row.y,
+                    radius: Math.max(2.5, layer.mark.radius ?? 3),
+                    fill: stroke,
+                    stroke: theme.colors.background,
+                    lineWidth: 1,
+                });
+            });
+        }
+        return nodes;
+    };
+    const compileRangeMark = (context) => {
+        const { layer, table, xScale, yScale, theme, plot } = context;
+        const lowField = layer.mark.fields.low ?? 'low';
+        const highField = layer.mark.fields.high ?? 'high';
+        const mode = optionString$2(layer.mark.options.mode, 'area');
+        const rows = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const xValue = scaleInput(table.value(rowIndex, layer.x.field));
+            const low = numericDataValue(table.value(rowIndex, lowField));
+            const high = numericDataValue(table.value(rowIndex, highField));
+            if (xValue === null || low === null || high === null)
+                continue;
+            const x = xScale.map(xValue);
+            const yLow = yScale.map(low);
+            const yHigh = yScale.map(high);
+            if ([x, yLow, yHigh].every(Number.isFinite)) {
+                rows.push({ rowIndex, x, low: yLow, high: yHigh });
+            }
+        }
+        if (rows.length === 0)
+            return [];
+        const stroke = layer.mark.stroke ?? context.color;
+        const nodes = [];
+        if (mode === 'area') {
+            const highPoints = rows.map((row) => ({ x: row.x, y: row.high }));
+            const lowPoints = rows.map((row) => ({ x: row.x, y: row.low })).reverse();
+            const smooth = layer.mark.options.smooth === true;
+            nodes.push({
+                type: 'path',
+                ...nodeBase(`${layer.id}:range-band`, {
+                    zIndex: layer.zIndex,
+                    opacity: layer.mark.opacity,
+                }),
+                points: [
+                    ...(smooth ? smoothPoints(highPoints) : highPoints),
+                    ...(smooth ? smoothPoints(lowPoints) : lowPoints),
+                ],
+                closed: true,
+                fill: layer.mark.fill ?? colorWithOpacity(stroke, 0.24),
+                stroke,
+                lineWidth: layer.mark.lineWidth ?? 1.5,
+                lineJoin: 'round',
+            });
+            for (const row of rows) {
+                nodes.push({
+                    type: 'circle',
+                    ...datumBase(context, `${layer.id}:range-hit:${row.rowIndex}`, row.rowIndex, 1),
+                    cx: row.x,
+                    cy: (row.low + row.high) / 2,
+                    radius: Math.max(3, layer.mark.radius ?? 3.5),
+                    fill: stroke,
+                    stroke: theme.colors.background,
+                    lineWidth: 1,
+                });
+            }
+            return nodes;
+        }
+        const width = Math.max(5, xScale instanceof BandScale
+            ? xScale.bandwidth * 0.55
+            : (plot.width / Math.max(2, rows.length * 1.5)) * 0.55);
+        for (const row of rows) {
+            if (mode === 'column') {
+                nodes.push({
+                    type: 'rect',
+                    ...datumBase(context, `${layer.id}:range-column:${row.rowIndex}`, row.rowIndex),
+                    x: row.x - width / 2,
+                    y: Math.min(row.low, row.high),
+                    width,
+                    height: Math.max(1, Math.abs(row.low - row.high)),
+                    fill: layer.mark.fill ?? colorWithOpacity(stroke, 0.72),
+                    stroke,
+                    lineWidth: layer.mark.lineWidth ?? 1,
+                    cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
+                });
+                continue;
+            }
+            nodes.push({
+                type: 'line',
+                ...nodeBase(`${layer.id}:range-stem:${row.rowIndex}`, { zIndex: layer.zIndex }),
+                x1: row.x,
+                y1: row.low,
+                x2: row.x,
+                y2: row.high,
+                stroke,
+                lineWidth: layer.mark.lineWidth ?? 2,
+                lineCap: 'round',
+            });
+            const radius = Math.max(3, layer.mark.radius ?? 5);
+            for (const [suffix, y, fill] of [
+                ['low', row.low, theme.colors.background],
+                ['high', row.high, layer.mark.fill ?? stroke],
+            ]) {
+                nodes.push({
+                    type: 'circle',
+                    ...datumBase(context, `${layer.id}:${suffix}:${row.rowIndex}`, row.rowIndex, 1),
+                    cx: row.x,
+                    cy: y,
+                    radius,
+                    fill,
+                    stroke,
+                    lineWidth: 2,
+                });
+            }
+        }
+        return nodes;
+    };
+    const compileDistributionMark = (context) => {
+        const { layer, table, plot, theme } = context;
+        const sourceField = layer.mark.fields.value ?? layer.y.field;
+        const values = [];
+        for (let index = 0; index < table.length; index += 1) {
+            const value = numericDataValue(table.value(index, sourceField));
+            if (value !== null)
+                values.push(value);
+        }
+        if (values.length < 2)
+            return [];
+        const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
+        const deviation = Math.sqrt(values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / Math.max(1, values.length - 1));
+        const sigma = deviation || 1;
+        const samples = clamp(Math.floor(optionNumber$3(layer.mark.options.samples, 72)), 24, 160);
+        const densities = Array.from({ length: samples + 1 }, (_, index) => {
+            const xValue = mean - sigma * 3.5 + (sigma * 7 * index) / samples;
+            const density = Math.exp(-0.5 * ((xValue - mean) / sigma) ** 2) / (sigma * Math.sqrt(TAU));
+            return { xValue, density };
+        });
+        const maximum = Math.max(...densities.map(({ density }) => density));
+        const points = densities.map(({ xValue, density }) => ({
+            x: plot.x + ((xValue - (mean - sigma * 3.5)) / (sigma * 7)) * plot.width,
+            y: plot.y + plot.height - (density / maximum) * plot.height * 0.82,
+        }));
+        const baseline = plot.y + plot.height;
+        const stroke = layer.mark.stroke ?? context.color;
+        return [
+            {
+                type: 'path',
+                ...datumBase(context, `${layer.id}:distribution-area`, 0),
+                points: [{ x: points[0].x, y: baseline }, ...points, { x: points.at(-1).x, y: baseline }],
+                closed: true,
+                fill: layer.mark.fill ?? colorWithOpacity(stroke, 0.2),
+                lineWidth: 0,
+            },
+            {
+                type: 'path',
+                ...nodeBase(`${layer.id}:distribution-line`, { zIndex: layer.zIndex + 1 }),
+                points,
+                closed: false,
+                stroke,
+                lineWidth: layer.mark.lineWidth ?? theme.mark.lineWidth + 0.5,
+                lineCap: 'round',
+                lineJoin: 'round',
+            },
+            textNode$2(context, `${layer.id}:distribution-mean`, plot.x + plot.width / 2, plot.y + 14, `μ ${mean.toFixed(2)} · σ ${sigma.toFixed(2)}`, {
+                fill: theme.colors.mutedText,
+                size: Math.max(9, theme.typography.fontSize - 1),
+            }),
+        ];
+    };
+    const compileBulletMark = (context) => {
+        const { layer, table, xScale, yScale, theme, plot } = context;
+        const targetField = layer.mark.fields.target ?? 'target';
+        const nodes = [];
+        const width = Math.max(8, xScale instanceof BandScale
+            ? xScale.bandwidth * 0.62
+            : plot.width / Math.max(3, table.length * 2));
+        const ranges = Array.isArray(layer.mark.options.ranges)
+            ? layer.mark.options.ranges.filter((value) => typeof value === 'number')
+            : [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const xValue = scaleInput(table.value(rowIndex, layer.x.field));
+            const value = numericDataValue(table.value(rowIndex, layer.y.field));
+            const target = numericDataValue(table.value(rowIndex, targetField));
+            if (xValue === null || value === null || target === null)
+                continue;
+            const x = xScale.map(xValue);
+            const baseline = yScale.map(0);
+            const rangeValues = ranges.length > 0 ? ranges : [value * 0.65, value * 0.85, Math.max(value, target) * 1.15];
+            rangeValues
+                .slice()
+                .sort((left, right) => right - left)
+                .forEach((range, index) => {
+                const y = yScale.map(range);
+                nodes.push({
+                    type: 'rect',
+                    ...nodeBase(`${layer.id}:bullet-range:${rowIndex}:${index}`, {
+                        zIndex: layer.zIndex - 2 + index * 0.1,
+                    }),
+                    x: x - width / 2,
+                    y: Math.min(y, baseline),
+                    width,
+                    height: Math.max(1, Math.abs(baseline - y)),
+                    fill: mixColor(theme.colors.background, theme.colors.mutedText, 0.15 + index * 0.12),
+                    lineWidth: 0,
+                    cornerRadius: 2,
+                });
+            });
+            const valueY = yScale.map(value);
+            const targetY = yScale.map(target);
+            nodes.push({
+                type: 'rect',
+                ...datumBase(context, `${layer.id}:bullet-value:${rowIndex}`, rowIndex),
+                x: x - width * 0.22,
+                y: Math.min(valueY, baseline),
+                width: width * 0.44,
+                height: Math.max(1, Math.abs(baseline - valueY)),
+                fill: layer.mark.fill ?? context.color,
+                lineWidth: 0,
+                cornerRadius: layer.mark.cornerRadius ?? 2,
+            });
+            nodes.push({
+                type: 'line',
+                ...nodeBase(`${layer.id}:bullet-target:${rowIndex}`, { zIndex: layer.zIndex + 2 }),
+                x1: x - width * 0.42,
+                y1: targetY,
+                x2: x + width * 0.42,
+                y2: targetY,
+                stroke: layer.mark.stroke ?? theme.colors.text,
+                lineWidth: layer.mark.lineWidth ?? 2.5,
+                lineCap: 'round',
+            });
+        }
+        return nodes;
+    };
+    const compileContourMark = (context) => {
+        const { layer, table, xScale, yScale, theme } = context;
+        const valueField = layer.mark.fields.value ?? 'value';
+        const rows = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const xValue = scaleInput(table.value(rowIndex, layer.x.field));
+            const yValue = scaleInput(table.value(rowIndex, layer.y.field));
+            const value = numericDataValue(table.value(rowIndex, valueField));
+            if (xValue === null || yValue === null || value === null)
+                continue;
+            const x = xScale.map(xValue);
+            const y = yScale.map(yValue);
+            if (Number.isFinite(x) && Number.isFinite(y))
+                rows.push({ rowIndex, x, y, value });
+        }
+        if (rows.length === 0)
+            return [];
+        const minimum = Math.min(...rows.map(({ value }) => value));
+        const maximum = Math.max(...rows.map(({ value }) => value));
+        const xValues = [...new Set(rows.map(({ x }) => x))].sort((left, right) => left - right);
+        const yValues = [...new Set(rows.map(({ y }) => y))].sort((left, right) => left - right);
+        const cellWidth = Math.max(5, ((xValues[1] ?? xValues[0] + 18) - xValues[0]) * 0.92);
+        const cellHeight = Math.max(5, ((yValues[1] ?? yValues[0] + 18) - yValues[0]) * 0.92);
+        const nodes = rows.map((row) => {
+            const ratio = maximum === minimum ? 0.5 : (row.value - minimum) / (maximum - minimum);
+            const index = Math.round(ratio * (theme.colors.sequential.length - 1));
+            return {
+                type: 'rect',
+                ...datumBase(context, `${layer.id}:contour-cell:${row.rowIndex}`, row.rowIndex),
+                x: row.x - cellWidth / 2,
+                y: row.y - cellHeight / 2,
+                width: cellWidth,
+                height: cellHeight,
+                fill: layer.mark.fill ?? theme.colors.sequential[index] ?? context.color,
+                lineWidth: 0,
+                cornerRadius: layer.mark.cornerRadius ?? 2,
+            };
+        });
+        const levelCount = clamp(Math.floor(optionNumber$3(layer.mark.options.levels, 5)), 2, 10);
+        for (let levelIndex = 1; levelIndex < levelCount; levelIndex += 1) {
+            const target = minimum + ((maximum - minimum) * levelIndex) / levelCount;
+            const candidates = rows.filter((row) => row.value >= target);
+            if (candidates.length < 2)
+                continue;
+            const center = {
+                x: candidates.reduce((sum, row) => sum + row.x, 0) / candidates.length,
+                y: candidates.reduce((sum, row) => sum + row.y, 0) / candidates.length,
+            };
+            const radiusX = Math.max(...candidates.map((row) => Math.abs(row.x - center.x))) + cellWidth * 0.45;
+            const radiusY = Math.max(...candidates.map((row) => Math.abs(row.y - center.y))) + cellHeight * 0.45;
+            nodes.push({
+                type: 'path',
+                ...nodeBase(`${layer.id}:contour-line:${levelIndex}`, { zIndex: layer.zIndex + 2 }),
+                points: Array.from({ length: 37 }, (_, index) => {
+                    const angle = (index / 36) * TAU;
+                    return {
+                        x: center.x + Math.cos(angle) * radiusX,
+                        y: center.y + Math.sin(angle) * radiusY,
+                    };
+                }),
+                closed: true,
+                stroke: layer.mark.stroke ?? colorWithOpacity(theme.colors.text, 0.72),
+                lineWidth: layer.mark.lineWidth ?? 1.2,
+                lineJoin: 'round',
+            });
+        }
+        return nodes;
+    };
+    const compileCylinderMark = (context) => {
+        const { layer, table, xScale, yScale, plot, theme } = context;
+        const width = Math.max(8, xScale instanceof BandScale
+            ? xScale.bandwidth * 0.58
+            : plot.width / Math.max(3, table.length * 1.8));
+        const ellipseHeight = clamp(width * 0.28, 4, 18);
+        const baseline = yScale.map(0);
+        const nodes = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const xValue = scaleInput(table.value(rowIndex, layer.x.field));
+            const value = numericDataValue(table.value(rowIndex, layer.y.field));
+            if (xValue === null || value === null)
+                continue;
+            const x = xScale.map(xValue);
+            const y = yScale.map(value);
+            if (![x, y, baseline].every(Number.isFinite))
+                continue;
+            const top = Math.min(y, baseline);
+            const bottom = Math.max(y, baseline);
+            const color = layer.mark.fill ?? paletteColor(context, rowIndex);
+            nodes.push({
+                type: 'rect',
+                ...datumBase(context, `${layer.id}:cylinder-body:${rowIndex}`, rowIndex),
+                x: x - width / 2,
+                y: top,
+                width,
+                height: Math.max(1, bottom - top),
+                fill: color,
+                stroke: layer.mark.stroke ?? mixColor(color, theme.colors.text, 0.25),
+                lineWidth: layer.mark.lineWidth ?? 1,
+                cornerRadius: 0,
+            });
+            for (const [suffix, centerY, fill] of [
+                ['top', top, mixColor(color, '#ffffff', 0.22)],
+                ['bottom', bottom, mixColor(color, theme.colors.text, 0.12)],
+            ]) {
+                const points = Array.from({ length: 25 }, (_, index) => {
+                    const angle = (index / 24) * TAU;
+                    return {
+                        x: x + Math.cos(angle) * (width / 2),
+                        y: centerY + Math.sin(angle) * (ellipseHeight / 2),
+                    };
+                });
+                nodes.push({
+                    type: 'path',
+                    ...nodeBase(`${layer.id}:cylinder-${suffix}:${rowIndex}`, { zIndex: layer.zIndex + 1 }),
+                    points,
+                    closed: true,
+                    fill,
+                    stroke: layer.mark.stroke ?? mixColor(color, theme.colors.text, 0.25),
+                    lineWidth: layer.mark.lineWidth ?? 1,
+                });
+            }
+        }
+        return nodes;
+    };
+    const compileArcDiagramMark = (context) => {
+        const { layer, table, plot, theme } = context;
+        const sourceField = layer.mark.fields.source ?? layer.x.field;
+        const targetField = layer.mark.fields.target ?? 'target';
+        const valueField = layer.mark.fields.value ?? layer.y.field;
+        const names = [];
+        const seen = new Set();
+        const links = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const source = stringValue(table.value(rowIndex, sourceField));
+            const target = table.has(targetField) ? stringValue(table.value(rowIndex, targetField)) : null;
+            const value = numericDataValue(table.value(rowIndex, valueField)) ?? 1;
+            if (source === null || target === null)
+                continue;
+            for (const name of [source, target]) {
+                if (!seen.has(name)) {
+                    seen.add(name);
+                    names.push(name);
+                }
+            }
+            links.push({ rowIndex, source, target, value: Math.max(0, value) });
+        }
+        if (names.length === 0)
+            return [];
+        const baseline = plot.y + plot.height * 0.78;
+        const positions = new Map(names.map((name, index) => [
+            name,
+            plot.x + (plot.width * (index + 0.5)) / Math.max(1, names.length),
+        ]));
+        const maximum = Math.max(1, ...links.map(({ value }) => value));
+        const nodes = [];
+        for (const link of links) {
+            const startX = positions.get(link.source);
+            const endX = positions.get(link.target);
+            if (startX === undefined || endX === undefined)
+                continue;
+            const height = Math.min(plot.height * 0.64, Math.abs(endX - startX) * 0.55 + 18);
+            nodes.push({
+                type: 'path',
+                ...datumBase(context, `${layer.id}:arc-link:${link.rowIndex}`, link.rowIndex),
+                points: quadraticPoints({ x: startX, y: baseline }, { x: (startX + endX) / 2, y: baseline - height }, { x: endX, y: baseline }, 32),
+                closed: false,
+                stroke: layer.mark.stroke ?? paletteColor(context, names.indexOf(link.source)),
+                lineWidth: (layer.mark.lineWidth ?? 1.6) + (link.value / maximum) * 5,
+                lineCap: 'round',
+                lineJoin: 'round',
+            });
+        }
+        names.forEach((name, index) => {
+            const x = positions.get(name);
+            nodes.push({
+                type: 'circle',
+                ...nodeBase(`${layer.id}:arc-node:${index}`, { zIndex: layer.zIndex + 2 }),
+                cx: x,
+                cy: baseline,
+                radius: layer.mark.radius ?? 6,
+                fill: paletteColor(context, index),
+                stroke: theme.colors.background,
+                lineWidth: 2,
+            });
+            nodes.push(textNode$2(context, `${layer.id}:arc-label:${index}`, x, baseline + 17, name, {
+                fill: theme.colors.mutedText,
+                size: Math.max(9, theme.typography.fontSize - 1),
+            }));
+        });
+        return nodes;
+    };
+    const compileItemMark = (context) => {
+        const { layer, table, plot, theme } = context;
+        const values = [];
+        let total = 0;
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const label = stringValue(table.value(rowIndex, layer.x.field));
+            const value = numericDataValue(table.value(rowIndex, layer.y.field));
+            if (label === null || value === null || value <= 0)
+                continue;
+            values.push({ rowIndex, label, value });
+            total += value;
+        }
+        if (values.length === 0 || total <= 0)
+            return [];
+        const count = clamp(Math.floor(optionNumber$3(layer.mark.options.items, 100)), 20, 400);
+        const columns = Math.ceil(Math.sqrt((count * plot.width) / Math.max(1, plot.height)));
+        const rows = Math.ceil(count / columns);
+        const gap = 2;
+        const size = Math.max(2, Math.min(plot.width / columns, plot.height / rows) - gap);
+        const assignments = [];
+        values.forEach((item, colorIndex) => {
+            const itemCount = Math.max(1, Math.round((item.value / total) * count));
+            for (let index = 0; index < itemCount && assignments.length < count; index += 1) {
+                assignments.push({ rowIndex: item.rowIndex, colorIndex });
+            }
+        });
+        while (assignments.length < count)
+            assignments.push({ rowIndex: values[0].rowIndex, colorIndex: 0 });
+        return assignments.map((assignment, index) => {
+            const column = index % columns;
+            const row = Math.floor(index / columns);
+            return {
+                type: 'circle',
+                ...datumBase(context, `${layer.id}:item:${index}`, assignment.rowIndex),
+                cx: plot.x + column * (size + gap) + size / 2,
+                cy: plot.y + plot.height - row * (size + gap) - size / 2,
+                radius: size / 2,
+                fill: layer.mark.fill ?? paletteColor(context, assignment.colorIndex),
+                stroke: theme.colors.background,
+                lineWidth: 0.8,
+            };
+        });
+    };
+    const compileLollipopMark = (context) => {
+        const { layer, table, xScale, yScale, theme } = context;
+        const baseline = yScale.map(optionNumber$3(layer.mark.options.baseline, 0));
+        const nodes = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const xValue = scaleInput(table.value(rowIndex, layer.x.field));
+            const yValue = scaleInput(table.value(rowIndex, layer.y.field));
+            if (xValue === null || yValue === null)
+                continue;
+            const x = xScale.map(xValue);
+            const y = yScale.map(yValue);
+            if (![x, y, baseline].every(Number.isFinite))
+                continue;
+            const color = layer.mark.fill ?? paletteColor(context, rowIndex);
+            nodes.push({
+                type: 'line',
+                ...nodeBase(`${layer.id}:lollipop-stem:${rowIndex}`, { zIndex: layer.zIndex }),
+                x1: x,
+                y1: baseline,
+                x2: x,
+                y2: y,
+                stroke: layer.mark.stroke ?? mixColor(color, theme.colors.background, 0.18),
+                lineWidth: layer.mark.lineWidth ?? 2,
+                lineCap: 'round',
+            });
+            nodes.push({
+                type: 'circle',
+                ...datumBase(context, `${layer.id}:lollipop-head:${rowIndex}`, rowIndex, 1),
+                cx: x,
+                cy: y,
+                radius: layer.mark.radius ?? 7,
+                fill: color,
+                stroke: theme.colors.background,
+                lineWidth: 2,
+            });
+        }
+        return nodes;
+    };
+    const compilePackedBubbleMark = (context) => {
+        const { layer, table, plot, theme } = context;
+        const values = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const value = numericDataValue(table.value(rowIndex, layer.y.field));
+            const label = stringValue(table.value(rowIndex, layer.x.field));
+            if (value !== null && value >= 0 && label !== null)
+                values.push({ rowIndex, value, label });
+        }
+        if (values.length === 0)
+            return [];
+        const maximum = Math.max(1, ...values.map(({ value }) => value));
+        const center = { x: plot.x + plot.width / 2, y: plot.y + plot.height / 2 };
+        const maxRadius = Math.min(plot.width, plot.height) * 0.16;
+        const golden = Math.PI * (3 - Math.sqrt(5));
+        const placed = [];
+        const nodes = [];
+        values
+            .slice()
+            .sort((left, right) => right.value - left.value)
+            .forEach((item, index) => {
+            const radius = Math.max(8, Math.sqrt(item.value / maximum) * maxRadius);
+            let position = center;
+            for (let attempt = 0; attempt < 240; attempt += 1) {
+                const distance = attempt === 0 ? 0 : Math.sqrt(attempt) * (radius * 0.62 + 4);
+                const candidate = {
+                    x: center.x + Math.cos(attempt * golden) * distance,
+                    y: center.y + Math.sin(attempt * golden) * distance,
+                };
+                const fits = placed.every((other) => Math.hypot(candidate.x - other.x, candidate.y - other.y) >= radius + other.radius + 2);
+                if (fits) {
+                    position = candidate;
+                    break;
+                }
+            }
+            placed.push({ ...position, radius });
+            const color = layer.mark.fill ?? paletteColor(context, index);
+            nodes.push({
+                type: 'circle',
+                ...datumBase(context, `${layer.id}:packed:${item.rowIndex}`, item.rowIndex),
+                cx: position.x,
+                cy: position.y,
+                radius,
+                fill: colorWithOpacity(color, 0.86),
+                stroke: theme.colors.background,
+                lineWidth: layer.mark.lineWidth ?? 2,
+            });
+            if (radius >= 18) {
+                nodes.push(textNode$2(context, `${layer.id}:packed-label:${item.rowIndex}`, position.x, position.y, item.label, {
+                    fill: readableTextColor(color, '#ffffff', '#0f172a'),
+                    size: clamp(radius * 0.34, 9, 14),
+                }));
+            }
+        });
+        return nodes;
+    };
+    const compileParetoMark = (context) => {
+        const { layer, table, xScale, yScale, plot, theme } = context;
+        const rows = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const xValue = scaleInput(table.value(rowIndex, layer.x.field));
+            const value = numericDataValue(table.value(rowIndex, layer.y.field));
+            if (xValue === null || value === null)
+                continue;
+            const x = xScale.map(xValue);
+            if (Number.isFinite(x))
+                rows.push({ rowIndex, x, value: Math.max(0, value) });
+        }
+        if (rows.length === 0)
+            return [];
+        const total = rows.reduce((sum, row) => sum + row.value, 0) || 1;
+        const baseline = yScale.map(0);
+        const width = Math.max(5, xScale instanceof BandScale
+            ? xScale.bandwidth * 0.62
+            : plot.width / Math.max(3, rows.length * 1.6));
+        let running = 0;
+        const cumulative = [];
+        const nodes = [];
+        for (const row of rows) {
+            const y = yScale.map(row.value);
+            running += row.value;
+            cumulative.push({ x: row.x, y: plot.y + plot.height * (1 - running / total) });
+            nodes.push({
+                type: 'rect',
+                ...datumBase(context, `${layer.id}:pareto-bar:${row.rowIndex}`, row.rowIndex),
+                x: row.x - width / 2,
+                y: Math.min(y, baseline),
+                width,
+                height: Math.max(1, Math.abs(baseline - y)),
+                fill: layer.mark.fill ?? context.color,
+                stroke: theme.colors.background,
+                lineWidth: 1,
+                cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
+            });
+        }
+        nodes.push({
+            type: 'path',
+            ...nodeBase(`${layer.id}:pareto-line`, { zIndex: layer.zIndex + 2 }),
+            points: cumulative,
+            closed: false,
+            stroke: layer.mark.stroke ?? theme.colors.palette[3] ?? theme.colors.focus,
+            lineWidth: layer.mark.lineWidth ?? 2.5,
+            lineCap: 'round',
+            lineJoin: 'round',
+        });
+        cumulative.forEach((point, index) => {
+            const row = rows[index];
+            nodes.push({
+                type: 'circle',
+                ...datumBase(context, `${layer.id}:pareto-point:${row.rowIndex}`, row.rowIndex, 3),
+                cx: point.x,
+                cy: point.y,
+                radius: 3.5,
+                fill: theme.colors.background,
+                stroke: layer.mark.stroke ?? theme.colors.palette[3] ?? theme.colors.focus,
+                lineWidth: 2,
+            });
+        });
+        return nodes;
+    };
+    const compilePolygonMark = (context) => {
+        const { layer, table, xScale, yScale, theme } = context;
+        const seriesField = layer.mark.fields.series;
+        const groups = new Map();
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const xValue = scaleInput(table.value(rowIndex, layer.x.field));
+            const yValue = scaleInput(table.value(rowIndex, layer.y.field));
+            if (xValue === null || yValue === null)
+                continue;
+            const point = { x: xScale.map(xValue), y: yScale.map(yValue) };
+            if (![point.x, point.y].every(Number.isFinite))
+                continue;
+            const key = seriesField === undefined || !table.has(seriesField)
+                ? 'Series'
+                : (stringValue(table.value(rowIndex, seriesField)) ?? 'Series');
+            const group = groups.get(key) ?? [];
+            group.push({ rowIndex, point });
+            groups.set(key, group);
+        }
+        const nodes = [];
+        [...groups.entries()].forEach(([key, rows], groupIndex) => {
+            if (rows.length < 3)
+                return;
+            const color = layer.mark.fill ?? paletteColor(context, groupIndex);
+            nodes.push({
+                type: 'path',
+                ...datumBase(context, `${layer.id}:polygon:${groupIndex}`, rows[0].rowIndex),
+                points: rows.map(({ point }) => point),
+                closed: true,
+                fill: colorWithOpacity(color, 0.24),
+                stroke: layer.mark.stroke ?? color,
+                lineWidth: layer.mark.lineWidth ?? 2,
+                lineJoin: 'round',
+            });
+            rows.forEach(({ rowIndex, point }) => {
+                nodes.push({
+                    type: 'circle',
+                    ...datumBase(context, `${layer.id}:polygon-point:${rowIndex}`, rowIndex, 1),
+                    cx: point.x,
+                    cy: point.y,
+                    radius: layer.mark.radius ?? 3.5,
+                    fill: theme.colors.background,
+                    stroke: layer.mark.stroke ?? color,
+                    lineWidth: 1.5,
+                });
+            });
+            if (layer.mark.options.labels === true) {
+                const center = rows.reduce((sum, row) => ({
+                    x: sum.x + row.point.x / rows.length,
+                    y: sum.y + row.point.y / rows.length,
+                }), { x: 0, y: 0 });
+                nodes.push(textNode$2(context, `${layer.id}:polygon-label:${groupIndex}`, center.x, center.y, key));
+            }
+        });
+        return nodes;
+    };
+    const compilePyramidMark = (context) => {
+        const { layer, table, plot, theme } = context;
+        const rows = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const label = stringValue(table.value(rowIndex, layer.x.field));
+            const value = numericDataValue(table.value(rowIndex, layer.y.field));
+            if (label !== null && value !== null && value >= 0)
+                rows.push({ rowIndex, label, value });
+        }
+        if (rows.length === 0)
+            return [];
+        const variant = optionString$2(layer.mark.options.variant, 'pyramid');
+        const reverse = variant.includes('funnel');
+        const depth = variant.includes('3d')
+            ? clamp(optionNumber$3(layer.mark.options.depth, 12), 4, 24)
+            : 0;
+        const sorted = layer.mark.options.sort === false ? rows : rows.slice().sort((a, b) => b.value - a.value);
+        const maximum = Math.max(1, ...sorted.map(({ value }) => value));
+        const height = plot.height / sorted.length;
+        const centerX = plot.x + plot.width / 2 - depth / 2;
+        const maxWidth = plot.width * 0.82;
+        const nodes = [];
+        sorted.forEach((row, index) => {
+            const currentRatio = clamp(row.value / maximum, 0.06, 1);
+            const nextRatio = clamp((sorted[index + 1]?.value ?? 0) / maximum, 0.03, 1);
+            const topRatio = reverse ? currentRatio : nextRatio;
+            const bottomRatio = reverse ? nextRatio : currentRatio;
+            const y1 = plot.y + index * height + 1;
+            const y2 = plot.y + (index + 1) * height - 1;
+            const color = layer.mark.fill ?? paletteColor(context, index);
+            const front = [
+                { x: centerX - (maxWidth * topRatio) / 2, y: y1 },
+                { x: centerX + (maxWidth * topRatio) / 2, y: y1 },
+                { x: centerX + (maxWidth * bottomRatio) / 2, y: y2 },
+                { x: centerX - (maxWidth * bottomRatio) / 2, y: y2 },
+            ];
+            if (depth > 0) {
+                nodes.push({
+                    type: 'path',
+                    ...nodeBase(`${layer.id}:pyramid-depth:${row.rowIndex}`, { zIndex: layer.zIndex }),
+                    points: [
+                        front[1],
+                        { x: front[1].x + depth, y: front[1].y - depth * 0.45 },
+                        { x: front[2].x + depth, y: front[2].y - depth * 0.45 },
+                        front[2],
+                    ],
+                    closed: true,
+                    fill: mixColor(color, theme.colors.text, 0.18),
+                    lineWidth: 0,
+                });
+            }
+            nodes.push({
+                type: 'path',
+                ...datumBase(context, `${layer.id}:pyramid:${row.rowIndex}`, row.rowIndex, 1),
+                points: front,
+                closed: true,
+                fill: color,
+                stroke: layer.mark.stroke ?? theme.colors.background,
+                lineWidth: layer.mark.lineWidth ?? 1,
+                lineJoin: 'round',
+            });
+            if (Math.min(maxWidth * topRatio, maxWidth * bottomRatio) > 62) {
+                nodes.push(textNode$2(context, `${layer.id}:pyramid-label:${row.rowIndex}`, centerX, (y1 + y2) / 2, row.label, {
+                    fill: readableTextColor(color, '#ffffff', '#0f172a'),
+                    size: Math.max(9, theme.typography.fontSize - 1),
+                }));
+            }
+        });
+        return nodes;
+    };
+    const compileScatter3dMark = (context) => {
+        const { layer, table, xScale, yScale, theme } = context;
+        const zField = layer.mark.fields.z ?? 'z';
+        const extent = table.has(zField) ? table.extent(zField) : null;
+        const nodes = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const xValue = scaleInput(table.value(rowIndex, layer.x.field));
+            const yValue = scaleInput(table.value(rowIndex, layer.y.field));
+            const z = table.has(zField) ? numericDataValue(table.value(rowIndex, zField)) : 0;
+            if (xValue === null || yValue === null || z === null)
+                continue;
+            const ratio = extent === null || extent[1] === extent[0] ? 0.5 : (z - extent[0]) / (extent[1] - extent[0]);
+            const perspective = (ratio - 0.5) * clamp(optionNumber$3(layer.mark.options.perspective, 18), 0, 42);
+            const x = xScale.map(xValue) + perspective;
+            const y = yScale.map(yValue) - perspective * 0.55;
+            const radius = (layer.mark.radius ?? 5) * (0.72 + ratio * 0.9);
+            const color = layer.mark.fill ?? paletteColor(context, rowIndex);
+            nodes.push({
+                type: 'circle',
+                ...nodeBase(`${layer.id}:scatter-shadow:${rowIndex}`, {
+                    zIndex: layer.zIndex,
+                    opacity: 0.16,
+                }),
+                cx: x + 3,
+                cy: y + 4,
+                radius: radius * 1.05,
+                fill: theme.colors.text,
+                lineWidth: 0,
+            });
+            nodes.push({
+                type: 'circle',
+                ...datumBase(context, `${layer.id}:scatter-3d:${rowIndex}`, rowIndex, ratio),
+                cx: x,
+                cy: y,
+                radius,
+                fill: mixColor(color, '#ffffff', (1 - ratio) * 0.18),
+                stroke: layer.mark.stroke ?? theme.colors.background,
+                lineWidth: layer.mark.lineWidth ?? 1.5,
+            });
+        }
+        return nodes;
+    };
+    const compileSolidGaugeMark = (context) => {
+        const { layer, table, plot, theme } = context;
+        const minimum = optionNumber$3(layer.mark.options.min, 0);
+        const maximum = optionNumber$3(layer.mark.options.max, 100);
+        const start = optionNumber$3(layer.mark.options.startAngle, -Math.PI * 0.75);
+        const end = optionNumber$3(layer.mark.options.endAngle, Math.PI * 0.75);
+        const cx = plot.x + plot.width / 2;
+        const cy = plot.y + plot.height * 0.58;
+        const outer = Math.min(plot.width, plot.height) * 0.38;
+        const thickness = clamp(optionNumber$3(layer.mark.options.thickness, outer * 0.18), 6, outer * 0.45);
+        const nodes = [
+            {
+                type: 'path',
+                ...nodeBase(`${layer.id}:solid-track`, { zIndex: layer.zIndex }),
+                points: annularSector(cx, cy, outer - thickness, outer, start, end),
+                closed: true,
+                fill: colorWithOpacity(theme.colors.grid, 0.62),
+                lineWidth: 0,
+            },
+        ];
+        const count = Math.max(1, table.length);
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const value = numericDataValue(table.value(rowIndex, layer.y.field));
+            if (value === null)
+                continue;
+            const ratio = clamp((value - minimum) / Math.max(1e-9, maximum - minimum), 0, 1);
+            const ringOuter = outer - rowIndex * (thickness + 5);
+            const ringInner = Math.max(4, ringOuter - thickness);
+            const color = layer.mark.fill ?? paletteColor(context, rowIndex);
+            nodes.push({
+                type: 'path',
+                ...datumBase(context, `${layer.id}:solid-value:${rowIndex}`, rowIndex, 1),
+                points: annularSector(cx, cy, ringInner, ringOuter, start, start + (end - start) * ratio),
+                closed: true,
+                fill: color,
+                stroke: theme.colors.background,
+                lineWidth: layer.mark.lineWidth ?? 1,
+            });
+            if (rowIndex === count - 1) {
+                nodes.push(textNode$2(context, `${layer.id}:solid-label`, cx, cy + outer * 0.2, `${Math.round(value)}`, {
+                    size: clamp(outer * 0.2, 16, 30),
+                    weight: 700,
+                }));
+            }
+        }
+        return nodes;
+    };
+    function tilePolygon(shape, x, y, width, height) {
+        if (shape === 'diamond') {
+            return [
+                { x, y: y - height / 2 },
+                { x: x + width / 2, y },
+                { x, y: y + height / 2 },
+                { x: x - width / 2, y },
+            ];
+        }
+        return [
+            { x: x - width / 2, y: y - height * 0.25 },
+            { x, y: y - height / 2 },
+            { x: x + width / 2, y: y - height * 0.25 },
+            { x: x + width / 2, y: y + height * 0.25 },
+            { x, y: y + height / 2 },
+            { x: x - width / 2, y: y + height * 0.25 },
+        ];
+    }
+    const compileTilemapMark = (context) => {
+        const { layer, table, xScale, yScale, theme } = context;
+        const valueField = layer.mark.fields.value ?? 'value';
+        const values = table.has(valueField) ? table.extent(valueField) : null;
+        const shape = optionString$2(layer.mark.options.shape, 'hexagon');
+        const width = xScale instanceof BandScale ? xScale.bandwidth * 0.92 : 24;
+        const height = yScale instanceof BandScale ? yScale.bandwidth * 0.92 : 22;
+        const nodes = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const xValue = scaleInput(table.value(rowIndex, layer.x.field));
+            const yValue = scaleInput(table.value(rowIndex, layer.y.field));
+            const value = table.has(valueField) ? numericDataValue(table.value(rowIndex, valueField)) : 0;
+            if (xValue === null || yValue === null || value === null)
+                continue;
+            const x = xScale.map(xValue);
+            const y = yScale.map(yValue);
+            const ratio = values === null || values[1] === values[0]
+                ? 0.5
+                : (value - values[0]) / (values[1] - values[0]);
+            const color = layer.mark.fill ??
+                theme.colors.sequential[Math.round(ratio * (theme.colors.sequential.length - 1))] ??
+                context.color;
+            if (shape === 'circle') {
+                nodes.push({
+                    type: 'circle',
+                    ...datumBase(context, `${layer.id}:tile:${rowIndex}`, rowIndex),
+                    cx: x,
+                    cy: y,
+                    radius: Math.min(width, height) / 2,
+                    fill: color,
+                    stroke: layer.mark.stroke ?? theme.colors.background,
+                    lineWidth: layer.mark.lineWidth ?? 1,
+                });
+            }
+            else if (shape === 'square') {
+                nodes.push({
+                    type: 'rect',
+                    ...datumBase(context, `${layer.id}:tile:${rowIndex}`, rowIndex),
+                    x: x - width / 2,
+                    y: y - height / 2,
+                    width,
+                    height,
+                    fill: color,
+                    stroke: layer.mark.stroke ?? theme.colors.background,
+                    lineWidth: layer.mark.lineWidth ?? 1,
+                    cornerRadius: layer.mark.cornerRadius ?? 2,
+                });
+            }
+            else {
+                nodes.push({
+                    type: 'path',
+                    ...datumBase(context, `${layer.id}:tile:${rowIndex}`, rowIndex),
+                    points: tilePolygon(shape, x, y, width, height),
+                    closed: true,
+                    fill: color,
+                    stroke: layer.mark.stroke ?? theme.colors.background,
+                    lineWidth: layer.mark.lineWidth ?? 1,
+                    lineJoin: 'round',
+                });
+            }
+        }
+        return nodes;
+    };
+    const compileVariablePieMark = (context) => {
+        const { layer, table, plot, theme } = context;
+        const radiusField = layer.mark.fields.radius ?? layer.mark.fields.size ?? 'radius';
+        const rows = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const label = stringValue(table.value(rowIndex, layer.x.field));
+            const value = numericDataValue(table.value(rowIndex, layer.y.field));
+            const radius = table.has(radiusField)
+                ? numericDataValue(table.value(rowIndex, radiusField))
+                : value;
+            if (label !== null && value !== null && radius !== null && value >= 0)
+                rows.push({ rowIndex, label, value, radius: Math.max(0, radius) });
+        }
+        const total = rows.reduce((sum, row) => sum + row.value, 0);
+        if (rows.length === 0 || total <= 0)
+            return [];
+        const cx = plot.x + plot.width / 2;
+        const cy = plot.y + plot.height / 2;
+        const maxRadius = Math.min(plot.width, plot.height) * 0.42;
+        const minRadius = maxRadius * 0.48;
+        const radiusMaximum = Math.max(1, ...rows.map(({ radius }) => radius));
+        let angle = -Math.PI / 2;
+        const nodes = [];
+        rows.forEach((row, index) => {
+            const next = angle + (row.value / total) * TAU;
+            const outer = minRadius + Math.sqrt(row.radius / radiusMaximum) * (maxRadius - minRadius);
+            const color = layer.mark.fill ?? paletteColor(context, index);
+            nodes.push({
+                type: 'path',
+                ...datumBase(context, `${layer.id}:variable-pie:${row.rowIndex}`, row.rowIndex),
+                points: annularSector(cx, cy, optionNumber$3(layer.mark.options.innerRadius, 0), outer, angle, next),
+                closed: true,
+                fill: color,
+                stroke: layer.mark.stroke ?? theme.colors.background,
+                lineWidth: layer.mark.lineWidth ?? 2,
+                lineJoin: 'round',
+            });
+            const mid = (angle + next) / 2;
+            if (next - angle > 0.28) {
+                const labelPoint = pointOnCircle(cx, cy, outer * 0.66, mid);
+                nodes.push(textNode$2(context, `${layer.id}:variable-label:${row.rowIndex}`, labelPoint.x, labelPoint.y, row.label, {
+                    fill: readableTextColor(color, '#ffffff', '#0f172a'),
+                    size: Math.max(9, theme.typography.fontSize - 1),
+                }));
+            }
+            angle = next;
+        });
+        return nodes;
+    };
+    const compileVariwideMark = (context) => {
+        const { layer, table, yScale, plot, theme } = context;
+        const widthField = layer.mark.fields.width ?? 'width';
+        const rows = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const value = numericDataValue(table.value(rowIndex, layer.y.field));
+            const width = table.has(widthField) ? numericDataValue(table.value(rowIndex, widthField)) : 1;
+            const label = stringValue(table.value(rowIndex, layer.x.field));
+            if (value !== null && width !== null && width > 0 && label !== null)
+                rows.push({ rowIndex, value, width, label });
+        }
+        const widthTotal = rows.reduce((sum, row) => sum + row.width, 0);
+        if (rows.length === 0 || widthTotal <= 0)
+            return [];
+        const baseline = yScale.map(0);
+        const nodes = [];
+        let cursor = plot.x;
+        rows.forEach((row, index) => {
+            const width = (row.width / widthTotal) * plot.width;
+            const y = yScale.map(row.value);
+            const color = layer.mark.fill ?? paletteColor(context, index);
+            nodes.push({
+                type: 'rect',
+                ...datumBase(context, `${layer.id}:variwide:${row.rowIndex}`, row.rowIndex),
+                x: cursor + 1,
+                y: Math.min(y, baseline),
+                width: Math.max(1, width - 2),
+                height: Math.max(1, Math.abs(baseline - y)),
+                fill: color,
+                stroke: layer.mark.stroke ?? theme.colors.background,
+                lineWidth: layer.mark.lineWidth ?? 1,
+                cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
+            });
+            if (width >= 36)
+                nodes.push(textNode$2(context, `${layer.id}:variwide-label:${row.rowIndex}`, cursor + width / 2, baseline + 14, row.label, { fill: theme.colors.mutedText, size: 9 }));
+            cursor += width;
+        });
+        return nodes;
+    };
+    const compileVectorMark = (context) => {
+        const { layer, table, xScale, yScale, theme } = context;
+        const directionField = layer.mark.fields.direction ?? 'direction';
+        const magnitudeField = layer.mark.fields.magnitude ?? 'magnitude';
+        const extent = table.has(magnitudeField) ? table.extent(magnitudeField) : null;
+        const nodes = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const xValue = scaleInput(table.value(rowIndex, layer.x.field));
+            const yValue = scaleInput(table.value(rowIndex, layer.y.field));
+            const direction = table.has(directionField)
+                ? numericDataValue(table.value(rowIndex, directionField))
+                : 0;
+            const magnitude = table.has(magnitudeField)
+                ? numericDataValue(table.value(rowIndex, magnitudeField))
+                : 1;
+            if (xValue === null || yValue === null || direction === null || magnitude === null)
+                continue;
+            const start = { x: xScale.map(xValue), y: yScale.map(yValue) };
+            const ratio = extent === null || extent[1] === extent[0]
+                ? 0.6
+                : (magnitude - extent[0]) / (extent[1] - extent[0]);
+            const length = 10 + clamp(ratio, 0, 1) * 26;
+            const angle = (direction * Math.PI) / 180 - Math.PI / 2;
+            const end = pointOnCircle(start.x, start.y, length, angle);
+            const color = layer.mark.stroke ?? context.color;
+            nodes.push({
+                type: 'line',
+                ...datumBase(context, `${layer.id}:vector:${rowIndex}`, rowIndex),
+                x1: start.x,
+                y1: start.y,
+                x2: end.x,
+                y2: end.y,
+                stroke: color,
+                lineWidth: (layer.mark.lineWidth ?? 1.5) + ratio * 2,
+                lineCap: 'round',
+            });
+            nodes.push({
+                type: 'path',
+                ...nodeBase(`${layer.id}:vector-head:${rowIndex}`, { zIndex: layer.zIndex + 1 }),
+                points: [
+                    end,
+                    pointOnCircle(end.x, end.y, 6, angle + Math.PI * 0.78),
+                    pointOnCircle(end.x, end.y, 6, angle - Math.PI * 0.78),
+                ],
+                closed: true,
+                fill: color,
+                stroke: theme.colors.background,
+                lineWidth: 0.6,
+            });
+        }
+        return nodes;
+    };
+    const compileVennMark = (context) => {
+        const { layer, table, plot, theme } = context;
+        const rows = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const label = stringValue(table.value(rowIndex, layer.x.field));
+            const value = numericDataValue(table.value(rowIndex, layer.y.field));
+            if (label !== null && value !== null && value > 0)
+                rows.push({ rowIndex, label, value });
+        }
+        if (rows.length === 0)
+            return [];
+        const maximum = Math.max(...rows.map(({ value }) => value));
+        const cx = plot.x + plot.width / 2;
+        const cy = plot.y + plot.height / 2;
+        const orbit = Math.min(plot.width, plot.height) * 0.13;
+        const maxRadius = Math.min(plot.width, plot.height) * 0.25;
+        const nodes = [];
+        rows.slice(0, 6).forEach((row, index, visibleRows) => {
+            const angle = -Math.PI / 2 + (index * TAU) / Math.max(1, visibleRows.length);
+            const center = pointOnCircle(cx, cy, visibleRows.length === 1 ? 0 : orbit, angle);
+            const radius = Math.max(24, Math.sqrt(row.value / maximum) * maxRadius);
+            const color = layer.mark.fill ?? paletteColor(context, index);
+            nodes.push({
+                type: 'circle',
+                ...datumBase(context, `${layer.id}:venn:${row.rowIndex}`, row.rowIndex, index * 0.01),
+                cx: center.x,
+                cy: center.y,
+                radius,
+                fill: colorWithOpacity(color, 0.34),
+                stroke: layer.mark.stroke ?? color,
+                lineWidth: layer.mark.lineWidth ?? 2,
+            });
+            nodes.push(textNode$2(context, `${layer.id}:venn-label:${row.rowIndex}`, center.x, center.y, row.label, {
+                fill: theme.colors.text,
+                size: Math.max(10, theme.typography.fontSize),
+            }));
+        });
+        return nodes;
+    };
+    const compileWindBarbMark = (context) => {
+        const { layer, table, xScale, yScale, theme } = context;
+        const speedField = layer.mark.fields.speed ?? 'speed';
+        const directionField = layer.mark.fields.direction ?? 'direction';
+        const nodes = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const xValue = scaleInput(table.value(rowIndex, layer.x.field));
+            const yValue = scaleInput(table.value(rowIndex, layer.y.field));
+            const speed = table.has(speedField)
+                ? numericDataValue(table.value(rowIndex, speedField))
+                : null;
+            const direction = table.has(directionField)
+                ? numericDataValue(table.value(rowIndex, directionField))
+                : null;
+            if (xValue === null || yValue === null || speed === null || direction === null)
+                continue;
+            const start = { x: xScale.map(xValue), y: yScale.map(yValue) };
+            const length = clamp(18 + speed * 0.35, 20, 44);
+            const angle = (direction * Math.PI) / 180 - Math.PI / 2;
+            const end = pointOnCircle(start.x, start.y, length, angle);
+            const stroke = layer.mark.stroke ?? context.color;
+            nodes.push({
+                type: 'line',
+                ...datumBase(context, `${layer.id}:wind:${rowIndex}`, rowIndex),
+                x1: start.x,
+                y1: start.y,
+                x2: end.x,
+                y2: end.y,
+                stroke,
+                lineWidth: layer.mark.lineWidth ?? 2,
+                lineCap: 'round',
+            });
+            const featherCount = clamp(Math.round(speed / 10), 1, 6);
+            for (let feather = 0; feather < featherCount; feather += 1) {
+                const ratio = 0.32 + (feather / featherCount) * 0.58;
+                const anchor = {
+                    x: start.x + (end.x - start.x) * ratio,
+                    y: start.y + (end.y - start.y) * ratio,
+                };
+                const tip = pointOnCircle(anchor.x, anchor.y, 8, angle - Math.PI * 0.7);
+                nodes.push({
+                    type: 'line',
+                    ...nodeBase(`${layer.id}:wind-feather:${rowIndex}:${feather}`, {
+                        zIndex: layer.zIndex + 1,
+                    }),
+                    x1: anchor.x,
+                    y1: anchor.y,
+                    x2: tip.x,
+                    y2: tip.y,
+                    stroke,
+                    lineWidth: 1.5,
+                    lineCap: 'round',
+                });
+            }
+            nodes.push({
+                type: 'circle',
+                ...nodeBase(`${layer.id}:wind-origin:${rowIndex}`, { zIndex: layer.zIndex + 2 }),
+                cx: start.x,
+                cy: start.y,
+                radius: 2.5,
+                fill: theme.colors.background,
+                stroke,
+                lineWidth: 1.5,
+            });
+        }
+        return nodes;
+    };
+    const compileWordCloudMark = (context) => {
+        const { layer, table, plot, theme } = context;
+        const rows = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const word = stringValue(table.value(rowIndex, layer.x.field));
+            const weight = numericDataValue(table.value(rowIndex, layer.y.field));
+            if (word !== null && word !== '' && weight !== null && weight > 0)
+                rows.push({ rowIndex, word, weight });
+        }
+        if (rows.length === 0)
+            return [];
+        const minimum = Math.min(...rows.map(({ weight }) => weight));
+        const maximum = Math.max(...rows.map(({ weight }) => weight));
+        const cx = plot.x + plot.width / 2;
+        const cy = plot.y + plot.height / 2;
+        const nodes = [];
+        const placed = [];
+        rows
+            .slice()
+            .sort((left, right) => right.weight - left.weight)
+            .slice(0, Math.min(160, context.performance.maxPointMarks))
+            .forEach((row, index) => {
+            const ratio = maximum === minimum ? 0.5 : (row.weight - minimum) / (maximum - minimum);
+            const size = 10 + ratio * 24;
+            const rotation = index % 5 === 0 ? -18 : index % 7 === 0 ? 18 : 0;
+            const textWidth = Math.max(size, row.word.length * size * 0.56);
+            const textHeight = size * 1.08;
+            const radians = (Math.abs(rotation) * Math.PI) / 180;
+            const width = textWidth * Math.cos(radians) + textHeight * Math.sin(radians);
+            const height = textWidth * Math.sin(radians) + textHeight * Math.cos(radians);
+            let x = cx;
+            let y = cy;
+            let found = false;
+            for (let attempt = 0; attempt < 1600; attempt += 1) {
+                const angle = attempt * 0.42 + index * 1.17;
+                const distance = 3.3 * Math.sqrt(attempt) * (1 + size / 40);
+                const candidateX = cx + Math.cos(angle) * distance;
+                const candidateY = cy + Math.sin(angle) * distance * 0.64;
+                const box = {
+                    left: candidateX - width / 2 - 3,
+                    right: candidateX + width / 2 + 3,
+                    top: candidateY - height / 2 - 2,
+                    bottom: candidateY + height / 2 + 2,
+                };
+                const inside = box.left >= plot.x &&
+                    box.right <= plot.x + plot.width &&
+                    box.top >= plot.y &&
+                    box.bottom <= plot.y + plot.height;
+                const free = placed.every((other) => box.right < other.left ||
+                    box.left > other.right ||
+                    box.bottom < other.top ||
+                    box.top > other.bottom);
+                if (inside && free) {
+                    x = candidateX;
+                    y = candidateY;
+                    placed.push(box);
+                    found = true;
+                    break;
+                }
+            }
+            if (!found)
+                return;
+            const color = layer.mark.fill ?? paletteColor(context, index);
+            const node = textNode$2(context, `${layer.id}:word-cloud:${row.rowIndex}`, x, y, row.word, {
+                fill: color,
+                size,
+                weight: 520 + Math.round(ratio * 220),
+                rotation,
+            });
+            nodes.push({ ...node, ...datumBase(context, node.id, row.rowIndex, ratio) });
+        });
+        return nodes;
+    };
+    function movingAverage(values, period) {
+        return values.map((_, index) => {
+            if (index + 1 < period)
+                return null;
+            const window = values.slice(index + 1 - period, index + 1);
+            if (window.some((value) => value === null))
+                return null;
+            return window.reduce((sum, value) => sum + (value ?? 0), 0) / period;
+        });
+    }
+    function exponentialAverage(values, period) {
+        const multiplier = 2 / (period + 1);
+        let previous = null;
+        return values.map((value) => {
+            if (value === null)
+                return null;
+            previous = previous === null ? value : value * multiplier + previous * (1 - multiplier);
+            return previous;
+        });
+    }
+    function weightedAverage(values, period) {
+        const denominator = (period * (period + 1)) / 2;
+        return values.map((_, index) => {
+            if (index + 1 < period)
+                return null;
+            const window = values.slice(index + 1 - period, index + 1);
+            if (window.some((value) => value === null))
+                return null;
+            return (window.reduce((sum, value, offset) => sum + (value ?? 0) * (offset + 1), 0) /
+                denominator);
+        });
+    }
+    function relativeStrength(values, period) {
+        return values.map((_, index) => {
+            if (index < period)
+                return null;
+            let gains = 0;
+            let losses = 0;
+            for (let offset = index - period + 1; offset <= index; offset += 1) {
+                const current = values[offset];
+                const previous = values[offset - 1];
+                if (current === null || previous === null || current === undefined || previous === undefined)
+                    return null;
+                const change = current - previous;
+                if (change >= 0)
+                    gains += change;
+                else
+                    losses -= change;
+            }
+            if (losses === 0)
+                return 100;
+            const ratio = gains / losses;
+            return 100 - 100 / (1 + ratio);
+        });
+    }
+    function calculatedIndicator(kind, values, period) {
+        if (kind === 'sma')
+            return movingAverage(values, period);
+        if (kind === 'ema')
+            return exponentialAverage(values, period);
+        if (kind === 'wma')
+            return weightedAverage(values, period);
+        if (kind === 'dema') {
+            const once = exponentialAverage(values, period);
+            const twice = exponentialAverage(once, period);
+            return once.map((value, index) => value === null || twice[index] === null ? null : 2 * value - (twice[index] ?? 0));
+        }
+        if (kind === 'tema') {
+            const once = exponentialAverage(values, period);
+            const twice = exponentialAverage(once, period);
+            const three = exponentialAverage(twice, period);
+            return once.map((value, index) => value === null || twice[index] === null || three[index] === null
+                ? null
+                : 3 * value - 3 * (twice[index] ?? 0) + (three[index] ?? 0));
+        }
+        if (kind === 'momentum') {
+            return values.map((value, index) => value === null || index < period || values[index - period] === null
+                ? null
+                : value - (values[index - period] ?? 0));
+        }
+        if (kind === 'roc') {
+            return values.map((value, index) => {
+                const previous = index < period ? null : values[index - period];
+                return value === null || previous === null || previous === undefined || previous === 0
+                    ? null
+                    : ((value - previous) / previous) * 100;
+            });
+        }
+        if (kind === 'rsi')
+            return relativeStrength(values, period);
+        return [...values];
+    }
+    function indicatorKind(context) {
+        return optionString$2(context.layer.mark.options.kind, 'line');
+    }
+    function indicatorFields(context) {
+        const fields = context.layer.mark.options.fields;
+        if (Array.isArray(fields)) {
+            const valid = fields.filter((value) => typeof value === 'string' && value !== '');
+            if (valid.length > 0)
+                return valid;
+        }
+        const configured = [
+            context.layer.mark.fields.middle,
+            context.layer.mark.fields.signal,
+            context.layer.mark.fields.secondary,
+        ].filter((value) => value !== undefined && context.table.has(value));
+        return configured.length > 0 ? configured : [context.layer.y.field];
+    }
+    const compileIndicatorMark = (context) => {
+        const { layer, table, xScale, yScale, theme, plot } = context;
+        const kind = indicatorKind(context);
+        const lowerField = layer.mark.fields.lower ?? 'lower';
+        const upperField = layer.mark.fields.upper ?? 'upper';
+        const fields = indicatorFields(context);
+        const period = clamp(Math.floor(optionNumber$3(layer.mark.options.period, 14)), 2, 200);
+        const sourceValues = Array.from({ length: table.length }, (_, rowIndex) => numericDataValue(table.value(rowIndex, layer.y.field)));
+        const calculated = layer.mark.options.calculate === true
+            ? calculatedIndicator(kind, sourceValues, period)
+            : sourceValues;
+        const nodes = [];
+        if (table.has(lowerField) && table.has(upperField)) {
+            const upper = [];
+            const lower = [];
+            for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+                const xValue = scaleInput(table.value(rowIndex, layer.x.field));
+                const low = numericDataValue(table.value(rowIndex, lowerField));
+                const high = numericDataValue(table.value(rowIndex, upperField));
+                if (xValue === null || low === null || high === null)
+                    continue;
+                const x = xScale.map(xValue);
+                upper.push({ x, y: yScale.map(high) });
+                lower.push({ x, y: yScale.map(low) });
+            }
+            if (upper.length > 1 && lower.length > 1) {
+                nodes.push({
+                    type: 'path',
+                    ...nodeBase(`${layer.id}:indicator-band`, { zIndex: layer.zIndex, opacity: 0.24 }),
+                    points: [...upper, ...lower.reverse()],
+                    closed: true,
+                    fill: layer.mark.fill ?? colorWithOpacity(context.color, 0.28),
+                    stroke: layer.mark.stroke ?? context.color,
+                    lineWidth: 1,
+                    lineJoin: 'round',
+                });
+            }
+        }
+        const columnKinds = new Set(['ao', 'macd', 'volume', 'histogram']);
+        fields.forEach((field, fieldIndex) => {
+            const points = [];
+            for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+                const xValue = scaleInput(table.value(rowIndex, layer.x.field));
+                const value = layer.mark.options.calculate === true && field === layer.y.field
+                    ? calculated[rowIndex]
+                    : table.has(field)
+                        ? numericDataValue(table.value(rowIndex, field))
+                        : null;
+                if (xValue === null || value === null || value === undefined)
+                    continue;
+                const point = { x: xScale.map(xValue), y: yScale.map(value) };
+                if ([point.x, point.y].every(Number.isFinite))
+                    points.push({ rowIndex, point, value });
+            }
+            const color = fieldIndex === 0
+                ? (layer.mark.stroke ?? context.color)
+                : paletteColor(context, fieldIndex + 1);
+            if (columnKinds.has(kind)) {
+                const baseline = yScale.map(0);
+                const width = Math.max(2, plot.width / Math.max(8, table.length * 1.6));
+                points.forEach(({ rowIndex, point, value }) => {
+                    nodes.push({
+                        type: 'rect',
+                        ...datumBase(context, `${layer.id}:indicator-column:${fieldIndex}:${rowIndex}`, rowIndex, fieldIndex),
+                        x: point.x - width / 2,
+                        y: Math.min(point.y, baseline),
+                        width,
+                        height: Math.max(1, Math.abs(baseline - point.y)),
+                        fill: value >= 0 ? color : (theme.colors.palette[3] ?? '#ef4444'),
+                        lineWidth: 0,
+                        cornerRadius: 1,
+                    });
+                });
+            }
+            else if (points.length > 0) {
+                nodes.push({
+                    type: 'path',
+                    ...nodeBase(`${layer.id}:indicator-line:${fieldIndex}`, {
+                        zIndex: layer.zIndex + fieldIndex + 1,
+                    }),
+                    points: kind === 'psar'
+                        ? points.map(({ point }) => point)
+                        : smoothPoints(points.map(({ point }) => point), 4),
+                    closed: false,
+                    stroke: color,
+                    lineWidth: layer.mark.lineWidth ?? (fieldIndex === 0 ? 2.2 : 1.5),
+                    ...(fieldIndex > 0 ? { dash: [5, 3] } : {}),
+                    lineCap: 'round',
+                    lineJoin: 'round',
+                });
+                points.forEach(({ rowIndex, point }, index) => {
+                    if (kind !== 'psar' && index % Math.max(1, Math.ceil(points.length / 24)) !== 0)
+                        return;
+                    nodes.push({
+                        type: 'circle',
+                        ...datumBase(context, `${layer.id}:indicator-point:${fieldIndex}:${rowIndex}`, rowIndex, fieldIndex + 2),
+                        cx: point.x,
+                        cy: point.y,
+                        radius: kind === 'psar' ? 3.2 : 2.2,
+                        fill: color,
+                        stroke: theme.colors.background,
+                        lineWidth: 0.8,
+                    });
+                });
+            }
+        });
+        return nodes;
+    };
+    const compileFlagsMark = (context) => {
+        const { layer, table, xScale, yScale, theme } = context;
+        const titleField = layer.mark.fields.title ?? 'title';
+        const nodes = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const xValue = scaleInput(table.value(rowIndex, layer.x.field));
+            const yValue = scaleInput(table.value(rowIndex, layer.y.field));
+            if (xValue === null || yValue === null)
+                continue;
+            const x = xScale.map(xValue);
+            const y = yScale.map(yValue);
+            const label = table.has(titleField)
+                ? (stringValue(table.value(rowIndex, titleField)) ?? '•')
+                : '•';
+            const color = layer.mark.fill ?? context.color;
+            nodes.push({
+                type: 'line',
+                ...nodeBase(`${layer.id}:flag-pole:${rowIndex}`, { zIndex: layer.zIndex }),
+                x1: x,
+                y1: y,
+                x2: x,
+                y2: y - 24,
+                stroke: layer.mark.stroke ?? color,
+                lineWidth: 1.5,
+                lineCap: 'round',
+            });
+            nodes.push({
+                type: 'path',
+                ...datumBase(context, `${layer.id}:flag:${rowIndex}`, rowIndex, 1),
+                points: [
+                    { x, y: y - 27 },
+                    { x: x + 30, y: y - 27 },
+                    { x: x + 24, y: y - 17 },
+                    { x, y: y - 17 },
+                ],
+                closed: true,
+                fill: color,
+                stroke: theme.colors.background,
+                lineWidth: 1,
+                lineJoin: 'round',
+            });
+            nodes.push(textNode$2(context, `${layer.id}:flag-label:${rowIndex}`, x + 14, y - 22, label.slice(0, 4), {
+                fill: readableTextColor(color, '#ffffff', '#0f172a'),
+                size: 9,
+            }));
+        }
+        return nodes;
+    };
+    function financialRows(context) {
+        const { layer, table, xScale } = context;
+        const openField = layer.mark.fields.open ?? 'open';
+        const highField = layer.mark.fields.high ?? 'high';
+        const lowField = layer.mark.fields.low ?? 'low';
+        const closeField = layer.mark.fields.close ?? layer.y.field;
+        const rows = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const xValue = scaleInput(table.value(rowIndex, layer.x.field));
+            const open = table.has(openField) ? numericDataValue(table.value(rowIndex, openField)) : null;
+            const high = table.has(highField) ? numericDataValue(table.value(rowIndex, highField)) : null;
+            const low = table.has(lowField) ? numericDataValue(table.value(rowIndex, lowField)) : null;
+            const close = table.has(closeField)
+                ? numericDataValue(table.value(rowIndex, closeField))
+                : null;
+            if (xValue === null || high === null || low === null || close === null)
+                continue;
+            rows.push({ rowIndex, x: xScale.map(xValue), open: open ?? close, high, low, close });
+        }
+        return rows;
+    }
+    function heikinRows(rows) {
+        let previousOpen = null;
+        let previousClose = null;
+        return rows.map((row) => {
+            const close = (row.open + row.high + row.low + row.close) / 4;
+            const open = previousOpen === null || previousClose === null
+                ? (row.open + row.close) / 2
+                : (previousOpen + previousClose) / 2;
+            const transformed = {
+                ...row,
+                open,
+                close,
+                high: Math.max(row.high, open, close),
+                low: Math.min(row.low, open, close),
+            };
+            previousOpen = open;
+            previousClose = close;
+            return transformed;
+        });
+    }
+    const compileFinancialMark = (context) => {
+        const { layer, yScale, xScale, theme, plot } = context;
+        const kind = optionString$2(layer.mark.options.kind, 'ohlc');
+        const rows = kind === 'heikin-ashi' ? heikinRows(financialRows(context)) : financialRows(context);
+        const width = Math.max(5, xScale instanceof BandScale
+            ? xScale.bandwidth * 0.56
+            : plot.width / Math.max(6, rows.length * 1.8));
+        const nodes = [];
+        for (const row of rows) {
+            const high = yScale.map(row.high);
+            const low = yScale.map(row.low);
+            const open = yScale.map(row.open);
+            const close = yScale.map(row.close);
+            const rising = row.close >= row.open;
+            const color = rising
+                ? (theme.colors.palette[1] ?? '#0f9f8a')
+                : (theme.colors.palette[3] ?? '#ef4444');
+            nodes.push({
+                type: 'line',
+                ...nodeBase(`${layer.id}:financial-wick:${row.rowIndex}`, { zIndex: layer.zIndex }),
+                x1: row.x,
+                y1: high,
+                x2: row.x,
+                y2: low,
+                stroke: layer.mark.stroke ?? color,
+                lineWidth: layer.mark.lineWidth ?? 1.5,
+                lineCap: 'round',
+            });
+            if (kind === 'ohlc' || kind === 'hlc') {
+                if (kind === 'ohlc')
+                    nodes.push({
+                        type: 'line',
+                        ...nodeBase(`${layer.id}:financial-open:${row.rowIndex}`, { zIndex: layer.zIndex + 1 }),
+                        x1: row.x - width / 2,
+                        y1: open,
+                        x2: row.x,
+                        y2: open,
+                        stroke: color,
+                        lineWidth: 1.8,
+                    });
+                nodes.push({
+                    type: 'line',
+                    ...datumBase(context, `${layer.id}:financial-close:${row.rowIndex}`, row.rowIndex, 1),
+                    x1: row.x,
+                    y1: close,
+                    x2: row.x + width / 2,
+                    y2: close,
+                    stroke: color,
+                    lineWidth: 1.8,
+                });
+                continue;
+            }
+            const hollow = kind === 'hollow-candlestick' && rising;
+            nodes.push({
+                type: 'rect',
+                ...datumBase(context, `${layer.id}:financial-body:${row.rowIndex}`, row.rowIndex, 1),
+                x: row.x - width / 2,
+                y: Math.min(open, close),
+                width,
+                height: Math.max(1.5, Math.abs(open - close)),
+                fill: hollow ? theme.colors.background : (layer.mark.fill ?? color),
+                stroke: layer.mark.stroke ?? color,
+                lineWidth: layer.mark.lineWidth ?? 1.5,
+                cornerRadius: layer.mark.cornerRadius ?? 1.5,
+            });
+        }
+        return nodes;
+    };
+    const compilePointFigureMark = (context) => {
+        const { layer, table, plot, theme } = context;
+        const values = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const value = numericDataValue(table.value(rowIndex, layer.y.field));
+            if (value !== null)
+                values.push({ rowIndex, value });
+        }
+        if (values.length < 2)
+            return [];
+        const minimum = Math.min(...values.map(({ value }) => value));
+        const maximum = Math.max(...values.map(({ value }) => value));
+        const box = Math.max(1e-9, optionNumber$3(layer.mark.options.boxSize, (maximum - minimum) / 10 || 1));
+        const cellWidth = plot.width / values.length;
+        const cellHeight = plot.height / Math.max(4, Math.ceil((maximum - minimum) / box) + 1);
+        const nodes = [];
+        values.forEach((row, index) => {
+            const previous = values[Math.max(0, index - 1)]?.value ?? row.value;
+            const rising = row.value >= previous;
+            const count = Math.max(1, Math.round(Math.abs(row.value - previous) / box));
+            const color = rising
+                ? (theme.colors.palette[1] ?? '#0f9f8a')
+                : (theme.colors.palette[3] ?? '#ef4444');
+            for (let level = 0; level < count; level += 1) {
+                const x = plot.x + cellWidth * (index + 0.5);
+                const baseLevel = Math.round((Math.min(row.value, previous) - minimum) / box);
+                const y = plot.y + plot.height - cellHeight * (baseLevel + level + 0.5);
+                nodes.push({
+                    ...textNode$2(context, `${layer.id}:point-figure:${row.rowIndex}:${level}`, x, y, rising ? '×' : '○', {
+                        fill: layer.mark.stroke ?? color,
+                        size: clamp(Math.min(cellWidth, cellHeight) * 0.82, 9, 22),
+                        weight: 700,
+                    }),
+                    ...datumBase(context, `${layer.id}:point-figure:${row.rowIndex}:${level}`, row.rowIndex),
+                });
+            }
+        });
+        return nodes;
+    };
+    const compileRenkoMark = (context) => {
+        const { layer, table, plot, theme } = context;
+        const values = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const value = numericDataValue(table.value(rowIndex, layer.y.field));
+            if (value !== null)
+                values.push({ rowIndex, value });
+        }
+        if (values.length < 2)
+            return [];
+        const minimum = Math.min(...values.map(({ value }) => value));
+        const maximum = Math.max(...values.map(({ value }) => value));
+        const brickSize = Math.max(1e-9, optionNumber$3(layer.mark.options.brickSize, (maximum - minimum) / 12 || 1));
+        const bricks = [];
+        let level = values[0].value;
+        for (const row of values.slice(1)) {
+            while (Math.abs(row.value - level) >= brickSize) {
+                const direction = Math.sign(row.value - level);
+                const next = level + direction * brickSize;
+                bricks.push({ rowIndex: row.rowIndex, start: level, end: next });
+                level = next;
+            }
+        }
+        if (bricks.length === 0)
+            return [];
+        const low = Math.min(...bricks.flatMap((brick) => [brick.start, brick.end]));
+        const high = Math.max(...bricks.flatMap((brick) => [brick.start, brick.end]));
+        const width = plot.width / Math.max(1, bricks.length);
+        const mapY = (value) => plot.y + plot.height - ((value - low) / Math.max(1e-9, high - low)) * plot.height;
+        return bricks.map((brick, index) => {
+            const rising = brick.end >= brick.start;
+            const color = rising
+                ? (theme.colors.palette[1] ?? '#0f9f8a')
+                : (theme.colors.palette[3] ?? '#ef4444');
+            const start = mapY(brick.start);
+            const end = mapY(brick.end);
+            return {
+                type: 'rect',
+                ...datumBase(context, `${layer.id}:renko:${index}`, brick.rowIndex),
+                x: plot.x + index * width + 1,
+                y: Math.min(start, end),
+                width: Math.max(2, width - 2),
+                height: Math.max(2, Math.abs(start - end)),
+                fill: layer.mark.fill ?? colorWithOpacity(color, 0.76),
+                stroke: layer.mark.stroke ?? color,
+                lineWidth: layer.mark.lineWidth ?? 1.4,
+                cornerRadius: layer.mark.cornerRadius ?? 1,
+            };
+        });
+    };
+    const compileVolumeProfileMark = (context) => {
+        const { layer, table, plot, theme } = context;
+        const priceField = layer.mark.fields.price ?? layer.y.field;
+        const volumeField = layer.mark.fields.volume ?? 'volume';
+        const bins = clamp(Math.floor(optionNumber$3(layer.mark.options.bins, 12)), 4, 50);
+        const priceExtent = table.has(priceField) ? table.extent(priceField) : null;
+        if (priceExtent === null || !table.has(volumeField))
+            return [];
+        const totals = Array.from({ length: bins }, () => 0);
+        const rowIndexes = Array.from({ length: bins }, () => -1);
+        const span = priceExtent[1] - priceExtent[0] || 1;
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const price = numericDataValue(table.value(rowIndex, priceField));
+            const volume = numericDataValue(table.value(rowIndex, volumeField));
+            if (price === null || volume === null)
+                continue;
+            const bin = clamp(Math.floor(((price - priceExtent[0]) / span) * bins), 0, bins - 1);
+            totals[bin] = (totals[bin] ?? 0) + Math.max(0, volume);
+            rowIndexes[bin] = rowIndex;
+        }
+        const maximum = Math.max(1, ...totals);
+        const height = plot.height / bins;
+        const nodes = [];
+        totals.forEach((volume, index) => {
+            const width = (volume / maximum) * plot.width * 0.48;
+            const rowIndex = rowIndexes[index] ?? -1;
+            const base = rowIndex >= 0
+                ? datumBase(context, `${layer.id}:volume-profile:${index}`, rowIndex)
+                : nodeBase(`${layer.id}:volume-profile:${index}`, { zIndex: layer.zIndex });
+            nodes.push({
+                type: 'rect',
+                ...base,
+                x: plot.x + plot.width - width,
+                y: plot.y + plot.height - (index + 1) * height + 1,
+                width,
+                height: Math.max(1, height - 2),
+                fill: layer.mark.fill ?? colorWithOpacity(context.color, 0.68),
+                stroke: layer.mark.stroke ?? theme.colors.background,
+                lineWidth: 0.8,
+                cornerRadius: 2,
+            });
+        });
+        return nodes;
+    };
+    function projectGeo(plot, longitude, latitude) {
+        return {
+            x: plot.x + ((longitude + 180) / 360) * plot.width,
+            y: plot.y + ((90 - latitude) / 180) * plot.height,
+        };
+    }
+    const continentShapes = [
+        [
+            [-168, 70],
+            [-118, 72],
+            [-82, 48],
+            [-98, 17],
+            [-130, 28],
+            [-168, 55],
+        ],
+        [
+            [-82, 12],
+            [-45, 7],
+            [-36, -22],
+            [-60, -55],
+            [-76, -18],
+        ],
+        [
+            [-12, 36],
+            [32, 37],
+            [50, 11],
+            [26, -35],
+            [-5, -28],
+            [-18, 8],
+        ],
+        [
+            [-10, 72],
+            [58, 75],
+            [145, 55],
+            [160, 8],
+            [88, 5],
+            [42, 28],
+            [12, 36],
+        ],
+        [
+            [112, -10],
+            [154, -12],
+            [148, -44],
+            [116, -37],
+        ],
+    ];
+    function geoLandNodes(context, zIndex) {
+        const { layer, plot, theme } = context;
+        const land = mixColor(theme.colors.background, theme.colors.palette[1] ?? theme.colors.mutedText, theme.mode === 'dark' ? 0.18 : 0.11);
+        return continentShapes.map((shape, index) => ({
+            type: 'path',
+            ...nodeBase(`${layer.id}:geo-land:${index}`, { zIndex }),
+            points: shape.map(([longitude, latitude]) => projectGeo(plot, longitude, latitude)),
+            closed: true,
+            fill: land,
+            stroke: colorWithOpacity(theme.colors.axis, 0.42),
+            lineWidth: 0.8,
+            lineJoin: 'round',
+        }));
+    }
+    function geoBackdrop(context) {
+        const { layer, plot, theme } = context;
+        const nodes = [
+            {
+                type: 'rect',
+                ...nodeBase(`${layer.id}:geo-background`, { zIndex: layer.zIndex - 3 }),
+                x: plot.x,
+                y: plot.y,
+                width: plot.width,
+                height: plot.height,
+                fill: mixColor(theme.colors.background, theme.colors.sequential[0] ?? theme.colors.grid, 0.18),
+                stroke: theme.colors.grid,
+                lineWidth: 1,
+                cornerRadius: 8,
+            },
+            ...geoLandNodes(context, layer.zIndex - 2.8),
+        ];
+        for (let longitude = -120; longitude <= 120; longitude += 60) {
+            const x = projectGeo(plot, longitude, 0).x;
+            nodes.push({
+                type: 'line',
+                ...nodeBase(`${layer.id}:geo-lon:${longitude}`, { zIndex: layer.zIndex - 2, opacity: 0.45 }),
+                x1: x,
+                y1: plot.y,
+                x2: x,
+                y2: plot.y + plot.height,
+                stroke: theme.colors.grid,
+                lineWidth: 0.8,
+                dash: [3, 4],
+            });
+        }
+        for (let latitude = -60; latitude <= 60; latitude += 30) {
+            const y = projectGeo(plot, 0, latitude).y;
+            nodes.push({
+                type: 'line',
+                ...nodeBase(`${layer.id}:geo-lat:${latitude}`, { zIndex: layer.zIndex - 2, opacity: 0.45 }),
+                x1: plot.x,
+                y1: y,
+                x2: plot.x + plot.width,
+                y2: y,
+                stroke: theme.colors.grid,
+                lineWidth: 0.8,
+                dash: [3, 4],
+            });
+        }
+        return nodes;
+    }
+    const compileGeoLineMark = (context) => {
+        const { layer, table, plot, theme } = context;
+        const longitude2Field = layer.mark.fields.longitude2 ?? layer.mark.fields.x2 ?? 'longitude2';
+        const latitude2Field = layer.mark.fields.latitude2 ?? layer.mark.fields.y2 ?? 'latitude2';
+        const valueField = layer.mark.fields.value;
+        const valueExtent = valueField !== undefined && table.has(valueField) ? table.extent(valueField) : null;
+        const flow = layer.mark.options.flow === true;
+        const nodes = geoBackdrop(context);
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const longitude = numericDataValue(table.value(rowIndex, layer.x.field));
+            const latitude = numericDataValue(table.value(rowIndex, layer.y.field));
+            const longitude2 = table.has(longitude2Field)
+                ? numericDataValue(table.value(rowIndex, longitude2Field))
+                : null;
+            const latitude2 = table.has(latitude2Field)
+                ? numericDataValue(table.value(rowIndex, latitude2Field))
+                : null;
+            if (longitude === null || latitude === null || longitude2 === null || latitude2 === null)
+                continue;
+            const start = projectGeo(plot, longitude, latitude);
+            const end = projectGeo(plot, longitude2, latitude2);
+            const control = {
+                x: (start.x + end.x) / 2,
+                y: Math.min(start.y, end.y) - Math.abs(end.x - start.x) * 0.16,
+            };
+            const value = valueField !== undefined && table.has(valueField)
+                ? (numericDataValue(table.value(rowIndex, valueField)) ?? 1)
+                : 1;
+            const ratio = valueExtent === null || valueExtent[1] === valueExtent[0]
+                ? 0.5
+                : (value - valueExtent[0]) / (valueExtent[1] - valueExtent[0]);
+            const points = quadraticPoints(start, control, end, 28);
+            const color = layer.mark.stroke ?? paletteColor(context, rowIndex);
+            nodes.push({
+                type: 'path',
+                ...datumBase(context, `${layer.id}:geo-line:${rowIndex}`, rowIndex),
+                points,
+                closed: false,
+                stroke: color,
+                lineWidth: (layer.mark.lineWidth ?? 1.8) + ratio * 3,
+                lineCap: 'round',
+                lineJoin: 'round',
+            });
+            if (flow) {
+                const previous = points.at(-2) ?? start;
+                const angle = Math.atan2(end.y - previous.y, end.x - previous.x);
+                nodes.push({
+                    type: 'path',
+                    ...nodeBase(`${layer.id}:geo-arrow:${rowIndex}`, { zIndex: layer.zIndex + 1 }),
+                    points: [
+                        end,
+                        pointOnCircle(end.x, end.y, 7, angle + Math.PI * 0.82),
+                        pointOnCircle(end.x, end.y, 7, angle - Math.PI * 0.82),
+                    ],
+                    closed: true,
+                    fill: color,
+                    stroke: theme.colors.background,
+                    lineWidth: 0.5,
+                });
+            }
+        }
+        return nodes;
+    };
+    const compileGeoHeatmapMark = (context) => {
+        const { layer, table, plot, theme } = context;
+        const valueField = layer.mark.fields.value ?? 'value';
+        const extent = table.has(valueField) ? table.extent(valueField) : null;
+        const nodes = geoBackdrop(context);
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const longitude = numericDataValue(table.value(rowIndex, layer.x.field));
+            const latitude = numericDataValue(table.value(rowIndex, layer.y.field));
+            const value = table.has(valueField)
+                ? numericDataValue(table.value(rowIndex, valueField))
+                : null;
+            if (longitude === null || latitude === null || value === null)
+                continue;
+            const point = projectGeo(plot, longitude, latitude);
+            const ratio = extent === null || extent[1] === extent[0]
+                ? 0.5
+                : (value - extent[0]) / (extent[1] - extent[0]);
+            const color = layer.mark.fill ??
+                theme.colors.sequential[Math.round(ratio * (theme.colors.sequential.length - 1))] ??
+                context.color;
+            nodes.push({
+                type: 'circle',
+                ...nodeBase(`${layer.id}:geo-heat-halo:${rowIndex}`, {
+                    zIndex: layer.zIndex - 0.5,
+                    opacity: 0.18,
+                }),
+                cx: point.x,
+                cy: point.y,
+                radius: 12 + ratio * 18,
+                fill: color,
+                lineWidth: 0,
+            });
+            nodes.push({
+                type: 'circle',
+                ...datumBase(context, `${layer.id}:geo-heat:${rowIndex}`, rowIndex),
+                cx: point.x,
+                cy: point.y,
+                radius: 5 + ratio * 9,
+                fill: color,
+                stroke: theme.colors.background,
+                lineWidth: 1.2,
+            });
+        }
+        return nodes;
+    };
+    const compileTiledMapMark = (context) => {
+        const { layer, table, plot, theme } = context;
+        const nodes = [];
+        const columns = clamp(Math.floor(optionNumber$3(layer.mark.options.columns, 8)), 2, 24);
+        const rows = clamp(Math.floor(optionNumber$3(layer.mark.options.rows, 5)), 2, 16);
+        const width = plot.width / columns;
+        const height = plot.height / rows;
+        for (let row = 0; row < rows; row += 1) {
+            for (let column = 0; column < columns; column += 1) {
+                const shade = (row + column) % 2 === 0 ? 0.12 : 0.2;
+                nodes.push({
+                    type: 'rect',
+                    ...nodeBase(`${layer.id}:map-tile:${row}:${column}`, { zIndex: layer.zIndex - 3 }),
+                    x: plot.x + column * width,
+                    y: plot.y + row * height,
+                    width,
+                    height,
+                    fill: mixColor(theme.colors.background, theme.colors.sequential[0] ?? theme.colors.grid, shade),
+                    stroke: colorWithOpacity(theme.colors.grid, 0.55),
+                    lineWidth: 0.6,
+                    cornerRadius: 0,
+                });
+            }
+        }
+        nodes.push(...geoLandNodes(context, layer.zIndex - 2));
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const longitude = numericDataValue(table.value(rowIndex, layer.x.field));
+            const latitude = numericDataValue(table.value(rowIndex, layer.y.field));
+            if (longitude === null || latitude === null)
+                continue;
+            const point = projectGeo(plot, longitude, latitude);
+            const color = layer.mark.fill ?? paletteColor(context, rowIndex);
+            nodes.push({
+                type: 'circle',
+                ...datumBase(context, `${layer.id}:tiled-point:${rowIndex}`, rowIndex),
+                cx: point.x,
+                cy: point.y,
+                radius: layer.mark.radius ?? 6,
+                fill: color,
+                stroke: theme.colors.background,
+                lineWidth: 2,
+            });
+        }
+        return nodes;
+    };
+    const compileGeoFlowMark = (context) => compileGeoLineMark({
+        ...context,
+        layer: {
+            ...context.layer,
+            mark: {
+                ...context.layer.mark,
+                options: { ...context.layer.mark.options, flow: true },
+            },
+        },
+    });
 
     class EventEmitter {
         #listeners = new Map();
@@ -5492,6 +7940,38 @@ var Graflume = (function (exports) {
         ['theme-river', compileThemeRiverMark],
         ['sunburst', compileSunburstMark],
         ['custom', compileCustomMark],
+        ['arc-diagram', compileArcDiagramMark],
+        ['range', compileRangeMark],
+        ['smooth', compileSmoothMark],
+        ['distribution', compileDistributionMark],
+        ['bullet', compileBulletMark],
+        ['contour', compileContourMark],
+        ['cylinder', compileCylinderMark],
+        ['item', compileItemMark],
+        ['lollipop', compileLollipopMark],
+        ['packed-bubble', compilePackedBubbleMark],
+        ['pareto', compileParetoMark],
+        ['polygon', compilePolygonMark],
+        ['pyramid', compilePyramidMark],
+        ['scatter-3d', compileScatter3dMark],
+        ['solid-gauge', compileSolidGaugeMark],
+        ['tilemap', compileTilemapMark],
+        ['variable-pie', compileVariablePieMark],
+        ['variwide', compileVariwideMark],
+        ['vector', compileVectorMark],
+        ['venn', compileVennMark],
+        ['wind-barb', compileWindBarbMark],
+        ['word-cloud', compileWordCloudMark],
+        ['indicator', compileIndicatorMark],
+        ['flags', compileFlagsMark],
+        ['financial', compileFinancialMark],
+        ['point-figure', compilePointFigureMark],
+        ['renko', compileRenkoMark],
+        ['volume-profile', compileVolumeProfileMark],
+        ['geo-flow', compileGeoFlowMark],
+        ['geo-heatmap', compileGeoHeatmapMark],
+        ['geo-line', compileGeoLineMark],
+        ['tiled-map', compileTiledMapMark],
     ];
     function installAdditionalMarks(registry) {
         for (const [type, compiler] of additionalMarkCompilers)
@@ -5679,84 +8159,367 @@ var Graflume = (function (exports) {
     function custom(target, data, options) {
         return additional('custom', target, data, options);
     }
-    const fullCatalog = [...chartTypeCatalog, ...additionalChartTypeCatalog];
+    function mergeDefaults(defaults, options) {
+        return {
+            ...options,
+            mark: {
+                ...defaults,
+                ...options.mark,
+                fields: { ...defaults.fields, ...options.mark?.fields },
+                options: { ...defaults.options, ...options.mark?.options },
+            },
+        };
+    }
+    function makeSeriesQuick(type, defaults = {}) {
+        return (target, data, options) => additional(type, target, data, mergeDefaults(defaults, options));
+    }
+    function makeIndicatorQuick(kind, defaults = {}) {
+        return makeSeriesQuick('indicator', {
+            ...defaults,
+            options: { kind, ...defaults.options },
+        });
+    }
+    const arcDiagram = makeSeriesQuick('arc-diagram', {
+        fields: { target: 'target', value: 'value' },
+    });
+    const areaRange = makeSeriesQuick('range', {
+        fields: { low: 'low', high: 'high' },
+        options: { mode: 'area' },
+    });
+    const areaSpline = makeSeriesQuick('smooth', { options: { area: true } });
+    const areaSplineRange = makeSeriesQuick('range', {
+        fields: { low: 'low', high: 'high' },
+        options: { mode: 'area', smooth: true },
+    });
+    const bellCurve = makeSeriesQuick('distribution');
+    const bullet = makeSeriesQuick('bullet', { fields: { target: 'target' } });
+    const columnPyramid = makeSeriesQuick('pyramid', { options: { variant: 'column' } });
+    const columnRange = makeSeriesQuick('range', {
+        fields: { low: 'low', high: 'high' },
+        options: { mode: 'column' },
+    });
+    const contour = makeSeriesQuick('contour', { fields: { value: 'value' } });
+    const cylinder = makeSeriesQuick('cylinder');
+    const dependencyWheel = chord;
+    const dumbbell = makeSeriesQuick('range', {
+        fields: { low: 'low', high: 'high' },
+        options: { mode: 'dumbbell' },
+    });
+    const errorBar = intervals;
+    const funnel3d = makeSeriesQuick('pyramid', { options: { variant: 'funnel-3d' } });
+    const itemChart = makeSeriesQuick('item');
+    const lollipop = makeSeriesQuick('lollipop');
+    const networkGraph = graph;
+    const organizationNetwork = org;
+    const packedBubble = makeSeriesQuick('packed-bubble');
+    const pareto = makeSeriesQuick('pareto');
+    const pictorialColumn = pictorialBar;
+    const polygon = makeSeriesQuick('polygon');
+    const pyramid = makeSeriesQuick('pyramid', { options: { variant: 'pyramid' } });
+    const pyramid3d = makeSeriesQuick('pyramid', { options: { variant: 'pyramid-3d' } });
+    const scatter3d = makeSeriesQuick('scatter-3d', { fields: { z: 'z' } });
+    const solidGauge = makeSeriesQuick('solid-gauge');
+    const spline = makeSeriesQuick('smooth');
+    const streamgraph = themeRiver;
+    const tileMap = makeSeriesQuick('tilemap', { fields: { value: 'value' } });
+    const treeGraph = tree;
+    const variablePie = makeSeriesQuick('variable-pie', { fields: { radius: 'radius' } });
+    const variableWidth = makeSeriesQuick('variwide', { fields: { width: 'width' } });
+    const vector = makeSeriesQuick('vector', {
+        fields: { direction: 'direction', magnitude: 'magnitude' },
+    });
+    const venn = makeSeriesQuick('venn');
+    const windBarb = makeSeriesQuick('wind-barb', {
+        fields: { speed: 'speed', direction: 'direction' },
+    });
+    const wordCloud = makeSeriesQuick('word-cloud');
+    const xRange = timeline;
+    const accelerationBands = makeIndicatorQuick('abands', {
+        fields: { lower: 'lower', middle: 'value', upper: 'upper' },
+    });
+    const awesomeOscillator = makeIndicatorQuick('ao');
+    const absolutePriceOscillator = makeIndicatorQuick('apo');
+    const aroon = makeIndicatorQuick('aroon', {
+        options: { fields: ['up', 'down'] },
+    });
+    const aroonOscillator = makeIndicatorQuick('aroonoscillator');
+    const averageTrueRange = makeIndicatorQuick('atr');
+    const volatilityBands = makeIndicatorQuick('bb', {
+        fields: { lower: 'lower', middle: 'value', upper: 'upper' },
+    });
+    const commodityChannelIndex = makeIndicatorQuick('cci');
+    const chaikinOscillator = makeIndicatorQuick('chaikin');
+    const chaikinMoneyFlow = makeIndicatorQuick('cmf');
+    const chandeMomentumOscillator = makeIndicatorQuick('cmo');
+    const doubleExponentialMovingAverage = makeIndicatorQuick('dema');
+    const disparityIndex = makeIndicatorQuick('disparityindex');
+    const directionalMovementIndex = makeIndicatorQuick('dmi', {
+        options: { fields: ['plus', 'minus', 'value'] },
+    });
+    const detrendedPriceOscillator = makeIndicatorQuick('dpo');
+    const exponentialMovingAverage = makeIndicatorQuick('ema');
+    const eventFlags = makeSeriesQuick('flags', { fields: { title: 'title' } });
+    const heikinAshi = makeSeriesQuick('financial', {
+        fields: { open: 'open', high: 'high', low: 'low', close: 'close' },
+        options: { kind: 'heikin-ashi' },
+    });
+    const highLowClose = makeSeriesQuick('financial', {
+        fields: { high: 'high', low: 'low', close: 'close' },
+        options: { kind: 'hlc' },
+    });
+    const hollowCandlestick = makeSeriesQuick('financial', {
+        fields: { open: 'open', high: 'high', low: 'low', close: 'close' },
+        options: { kind: 'hollow-candlestick' },
+    });
+    const ichimokuCloud = makeIndicatorQuick('ikh', {
+        fields: { lower: 'lower', middle: 'value', upper: 'upper' },
+        options: { fields: ['conversion', 'base', 'value'] },
+    });
+    const keltnerChannels = makeIndicatorQuick('keltnerchannels', {
+        fields: { lower: 'lower', middle: 'value', upper: 'upper' },
+    });
+    const klingerOscillator = makeIndicatorQuick('klinger', {
+        options: { fields: ['value', 'signal'] },
+    });
+    const linearRegression = makeIndicatorQuick('linearregression');
+    const linearRegressionAngle = makeIndicatorQuick('linearregressionangle');
+    const linearRegressionIntercept = makeIndicatorQuick('linearregressionintercept');
+    const linearRegressionSlope = makeIndicatorQuick('linearregressionslope');
+    const movingAverageConvergenceDivergence = makeIndicatorQuick('macd', {
+        options: { fields: ['value', 'signal'] },
+    });
+    const moneyFlowIndex = makeIndicatorQuick('mfi');
+    const momentumIndicator = makeIndicatorQuick('momentum');
+    const normalizedAverageTrueRange = makeIndicatorQuick('natr');
+    const onBalanceVolume = makeIndicatorQuick('obv');
+    const openHighLowClose = makeSeriesQuick('financial', {
+        fields: { open: 'open', high: 'high', low: 'low', close: 'close' },
+        options: { kind: 'ohlc' },
+    });
+    const priceChannel = makeIndicatorQuick('pc', {
+        fields: { lower: 'lower', middle: 'value', upper: 'upper' },
+    });
+    const pivotPoints = makeIndicatorQuick('pivotpoints', {
+        options: { fields: ['support', 'value', 'resistance'] },
+    });
+    const pointAndFigure = makeSeriesQuick('point-figure');
+    const percentagePriceOscillator = makeIndicatorQuick('ppo');
+    const priceEnvelopes = makeIndicatorQuick('priceenvelopes', {
+        fields: { lower: 'lower', middle: 'value', upper: 'upper' },
+    });
+    const parabolicStopAndReverse = makeIndicatorQuick('psar');
+    const renko = makeSeriesQuick('renko');
+    const rateOfChange = makeIndicatorQuick('roc');
+    const relativeStrengthIndex = makeIndicatorQuick('rsi');
+    const slowStochastic = makeIndicatorQuick('slowstochastic', {
+        options: { fields: ['value', 'signal'] },
+    });
+    const simpleMovingAverage = makeIndicatorQuick('sma');
+    const stochastic = makeIndicatorQuick('stochastic', {
+        options: { fields: ['value', 'signal'] },
+    });
+    const supertrend = makeIndicatorQuick('supertrend');
+    const tripleExponentialMovingAverage = makeIndicatorQuick('tema');
+    const tripleExponentialAverageOscillator = makeIndicatorQuick('trix');
+    const volumeByPrice = makeSeriesQuick('volume-profile', {
+        fields: { price: 'price', volume: 'volume' },
+    });
+    const volumeWeightedAveragePrice = makeIndicatorQuick('vwap');
+    const williamsRange = makeIndicatorQuick('williamsr');
+    const weightedMovingAverage = makeIndicatorQuick('wma');
+    const zigzag = makeIndicatorQuick('zigzag');
+    const flowMap = makeSeriesQuick('geo-flow', {
+        fields: { longitude2: 'longitude2', latitude2: 'latitude2', value: 'value' },
+    });
+    const geoHeatmap = makeSeriesQuick('geo-heatmap', { fields: { value: 'value' } });
+    const mapBubble = map;
+    const mapLine = makeSeriesQuick('geo-line', {
+        fields: { longitude2: 'longitude2', latitude2: 'latitude2', value: 'value' },
+    });
+    const mapPoint = map;
+    const tiledMap = makeSeriesQuick('tiled-map');
+    const fullCatalog = [
+        ...chartTypeCatalog,
+        ...additionalChartTypeCatalog,
+        ...seriesChartTypeCatalog,
+    ];
 
     exports.CanvasRenderer = CanvasRenderer;
     exports.Chart = Chart;
     exports.DataTable = DataTable;
     exports.GraflumeError = GraflumeError;
     exports.RuntimeRegistry = RuntimeRegistry;
+    exports.absolutePriceOscillator = absolutePriceOscillator;
+    exports.accelerationBands = accelerationBands;
     exports.additionalChartTypeCatalog = additionalChartTypeCatalog;
     exports.annotatedTimeline = annotatedTimeline;
     exports.annotation = annotation;
+    exports.arcDiagram = arcDiagram;
     exports.area = area;
+    exports.areaRange = areaRange;
+    exports.areaSpline = areaSpline;
+    exports.areaSplineRange = areaSplineRange;
+    exports.aroon = aroon;
+    exports.aroonOscillator = aroonOscillator;
     exports.assertValidSpec = assertValidSpec;
+    exports.averageTrueRange = averageTrueRange;
+    exports.awesomeOscillator = awesomeOscillator;
     exports.bar = bar;
+    exports.bellCurve = bellCurve;
     exports.boxplot = boxplot;
     exports.bubble = bubble;
+    exports.bullet = bullet;
     exports.calendar = calendar;
     exports.candlestick = candlestick;
     exports.canvasRendererFactory = canvasRendererFactory;
     exports.capabilities = capabilities;
+    exports.chaikinMoneyFlow = chaikinMoneyFlow;
+    exports.chaikinOscillator = chaikinOscillator;
+    exports.chandeMomentumOscillator = chandeMomentumOscillator;
     exports.chartTypeCatalog = chartTypeCatalog;
     exports.chord = chord;
     exports.column = column;
+    exports.columnPyramid = columnPyramid;
+    exports.columnRange = columnRange;
     exports.combo = combo;
+    exports.commodityChannelIndex = commodityChannelIndex;
     exports.compile = compile;
+    exports.contour = contour;
     exports.create = create;
     exports.createCompleteRegistry = createCompleteRegistry;
     exports.createRegistry = createRegistry;
     exports.custom = custom;
+    exports.cylinder = cylinder;
+    exports.dependencyWheel = dependencyWheel;
+    exports.detrendedPriceOscillator = detrendedPriceOscillator;
     exports.diff = diff;
+    exports.directionalMovementIndex = directionalMovementIndex;
+    exports.disparityIndex = disparityIndex;
     exports.donut = donut;
+    exports.doubleExponentialMovingAverage = doubleExponentialMovingAverage;
+    exports.dumbbell = dumbbell;
     exports.effectScatter = effectScatter;
+    exports.errorBar = errorBar;
+    exports.eventFlags = eventFlags;
+    exports.exponentialMovingAverage = exponentialMovingAverage;
+    exports.flowMap = flowMap;
     exports.fullCatalog = fullCatalog;
     exports.funnel = funnel;
+    exports.funnel3d = funnel3d;
     exports.gantt = gantt;
     exports.gauge = gauge;
     exports.geo = geo;
+    exports.geoHeatmap = geoHeatmap;
     exports.graflumeDark = graflumeDark;
     exports.graflumeLight = graflumeLight;
     exports.graph = graph;
     exports.heatmap = heatmap;
+    exports.heikinAshi = heikinAshi;
+    exports.highLowClose = highLowClose;
     exports.histogram = histogram;
     exports.hitTestScene = hitTestScene;
+    exports.hollowCandlestick = hollowCandlestick;
     exports.horizontalBar = horizontalBar;
+    exports.ichimokuCloud = ichimokuCloud;
     exports.interval = interval;
     exports.intervals = intervals;
+    exports.itemChart = itemChart;
+    exports.keltnerChannels = keltnerChannels;
+    exports.klingerOscillator = klingerOscillator;
     exports.line = line;
+    exports.linearRegression = linearRegression;
+    exports.linearRegressionAngle = linearRegressionAngle;
+    exports.linearRegressionIntercept = linearRegressionIntercept;
+    exports.linearRegressionSlope = linearRegressionSlope;
     exports.lines = lines;
+    exports.lollipop = lollipop;
     exports.map = map;
+    exports.mapBubble = mapBubble;
+    exports.mapLine = mapLine;
+    exports.mapPoint = mapPoint;
+    exports.momentumIndicator = momentumIndicator;
+    exports.moneyFlowIndex = moneyFlowIndex;
     exports.motion = motion;
+    exports.movingAverageConvergenceDivergence = movingAverageConvergenceDivergence;
+    exports.networkGraph = networkGraph;
     exports.normalizeSpec = normalizeSpec;
+    exports.normalizedAverageTrueRange = normalizedAverageTrueRange;
+    exports.onBalanceVolume = onBalanceVolume;
+    exports.openHighLowClose = openHighLowClose;
     exports.org = org;
+    exports.organizationNetwork = organizationNetwork;
+    exports.packedBubble = packedBubble;
+    exports.parabolicStopAndReverse = parabolicStopAndReverse;
     exports.parallel = parallel;
+    exports.pareto = pareto;
+    exports.percentagePriceOscillator = percentagePriceOscillator;
     exports.pictorialBar = pictorialBar;
+    exports.pictorialColumn = pictorialColumn;
     exports.pie = pie;
+    exports.pivotPoints = pivotPoints;
     exports.pluginApiVersion = pluginApiVersion;
     exports.point = point;
+    exports.pointAndFigure = pointAndFigure;
+    exports.polygon = polygon;
+    exports.priceChannel = priceChannel;
+    exports.priceEnvelopes = priceEnvelopes;
+    exports.pyramid = pyramid;
+    exports.pyramid3d = pyramid3d;
     exports.radar = radar;
+    exports.rateOfChange = rateOfChange;
     exports.registerAdditionalMarks = registerAdditionalMarks;
     exports.registerMark = registerMark;
     exports.registerRenderer = registerRenderer;
     exports.registerTheme = registerTheme;
+    exports.relativeStrengthIndex = relativeStrengthIndex;
+    exports.renko = renko;
+    exports.resolveSeriesType = resolveSeriesType;
     exports.sankey = sankey;
     exports.scatter = scatter;
+    exports.scatter3d = scatter3d;
+    exports.seriesChartTypeCatalog = seriesChartTypeCatalog;
+    exports.seriesCompatibilityCatalog = seriesCompatibilityCatalog;
+    exports.seriesCompatibilityIds = seriesCompatibilityIds;
+    exports.simpleMovingAverage = simpleMovingAverage;
+    exports.slowStochastic = slowStochastic;
+    exports.solidGauge = solidGauge;
     exports.specVersion = specVersion;
+    exports.spline = spline;
     exports.steppedArea = steppedArea;
+    exports.stochastic = stochastic;
+    exports.streamgraph = streamgraph;
     exports.sunburst = sunburst;
+    exports.supertrend = supertrend;
     exports.table = table;
     exports.themeRiver = themeRiver;
+    exports.tileMap = tileMap;
+    exports.tiledMap = tiledMap;
     exports.timeline = timeline;
     exports.tree = tree;
+    exports.treeGraph = treeGraph;
     exports.treemap = treemap;
     exports.trendline = trendline;
+    exports.tripleExponentialAverageOscillator = tripleExponentialAverageOscillator;
+    exports.tripleExponentialMovingAverage = tripleExponentialMovingAverage;
     exports.use = use;
     exports.validateSpec = validateSpec;
+    exports.variablePie = variablePie;
+    exports.variableWidth = variableWidth;
+    exports.vector = vector;
     exports.vegaChart = vegaChart;
+    exports.venn = venn;
     exports.version = version;
+    exports.volatilityBands = volatilityBands;
+    exports.volumeByPrice = volumeByPrice;
+    exports.volumeWeightedAveragePrice = volumeWeightedAveragePrice;
     exports.waterfall = waterfall;
+    exports.weightedMovingAverage = weightedMovingAverage;
+    exports.williamsRange = williamsRange;
+    exports.windBarb = windBarb;
+    exports.wordCloud = wordCloud;
     exports.wordTree = wordTree;
+    exports.xRange = xRange;
+    exports.zigzag = zigzag;
 
     return exports;
 
