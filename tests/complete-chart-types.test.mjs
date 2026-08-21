@@ -211,7 +211,7 @@ const fixtures = new Map([
 
 test('the opt-in catalog fuses the established and additional chart families', () => {
   assert.equal(additionalChartTypeCatalog.length, 14);
-  assert.equal(fullCatalog.length, 45);
+  assert.equal(fullCatalog.length, 141);
   assert.deepEqual(
     additionalChartTypeCatalog.map((entry) => entry.id),
     [...fixtures.keys()],
@@ -231,7 +231,7 @@ test('the JSON Schema advertises the full built-in catalog without closing plugi
   );
   const catalog = schema['x-graflume-catalog'];
   assert.equal(catalog.defaultFamilyCount, 31);
-  assert.equal(catalog.fullFamilyCount, 45);
+  assert.equal(catalog.fullFamilyCount, 141);
   assert.deepEqual(
     catalog.additionalMarks,
     additionalChartTypeCatalog.map((entry) => entry.mark),

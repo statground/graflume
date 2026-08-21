@@ -2,7 +2,7 @@ import { stat } from 'node:fs/promises';
 
 const budgets = [
   ['graflume.min.js', 80 * 1024],
-  ['graflume.complete.min.js', 160 * 1024],
+  ['graflume.complete.min.js', 176 * 1024],
 ];
 
 for (const [name, budgetBytes] of budgets) {

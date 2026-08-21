@@ -7,6 +7,12 @@ import {
 import { additionalChartTypeCatalog } from './catalog/additional-chart-types.js';
 import { chartTypeCatalog } from './catalog/chart-types.js';
 import {
+  resolveSeriesType,
+  seriesChartTypeCatalog,
+  seriesCompatibilityCatalog,
+  seriesCompatibilityIds,
+} from './catalog/series-chart-types.js';
+import {
   compileWithRegistry,
   type CompileOptions,
   type CompileResult,
@@ -29,6 +35,40 @@ import {
   compileThemeRiverMark,
   compileTreeMark,
 } from './marks/advanced.js';
+import {
+  compileArcDiagramMark,
+  compileBulletMark,
+  compileContourMark,
+  compileCylinderMark,
+  compileDistributionMark,
+  compileFinancialMark,
+  compileFlagsMark,
+  compileGeoFlowMark,
+  compileGeoHeatmapMark,
+  compileGeoLineMark,
+  compileIndicatorMark,
+  compileItemMark,
+  compileLollipopMark,
+  compilePackedBubbleMark,
+  compileParetoMark,
+  compilePointFigureMark,
+  compilePolygonMark,
+  compilePyramidMark,
+  compileRangeMark,
+  compileRenkoMark,
+  compileScatter3dMark,
+  compileSmoothMark,
+  compileSolidGaugeMark,
+  compileTiledMapMark,
+  compileTilemapMark,
+  compileVariablePieMark,
+  compileVariwideMark,
+  compileVectorMark,
+  compileVennMark,
+  compileVolumeProfileMark,
+  compileWindBarbMark,
+  compileWordCloudMark,
+} from './marks/series.js';
 import type { RendererFactory } from './renderer/types.js';
 import { Chart, type ChartCreateOptions, type ChartTarget } from './runtime/chart.js';
 import { createDefaultRegistry } from './runtime/default-registry.js';
@@ -51,6 +91,38 @@ const additionalMarkCompilers: readonly (readonly [MarkType, MarkCompiler])[] = 
   ['theme-river', compileThemeRiverMark],
   ['sunburst', compileSunburstMark],
   ['custom', compileCustomMark],
+  ['arc-diagram', compileArcDiagramMark],
+  ['range', compileRangeMark],
+  ['smooth', compileSmoothMark],
+  ['distribution', compileDistributionMark],
+  ['bullet', compileBulletMark],
+  ['contour', compileContourMark],
+  ['cylinder', compileCylinderMark],
+  ['item', compileItemMark],
+  ['lollipop', compileLollipopMark],
+  ['packed-bubble', compilePackedBubbleMark],
+  ['pareto', compileParetoMark],
+  ['polygon', compilePolygonMark],
+  ['pyramid', compilePyramidMark],
+  ['scatter-3d', compileScatter3dMark],
+  ['solid-gauge', compileSolidGaugeMark],
+  ['tilemap', compileTilemapMark],
+  ['variable-pie', compileVariablePieMark],
+  ['variwide', compileVariwideMark],
+  ['vector', compileVectorMark],
+  ['venn', compileVennMark],
+  ['wind-barb', compileWindBarbMark],
+  ['word-cloud', compileWordCloudMark],
+  ['indicator', compileIndicatorMark],
+  ['flags', compileFlagsMark],
+  ['financial', compileFinancialMark],
+  ['point-figure', compilePointFigureMark],
+  ['renko', compileRenkoMark],
+  ['volume-profile', compileVolumeProfileMark],
+  ['geo-flow', compileGeoFlowMark],
+  ['geo-heatmap', compileGeoHeatmapMark],
+  ['geo-line', compileGeoLineMark],
+  ['tiled-map', compileTiledMapMark],
 ];
 
 function installAdditionalMarks(registry: RuntimeRegistry): void {
@@ -343,8 +415,207 @@ export function custom(target: ChartTarget, data: DataInput, options: QuickChart
   return additional('custom', target, data, options);
 }
 
-export const fullCatalog = [...chartTypeCatalog, ...additionalChartTypeCatalog] as const;
+type MarkDefaults = NonNullable<QuickChartOptions['mark']>;
 
-export { additionalChartTypeCatalog };
+function mergeDefaults(defaults: MarkDefaults, options: QuickChartOptions): QuickChartOptions {
+  return {
+    ...options,
+    mark: {
+      ...defaults,
+      ...options.mark,
+      fields: { ...defaults.fields, ...options.mark?.fields },
+      options: { ...defaults.options, ...options.mark?.options },
+    },
+  };
+}
+
+function makeSeriesQuick(type: MarkType, defaults: MarkDefaults = {}) {
+  return (target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart =>
+    additional(type, target, data, mergeDefaults(defaults, options));
+}
+
+function makeIndicatorQuick(kind: string, defaults: MarkDefaults = {}) {
+  return makeSeriesQuick('indicator', {
+    ...defaults,
+    options: { kind, ...defaults.options },
+  });
+}
+
+export const arcDiagram = makeSeriesQuick('arc-diagram', {
+  fields: { target: 'target', value: 'value' },
+});
+export const areaRange = makeSeriesQuick('range', {
+  fields: { low: 'low', high: 'high' },
+  options: { mode: 'area' },
+});
+export const areaSpline = makeSeriesQuick('smooth', { options: { area: true } });
+export const areaSplineRange = makeSeriesQuick('range', {
+  fields: { low: 'low', high: 'high' },
+  options: { mode: 'area', smooth: true },
+});
+export const bellCurve = makeSeriesQuick('distribution');
+export const bullet = makeSeriesQuick('bullet', { fields: { target: 'target' } });
+export const columnPyramid = makeSeriesQuick('pyramid', { options: { variant: 'column' } });
+export const columnRange = makeSeriesQuick('range', {
+  fields: { low: 'low', high: 'high' },
+  options: { mode: 'column' },
+});
+export const contour = makeSeriesQuick('contour', { fields: { value: 'value' } });
+export const cylinder = makeSeriesQuick('cylinder');
+export const dependencyWheel = chord;
+export const dumbbell = makeSeriesQuick('range', {
+  fields: { low: 'low', high: 'high' },
+  options: { mode: 'dumbbell' },
+});
+export const errorBar = intervals;
+export const funnel3d = makeSeriesQuick('pyramid', { options: { variant: 'funnel-3d' } });
+export const itemChart = makeSeriesQuick('item');
+export const lollipop = makeSeriesQuick('lollipop');
+export const networkGraph = graph;
+export const organizationNetwork = org;
+export const packedBubble = makeSeriesQuick('packed-bubble');
+export const pareto = makeSeriesQuick('pareto');
+export const pictorialColumn = pictorialBar;
+export const polygon = makeSeriesQuick('polygon');
+export const pyramid = makeSeriesQuick('pyramid', { options: { variant: 'pyramid' } });
+export const pyramid3d = makeSeriesQuick('pyramid', { options: { variant: 'pyramid-3d' } });
+export const scatter3d = makeSeriesQuick('scatter-3d', { fields: { z: 'z' } });
+export const solidGauge = makeSeriesQuick('solid-gauge');
+export const spline = makeSeriesQuick('smooth');
+export const streamgraph = themeRiver;
+export const tileMap = makeSeriesQuick('tilemap', { fields: { value: 'value' } });
+export const treeGraph = tree;
+export const variablePie = makeSeriesQuick('variable-pie', { fields: { radius: 'radius' } });
+export const variableWidth = makeSeriesQuick('variwide', { fields: { width: 'width' } });
+export const vector = makeSeriesQuick('vector', {
+  fields: { direction: 'direction', magnitude: 'magnitude' },
+});
+export const venn = makeSeriesQuick('venn');
+export const windBarb = makeSeriesQuick('wind-barb', {
+  fields: { speed: 'speed', direction: 'direction' },
+});
+export const wordCloud = makeSeriesQuick('word-cloud');
+export const xRange = timeline;
+
+export const accelerationBands = makeIndicatorQuick('abands', {
+  fields: { lower: 'lower', middle: 'value', upper: 'upper' },
+});
+export const awesomeOscillator = makeIndicatorQuick('ao');
+export const absolutePriceOscillator = makeIndicatorQuick('apo');
+export const aroon = makeIndicatorQuick('aroon', {
+  options: { fields: ['up', 'down'] },
+});
+export const aroonOscillator = makeIndicatorQuick('aroonoscillator');
+export const averageTrueRange = makeIndicatorQuick('atr');
+export const volatilityBands = makeIndicatorQuick('bb', {
+  fields: { lower: 'lower', middle: 'value', upper: 'upper' },
+});
+export const commodityChannelIndex = makeIndicatorQuick('cci');
+export const chaikinOscillator = makeIndicatorQuick('chaikin');
+export const chaikinMoneyFlow = makeIndicatorQuick('cmf');
+export const chandeMomentumOscillator = makeIndicatorQuick('cmo');
+export const doubleExponentialMovingAverage = makeIndicatorQuick('dema');
+export const disparityIndex = makeIndicatorQuick('disparityindex');
+export const directionalMovementIndex = makeIndicatorQuick('dmi', {
+  options: { fields: ['plus', 'minus', 'value'] },
+});
+export const detrendedPriceOscillator = makeIndicatorQuick('dpo');
+export const exponentialMovingAverage = makeIndicatorQuick('ema');
+export const eventFlags = makeSeriesQuick('flags', { fields: { title: 'title' } });
+export const heikinAshi = makeSeriesQuick('financial', {
+  fields: { open: 'open', high: 'high', low: 'low', close: 'close' },
+  options: { kind: 'heikin-ashi' },
+});
+export const highLowClose = makeSeriesQuick('financial', {
+  fields: { high: 'high', low: 'low', close: 'close' },
+  options: { kind: 'hlc' },
+});
+export const hollowCandlestick = makeSeriesQuick('financial', {
+  fields: { open: 'open', high: 'high', low: 'low', close: 'close' },
+  options: { kind: 'hollow-candlestick' },
+});
+export const ichimokuCloud = makeIndicatorQuick('ikh', {
+  fields: { lower: 'lower', middle: 'value', upper: 'upper' },
+  options: { fields: ['conversion', 'base', 'value'] },
+});
+export const keltnerChannels = makeIndicatorQuick('keltnerchannels', {
+  fields: { lower: 'lower', middle: 'value', upper: 'upper' },
+});
+export const klingerOscillator = makeIndicatorQuick('klinger', {
+  options: { fields: ['value', 'signal'] },
+});
+export const linearRegression = makeIndicatorQuick('linearregression');
+export const linearRegressionAngle = makeIndicatorQuick('linearregressionangle');
+export const linearRegressionIntercept = makeIndicatorQuick('linearregressionintercept');
+export const linearRegressionSlope = makeIndicatorQuick('linearregressionslope');
+export const movingAverageConvergenceDivergence = makeIndicatorQuick('macd', {
+  options: { fields: ['value', 'signal'] },
+});
+export const moneyFlowIndex = makeIndicatorQuick('mfi');
+export const momentumIndicator = makeIndicatorQuick('momentum');
+export const normalizedAverageTrueRange = makeIndicatorQuick('natr');
+export const onBalanceVolume = makeIndicatorQuick('obv');
+export const openHighLowClose = makeSeriesQuick('financial', {
+  fields: { open: 'open', high: 'high', low: 'low', close: 'close' },
+  options: { kind: 'ohlc' },
+});
+export const priceChannel = makeIndicatorQuick('pc', {
+  fields: { lower: 'lower', middle: 'value', upper: 'upper' },
+});
+export const pivotPoints = makeIndicatorQuick('pivotpoints', {
+  options: { fields: ['support', 'value', 'resistance'] },
+});
+export const pointAndFigure = makeSeriesQuick('point-figure');
+export const percentagePriceOscillator = makeIndicatorQuick('ppo');
+export const priceEnvelopes = makeIndicatorQuick('priceenvelopes', {
+  fields: { lower: 'lower', middle: 'value', upper: 'upper' },
+});
+export const parabolicStopAndReverse = makeIndicatorQuick('psar');
+export const renko = makeSeriesQuick('renko');
+export const rateOfChange = makeIndicatorQuick('roc');
+export const relativeStrengthIndex = makeIndicatorQuick('rsi');
+export const slowStochastic = makeIndicatorQuick('slowstochastic', {
+  options: { fields: ['value', 'signal'] },
+});
+export const simpleMovingAverage = makeIndicatorQuick('sma');
+export const stochastic = makeIndicatorQuick('stochastic', {
+  options: { fields: ['value', 'signal'] },
+});
+export const supertrend = makeIndicatorQuick('supertrend');
+export const tripleExponentialMovingAverage = makeIndicatorQuick('tema');
+export const tripleExponentialAverageOscillator = makeIndicatorQuick('trix');
+export const volumeByPrice = makeSeriesQuick('volume-profile', {
+  fields: { price: 'price', volume: 'volume' },
+});
+export const volumeWeightedAveragePrice = makeIndicatorQuick('vwap');
+export const williamsRange = makeIndicatorQuick('williamsr');
+export const weightedMovingAverage = makeIndicatorQuick('wma');
+export const zigzag = makeIndicatorQuick('zigzag');
+
+export const flowMap = makeSeriesQuick('geo-flow', {
+  fields: { longitude2: 'longitude2', latitude2: 'latitude2', value: 'value' },
+});
+export const geoHeatmap = makeSeriesQuick('geo-heatmap', { fields: { value: 'value' } });
+export const mapBubble = map;
+export const mapLine = makeSeriesQuick('geo-line', {
+  fields: { longitude2: 'longitude2', latitude2: 'latitude2', value: 'value' },
+});
+export const mapPoint = map;
+export const tiledMap = makeSeriesQuick('tiled-map');
+
+export const fullCatalog = [
+  ...chartTypeCatalog,
+  ...additionalChartTypeCatalog,
+  ...seriesChartTypeCatalog,
+] as const;
+
+export {
+  additionalChartTypeCatalog,
+  resolveSeriesType,
+  seriesChartTypeCatalog,
+  seriesCompatibilityCatalog,
+  seriesCompatibilityIds,
+};
 export * from './index.js';
 export type { AdditionalChartTypeId } from './catalog/additional-chart-types.js';
+export type { SeriesChartTypeId, SeriesCompatibilityEntry } from './catalog/series-chart-types.js';

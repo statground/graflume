@@ -87,6 +87,24 @@ function numericDomain(
         layer.mark.fields.close ?? encoding.field,
       );
     }
+    if (
+      axis === 'y' &&
+      (layer.mark.type === 'financial' ||
+        layer.mark.type === 'range' ||
+        layer.mark.type === 'bullet' ||
+        layer.mark.type === 'indicator' ||
+        layer.mark.type === 'volume-profile')
+    ) {
+      fields.push(...Object.values(layer.mark.fields));
+      const optionFields = layer.mark.options.fields;
+      if (Array.isArray(optionFields)) {
+        fields.push(
+          ...optionFields.filter(
+            (field): field is string => typeof field === 'string' && field.trim() !== '',
+          ),
+        );
+      }
+    }
     if (axis === 'y' && layer.mark.type === 'boxplot') {
       fields.push(
         layer.mark.fields.min ?? 'min',
@@ -172,9 +190,20 @@ function numericDomain(
       (axis === 'y' &&
         (layer.mark.type === 'bar' ||
           layer.mark.type === 'area' ||
+          layer.mark.type === 'bullet' ||
+          layer.mark.type === 'cylinder' ||
           layer.mark.type === 'histogram' ||
+          layer.mark.type === 'item' ||
+          layer.mark.type === 'lollipop' ||
+          layer.mark.type === 'packed-bubble' ||
+          layer.mark.type === 'pareto' ||
           layer.mark.type === 'pictorial-bar' ||
+          layer.mark.type === 'pyramid' ||
+          layer.mark.type === 'solid-gauge' ||
           layer.mark.type === 'theme-river' ||
+          layer.mark.type === 'variable-pie' ||
+          layer.mark.type === 'variwide' ||
+          layer.mark.type === 'volume-profile' ||
           layer.mark.type === 'waterfall')) ||
       (axis === 'x' && layer.mark.type === 'bar' && layer.mark.orientation === 'horizontal')
     ) {

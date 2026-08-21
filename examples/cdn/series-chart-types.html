@@ -1,0 +1,1601 @@
+<!doctype html>
+<html lang="ko" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Graflume 전문 시리즈 갤러리</title>
+    <style>
+      :root {
+        font-family: Inter, Pretendard, system-ui, sans-serif;
+        color: #0f172a;
+        background: #f1f5f9;
+      }
+      :root[data-theme='dark'] {
+        color: #f8fafc;
+        background: #0b1020;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 28px 16px 52px;
+      }
+      main {
+        width: min(1540px, 100%);
+        margin: 0 auto;
+      }
+      header {
+        display: flex;
+        gap: 24px;
+        align-items: end;
+        justify-content: space-between;
+        margin-bottom: 18px;
+      }
+      h1 {
+        margin: 0;
+        font-size: clamp(1.8rem, 4vw, 3rem);
+        letter-spacing: -0.05em;
+      }
+      .lede {
+        max-width: 960px;
+        margin: 10px 0 0;
+        color: #64748b;
+        line-height: 1.7;
+      }
+      :root[data-theme='dark'] .lede,
+      :root[data-theme='dark'] .copy {
+        color: #a7b2c5;
+      }
+      button,
+      select {
+        min-height: 42px;
+        padding: 0 16px;
+        color: inherit;
+        background: #fff;
+        border: 1px solid #dbe3ee;
+        border-radius: 999px;
+        font: inherit;
+        font-weight: 700;
+      }
+      :root[data-theme='dark'] button,
+      :root[data-theme='dark'] select {
+        background: #111827;
+        border-color: #475569;
+      }
+      button:focus-visible,
+      select:focus-visible {
+        outline: 3px solid #818cf8;
+        outline-offset: 2px;
+      }
+      .controls {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      #status {
+        margin: 0 0 18px;
+        padding: 12px 15px;
+        background: #eef2ff;
+        border-radius: 12px;
+      }
+      :root[data-theme='dark'] #status {
+        background: #1e1b4b;
+      }
+      #status.error {
+        color: #991b1b;
+        background: #fee2e2;
+      }
+      .gallery {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+      }
+      article {
+        min-width: 0;
+        overflow: hidden;
+        background: #fff;
+        border: 1px solid #dbe3ee;
+        border-radius: 18px;
+        box-shadow: 0 14px 42px rgb(15 23 42 / 8%);
+      }
+      :root[data-theme='dark'] article {
+        background: #111827;
+        border-color: #25314a;
+        box-shadow: 0 18px 48px rgb(0 0 0 / 30%);
+      }
+      .head {
+        display: flex;
+        gap: 12px;
+        align-items: start;
+        justify-content: space-between;
+        padding: 17px 18px 0;
+      }
+      h2 {
+        margin: 0;
+        font-size: 1.05rem;
+      }
+      .copy {
+        margin: 5px 0 0;
+        color: #64748b;
+        font-size: 0.82rem;
+        line-height: 1.45;
+      }
+      code {
+        color: #4f46e5;
+        font-size: 0.75rem;
+      }
+      :root[data-theme='dark'] code {
+        color: #c4b5fd;
+      }
+      .badge {
+        flex: 0 0 auto;
+        padding: 4px 8px;
+        color: #4338ca;
+        background: #eef2ff;
+        border-radius: 999px;
+        font-size: 0.7rem;
+        font-weight: 800;
+      }
+      :root[data-theme='dark'] .badge {
+        color: #c7d2fe;
+        background: #312e81;
+      }
+      .chart {
+        width: 100%;
+        height: 300px;
+      }
+      @media (max-width: 1120px) {
+        .gallery {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+      @media (max-width: 720px) {
+        header {
+          display: block;
+        }
+        .controls {
+          margin-top: 14px;
+        }
+        .gallery {
+          grid-template-columns: 1fr;
+        }
+        .chart {
+          height: 320px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <h1>Graflume 전문 시리즈 갤러리</h1>
+          <p class="lede">
+            기존 45개 계열과 같은 portable ChartSpec, renderer-neutral Scene, Canvas renderer를
+            사용하는 96개 전문 시리즈입니다. 중복 의미는 canonical compiler로 융합됩니다.
+          </p>
+        </div>
+        <div class="controls">
+          <select id="category" aria-label="카테고리 필터">
+            <option value="all">전체 카테고리</option>
+          </select>
+          <button id="theme" type="button">어두운 테마</button>
+        </div>
+      </header>
+      <p id="status" role="status">전문 시리즈를 렌더링하고 있습니다…</p>
+      <section id="gallery" class="gallery" aria-label="Graflume 전문 시리즈 갤러리"></section>
+    </main>
+
+    <!-- Exact commit pins and SRI are replaced by the repository CDN snapshot workflow. -->
+    <script
+      src="https://cdn.jsdelivr.net/gh/statground/graflume@__GRAFLUME_CDN_COMMIT__/cdn/graflume.complete.global.js"
+      integrity="__GRAFLUME_COMPLETE_CDN_SRI__"
+      crossorigin="anonymous"
+    ></script>
+    <script>
+      const definitions = [
+        {
+          id: 'arc-diagram',
+          name: 'Arc diagram',
+          quickApi: 'arcDiagram',
+          mark: 'arc-diagram',
+          category: 'relationship',
+          canonicalFamily: 'arc-diagram',
+        },
+        {
+          id: 'area-range',
+          name: 'Area range chart',
+          quickApi: 'areaRange',
+          mark: 'range',
+          category: 'cartesian',
+          canonicalFamily: 'area-range',
+        },
+        {
+          id: 'area-spline',
+          name: 'Smooth area chart',
+          quickApi: 'areaSpline',
+          mark: 'smooth',
+          category: 'cartesian',
+          canonicalFamily: 'area-spline',
+        },
+        {
+          id: 'area-spline-range',
+          name: 'Smooth area range chart',
+          quickApi: 'areaSplineRange',
+          mark: 'range',
+          category: 'cartesian',
+          canonicalFamily: 'area-spline-range',
+        },
+        {
+          id: 'bell-curve',
+          name: 'Bell curve',
+          quickApi: 'bellCurve',
+          mark: 'distribution',
+          category: 'distribution',
+          canonicalFamily: 'bell-curve',
+        },
+        {
+          id: 'bullet',
+          name: 'Bullet chart',
+          quickApi: 'bullet',
+          mark: 'bullet',
+          category: 'cartesian',
+          canonicalFamily: 'bullet',
+        },
+        {
+          id: 'column-pyramid',
+          name: 'Column pyramid chart',
+          quickApi: 'columnPyramid',
+          mark: 'pyramid',
+          category: 'cartesian',
+          canonicalFamily: 'column-pyramid',
+        },
+        {
+          id: 'column-range',
+          name: 'Column range chart',
+          quickApi: 'columnRange',
+          mark: 'range',
+          category: 'cartesian',
+          canonicalFamily: 'column-range',
+        },
+        {
+          id: 'contour',
+          name: 'Contour chart',
+          quickApi: 'contour',
+          mark: 'contour',
+          category: 'distribution',
+          canonicalFamily: 'contour',
+        },
+        {
+          id: 'cylinder',
+          name: 'Cylinder chart',
+          quickApi: 'cylinder',
+          mark: 'cylinder',
+          category: 'cartesian',
+          canonicalFamily: 'cylinder',
+        },
+        {
+          id: 'dependency-wheel',
+          name: 'Dependency wheel',
+          quickApi: 'dependencyWheel',
+          mark: 'chord',
+          category: 'relationship',
+          canonicalFamily: 'chord',
+        },
+        {
+          id: 'dumbbell',
+          name: 'Dumbbell chart',
+          quickApi: 'dumbbell',
+          mark: 'range',
+          category: 'cartesian',
+          canonicalFamily: 'dumbbell',
+        },
+        {
+          id: 'error-bar',
+          name: 'Error bar chart',
+          quickApi: 'errorBar',
+          mark: 'interval',
+          category: 'cartesian',
+          canonicalFamily: 'intervals',
+        },
+        {
+          id: 'funnel-3d',
+          name: 'Depth funnel chart',
+          quickApi: 'funnel3d',
+          mark: 'pyramid',
+          category: 'radial',
+          canonicalFamily: 'funnel-3d',
+        },
+        {
+          id: 'item',
+          name: 'Item chart',
+          quickApi: 'itemChart',
+          mark: 'item',
+          category: 'radial',
+          canonicalFamily: 'item',
+        },
+        {
+          id: 'lollipop',
+          name: 'Lollipop chart',
+          quickApi: 'lollipop',
+          mark: 'lollipop',
+          category: 'cartesian',
+          canonicalFamily: 'lollipop',
+        },
+        {
+          id: 'network-graph',
+          name: 'Network graph',
+          quickApi: 'networkGraph',
+          mark: 'graph',
+          category: 'relationship',
+          canonicalFamily: 'graph',
+        },
+        {
+          id: 'organization-network',
+          name: 'Organization network',
+          quickApi: 'organizationNetwork',
+          mark: 'org',
+          category: 'relationship',
+          canonicalFamily: 'org',
+        },
+        {
+          id: 'packed-bubble',
+          name: 'Packed bubble chart',
+          quickApi: 'packedBubble',
+          mark: 'packed-bubble',
+          category: 'relationship',
+          canonicalFamily: 'packed-bubble',
+        },
+        {
+          id: 'pareto',
+          name: 'Pareto chart',
+          quickApi: 'pareto',
+          mark: 'pareto',
+          category: 'distribution',
+          canonicalFamily: 'pareto',
+        },
+        {
+          id: 'pictorial-column',
+          name: 'Pictorial column chart',
+          quickApi: 'pictorialColumn',
+          mark: 'pictorial-bar',
+          category: 'cartesian',
+          canonicalFamily: 'pictorial-bar',
+        },
+        {
+          id: 'polygon',
+          name: 'Polygon chart',
+          quickApi: 'polygon',
+          mark: 'polygon',
+          category: 'cartesian',
+          canonicalFamily: 'polygon',
+        },
+        {
+          id: 'pyramid',
+          name: 'Pyramid chart',
+          quickApi: 'pyramid',
+          mark: 'pyramid',
+          category: 'radial',
+          canonicalFamily: 'pyramid',
+        },
+        {
+          id: 'pyramid-3d',
+          name: 'Depth pyramid chart',
+          quickApi: 'pyramid3d',
+          mark: 'pyramid',
+          category: 'radial',
+          canonicalFamily: 'pyramid',
+        },
+        {
+          id: 'scatter-3d',
+          name: 'Three-axis scatter chart',
+          quickApi: 'scatter3d',
+          mark: 'scatter-3d',
+          category: 'cartesian',
+          canonicalFamily: 'scatter-3d',
+        },
+        {
+          id: 'solid-gauge',
+          name: 'Solid gauge',
+          quickApi: 'solidGauge',
+          mark: 'solid-gauge',
+          category: 'radial',
+          canonicalFamily: 'solid-gauge',
+        },
+        {
+          id: 'spline',
+          name: 'Spline chart',
+          quickApi: 'spline',
+          mark: 'smooth',
+          category: 'cartesian',
+          canonicalFamily: 'spline',
+        },
+        {
+          id: 'streamgraph',
+          name: 'Streamgraph',
+          quickApi: 'streamgraph',
+          mark: 'theme-river',
+          category: 'distribution',
+          canonicalFamily: 'theme-river',
+        },
+        {
+          id: 'tile-map',
+          name: 'Tile map',
+          quickApi: 'tileMap',
+          mark: 'tilemap',
+          category: 'map',
+          canonicalFamily: 'tile-map',
+        },
+        {
+          id: 'tree-graph',
+          name: 'Tree graph',
+          quickApi: 'treeGraph',
+          mark: 'tree',
+          category: 'relationship',
+          canonicalFamily: 'tree',
+        },
+        {
+          id: 'variable-pie',
+          name: 'Variable radius pie chart',
+          quickApi: 'variablePie',
+          mark: 'variable-pie',
+          category: 'radial',
+          canonicalFamily: 'variable-pie',
+        },
+        {
+          id: 'variable-width',
+          name: 'Variable width column chart',
+          quickApi: 'variableWidth',
+          mark: 'variwide',
+          category: 'cartesian',
+          canonicalFamily: 'variable-width',
+        },
+        {
+          id: 'vector',
+          name: 'Vector field chart',
+          quickApi: 'vector',
+          mark: 'vector',
+          category: 'cartesian',
+          canonicalFamily: 'vector',
+        },
+        {
+          id: 'venn',
+          name: 'Venn diagram',
+          quickApi: 'venn',
+          mark: 'venn',
+          category: 'relationship',
+          canonicalFamily: 'venn',
+        },
+        {
+          id: 'wind-barb',
+          name: 'Wind barb chart',
+          quickApi: 'windBarb',
+          mark: 'wind-barb',
+          category: 'cartesian',
+          canonicalFamily: 'wind-barb',
+        },
+        {
+          id: 'word-cloud',
+          name: 'Word cloud',
+          quickApi: 'wordCloud',
+          mark: 'word-cloud',
+          category: 'relationship',
+          canonicalFamily: 'word-cloud',
+        },
+        {
+          id: 'x-range',
+          name: 'Horizontal range chart',
+          quickApi: 'xRange',
+          mark: 'timeline',
+          category: 'cartesian',
+          canonicalFamily: 'timeline',
+        },
+        {
+          id: 'acceleration-bands',
+          name: 'Acceleration bands',
+          quickApi: 'accelerationBands',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'acceleration-bands',
+        },
+        {
+          id: 'awesome-oscillator',
+          name: 'Awesome oscillator',
+          quickApi: 'awesomeOscillator',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'awesome-oscillator',
+        },
+        {
+          id: 'absolute-price-oscillator',
+          name: 'Absolute price oscillator',
+          quickApi: 'absolutePriceOscillator',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'absolute-price-oscillator',
+        },
+        {
+          id: 'aroon',
+          name: 'Aroon indicator',
+          quickApi: 'aroon',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'aroon',
+        },
+        {
+          id: 'aroon-oscillator',
+          name: 'Aroon oscillator',
+          quickApi: 'aroonOscillator',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'aroon-oscillator',
+        },
+        {
+          id: 'average-true-range',
+          name: 'Average true range',
+          quickApi: 'averageTrueRange',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'average-true-range',
+        },
+        {
+          id: 'volatility-bands',
+          name: 'Volatility bands',
+          quickApi: 'volatilityBands',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'volatility-bands',
+        },
+        {
+          id: 'commodity-channel-index',
+          name: 'Commodity channel index',
+          quickApi: 'commodityChannelIndex',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'commodity-channel-index',
+        },
+        {
+          id: 'chaikin-oscillator',
+          name: 'Chaikin oscillator',
+          quickApi: 'chaikinOscillator',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'chaikin-oscillator',
+        },
+        {
+          id: 'chaikin-money-flow',
+          name: 'Chaikin money flow',
+          quickApi: 'chaikinMoneyFlow',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'chaikin-money-flow',
+        },
+        {
+          id: 'chande-momentum-oscillator',
+          name: 'Chande momentum oscillator',
+          quickApi: 'chandeMomentumOscillator',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'chande-momentum-oscillator',
+        },
+        {
+          id: 'double-exponential-average',
+          name: 'Double exponential moving average',
+          quickApi: 'doubleExponentialMovingAverage',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'double-exponential-average',
+        },
+        {
+          id: 'disparity-index',
+          name: 'Disparity index',
+          quickApi: 'disparityIndex',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'disparity-index',
+        },
+        {
+          id: 'directional-movement-index',
+          name: 'Directional movement index',
+          quickApi: 'directionalMovementIndex',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'directional-movement-index',
+        },
+        {
+          id: 'detrended-price-oscillator',
+          name: 'Detrended price oscillator',
+          quickApi: 'detrendedPriceOscillator',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'detrended-price-oscillator',
+        },
+        {
+          id: 'exponential-moving-average',
+          name: 'Exponential moving average',
+          quickApi: 'exponentialMovingAverage',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'exponential-moving-average',
+        },
+        {
+          id: 'event-flags',
+          name: 'Event flags',
+          quickApi: 'eventFlags',
+          mark: 'flags',
+          category: 'financial',
+          canonicalFamily: 'event-flags',
+        },
+        {
+          id: 'heikin-ashi',
+          name: 'Heikin-Ashi chart',
+          quickApi: 'heikinAshi',
+          mark: 'financial',
+          category: 'financial',
+          canonicalFamily: 'heikin-ashi',
+        },
+        {
+          id: 'high-low-close',
+          name: 'High-low-close chart',
+          quickApi: 'highLowClose',
+          mark: 'financial',
+          category: 'financial',
+          canonicalFamily: 'high-low-close',
+        },
+        {
+          id: 'hollow-candlestick',
+          name: 'Hollow candlestick chart',
+          quickApi: 'hollowCandlestick',
+          mark: 'financial',
+          category: 'financial',
+          canonicalFamily: 'hollow-candlestick',
+        },
+        {
+          id: 'ichimoku-cloud',
+          name: 'Ichimoku cloud',
+          quickApi: 'ichimokuCloud',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'ichimoku-cloud',
+        },
+        {
+          id: 'keltner-channels',
+          name: 'Keltner channels',
+          quickApi: 'keltnerChannels',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'keltner-channels',
+        },
+        {
+          id: 'klinger-oscillator',
+          name: 'Klinger oscillator',
+          quickApi: 'klingerOscillator',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'klinger-oscillator',
+        },
+        {
+          id: 'linear-regression',
+          name: 'Linear regression',
+          quickApi: 'linearRegression',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'linear-regression',
+        },
+        {
+          id: 'linear-regression-angle',
+          name: 'Linear regression angle',
+          quickApi: 'linearRegressionAngle',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'linear-regression-angle',
+        },
+        {
+          id: 'linear-regression-intercept',
+          name: 'Linear regression intercept',
+          quickApi: 'linearRegressionIntercept',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'linear-regression-intercept',
+        },
+        {
+          id: 'linear-regression-slope',
+          name: 'Linear regression slope',
+          quickApi: 'linearRegressionSlope',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'linear-regression-slope',
+        },
+        {
+          id: 'moving-average-convergence-divergence',
+          name: 'Moving average convergence divergence',
+          quickApi: 'movingAverageConvergenceDivergence',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'moving-average-convergence-divergence',
+        },
+        {
+          id: 'money-flow-index',
+          name: 'Money flow index',
+          quickApi: 'moneyFlowIndex',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'money-flow-index',
+        },
+        {
+          id: 'momentum',
+          name: 'Momentum indicator',
+          quickApi: 'momentumIndicator',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'momentum',
+        },
+        {
+          id: 'normalized-average-true-range',
+          name: 'Normalized average true range',
+          quickApi: 'normalizedAverageTrueRange',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'normalized-average-true-range',
+        },
+        {
+          id: 'on-balance-volume',
+          name: 'On-balance volume',
+          quickApi: 'onBalanceVolume',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'on-balance-volume',
+        },
+        {
+          id: 'open-high-low-close',
+          name: 'Open-high-low-close chart',
+          quickApi: 'openHighLowClose',
+          mark: 'financial',
+          category: 'financial',
+          canonicalFamily: 'open-high-low-close',
+        },
+        {
+          id: 'price-channel',
+          name: 'Price channel',
+          quickApi: 'priceChannel',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'price-channel',
+        },
+        {
+          id: 'pivot-points',
+          name: 'Pivot points',
+          quickApi: 'pivotPoints',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'pivot-points',
+        },
+        {
+          id: 'point-and-figure',
+          name: 'Point and figure chart',
+          quickApi: 'pointAndFigure',
+          mark: 'point-figure',
+          category: 'financial',
+          canonicalFamily: 'point-and-figure',
+        },
+        {
+          id: 'percentage-price-oscillator',
+          name: 'Percentage price oscillator',
+          quickApi: 'percentagePriceOscillator',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'percentage-price-oscillator',
+        },
+        {
+          id: 'price-envelopes',
+          name: 'Price envelopes',
+          quickApi: 'priceEnvelopes',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'price-envelopes',
+        },
+        {
+          id: 'parabolic-stop-and-reverse',
+          name: 'Parabolic stop and reverse',
+          quickApi: 'parabolicStopAndReverse',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'parabolic-stop-and-reverse',
+        },
+        {
+          id: 'renko',
+          name: 'Renko chart',
+          quickApi: 'renko',
+          mark: 'renko',
+          category: 'financial',
+          canonicalFamily: 'renko',
+        },
+        {
+          id: 'rate-of-change',
+          name: 'Rate of change',
+          quickApi: 'rateOfChange',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'rate-of-change',
+        },
+        {
+          id: 'relative-strength-index',
+          name: 'Relative strength index',
+          quickApi: 'relativeStrengthIndex',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'relative-strength-index',
+        },
+        {
+          id: 'slow-stochastic',
+          name: 'Slow stochastic oscillator',
+          quickApi: 'slowStochastic',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'slow-stochastic',
+        },
+        {
+          id: 'simple-moving-average',
+          name: 'Simple moving average',
+          quickApi: 'simpleMovingAverage',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'simple-moving-average',
+        },
+        {
+          id: 'stochastic',
+          name: 'Stochastic oscillator',
+          quickApi: 'stochastic',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'stochastic',
+        },
+        {
+          id: 'supertrend',
+          name: 'Supertrend',
+          quickApi: 'supertrend',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'supertrend',
+        },
+        {
+          id: 'triple-exponential-average',
+          name: 'Triple exponential moving average',
+          quickApi: 'tripleExponentialMovingAverage',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'triple-exponential-average',
+        },
+        {
+          id: 'triple-exponential-oscillator',
+          name: 'Triple exponential average oscillator',
+          quickApi: 'tripleExponentialAverageOscillator',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'triple-exponential-oscillator',
+        },
+        {
+          id: 'volume-by-price',
+          name: 'Volume by price',
+          quickApi: 'volumeByPrice',
+          mark: 'volume-profile',
+          category: 'financial',
+          canonicalFamily: 'volume-by-price',
+        },
+        {
+          id: 'volume-weighted-average-price',
+          name: 'Volume weighted average price',
+          quickApi: 'volumeWeightedAveragePrice',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'volume-weighted-average-price',
+        },
+        {
+          id: 'williams-range',
+          name: 'Williams range',
+          quickApi: 'williamsRange',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'williams-range',
+        },
+        {
+          id: 'weighted-moving-average',
+          name: 'Weighted moving average',
+          quickApi: 'weightedMovingAverage',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'weighted-moving-average',
+        },
+        {
+          id: 'zigzag',
+          name: 'Zigzag indicator',
+          quickApi: 'zigzag',
+          mark: 'indicator',
+          category: 'indicator',
+          canonicalFamily: 'zigzag',
+        },
+        {
+          id: 'flow-map',
+          name: 'Flow map',
+          quickApi: 'flowMap',
+          mark: 'geo-flow',
+          category: 'map',
+          canonicalFamily: 'flow-map',
+        },
+        {
+          id: 'geo-heatmap',
+          name: 'Geographic heatmap',
+          quickApi: 'geoHeatmap',
+          mark: 'geo-heatmap',
+          category: 'map',
+          canonicalFamily: 'geo-heatmap',
+        },
+        {
+          id: 'map-bubble',
+          name: 'Map bubble chart',
+          quickApi: 'mapBubble',
+          mark: 'map',
+          category: 'map',
+          canonicalFamily: 'map',
+        },
+        {
+          id: 'map-line',
+          name: 'Map line chart',
+          quickApi: 'mapLine',
+          mark: 'geo-line',
+          category: 'map',
+          canonicalFamily: 'map-line',
+        },
+        {
+          id: 'map-point',
+          name: 'Map point chart',
+          quickApi: 'mapPoint',
+          mark: 'map',
+          category: 'map',
+          canonicalFamily: 'map',
+        },
+        {
+          id: 'tiled-map',
+          name: 'Tiled map',
+          quickApi: 'tiledMap',
+          mark: 'tiled-map',
+          category: 'map',
+          canonicalFamily: 'tiled-map',
+        },
+      ];
+      const trend = [
+        {
+          date: '2026-01-01',
+          category: 'P1',
+          value: 24,
+          low: 14,
+          high: 33,
+          lower: 16,
+          upper: 31,
+          target: 29,
+          width: 3,
+          radius: 9,
+          z: 5,
+          direction: 0,
+          magnitude: 5,
+          speed: 10,
+          signal: 20,
+          secondary: 18,
+          up: 42,
+          down: 66,
+          plus: 25,
+          minus: 34,
+          conversion: 21,
+          base: 19,
+          support: 14,
+          resistance: 34,
+          volume: 120,
+          price: 24,
+          title: 'A',
+          open: 22,
+          close: 25,
+        },
+        {
+          date: '2026-02-01',
+          category: 'P2',
+          value: 29.915692703800314,
+          low: 14.8,
+          high: 34.1,
+          lower: 16.8,
+          upper: 32,
+          target: 30,
+          width: 4,
+          radius: 11,
+          z: 6,
+          direction: 37,
+          magnitude: 8,
+          speed: 13,
+          signal: 21.2,
+          secondary: 19,
+          up: 44,
+          down: 64,
+          plus: 26,
+          minus: 33.4,
+          conversion: 22,
+          base: 19.9,
+          support: 14.8,
+          resistance: 35,
+          volume: 151,
+          price: 25.2,
+          title: 'B',
+          open: 23,
+          close: 22,
+        },
+        {
+          date: '2026-03-01',
+          category: 'P3',
+          value: 33.5402084373418,
+          low: 15.6,
+          high: 35.2,
+          lower: 17.6,
+          upper: 33,
+          target: 31,
+          width: 5,
+          radius: 13,
+          z: 7,
+          direction: 74,
+          magnitude: 11,
+          speed: 16,
+          signal: 22.4,
+          secondary: 20,
+          up: 46,
+          down: 62,
+          plus: 27,
+          minus: 32.8,
+          conversion: 23,
+          base: 20.8,
+          support: 15.6,
+          resistance: 36,
+          volume: 182,
+          price: 26.4,
+          title: 'C',
+          open: 24,
+          close: 27,
+        },
+        {
+          date: '2026-04-01',
+          category: 'P4',
+          value: 33.719684225450784,
+          low: 16.4,
+          high: 36.3,
+          lower: 18.4,
+          upper: 34,
+          target: 32,
+          width: 6,
+          radius: 15,
+          z: 8,
+          direction: 111,
+          magnitude: 14,
+          speed: 19,
+          signal: 23.6,
+          secondary: 21,
+          up: 48,
+          down: 60,
+          plus: 28,
+          minus: 32.2,
+          conversion: 24,
+          base: 21.7,
+          support: 16.4,
+          resistance: 37,
+          volume: 213,
+          price: 27.6,
+          title: 'D',
+          open: 25,
+          close: 24,
+        },
+        {
+          date: '2026-05-01',
+          category: 'P5',
+          value: 31.010335447627774,
+          low: 17.2,
+          high: 37.4,
+          lower: 19.2,
+          upper: 35,
+          target: 33,
+          width: 3,
+          radius: 17,
+          z: 9,
+          direction: 148,
+          magnitude: 17,
+          speed: 22,
+          signal: 24.8,
+          secondary: 22,
+          up: 50,
+          down: 58,
+          plus: 29,
+          minus: 31.6,
+          conversion: 25,
+          base: 22.6,
+          support: 17.2,
+          resistance: 38,
+          volume: 244,
+          price: 28.8,
+          title: 'E',
+          open: 26,
+          close: 29,
+        },
+        {
+          date: '2026-06-01',
+          category: 'P6',
+          value: 27.402356896936034,
+          low: 18,
+          high: 38.5,
+          lower: 20,
+          upper: 36,
+          target: 34,
+          width: 4,
+          radius: 19,
+          z: 10,
+          direction: 185,
+          magnitude: 20,
+          speed: 25,
+          signal: 26,
+          secondary: 23,
+          up: 52,
+          down: 56,
+          plus: 30,
+          minus: 31,
+          conversion: 26,
+          base: 23.5,
+          support: 18,
+          resistance: 39,
+          volume: 275,
+          price: 30,
+          title: 'F',
+          open: 27,
+          close: 26,
+        },
+        {
+          date: '2026-07-01',
+          category: 'P7',
+          value: 25.332012888937687,
+          low: 18.8,
+          high: 39.6,
+          lower: 20.8,
+          upper: 37,
+          target: 35,
+          width: 5,
+          radius: 21,
+          z: 11,
+          direction: 222,
+          magnitude: 5,
+          speed: 28,
+          signal: 27.2,
+          secondary: 24,
+          up: 54,
+          down: 54,
+          plus: 31,
+          minus: 30.4,
+          conversion: 27,
+          base: 24.4,
+          support: 18.8,
+          resistance: 40,
+          volume: 306,
+          price: 31.2,
+          title: 'G',
+          open: 28,
+          close: 31,
+        },
+        {
+          date: '2026-08-01',
+          category: 'P8',
+          value: 26.472303570851736,
+          low: 19.6,
+          high: 40.7,
+          lower: 21.6,
+          upper: 38,
+          target: 36,
+          width: 6,
+          radius: 23,
+          z: 12,
+          direction: 259,
+          magnitude: 8,
+          speed: 31,
+          signal: 28.4,
+          secondary: 25,
+          up: 56,
+          down: 52,
+          plus: 32,
+          minus: 29.8,
+          conversion: 28,
+          base: 25.3,
+          support: 19.6,
+          resistance: 41,
+          volume: 337,
+          price: 32.4,
+          title: 'H',
+          open: 29,
+          close: 28,
+        },
+        {
+          date: '2026-09-01',
+          category: 'P9',
+          value: 30.902506818181685,
+          low: 20.4,
+          high: 41.8,
+          lower: 22.4,
+          upper: 39,
+          target: 37,
+          width: 3,
+          radius: 25,
+          z: 13,
+          direction: 296,
+          magnitude: 11,
+          speed: 34,
+          signal: 29.6,
+          secondary: 26,
+          up: 58,
+          down: 50,
+          plus: 33,
+          minus: 29.2,
+          conversion: 29,
+          base: 26.2,
+          support: 20.4,
+          resistance: 42,
+          volume: 368,
+          price: 33.6,
+          title: 'I',
+          open: 30,
+          close: 33,
+        },
+        {
+          date: '2026-10-01',
+          category: 'P10',
+          value: 37.06882560570381,
+          low: 21.2,
+          high: 42.9,
+          lower: 23.2,
+          upper: 40,
+          target: 38,
+          width: 4,
+          radius: 27,
+          z: 14,
+          direction: 333,
+          magnitude: 14,
+          speed: 37,
+          signal: 30.799999999999997,
+          secondary: 27,
+          up: 60,
+          down: 48,
+          plus: 34,
+          minus: 28.6,
+          conversion: 30,
+          base: 27.1,
+          support: 21.2,
+          resistance: 43,
+          volume: 399,
+          price: 34.8,
+          title: 'J',
+          open: 31,
+          close: 30,
+        },
+      ];
+      const relation = [
+        { source: 'Input', target: 'Compiler', value: 9 },
+        { source: 'Compiler', target: 'Scene', value: 8 },
+        { source: 'Scene', target: 'Canvas', value: 6 },
+        { source: 'Scene', target: 'Vector', value: 4 },
+      ];
+      const hierarchy = [
+        { id: 'All', parent: '', value: 12 },
+        { id: 'Data', parent: 'All', value: 8 },
+        { id: 'Design', parent: 'All', value: 7 },
+        { id: 'Runtime', parent: 'Data', value: 5 },
+      ];
+      const geo = [
+        { longitude: 126.98, latitude: 37.57, longitude2: 37.62, latitude2: 55.75, value: 72 },
+        { longitude: -74, latitude: 40.71, longitude2: 2.35, latitude2: 48.86, value: 55 },
+        { longitude: 139.69, latitude: 35.68, longitude2: 151.21, latitude2: -33.87, value: 43 },
+      ];
+      const grid = [
+        { x: 0, y: 0, value: 10.430428503760513 },
+        { x: 1, y: 0, value: 22.60710064972478 },
+        { x: 2, y: 0, value: 32.82057616633438 },
+        { x: 3, y: 0, value: 27.90803476586867 },
+        { x: 4, y: 0, value: 14.663045869774965 },
+        { x: 5, y: 0, value: 6.594449339555666 },
+        { x: 0, y: 1, value: 17.61322487629726 },
+        { x: 1, y: 1, value: 43.39204346119163 },
+        { x: 2, y: 1, value: 65.04155379517323 },
+        { x: 3, y: 1, value: 54.940521654952654 },
+        { x: 4, y: 1, value: 27.81500064681589 },
+        { x: 5, y: 1, value: 11.042685812978123 },
+        { x: 0, y: 2, value: 19.425857392478807 },
+        { x: 1, y: 2, value: 48.64263552532222 },
+        { x: 2, y: 2, value: 73.36526744099703 },
+        { x: 3, y: 2, value: 63.98334848553712 },
+        { x: 4, y: 2, value: 39.560285135969195 },
+        { x: 5, y: 2, value: 22.68848082129505 },
+        { x: 0, y: 3, value: 13.356369077551614 },
+        { x: 1, y: 3, value: 31.08920947591276 },
+        { x: 2, y: 3, value: 46.4951296564206 },
+        { x: 3, y: 3, value: 45.25608740973682 },
+        { x: 4, y: 3, value: 44.06005874940666 },
+        { x: 5, y: 3, value: 38.4284197165548 },
+        { x: 0, y: 4, value: 7.037640365875978 },
+        { x: 1, y: 4, value: 12.80224167745174 },
+        { x: 2, y: 4, value: 18.06440873109301 },
+        { x: 3, y: 4, value: 20.485358278789448 },
+        { x: 4, y: 4, value: 28.733598705540032 },
+        { x: 5, y: 4, value: 29.823773179350447 },
+      ];
+      function fieldType(field) {
+        if (field === 'date' || field === 'start') return 'temporal';
+        if (['category', 'source', 'id', 'parent', 'word'].includes(field)) return 'ordinal';
+        return 'quantitative';
+      }
+      function base(mark, data = trend, x = 'category', y = 'value') {
+        return {
+          data,
+          mark,
+          x: { field: x, type: fieldType(x), title: x },
+          y: { field: y, type: fieldType(y), title: y },
+        };
+      }
+      function seriesSampleSpec(entry) {
+        const { id, mark, name } = entry;
+        let spec;
+        if (mark === 'arc-diagram' || mark === 'chord' || mark === 'graph') {
+          spec = base(
+            { type: mark, fields: { target: 'target', value: 'value' } },
+            relation,
+            'source',
+          );
+        } else if (mark === 'org' || mark === 'tree') {
+          spec = base({ type: mark, fields: { parent: 'parent' } }, hierarchy, 'id', 'value');
+        } else if (mark === 'range') {
+          const mode = id.includes('column') ? 'column' : id === 'dumbbell' ? 'dumbbell' : 'area';
+          spec = base({
+            type: mark,
+            fields: { low: 'low', high: 'high' },
+            options: { mode, smooth: id.includes('spline') },
+          });
+        } else if (mark === 'smooth') {
+          spec = base({ type: mark, point: true, options: { area: id.includes('area') } });
+        } else if (mark === 'distribution') {
+          spec = base(mark);
+        } else if (mark === 'bullet') {
+          spec = base({ type: mark, fields: { target: 'target' } });
+        } else if (mark === 'contour') {
+          spec = base({ type: mark, fields: { value: 'value' } }, grid, 'x', 'y');
+        } else if (['cylinder', 'item', 'lollipop', 'packed-bubble', 'pareto'].includes(mark)) {
+          spec = base(mark);
+        } else if (mark === 'interval') {
+          spec = base({ type: mark, fields: { low: 'low', high: 'high' } });
+        } else if (mark === 'pictorial-bar') {
+          spec = base({ type: mark, options: { symbol: 'diamond' } });
+        } else if (mark === 'polygon') {
+          spec = base(
+            { type: mark, fields: { series: 'series' } },
+            [
+              { x: 1, y: 2, series: 'A' },
+              { x: 3, y: 7, series: 'A' },
+              { x: 6, y: 3, series: 'A' },
+              { x: 2, y: 3, series: 'B' },
+              { x: 4, y: 8, series: 'B' },
+              { x: 7, y: 4, series: 'B' },
+            ],
+            'x',
+            'y',
+          );
+        } else if (mark === 'pyramid') {
+          spec = base({
+            type: mark,
+            options: { variant: id.includes('3d') ? `${id.replace('-3d', '')}-3d` : id },
+          });
+        } else if (mark === 'scatter-3d') {
+          spec = base({ type: mark, fields: { z: 'z' } }, trend, 'value', 'high');
+        } else if (mark === 'solid-gauge') {
+          spec = base({ type: mark, options: { min: 0, max: 100 } });
+        } else if (mark === 'theme-river') {
+          spec = base(
+            { type: mark, fields: { category: 'series' } },
+            [
+              { date: '2026-01-01', series: 'A', value: 12 },
+              { date: '2026-01-01', series: 'B', value: 8 },
+              { date: '2026-02-01', series: 'A', value: 18 },
+              { date: '2026-02-01', series: 'B', value: 11 },
+              { date: '2026-03-01', series: 'A', value: 14 },
+              { date: '2026-03-01', series: 'B', value: 16 },
+            ],
+            'date',
+            'value',
+          );
+        } else if (mark === 'tilemap') {
+          spec = base({ type: mark, fields: { value: 'value' } }, grid, 'x', 'y');
+        } else if (mark === 'variable-pie') {
+          spec = base({ type: mark, fields: { radius: 'radius' } });
+        } else if (mark === 'variwide') {
+          spec = base({ type: mark, fields: { width: 'width' } });
+        } else if (mark === 'vector') {
+          spec = base(
+            { type: mark, fields: { direction: 'direction', magnitude: 'magnitude' } },
+            trend,
+            'value',
+            'high',
+          );
+        } else if (mark === 'venn') {
+          spec = base(mark, trend.slice(0, 3));
+        } else if (mark === 'wind-barb') {
+          spec = base(
+            { type: mark, fields: { speed: 'speed', direction: 'direction' } },
+            trend,
+            'value',
+            'high',
+          );
+        } else if (mark === 'word-cloud') {
+          spec = base(
+            mark,
+            [
+              { word: 'Analytics', weight: 92 },
+              { word: 'Canvas', weight: 76 },
+              { word: 'Portable', weight: 69 },
+              { word: 'Scene', weight: 61 },
+              { word: 'Scale', weight: 53 },
+              { word: 'Theme', weight: 47 },
+              { word: 'Runtime', weight: 39 },
+              { word: 'Data', weight: 34 },
+              { word: 'Vector', weight: 28 },
+              { word: 'Access', weight: 23 },
+            ],
+            'word',
+            'weight',
+          );
+        } else if (mark === 'timeline') {
+          spec = base(
+            { type: mark, fields: { end: 'end' } },
+            [
+              { start: '2026-01-01', end: '2026-01-08', category: 'A' },
+              { start: '2026-01-05', end: '2026-01-15', category: 'B' },
+            ],
+            'start',
+            'category',
+          );
+        } else if (mark === 'indicator') {
+          spec = base(
+            {
+              type: mark,
+              fields: { lower: 'lower', upper: 'upper' },
+              options: { kind: id, fields: ['value', 'signal'] },
+            },
+            trend,
+            'date',
+            'value',
+          );
+        } else if (mark === 'flags') {
+          spec = base(
+            { type: mark, fields: { title: 'title' } },
+            trend.slice(0, 5),
+            'date',
+            'value',
+          );
+        } else if (mark === 'financial') {
+          spec = base(
+            {
+              type: mark,
+              fields: { open: 'open', high: 'high', low: 'low', close: 'close' },
+              options: { kind: id },
+            },
+            trend,
+            'date',
+            'close',
+          );
+        } else if (mark === 'point-figure' || mark === 'renko') {
+          spec = base(mark, trend, 'date', 'close');
+        } else if (mark === 'volume-profile') {
+          spec = base(
+            { type: mark, fields: { price: 'price', volume: 'volume' } },
+            trend,
+            'date',
+            'price',
+          );
+        } else if (mark === 'geo-flow' || mark === 'geo-line') {
+          spec = base(
+            {
+              type: mark,
+              fields: { longitude2: 'longitude2', latitude2: 'latitude2', value: 'value' },
+            },
+            geo,
+            'longitude',
+            'latitude',
+          );
+        } else if (mark === 'geo-heatmap') {
+          spec = base({ type: mark, fields: { value: 'value' } }, geo, 'longitude', 'latitude');
+        } else if (mark === 'map') {
+          spec = base({ type: mark, fields: { size: 'value' } }, geo, 'longitude', 'latitude');
+        } else if (mark === 'tiled-map') {
+          spec = base(mark, geo, 'longitude', 'latitude');
+        } else {
+          throw new Error(`Missing sample for ${id} (${mark})`);
+        }
+
+        const hideAxes = ['map', 'radial', 'relationship'].includes(entry.category);
+        return {
+          ...spec,
+          title: { text: name, subtitle: `${entry.category} · ${entry.canonicalFamily}` },
+          accessibility: {
+            label: `${name} example`,
+            description: `A compiled ${name.toLowerCase()} example using the ${entry.canonicalFamily} family.`,
+          },
+          ...(hideAxes ? { axes: { x: false, y: false } } : {}),
+        };
+      }
+      const gallery = document.querySelector('#gallery');
+      const status = document.querySelector('#status');
+      const themeButton = document.querySelector('#theme');
+      const categorySelect = document.querySelector('#category');
+      let charts = [];
+      let dark = false;
+
+      [...new Set(definitions.map(({ category }) => category))].sort().forEach((category) => {
+        const option = document.createElement('option');
+        option.value = category;
+        option.textContent = category;
+        categorySelect.append(option);
+      });
+
+      const render = async () => {
+        charts.forEach((chart) => chart.destroy());
+        charts = [];
+        gallery.replaceChildren();
+        const selected = categorySelect.value;
+        const visible = definitions.filter(
+          ({ category }) => selected === 'all' || category === selected,
+        );
+        status.textContent = visible.length + '개 차트를 렌더링하고 있습니다…';
+
+        for (let index = 0; index < visible.length; index += 1) {
+          const definition = visible[index];
+          const article = document.createElement('article');
+          article.innerHTML =
+            '<div class="head"><div><h2>' +
+            definition.name +
+            '</h2><p class="copy"><code>Graflume.' +
+            definition.quickApi +
+            '()</code><br />canonical: ' +
+            definition.canonicalFamily +
+            '</p></div><span class="badge">' +
+            definition.mark +
+            '</span></div><div class="chart" id="chart-' +
+            definition.id +
+            '"></div>';
+          gallery.append(article);
+          const spec = seriesSampleSpec(definition);
+          charts.push(
+            Graflume.create('#chart-' + definition.id, {
+              ...spec,
+              height: 300,
+              theme: dark ? 'graflume-dark' : 'graflume-light',
+            }),
+          );
+          if (index % 8 === 7) await new Promise((resolve) => requestAnimationFrame(resolve));
+        }
+        status.textContent = visible.length + '개 차트 렌더링이 완료되었습니다.';
+      };
+
+      themeButton.addEventListener('click', () => {
+        dark = !dark;
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+        themeButton.textContent = dark ? '밝은 테마' : '어두운 테마';
+        render();
+      });
+      categorySelect.addEventListener('change', render);
+
+      try {
+        if (!window.Graflume) throw new Error('Graflume complete browser bundle was not loaded.');
+        render();
+      } catch (error) {
+        status.classList.add('error');
+        status.textContent = error instanceof Error ? error.message : String(error);
+        console.error(error);
+      }
+    </script>
+  </body>
+</html>

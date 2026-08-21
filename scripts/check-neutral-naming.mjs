@@ -3,6 +3,10 @@ import { execFileSync } from 'node:child_process';
 
 const exactPhrase = String.fromCharCode(101, 67, 104, 97, 114, 116);
 const productName = String.fromCharCode(69, 67, 104, 97, 114, 116, 115);
+const restrictedNames = [
+  productName,
+  String.fromCharCode(104, 105, 103, 104, 99, 104, 97, 114, 116, 115),
+];
 const roots = new Set([
   '.github',
   'src',
@@ -35,7 +39,10 @@ for (const file of files) {
   } catch {
     continue;
   }
-  if (source.includes(exactPhrase) || source.toLowerCase().includes(productName.toLowerCase())) {
+  if (
+    source.includes(exactPhrase) ||
+    restrictedNames.some((name) => source.toLowerCase().includes(name.toLowerCase()))
+  ) {
     hits.push(file);
   }
 }

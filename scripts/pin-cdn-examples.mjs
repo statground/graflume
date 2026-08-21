@@ -26,7 +26,7 @@ const targets = [
     integrity: defaultIntegrity,
   },
   {
-    paths: ['examples/cdn/additional-chart-types.html'],
+    paths: ['examples/cdn/additional-chart-types.html', 'examples/cdn/series-chart-types.html'],
     bundle: 'graflume.complete.global.js',
     placeholder: '__GRAFLUME_COMPLETE_CDN_SRI__',
     integrity: completeIntegrity,

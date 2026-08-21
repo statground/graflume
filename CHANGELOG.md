@@ -4,6 +4,11 @@ All notable changes to Graflume will be recorded here.
 
 ## Unreleased
 
+- Expand the opt-in complete catalog to 141 user-facing families by adding 96 specialized series and mapping the full 117-identifier compatibility surface onto shared canonical implementations.
+- Add 32 renderer-neutral mark compilers for range, smooth, distribution, bullet, contour, depth, financial, indicator, geographic, vector, relationship, radial, and text-layout semantics while preserving the 31-family default entrypoint.
+- Add a typed specialized-series catalog, Quick APIs for every new family, schema metadata, domain coverage, ESM/browser bundle assertions, and exhaustive compile tests.
+- Preserve the 80 KiB default-bundle budget and set a 176 KiB budget for the opt-in complete bundle containing the full resolver catalog.
+- Add 96 dedicated manuals, compiled Scene SVG snapshots, and a responsive exact-commit CDN gallery, with deterministic generation and staleness checks in CI.
 - Add an opt-in complete catalog entrypoint with Radar, Tree, Graph, Chord, Funnel, Parallel Coordinates, Boxplot, Effect Scatter, Connection Lines, Heatmap, Pictorial Bar, Theme River, Sunburst, and function-free Declarative Custom charts.
 - Compile all 14 specialist families into the existing renderer-neutral Scene and Canvas renderer while reusing the established data, scale, theme, interaction, and accessibility contracts.
 - Extend portable mark types, specialist domain resolution, package exports, ESM/browser bundles, and schema catalog metadata without changing `ChartSpec 0.1` serialization.

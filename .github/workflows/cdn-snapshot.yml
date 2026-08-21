@@ -94,7 +94,8 @@ jobs:
             examples/cdn/bar-chart.html \
             examples/cdn/chart-types.html \
             examples/cdn/complete-chart-types.html \
-            examples/cdn/additional-chart-types.html
+            examples/cdn/additional-chart-types.html \
+            examples/cdn/series-chart-types.html
           if ! git diff --cached --quiet; then
             git commit -m 'Pin Graflume CDN examples [skip ci]'
           fi
