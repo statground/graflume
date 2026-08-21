@@ -14,7 +14,64 @@ export interface SeriesChartTypeEntry {
   readonly quickApi: string;
   readonly mark: string;
   readonly category: SeriesChartCategory;
+}
+
+export interface SeriesChartVariantEntry extends SeriesChartTypeEntry {
+  readonly familyId: string;
+  readonly mode: string;
+  /** @deprecated Use familyId. */
   readonly canonicalFamily: string;
+}
+
+const variantFamilyOverrides: Readonly<Record<string, string>> = {
+  'arc-diagram': 'network',
+  'area-range': 'interval',
+  'area-spline': 'area',
+  'area-spline-range': 'interval',
+  'bell-curve': 'histogram',
+  bullet: 'bar',
+  'column-pyramid': 'bar',
+  'column-range': 'interval',
+  cylinder: 'bar',
+  'dependency-wheel': 'chord',
+  dumbbell: 'interval',
+  'error-bar': 'interval',
+  'event-flags': 'annotation',
+  'funnel-3d': 'funnel',
+  'heikin-ashi': 'candlestick',
+  'high-low-close': 'candlestick',
+  'hollow-candlestick': 'candlestick',
+  lollipop: 'bar',
+  'network-graph': 'network',
+  'open-high-low-close': 'candlestick',
+  'organization-network': 'hierarchy',
+  'packed-bubble': 'bubble',
+  pareto: 'combination',
+  'pictorial-column': 'bar',
+  polygon: 'area',
+  pyramid: 'funnel',
+  'pyramid-3d': 'funnel',
+  'scatter-3d': 'scatter',
+  'solid-gauge': 'gauge',
+  spline: 'line',
+  streamgraph: 'area',
+  'tile-map': 'heatmap',
+  'tree-graph': 'hierarchy',
+  'variable-pie': 'pie',
+  'variable-width': 'bar',
+  vector: 'vector-field',
+  'volume-by-price': 'volume-profile',
+  'wind-barb': 'vector-field',
+  'x-range': 'timeline',
+};
+
+function familyIdFor(id: string, category: SeriesChartCategory): string {
+  const override = variantFamilyOverrides[id];
+  if (override) return override;
+  if (category === 'indicator') return 'technical-indicator';
+  if (category === 'map') return 'map';
+  if (id === 'point-and-figure' || id === 'renko') return 'price-blocks';
+  return id;
 }
 
 const entry = (
@@ -23,14 +80,26 @@ const entry = (
   quickApi: string,
   mark: string,
   category: SeriesChartCategory,
-  canonicalFamily = id,
-): SeriesChartTypeEntry => ({ id, name, quickApi, mark, category, canonicalFamily });
+  _legacyFamily = id,
+): SeriesChartVariantEntry => {
+  const familyId = familyIdFor(id, category);
+  return {
+    id,
+    name,
+    quickApi,
+    mark,
+    category,
+    familyId,
+    mode: familyId === id ? 'default' : id,
+    canonicalFamily: familyId,
+  };
+};
 
 /**
  * Specialized series that extend the established and advanced catalogs.
  * Existing families are represented once and reused through canonical aliases.
  */
-export const seriesChartTypeCatalog = [
+export const seriesChartVariantCatalog = [
   entry('arc-diagram', 'Arc diagram', 'arcDiagram', 'arc-diagram', 'relationship'),
   entry('area-range', 'Area range chart', 'areaRange', 'range', 'cartesian'),
   entry('area-spline', 'Smooth area chart', 'areaSpline', 'smooth', 'cartesian'),
@@ -296,16 +365,73 @@ export const seriesChartTypeCatalog = [
   entry('tiled-map', 'Tiled map', 'tiledMap', 'tiled-map', 'map'),
 ] as const;
 
+const family = (
+  id: string,
+  name: string,
+  quickApi: string,
+  mark: string,
+  category: SeriesChartCategory,
+): SeriesChartTypeEntry => ({ id, name, quickApi, mark, category });
+
+/** Specialized families that add a distinct data model or reading task. */
+export const seriesChartTypeCatalog = [
+  family('contour', 'Contour chart', 'contour', 'contour', 'distribution'),
+  family('item', 'Item chart', 'itemChart', 'item', 'radial'),
+  family('vector-field', 'Vector field chart', 'vectorField', 'vector', 'cartesian'),
+  family('venn', 'Venn diagram', 'venn', 'venn', 'relationship'),
+  family('word-cloud', 'Word cloud', 'wordCloud', 'word-cloud', 'relationship'),
+  family('price-blocks', 'Price blocks chart', 'priceBlocks', 'renko', 'financial'),
+  family('volume-profile', 'Volume profile chart', 'volumeProfile', 'volume-profile', 'financial'),
+  family(
+    'technical-indicator',
+    'Technical indicator chart',
+    'technicalIndicator',
+    'indicator',
+    'indicator',
+  ),
+] as const;
+
 export type SeriesChartTypeId = (typeof seriesChartTypeCatalog)[number]['id'];
+export type SeriesChartVariantId = (typeof seriesChartVariantCatalog)[number]['id'];
 
 export interface SeriesCompatibilityEntry {
   readonly identifier: string;
   readonly familyId: string;
+  readonly variantId: string;
 }
 
-const compatibility = (identifier: string, familyId: string): SeriesCompatibilityEntry => ({
+const directFamilyByVariant: Readonly<Record<string, string>> = {
+  area: 'area',
+  bar: 'bar',
+  boxplot: 'boxplot',
+  bubble: 'bubble',
+  candlestick: 'candlestick',
+  column: 'bar',
+  funnel: 'funnel',
+  gantt: 'timeline',
+  gauge: 'gauge',
+  heatmap: 'heatmap',
+  histogram: 'histogram',
+  line: 'line',
+  map: 'map',
+  pie: 'pie',
+  sankey: 'flow',
+  scatter: 'scatter',
+  sunburst: 'hierarchy',
+  timeline: 'timeline',
+  treemap: 'hierarchy',
+  trendline: 'line',
+  waterfall: 'waterfall',
+};
+
+const seriesFamilyByVariant = new Map(
+  seriesChartVariantCatalog.map(({ id, familyId }) => [id, familyId]),
+);
+
+const compatibility = (identifier: string, variantId: string): SeriesCompatibilityEntry => ({
   identifier,
-  familyId,
+  familyId: seriesFamilyByVariant.get(variantId) ?? directFamilyByVariant[variantId] ?? variantId,
+  variantId,
 });
 
 /** Public series identifiers and the single catalog family that implements each one. */

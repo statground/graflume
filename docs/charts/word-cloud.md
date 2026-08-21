@@ -120,7 +120,13 @@ wordCloud('#chart', data, {
 - Canonical family: `word-cloud`
 - Category: `relationship`
 
-When the canonical family differs from the user-facing name, the Quick API supplies safe mark defaults and then enters the same normalize, validate, scale, compiler, Scene, renderer, interaction, and accessibility path. No parallel rendering engine is created.
+The family API and every compatible preset enter the same normalize, validate, scale, compiler, Scene, renderer, interaction, and accessibility path. No parallel rendering engine is created.
+
+## Integrated presets
+
+| Compatible name | Quick API     | Mode      | Portable mark |
+| --------------- | ------------- | --------- | ------------- |
+| Word cloud      | `wordCloud()` | `default` | `word-cloud`  |
 
 ## Data, ordering, and missing values
 

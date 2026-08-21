@@ -1,19 +1,19 @@
-# Item chart
+# Volume profile chart
 
-![Current Item chart output](../assets/charts/item.svg)
+![Current Volume profile chart output](../assets/charts/volume-profile.svg)
 
-This page documents the currently implemented **Item chart** family in Graflume `0.1.0-alpha.0`. The image above is generated from the same compiled Scene used by the Canvas renderer.
+This page documents the currently implemented **Volume profile chart** family in Graflume `0.1.0-alpha.0`. The image above is generated from the same compiled Scene used by the Canvas renderer.
 
 ## When to use it
 
-Use this radial chart when the visual relationship represented by **item chart** is more informative than a plain line, bar, or table. Prefer a simpler chart when the extra geometry does not add analytical meaning.
+Use this financial chart when the visual relationship represented by **volume profile chart** is more informative than a plain line, bar, or table. Prefer a simpler chart when the extra geometry does not add analytical meaning.
 
 ## Quick API
 
 Import the Quick API from the opt-in complete entrypoint:
 
 ```ts
-import { itemChart } from 'graflume/complete';
+import { volumeProfile } from 'graflume/complete';
 
 const data = [
   {
@@ -173,24 +173,30 @@ const data = [
   },
 ];
 
-itemChart('#chart', data, {
+volumeProfile('#chart', data, {
   x: {
-    field: 'category',
-    type: 'ordinal',
-    title: 'category',
+    field: 'date',
+    type: 'temporal',
+    title: 'date',
   },
   y: {
-    field: 'value',
+    field: 'price',
     type: 'quantitative',
-    title: 'value',
+    title: 'price',
+  },
+  mark: {
+    fields: {
+      price: 'price',
+      volume: 'volume',
+    },
   },
   title: {
-    text: 'Item chart',
-    subtitle: 'radial · item',
+    text: 'Volume profile chart',
+    subtitle: 'financial · volume-profile',
   },
   accessibility: {
-    label: 'Item chart example',
-    description: 'A compiled item chart example using the item family.',
+    label: 'Volume profile chart example',
+    description: 'A compiled volume profile chart example using the volume-profile family.',
   },
 });
 ```
@@ -356,55 +362,57 @@ itemChart('#chart', data, {
       "close": 29
     }
   ],
-  "mark": "item",
+  "mark": {
+    "type": "volume-profile",
+    "fields": {
+      "price": "price",
+      "volume": "volume"
+    }
+  },
   "x": {
-    "field": "category",
-    "type": "ordinal",
-    "title": "category"
+    "field": "date",
+    "type": "temporal",
+    "title": "date"
   },
   "y": {
-    "field": "value",
+    "field": "price",
     "type": "quantitative",
-    "title": "value"
+    "title": "price"
   },
   "title": {
-    "text": "Item chart",
-    "subtitle": "radial · item"
+    "text": "Volume profile chart",
+    "subtitle": "financial · volume-profile"
   },
   "accessibility": {
-    "label": "Item chart example",
-    "description": "A compiled item chart example using the item family."
-  },
-  "axes": {
-    "x": false,
-    "y": false
+    "label": "Volume profile chart example",
+    "description": "A compiled volume profile chart example using the volume-profile family."
   }
 }
 ```
 
 ## Canonical mapping
 
-- User-facing family: `item`
-- Quick API: `itemChart()`
-- Portable mark: `item`
-- Canonical family: `item`
-- Category: `radial`
+- User-facing family: `volume-profile`
+- Quick API: `volumeProfile()`
+- Portable mark: `volume-profile`
+- Canonical family: `volume-profile`
+- Category: `financial`
 
 The family API and every compatible preset enter the same normalize, validate, scale, compiler, Scene, renderer, interaction, and accessibility path. No parallel rendering engine is created.
 
 ## Integrated presets
 
-| Compatible name | Quick API     | Mode      | Portable mark |
-| --------------- | ------------- | --------- | ------------- |
-| Item chart      | `itemChart()` | `default` | `item`        |
+| Compatible name | Quick API         | Mode              | Portable mark    |
+| --------------- | ----------------- | ----------------- | ---------------- |
+| Volume by price | `volumeByPrice()` | `volume-by-price` | `volume-profile` |
 
 ## Data, ordering, and missing values
 
-Categories use `x`, non-negative magnitude uses `y`, and optional radius or target channels are declared in `mark.fields`. Input order is preserved unless the mark explicitly documents a deterministic sort. Missing required values skip only the affected row; invalid specs still fail validation before compilation.
+Time or ordered categories use `x`. Price, volume, event, and open/high/low/close channels use `y` plus the named `mark.fields` shown in the example. Input order is preserved unless the mark explicitly documents a deterministic sort. Missing required values skip only the affected row; invalid specs still fail validation before compilation.
 
 ## Implemented rendering behavior
 
-Allocates a bounded grid of repeated symbols in proportion to category values. The output uses only groups, paths, lines, rectangles, circles, and text, so Canvas, snapshots, export adapters, and future renderers share the same geometry contract.
+Bins price and aggregates volume into horizontal bars aligned to the price range. The output uses only groups, paths, lines, rectangles, circles, and text, so Canvas, snapshots, export adapters, and future renderers share the same geometry contract.
 
 ## Styling
 

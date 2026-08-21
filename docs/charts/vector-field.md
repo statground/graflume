@@ -1,19 +1,19 @@
-# Item chart
+# Vector field chart
 
-![Current Item chart output](../assets/charts/item.svg)
+![Current Vector field chart output](../assets/charts/vector-field.svg)
 
-This page documents the currently implemented **Item chart** family in Graflume `0.1.0-alpha.0`. The image above is generated from the same compiled Scene used by the Canvas renderer.
+This page documents the currently implemented **Vector field chart** family in Graflume `0.1.0-alpha.0`. The image above is generated from the same compiled Scene used by the Canvas renderer.
 
 ## When to use it
 
-Use this radial chart when the visual relationship represented by **item chart** is more informative than a plain line, bar, or table. Prefer a simpler chart when the extra geometry does not add analytical meaning.
+Use this cartesian chart when the visual relationship represented by **vector field chart** is more informative than a plain line, bar, or table. Prefer a simpler chart when the extra geometry does not add analytical meaning.
 
 ## Quick API
 
 Import the Quick API from the opt-in complete entrypoint:
 
 ```ts
-import { itemChart } from 'graflume/complete';
+import { vectorField } from 'graflume/complete';
 
 const data = [
   {
@@ -173,24 +173,30 @@ const data = [
   },
 ];
 
-itemChart('#chart', data, {
+vectorField('#chart', data, {
   x: {
-    field: 'category',
-    type: 'ordinal',
-    title: 'category',
-  },
-  y: {
     field: 'value',
     type: 'quantitative',
     title: 'value',
   },
+  y: {
+    field: 'high',
+    type: 'quantitative',
+    title: 'high',
+  },
+  mark: {
+    fields: {
+      direction: 'direction',
+      magnitude: 'magnitude',
+    },
+  },
   title: {
-    text: 'Item chart',
-    subtitle: 'radial · item',
+    text: 'Vector field chart',
+    subtitle: 'cartesian · vector-field',
   },
   accessibility: {
-    label: 'Item chart example',
-    description: 'A compiled item chart example using the item family.',
+    label: 'Vector field chart example',
+    description: 'A compiled vector field chart example using the vector-field family.',
   },
 });
 ```
@@ -356,55 +362,58 @@ itemChart('#chart', data, {
       "close": 29
     }
   ],
-  "mark": "item",
-  "x": {
-    "field": "category",
-    "type": "ordinal",
-    "title": "category"
+  "mark": {
+    "type": "vector",
+    "fields": {
+      "direction": "direction",
+      "magnitude": "magnitude"
+    }
   },
-  "y": {
+  "x": {
     "field": "value",
     "type": "quantitative",
     "title": "value"
   },
+  "y": {
+    "field": "high",
+    "type": "quantitative",
+    "title": "high"
+  },
   "title": {
-    "text": "Item chart",
-    "subtitle": "radial · item"
+    "text": "Vector field chart",
+    "subtitle": "cartesian · vector-field"
   },
   "accessibility": {
-    "label": "Item chart example",
-    "description": "A compiled item chart example using the item family."
-  },
-  "axes": {
-    "x": false,
-    "y": false
+    "label": "Vector field chart example",
+    "description": "A compiled vector field chart example using the vector-field family."
   }
 }
 ```
 
 ## Canonical mapping
 
-- User-facing family: `item`
-- Quick API: `itemChart()`
-- Portable mark: `item`
-- Canonical family: `item`
-- Category: `radial`
+- User-facing family: `vector-field`
+- Quick API: `vectorField()`
+- Portable mark: `vector`
+- Canonical family: `vector-field`
+- Category: `cartesian`
 
 The family API and every compatible preset enter the same normalize, validate, scale, compiler, Scene, renderer, interaction, and accessibility path. No parallel rendering engine is created.
 
 ## Integrated presets
 
-| Compatible name | Quick API     | Mode      | Portable mark |
-| --------------- | ------------- | --------- | ------------- |
-| Item chart      | `itemChart()` | `default` | `item`        |
+| Compatible name    | Quick API    | Mode        | Portable mark |
+| ------------------ | ------------ | ----------- | ------------- |
+| Vector field chart | `vector()`   | `vector`    | `vector`      |
+| Wind barb chart    | `windBarb()` | `wind-barb` | `wind-barb`   |
 
 ## Data, ordering, and missing values
 
-Categories use `x`, non-negative magnitude uses `y`, and optional radius or target channels are declared in `mark.fields`. Input order is preserved unless the mark explicitly documents a deterministic sort. Missing required values skip only the affected row; invalid specs still fail validation before compilation.
+The primary `x` and `y` encodings locate rows. Additional quantitative channels are named in `mark.fields`, and rows with missing required coordinates are skipped. Input order is preserved unless the mark explicitly documents a deterministic sort. Missing required values skip only the affected row; invalid specs still fail validation before compilation.
 
 ## Implemented rendering behavior
 
-Allocates a bounded grid of repeated symbols in proportion to category values. The output uses only groups, paths, lines, rectangles, circles, and text, so Canvas, snapshots, export adapters, and future renderers share the same geometry contract.
+Converts direction and magnitude fields into arrow shafts and heads at each coordinate. The output uses only groups, paths, lines, rectangles, circles, and text, so Canvas, snapshots, export adapters, and future renderers share the same geometry contract.
 
 ## Styling
 

@@ -4,6 +4,10 @@ All notable changes to Graflume will be recorded here.
 
 ## Unreleased
 
+- Consolidate visually or semantically overlapping names into 37 distinct chart families while retaining all 141 historical names as compatible presets.
+- Add explicit family, variant, and mode metadata; resolve all 117 public series identifiers to both a canonical `familyId` and a preserved `variantId`.
+- Fold orientation, smoothing, depth, glyph, radius, map layout, financial-body, and 45 indicator differences into discoverable modes instead of separate family cards.
+- Regenerate canonical guides, compiled Scene snapshots, and galleries so only distinct families are presented while compatibility APIs continue to compile unchanged.
 - Expand the opt-in complete catalog to 141 user-facing families by adding 96 specialized series and mapping the full 117-identifier compatibility surface onto shared canonical implementations.
 - Add 32 renderer-neutral mark compilers for range, smooth, distribution, bullet, contour, depth, financial, indicator, geographic, vector, relationship, radial, and text-layout semantics while preserving the 31-family default entrypoint.
 - Add a typed specialized-series catalog, Quick APIs for every new family, schema metadata, domain coverage, ESM/browser bundle assertions, and exhaustive compile tests.

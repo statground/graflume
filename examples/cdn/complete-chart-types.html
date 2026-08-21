@@ -178,13 +178,13 @@
         <div>
           <h1>Graflume 전체 차트 유형 갤러리</h1>
           <p class="lede">
-            Cartesian, radial, financial, time, hierarchy, flow, map 유형과 호환 별칭까지 총 31개를
-            Graflume의 portable ChartSpec과 renderer-neutral Scene으로 실제 렌더링합니다.
+            이름만 다른 호환 별칭은 모드로 접고, 데이터 의미가 구분되는 기본 22개 패밀리만 portable
+            ChartSpec과 renderer-neutral Scene으로 실제 렌더링합니다.
           </p>
         </div>
         <button id="theme" type="button">어두운 테마</button>
       </header>
-      <p id="status" role="status">31개 차트를 렌더링하고 있습니다…</p>
+      <p id="status" role="status">22개 차트를 렌더링하고 있습니다…</p>
       <section id="gallery" class="gallery" aria-label="Graflume 전체 차트 유형 갤러리"></section>
     </main>
 
@@ -665,13 +665,44 @@
         ],
       ];
 
+      const canonicalRepresentatives = new Map([
+        ['annotation', ['annotation', 'Annotation']],
+        ['area', ['area', 'Area']],
+        ['bar', ['bar', 'Bar']],
+        ['bubble', ['bubble', 'Bubble']],
+        ['calendar', ['calendar', 'Calendar']],
+        ['candlestick', ['candlestick', 'Candlestick']],
+        ['combo', ['combination', 'Combination']],
+        ['diff', ['difference', 'Difference']],
+        ['pie', ['pie', 'Pie']],
+        ['timeline', ['timeline', 'Timeline and range']],
+        ['gauge', ['gauge', 'Gauge']],
+        ['map', ['map', 'Map']],
+        ['histogram', ['histogram', 'Histogram']],
+        ['intervals', ['interval', 'Interval']],
+        ['line', ['line', 'Line']],
+        ['motion', ['motion', 'Motion']],
+        ['treemap', ['hierarchy', 'Hierarchy']],
+        ['sankey', ['flow', 'Flow']],
+        ['scatter', ['scatter', 'Scatter']],
+        ['table', ['table', 'Table']],
+        ['waterfall', ['waterfall', 'Waterfall']],
+        ['word-tree', ['word-tree', 'Word Tree']],
+      ]);
+      const visibleDefinitions = definitions
+        .filter(([id]) => canonicalRepresentatives.has(id))
+        .map(([id, , api, summary, spec]) => {
+          const [familyId, title] = canonicalRepresentatives.get(id);
+          return [familyId, title, api, summary, spec];
+        });
+
       const gallery = document.querySelector('#gallery');
       const status = document.querySelector('#status');
       const themeButton = document.querySelector('#theme');
       const charts = [];
       let currentTheme = 'graflume-light';
 
-      for (const [id, title, api, summary] of definitions) {
+      for (const [id, title, api, summary] of visibleDefinitions) {
         const article = document.createElement('article');
         article.innerHTML = `<div class="head"><div><h2></h2><p class="copy"></p><code></code></div><span class="badge"></span></div><div class="chart"></div>`;
         article.querySelector('h2').textContent = title;
@@ -689,7 +720,7 @@
         themeButton.disabled = true;
       } else {
         try {
-          definitions.forEach(([id, title, , , spec]) => {
+          visibleDefinitions.forEach(([id, title, , , spec]) => {
             const chart = Graflume.create(`#chart-${id}`, { ...spec, theme: currentTheme, title });
             charts.push(chart);
           });

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import * as Graflume from '../.tmp/src/index.js';
 import { flattenScene } from '../.tmp/src/scene/walk.js';
 
-const { capabilities, compile, chartTypeCatalog } = Graflume;
+const { capabilities, compile, chartTypeCatalog, chartVariantCatalog } = Graflume;
 
 const trend = [
   { date: '2026-01-01', category: 'Jan', value: 12, old: 9, low: 9, high: 15, annotation: 'A' },
@@ -260,12 +260,23 @@ const specs = new Map([
   ],
 ]);
 
-test('catalog covers every supported chart family and compatibility name', () => {
-  assert.equal(chartTypeCatalog.length, 31);
-  assert.deepEqual(
-    [...specs.keys()],
-    chartTypeCatalog.map((entry) => entry.id),
-  );
+for (const [familyId, representativeId] of [
+  ['combination', 'combo'],
+  ['difference', 'diff'],
+  ['interval', 'intervals'],
+  ['hierarchy', 'treemap'],
+  ['flow', 'sankey'],
+]) {
+  specs.set(familyId, specs.get(representativeId));
+}
+
+test('catalog separates distinct families from compatible variant names', () => {
+  assert.equal(chartTypeCatalog.length, 22);
+  assert.equal(chartVariantCatalog.length, 31);
+  const familyIds = new Set(chartTypeCatalog.map((entry) => entry.id));
+  for (const entry of chartVariantCatalog) {
+    if (entry.familyId !== 'custom') assert.ok(familyIds.has(entry.familyId), entry.id);
+  }
   const marks = capabilities().marks;
   for (const entry of chartTypeCatalog) {
     if (entry.mark !== 'multiple')
@@ -274,7 +285,7 @@ test('catalog covers every supported chart family and compatibility name', () =>
 });
 
 test('every catalog entry exposes its documented Quick API', () => {
-  for (const entry of chartTypeCatalog) {
+  for (const entry of chartVariantCatalog) {
     assert.equal(typeof Graflume[entry.quickApi], 'function', `${entry.quickApi} is exported`);
   }
 });

@@ -18,7 +18,7 @@ import type { RuntimeRegistry } from './runtime/registry.js';
 import type { ChartSpec, DataInput } from './spec/types.js';
 import type { ThemeTokens } from './theme/types.js';
 import { specVersion, version } from './version.js';
-import { chartTypeCatalog } from './catalog/chart-types.js';
+import { chartTypeCatalog, chartVariantCatalog } from './catalog/chart-types.js';
 
 export function create(target: ChartTarget, spec: ChartSpec, options?: ChartCreateOptions): Chart {
   return new Chart(target, spec, defaultRegistry, options);
@@ -220,7 +220,7 @@ export function capabilities(): ReturnType<RuntimeRegistry['capabilities']> {
 }
 
 export const createRegistry = createDefaultRegistry;
-export { chartTypeCatalog };
+export { chartTypeCatalog, chartVariantCatalog };
 
 export { Chart, specVersion, version };
 export { assertValidSpec, validateSpec } from './spec/validate.js';
@@ -234,7 +234,12 @@ export { GraflumeError } from './core/errors.js';
 export { hitTestScene } from './interaction/hit-test.js';
 
 export type { QuickChartOptions, QuickComboOptions } from './api/quick.js';
-export type { ChartTypeId } from './catalog/chart-types.js';
+export type {
+  ChartFamilyEntry,
+  ChartTypeId,
+  ChartVariantEntry,
+  ChartVariantId,
+} from './catalog/chart-types.js';
 export type {
   ChartCreateOptions,
   ChartEventMap,

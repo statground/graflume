@@ -1,8 +1,8 @@
 # Chart guides
 
-Graflume `0.1.0-alpha.0` exposes 141 user-facing chart families through two package entrypoints. The default entrypoint keeps the established 31-family catalog, while `graflume/complete` adds 14 advanced families and 96 specialized series without duplicating the shared compiler, theme, Scene, Canvas renderer, interaction, or accessibility contracts. The unified catalog covers 117 public series identifiers through canonical aliases and purpose-built marks.
+Graflume `0.1.0-alpha.0` exposes 37 distinct chart families through two package entrypoints. The default entrypoint contains 22 established families, while `graflume/complete` adds 7 advanced and 8 specialized families. All 141 historical names remain available as compatible presets, including 117 public series identifiers, without duplicating the shared compiler, theme, Scene, Canvas renderer, interaction, or accessibility contracts.
 
-Every family below is implemented today. Compatibility names normalize to canonical portable marks rather than creating parallel rendering paths.
+Every family below is implemented today. Direction, curve, depth, radius, glyph, layout, and indicator differences are presets inside one family instead of separate discovery entries.
 
 Use `resolveSeriesType(identifier)` from `graflume/complete` to resolve case, spaces, hyphens, or underscores into the catalog's single representative family. `seriesCompatibilityCatalog` exposes all 117 identifier-to-family mappings for adapters and migration tools.
 
@@ -10,203 +10,94 @@ Use `resolveSeriesType(identifier)` from `graflume/complete` to resolve case, sp
 
 ### Default entrypoint
 
-| Chart                                         | Quick API             | Portable mapping               |
-| --------------------------------------------- | --------------------- | ------------------------------ |
-| [Annotation](./annotation.md)                 | `annotation()`        | `annotation`                   |
-| [Annotated Timeline](./annotated-timeline.md) | `annotatedTimeline()` | `annotation` alias             |
-| [Area](./area.md)                             | `area()`              | `area`                         |
-| [Bar](./bar.md)                               | `horizontalBar()`     | `bar` + horizontal orientation |
-| [Bubble](./bubble.md)                         | `bubble()`            | `bubble`                       |
-| [Calendar](./calendar.md)                     | `calendar()`          | `calendar`                     |
-| [Candlestick](./candlestick.md)               | `candlestick()`       | `candlestick`                  |
-| [Column](./column.md)                         | `column()`            | `bar` + vertical orientation   |
-| [Combo](./combination.md)                     | `combo()`             | canonical `layers`             |
-| [Diff](./diff.md)                             | `diff()`              | `diff`                         |
-| [Donut](./donut.md)                           | `donut()`             | `pie` + inner radius           |
-| [Gantt](./gantt.md)                           | `gantt()`             | `gantt`                        |
-| [Gauge](./gauge.md)                           | `gauge()`             | `gauge`                        |
-| [GeoChart](./geo.md)                          | `geo()`               | `geo`                          |
-| [Histogram](./histogram.md)                   | `histogram()`         | `histogram`                    |
-| [Intervals](./intervals.md)                   | `intervals()`         | `interval`                     |
-| [Line](./line.md)                             | `line()`              | `line`                         |
-| [Map](./map.md)                               | `map()`               | `map`                          |
-| [Motion](./motion.md)                         | `motion()`            | frame-filtered `motion`        |
-| [Organization](./org.md)                      | `org()`               | `org`                          |
-| [Pie](./pie.md)                               | `pie()`               | `pie`                          |
-| [Sankey](./sankey.md)                         | `sankey()`            | `sankey`                       |
-| [Scatter](./scatter.md)                       | `scatter()`           | `point` alias                  |
-| [Stepped Area](./stepped-area.md)             | `steppedArea()`       | `stepped-area`                 |
-| [Table](./table.md)                           | `table()`             | `table`                        |
-| [Timeline](./timeline.md)                     | `timeline()`          | `timeline`                     |
-| [Tree Map](./treemap.md)                      | `treemap()`           | `treemap`                      |
-| [Trendline](./trendline.md)                   | `trendline()`         | `trendline`                    |
-| [VegaChart adapter](./vega.md)                | `vegaChart()`         | safe `vega` subset             |
-| [Waterfall](./waterfall.md)                   | `waterfall()`         | `waterfall`                    |
-| [Word Tree](./word-tree.md)                   | `wordTree()`          | `word-tree`                    |
+| Family                              | Quick API       | Integrated presets                                                                 |
+| ----------------------------------- | --------------- | ---------------------------------------------------------------------------------- |
+| [Annotation](./annotation.md)       | `annotation()`  | timeline annotations, event flags                                                  |
+| [Area](./area.md)                   | `area()`        | stepped, smooth, polygon, stream                                                   |
+| [Bar](./bar.md)                     | `bar()`         | horizontal, column, pictorial, bullet, cylinder, pyramid, lollipop, variable width |
+| [Bubble](./bubble.md)               | `bubble()`      | coordinate and packed layouts                                                      |
+| [Calendar](./calendar.md)           | `calendar()`    | calendar cells                                                                     |
+| [Candlestick](./candlestick.md)     | `candlestick()` | OHLC, HLC, derived, hollow bodies                                                  |
+| [Combination](./combination.md)     | `combo()`       | layered series, Pareto                                                             |
+| [Difference](./difference.md)       | `diff()`        | before/after difference                                                            |
+| [Pie](./pie.md)                     | `pie()`         | pie, donut, variable radius                                                        |
+| [Timeline and range](./timeline.md) | `timeline()`    | timeline, Gantt, horizontal range                                                  |
+| [Gauge](./gauge.md)                 | `gauge()`       | dial and solid arc                                                                 |
+| [Map](./map.md)                     | `map()`         | regions, points, bubbles, routes, density, tiles                                   |
+| [Histogram](./histogram.md)         | `histogram()`   | bins and density curve                                                             |
+| [Interval](./interval.md)           | `intervals()`   | error, area range, column range, dumbbell                                          |
+| [Line](./line.md)                   | `line()`        | straight, smooth, trend                                                            |
+| [Motion](./motion.md)               | `motion()`      | frame-filtered scatter                                                             |
+| [Hierarchy](./hierarchy.md)         | `treemap()`     | tree, organization, treemap, sunburst                                              |
+| [Flow](./flow.md)                   | `sankey()`      | weighted flow                                                                      |
+| [Scatter](./scatter.md)             | `scatter()`     | standard, emphasis, depth projection                                               |
+| [Table](./table.md)                 | `table()`       | data table                                                                         |
+| [Waterfall](./waterfall.md)         | `waterfall()`   | cumulative bridge                                                                  |
+| [Word tree](./word-tree.md)         | `wordTree()`    | weighted word hierarchy                                                            |
 
 ### Complete opt-in entrypoint
 
 Import these families from `graflume/complete`, or use the dedicated complete browser bundle.
 
-| Chart                                 | Quick API         | Portable mark    |
-| ------------------------------------- | ----------------- | ---------------- |
-| [Radar](./radar.md)                   | `radar()`         | `radar`          |
-| [Tree](./tree.md)                     | `tree()`          | `tree`           |
-| [Graph](./graph.md)                   | `graph()`         | `graph`          |
-| [Chord](./chord.md)                   | `chord()`         | `chord`          |
-| [Funnel](./funnel.md)                 | `funnel()`        | `funnel`         |
-| [Parallel coordinates](./parallel.md) | `parallel()`      | `parallel`       |
-| [Boxplot](./boxplot.md)               | `boxplot()`       | `boxplot`        |
-| [Effect scatter](./effect-scatter.md) | `effectScatter()` | `effect-scatter` |
-| [Connection lines](./lines.md)        | `lines()`         | `lines`          |
-| [Heatmap](./heatmap.md)               | `heatmap()`       | `heatmap`        |
-| [Pictorial bar](./pictorial-bar.md)   | `pictorialBar()`  | `pictorial-bar`  |
-| [Theme river](./theme-river.md)       | `themeRiver()`    | `theme-river`    |
-| [Sunburst](./sunburst.md)             | `sunburst()`      | `sunburst`       |
-| [Declarative custom](./custom.md)     | `custom()`        | `custom`         |
+| Family                                | Quick API    | Integrated presets                    |
+| ------------------------------------- | ------------ | ------------------------------------- |
+| [Radar](./radar.md)                   | `radar()`    | radial multivariate comparison        |
+| [Network](./network.md)               | `network()`  | node-link, arc, connection lines      |
+| [Chord](./chord.md)                   | `chord()`    | chord and dependency wheel            |
+| [Funnel](./funnel.md)                 | `funnel()`   | funnel, pyramid, portable depth faces |
+| [Parallel coordinates](./parallel.md) | `parallel()` | multivariate paths                    |
+| [Boxplot](./boxplot.md)               | `boxplot()`  | five-number summary                   |
+| [Heatmap](./heatmap.md)               | `heatmap()`  | matrix and equal-area tile layouts    |
 
 ## Unified specialized series
 
-The following catalog is generated from the runtime metadata. Families that overlap with an established chart reuse its canonical compiler; distinct data meanings use one of the new portable marks.
+The following catalog is generated from runtime metadata and contains only the eight specialized data meanings that remain distinct after consolidation.
 
 <!-- SERIES_CATALOG_START -->
 
-### Relationship series
-
-| Chart                                             | Quick API               | Portable mark   | Canonical family |
-| ------------------------------------------------- | ----------------------- | --------------- | ---------------- |
-| [Arc diagram](./arc-diagram.md)                   | `arcDiagram()`          | `arc-diagram`   | `arc-diagram`    |
-| [Dependency wheel](./dependency-wheel.md)         | `dependencyWheel()`     | `chord`         | `chord`          |
-| [Network graph](./network-graph.md)               | `networkGraph()`        | `graph`         | `graph`          |
-| [Organization network](./organization-network.md) | `organizationNetwork()` | `org`           | `org`            |
-| [Packed bubble chart](./packed-bubble.md)         | `packedBubble()`        | `packed-bubble` | `packed-bubble`  |
-| [Tree graph](./tree-graph.md)                     | `treeGraph()`           | `tree`          | `tree`           |
-| [Venn diagram](./venn.md)                         | `venn()`                | `venn`          | `venn`           |
-| [Word cloud](./word-cloud.md)                     | `wordCloud()`           | `word-cloud`    | `word-cloud`     |
-
-### Cartesian series
-
-| Chart                                              | Quick API           | Portable mark   | Canonical family    |
-| -------------------------------------------------- | ------------------- | --------------- | ------------------- |
-| [Area range chart](./area-range.md)                | `areaRange()`       | `range`         | `area-range`        |
-| [Smooth area chart](./area-spline.md)              | `areaSpline()`      | `smooth`        | `area-spline`       |
-| [Smooth area range chart](./area-spline-range.md)  | `areaSplineRange()` | `range`         | `area-spline-range` |
-| [Bullet chart](./bullet.md)                        | `bullet()`          | `bullet`        | `bullet`            |
-| [Column pyramid chart](./column-pyramid.md)        | `columnPyramid()`   | `pyramid`       | `column-pyramid`    |
-| [Column range chart](./column-range.md)            | `columnRange()`     | `range`         | `column-range`      |
-| [Cylinder chart](./cylinder.md)                    | `cylinder()`        | `cylinder`      | `cylinder`          |
-| [Dumbbell chart](./dumbbell.md)                    | `dumbbell()`        | `range`         | `dumbbell`          |
-| [Error bar chart](./error-bar.md)                  | `errorBar()`        | `interval`      | `intervals`         |
-| [Lollipop chart](./lollipop.md)                    | `lollipop()`        | `lollipop`      | `lollipop`          |
-| [Pictorial column chart](./pictorial-column.md)    | `pictorialColumn()` | `pictorial-bar` | `pictorial-bar`     |
-| [Polygon chart](./polygon.md)                      | `polygon()`         | `polygon`       | `polygon`           |
-| [Three-axis scatter chart](./scatter-3d.md)        | `scatter3d()`       | `scatter-3d`    | `scatter-3d`        |
-| [Spline chart](./spline.md)                        | `spline()`          | `smooth`        | `spline`            |
-| [Variable width column chart](./variable-width.md) | `variableWidth()`   | `variwide`      | `variable-width`    |
-| [Vector field chart](./vector.md)                  | `vector()`          | `vector`        | `vector`            |
-| [Wind barb chart](./wind-barb.md)                  | `windBarb()`        | `wind-barb`     | `wind-barb`         |
-| [Horizontal range chart](./x-range.md)             | `xRange()`          | `timeline`      | `timeline`          |
-
 ### Distribution series
 
-| Chart                           | Quick API       | Portable mark  | Canonical family |
-| ------------------------------- | --------------- | -------------- | ---------------- |
-| [Bell curve](./bell-curve.md)   | `bellCurve()`   | `distribution` | `bell-curve`     |
-| [Contour chart](./contour.md)   | `contour()`     | `contour`      | `contour`        |
-| [Pareto chart](./pareto.md)     | `pareto()`      | `pareto`       | `pareto`         |
-| [Streamgraph](./streamgraph.md) | `streamgraph()` | `theme-river`  | `theme-river`    |
+| Chart                         | Quick API   | Portable mark | Canonical family |
+| ----------------------------- | ----------- | ------------- | ---------------- |
+| [Contour chart](./contour.md) | `contour()` | `contour`     | `contour`        |
 
 ### Radial series
 
-| Chart                                          | Quick API       | Portable mark  | Canonical family |
-| ---------------------------------------------- | --------------- | -------------- | ---------------- |
-| [Depth funnel chart](./funnel-3d.md)           | `funnel3d()`    | `pyramid`      | `funnel-3d`      |
-| [Item chart](./item.md)                        | `itemChart()`   | `item`         | `item`           |
-| [Pyramid chart](./pyramid.md)                  | `pyramid()`     | `pyramid`      | `pyramid`        |
-| [Depth pyramid chart](./pyramid-3d.md)         | `pyramid3d()`   | `pyramid`      | `pyramid`        |
-| [Solid gauge](./solid-gauge.md)                | `solidGauge()`  | `solid-gauge`  | `solid-gauge`    |
-| [Variable radius pie chart](./variable-pie.md) | `variablePie()` | `variable-pie` | `variable-pie`   |
+| Chart                   | Quick API     | Portable mark | Canonical family |
+| ----------------------- | ------------- | ------------- | ---------------- |
+| [Item chart](./item.md) | `itemChart()` | `item`        | `item`           |
 
-### Map series
+### Cartesian series
 
-| Chart                                  | Quick API      | Portable mark | Canonical family |
-| -------------------------------------- | -------------- | ------------- | ---------------- |
-| [Tile map](./tile-map.md)              | `tileMap()`    | `tilemap`     | `tile-map`       |
-| [Flow map](./flow-map.md)              | `flowMap()`    | `geo-flow`    | `flow-map`       |
-| [Geographic heatmap](./geo-heatmap.md) | `geoHeatmap()` | `geo-heatmap` | `geo-heatmap`    |
-| [Map bubble chart](./map-bubble.md)    | `mapBubble()`  | `map`         | `map`            |
-| [Map line chart](./map-line.md)        | `mapLine()`    | `geo-line`    | `map-line`       |
-| [Map point chart](./map-point.md)      | `mapPoint()`   | `map`         | `map`            |
-| [Tiled map](./tiled-map.md)            | `tiledMap()`   | `tiled-map`   | `tiled-map`      |
+| Chart                                   | Quick API       | Portable mark | Canonical family |
+| --------------------------------------- | --------------- | ------------- | ---------------- |
+| [Vector field chart](./vector-field.md) | `vectorField()` | `vector`      | `vector-field`   |
 
-### Indicator series
+### Relationship series
 
-| Chart                                                                               | Quick API                              | Portable mark | Canonical family                        |
-| ----------------------------------------------------------------------------------- | -------------------------------------- | ------------- | --------------------------------------- |
-| [Acceleration bands](./acceleration-bands.md)                                       | `accelerationBands()`                  | `indicator`   | `acceleration-bands`                    |
-| [Awesome oscillator](./awesome-oscillator.md)                                       | `awesomeOscillator()`                  | `indicator`   | `awesome-oscillator`                    |
-| [Absolute price oscillator](./absolute-price-oscillator.md)                         | `absolutePriceOscillator()`            | `indicator`   | `absolute-price-oscillator`             |
-| [Aroon indicator](./aroon.md)                                                       | `aroon()`                              | `indicator`   | `aroon`                                 |
-| [Aroon oscillator](./aroon-oscillator.md)                                           | `aroonOscillator()`                    | `indicator`   | `aroon-oscillator`                      |
-| [Average true range](./average-true-range.md)                                       | `averageTrueRange()`                   | `indicator`   | `average-true-range`                    |
-| [Volatility bands](./volatility-bands.md)                                           | `volatilityBands()`                    | `indicator`   | `volatility-bands`                      |
-| [Commodity channel index](./commodity-channel-index.md)                             | `commodityChannelIndex()`              | `indicator`   | `commodity-channel-index`               |
-| [Chaikin oscillator](./chaikin-oscillator.md)                                       | `chaikinOscillator()`                  | `indicator`   | `chaikin-oscillator`                    |
-| [Chaikin money flow](./chaikin-money-flow.md)                                       | `chaikinMoneyFlow()`                   | `indicator`   | `chaikin-money-flow`                    |
-| [Chande momentum oscillator](./chande-momentum-oscillator.md)                       | `chandeMomentumOscillator()`           | `indicator`   | `chande-momentum-oscillator`            |
-| [Double exponential moving average](./double-exponential-average.md)                | `doubleExponentialMovingAverage()`     | `indicator`   | `double-exponential-average`            |
-| [Disparity index](./disparity-index.md)                                             | `disparityIndex()`                     | `indicator`   | `disparity-index`                       |
-| [Directional movement index](./directional-movement-index.md)                       | `directionalMovementIndex()`           | `indicator`   | `directional-movement-index`            |
-| [Detrended price oscillator](./detrended-price-oscillator.md)                       | `detrendedPriceOscillator()`           | `indicator`   | `detrended-price-oscillator`            |
-| [Exponential moving average](./exponential-moving-average.md)                       | `exponentialMovingAverage()`           | `indicator`   | `exponential-moving-average`            |
-| [Ichimoku cloud](./ichimoku-cloud.md)                                               | `ichimokuCloud()`                      | `indicator`   | `ichimoku-cloud`                        |
-| [Keltner channels](./keltner-channels.md)                                           | `keltnerChannels()`                    | `indicator`   | `keltner-channels`                      |
-| [Klinger oscillator](./klinger-oscillator.md)                                       | `klingerOscillator()`                  | `indicator`   | `klinger-oscillator`                    |
-| [Linear regression](./linear-regression.md)                                         | `linearRegression()`                   | `indicator`   | `linear-regression`                     |
-| [Linear regression angle](./linear-regression-angle.md)                             | `linearRegressionAngle()`              | `indicator`   | `linear-regression-angle`               |
-| [Linear regression intercept](./linear-regression-intercept.md)                     | `linearRegressionIntercept()`          | `indicator`   | `linear-regression-intercept`           |
-| [Linear regression slope](./linear-regression-slope.md)                             | `linearRegressionSlope()`              | `indicator`   | `linear-regression-slope`               |
-| [Moving average convergence divergence](./moving-average-convergence-divergence.md) | `movingAverageConvergenceDivergence()` | `indicator`   | `moving-average-convergence-divergence` |
-| [Money flow index](./money-flow-index.md)                                           | `moneyFlowIndex()`                     | `indicator`   | `money-flow-index`                      |
-| [Momentum indicator](./momentum.md)                                                 | `momentumIndicator()`                  | `indicator`   | `momentum`                              |
-| [Normalized average true range](./normalized-average-true-range.md)                 | `normalizedAverageTrueRange()`         | `indicator`   | `normalized-average-true-range`         |
-| [On-balance volume](./on-balance-volume.md)                                         | `onBalanceVolume()`                    | `indicator`   | `on-balance-volume`                     |
-| [Price channel](./price-channel.md)                                                 | `priceChannel()`                       | `indicator`   | `price-channel`                         |
-| [Pivot points](./pivot-points.md)                                                   | `pivotPoints()`                        | `indicator`   | `pivot-points`                          |
-| [Percentage price oscillator](./percentage-price-oscillator.md)                     | `percentagePriceOscillator()`          | `indicator`   | `percentage-price-oscillator`           |
-| [Price envelopes](./price-envelopes.md)                                             | `priceEnvelopes()`                     | `indicator`   | `price-envelopes`                       |
-| [Parabolic stop and reverse](./parabolic-stop-and-reverse.md)                       | `parabolicStopAndReverse()`            | `indicator`   | `parabolic-stop-and-reverse`            |
-| [Rate of change](./rate-of-change.md)                                               | `rateOfChange()`                       | `indicator`   | `rate-of-change`                        |
-| [Relative strength index](./relative-strength-index.md)                             | `relativeStrengthIndex()`              | `indicator`   | `relative-strength-index`               |
-| [Slow stochastic oscillator](./slow-stochastic.md)                                  | `slowStochastic()`                     | `indicator`   | `slow-stochastic`                       |
-| [Simple moving average](./simple-moving-average.md)                                 | `simpleMovingAverage()`                | `indicator`   | `simple-moving-average`                 |
-| [Stochastic oscillator](./stochastic.md)                                            | `stochastic()`                         | `indicator`   | `stochastic`                            |
-| [Supertrend](./supertrend.md)                                                       | `supertrend()`                         | `indicator`   | `supertrend`                            |
-| [Triple exponential moving average](./triple-exponential-average.md)                | `tripleExponentialMovingAverage()`     | `indicator`   | `triple-exponential-average`            |
-| [Triple exponential average oscillator](./triple-exponential-oscillator.md)         | `tripleExponentialAverageOscillator()` | `indicator`   | `triple-exponential-oscillator`         |
-| [Volume weighted average price](./volume-weighted-average-price.md)                 | `volumeWeightedAveragePrice()`         | `indicator`   | `volume-weighted-average-price`         |
-| [Williams range](./williams-range.md)                                               | `williamsRange()`                      | `indicator`   | `williams-range`                        |
-| [Weighted moving average](./weighted-moving-average.md)                             | `weightedMovingAverage()`              | `indicator`   | `weighted-moving-average`               |
-| [Zigzag indicator](./zigzag.md)                                                     | `zigzag()`                             | `indicator`   | `zigzag`                                |
+| Chart                         | Quick API     | Portable mark | Canonical family |
+| ----------------------------- | ------------- | ------------- | ---------------- |
+| [Venn diagram](./venn.md)     | `venn()`      | `venn`        | `venn`           |
+| [Word cloud](./word-cloud.md) | `wordCloud()` | `word-cloud`  | `word-cloud`     |
 
 ### Financial series
 
-| Chart                                                 | Quick API             | Portable mark    | Canonical family      |
-| ----------------------------------------------------- | --------------------- | ---------------- | --------------------- |
-| [Event flags](./event-flags.md)                       | `eventFlags()`        | `flags`          | `event-flags`         |
-| [Heikin-Ashi chart](./heikin-ashi.md)                 | `heikinAshi()`        | `financial`      | `heikin-ashi`         |
-| [High-low-close chart](./high-low-close.md)           | `highLowClose()`      | `financial`      | `high-low-close`      |
-| [Hollow candlestick chart](./hollow-candlestick.md)   | `hollowCandlestick()` | `financial`      | `hollow-candlestick`  |
-| [Open-high-low-close chart](./open-high-low-close.md) | `openHighLowClose()`  | `financial`      | `open-high-low-close` |
-| [Point and figure chart](./point-and-figure.md)       | `pointAndFigure()`    | `point-figure`   | `point-and-figure`    |
-| [Renko chart](./renko.md)                             | `renko()`             | `renko`          | `renko`               |
-| [Volume by price](./volume-by-price.md)               | `volumeByPrice()`     | `volume-profile` | `volume-by-price`     |
+| Chart                                       | Quick API         | Portable mark    | Canonical family |
+| ------------------------------------------- | ----------------- | ---------------- | ---------------- |
+| [Price blocks chart](./price-blocks.md)     | `priceBlocks()`   | `renko`          | `price-blocks`   |
+| [Volume profile chart](./volume-profile.md) | `volumeProfile()` | `volume-profile` | `volume-profile` |
+
+### Indicator series
+
+| Chart                                                 | Quick API              | Portable mark | Canonical family      |
+| ----------------------------------------------------- | ---------------------- | ------------- | --------------------- |
+| [Technical indicator chart](./technical-indicator.md) | `technicalIndicator()` | `indicator`   | `technical-indicator` |
 
 <!-- SERIES_CATALOG_END -->
 
-The [31-family default gallery](../../examples/cdn/complete-chart-types.html), [14-family advanced gallery](../../examples/cdn/additional-chart-types.html), and [96-family specialized series gallery](../../examples/cdn/series-chart-types.html) together render the complete 141-family catalog. The smaller [introductory gallery](../../examples/cdn/chart-types.html) remains useful for a quick start.
+The default, advanced, and specialized galleries render 37 distinct families. The specialized gallery shows eight cards and lists the compatible modes folded into each card. The smaller [introductory gallery](../../examples/cdn/chart-types.html) remains useful for a quick start.
 
-Every chart-specific guide includes a current visual snapshot generated from the actual Graflume `compile()` Scene. Run `npm run docs:snapshots` after a rendering change to rebuild and verify all 141 assets deterministically.
+Every canonical guide includes a current visual snapshot generated from the actual Graflume `compile()` Scene. Run `npm run docs:snapshots` after a rendering change to rebuild and verify the assets deterministically.
 
 ## Default visual system
 

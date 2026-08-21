@@ -170,13 +170,13 @@
         <div>
           <h1>Graflume 추가 차트 유형 갤러리</h1>
           <p class="lede">
-            기본 31개 유형과 같은 portable ChartSpec, renderer-neutral Scene, Canvas renderer를
-            사용하는 14개 전문 유형입니다. 별도 렌더링 엔진이나 런타임 콜백을 포함하지 않습니다.
+            기존 이름 14개를 의미가 다른 7개 패밀리로 통합했습니다. 레이아웃 차이는 모드로 남고 모두
+            같은 portable ChartSpec, renderer-neutral Scene, Canvas renderer를 사용합니다.
           </p>
         </div>
         <button id="theme" type="button">어두운 테마</button>
       </header>
-      <p id="status" role="status">14개 차트를 렌더링하고 있습니다…</p>
+      <p id="status" role="status">7개 차트를 렌더링하고 있습니다…</p>
       <section id="gallery" class="gallery" aria-label="Graflume 추가 차트 유형 갤러리"></section>
     </main>
 
@@ -467,6 +467,22 @@
         },
       ];
 
+      const canonicalRepresentatives = new Map([
+        ['radar', ['radar', 'Radar']],
+        ['graph', ['network', 'Network']],
+        ['chord', ['chord', 'Chord']],
+        ['funnel', ['funnel', 'Funnel']],
+        ['parallel', ['parallel', 'Parallel coordinates']],
+        ['boxplot', ['boxplot', 'Boxplot']],
+        ['heatmap', ['heatmap', 'Heatmap']],
+      ]);
+      const visibleDefinitions = definitions
+        .filter(({ id }) => canonicalRepresentatives.has(id))
+        .map((definition) => {
+          const [id, title] = canonicalRepresentatives.get(definition.id);
+          return { ...definition, id, title };
+        });
+
       const gallery = document.querySelector('#gallery');
       const status = document.querySelector('#status');
       const themeButton = document.querySelector('#theme');
@@ -478,7 +494,7 @@
         charts = [];
         gallery.replaceChildren();
 
-        for (const definition of definitions) {
+        for (const definition of visibleDefinitions) {
           const article = document.createElement('article');
           article.innerHTML = `
             <div class="head">
@@ -500,7 +516,7 @@
             }),
           );
         }
-        status.textContent = `${definitions.length}개 차트 렌더링이 완료되었습니다.`;
+        status.textContent = `${visibleDefinitions.length}개 차트 렌더링이 완료되었습니다.`;
       };
 
       themeButton.addEventListener('click', () => {

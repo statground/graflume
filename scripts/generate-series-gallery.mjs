@@ -1,9 +1,14 @@
 import { writeFile } from 'node:fs/promises';
 
-import { seriesChartTypeCatalog } from '../dist/graflume.complete.js';
+import { seriesChartTypeCatalog, seriesChartVariantCatalog } from '../dist/graflume.complete.js';
 import { seriesSampleRuntimeSource } from './series-samples.mjs';
 
-const definitions = seriesChartTypeCatalog;
+const definitions = seriesChartTypeCatalog.map((entry) => ({
+  ...entry,
+  variants: seriesChartVariantCatalog
+    .filter(({ familyId }) => familyId === entry.id)
+    .map(({ name, mode }) => ({ name, mode })),
+}));
 
 const html = `<!doctype html>
 <html lang="ko" data-theme="light">
@@ -49,7 +54,7 @@ const html = `<!doctype html>
       <header>
         <div>
           <h1>Graflume 전문 시리즈 갤러리</h1>
-          <p class="lede">기존 45개 계열과 같은 portable ChartSpec, renderer-neutral Scene, Canvas renderer를 사용하는 96개 전문 시리즈입니다. 중복 의미는 canonical compiler로 융합됩니다.</p>
+          <p class="lede">표현만 다른 이름은 모드로 통합하고, 데이터 의미가 고유한 8개 전문 패밀리만 보여줍니다. 기존 전문 이름 96개는 호환 프리셋으로 유지됩니다.</p>
         </div>
         <div class="controls">
           <select id="category" aria-label="카테고리 필터"><option value="all">전체 카테고리</option></select>
@@ -94,7 +99,8 @@ const html = `<!doctype html>
         for (let index = 0; index < visible.length; index += 1) {
           const definition = visible[index];
           const article = document.createElement('article');
-          article.innerHTML = '<div class="head"><div><h2>' + definition.name + '</h2><p class="copy"><code>Graflume.' + definition.quickApi + '()</code><br />canonical: ' + definition.canonicalFamily + '</p></div><span class="badge">' + definition.mark + '</span></div><div class="chart" id="chart-' + definition.id + '"></div>';
+          const modes = definition.variants.map(({ mode }) => mode).join(', ') || 'default';
+          article.innerHTML = '<div class="head"><div><h2>' + definition.name + '</h2><p class="copy"><code>Graflume.' + definition.quickApi + '()</code><br />통합 모드: ' + modes + '</p></div><span class="badge">' + definition.variants.length + ' presets</span></div><div class="chart" id="chart-' + definition.id + '"></div>';
           gallery.append(article);
           const spec = seriesSampleSpec(definition);
           charts.push(Graflume.create('#chart-' + definition.id, {
@@ -129,4 +135,4 @@ const html = `<!doctype html>
 `;
 
 await writeFile(new URL('../examples/cdn/series-chart-types.html', import.meta.url), html, 'utf8');
-console.log(`Generated live gallery for ${definitions.length} specialized series.`);
+console.log(`Generated live gallery for ${definitions.length} consolidated specialized families.`);
