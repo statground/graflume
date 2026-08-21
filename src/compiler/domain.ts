@@ -68,9 +68,16 @@ function numericDomain(
 
   for (const { layer, table } of layers) {
     const encoding = layer[axis];
-    const fields = axis === 'y' && layer.mark.type === 'histogram' ? [] : [encoding.field];
+    const fields =
+      axis === 'y' && (layer.mark.type === 'histogram' || layer.mark.type === 'theme-river')
+        ? []
+        : [encoding.field];
     if (axis === 'x' && (layer.mark.type === 'timeline' || layer.mark.type === 'gantt')) {
       fields.push(layer.mark.fields.end ?? 'end');
+    }
+    if (axis === 'x' && (layer.mark.type === 'lines' || layer.mark.type === 'custom')) {
+      const x2 = layer.mark.fields.x2;
+      if (x2 !== undefined) fields.push(x2);
     }
     if (axis === 'y' && layer.mark.type === 'candlestick') {
       fields.push(
@@ -79,6 +86,19 @@ function numericDomain(
         layer.mark.fields.low ?? 'low',
         layer.mark.fields.close ?? encoding.field,
       );
+    }
+    if (axis === 'y' && layer.mark.type === 'boxplot') {
+      fields.push(
+        layer.mark.fields.min ?? 'min',
+        layer.mark.fields.q1 ?? 'q1',
+        layer.mark.fields.median ?? encoding.field,
+        layer.mark.fields.q3 ?? 'q3',
+        layer.mark.fields.max ?? 'max',
+      );
+    }
+    if (axis === 'y' && (layer.mark.type === 'lines' || layer.mark.type === 'custom')) {
+      const y2 = layer.mark.fields.y2;
+      if (y2 !== undefined) fields.push(y2);
     }
     if (axis === 'y' && layer.mark.type === 'interval') {
       fields.push(layer.mark.fields.low ?? 'low', layer.mark.fields.high ?? 'high');
@@ -135,12 +155,26 @@ function numericDomain(
         max = Math.max(max, previous, total);
       }
     }
+    if (axis === 'y' && layer.mark.type === 'theme-river') {
+      const totals = new Map<string, number>();
+      for (let index = 0; index < table.length; index += 1) {
+        const key = String(table.value(index, layer.x.field) ?? '');
+        const value = table.numericValue(index, layer.y.field);
+        if (value === null) continue;
+        totals.set(key, (totals.get(key) ?? 0) + Math.max(0, value));
+      }
+      const maximumTotal = Math.max(1, ...totals.values());
+      min = Math.min(min, -maximumTotal / 2);
+      max = Math.max(max, maximumTotal / 2);
+    }
     if (
       encoding.scale.zero === true ||
       (axis === 'y' &&
         (layer.mark.type === 'bar' ||
           layer.mark.type === 'area' ||
           layer.mark.type === 'histogram' ||
+          layer.mark.type === 'pictorial-bar' ||
+          layer.mark.type === 'theme-river' ||
           layer.mark.type === 'waterfall')) ||
       (axis === 'x' && layer.mark.type === 'bar' && layer.mark.orientation === 'horizontal')
     ) {

@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'src/**'
+      - 'schema/**'
       - 'package.json'
       - 'rollup.config.mjs'
       - 'tsconfig*.json'
@@ -43,7 +44,7 @@ jobs:
       - name: Run checks and build
         run: npm run check
 
-      - name: Commit browser bundle and pin the example
+      - name: Commit browser bundles and pin the examples
         shell: bash
         run: |
           set -euo pipefail
@@ -53,54 +54,123 @@ jobs:
 
           mkdir -p cdn
           cp dist/graflume.global.js cdn/graflume.global.js
-          printf '{\n  "package": "graflume",\n  "version": "%s",\n  "sourceCommit": "%s",\n  "entry": "./graflume.global.js"\n}\n' \
-            "$VERSION" "$SOURCE_SHA" > cdn/manifest.json
+          cp dist/graflume.complete.global.js cdn/graflume.complete.global.js
+          node - "$VERSION" "$SOURCE_SHA" <<'NODE'
+          const fs = require('node:fs');
+          const [version, sourceCommit] = process.argv.slice(2);
+          fs.writeFileSync(
+            'cdn/manifest.json',
+            `${JSON.stringify(
+              {
+                package: 'graflume',
+                version,
+                sourceCommit,
+                entry: './graflume.global.js',
+                entries: {
+                  default: './graflume.global.js',
+                  complete: './graflume.complete.global.js',
+                },
+              },
+              null,
+              2,
+            )}\n`,
+          );
+          NODE
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
 
-          git add cdn/graflume.global.js cdn/manifest.json
+          git add cdn/graflume.global.js cdn/graflume.complete.global.js cdn/manifest.json
           if ! git diff --cached --quiet; then
-            git commit -m 'Build Graflume CDN snapshot [skip ci]'
+            git commit -m 'Build Graflume CDN snapshots [skip ci]'
           fi
 
-          BUNDLE_SHA="$(git log -1 --format=%H -- cdn/graflume.global.js)"
-          SRI="sha384-$(openssl dgst -sha384 -binary cdn/graflume.global.js | openssl base64 -A)"
+          BUNDLE_SHA="$(git log -1 --format=%H -- cdn/graflume.complete.global.js)"
+          DEFAULT_SRI="sha384-$(openssl dgst -sha384 -binary cdn/graflume.global.js | openssl base64 -A)"
+          COMPLETE_SRI="sha384-$(openssl dgst -sha384 -binary cdn/graflume.complete.global.js | openssl base64 -A)"
 
-          node scripts/pin-cdn-examples.mjs "$BUNDLE_SHA" "$SRI"
-          git add examples/cdn/bar-chart.html examples/cdn/chart-types.html examples/cdn/complete-chart-types.html
+          node scripts/pin-cdn-examples.mjs "$BUNDLE_SHA" "$DEFAULT_SRI" "$COMPLETE_SRI"
+          git add \
+            examples/cdn/bar-chart.html \
+            examples/cdn/chart-types.html \
+            examples/cdn/complete-chart-types.html \
+            examples/cdn/additional-chart-types.html
           if ! git diff --cached --quiet; then
             git commit -m 'Pin Graflume CDN examples [skip ci]'
           fi
 
           git push origin HEAD:main
 
-          CDN_URL="https://cdn.jsdelivr.net/gh/statground/graflume@${BUNDLE_SHA}/cdn/graflume.global.js"
-          VERIFIED=false
-          for attempt in $(seq 1 20); do
-            if curl --fail --silent --show-error --location \
-              --connect-timeout 10 --max-time 30 \
-              "$CDN_URL" --output /tmp/graflume.cdn.js; then
-              CDN_SRI="sha384-$(openssl dgst -sha384 -binary /tmp/graflume.cdn.js | openssl base64 -A)"
-              if [ "$CDN_SRI" = "$SRI" ] && cmp -s cdn/graflume.global.js /tmp/graflume.cdn.js; then
-                VERIFIED=true
-                break
+          verify_bundle() {
+            local filename="$1"
+            local expected_sri="$2"
+            local output="$3"
+            local url="https://cdn.jsdelivr.net/gh/statground/graflume@${BUNDLE_SHA}/cdn/${filename}"
+            local verified=false
+            for attempt in $(seq 1 20); do
+              if curl --fail --silent --show-error --location \
+                --connect-timeout 10 --max-time 30 \
+                "$url" --output "$output"; then
+                local actual_sri
+                actual_sri="sha384-$(openssl dgst -sha384 -binary "$output" | openssl base64 -A)"
+                if [ "$actual_sri" = "$expected_sri" ] && cmp -s "cdn/${filename}" "$output"; then
+                  verified=true
+                  break
+                fi
               fi
+              sleep 3
+            done
+            if [ "$verified" != true ]; then
+              echo "The exact jsDelivr response did not match ${filename}." >&2
+              exit 1
             fi
-            sleep 3
-          done
+          }
 
-          if [ "$VERIFIED" != true ]; then
-            echo 'The exact jsDelivr response did not match the committed browser bundle.' >&2
-            exit 1
-          fi
+          verify_bundle 'graflume.global.js' "$DEFAULT_SRI" /tmp/graflume.default.cdn.js
+          verify_bundle 'graflume.complete.global.js' "$COMPLETE_SRI" /tmp/graflume.complete.cdn.js
 
           VERIFIED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          BYTE_LENGTH="$(wc -c < /tmp/graflume.cdn.js | tr -d ' ')"
-          printf '{\n  "sourceCommit": "%s",\n  "bundleCommit": "%s",\n  "cdnUrl": "%s",\n  "integrity": "%s",\n  "byteLength": %s,\n  "verifiedAt": "%s"\n}\n' \
-            "$SOURCE_SHA" "$BUNDLE_SHA" "$CDN_URL" "$SRI" "$BYTE_LENGTH" "$VERIFIED_AT" \
-            > cdn/verification.json
+          DEFAULT_URL="https://cdn.jsdelivr.net/gh/statground/graflume@${BUNDLE_SHA}/cdn/graflume.global.js"
+          COMPLETE_URL="https://cdn.jsdelivr.net/gh/statground/graflume@${BUNDLE_SHA}/cdn/graflume.complete.global.js"
+          DEFAULT_BYTES="$(wc -c < /tmp/graflume.default.cdn.js | tr -d ' ')"
+          COMPLETE_BYTES="$(wc -c < /tmp/graflume.complete.cdn.js | tr -d ' ')"
+          node - \
+            "$SOURCE_SHA" "$BUNDLE_SHA" "$DEFAULT_URL" "$DEFAULT_SRI" "$DEFAULT_BYTES" \
+            "$COMPLETE_URL" "$COMPLETE_SRI" "$COMPLETE_BYTES" "$VERIFIED_AT" <<'NODE'
+          const fs = require('node:fs');
+          const [
+            sourceCommit,
+            bundleCommit,
+            defaultUrl,
+            defaultIntegrity,
+            defaultByteLength,
+            completeUrl,
+            completeIntegrity,
+            completeByteLength,
+            verifiedAt,
+          ] = process.argv.slice(2);
+          fs.writeFileSync(
+            'cdn/verification.json',
+            `${JSON.stringify(
+              {
+                sourceCommit,
+                bundleCommit,
+                cdnUrl: defaultUrl,
+                integrity: defaultIntegrity,
+                byteLength: Number(defaultByteLength),
+                complete: {
+                  cdnUrl: completeUrl,
+                  integrity: completeIntegrity,
+                  byteLength: Number(completeByteLength),
+                },
+                verifiedAt,
+              },
+              null,
+              2,
+            )}\n`,
+          );
+          NODE
 
           git add cdn/verification.json
-          git commit -m 'Verify Graflume CDN snapshot [skip ci]'
+          git commit -m 'Verify Graflume CDN snapshots [skip ci]'
           git push origin HEAD:main

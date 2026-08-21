@@ -11,6 +11,21 @@
         background: #f4f7fb;
         font-family: system-ui, sans-serif;
       }
+      nav {
+        width: min(920px, 100%);
+        margin: 0 auto 20px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+      nav a {
+        padding: 10px 14px;
+        color: #312e81;
+        background: #eef2ff;
+        border-radius: 999px;
+        font-weight: 700;
+        text-decoration: none;
+      }
       #chart {
         width: min(920px, 100%);
         height: 460px;
@@ -22,6 +37,11 @@
     </style>
   </head>
   <body>
+    <nav aria-label="Graflume galleries">
+      <a href="chart-types.html">Introductory gallery</a>
+      <a href="complete-chart-types.html">Default 31-family gallery</a>
+      <a href="additional-chart-types.html">Additional 14-family gallery</a>
+    </nav>
     <div id="chart"></div>
 
     <!-- Local build. After npm publication, pin the exact release on jsDelivr. -->

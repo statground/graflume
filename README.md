@@ -6,7 +6,7 @@ Graflume is an experimental, CDN-first visualization engine built around a porta
 
 ## What already works
 
-- 27 portable marks covering 31 user-facing chart families and compatibility names
+- 41 portable marks covering 45 user-facing chart families and compatibility names through default and opt-in entrypoints
 - Cartesian, radial, distribution, financial, interval, calendar, timeline/Gantt, table, hierarchy, flow, word, and lightweight map Scenes
 - mixed layers such as bar + line + points on shared axes
 - row-oriented data and zero-copy `TypedArray` columnar input
@@ -32,10 +32,14 @@ npm run check
 Build outputs:
 
 ```text
-dist/graflume.js          ESM
-dist/graflume.global.js   readable browser global
-dist/graflume.min.js      minified CDN bundle
-dist/index.d.ts            TypeScript declarations
+dist/graflume.js                   default ESM
+dist/graflume.global.js            default readable browser global
+dist/graflume.min.js               default minified CDN bundle
+dist/graflume.complete.js          complete-catalog ESM
+dist/graflume.complete.global.js   complete-catalog browser global
+dist/graflume.complete.min.js      complete-catalog minified bundle
+dist/index.d.ts                    default TypeScript declarations
+dist/complete.d.ts                 complete-catalog declarations
 ```
 
 ## CDN usage
@@ -73,28 +77,48 @@ After an npm release, load an **exact version** from jsDelivr:
 
 The exact npm CDN URL becomes valid only after that package version is published.
 
-For pre-npm alpha testing, the repository also maintains a source-controlled browser snapshot at `cdn/graflume.global.js`. The snapshot workflow builds the library, commits the browser bundle, then rewrites the downloadable example to an exact Git commit URL with SHA-384 Subresource Integrity. Moving aliases such as `@main` and `@latest` are not used.
+For pre-npm alpha testing, the repository maintains source-controlled default and complete browser snapshots at `cdn/graflume.global.js` and `cdn/graflume.complete.global.js`. The snapshot workflow builds both entrypoints, commits the browser bundles, rewrites every downloadable example to exact Git commit URLs with SHA-384 Subresource Integrity, and verifies the jsDelivr responses byte for byte. Moving aliases such as `@main` and `@latest` are not used.
 
 ## Chart types and examples
 
-The public catalog covers 31 chart families and compatibility surfaces across Cartesian, radial, financial, time, hierarchy, flow, map, table, and adapter use cases.
+The public catalog covers 45 chart families and compatibility surfaces. The default `graflume` entrypoint exposes the established 31-family catalog. The optional `graflume/complete` entrypoint adds 14 specialist marks while reusing the same data table, validation, normalization, scales, theme tokens, renderer-neutral Scene, Canvas renderer, interactions, and accessibility metadata.
 
-| Family                      | Implemented chart guides                                                                                                                                                                                                                                                            |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Cartesian and comparison    | [Bar/Column](docs/charts/bar.md), [Line](docs/charts/line.md), [Area](docs/charts/area.md), [Scatter](docs/charts/scatter.md), [Combo](docs/charts/combination.md), [Stepped Area](docs/charts/stepped-area.md), [Waterfall](docs/charts/waterfall.md), [Diff](docs/charts/diff.md) |
-| Distribution and statistics | [Bubble](docs/charts/bubble.md), [Histogram](docs/charts/histogram.md), [Intervals](docs/charts/intervals.md), [Trendline](docs/charts/trendline.md)                                                                                                                                |
-| Radial and financial        | [Pie](docs/charts/pie.md), [Donut](docs/charts/donut.md), [Gauge](docs/charts/gauge.md), [Candlestick](docs/charts/candlestick.md)                                                                                                                                                  |
-| Time and projects           | [Annotation](docs/charts/annotation.md), [Annotated Timeline](docs/charts/annotated-timeline.md), [Calendar](docs/charts/calendar.md), [Timeline](docs/charts/timeline.md), [Gantt](docs/charts/gantt.md), [Motion](docs/charts/motion.md)                                          |
-| Hierarchy, flow, and text   | [Organization](docs/charts/org.md), [Tree Map](docs/charts/treemap.md), [Sankey](docs/charts/sankey.md), [Word Tree](docs/charts/word-tree.md), [Table](docs/charts/table.md)                                                                                                       |
-| Geographic and adapters     | [GeoChart](docs/charts/geo.md), [Map](docs/charts/map.md), [VegaChart adapter](docs/charts/vega.md)                                                                                                                                                                                 |
+| Family                        | Implemented chart guides                                                                                                                                                                                                                                                                                                                                                     |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cartesian and comparison      | [Bar/Column](docs/charts/bar.md), [Line](docs/charts/line.md), [Area](docs/charts/area.md), [Scatter](docs/charts/scatter.md), [Combo](docs/charts/combination.md), [Stepped Area](docs/charts/stepped-area.md), [Waterfall](docs/charts/waterfall.md), [Diff](docs/charts/diff.md), [Connection lines](docs/charts/lines.md), [Pictorial bar](docs/charts/pictorial-bar.md) |
+| Distribution and statistics   | [Bubble](docs/charts/bubble.md), [Histogram](docs/charts/histogram.md), [Intervals](docs/charts/intervals.md), [Trendline](docs/charts/trendline.md), [Boxplot](docs/charts/boxplot.md), [Heatmap](docs/charts/heatmap.md), [Effect scatter](docs/charts/effect-scatter.md)                                                                                                  |
+| Radial and financial          | [Pie](docs/charts/pie.md), [Donut](docs/charts/donut.md), [Gauge](docs/charts/gauge.md), [Candlestick](docs/charts/candlestick.md), [Radar](docs/charts/radar.md), [Chord](docs/charts/chord.md), [Sunburst](docs/charts/sunburst.md)                                                                                                                                        |
+| Time and projects             | [Annotation](docs/charts/annotation.md), [Annotated Timeline](docs/charts/annotated-timeline.md), [Calendar](docs/charts/calendar.md), [Timeline](docs/charts/timeline.md), [Gantt](docs/charts/gantt.md), [Motion](docs/charts/motion.md), [Theme river](docs/charts/theme-river.md)                                                                                        |
+| Hierarchy, flow, and networks | [Organization](docs/charts/org.md), [Tree Map](docs/charts/treemap.md), [Tree](docs/charts/tree.md), [Graph](docs/charts/graph.md), [Sankey](docs/charts/sankey.md), [Funnel](docs/charts/funnel.md), [Parallel coordinates](docs/charts/parallel.md), [Word Tree](docs/charts/word-tree.md), [Table](docs/charts/table.md)                                                  |
+| Geographic and adapters       | [GeoChart](docs/charts/geo.md), [Map](docs/charts/map.md), [VegaChart adapter](docs/charts/vega.md), [Declarative custom](docs/charts/custom.md)                                                                                                                                                                                                                             |
 
 Start with the [chart guide index and common options](docs/charts/README.md). Every chart page includes a visual snapshot generated from the current compiled Scene, a Quick API example, portable field contract, missing-value behavior, interaction/accessibility guidance, performance notes, and explicit limitations.
 
 The default visual system is intentionally presentation-ready: horizontal grid lines remain available for quantitative comparison, categorical vertical grids are suppressed by default, data strokes use rounded joins and caps, point marks receive a contrasting outline, and structural charts use the same spacing, surface, and palette tokens. Explicit mark and axis styles still override these defaults.
 
-[`examples/cdn/complete-chart-types.html`](examples/cdn/complete-chart-types.html) is a responsive standalone gallery that executes all 31 types from one exact-commit jsDelivr bundle with SHA-384 SRI. The smaller [`examples/cdn/chart-types.html`](examples/cdn/chart-types.html) remains the core five-chart introduction.
+[`examples/cdn/complete-chart-types.html`](examples/cdn/complete-chart-types.html) renders the default 31-family catalog. [`examples/cdn/additional-chart-types.html`](examples/cdn/additional-chart-types.html) renders all 14 opt-in families from the dedicated complete bundle. Together they cover the full 45-family catalog. The smaller [`examples/cdn/chart-types.html`](examples/cdn/chart-types.html) remains the introductory gallery.
 
 Aliases remain canonical and serializable: `scatter()` maps to `point`, `donut()` maps to `pie` plus an inner radius, Bar and Column share `bar` plus orientation, Annotated Timeline maps to `annotation`, and Combo maps to ordinary `layers`.
+
+### Complete-catalog ESM usage
+
+```ts
+import { boxplot, heatmap, radar, type ChartSpec } from 'graflume/complete';
+
+radar('#radar', profileRows, {
+  x: { field: 'indicator', type: 'nominal' },
+  y: { field: 'value', type: 'quantitative' },
+  mark: { fields: { series: 'series' }, options: { max: 100 } },
+});
+
+heatmap('#heatmap', cells, {
+  x: { field: 'day', type: 'ordinal' },
+  y: { field: 'period', type: 'ordinal' },
+  mark: { fields: { value: 'activity' } },
+});
+```
+
+Importing `graflume/complete` registers only the additional portable mark compilers and re-exports the default API. It does not embed a second rendering engine. Portable custom charts remain function-free and may emit only the declared Scene primitive subset.
 
 ### Bar chart
 
@@ -127,7 +151,8 @@ Runnable examples:
 - [`examples/bar/index.html`](examples/bar/index.html): local single-series bar chart using the committed browser snapshot
 - [`examples/cdn/bar-chart.html`](examples/cdn/bar-chart.html): standalone grouped bar chart that can be downloaded and opened directly; it uses an exact jsDelivr commit pin and SRI
 - [`examples/cdn/chart-types.html`](examples/cdn/chart-types.html): standalone bar, line, area, scatter, and mixed-chart gallery
-- [`examples/cdn/complete-chart-types.html`](examples/cdn/complete-chart-types.html): all 31 supported chart families and compatibility names
+- [`examples/cdn/complete-chart-types.html`](examples/cdn/complete-chart-types.html): the default 31 chart families and compatibility names
+- [`examples/cdn/additional-chart-types.html`](examples/cdn/additional-chart-types.html): the 14 opt-in specialist families from the complete browser bundle
 
 The CDN example also demonstrates responsive rendering, light/dark theme switching, pointer hit testing, PNG export, and a readable data-table fallback.
 

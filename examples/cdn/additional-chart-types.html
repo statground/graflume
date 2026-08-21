@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="ko" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Graflume 추가 차트 유형 갤러리</title>
+    <style>
+      :root {
+        font-family:
+          Inter,
+          Pretendard,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          sans-serif;
+        color: #0f172a;
+        background: #f1f5f9;
+      }
+      :root[data-theme='dark'] {
+        color: #f8fafc;
+        background: #0b1020;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 28px 16px 52px;
+      }
+      main {
+        width: min(1500px, 100%);
+        margin: 0 auto;
+      }
+      header {
+        display: flex;
+        gap: 24px;
+        align-items: end;
+        justify-content: space-between;
+        margin-bottom: 18px;
+      }
+      h1 {
+        margin: 0;
+        font-size: clamp(1.8rem, 4vw, 3rem);
+        letter-spacing: -0.05em;
+      }
+      .lede {
+        max-width: 920px;
+        margin: 10px 0 0;
+        color: #64748b;
+        line-height: 1.7;
+      }
+      :root[data-theme='dark'] .lede,
+      :root[data-theme='dark'] .copy {
+        color: #a7b2c5;
+      }
+      button {
+        min-height: 42px;
+        padding: 0 16px;
+        color: inherit;
+        background: #fff;
+        border: 1px solid #dbe3ee;
+        border-radius: 999px;
+        cursor: pointer;
+        font: inherit;
+        font-weight: 700;
+      }
+      :root[data-theme='dark'] button {
+        background: #111827;
+        border-color: #475569;
+      }
+      button:focus-visible {
+        outline: 3px solid #818cf8;
+        outline-offset: 2px;
+      }
+      #status {
+        margin: 0 0 18px;
+        padding: 12px 15px;
+        background: #eef2ff;
+        border-radius: 12px;
+      }
+      #status.error {
+        color: #991b1b;
+        background: #fee2e2;
+      }
+      .gallery {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+      }
+      article {
+        min-width: 0;
+        overflow: hidden;
+        background: #fff;
+        border: 1px solid #dbe3ee;
+        border-radius: 18px;
+        box-shadow: 0 14px 42px rgb(15 23 42 / 8%);
+      }
+      :root[data-theme='dark'] article {
+        background: #111827;
+        border-color: #25314a;
+        box-shadow: 0 18px 48px rgb(0 0 0 / 30%);
+      }
+      .head {
+        display: flex;
+        gap: 12px;
+        align-items: start;
+        justify-content: space-between;
+        padding: 17px 18px 0;
+      }
+      h2 {
+        margin: 0;
+        font-size: 1.05rem;
+      }
+      .copy {
+        margin: 5px 0 0;
+        color: #64748b;
+        font-size: 0.82rem;
+        line-height: 1.45;
+      }
+      code {
+        color: #4f46e5;
+        font-size: 0.75rem;
+      }
+      :root[data-theme='dark'] code {
+        color: #c4b5fd;
+      }
+      .badge {
+        flex: 0 0 auto;
+        padding: 4px 8px;
+        color: #4338ca;
+        background: #eef2ff;
+        border-radius: 999px;
+        font-size: 0.7rem;
+        font-weight: 800;
+      }
+      :root[data-theme='dark'] .badge {
+        color: #c7d2fe;
+        background: #312e81;
+      }
+      .chart {
+        width: 100%;
+        height: 320px;
+      }
+      @media (max-width: 1120px) {
+        .gallery {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+      @media (max-width: 720px) {
+        header {
+          display: block;
+        }
+        header button {
+          margin-top: 14px;
+        }
+        .gallery {
+          grid-template-columns: 1fr;
+        }
+        .chart {
+          height: 340px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <h1>Graflume 추가 차트 유형 갤러리</h1>
+          <p class="lede">
+            기본 31개 유형과 같은 portable ChartSpec, renderer-neutral Scene, Canvas renderer를
+            사용하는 14개 전문 유형입니다. 별도 렌더링 엔진이나 런타임 콜백을 포함하지 않습니다.
+          </p>
+        </div>
+        <button id="theme" type="button">어두운 테마</button>
+      </header>
+      <p id="status" role="status">14개 차트를 렌더링하고 있습니다…</p>
+      <section id="gallery" class="gallery" aria-label="Graflume 추가 차트 유형 갤러리"></section>
+    </main>
+
+    <!-- Exact commit pins and SRI are replaced by the repository CDN snapshot workflow. -->
+    <script
+      src="https://cdn.jsdelivr.net/gh/statground/graflume@__GRAFLUME_CDN_COMMIT__/cdn/graflume.complete.global.js"
+      integrity="__GRAFLUME_COMPLETE_CDN_SRI__"
+      crossorigin="anonymous"
+    ></script>
+    <script>
+      const enc = (field, type, title = field, grid = true) => ({
+        field,
+        type,
+        title,
+        axis: { grid, tickCount: 4 },
+      });
+      const definitions = [
+        {
+          id: 'radar',
+          title: 'Radar',
+          api: 'Graflume.radar()',
+          copy: '여러 지표의 시리즈별 프로필',
+          spec: {
+            data: [
+              { indicator: 'Speed', series: 'Alpha', value: 82 },
+              { indicator: 'Quality', series: 'Alpha', value: 74 },
+              { indicator: 'Reach', series: 'Alpha', value: 91 },
+              { indicator: 'Reliability', series: 'Alpha', value: 68 },
+              { indicator: 'Speed', series: 'Beta', value: 66 },
+              { indicator: 'Quality', series: 'Beta', value: 88 },
+              { indicator: 'Reach', series: 'Beta', value: 69 },
+              { indicator: 'Reliability', series: 'Beta', value: 86 },
+            ],
+            mark: { type: 'radar', fields: { series: 'series' }, options: { max: 100 } },
+            x: { field: 'indicator', type: 'nominal' },
+            y: { field: 'value', type: 'quantitative' },
+          },
+        },
+        {
+          id: 'tree',
+          title: 'Tree',
+          api: 'Graflume.tree()',
+          copy: '명시적 부모-자식 계층',
+          spec: {
+            data: [
+              { id: 'Platform', parent: '', value: 10 },
+              { id: 'Data', parent: 'Platform', value: 7 },
+              { id: 'Design', parent: 'Platform', value: 5 },
+              { id: 'Runtime', parent: 'Data', value: 4 },
+              { id: 'Scale', parent: 'Data', value: 3 },
+              { id: 'Theme', parent: 'Design', value: 3 },
+            ],
+            mark: { type: 'tree', fields: { parent: 'parent' } },
+            x: { field: 'id', type: 'nominal' },
+            y: { field: 'value', type: 'quantitative' },
+          },
+        },
+        {
+          id: 'graph',
+          title: 'Graph',
+          api: 'Graflume.graph()',
+          copy: '노드와 가중 관계 네트워크',
+          spec: {
+            data: [
+              { source: 'A', target: 'B', value: 8 },
+              { source: 'B', target: 'C', value: 5 },
+              { source: 'C', target: 'A', value: 3 },
+              { source: 'A', target: 'D', value: 6 },
+              { source: 'D', target: 'C', value: 4 },
+            ],
+            mark: { type: 'graph', fields: { target: 'target', value: 'value' } },
+            x: { field: 'source', type: 'nominal' },
+            y: { field: 'value', type: 'quantitative' },
+          },
+        },
+        {
+          id: 'chord',
+          title: 'Chord',
+          api: 'Graflume.chord()',
+          copy: '원형으로 배치한 가중 관계',
+          spec: {
+            data: [
+              { source: 'North', target: 'East', value: 12 },
+              { source: 'East', target: 'South', value: 8 },
+              { source: 'South', target: 'West', value: 6 },
+              { source: 'West', target: 'North', value: 10 },
+              { source: 'North', target: 'South', value: 5 },
+            ],
+            mark: { type: 'chord', fields: { target: 'target', value: 'value' } },
+            x: { field: 'source', type: 'nominal' },
+            y: { field: 'value', type: 'quantitative' },
+          },
+        },
+        {
+          id: 'funnel',
+          title: 'Funnel',
+          api: 'Graflume.funnel()',
+          copy: '단계별 전환과 이탈',
+          spec: {
+            data: [
+              { stage: 'Visits', value: 100 },
+              { stage: 'Trials', value: 68 },
+              { stage: 'Paid', value: 31 },
+              { stage: 'Renewed', value: 21 },
+            ],
+            mark: { type: 'funnel' },
+            x: { field: 'stage', type: 'nominal' },
+            y: { field: 'value', type: 'quantitative' },
+          },
+        },
+        {
+          id: 'parallel',
+          title: 'Parallel coordinates',
+          api: 'Graflume.parallel()',
+          copy: '여러 정량 차원의 프로필',
+          spec: {
+            data: [
+              { product: 'Alpha', speed: 82, quality: 71, cost: 43, reach: 75 },
+              { product: 'Beta', speed: 64, quality: 91, cost: 58, reach: 68 },
+              { product: 'Gamma', speed: 73, quality: 79, cost: 36, reach: 87 },
+            ],
+            mark: {
+              type: 'parallel',
+              options: { dimensions: ['speed', 'quality', 'cost', 'reach'] },
+            },
+            x: { field: 'product', type: 'nominal' },
+            y: { field: 'speed', type: 'quantitative' },
+          },
+        },
+        {
+          id: 'boxplot',
+          title: 'Boxplot',
+          api: 'Graflume.boxplot()',
+          copy: '범주별 5개 수치 요약',
+          spec: {
+            data: [
+              { group: 'Alpha', min: 8, q1: 12, median: 18, q3: 23, max: 31 },
+              { group: 'Beta', min: 11, q1: 17, median: 21, q3: 27, max: 35 },
+              { group: 'Gamma', min: 6, q1: 14, median: 19, q3: 29, max: 39 },
+            ],
+            mark: {
+              type: 'boxplot',
+              fields: { min: 'min', q1: 'q1', median: 'median', q3: 'q3', max: 'max' },
+            },
+            x: enc('group', 'nominal', 'Group', false),
+            y: enc('median', 'quantitative', 'Response'),
+          },
+        },
+        {
+          id: 'effect-scatter',
+          title: 'Effect scatter',
+          api: 'Graflume.effectScatter()',
+          copy: '정적 강조 링을 가진 산점도',
+          spec: {
+            data: [
+              { reach: 1, impact: 4, size: 12 },
+              { reach: 2, impact: 8, size: 28 },
+              { reach: 3, impact: 6, size: 19 },
+              { reach: 4, impact: 10, size: 34 },
+            ],
+            mark: {
+              type: 'effect-scatter',
+              fields: { size: 'size' },
+              options: { rings: 2 },
+            },
+            x: enc('reach', 'quantitative', 'Reach'),
+            y: enc('impact', 'quantitative', 'Impact'),
+          },
+        },
+        {
+          id: 'lines',
+          title: 'Connection lines',
+          api: 'Graflume.lines()',
+          copy: '시작점과 끝점을 잇는 경로',
+          spec: {
+            data: [
+              { x: 1, y: 2, x2: 4, y2: 8, value: 7 },
+              { x: 2, y: 7, x2: 5, y2: 3, value: 4 },
+              { x: 3, y: 4, x2: 6, y2: 9, value: 9 },
+            ],
+            mark: {
+              type: 'lines',
+              fields: { x2: 'x2', y2: 'y2', value: 'value' },
+              options: { curvature: 0.18 },
+            },
+            x: enc('x', 'quantitative', 'X'),
+            y: enc('y', 'quantitative', 'Y'),
+          },
+        },
+        {
+          id: 'heatmap',
+          title: 'Heatmap',
+          api: 'Graflume.heatmap()',
+          copy: '두 범주의 셀 강도',
+          spec: {
+            data: [
+              { day: 'Mon', period: 'AM', value: 12 },
+              { day: 'Mon', period: 'PM', value: 32 },
+              { day: 'Tue', period: 'AM', value: 20 },
+              { day: 'Tue', period: 'PM', value: 48 },
+              { day: 'Wed', period: 'AM', value: 37 },
+              { day: 'Wed', period: 'PM', value: 26 },
+            ],
+            mark: { type: 'heatmap', fields: { value: 'value' } },
+            x: enc('day', 'ordinal', 'Day', false),
+            y: enc('period', 'ordinal', 'Period', false),
+          },
+        },
+        {
+          id: 'pictorial-bar',
+          title: 'Pictorial bar',
+          api: 'Graflume.pictorialBar()',
+          copy: '반복 심볼로 표현한 크기',
+          spec: {
+            data: [
+              { category: 'Alpha', value: 24 },
+              { category: 'Beta', value: 41 },
+              { category: 'Gamma', value: 33 },
+            ],
+            mark: {
+              type: 'pictorial-bar',
+              options: { symbol: 'diamond', maxSymbols: 10 },
+            },
+            x: enc('category', 'ordinal', 'Category', false),
+            y: enc('value', 'quantitative', 'Value'),
+          },
+        },
+        {
+          id: 'theme-river',
+          title: 'Theme river',
+          api: 'Graflume.themeRiver()',
+          copy: '시간에 따른 중심 누적 흐름',
+          spec: {
+            data: [
+              { date: '2026-01-01', category: 'Search', value: 18 },
+              { date: '2026-01-01', category: 'Direct', value: 11 },
+              { date: '2026-02-01', category: 'Search', value: 25 },
+              { date: '2026-02-01', category: 'Direct', value: 16 },
+              { date: '2026-03-01', category: 'Search', value: 19 },
+              { date: '2026-03-01', category: 'Direct', value: 23 },
+              { date: '2026-04-01', category: 'Search', value: 27 },
+              { date: '2026-04-01', category: 'Direct', value: 18 },
+            ],
+            mark: { type: 'theme-river', fields: { category: 'category' } },
+            x: enc('date', 'temporal', 'Date', false),
+            y: enc('value', 'quantitative', 'Volume'),
+          },
+        },
+        {
+          id: 'sunburst',
+          title: 'Sunburst',
+          api: 'Graflume.sunburst()',
+          copy: '중첩 계층과 비중',
+          spec: {
+            data: [
+              { id: 'All', parent: '', value: 100 },
+              { id: 'Data', parent: 'All', value: 58 },
+              { id: 'Design', parent: 'All', value: 42 },
+              { id: 'Tables', parent: 'Data', value: 25 },
+              { id: 'Charts', parent: 'Data', value: 33 },
+              { id: 'Theme', parent: 'Design', value: 24 },
+              { id: 'Layout', parent: 'Design', value: 18 },
+            ],
+            mark: { type: 'sunburst', fields: { parent: 'parent' } },
+            x: { field: 'id', type: 'nominal' },
+            y: { field: 'value', type: 'quantitative' },
+          },
+        },
+        {
+          id: 'custom',
+          title: 'Declarative custom',
+          api: 'Graflume.custom()',
+          copy: '함수 없이 선언하는 Scene primitive',
+          spec: {
+            data: [
+              { x: 1, y: 5, width: 24, height: 18 },
+              { x: 2, y: 8, width: 32, height: 24 },
+              { x: 3, y: 4, width: 20, height: 30 },
+            ],
+            mark: {
+              type: 'custom',
+              fields: { width: 'width', height: 'height' },
+              options: { primitive: 'rect' },
+            },
+            x: enc('x', 'quantitative', 'X'),
+            y: enc('y', 'quantitative', 'Y'),
+          },
+        },
+      ];
+
+      const gallery = document.querySelector('#gallery');
+      const status = document.querySelector('#status');
+      const themeButton = document.querySelector('#theme');
+      let charts = [];
+      let dark = false;
+
+      const render = () => {
+        charts.forEach((chart) => chart.destroy());
+        charts = [];
+        gallery.replaceChildren();
+
+        for (const definition of definitions) {
+          const article = document.createElement('article');
+          article.innerHTML = `
+            <div class="head">
+              <div>
+                <h2>${definition.title}</h2>
+                <p class="copy">${definition.copy}<br /><code>${definition.api}</code></p>
+              </div>
+              <span class="badge">${definition.spec.mark.type}</span>
+            </div>
+            <div class="chart" id="chart-${definition.id}"></div>
+          `;
+          gallery.append(article);
+          charts.push(
+            Graflume.create(`#chart-${definition.id}`, {
+              ...definition.spec,
+              height: 320,
+              theme: dark ? 'graflume-dark' : 'graflume-light',
+              accessibility: { label: `${definition.title} example` },
+            }),
+          );
+        }
+        status.textContent = `${definitions.length}개 차트 렌더링이 완료되었습니다.`;
+      };
+
+      themeButton.addEventListener('click', () => {
+        dark = !dark;
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+        themeButton.textContent = dark ? '밝은 테마' : '어두운 테마';
+        render();
+      });
+
+      try {
+        if (!window.Graflume) throw new Error('Graflume complete browser bundle was not loaded.');
+        render();
+      } catch (error) {
+        status.classList.add('error');
+        status.textContent = error instanceof Error ? error.message : String(error);
+        console.error(error);
+      }
+    </script>
+  </body>
+</html>

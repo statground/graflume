@@ -1,10 +1,12 @@
 # Chart guides
 
-Graflume `0.1.0-alpha.0` covers 31 user-facing chart families and compatibility names across Cartesian, radial, financial, time, hierarchy, flow, map, table, and adapter use cases. They normalize to 27 portable marks or a canonical multi-layer spec.
+Graflume `0.1.0-alpha.0` now exposes 45 user-facing chart families through two package entrypoints. The default entrypoint keeps the established 31-family catalog, while `graflume/complete` adds 14 specialized families without duplicating the shared compiler, theme, Scene, Canvas renderer, interaction, or accessibility contracts.
 
-This guide documents the behavior that is implemented today. Planned chart families are listed separately and are not presented as supported features.
+Every family below is implemented today. Compatibility names normalize to canonical portable marks rather than creating parallel rendering paths.
 
 ## Choose a chart
+
+### Default entrypoint
 
 | Chart                                         | Quick API             | Portable mapping               |
 | --------------------------------------------- | --------------------- | ------------------------------ |
@@ -40,9 +42,30 @@ This guide documents the behavior that is implemented today. Planned chart famil
 | [Waterfall](./waterfall.md)                   | `waterfall()`         | `waterfall`                    |
 | [Word Tree](./word-tree.md)                   | `wordTree()`          | `word-tree`                    |
 
-The [31-type standalone gallery](../../examples/cdn/complete-chart-types.html) renders every entry on one responsive page. The smaller [core chart gallery](../../examples/cdn/chart-types.html) remains useful for a quick introduction.
+### Complete opt-in entrypoint
 
-Every chart-specific guide includes a current visual snapshot generated from the actual Graflume `compile()` Scene. Run `npm run docs:snapshots` after a rendering change to rebuild all 31 assets deterministically.
+Import these families from `graflume/complete`, or use the dedicated complete browser bundle.
+
+| Chart                                 | Quick API         | Portable mark    |
+| ------------------------------------- | ----------------- | ---------------- |
+| [Radar](./radar.md)                   | `radar()`         | `radar`          |
+| [Tree](./tree.md)                     | `tree()`          | `tree`           |
+| [Graph](./graph.md)                   | `graph()`         | `graph`          |
+| [Chord](./chord.md)                   | `chord()`         | `chord`          |
+| [Funnel](./funnel.md)                 | `funnel()`        | `funnel`         |
+| [Parallel coordinates](./parallel.md) | `parallel()`      | `parallel`       |
+| [Boxplot](./boxplot.md)               | `boxplot()`       | `boxplot`        |
+| [Effect scatter](./effect-scatter.md) | `effectScatter()` | `effect-scatter` |
+| [Connection lines](./lines.md)        | `lines()`         | `lines`          |
+| [Heatmap](./heatmap.md)               | `heatmap()`       | `heatmap`        |
+| [Pictorial bar](./pictorial-bar.md)   | `pictorialBar()`  | `pictorial-bar`  |
+| [Theme river](./theme-river.md)       | `themeRiver()`    | `theme-river`    |
+| [Sunburst](./sunburst.md)             | `sunburst()`      | `sunburst`       |
+| [Declarative custom](./custom.md)     | `custom()`        | `custom`         |
+
+The [31-family default gallery](../../examples/cdn/complete-chart-types.html) and the [14-family additional gallery](../../examples/cdn/additional-chart-types.html) together render the complete 45-family catalog. The smaller [introductory gallery](../../examples/cdn/chart-types.html) remains useful for a quick start.
+
+Every chart-specific guide includes a current visual snapshot generated from the actual Graflume `compile()` Scene. Run `npm run docs:snapshots` after a rendering change to rebuild and verify all 45 assets deterministically.
 
 ## Default visual system
 
@@ -65,6 +88,8 @@ The individual pages above show full-width implemented output. The following con
 | [![Current line output](../assets/charts/line.svg)](./line.md)                      | [![Current pie output](../assets/charts/pie.svg)](./pie.md)                   | [![Current Sankey output](../assets/charts/sankey.svg)](./sankey.md) |
 | [![Current candlestick output](../assets/charts/candlestick.svg)](./candlestick.md) | [![Current gauge output](../assets/charts/gauge.svg)](./gauge.md)             | [![Current organization output](../assets/charts/org.svg)](./org.md) |
 | [![Current waterfall output](../assets/charts/waterfall.svg)](./waterfall.md)       | [![Current histogram output](../assets/charts/histogram.svg)](./histogram.md) | [![Current map output](../assets/charts/map.svg)](./map.md)          |
+| [![Current heatmap output](../assets/charts/heatmap.svg)](./heatmap.md)             | [![Current radar output](../assets/charts/radar.svg)](./radar.md)             | [![Current graph output](../assets/charts/graph.svg)](./graph.md)    |
+| [![Current boxplot output](../assets/charts/boxplot.svg)](./boxplot.md)             | [![Current sunburst output](../assets/charts/sunburst.svg)](./sunburst.md)    | [![Current tree output](../assets/charts/tree.svg)](./tree.md)       |
 
 ## Common Quick API shape
 
@@ -104,7 +129,7 @@ const chart = line('#chart', data, {
 });
 ```
 
-The Quick API creates the same portable `ChartSpec 0.1` shape that can be passed to `create()`. JavaScript callbacks are not embedded in the portable spec.
+The Quick API creates the same portable `ChartSpec 0.1` shape that can be passed to `create()`. Additional-family Quick APIs use the same options shape after importing from `graflume/complete`. JavaScript callbacks are not embedded in the portable spec.
 
 ## Data and encodings
 
@@ -254,8 +279,8 @@ Automatic data tables and keyboard traversal of individual marks are not impleme
 
 ## Still planned, not presented as complete
 
-- stacked/normalized stacks, box/violin plots, heatmap/density, funnel, radar/polar, graph/network, and 3D;
-- full map boundary/projection packages, multi-stage Sankey layout, nested treemap, implicit Word Tree tokenization, and complete Vega grammar conversion;
-- independent/dual scales, facets, concat, dashboards, and linked views;
+- stacked and normalized stacks, violin and density plots, 3D, and editable annotations;
+- full map boundary/projection packages, force-directed large-network layout, multi-stage Sankey layout, implicit Word Tree tokenization, and complete Vega grammar conversion;
+- independent and dual scales, facets, concat, dashboards, and linked views;
 - native legends, tooltip layout, label-collision routing, automatic data tables, and keyboard mark traversal;
 - built-in SVG, WebGL2, and WebGPU renderer parity.

@@ -23,13 +23,20 @@ export interface CompileResult {
 
 const AXISLESS_MARKS = new Set([
   'calendar',
+  'chord',
+  'funnel',
   'gauge',
+  'graph',
   'geo',
   'map',
   'org',
+  'parallel',
   'pie',
+  'radar',
   'sankey',
+  'sunburst',
   'table',
+  'tree',
   'treemap',
   'word-tree',
 ]);

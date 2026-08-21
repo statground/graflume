@@ -1,11 +1,17 @@
 import { stat } from 'node:fs/promises';
 
-const budgetBytes = 80 * 1024;
-const file = new URL('../dist/graflume.min.js', import.meta.url);
-const { size } = await stat(file);
-if (size > budgetBytes) {
-  throw new Error(
-    `CDN bundle is ${(size / 1024).toFixed(1)} KiB; budget is ${budgetBytes / 1024} KiB.`,
-  );
+const budgets = [
+  ['graflume.min.js', 80 * 1024],
+  ['graflume.complete.min.js', 160 * 1024],
+];
+
+for (const [name, budgetBytes] of budgets) {
+  const file = new URL(`../dist/${name}`, import.meta.url);
+  const { size } = await stat(file);
+  if (size > budgetBytes) {
+    throw new Error(
+      `${name} is ${(size / 1024).toFixed(1)} KiB; budget is ${budgetBytes / 1024} KiB.`,
+    );
+  }
+  console.log(`${name}: ${(size / 1024).toFixed(1)} KiB / ${budgetBytes / 1024} KiB budget`);
 }
-console.log(`CDN bundle: ${(size / 1024).toFixed(1)} KiB / ${budgetBytes / 1024} KiB budget`);
