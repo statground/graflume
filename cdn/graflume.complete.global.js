@@ -17,83 +17,179 @@ var Graflume = (function (exports) {
         return chartFactory(target, { ...chartOptions, data, layers }, create);
     }
 
+    const family$2 = (id, name, quickApi, mark) => ({
+        id,
+        name,
+        quickApi,
+        mark,
+    });
+    const variant$1 = (id, name, quickApi, mark, familyId, mode = 'default') => ({ id, name, quickApi, mark, familyId, mode });
+    /** Distinct families added by the complete entrypoint. */
     const additionalChartTypeCatalog = [
-        { id: 'radar', name: 'Radar chart', quickApi: 'radar', mark: 'radar' },
-        { id: 'tree', name: 'Tree chart', quickApi: 'tree', mark: 'tree' },
-        { id: 'graph', name: 'Graph chart', quickApi: 'graph', mark: 'graph' },
-        { id: 'chord', name: 'Chord diagram', quickApi: 'chord', mark: 'chord' },
-        { id: 'funnel', name: 'Funnel chart', quickApi: 'funnel', mark: 'funnel' },
-        { id: 'parallel', name: 'Parallel coordinates', quickApi: 'parallel', mark: 'parallel' },
-        { id: 'boxplot', name: 'Boxplot', quickApi: 'boxplot', mark: 'boxplot' },
-        {
-            id: 'effect-scatter',
-            name: 'Effect scatter chart',
-            quickApi: 'effectScatter',
-            mark: 'effect-scatter',
-        },
-        { id: 'lines', name: 'Connection lines', quickApi: 'lines', mark: 'lines' },
-        { id: 'heatmap', name: 'Heatmap', quickApi: 'heatmap', mark: 'heatmap' },
-        {
-            id: 'pictorial-bar',
-            name: 'Pictorial bar chart',
-            quickApi: 'pictorialBar',
-            mark: 'pictorial-bar',
-        },
-        {
-            id: 'theme-river',
-            name: 'Theme river chart',
-            quickApi: 'themeRiver',
-            mark: 'theme-river',
-        },
-        { id: 'sunburst', name: 'Sunburst chart', quickApi: 'sunburst', mark: 'sunburst' },
-        { id: 'custom', name: 'Declarative custom chart', quickApi: 'custom', mark: 'custom' },
+        family$2('radar', 'Radar chart', 'radar', 'radar'),
+        family$2('network', 'Network chart', 'network', 'graph'),
+        family$2('chord', 'Chord diagram', 'chord', 'chord'),
+        family$2('funnel', 'Funnel chart', 'funnel', 'funnel'),
+        family$2('parallel', 'Parallel coordinates', 'parallel', 'parallel'),
+        family$2('boxplot', 'Boxplot', 'boxplot', 'boxplot'),
+        family$2('heatmap', 'Heatmap', 'heatmap', 'heatmap'),
+    ];
+    /** Existing advanced names retained as compatible presets. */
+    const additionalChartVariantCatalog = [
+        variant$1('radar', 'Radar chart', 'radar', 'radar', 'radar'),
+        variant$1('tree', 'Tree chart', 'tree', 'tree', 'hierarchy', 'tree'),
+        variant$1('graph', 'Graph chart', 'graph', 'graph', 'network', 'node-link'),
+        variant$1('chord', 'Chord diagram', 'chord', 'chord', 'chord'),
+        variant$1('funnel', 'Funnel chart', 'funnel', 'funnel', 'funnel'),
+        variant$1('parallel', 'Parallel coordinates', 'parallel', 'parallel', 'parallel'),
+        variant$1('boxplot', 'Boxplot', 'boxplot', 'boxplot', 'boxplot'),
+        variant$1('effect-scatter', 'Effect scatter chart', 'effectScatter', 'effect-scatter', 'scatter', 'emphasis'),
+        variant$1('lines', 'Connection lines', 'lines', 'lines', 'network', 'connections'),
+        variant$1('heatmap', 'Heatmap', 'heatmap', 'heatmap', 'heatmap'),
+        variant$1('pictorial-bar', 'Pictorial bar chart', 'pictorialBar', 'pictorial-bar', 'bar', 'pictorial'),
+        variant$1('theme-river', 'Theme river chart', 'themeRiver', 'theme-river', 'area', 'stream'),
+        variant$1('sunburst', 'Sunburst chart', 'sunburst', 'sunburst', 'hierarchy', 'sunburst'),
+        variant$1('custom', 'Declarative custom chart', 'custom', 'custom', 'custom'),
     ];
 
+    const family$1 = (id, name, quickApi, mark) => ({
+        id,
+        name,
+        quickApi,
+        mark,
+    });
+    const variant = (id, name, quickApi, mark, familyId, mode = 'default') => ({ id, name, quickApi, mark, familyId, mode });
+    /** Established chart families shown in discovery surfaces. */
     const chartTypeCatalog = [
-        { id: 'annotation', name: 'Annotation chart', quickApi: 'annotation', mark: 'annotation' },
-        {
-            id: 'annotated-timeline',
-            name: 'Annotated timeline',
-            quickApi: 'annotatedTimeline',
-            mark: 'annotation',
-        },
-        { id: 'area', name: 'Area chart', quickApi: 'area', mark: 'area' },
-        { id: 'bar', name: 'Bar chart', quickApi: 'horizontalBar', mark: 'bar' },
-        { id: 'bubble', name: 'Bubble chart', quickApi: 'bubble', mark: 'bubble' },
-        { id: 'calendar', name: 'Calendar chart', quickApi: 'calendar', mark: 'calendar' },
-        { id: 'candlestick', name: 'Candlestick chart', quickApi: 'candlestick', mark: 'candlestick' },
-        { id: 'column', name: 'Column chart', quickApi: 'column', mark: 'bar' },
-        { id: 'combo', name: 'Combo chart', quickApi: 'combo', mark: 'multiple' },
-        { id: 'diff', name: 'Diff chart', quickApi: 'diff', mark: 'diff' },
-        { id: 'donut', name: 'Donut chart', quickApi: 'donut', mark: 'pie' },
-        { id: 'gantt', name: 'Gantt chart', quickApi: 'gantt', mark: 'gantt' },
-        { id: 'gauge', name: 'Gauge chart', quickApi: 'gauge', mark: 'gauge' },
-        { id: 'geo', name: 'GeoChart', quickApi: 'geo', mark: 'geo' },
-        { id: 'histogram', name: 'Histogram', quickApi: 'histogram', mark: 'histogram' },
-        { id: 'intervals', name: 'Intervals', quickApi: 'intervals', mark: 'interval' },
-        { id: 'line', name: 'Line chart', quickApi: 'line', mark: 'line' },
-        { id: 'map', name: 'Map', quickApi: 'map', mark: 'map' },
-        { id: 'motion', name: 'Motion chart', quickApi: 'motion', mark: 'motion' },
-        { id: 'org', name: 'Organization chart', quickApi: 'org', mark: 'org' },
-        { id: 'pie', name: 'Pie chart', quickApi: 'pie', mark: 'pie' },
-        { id: 'sankey', name: 'Sankey diagram', quickApi: 'sankey', mark: 'sankey' },
-        { id: 'scatter', name: 'Scatter chart', quickApi: 'scatter', mark: 'point' },
-        { id: 'stepped-area', name: 'Stepped area chart', quickApi: 'steppedArea', mark: 'stepped-area' },
-        { id: 'table', name: 'Table chart', quickApi: 'table', mark: 'table' },
-        { id: 'timeline', name: 'Timeline', quickApi: 'timeline', mark: 'timeline' },
-        { id: 'treemap', name: 'Tree map', quickApi: 'treemap', mark: 'treemap' },
-        { id: 'trendline', name: 'Trendline', quickApi: 'trendline', mark: 'trendline' },
-        { id: 'vega', name: 'VegaChart', quickApi: 'vegaChart', mark: 'vega' },
-        { id: 'waterfall', name: 'Waterfall chart', quickApi: 'waterfall', mark: 'waterfall' },
-        { id: 'word-tree', name: 'Word tree', quickApi: 'wordTree', mark: 'word-tree' },
+        family$1('annotation', 'Annotation chart', 'annotation', 'annotation'),
+        family$1('area', 'Area chart', 'area', 'area'),
+        family$1('bar', 'Bar chart', 'bar', 'bar'),
+        family$1('bubble', 'Bubble chart', 'bubble', 'bubble'),
+        family$1('calendar', 'Calendar chart', 'calendar', 'calendar'),
+        family$1('candlestick', 'Candlestick chart', 'candlestick', 'candlestick'),
+        family$1('combination', 'Combination chart', 'combo', 'multiple'),
+        family$1('difference', 'Difference chart', 'diff', 'diff'),
+        family$1('pie', 'Pie chart', 'pie', 'pie'),
+        family$1('timeline', 'Timeline and range chart', 'timeline', 'timeline'),
+        family$1('gauge', 'Gauge chart', 'gauge', 'gauge'),
+        family$1('map', 'Map chart', 'map', 'map'),
+        family$1('histogram', 'Histogram', 'histogram', 'histogram'),
+        family$1('interval', 'Interval chart', 'intervals', 'interval'),
+        family$1('line', 'Line chart', 'line', 'line'),
+        family$1('motion', 'Motion chart', 'motion', 'motion'),
+        family$1('hierarchy', 'Hierarchy chart', 'treemap', 'treemap'),
+        family$1('flow', 'Flow diagram', 'sankey', 'sankey'),
+        family$1('scatter', 'Scatter chart', 'scatter', 'point'),
+        family$1('table', 'Table chart', 'table', 'table'),
+        family$1('waterfall', 'Waterfall chart', 'waterfall', 'waterfall'),
+        family$1('word-tree', 'Word tree', 'wordTree', 'word-tree'),
+    ];
+    /** Existing Quick API names retained as compatible presets. */
+    const chartVariantCatalog = [
+        variant('annotation', 'Annotation chart', 'annotation', 'annotation', 'annotation'),
+        variant('annotated-timeline', 'Annotated timeline', 'annotatedTimeline', 'annotation', 'annotation', 'timeline'),
+        variant('area', 'Area chart', 'area', 'area', 'area'),
+        variant('bar', 'Bar chart', 'horizontalBar', 'bar', 'bar', 'horizontal'),
+        variant('bubble', 'Bubble chart', 'bubble', 'bubble', 'bubble'),
+        variant('calendar', 'Calendar chart', 'calendar', 'calendar', 'calendar'),
+        variant('candlestick', 'Candlestick chart', 'candlestick', 'candlestick', 'candlestick'),
+        variant('column', 'Column chart', 'column', 'bar', 'bar', 'vertical'),
+        variant('combo', 'Combo chart', 'combo', 'multiple', 'combination'),
+        variant('diff', 'Diff chart', 'diff', 'diff', 'difference'),
+        variant('donut', 'Donut chart', 'donut', 'pie', 'pie', 'donut'),
+        variant('gantt', 'Gantt chart', 'gantt', 'gantt', 'timeline', 'gantt'),
+        variant('gauge', 'Gauge chart', 'gauge', 'gauge', 'gauge'),
+        variant('geo', 'Geographic region chart', 'geo', 'geo', 'map', 'region'),
+        variant('histogram', 'Histogram', 'histogram', 'histogram', 'histogram'),
+        variant('intervals', 'Intervals', 'intervals', 'interval', 'interval'),
+        variant('line', 'Line chart', 'line', 'line', 'line'),
+        variant('map', 'Map', 'map', 'map', 'map'),
+        variant('motion', 'Motion chart', 'motion', 'motion', 'motion'),
+        variant('org', 'Organization chart', 'org', 'org', 'hierarchy', 'organization'),
+        variant('pie', 'Pie chart', 'pie', 'pie', 'pie'),
+        variant('sankey', 'Sankey diagram', 'sankey', 'sankey', 'flow'),
+        variant('scatter', 'Scatter chart', 'scatter', 'point', 'scatter'),
+        variant('stepped-area', 'Stepped area chart', 'steppedArea', 'stepped-area', 'area', 'stepped'),
+        variant('table', 'Table chart', 'table', 'table', 'table'),
+        variant('timeline', 'Timeline', 'timeline', 'timeline', 'timeline'),
+        variant('treemap', 'Tree map', 'treemap', 'treemap', 'hierarchy', 'treemap'),
+        variant('trendline', 'Trendline', 'trendline', 'trendline', 'line', 'trend'),
+        variant('vega', 'Portable adapter chart', 'vegaChart', 'vega', 'custom', 'adapter'),
+        variant('waterfall', 'Waterfall chart', 'waterfall', 'waterfall', 'waterfall'),
+        variant('word-tree', 'Word tree', 'wordTree', 'word-tree', 'word-tree'),
     ];
 
-    const entry = (id, name, quickApi, mark, category, canonicalFamily = id) => ({ id, name, quickApi, mark, category, canonicalFamily });
+    const variantFamilyOverrides = {
+        'arc-diagram': 'network',
+        'area-range': 'interval',
+        'area-spline': 'area',
+        'area-spline-range': 'interval',
+        'bell-curve': 'histogram',
+        bullet: 'bar',
+        'column-pyramid': 'bar',
+        'column-range': 'interval',
+        cylinder: 'bar',
+        'dependency-wheel': 'chord',
+        dumbbell: 'interval',
+        'error-bar': 'interval',
+        'event-flags': 'annotation',
+        'funnel-3d': 'funnel',
+        'heikin-ashi': 'candlestick',
+        'high-low-close': 'candlestick',
+        'hollow-candlestick': 'candlestick',
+        lollipop: 'bar',
+        'network-graph': 'network',
+        'open-high-low-close': 'candlestick',
+        'organization-network': 'hierarchy',
+        'packed-bubble': 'bubble',
+        pareto: 'combination',
+        'pictorial-column': 'bar',
+        polygon: 'area',
+        pyramid: 'funnel',
+        'pyramid-3d': 'funnel',
+        'scatter-3d': 'scatter',
+        'solid-gauge': 'gauge',
+        spline: 'line',
+        streamgraph: 'area',
+        'tile-map': 'heatmap',
+        'tree-graph': 'hierarchy',
+        'variable-pie': 'pie',
+        'variable-width': 'bar',
+        vector: 'vector-field',
+        'volume-by-price': 'volume-profile',
+        'wind-barb': 'vector-field',
+        'x-range': 'timeline',
+    };
+    function familyIdFor(id, category) {
+        const override = variantFamilyOverrides[id];
+        if (override)
+            return override;
+        if (category === 'indicator')
+            return 'technical-indicator';
+        if (category === 'map')
+            return 'map';
+        if (id === 'point-and-figure' || id === 'renko')
+            return 'price-blocks';
+        return id;
+    }
+    const entry = (id, name, quickApi, mark, category, _legacyFamily = id) => {
+        const familyId = familyIdFor(id, category);
+        return {
+            id,
+            name,
+            quickApi,
+            mark,
+            category,
+            familyId,
+            mode: familyId === id ? 'default' : id,
+            canonicalFamily: familyId,
+        };
+    };
     /**
      * Specialized series that extend the established and advanced catalogs.
      * Existing families are represented once and reused through canonical aliases.
      */
-    const seriesChartTypeCatalog = [
+    const seriesChartVariantCatalog = [
         entry('arc-diagram', 'Arc diagram', 'arcDiagram', 'arc-diagram', 'relationship'),
         entry('area-range', 'Area range chart', 'areaRange', 'range', 'cartesian'),
         entry('area-spline', 'Smooth area chart', 'areaSpline', 'smooth', 'cartesian'),
@@ -191,9 +287,46 @@ var Graflume = (function (exports) {
         entry('map-point', 'Map point chart', 'mapPoint', 'map', 'map', 'map'),
         entry('tiled-map', 'Tiled map', 'tiledMap', 'tiled-map', 'map'),
     ];
-    const compatibility = (identifier, familyId) => ({
+    const family = (id, name, quickApi, mark, category) => ({ id, name, quickApi, mark, category });
+    /** Specialized families that add a distinct data model or reading task. */
+    const seriesChartTypeCatalog = [
+        family('contour', 'Contour chart', 'contour', 'contour', 'distribution'),
+        family('item', 'Item chart', 'itemChart', 'item', 'radial'),
+        family('vector-field', 'Vector field chart', 'vectorField', 'vector', 'cartesian'),
+        family('venn', 'Venn diagram', 'venn', 'venn', 'relationship'),
+        family('word-cloud', 'Word cloud', 'wordCloud', 'word-cloud', 'relationship'),
+        family('price-blocks', 'Price blocks chart', 'priceBlocks', 'renko', 'financial'),
+        family('volume-profile', 'Volume profile chart', 'volumeProfile', 'volume-profile', 'financial'),
+        family('technical-indicator', 'Technical indicator chart', 'technicalIndicator', 'indicator', 'indicator'),
+    ];
+    const directFamilyByVariant = {
+        area: 'area',
+        bar: 'bar',
+        boxplot: 'boxplot',
+        bubble: 'bubble',
+        candlestick: 'candlestick',
+        column: 'bar',
+        funnel: 'funnel',
+        gantt: 'timeline',
+        gauge: 'gauge',
+        heatmap: 'heatmap',
+        histogram: 'histogram',
+        line: 'line',
+        map: 'map',
+        pie: 'pie',
+        sankey: 'flow',
+        scatter: 'scatter',
+        sunburst: 'hierarchy',
+        timeline: 'timeline',
+        treemap: 'hierarchy',
+        trendline: 'line',
+        waterfall: 'waterfall',
+    };
+    const seriesFamilyByVariant = new Map(seriesChartVariantCatalog.map(({ id, familyId }) => [id, familyId]));
+    const compatibility = (identifier, variantId) => ({
         identifier,
-        familyId,
+        familyId: seriesFamilyByVariant.get(variantId) ?? directFamilyByVariant[variantId] ?? variantId,
+        variantId,
     });
     /** Public series identifiers and the single catalog family that implements each one. */
     const seriesCompatibilityCatalog = [
@@ -8126,6 +8259,19 @@ var Graflume = (function (exports) {
     function graph(target, data, options) {
         return additional('graph', target, data, options);
     }
+    function selectedMode(options) {
+        const mode = options.mark?.options?.mode;
+        return typeof mode === 'string' ? mode : undefined;
+    }
+    /** One family API for node-link, arc, and connection-line layouts. */
+    function network(target, data, options) {
+        const mode = selectedMode(options);
+        if (mode === 'arc')
+            return arcDiagram(target, data, options);
+        if (mode === 'connections')
+            return lines(target, data, options);
+        return graph(target, data, options);
+    }
     function chord(target, data, options) {
         return additional('chord', target, data, options);
     }
@@ -8234,6 +8380,12 @@ var Graflume = (function (exports) {
     });
     const wordCloud = makeSeriesQuick('word-cloud');
     const xRange = timeline;
+    /** One family API for arrow and wind-barb vector glyphs. */
+    function vectorField(target, data, options) {
+        return selectedMode(options) === 'wind-barb'
+            ? windBarb(target, data, options)
+            : vector(target, data, options);
+    }
     const accelerationBands = makeIndicatorQuick('abands', {
         fields: { lower: 'lower', middle: 'value', upper: 'upper' },
     });
@@ -8328,6 +8480,18 @@ var Graflume = (function (exports) {
     const williamsRange = makeIndicatorQuick('williamsr');
     const weightedMovingAverage = makeIndicatorQuick('wma');
     const zigzag = makeIndicatorQuick('zigzag');
+    /** One family API for all indicator presets; select one with mark.options.kind. */
+    const technicalIndicator = makeSeriesQuick('indicator', {
+        options: { kind: 'sma' },
+    });
+    /** One family API for discrete price-block layouts. */
+    function priceBlocks(target, data, options) {
+        return selectedMode(options) === 'point-and-figure'
+            ? pointAndFigure(target, data, options)
+            : renko(target, data, options);
+    }
+    /** Canonical name for the volume-by-price preset. */
+    const volumeProfile = volumeByPrice;
     const flowMap = makeSeriesQuick('geo-flow', {
         fields: { longitude2: 'longitude2', latitude2: 'latitude2', value: 'value' },
     });
@@ -8343,6 +8507,12 @@ var Graflume = (function (exports) {
         ...additionalChartTypeCatalog,
         ...seriesChartTypeCatalog,
     ];
+    /** All historical names as presets mapped onto the consolidated family catalog. */
+    const fullVariantCatalog = [
+        ...chartVariantCatalog,
+        ...additionalChartVariantCatalog,
+        ...seriesChartVariantCatalog,
+    ];
 
     exports.CanvasRenderer = CanvasRenderer;
     exports.Chart = Chart;
@@ -8352,6 +8522,7 @@ var Graflume = (function (exports) {
     exports.absolutePriceOscillator = absolutePriceOscillator;
     exports.accelerationBands = accelerationBands;
     exports.additionalChartTypeCatalog = additionalChartTypeCatalog;
+    exports.additionalChartVariantCatalog = additionalChartVariantCatalog;
     exports.annotatedTimeline = annotatedTimeline;
     exports.annotation = annotation;
     exports.arcDiagram = arcDiagram;
@@ -8377,6 +8548,7 @@ var Graflume = (function (exports) {
     exports.chaikinOscillator = chaikinOscillator;
     exports.chandeMomentumOscillator = chandeMomentumOscillator;
     exports.chartTypeCatalog = chartTypeCatalog;
+    exports.chartVariantCatalog = chartVariantCatalog;
     exports.chord = chord;
     exports.column = column;
     exports.columnPyramid = columnPyramid;
@@ -8404,6 +8576,7 @@ var Graflume = (function (exports) {
     exports.exponentialMovingAverage = exponentialMovingAverage;
     exports.flowMap = flowMap;
     exports.fullCatalog = fullCatalog;
+    exports.fullVariantCatalog = fullVariantCatalog;
     exports.funnel = funnel;
     exports.funnel3d = funnel3d;
     exports.gantt = gantt;
@@ -8441,6 +8614,7 @@ var Graflume = (function (exports) {
     exports.moneyFlowIndex = moneyFlowIndex;
     exports.motion = motion;
     exports.movingAverageConvergenceDivergence = movingAverageConvergenceDivergence;
+    exports.network = network;
     exports.networkGraph = networkGraph;
     exports.normalizeSpec = normalizeSpec;
     exports.normalizedAverageTrueRange = normalizedAverageTrueRange;
@@ -8461,6 +8635,7 @@ var Graflume = (function (exports) {
     exports.point = point;
     exports.pointAndFigure = pointAndFigure;
     exports.polygon = polygon;
+    exports.priceBlocks = priceBlocks;
     exports.priceChannel = priceChannel;
     exports.priceEnvelopes = priceEnvelopes;
     exports.pyramid = pyramid;
@@ -8478,6 +8653,7 @@ var Graflume = (function (exports) {
     exports.scatter = scatter;
     exports.scatter3d = scatter3d;
     exports.seriesChartTypeCatalog = seriesChartTypeCatalog;
+    exports.seriesChartVariantCatalog = seriesChartVariantCatalog;
     exports.seriesCompatibilityCatalog = seriesCompatibilityCatalog;
     exports.seriesCompatibilityIds = seriesCompatibilityIds;
     exports.simpleMovingAverage = simpleMovingAverage;
@@ -8491,6 +8667,7 @@ var Graflume = (function (exports) {
     exports.sunburst = sunburst;
     exports.supertrend = supertrend;
     exports.table = table;
+    exports.technicalIndicator = technicalIndicator;
     exports.themeRiver = themeRiver;
     exports.tileMap = tileMap;
     exports.tiledMap = tiledMap;
@@ -8506,11 +8683,13 @@ var Graflume = (function (exports) {
     exports.variablePie = variablePie;
     exports.variableWidth = variableWidth;
     exports.vector = vector;
+    exports.vectorField = vectorField;
     exports.vegaChart = vegaChart;
     exports.venn = venn;
     exports.version = version;
     exports.volatilityBands = volatilityBands;
     exports.volumeByPrice = volumeByPrice;
+    exports.volumeProfile = volumeProfile;
     exports.volumeWeightedAveragePrice = volumeWeightedAveragePrice;
     exports.waterfall = waterfall;
     exports.weightedMovingAverage = weightedMovingAverage;
