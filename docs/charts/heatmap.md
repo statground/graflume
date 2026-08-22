@@ -170,7 +170,7 @@ Use a heatmap to show intensity across two categorical dimensions.
 
 ### Portable options
 
-`labels: false` hides in-cell values. Sequential colors are interpolated from the active theme and text contrast is chosen automatically.
+`labels: false` hides in-cell values. `cellGap` controls the clear space between neighboring cells and defaults to `1` pixel, so the matrix reads as one continuous surface while the background-colored stroke keeps each boundary identifiable. Sequential colors are interpolated from the active theme and text contrast is chosen automatically.
 
 ## Quick API
 
@@ -190,7 +190,7 @@ The same chart can be represented as a function-free portable specification with
 
 ## Rendering behavior
 
-The compiler creates a band cell for each valid row, normalizes values across the observed extent, and emits interactive rounded rectangles with optional labels.
+The compiler creates a band cell for each valid row, normalizes values across the observed extent, and emits interactive rectangles with a one-pixel default gap, a subtle one-pixel corner radius, and optional labels. Explicit `cellGap`, `stroke`, `lineWidth`, and `cornerRadius` values remain available when a denser or more separated matrix is required.
 
 All output is compiled into the same renderer-neutral Scene used by Canvas and the checked SVG documentation snapshots. No second rendering engine is embedded.
 

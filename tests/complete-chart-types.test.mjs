@@ -290,6 +290,25 @@ test('declarative custom rows select safe primitive shapes without callbacks', (
   assert.ok(nodes.some((node) => node.type === 'rect'));
 });
 
+test('heatmap cells form a continuous matrix with a quiet one-pixel boundary', () => {
+  const spec = fixtures.get('heatmap');
+  assert.ok(spec);
+  const { scene } = compile(spec, { width: 720, height: 440 });
+  const cells = flattenScene(scene.root).filter(
+    (node) => node.type === 'rect' && node.id.includes(':heatmap:'),
+  );
+  assert.equal(cells.length, 4);
+
+  const cell = (rowIndex) => cells.find((node) => node.datum?.rowIndex === rowIndex);
+  const mondayMorning = cell(0);
+  const mondayEvening = cell(1);
+  const tuesdayMorning = cell(2);
+  assert.ok(mondayMorning && mondayEvening && tuesdayMorning);
+  assert.equal(tuesdayMorning.x - (mondayMorning.x + mondayMorning.width), 1);
+  assert.equal(mondayEvening.y - (mondayMorning.y + mondayMorning.height), 1);
+  assert.ok(cells.every((node) => node.lineWidth === 1 && node.cornerRadius === 1));
+});
+
 test('boxplot, connection lines, and theme river expand numeric domains beyond the primary field', () => {
   for (const id of ['boxplot', 'lines', 'theme-river']) {
     const spec = fixtures.get(id);
