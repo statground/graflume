@@ -22,6 +22,8 @@ export interface Renderer {
   resize(width: number, height: number, pixelRatio: number): void;
   render(scene: Scene): void;
   surface(): HTMLElement | null;
+  /** Optional positioned element used for DOM overlays such as the built-in tooltip. */
+  overlayHost?(): HTMLElement | null;
   toDataURL?(type?: string, quality?: number): string;
   destroy(): void;
 }

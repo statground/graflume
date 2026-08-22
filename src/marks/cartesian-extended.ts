@@ -274,6 +274,7 @@ export const compileHistogramMark: MarkCompiler = (context) => {
   }
   const baseline = yScale.map(0);
   const nodes: RectNode[] = [];
+  const totalCount = bins.reduce((sum, count) => sum + count, 0);
   bins.forEach((count, index) => {
     const start = extent[0] + (span * index) / binCount;
     const end = extent[0] + (span * (index + 1)) / binCount;
@@ -290,7 +291,19 @@ export const compileHistogramMark: MarkCompiler = (context) => {
         interactive: performance.enableHitTesting && rowIndex !== undefined,
         ...(rowIndex === undefined
           ? {}
-          : { datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) } }),
+          : {
+              datum: {
+                layerId: layer.id,
+                rowIndex,
+                datum: table.row(rowIndex),
+                tooltip: {
+                  binStart: start,
+                  binEnd: end,
+                  count,
+                  proportion: totalCount === 0 ? 0 : count / totalCount,
+                },
+              },
+            }),
       }),
       x: Math.min(x1, x2) + 2,
       y: Math.min(y, baseline),

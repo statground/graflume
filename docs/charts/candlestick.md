@@ -28,7 +28,7 @@ Every image below is generated from the current compiled Scene rather than drawn
 
 ## Type-by-type implementation
 
-The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
 
 <a id="variant-candlestick"></a>
 
@@ -100,6 +100,39 @@ candlestick('#chart', data, {
       high: 'high',
       low: 'low',
       close: 'close',
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Candlestick chart',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'close',
+          label: 'close',
+          format: 'number',
+        },
+        {
+          field: 'open',
+          label: 'Open',
+          format: 'number',
+        },
+        {
+          field: 'high',
+          label: 'High',
+          format: 'number',
+        },
+        {
+          field: 'low',
+          label: 'Low',
+          format: 'number',
+        },
+      ],
     },
   },
 });
@@ -180,6 +213,39 @@ heikinAshi('#chart', data, {
       kind: 'heikin-ashi',
     },
   },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Heikin-Ashi chart',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'close',
+          label: 'close',
+          format: 'number',
+        },
+        {
+          field: 'open',
+          label: 'Open',
+          format: 'number',
+        },
+        {
+          field: 'high',
+          label: 'High',
+          format: 'number',
+        },
+        {
+          field: 'low',
+          label: 'Low',
+          format: 'number',
+        },
+      ],
+    },
+  },
 });
 ```
 
@@ -256,6 +322,39 @@ highLowClose('#chart', data, {
     },
     options: {
       kind: 'high-low-close',
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'High-low-close chart',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'close',
+          label: 'close',
+          format: 'number',
+        },
+        {
+          field: 'open',
+          label: 'Open',
+          format: 'number',
+        },
+        {
+          field: 'high',
+          label: 'High',
+          format: 'number',
+        },
+        {
+          field: 'low',
+          label: 'Low',
+          format: 'number',
+        },
+      ],
     },
   },
 });
@@ -336,6 +435,39 @@ hollowCandlestick('#chart', data, {
       kind: 'hollow-candlestick',
     },
   },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Hollow candlestick chart',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'close',
+          label: 'close',
+          format: 'number',
+        },
+        {
+          field: 'open',
+          label: 'Open',
+          format: 'number',
+        },
+        {
+          field: 'high',
+          label: 'High',
+          format: 'number',
+        },
+        {
+          field: 'low',
+          label: 'Low',
+          format: 'number',
+        },
+      ],
+    },
+  },
 });
 ```
 
@@ -412,6 +544,39 @@ openHighLowClose('#chart', data, {
     },
     options: {
       kind: 'open-high-low-close',
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Open-high-low-close chart',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'close',
+          label: 'close',
+          format: 'number',
+        },
+        {
+          field: 'open',
+          label: 'Open',
+          format: 'number',
+        },
+        {
+          field: 'high',
+          label: 'High',
+          format: 'number',
+        },
+        {
+          field: 'low',
+          label: 'Low',
+          format: 'number',
+        },
+      ],
     },
   },
 });

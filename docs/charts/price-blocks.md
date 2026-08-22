@@ -23,7 +23,7 @@ Every image below is generated from the current compiled Scene rather than drawn
 
 ## Type-by-type implementation
 
-The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
 
 <a id="variant-point-and-figure"></a>
 
@@ -76,6 +76,24 @@ pointAndFigure('#chart', data, {
   accessibility: {
     label: 'Point and figure chart example',
     description: 'A compiled point and figure chart example using the price-blocks family.',
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Point and figure chart',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'close',
+          label: 'close',
+          format: 'number',
+        },
+      ],
+    },
   },
 });
 ```
@@ -131,6 +149,39 @@ renko('#chart', data, {
   accessibility: {
     label: 'Renko chart example',
     description: 'A compiled renko chart example using the price-blocks family.',
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Renko chart',
+      fields: [
+        {
+          field: 'brickStart',
+          label: 'Brick start',
+          format: 'number',
+        },
+        {
+          field: 'brickEnd',
+          label: 'Brick end',
+          format: 'number',
+        },
+        {
+          field: 'brickSize',
+          label: 'Brick size',
+          format: 'number',
+        },
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'close',
+          label: 'close',
+          format: 'number',
+        },
+      ],
+    },
   },
 });
 ```

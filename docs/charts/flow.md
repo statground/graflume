@@ -22,7 +22,7 @@ Every image below is generated from the current compiled Scene rather than drawn
 
 ## Type-by-type implementation
 
-The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
 
 <a id="variant-sankey"></a>
 
@@ -83,6 +83,29 @@ sankey('#chart', data, {
   mark: {
     fields: {
       target: 'target',
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Sankey diagram',
+      fields: [
+        {
+          field: 'source',
+          label: 'source',
+          format: 'auto',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'target',
+          label: 'Target',
+          format: 'auto',
+        },
+      ],
     },
   },
 });

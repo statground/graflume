@@ -16,6 +16,8 @@ export interface DatumReference {
   readonly layerId: string;
   readonly rowIndex: number;
   readonly datum: DataRow;
+  /** Optional mark-derived values that replace a representative row in native tooltips. */
+  readonly tooltip?: DataRow;
 }
 
 export interface BaseNode {
@@ -108,5 +110,6 @@ export interface Scene {
     readonly rowCount: number;
     readonly renderedNodeCount: number;
     readonly performanceProfile: 'standard' | 'large' | 'ultra';
+    readonly hitTestingEnabled: boolean;
   };
 }

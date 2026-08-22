@@ -26,7 +26,7 @@ Every image below is generated from the current compiled Scene rather than drawn
 
 ## Type-by-type implementation
 
-The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
 
 <a id="variant-graph"></a>
 
@@ -88,6 +88,49 @@ graph('#chart', data, {
     fields: {
       target: 'target',
       value: 'value',
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Graph chart',
+      fields: [
+        {
+          field: 'kind',
+          label: 'Target',
+          format: 'auto',
+        },
+        {
+          field: 'node',
+          label: 'Node',
+          format: 'auto',
+        },
+        {
+          field: 'degree',
+          label: 'Connections',
+          format: 'integer',
+        },
+        {
+          field: 'total',
+          label: 'Connected weight',
+          format: 'number',
+        },
+        {
+          field: 'source',
+          label: 'From',
+          format: 'auto',
+        },
+        {
+          field: 'target',
+          label: 'To',
+          format: 'auto',
+        },
+        {
+          field: 'value',
+          label: 'Weight',
+          format: 'number',
+        },
+      ],
     },
   },
 });
@@ -152,6 +195,29 @@ lines('#chart', data, {
   mark: {
     fields: {
       target: 'target',
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Connection lines',
+      fields: [
+        {
+          field: 'source',
+          label: 'source',
+          format: 'auto',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'target',
+          label: 'Target',
+          format: 'auto',
+        },
+      ],
     },
   },
 });
@@ -223,6 +289,29 @@ arcDiagram('#chart', data, {
       value: 'value',
     },
   },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Arc diagram',
+      fields: [
+        {
+          field: 'source',
+          label: 'source',
+          format: 'auto',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'target',
+          label: 'Target',
+          format: 'auto',
+        },
+      ],
+    },
+  },
 });
 ```
 
@@ -290,6 +379,49 @@ networkGraph('#chart', data, {
     fields: {
       target: 'target',
       value: 'value',
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Network graph',
+      fields: [
+        {
+          field: 'kind',
+          label: 'Target',
+          format: 'auto',
+        },
+        {
+          field: 'node',
+          label: 'Node',
+          format: 'auto',
+        },
+        {
+          field: 'degree',
+          label: 'Connections',
+          format: 'integer',
+        },
+        {
+          field: 'total',
+          label: 'Connected weight',
+          format: 'number',
+        },
+        {
+          field: 'source',
+          label: 'From',
+          format: 'auto',
+        },
+        {
+          field: 'target',
+          label: 'To',
+          format: 'auto',
+        },
+        {
+          field: 'value',
+          label: 'Weight',
+          format: 'number',
+        },
+      ],
     },
   },
 });

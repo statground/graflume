@@ -8,6 +8,7 @@ export interface SpecIssue {
 }
 
 const UNSAFE_FIELDS = new Set(['__proto__', 'prototype', 'constructor']);
+const TOOLTIP_FORMATS = new Set(['auto', 'number', 'integer', 'percent', 'date', 'datetime']);
 
 function validateEncoding(value: unknown, path: string, issues: SpecIssue[]): void {
   if (typeof value === 'string') {
@@ -67,6 +68,87 @@ function validateMark(value: unknown, path: string, issues: SpecIssue[]): void {
 
   if (value.options !== undefined && !isPlainObject(value.options)) {
     issues.push({ path: `${path}.options`, message: 'Mark options must be a JSON object.' });
+  }
+}
+
+function validateTooltipField(value: unknown, path: string, issues: SpecIssue[]): void {
+  if (typeof value === 'string') {
+    if (value.trim() === '') issues.push({ path, message: 'Tooltip field must not be empty.' });
+    if (UNSAFE_FIELDS.has(value)) {
+      issues.push({ path, message: `Unsafe field "${value}" is forbidden.` });
+    }
+    return;
+  }
+  if (!isPlainObject(value) || typeof value.field !== 'string' || value.field.trim() === '') {
+    issues.push({ path, message: 'Tooltip field must be a field name or an object with a field.' });
+    return;
+  }
+  if (UNSAFE_FIELDS.has(value.field)) {
+    issues.push({ path: `${path}.field`, message: `Unsafe field "${value.field}" is forbidden.` });
+  }
+  if (value.label !== undefined && typeof value.label !== 'string') {
+    issues.push({ path: `${path}.label`, message: 'Tooltip label must be a string.' });
+  }
+  if (
+    value.format !== undefined &&
+    (typeof value.format !== 'string' || !TOOLTIP_FORMATS.has(value.format))
+  ) {
+    issues.push({ path: `${path}.format`, message: 'Tooltip format is not supported.' });
+  }
+  if (
+    value.fractionDigits !== undefined &&
+    (typeof value.fractionDigits !== 'number' ||
+      !Number.isInteger(value.fractionDigits) ||
+      value.fractionDigits < 0 ||
+      value.fractionDigits > 6)
+  ) {
+    issues.push({
+      path: `${path}.fractionDigits`,
+      message: 'Tooltip fractionDigits must be an integer from 0 to 6.',
+    });
+  }
+  for (const key of ['prefix', 'suffix'] as const) {
+    if (value[key] !== undefined && typeof value[key] !== 'string') {
+      issues.push({ path: `${path}.${key}`, message: `Tooltip ${key} must be a string.` });
+    }
+  }
+}
+
+function validateInteraction(value: unknown, path: string, issues: SpecIssue[]): void {
+  if (value === undefined) return;
+  if (!isPlainObject(value)) {
+    issues.push({ path, message: 'Interaction must be an object.' });
+    return;
+  }
+  for (const key of ['hover', 'click'] as const) {
+    if (value[key] !== undefined && typeof value[key] !== 'boolean') {
+      issues.push({ path: `${path}.${key}`, message: `Interaction ${key} must be a boolean.` });
+    }
+  }
+  const tooltip = value.tooltip;
+  if (tooltip === undefined || typeof tooltip === 'boolean') return;
+  if (!isPlainObject(tooltip)) {
+    issues.push({ path: `${path}.tooltip`, message: 'Tooltip must be a boolean or an object.' });
+    return;
+  }
+  if (tooltip.title !== undefined && typeof tooltip.title !== 'string') {
+    issues.push({ path: `${path}.tooltip.title`, message: 'Tooltip title must be a string.' });
+  }
+  if (tooltip.fields !== undefined) {
+    if (
+      !Array.isArray(tooltip.fields) ||
+      tooltip.fields.length === 0 ||
+      tooltip.fields.length > 12
+    ) {
+      issues.push({
+        path: `${path}.tooltip.fields`,
+        message: 'Tooltip fields must contain between 1 and 12 entries.',
+      });
+    } else {
+      tooltip.fields.forEach((field, index) =>
+        validateTooltipField(field, `${path}.tooltip.fields[${index}]`, issues),
+      );
+    }
   }
 }
 
@@ -160,6 +242,8 @@ export function validateSpec(input: unknown): readonly SpecIssue[] {
       });
     }
   }
+
+  validateInteraction(input.interaction, '$.interaction', issues);
 
   findFunctions(input, '$', issues, new WeakSet());
   return issues;

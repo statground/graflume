@@ -29,7 +29,7 @@ Every image below is generated from the current compiled Scene rather than drawn
 
 ## Type-by-type implementation
 
-The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
 
 <a id="variant-area"></a>
 
@@ -84,7 +84,25 @@ area('#chart', data, {
     description: 'A compiled area chart example using the area family.',
   },
   mark: {
-    point: false,
+    point: true,
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Area chart',
+      fields: [
+        {
+          field: 'category',
+          label: 'category',
+          format: 'auto',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+      ],
+    },
   },
 });
 ```
@@ -142,7 +160,25 @@ steppedArea('#chart', data, {
     description: 'A compiled stepped area chart example using the area family.',
   },
   mark: {
-    point: false,
+    point: true,
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Stepped area chart',
+      fields: [
+        {
+          field: 'category',
+          label: 'category',
+          format: 'auto',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+      ],
+    },
   },
 });
 ```
@@ -208,6 +244,29 @@ themeRiver('#chart', data, {
       category: 'series',
     },
   },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Theme river chart',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'series',
+          label: 'Series',
+          format: 'auto',
+        },
+      ],
+    },
+  },
 });
 ```
 
@@ -267,6 +326,24 @@ areaSpline('#chart', data, {
     point: true,
     options: {
       area: true,
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Smooth area chart',
+      fields: [
+        {
+          field: 'category',
+          label: 'category',
+          format: 'auto',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+      ],
     },
   },
 });
@@ -333,6 +410,29 @@ polygon('#chart', data, {
       series: 'series',
     },
   },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Polygon chart',
+      fields: [
+        {
+          field: 'x',
+          label: 'x',
+          format: 'number',
+        },
+        {
+          field: 'y',
+          label: 'y',
+          format: 'number',
+        },
+        {
+          field: 'series',
+          label: 'Series',
+          format: 'auto',
+        },
+      ],
+    },
+  },
 });
 ```
 
@@ -395,6 +495,29 @@ streamgraph('#chart', data, {
   mark: {
     fields: {
       category: 'series',
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Streamgraph',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'series',
+          label: 'Series',
+          format: 'auto',
+        },
+      ],
     },
   },
 });

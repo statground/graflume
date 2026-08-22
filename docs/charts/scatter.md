@@ -25,7 +25,7 @@ Every image below is generated from the current compiled Scene rather than drawn
 
 ## Type-by-type implementation
 
-The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
 
 <a id="variant-scatter"></a>
 
@@ -78,6 +78,24 @@ scatter('#chart', data, {
   accessibility: {
     label: 'Scatter chart example',
     description: 'A compiled scatter chart example using the scatter family.',
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Scatter chart',
+      fields: [
+        {
+          field: 'x',
+          label: 'x',
+          format: 'number',
+        },
+        {
+          field: 'y',
+          label: 'y',
+          format: 'number',
+        },
+      ],
+    },
   },
 });
 ```
@@ -148,6 +166,34 @@ effectScatter('#chart', data, {
       color: 'group',
     },
   },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Effect scatter chart',
+      fields: [
+        {
+          field: 'x',
+          label: 'x',
+          format: 'number',
+        },
+        {
+          field: 'y',
+          label: 'y',
+          format: 'number',
+        },
+        {
+          field: 'size',
+          label: 'Size',
+          format: 'number',
+        },
+        {
+          field: 'group',
+          label: 'Group',
+          format: 'auto',
+        },
+      ],
+    },
+  },
 });
 ```
 
@@ -210,6 +256,29 @@ scatter3d('#chart', data, {
   mark: {
     fields: {
       z: 'z',
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Three-axis scatter chart',
+      fields: [
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'high',
+          label: 'high',
+          format: 'number',
+        },
+        {
+          field: 'z',
+          label: 'Z',
+          format: 'number',
+        },
+      ],
     },
   },
 });

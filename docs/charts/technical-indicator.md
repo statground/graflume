@@ -88,7 +88,7 @@ Every image below is generated from the current compiled Scene rather than drawn
 
 ## Type-by-type implementation
 
-The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
 
 <a id="variant-acceleration-bands"></a>
 
@@ -162,6 +162,39 @@ accelerationBands('#chart', data, {
     options: {
       kind: 'acceleration-bands',
       fields: ['value', 'signal'],
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Acceleration bands',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
     },
   },
 });
@@ -239,6 +272,39 @@ awesomeOscillator('#chart', data, {
     options: {
       kind: 'awesome-oscillator',
       fields: ['value', 'signal'],
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Awesome oscillator',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
     },
   },
 });
@@ -319,6 +385,39 @@ absolutePriceOscillator('#chart', data, {
       fields: ['value', 'signal'],
     },
   },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Absolute price oscillator',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
+    },
+  },
 });
 ```
 
@@ -394,6 +493,39 @@ aroon('#chart', data, {
     options: {
       kind: 'aroon',
       fields: ['value', 'signal'],
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Aroon indicator',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
     },
   },
 });
@@ -473,6 +605,39 @@ aroonOscillator('#chart', data, {
       fields: ['value', 'signal'],
     },
   },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Aroon oscillator',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
+    },
+  },
 });
 ```
 
@@ -548,6 +713,39 @@ averageTrueRange('#chart', data, {
     options: {
       kind: 'average-true-range',
       fields: ['value', 'signal'],
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Average true range',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
     },
   },
 });
@@ -627,6 +825,39 @@ volatilityBands('#chart', data, {
       fields: ['value', 'signal'],
     },
   },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Volatility bands',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
+    },
+  },
 });
 ```
 
@@ -702,6 +933,39 @@ commodityChannelIndex('#chart', data, {
     options: {
       kind: 'commodity-channel-index',
       fields: ['value', 'signal'],
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Commodity channel index',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
     },
   },
 });
@@ -781,6 +1045,39 @@ chaikinOscillator('#chart', data, {
       fields: ['value', 'signal'],
     },
   },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Chaikin oscillator',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
+    },
+  },
 });
 ```
 
@@ -856,6 +1153,39 @@ chaikinMoneyFlow('#chart', data, {
     options: {
       kind: 'chaikin-money-flow',
       fields: ['value', 'signal'],
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Chaikin money flow',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
     },
   },
 });
@@ -936,6 +1266,39 @@ chandeMomentumOscillator('#chart', data, {
       fields: ['value', 'signal'],
     },
   },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Chande momentum oscillator',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
+    },
+  },
 });
 ```
 
@@ -1014,6 +1377,39 @@ doubleExponentialMovingAverage('#chart', data, {
       fields: ['value', 'signal'],
     },
   },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Double exponential moving average',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
+    },
+  },
 });
 ```
 
@@ -1089,6 +1485,39 @@ disparityIndex('#chart', data, {
     options: {
       kind: 'disparity-index',
       fields: ['value', 'signal'],
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Disparity index',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
     },
   },
 });
@@ -1169,6 +1598,39 @@ directionalMovementIndex('#chart', data, {
       fields: ['value', 'signal'],
     },
   },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Directional movement index',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
+    },
+  },
 });
 ```
 
@@ -1245,6 +1707,39 @@ detrendedPriceOscillator('#chart', data, {
     options: {
       kind: 'detrended-price-oscillator',
       fields: ['value', 'signal'],
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Detrended price oscillator',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
     },
   },
 });
@@ -1325,6 +1820,39 @@ exponentialMovingAverage('#chart', data, {
       fields: ['value', 'signal'],
     },
   },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Exponential moving average',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
+    },
+  },
 });
 ```
 
@@ -1400,6 +1928,39 @@ ichimokuCloud('#chart', data, {
     options: {
       kind: 'ichimoku-cloud',
       fields: ['value', 'signal'],
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Ichimoku cloud',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
     },
   },
 });
@@ -1479,6 +2040,39 @@ keltnerChannels('#chart', data, {
       fields: ['value', 'signal'],
     },
   },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Keltner channels',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
+    },
+  },
 });
 ```
 
@@ -1554,6 +2148,39 @@ klingerOscillator('#chart', data, {
     options: {
       kind: 'klinger-oscillator',
       fields: ['value', 'signal'],
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Klinger oscillator',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
     },
   },
 });
@@ -1633,6 +2260,39 @@ linearRegression('#chart', data, {
       fields: ['value', 'signal'],
     },
   },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Linear regression',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
+    },
+  },
 });
 ```
 
@@ -1708,6 +2368,39 @@ linearRegressionAngle('#chart', data, {
     options: {
       kind: 'linear-regression-angle',
       fields: ['value', 'signal'],
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Linear regression angle',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
     },
   },
 });
@@ -1788,6 +2481,39 @@ linearRegressionIntercept('#chart', data, {
       fields: ['value', 'signal'],
     },
   },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Linear regression intercept',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
+    },
+  },
 });
 ```
 
@@ -1863,6 +2589,39 @@ linearRegressionSlope('#chart', data, {
     options: {
       kind: 'linear-regression-slope',
       fields: ['value', 'signal'],
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Linear regression slope',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
     },
   },
 });
@@ -1943,6 +2702,39 @@ movingAverageConvergenceDivergence('#chart', data, {
       fields: ['value', 'signal'],
     },
   },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Moving average convergence divergence',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
+    },
+  },
 });
 ```
 
@@ -2020,6 +2812,39 @@ moneyFlowIndex('#chart', data, {
       fields: ['value', 'signal'],
     },
   },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Money flow index',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
+    },
+  },
 });
 ```
 
@@ -2095,6 +2920,39 @@ momentumIndicator('#chart', data, {
     options: {
       kind: 'momentum',
       fields: ['value', 'signal'],
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Momentum indicator',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
     },
   },
 });
@@ -2175,6 +3033,39 @@ normalizedAverageTrueRange('#chart', data, {
       fields: ['value', 'signal'],
     },
   },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Normalized average true range',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
+    },
+  },
 });
 ```
 
@@ -2250,6 +3141,39 @@ onBalanceVolume('#chart', data, {
     options: {
       kind: 'on-balance-volume',
       fields: ['value', 'signal'],
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'On-balance volume',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
     },
   },
 });
@@ -2329,6 +3253,39 @@ priceChannel('#chart', data, {
       fields: ['value', 'signal'],
     },
   },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Price channel',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
+    },
+  },
 });
 ```
 
@@ -2404,6 +3361,39 @@ pivotPoints('#chart', data, {
     options: {
       kind: 'pivot-points',
       fields: ['value', 'signal'],
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Pivot points',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
     },
   },
 });
@@ -2484,6 +3474,39 @@ percentagePriceOscillator('#chart', data, {
       fields: ['value', 'signal'],
     },
   },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Percentage price oscillator',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
+    },
+  },
 });
 ```
 
@@ -2559,6 +3582,39 @@ priceEnvelopes('#chart', data, {
     options: {
       kind: 'price-envelopes',
       fields: ['value', 'signal'],
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Price envelopes',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
     },
   },
 });
@@ -2639,6 +3695,39 @@ parabolicStopAndReverse('#chart', data, {
       fields: ['value', 'signal'],
     },
   },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Parabolic stop and reverse',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
+    },
+  },
 });
 ```
 
@@ -2716,6 +3805,39 @@ rateOfChange('#chart', data, {
       fields: ['value', 'signal'],
     },
   },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Rate of change',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
+    },
+  },
 });
 ```
 
@@ -2791,6 +3913,39 @@ relativeStrengthIndex('#chart', data, {
     options: {
       kind: 'relative-strength-index',
       fields: ['value', 'signal'],
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Relative strength index',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
     },
   },
 });
@@ -2871,6 +4026,39 @@ slowStochastic('#chart', data, {
       fields: ['value', 'signal'],
     },
   },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Slow stochastic oscillator',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
+    },
+  },
 });
 ```
 
@@ -2946,6 +4134,39 @@ simpleMovingAverage('#chart', data, {
     options: {
       kind: 'simple-moving-average',
       fields: ['value', 'signal'],
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Simple moving average',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
     },
   },
 });
@@ -3025,6 +4246,39 @@ stochastic('#chart', data, {
       fields: ['value', 'signal'],
     },
   },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Stochastic oscillator',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
+    },
+  },
 });
 ```
 
@@ -3100,6 +4354,39 @@ supertrend('#chart', data, {
     options: {
       kind: 'supertrend',
       fields: ['value', 'signal'],
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Supertrend',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
     },
   },
 });
@@ -3180,6 +4467,39 @@ tripleExponentialMovingAverage('#chart', data, {
       fields: ['value', 'signal'],
     },
   },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Triple exponential moving average',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
+    },
+  },
 });
 ```
 
@@ -3256,6 +4576,39 @@ tripleExponentialAverageOscillator('#chart', data, {
     options: {
       kind: 'triple-exponential-oscillator',
       fields: ['value', 'signal'],
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Triple exponential average oscillator',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
     },
   },
 });
@@ -3336,6 +4689,39 @@ volumeWeightedAveragePrice('#chart', data, {
       fields: ['value', 'signal'],
     },
   },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Volume weighted average price',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
+    },
+  },
 });
 ```
 
@@ -3411,6 +4797,39 @@ williamsRange('#chart', data, {
     options: {
       kind: 'williams-range',
       fields: ['value', 'signal'],
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Williams range',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
     },
   },
 });
@@ -3490,6 +4909,39 @@ weightedMovingAverage('#chart', data, {
       fields: ['value', 'signal'],
     },
   },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Weighted moving average',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
+    },
+  },
 });
 ```
 
@@ -3565,6 +5017,39 @@ zigzag('#chart', data, {
     options: {
       kind: 'zigzag',
       fields: ['value', 'signal'],
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Zigzag indicator',
+      fields: [
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'lower',
+          label: 'Lower',
+          format: 'number',
+        },
+        {
+          field: 'upper',
+          label: 'Upper',
+          format: 'number',
+        },
+        {
+          field: 'signal',
+          label: 'Signal',
+          format: 'number',
+        },
+      ],
     },
   },
 });

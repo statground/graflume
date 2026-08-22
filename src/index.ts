@@ -275,6 +275,10 @@ export type {
   RendererPreference,
   ScaleSpec,
   TitleSpec,
+  TooltipFieldInput,
+  TooltipFieldSpec,
+  TooltipSpec,
+  TooltipValueFormat,
 } from './spec/types.js';
 export type { ThemeTokens } from './theme/types.js';
 export type { DeepPartial } from './utils/object.js';

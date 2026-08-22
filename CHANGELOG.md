@@ -4,6 +4,7 @@ All notable changes to Graflume will be recorded here.
 
 ## Unreleased
 
+- Add opt-in, chart-surface-clamped, text-only hover tooltips with portable chart-specific fields, locale-aware number/date formatting, aggregate-derived values, text-mark hit targets, and area point targets; document the configuration in every generated family Quick API. Raise the default minified bundle budget from 80 KiB to 92 KiB for the native interaction controller while retaining the complete-bundle budget.
 - Tighten the Heatmap compiler's default cell spacing to a one-pixel gap with subtle corners, preserving identifiable boundaries while presenting categorical cells as one continuous matrix.
 - Expand every consolidated family manual into a visible type gallery with stable per-preset anchors, selection guidance, required fields, and minimal runnable Quick API examples for all 139 family presets; give both declarative adapters the same treatment.
 - Merge 114 legacy name-by-name manuals into 37 representative family guides, with functional-difference tables, compiled preset galleries, one compatibility index, and a separate adapter reference.

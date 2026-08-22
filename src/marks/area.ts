@@ -1,7 +1,7 @@
 import type { MarkCompiler } from '../compiler/types.js';
-import { minMaxSampleIndices } from '../data/sample.js';
+import { minMaxSampleIndices, strideSampleIndices } from '../data/sample.js';
 import { nodeBase } from '../scene/factory.js';
-import type { PathNode, Point } from '../scene/types.js';
+import type { CircleNode, PathNode, Point, SceneNode } from '../scene/types.js';
 import { colorWithOpacity } from '../theme/color.js';
 import { numericDataValue, scaleInput } from './utils.js';
 
@@ -13,6 +13,7 @@ export const compileAreaMark: MarkCompiler = (context) => {
   const indices = minMaxSampleIndices(yValues, performance.maxLinePoints);
   const baseline = yScale.map(0);
   const top: Point[] = [];
+  const topRowIndices: number[] = [];
 
   for (const rowIndex of indices) {
     const xInput = scaleInput(table.value(rowIndex, layer.x.field));
@@ -20,7 +21,10 @@ export const compileAreaMark: MarkCompiler = (context) => {
     if (xInput === null || yInput === null) continue;
     const x = xScale.map(xInput);
     const y = yScale.map(yInput);
-    if (Number.isFinite(x) && Number.isFinite(y)) top.push({ x, y });
+    if (Number.isFinite(x) && Number.isFinite(y)) {
+      top.push({ x, y });
+      topRowIndices.push(rowIndex);
+    }
   }
   if (top.length === 0) return [];
 
@@ -52,5 +56,33 @@ export const compileAreaMark: MarkCompiler = (context) => {
     lineCap: 'round',
     lineJoin: 'round',
   };
-  return [fill, stroke];
+  const nodes: SceneNode[] = [fill, stroke];
+  if (layer.mark.point) {
+    const pointIndices = new Set(
+      strideSampleIndices(top.length, performance.maxPointMarks).filter(
+        (index): index is number => index !== undefined,
+      ),
+    );
+    top.forEach((point, pointIndex) => {
+      const rowIndex = topRowIndices[pointIndex];
+      if (rowIndex === undefined || !pointIndices.has(pointIndex)) return;
+      const circle: CircleNode = {
+        type: 'circle',
+        ...nodeBase(`${layer.id}:area-point:${rowIndex}`, {
+          zIndex: layer.zIndex + 0.2,
+          opacity: layer.mark.opacity,
+          interactive: performance.enableHitTesting,
+          datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) },
+        }),
+        cx: point.x,
+        cy: point.y,
+        radius: layer.mark.radius ?? theme.mark.pointRadius,
+        fill: theme.colors.background,
+        stroke: layer.mark.stroke ?? color,
+        lineWidth: Math.max(1.5, (layer.mark.lineWidth ?? theme.mark.lineWidth) * 0.68),
+      };
+      nodes.push(circle);
+    });
+  }
+  return nodes;
 };

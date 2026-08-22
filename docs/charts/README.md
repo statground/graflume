@@ -156,6 +156,15 @@ const chart = line('#chart', data, {
   },
   theme: 'graflume-light',
   locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Monthly sales',
+      fields: [
+        { field: 'month', label: 'Month' },
+        { field: 'sales', label: 'Sales', format: 'number', prefix: '$' },
+      ],
+    },
+  },
   accessibility: {
     label: 'Monthly sales line chart',
     description: 'Sales rise from January through June with one dip in March.',
@@ -222,7 +231,7 @@ Both axes can be categorical, quantitative, or temporal. Layers sharing an axis 
 | `locale`        | Number/date formatting locale for axes                        |
 | `renderer`      | `auto` or a registered renderer name; Canvas 2D is built in   |
 | `performance`   | `auto`, `standard`, `large`, or `ultra`                       |
-| `interaction`   | Enable or disable hover and click handling                    |
+| `interaction`   | Configure hover, click, and the opt-in text-only tooltip      |
 | `accessibility` | Canvas ARIA label and description                             |
 | `axes`          | Chart-level x/y axis defaults                                 |
 
@@ -271,18 +280,42 @@ unsubscribe();
 chart.destroy();
 ```
 
-`hover` and `click` return structured datum references. Graflume does not provide a raw-HTML tooltip formatter. The current `appendData()` implementation is copy-based; a ring-buffer/incremental engine is planned behind the same API.
+`hover` and `click` return structured datum references. The current `appendData()` implementation is copy-based; a ring-buffer/incremental engine is planned behind the same API.
+
+### Built-in text-only tooltip
+
+The built-in tooltip is opt-in. Use `interaction: { tooltip: true }` for a compact inferred field list, or declare the chart-specific content explicitly:
+
+```ts
+interaction: {
+  tooltip: {
+    title: 'Forecast interval',
+    fields: [
+      { field: 'date', label: 'Date', format: 'date' },
+      { field: 'low', label: 'Lower bound', format: 'number', fractionDigits: 1 },
+      { field: 'high', label: 'Upper bound', format: 'number', fractionDigits: 1 },
+    ],
+  },
+}
+```
+
+Supported formats are `auto`, `number`, `integer`, `percent`, `date`, and `datetime`. `fractionDigits`, `prefix`, and `suffix` remain declarative and serializable. Number and date output follows the chart `locale`; an ISO date-only string such as `2026-08-23` is treated as a calendar date and does not shift to the previous day in a western time zone. `percent` expects a ratio such as `0.42` and displays it as 42%.
+
+Tooltip titles, labels, and values are inserted with DOM `textContent`. Raw HTML, formatter callbacks, expressions, and runtime code evaluation are intentionally unsupported. Aggregate marks may attach derived fields, such as a bin boundary and count, to their hit target; those derived values take precedence over a representative source row when the same tooltip field is requested.
+
+The tooltip follows the pointer and is clamped to the chart surface. It adds `role="tooltip"` and temporarily connects the Canvas through `aria-describedby`, but it does not replace the nearby summary or data-table fallback recommended below. Disabling `hover` also disables the tooltip. Large and ultra profiles disable per-mark hit testing, so they do not display per-mark tooltips.
 
 ## Interaction by mark
 
-| Geometry                     | Current hit target                                                             |
-| ---------------------------- | ------------------------------------------------------------------------------ |
-| Rectangle/circle datum marks | the whole rendered shape                                                       |
-| Closed path datum marks      | the filled polygon, including pie and Sankey flow shapes                       |
-| Line/open path marks         | optional points or companion datum shapes; the path itself is not a row target |
-| Text-only labels             | not individually hit tested                                                    |
+| Geometry                      | Current hit target                                                             |
+| ----------------------------- | ------------------------------------------------------------------------------ |
+| Rectangle/circle datum marks  | the whole rendered shape                                                       |
+| Closed path datum marks       | the filled polygon, including pie and Sankey flow shapes                       |
+| Line/open path marks          | optional points or companion datum shapes; the path itself is not a row target |
+| Interactive datum text        | an approximate aligned and rotated text box                                    |
+| Area marks with `point: true` | one datum circle per valid coordinate                                          |
 
-For an interactive area or plain line, add a point layer or enable line points. Large and ultra performance profiles disable per-mark hit testing.
+For an interactive area or plain line, enable `point` or add a point layer. Large and ultra performance profiles disable per-mark hit testing.
 
 ## Performance profiles
 
@@ -316,5 +349,5 @@ Automatic data tables and keyboard traversal of individual marks are not impleme
 - stacked and normalized stacks, violin and density plots, 3D, and editable annotations;
 - full map boundary/projection packages, force-directed large-network layout, multi-stage Sankey layout, implicit Word Tree tokenization, and complete Vega grammar conversion;
 - independent and dual scales, facets, concat, dashboards, and linked views;
-- native legends, tooltip layout, label-collision routing, automatic data tables, and keyboard mark traversal;
+- native legends, advanced collision-aware tooltip routing, label-collision routing, automatic data tables, and keyboard mark traversal;
 - built-in SVG, WebGL2, and WebGPU renderer parity.

@@ -19,7 +19,7 @@ Every image below is generated from the current compiled Scene rather than drawn
 
 ## Type-by-type implementation
 
-The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
 
 <a id="variant-vega"></a>
 
@@ -78,6 +78,24 @@ vegaChart('#chart', data, {
       mark: 'line',
     },
     point: true,
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Portable adapter chart',
+      fields: [
+        {
+          field: 'category',
+          label: 'category',
+          format: 'auto',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+      ],
+    },
   },
 });
 ```
@@ -151,6 +169,39 @@ custom('#chart', data, {
       shape: 'shape',
       size: 'size',
       label: 'label',
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Declarative custom chart',
+      fields: [
+        {
+          field: 'x',
+          label: 'x',
+          format: 'number',
+        },
+        {
+          field: 'y',
+          label: 'y',
+          format: 'number',
+        },
+        {
+          field: 'shape',
+          label: 'Shape',
+          format: 'auto',
+        },
+        {
+          field: 'size',
+          label: 'Size',
+          format: 'number',
+        },
+        {
+          field: 'label',
+          label: 'Label',
+          format: 'auto',
+        },
+      ],
     },
   },
 });

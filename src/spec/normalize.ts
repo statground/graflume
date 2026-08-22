@@ -9,11 +9,14 @@ import type {
   MarkInput,
   NormalizedChartSpec,
   NormalizedEncodingSpec,
+  NormalizedInteractionSpec,
   NormalizedLayerSpec,
   NormalizedMarkSpec,
+  NormalizedTooltipFieldSpec,
   PaddingInput,
   PaddingSpec,
   TitleSpec,
+  TooltipFieldInput,
 } from './types.js';
 
 function normalizePadding(input: PaddingInput | undefined): PaddingSpec {
@@ -32,6 +35,49 @@ function normalizeTitle(input: ChartSpec['title']): TitleSpec | undefined {
   if (input === undefined) return undefined;
   if (typeof input === 'string') return { text: input, align: 'left' };
   return { ...input, align: input.align ?? 'left' };
+}
+
+function humanizeField(field: string): string {
+  return field
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[-_]+/g, ' ')
+    .replace(/^\w/, (letter) => letter.toUpperCase());
+}
+
+function normalizeTooltipField(input: TooltipFieldInput): NormalizedTooltipFieldSpec {
+  const field = typeof input === 'string' ? input : input.field;
+  return {
+    field,
+    label: typeof input === 'string' ? humanizeField(field) : (input.label ?? humanizeField(field)),
+    format: typeof input === 'string' ? 'auto' : (input.format ?? 'auto'),
+    ...(typeof input === 'string' || input.fractionDigits === undefined
+      ? {}
+      : { fractionDigits: input.fractionDigits }),
+    prefix: typeof input === 'string' ? '' : (input.prefix ?? ''),
+    suffix: typeof input === 'string' ? '' : (input.suffix ?? ''),
+  };
+}
+
+function normalizeInteraction(input: ChartSpec['interaction']): NormalizedInteractionSpec {
+  const hover = input?.hover ?? true;
+  const tooltipInput = input?.tooltip;
+  const tooltip =
+    !hover || tooltipInput === undefined || tooltipInput === false
+      ? false
+      : {
+          ...(typeof tooltipInput === 'object' && tooltipInput.title !== undefined
+            ? { title: tooltipInput.title }
+            : {}),
+          fields:
+            typeof tooltipInput === 'object'
+              ? (tooltipInput.fields ?? []).map(normalizeTooltipField)
+              : [],
+        };
+  return {
+    hover,
+    click: input?.click ?? true,
+    tooltip,
+  };
 }
 
 function normalizeAxis(
@@ -141,10 +187,7 @@ export function normalizeSpec(input: ChartSpec): NormalizedChartSpec {
     performance: input.performance ?? 'auto',
     theme: input.theme ?? 'graflume-light',
     axes,
-    interaction: {
-      hover: input.interaction?.hover ?? true,
-      click: input.interaction?.click ?? true,
-    },
+    interaction: normalizeInteraction(input.interaction),
     accessibility: {
       ...(input.accessibility?.label === undefined ? {} : { label: input.accessibility.label }),
       ...(input.accessibility?.description === undefined

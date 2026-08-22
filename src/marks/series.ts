@@ -2,7 +2,7 @@ import type { MarkCompileContext, MarkCompiler } from '../compiler/types.js';
 import { BandScale } from '../scale/band.js';
 import { nodeBase } from '../scene/factory.js';
 import type { Point, SceneNode, TextNode } from '../scene/types.js';
-import type { DataValue, JsonValue } from '../spec/types.js';
+import type { DataRow, DataValue, JsonValue } from '../spec/types.js';
 import { colorWithOpacity, mixColor, readableTextColor } from '../theme/color.js';
 import { numericDataValue, scaleInput } from './utils.js';
 
@@ -32,7 +32,13 @@ function paletteColor(context: MarkCompileContext, index: number): string {
   );
 }
 
-function datumBase(context: MarkCompileContext, id: string, rowIndex: number, offset = 0) {
+function datumBase(
+  context: MarkCompileContext,
+  id: string,
+  rowIndex: number,
+  offset = 0,
+  tooltip?: DataRow,
+) {
   return nodeBase(id, {
     zIndex: context.layer.zIndex + offset,
     opacity: context.layer.mark.opacity,
@@ -41,6 +47,7 @@ function datumBase(context: MarkCompileContext, id: string, rowIndex: number, of
       layerId: context.layer.id,
       rowIndex,
       datum: context.table.row(rowIndex),
+      ...(tooltip === undefined ? {} : { tooltip }),
     },
   });
 }
@@ -2061,7 +2068,12 @@ export const compileRenkoMark: MarkCompiler = (context) => {
     const end = mapY(brick.end);
     return {
       type: 'rect',
-      ...datumBase(context, `${layer.id}:renko:${index}`, brick.rowIndex),
+      ...datumBase(context, `${layer.id}:renko:${index}`, brick.rowIndex, 0, {
+        ...table.row(brick.rowIndex),
+        brickStart: brick.start,
+        brickEnd: brick.end,
+        brickSize,
+      }),
       x: plot.x + index * width + 1,
       y: Math.min(start, end),
       width: Math.max(2, width - 2),
@@ -2093,6 +2105,7 @@ export const compileVolumeProfileMark: MarkCompiler = (context) => {
     rowIndexes[bin] = rowIndex;
   }
   const maximum = Math.max(1, ...totals);
+  const totalVolume = totals.reduce((sum, volume) => sum + volume, 0);
   const height = plot.height / bins;
   const nodes: SceneNode[] = [];
   totals.forEach((volume, index) => {
@@ -2100,7 +2113,12 @@ export const compileVolumeProfileMark: MarkCompiler = (context) => {
     const rowIndex = rowIndexes[index] ?? -1;
     const base =
       rowIndex >= 0
-        ? datumBase(context, `${layer.id}:volume-profile:${index}`, rowIndex)
+        ? datumBase(context, `${layer.id}:volume-profile:${index}`, rowIndex, 0, {
+            priceStart: priceExtent[0] + (span * index) / bins,
+            priceEnd: priceExtent[0] + (span * (index + 1)) / bins,
+            volume,
+            proportion: totalVolume === 0 ? 0 : volume / totalVolume,
+          })
         : nodeBase(`${layer.id}:volume-profile:${index}`, { zIndex: layer.zIndex });
     nodes.push({
       type: 'rect',

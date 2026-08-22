@@ -25,7 +25,7 @@ Every image below is generated from the current compiled Scene rather than drawn
 
 ## Type-by-type implementation
 
-The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
 
 <a id="variant-gantt"></a>
 
@@ -91,6 +91,39 @@ gantt('#chart', data, {
       progress: 'progress',
     },
   },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Gantt chart',
+      fields: [
+        {
+          field: 'start',
+          label: 'start',
+          format: 'date',
+        },
+        {
+          field: 'task',
+          label: 'task',
+          format: 'auto',
+        },
+        {
+          field: 'id',
+          label: 'Id',
+          format: 'auto',
+        },
+        {
+          field: 'end',
+          label: 'End',
+          format: 'date',
+        },
+        {
+          field: 'progress',
+          label: 'Progress',
+          format: 'number',
+        },
+      ],
+    },
+  },
 });
 ```
 
@@ -145,6 +178,29 @@ timeline('#chart', data, {
       end: 'end',
     },
   },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Timeline',
+      fields: [
+        {
+          field: 'start',
+          label: 'start',
+          format: 'date',
+        },
+        {
+          field: 'category',
+          label: 'category',
+          format: 'auto',
+        },
+        {
+          field: 'end',
+          label: 'End',
+          format: 'date',
+        },
+      ],
+    },
+  },
 });
 ```
 
@@ -197,6 +253,29 @@ xRange('#chart', data, {
   mark: {
     fields: {
       end: 'end',
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Horizontal range chart',
+      fields: [
+        {
+          field: 'start',
+          label: 'start',
+          format: 'date',
+        },
+        {
+          field: 'category',
+          label: 'category',
+          format: 'auto',
+        },
+        {
+          field: 'end',
+          label: 'End',
+          format: 'date',
+        },
+      ],
     },
   },
 });

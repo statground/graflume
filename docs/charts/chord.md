@@ -23,7 +23,7 @@ Every image below is generated from the current compiled Scene rather than drawn
 
 ## Type-by-type implementation
 
-The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
 
 <a id="variant-chord"></a>
 
@@ -85,6 +85,44 @@ chord('#chart', data, {
     fields: {
       target: 'target',
       value: 'value',
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Chord diagram',
+      fields: [
+        {
+          field: 'kind',
+          label: 'Target',
+          format: 'auto',
+        },
+        {
+          field: 'node',
+          label: 'Segment',
+          format: 'auto',
+        },
+        {
+          field: 'total',
+          label: 'Total weight',
+          format: 'number',
+        },
+        {
+          field: 'source',
+          label: 'From',
+          format: 'auto',
+        },
+        {
+          field: 'target',
+          label: 'To',
+          format: 'auto',
+        },
+        {
+          field: 'value',
+          label: 'Weight',
+          format: 'number',
+        },
+      ],
     },
   },
 });
@@ -154,6 +192,44 @@ dependencyWheel('#chart', data, {
     fields: {
       target: 'target',
       value: 'value',
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Dependency wheel',
+      fields: [
+        {
+          field: 'kind',
+          label: 'Target',
+          format: 'auto',
+        },
+        {
+          field: 'node',
+          label: 'Segment',
+          format: 'auto',
+        },
+        {
+          field: 'total',
+          label: 'Total weight',
+          format: 'number',
+        },
+        {
+          field: 'source',
+          label: 'From',
+          format: 'auto',
+        },
+        {
+          field: 'target',
+          label: 'To',
+          format: 'auto',
+        },
+        {
+          field: 'value',
+          label: 'Weight',
+          format: 'number',
+        },
+      ],
     },
   },
 });

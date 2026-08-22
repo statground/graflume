@@ -228,15 +228,36 @@ function quickOptions(spec) {
   return rest;
 }
 
+function pointEnabledOptions(spec, options) {
+  const markType =
+    typeof spec.mark === 'object' && spec.mark !== null && !Array.isArray(spec.mark)
+      ? spec.mark.type
+      : spec.mark;
+  if (markType !== 'area' && markType !== 'stepped-area') return options;
+  return {
+    ...options,
+    mark: { ...(options.mark ?? {}), point: true },
+  };
+}
+
 function quickExample(variant) {
   const entrypoint = defaultQuickApis.has(variant.quickApi) ? 'graflume' : 'graflume/complete';
   const spec = seriesSampleSpec(variant);
   const data = compactData(spec);
+  const portableOptions = pointEnabledOptions(spec, quickOptions(spec));
   const options = {
-    ...quickOptions(spec),
+    ...portableOptions,
     title: {
       text: variant.name,
       subtitle: `${variant.familyId} family · ${variant.mode} mode`,
+    },
+    locale: spec.locale ?? 'en-US',
+    interaction: {
+      ...(portableOptions.interaction ?? {}),
+      tooltip: {
+        title: variant.name,
+        fields: tooltipFields(spec),
+      },
     },
   };
   return `import { ${variant.quickApi} } from '${entrypoint}';
@@ -268,6 +289,114 @@ function fieldsForSpec(spec) {
     fieldsFromMark(fields, layer.mark);
   }
   return fields;
+}
+
+function humanizeField(field) {
+  return field
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[-_]+/g, ' ')
+    .replace(/^\w/, (letter) => letter.toUpperCase());
+}
+
+function encodingsForSpec(spec) {
+  const encodings = [];
+  if (spec.x !== undefined) encodings.push(spec.x);
+  if (spec.y !== undefined) encodings.push(spec.y);
+  for (const layer of spec.layers ?? []) {
+    if (layer.x !== undefined) encodings.push(layer.x);
+    if (layer.y !== undefined) encodings.push(layer.y);
+  }
+  return encodings.filter(
+    (encoding) => typeof encoding === 'object' && encoding !== null && !Array.isArray(encoding),
+  );
+}
+
+function tooltipField(spec, field) {
+  const encoding = encodingsForSpec(spec).find((candidate) => candidate.field === field);
+  const sample = Array.isArray(spec.data)
+    ? spec.data.find((row) => Object.hasOwn(row, field))?.[field]
+    : undefined;
+  const format =
+    encoding?.type === 'temporal' ||
+    (typeof sample === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(sample))
+      ? 'date'
+      : typeof sample === 'number'
+        ? 'number'
+        : 'auto';
+  return {
+    field,
+    label: encoding?.title ?? humanizeField(field),
+    format,
+  };
+}
+
+function markTypesForSpec(spec) {
+  const marks = [spec.mark, ...(spec.layers ?? []).map((layer) => layer.mark)];
+  return new Set(
+    marks
+      .map((mark) =>
+        typeof mark === 'object' && mark !== null && !Array.isArray(mark) ? mark.type : mark,
+      )
+      .filter((mark) => typeof mark === 'string'),
+  );
+}
+
+function derivedTooltipFields(spec) {
+  const marks = markTypesForSpec(spec);
+  const fields = [];
+  if (marks.has('histogram')) {
+    fields.push(
+      { field: 'binStart', label: 'Bin start', format: 'number' },
+      { field: 'binEnd', label: 'Bin end', format: 'number' },
+      { field: 'count', label: 'Count', format: 'integer' },
+      { field: 'proportion', label: 'Share', format: 'percent', fractionDigits: 1 },
+    );
+  }
+  if (marks.has('volume-profile')) {
+    fields.push(
+      { field: 'priceStart', label: 'Price from', format: 'number' },
+      { field: 'priceEnd', label: 'Price to', format: 'number' },
+      { field: 'volume', label: 'Volume', format: 'number' },
+      { field: 'proportion', label: 'Volume share', format: 'percent', fractionDigits: 1 },
+    );
+  }
+  if (marks.has('renko')) {
+    fields.push(
+      { field: 'brickStart', label: 'Brick start', format: 'number' },
+      { field: 'brickEnd', label: 'Brick end', format: 'number' },
+      { field: 'brickSize', label: 'Brick size', format: 'number' },
+    );
+  }
+  if (marks.has('graph')) {
+    fields.push(
+      { field: 'kind', label: 'Target', format: 'auto' },
+      { field: 'node', label: 'Node', format: 'auto' },
+      { field: 'degree', label: 'Connections', format: 'integer' },
+      { field: 'total', label: 'Connected weight', format: 'number' },
+      { field: 'source', label: 'From', format: 'auto' },
+      { field: 'target', label: 'To', format: 'auto' },
+      { field: 'value', label: 'Weight', format: 'number' },
+    );
+  }
+  if (marks.has('chord')) {
+    fields.push(
+      { field: 'kind', label: 'Target', format: 'auto' },
+      { field: 'node', label: 'Segment', format: 'auto' },
+      { field: 'total', label: 'Total weight', format: 'number' },
+      { field: 'source', label: 'From', format: 'auto' },
+      { field: 'target', label: 'To', format: 'auto' },
+      { field: 'value', label: 'Weight', format: 'number' },
+    );
+  }
+  return fields;
+}
+
+function tooltipFields(spec) {
+  const fields = new Map(derivedTooltipFields(spec).map((field) => [field.field, field]));
+  for (const field of fieldsForSpec(spec)) {
+    if (!fields.has(field)) fields.set(field, tooltipField(spec, field));
+  }
+  return [...fields.values()];
 }
 
 function requiredFields(variant) {
@@ -316,7 +445,7 @@ ${quickExample(variant)}
     .join('\n\n');
   return `## Type-by-type implementation
 
-The snippets are minimal runnable examples. Change \`#chart\` to the target element and expand the inline rows with your data. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+The snippets are minimal runnable examples. Change \`#chart\` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared \`locale\`. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
 
 ${sections}`;
 }

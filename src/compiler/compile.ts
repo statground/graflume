@@ -186,6 +186,7 @@ export function compileWithRegistry(
       rowCount: totalRows,
       renderedNodeCount: countSceneNodes(root),
       performanceProfile: performance.profile,
+      hitTestingEnabled: performance.enableHitTesting,
     },
   };
 

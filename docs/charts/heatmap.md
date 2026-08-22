@@ -23,7 +23,7 @@ Every image below is generated from the current compiled Scene rather than drawn
 
 ## Type-by-type implementation
 
-The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
 
 <a id="variant-heatmap"></a>
 
@@ -76,6 +76,24 @@ heatmap('#chart', data, {
   accessibility: {
     label: 'Heatmap example',
     description: 'A compiled heatmap example using the heatmap family.',
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Heatmap',
+      fields: [
+        {
+          field: 'x',
+          label: 'x',
+          format: 'number',
+        },
+        {
+          field: 'y',
+          label: 'y',
+          format: 'number',
+        },
+      ],
+    },
   },
 });
 ```
@@ -143,6 +161,29 @@ tileMap('#chart', data, {
   mark: {
     fields: {
       value: 'value',
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Tile map',
+      fields: [
+        {
+          field: 'x',
+          label: 'x',
+          format: 'number',
+        },
+        {
+          field: 'y',
+          label: 'y',
+          format: 'number',
+        },
+        {
+          field: 'value',
+          label: 'Value',
+          format: 'number',
+        },
+      ],
     },
   },
 });

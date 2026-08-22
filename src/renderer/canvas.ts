@@ -112,6 +112,10 @@ export class CanvasRenderer implements Renderer {
     return this.#canvas;
   }
 
+  overlayHost(): HTMLElement | null {
+    return this.#root;
+  }
+
   toDataURL(type = 'image/png', quality?: number): string {
     if (this.#canvas === null) throw new Error('Renderer is not mounted.');
     return this.#canvas.toDataURL(type, quality);

@@ -170,9 +170,32 @@ export interface AccessibilitySpec {
   readonly description?: string;
 }
 
+export type TooltipValueFormat = 'auto' | 'number' | 'integer' | 'percent' | 'date' | 'datetime';
+
+export interface TooltipFieldSpec {
+  readonly field: string;
+  readonly label?: string;
+  readonly format?: TooltipValueFormat;
+  readonly fractionDigits?: number;
+  readonly prefix?: string;
+  readonly suffix?: string;
+}
+
+export type TooltipFieldInput = string | TooltipFieldSpec;
+
+export interface TooltipSpec {
+  readonly title?: string;
+  readonly fields?: readonly TooltipFieldInput[];
+}
+
 export interface InteractionSpec {
   readonly hover?: boolean;
   readonly click?: boolean;
+  /**
+   * Enable the built-in text-only datum tooltip or declare its portable fields.
+   * Executable and raw-HTML formatters are intentionally unsupported.
+   */
+  readonly tooltip?: boolean | TooltipSpec;
 }
 
 export interface ChartSpec {
@@ -233,6 +256,26 @@ export interface NormalizedLayerSpec {
   readonly zIndex: number;
 }
 
+export interface NormalizedTooltipFieldSpec {
+  readonly field: string;
+  readonly label: string;
+  readonly format: TooltipValueFormat;
+  readonly fractionDigits?: number;
+  readonly prefix: string;
+  readonly suffix: string;
+}
+
+export interface NormalizedTooltipSpec {
+  readonly title?: string;
+  readonly fields: readonly NormalizedTooltipFieldSpec[];
+}
+
+export interface NormalizedInteractionSpec {
+  readonly hover: boolean;
+  readonly click: boolean;
+  readonly tooltip: false | NormalizedTooltipSpec;
+}
+
 export interface NormalizedChartSpec {
   readonly specVersion: '0.1';
   readonly layers: readonly NormalizedLayerSpec[];
@@ -249,6 +292,6 @@ export interface NormalizedChartSpec {
     readonly x: AxisSpec | false;
     readonly y: AxisSpec | false;
   };
-  readonly interaction: Required<InteractionSpec>;
+  readonly interaction: NormalizedInteractionSpec;
   readonly accessibility: AccessibilitySpec;
 }

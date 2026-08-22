@@ -3,6 +3,7 @@ import { GraflumeError } from '../core/errors.js';
 import { EventEmitter } from '../core/events.js';
 import { DataTable } from '../data/table.js';
 import { hitTestScene, type HitResult } from '../interaction/hit-test.js';
+import { resolveTooltipContent, TooltipController } from '../interaction/tooltip.js';
 import type { Renderer } from '../renderer/types.js';
 import type { ChartSpec, DataInput, DataRow } from '../spec/types.js';
 import type { Scene } from '../scene/types.js';
@@ -75,6 +76,7 @@ export class Chart {
   readonly #registry: RuntimeRegistry;
   readonly #events = new EventEmitter<ChartEventMap>();
   readonly #scheduler = new RenderScheduler();
+  readonly #tooltip = new TooltipController();
   readonly #options: ChartCreateOptions;
   #spec: ChartSpec;
   #renderer: Renderer | null = null;
@@ -94,6 +96,12 @@ export class Chart {
   readonly #clickListener = (event: Event): void => {
     if (!(event instanceof PointerEvent)) return;
     this.#emitPointer('click', event);
+  };
+
+  readonly #pointerLeaveListener = (event: Event): void => {
+    if (!(event instanceof PointerEvent)) return;
+    this.#tooltip.hide();
+    this.#events.emit('hover', { chart: this, hit: null, sourceEvent: event });
   };
 
   constructor(
@@ -263,8 +271,8 @@ export class Chart {
     }
 
     this.#renderer.render(result.scene);
-    this.#attachSurfaceEvents();
     this.#result = result;
+    this.#attachSurfaceEvents();
     this.#events.emit('render', { chart: this, scene: result.scene });
     return this;
   }
@@ -290,6 +298,7 @@ export class Chart {
     }
     this.#windowResizeListener = null;
     this.#detachSurfaceEvents();
+    this.#tooltip.destroy();
     this.#renderer?.destroy();
     this.#renderer = null;
     this.#result = null;
@@ -348,28 +357,45 @@ export class Chart {
   #attachSurfaceEvents(): void {
     const surface = this.#renderer?.surface();
     if (surface === null || surface === undefined) return;
-    if (this.#spec.interaction?.hover !== false) {
+    if (this.#result?.spec.interaction.hover !== false) {
       surface.addEventListener('pointermove', this.#pointerMoveListener, { passive: true });
+      surface.addEventListener('pointerleave', this.#pointerLeaveListener, { passive: true });
+      surface.addEventListener('pointercancel', this.#pointerLeaveListener, { passive: true });
     }
-    if (this.#spec.interaction?.click !== false) {
+    if (this.#result?.spec.interaction.click !== false) {
       surface.addEventListener('click', this.#clickListener, { passive: true });
     }
   }
 
   #detachSurfaceEvents(): void {
     const surface = this.#renderer?.surface();
+    this.#tooltip.hide();
     surface?.removeEventListener('pointermove', this.#pointerMoveListener);
+    surface?.removeEventListener('pointerleave', this.#pointerLeaveListener);
+    surface?.removeEventListener('pointercancel', this.#pointerLeaveListener);
     surface?.removeEventListener('click', this.#clickListener);
   }
 
   #emitPointer(type: 'hover' | 'click', sourceEvent: PointerEvent): void {
-    const scene = this.#result?.scene;
+    const result = this.#result;
     const surface = this.#renderer?.surface();
-    if (scene === undefined || surface === null || surface === undefined) return;
+    if (result === null || surface === null || surface === undefined) return;
+    const scene = result.scene;
     const bounds = surface.getBoundingClientRect();
     const x = ((sourceEvent.clientX - bounds.left) / Math.max(1, bounds.width)) * scene.width;
     const y = ((sourceEvent.clientY - bounds.top) / Math.max(1, bounds.height)) * scene.height;
-    const hit = scene.metadata.performanceProfile === 'ultra' ? null : hitTestScene(scene, x, y);
+    const hit = scene.metadata.hitTestingEnabled ? hitTestScene(scene, x, y) : null;
+    if (type === 'hover' && result.spec.interaction.tooltip !== false) {
+      if (hit === null) this.#tooltip.hide();
+      else
+        this.#tooltip.show(
+          resolveTooltipContent(hit, result.spec),
+          hit,
+          sourceEvent,
+          surface,
+          this.#renderer?.overlayHost?.() ?? surface.parentElement ?? surface,
+        );
+    }
     this.#events.emit(type, { chart: this, hit, sourceEvent });
   }
 

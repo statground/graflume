@@ -71,6 +71,16 @@ test('every compatible preset is integrated into its family manual', async () =>
       );
       await access(new URL(`${assetId}.svg`, assetDirectory));
     }
+    assert.equal(
+      block.match(/\btooltip: \{/g)?.length ?? 0,
+      variants.length,
+      `${family.id} gives every Quick API example an explicit tooltip`,
+    );
+    assert.equal(
+      block.match(/\blocale: 'en-US'/g)?.length ?? 0,
+      variants.length,
+      `${family.id} gives every tooltip a deterministic formatting locale`,
+    );
   }
 });
 
@@ -96,6 +106,23 @@ test('compatibility index maps all names and keeps adapters separate', async () 
       index.includes(`./${variant.familyId}.md#variant-${variant.id}`),
       `${variant.id} points directly to its implementation example`,
     );
+  }
+});
+
+test('aggregate and relationship examples document their derived hover semantics', async () => {
+  const expectations = {
+    'histogram.md': ['binStart', 'binEnd', 'count', 'proportion'],
+    'volume-profile.md': ['priceStart', 'priceEnd', 'volume', 'proportion'],
+    'price-blocks.md': ['brickStart', 'brickEnd', 'brickSize'],
+    'network.md': ['node', 'degree', 'total', 'source', 'target', 'value'],
+    'chord.md': ['node', 'total', 'source', 'target', 'value'],
+  };
+
+  for (const [filename, fields] of Object.entries(expectations)) {
+    const source = await readFile(new URL(filename, chartDirectory), 'utf8');
+    for (const field of fields) {
+      assert.ok(source.includes(`field: '${field}'`), `${filename} documents ${field}`);
+    }
   }
 });
 

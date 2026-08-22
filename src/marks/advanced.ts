@@ -1,5 +1,5 @@
 import type { MarkCompileContext, MarkCompiler } from '../compiler/types.js';
-import type { DataValue, JsonValue } from '../spec/types.js';
+import type { DataRow, DataValue, JsonValue } from '../spec/types.js';
 import { nodeBase } from '../scene/factory.js';
 import type { Point, SceneNode, TextNode } from '../scene/types.js';
 import { BandScale } from '../scale/band.js';
@@ -112,7 +112,13 @@ function textNode(
   };
 }
 
-function datumBase(context: MarkCompileContext, id: string, rowIndex: number, zIndex = 0) {
+function datumBase(
+  context: MarkCompileContext,
+  id: string,
+  rowIndex: number,
+  zIndex = 0,
+  tooltip?: DataRow,
+) {
   return nodeBase(id, {
     zIndex: context.layer.zIndex + zIndex,
     opacity: context.layer.mark.opacity,
@@ -121,6 +127,7 @@ function datumBase(context: MarkCompileContext, id: string, rowIndex: number, zI
       layerId: context.layer.id,
       rowIndex,
       datum: context.table.row(rowIndex),
+      ...(tooltip === undefined ? {} : { tooltip }),
     },
   });
 }
@@ -467,6 +474,11 @@ export const compileGraphMark: MarkCompiler = (context) => {
     );
   });
   const maxEdge = Math.max(1, ...edges.map((edge) => edge.value));
+  const totals = new Map(graphNodes.map((node) => [node.id, 0]));
+  edges.forEach((edge) => {
+    totals.set(edge.source, (totals.get(edge.source) ?? 0) + edge.value);
+    totals.set(edge.target, (totals.get(edge.target) ?? 0) + edge.value);
+  });
   const nodes: SceneNode[] = [];
 
   edges.forEach((edge, index) => {
@@ -475,7 +487,12 @@ export const compileGraphMark: MarkCompiler = (context) => {
     if (source === undefined || target === undefined) return;
     nodes.push({
       type: 'line',
-      ...datumBase(context, `${layer.id}:graph-edge:${index}`, edge.rowIndex),
+      ...datumBase(context, `${layer.id}:graph-edge:${index}`, edge.rowIndex, 0, {
+        kind: 'edge',
+        source: edge.source,
+        target: edge.target,
+        value: edge.value,
+      }),
       x1: source.x,
       y1: source.y,
       x2: target.x,
@@ -494,7 +511,12 @@ export const compileGraphMark: MarkCompiler = (context) => {
     const color = themeColor(context, index);
     nodes.push({
       type: 'circle',
-      ...datumBase(context, `${layer.id}:graph-node:${node.id}`, node.rowIndex, 1),
+      ...datumBase(context, `${layer.id}:graph-node:${node.id}`, node.rowIndex, 1, {
+        kind: 'node',
+        node: node.label,
+        degree: node.degree,
+        total: totals.get(node.id) ?? 0,
+      }),
       cx: position.x,
       cy: position.y,
       radius: nodeRadius,
@@ -558,7 +580,12 @@ export const compileChordMark: MarkCompiler = (context) => {
     const control = { x: cx, y: cy };
     nodes.push({
       type: 'path',
-      ...datumBase(context, `${layer.id}:chord-ribbon:${index}`, edge.rowIndex),
+      ...datumBase(context, `${layer.id}:chord-ribbon:${index}`, edge.rowIndex, 0, {
+        kind: 'flow',
+        source: edge.source,
+        target: edge.target,
+        value: edge.value,
+      }),
       points: quadraticPoints(source, control, target, 24),
       closed: false,
       stroke: colorWithOpacity(themeColor(context, index), 0.42),
@@ -574,7 +601,11 @@ export const compileChordMark: MarkCompiler = (context) => {
     const color = themeColor(context, index);
     nodes.push({
       type: 'path',
-      ...datumBase(context, `${layer.id}:chord-segment:${node.id}`, node.rowIndex, 1),
+      ...datumBase(context, `${layer.id}:chord-segment:${node.id}`, node.rowIndex, 1, {
+        kind: 'segment',
+        node: node.label,
+        total: totals.get(node.id) ?? 0,
+      }),
       points: sampledArc(cx, cy, radius, span.start, span.end, 24),
       closed: false,
       stroke: layer.mark.stroke ?? color,

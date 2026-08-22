@@ -16,7 +16,8 @@ Graflume is an experimental, CDN-first visualization engine built around a porta
 - polished light/dark design-token themes with an accessible categorical palette, quiet axes,
   rounded data strokes, and custom theme registration
 - custom mark, renderer, and theme plugins
-- responsive chart instances, pointer hit testing, safe data events, and image export
+- responsive chart instances, pointer hit testing, opt-in text-only tooltips, safe data events,
+  and image export
 - standard/large/ultra performance profiles with bounded line, point, and bar rendering
 - a DOM-free `compile()` path for wrappers, SSR pipelines, testing, and future language bindings
 
@@ -71,6 +72,17 @@ After an npm release, load an **exact version** from jsDelivr:
         y: { field: 'actual', type: 'quantitative' },
       },
     ],
+    locale: 'en-US',
+    interaction: {
+      tooltip: {
+        title: 'Revenue details',
+        fields: [
+          { field: 'month', label: 'Month' },
+          { field: 'actual', label: 'Actual', format: 'number' },
+          { field: 'target', label: 'Target', format: 'number' },
+        ],
+      },
+    },
   });
 </script>
 ```
@@ -171,6 +183,15 @@ const spec: ChartSpec = {
   mark: { type: 'line', point: true },
   x: { field: 'x', type: 'quantitative' },
   y: { field: 'y', type: 'quantitative' },
+  interaction: {
+    tooltip: {
+      title: 'Point details',
+      fields: [
+        { field: 'x', label: 'X', format: 'number' },
+        { field: 'y', label: 'Y', format: 'number' },
+      ],
+    },
+  },
 };
 
 const chart = create('#chart', spec);
@@ -187,8 +208,21 @@ line('#chart', data, {
   y: { field: 'sales', type: 'quantitative' },
   title: 'Monthly sales',
   mark: { point: true },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Monthly sales',
+      fields: ['month', { field: 'sales', label: 'Sales', format: 'number' }],
+    },
+  },
 });
 ```
+
+Built-in tooltips are opt-in. `tooltip: true` infers a compact field list, while the object
+form above keeps each chart's labels, order, and formatting explicit. Tooltip content is rendered
+with DOM `textContent`; raw HTML and executable formatter callbacks are not part of the portable
+spec. Number and date formatting follows `locale`, and ISO date-only values retain their calendar
+date across browser time zones.
 
 ## Streaming-shaped updates
 
@@ -252,7 +286,8 @@ Any change to the portable spec must update all three together:
 - portable specs reject functions
 - unsafe object keys such as `__proto__` are rejected
 - chart events return structured data rather than raw HTML
-- the core has no HTML tooltip formatter or runtime code evaluation
+- the opt-in built-in tooltip accepts only declarative fields and renders untrusted values as text
+- the core has no raw-HTML tooltip formatter or runtime code evaluation
 - importing the package does not touch `window` or `document`
 
 ## License

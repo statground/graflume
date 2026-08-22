@@ -1,11 +1,43 @@
-import { flattenScene } from '../scene/walk.js';
-import type { DatumReference, PathNode, Scene, SceneNode } from '../scene/types.js';
+import type { DatumReference, PathNode, Rect, Scene, SceneNode, TextNode } from '../scene/types.js';
 
 export interface HitResult extends DatumReference {
   readonly nodeId: string;
   readonly x: number;
   readonly y: number;
   readonly distance: number;
+}
+
+interface HitCandidate {
+  readonly node: SceneNode;
+  readonly clips: readonly Rect[];
+}
+
+const hitCandidateCache = new WeakMap<Scene, readonly HitCandidate[]>();
+
+function sceneHitCandidates(scene: Scene): readonly HitCandidate[] {
+  const cached = hitCandidateCache.get(scene);
+  if (cached !== undefined) return cached;
+  const candidates: HitCandidate[] = [];
+  const visit = (node: SceneNode, parentOpacity: number, clips: readonly Rect[]): void => {
+    const opacity = parentOpacity * node.opacity;
+    if (!node.visible || opacity <= 0) return;
+    if (node.type === 'group') {
+      const nextClips = node.clip === undefined ? clips : [...clips, node.clip];
+      const children = [...node.children].sort((left, right) => left.zIndex - right.zIndex);
+      for (const child of children) visit(child, opacity, nextClips);
+      return;
+    }
+    if (node.interactive === true && node.datum !== undefined) candidates.push({ node, clips });
+  };
+  visit(scene.root, 1, []);
+  hitCandidateCache.set(scene, candidates);
+  return candidates;
+}
+
+function insideClips(clips: readonly Rect[], x: number, y: number): boolean {
+  return clips.every(
+    (clip) => x >= clip.x && x <= clip.x + clip.width && y >= clip.y && y <= clip.y + clip.height,
+  );
 }
 
 function distanceToSegment(
@@ -54,6 +86,33 @@ function pathDistance(node: PathNode, x: number, y: number): number {
   return minimum;
 }
 
+function textDistance(node: TextNode, x: number, y: number): number {
+  const angle = (-node.rotation * Math.PI) / 180;
+  const translatedX = x - node.x;
+  const translatedY = y - node.y;
+  const localX = translatedX * Math.cos(angle) - translatedY * Math.sin(angle);
+  const localY = translatedX * Math.sin(angle) + translatedY * Math.cos(angle);
+  const width = Math.max(node.fontSize * 0.6, Array.from(node.text).length * node.fontSize * 0.6);
+  const height = Math.max(1, node.fontSize * 1.2);
+  const left =
+    node.align === 'center'
+      ? -width / 2
+      : node.align === 'right' || node.align === 'end'
+        ? -width
+        : 0;
+  const top =
+    node.baseline === 'middle'
+      ? -height / 2
+      : node.baseline === 'bottom' || node.baseline === 'ideographic'
+        ? -height
+        : node.baseline === 'alphabetic'
+          ? -height * 0.8
+          : 0;
+  const dx = Math.max(left - localX, 0, localX - (left + width));
+  const dy = Math.max(top - localY, 0, localY - (top + height));
+  return Math.hypot(dx, dy);
+}
+
 function nodeDistance(node: SceneNode, x: number, y: number): number {
   switch (node.type) {
     case 'circle':
@@ -68,17 +127,21 @@ function nodeDistance(node: SceneNode, x: number, y: number): number {
     case 'path':
       return pathDistance(node, x, y);
     case 'text':
+      return textDistance(node, x, y);
     case 'group':
       return Number.POSITIVE_INFINITY;
   }
 }
 
 export function hitTestScene(scene: Scene, x: number, y: number, tolerance = 8): HitResult | null {
-  const nodes = [...flattenScene(scene.root)].reverse();
+  const candidates = sceneHitCandidates(scene);
   let best: HitResult | null = null;
 
-  for (const node of nodes) {
-    if (node.interactive !== true || node.datum === undefined) continue;
+  for (let index = candidates.length - 1; index >= 0; index -= 1) {
+    const candidate = candidates[index];
+    if (candidate === undefined || !insideClips(candidate.clips, x, y)) continue;
+    const { node } = candidate;
+    if (node.datum === undefined) continue;
     const distance = nodeDistance(node, x, y);
     if (distance > tolerance || (best !== null && distance >= best.distance)) continue;
     best = {

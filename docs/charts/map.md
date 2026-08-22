@@ -32,7 +32,7 @@ Every image below is generated from the current compiled Scene rather than drawn
 
 ## Type-by-type implementation
 
-The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
 
 <a id="variant-geo"></a>
 
@@ -85,6 +85,24 @@ geo('#chart', data, {
   accessibility: {
     label: 'Geographic region chart example',
     description: 'A compiled geographic region chart example using the map family.',
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Geographic region chart',
+      fields: [
+        {
+          field: 'region',
+          label: 'region',
+          format: 'auto',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+      ],
+    },
   },
 });
 ```
@@ -143,6 +161,29 @@ map('#chart', data, {
   mark: {
     fields: {
       size: 'value',
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Map',
+      fields: [
+        {
+          field: 'longitude',
+          label: 'longitude',
+          format: 'number',
+        },
+        {
+          field: 'latitude',
+          label: 'latitude',
+          format: 'number',
+        },
+        {
+          field: 'value',
+          label: 'Value',
+          format: 'number',
+        },
+      ],
     },
   },
 });
@@ -216,6 +257,39 @@ flowMap('#chart', data, {
       value: 'value',
     },
   },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Flow map',
+      fields: [
+        {
+          field: 'longitude',
+          label: 'longitude',
+          format: 'number',
+        },
+        {
+          field: 'latitude',
+          label: 'latitude',
+          format: 'number',
+        },
+        {
+          field: 'longitude2',
+          label: 'Longitude2',
+          format: 'number',
+        },
+        {
+          field: 'latitude2',
+          label: 'Latitude2',
+          format: 'number',
+        },
+        {
+          field: 'value',
+          label: 'Value',
+          format: 'number',
+        },
+      ],
+    },
+  },
 });
 ```
 
@@ -279,6 +353,29 @@ geoHeatmap('#chart', data, {
       value: 'value',
     },
   },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Geographic heatmap',
+      fields: [
+        {
+          field: 'longitude',
+          label: 'longitude',
+          format: 'number',
+        },
+        {
+          field: 'latitude',
+          label: 'latitude',
+          format: 'number',
+        },
+        {
+          field: 'value',
+          label: 'Value',
+          format: 'number',
+        },
+      ],
+    },
+  },
 });
 ```
 
@@ -340,6 +437,29 @@ mapBubble('#chart', data, {
   mark: {
     fields: {
       size: 'value',
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Map bubble chart',
+      fields: [
+        {
+          field: 'longitude',
+          label: 'longitude',
+          format: 'number',
+        },
+        {
+          field: 'latitude',
+          label: 'latitude',
+          format: 'number',
+        },
+        {
+          field: 'value',
+          label: 'Value',
+          format: 'number',
+        },
+      ],
     },
   },
 });
@@ -413,6 +533,39 @@ mapLine('#chart', data, {
       value: 'value',
     },
   },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Map line chart',
+      fields: [
+        {
+          field: 'longitude',
+          label: 'longitude',
+          format: 'number',
+        },
+        {
+          field: 'latitude',
+          label: 'latitude',
+          format: 'number',
+        },
+        {
+          field: 'longitude2',
+          label: 'Longitude2',
+          format: 'number',
+        },
+        {
+          field: 'latitude2',
+          label: 'Latitude2',
+          format: 'number',
+        },
+        {
+          field: 'value',
+          label: 'Value',
+          format: 'number',
+        },
+      ],
+    },
+  },
 });
 ```
 
@@ -476,6 +629,29 @@ mapPoint('#chart', data, {
       size: 'value',
     },
   },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Map point chart',
+      fields: [
+        {
+          field: 'longitude',
+          label: 'longitude',
+          format: 'number',
+        },
+        {
+          field: 'latitude',
+          label: 'latitude',
+          format: 'number',
+        },
+        {
+          field: 'value',
+          label: 'Value',
+          format: 'number',
+        },
+      ],
+    },
+  },
 });
 ```
 
@@ -530,6 +706,24 @@ tiledMap('#chart', data, {
   axes: {
     x: false,
     y: false,
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Tiled map',
+      fields: [
+        {
+          field: 'longitude',
+          label: 'longitude',
+          format: 'number',
+        },
+        {
+          field: 'latitude',
+          label: 'latitude',
+          format: 'number',
+        },
+      ],
+    },
   },
 });
 ```
