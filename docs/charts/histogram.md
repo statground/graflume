@@ -1,5 +1,28 @@
 # Histograms
 
+<!-- FAMILY_PRESETS_START -->
+
+## Integrated presets
+
+This is the single manual for the `histogram` family. Its canonical Quick API is `histogram()` from `graflume`, and its representative portable mark is `histogram`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
+
+| Compatible name | Quick API     | Mode         | Portable mark  | Functional difference                                |
+| --------------- | ------------- | ------------ | -------------- | ---------------------------------------------------- |
+| Histogram       | `histogram()` | `default`    | `histogram`    | Bins samples into counts.                            |
+| Bell curve      | `bellCurve()` | `bell-curve` | `distribution` | Derives and overlays a sampled normal-density curve. |
+
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+
+<details>
+<summary>Open 2 compiled preset snapshots</summary>
+
+| Preset     | Current compiled output                                                                          |
+| ---------- | ------------------------------------------------------------------------------------------------ |
+| Histogram  | [![Current Histogram output](../assets/charts/histogram.svg)](../assets/charts/histogram.svg)    |
+| Bell curve | [![Current Bell curve output](../assets/charts/bell-curve.svg)](../assets/charts/bell-curve.svg) |
+
+</details>
+<!-- FAMILY_PRESETS_END -->
 Use a histogram to inspect the distribution of one quantitative field.
 
 ## Implemented appearance
@@ -50,7 +73,7 @@ Automatic bin heuristics, unequal bins, density normalization, cumulative mode, 
 
 ## Runnable example and regression coverage
 
-- [31-type standalone CDN gallery](../../examples/cdn/complete-chart-types.html)
+- [default-family CDN gallery](../../examples/cdn/complete-chart-types.html)
 - [Chart catalog compile tests](../../tests/extended-chart-types.test.mjs)
 - [Generated visual asset](../assets/charts/histogram.svg)
 

@@ -1,5 +1,28 @@
 # Gauge charts
 
+<!-- FAMILY_PRESETS_START -->
+
+## Integrated presets
+
+This is the single manual for the `gauge` family. Its canonical Quick API is `gauge()` from `graflume`, and its representative portable mark is `gauge`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
+
+| Compatible name | Quick API      | Mode          | Portable mark | Functional difference                         |
+| --------------- | -------------- | ------------- | ------------- | --------------------------------------------- |
+| Gauge chart     | `gauge()`      | `default`     | `gauge`       | Uses a dial, reference ticks, and needle.     |
+| Solid gauge     | `solidGauge()` | `solid-gauge` | `solid-gauge` | Uses concentric filled arcs without a needle. |
+
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+
+<details>
+<summary>Open 2 compiled preset snapshots</summary>
+
+| Preset      | Current compiled output                                                                             |
+| ----------- | --------------------------------------------------------------------------------------------------- |
+| Gauge chart | [![Current Gauge chart output](../assets/charts/gauge.svg)](../assets/charts/gauge.svg)             |
+| Solid gauge | [![Current Solid gauge output](../assets/charts/solid-gauge.svg)](../assets/charts/solid-gauge.svg) |
+
+</details>
+<!-- FAMILY_PRESETS_END -->
 Use gauges for a few current values against a common bounded range.
 
 ## Implemented appearance
@@ -50,7 +73,7 @@ Threshold bands, custom tick labels, animation, and needle easing are not implem
 
 ## Runnable example and regression coverage
 
-- [31-type standalone CDN gallery](../../examples/cdn/complete-chart-types.html)
+- [default-family CDN gallery](../../examples/cdn/complete-chart-types.html)
 - [Chart catalog compile tests](../../tests/extended-chart-types.test.mjs)
 - [Generated visual asset](../assets/charts/gauge.svg)
 

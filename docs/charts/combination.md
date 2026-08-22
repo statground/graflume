@@ -1,5 +1,28 @@
 # Combination charts
 
+<!-- FAMILY_PRESETS_START -->
+
+## Integrated presets
+
+This is the single manual for the `combination` family. Its canonical Quick API is `combo()` from `graflume`, and its representative portable mark is `multiple`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
+
+| Compatible name | Quick API  | Mode      | Portable mark | Functional difference                                          |
+| --------------- | ---------- | --------- | ------------- | -------------------------------------------------------------- |
+| Combo chart     | `combo()`  | `default` | `multiple`    | Layers compatible marks on shared scales.                      |
+| Pareto chart    | `pareto()` | `pareto`  | `pareto`      | Combines descending columns with a cumulative percentage path. |
+
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+
+<details>
+<summary>Open 2 compiled preset snapshots</summary>
+
+| Preset       | Current compiled output                                                                             |
+| ------------ | --------------------------------------------------------------------------------------------------- |
+| Combo chart  | [![Current Combo chart output](../assets/charts/combination.svg)](../assets/charts/combination.svg) |
+| Pareto chart | [![Current Pareto chart output](../assets/charts/pareto.svg)](../assets/charts/pareto.svg)          |
+
+</details>
+<!-- FAMILY_PRESETS_END -->
 Use a combination chart when two or more Cartesian mark layers should share a viewport and common scales. `combo()` is the Quick API for the same canonical `layers` contract accepted by `create()`.
 
 ## Implemented appearance
@@ -152,7 +175,7 @@ Use `textContent`, not raw HTML, when displaying user data.
 ## Runnable examples and tests
 
 - [chart type gallery](../../examples/cdn/chart-types.html)
-- [31-type complete chart gallery](../../examples/cdn/complete-chart-types.html)
+- [default-family chart gallery](../../examples/cdn/complete-chart-types.html)
 - [combination regression test](../../tests/chart-types.test.mjs)
 
 [Back to chart guides](./README.md)

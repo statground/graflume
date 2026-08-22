@@ -6,7 +6,8 @@ Treat user guidance as part of every product change, not as a follow-up task.
 
 - For every feature, API, behavior, example, or user-visible fix, assess the documentation impact and update the relevant guide in the same change.
 - Keep the README as the entry point. Link detailed material instead of growing one undifferentiated README section.
-- Organize chart documentation by chart type under `docs/charts/`. Add a dedicated page when a new chart type or materially distinct composition pattern is introduced.
+- Organize chart documentation by representative family under `docs/charts/`. Fold aliases, orientations, layouts, glyphs, calculations, and other compatible modes into the family page instead of adding near-duplicate manuals. Add a dedicated page only when the data meaning and canonical family are materially distinct.
+- Keep every compatible name discoverable in `docs/charts/compatibility-presets.md`, and show the mode, portable mark, functional difference, and actual compiled preset output in its representative family manual.
 - Keep `docs/charts/README.md` and the README guide index synchronized with the available chart pages.
 - A chart guide should cover, when applicable: the currently implemented appearance, when to use the chart, Quick API, portable `ChartSpec`, canonical mark mapping, accepted data and ordering rules, missing-value and baseline behavior, styling, interaction and hit testing, accessibility, performance profiles, current limitations, runnable examples, and regression tests.
 - State the implemented behavior precisely. Separate supported behavior from planned work, and do not present roadmap items as available features.

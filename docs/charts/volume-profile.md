@@ -1,5 +1,26 @@
 # Volume profile chart
 
+<!-- FAMILY_PRESETS_START -->
+
+## Integrated presets
+
+This is the single manual for the `volume-profile` family. Its canonical Quick API is `volumeProfile()` from `graflume/complete`, and its representative portable mark is `volume-profile`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
+
+| Compatible name | Quick API         | Mode              | Portable mark    | Functional difference                                          |
+| --------------- | ----------------- | ----------------- | ---------------- | -------------------------------------------------------------- |
+| Volume by price | `volumeByPrice()` | `volume-by-price` | `volume-profile` | Bins price and aggregates volume into horizontal profile bars. |
+
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+
+<details>
+<summary>Open 1 compiled preset snapshot</summary>
+
+| Preset          | Current compiled output                                                                                         |
+| --------------- | --------------------------------------------------------------------------------------------------------------- |
+| Volume by price | [![Current Volume by price output](../assets/charts/volume-by-price.svg)](../assets/charts/volume-by-price.svg) |
+
+</details>
+<!-- FAMILY_PRESETS_END -->
 ![Current Volume profile chart output](../assets/charts/volume-profile.svg)
 
 This page documents the currently implemented **Volume profile chart** family in Graflume `0.1.0-alpha.0`. The image above is generated from the same compiled Scene used by the Canvas renderer.
@@ -399,12 +420,6 @@ volumeProfile('#chart', data, {
 - Category: `financial`
 
 The family API and every compatible preset enter the same normalize, validate, scale, compiler, Scene, renderer, interaction, and accessibility path. No parallel rendering engine is created.
-
-## Integrated presets
-
-| Compatible name | Quick API         | Mode              | Portable mark    |
-| --------------- | ----------------- | ----------------- | ---------------- |
-| Volume by price | `volumeByPrice()` | `volume-by-price` | `volume-profile` |
 
 ## Data, ordering, and missing values
 

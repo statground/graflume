@@ -1,5 +1,26 @@
 # Item chart
 
+<!-- FAMILY_PRESETS_START -->
+
+## Integrated presets
+
+This is the single manual for the `item` family. Its canonical Quick API is `itemChart()` from `graflume/complete`, and its representative portable mark is `item`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
+
+| Compatible name | Quick API     | Mode      | Portable mark | Functional difference                            |
+| --------------- | ------------- | --------- | ------------- | ------------------------------------------------ |
+| Item chart      | `itemChart()` | `default` | `item`        | Uses the canonical presentation for this family. |
+
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+
+<details>
+<summary>Open 1 compiled preset snapshot</summary>
+
+| Preset     | Current compiled output                                                              |
+| ---------- | ------------------------------------------------------------------------------------ |
+| Item chart | [![Current Item chart output](../assets/charts/item.svg)](../assets/charts/item.svg) |
+
+</details>
+<!-- FAMILY_PRESETS_END -->
 ![Current Item chart output](../assets/charts/item.svg)
 
 This page documents the currently implemented **Item chart** family in Graflume `0.1.0-alpha.0`. The image above is generated from the same compiled Scene used by the Canvas renderer.
@@ -391,12 +412,6 @@ itemChart('#chart', data, {
 - Category: `radial`
 
 The family API and every compatible preset enter the same normalize, validate, scale, compiler, Scene, renderer, interaction, and accessibility path. No parallel rendering engine is created.
-
-## Integrated presets
-
-| Compatible name | Quick API     | Mode      | Portable mark |
-| --------------- | ------------- | --------- | ------------- |
-| Item chart      | `itemChart()` | `default` | `item`        |
 
 ## Data, ordering, and missing values
 

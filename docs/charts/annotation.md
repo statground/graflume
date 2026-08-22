@@ -1,5 +1,30 @@
 # Annotation charts
 
+<!-- FAMILY_PRESETS_START -->
+
+## Integrated presets
+
+This is the single manual for the `annotation` family. Its canonical Quick API is `annotation()` from `graflume`, and its representative portable mark is `annotation`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
+
+| Compatible name    | Quick API             | Mode          | Portable mark | Functional difference                                                  |
+| ------------------ | --------------------- | ------------- | ------------- | ---------------------------------------------------------------------- |
+| Annotation chart   | `annotation()`        | `default`     | `annotation`  | The canonical annotated trend presentation.                            |
+| Annotated timeline | `annotatedTimeline()` | `timeline`    | `annotation`  | Uses the annotation family with the timeline compatibility name.       |
+| Event flags        | `eventFlags()`        | `event-flags` | `flags`       | Replaces long annotation pills with compact labels anchored to events. |
+
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+
+<details>
+<summary>Open 3 compiled preset snapshots</summary>
+
+| Preset             | Current compiled output                                                                                                  |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| Annotation chart   | [![Current Annotation chart output](../assets/charts/annotation.svg)](../assets/charts/annotation.svg)                   |
+| Annotated timeline | [![Current Annotated timeline output](../assets/charts/annotated-timeline.svg)](../assets/charts/annotated-timeline.svg) |
+| Event flags        | [![Current Event flags output](../assets/charts/event-flags.svg)](../assets/charts/event-flags.svg)                      |
+
+</details>
+<!-- FAMILY_PRESETS_END -->
 Use an annotation chart when a time series must explain named events at specific dates.
 
 ## Implemented appearance
@@ -16,7 +41,10 @@ This image is generated from the current Graflume `compile()` Scene, not a hand-
 Graflume.annotation('#chart', data, {
   x: { field: 'date', type: 'temporal' },
   y: { field: 'value', type: 'quantitative' },
-  mark: { fields: { annotation: 'event', annotationText: 'detail' }, point: true },
+  mark: {
+    fields: { annotation: 'event', annotationText: 'detail' },
+    point: true,
+  },
 });
 ```
 
@@ -50,7 +78,7 @@ Annotation label collision avoidance, a side detail panel, range navigation, and
 
 ## Runnable example and regression coverage
 
-- [31-type standalone CDN gallery](../../examples/cdn/complete-chart-types.html)
+- [default-family CDN gallery](../../examples/cdn/complete-chart-types.html)
 - [Chart catalog compile tests](../../tests/extended-chart-types.test.mjs)
 - [Generated visual asset](../assets/charts/annotation.svg)
 

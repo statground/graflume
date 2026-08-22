@@ -1,5 +1,28 @@
 # Heatmaps
 
+<!-- FAMILY_PRESETS_START -->
+
+## Integrated presets
+
+This is the single manual for the `heatmap` family. Its canonical Quick API is `heatmap()` from `graflume/complete`, and its representative portable mark is `heatmap`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
+
+| Compatible name | Quick API   | Mode       | Portable mark | Functional difference                                        |
+| --------------- | ----------- | ---------- | ------------- | ------------------------------------------------------------ |
+| Heatmap         | `heatmap()` | `default`  | `heatmap`     | Uses a rectangular value matrix.                             |
+| Tile map        | `tileMap()` | `tile-map` | `tilemap`     | Uses equal-area square, circle, diamond, or hexagonal tiles. |
+
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+
+<details>
+<summary>Open 2 compiled preset snapshots</summary>
+
+| Preset   | Current compiled output                                                                    |
+| -------- | ------------------------------------------------------------------------------------------ |
+| Heatmap  | [![Current Heatmap output](../assets/charts/heatmap.svg)](../assets/charts/heatmap.svg)    |
+| Tile map | [![Current Tile map output](../assets/charts/tile-map.svg)](../assets/charts/tile-map.svg) |
+
+</details>
+<!-- FAMILY_PRESETS_END -->
 [Back to the chart guide index](./README.md)
 
 ![Current Graflume heatmaps output](../assets/charts/heatmap.svg)

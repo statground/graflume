@@ -1,5 +1,26 @@
 # Flow diagram
 
+<!-- FAMILY_PRESETS_START -->
+
+## Integrated presets
+
+This is the single manual for the `flow` family. Its canonical Quick API is `sankey()` from `graflume`, and its representative portable mark is `sankey`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
+
+| Compatible name | Quick API  | Mode      | Portable mark | Functional difference                            |
+| --------------- | ---------- | --------- | ------------- | ------------------------------------------------ |
+| Sankey diagram  | `sankey()` | `default` | `sankey`      | Uses proportional nodes and weighted flow bands. |
+
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+
+<details>
+<summary>Open 1 compiled preset snapshot</summary>
+
+| Preset         | Current compiled output                                                                      |
+| -------------- | -------------------------------------------------------------------------------------------- |
+| Sankey diagram | [![Current Sankey diagram output](../assets/charts/sankey.svg)](../assets/charts/sankey.svg) |
+
+</details>
+<!-- FAMILY_PRESETS_END -->
 ![Current Flow diagram output](../assets/charts/flow.svg)
 
 This guide documents the consolidated **Flow diagram** family. The image is generated from the actual compiled Scene used by the runtime renderer.
@@ -19,14 +40,6 @@ sankey('#chart', data, {
   mark: { fields: { target: 'target' } },
 });
 ```
-
-## Integrated presets
-
-These names remain source-compatible, but discovery surfaces count them as modes of this family.
-
-| Preset         | Quick API  | Mode      | Portable mark |
-| -------------- | ---------- | --------- | ------------- |
-| Sankey diagram | `sankey()` | `default` | `sankey`      |
 
 ## Data contract
 

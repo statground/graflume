@@ -1,5 +1,30 @@
 # Pie charts
 
+<!-- FAMILY_PRESETS_START -->
+
+## Integrated presets
+
+This is the single manual for the `pie` family. Its canonical Quick API is `pie()` from `graflume`, and its representative portable mark is `pie`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
+
+| Compatible name           | Quick API       | Mode           | Portable mark  | Functional difference                                        |
+| ------------------------- | --------------- | -------------- | -------------- | ------------------------------------------------------------ |
+| Donut chart               | `donut()`       | `donut`        | `pie`          | Adds an inner radius and center summary to the pie geometry. |
+| Pie chart                 | `pie()`         | `default`      | `pie`          | Uses equal-radius sectors for part-to-whole comparison.      |
+| Variable radius pie chart | `variablePie()` | `variable-pie` | `variable-pie` | Uses a second value to vary each sector radius.              |
+
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+
+<details>
+<summary>Open 3 compiled preset snapshots</summary>
+
+| Preset                    | Current compiled output                                                                                             |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Donut chart               | [![Current Donut chart output](../assets/charts/donut.svg)](../assets/charts/donut.svg)                             |
+| Pie chart                 | [![Current Pie chart output](../assets/charts/pie.svg)](../assets/charts/pie.svg)                                   |
+| Variable radius pie chart | [![Current Variable radius pie chart output](../assets/charts/variable-pie.svg)](../assets/charts/variable-pie.svg) |
+
+</details>
+<!-- FAMILY_PRESETS_END -->
 Use a pie chart for a small number of positive part-to-whole values.
 
 ## Implemented appearance
@@ -49,7 +74,7 @@ Automatic collision solving for dense external labels, exploded slices, 3D, and 
 
 ## Runnable example and regression coverage
 
-- [31-type standalone CDN gallery](../../examples/cdn/complete-chart-types.html)
+- [default-family CDN gallery](../../examples/cdn/complete-chart-types.html)
 - [Chart catalog compile tests](../../tests/extended-chart-types.test.mjs)
 - [Generated visual asset](../assets/charts/pie.svg)
 

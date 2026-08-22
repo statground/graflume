@@ -65,7 +65,7 @@
     "build:static": "node ./scripts/copy-static.mjs",
     "build:size": "node ./scripts/check-bundle-size.mjs",
     "build": "npm run clean && npm run build:types && npm run build:bundle && npm run build:minify && npm run build:static && npm run build:size && npm run build:verify",
-    "docs:guides": "npm run build:bundle && node ./scripts/generate-consolidated-family-guides.mjs && node ./scripts/generate-series-chart-guides.mjs && node ./scripts/generate-series-gallery.mjs",
+    "docs:guides": "npm run build:bundle && node ./scripts/generate-consolidated-family-guides.mjs && node ./scripts/generate-series-gallery.mjs",
     "docs:snapshots": "npm run build:bundle && node ./scripts/render-chart-guide-snapshots.mjs && node ./scripts/render-additional-chart-snapshots.mjs && node ./scripts/render-series-chart-snapshots.mjs",
     "docs:snapshots:check": "npm run build:bundle && node ./scripts/render-chart-guide-snapshots.mjs --check && node ./scripts/render-additional-chart-snapshots.mjs --check && node ./scripts/render-series-chart-snapshots.mjs --check",
     "docs:links": "node ./scripts/check-doc-links.mjs",

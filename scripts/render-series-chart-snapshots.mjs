@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 
-import { compile, seriesChartTypeCatalog } from '../dist/graflume.complete.js';
+import {
+  compile,
+  seriesChartTypeCatalog,
+  seriesChartVariantCatalog,
+} from '../dist/graflume.complete.js';
 import { seriesSampleSpec } from './series-samples.mjs';
 
 const outputDirectory = new URL('../docs/assets/charts/', import.meta.url);
@@ -174,7 +178,13 @@ function renderScene(scene) {
 
 await mkdir(outputDirectory, { recursive: true });
 
-for (const entry of seriesChartTypeCatalog) {
+const snapshotEntries = [
+  ...new Map(
+    [...seriesChartVariantCatalog, ...seriesChartTypeCatalog].map((entry) => [entry.id, entry]),
+  ).values(),
+];
+
+for (const entry of snapshotEntries) {
   const { scene } = compile(seriesSampleSpec(entry), { width: 760, height: 440 });
   assert.ok(scene.metadata.renderedNodeCount > 3, `${entry.id} produced a non-empty Scene`);
   const output = renderScene(scene);
@@ -188,5 +198,5 @@ for (const entry of seriesChartTypeCatalog) {
 }
 
 console.log(
-  `${checkOnly ? 'Verified' : 'Rendered'} ${seriesChartTypeCatalog.length} unified series snapshots.`,
+  `${checkOnly ? 'Verified' : 'Rendered'} ${snapshotEntries.length} family and preset series snapshots.`,
 );

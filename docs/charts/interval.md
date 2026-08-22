@@ -1,5 +1,36 @@
 # Interval chart
 
+<!-- FAMILY_PRESETS_START -->
+
+## Integrated presets
+
+This is the single manual for the `interval` family. Its canonical Quick API is `intervals()` from `graflume`, and its representative portable mark is `interval`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
+
+| Compatible name         | Quick API           | Mode                | Portable mark | Functional difference                                     |
+| ----------------------- | ------------------- | ------------------- | ------------- | --------------------------------------------------------- |
+| Intervals               | `intervals()`       | `default`           | `interval`    | Uses a central point with low/high stems and caps.        |
+| Area range chart        | `areaRange()`       | `area-range`        | `range`       | Fills the band between low and high values.               |
+| Smooth area range chart | `areaSplineRange()` | `area-spline-range` | `range`       | Smooths both edges of a low/high band.                    |
+| Column range chart      | `columnRange()`     | `column-range`      | `range`       | Uses one floating vertical column per low/high pair.      |
+| Dumbbell chart          | `dumbbell()`        | `dumbbell`          | `range`       | Connects two endpoints and emphasizes both values.        |
+| Error bar chart         | `errorBar()`        | `error-bar`         | `interval`    | Uses a low/high stem and compact caps around an estimate. |
+
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+
+<details>
+<summary>Open 6 compiled preset snapshots</summary>
+
+| Preset                  | Current compiled output                                                                                                     |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Intervals               | [![Current Intervals output](../assets/charts/intervals.svg)](../assets/charts/intervals.svg)                               |
+| Area range chart        | [![Current Area range chart output](../assets/charts/area-range.svg)](../assets/charts/area-range.svg)                      |
+| Smooth area range chart | [![Current Smooth area range chart output](../assets/charts/area-spline-range.svg)](../assets/charts/area-spline-range.svg) |
+| Column range chart      | [![Current Column range chart output](../assets/charts/column-range.svg)](../assets/charts/column-range.svg)                |
+| Dumbbell chart          | [![Current Dumbbell chart output](../assets/charts/dumbbell.svg)](../assets/charts/dumbbell.svg)                            |
+| Error bar chart         | [![Current Error bar chart output](../assets/charts/error-bar.svg)](../assets/charts/error-bar.svg)                         |
+
+</details>
+<!-- FAMILY_PRESETS_END -->
 ![Current Interval chart output](../assets/charts/interval.svg)
 
 This guide documents the consolidated **Interval chart** family. The image is generated from the actual compiled Scene used by the runtime renderer.
@@ -19,19 +50,6 @@ intervals('#chart', data, {
   mark: { fields: { low: 'low', high: 'high' }, options: { mode: 'area' } },
 });
 ```
-
-## Integrated presets
-
-These names remain source-compatible, but discovery surfaces count them as modes of this family.
-
-| Preset                  | Quick API           | Mode                | Portable mark |
-| ----------------------- | ------------------- | ------------------- | ------------- |
-| Intervals               | `intervals()`       | `default`           | `interval`    |
-| Area range chart        | `areaRange()`       | `area-range`        | `range`       |
-| Smooth area range chart | `areaSplineRange()` | `area-spline-range` | `range`       |
-| Column range chart      | `columnRange()`     | `column-range`      | `range`       |
-| Dumbbell chart          | `dumbbell()`        | `dumbbell`          | `range`       |
-| Error bar chart         | `errorBar()`        | `error-bar`         | `interval`    |
 
 ## Data contract
 

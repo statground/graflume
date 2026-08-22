@@ -1,5 +1,30 @@
 # Scatter charts
 
+<!-- FAMILY_PRESETS_START -->
+
+## Integrated presets
+
+This is the single manual for the `scatter` family. Its canonical Quick API is `scatter()` from `graflume`, and its representative portable mark is `point`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
+
+| Compatible name          | Quick API         | Mode         | Portable mark    | Functional difference                                 |
+| ------------------------ | ----------------- | ------------ | ---------------- | ----------------------------------------------------- |
+| Scatter chart            | `scatter()`       | `default`    | `point`          | Uses ordinary coordinate points.                      |
+| Effect scatter chart     | `effectScatter()` | `emphasis`   | `effect-scatter` | Adds a portable emphasis halo to selected points.     |
+| Three-axis scatter chart | `scatter3d()`     | `scatter-3d` | `scatter-3d`     | Projects a third channel into portable 2D depth cues. |
+
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+
+<details>
+<summary>Open 3 compiled preset snapshots</summary>
+
+| Preset                   | Current compiled output                                                                                            |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| Scatter chart            | [![Current Scatter chart output](../assets/charts/scatter.svg)](../assets/charts/scatter.svg)                      |
+| Effect scatter chart     | [![Current Effect scatter chart output](../assets/charts/effect-scatter.svg)](../assets/charts/effect-scatter.svg) |
+| Three-axis scatter chart | [![Current Three-axis scatter chart output](../assets/charts/scatter-3d.svg)](../assets/charts/scatter-3d.svg)     |
+
+</details>
+<!-- FAMILY_PRESETS_END -->
 Use a scatter chart to explore the relationship, clustering, spread, or outliers between two quantitative fields. In Graflume, `scatter()` is an ergonomic alias for the portable `point` mark.
 
 ## Implemented appearance

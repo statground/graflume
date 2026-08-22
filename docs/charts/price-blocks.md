@@ -1,5 +1,28 @@
 # Price blocks chart
 
+<!-- FAMILY_PRESETS_START -->
+
+## Integrated presets
+
+This is the single manual for the `price-blocks` family. Its canonical Quick API is `priceBlocks()` from `graflume/complete`, and its representative portable mark is `renko`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
+
+| Compatible name        | Quick API          | Mode               | Portable mark  | Functional difference                                               |
+| ---------------------- | ------------------ | ------------------ | -------------- | ------------------------------------------------------------------- |
+| Point and figure chart | `pointAndFigure()` | `point-and-figure` | `point-figure` | Quantizes price changes into X and O columns.                       |
+| Renko chart            | `renko()`          | `renko`            | `renko`        | Quantizes price movement into fixed-size rising and falling bricks. |
+
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+
+<details>
+<summary>Open 2 compiled preset snapshots</summary>
+
+| Preset                 | Current compiled output                                                                                                  |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Point and figure chart | [![Current Point and figure chart output](../assets/charts/point-and-figure.svg)](../assets/charts/point-and-figure.svg) |
+| Renko chart            | [![Current Renko chart output](../assets/charts/renko.svg)](../assets/charts/renko.svg)                                  |
+
+</details>
+<!-- FAMILY_PRESETS_END -->
 ![Current Price blocks chart output](../assets/charts/price-blocks.svg)
 
 This page documents the currently implemented **Price blocks chart** family in Graflume `0.1.0-alpha.0`. The image above is generated from the same compiled Scene used by the Canvas renderer.
@@ -387,13 +410,6 @@ priceBlocks('#chart', data, {
 - Category: `financial`
 
 The family API and every compatible preset enter the same normalize, validate, scale, compiler, Scene, renderer, interaction, and accessibility path. No parallel rendering engine is created.
-
-## Integrated presets
-
-| Compatible name        | Quick API          | Mode               | Portable mark  |
-| ---------------------- | ------------------ | ------------------ | -------------- |
-| Point and figure chart | `pointAndFigure()` | `point-and-figure` | `point-figure` |
-| Renko chart            | `renko()`          | `renko`            | `renko`        |
 
 ## Data, ordering, and missing values
 

@@ -1,5 +1,32 @@
 # Funnel charts
 
+<!-- FAMILY_PRESETS_START -->
+
+## Integrated presets
+
+This is the single manual for the `funnel` family. Its canonical Quick API is `funnel()` from `graflume/complete`, and its representative portable mark is `funnel`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
+
+| Compatible name     | Quick API     | Mode         | Portable mark | Functional difference                                    |
+| ------------------- | ------------- | ------------ | ------------- | -------------------------------------------------------- |
+| Funnel chart        | `funnel()`    | `default`    | `funnel`      | Uses decreasing centered stages.                         |
+| Depth funnel chart  | `funnel3d()`  | `funnel-3d`  | `pyramid`     | Adds portable depth faces to funnel stages.              |
+| Pyramid chart       | `pyramid()`   | `pyramid`    | `pyramid`     | Reverses the stage emphasis into a pyramid presentation. |
+| Depth pyramid chart | `pyramid3d()` | `pyramid-3d` | `pyramid`     | Adds portable depth faces to pyramid stages.             |
+
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+
+<details>
+<summary>Open 4 compiled preset snapshots</summary>
+
+| Preset              | Current compiled output                                                                                   |
+| ------------------- | --------------------------------------------------------------------------------------------------------- |
+| Funnel chart        | [![Current Funnel chart output](../assets/charts/funnel.svg)](../assets/charts/funnel.svg)                |
+| Depth funnel chart  | [![Current Depth funnel chart output](../assets/charts/funnel-3d.svg)](../assets/charts/funnel-3d.svg)    |
+| Pyramid chart       | [![Current Pyramid chart output](../assets/charts/pyramid.svg)](../assets/charts/pyramid.svg)             |
+| Depth pyramid chart | [![Current Depth pyramid chart output](../assets/charts/pyramid-3d.svg)](../assets/charts/pyramid-3d.svg) |
+
+</details>
+<!-- FAMILY_PRESETS_END -->
 [Back to the chart guide index](./README.md)
 
 ![Current Graflume funnel charts output](../assets/charts/funnel.svg)

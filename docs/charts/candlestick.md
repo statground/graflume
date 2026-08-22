@@ -1,5 +1,34 @@
 # Candlestick charts
 
+<!-- FAMILY_PRESETS_START -->
+
+## Integrated presets
+
+This is the single manual for the `candlestick` family. Its canonical Quick API is `candlestick()` from `graflume`, and its representative portable mark is `candlestick`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
+
+| Compatible name           | Quick API             | Mode                  | Portable mark | Functional difference                                          |
+| ------------------------- | --------------------- | --------------------- | ------------- | -------------------------------------------------------------- |
+| Candlestick chart         | `candlestick()`       | `default`             | `candlestick` | Uses conventional open-high-low-close bodies and wicks.        |
+| Heikin-Ashi chart         | `heikinAshi()`        | `heikin-ashi`         | `financial`   | Uses derived Heikin-Ashi open and close values.                |
+| High-low-close chart      | `highLowClose()`      | `high-low-close`      | `financial`   | Shows high-low stems plus the close tick without an open tick. |
+| Hollow candlestick chart  | `hollowCandlestick()` | `hollow-candlestick`  | `financial`   | Uses hollow and filled bodies to distinguish direction.        |
+| Open-high-low-close chart | `openHighLowClose()`  | `open-high-low-close` | `financial`   | Shows open and close ticks on a high-low stem.                 |
+
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+
+<details>
+<summary>Open 5 compiled preset snapshots</summary>
+
+| Preset                    | Current compiled output                                                                                                           |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Candlestick chart         | [![Current Candlestick chart output](../assets/charts/candlestick.svg)](../assets/charts/candlestick.svg)                         |
+| Heikin-Ashi chart         | [![Current Heikin-Ashi chart output](../assets/charts/heikin-ashi.svg)](../assets/charts/heikin-ashi.svg)                         |
+| High-low-close chart      | [![Current High-low-close chart output](../assets/charts/high-low-close.svg)](../assets/charts/high-low-close.svg)                |
+| Hollow candlestick chart  | [![Current Hollow candlestick chart output](../assets/charts/hollow-candlestick.svg)](../assets/charts/hollow-candlestick.svg)    |
+| Open-high-low-close chart | [![Current Open-high-low-close chart output](../assets/charts/open-high-low-close.svg)](../assets/charts/open-high-low-close.svg) |
+
+</details>
+<!-- FAMILY_PRESETS_END -->
 Use a candlestick chart for ordered open-high-low-close observations.
 
 ## Implemented appearance
@@ -50,7 +79,7 @@ Volume panels, trading-session gaps, hollow-candle conventions, and financial in
 
 ## Runnable example and regression coverage
 
-- [31-type standalone CDN gallery](../../examples/cdn/complete-chart-types.html)
+- [default-family CDN gallery](../../examples/cdn/complete-chart-types.html)
 - [Chart catalog compile tests](../../tests/extended-chart-types.test.mjs)
 - [Generated visual asset](../assets/charts/candlestick.svg)
 
