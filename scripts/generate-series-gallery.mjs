@@ -1,4 +1,6 @@
-import { writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import { format, resolveConfig } from 'prettier';
 
 import { seriesChartTypeCatalog, seriesChartVariantCatalog } from '../dist/graflume.complete.js';
 import { seriesSampleRuntimeSource } from './series-samples.mjs';
@@ -9,6 +11,19 @@ const definitions = seriesChartTypeCatalog.map((entry) => ({
     .filter(({ familyId }) => familyId === entry.id)
     .map(({ name, mode }) => ({ name, mode })),
 }));
+const outputUrl = new URL('../examples/cdn/series-chart-types.html', import.meta.url);
+const prettierConfig = (await resolveConfig(fileURLToPath(outputUrl))) ?? {};
+const currentOutput = await readFile(outputUrl, 'utf8').catch(() => '');
+const currentSource = currentOutput.match(
+  /src="(https:\/\/cdn\.jsdelivr\.net\/gh\/statground\/graflume@(?:__GRAFLUME_CDN_COMMIT__|[0-9a-f]{40})\/cdn\/graflume\.complete\.global\.js)"/,
+)?.[1];
+const currentIntegrity = currentOutput.match(
+  /graflume\.complete\.global\.js"[\s\S]{0,200}?integrity="((?:__GRAFLUME_COMPLETE_CDN_SRI__)|(?:sha384-[A-Za-z0-9+/]+={0,2}))"/,
+)?.[1];
+const cdnSource =
+  currentSource ??
+  'https://cdn.jsdelivr.net/gh/statground/graflume@__GRAFLUME_CDN_COMMIT__/cdn/graflume.complete.global.js';
+const cdnIntegrity = currentIntegrity ?? '__GRAFLUME_COMPLETE_CDN_SRI__';
 
 const html = `<!doctype html>
 <html lang="ko" data-theme="light">
@@ -67,8 +82,8 @@ const html = `<!doctype html>
 
     <!-- Exact commit pins and SRI are replaced by the repository CDN snapshot workflow. -->
     <script
-      src="https://cdn.jsdelivr.net/gh/statground/graflume@__GRAFLUME_CDN_COMMIT__/cdn/graflume.complete.global.js"
-      integrity="__GRAFLUME_COMPLETE_CDN_SRI__"
+      src="${cdnSource}"
+      integrity="${cdnIntegrity}"
       crossorigin="anonymous"
     ></script>
     <script>
@@ -134,5 +149,5 @@ const html = `<!doctype html>
 </html>
 `;
 
-await writeFile(new URL('../examples/cdn/series-chart-types.html', import.meta.url), html, 'utf8');
+await writeFile(outputUrl, await format(html, { ...prettierConfig, parser: 'html' }), 'utf8');
 console.log(`Generated live gallery for ${definitions.length} consolidated specialized families.`);

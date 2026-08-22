@@ -1,5 +1,28 @@
 # Chord diagrams
 
+<!-- FAMILY_PRESETS_START -->
+
+## Integrated presets
+
+This is the single manual for the `chord` family. Its canonical Quick API is `chord()` from `graflume/complete`, and its representative portable mark is `chord`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
+
+| Compatible name  | Quick API           | Mode               | Portable mark | Functional difference                                |
+| ---------------- | ------------------- | ------------------ | ------------- | ---------------------------------------------------- |
+| Chord diagram    | `chord()`           | `default`          | `chord`       | Uses circular weighted relationship bands.           |
+| Dependency wheel | `dependencyWheel()` | `dependency-wheel` | `chord`       | Uses chord geometry with dependency-oriented naming. |
+
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+
+<details>
+<summary>Open 2 compiled preset snapshots</summary>
+
+| Preset           | Current compiled output                                                                                            |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Chord diagram    | [![Current Chord diagram output](../assets/charts/chord.svg)](../assets/charts/chord.svg)                          |
+| Dependency wheel | [![Current Dependency wheel output](../assets/charts/dependency-wheel.svg)](../assets/charts/dependency-wheel.svg) |
+
+</details>
+<!-- FAMILY_PRESETS_END -->
 [Back to the chart guide index](./README.md)
 
 ![Current Graflume chord diagrams output](../assets/charts/chord.svg)

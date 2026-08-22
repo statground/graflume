@@ -4,6 +4,8 @@ Graflume `0.1.0-alpha.0` exposes 37 distinct chart families through two package 
 
 Every family below is implemented today. Direction, curve, depth, radius, glyph, layout, and indicator differences are presets inside one family instead of separate discovery entries.
 
+The directory contains one manual per representative family, not one file per historical name. Each family manual includes a functional-difference table and expandable compiled-output gallery for its presets. The [compatibility preset index](./compatibility-presets.md) maps 139 family presets, while [Declarative adapters](./adapters.md) covers the remaining two compatibility names; together they document all 141 historical names.
+
 Use `resolveSeriesType(identifier)` from `graflume/complete` to resolve case, spaces, hyphens, or underscores into the catalog's single representative family. `seriesCompatibilityCatalog` exposes all 117 identifier-to-family mappings for adapters and migration tools.
 
 ## Choose a chart
@@ -115,13 +117,13 @@ Area marks use separate fill and top-line Scene paths, pie and donut labels incl
 
 The individual pages above show full-width implemented output. The following contact grid links representative families directly to their manuals.
 
-| Cartesian                                                                           | Radial / distribution                                                         | Structure / flow                                                     |
-| ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| [![Current line output](../assets/charts/line.svg)](./line.md)                      | [![Current pie output](../assets/charts/pie.svg)](./pie.md)                   | [![Current Sankey output](../assets/charts/sankey.svg)](./sankey.md) |
-| [![Current candlestick output](../assets/charts/candlestick.svg)](./candlestick.md) | [![Current gauge output](../assets/charts/gauge.svg)](./gauge.md)             | [![Current organization output](../assets/charts/org.svg)](./org.md) |
-| [![Current waterfall output](../assets/charts/waterfall.svg)](./waterfall.md)       | [![Current histogram output](../assets/charts/histogram.svg)](./histogram.md) | [![Current map output](../assets/charts/map.svg)](./map.md)          |
-| [![Current heatmap output](../assets/charts/heatmap.svg)](./heatmap.md)             | [![Current radar output](../assets/charts/radar.svg)](./radar.md)             | [![Current graph output](../assets/charts/graph.svg)](./graph.md)    |
-| [![Current boxplot output](../assets/charts/boxplot.svg)](./boxplot.md)             | [![Current sunburst output](../assets/charts/sunburst.svg)](./sunburst.md)    | [![Current tree output](../assets/charts/tree.svg)](./tree.md)       |
+| Cartesian                                                                           | Radial / distribution                                                         | Structure / flow                                                           |
+| ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| [![Current line output](../assets/charts/line.svg)](./line.md)                      | [![Current pie output](../assets/charts/pie.svg)](./pie.md)                   | [![Current Sankey output](../assets/charts/sankey.svg)](./flow.md)         |
+| [![Current candlestick output](../assets/charts/candlestick.svg)](./candlestick.md) | [![Current gauge output](../assets/charts/gauge.svg)](./gauge.md)             | [![Current organization output](../assets/charts/org.svg)](./hierarchy.md) |
+| [![Current waterfall output](../assets/charts/waterfall.svg)](./waterfall.md)       | [![Current histogram output](../assets/charts/histogram.svg)](./histogram.md) | [![Current map output](../assets/charts/map.svg)](./map.md)                |
+| [![Current heatmap output](../assets/charts/heatmap.svg)](./heatmap.md)             | [![Current radar output](../assets/charts/radar.svg)](./radar.md)             | [![Current graph output](../assets/charts/graph.svg)](./network.md)        |
+| [![Current boxplot output](../assets/charts/boxplot.svg)](./boxplot.md)             | [![Current sunburst output](../assets/charts/sunburst.svg)](./hierarchy.md)   | [![Current tree output](../assets/charts/tree.svg)](./hierarchy.md)        |
 
 ## Common Quick API shape
 

@@ -1,5 +1,30 @@
 # Line charts
 
+<!-- FAMILY_PRESETS_START -->
+
+## Integrated presets
+
+This is the single manual for the `line` family. Its canonical Quick API is `line()` from `graflume`, and its representative portable mark is `line`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
+
+| Compatible name | Quick API     | Mode      | Portable mark | Functional difference                                |
+| --------------- | ------------- | --------- | ------------- | ---------------------------------------------------- |
+| Line chart      | `line()`      | `default` | `line`        | Uses direct ordered line segments.                   |
+| Trendline       | `trendline()` | `trend`   | `trendline`   | Derives a regression trend from the coordinate rows. |
+| Spline chart    | `spline()`    | `spline`  | `smooth`      | Uses a sampled smooth path.                          |
+
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+
+<details>
+<summary>Open 3 compiled preset snapshots</summary>
+
+| Preset       | Current compiled output                                                                       |
+| ------------ | --------------------------------------------------------------------------------------------- |
+| Line chart   | [![Current Line chart output](../assets/charts/line.svg)](../assets/charts/line.svg)          |
+| Trendline    | [![Current Trendline output](../assets/charts/trendline.svg)](../assets/charts/trendline.svg) |
+| Spline chart | [![Current Spline chart output](../assets/charts/spline.svg)](../assets/charts/spline.svg)    |
+
+</details>
+<!-- FAMILY_PRESETS_END -->
 Use a line chart for an ordered sequence such as time, rank, distance, or another progression. Graflume connects valid input rows in their current order and can add interactive point circles.
 
 ## Implemented appearance

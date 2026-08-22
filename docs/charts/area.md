@@ -1,5 +1,36 @@
 # Area charts
 
+<!-- FAMILY_PRESETS_START -->
+
+## Integrated presets
+
+This is the single manual for the `area` family. Its canonical Quick API is `area()` from `graflume`, and its representative portable mark is `area`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
+
+| Compatible name    | Quick API       | Mode          | Portable mark  | Functional difference                                          |
+| ------------------ | --------------- | ------------- | -------------- | -------------------------------------------------------------- |
+| Area chart         | `area()`        | `default`     | `area`         | Fills an ordered series to its baseline.                       |
+| Stepped area chart | `steppedArea()` | `stepped`     | `stepped-area` | Uses horizontal and vertical steps instead of direct segments. |
+| Theme river chart  | `themeRiver()`  | `stream`      | `theme-river`  | Centers stacked category bands around a shared baseline.       |
+| Smooth area chart  | `areaSpline()`  | `area-spline` | `smooth`       | Uses a sampled smooth upper path with an area fill.            |
+| Polygon chart      | `polygon()`     | `polygon`     | `polygon`      | Closes ordered coordinates into a filled polygon.              |
+| Streamgraph        | `streamgraph()` | `streamgraph` | `theme-river`  | Uses the centered multi-series stream presentation.            |
+
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+
+<details>
+<summary>Open 6 compiled preset snapshots</summary>
+
+| Preset             | Current compiled output                                                                                      |
+| ------------------ | ------------------------------------------------------------------------------------------------------------ |
+| Area chart         | [![Current Area chart output](../assets/charts/area.svg)](../assets/charts/area.svg)                         |
+| Stepped area chart | [![Current Stepped area chart output](../assets/charts/stepped-area.svg)](../assets/charts/stepped-area.svg) |
+| Theme river chart  | [![Current Theme river chart output](../assets/charts/theme-river.svg)](../assets/charts/theme-river.svg)    |
+| Smooth area chart  | [![Current Smooth area chart output](../assets/charts/area-spline.svg)](../assets/charts/area-spline.svg)    |
+| Polygon chart      | [![Current Polygon chart output](../assets/charts/polygon.svg)](../assets/charts/polygon.svg)                |
+| Streamgraph        | [![Current Streamgraph output](../assets/charts/streamgraph.svg)](../assets/charts/streamgraph.svg)          |
+
+</details>
+<!-- FAMILY_PRESETS_END -->
 Use an area chart to show an ordered trend while emphasizing magnitude relative to a baseline. The current Graflume area mark fills a single line down to zero.
 
 ## Implemented appearance

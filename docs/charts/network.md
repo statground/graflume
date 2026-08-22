@@ -1,5 +1,32 @@
 # Network chart
 
+<!-- FAMILY_PRESETS_START -->
+
+## Integrated presets
+
+This is the single manual for the `network` family. Its canonical Quick API is `network()` from `graflume/complete`, and its representative portable mark is `graph`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
+
+| Compatible name  | Quick API        | Mode            | Portable mark | Functional difference                                     |
+| ---------------- | ---------------- | --------------- | ------------- | --------------------------------------------------------- |
+| Graph chart      | `graph()`        | `node-link`     | `graph`       | Uses the deterministic node-link layout.                  |
+| Connection lines | `lines()`        | `connections`   | `lines`       | Shows direct source-to-target connection paths.           |
+| Arc diagram      | `arcDiagram()`   | `arc-diagram`   | `arc-diagram` | Places nodes on one baseline and draws arcs between them. |
+| Network graph    | `networkGraph()` | `network-graph` | `graph`       | Keeps the legacy network graph name for node-link mode.   |
+
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+
+<details>
+<summary>Open 4 compiled preset snapshots</summary>
+
+| Preset           | Current compiled output                                                                                   |
+| ---------------- | --------------------------------------------------------------------------------------------------------- |
+| Graph chart      | [![Current Graph chart output](../assets/charts/graph.svg)](../assets/charts/graph.svg)                   |
+| Connection lines | [![Current Connection lines output](../assets/charts/lines.svg)](../assets/charts/lines.svg)              |
+| Arc diagram      | [![Current Arc diagram output](../assets/charts/arc-diagram.svg)](../assets/charts/arc-diagram.svg)       |
+| Network graph    | [![Current Network graph output](../assets/charts/network-graph.svg)](../assets/charts/network-graph.svg) |
+
+</details>
+<!-- FAMILY_PRESETS_END -->
 ![Current Network chart output](../assets/charts/network.svg)
 
 This guide documents the consolidated **Network chart** family. The image is generated from the actual compiled Scene used by the runtime renderer.
@@ -19,17 +46,6 @@ network('#chart', data, {
   mark: { fields: { target: 'target' }, options: { mode: 'arc' } },
 });
 ```
-
-## Integrated presets
-
-These names remain source-compatible, but discovery surfaces count them as modes of this family.
-
-| Preset           | Quick API        | Mode            | Portable mark |
-| ---------------- | ---------------- | --------------- | ------------- |
-| Graph chart      | `graph()`        | `node-link`     | `graph`       |
-| Connection lines | `lines()`        | `connections`   | `lines`       |
-| Arc diagram      | `arcDiagram()`   | `arc-diagram`   | `arc-diagram` |
-| Network graph    | `networkGraph()` | `network-graph` | `graph`       |
 
 ## Data contract
 

@@ -1,5 +1,28 @@
 # Bubble charts
 
+<!-- FAMILY_PRESETS_START -->
+
+## Integrated presets
+
+This is the single manual for the `bubble` family. Its canonical Quick API is `bubble()` from `graflume`, and its representative portable mark is `bubble`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
+
+| Compatible name     | Quick API        | Mode            | Portable mark   | Functional difference                                       |
+| ------------------- | ---------------- | --------------- | --------------- | ----------------------------------------------------------- |
+| Bubble chart        | `bubble()`       | `default`       | `bubble`        | Positions magnitude-scaled circles on coordinates.          |
+| Packed bubble chart | `packedBubble()` | `packed-bubble` | `packed-bubble` | Uses deterministic collision-aware packing instead of axes. |
+
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+
+<details>
+<summary>Open 2 compiled preset snapshots</summary>
+
+| Preset              | Current compiled output                                                                                         |
+| ------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Bubble chart        | [![Current Bubble chart output](../assets/charts/bubble.svg)](../assets/charts/bubble.svg)                      |
+| Packed bubble chart | [![Current Packed bubble chart output](../assets/charts/packed-bubble.svg)](../assets/charts/packed-bubble.svg) |
+
+</details>
+<!-- FAMILY_PRESETS_END -->
 Use a bubble chart to compare two quantitative positions plus magnitude and an optional category.
 
 ## Implemented appearance
@@ -16,7 +39,10 @@ This image is generated from the current Graflume `compile()` Scene, not a hand-
 Graflume.bubble('#chart', data, {
   x: { field: 'reach', type: 'quantitative' },
   y: { field: 'impact', type: 'quantitative' },
-  mark: { fields: { size: 'budget', color: 'team' }, options: { minRadius: 6, maxRadius: 26 } },
+  mark: {
+    fields: { size: 'budget', color: 'team' },
+    options: { minRadius: 6, maxRadius: 26 },
+  },
 });
 ```
 
@@ -50,7 +76,7 @@ Automatic bubble-label placement, collision packing, and categorical legends are
 
 ## Runnable example and regression coverage
 
-- [31-type standalone CDN gallery](../../examples/cdn/complete-chart-types.html)
+- [default-family CDN gallery](../../examples/cdn/complete-chart-types.html)
 - [Chart catalog compile tests](../../tests/extended-chart-types.test.mjs)
 - [Generated visual asset](../assets/charts/bubble.svg)
 

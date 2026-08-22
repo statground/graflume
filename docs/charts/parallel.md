@@ -1,5 +1,26 @@
 # Parallel coordinates
 
+<!-- FAMILY_PRESETS_START -->
+
+## Integrated presets
+
+This is the single manual for the `parallel` family. Its canonical Quick API is `parallel()` from `graflume/complete`, and its representative portable mark is `parallel`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
+
+| Compatible name      | Quick API    | Mode      | Portable mark | Functional difference                            |
+| -------------------- | ------------ | --------- | ------------- | ------------------------------------------------ |
+| Parallel coordinates | `parallel()` | `default` | `parallel`    | Uses the canonical presentation for this family. |
+
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+
+<details>
+<summary>Open 1 compiled preset snapshot</summary>
+
+| Preset               | Current compiled output                                                                                |
+| -------------------- | ------------------------------------------------------------------------------------------------------ |
+| Parallel coordinates | [![Current Parallel coordinates output](../assets/charts/parallel.svg)](../assets/charts/parallel.svg) |
+
+</details>
+<!-- FAMILY_PRESETS_END -->
 [Back to the chart guide index](./README.md)
 
 ![Current Graflume parallel coordinates output](../assets/charts/parallel.svg)

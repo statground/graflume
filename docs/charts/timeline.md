@@ -1,5 +1,30 @@
 # Timelines
 
+<!-- FAMILY_PRESETS_START -->
+
+## Integrated presets
+
+This is the single manual for the `timeline` family. Its canonical Quick API is `timeline()` from `graflume`, and its representative portable mark is `timeline`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
+
+| Compatible name        | Quick API    | Mode      | Portable mark | Functional difference                                   |
+| ---------------------- | ------------ | --------- | ------------- | ------------------------------------------------------- |
+| Gantt chart            | `gantt()`    | `gantt`   | `gantt`       | Adds task intervals, progress, and dependency fields.   |
+| Timeline               | `timeline()` | `default` | `timeline`    | Uses dated events or intervals on an ordered time axis. |
+| Horizontal range chart | `xRange()`   | `x-range` | `timeline`    | Uses horizontal start/end intervals per category.       |
+
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+
+<details>
+<summary>Open 3 compiled preset snapshots</summary>
+
+| Preset                 | Current compiled output                                                                                |
+| ---------------------- | ------------------------------------------------------------------------------------------------------ |
+| Gantt chart            | [![Current Gantt chart output](../assets/charts/gantt.svg)](../assets/charts/gantt.svg)                |
+| Timeline               | [![Current Timeline output](../assets/charts/timeline.svg)](../assets/charts/timeline.svg)             |
+| Horizontal range chart | [![Current Horizontal range chart output](../assets/charts/x-range.svg)](../assets/charts/x-range.svg) |
+
+</details>
+<!-- FAMILY_PRESETS_END -->
 Use a timeline to compare resource or event intervals across rows.
 
 ## Implemented appearance
@@ -50,7 +75,7 @@ Overlapping interval packing, grouped labels, duration labels, and timeline zoom
 
 ## Runnable example and regression coverage
 
-- [31-type standalone CDN gallery](../../examples/cdn/complete-chart-types.html)
+- [default-family CDN gallery](../../examples/cdn/complete-chart-types.html)
 - [Chart catalog compile tests](../../tests/extended-chart-types.test.mjs)
 - [Generated visual asset](../assets/charts/timeline.svg)
 

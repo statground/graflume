@@ -1,5 +1,26 @@
 # Boxplots
 
+<!-- FAMILY_PRESETS_START -->
+
+## Integrated presets
+
+This is the single manual for the `boxplot` family. Its canonical Quick API is `boxplot()` from `graflume/complete`, and its representative portable mark is `boxplot`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
+
+| Compatible name | Quick API   | Mode      | Portable mark | Functional difference                            |
+| --------------- | ----------- | --------- | ------------- | ------------------------------------------------ |
+| Boxplot         | `boxplot()` | `default` | `boxplot`     | Uses the canonical presentation for this family. |
+
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+
+<details>
+<summary>Open 1 compiled preset snapshot</summary>
+
+| Preset  | Current compiled output                                                                 |
+| ------- | --------------------------------------------------------------------------------------- |
+| Boxplot | [![Current Boxplot output](../assets/charts/boxplot.svg)](../assets/charts/boxplot.svg) |
+
+</details>
+<!-- FAMILY_PRESETS_END -->
 [Back to the chart guide index](./README.md)
 
 ![Current Graflume boxplots output](../assets/charts/boxplot.svg)
@@ -32,7 +53,9 @@ import { boxplot } from 'graflume/complete';
 boxplot('#chart', summaries, {
   x: { field: 'group', type: 'nominal' },
   y: { field: 'median', type: 'quantitative' },
-  mark: { fields: { min: 'min', q1: 'q1', median: 'median', q3: 'q3', max: 'max' } },
+  mark: {
+    fields: { min: 'min', q1: 'q1', median: 'median', q3: 'q3', max: 'max' },
+  },
 });
 ```
 

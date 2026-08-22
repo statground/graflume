@@ -1,5 +1,26 @@
 # Word trees
 
+<!-- FAMILY_PRESETS_START -->
+
+## Integrated presets
+
+This is the single manual for the `word-tree` family. Its canonical Quick API is `wordTree()` from `graflume`, and its representative portable mark is `word-tree`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
+
+| Compatible name | Quick API    | Mode      | Portable mark | Functional difference                            |
+| --------------- | ------------ | --------- | ------------- | ------------------------------------------------ |
+| Word tree       | `wordTree()` | `default` | `word-tree`   | Uses the canonical presentation for this family. |
+
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+
+<details>
+<summary>Open 1 compiled preset snapshot</summary>
+
+| Preset    | Current compiled output                                                                       |
+| --------- | --------------------------------------------------------------------------------------------- |
+| Word tree | [![Current Word tree output](../assets/charts/word-tree.svg)](../assets/charts/word-tree.svg) |
+
+</details>
+<!-- FAMILY_PRESETS_END -->
 Use a word tree to show an explicit weighted hierarchy of terms.
 
 ## Implemented appearance
@@ -50,7 +71,7 @@ Implicit phrase tokenization, prefix/suffix/double modes, collision avoidance, a
 
 ## Runnable example and regression coverage
 
-- [31-type standalone CDN gallery](../../examples/cdn/complete-chart-types.html)
+- [default-family CDN gallery](../../examples/cdn/complete-chart-types.html)
 - [Chart catalog compile tests](../../tests/extended-chart-types.test.mjs)
 - [Generated visual asset](../assets/charts/word-tree.svg)
 
