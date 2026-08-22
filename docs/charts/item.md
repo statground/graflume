@@ -6,21 +6,85 @@
 
 This is the single manual for the `item` family. Its canonical Quick API is `itemChart()` from `graflume/complete`, and its representative portable mark is `item`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
 
-| Compatible name | Quick API     | Mode      | Portable mark | Functional difference                            |
-| --------------- | ------------- | --------- | ------------- | ------------------------------------------------ |
-| Item chart      | `itemChart()` | `default` | `item`        | Uses the canonical presentation for this family. |
+| Compatible name             | Quick API     | Mode      | Portable mark | Functional difference                            |
+| --------------------------- | ------------- | --------- | ------------- | ------------------------------------------------ |
+| [Item chart](#variant-item) | `itemChart()` | `default` | `item`        | Uses the canonical presentation for this family. |
 
-All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining manually maintained sections describe the canonical/default presentation unless a preset row above states a different behavior.
 
-<details>
-<summary>Open 1 compiled preset snapshot</summary>
+## Visual gallery
 
-| Preset     | Current compiled output                                                              |
-| ---------- | ------------------------------------------------------------------------------------ |
-| Item chart | [![Current Item chart output](../assets/charts/item.svg)](../assets/charts/item.svg) |
+Every image below is generated from the current compiled Scene rather than drawn by hand. Select a name to jump to its data fields and implementation.
 
-</details>
+|                                                                                                                         |     |
+| ----------------------------------------------------------------------------------------------------------------------- | --- |
+| **[Item chart](#variant-item)**<br>[![Current Item chart output](../assets/charts/item.svg)](../assets/charts/item.svg) |     |
+
+## Type-by-type implementation
+
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+
+<a id="variant-item"></a>
+
+### Item chart
+
+Use this preset when counts should be represented as repeated tangible units. Uses the canonical presentation for this family.
+
+- **Quick API:** `itemChart()`
+- **Mode:** `default`
+- **Portable mark:** `item`
+- **Required example fields:** `category`, `value`
+
+```js
+import { itemChart } from 'graflume/complete';
+
+const data = [
+  {
+    category: 'P1',
+    value: 24,
+  },
+  {
+    category: 'P2',
+    value: 29.916,
+  },
+  {
+    category: 'P3',
+    value: 33.54,
+  },
+  {
+    category: 'P4',
+    value: 33.72,
+  },
+];
+
+itemChart('#chart', data, {
+  x: {
+    field: 'category',
+    type: 'ordinal',
+    title: 'category',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Item chart',
+    subtitle: 'item family · default mode',
+  },
+  accessibility: {
+    label: 'Item chart example',
+    description: 'A compiled item chart example using the item family.',
+  },
+  axes: {
+    x: false,
+    y: false,
+  },
+});
+```
+
 <!-- FAMILY_PRESETS_END -->
+
 ![Current Item chart output](../assets/charts/item.svg)
 
 This page documents the currently implemented **Item chart** family in Graflume `0.1.0-alpha.0`. The image above is generated from the same compiled Scene used by the Canvas renderer.

@@ -6,21 +6,81 @@
 
 This is the single manual for the `venn` family. Its canonical Quick API is `venn()` from `graflume/complete`, and its representative portable mark is `venn`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
 
-| Compatible name | Quick API | Mode      | Portable mark | Functional difference                            |
-| --------------- | --------- | --------- | ------------- | ------------------------------------------------ |
-| Venn diagram    | `venn()`  | `default` | `venn`        | Uses the canonical presentation for this family. |
+| Compatible name               | Quick API | Mode      | Portable mark | Functional difference                            |
+| ----------------------------- | --------- | --------- | ------------- | ------------------------------------------------ |
+| [Venn diagram](#variant-venn) | `venn()`  | `default` | `venn`        | Uses the canonical presentation for this family. |
 
-All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining manually maintained sections describe the canonical/default presentation unless a preset row above states a different behavior.
 
-<details>
-<summary>Open 1 compiled preset snapshot</summary>
+## Visual gallery
 
-| Preset       | Current compiled output                                                                |
-| ------------ | -------------------------------------------------------------------------------------- |
-| Venn diagram | [![Current Venn diagram output](../assets/charts/venn.svg)](../assets/charts/venn.svg) |
+Every image below is generated from the current compiled Scene rather than drawn by hand. Select a name to jump to its data fields and implementation.
 
-</details>
+|                                                                                                                             |     |
+| --------------------------------------------------------------------------------------------------------------------------- | --- |
+| **[Venn diagram](#variant-venn)**<br>[![Current Venn diagram output](../assets/charts/venn.svg)](../assets/charts/venn.svg) |     |
+
+## Type-by-type implementation
+
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+
+<a id="variant-venn"></a>
+
+### Venn diagram
+
+Use this preset when set overlap is the primary reading task. Uses the canonical presentation for this family.
+
+- **Quick API:** `venn()`
+- **Mode:** `default`
+- **Portable mark:** `venn`
+- **Required example fields:** `category`, `value`
+
+```js
+import { venn } from 'graflume/complete';
+
+const data = [
+  {
+    category: 'P1',
+    value: 24,
+  },
+  {
+    category: 'P2',
+    value: 29.916,
+  },
+  {
+    category: 'P3',
+    value: 33.54,
+  },
+];
+
+venn('#chart', data, {
+  x: {
+    field: 'category',
+    type: 'ordinal',
+    title: 'category',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Venn diagram',
+    subtitle: 'venn family · default mode',
+  },
+  accessibility: {
+    label: 'Venn diagram example',
+    description: 'A compiled venn diagram example using the venn family.',
+  },
+  axes: {
+    x: false,
+    y: false,
+  },
+});
+```
+
 <!-- FAMILY_PRESETS_END -->
+
 ![Current Venn diagram output](../assets/charts/venn.svg)
 
 This page documents the currently implemented **Venn diagram** family in Graflume `0.1.0-alpha.0`. The image above is generated from the same compiled Scene used by the Canvas renderer.

@@ -4,7 +4,7 @@ Graflume `0.1.0-alpha.0` exposes 37 distinct chart families through two package 
 
 Every family below is implemented today. Direction, curve, depth, radius, glyph, layout, and indicator differences are presets inside one family instead of separate discovery entries.
 
-The directory contains one manual per representative family, not one file per historical name. Each family manual includes a functional-difference table and expandable compiled-output gallery for its presets. The [compatibility preset index](./compatibility-presets.md) maps 139 family presets, while [Declarative adapters](./adapters.md) covers the remaining two compatibility names; together they document all 141 historical names.
+The directory contains one manual per representative family, not one file per historical name. Each family manual keeps every integrated type visible in a compiled-output gallery and follows it with type-by-type selection guidance, required data fields, stable anchors, and minimal runnable Quick API examples. The [compatibility preset index](./compatibility-presets.md) maps 139 family presets, while [Declarative adapters](./adapters.md) covers the remaining two compatibility names with the same visual-and-code structure; together they document all 141 historical names.
 
 Use `resolveSeriesType(identifier)` from `graflume/complete` to resolve case, spaces, hyphens, or underscores into the catalog's single representative family. `seriesCompatibilityCatalog` exposes all 117 identifier-to-family mappings for adapters and migration tools.
 
@@ -99,7 +99,7 @@ The following catalog is generated from runtime metadata and contains only the e
 
 The default, advanced, and specialized galleries render 37 distinct families. The specialized gallery shows eight cards and lists the compatible modes folded into each card. The smaller [introductory gallery](../../examples/cdn/chart-types.html) remains useful for a quick start.
 
-Every canonical guide includes a current visual snapshot generated from the actual Graflume `compile()` Scene. Run `npm run docs:snapshots` after a rendering change to rebuild and verify the assets deterministically.
+Every family guide includes a current visual snapshot for every integrated preset, generated from the actual Graflume `compile()` Scene, followed by its runnable Quick API example. Run `npm run docs:snapshots` after a rendering or guide-example data change to rebuild and verify the assets deterministically.
 
 ## Default visual system
 

@@ -6,23 +6,138 @@
 
 This is the single manual for the `histogram` family. Its canonical Quick API is `histogram()` from `graflume`, and its representative portable mark is `histogram`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
 
-| Compatible name | Quick API     | Mode         | Portable mark  | Functional difference                                |
-| --------------- | ------------- | ------------ | -------------- | ---------------------------------------------------- |
-| Histogram       | `histogram()` | `default`    | `histogram`    | Bins samples into counts.                            |
-| Bell curve      | `bellCurve()` | `bell-curve` | `distribution` | Derives and overlays a sampled normal-density curve. |
+| Compatible name                   | Quick API     | Mode         | Portable mark  | Functional difference                                |
+| --------------------------------- | ------------- | ------------ | -------------- | ---------------------------------------------------- |
+| [Histogram](#variant-histogram)   | `histogram()` | `default`    | `histogram`    | Bins samples into counts.                            |
+| [Bell curve](#variant-bell-curve) | `bellCurve()` | `bell-curve` | `distribution` | Derives and overlays a sampled normal-density curve. |
 
-All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining manually maintained sections describe the canonical/default presentation unless a preset row above states a different behavior.
 
-<details>
-<summary>Open 2 compiled preset snapshots</summary>
+## Visual gallery
 
-| Preset     | Current compiled output                                                                          |
-| ---------- | ------------------------------------------------------------------------------------------------ |
-| Histogram  | [![Current Histogram output](../assets/charts/histogram.svg)](../assets/charts/histogram.svg)    |
-| Bell curve | [![Current Bell curve output](../assets/charts/bell-curve.svg)](../assets/charts/bell-curve.svg) |
+Every image below is generated from the current compiled Scene rather than drawn by hand. Select a name to jump to its data fields and implementation.
 
-</details>
+|                                                                                                                                      |                                                                                                                                           |
+| ------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **[Histogram](#variant-histogram)**<br>[![Current Histogram output](../assets/charts/histogram.svg)](../assets/charts/histogram.svg) | **[Bell curve](#variant-bell-curve)**<br>[![Current Bell curve output](../assets/charts/bell-curve.svg)](../assets/charts/bell-curve.svg) |
+
+## Type-by-type implementation
+
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+
+<a id="variant-histogram"></a>
+
+### Histogram
+
+Use this preset when the shape of a numeric distribution is more important than individual rows. Bins samples into counts.
+
+- **Quick API:** `histogram()`
+- **Mode:** `default`
+- **Portable mark:** `histogram`
+- **Required example fields:** `value`
+
+```js
+import { histogram } from 'graflume';
+
+const data = [
+  {
+    value: 24,
+  },
+  {
+    value: 29.916,
+  },
+  {
+    value: 33.54,
+  },
+  {
+    value: 33.72,
+  },
+];
+
+histogram('#chart', data, {
+  x: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Histogram',
+    subtitle: 'histogram family · default mode',
+  },
+  accessibility: {
+    label: 'Histogram example',
+    description: 'A compiled histogram example using the histogram family.',
+  },
+  mark: {
+    options: {
+      bins: 8,
+    },
+  },
+});
+```
+
+<a id="variant-bell-curve"></a>
+
+### Bell curve
+
+Use this preset when the shape of a numeric distribution is more important than individual rows. Derives and overlays a sampled normal-density curve.
+
+- **Quick API:** `bellCurve()`
+- **Mode:** `bell-curve`
+- **Portable mark:** `distribution`
+- **Required example fields:** `category`, `value`
+
+```js
+import { bellCurve } from 'graflume/complete';
+
+const data = [
+  {
+    category: 'P1',
+    value: 24,
+  },
+  {
+    category: 'P2',
+    value: 29.916,
+  },
+  {
+    category: 'P3',
+    value: 33.54,
+  },
+  {
+    category: 'P4',
+    value: 33.72,
+  },
+];
+
+bellCurve('#chart', data, {
+  x: {
+    field: 'category',
+    type: 'ordinal',
+    title: 'category',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Bell curve',
+    subtitle: 'histogram family · bell-curve mode',
+  },
+  accessibility: {
+    label: 'Bell curve example',
+    description: 'A compiled bell curve example using the histogram family.',
+  },
+});
+```
+
 <!-- FAMILY_PRESETS_END -->
+
 Use a histogram to inspect the distribution of one quantitative field.
 
 ## Implemented appearance

@@ -6,23 +6,165 @@
 
 This is the single manual for the `vector-field` family. Its canonical Quick API is `vectorField()` from `graflume/complete`, and its representative portable mark is `vector`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
 
-| Compatible name    | Quick API    | Mode        | Portable mark | Functional difference                                           |
-| ------------------ | ------------ | ----------- | ------------- | --------------------------------------------------------------- |
-| Vector field chart | `vector()`   | `vector`    | `vector`      | Draws direction and magnitude as arrow shafts and heads.        |
-| Wind barb chart    | `windBarb()` | `wind-barb` | `wind-barb`   | Converts speed and direction into meteorological barb feathers. |
+| Compatible name                       | Quick API    | Mode        | Portable mark | Functional difference                                           |
+| ------------------------------------- | ------------ | ----------- | ------------- | --------------------------------------------------------------- |
+| [Vector field chart](#variant-vector) | `vector()`   | `vector`    | `vector`      | Draws direction and magnitude as arrow shafts and heads.        |
+| [Wind barb chart](#variant-wind-barb) | `windBarb()` | `wind-barb` | `wind-barb`   | Converts speed and direction into meteorological barb feathers. |
 
-All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining manually maintained sections describe the canonical/default presentation unless a preset row above states a different behavior.
 
-<details>
-<summary>Open 2 compiled preset snapshots</summary>
+## Visual gallery
 
-| Preset             | Current compiled output                                                                             |
-| ------------------ | --------------------------------------------------------------------------------------------------- |
-| Vector field chart | [![Current Vector field chart output](../assets/charts/vector.svg)](../assets/charts/vector.svg)    |
-| Wind barb chart    | [![Current Wind barb chart output](../assets/charts/wind-barb.svg)](../assets/charts/wind-barb.svg) |
+Every image below is generated from the current compiled Scene rather than drawn by hand. Select a name to jump to its data fields and implementation.
 
-</details>
+|                                                                                                                                               |                                                                                                                                                  |
+| --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **[Vector field chart](#variant-vector)**<br>[![Current Vector field chart output](../assets/charts/vector.svg)](../assets/charts/vector.svg) | **[Wind barb chart](#variant-wind-barb)**<br>[![Current Wind barb chart output](../assets/charts/wind-barb.svg)](../assets/charts/wind-barb.svg) |
+
+## Type-by-type implementation
+
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+
+<a id="variant-vector"></a>
+
+### Vector field chart
+
+Use this preset when direction and magnitude must be read at each coordinate. Draws direction and magnitude as arrow shafts and heads.
+
+- **Quick API:** `vector()`
+- **Mode:** `vector`
+- **Portable mark:** `vector`
+- **Required example fields:** `value`, `high`, `direction`, `magnitude`
+
+```js
+import { vector } from 'graflume/complete';
+
+const data = [
+  {
+    value: 24,
+    high: 33,
+    direction: 0,
+    magnitude: 5,
+  },
+  {
+    value: 29.916,
+    high: 34.1,
+    direction: 37,
+    magnitude: 8,
+  },
+  {
+    value: 33.54,
+    high: 35.2,
+    direction: 74,
+    magnitude: 11,
+  },
+  {
+    value: 33.72,
+    high: 36.3,
+    direction: 111,
+    magnitude: 14,
+  },
+];
+
+vector('#chart', data, {
+  x: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  y: {
+    field: 'high',
+    type: 'quantitative',
+    title: 'high',
+  },
+  title: {
+    text: 'Vector field chart',
+    subtitle: 'vector-field family · vector mode',
+  },
+  accessibility: {
+    label: 'Vector field chart example',
+    description: 'A compiled vector field chart example using the vector-field family.',
+  },
+  mark: {
+    fields: {
+      direction: 'direction',
+      magnitude: 'magnitude',
+    },
+  },
+});
+```
+
+<a id="variant-wind-barb"></a>
+
+### Wind barb chart
+
+Use this preset when direction and magnitude must be read at each coordinate. Converts speed and direction into meteorological barb feathers.
+
+- **Quick API:** `windBarb()`
+- **Mode:** `wind-barb`
+- **Portable mark:** `wind-barb`
+- **Required example fields:** `value`, `high`, `speed`, `direction`
+
+```js
+import { windBarb } from 'graflume/complete';
+
+const data = [
+  {
+    value: 24,
+    high: 33,
+    speed: 10,
+    direction: 0,
+  },
+  {
+    value: 29.916,
+    high: 34.1,
+    speed: 13,
+    direction: 37,
+  },
+  {
+    value: 33.54,
+    high: 35.2,
+    speed: 16,
+    direction: 74,
+  },
+  {
+    value: 33.72,
+    high: 36.3,
+    speed: 19,
+    direction: 111,
+  },
+];
+
+windBarb('#chart', data, {
+  x: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  y: {
+    field: 'high',
+    type: 'quantitative',
+    title: 'high',
+  },
+  title: {
+    text: 'Wind barb chart',
+    subtitle: 'vector-field family · wind-barb mode',
+  },
+  accessibility: {
+    label: 'Wind barb chart example',
+    description: 'A compiled wind barb chart example using the vector-field family.',
+  },
+  mark: {
+    fields: {
+      speed: 'speed',
+      direction: 'direction',
+    },
+  },
+});
+```
+
 <!-- FAMILY_PRESETS_END -->
+
 ![Current Vector field chart output](../assets/charts/vector-field.svg)
 
 This page documents the currently implemented **Vector field chart** family in Graflume `0.1.0-alpha.0`. The image above is generated from the same compiled Scene used by the Canvas renderer.

@@ -6,25 +6,223 @@
 
 This is the single manual for the `annotation` family. Its canonical Quick API is `annotation()` from `graflume`, and its representative portable mark is `annotation`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
 
-| Compatible name    | Quick API             | Mode          | Portable mark | Functional difference                                                  |
-| ------------------ | --------------------- | ------------- | ------------- | ---------------------------------------------------------------------- |
-| Annotation chart   | `annotation()`        | `default`     | `annotation`  | The canonical annotated trend presentation.                            |
-| Annotated timeline | `annotatedTimeline()` | `timeline`    | `annotation`  | Uses the annotation family with the timeline compatibility name.       |
-| Event flags        | `eventFlags()`        | `event-flags` | `flags`       | Replaces long annotation pills with compact labels anchored to events. |
+| Compatible name                                   | Quick API             | Mode          | Portable mark | Functional difference                                                  |
+| ------------------------------------------------- | --------------------- | ------------- | ------------- | ---------------------------------------------------------------------- |
+| [Annotation chart](#variant-annotation)           | `annotation()`        | `default`     | `annotation`  | The canonical annotated trend presentation.                            |
+| [Annotated timeline](#variant-annotated-timeline) | `annotatedTimeline()` | `timeline`    | `annotation`  | Uses the annotation family with the timeline compatibility name.       |
+| [Event flags](#variant-event-flags)               | `eventFlags()`        | `event-flags` | `flags`       | Replaces long annotation pills with compact labels anchored to events. |
 
-All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining manually maintained sections describe the canonical/default presentation unless a preset row above states a different behavior.
 
-<details>
-<summary>Open 3 compiled preset snapshots</summary>
+## Visual gallery
 
-| Preset             | Current compiled output                                                                                                  |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| Annotation chart   | [![Current Annotation chart output](../assets/charts/annotation.svg)](../assets/charts/annotation.svg)                   |
-| Annotated timeline | [![Current Annotated timeline output](../assets/charts/annotated-timeline.svg)](../assets/charts/annotated-timeline.svg) |
-| Event flags        | [![Current Event flags output](../assets/charts/event-flags.svg)](../assets/charts/event-flags.svg)                      |
+Every image below is generated from the current compiled Scene rather than drawn by hand. Select a name to jump to its data fields and implementation.
 
-</details>
+|                                                                                                                                                       |                                                                                                                                                                                   |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **[Annotation chart](#variant-annotation)**<br>[![Current Annotation chart output](../assets/charts/annotation.svg)](../assets/charts/annotation.svg) | **[Annotated timeline](#variant-annotated-timeline)**<br>[![Current Annotated timeline output](../assets/charts/annotated-timeline.svg)](../assets/charts/annotated-timeline.svg) |
+| **[Event flags](#variant-event-flags)**<br>[![Current Event flags output](../assets/charts/event-flags.svg)](../assets/charts/event-flags.svg)        |                                                                                                                                                                                   |
+
+## Type-by-type implementation
+
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+
+<a id="variant-annotation"></a>
+
+### Annotation chart
+
+Use this preset when you need to place named events or notes on an ordered series. The canonical annotated trend presentation.
+
+- **Quick API:** `annotation()`
+- **Mode:** `default`
+- **Portable mark:** `annotation`
+- **Required example fields:** `date`, `value`, `annotation`
+
+```js
+import { annotation } from 'graflume';
+
+const data = [
+  {
+    date: '2026-01-01',
+    value: 22,
+    annotation: 'Launch',
+  },
+  {
+    date: '2026-02-01',
+    value: 31,
+    annotation: null,
+  },
+  {
+    date: '2026-03-01',
+    value: 27,
+    annotation: 'Campaign',
+  },
+  {
+    date: '2026-04-01',
+    value: 43,
+    annotation: null,
+  },
+];
+
+annotation('#chart', data, {
+  x: {
+    field: 'date',
+    type: 'temporal',
+    title: 'date',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Annotation chart',
+    subtitle: 'annotation family · default mode',
+  },
+  accessibility: {
+    label: 'Annotation chart example',
+    description: 'A compiled annotation chart example using the annotation family.',
+  },
+  mark: {
+    fields: {
+      annotation: 'annotation',
+    },
+    point: true,
+  },
+});
+```
+
+<a id="variant-annotated-timeline"></a>
+
+### Annotated timeline
+
+Use this preset when you need to place named events or notes on an ordered series. Uses the annotation family with the timeline compatibility name.
+
+- **Quick API:** `annotatedTimeline()`
+- **Mode:** `timeline`
+- **Portable mark:** `annotation`
+- **Required example fields:** `date`, `value`, `annotation`
+
+```js
+import { annotatedTimeline } from 'graflume';
+
+const data = [
+  {
+    date: '2026-01-01',
+    value: 22,
+    annotation: 'Launch',
+  },
+  {
+    date: '2026-02-01',
+    value: 31,
+    annotation: null,
+  },
+  {
+    date: '2026-03-01',
+    value: 27,
+    annotation: 'Campaign',
+  },
+  {
+    date: '2026-04-01',
+    value: 43,
+    annotation: null,
+  },
+];
+
+annotatedTimeline('#chart', data, {
+  x: {
+    field: 'date',
+    type: 'temporal',
+    title: 'date',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Annotated timeline',
+    subtitle: 'annotation family · timeline mode',
+  },
+  accessibility: {
+    label: 'Annotated timeline example',
+    description: 'A compiled annotated timeline example using the annotation family.',
+  },
+  mark: {
+    fields: {
+      annotation: 'annotation',
+    },
+    point: true,
+  },
+});
+```
+
+<a id="variant-event-flags"></a>
+
+### Event flags
+
+Use this preset when you need to place named events or notes on an ordered series. Replaces long annotation pills with compact labels anchored to events.
+
+- **Quick API:** `eventFlags()`
+- **Mode:** `event-flags`
+- **Portable mark:** `flags`
+- **Required example fields:** `date`, `value`, `title`
+
+```js
+import { eventFlags } from 'graflume/complete';
+
+const data = [
+  {
+    date: '2026-01-01',
+    value: 24,
+    title: 'A',
+  },
+  {
+    date: '2026-02-01',
+    value: 29.916,
+    title: 'B',
+  },
+  {
+    date: '2026-03-01',
+    value: 33.54,
+    title: 'C',
+  },
+  {
+    date: '2026-04-01',
+    value: 33.72,
+    title: 'D',
+  },
+];
+
+eventFlags('#chart', data, {
+  x: {
+    field: 'date',
+    type: 'temporal',
+    title: 'date',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Event flags',
+    subtitle: 'annotation family · event-flags mode',
+  },
+  accessibility: {
+    label: 'Event flags example',
+    description: 'A compiled event flags example using the annotation family.',
+  },
+  mark: {
+    fields: {
+      title: 'title',
+    },
+  },
+});
+```
+
 <!-- FAMILY_PRESETS_END -->
+
 Use an annotation chart when a time series must explain named events at specific dates.
 
 ## Implemented appearance

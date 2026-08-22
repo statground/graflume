@@ -6,21 +6,103 @@
 
 This is the single manual for the `motion` family. Its canonical Quick API is `motion()` from `graflume`, and its representative portable mark is `motion`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
 
-| Compatible name | Quick API  | Mode      | Portable mark | Functional difference                            |
-| --------------- | ---------- | --------- | ------------- | ------------------------------------------------ |
-| Motion chart    | `motion()` | `default` | `motion`      | Uses the canonical presentation for this family. |
+| Compatible name                 | Quick API  | Mode      | Portable mark | Functional difference                            |
+| ------------------------------- | ---------- | --------- | ------------- | ------------------------------------------------ |
+| [Motion chart](#variant-motion) | `motion()` | `default` | `motion`      | Uses the canonical presentation for this family. |
 
-All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining manually maintained sections describe the canonical/default presentation unless a preset row above states a different behavior.
 
-<details>
-<summary>Open 1 compiled preset snapshot</summary>
+## Visual gallery
 
-| Preset       | Current compiled output                                                                    |
-| ------------ | ------------------------------------------------------------------------------------------ |
-| Motion chart | [![Current Motion chart output](../assets/charts/motion.svg)](../assets/charts/motion.svg) |
+Every image below is generated from the current compiled Scene rather than drawn by hand. Select a name to jump to its data fields and implementation.
 
-</details>
+|                                                                                                                                   |     |
+| --------------------------------------------------------------------------------------------------------------------------------- | --- |
+| **[Motion chart](#variant-motion)**<br>[![Current Motion chart output](../assets/charts/motion.svg)](../assets/charts/motion.svg) |     |
+
+## Type-by-type implementation
+
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+
+<a id="variant-motion"></a>
+
+### Motion chart
+
+Use this preset when a frame-specific multivariate state must be shown from longitudinal data. Uses the canonical presentation for this family.
+
+- **Quick API:** `motion()`
+- **Mode:** `default`
+- **Portable mark:** `motion`
+- **Required example fields:** `x`, `y`, `size`, `group`, `time`
+
+```js
+import { motion } from 'graflume';
+
+const data = [
+  {
+    x: 12,
+    y: 42,
+    size: 20,
+    group: 'A',
+    time: '2025',
+  },
+  {
+    x: 19,
+    y: 46,
+    size: 20,
+    group: 'A',
+    time: '2026',
+  },
+  {
+    x: 24,
+    y: 55,
+    size: 85,
+    group: 'B',
+    time: '2025',
+  },
+  {
+    x: 32,
+    y: 59,
+    size: 85,
+    group: 'B',
+    time: '2026',
+  },
+];
+
+motion('#chart', data, {
+  x: {
+    field: 'x',
+    type: 'quantitative',
+    title: 'x',
+  },
+  y: {
+    field: 'y',
+    type: 'quantitative',
+    title: 'y',
+  },
+  title: {
+    text: 'Motion chart',
+    subtitle: 'motion family · default mode',
+  },
+  accessibility: {
+    label: 'Motion chart example',
+    description: 'A compiled motion chart example using the motion family.',
+  },
+  mark: {
+    fields: {
+      size: 'size',
+      color: 'group',
+      time: 'time',
+    },
+    options: {
+      frame: '2026',
+    },
+  },
+});
+```
+
 <!-- FAMILY_PRESETS_END -->
+
 Use the Motion compatibility type to render a chosen time frame as a bubble scene.
 
 ## Implemented appearance

@@ -6,23 +6,165 @@
 
 This is the single manual for the `combination` family. Its canonical Quick API is `combo()` from `graflume`, and its representative portable mark is `multiple`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
 
-| Compatible name | Quick API  | Mode      | Portable mark | Functional difference                                          |
-| --------------- | ---------- | --------- | ------------- | -------------------------------------------------------------- |
-| Combo chart     | `combo()`  | `default` | `multiple`    | Layers compatible marks on shared scales.                      |
-| Pareto chart    | `pareto()` | `pareto`  | `pareto`      | Combines descending columns with a cumulative percentage path. |
+| Compatible name                 | Quick API  | Mode      | Portable mark | Functional difference                                          |
+| ------------------------------- | ---------- | --------- | ------------- | -------------------------------------------------------------- |
+| [Combo chart](#variant-combo)   | `combo()`  | `default` | `multiple`    | Layers compatible marks on shared scales.                      |
+| [Pareto chart](#variant-pareto) | `pareto()` | `pareto`  | `pareto`      | Combines descending columns with a cumulative percentage path. |
 
-All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining manually maintained sections describe the canonical/default presentation unless a preset row above states a different behavior.
 
-<details>
-<summary>Open 2 compiled preset snapshots</summary>
+## Visual gallery
 
-| Preset       | Current compiled output                                                                             |
-| ------------ | --------------------------------------------------------------------------------------------------- |
-| Combo chart  | [![Current Combo chart output](../assets/charts/combination.svg)](../assets/charts/combination.svg) |
-| Pareto chart | [![Current Pareto chart output](../assets/charts/pareto.svg)](../assets/charts/pareto.svg)          |
+Every image below is generated from the current compiled Scene rather than drawn by hand. Select a name to jump to its data fields and implementation.
 
-</details>
+|                                                                                                                                          |                                                                                                                                   |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| **[Combo chart](#variant-combo)**<br>[![Current Combo chart output](../assets/charts/combination.svg)](../assets/charts/combination.svg) | **[Pareto chart](#variant-pareto)**<br>[![Current Pareto chart output](../assets/charts/pareto.svg)](../assets/charts/pareto.svg) |
+
+## Type-by-type implementation
+
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+
+<a id="variant-combo"></a>
+
+### Combo chart
+
+Use this preset when different marks must share one coordinate system. Layers compatible marks on shared scales.
+
+- **Quick API:** `combo()`
+- **Mode:** `default`
+- **Portable mark:** `multiple`
+- **Required example fields:** `category`, `target`, `value`
+
+```js
+import { combo } from 'graflume';
+
+const data = [
+  {
+    category: 'P1',
+    target: 29,
+    value: 24,
+  },
+  {
+    category: 'P2',
+    target: 30,
+    value: 29.916,
+  },
+  {
+    category: 'P3',
+    target: 31,
+    value: 33.54,
+  },
+  {
+    category: 'P4',
+    target: 32,
+    value: 33.72,
+  },
+];
+
+combo('#chart', data, {
+  layers: [
+    {
+      id: 'volume',
+      mark: {
+        type: 'bar',
+        fill: '#cbd5e1',
+        opacity: 0.72,
+      },
+      x: {
+        field: 'category',
+        type: 'ordinal',
+      },
+      y: {
+        field: 'target',
+        type: 'quantitative',
+      },
+    },
+    {
+      id: 'actual',
+      mark: {
+        type: 'line',
+        point: true,
+        stroke: '#e05260',
+      },
+      x: {
+        field: 'category',
+        type: 'ordinal',
+      },
+      y: {
+        field: 'value',
+        type: 'quantitative',
+      },
+    },
+  ],
+  title: {
+    text: 'Combo chart',
+    subtitle: 'combination family · default mode',
+  },
+  accessibility: {
+    label: 'Combo chart example',
+    description: 'A compiled combo chart example using the combination family.',
+  },
+});
+```
+
+<a id="variant-pareto"></a>
+
+### Pareto chart
+
+Use this preset when different marks must share one coordinate system. Combines descending columns with a cumulative percentage path.
+
+- **Quick API:** `pareto()`
+- **Mode:** `pareto`
+- **Portable mark:** `pareto`
+- **Required example fields:** `category`, `value`
+
+```js
+import { pareto } from 'graflume/complete';
+
+const data = [
+  {
+    category: 'P1',
+    value: 24,
+  },
+  {
+    category: 'P2',
+    value: 29.916,
+  },
+  {
+    category: 'P3',
+    value: 33.54,
+  },
+  {
+    category: 'P4',
+    value: 33.72,
+  },
+];
+
+pareto('#chart', data, {
+  x: {
+    field: 'category',
+    type: 'ordinal',
+    title: 'category',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Pareto chart',
+    subtitle: 'combination family · pareto mode',
+  },
+  accessibility: {
+    label: 'Pareto chart example',
+    description: 'A compiled pareto chart example using the combination family.',
+  },
+});
+```
+
 <!-- FAMILY_PRESETS_END -->
+
 Use a combination chart when two or more Cartesian mark layers should share a viewport and common scales. `combo()` is the Quick API for the same canonical `layers` contract accepted by `create()`.
 
 ## Implemented appearance

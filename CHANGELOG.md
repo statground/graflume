@@ -4,6 +4,7 @@ All notable changes to Graflume will be recorded here.
 
 ## Unreleased
 
+- Expand every consolidated family manual into a visible type gallery with stable per-preset anchors, selection guidance, required fields, and minimal runnable Quick API examples for all 139 family presets; give both declarative adapters the same treatment.
 - Merge 114 legacy name-by-name manuals into 37 representative family guides, with functional-difference tables, compiled preset galleries, one compatibility index, and a separate adapter reference.
 - Consolidate visually or semantically overlapping names into 37 distinct chart families while retaining all 141 historical names as compatible presets.
 - Add explicit family, variant, and mode metadata; resolve all 117 public series identifiers to both a canonical `familyId` and a preserved `variantId`.

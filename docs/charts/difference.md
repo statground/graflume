@@ -6,21 +6,91 @@
 
 This is the single manual for the `difference` family. Its canonical Quick API is `diff()` from `graflume`, and its representative portable mark is `diff`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
 
-| Compatible name | Quick API | Mode      | Portable mark | Functional difference                                |
-| --------------- | --------- | --------- | ------------- | ---------------------------------------------------- |
-| Diff chart      | `diff()`  | `default` | `diff`        | Overlays old and new values with a signed connector. |
+| Compatible name             | Quick API | Mode      | Portable mark | Functional difference                                |
+| --------------------------- | --------- | --------- | ------------- | ---------------------------------------------------- |
+| [Diff chart](#variant-diff) | `diff()`  | `default` | `diff`        | Overlays old and new values with a signed connector. |
 
-All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining manually maintained sections describe the canonical/default presentation unless a preset row above states a different behavior.
 
-<details>
-<summary>Open 1 compiled preset snapshot</summary>
+## Visual gallery
 
-| Preset     | Current compiled output                                                              |
-| ---------- | ------------------------------------------------------------------------------------ |
-| Diff chart | [![Current Diff chart output](../assets/charts/diff.svg)](../assets/charts/diff.svg) |
+Every image below is generated from the current compiled Scene rather than drawn by hand. Select a name to jump to its data fields and implementation.
 
-</details>
+|                                                                                                                         |     |
+| ----------------------------------------------------------------------------------------------------------------------- | --- |
+| **[Diff chart](#variant-diff)**<br>[![Current Diff chart output](../assets/charts/diff.svg)](../assets/charts/diff.svg) |     |
+
+## Type-by-type implementation
+
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+
+<a id="variant-diff"></a>
+
+### Diff chart
+
+Use this preset when old and new values need a direct signed comparison. Overlays old and new values with a signed connector.
+
+- **Quick API:** `diff()`
+- **Mode:** `default`
+- **Portable mark:** `diff`
+- **Required example fields:** `category`, `value`, `previous`
+
+```js
+import { diff } from 'graflume';
+
+const data = [
+  {
+    category: 'P1',
+    value: 24,
+    previous: 20,
+  },
+  {
+    category: 'P2',
+    value: 29.916,
+    previous: 20.8,
+  },
+  {
+    category: 'P3',
+    value: 33.54,
+    previous: 21.6,
+  },
+  {
+    category: 'P4',
+    value: 33.72,
+    previous: 22.4,
+  },
+];
+
+diff('#chart', data, {
+  x: {
+    field: 'category',
+    type: 'ordinal',
+    title: 'category',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Diff chart',
+    subtitle: 'difference family · default mode',
+  },
+  accessibility: {
+    label: 'Diff chart example',
+    description: 'A compiled diff chart example using the difference family.',
+  },
+  mark: {
+    fields: {
+      old: 'previous',
+      new: 'value',
+    },
+  },
+});
+```
+
 <!-- FAMILY_PRESETS_END -->
+
 ![Current Difference chart output](../assets/charts/difference.svg)
 
 This guide documents the consolidated **Difference chart** family. The image is generated from the actual compiled Scene used by the runtime renderer.

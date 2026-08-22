@@ -6,37 +6,574 @@
 
 This is the single manual for the `bar` family. Its canonical Quick API is `bar()` from `graflume`, and its representative portable mark is `bar`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
 
-| Compatible name             | Quick API           | Mode               | Portable mark   | Functional difference                                              |
-| --------------------------- | ------------------- | ------------------ | --------------- | ------------------------------------------------------------------ |
-| Bar chart                   | `horizontalBar()`   | `horizontal`       | `bar`           | Uses the canonical horizontal comparison orientation.              |
-| Column chart                | `column()`          | `vertical`         | `bar`           | Rotates the shared bar geometry into vertical columns.             |
-| Pictorial bar chart         | `pictorialBar()`    | `pictorial`        | `pictorial-bar` | Repeats symbols inside the shared categorical bar layout.          |
-| Bullet chart                | `bullet()`          | `bullet`           | `bullet`        | Adds qualitative ranges and a target rule around the observed bar. |
-| Column pyramid chart        | `columnPyramid()`   | `column-pyramid`   | `pyramid`       | Uses tapered vertical column bodies.                               |
-| Cylinder chart              | `cylinder()`        | `cylinder`         | `cylinder`      | Adds portable elliptical caps to a column body.                    |
-| Lollipop chart              | `lollipop()`        | `lollipop`         | `lollipop`      | Uses a baseline stem and emphasized endpoint.                      |
-| Pictorial column chart      | `pictorialColumn()` | `pictorial-column` | `pictorial-bar` | Uses repeated symbols in the vertical column orientation.          |
-| Variable width column chart | `variableWidth()`   | `variable-width`   | `variwide`      | Allocates category width from an additional quantitative field.    |
+| Compatible name                                        | Quick API           | Mode               | Portable mark   | Functional difference                                              |
+| ------------------------------------------------------ | ------------------- | ------------------ | --------------- | ------------------------------------------------------------------ |
+| [Bar chart](#variant-bar)                              | `horizontalBar()`   | `horizontal`       | `bar`           | Uses the canonical horizontal comparison orientation.              |
+| [Column chart](#variant-column)                        | `column()`          | `vertical`         | `bar`           | Rotates the shared bar geometry into vertical columns.             |
+| [Pictorial bar chart](#variant-pictorial-bar)          | `pictorialBar()`    | `pictorial`        | `pictorial-bar` | Repeats symbols inside the shared categorical bar layout.          |
+| [Bullet chart](#variant-bullet)                        | `bullet()`          | `bullet`           | `bullet`        | Adds qualitative ranges and a target rule around the observed bar. |
+| [Column pyramid chart](#variant-column-pyramid)        | `columnPyramid()`   | `column-pyramid`   | `pyramid`       | Uses tapered vertical column bodies.                               |
+| [Cylinder chart](#variant-cylinder)                    | `cylinder()`        | `cylinder`         | `cylinder`      | Adds portable elliptical caps to a column body.                    |
+| [Lollipop chart](#variant-lollipop)                    | `lollipop()`        | `lollipop`         | `lollipop`      | Uses a baseline stem and emphasized endpoint.                      |
+| [Pictorial column chart](#variant-pictorial-column)    | `pictorialColumn()` | `pictorial-column` | `pictorial-bar` | Uses repeated symbols in the vertical column orientation.          |
+| [Variable width column chart](#variant-variable-width) | `variableWidth()`   | `variable-width`   | `variwide`      | Allocates category width from an additional quantitative field.    |
 
-All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining manually maintained sections describe the canonical/default presentation unless a preset row above states a different behavior.
 
-<details>
-<summary>Open 9 compiled preset snapshots</summary>
+## Visual gallery
 
-| Preset                      | Current compiled output                                                                                                   |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Bar chart                   | [![Current Bar chart output](../assets/charts/bar.svg)](../assets/charts/bar.svg)                                         |
-| Column chart                | [![Current Column chart output](../assets/charts/column.svg)](../assets/charts/column.svg)                                |
-| Pictorial bar chart         | [![Current Pictorial bar chart output](../assets/charts/pictorial-bar.svg)](../assets/charts/pictorial-bar.svg)           |
-| Bullet chart                | [![Current Bullet chart output](../assets/charts/bullet.svg)](../assets/charts/bullet.svg)                                |
-| Column pyramid chart        | [![Current Column pyramid chart output](../assets/charts/column-pyramid.svg)](../assets/charts/column-pyramid.svg)        |
-| Cylinder chart              | [![Current Cylinder chart output](../assets/charts/cylinder.svg)](../assets/charts/cylinder.svg)                          |
-| Lollipop chart              | [![Current Lollipop chart output](../assets/charts/lollipop.svg)](../assets/charts/lollipop.svg)                          |
-| Pictorial column chart      | [![Current Pictorial column chart output](../assets/charts/pictorial-column.svg)](../assets/charts/pictorial-column.svg)  |
-| Variable width column chart | [![Current Variable width column chart output](../assets/charts/variable-width.svg)](../assets/charts/variable-width.svg) |
+Every image below is generated from the current compiled Scene rather than drawn by hand. Select a name to jump to its data fields and implementation.
 
-</details>
+|                                                                                                                                                                                         |                                                                                                                                                                                     |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **[Bar chart](#variant-bar)**<br>[![Current Bar chart output](../assets/charts/bar.svg)](../assets/charts/bar.svg)                                                                      | **[Column chart](#variant-column)**<br>[![Current Column chart output](../assets/charts/column.svg)](../assets/charts/column.svg)                                                   |
+| **[Pictorial bar chart](#variant-pictorial-bar)**<br>[![Current Pictorial bar chart output](../assets/charts/pictorial-bar.svg)](../assets/charts/pictorial-bar.svg)                    | **[Bullet chart](#variant-bullet)**<br>[![Current Bullet chart output](../assets/charts/bullet.svg)](../assets/charts/bullet.svg)                                                   |
+| **[Column pyramid chart](#variant-column-pyramid)**<br>[![Current Column pyramid chart output](../assets/charts/column-pyramid.svg)](../assets/charts/column-pyramid.svg)               | **[Cylinder chart](#variant-cylinder)**<br>[![Current Cylinder chart output](../assets/charts/cylinder.svg)](../assets/charts/cylinder.svg)                                         |
+| **[Lollipop chart](#variant-lollipop)**<br>[![Current Lollipop chart output](../assets/charts/lollipop.svg)](../assets/charts/lollipop.svg)                                             | **[Pictorial column chart](#variant-pictorial-column)**<br>[![Current Pictorial column chart output](../assets/charts/pictorial-column.svg)](../assets/charts/pictorial-column.svg) |
+| **[Variable width column chart](#variant-variable-width)**<br>[![Current Variable width column chart output](../assets/charts/variable-width.svg)](../assets/charts/variable-width.svg) |                                                                                                                                                                                     |
+
+## Type-by-type implementation
+
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+
+<a id="variant-bar"></a>
+
+### Bar chart
+
+Use this preset when you need to compare values across discrete categories. Uses the canonical horizontal comparison orientation.
+
+- **Quick API:** `horizontalBar()`
+- **Mode:** `horizontal`
+- **Portable mark:** `bar`
+- **Required example fields:** `category`, `value`
+
+```js
+import { horizontalBar } from 'graflume';
+
+const data = [
+  {
+    category: 'P1',
+    value: 24,
+  },
+  {
+    category: 'P2',
+    value: 29.916,
+  },
+  {
+    category: 'P3',
+    value: 33.54,
+  },
+  {
+    category: 'P4',
+    value: 33.72,
+  },
+];
+
+horizontalBar('#chart', data, {
+  x: {
+    field: 'category',
+    type: 'ordinal',
+    title: 'category',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Bar chart',
+    subtitle: 'bar family · horizontal mode',
+  },
+  accessibility: {
+    label: 'Bar chart example',
+    description: 'A compiled bar chart example using the bar family.',
+  },
+  mark: {
+    orientation: 'horizontal',
+    cornerRadius: 6,
+  },
+});
+```
+
+<a id="variant-column"></a>
+
+### Column chart
+
+Use this preset when you need to compare values across discrete categories. Rotates the shared bar geometry into vertical columns.
+
+- **Quick API:** `column()`
+- **Mode:** `vertical`
+- **Portable mark:** `bar`
+- **Required example fields:** `category`, `value`
+
+```js
+import { column } from 'graflume';
+
+const data = [
+  {
+    category: 'P1',
+    value: 24,
+  },
+  {
+    category: 'P2',
+    value: 29.916,
+  },
+  {
+    category: 'P3',
+    value: 33.54,
+  },
+  {
+    category: 'P4',
+    value: 33.72,
+  },
+];
+
+column('#chart', data, {
+  x: {
+    field: 'category',
+    type: 'ordinal',
+    title: 'category',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Column chart',
+    subtitle: 'bar family · vertical mode',
+  },
+  accessibility: {
+    label: 'Column chart example',
+    description: 'A compiled column chart example using the bar family.',
+  },
+  mark: {
+    orientation: 'vertical',
+    cornerRadius: 6,
+  },
+});
+```
+
+<a id="variant-pictorial-bar"></a>
+
+### Pictorial bar chart
+
+Use this preset when you need to compare values across discrete categories. Repeats symbols inside the shared categorical bar layout.
+
+- **Quick API:** `pictorialBar()`
+- **Mode:** `pictorial`
+- **Portable mark:** `pictorial-bar`
+- **Required example fields:** `category`, `value`
+
+```js
+import { pictorialBar } from 'graflume/complete';
+
+const data = [
+  {
+    category: 'P1',
+    value: 24,
+  },
+  {
+    category: 'P2',
+    value: 29.916,
+  },
+  {
+    category: 'P3',
+    value: 33.54,
+  },
+  {
+    category: 'P4',
+    value: 33.72,
+  },
+];
+
+pictorialBar('#chart', data, {
+  x: {
+    field: 'category',
+    type: 'ordinal',
+    title: 'category',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Pictorial bar chart',
+    subtitle: 'bar family · pictorial mode',
+  },
+  accessibility: {
+    label: 'Pictorial bar chart example',
+    description: 'A compiled pictorial bar chart example using the bar family.',
+  },
+  mark: {
+    options: {
+      symbol: 'diamond',
+    },
+  },
+});
+```
+
+<a id="variant-bullet"></a>
+
+### Bullet chart
+
+Use this preset when you need to compare values across discrete categories. Adds qualitative ranges and a target rule around the observed bar.
+
+- **Quick API:** `bullet()`
+- **Mode:** `bullet`
+- **Portable mark:** `bullet`
+- **Required example fields:** `category`, `value`, `target`
+
+```js
+import { bullet } from 'graflume/complete';
+
+const data = [
+  {
+    category: 'P1',
+    value: 24,
+    target: 29,
+  },
+  {
+    category: 'P2',
+    value: 29.916,
+    target: 30,
+  },
+  {
+    category: 'P3',
+    value: 33.54,
+    target: 31,
+  },
+  {
+    category: 'P4',
+    value: 33.72,
+    target: 32,
+  },
+];
+
+bullet('#chart', data, {
+  x: {
+    field: 'category',
+    type: 'ordinal',
+    title: 'category',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Bullet chart',
+    subtitle: 'bar family · bullet mode',
+  },
+  accessibility: {
+    label: 'Bullet chart example',
+    description: 'A compiled bullet chart example using the bar family.',
+  },
+  mark: {
+    fields: {
+      target: 'target',
+    },
+  },
+});
+```
+
+<a id="variant-column-pyramid"></a>
+
+### Column pyramid chart
+
+Use this preset when you need to compare values across discrete categories. Uses tapered vertical column bodies.
+
+- **Quick API:** `columnPyramid()`
+- **Mode:** `column-pyramid`
+- **Portable mark:** `pyramid`
+- **Required example fields:** `category`, `value`
+
+```js
+import { columnPyramid } from 'graflume/complete';
+
+const data = [
+  {
+    category: 'P1',
+    value: 24,
+  },
+  {
+    category: 'P2',
+    value: 29.916,
+  },
+  {
+    category: 'P3',
+    value: 33.54,
+  },
+  {
+    category: 'P4',
+    value: 33.72,
+  },
+];
+
+columnPyramid('#chart', data, {
+  x: {
+    field: 'category',
+    type: 'ordinal',
+    title: 'category',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Column pyramid chart',
+    subtitle: 'bar family · column-pyramid mode',
+  },
+  accessibility: {
+    label: 'Column pyramid chart example',
+    description: 'A compiled column pyramid chart example using the bar family.',
+  },
+  mark: {
+    options: {
+      variant: 'column-pyramid',
+    },
+  },
+});
+```
+
+<a id="variant-cylinder"></a>
+
+### Cylinder chart
+
+Use this preset when you need to compare values across discrete categories. Adds portable elliptical caps to a column body.
+
+- **Quick API:** `cylinder()`
+- **Mode:** `cylinder`
+- **Portable mark:** `cylinder`
+- **Required example fields:** `category`, `value`
+
+```js
+import { cylinder } from 'graflume/complete';
+
+const data = [
+  {
+    category: 'P1',
+    value: 24,
+  },
+  {
+    category: 'P2',
+    value: 29.916,
+  },
+  {
+    category: 'P3',
+    value: 33.54,
+  },
+  {
+    category: 'P4',
+    value: 33.72,
+  },
+];
+
+cylinder('#chart', data, {
+  x: {
+    field: 'category',
+    type: 'ordinal',
+    title: 'category',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Cylinder chart',
+    subtitle: 'bar family · cylinder mode',
+  },
+  accessibility: {
+    label: 'Cylinder chart example',
+    description: 'A compiled cylinder chart example using the bar family.',
+  },
+});
+```
+
+<a id="variant-lollipop"></a>
+
+### Lollipop chart
+
+Use this preset when you need to compare values across discrete categories. Uses a baseline stem and emphasized endpoint.
+
+- **Quick API:** `lollipop()`
+- **Mode:** `lollipop`
+- **Portable mark:** `lollipop`
+- **Required example fields:** `category`, `value`
+
+```js
+import { lollipop } from 'graflume/complete';
+
+const data = [
+  {
+    category: 'P1',
+    value: 24,
+  },
+  {
+    category: 'P2',
+    value: 29.916,
+  },
+  {
+    category: 'P3',
+    value: 33.54,
+  },
+  {
+    category: 'P4',
+    value: 33.72,
+  },
+];
+
+lollipop('#chart', data, {
+  x: {
+    field: 'category',
+    type: 'ordinal',
+    title: 'category',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Lollipop chart',
+    subtitle: 'bar family · lollipop mode',
+  },
+  accessibility: {
+    label: 'Lollipop chart example',
+    description: 'A compiled lollipop chart example using the bar family.',
+  },
+});
+```
+
+<a id="variant-pictorial-column"></a>
+
+### Pictorial column chart
+
+Use this preset when you need to compare values across discrete categories. Uses repeated symbols in the vertical column orientation.
+
+- **Quick API:** `pictorialColumn()`
+- **Mode:** `pictorial-column`
+- **Portable mark:** `pictorial-bar`
+- **Required example fields:** `category`, `value`
+
+```js
+import { pictorialColumn } from 'graflume/complete';
+
+const data = [
+  {
+    category: 'P1',
+    value: 24,
+  },
+  {
+    category: 'P2',
+    value: 29.916,
+  },
+  {
+    category: 'P3',
+    value: 33.54,
+  },
+  {
+    category: 'P4',
+    value: 33.72,
+  },
+];
+
+pictorialColumn('#chart', data, {
+  x: {
+    field: 'category',
+    type: 'ordinal',
+    title: 'category',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Pictorial column chart',
+    subtitle: 'bar family · pictorial-column mode',
+  },
+  accessibility: {
+    label: 'Pictorial column chart example',
+    description: 'A compiled pictorial column chart example using the bar family.',
+  },
+  mark: {
+    options: {
+      symbol: 'diamond',
+    },
+  },
+});
+```
+
+<a id="variant-variable-width"></a>
+
+### Variable width column chart
+
+Use this preset when you need to compare values across discrete categories. Allocates category width from an additional quantitative field.
+
+- **Quick API:** `variableWidth()`
+- **Mode:** `variable-width`
+- **Portable mark:** `variwide`
+- **Required example fields:** `category`, `value`, `width`
+
+```js
+import { variableWidth } from 'graflume/complete';
+
+const data = [
+  {
+    category: 'P1',
+    value: 24,
+    width: 3,
+  },
+  {
+    category: 'P2',
+    value: 29.916,
+    width: 4,
+  },
+  {
+    category: 'P3',
+    value: 33.54,
+    width: 5,
+  },
+  {
+    category: 'P4',
+    value: 33.72,
+    width: 6,
+  },
+];
+
+variableWidth('#chart', data, {
+  x: {
+    field: 'category',
+    type: 'ordinal',
+    title: 'category',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Variable width column chart',
+    subtitle: 'bar family · variable-width mode',
+  },
+  accessibility: {
+    label: 'Variable width column chart example',
+    description: 'A compiled variable width column chart example using the bar family.',
+  },
+  mark: {
+    fields: {
+      width: 'width',
+    },
+  },
+});
+```
+
 <!-- FAMILY_PRESETS_END -->
+
 Use a bar chart to compare quantitative values across discrete categories. In the explicit orientation APIs, `horizontalBar()` renders horizontal bars and `column()` renders vertical columns. The original `bar()` API remains a backward-compatible vertical alias.
 
 ## Implemented appearance

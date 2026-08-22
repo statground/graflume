@@ -6,29 +6,419 @@
 
 This is the single manual for the `candlestick` family. Its canonical Quick API is `candlestick()` from `graflume`, and its representative portable mark is `candlestick`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
 
-| Compatible name           | Quick API             | Mode                  | Portable mark | Functional difference                                          |
-| ------------------------- | --------------------- | --------------------- | ------------- | -------------------------------------------------------------- |
-| Candlestick chart         | `candlestick()`       | `default`             | `candlestick` | Uses conventional open-high-low-close bodies and wicks.        |
-| Heikin-Ashi chart         | `heikinAshi()`        | `heikin-ashi`         | `financial`   | Uses derived Heikin-Ashi open and close values.                |
-| High-low-close chart      | `highLowClose()`      | `high-low-close`      | `financial`   | Shows high-low stems plus the close tick without an open tick. |
-| Hollow candlestick chart  | `hollowCandlestick()` | `hollow-candlestick`  | `financial`   | Uses hollow and filled bodies to distinguish direction.        |
-| Open-high-low-close chart | `openHighLowClose()`  | `open-high-low-close` | `financial`   | Shows open and close ticks on a high-low stem.                 |
+| Compatible name                                           | Quick API             | Mode                  | Portable mark | Functional difference                                          |
+| --------------------------------------------------------- | --------------------- | --------------------- | ------------- | -------------------------------------------------------------- |
+| [Candlestick chart](#variant-candlestick)                 | `candlestick()`       | `default`             | `candlestick` | Uses conventional open-high-low-close bodies and wicks.        |
+| [Heikin-Ashi chart](#variant-heikin-ashi)                 | `heikinAshi()`        | `heikin-ashi`         | `financial`   | Uses derived Heikin-Ashi open and close values.                |
+| [High-low-close chart](#variant-high-low-close)           | `highLowClose()`      | `high-low-close`      | `financial`   | Shows high-low stems plus the close tick without an open tick. |
+| [Hollow candlestick chart](#variant-hollow-candlestick)   | `hollowCandlestick()` | `hollow-candlestick`  | `financial`   | Uses hollow and filled bodies to distinguish direction.        |
+| [Open-high-low-close chart](#variant-open-high-low-close) | `openHighLowClose()`  | `open-high-low-close` | `financial`   | Shows open and close ticks on a high-low stem.                 |
 
-All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining manually maintained sections describe the canonical/default presentation unless a preset row above states a different behavior.
 
-<details>
-<summary>Open 5 compiled preset snapshots</summary>
+## Visual gallery
 
-| Preset                    | Current compiled output                                                                                                           |
-| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Candlestick chart         | [![Current Candlestick chart output](../assets/charts/candlestick.svg)](../assets/charts/candlestick.svg)                         |
-| Heikin-Ashi chart         | [![Current Heikin-Ashi chart output](../assets/charts/heikin-ashi.svg)](../assets/charts/heikin-ashi.svg)                         |
-| High-low-close chart      | [![Current High-low-close chart output](../assets/charts/high-low-close.svg)](../assets/charts/high-low-close.svg)                |
-| Hollow candlestick chart  | [![Current Hollow candlestick chart output](../assets/charts/hollow-candlestick.svg)](../assets/charts/hollow-candlestick.svg)    |
-| Open-high-low-close chart | [![Current Open-high-low-close chart output](../assets/charts/open-high-low-close.svg)](../assets/charts/open-high-low-close.svg) |
+Every image below is generated from the current compiled Scene rather than drawn by hand. Select a name to jump to its data fields and implementation.
 
-</details>
+|                                                                                                                                                                                                    |                                                                                                                                                                                               |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **[Candlestick chart](#variant-candlestick)**<br>[![Current Candlestick chart output](../assets/charts/candlestick.svg)](../assets/charts/candlestick.svg)                                         | **[Heikin-Ashi chart](#variant-heikin-ashi)**<br>[![Current Heikin-Ashi chart output](../assets/charts/heikin-ashi.svg)](../assets/charts/heikin-ashi.svg)                                    |
+| **[High-low-close chart](#variant-high-low-close)**<br>[![Current High-low-close chart output](../assets/charts/high-low-close.svg)](../assets/charts/high-low-close.svg)                          | **[Hollow candlestick chart](#variant-hollow-candlestick)**<br>[![Current Hollow candlestick chart output](../assets/charts/hollow-candlestick.svg)](../assets/charts/hollow-candlestick.svg) |
+| **[Open-high-low-close chart](#variant-open-high-low-close)**<br>[![Current Open-high-low-close chart output](../assets/charts/open-high-low-close.svg)](../assets/charts/open-high-low-close.svg) |                                                                                                                                                                                               |
+
+## Type-by-type implementation
+
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+
+<a id="variant-candlestick"></a>
+
+### Candlestick chart
+
+Use this preset when open, high, low, and close values must remain visually distinct. Uses conventional open-high-low-close bodies and wicks.
+
+- **Quick API:** `candlestick()`
+- **Mode:** `default`
+- **Portable mark:** `candlestick`
+- **Required example fields:** `date`, `close`, `open`, `high`, `low`
+
+```js
+import { candlestick } from 'graflume';
+
+const data = [
+  {
+    date: '2026-01-01',
+    close: 25,
+    open: 22,
+    high: 33,
+    low: 14,
+  },
+  {
+    date: '2026-02-01',
+    close: 22,
+    open: 23,
+    high: 34.1,
+    low: 14.8,
+  },
+  {
+    date: '2026-03-01',
+    close: 27,
+    open: 24,
+    high: 35.2,
+    low: 15.6,
+  },
+  {
+    date: '2026-04-01',
+    close: 24,
+    open: 25,
+    high: 36.3,
+    low: 16.4,
+  },
+];
+
+candlestick('#chart', data, {
+  x: {
+    field: 'date',
+    type: 'temporal',
+    title: 'date',
+  },
+  y: {
+    field: 'close',
+    type: 'quantitative',
+    title: 'close',
+  },
+  title: {
+    text: 'Candlestick chart',
+    subtitle: 'candlestick family · default mode',
+  },
+  accessibility: {
+    label: 'Candlestick chart example',
+    description: 'A compiled candlestick chart example using the candlestick family.',
+  },
+  mark: {
+    fields: {
+      open: 'open',
+      high: 'high',
+      low: 'low',
+      close: 'close',
+    },
+  },
+});
+```
+
+<a id="variant-heikin-ashi"></a>
+
+### Heikin-Ashi chart
+
+Use this preset when open, high, low, and close values must remain visually distinct. Uses derived Heikin-Ashi open and close values.
+
+- **Quick API:** `heikinAshi()`
+- **Mode:** `heikin-ashi`
+- **Portable mark:** `financial`
+- **Required example fields:** `date`, `close`, `open`, `high`, `low`
+
+```js
+import { heikinAshi } from 'graflume/complete';
+
+const data = [
+  {
+    date: '2026-01-01',
+    close: 25,
+    open: 22,
+    high: 33,
+    low: 14,
+  },
+  {
+    date: '2026-02-01',
+    close: 22,
+    open: 23,
+    high: 34.1,
+    low: 14.8,
+  },
+  {
+    date: '2026-03-01',
+    close: 27,
+    open: 24,
+    high: 35.2,
+    low: 15.6,
+  },
+  {
+    date: '2026-04-01',
+    close: 24,
+    open: 25,
+    high: 36.3,
+    low: 16.4,
+  },
+];
+
+heikinAshi('#chart', data, {
+  x: {
+    field: 'date',
+    type: 'temporal',
+    title: 'date',
+  },
+  y: {
+    field: 'close',
+    type: 'quantitative',
+    title: 'close',
+  },
+  title: {
+    text: 'Heikin-Ashi chart',
+    subtitle: 'candlestick family · heikin-ashi mode',
+  },
+  accessibility: {
+    label: 'Heikin-Ashi chart example',
+    description: 'A compiled heikin-ashi chart example using the candlestick family.',
+  },
+  mark: {
+    fields: {
+      open: 'open',
+      high: 'high',
+      low: 'low',
+      close: 'close',
+    },
+    options: {
+      kind: 'heikin-ashi',
+    },
+  },
+});
+```
+
+<a id="variant-high-low-close"></a>
+
+### High-low-close chart
+
+Use this preset when open, high, low, and close values must remain visually distinct. Shows high-low stems plus the close tick without an open tick.
+
+- **Quick API:** `highLowClose()`
+- **Mode:** `high-low-close`
+- **Portable mark:** `financial`
+- **Required example fields:** `date`, `close`, `open`, `high`, `low`
+
+```js
+import { highLowClose } from 'graflume/complete';
+
+const data = [
+  {
+    date: '2026-01-01',
+    close: 25,
+    open: 22,
+    high: 33,
+    low: 14,
+  },
+  {
+    date: '2026-02-01',
+    close: 22,
+    open: 23,
+    high: 34.1,
+    low: 14.8,
+  },
+  {
+    date: '2026-03-01',
+    close: 27,
+    open: 24,
+    high: 35.2,
+    low: 15.6,
+  },
+  {
+    date: '2026-04-01',
+    close: 24,
+    open: 25,
+    high: 36.3,
+    low: 16.4,
+  },
+];
+
+highLowClose('#chart', data, {
+  x: {
+    field: 'date',
+    type: 'temporal',
+    title: 'date',
+  },
+  y: {
+    field: 'close',
+    type: 'quantitative',
+    title: 'close',
+  },
+  title: {
+    text: 'High-low-close chart',
+    subtitle: 'candlestick family · high-low-close mode',
+  },
+  accessibility: {
+    label: 'High-low-close chart example',
+    description: 'A compiled high-low-close chart example using the candlestick family.',
+  },
+  mark: {
+    fields: {
+      open: 'open',
+      high: 'high',
+      low: 'low',
+      close: 'close',
+    },
+    options: {
+      kind: 'high-low-close',
+    },
+  },
+});
+```
+
+<a id="variant-hollow-candlestick"></a>
+
+### Hollow candlestick chart
+
+Use this preset when open, high, low, and close values must remain visually distinct. Uses hollow and filled bodies to distinguish direction.
+
+- **Quick API:** `hollowCandlestick()`
+- **Mode:** `hollow-candlestick`
+- **Portable mark:** `financial`
+- **Required example fields:** `date`, `close`, `open`, `high`, `low`
+
+```js
+import { hollowCandlestick } from 'graflume/complete';
+
+const data = [
+  {
+    date: '2026-01-01',
+    close: 25,
+    open: 22,
+    high: 33,
+    low: 14,
+  },
+  {
+    date: '2026-02-01',
+    close: 22,
+    open: 23,
+    high: 34.1,
+    low: 14.8,
+  },
+  {
+    date: '2026-03-01',
+    close: 27,
+    open: 24,
+    high: 35.2,
+    low: 15.6,
+  },
+  {
+    date: '2026-04-01',
+    close: 24,
+    open: 25,
+    high: 36.3,
+    low: 16.4,
+  },
+];
+
+hollowCandlestick('#chart', data, {
+  x: {
+    field: 'date',
+    type: 'temporal',
+    title: 'date',
+  },
+  y: {
+    field: 'close',
+    type: 'quantitative',
+    title: 'close',
+  },
+  title: {
+    text: 'Hollow candlestick chart',
+    subtitle: 'candlestick family · hollow-candlestick mode',
+  },
+  accessibility: {
+    label: 'Hollow candlestick chart example',
+    description: 'A compiled hollow candlestick chart example using the candlestick family.',
+  },
+  mark: {
+    fields: {
+      open: 'open',
+      high: 'high',
+      low: 'low',
+      close: 'close',
+    },
+    options: {
+      kind: 'hollow-candlestick',
+    },
+  },
+});
+```
+
+<a id="variant-open-high-low-close"></a>
+
+### Open-high-low-close chart
+
+Use this preset when open, high, low, and close values must remain visually distinct. Shows open and close ticks on a high-low stem.
+
+- **Quick API:** `openHighLowClose()`
+- **Mode:** `open-high-low-close`
+- **Portable mark:** `financial`
+- **Required example fields:** `date`, `close`, `open`, `high`, `low`
+
+```js
+import { openHighLowClose } from 'graflume/complete';
+
+const data = [
+  {
+    date: '2026-01-01',
+    close: 25,
+    open: 22,
+    high: 33,
+    low: 14,
+  },
+  {
+    date: '2026-02-01',
+    close: 22,
+    open: 23,
+    high: 34.1,
+    low: 14.8,
+  },
+  {
+    date: '2026-03-01',
+    close: 27,
+    open: 24,
+    high: 35.2,
+    low: 15.6,
+  },
+  {
+    date: '2026-04-01',
+    close: 24,
+    open: 25,
+    high: 36.3,
+    low: 16.4,
+  },
+];
+
+openHighLowClose('#chart', data, {
+  x: {
+    field: 'date',
+    type: 'temporal',
+    title: 'date',
+  },
+  y: {
+    field: 'close',
+    type: 'quantitative',
+    title: 'close',
+  },
+  title: {
+    text: 'Open-high-low-close chart',
+    subtitle: 'candlestick family · open-high-low-close mode',
+  },
+  accessibility: {
+    label: 'Open-high-low-close chart example',
+    description: 'A compiled open-high-low-close chart example using the candlestick family.',
+  },
+  mark: {
+    fields: {
+      open: 'open',
+      high: 'high',
+      low: 'low',
+      close: 'close',
+    },
+    options: {
+      kind: 'open-high-low-close',
+    },
+  },
+});
+```
+
 <!-- FAMILY_PRESETS_END -->
+
 Use a candlestick chart for ordered open-high-low-close observations.
 
 ## Implemented appearance

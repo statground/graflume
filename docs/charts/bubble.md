@@ -6,23 +6,155 @@
 
 This is the single manual for the `bubble` family. Its canonical Quick API is `bubble()` from `graflume`, and its representative portable mark is `bubble`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
 
-| Compatible name     | Quick API        | Mode            | Portable mark   | Functional difference                                       |
-| ------------------- | ---------------- | --------------- | --------------- | ----------------------------------------------------------- |
-| Bubble chart        | `bubble()`       | `default`       | `bubble`        | Positions magnitude-scaled circles on coordinates.          |
-| Packed bubble chart | `packedBubble()` | `packed-bubble` | `packed-bubble` | Uses deterministic collision-aware packing instead of axes. |
+| Compatible name                               | Quick API        | Mode            | Portable mark   | Functional difference                                       |
+| --------------------------------------------- | ---------------- | --------------- | --------------- | ----------------------------------------------------------- |
+| [Bubble chart](#variant-bubble)               | `bubble()`       | `default`       | `bubble`        | Positions magnitude-scaled circles on coordinates.          |
+| [Packed bubble chart](#variant-packed-bubble) | `packedBubble()` | `packed-bubble` | `packed-bubble` | Uses deterministic collision-aware packing instead of axes. |
 
-All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining manually maintained sections describe the canonical/default presentation unless a preset row above states a different behavior.
 
-<details>
-<summary>Open 2 compiled preset snapshots</summary>
+## Visual gallery
 
-| Preset              | Current compiled output                                                                                         |
-| ------------------- | --------------------------------------------------------------------------------------------------------------- |
-| Bubble chart        | [![Current Bubble chart output](../assets/charts/bubble.svg)](../assets/charts/bubble.svg)                      |
-| Packed bubble chart | [![Current Packed bubble chart output](../assets/charts/packed-bubble.svg)](../assets/charts/packed-bubble.svg) |
+Every image below is generated from the current compiled Scene rather than drawn by hand. Select a name to jump to its data fields and implementation.
 
-</details>
+|                                                                                                                                   |                                                                                                                                                                      |
+| --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **[Bubble chart](#variant-bubble)**<br>[![Current Bubble chart output](../assets/charts/bubble.svg)](../assets/charts/bubble.svg) | **[Packed bubble chart](#variant-packed-bubble)**<br>[![Current Packed bubble chart output](../assets/charts/packed-bubble.svg)](../assets/charts/packed-bubble.svg) |
+
+## Type-by-type implementation
+
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+
+<a id="variant-bubble"></a>
+
+### Bubble chart
+
+Use this preset when position and an additional magnitude channel must be read together. Positions magnitude-scaled circles on coordinates.
+
+- **Quick API:** `bubble()`
+- **Mode:** `default`
+- **Portable mark:** `bubble`
+- **Required example fields:** `x`, `y`, `size`, `group`
+
+```js
+import { bubble } from 'graflume';
+
+const data = [
+  {
+    x: 12,
+    y: 42,
+    size: 20,
+    group: 'A',
+  },
+  {
+    x: 24,
+    y: 55,
+    size: 85,
+    group: 'B',
+  },
+  {
+    x: 38,
+    y: 33,
+    size: 55,
+    group: 'A',
+  },
+  {
+    x: 51,
+    y: 68,
+    size: 120,
+    group: 'C',
+  },
+];
+
+bubble('#chart', data, {
+  x: {
+    field: 'x',
+    type: 'quantitative',
+    title: 'x',
+  },
+  y: {
+    field: 'y',
+    type: 'quantitative',
+    title: 'y',
+  },
+  title: {
+    text: 'Bubble chart',
+    subtitle: 'bubble family · default mode',
+  },
+  accessibility: {
+    label: 'Bubble chart example',
+    description: 'A compiled bubble chart example using the bubble family.',
+  },
+  mark: {
+    fields: {
+      size: 'size',
+      color: 'group',
+    },
+  },
+});
+```
+
+<a id="variant-packed-bubble"></a>
+
+### Packed bubble chart
+
+Use this preset when position and an additional magnitude channel must be read together. Uses deterministic collision-aware packing instead of axes.
+
+- **Quick API:** `packedBubble()`
+- **Mode:** `packed-bubble`
+- **Portable mark:** `packed-bubble`
+- **Required example fields:** `category`, `value`
+
+```js
+import { packedBubble } from 'graflume/complete';
+
+const data = [
+  {
+    category: 'P1',
+    value: 24,
+  },
+  {
+    category: 'P2',
+    value: 29.916,
+  },
+  {
+    category: 'P3',
+    value: 33.54,
+  },
+  {
+    category: 'P4',
+    value: 33.72,
+  },
+];
+
+packedBubble('#chart', data, {
+  x: {
+    field: 'category',
+    type: 'ordinal',
+    title: 'category',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Packed bubble chart',
+    subtitle: 'bubble family · packed-bubble mode',
+  },
+  accessibility: {
+    label: 'Packed bubble chart example',
+    description: 'A compiled packed bubble chart example using the bubble family.',
+  },
+  axes: {
+    x: false,
+    y: false,
+  },
+});
+```
+
 <!-- FAMILY_PRESETS_END -->
+
 Use a bubble chart to compare two quantitative positions plus magnitude and an optional category.
 
 ## Implemented appearance

@@ -6,21 +6,81 @@
 
 This is the single manual for the `calendar` family. Its canonical Quick API is `calendar()` from `graflume`, and its representative portable mark is `calendar`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
 
-| Compatible name | Quick API    | Mode      | Portable mark | Functional difference                            |
-| --------------- | ------------ | --------- | ------------- | ------------------------------------------------ |
-| Calendar chart  | `calendar()` | `default` | `calendar`    | Uses the canonical presentation for this family. |
+| Compatible name                     | Quick API    | Mode      | Portable mark | Functional difference                            |
+| ----------------------------------- | ------------ | --------- | ------------- | ------------------------------------------------ |
+| [Calendar chart](#variant-calendar) | `calendar()` | `default` | `calendar`    | Uses the canonical presentation for this family. |
 
-All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining manually maintained sections describe the canonical/default presentation unless a preset row above states a different behavior.
 
-<details>
-<summary>Open 1 compiled preset snapshot</summary>
+## Visual gallery
 
-| Preset         | Current compiled output                                                                          |
-| -------------- | ------------------------------------------------------------------------------------------------ |
-| Calendar chart | [![Current Calendar chart output](../assets/charts/calendar.svg)](../assets/charts/calendar.svg) |
+Every image below is generated from the current compiled Scene rather than drawn by hand. Select a name to jump to its data fields and implementation.
 
-</details>
+|                                                                                                                                             |     |
+| ------------------------------------------------------------------------------------------------------------------------------------------- | --- |
+| **[Calendar chart](#variant-calendar)**<br>[![Current Calendar chart output](../assets/charts/calendar.svg)](../assets/charts/calendar.svg) |     |
+
+## Type-by-type implementation
+
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+
+<a id="variant-calendar"></a>
+
+### Calendar chart
+
+Use this preset when daily values need to be scanned in calendar order. Uses the canonical presentation for this family.
+
+- **Quick API:** `calendar()`
+- **Mode:** `default`
+- **Portable mark:** `calendar`
+- **Required example fields:** `date`, `value`
+
+```js
+import { calendar } from 'graflume';
+
+const data = [
+  {
+    date: '2026-01-01',
+    value: 0,
+  },
+  {
+    date: '2026-01-02',
+    value: 13,
+  },
+  {
+    date: '2026-01-03',
+    value: 26,
+  },
+  {
+    date: '2026-01-04',
+    value: 39,
+  },
+];
+
+calendar('#chart', data, {
+  x: {
+    field: 'date',
+    type: 'temporal',
+    title: 'date',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Calendar chart',
+    subtitle: 'calendar family · default mode',
+  },
+  accessibility: {
+    label: 'Calendar chart example',
+    description: 'A compiled calendar chart example using the calendar family.',
+  },
+});
+```
+
 <!-- FAMILY_PRESETS_END -->
+
 Use a calendar chart to reveal daily intensity, seasonality, and gaps.
 
 ## Implemented appearance

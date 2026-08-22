@@ -6,23 +6,153 @@
 
 This is the single manual for the `gauge` family. Its canonical Quick API is `gauge()` from `graflume`, and its representative portable mark is `gauge`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
 
-| Compatible name | Quick API      | Mode          | Portable mark | Functional difference                         |
-| --------------- | -------------- | ------------- | ------------- | --------------------------------------------- |
-| Gauge chart     | `gauge()`      | `default`     | `gauge`       | Uses a dial, reference ticks, and needle.     |
-| Solid gauge     | `solidGauge()` | `solid-gauge` | `solid-gauge` | Uses concentric filled arcs without a needle. |
+| Compatible name                     | Quick API      | Mode          | Portable mark | Functional difference                         |
+| ----------------------------------- | -------------- | ------------- | ------------- | --------------------------------------------- |
+| [Gauge chart](#variant-gauge)       | `gauge()`      | `default`     | `gauge`       | Uses a dial, reference ticks, and needle.     |
+| [Solid gauge](#variant-solid-gauge) | `solidGauge()` | `solid-gauge` | `solid-gauge` | Uses concentric filled arcs without a needle. |
 
-All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining manually maintained sections describe the canonical/default presentation unless a preset row above states a different behavior.
 
-<details>
-<summary>Open 2 compiled preset snapshots</summary>
+## Visual gallery
 
-| Preset      | Current compiled output                                                                             |
-| ----------- | --------------------------------------------------------------------------------------------------- |
-| Gauge chart | [![Current Gauge chart output](../assets/charts/gauge.svg)](../assets/charts/gauge.svg)             |
-| Solid gauge | [![Current Solid gauge output](../assets/charts/solid-gauge.svg)](../assets/charts/solid-gauge.svg) |
+Every image below is generated from the current compiled Scene rather than drawn by hand. Select a name to jump to its data fields and implementation.
 
-</details>
+|                                                                                                                              |                                                                                                                                                |
+| ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| **[Gauge chart](#variant-gauge)**<br>[![Current Gauge chart output](../assets/charts/gauge.svg)](../assets/charts/gauge.svg) | **[Solid gauge](#variant-solid-gauge)**<br>[![Current Solid gauge output](../assets/charts/solid-gauge.svg)](../assets/charts/solid-gauge.svg) |
+
+## Type-by-type implementation
+
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+
+<a id="variant-gauge"></a>
+
+### Gauge chart
+
+Use this preset when a small set of current values must be judged against a known range. Uses a dial, reference ticks, and needle.
+
+- **Quick API:** `gauge()`
+- **Mode:** `default`
+- **Portable mark:** `gauge`
+- **Required example fields:** `category`, `value`
+
+```js
+import { gauge } from 'graflume';
+
+const data = [
+  {
+    category: 'Search',
+    value: 46,
+  },
+  {
+    category: 'Direct',
+    value: 28,
+  },
+  {
+    category: 'Social',
+    value: 17,
+  },
+  {
+    category: 'Other',
+    value: 9,
+  },
+];
+
+gauge('#chart', data, {
+  x: {
+    field: 'category',
+    type: 'ordinal',
+    title: 'category',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Gauge chart',
+    subtitle: 'gauge family · default mode',
+  },
+  accessibility: {
+    label: 'Gauge chart example',
+    description: 'A compiled gauge chart example using the gauge family.',
+  },
+  mark: {
+    options: {
+      min: 0,
+      max: 100,
+    },
+  },
+});
+```
+
+<a id="variant-solid-gauge"></a>
+
+### Solid gauge
+
+Use this preset when a small set of current values must be judged against a known range. Uses concentric filled arcs without a needle.
+
+- **Quick API:** `solidGauge()`
+- **Mode:** `solid-gauge`
+- **Portable mark:** `solid-gauge`
+- **Required example fields:** `category`, `value`
+
+```js
+import { solidGauge } from 'graflume/complete';
+
+const data = [
+  {
+    category: 'P1',
+    value: 24,
+  },
+  {
+    category: 'P2',
+    value: 29.916,
+  },
+  {
+    category: 'P3',
+    value: 33.54,
+  },
+  {
+    category: 'P4',
+    value: 33.72,
+  },
+];
+
+solidGauge('#chart', data, {
+  x: {
+    field: 'category',
+    type: 'ordinal',
+    title: 'category',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Solid gauge',
+    subtitle: 'gauge family · solid-gauge mode',
+  },
+  accessibility: {
+    label: 'Solid gauge example',
+    description: 'A compiled solid gauge example using the gauge family.',
+  },
+  axes: {
+    x: false,
+    y: false,
+  },
+  mark: {
+    options: {
+      min: 0,
+      max: 100,
+    },
+  },
+});
+```
+
 <!-- FAMILY_PRESETS_END -->
+
 Use gauges for a few current values against a common bounded range.
 
 ## Implemented appearance
