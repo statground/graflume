@@ -2560,16 +2560,17 @@ var Graflume = (function (exports) {
         }
         return nodes;
     };
-    function cellSpan(positions, fallback) {
+    function heatmapCellSpan(positions, fallback, gap) {
         const sorted = [...new Set(positions.filter(Number.isFinite))].sort((left, right) => left - right);
         let minimum = Number.POSITIVE_INFINITY;
         for (let index = 1; index < sorted.length; index += 1) {
             minimum = Math.min(minimum, (sorted[index] ?? 0) - (sorted[index - 1] ?? 0));
         }
-        return Number.isFinite(minimum) ? Math.max(3, minimum * 0.86) : fallback;
+        const span = Number.isFinite(minimum) ? minimum : fallback;
+        return Math.max(1, span - Math.min(gap, Math.max(0, span - 1)));
     }
     const compileHeatmapMark = (context) => {
-        const { layer, table, xScale, yScale, theme } = context;
+        const { layer, table, plot, xScale, yScale, theme } = context;
         const valueField = layer.mark.fields.value ?? 'value';
         if (!table.has(valueField))
             return [];
@@ -2590,8 +2591,11 @@ var Graflume = (function (exports) {
             return [];
         const min = Math.min(...values);
         const max = Math.max(...values);
-        const cellWidth = xScale instanceof BandScale ? xScale.bandwidth * 0.92 : cellSpan(xPositions, 18);
-        const cellHeight = yScale instanceof BandScale ? yScale.bandwidth * 0.92 : cellSpan(yPositions, 18);
+        const cellGap = clamp$1(finiteOption(layer.mark.options.cellGap, 1), 0, 24);
+        const xCellPositions = xScale instanceof BandScale ? xScale.domain().map((value) => xScale.map(value)) : xPositions;
+        const yCellPositions = yScale instanceof BandScale ? yScale.domain().map((value) => yScale.map(value)) : yPositions;
+        const cellWidth = heatmapCellSpan(xCellPositions, xScale instanceof BandScale ? plot.width / Math.max(1, xScale.domain().length) : 18, cellGap);
+        const cellHeight = heatmapCellSpan(yCellPositions, yScale instanceof BandScale ? plot.height / Math.max(1, yScale.domain().length) : 18, cellGap);
         const nodes = [];
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
             const value = numericDataValue(table.value(rowIndex, valueField));
@@ -2616,7 +2620,7 @@ var Graflume = (function (exports) {
                 fill: color,
                 stroke: layer.mark.stroke ?? theme.colors.background,
                 lineWidth: layer.mark.lineWidth ?? 1,
-                cornerRadius: layer.mark.cornerRadius ?? 3,
+                cornerRadius: layer.mark.cornerRadius ?? 1,
             });
             if (cellWidth >= 34 && cellHeight >= 24 && layer.mark.options.labels !== false) {
                 nodes.push(textNode$3(`${layer.id}:heatmap-label:${rowIndex}`, x, y, String(value), context, {
