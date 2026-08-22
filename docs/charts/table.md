@@ -6,21 +6,90 @@
 
 This is the single manual for the `table` family. Its canonical Quick API is `table()` from `graflume`, and its representative portable mark is `table`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
 
-| Compatible name | Quick API | Mode      | Portable mark | Functional difference                            |
-| --------------- | --------- | --------- | ------------- | ------------------------------------------------ |
-| Table chart     | `table()` | `default` | `table`       | Uses the canonical presentation for this family. |
+| Compatible name               | Quick API | Mode      | Portable mark | Functional difference                            |
+| ----------------------------- | --------- | --------- | ------------- | ------------------------------------------------ |
+| [Table chart](#variant-table) | `table()` | `default` | `table`       | Uses the canonical presentation for this family. |
 
-All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining manually maintained sections describe the canonical/default presentation unless a preset row above states a different behavior.
 
-<details>
-<summary>Open 1 compiled preset snapshot</summary>
+## Visual gallery
 
-| Preset      | Current compiled output                                                                 |
-| ----------- | --------------------------------------------------------------------------------------- |
-| Table chart | [![Current Table chart output](../assets/charts/table.svg)](../assets/charts/table.svg) |
+Every image below is generated from the current compiled Scene rather than drawn by hand. Select a name to jump to its data fields and implementation.
 
-</details>
+|                                                                                                                              |     |
+| ---------------------------------------------------------------------------------------------------------------------------- | --- |
+| **[Table chart](#variant-table)**<br>[![Current Table chart output](../assets/charts/table.svg)](../assets/charts/table.svg) |     |
+
+## Type-by-type implementation
+
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+
+<a id="variant-table"></a>
+
+### Table chart
+
+Use this preset when exact row values are more important than geometric comparison. Uses the canonical presentation for this family.
+
+- **Quick API:** `table()`
+- **Mode:** `default`
+- **Portable mark:** `table`
+- **Required example fields:** `category`, `value`, `target`
+
+```js
+import { table } from 'graflume';
+
+const data = [
+  {
+    category: 'P1',
+    value: 24,
+    target: 29,
+  },
+  {
+    category: 'P2',
+    value: 29.916,
+    target: 30,
+  },
+  {
+    category: 'P3',
+    value: 33.54,
+    target: 31,
+  },
+  {
+    category: 'P4',
+    value: 33.72,
+    target: 32,
+  },
+];
+
+table('#chart', data, {
+  x: {
+    field: 'category',
+    type: 'ordinal',
+    title: 'category',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Table chart',
+    subtitle: 'table family · default mode',
+  },
+  accessibility: {
+    label: 'Table chart example',
+    description: 'A compiled table chart example using the table family.',
+  },
+  mark: {
+    options: {
+      columns: ['category', 'value', 'target'],
+    },
+  },
+});
+```
+
 <!-- FAMILY_PRESETS_END -->
+
 Use the table chart when exact values matter more than shape.
 
 ## Implemented appearance

@@ -6,21 +6,90 @@
 
 This is the single manual for the `radar` family. Its canonical Quick API is `radar()` from `graflume/complete`, and its representative portable mark is `radar`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
 
-| Compatible name | Quick API | Mode      | Portable mark | Functional difference                            |
-| --------------- | --------- | --------- | ------------- | ------------------------------------------------ |
-| Radar chart     | `radar()` | `default` | `radar`       | Uses the canonical presentation for this family. |
+| Compatible name               | Quick API | Mode      | Portable mark | Functional difference                            |
+| ----------------------------- | --------- | --------- | ------------- | ------------------------------------------------ |
+| [Radar chart](#variant-radar) | `radar()` | `default` | `radar`       | Uses the canonical presentation for this family. |
 
-All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining manually maintained sections describe the canonical/default presentation unless a preset row above states a different behavior.
 
-<details>
-<summary>Open 1 compiled preset snapshot</summary>
+## Visual gallery
 
-| Preset      | Current compiled output                                                                 |
-| ----------- | --------------------------------------------------------------------------------------- |
-| Radar chart | [![Current Radar chart output](../assets/charts/radar.svg)](../assets/charts/radar.svg) |
+Every image below is generated from the current compiled Scene rather than drawn by hand. Select a name to jump to its data fields and implementation.
 
-</details>
+|                                                                                                                              |     |
+| ---------------------------------------------------------------------------------------------------------------------------- | --- |
+| **[Radar chart](#variant-radar)**<br>[![Current Radar chart output](../assets/charts/radar.svg)](../assets/charts/radar.svg) |     |
+
+## Type-by-type implementation
+
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+
+<a id="variant-radar"></a>
+
+### Radar chart
+
+Use this preset when several normalized indicators must be compared as a profile. Uses the canonical presentation for this family.
+
+- **Quick API:** `radar()`
+- **Mode:** `default`
+- **Portable mark:** `radar`
+- **Required example fields:** `indicator`, `value`, `series`
+
+```js
+import { radar } from 'graflume/complete';
+
+const data = [
+  {
+    indicator: 'Speed',
+    value: 82,
+    series: 'Alpha',
+  },
+  {
+    indicator: 'Quality',
+    value: 74,
+    series: 'Alpha',
+  },
+  {
+    indicator: 'Reach',
+    value: 91,
+    series: 'Alpha',
+  },
+  {
+    indicator: 'Speed',
+    value: 66,
+    series: 'Beta',
+  },
+];
+
+radar('#chart', data, {
+  x: {
+    field: 'indicator',
+    type: 'ordinal',
+    title: 'indicator',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Radar chart',
+    subtitle: 'radar family · default mode',
+  },
+  accessibility: {
+    label: 'Radar chart example',
+    description: 'A compiled radar chart example using the radar family.',
+  },
+  mark: {
+    fields: {
+      series: 'series',
+    },
+  },
+});
+```
+
 <!-- FAMILY_PRESETS_END -->
+
 [Back to the chart guide index](./README.md)
 
 ![Current Graflume radar charts output](../assets/charts/radar.svg)

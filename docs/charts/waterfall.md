@@ -6,21 +6,81 @@
 
 This is the single manual for the `waterfall` family. Its canonical Quick API is `waterfall()` from `graflume`, and its representative portable mark is `waterfall`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
 
-| Compatible name | Quick API     | Mode      | Portable mark | Functional difference                            |
-| --------------- | ------------- | --------- | ------------- | ------------------------------------------------ |
-| Waterfall chart | `waterfall()` | `default` | `waterfall`   | Uses the canonical presentation for this family. |
+| Compatible name                       | Quick API     | Mode      | Portable mark | Functional difference                            |
+| ------------------------------------- | ------------- | --------- | ------------- | ------------------------------------------------ |
+| [Waterfall chart](#variant-waterfall) | `waterfall()` | `default` | `waterfall`   | Uses the canonical presentation for this family. |
 
-All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining manually maintained sections describe the canonical/default presentation unless a preset row above states a different behavior.
 
-<details>
-<summary>Open 1 compiled preset snapshot</summary>
+## Visual gallery
 
-| Preset          | Current compiled output                                                                             |
-| --------------- | --------------------------------------------------------------------------------------------------- |
-| Waterfall chart | [![Current Waterfall chart output](../assets/charts/waterfall.svg)](../assets/charts/waterfall.svg) |
+Every image below is generated from the current compiled Scene rather than drawn by hand. Select a name to jump to its data fields and implementation.
 
-</details>
+|                                                                                                                                                  |     |
+| ------------------------------------------------------------------------------------------------------------------------------------------------ | --- |
+| **[Waterfall chart](#variant-waterfall)**<br>[![Current Waterfall chart output](../assets/charts/waterfall.svg)](../assets/charts/waterfall.svg) |     |
+
+## Type-by-type implementation
+
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+
+<a id="variant-waterfall"></a>
+
+### Waterfall chart
+
+Use this preset when a sequence of positive and negative contributions must explain a total. Uses the canonical presentation for this family.
+
+- **Quick API:** `waterfall()`
+- **Mode:** `default`
+- **Portable mark:** `waterfall`
+- **Required example fields:** `category`, `value`
+
+```js
+import { waterfall } from 'graflume';
+
+const data = [
+  {
+    category: 'Start',
+    value: 40,
+  },
+  {
+    category: 'Sales',
+    value: 22,
+  },
+  {
+    category: 'Returns',
+    value: -8,
+  },
+  {
+    category: 'Costs',
+    value: -19,
+  },
+];
+
+waterfall('#chart', data, {
+  x: {
+    field: 'category',
+    type: 'ordinal',
+    title: 'category',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Waterfall chart',
+    subtitle: 'waterfall family · default mode',
+  },
+  accessibility: {
+    label: 'Waterfall chart example',
+    description: 'A compiled waterfall chart example using the waterfall family.',
+  },
+});
+```
+
 <!-- FAMILY_PRESETS_END -->
+
 Use a waterfall chart to explain how signed changes lead from one cumulative state to another.
 
 ## Implemented appearance

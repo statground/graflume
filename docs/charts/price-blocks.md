@@ -6,23 +6,137 @@
 
 This is the single manual for the `price-blocks` family. Its canonical Quick API is `priceBlocks()` from `graflume/complete`, and its representative portable mark is `renko`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
 
-| Compatible name        | Quick API          | Mode               | Portable mark  | Functional difference                                               |
-| ---------------------- | ------------------ | ------------------ | -------------- | ------------------------------------------------------------------- |
-| Point and figure chart | `pointAndFigure()` | `point-and-figure` | `point-figure` | Quantizes price changes into X and O columns.                       |
-| Renko chart            | `renko()`          | `renko`            | `renko`        | Quantizes price movement into fixed-size rising and falling bricks. |
+| Compatible name                                     | Quick API          | Mode               | Portable mark  | Functional difference                                               |
+| --------------------------------------------------- | ------------------ | ------------------ | -------------- | ------------------------------------------------------------------- |
+| [Point and figure chart](#variant-point-and-figure) | `pointAndFigure()` | `point-and-figure` | `point-figure` | Quantizes price changes into X and O columns.                       |
+| [Renko chart](#variant-renko)                       | `renko()`          | `renko`            | `renko`        | Quantizes price movement into fixed-size rising and falling bricks. |
 
-All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining manually maintained sections describe the canonical/default presentation unless a preset row above states a different behavior.
 
-<details>
-<summary>Open 2 compiled preset snapshots</summary>
+## Visual gallery
 
-| Preset                 | Current compiled output                                                                                                  |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Point and figure chart | [![Current Point and figure chart output](../assets/charts/point-and-figure.svg)](../assets/charts/point-and-figure.svg) |
-| Renko chart            | [![Current Renko chart output](../assets/charts/renko.svg)](../assets/charts/renko.svg)                                  |
+Every image below is generated from the current compiled Scene rather than drawn by hand. Select a name to jump to its data fields and implementation.
 
-</details>
+|                                                                                                                                                                                     |                                                                                                                              |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| **[Point and figure chart](#variant-point-and-figure)**<br>[![Current Point and figure chart output](../assets/charts/point-and-figure.svg)](../assets/charts/point-and-figure.svg) | **[Renko chart](#variant-renko)**<br>[![Current Renko chart output](../assets/charts/renko.svg)](../assets/charts/renko.svg) |
+
+## Type-by-type implementation
+
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+
+<a id="variant-point-and-figure"></a>
+
+### Point and figure chart
+
+Use this preset when price movement should be quantized rather than shown on a continuous time path. Quantizes price changes into X and O columns.
+
+- **Quick API:** `pointAndFigure()`
+- **Mode:** `point-and-figure`
+- **Portable mark:** `point-figure`
+- **Required example fields:** `date`, `close`
+
+```js
+import { pointAndFigure } from 'graflume/complete';
+
+const data = [
+  {
+    date: '2026-01-01',
+    close: 25,
+  },
+  {
+    date: '2026-02-01',
+    close: 22,
+  },
+  {
+    date: '2026-03-01',
+    close: 27,
+  },
+  {
+    date: '2026-04-01',
+    close: 24,
+  },
+];
+
+pointAndFigure('#chart', data, {
+  x: {
+    field: 'date',
+    type: 'temporal',
+    title: 'date',
+  },
+  y: {
+    field: 'close',
+    type: 'quantitative',
+    title: 'close',
+  },
+  title: {
+    text: 'Point and figure chart',
+    subtitle: 'price-blocks family · point-and-figure mode',
+  },
+  accessibility: {
+    label: 'Point and figure chart example',
+    description: 'A compiled point and figure chart example using the price-blocks family.',
+  },
+});
+```
+
+<a id="variant-renko"></a>
+
+### Renko chart
+
+Use this preset when price movement should be quantized rather than shown on a continuous time path. Quantizes price movement into fixed-size rising and falling bricks.
+
+- **Quick API:** `renko()`
+- **Mode:** `renko`
+- **Portable mark:** `renko`
+- **Required example fields:** `date`, `close`
+
+```js
+import { renko } from 'graflume/complete';
+
+const data = [
+  {
+    date: '2026-01-01',
+    close: 25,
+  },
+  {
+    date: '2026-02-01',
+    close: 22,
+  },
+  {
+    date: '2026-03-01',
+    close: 27,
+  },
+  {
+    date: '2026-04-01',
+    close: 24,
+  },
+];
+
+renko('#chart', data, {
+  x: {
+    field: 'date',
+    type: 'temporal',
+    title: 'date',
+  },
+  y: {
+    field: 'close',
+    type: 'quantitative',
+    title: 'close',
+  },
+  title: {
+    text: 'Renko chart',
+    subtitle: 'price-blocks family · renko mode',
+  },
+  accessibility: {
+    label: 'Renko chart example',
+    description: 'A compiled renko chart example using the price-blocks family.',
+  },
+});
+```
+
 <!-- FAMILY_PRESETS_END -->
+
 ![Current Price blocks chart output](../assets/charts/price-blocks.svg)
 
 This page documents the currently implemented **Price blocks chart** family in Graflume `0.1.0-alpha.0`. The image above is generated from the same compiled Scene used by the Canvas renderer.

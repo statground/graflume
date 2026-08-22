@@ -6,21 +6,85 @@
 
 This is the single manual for the `word-cloud` family. Its canonical Quick API is `wordCloud()` from `graflume/complete`, and its representative portable mark is `word-cloud`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
 
-| Compatible name | Quick API     | Mode      | Portable mark | Functional difference                            |
-| --------------- | ------------- | --------- | ------------- | ------------------------------------------------ |
-| Word cloud      | `wordCloud()` | `default` | `word-cloud`  | Uses the canonical presentation for this family. |
+| Compatible name                   | Quick API     | Mode      | Portable mark | Functional difference                            |
+| --------------------------------- | ------------- | --------- | ------------- | ------------------------------------------------ |
+| [Word cloud](#variant-word-cloud) | `wordCloud()` | `default` | `word-cloud`  | Uses the canonical presentation for this family. |
 
-All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining manually maintained sections describe the canonical/default presentation unless a preset row above states a different behavior.
 
-<details>
-<summary>Open 1 compiled preset snapshot</summary>
+## Visual gallery
 
-| Preset     | Current compiled output                                                                          |
-| ---------- | ------------------------------------------------------------------------------------------------ |
-| Word cloud | [![Current Word cloud output](../assets/charts/word-cloud.svg)](../assets/charts/word-cloud.svg) |
+Every image below is generated from the current compiled Scene rather than drawn by hand. Select a name to jump to its data fields and implementation.
 
-</details>
+|                                                                                                                                           |     |
+| ----------------------------------------------------------------------------------------------------------------------------------------- | --- |
+| **[Word cloud](#variant-word-cloud)**<br>[![Current Word cloud output](../assets/charts/word-cloud.svg)](../assets/charts/word-cloud.svg) |     |
+
+## Type-by-type implementation
+
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+
+<a id="variant-word-cloud"></a>
+
+### Word cloud
+
+Use this preset when relative word weight needs a compact overview. Uses the canonical presentation for this family.
+
+- **Quick API:** `wordCloud()`
+- **Mode:** `default`
+- **Portable mark:** `word-cloud`
+- **Required example fields:** `word`, `weight`
+
+```js
+import { wordCloud } from 'graflume/complete';
+
+const data = [
+  {
+    word: 'Analytics',
+    weight: 92,
+  },
+  {
+    word: 'Canvas',
+    weight: 76,
+  },
+  {
+    word: 'Portable',
+    weight: 69,
+  },
+  {
+    word: 'Scene',
+    weight: 61,
+  },
+];
+
+wordCloud('#chart', data, {
+  x: {
+    field: 'word',
+    type: 'ordinal',
+    title: 'word',
+  },
+  y: {
+    field: 'weight',
+    type: 'quantitative',
+    title: 'weight',
+  },
+  title: {
+    text: 'Word cloud',
+    subtitle: 'word-cloud family · default mode',
+  },
+  accessibility: {
+    label: 'Word cloud example',
+    description: 'A compiled word cloud example using the word-cloud family.',
+  },
+  axes: {
+    x: false,
+    y: false,
+  },
+});
+```
+
 <!-- FAMILY_PRESETS_END -->
+
 ![Current Word cloud output](../assets/charts/word-cloud.svg)
 
 This page documents the currently implemented **Word cloud** family in Graflume `0.1.0-alpha.0`. The image above is generated from the same compiled Scene used by the Canvas renderer.

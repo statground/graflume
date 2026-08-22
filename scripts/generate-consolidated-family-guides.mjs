@@ -2,7 +2,13 @@ import { readdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { format, resolveConfig } from 'prettier';
 
-import { chartTypeCatalog, fullCatalog, fullVariantCatalog } from '../dist/graflume.complete.js';
+import {
+  chartTypeCatalog,
+  chartVariantCatalog,
+  fullCatalog,
+  fullVariantCatalog,
+} from '../dist/graflume.complete.js';
+import { seriesSampleSpec } from './series-samples.mjs';
 
 const chartDirectory = new URL('../docs/charts/', import.meta.url);
 const assetDirectory = new URL('../docs/assets/charts/', import.meta.url);
@@ -10,6 +16,7 @@ const prettierConfig = (await resolveConfig(fileURLToPath(chartDirectory))) ?? {
 const startMarker = '<!-- FAMILY_PRESETS_START -->';
 const endMarker = '<!-- FAMILY_PRESETS_END -->';
 const defaultFamilyIds = new Set(chartTypeCatalog.map(({ id }) => id));
+const defaultQuickApis = new Set(chartVariantCatalog.map(({ quickApi }) => quickApi));
 
 const calculatedIndicators = new Set([
   'simple-moving-average',
@@ -109,6 +116,47 @@ const presetDescriptions = {
   custom: 'Builds row-level declarative primitives without executable callbacks.',
 };
 
+const familyUseCases = {
+  annotation: 'you need to place named events or notes on an ordered series',
+  area: 'the magnitude and continuity of an ordered series matter more than individual points',
+  bar: 'you need to compare values across discrete categories',
+  boxplot: 'you need to compare distributions through quartiles and extremes',
+  bubble: 'position and an additional magnitude channel must be read together',
+  calendar: 'daily values need to be scanned in calendar order',
+  candlestick: 'open, high, low, and close values must remain visually distinct',
+  chord: 'weighted relationships need a compact circular overview',
+  combination: 'different marks must share one coordinate system',
+  contour: 'a sampled surface must be read through value bands',
+  difference: 'old and new values need a direct signed comparison',
+  flow: 'weighted movement between stages or entities is the primary reading task',
+  funnel: 'ordered stages and their decreasing or increasing magnitude must be compared',
+  gauge: 'a small set of current values must be judged against a known range',
+  heatmap: 'two discrete dimensions and one value should be scanned as a matrix',
+  hierarchy: 'parent-child structure and relative size must be inspected together',
+  histogram: 'the shape of a numeric distribution is more important than individual rows',
+  interval: 'a central value and its lower and upper bounds must be compared',
+  item: 'counts should be represented as repeated tangible units',
+  line: 'change across an ordered domain is the main reading task',
+  map: 'values or relationships must be interpreted geographically',
+  motion: 'a frame-specific multivariate state must be shown from longitudinal data',
+  network: 'entities and their connections are more important than a Cartesian axis',
+  parallel: 'many quantitative dimensions must be compared for each row',
+  pie: 'a small number of positive values form one meaningful whole',
+  'price-blocks': 'price movement should be quantized rather than shown on a continuous time path',
+  radar: 'several normalized indicators must be compared as a profile',
+  scatter: 'the relationship between quantitative coordinates must be inspected',
+  table: 'exact row values are more important than geometric comparison',
+  'technical-indicator':
+    'a derived or supplied market indicator must be aligned to an ordered series',
+  timeline: 'events or intervals must be placed on a temporal axis',
+  'vector-field': 'direction and magnitude must be read at each coordinate',
+  venn: 'set overlap is the primary reading task',
+  'volume-profile': 'aggregated volume must be compared across price bands',
+  waterfall: 'a sequence of positive and negative contributions must explain a total',
+  'word-cloud': 'relative word weight needs a compact overview',
+  'word-tree': 'weighted terms must be read through explicit parent-child relationships',
+};
+
 function tableText(value) {
   return String(value).replaceAll('|', '\\|').replaceAll('\n', ' ');
 }
@@ -147,34 +195,130 @@ function insertAfterTitle(source, block) {
   return `${source.slice(0, titleEnd + 1)}\n${block}\n${source.slice(titleEnd + 1).trimStart()}`;
 }
 
-function gallery(family, variants, assetNames) {
-  const available = variants
-    .map((variant) => ({
-      ...variant,
-      assetId: assetNames.has(`${variant.id}.svg`)
-        ? variant.id
-        : assetNames.has(`${family.id}.svg`)
-          ? family.id
-          : undefined,
-    }))
-    .filter(({ assetId }) => assetId !== undefined);
-  if (available.length === 0) return '';
-  const rows = available
-    .map(
-      (variant) =>
-        `| ${tableText(variant.name)} | [![Current ${tableText(variant.name)} output](../assets/charts/${variant.assetId}.svg)](../assets/charts/${variant.assetId}.svg) |`,
-    )
-    .join('\n');
-  return `
+function assetIdFor(family, variant, assetNames) {
+  if (assetNames.has(`${variant.id}.svg`)) return variant.id;
+  if (assetNames.has(`${family.id}.svg`)) return family.id;
+  throw new Error(`Missing compiled snapshot for ${variant.id} in ${family.id}.`);
+}
 
-<details>
-<summary>Open ${available.length} compiled preset snapshot${available.length === 1 ? '' : 's'}</summary>
+function compactData(spec) {
+  if (!Array.isArray(spec.data)) throw new Error('Guide examples require inline row data.');
+  const fields = fieldsForSpec(spec);
+  return spec.data
+    .slice(0, Math.min(spec.data.length, 4))
+    .map((row) =>
+      Object.fromEntries(
+        [...fields]
+          .filter((field) => Object.hasOwn(row, field))
+          .map((field) => [
+            field,
+            typeof row[field] === 'number' ? Number(row[field].toFixed(3)) : row[field],
+          ]),
+      ),
+    );
+}
 
-| Preset | Current compiled output |
+function quickOptions(spec) {
+  const { data: _data, mark, ...rest } = spec;
+  if (spec.layers !== undefined) return rest;
+  if (typeof mark === 'object' && mark !== null && !Array.isArray(mark)) {
+    const { type: _type, ...markOptions } = mark;
+    return Object.keys(markOptions).length > 0 ? { ...rest, mark: markOptions } : rest;
+  }
+  return rest;
+}
+
+function quickExample(variant) {
+  const entrypoint = defaultQuickApis.has(variant.quickApi) ? 'graflume' : 'graflume/complete';
+  const spec = seriesSampleSpec(variant);
+  const data = compactData(spec);
+  const options = {
+    ...quickOptions(spec),
+    title: {
+      text: variant.name,
+      subtitle: `${variant.familyId} family · ${variant.mode} mode`,
+    },
+  };
+  return `import { ${variant.quickApi} } from '${entrypoint}';
+
+const data = ${JSON.stringify(data, null, 2)};
+
+${variant.quickApi}('#chart', data, ${JSON.stringify(options, null, 2)});`;
+}
+
+function addField(fields, value) {
+  if (typeof value === 'string' && value.length > 0) fields.add(value);
+}
+
+function fieldsFromMark(fields, mark) {
+  if (typeof mark !== 'object' || mark === null || Array.isArray(mark)) return;
+  for (const field of Object.values(mark.fields ?? {})) addField(fields, field);
+  for (const field of mark.options?.fields ?? []) addField(fields, field);
+  for (const field of mark.options?.columns ?? []) addField(fields, field);
+}
+
+function fieldsForSpec(spec) {
+  const fields = new Set();
+  addField(fields, spec.x?.field);
+  addField(fields, spec.y?.field);
+  fieldsFromMark(fields, spec.mark);
+  for (const layer of spec.layers ?? []) {
+    addField(fields, layer.x?.field);
+    addField(fields, layer.y?.field);
+    fieldsFromMark(fields, layer.mark);
+  }
+  return fields;
+}
+
+function requiredFields(variant) {
+  return [...fieldsForSpec(seriesSampleSpec(variant))].map((field) => `\`${field}\``).join(', ');
+}
+
+function visualGallery(family, variants, assetNames) {
+  const cells = variants.map((variant) => {
+    const assetId = assetIdFor(family, variant, assetNames);
+    return `**[${tableText(variant.name)}](#variant-${variant.id})**<br>[![Current ${tableText(variant.name)} output](../assets/charts/${assetId}.svg)](../assets/charts/${assetId}.svg)`;
+  });
+  if (cells.length % 2 !== 0) cells.push('');
+  const rows = [];
+  for (let index = 0; index < cells.length; index += 2) {
+    rows.push(`| ${cells[index]} | ${cells[index + 1]} |`);
+  }
+  return `## Visual gallery
+
+Every image below is generated from the current compiled Scene rather than drawn by hand. Select a name to jump to its data fields and implementation.
+
+|  |  |
 | --- | --- |
-${rows}
+${rows.join('\n')}`;
+}
 
-</details>`;
+function implementationExamples(family, variants) {
+  const useCase = familyUseCases[family.id] ?? 'this preset matches the intended reading task';
+  const sections = variants
+    .map((variant) => {
+      const fields = requiredFields(variant);
+      return `<a id="variant-${variant.id}"></a>
+
+### ${variant.name}
+
+Use this preset when ${useCase}. ${presetDescription(variant)}
+
+- **Quick API:** \`${variant.quickApi}()\`
+- **Mode:** \`${variant.mode}\`
+- **Portable mark:** \`${variant.mark}\`
+- **Required example fields:** ${fields || 'no row fields beyond the adapter contract'}
+
+\`\`\`js
+${quickExample(variant)}
+\`\`\``;
+    })
+    .join('\n\n');
+  return `## Type-by-type implementation
+
+The snippets are minimal runnable examples. Change \`#chart\` to the target element and expand the inline rows with your data. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+
+${sections}`;
 }
 
 function familyBlock(family, variants, assetNames) {
@@ -182,7 +326,7 @@ function familyBlock(family, variants, assetNames) {
   const rows = variants
     .map(
       (variant) =>
-        `| ${tableText(variant.name)} | \`${variant.quickApi}()\` | \`${variant.mode}\` | \`${variant.mark}\` | ${tableText(presetDescription(variant))} |`,
+        `| [${tableText(variant.name)}](#variant-${variant.id}) | \`${variant.quickApi}()\` | \`${variant.mode}\` | \`${variant.mark}\` | ${tableText(presetDescription(variant))} |`,
     )
     .join('\n');
   return `${startMarker}
@@ -194,7 +338,11 @@ This is the single manual for the \`${family.id}\` family. Its canonical Quick A
 | --- | --- | --- | --- | --- |
 ${rows}
 
-All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.${gallery(family, variants, assetNames)}
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining manually maintained sections describe the canonical/default presentation unless a preset row above states a different behavior.
+
+${visualGallery(family, variants, assetNames)}
+
+${implementationExamples(family, variants)}
 ${endMarker}`;
 }
 
@@ -205,7 +353,7 @@ function compatibilityIndex() {
       const rows = variants
         .map(
           (variant) =>
-            `| \`${variant.id}\` | ${tableText(variant.name)} | \`${variant.quickApi}()\` | \`${variant.mode}\` | \`${variant.mark}\` |`,
+            `| \`${variant.id}\` | [${tableText(variant.name)}](./${family.id}.md#variant-${variant.id}) | \`${variant.quickApi}()\` | \`${variant.mode}\` | \`${variant.mark}\` |`,
         )
         .join('\n');
       return `## [${family.name}](./${family.id}.md#integrated-presets)
@@ -229,8 +377,9 @@ ${sections}
 `;
 }
 
-function adapterGuide() {
+function adapterGuide(assetNames) {
   const adapters = fullVariantCatalog.filter(({ familyId }) => familyId === 'custom');
+  const adapterFamily = { id: 'custom', name: 'Declarative adapters' };
   const rows = adapters
     .map(
       (variant) =>
@@ -246,6 +395,10 @@ Adapters translate a constrained external or custom declarative shape into Grafl
 ${rows}
 
 Both adapters reject executable callbacks and enter the ordinary validation, Scene compilation, rendering, interaction, and accessibility pipeline. Prefer a representative family Quick API when the data meaning already matches one of the [37 chart families](./README.md#choose-a-chart).
+
+${visualGallery(adapterFamily, adapters, assetNames)}
+
+${implementationExamples(adapterFamily, adapters)}
 
 ## Embedded mark adapter
 
@@ -285,7 +438,7 @@ await writeFile(
 );
 await writeFile(
   new URL('adapters.md', chartDirectory),
-  await format(adapterGuide(), { ...prettierConfig, parser: 'markdown' }),
+  await format(adapterGuide(assetNames), { ...prettierConfig, parser: 'markdown' }),
   'utf8',
 );
 

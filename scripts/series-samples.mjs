@@ -28,6 +28,8 @@ const trend = Array.from({ length: 10 }, (_, index) => ({
   title: String.fromCharCode(65 + index),
   open: 22 + index,
   close: 23 + index + (index % 2 === 0 ? 2 : -2),
+  previous: 20 + index * 0.8,
+  series: index % 2 === 0 ? 'Alpha' : 'Beta',
 }));
 
 const relation = [
@@ -58,9 +60,58 @@ const grid = Array.from({ length: 30 }, (_, index) => {
   return { x, y, value: primary + secondary + 4 };
 });
 
+const points = [
+  { x: 12, y: 42, size: 20, group: 'A', z: 8 },
+  { x: 24, y: 55, size: 85, group: 'B', z: 14 },
+  { x: 38, y: 33, size: 55, group: 'A', z: 21 },
+  { x: 51, y: 68, size: 120, group: 'C', z: 17 },
+];
+
+const timeline = [
+  { id: 'research', task: 'Research', start: '2026-01-01', end: '2026-01-07', progress: 100 },
+  { id: 'design', task: 'Design', start: '2026-01-06', end: '2026-01-14', progress: 80 },
+  { id: 'build', task: 'Build', start: '2026-01-13', end: '2026-01-27', progress: 45 },
+];
+
+const composition = [
+  { category: 'Search', value: 46, radius: 32 },
+  { category: 'Direct', value: 28, radius: 24 },
+  { category: 'Social', value: 17, radius: 18 },
+  { category: 'Other', value: 9, radius: 12 },
+];
+
+const radar = [
+  { indicator: 'Speed', series: 'Alpha', value: 82 },
+  { indicator: 'Quality', series: 'Alpha', value: 74 },
+  { indicator: 'Reach', series: 'Alpha', value: 91 },
+  { indicator: 'Speed', series: 'Beta', value: 66 },
+  { indicator: 'Quality', series: 'Beta', value: 88 },
+  { indicator: 'Reach', series: 'Beta', value: 69 },
+];
+
+const boxSummary = [
+  { category: 'Alpha', low: 12, q1: 19, median: 27, q3: 34, high: 43 },
+  { category: 'Beta', low: 17, q1: 24, median: 31, q3: 39, high: 48 },
+  { category: 'Gamma', low: 9, q1: 16, median: 22, q3: 29, high: 38 },
+];
+
+const words = [
+  { word: 'Analytics', weight: 92, parent: '' },
+  { word: 'Canvas', weight: 76, parent: 'Analytics' },
+  { word: 'Portable', weight: 69, parent: 'Analytics' },
+  { word: 'Scene', weight: 61, parent: 'Canvas' },
+  { word: 'Scale', weight: 53, parent: 'Canvas' },
+  { word: 'Theme', weight: 47, parent: 'Portable' },
+];
+
 function fieldType(field) {
   if (field === 'date' || field === 'start') return 'temporal';
-  if (['category', 'source', 'id', 'parent', 'word'].includes(field)) return 'ordinal';
+  if (
+    ['category', 'source', 'id', 'parent', 'word', 'task', 'region', 'indicator', 'name'].includes(
+      field,
+    )
+  )
+    return 'ordinal';
   return 'quantitative';
 }
 
@@ -76,8 +127,167 @@ function base(mark, data = trend, x = 'category', y = 'value') {
 export function seriesSampleSpec(entry) {
   const { id, mark, name } = entry;
   const familyId = entry.familyId ?? id;
+  const category = entry.category ?? 'general';
   let spec;
-  if (mark === 'arc-diagram' || mark === 'chord' || mark === 'graph') {
+  if (mark === 'annotation') {
+    spec = base(
+      { type: mark, fields: { annotation: 'annotation' }, point: true },
+      [
+        { date: '2026-01-01', value: 22, annotation: 'Launch' },
+        { date: '2026-02-01', value: 31, annotation: null },
+        { date: '2026-03-01', value: 27, annotation: 'Campaign' },
+        { date: '2026-04-01', value: 43, annotation: null },
+      ],
+      'date',
+      'value',
+    );
+  } else if (
+    mark === 'area' ||
+    mark === 'stepped-area' ||
+    mark === 'line' ||
+    mark === 'trendline'
+  ) {
+    spec = base({ type: mark, point: mark === 'line' || mark === 'trendline' });
+  } else if (mark === 'bar') {
+    spec = base({
+      type: mark,
+      orientation: id === 'bar' ? 'horizontal' : 'vertical',
+      cornerRadius: 6,
+    });
+  } else if (mark === 'boxplot') {
+    spec = base(
+      { type: mark, fields: { low: 'low', q1: 'q1', median: 'median', q3: 'q3', high: 'high' } },
+      boxSummary,
+    );
+  } else if (mark === 'bubble' || mark === 'effect-scatter') {
+    spec = base({ type: mark, fields: { size: 'size', color: 'group' } }, points, 'x', 'y');
+  } else if (mark === 'calendar') {
+    spec = base(
+      mark,
+      Array.from({ length: 28 }, (_, index) => ({
+        date: `2026-01-${String(index + 1).padStart(2, '0')}`,
+        value: (index * 13) % 47,
+      })),
+      'date',
+      'value',
+    );
+  } else if (mark === 'candlestick') {
+    spec = base(
+      { type: mark, fields: { open: 'open', high: 'high', low: 'low', close: 'close' } },
+      trend,
+      'date',
+      'close',
+    );
+  } else if (mark === 'multiple') {
+    spec = {
+      data: trend,
+      layers: [
+        {
+          id: 'volume',
+          mark: { type: 'bar', fill: '#cbd5e1', opacity: 0.72 },
+          x: { field: 'category', type: 'ordinal' },
+          y: { field: 'target', type: 'quantitative' },
+        },
+        {
+          id: 'actual',
+          mark: { type: 'line', point: true, stroke: '#e05260' },
+          x: { field: 'category', type: 'ordinal' },
+          y: { field: 'value', type: 'quantitative' },
+        },
+      ],
+    };
+  } else if (mark === 'diff') {
+    spec = base({ type: mark, fields: { old: 'previous', new: 'value' } });
+  } else if (mark === 'funnel') {
+    spec = base(mark, composition);
+  } else if (mark === 'gantt') {
+    spec = base(
+      { type: mark, fields: { id: 'id', end: 'end', progress: 'progress' } },
+      timeline,
+      'start',
+      'task',
+    );
+  } else if (mark === 'gauge') {
+    spec = base({ type: mark, options: { min: 0, max: 100 } }, composition);
+  } else if (mark === 'geo') {
+    spec = base(
+      mark,
+      [
+        { region: 'KR', value: 72 },
+        { region: 'US', value: 88 },
+        { region: 'BR', value: 41 },
+        { region: 'RU', value: 63 },
+      ],
+      'region',
+      'value',
+    );
+  } else if (mark === 'heatmap') {
+    spec = base(mark, grid, 'x', 'y');
+  } else if (mark === 'histogram') {
+    spec = base({ type: mark, options: { bins: 8 } }, trend, 'value', 'value');
+  } else if (mark === 'motion') {
+    spec = base(
+      {
+        type: mark,
+        fields: { size: 'size', color: 'group', time: 'time' },
+        options: { frame: '2026' },
+      },
+      points.flatMap((point, index) => [
+        { ...point, time: '2025' },
+        { ...point, x: point.x + 7 + index, y: point.y + 4, time: '2026' },
+      ]),
+      'x',
+      'y',
+    );
+  } else if (mark === 'parallel') {
+    spec = base(
+      { type: mark, options: { dimensions: ['speed', 'quality', 'cost'] } },
+      [
+        { name: 'Alpha', speed: 82, quality: 74, cost: 61 },
+        { name: 'Beta', speed: 66, quality: 88, cost: 73 },
+        { name: 'Gamma', speed: 91, quality: 69, cost: 54 },
+      ],
+      'name',
+      'speed',
+    );
+  } else if (mark === 'pie') {
+    spec = base(
+      { type: mark, options: id === 'donut' ? { innerRadius: 0.56 } : undefined },
+      composition,
+    );
+  } else if (mark === 'point') {
+    spec = base(mark, points, 'x', 'y');
+  } else if (mark === 'radar') {
+    spec = base({ type: mark, fields: { series: 'series' } }, radar, 'indicator', 'value');
+  } else if (mark === 'sankey' || mark === 'lines') {
+    spec = base({ type: mark, fields: { target: 'target' } }, relation, 'source', 'value');
+  } else if (mark === 'sunburst' || mark === 'treemap') {
+    spec = base({ type: mark, fields: { parent: 'parent' } }, hierarchy, 'id', 'value');
+  } else if (mark === 'table') {
+    spec = base({ type: mark, options: { columns: ['category', 'value', 'target'] } });
+  } else if (mark === 'waterfall') {
+    spec = base(mark, [
+      { category: 'Start', value: 40 },
+      { category: 'Sales', value: 22 },
+      { category: 'Returns', value: -8 },
+      { category: 'Costs', value: -19 },
+    ]);
+  } else if (mark === 'word-tree') {
+    spec = base({ type: mark, fields: { parent: 'parent' } }, words, 'word', 'weight');
+  } else if (mark === 'vega') {
+    spec = base({ type: mark, options: { mark: 'line' }, point: true });
+  } else if (mark === 'custom') {
+    spec = base(
+      { type: mark, fields: { shape: 'shape', size: 'size', label: 'label' } },
+      points.map((point, index) => ({
+        ...point,
+        shape: index % 2 === 0 ? 'circle' : 'diamond',
+        label: `P${index + 1}`,
+      })),
+      'x',
+      'y',
+    );
+  } else if (mark === 'arc-diagram' || mark === 'chord' || mark === 'graph') {
     spec = base({ type: mark, fields: { target: 'target', value: 'value' } }, relation, 'source');
   } else if (mark === 'org' || mark === 'tree') {
     spec = base({ type: mark, fields: { parent: 'parent' } }, hierarchy, 'id', 'value');
@@ -162,23 +372,7 @@ export function seriesSampleSpec(entry) {
       'high',
     );
   } else if (mark === 'word-cloud') {
-    spec = base(
-      mark,
-      [
-        { word: 'Analytics', weight: 92 },
-        { word: 'Canvas', weight: 76 },
-        { word: 'Portable', weight: 69 },
-        { word: 'Scene', weight: 61 },
-        { word: 'Scale', weight: 53 },
-        { word: 'Theme', weight: 47 },
-        { word: 'Runtime', weight: 39 },
-        { word: 'Data', weight: 34 },
-        { word: 'Vector', weight: 28 },
-        { word: 'Access', weight: 23 },
-      ],
-      'word',
-      'weight',
-    );
+    spec = base(mark, words, 'word', 'weight');
   } else if (mark === 'timeline') {
     spec = base(
       { type: mark, fields: { end: 'end' } },
@@ -242,10 +436,10 @@ export function seriesSampleSpec(entry) {
     throw new Error(`Missing sample for ${id} (${mark})`);
   }
 
-  const hideAxes = ['map', 'radial', 'relationship'].includes(entry.category);
+  const hideAxes = ['map', 'radial', 'relationship'].includes(category);
   return {
     ...spec,
-    title: { text: name, subtitle: `${entry.category} · ${familyId}` },
+    title: { text: name, subtitle: `${category} · ${familyId}` },
     accessibility: {
       label: `${name} example`,
       description: `A compiled ${name.toLowerCase()} example using the ${familyId} family.`,
@@ -261,6 +455,12 @@ export function seriesSampleRuntimeSource() {
     `const hierarchy = ${JSON.stringify(hierarchy)};`,
     `const geo = ${JSON.stringify(geo)};`,
     `const grid = ${JSON.stringify(grid)};`,
+    `const points = ${JSON.stringify(points)};`,
+    `const timeline = ${JSON.stringify(timeline)};`,
+    `const composition = ${JSON.stringify(composition)};`,
+    `const radar = ${JSON.stringify(radar)};`,
+    `const boxSummary = ${JSON.stringify(boxSummary)};`,
+    `const words = ${JSON.stringify(words)};`,
     fieldType.toString(),
     base.toString(),
     seriesSampleSpec.toString(),

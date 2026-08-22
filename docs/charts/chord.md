@@ -6,23 +6,161 @@
 
 This is the single manual for the `chord` family. Its canonical Quick API is `chord()` from `graflume/complete`, and its representative portable mark is `chord`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
 
-| Compatible name  | Quick API           | Mode               | Portable mark | Functional difference                                |
-| ---------------- | ------------------- | ------------------ | ------------- | ---------------------------------------------------- |
-| Chord diagram    | `chord()`           | `default`          | `chord`       | Uses circular weighted relationship bands.           |
-| Dependency wheel | `dependencyWheel()` | `dependency-wheel` | `chord`       | Uses chord geometry with dependency-oriented naming. |
+| Compatible name                               | Quick API           | Mode               | Portable mark | Functional difference                                |
+| --------------------------------------------- | ------------------- | ------------------ | ------------- | ---------------------------------------------------- |
+| [Chord diagram](#variant-chord)               | `chord()`           | `default`          | `chord`       | Uses circular weighted relationship bands.           |
+| [Dependency wheel](#variant-dependency-wheel) | `dependencyWheel()` | `dependency-wheel` | `chord`       | Uses chord geometry with dependency-oriented naming. |
 
-All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining manually maintained sections describe the canonical/default presentation unless a preset row above states a different behavior.
 
-<details>
-<summary>Open 2 compiled preset snapshots</summary>
+## Visual gallery
 
-| Preset           | Current compiled output                                                                                            |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Chord diagram    | [![Current Chord diagram output](../assets/charts/chord.svg)](../assets/charts/chord.svg)                          |
-| Dependency wheel | [![Current Dependency wheel output](../assets/charts/dependency-wheel.svg)](../assets/charts/dependency-wheel.svg) |
+Every image below is generated from the current compiled Scene rather than drawn by hand. Select a name to jump to its data fields and implementation.
 
-</details>
+|                                                                                                                                  |                                                                                                                                                                         |
+| -------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **[Chord diagram](#variant-chord)**<br>[![Current Chord diagram output](../assets/charts/chord.svg)](../assets/charts/chord.svg) | **[Dependency wheel](#variant-dependency-wheel)**<br>[![Current Dependency wheel output](../assets/charts/dependency-wheel.svg)](../assets/charts/dependency-wheel.svg) |
+
+## Type-by-type implementation
+
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+
+<a id="variant-chord"></a>
+
+### Chord diagram
+
+Use this preset when weighted relationships need a compact circular overview. Uses circular weighted relationship bands.
+
+- **Quick API:** `chord()`
+- **Mode:** `default`
+- **Portable mark:** `chord`
+- **Required example fields:** `source`, `value`, `target`
+
+```js
+import { chord } from 'graflume/complete';
+
+const data = [
+  {
+    source: 'Input',
+    value: 9,
+    target: 'Compiler',
+  },
+  {
+    source: 'Compiler',
+    value: 8,
+    target: 'Scene',
+  },
+  {
+    source: 'Scene',
+    value: 6,
+    target: 'Canvas',
+  },
+  {
+    source: 'Scene',
+    value: 4,
+    target: 'Vector',
+  },
+];
+
+chord('#chart', data, {
+  x: {
+    field: 'source',
+    type: 'ordinal',
+    title: 'source',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Chord diagram',
+    subtitle: 'chord family · default mode',
+  },
+  accessibility: {
+    label: 'Chord diagram example',
+    description: 'A compiled chord diagram example using the chord family.',
+  },
+  mark: {
+    fields: {
+      target: 'target',
+      value: 'value',
+    },
+  },
+});
+```
+
+<a id="variant-dependency-wheel"></a>
+
+### Dependency wheel
+
+Use this preset when weighted relationships need a compact circular overview. Uses chord geometry with dependency-oriented naming.
+
+- **Quick API:** `dependencyWheel()`
+- **Mode:** `dependency-wheel`
+- **Portable mark:** `chord`
+- **Required example fields:** `source`, `value`, `target`
+
+```js
+import { dependencyWheel } from 'graflume/complete';
+
+const data = [
+  {
+    source: 'Input',
+    value: 9,
+    target: 'Compiler',
+  },
+  {
+    source: 'Compiler',
+    value: 8,
+    target: 'Scene',
+  },
+  {
+    source: 'Scene',
+    value: 6,
+    target: 'Canvas',
+  },
+  {
+    source: 'Scene',
+    value: 4,
+    target: 'Vector',
+  },
+];
+
+dependencyWheel('#chart', data, {
+  x: {
+    field: 'source',
+    type: 'ordinal',
+    title: 'source',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Dependency wheel',
+    subtitle: 'chord family · dependency-wheel mode',
+  },
+  accessibility: {
+    label: 'Dependency wheel example',
+    description: 'A compiled dependency wheel example using the chord family.',
+  },
+  axes: {
+    x: false,
+    y: false,
+  },
+  mark: {
+    fields: {
+      target: 'target',
+      value: 'value',
+    },
+  },
+});
+```
+
 <!-- FAMILY_PRESETS_END -->
+
 [Back to the chart guide index](./README.md)
 
 ![Current Graflume chord diagrams output](../assets/charts/chord.svg)

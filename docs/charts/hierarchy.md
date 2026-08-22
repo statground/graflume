@@ -6,31 +6,425 @@
 
 This is the single manual for the `hierarchy` family. Its canonical Quick API is `treemap()` from `graflume`, and its representative portable mark is `treemap`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
 
-| Compatible name      | Quick API               | Mode                   | Portable mark | Functional difference                                        |
-| -------------------- | ----------------------- | ---------------------- | ------------- | ------------------------------------------------------------ |
-| Organization chart   | `org()`                 | `organization`         | `org`         | Uses a compact organization-card layout.                     |
-| Tree map             | `treemap()`             | `treemap`              | `treemap`     | Allocates nested rectangles by hierarchy value.              |
-| Tree chart           | `tree()`                | `tree`                 | `tree`        | Uses a parent-child node-link tree layout.                   |
-| Sunburst chart       | `sunburst()`            | `sunburst`             | `sunburst`    | Uses radial hierarchy partitions.                            |
-| Organization network | `organizationNetwork()` | `organization-network` | `org`         | Uses organization semantics with relationship styling.       |
-| Tree graph           | `treeGraph()`           | `tree-graph`           | `tree`        | Uses the hierarchy data contract with graph-like connectors. |
+| Compatible name                                       | Quick API               | Mode                   | Portable mark | Functional difference                                        |
+| ----------------------------------------------------- | ----------------------- | ---------------------- | ------------- | ------------------------------------------------------------ |
+| [Organization chart](#variant-org)                    | `org()`                 | `organization`         | `org`         | Uses a compact organization-card layout.                     |
+| [Tree map](#variant-treemap)                          | `treemap()`             | `treemap`              | `treemap`     | Allocates nested rectangles by hierarchy value.              |
+| [Tree chart](#variant-tree)                           | `tree()`                | `tree`                 | `tree`        | Uses a parent-child node-link tree layout.                   |
+| [Sunburst chart](#variant-sunburst)                   | `sunburst()`            | `sunburst`             | `sunburst`    | Uses radial hierarchy partitions.                            |
+| [Organization network](#variant-organization-network) | `organizationNetwork()` | `organization-network` | `org`         | Uses organization semantics with relationship styling.       |
+| [Tree graph](#variant-tree-graph)                     | `treeGraph()`           | `tree-graph`           | `tree`        | Uses the hierarchy data contract with graph-like connectors. |
 
-All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining manually maintained sections describe the canonical/default presentation unless a preset row above states a different behavior.
 
-<details>
-<summary>Open 6 compiled preset snapshots</summary>
+## Visual gallery
 
-| Preset               | Current compiled output                                                                                                        |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Organization chart   | [![Current Organization chart output](../assets/charts/org.svg)](../assets/charts/org.svg)                                     |
-| Tree map             | [![Current Tree map output](../assets/charts/treemap.svg)](../assets/charts/treemap.svg)                                       |
-| Tree chart           | [![Current Tree chart output](../assets/charts/tree.svg)](../assets/charts/tree.svg)                                           |
-| Sunburst chart       | [![Current Sunburst chart output](../assets/charts/sunburst.svg)](../assets/charts/sunburst.svg)                               |
-| Organization network | [![Current Organization network output](../assets/charts/organization-network.svg)](../assets/charts/organization-network.svg) |
-| Tree graph           | [![Current Tree graph output](../assets/charts/tree-graph.svg)](../assets/charts/tree-graph.svg)                               |
+Every image below is generated from the current compiled Scene rather than drawn by hand. Select a name to jump to its data fields and implementation.
 
-</details>
+|                                                                                                                                                                                             |                                                                                                                                             |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| **[Organization chart](#variant-org)**<br>[![Current Organization chart output](../assets/charts/org.svg)](../assets/charts/org.svg)                                                        | **[Tree map](#variant-treemap)**<br>[![Current Tree map output](../assets/charts/treemap.svg)](../assets/charts/treemap.svg)                |
+| **[Tree chart](#variant-tree)**<br>[![Current Tree chart output](../assets/charts/tree.svg)](../assets/charts/tree.svg)                                                                     | **[Sunburst chart](#variant-sunburst)**<br>[![Current Sunburst chart output](../assets/charts/sunburst.svg)](../assets/charts/sunburst.svg) |
+| **[Organization network](#variant-organization-network)**<br>[![Current Organization network output](../assets/charts/organization-network.svg)](../assets/charts/organization-network.svg) | **[Tree graph](#variant-tree-graph)**<br>[![Current Tree graph output](../assets/charts/tree-graph.svg)](../assets/charts/tree-graph.svg)   |
+
+## Type-by-type implementation
+
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+
+<a id="variant-org"></a>
+
+### Organization chart
+
+Use this preset when parent-child structure and relative size must be inspected together. Uses a compact organization-card layout.
+
+- **Quick API:** `org()`
+- **Mode:** `organization`
+- **Portable mark:** `org`
+- **Required example fields:** `id`, `value`, `parent`
+
+```js
+import { org } from 'graflume';
+
+const data = [
+  {
+    id: 'All',
+    value: 12,
+    parent: '',
+  },
+  {
+    id: 'Data',
+    value: 8,
+    parent: 'All',
+  },
+  {
+    id: 'Design',
+    value: 7,
+    parent: 'All',
+  },
+  {
+    id: 'Runtime',
+    value: 5,
+    parent: 'Data',
+  },
+];
+
+org('#chart', data, {
+  x: {
+    field: 'id',
+    type: 'ordinal',
+    title: 'id',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Organization chart',
+    subtitle: 'hierarchy family · organization mode',
+  },
+  accessibility: {
+    label: 'Organization chart example',
+    description: 'A compiled organization chart example using the hierarchy family.',
+  },
+  mark: {
+    fields: {
+      parent: 'parent',
+    },
+  },
+});
+```
+
+<a id="variant-treemap"></a>
+
+### Tree map
+
+Use this preset when parent-child structure and relative size must be inspected together. Allocates nested rectangles by hierarchy value.
+
+- **Quick API:** `treemap()`
+- **Mode:** `treemap`
+- **Portable mark:** `treemap`
+- **Required example fields:** `id`, `value`, `parent`
+
+```js
+import { treemap } from 'graflume';
+
+const data = [
+  {
+    id: 'All',
+    value: 12,
+    parent: '',
+  },
+  {
+    id: 'Data',
+    value: 8,
+    parent: 'All',
+  },
+  {
+    id: 'Design',
+    value: 7,
+    parent: 'All',
+  },
+  {
+    id: 'Runtime',
+    value: 5,
+    parent: 'Data',
+  },
+];
+
+treemap('#chart', data, {
+  x: {
+    field: 'id',
+    type: 'ordinal',
+    title: 'id',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Tree map',
+    subtitle: 'hierarchy family · treemap mode',
+  },
+  accessibility: {
+    label: 'Tree map example',
+    description: 'A compiled tree map example using the hierarchy family.',
+  },
+  mark: {
+    fields: {
+      parent: 'parent',
+    },
+  },
+});
+```
+
+<a id="variant-tree"></a>
+
+### Tree chart
+
+Use this preset when parent-child structure and relative size must be inspected together. Uses a parent-child node-link tree layout.
+
+- **Quick API:** `tree()`
+- **Mode:** `tree`
+- **Portable mark:** `tree`
+- **Required example fields:** `id`, `value`, `parent`
+
+```js
+import { tree } from 'graflume/complete';
+
+const data = [
+  {
+    id: 'All',
+    value: 12,
+    parent: '',
+  },
+  {
+    id: 'Data',
+    value: 8,
+    parent: 'All',
+  },
+  {
+    id: 'Design',
+    value: 7,
+    parent: 'All',
+  },
+  {
+    id: 'Runtime',
+    value: 5,
+    parent: 'Data',
+  },
+];
+
+tree('#chart', data, {
+  x: {
+    field: 'id',
+    type: 'ordinal',
+    title: 'id',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Tree chart',
+    subtitle: 'hierarchy family · tree mode',
+  },
+  accessibility: {
+    label: 'Tree chart example',
+    description: 'A compiled tree chart example using the hierarchy family.',
+  },
+  mark: {
+    fields: {
+      parent: 'parent',
+    },
+  },
+});
+```
+
+<a id="variant-sunburst"></a>
+
+### Sunburst chart
+
+Use this preset when parent-child structure and relative size must be inspected together. Uses radial hierarchy partitions.
+
+- **Quick API:** `sunburst()`
+- **Mode:** `sunburst`
+- **Portable mark:** `sunburst`
+- **Required example fields:** `id`, `value`, `parent`
+
+```js
+import { sunburst } from 'graflume/complete';
+
+const data = [
+  {
+    id: 'All',
+    value: 12,
+    parent: '',
+  },
+  {
+    id: 'Data',
+    value: 8,
+    parent: 'All',
+  },
+  {
+    id: 'Design',
+    value: 7,
+    parent: 'All',
+  },
+  {
+    id: 'Runtime',
+    value: 5,
+    parent: 'Data',
+  },
+];
+
+sunburst('#chart', data, {
+  x: {
+    field: 'id',
+    type: 'ordinal',
+    title: 'id',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Sunburst chart',
+    subtitle: 'hierarchy family · sunburst mode',
+  },
+  accessibility: {
+    label: 'Sunburst chart example',
+    description: 'A compiled sunburst chart example using the hierarchy family.',
+  },
+  mark: {
+    fields: {
+      parent: 'parent',
+    },
+  },
+});
+```
+
+<a id="variant-organization-network"></a>
+
+### Organization network
+
+Use this preset when parent-child structure and relative size must be inspected together. Uses organization semantics with relationship styling.
+
+- **Quick API:** `organizationNetwork()`
+- **Mode:** `organization-network`
+- **Portable mark:** `org`
+- **Required example fields:** `id`, `value`, `parent`
+
+```js
+import { organizationNetwork } from 'graflume/complete';
+
+const data = [
+  {
+    id: 'All',
+    value: 12,
+    parent: '',
+  },
+  {
+    id: 'Data',
+    value: 8,
+    parent: 'All',
+  },
+  {
+    id: 'Design',
+    value: 7,
+    parent: 'All',
+  },
+  {
+    id: 'Runtime',
+    value: 5,
+    parent: 'Data',
+  },
+];
+
+organizationNetwork('#chart', data, {
+  x: {
+    field: 'id',
+    type: 'ordinal',
+    title: 'id',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Organization network',
+    subtitle: 'hierarchy family · organization-network mode',
+  },
+  accessibility: {
+    label: 'Organization network example',
+    description: 'A compiled organization network example using the hierarchy family.',
+  },
+  axes: {
+    x: false,
+    y: false,
+  },
+  mark: {
+    fields: {
+      parent: 'parent',
+    },
+  },
+});
+```
+
+<a id="variant-tree-graph"></a>
+
+### Tree graph
+
+Use this preset when parent-child structure and relative size must be inspected together. Uses the hierarchy data contract with graph-like connectors.
+
+- **Quick API:** `treeGraph()`
+- **Mode:** `tree-graph`
+- **Portable mark:** `tree`
+- **Required example fields:** `id`, `value`, `parent`
+
+```js
+import { treeGraph } from 'graflume/complete';
+
+const data = [
+  {
+    id: 'All',
+    value: 12,
+    parent: '',
+  },
+  {
+    id: 'Data',
+    value: 8,
+    parent: 'All',
+  },
+  {
+    id: 'Design',
+    value: 7,
+    parent: 'All',
+  },
+  {
+    id: 'Runtime',
+    value: 5,
+    parent: 'Data',
+  },
+];
+
+treeGraph('#chart', data, {
+  x: {
+    field: 'id',
+    type: 'ordinal',
+    title: 'id',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Tree graph',
+    subtitle: 'hierarchy family · tree-graph mode',
+  },
+  accessibility: {
+    label: 'Tree graph example',
+    description: 'A compiled tree graph example using the hierarchy family.',
+  },
+  axes: {
+    x: false,
+    y: false,
+  },
+  mark: {
+    fields: {
+      parent: 'parent',
+    },
+  },
+});
+```
+
 <!-- FAMILY_PRESETS_END -->
+
 ![Current Hierarchy chart output](../assets/charts/hierarchy.svg)
 
 This guide documents the consolidated **Hierarchy chart** family. The image is generated from the actual compiled Scene used by the runtime renderer.

@@ -6,21 +6,90 @@
 
 This is the single manual for the `word-tree` family. Its canonical Quick API is `wordTree()` from `graflume`, and its representative portable mark is `word-tree`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
 
-| Compatible name | Quick API    | Mode      | Portable mark | Functional difference                            |
-| --------------- | ------------ | --------- | ------------- | ------------------------------------------------ |
-| Word tree       | `wordTree()` | `default` | `word-tree`   | Uses the canonical presentation for this family. |
+| Compatible name                 | Quick API    | Mode      | Portable mark | Functional difference                            |
+| ------------------------------- | ------------ | --------- | ------------- | ------------------------------------------------ |
+| [Word tree](#variant-word-tree) | `wordTree()` | `default` | `word-tree`   | Uses the canonical presentation for this family. |
 
-All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining manually maintained sections describe the canonical/default presentation unless a preset row above states a different behavior.
 
-<details>
-<summary>Open 1 compiled preset snapshot</summary>
+## Visual gallery
 
-| Preset    | Current compiled output                                                                       |
-| --------- | --------------------------------------------------------------------------------------------- |
-| Word tree | [![Current Word tree output](../assets/charts/word-tree.svg)](../assets/charts/word-tree.svg) |
+Every image below is generated from the current compiled Scene rather than drawn by hand. Select a name to jump to its data fields and implementation.
 
-</details>
+|                                                                                                                                      |     |
+| ------------------------------------------------------------------------------------------------------------------------------------ | --- |
+| **[Word tree](#variant-word-tree)**<br>[![Current Word tree output](../assets/charts/word-tree.svg)](../assets/charts/word-tree.svg) |     |
+
+## Type-by-type implementation
+
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+
+<a id="variant-word-tree"></a>
+
+### Word tree
+
+Use this preset when weighted terms must be read through explicit parent-child relationships. Uses the canonical presentation for this family.
+
+- **Quick API:** `wordTree()`
+- **Mode:** `default`
+- **Portable mark:** `word-tree`
+- **Required example fields:** `word`, `weight`, `parent`
+
+```js
+import { wordTree } from 'graflume';
+
+const data = [
+  {
+    word: 'Analytics',
+    weight: 92,
+    parent: '',
+  },
+  {
+    word: 'Canvas',
+    weight: 76,
+    parent: 'Analytics',
+  },
+  {
+    word: 'Portable',
+    weight: 69,
+    parent: 'Analytics',
+  },
+  {
+    word: 'Scene',
+    weight: 61,
+    parent: 'Canvas',
+  },
+];
+
+wordTree('#chart', data, {
+  x: {
+    field: 'word',
+    type: 'ordinal',
+    title: 'word',
+  },
+  y: {
+    field: 'weight',
+    type: 'quantitative',
+    title: 'weight',
+  },
+  title: {
+    text: 'Word tree',
+    subtitle: 'word-tree family · default mode',
+  },
+  accessibility: {
+    label: 'Word tree example',
+    description: 'A compiled word tree example using the word-tree family.',
+  },
+  mark: {
+    fields: {
+      parent: 'parent',
+    },
+  },
+});
+```
+
 <!-- FAMILY_PRESETS_END -->
+
 Use a word tree to show an explicit weighted hierarchy of terms.
 
 ## Implemented appearance

@@ -6,21 +6,90 @@
 
 This is the single manual for the `flow` family. Its canonical Quick API is `sankey()` from `graflume`, and its representative portable mark is `sankey`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
 
-| Compatible name | Quick API  | Mode      | Portable mark | Functional difference                            |
-| --------------- | ---------- | --------- | ------------- | ------------------------------------------------ |
-| Sankey diagram  | `sankey()` | `default` | `sankey`      | Uses proportional nodes and weighted flow bands. |
+| Compatible name                   | Quick API  | Mode      | Portable mark | Functional difference                            |
+| --------------------------------- | ---------- | --------- | ------------- | ------------------------------------------------ |
+| [Sankey diagram](#variant-sankey) | `sankey()` | `default` | `sankey`      | Uses proportional nodes and weighted flow bands. |
 
-All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining manually maintained sections describe the canonical/default presentation unless a preset row above states a different behavior.
 
-<details>
-<summary>Open 1 compiled preset snapshot</summary>
+## Visual gallery
 
-| Preset         | Current compiled output                                                                      |
-| -------------- | -------------------------------------------------------------------------------------------- |
-| Sankey diagram | [![Current Sankey diagram output](../assets/charts/sankey.svg)](../assets/charts/sankey.svg) |
+Every image below is generated from the current compiled Scene rather than drawn by hand. Select a name to jump to its data fields and implementation.
 
-</details>
+|                                                                                                                                       |     |
+| ------------------------------------------------------------------------------------------------------------------------------------- | --- |
+| **[Sankey diagram](#variant-sankey)**<br>[![Current Sankey diagram output](../assets/charts/sankey.svg)](../assets/charts/sankey.svg) |     |
+
+## Type-by-type implementation
+
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+
+<a id="variant-sankey"></a>
+
+### Sankey diagram
+
+Use this preset when weighted movement between stages or entities is the primary reading task. Uses proportional nodes and weighted flow bands.
+
+- **Quick API:** `sankey()`
+- **Mode:** `default`
+- **Portable mark:** `sankey`
+- **Required example fields:** `source`, `value`, `target`
+
+```js
+import { sankey } from 'graflume';
+
+const data = [
+  {
+    source: 'Input',
+    value: 9,
+    target: 'Compiler',
+  },
+  {
+    source: 'Compiler',
+    value: 8,
+    target: 'Scene',
+  },
+  {
+    source: 'Scene',
+    value: 6,
+    target: 'Canvas',
+  },
+  {
+    source: 'Scene',
+    value: 4,
+    target: 'Vector',
+  },
+];
+
+sankey('#chart', data, {
+  x: {
+    field: 'source',
+    type: 'ordinal',
+    title: 'source',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Sankey diagram',
+    subtitle: 'flow family · default mode',
+  },
+  accessibility: {
+    label: 'Sankey diagram example',
+    description: 'A compiled sankey diagram example using the flow family.',
+  },
+  mark: {
+    fields: {
+      target: 'target',
+    },
+  },
+});
+```
+
 <!-- FAMILY_PRESETS_END -->
+
 ![Current Flow diagram output](../assets/charts/flow.svg)
 
 This guide documents the consolidated **Flow diagram** family. The image is generated from the actual compiled Scene used by the runtime renderer.

@@ -6,31 +6,463 @@
 
 This is the single manual for the `interval` family. Its canonical Quick API is `intervals()` from `graflume`, and its representative portable mark is `interval`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
 
-| Compatible name         | Quick API           | Mode                | Portable mark | Functional difference                                     |
-| ----------------------- | ------------------- | ------------------- | ------------- | --------------------------------------------------------- |
-| Intervals               | `intervals()`       | `default`           | `interval`    | Uses a central point with low/high stems and caps.        |
-| Area range chart        | `areaRange()`       | `area-range`        | `range`       | Fills the band between low and high values.               |
-| Smooth area range chart | `areaSplineRange()` | `area-spline-range` | `range`       | Smooths both edges of a low/high band.                    |
-| Column range chart      | `columnRange()`     | `column-range`      | `range`       | Uses one floating vertical column per low/high pair.      |
-| Dumbbell chart          | `dumbbell()`        | `dumbbell`          | `range`       | Connects two endpoints and emphasizes both values.        |
-| Error bar chart         | `errorBar()`        | `error-bar`         | `interval`    | Uses a low/high stem and compact caps around an estimate. |
+| Compatible name                                       | Quick API           | Mode                | Portable mark | Functional difference                                     |
+| ----------------------------------------------------- | ------------------- | ------------------- | ------------- | --------------------------------------------------------- |
+| [Intervals](#variant-intervals)                       | `intervals()`       | `default`           | `interval`    | Uses a central point with low/high stems and caps.        |
+| [Area range chart](#variant-area-range)               | `areaRange()`       | `area-range`        | `range`       | Fills the band between low and high values.               |
+| [Smooth area range chart](#variant-area-spline-range) | `areaSplineRange()` | `area-spline-range` | `range`       | Smooths both edges of a low/high band.                    |
+| [Column range chart](#variant-column-range)           | `columnRange()`     | `column-range`      | `range`       | Uses one floating vertical column per low/high pair.      |
+| [Dumbbell chart](#variant-dumbbell)                   | `dumbbell()`        | `dumbbell`          | `range`       | Connects two endpoints and emphasizes both values.        |
+| [Error bar chart](#variant-error-bar)                 | `errorBar()`        | `error-bar`         | `interval`    | Uses a low/high stem and compact caps around an estimate. |
 
-All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining manually maintained sections describe the canonical/default presentation unless a preset row above states a different behavior.
 
-<details>
-<summary>Open 6 compiled preset snapshots</summary>
+## Visual gallery
 
-| Preset                  | Current compiled output                                                                                                     |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| Intervals               | [![Current Intervals output](../assets/charts/intervals.svg)](../assets/charts/intervals.svg)                               |
-| Area range chart        | [![Current Area range chart output](../assets/charts/area-range.svg)](../assets/charts/area-range.svg)                      |
-| Smooth area range chart | [![Current Smooth area range chart output](../assets/charts/area-spline-range.svg)](../assets/charts/area-spline-range.svg) |
-| Column range chart      | [![Current Column range chart output](../assets/charts/column-range.svg)](../assets/charts/column-range.svg)                |
-| Dumbbell chart          | [![Current Dumbbell chart output](../assets/charts/dumbbell.svg)](../assets/charts/dumbbell.svg)                            |
-| Error bar chart         | [![Current Error bar chart output](../assets/charts/error-bar.svg)](../assets/charts/error-bar.svg)                         |
+Every image below is generated from the current compiled Scene rather than drawn by hand. Select a name to jump to its data fields and implementation.
 
-</details>
+|                                                                                                                                                                                          |                                                                                                                                                                 |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **[Intervals](#variant-intervals)**<br>[![Current Intervals output](../assets/charts/intervals.svg)](../assets/charts/intervals.svg)                                                     | **[Area range chart](#variant-area-range)**<br>[![Current Area range chart output](../assets/charts/area-range.svg)](../assets/charts/area-range.svg)           |
+| **[Smooth area range chart](#variant-area-spline-range)**<br>[![Current Smooth area range chart output](../assets/charts/area-spline-range.svg)](../assets/charts/area-spline-range.svg) | **[Column range chart](#variant-column-range)**<br>[![Current Column range chart output](../assets/charts/column-range.svg)](../assets/charts/column-range.svg) |
+| **[Dumbbell chart](#variant-dumbbell)**<br>[![Current Dumbbell chart output](../assets/charts/dumbbell.svg)](../assets/charts/dumbbell.svg)                                              | **[Error bar chart](#variant-error-bar)**<br>[![Current Error bar chart output](../assets/charts/error-bar.svg)](../assets/charts/error-bar.svg)                |
+
+## Type-by-type implementation
+
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+
+<a id="variant-intervals"></a>
+
+### Intervals
+
+Use this preset when a central value and its lower and upper bounds must be compared. Uses a central point with low/high stems and caps.
+
+- **Quick API:** `intervals()`
+- **Mode:** `default`
+- **Portable mark:** `interval`
+- **Required example fields:** `category`, `value`, `low`, `high`
+
+```js
+import { intervals } from 'graflume';
+
+const data = [
+  {
+    category: 'P1',
+    value: 24,
+    low: 14,
+    high: 33,
+  },
+  {
+    category: 'P2',
+    value: 29.916,
+    low: 14.8,
+    high: 34.1,
+  },
+  {
+    category: 'P3',
+    value: 33.54,
+    low: 15.6,
+    high: 35.2,
+  },
+  {
+    category: 'P4',
+    value: 33.72,
+    low: 16.4,
+    high: 36.3,
+  },
+];
+
+intervals('#chart', data, {
+  x: {
+    field: 'category',
+    type: 'ordinal',
+    title: 'category',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Intervals',
+    subtitle: 'interval family · default mode',
+  },
+  accessibility: {
+    label: 'Intervals example',
+    description: 'A compiled intervals example using the interval family.',
+  },
+  mark: {
+    fields: {
+      low: 'low',
+      high: 'high',
+    },
+  },
+});
+```
+
+<a id="variant-area-range"></a>
+
+### Area range chart
+
+Use this preset when a central value and its lower and upper bounds must be compared. Fills the band between low and high values.
+
+- **Quick API:** `areaRange()`
+- **Mode:** `area-range`
+- **Portable mark:** `range`
+- **Required example fields:** `category`, `value`, `low`, `high`
+
+```js
+import { areaRange } from 'graflume/complete';
+
+const data = [
+  {
+    category: 'P1',
+    value: 24,
+    low: 14,
+    high: 33,
+  },
+  {
+    category: 'P2',
+    value: 29.916,
+    low: 14.8,
+    high: 34.1,
+  },
+  {
+    category: 'P3',
+    value: 33.54,
+    low: 15.6,
+    high: 35.2,
+  },
+  {
+    category: 'P4',
+    value: 33.72,
+    low: 16.4,
+    high: 36.3,
+  },
+];
+
+areaRange('#chart', data, {
+  x: {
+    field: 'category',
+    type: 'ordinal',
+    title: 'category',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Area range chart',
+    subtitle: 'interval family · area-range mode',
+  },
+  accessibility: {
+    label: 'Area range chart example',
+    description: 'A compiled area range chart example using the interval family.',
+  },
+  mark: {
+    fields: {
+      low: 'low',
+      high: 'high',
+    },
+    options: {
+      mode: 'area',
+      smooth: false,
+    },
+  },
+});
+```
+
+<a id="variant-area-spline-range"></a>
+
+### Smooth area range chart
+
+Use this preset when a central value and its lower and upper bounds must be compared. Smooths both edges of a low/high band.
+
+- **Quick API:** `areaSplineRange()`
+- **Mode:** `area-spline-range`
+- **Portable mark:** `range`
+- **Required example fields:** `category`, `value`, `low`, `high`
+
+```js
+import { areaSplineRange } from 'graflume/complete';
+
+const data = [
+  {
+    category: 'P1',
+    value: 24,
+    low: 14,
+    high: 33,
+  },
+  {
+    category: 'P2',
+    value: 29.916,
+    low: 14.8,
+    high: 34.1,
+  },
+  {
+    category: 'P3',
+    value: 33.54,
+    low: 15.6,
+    high: 35.2,
+  },
+  {
+    category: 'P4',
+    value: 33.72,
+    low: 16.4,
+    high: 36.3,
+  },
+];
+
+areaSplineRange('#chart', data, {
+  x: {
+    field: 'category',
+    type: 'ordinal',
+    title: 'category',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Smooth area range chart',
+    subtitle: 'interval family · area-spline-range mode',
+  },
+  accessibility: {
+    label: 'Smooth area range chart example',
+    description: 'A compiled smooth area range chart example using the interval family.',
+  },
+  mark: {
+    fields: {
+      low: 'low',
+      high: 'high',
+    },
+    options: {
+      mode: 'area',
+      smooth: true,
+    },
+  },
+});
+```
+
+<a id="variant-column-range"></a>
+
+### Column range chart
+
+Use this preset when a central value and its lower and upper bounds must be compared. Uses one floating vertical column per low/high pair.
+
+- **Quick API:** `columnRange()`
+- **Mode:** `column-range`
+- **Portable mark:** `range`
+- **Required example fields:** `category`, `value`, `low`, `high`
+
+```js
+import { columnRange } from 'graflume/complete';
+
+const data = [
+  {
+    category: 'P1',
+    value: 24,
+    low: 14,
+    high: 33,
+  },
+  {
+    category: 'P2',
+    value: 29.916,
+    low: 14.8,
+    high: 34.1,
+  },
+  {
+    category: 'P3',
+    value: 33.54,
+    low: 15.6,
+    high: 35.2,
+  },
+  {
+    category: 'P4',
+    value: 33.72,
+    low: 16.4,
+    high: 36.3,
+  },
+];
+
+columnRange('#chart', data, {
+  x: {
+    field: 'category',
+    type: 'ordinal',
+    title: 'category',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Column range chart',
+    subtitle: 'interval family · column-range mode',
+  },
+  accessibility: {
+    label: 'Column range chart example',
+    description: 'A compiled column range chart example using the interval family.',
+  },
+  mark: {
+    fields: {
+      low: 'low',
+      high: 'high',
+    },
+    options: {
+      mode: 'column',
+      smooth: false,
+    },
+  },
+});
+```
+
+<a id="variant-dumbbell"></a>
+
+### Dumbbell chart
+
+Use this preset when a central value and its lower and upper bounds must be compared. Connects two endpoints and emphasizes both values.
+
+- **Quick API:** `dumbbell()`
+- **Mode:** `dumbbell`
+- **Portable mark:** `range`
+- **Required example fields:** `category`, `value`, `low`, `high`
+
+```js
+import { dumbbell } from 'graflume/complete';
+
+const data = [
+  {
+    category: 'P1',
+    value: 24,
+    low: 14,
+    high: 33,
+  },
+  {
+    category: 'P2',
+    value: 29.916,
+    low: 14.8,
+    high: 34.1,
+  },
+  {
+    category: 'P3',
+    value: 33.54,
+    low: 15.6,
+    high: 35.2,
+  },
+  {
+    category: 'P4',
+    value: 33.72,
+    low: 16.4,
+    high: 36.3,
+  },
+];
+
+dumbbell('#chart', data, {
+  x: {
+    field: 'category',
+    type: 'ordinal',
+    title: 'category',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Dumbbell chart',
+    subtitle: 'interval family · dumbbell mode',
+  },
+  accessibility: {
+    label: 'Dumbbell chart example',
+    description: 'A compiled dumbbell chart example using the interval family.',
+  },
+  mark: {
+    fields: {
+      low: 'low',
+      high: 'high',
+    },
+    options: {
+      mode: 'dumbbell',
+      smooth: false,
+    },
+  },
+});
+```
+
+<a id="variant-error-bar"></a>
+
+### Error bar chart
+
+Use this preset when a central value and its lower and upper bounds must be compared. Uses a low/high stem and compact caps around an estimate.
+
+- **Quick API:** `errorBar()`
+- **Mode:** `error-bar`
+- **Portable mark:** `interval`
+- **Required example fields:** `category`, `value`, `low`, `high`
+
+```js
+import { errorBar } from 'graflume/complete';
+
+const data = [
+  {
+    category: 'P1',
+    value: 24,
+    low: 14,
+    high: 33,
+  },
+  {
+    category: 'P2',
+    value: 29.916,
+    low: 14.8,
+    high: 34.1,
+  },
+  {
+    category: 'P3',
+    value: 33.54,
+    low: 15.6,
+    high: 35.2,
+  },
+  {
+    category: 'P4',
+    value: 33.72,
+    low: 16.4,
+    high: 36.3,
+  },
+];
+
+errorBar('#chart', data, {
+  x: {
+    field: 'category',
+    type: 'ordinal',
+    title: 'category',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Error bar chart',
+    subtitle: 'interval family · error-bar mode',
+  },
+  accessibility: {
+    label: 'Error bar chart example',
+    description: 'A compiled error bar chart example using the interval family.',
+  },
+  mark: {
+    fields: {
+      low: 'low',
+      high: 'high',
+    },
+  },
+});
+```
+
 <!-- FAMILY_PRESETS_END -->
+
 ![Current Interval chart output](../assets/charts/interval.svg)
 
 This guide documents the consolidated **Interval chart** family. The image is generated from the actual compiled Scene used by the runtime renderer.

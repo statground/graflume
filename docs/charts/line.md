@@ -6,25 +6,206 @@
 
 This is the single manual for the `line` family. Its canonical Quick API is `line()` from `graflume`, and its representative portable mark is `line`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
 
-| Compatible name | Quick API     | Mode      | Portable mark | Functional difference                                |
-| --------------- | ------------- | --------- | ------------- | ---------------------------------------------------- |
-| Line chart      | `line()`      | `default` | `line`        | Uses direct ordered line segments.                   |
-| Trendline       | `trendline()` | `trend`   | `trendline`   | Derives a regression trend from the coordinate rows. |
-| Spline chart    | `spline()`    | `spline`  | `smooth`      | Uses a sampled smooth path.                          |
+| Compatible name                 | Quick API     | Mode      | Portable mark | Functional difference                                |
+| ------------------------------- | ------------- | --------- | ------------- | ---------------------------------------------------- |
+| [Line chart](#variant-line)     | `line()`      | `default` | `line`        | Uses direct ordered line segments.                   |
+| [Trendline](#variant-trendline) | `trendline()` | `trend`   | `trendline`   | Derives a regression trend from the coordinate rows. |
+| [Spline chart](#variant-spline) | `spline()`    | `spline`  | `smooth`      | Uses a sampled smooth path.                          |
 
-All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining manually maintained sections describe the canonical/default presentation unless a preset row above states a different behavior.
 
-<details>
-<summary>Open 3 compiled preset snapshots</summary>
+## Visual gallery
 
-| Preset       | Current compiled output                                                                       |
-| ------------ | --------------------------------------------------------------------------------------------- |
-| Line chart   | [![Current Line chart output](../assets/charts/line.svg)](../assets/charts/line.svg)          |
-| Trendline    | [![Current Trendline output](../assets/charts/trendline.svg)](../assets/charts/trendline.svg) |
-| Spline chart | [![Current Spline chart output](../assets/charts/spline.svg)](../assets/charts/spline.svg)    |
+Every image below is generated from the current compiled Scene rather than drawn by hand. Select a name to jump to its data fields and implementation.
 
-</details>
+|                                                                                                                                   |                                                                                                                                      |
+| --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **[Line chart](#variant-line)**<br>[![Current Line chart output](../assets/charts/line.svg)](../assets/charts/line.svg)           | **[Trendline](#variant-trendline)**<br>[![Current Trendline output](../assets/charts/trendline.svg)](../assets/charts/trendline.svg) |
+| **[Spline chart](#variant-spline)**<br>[![Current Spline chart output](../assets/charts/spline.svg)](../assets/charts/spline.svg) |                                                                                                                                      |
+
+## Type-by-type implementation
+
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+
+<a id="variant-line"></a>
+
+### Line chart
+
+Use this preset when change across an ordered domain is the main reading task. Uses direct ordered line segments.
+
+- **Quick API:** `line()`
+- **Mode:** `default`
+- **Portable mark:** `line`
+- **Required example fields:** `category`, `value`
+
+```js
+import { line } from 'graflume';
+
+const data = [
+  {
+    category: 'P1',
+    value: 24,
+  },
+  {
+    category: 'P2',
+    value: 29.916,
+  },
+  {
+    category: 'P3',
+    value: 33.54,
+  },
+  {
+    category: 'P4',
+    value: 33.72,
+  },
+];
+
+line('#chart', data, {
+  x: {
+    field: 'category',
+    type: 'ordinal',
+    title: 'category',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Line chart',
+    subtitle: 'line family · default mode',
+  },
+  accessibility: {
+    label: 'Line chart example',
+    description: 'A compiled line chart example using the line family.',
+  },
+  mark: {
+    point: true,
+  },
+});
+```
+
+<a id="variant-trendline"></a>
+
+### Trendline
+
+Use this preset when change across an ordered domain is the main reading task. Derives a regression trend from the coordinate rows.
+
+- **Quick API:** `trendline()`
+- **Mode:** `trend`
+- **Portable mark:** `trendline`
+- **Required example fields:** `category`, `value`
+
+```js
+import { trendline } from 'graflume';
+
+const data = [
+  {
+    category: 'P1',
+    value: 24,
+  },
+  {
+    category: 'P2',
+    value: 29.916,
+  },
+  {
+    category: 'P3',
+    value: 33.54,
+  },
+  {
+    category: 'P4',
+    value: 33.72,
+  },
+];
+
+trendline('#chart', data, {
+  x: {
+    field: 'category',
+    type: 'ordinal',
+    title: 'category',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Trendline',
+    subtitle: 'line family · trend mode',
+  },
+  accessibility: {
+    label: 'Trendline example',
+    description: 'A compiled trendline example using the line family.',
+  },
+  mark: {
+    point: true,
+  },
+});
+```
+
+<a id="variant-spline"></a>
+
+### Spline chart
+
+Use this preset when change across an ordered domain is the main reading task. Uses a sampled smooth path.
+
+- **Quick API:** `spline()`
+- **Mode:** `spline`
+- **Portable mark:** `smooth`
+- **Required example fields:** `category`, `value`
+
+```js
+import { spline } from 'graflume/complete';
+
+const data = [
+  {
+    category: 'P1',
+    value: 24,
+  },
+  {
+    category: 'P2',
+    value: 29.916,
+  },
+  {
+    category: 'P3',
+    value: 33.54,
+  },
+  {
+    category: 'P4',
+    value: 33.72,
+  },
+];
+
+spline('#chart', data, {
+  x: {
+    field: 'category',
+    type: 'ordinal',
+    title: 'category',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Spline chart',
+    subtitle: 'line family · spline mode',
+  },
+  accessibility: {
+    label: 'Spline chart example',
+    description: 'A compiled spline chart example using the line family.',
+  },
+  mark: {
+    point: true,
+    options: {
+      area: false,
+    },
+  },
+});
+```
+
 <!-- FAMILY_PRESETS_END -->
+
 Use a line chart for an ordered sequence such as time, rank, distance, or another progression. Graflume connects valid input rows in their current order and can add interactive point circles.
 
 ## Implemented appearance

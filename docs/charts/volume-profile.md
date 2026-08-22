@@ -6,21 +6,91 @@
 
 This is the single manual for the `volume-profile` family. Its canonical Quick API is `volumeProfile()` from `graflume/complete`, and its representative portable mark is `volume-profile`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
 
-| Compatible name | Quick API         | Mode              | Portable mark    | Functional difference                                          |
-| --------------- | ----------------- | ----------------- | ---------------- | -------------------------------------------------------------- |
-| Volume by price | `volumeByPrice()` | `volume-by-price` | `volume-profile` | Bins price and aggregates volume into horizontal profile bars. |
+| Compatible name                             | Quick API         | Mode              | Portable mark    | Functional difference                                          |
+| ------------------------------------------- | ----------------- | ----------------- | ---------------- | -------------------------------------------------------------- |
+| [Volume by price](#variant-volume-by-price) | `volumeByPrice()` | `volume-by-price` | `volume-profile` | Bins price and aggregates volume into horizontal profile bars. |
 
-All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining sections describe the canonical/default presentation unless a preset row above states a different behavior.
+All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining manually maintained sections describe the canonical/default presentation unless a preset row above states a different behavior.
 
-<details>
-<summary>Open 1 compiled preset snapshot</summary>
+## Visual gallery
 
-| Preset          | Current compiled output                                                                                         |
-| --------------- | --------------------------------------------------------------------------------------------------------------- |
-| Volume by price | [![Current Volume by price output](../assets/charts/volume-by-price.svg)](../assets/charts/volume-by-price.svg) |
+Every image below is generated from the current compiled Scene rather than drawn by hand. Select a name to jump to its data fields and implementation.
 
-</details>
+|                                                                                                                                                                    |     |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --- |
+| **[Volume by price](#variant-volume-by-price)**<br>[![Current Volume by price output](../assets/charts/volume-by-price.svg)](../assets/charts/volume-by-price.svg) |     |
+
+## Type-by-type implementation
+
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+
+<a id="variant-volume-by-price"></a>
+
+### Volume by price
+
+Use this preset when aggregated volume must be compared across price bands. Bins price and aggregates volume into horizontal profile bars.
+
+- **Quick API:** `volumeByPrice()`
+- **Mode:** `volume-by-price`
+- **Portable mark:** `volume-profile`
+- **Required example fields:** `date`, `price`, `volume`
+
+```js
+import { volumeByPrice } from 'graflume/complete';
+
+const data = [
+  {
+    date: '2026-01-01',
+    price: 24,
+    volume: 120,
+  },
+  {
+    date: '2026-02-01',
+    price: 25.2,
+    volume: 151,
+  },
+  {
+    date: '2026-03-01',
+    price: 26.4,
+    volume: 182,
+  },
+  {
+    date: '2026-04-01',
+    price: 27.6,
+    volume: 213,
+  },
+];
+
+volumeByPrice('#chart', data, {
+  x: {
+    field: 'date',
+    type: 'temporal',
+    title: 'date',
+  },
+  y: {
+    field: 'price',
+    type: 'quantitative',
+    title: 'price',
+  },
+  title: {
+    text: 'Volume by price',
+    subtitle: 'volume-profile family · volume-by-price mode',
+  },
+  accessibility: {
+    label: 'Volume by price example',
+    description: 'A compiled volume by price example using the volume-profile family.',
+  },
+  mark: {
+    fields: {
+      price: 'price',
+      volume: 'volume',
+    },
+  },
+});
+```
+
 <!-- FAMILY_PRESETS_END -->
+
 ![Current Volume profile chart output](../assets/charts/volume-profile.svg)
 
 This page documents the currently implemented **Volume profile chart** family in Graflume `0.1.0-alpha.0`. The image above is generated from the same compiled Scene used by the Canvas renderer.
