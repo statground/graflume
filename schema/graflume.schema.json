@@ -454,7 +454,41 @@
     "tooltip": {
       "type": "object",
       "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "required": ["trigger"],
+            "properties": {
+              "trigger": {
+                "const": "axis"
+              }
+            }
+          },
+          "then": {
+            "required": ["axis"]
+          }
+        },
+        {
+          "if": {
+            "required": ["axis"]
+          },
+          "then": {
+            "required": ["trigger"],
+            "properties": {
+              "trigger": {
+                "const": "axis"
+              }
+            }
+          }
+        }
+      ],
       "properties": {
+        "trigger": {
+          "enum": ["mark", "axis"]
+        },
+        "axis": {
+          "enum": ["x", "y"]
+        },
         "title": {
           "type": "string"
         },

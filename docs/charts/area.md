@@ -29,7 +29,7 @@ Every image below is generated from the current compiled Scene rather than drawn
 
 ## Type-by-type implementation
 
-The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. This family uses `trigger: "axis"` with `axis: "x"`. An exact rendered-mark hit still has priority; otherwise Graflume selects the nearest actual datum on that axis without inventing an interpolated row. Tooltip interaction is a pointer-only convenience, so keep a readable summary or data table available for exact values and keyboard access. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
 
 <a id="variant-area"></a>
 
@@ -102,6 +102,8 @@ area('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -178,6 +180,8 @@ steppedArea('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -265,6 +269,8 @@ themeRiver('#chart', data, {
           format: 'auto',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -344,6 +350,8 @@ areaSpline('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -431,6 +439,8 @@ polygon('#chart', data, {
           format: 'auto',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -518,6 +528,8 @@ streamgraph('#chart', data, {
           format: 'auto',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -587,7 +599,7 @@ Graflume.create('#chart', {
 
 ## Interaction
 
-The filled polygon does not currently expose per-row datum hit targets. For hover or click details, overlay a point or line-with-points layer:
+The filled polygon does not currently expose exact per-row datum hit targets. The generated examples enable point circles and an x-axis tooltip: exact circles keep priority, while other eligible pointer positions resolve the nearest actual row. For structured hover/click hits without relying on the tooltip fallback, enable area points or overlay a point layer:
 
 ```ts
 Graflume.create('#chart', {
@@ -615,7 +627,7 @@ Graflume.create('#chart', {
 - no stacked, normalized, streamgraph, or between-two-lines area;
 - one closed polygon per area layer;
 - missing rows do not create separate area segments;
-- no area-level datum hit testing or native tooltip;
+- no polygon-level per-row hit testing; use point targets or the explicit x-axis tooltip;
 - no SVG/WebGL renderer parity yet.
 
 ## Runnable examples and tests

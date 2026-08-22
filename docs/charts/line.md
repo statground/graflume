@@ -25,7 +25,7 @@ Every image below is generated from the current compiled Scene rather than drawn
 
 ## Type-by-type implementation
 
-The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. This family uses `trigger: "axis"` with `axis: "x"`. An exact rendered-mark hit still has priority; otherwise Graflume selects the nearest actual datum on that axis without inventing an interpolated row. Tooltip interaction is a pointer-only convenience, so keep a readable summary or data table available for exact values and keyboard access. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
 
 <a id="variant-line"></a>
 
@@ -98,6 +98,8 @@ line('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -174,6 +176,8 @@ trendline('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -253,6 +257,8 @@ spline('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -335,7 +341,7 @@ mark: {
 }
 ```
 
-Each circle retains the original row. Without points, `hover` and `click` can still fire at the chart surface but normally return `hit: null` for the line.
+Each circle retains the original row. Without points, structured `hover` and `click` events can still fire at the chart surface but normally return `hit: null` for the line. An explicit x-axis tooltip can still present the nearest actual row as a pointer-only fallback; it does not change those event results.
 
 ## Large data behavior
 
@@ -352,7 +358,7 @@ Pre-aggregate or downsample when every source observation is not visually distin
 - straight connected segments only; no curve/interpolation setting;
 - no step line, range line, confidence band, or error bar;
 - no automatic sorting or time-window transform;
-- no native line tooltip/legend;
+- no native legend or rendered crosshair guide;
 - no path-level datum hit testing;
 - no SVG/WebGL renderer parity yet.
 

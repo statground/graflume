@@ -65,6 +65,11 @@ function normalizeInteraction(input: ChartSpec['interaction']): NormalizedIntera
     !hover || tooltipInput === undefined || tooltipInput === false
       ? false
       : {
+          trigger:
+            typeof tooltipInput === 'object' ? (tooltipInput.trigger ?? 'mark') : ('mark' as const),
+          ...(typeof tooltipInput === 'object' && tooltipInput.axis !== undefined
+            ? { axis: tooltipInput.axis }
+            : {}),
           ...(typeof tooltipInput === 'object' && tooltipInput.title !== undefined
             ? { title: tooltipInput.title }
             : {}),

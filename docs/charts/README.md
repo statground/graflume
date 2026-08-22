@@ -159,6 +159,8 @@ const chart = line('#chart', data, {
   interaction: {
     tooltip: {
       title: 'Monthly sales',
+      trigger: 'axis',
+      axis: 'x',
       fields: [
         { field: 'month', label: 'Month' },
         { field: 'sales', label: 'Sales', format: 'number', prefix: '$' },
@@ -284,12 +286,14 @@ chart.destroy();
 
 ### Built-in text-only tooltip
 
-The built-in tooltip is opt-in. Use `interaction: { tooltip: true }` for a compact inferred field list, or declare the chart-specific content explicitly:
+The built-in tooltip is opt-in. Use `interaction: { tooltip: true }` for a compact inferred field list with exact mark hit testing, or declare chart-specific content and a trigger explicitly:
 
 ```ts
 interaction: {
   tooltip: {
     title: 'Forecast interval',
+    trigger: 'axis',
+    axis: 'x',
     fields: [
       { field: 'date', label: 'Date', format: 'date' },
       { field: 'low', label: 'Lower bound', format: 'number', fractionDigits: 1 },
@@ -301,9 +305,11 @@ interaction: {
 
 Supported formats are `auto`, `number`, `integer`, `percent`, `date`, and `datetime`. `fractionDigits`, `prefix`, and `suffix` remain declarative and serializable. Number and date output follows the chart `locale`; an ISO date-only string such as `2026-08-23` is treated as a calendar date and does not shift to the previous day in a western time zone. `percent` expects a ratio such as `0.42` and displays it as 42%.
 
+`trigger: 'mark'` is the default for `tooltip: true` and for tooltip objects that omit `trigger`. It requires the pointer to hit rendered datum geometry. Ordered charts may opt into `trigger: 'axis'` with `axis: 'x'` or `'y'`. In axis mode, an exact rendered-mark hit still has priority; otherwise a pointer in the plot or corresponding bounded axis region selects the nearest actual compiled datum on that axis. Graflume does not interpolate a synthetic row between observations. The axis fallback controls only tooltip presentation, so structured `hover` and `click` events retain their exact rendered-mark hit semantics.
+
 Tooltip titles, labels, and values are inserted with DOM `textContent`. Raw HTML, formatter callbacks, expressions, and runtime code evaluation are intentionally unsupported. Aggregate marks may attach derived fields, such as a bin boundary and count, to their hit target; those derived values take precedence over a representative source row when the same tooltip field is requested.
 
-The tooltip follows the pointer and is clamped to the chart surface. It adds `role="tooltip"` and temporarily connects the Canvas through `aria-describedby`, but it does not replace the nearby summary or data-table fallback recommended below. Disabling `hover` also disables the tooltip. Large and ultra profiles disable per-mark hit testing, so they do not display per-mark tooltips.
+The tooltip follows the pointer and is clamped to the chart surface. It adds `role="tooltip"` and temporarily connects the Canvas through `aria-describedby`, but it does not replace the nearby summary or data-table fallback recommended below. Both trigger modes are pointer-only; they do not provide keyboard traversal or touch-specific interaction. Disabling `hover` also disables the tooltip. Large and ultra profiles disable datum hit lookup, so they do not display mark or axis-nearest tooltips.
 
 ## Interaction by mark
 
@@ -315,7 +321,7 @@ The tooltip follows the pointer and is clamped to the chart surface. It adds `ro
 | Interactive datum text        | an approximate aligned and rotated text box                                    |
 | Area marks with `point: true` | one datum circle per valid coordinate                                          |
 
-For an interactive area or plain line, enable `point` or add a point layer. Large and ultra performance profiles disable per-mark hit testing.
+For an exact interactive area or plain-line mark target, enable `point` or add a point layer. On an ordered chart, explicit axis mode can instead resolve the nearest actual datum without adding visible point marks. Large and ultra performance profiles disable datum hit lookup.
 
 ## Performance profiles
 
@@ -349,5 +355,5 @@ Automatic data tables and keyboard traversal of individual marks are not impleme
 - stacked and normalized stacks, violin and density plots, 3D, and editable annotations;
 - full map boundary/projection packages, force-directed large-network layout, multi-stage Sankey layout, implicit Word Tree tokenization, and complete Vega grammar conversion;
 - independent and dual scales, facets, concat, dashboards, and linked views;
-- native legends, advanced collision-aware tooltip routing, label-collision routing, automatic data tables, and keyboard mark traversal;
+- native legends, shared multi-series or advanced collision-aware tooltip routing, rendered crosshair guides, label-collision routing, automatic data tables, and keyboard mark traversal;
 - built-in SVG, WebGL2, and WebGPU renderer parity.

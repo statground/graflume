@@ -9,6 +9,15 @@ export interface SpecIssue {
 
 const UNSAFE_FIELDS = new Set(['__proto__', 'prototype', 'constructor']);
 const TOOLTIP_FORMATS = new Set(['auto', 'number', 'integer', 'percent', 'date', 'datetime']);
+const TOOLTIP_KEYS = new Set(['trigger', 'axis', 'title', 'fields']);
+const TOOLTIP_FIELD_KEYS = new Set([
+  'field',
+  'label',
+  'format',
+  'fractionDigits',
+  'prefix',
+  'suffix',
+]);
 
 function validateEncoding(value: unknown, path: string, issues: SpecIssue[]): void {
   if (typeof value === 'string') {
@@ -83,6 +92,11 @@ function validateTooltipField(value: unknown, path: string, issues: SpecIssue[])
     issues.push({ path, message: 'Tooltip field must be a field name or an object with a field.' });
     return;
   }
+  for (const key of Object.keys(value)) {
+    if (!TOOLTIP_FIELD_KEYS.has(key)) {
+      issues.push({ path: `${path}.${key}`, message: `Unknown tooltip field property "${key}".` });
+    }
+  }
   if (UNSAFE_FIELDS.has(value.field)) {
     issues.push({ path: `${path}.field`, message: `Unsafe field "${value.field}" is forbidden.` });
   }
@@ -130,6 +144,45 @@ function validateInteraction(value: unknown, path: string, issues: SpecIssue[]):
   if (!isPlainObject(tooltip)) {
     issues.push({ path: `${path}.tooltip`, message: 'Tooltip must be a boolean or an object.' });
     return;
+  }
+  for (const key of Object.keys(tooltip)) {
+    if (!TOOLTIP_KEYS.has(key)) {
+      issues.push({
+        path: `${path}.tooltip.${key}`,
+        message: `Unknown tooltip property "${key}".`,
+      });
+    }
+  }
+  if (
+    tooltip.trigger !== undefined &&
+    (typeof tooltip.trigger !== 'string' || !['mark', 'axis'].includes(tooltip.trigger))
+  ) {
+    issues.push({
+      path: `${path}.tooltip.trigger`,
+      message: 'Tooltip trigger must be "mark" or "axis".',
+    });
+  }
+  if (
+    tooltip.axis !== undefined &&
+    (typeof tooltip.axis !== 'string' || !['x', 'y'].includes(tooltip.axis))
+  ) {
+    issues.push({
+      path: `${path}.tooltip.axis`,
+      message: 'Tooltip axis must be "x" or "y".',
+    });
+  }
+  const trigger = tooltip.trigger ?? 'mark';
+  if (trigger === 'axis' && tooltip.axis === undefined) {
+    issues.push({
+      path: `${path}.tooltip.axis`,
+      message: 'Tooltip axis is required when trigger is "axis".',
+    });
+  }
+  if (trigger !== 'axis' && tooltip.axis !== undefined) {
+    issues.push({
+      path: `${path}.tooltip.axis`,
+      message: 'Tooltip axis is only valid when trigger is "axis".',
+    });
   }
   if (tooltip.title !== undefined && typeof tooltip.title !== 'string') {
     issues.push({ path: `${path}.tooltip.title`, message: 'Tooltip title must be a string.' });

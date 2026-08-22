@@ -16,8 +16,8 @@ Graflume is an experimental, CDN-first visualization engine built around a porta
 - polished light/dark design-token themes with an accessible categorical palette, quiet axes,
   rounded data strokes, and custom theme registration
 - custom mark, renderer, and theme plugins
-- responsive chart instances, pointer hit testing, opt-in text-only tooltips, safe data events,
-  and image export
+- responsive chart instances, pointer hit testing, opt-in text-only mark or axis-nearest tooltips,
+  safe data events, and image export
 - standard/large/ultra performance profiles with bounded line, point, and bar rendering
 - a DOM-free `compile()` path for wrappers, SSR pipelines, testing, and future language bindings
 
@@ -76,6 +76,8 @@ After an npm release, load an **exact version** from jsDelivr:
     interaction: {
       tooltip: {
         title: 'Revenue details',
+        trigger: 'axis',
+        axis: 'x',
         fields: [
           { field: 'month', label: 'Month' },
           { field: 'actual', label: 'Actual', format: 'number' },
@@ -186,6 +188,8 @@ const spec: ChartSpec = {
   interaction: {
     tooltip: {
       title: 'Point details',
+      trigger: 'axis',
+      axis: 'x',
       fields: [
         { field: 'x', label: 'X', format: 'number' },
         { field: 'y', label: 'Y', format: 'number' },
@@ -212,17 +216,23 @@ line('#chart', data, {
   interaction: {
     tooltip: {
       title: 'Monthly sales',
+      trigger: 'axis',
+      axis: 'x',
       fields: ['month', { field: 'sales', label: 'Sales', format: 'number' }],
     },
   },
 });
 ```
 
-Built-in tooltips are opt-in. `tooltip: true` infers a compact field list, while the object
-form above keeps each chart's labels, order, and formatting explicit. Tooltip content is rendered
-with DOM `textContent`; raw HTML and executable formatter callbacks are not part of the portable
-spec. Number and date formatting follows `locale`, and ISO date-only values retain their calendar
-date across browser time zones.
+Built-in tooltips are opt-in. `tooltip: true`, or an object without `trigger`, keeps exact
+`mark` hit testing. Ordered charts can explicitly set `trigger: 'axis'` and `axis: 'x'` or `'y'`:
+an exact rendered-mark hit still wins, while other pointer positions in the plot or corresponding
+axis region resolve the nearest actual datum without interpolation. This fallback changes only the
+tooltip; structured hover and click events continue to report exact rendered-mark hits. Tooltip
+content is rendered with DOM `textContent`; raw HTML and executable formatter callbacks are not
+part of the portable spec. Number and date formatting follows `locale`, and ISO date-only values
+retain their calendar date across browser time zones. Axis lookup is pointer-only, so applications
+should keep a readable summary or data table available for exact values and keyboard access.
 
 ## Streaming-shaped updates
 

@@ -1,4 +1,5 @@
 import { resolvePerformanceSettings } from '../data/performance.js';
+import { registerAxisTooltipIndex } from '../interaction/axis-hit-test.js';
 import { group, nodeBase } from '../scene/factory.js';
 import { countSceneNodes } from '../scene/walk.js';
 import type { Scene, SceneNode, TextNode } from '../scene/types.js';
@@ -7,6 +8,7 @@ import { normalizeSpec } from '../spec/normalize.js';
 import type { ThemeTokens } from '../theme/types.js';
 import type { RuntimeRegistry } from '../runtime/registry.js';
 import { compileXAxis, compileYAxis } from './axis.js';
+import { collectAxisTooltipTargets } from './axis-tooltip.js';
 import { resolveScales } from './domain.js';
 import { createLayout } from './layout.js';
 
@@ -189,6 +191,36 @@ export function compileWithRegistry(
       hitTestingEnabled: performance.enableHitTesting,
     },
   };
+
+  const tooltip = spec.interaction.tooltip;
+  if (tooltip !== false && tooltip.trigger === 'axis' && tooltip.axis !== undefined) {
+    const axis = tooltip.axis;
+    const axisSpec = scales.layers[0]?.layer[axis].axis ?? spec.axes[axis];
+    const axisVisible = showAxes && axisSpec !== false && axisSpec.visible !== false;
+    const axisStripSize =
+      axis === 'x'
+        ? Math.min(
+            spec.padding.bottom,
+            theme.axis.tickLength + theme.axis.labelPadding + theme.typography.fontSize * 1.5,
+          )
+        : Math.min(
+            spec.padding.left,
+            theme.axis.tickLength + theme.axis.labelPadding + theme.typography.fontSize * 4,
+          );
+    registerAxisTooltipIndex(scene, {
+      axis,
+      plot: layout.plot,
+      axisVisible,
+      axisStripSize: Math.max(0, axisStripSize),
+      targets: collectAxisTooltipTargets({
+        axis,
+        layerGroups,
+        scales,
+        plot: layout.plot,
+        performance,
+      }),
+    });
+  }
 
   return { scene, spec, theme };
 }

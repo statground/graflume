@@ -18,6 +18,23 @@ const endMarker = '<!-- FAMILY_PRESETS_END -->';
 const defaultFamilyIds = new Set(chartTypeCatalog.map(({ id }) => id));
 const defaultQuickApis = new Set(chartVariantCatalog.map(({ quickApi }) => quickApi));
 
+const axisTooltipFamilies = new Map([
+  ['annotation', 'x'],
+  ['area', 'x'],
+  ['bar', 'x'],
+  ['boxplot', 'x'],
+  ['candlestick', 'x'],
+  ['combination', 'x'],
+  ['difference', 'x'],
+  ['histogram', 'x'],
+  ['interval', 'x'],
+  ['line', 'x'],
+  ['technical-indicator', 'x'],
+  ['timeline', 'y'],
+  ['volume-profile', 'y'],
+  ['waterfall', 'x'],
+]);
+
 const calculatedIndicators = new Set([
   'simple-moving-average',
   'exponential-moving-average',
@@ -257,6 +274,9 @@ function quickExample(variant) {
       tooltip: {
         title: variant.name,
         fields: tooltipFields(spec),
+        ...(axisTooltipFamilies.has(variant.familyId)
+          ? { trigger: 'axis', axis: axisTooltipFamilies.get(variant.familyId) }
+          : { trigger: 'mark' }),
       },
     },
   };
@@ -424,6 +444,11 @@ ${rows.join('\n')}`;
 
 function implementationExamples(family, variants) {
   const useCase = familyUseCases[family.id] ?? 'this preset matches the intended reading task';
+  const tooltipAxis = axisTooltipFamilies.get(family.id);
+  const tooltipGuidance =
+    tooltipAxis === undefined
+      ? 'This family keeps `trigger: "mark"`, so the pointer must hit rendered datum geometry.'
+      : `This family uses \`trigger: "axis"\` with \`axis: "${tooltipAxis}"\`. An exact rendered-mark hit still has priority; otherwise Graflume selects the nearest actual datum on that axis without inventing an interpolated row.`;
   const sections = variants
     .map((variant) => {
       const fields = requiredFields(variant);
@@ -445,7 +470,7 @@ ${quickExample(variant)}
     .join('\n\n');
   return `## Type-by-type implementation
 
-The snippets are minimal runnable examples. Change \`#chart\` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared \`locale\`. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+The snippets are minimal runnable examples. Change \`#chart\` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared \`locale\`. ${tooltipGuidance} Tooltip interaction is a pointer-only convenience, so keep a readable summary or data table available for exact values and keyboard access. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
 
 ${sections}`;
 }

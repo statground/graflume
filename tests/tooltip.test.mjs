@@ -38,7 +38,10 @@ function hit(datum, tooltip) {
 
 test('built-in tooltips are opt-in and remain disabled when hover is disabled', () => {
   assert.equal(chartSpec(undefined).interaction.tooltip, false);
-  assert.deepEqual(chartSpec({ tooltip: true }).interaction.tooltip, { fields: [] });
+  assert.deepEqual(chartSpec({ tooltip: true }).interaction.tooltip, {
+    trigger: 'mark',
+    fields: [],
+  });
   assert.equal(chartSpec({ hover: false, tooltip: true }).interaction.tooltip, false);
 });
 
@@ -65,6 +68,7 @@ test('normalizes a portable tooltip title and explicit field formatting', () => 
 
   assert.equal(spec.locale, 'de-DE');
   assert.deepEqual(spec.interaction.tooltip, {
+    trigger: 'mark',
     title: 'Observation',
     fields: [
       {
@@ -270,6 +274,7 @@ test('tooltip validation rejects executable and unsafe formatting declarations',
   assert.ok(issues.some(({ path }) => path === '$.interaction.tooltip.fields[0].field'));
   assert.ok(issues.some(({ path }) => path === '$.interaction.tooltip.fields[1].format'));
   assert.ok(issues.some(({ path }) => path === '$.interaction.tooltip.fields[1].fractionDigits'));
+  assert.ok(issues.some(({ path }) => path === '$.interaction.tooltip.formatter'));
 });
 
 test('tooltip DOM rendering stays text-only for untrusted titles, labels, and values', async () => {

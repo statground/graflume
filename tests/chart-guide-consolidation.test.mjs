@@ -9,6 +9,22 @@ const chartDirectory = new URL('../docs/charts/', import.meta.url);
 const assetDirectory = new URL('../docs/assets/charts/', import.meta.url);
 const startMarker = '<!-- FAMILY_PRESETS_START -->';
 const endMarker = '<!-- FAMILY_PRESETS_END -->';
+const axisTooltipFamilies = new Map([
+  ['annotation', 'x'],
+  ['area', 'x'],
+  ['bar', 'x'],
+  ['boxplot', 'x'],
+  ['candlestick', 'x'],
+  ['combination', 'x'],
+  ['difference', 'x'],
+  ['histogram', 'x'],
+  ['interval', 'x'],
+  ['line', 'x'],
+  ['technical-indicator', 'x'],
+  ['timeline', 'y'],
+  ['volume-profile', 'y'],
+  ['waterfall', 'x'],
+]);
 
 function generatedBlock(source) {
   const start = source.indexOf(startMarker);
@@ -81,6 +97,28 @@ test('every compatible preset is integrated into its family manual', async () =>
       variants.length,
       `${family.id} gives every tooltip a deterministic formatting locale`,
     );
+    const tooltipAxis = axisTooltipFamilies.get(family.id);
+    assert.equal(
+      block.match(new RegExp(`\\btrigger: '${tooltipAxis === undefined ? 'mark' : 'axis'}'`, 'g'))
+        ?.length ?? 0,
+      variants.length,
+      `${family.id} uses its approved tooltip trigger`,
+    );
+    const axisTooltipDeclarations =
+      block.match(/\btrigger: 'axis',\n\s+axis: '[xy]'/g)?.length ?? 0;
+    assert.equal(
+      axisTooltipDeclarations,
+      tooltipAxis === undefined ? 0 : variants.length,
+      `${family.id} only declares an axis for axis-triggered tooltips`,
+    );
+    if (tooltipAxis !== undefined) {
+      assert.equal(
+        block.match(new RegExp(`\\btrigger: 'axis',\\n\\s+axis: '${tooltipAxis}'`, 'g'))?.length ??
+          0,
+        variants.length,
+        `${family.id} uses its approved ${tooltipAxis}-axis`,
+      );
+    }
   }
 });
 

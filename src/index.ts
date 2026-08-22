@@ -278,6 +278,8 @@ export type {
   TooltipFieldInput,
   TooltipFieldSpec,
   TooltipSpec,
+  TooltipAxis,
+  TooltipTrigger,
   TooltipValueFormat,
 } from './spec/types.js';
 export type { ThemeTokens } from './theme/types.js';

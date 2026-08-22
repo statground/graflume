@@ -23,7 +23,7 @@ Every image below is generated from the current compiled Scene rather than drawn
 
 ## Type-by-type implementation
 
-The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. This family uses `trigger: "axis"` with `axis: "x"`. An exact rendered-mark hit still has priority; otherwise Graflume selects the nearest actual datum on that axis without inventing an interpolated row. Tooltip interaction is a pointer-only convenience, so keep a readable summary or data table available for exact values and keyboard access. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
 
 <a id="variant-combo"></a>
 
@@ -126,6 +126,8 @@ combo('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -199,6 +201,8 @@ pareto('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -335,7 +339,7 @@ Use `group` consistently for the related bar layers. The default `overlay` posit
 
 ## Tooltip arbitration
 
-Graflume emits the top hit result from the rendered scene and leaves presentation to application code. There is no native multi-series tooltip, legend merge, or crosshair arbitration yet.
+Graflume's built-in axis tooltip can select the nearest actual datum on the shared x axis, while an exact rendered-mark hit retains priority. It does not synthesize interpolated values or build a separate per-layer aggregate: include every desired row field explicitly. Native legend merging and rendered crosshair arbitration remain outside the current contract.
 
 ```ts
 chart.on('hover', ({ hit }) => {
@@ -350,8 +354,8 @@ Use `textContent`, not raw HTML, when displaying user data.
 - shared x/y scales only;
 - no independent, dual, or multiple axes;
 - no facet, repeat, concat, grid, dashboard, or inset layout;
-- no linked brushing, cross-filtering, synchronized zoom, or crosshair;
-- no native legend merge or multi-layer tooltip;
+- no linked brushing, cross-filtering, synchronized zoom, or rendered crosshair guide;
+- legend merging and synthesized per-layer shared tooltips are not built in;
 - annotation, interval, and trendline marks can participate when their shared scales are compatible; reference bands and forecast semantics remain planned;
 - no per-layer renderer selection.
 

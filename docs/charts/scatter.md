@@ -25,7 +25,7 @@ Every image below is generated from the current compiled Scene rather than drawn
 
 ## Type-by-type implementation
 
-The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. This family keeps `trigger: "mark"`, so the pointer must hit rendered datum geometry. Tooltip interaction is a pointer-only convenience, so keep a readable summary or data table available for exact values and keyboard access. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
 
 <a id="variant-scatter"></a>
 
@@ -95,6 +95,7 @@ scatter('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'mark',
     },
   },
 });
@@ -192,6 +193,7 @@ effectScatter('#chart', data, {
           format: 'auto',
         },
       ],
+      trigger: 'mark',
     },
   },
 });
@@ -279,6 +281,7 @@ scatter3d('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'mark',
     },
   },
 });
@@ -373,7 +376,7 @@ chart.on('hover', ({ hit }) => {
 });
 ```
 
-The standard profile renders at most 25,000 point marks. Large and ultra profiles apply stronger bounds and disable per-point hit testing. For dense clouds, binning, hexbin, density, or WebGL rendering is planned but not yet implemented.
+The standard profile renders at most 25,000 point marks. Its opt-in mark tooltip uses the same exact circle targets. Large and ultra profiles apply stronger bounds and disable per-point hit testing. For dense clouds, binning, hexbin, density, or WebGL rendering is planned but not yet implemented.
 
 ## Current limitations
 
@@ -381,7 +384,7 @@ The standard profile renders at most 25,000 point marks. Large and ultra profile
 - no field encoding for color, radius, shape, or opacity;
 - no jitter, beeswarm, regression, density, hexbin, or brushing transform;
 - no spatial index or GPU picking;
-- no native legend/tooltip;
+- no native legend or axis-nearest mode for the unordered two-dimensional cloud;
 - no WebGL renderer yet.
 
 ## Runnable examples and tests

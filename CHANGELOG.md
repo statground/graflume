@@ -4,6 +4,7 @@ All notable changes to Graflume will be recorded here.
 
 ## Unreleased
 
+- Add the portable `interaction.tooltip.trigger: 'axis'` mode with explicit x/y selection for ordered charts. Exact mark hits retain priority; other eligible pointer positions resolve the nearest actual datum without interpolation, while existing `tooltip: true` and omitted triggers remain mark-based and structured data events keep exact-hit semantics. Document the pointer-only behavior and accessible table fallback across every generated family guide, and raise the measured minified bundle budgets from 92/176 KiB to 97/182 KiB for the default/complete builds.
 - Add opt-in, chart-surface-clamped, text-only hover tooltips with portable chart-specific fields, locale-aware number/date formatting, aggregate-derived values, text-mark hit targets, and area point targets; document the configuration in every generated family Quick API. Raise the default minified bundle budget from 80 KiB to 92 KiB for the native interaction controller while retaining the complete-bundle budget.
 - Tighten the Heatmap compiler's default cell spacing to a one-pixel gap with subtle corners, preserving identifiable boundaries while presenting categorical cells as one continuous matrix.
 - Expand every consolidated family manual into a visible type gallery with stable per-preset anchors, selection guidance, required fields, and minimal runnable Quick API examples for all 139 family presets; give both declarative adapters the same treatment.

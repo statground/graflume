@@ -26,7 +26,7 @@ Every image below is generated from the current compiled Scene rather than drawn
 
 ## Type-by-type implementation
 
-The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. This family keeps `trigger: "mark"`, so the pointer must hit rendered datum geometry. Tooltip interaction is a pointer-only convenience, so keep a readable summary or data table available for exact values and keyboard access. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
 
 <a id="variant-graph"></a>
 
@@ -131,6 +131,7 @@ graph('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'mark',
     },
   },
 });
@@ -218,6 +219,7 @@ lines('#chart', data, {
           format: 'auto',
         },
       ],
+      trigger: 'mark',
     },
   },
 });
@@ -310,6 +312,7 @@ arcDiagram('#chart', data, {
           format: 'auto',
         },
       ],
+      trigger: 'mark',
     },
   },
 });
@@ -422,6 +425,7 @@ networkGraph('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'mark',
     },
   },
 });

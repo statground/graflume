@@ -171,6 +171,8 @@ export interface AccessibilitySpec {
 }
 
 export type TooltipValueFormat = 'auto' | 'number' | 'integer' | 'percent' | 'date' | 'datetime';
+export type TooltipTrigger = 'mark' | 'axis';
+export type TooltipAxis = 'x' | 'y';
 
 export interface TooltipFieldSpec {
   readonly field: string;
@@ -184,6 +186,10 @@ export interface TooltipFieldSpec {
 export type TooltipFieldInput = string | TooltipFieldSpec;
 
 export interface TooltipSpec {
+  /** Resolve the exact mark by default, or the nearest datum along an explicit axis. */
+  readonly trigger?: TooltipTrigger;
+  /** Required when trigger is "axis" and invalid for mark-triggered tooltips. */
+  readonly axis?: TooltipAxis;
   readonly title?: string;
   readonly fields?: readonly TooltipFieldInput[];
 }
@@ -266,6 +272,8 @@ export interface NormalizedTooltipFieldSpec {
 }
 
 export interface NormalizedTooltipSpec {
+  readonly trigger: TooltipTrigger;
+  readonly axis?: TooltipAxis;
   readonly title?: string;
   readonly fields: readonly NormalizedTooltipFieldSpec[];
 }

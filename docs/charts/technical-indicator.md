@@ -88,7 +88,7 @@ Every image below is generated from the current compiled Scene rather than drawn
 
 ## Type-by-type implementation
 
-The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. This family uses `trigger: "axis"` with `axis: "x"`. An exact rendered-mark hit still has priority; otherwise Graflume selects the nearest actual datum on that axis without inventing an interpolated row. Tooltip interaction is a pointer-only convenience, so keep a readable summary or data table available for exact values and keyboard access. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
 
 <a id="variant-acceleration-bands"></a>
 
@@ -195,6 +195,8 @@ accelerationBands('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -305,6 +307,8 @@ awesomeOscillator('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -416,6 +420,8 @@ absolutePriceOscillator('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -526,6 +532,8 @@ aroon('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -636,6 +644,8 @@ aroonOscillator('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -746,6 +756,8 @@ averageTrueRange('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -856,6 +868,8 @@ volatilityBands('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -966,6 +980,8 @@ commodityChannelIndex('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -1076,6 +1092,8 @@ chaikinOscillator('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -1186,6 +1204,8 @@ chaikinMoneyFlow('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -1297,6 +1317,8 @@ chandeMomentumOscillator('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -1408,6 +1430,8 @@ doubleExponentialMovingAverage('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -1518,6 +1542,8 @@ disparityIndex('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -1629,6 +1655,8 @@ directionalMovementIndex('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -1740,6 +1768,8 @@ detrendedPriceOscillator('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -1851,6 +1881,8 @@ exponentialMovingAverage('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -1961,6 +1993,8 @@ ichimokuCloud('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -2071,6 +2105,8 @@ keltnerChannels('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -2181,6 +2217,8 @@ klingerOscillator('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -2291,6 +2329,8 @@ linearRegression('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -2401,6 +2441,8 @@ linearRegressionAngle('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -2512,6 +2554,8 @@ linearRegressionIntercept('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -2622,6 +2666,8 @@ linearRegressionSlope('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -2733,6 +2779,8 @@ movingAverageConvergenceDivergence('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -2843,6 +2891,8 @@ moneyFlowIndex('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -2953,6 +3003,8 @@ momentumIndicator('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -3064,6 +3116,8 @@ normalizedAverageTrueRange('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -3174,6 +3228,8 @@ onBalanceVolume('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -3284,6 +3340,8 @@ priceChannel('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -3394,6 +3452,8 @@ pivotPoints('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -3505,6 +3565,8 @@ percentagePriceOscillator('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -3615,6 +3677,8 @@ priceEnvelopes('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -3726,6 +3790,8 @@ parabolicStopAndReverse('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -3836,6 +3902,8 @@ rateOfChange('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -3946,6 +4014,8 @@ relativeStrengthIndex('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -4057,6 +4127,8 @@ slowStochastic('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -4167,6 +4239,8 @@ simpleMovingAverage('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -4277,6 +4351,8 @@ stochastic('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -4387,6 +4463,8 @@ supertrend('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -4498,6 +4576,8 @@ tripleExponentialMovingAverage('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -4609,6 +4689,8 @@ tripleExponentialAverageOscillator('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -4720,6 +4802,8 @@ volumeWeightedAveragePrice('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -4830,6 +4914,8 @@ williamsRange('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -4940,6 +5026,8 @@ weightedMovingAverage('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -5050,6 +5138,8 @@ zigzag('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });

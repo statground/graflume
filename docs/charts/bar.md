@@ -34,7 +34,7 @@ Every image below is generated from the current compiled Scene rather than drawn
 
 ## Type-by-type implementation
 
-The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. This family uses `trigger: "axis"` with `axis: "x"`. An exact rendered-mark hit still has priority; otherwise Graflume selects the nearest actual datum on that axis without inventing an interpolated row. Tooltip interaction is a pointer-only convenience, so keep a readable summary or data table available for exact values and keyboard access. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
 
 <a id="variant-bar"></a>
 
@@ -108,6 +108,8 @@ horizontalBar('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -185,6 +187,8 @@ column('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -263,6 +267,8 @@ pictorialBar('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -350,6 +356,8 @@ bullet('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -428,6 +436,8 @@ columnPyramid('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -501,6 +511,8 @@ cylinder('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -574,6 +586,8 @@ lollipop('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -652,6 +666,8 @@ pictorialColumn('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -739,6 +755,8 @@ variableWidth('#chart', data, {
           format: 'number',
         },
       ],
+      trigger: 'axis',
+      axis: 'x',
     },
   },
 });
@@ -863,13 +881,13 @@ chart.on('click', ({ hit }) => {
 });
 ```
 
-Large and ultra profiles reduce rendered bars and disable per-bar hit testing.
+Large and ultra profiles reduce rendered bars and disable per-bar and axis-nearest tooltip lookup. In the standard profile, the generated example enables x-axis lookup while exact rectangle hits retain priority.
 
 ## Current limitations
 
 - no stacked or normalized stack calculation;
 - no range, floating, or funnel semantics; waterfall uses its own portable mark;
-- no native legend, tooltip, or data-label layout;
+- no native legend, rendered crosshair guide, or data-label layout;
 - no keyboard traversal of individual bars;
 - no SVG/WebGL renderer parity yet.
 

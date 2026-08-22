@@ -2,6 +2,7 @@ import { compileWithRegistry, type CompileResult } from '../compiler/compile.js'
 import { GraflumeError } from '../core/errors.js';
 import { EventEmitter } from '../core/events.js';
 import { DataTable } from '../data/table.js';
+import { hitTestAxisTooltip } from '../interaction/axis-hit-test.js';
 import { hitTestScene, type HitResult } from '../interaction/hit-test.js';
 import { resolveTooltipContent, TooltipController } from '../interaction/tooltip.js';
 import type { Renderer } from '../renderer/types.js';
@@ -384,19 +385,27 @@ export class Chart {
     const bounds = surface.getBoundingClientRect();
     const x = ((sourceEvent.clientX - bounds.left) / Math.max(1, bounds.width)) * scene.width;
     const y = ((sourceEvent.clientY - bounds.top) / Math.max(1, bounds.height)) * scene.height;
-    const hit = scene.metadata.hitTestingEnabled ? hitTestScene(scene, x, y) : null;
-    if (type === 'hover' && result.spec.interaction.tooltip !== false) {
-      if (hit === null) this.#tooltip.hide();
+    const markHit = scene.metadata.hitTestingEnabled ? hitTestScene(scene, x, y) : null;
+    const tooltipSpec = result.spec.interaction.tooltip;
+    const tooltipHit =
+      type === 'hover' &&
+      tooltipSpec !== false &&
+      tooltipSpec.trigger === 'axis' &&
+      markHit === null
+        ? hitTestAxisTooltip(scene, x, y)
+        : markHit;
+    if (type === 'hover' && tooltipSpec !== false) {
+      if (tooltipHit === null) this.#tooltip.hide();
       else
         this.#tooltip.show(
-          resolveTooltipContent(hit, result.spec),
-          hit,
+          resolveTooltipContent(tooltipHit, result.spec),
+          tooltipHit,
           sourceEvent,
           surface,
           this.#renderer?.overlayHost?.() ?? surface.parentElement ?? surface,
         );
     }
-    this.#events.emit(type, { chart: this, hit, sourceEvent });
+    this.#events.emit(type, { chart: this, hit: markHit, sourceEvent });
   }
 
   #assertAlive(): void {
