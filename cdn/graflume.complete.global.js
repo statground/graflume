@@ -504,6 +504,111 @@ var Graflume = (function (exports) {
         };
     }
 
+    const indexByScene = new WeakMap();
+    const coordinateEpsilon = 1e-6;
+    function primary(target, axis) {
+        return axis === 'x' ? target.x : target.y;
+    }
+    function perpendicular(target, axis) {
+        return axis === 'x' ? target.y : target.x;
+    }
+    function registerAxisTooltipIndex(scene, registration) {
+        const targets = registration.targets
+            .filter((target) => Number.isFinite(target.x) && Number.isFinite(target.y))
+            .sort((left, right) => {
+            const coordinate = primary(left, registration.axis) - primary(right, registration.axis);
+            if (Math.abs(coordinate) > coordinateEpsilon)
+                return coordinate;
+            if (left.order !== right.order)
+                return right.order - left.order;
+            return left.nodeId.localeCompare(right.nodeId);
+        });
+        indexByScene.set(scene, { ...registration, targets });
+    }
+    function insideActivationRegion(index, x, y) {
+        const { plot, axis, axisVisible, axisStripSize } = index;
+        const right = plot.x + plot.width;
+        const bottom = plot.y + plot.height;
+        if (axis === 'x') {
+            const stripBottom = bottom + (axisVisible ? axisStripSize : 0);
+            return x >= plot.x && x <= right && y >= plot.y && y <= stripBottom;
+        }
+        const stripLeft = plot.x - (axisVisible ? axisStripSize : 0);
+        return x >= stripLeft && x <= right && y >= plot.y && y <= bottom;
+    }
+    function lowerBound(targets, axis, value) {
+        let low = 0;
+        let high = targets.length;
+        while (low < high) {
+            const middle = low + Math.floor((high - low) / 2);
+            const target = targets[middle];
+            if (target !== undefined && primary(target, axis) < value)
+                low = middle + 1;
+            else
+                high = middle;
+        }
+        return low;
+    }
+    function nearestCoordinate(index, pointer) {
+        const insertion = lowerBound(index.targets, index.axis, pointer);
+        const before = index.targets[insertion - 1];
+        const after = index.targets[insertion];
+        if (before === undefined && after === undefined)
+            return null;
+        if (before === undefined)
+            return primary(after, index.axis);
+        if (after === undefined)
+            return primary(before, index.axis);
+        const beforeCoordinate = primary(before, index.axis);
+        const afterCoordinate = primary(after, index.axis);
+        return pointer - beforeCoordinate <= afterCoordinate - pointer
+            ? beforeCoordinate
+            : afterCoordinate;
+    }
+    function hitTestAxisTooltip(scene, x, y) {
+        const index = indexByScene.get(scene);
+        if (index === undefined ||
+            index.targets.length === 0 ||
+            !scene.metadata.hitTestingEnabled ||
+            !insideActivationRegion(index, x, y)) {
+            return null;
+        }
+        const pointerPrimary = index.axis === 'x' ? x : y;
+        const pointerPerpendicular = index.axis === 'x' ? y : x;
+        const coordinate = nearestCoordinate(index, pointerPrimary);
+        if (coordinate === null)
+            return null;
+        const start = lowerBound(index.targets, index.axis, coordinate - coordinateEpsilon);
+        let best = null;
+        let bestDistance = Number.POSITIVE_INFINITY;
+        for (let cursor = start; cursor < index.targets.length; cursor += 1) {
+            const target = index.targets[cursor];
+            if (target === undefined)
+                continue;
+            if (Math.abs(primary(target, index.axis) - coordinate) > coordinateEpsilon)
+                break;
+            const distance = Math.abs(perpendicular(target, index.axis) - pointerPerpendicular);
+            if (distance < bestDistance - coordinateEpsilon ||
+                (Math.abs(distance - bestDistance) <= coordinateEpsilon &&
+                    (best === null || target.order > best.order))) {
+                best = target;
+                bestDistance = distance;
+            }
+        }
+        if (best === null)
+            return null;
+        return {
+            layerId: best.layerId,
+            rowIndex: best.rowIndex,
+            datum: best.datum,
+            ...(best.tooltip === undefined ? {} : { tooltip: best.tooltip }),
+            nodeId: best.nodeId,
+            x,
+            y,
+            distance: Math.abs(pointerPrimary - coordinate),
+        };
+    }
+
     function nodeBase(id, options = {}) {
         return {
             id,
@@ -599,6 +704,15 @@ var Graflume = (function (exports) {
 
     const UNSAFE_FIELDS = new Set(['__proto__', 'prototype', 'constructor']);
     const TOOLTIP_FORMATS = new Set(['auto', 'number', 'integer', 'percent', 'date', 'datetime']);
+    const TOOLTIP_KEYS = new Set(['trigger', 'axis', 'title', 'fields']);
+    const TOOLTIP_FIELD_KEYS = new Set([
+        'field',
+        'label',
+        'format',
+        'fractionDigits',
+        'prefix',
+        'suffix',
+    ]);
     function validateEncoding(value, path, issues) {
         if (typeof value === 'string') {
             if (value.trim() === '')
@@ -671,6 +785,11 @@ var Graflume = (function (exports) {
             issues.push({ path, message: 'Tooltip field must be a field name or an object with a field.' });
             return;
         }
+        for (const key of Object.keys(value)) {
+            if (!TOOLTIP_FIELD_KEYS.has(key)) {
+                issues.push({ path: `${path}.${key}`, message: `Unknown tooltip field property "${key}".` });
+            }
+        }
         if (UNSAFE_FIELDS.has(value.field)) {
             issues.push({ path: `${path}.field`, message: `Unsafe field "${value.field}" is forbidden.` });
         }
@@ -715,6 +834,41 @@ var Graflume = (function (exports) {
         if (!isPlainObject(tooltip)) {
             issues.push({ path: `${path}.tooltip`, message: 'Tooltip must be a boolean or an object.' });
             return;
+        }
+        for (const key of Object.keys(tooltip)) {
+            if (!TOOLTIP_KEYS.has(key)) {
+                issues.push({
+                    path: `${path}.tooltip.${key}`,
+                    message: `Unknown tooltip property "${key}".`,
+                });
+            }
+        }
+        if (tooltip.trigger !== undefined &&
+            (typeof tooltip.trigger !== 'string' || !['mark', 'axis'].includes(tooltip.trigger))) {
+            issues.push({
+                path: `${path}.tooltip.trigger`,
+                message: 'Tooltip trigger must be "mark" or "axis".',
+            });
+        }
+        if (tooltip.axis !== undefined &&
+            (typeof tooltip.axis !== 'string' || !['x', 'y'].includes(tooltip.axis))) {
+            issues.push({
+                path: `${path}.tooltip.axis`,
+                message: 'Tooltip axis must be "x" or "y".',
+            });
+        }
+        const trigger = tooltip.trigger ?? 'mark';
+        if (trigger === 'axis' && tooltip.axis === undefined) {
+            issues.push({
+                path: `${path}.tooltip.axis`,
+                message: 'Tooltip axis is required when trigger is "axis".',
+            });
+        }
+        if (trigger !== 'axis' && tooltip.axis !== undefined) {
+            issues.push({
+                path: `${path}.tooltip.axis`,
+                message: 'Tooltip axis is only valid when trigger is "axis".',
+            });
         }
         if (tooltip.title !== undefined && typeof tooltip.title !== 'string') {
             issues.push({ path: `${path}.tooltip.title`, message: 'Tooltip title must be a string.' });
@@ -862,6 +1016,10 @@ var Graflume = (function (exports) {
         const tooltip = !hover || tooltipInput === undefined || tooltipInput === false
             ? false
             : {
+                trigger: typeof tooltipInput === 'object' ? (tooltipInput.trigger ?? 'mark') : 'mark',
+                ...(typeof tooltipInput === 'object' && tooltipInput.axis !== undefined
+                    ? { axis: tooltipInput.axis }
+                    : {}),
                 ...(typeof tooltipInput === 'object' && tooltipInput.title !== undefined
                     ? { title: tooltipInput.title }
                     : {}),
@@ -1061,6 +1219,219 @@ var Graflume = (function (exports) {
             }));
         }
         return nodes;
+    }
+
+    function strideSampleIndices(length, target) {
+        if (length <= target || target <= 0)
+            return Array.from({ length }, (_, index) => index);
+        const step = length / target;
+        const indices = [];
+        for (let cursor = 0; cursor < target; cursor += 1) {
+            indices.push(Math.min(length - 1, Math.floor(cursor * step)));
+        }
+        if (indices.at(-1) !== length - 1)
+            indices.push(length - 1);
+        return indices;
+    }
+    function minMaxSampleIndices(values, target) {
+        const length = values.length;
+        if (length <= target || target < 4)
+            return strideSampleIndices(length, Math.max(1, target));
+        const bucketCount = Math.max(1, Math.floor((target - 2) / 2));
+        const bucketSize = (length - 2) / bucketCount;
+        const selected = new Set([0, length - 1]);
+        for (let bucket = 0; bucket < bucketCount; bucket += 1) {
+            const start = Math.max(1, Math.floor(1 + bucket * bucketSize));
+            const end = Math.min(length - 1, Math.ceil(1 + (bucket + 1) * bucketSize));
+            let minIndex = -1;
+            let maxIndex = -1;
+            let minValue = Number.POSITIVE_INFINITY;
+            let maxValue = Number.NEGATIVE_INFINITY;
+            for (let index = start; index < end; index += 1) {
+                const value = values[index];
+                if (value === null || value === undefined || !Number.isFinite(value))
+                    continue;
+                if (value < minValue) {
+                    minValue = value;
+                    minIndex = index;
+                }
+                if (value > maxValue) {
+                    maxValue = value;
+                    maxIndex = index;
+                }
+            }
+            if (minIndex >= 0)
+                selected.add(minIndex);
+            if (maxIndex >= 0)
+                selected.add(maxIndex);
+        }
+        return [...selected].sort((left, right) => left - right);
+    }
+
+    const ROW_TARGET_MARKS = new Set(['area', 'line', 'smooth', 'stepped-area', 'trendline']);
+    function anchor(node) {
+        switch (node.type) {
+            case 'circle':
+                return { x: node.cx, y: node.cy };
+            case 'rect':
+                return { x: node.x + node.width / 2, y: node.y + node.height / 2 };
+            case 'line':
+                return { x: (node.x1 + node.x2) / 2, y: (node.y1 + node.y2) / 2 };
+            case 'text':
+                return { x: node.x, y: node.y };
+            case 'path': {
+                if (node.points.length === 0)
+                    return null;
+                let minX = Number.POSITIVE_INFINITY;
+                let maxX = Number.NEGATIVE_INFINITY;
+                let minY = Number.POSITIVE_INFINITY;
+                let maxY = Number.NEGATIVE_INFINITY;
+                for (const point of node.points) {
+                    minX = Math.min(minX, point.x);
+                    maxX = Math.max(maxX, point.x);
+                    minY = Math.min(minY, point.y);
+                    maxY = Math.max(maxY, point.y);
+                }
+                return { x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
+            }
+        }
+    }
+    function bounds(node) {
+        switch (node.type) {
+            case 'circle':
+                return {
+                    x: node.cx - node.radius,
+                    y: node.cy - node.radius,
+                    width: node.radius * 2,
+                    height: node.radius * 2,
+                };
+            case 'rect':
+                return { x: node.x, y: node.y, width: node.width, height: node.height };
+            case 'line':
+                return {
+                    x: Math.min(node.x1, node.x2),
+                    y: Math.min(node.y1, node.y2),
+                    width: Math.abs(node.x2 - node.x1),
+                    height: Math.abs(node.y2 - node.y1),
+                };
+            case 'text':
+                return { x: node.x, y: node.y, width: 0, height: 0 };
+            case 'path': {
+                const point = anchor(node);
+                if (point === null)
+                    return { x: 0, y: 0, width: 0, height: 0 };
+                let minX = Number.POSITIVE_INFINITY;
+                let maxX = Number.NEGATIVE_INFINITY;
+                let minY = Number.POSITIVE_INFINITY;
+                let maxY = Number.NEGATIVE_INFINITY;
+                for (const current of node.points) {
+                    minX = Math.min(minX, current.x);
+                    maxX = Math.max(maxX, current.x);
+                    minY = Math.min(minY, current.y);
+                    maxY = Math.max(maxY, current.y);
+                }
+                return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+            }
+        }
+    }
+    function intersectsPlot(plot, target) {
+        return (target.x + target.width >= plot.x &&
+            target.x <= plot.x + plot.width &&
+            target.y + target.height >= plot.y &&
+            target.y <= plot.y + plot.height);
+    }
+    function clampToPlot(plot, x, y) {
+        return {
+            x: Math.max(plot.x, Math.min(plot.x + plot.width, x)),
+            y: Math.max(plot.y, Math.min(plot.y + plot.height, y)),
+        };
+    }
+    function scaleValue(scale, value) {
+        if (value === null ||
+            value === undefined ||
+            typeof value === 'boolean' ||
+            (typeof value !== 'number' && typeof value !== 'string' && !(value instanceof Date))) {
+            return null;
+        }
+        const position = scale.map(value);
+        return Number.isFinite(position) ? position : null;
+    }
+    function collectAxisTooltipTargets(context) {
+        if (!context.performance.enableHitTesting)
+            return [];
+        const { axis, scales, plot } = context;
+        const layerDataById = new Map(scales.layers.map((layerData) => [layerData.layer.id, layerData]));
+        const targets = [];
+        const representedRows = new Set();
+        let order = 0;
+        const visit = (node, parentOpacity) => {
+            const opacity = parentOpacity * node.opacity;
+            if (!node.visible || opacity <= 0)
+                return;
+            if (node.type === 'group') {
+                const children = [...node.children].sort((left, right) => left.zIndex - right.zIndex);
+                for (const child of children)
+                    visit(child, opacity);
+                return;
+            }
+            if (node.interactive !== true || node.datum === undefined)
+                return;
+            const geometry = anchor(node);
+            if (geometry === null || !intersectsPlot(plot, bounds(node)))
+                return;
+            const clippedGeometry = clampToPlot(plot, geometry.x, geometry.y);
+            const layerData = layerDataById.get(node.datum.layerId);
+            let x = clippedGeometry.x;
+            let y = clippedGeometry.y;
+            if (node.datum.tooltip === undefined && layerData !== undefined) {
+                const encoding = axis === 'x' ? layerData.layer.x : layerData.layer.y;
+                const scale = axis === 'x' ? scales.xScale : scales.yScale;
+                const encoded = scaleValue(scale, node.datum.datum[encoding.field]);
+                if (encoded !== null) {
+                    if (axis === 'x')
+                        x = encoded;
+                    else
+                        y = encoded;
+                }
+            }
+            targets.push({
+                ...node.datum,
+                nodeId: `axis:${node.id}`,
+                x,
+                y,
+                order,
+            });
+            representedRows.add(`${node.datum.layerId}\u0000${node.datum.rowIndex}`);
+            order += 1;
+        };
+        for (const group of context.layerGroups)
+            visit(group, 1);
+        for (const layerData of scales.layers) {
+            if (!ROW_TARGET_MARKS.has(layerData.layer.mark.type))
+                continue;
+            const indices = strideSampleIndices(layerData.table.length, context.performance.maxPointMarks);
+            for (const rowIndex of indices) {
+                if (representedRows.has(`${layerData.layer.id}\u0000${rowIndex}`))
+                    continue;
+                const datum = layerData.table.row(rowIndex);
+                const x = scaleValue(scales.xScale, datum[layerData.layer.x.field]);
+                const y = scaleValue(scales.yScale, datum[layerData.layer.y.field]);
+                if (x === null || y === null)
+                    continue;
+                const position = clampToPlot(plot, x, y);
+                targets.push({
+                    layerId: layerData.layer.id,
+                    rowIndex,
+                    datum,
+                    nodeId: `axis:${layerData.layer.id}:row:${rowIndex}`,
+                    x: position.x,
+                    y: position.y,
+                    order,
+                });
+                order += 1;
+            }
+        }
+        return targets;
     }
 
     function isColumnarData(input) {
@@ -1796,6 +2167,28 @@ var Graflume = (function (exports) {
                 hitTestingEnabled: performance.enableHitTesting,
             },
         };
+        const tooltip = spec.interaction.tooltip;
+        if (tooltip !== false && tooltip.trigger === 'axis' && tooltip.axis !== undefined) {
+            const axis = tooltip.axis;
+            const axisSpec = scales.layers[0]?.layer[axis].axis ?? spec.axes[axis];
+            const axisVisible = showAxes && axisSpec !== false && axisSpec.visible !== false;
+            const axisStripSize = axis === 'x'
+                ? Math.min(spec.padding.bottom, theme.axis.tickLength + theme.axis.labelPadding + theme.typography.fontSize * 1.5)
+                : Math.min(spec.padding.left, theme.axis.tickLength + theme.axis.labelPadding + theme.typography.fontSize * 4);
+            registerAxisTooltipIndex(scene, {
+                axis,
+                plot: layout.plot,
+                axisVisible,
+                axisStripSize: Math.max(0, axisStripSize),
+                targets: collectAxisTooltipTargets({
+                    axis,
+                    layerGroups,
+                    scales,
+                    plot: layout.plot,
+                    performance,
+                }),
+            });
+        }
         return { scene, spec, theme };
     }
 
@@ -6080,67 +6473,27 @@ var Graflume = (function (exports) {
             const bounds = surface.getBoundingClientRect();
             const x = ((sourceEvent.clientX - bounds.left) / Math.max(1, bounds.width)) * scene.width;
             const y = ((sourceEvent.clientY - bounds.top) / Math.max(1, bounds.height)) * scene.height;
-            const hit = scene.metadata.hitTestingEnabled ? hitTestScene(scene, x, y) : null;
-            if (type === 'hover' && result.spec.interaction.tooltip !== false) {
-                if (hit === null)
+            const markHit = scene.metadata.hitTestingEnabled ? hitTestScene(scene, x, y) : null;
+            const tooltipSpec = result.spec.interaction.tooltip;
+            const tooltipHit = type === 'hover' &&
+                tooltipSpec !== false &&
+                tooltipSpec.trigger === 'axis' &&
+                markHit === null
+                ? hitTestAxisTooltip(scene, x, y)
+                : markHit;
+            if (type === 'hover' && tooltipSpec !== false) {
+                if (tooltipHit === null)
                     this.#tooltip.hide();
                 else
-                    this.#tooltip.show(resolveTooltipContent(hit, result.spec), hit, sourceEvent, surface, this.#renderer?.overlayHost?.() ?? surface.parentElement ?? surface);
+                    this.#tooltip.show(resolveTooltipContent(tooltipHit, result.spec), tooltipHit, sourceEvent, surface, this.#renderer?.overlayHost?.() ?? surface.parentElement ?? surface);
             }
-            this.#events.emit(type, { chart: this, hit, sourceEvent });
+            this.#events.emit(type, { chart: this, hit: markHit, sourceEvent });
         }
         #assertAlive() {
             if (this.#destroyed) {
                 throw new GraflumeError('DESTROYED_CHART', 'This chart instance has been destroyed.');
             }
         }
-    }
-
-    function strideSampleIndices(length, target) {
-        if (length <= target || target <= 0)
-            return Array.from({ length }, (_, index) => index);
-        const step = length / target;
-        const indices = [];
-        for (let cursor = 0; cursor < target; cursor += 1) {
-            indices.push(Math.min(length - 1, Math.floor(cursor * step)));
-        }
-        if (indices.at(-1) !== length - 1)
-            indices.push(length - 1);
-        return indices;
-    }
-    function minMaxSampleIndices(values, target) {
-        const length = values.length;
-        if (length <= target || target < 4)
-            return strideSampleIndices(length, Math.max(1, target));
-        const bucketCount = Math.max(1, Math.floor((target - 2) / 2));
-        const bucketSize = (length - 2) / bucketCount;
-        const selected = new Set([0, length - 1]);
-        for (let bucket = 0; bucket < bucketCount; bucket += 1) {
-            const start = Math.max(1, Math.floor(1 + bucket * bucketSize));
-            const end = Math.min(length - 1, Math.ceil(1 + (bucket + 1) * bucketSize));
-            let minIndex = -1;
-            let maxIndex = -1;
-            let minValue = Number.POSITIVE_INFINITY;
-            let maxValue = Number.NEGATIVE_INFINITY;
-            for (let index = start; index < end; index += 1) {
-                const value = values[index];
-                if (value === null || value === undefined || !Number.isFinite(value))
-                    continue;
-                if (value < minValue) {
-                    minValue = value;
-                    minIndex = index;
-                }
-                if (value > maxValue) {
-                    maxValue = value;
-                    maxIndex = index;
-                }
-            }
-            if (minIndex >= 0)
-                selected.add(minIndex);
-            if (maxIndex >= 0)
-                selected.add(maxIndex);
-        }
-        return [...selected].sort((left, right) => left - right);
     }
 
     const compileAreaMark = (context) => {
