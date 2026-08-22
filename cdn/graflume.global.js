@@ -82,21 +82,6 @@ var Graflume = (function (exports) {
         };
     }
 
-    function flattenScene(root) {
-        const output = [];
-        const visit = (node) => {
-            if (!node.visible)
-                return;
-            if (node.type === 'group') {
-                const sorted = [...node.children].sort((left, right) => left.zIndex - right.zIndex);
-                sorted.forEach(visit);
-                return;
-            }
-            output.push(node);
-        };
-        visit(root);
-        return output;
-    }
     function countSceneNodes(root) {
         let count = 1;
         for (const child of root.children) {
@@ -172,6 +157,7 @@ var Graflume = (function (exports) {
     }
 
     const UNSAFE_FIELDS = new Set(['__proto__', 'prototype', 'constructor']);
+    const TOOLTIP_FORMATS = new Set(['auto', 'number', 'integer', 'percent', 'date', 'datetime']);
     function validateEncoding(value, path, issues) {
         if (typeof value === 'string') {
             if (value.trim() === '')
@@ -229,6 +215,81 @@ var Graflume = (function (exports) {
         }
         if (value.options !== undefined && !isPlainObject(value.options)) {
             issues.push({ path: `${path}.options`, message: 'Mark options must be a JSON object.' });
+        }
+    }
+    function validateTooltipField(value, path, issues) {
+        if (typeof value === 'string') {
+            if (value.trim() === '')
+                issues.push({ path, message: 'Tooltip field must not be empty.' });
+            if (UNSAFE_FIELDS.has(value)) {
+                issues.push({ path, message: `Unsafe field "${value}" is forbidden.` });
+            }
+            return;
+        }
+        if (!isPlainObject(value) || typeof value.field !== 'string' || value.field.trim() === '') {
+            issues.push({ path, message: 'Tooltip field must be a field name or an object with a field.' });
+            return;
+        }
+        if (UNSAFE_FIELDS.has(value.field)) {
+            issues.push({ path: `${path}.field`, message: `Unsafe field "${value.field}" is forbidden.` });
+        }
+        if (value.label !== undefined && typeof value.label !== 'string') {
+            issues.push({ path: `${path}.label`, message: 'Tooltip label must be a string.' });
+        }
+        if (value.format !== undefined &&
+            (typeof value.format !== 'string' || !TOOLTIP_FORMATS.has(value.format))) {
+            issues.push({ path: `${path}.format`, message: 'Tooltip format is not supported.' });
+        }
+        if (value.fractionDigits !== undefined &&
+            (typeof value.fractionDigits !== 'number' ||
+                !Number.isInteger(value.fractionDigits) ||
+                value.fractionDigits < 0 ||
+                value.fractionDigits > 6)) {
+            issues.push({
+                path: `${path}.fractionDigits`,
+                message: 'Tooltip fractionDigits must be an integer from 0 to 6.',
+            });
+        }
+        for (const key of ['prefix', 'suffix']) {
+            if (value[key] !== undefined && typeof value[key] !== 'string') {
+                issues.push({ path: `${path}.${key}`, message: `Tooltip ${key} must be a string.` });
+            }
+        }
+    }
+    function validateInteraction(value, path, issues) {
+        if (value === undefined)
+            return;
+        if (!isPlainObject(value)) {
+            issues.push({ path, message: 'Interaction must be an object.' });
+            return;
+        }
+        for (const key of ['hover', 'click']) {
+            if (value[key] !== undefined && typeof value[key] !== 'boolean') {
+                issues.push({ path: `${path}.${key}`, message: `Interaction ${key} must be a boolean.` });
+            }
+        }
+        const tooltip = value.tooltip;
+        if (tooltip === undefined || typeof tooltip === 'boolean')
+            return;
+        if (!isPlainObject(tooltip)) {
+            issues.push({ path: `${path}.tooltip`, message: 'Tooltip must be a boolean or an object.' });
+            return;
+        }
+        if (tooltip.title !== undefined && typeof tooltip.title !== 'string') {
+            issues.push({ path: `${path}.tooltip.title`, message: 'Tooltip title must be a string.' });
+        }
+        if (tooltip.fields !== undefined) {
+            if (!Array.isArray(tooltip.fields) ||
+                tooltip.fields.length === 0 ||
+                tooltip.fields.length > 12) {
+                issues.push({
+                    path: `${path}.tooltip.fields`,
+                    message: 'Tooltip fields must contain between 1 and 12 entries.',
+                });
+            }
+            else {
+                tooltip.fields.forEach((field, index) => validateTooltipField(field, `${path}.tooltip.fields[${index}]`, issues));
+            }
         }
     }
     function validateLayer(layer, path, hasParentData, issues) {
@@ -302,6 +363,7 @@ var Graflume = (function (exports) {
                 });
             }
         }
+        validateInteraction(input.interaction, '$.interaction', issues);
         findFunctions(input, '$', issues, new WeakSet());
         return issues;
     }
@@ -333,6 +395,44 @@ var Graflume = (function (exports) {
         if (typeof input === 'string')
             return { text: input, align: 'left' };
         return { ...input, align: input.align ?? 'left' };
+    }
+    function humanizeField$1(field) {
+        return field
+            .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+            .replace(/[-_]+/g, ' ')
+            .replace(/^\w/, (letter) => letter.toUpperCase());
+    }
+    function normalizeTooltipField(input) {
+        const field = typeof input === 'string' ? input : input.field;
+        return {
+            field,
+            label: typeof input === 'string' ? humanizeField$1(field) : (input.label ?? humanizeField$1(field)),
+            format: typeof input === 'string' ? 'auto' : (input.format ?? 'auto'),
+            ...(typeof input === 'string' || input.fractionDigits === undefined
+                ? {}
+                : { fractionDigits: input.fractionDigits }),
+            prefix: typeof input === 'string' ? '' : (input.prefix ?? ''),
+            suffix: typeof input === 'string' ? '' : (input.suffix ?? ''),
+        };
+    }
+    function normalizeInteraction(input) {
+        const hover = input?.hover ?? true;
+        const tooltipInput = input?.tooltip;
+        const tooltip = !hover || tooltipInput === undefined || tooltipInput === false
+            ? false
+            : {
+                ...(typeof tooltipInput === 'object' && tooltipInput.title !== undefined
+                    ? { title: tooltipInput.title }
+                    : {}),
+                fields: typeof tooltipInput === 'object'
+                    ? (tooltipInput.fields ?? []).map(normalizeTooltipField)
+                    : [],
+            };
+        return {
+            hover,
+            click: input?.click ?? true,
+            tooltip,
+        };
     }
     function normalizeAxis(input, defaultGrid) {
         if (input === false)
@@ -417,10 +517,7 @@ var Graflume = (function (exports) {
             performance: input.performance ?? 'auto',
             theme: input.theme ?? 'graflume-light',
             axes,
-            interaction: {
-                hover: input.interaction?.hover ?? true,
-                click: input.interaction?.click ?? true,
-            },
+            interaction: normalizeInteraction(input.interaction),
             accessibility: {
                 ...(input.accessibility?.label === undefined ? {} : { label: input.accessibility.label }),
                 ...(input.accessibility?.description === undefined
@@ -1255,6 +1352,7 @@ var Graflume = (function (exports) {
                 rowCount: totalRows,
                 renderedNodeCount: countSceneNodes(root),
                 performanceProfile: performance.profile,
+                hitTestingEnabled: performance.enableHitTesting,
             },
         };
         return { scene, spec, theme };
@@ -1287,6 +1385,33 @@ var Graflume = (function (exports) {
         }
     }
 
+    const hitCandidateCache = new WeakMap();
+    function sceneHitCandidates(scene) {
+        const cached = hitCandidateCache.get(scene);
+        if (cached !== undefined)
+            return cached;
+        const candidates = [];
+        const visit = (node, parentOpacity, clips) => {
+            const opacity = parentOpacity * node.opacity;
+            if (!node.visible || opacity <= 0)
+                return;
+            if (node.type === 'group') {
+                const nextClips = node.clip === undefined ? clips : [...clips, node.clip];
+                const children = [...node.children].sort((left, right) => left.zIndex - right.zIndex);
+                for (const child of children)
+                    visit(child, opacity, nextClips);
+                return;
+            }
+            if (node.interactive === true && node.datum !== undefined)
+                candidates.push({ node, clips });
+        };
+        visit(scene.root, 1, []);
+        hitCandidateCache.set(scene, candidates);
+        return candidates;
+    }
+    function insideClips(clips, x, y) {
+        return clips.every((clip) => x >= clip.x && x <= clip.x + clip.width && y >= clip.y && y <= clip.y + clip.height);
+    }
     function distanceToSegment(x, y, x1, y1, x2, y2) {
         const dx = x2 - x1;
         const dy = y2 - y1;
@@ -1324,6 +1449,30 @@ var Graflume = (function (exports) {
         }
         return minimum;
     }
+    function textDistance(node, x, y) {
+        const angle = (-node.rotation * Math.PI) / 180;
+        const translatedX = x - node.x;
+        const translatedY = y - node.y;
+        const localX = translatedX * Math.cos(angle) - translatedY * Math.sin(angle);
+        const localY = translatedX * Math.sin(angle) + translatedY * Math.cos(angle);
+        const width = Math.max(node.fontSize * 0.6, Array.from(node.text).length * node.fontSize * 0.6);
+        const height = Math.max(1, node.fontSize * 1.2);
+        const left = node.align === 'center'
+            ? -width / 2
+            : node.align === 'right' || node.align === 'end'
+                ? -width
+                : 0;
+        const top = node.baseline === 'middle'
+            ? -height / 2
+            : node.baseline === 'bottom' || node.baseline === 'ideographic'
+                ? -height
+                : node.baseline === 'alphabetic'
+                    ? -height * 0.8
+                    : 0;
+        const dx = Math.max(left - localX, 0, localX - (left + width));
+        const dy = Math.max(top - localY, 0, localY - (top + height));
+        return Math.hypot(dx, dy);
+    }
     function nodeDistance(node, x, y) {
         switch (node.type) {
             case 'circle':
@@ -1338,15 +1487,20 @@ var Graflume = (function (exports) {
             case 'path':
                 return pathDistance(node, x, y);
             case 'text':
+                return textDistance(node, x, y);
             case 'group':
                 return Number.POSITIVE_INFINITY;
         }
     }
     function hitTestScene(scene, x, y, tolerance = 8) {
-        const nodes = [...flattenScene(scene.root)].reverse();
+        const candidates = sceneHitCandidates(scene);
         let best = null;
-        for (const node of nodes) {
-            if (node.interactive !== true || node.datum === undefined)
+        for (let index = candidates.length - 1; index >= 0; index -= 1) {
+            const candidate = candidates[index];
+            if (candidate === undefined || !insideClips(candidate.clips, x, y))
+                continue;
+            const { node } = candidate;
+            if (node.datum === undefined)
                 continue;
             const distance = nodeDistance(node, x, y);
             if (distance > tolerance || (best !== null && distance >= best.distance))
@@ -1360,6 +1514,261 @@ var Graflume = (function (exports) {
             };
         }
         return best;
+    }
+
+    let nextId = 0;
+    function createId(prefix) {
+        nextId += 1;
+        return `${prefix}-${nextId.toString(36)}`;
+    }
+
+    const inferredFieldLimit = 8;
+    const tooltipTextLimit = 240;
+    function hasOwn(value, field) {
+        return Object.prototype.hasOwnProperty.call(value, field);
+    }
+    function boundedText(value, limit = tooltipTextLimit) {
+        const text = String(value);
+        return text.length <= limit ? text : `${text.slice(0, Math.max(0, limit - 1))}…`;
+    }
+    function humanizeField(field) {
+        return field
+            .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+            .replace(/[-_]+/g, ' ')
+            .replace(/^\w/, (letter) => letter.toUpperCase());
+    }
+    function inferredFormat(field, layer) {
+        const encoding = layer?.x.field === field ? layer.x : layer?.y.field === field ? layer.y : undefined;
+        return encoding?.type === 'temporal' ? 'date' : 'auto';
+    }
+    function inferredFields(hit, spec) {
+        const layer = spec.layers.find(({ id }) => id === hit.layerId);
+        const fields = new Map();
+        const add = (field, label) => {
+            if (typeof field !== 'string' || field.length === 0 || fields.has(field))
+                return;
+            fields.set(field, {
+                field,
+                label: label ?? humanizeField(field),
+                format: inferredFormat(field, layer),
+                prefix: '',
+                suffix: '',
+            });
+        };
+        if (layer !== undefined) {
+            add(layer.x.field, layer.x.title);
+            add(layer.y.field, layer.y.title);
+            for (const [channel, field] of Object.entries(layer.mark.fields))
+                add(field, humanizeField(channel));
+            for (const option of ['fields', 'dimensions', 'columns']) {
+                const values = layer.mark.options[option];
+                if (Array.isArray(values))
+                    for (const field of values)
+                        add(field);
+            }
+        }
+        for (const field of Object.keys(hit.tooltip ?? {}))
+            add(field);
+        for (const field of Object.keys(hit.datum))
+            add(field);
+        return [...fields.values()].slice(0, inferredFieldLimit);
+    }
+    function finiteFractionDigits(value) {
+        return value === undefined ? undefined : Math.max(0, Math.min(6, Math.trunc(value)));
+    }
+    function numberFormatter(locale, options) {
+        try {
+            return new Intl.NumberFormat(locale, options);
+        }
+        catch {
+            return new Intl.NumberFormat(undefined, options);
+        }
+    }
+    function dateFormatter(locale, options) {
+        try {
+            return new Intl.DateTimeFormat(locale, options);
+        }
+        catch {
+            return new Intl.DateTimeFormat(undefined, options);
+        }
+    }
+    function dateOnlyValue(value) {
+        if (typeof value !== 'string')
+            return null;
+        const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+        if (match === null)
+            return null;
+        const year = Number(match[1]);
+        const month = Number(match[2]);
+        const day = Number(match[3]);
+        const date = new Date(Date.UTC(year, month - 1, day));
+        return date.getUTCFullYear() === year &&
+            date.getUTCMonth() === month - 1 &&
+            date.getUTCDate() === day
+            ? date
+            : null;
+    }
+    function formatValue(value, field, locale) {
+        if (value === null || value === undefined)
+            return '—';
+        const fractionDigits = finiteFractionDigits(field.fractionDigits);
+        let formatted;
+        if (field.format === 'date' || field.format === 'datetime') {
+            const dateOnly = field.format === 'date' ? dateOnlyValue(value) : null;
+            const date = dateOnly ?? (value instanceof Date ? value : new Date(String(value)));
+            formatted = Number.isFinite(date.getTime())
+                ? dateFormatter(locale, field.format === 'datetime'
+                    ? { dateStyle: 'medium', timeStyle: 'short' }
+                    : { dateStyle: 'medium', ...(dateOnly === null ? {} : { timeZone: 'UTC' }) }).format(date)
+                : String(value);
+        }
+        else if (typeof value === 'number' && Number.isFinite(value)) {
+            const options = field.format === 'percent'
+                ? {
+                    style: 'percent',
+                    maximumFractionDigits: fractionDigits ?? 1,
+                    ...(fractionDigits === undefined ? {} : { minimumFractionDigits: fractionDigits }),
+                }
+                : field.format === 'integer'
+                    ? { maximumFractionDigits: 0 }
+                    : {
+                        maximumFractionDigits: fractionDigits ?? 3,
+                        ...(fractionDigits === undefined ? {} : { minimumFractionDigits: fractionDigits }),
+                    };
+            formatted = numberFormatter(locale, options).format(value);
+        }
+        else {
+            formatted = value instanceof Date ? value.toISOString() : boundedText(value);
+        }
+        return boundedText(`${field.prefix}${formatted}${field.suffix}`);
+    }
+    function datumValue(hit, field) {
+        if (hit.tooltip !== undefined)
+            return hit.tooltip[field];
+        return hit.datum[field];
+    }
+    function hasDatumValue(hit, field) {
+        return hit.tooltip === undefined ? hasOwn(hit.datum, field) : hasOwn(hit.tooltip, field);
+    }
+    function resolveTooltipContent(hit, spec) {
+        const configured = spec.interaction.tooltip;
+        if (configured === false)
+            return { title: '', rows: [] };
+        const layer = spec.layers.find(({ id }) => id === hit.layerId);
+        const fields = configured.fields.length > 0 ? configured.fields : inferredFields(hit, spec);
+        const rows = fields
+            .filter((field) => hasDatumValue(hit, field.field))
+            .map((field) => {
+            const format = field.format === 'auto' && inferredFormat(field.field, layer) === 'date'
+                ? 'date'
+                : field.format;
+            const resolvedField = format === field.format ? field : { ...field, format };
+            return {
+                field: field.field,
+                label: boundedText(field.label, 80),
+                value: formatValue(datumValue(hit, field.field), resolvedField, spec.locale),
+            };
+        });
+        return {
+            title: boundedText(configured.title ?? spec.title?.text ?? humanizeField(layer?.mark.type ?? 'Datum'), 120),
+            rows,
+        };
+    }
+    class TooltipController {
+        #id = createId('graflume-tooltip');
+        #element = null;
+        #surface = null;
+        #nodeId = '';
+        show(content, hit, sourceEvent, surface, host) {
+            if (content.rows.length === 0) {
+                this.hide();
+                return;
+            }
+            const element = this.#ensureElement(host);
+            if (this.#nodeId !== hit.nodeId) {
+                this.#nodeId = hit.nodeId;
+                this.#renderContent(element, content);
+            }
+            this.#surface = surface;
+            const describedBy = new Set((surface.getAttribute('aria-describedby') ?? '').split(/\s+/).filter(Boolean));
+            describedBy.add(this.#id);
+            surface.setAttribute('aria-describedby', [...describedBy].join(' '));
+            element.hidden = false;
+            this.#position(element, host, sourceEvent.clientX, sourceEvent.clientY);
+        }
+        hide() {
+            this.#nodeId = '';
+            if (this.#element !== null)
+                this.#element.hidden = true;
+            if (this.#surface !== null) {
+                const describedBy = (this.#surface.getAttribute('aria-describedby') ?? '')
+                    .split(/\s+/)
+                    .filter((id) => id !== '' && id !== this.#id);
+                if (describedBy.length === 0)
+                    this.#surface.removeAttribute('aria-describedby');
+                else
+                    this.#surface.setAttribute('aria-describedby', describedBy.join(' '));
+            }
+            this.#surface = null;
+        }
+        destroy() {
+            this.hide();
+            this.#element?.remove();
+            this.#element = null;
+        }
+        #ensureElement(host) {
+            if (this.#element !== null) {
+                if (this.#element.parentElement !== host)
+                    host.append(this.#element);
+                return this.#element;
+            }
+            const element = document.createElement('div');
+            element.id = this.#id;
+            element.dataset.graflumeTooltip = 'true';
+            element.setAttribute('role', 'tooltip');
+            element.setAttribute('dir', 'auto');
+            element.hidden = true;
+            element.style.cssText =
+                'position:absolute;z-index:20;max-width:min(280px,calc(100% - 24px));padding:10px 12px;pointer-events:none;color:var(--graflume-tooltip-color,#f8fafc);background:var(--graflume-tooltip-background,rgba(15,23,42,.96));border:1px solid var(--graflume-tooltip-border,rgba(148,163,184,.35));border-radius:10px;box-shadow:0 12px 30px rgba(15,23,42,.24);font:12px/1.45 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;white-space:normal';
+            host.append(element);
+            this.#element = element;
+            return element;
+        }
+        #renderContent(element, content) {
+            const title = document.createElement('div');
+            title.textContent = content.title;
+            title.style.cssText = 'margin:0 0 6px;font-weight:700;color:#fff';
+            const list = document.createElement('dl');
+            list.style.cssText =
+                'display:grid;grid-template-columns:minmax(56px,auto) minmax(0,1fr);gap:3px 12px;margin:0';
+            for (const row of content.rows) {
+                const term = document.createElement('dt');
+                term.textContent = row.label;
+                term.style.cssText = 'margin:0;color:#cbd5e1';
+                const detail = document.createElement('dd');
+                detail.textContent = row.value;
+                detail.style.cssText =
+                    'margin:0;text-align:end;font-weight:650;color:#fff;overflow-wrap:anywhere';
+                list.append(term, detail);
+            }
+            element.replaceChildren(title, list);
+        }
+        #position(element, host, clientX, clientY) {
+            const margin = 8;
+            const offset = 12;
+            const hostBounds = host.getBoundingClientRect();
+            const bounds = element.getBoundingClientRect();
+            const localX = clientX - hostBounds.left;
+            const localY = clientY - hostBounds.top;
+            let left = localX + offset;
+            let top = localY + offset;
+            if (left + bounds.width + margin > hostBounds.width)
+                left = localX - bounds.width - offset;
+            if (top + bounds.height + margin > hostBounds.height)
+                top = localY - bounds.height - offset;
+            element.style.left = `${Math.max(margin, Math.min(left, hostBounds.width - bounds.width - margin))}px`;
+            element.style.top = `${Math.max(margin, Math.min(top, hostBounds.height - bounds.height - margin))}px`;
+        }
     }
 
     class RenderScheduler {
@@ -1418,6 +1827,7 @@ var Graflume = (function (exports) {
         #registry;
         #events = new EventEmitter();
         #scheduler = new RenderScheduler();
+        #tooltip = new TooltipController();
         #options;
         #spec;
         #renderer = null;
@@ -1437,6 +1847,12 @@ var Graflume = (function (exports) {
             if (!(event instanceof PointerEvent))
                 return;
             this.#emitPointer('click', event);
+        };
+        #pointerLeaveListener = (event) => {
+            if (!(event instanceof PointerEvent))
+                return;
+            this.#tooltip.hide();
+            this.#events.emit('hover', { chart: this, hit: null, sourceEvent: event });
         };
         constructor(target, spec, registry, options = {}) {
             this.#target = resolveTarget(target);
@@ -1579,8 +1995,8 @@ var Graflume = (function (exports) {
                 }
             }
             this.#renderer.render(result.scene);
-            this.#attachSurfaceEvents();
             this.#result = result;
+            this.#attachSurfaceEvents();
             this.#events.emit('render', { chart: this, scene: result.scene });
             return this;
         }
@@ -1602,6 +2018,7 @@ var Graflume = (function (exports) {
             }
             this.#windowResizeListener = null;
             this.#detachSurfaceEvents();
+            this.#tooltip.destroy();
             this.#renderer?.destroy();
             this.#renderer = null;
             this.#result = null;
@@ -1657,27 +2074,39 @@ var Graflume = (function (exports) {
             const surface = this.#renderer?.surface();
             if (surface === null || surface === undefined)
                 return;
-            if (this.#spec.interaction?.hover !== false) {
+            if (this.#result?.spec.interaction.hover !== false) {
                 surface.addEventListener('pointermove', this.#pointerMoveListener, { passive: true });
+                surface.addEventListener('pointerleave', this.#pointerLeaveListener, { passive: true });
+                surface.addEventListener('pointercancel', this.#pointerLeaveListener, { passive: true });
             }
-            if (this.#spec.interaction?.click !== false) {
+            if (this.#result?.spec.interaction.click !== false) {
                 surface.addEventListener('click', this.#clickListener, { passive: true });
             }
         }
         #detachSurfaceEvents() {
             const surface = this.#renderer?.surface();
+            this.#tooltip.hide();
             surface?.removeEventListener('pointermove', this.#pointerMoveListener);
+            surface?.removeEventListener('pointerleave', this.#pointerLeaveListener);
+            surface?.removeEventListener('pointercancel', this.#pointerLeaveListener);
             surface?.removeEventListener('click', this.#clickListener);
         }
         #emitPointer(type, sourceEvent) {
-            const scene = this.#result?.scene;
+            const result = this.#result;
             const surface = this.#renderer?.surface();
-            if (scene === undefined || surface === null || surface === undefined)
+            if (result === null || surface === null || surface === undefined)
                 return;
+            const scene = result.scene;
             const bounds = surface.getBoundingClientRect();
             const x = ((sourceEvent.clientX - bounds.left) / Math.max(1, bounds.width)) * scene.width;
             const y = ((sourceEvent.clientY - bounds.top) / Math.max(1, bounds.height)) * scene.height;
-            const hit = scene.metadata.performanceProfile === 'ultra' ? null : hitTestScene(scene, x, y);
+            const hit = scene.metadata.hitTestingEnabled ? hitTestScene(scene, x, y) : null;
+            if (type === 'hover' && result.spec.interaction.tooltip !== false) {
+                if (hit === null)
+                    this.#tooltip.hide();
+                else
+                    this.#tooltip.show(resolveTooltipContent(hit, result.spec), hit, sourceEvent, surface, this.#renderer?.overlayHost?.() ?? surface.parentElement ?? surface);
+            }
             this.#events.emit(type, { chart: this, hit, sourceEvent });
         }
         #assertAlive() {
@@ -1802,6 +2231,7 @@ var Graflume = (function (exports) {
         const indices = minMaxSampleIndices(yValues, performance.maxLinePoints);
         const baseline = yScale.map(0);
         const top = [];
+        const topRowIndices = [];
         for (const rowIndex of indices) {
             const xInput = scaleInput(table.value(rowIndex, layer.x.field));
             const yInput = scaleInput(table.value(rowIndex, layer.y.field));
@@ -1809,8 +2239,10 @@ var Graflume = (function (exports) {
                 continue;
             const x = xScale.map(xInput);
             const y = yScale.map(yInput);
-            if (Number.isFinite(x) && Number.isFinite(y))
+            if (Number.isFinite(x) && Number.isFinite(y)) {
                 top.push({ x, y });
+                topRowIndices.push(rowIndex);
+            }
         }
         if (top.length === 0)
             return [];
@@ -1843,7 +2275,32 @@ var Graflume = (function (exports) {
             lineCap: 'round',
             lineJoin: 'round',
         };
-        return [fill, stroke];
+        const nodes = [fill, stroke];
+        if (layer.mark.point) {
+            const pointIndices = new Set(strideSampleIndices(top.length, performance.maxPointMarks).filter((index) => index !== undefined));
+            top.forEach((point, pointIndex) => {
+                const rowIndex = topRowIndices[pointIndex];
+                if (rowIndex === undefined || !pointIndices.has(pointIndex))
+                    return;
+                const circle = {
+                    type: 'circle',
+                    ...nodeBase(`${layer.id}:area-point:${rowIndex}`, {
+                        zIndex: layer.zIndex + 0.2,
+                        opacity: layer.mark.opacity,
+                        interactive: performance.enableHitTesting,
+                        datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) },
+                    }),
+                    cx: point.x,
+                    cy: point.y,
+                    radius: layer.mark.radius ?? theme.mark.pointRadius,
+                    fill: theme.colors.background,
+                    stroke: layer.mark.stroke ?? color,
+                    lineWidth: Math.max(1.5, (layer.mark.lineWidth ?? theme.mark.lineWidth) * 0.68),
+                };
+                nodes.push(circle);
+            });
+        }
+        return nodes;
     };
 
     const compileBarMark = (context) => {
@@ -2261,6 +2718,7 @@ var Graflume = (function (exports) {
         }
         const baseline = yScale.map(0);
         const nodes = [];
+        const totalCount = bins.reduce((sum, count) => sum + count, 0);
         bins.forEach((count, index) => {
             const start = extent[0] + (span * index) / binCount;
             const end = extent[0] + (span * (index + 1)) / binCount;
@@ -2278,7 +2736,19 @@ var Graflume = (function (exports) {
                     interactive: performance.enableHitTesting && rowIndex !== undefined,
                     ...(rowIndex === undefined
                         ? {}
-                        : { datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) } }),
+                        : {
+                            datum: {
+                                layerId: layer.id,
+                                rowIndex,
+                                datum: table.row(rowIndex),
+                                tooltip: {
+                                    binStart: start,
+                                    binEnd: end,
+                                    count,
+                                    proportion: totalCount === 0 ? 0 : count / totalCount,
+                                },
+                            },
+                        }),
                 }),
                 x: Math.min(x1, x2) + 2,
                 y: Math.min(y, baseline),
@@ -3832,6 +4302,9 @@ var Graflume = (function (exports) {
         }
         surface() {
             return this.#canvas;
+        }
+        overlayHost() {
+            return this.#root;
         }
         toDataURL(type = 'image/png', quality) {
             if (this.#canvas === null)
