@@ -87,6 +87,7 @@ class FakeDocument extends EventTarget {
 function fakeWebGL() {
   const value = {
     failInitialization: false,
+    shaderSources: [],
     VERTEX_SHADER: 1,
     FRAGMENT_SHADER: 2,
     COMPILE_STATUS: 3,
@@ -109,7 +110,9 @@ function fakeWebGL() {
     SRC_ALPHA: 21,
     ONE_MINUS_SRC_ALPHA: 22,
     createShader: () => (value.failInitialization ? null : {}),
-    shaderSource() {},
+    shaderSource(_shader, source) {
+      value.shaderSources.push(source);
+    },
     compileShader() {},
     getShaderParameter: () => true,
     getShaderInfoLog: () => null,
@@ -249,6 +252,11 @@ test('availability distinguishes ready, context loss, and restored rendering', (
     );
     const canvas = walk(target).find(({ dataset }) => dataset.graflumeSpatialSurface === 'true');
     assert.deepEqual(chart.getAvailability(), { status: 'ready', available: true });
+    const fragmentShader = webgl.shaderSources.find((source) => source.includes('gl_PointCoord'));
+    assert.match(fragmentShader, /sqrt\(max\(0\.0, 1\.0 - radiusSquared\)\)/);
+    assert.match(fragmentShader, /coverage < 0\.04/);
+    assert.match(fragmentShader, /v_color\.a >= 0\.999/);
+    assert.match(fragmentShader, /gl_FrontFacing/);
 
     const states = [];
     chart.on('availabilitychange', ({ state }) => states.push(state.status));

@@ -129,14 +129,26 @@ uniform float u_pointMode;
 varying vec3 v_normal;
 varying vec4 v_color;
 void main() {
+  float edgeAlpha = 1.0;
+  vec3 normal = normalize(v_normal);
   if (u_pointMode > 0.5) {
     vec2 centered = gl_PointCoord * 2.0 - 1.0;
-    if (dot(centered, centered) > 1.0) discard;
+    float radiusSquared = dot(centered, centered);
+    if (radiusSquared > 1.0) discard;
+    normal = normalize(vec3(centered.x, -centered.y, sqrt(max(0.0, 1.0 - radiusSquared))));
+    float coverage = 1.0 - smoothstep(0.82, 1.0, sqrt(radiusSquared));
+    if (coverage < 0.04) discard;
+    edgeAlpha = v_color.a >= 0.999 ? 1.0 : coverage;
+  } else if (!gl_FrontFacing) {
+    normal = -normal;
   }
-  vec3 normal = normalize(v_normal);
   float lambert = max(dot(normal, normalize(-u_lightDirection)), 0.0);
   float light = clamp(u_ambient + u_diffuse * lambert, 0.0, 1.5);
-  gl_FragColor = vec4(v_color.rgb * light, v_color.a);
+  if (u_pointMode > 0.5) {
+    float centerLight = 0.5 + normal.z * 0.5;
+    light = clamp(u_ambient + u_diffuse * (lambert * 0.45 + centerLight * 0.55), 0.0, 1.5);
+  }
+  gl_FragColor = vec4(v_color.rgb * light, v_color.a * edgeAlpha);
 }
 `;
 

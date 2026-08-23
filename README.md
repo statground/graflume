@@ -13,7 +13,7 @@ Graflume is an experimental, CDN-first visualization engine built around a porta
 - row-oriented data and zero-copy `TypedArray` columnar input
 - a versioned, function-free `ChartSpec 0.1` plus JSON Schema for portable JSON data
 - runtime validation and canonical normalization
-- Canvas 2D rendering behind a renderer interface, plus an independent opt-in WebGL spatial renderer for surfaces, meshes, bounded volumes, isosurfaces, vector cones, streamtubes, spatial scatter, and a real Natural Earth globe
+- Canvas 2D rendering behind a renderer interface, plus an independent opt-in WebGL spatial renderer for filled and lit surfaces, meshes, bounded scalar clouds, isosurfaces, vector cones, streamtubes, sphere-shaded spatial scatter, and a real Natural Earth globe
 - polished light/dark design-token themes with an accessible categorical palette, quiet axes,
   rounded data strokes, and custom theme registration
 - custom mark, renderer, and theme plugins
@@ -113,7 +113,7 @@ The Canvas 2D catalog covers 41 distinct chart families and 117 compatibility id
 
 Start with the [chart guide index and common options](docs/charts/README.md). The dedicated [Cartesian axis manual](docs/charts/axes.md) covers formatting, label layout, styling, reversed domains, secondary axes, and axis-nearest tooltips. The [common interaction manual](docs/charts/interactions.md) documents the inspection viewport, controls, fullscreen, PNG export, discrete playback, and a capability/constraint matrix for all 41 families. Every representative family page includes its compatible names, functional mode differences, a visible compiled-output gallery, and type-by-type runnable Quick API examples with required fields and stable links, followed by the shared portable contract, missing-value behavior, interaction/accessibility guidance, performance notes, and explicit limitations. Use the [compatibility preset index](docs/charts/compatibility-presets.md) to map any compatible name to its family manual; function-free compatibility adapters are documented separately in [Declarative adapters](docs/charts/adapters.md).
 
-The [spatial guide index](docs/spatial/README.md) documents `SpatialSpec 0.1`, the separate bundle boundary, camera and picking interactions, accessibility fallbacks, and actual generated previews for Surface/Mesh, Volume/Isosurface, Spatial Vector modes, and the Map globe mode. The [spatial browser gallery](examples/cdn/spatial-chart-types.html) renders those modes with the real WebGL runtime.
+The [spatial guide index](docs/spatial/README.md) documents `SpatialSpec 0.1`, the separate bundle boundary, camera and picking interactions, accessibility fallbacks, and actual generated previews for Surface/Mesh, Volume/Isosurface, Spatial Vector modes, and the Map globe mode. The [spatial browser gallery](examples/cdn/spatial-chart-types.html) renders filled multi-peak terrain and shell geometry, a sampled multi-lobe scalar field, a cyclone, multiple helical tubes, and a clustered galaxy with the real WebGL runtime.
 
 The default visual system is intentionally presentation-ready: horizontal grid lines remain available for quantitative comparison, categorical vertical grids are suppressed by default, data strokes use rounded joins and caps, point marks receive a contrasting outline, and structural charts use the same spacing, surface, and palette tokens. Explicit mark and axis styles still override these defaults.
 

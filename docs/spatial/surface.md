@@ -8,6 +8,8 @@ The `surface` canonical family contains two modes with different data topology. 
 
 Use `surface()` for a regular `rows × columns` grid. `z` supplies height values in row-major order. Optional `x` and `y` arrays replace column and row indices; optional `values` drives the color gradient while `z` still controls geometry.
 
+The compiled preview and browser gallery use a filled 35×35 terrain with two peaks, a basin, and a rippled ridge. Its 1,225 vertices receive a continuous scalar color gradient, generated normals, two-sided lighting, and a camera framed to keep the terrain prominent. `wireframe` remains an explicit diagnostic/style option rather than the representative default.
+
 ```html
 <div id="terrain" style="height: 420px"></div>
 <script>
@@ -44,6 +46,8 @@ Required invariants:
 
 Use `mesh()` when connectivity is explicit. `positions` contains `[x, y, z]` vertices and `triangles` contains zero-based index triples. Optional `normals`, `colors`, and `labels` are parallel to `positions`; normals are derived when omitted.
 
+The representative shell uses 900 vertices and 1,728 indexed triangles with a height- and angle-dependent palette. This exercises closed connectivity, per-vertex colors, derived smooth normals, filled back faces, depth testing, and lighting rather than reducing mesh mode to one tetrahedron.
+
 ```js
 const chart = GraflumeSpatial.mesh(
   '#mesh',
@@ -66,7 +70,7 @@ const chart = GraflumeSpatial.mesh(
 );
 ```
 
-The input-shape limit is 1,000,000 vertices and 2,000,000 triangles. Every triangle index must address an existing vertex. `wireframe: true` renders all three triangle edges as GPU lines. The lower scene-wide derived-output and pick-target budgets still apply, so reaching both input maxima in one scene is intentionally rejected.
+The code above is the minimum data shape; the generated preview is the richer shell scene described above. The input-shape limit is 1,000,000 vertices and 2,000,000 triangles. Every triangle index must address an existing vertex. `wireframe: true` renders all three triangle edges as GPU lines. The lower scene-wide derived-output and pick-target budgets still apply, so reaching both input maxima in one scene is intentionally rejected.
 
 ## Interaction, accessibility, and limits
 

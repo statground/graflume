@@ -126,104 +126,295 @@
         const gallery = document.querySelector('#gallery');
         const instances = [];
 
+        const coolToWarm = [
+          '#075985',
+          '#0284c7',
+          '#06b6d4',
+          '#34d399',
+          '#facc15',
+          '#f97316',
+          '#be123c',
+        ];
+        const flowPalette = [
+          '#1d4ed8',
+          '#2563eb',
+          '#0891b2',
+          '#0f766e',
+          '#65a30d',
+          '#ca8a04',
+          '#ea580c',
+          '#db2777',
+          '#7c3aed',
+        ];
+        const paletteColor = (palette, amount) =>
+          palette[
+            Math.max(0, Math.min(palette.length - 1, Math.round(amount * (palette.length - 1))))
+          ];
         const surfaceData = () => {
-          const rows = 15;
-          const columns = 15;
-          const x = Array.from(
-            { length: columns },
-            (_, index) => -2.4 + (index * 4.8) / (columns - 1),
-          );
-          const y = Array.from({ length: rows }, (_, index) => -2.4 + (index * 4.8) / (rows - 1));
-          return {
-            rows,
-            columns,
-            x,
-            y,
-            z: y.flatMap((depth) =>
-              x.map((horizontal) => Math.sin(horizontal * 1.5) * Math.cos(depth * 1.25) * 0.72),
-            ),
-          };
+          const rows = 35;
+          const columns = 35;
+          const x = Array.from({ length: columns }, (_, index) => -3 + (index * 6) / (columns - 1));
+          const y = Array.from({ length: rows }, (_, index) => -3 + (index * 6) / (rows - 1));
+          const z = [];
+          const values = [];
+          for (const depth of y) {
+            for (const horizontal of x) {
+              const westernPeak =
+                1.8 * Math.exp(-((horizontal + 1.15) ** 2 * 1.05 + (depth + 0.6) ** 2 * 0.8));
+              const easternPeak =
+                1.35 * Math.exp(-((horizontal - 1.25) ** 2 * 0.72 + (depth - 0.85) ** 2 * 1.15));
+              const basin =
+                -0.72 * Math.exp(-((horizontal - 0.1) ** 2 + (depth + 0.15) ** 2) * 2.6);
+              const height =
+                westernPeak +
+                easternPeak +
+                basin +
+                0.26 * Math.sin(horizontal * 2.15) * Math.cos(depth * 1.75);
+              z.push(height);
+              values.push(height + Math.hypot(horizontal, depth) * 0.06);
+            }
+          }
+          return { rows, columns, x, y, z, values };
+        };
+        const meshData = () => {
+          const rows = 25;
+          const columns = 36;
+          const positions = [];
+          const triangles = [];
+          const colors = [];
+          const labels = [];
+          for (let row = 0; row < rows; row += 1) {
+            const vertical = row / (rows - 1);
+            const height = -1.8 + vertical * 3.6;
+            for (let column = 0; column < columns; column += 1) {
+              const angle = (column / columns) * Math.PI * 2;
+              const taper = 0.72 + Math.sin(vertical * Math.PI) * 0.78;
+              const ripple = 1 + Math.cos(angle * 5 + vertical * Math.PI * 2) * 0.13;
+              const radius = taper * ripple;
+              positions.push([
+                Math.cos(angle) * radius,
+                height + Math.sin(angle * 3) * 0.12 * Math.sin(vertical * Math.PI),
+                Math.sin(angle) * radius,
+              ]);
+              colors.push(
+                paletteColor(coolToWarm, vertical * 0.82 + (Math.sin(angle * 2) + 1) * 0.045),
+              );
+              labels.push(`shell ${row + 1}:${column + 1}`);
+            }
+          }
+          for (let row = 0; row < rows - 1; row += 1) {
+            for (let column = 0; column < columns; column += 1) {
+              const next = (column + 1) % columns;
+              const a = row * columns + column;
+              const b = row * columns + next;
+              const c = (row + 1) * columns + column;
+              const d = (row + 1) * columns + next;
+              triangles.push([a, c, b], [b, c, d]);
+            }
+          }
+          return { positions, triangles, colors, labels };
         };
         const volumeData = () => {
-          const size = 9;
+          const size = 19;
           const values = [];
           for (let z = 0; z < size; z += 1)
             for (let y = 0; y < size; y += 1)
               for (let x = 0; x < size; x += 1) {
-                const dx = (x / (size - 1)) * 2 - 1;
-                const dy = (y / (size - 1)) * 2 - 1;
-                const dz = (z / (size - 1)) * 2 - 1;
-                values.push(1 - Math.hypot(dx, dy, dz));
+                const px = (x / (size - 1)) * 3 - 1.5;
+                const py = (y / (size - 1)) * 3 - 1.5;
+                const pz = (z / (size - 1)) * 3 - 1.5;
+                const first = Math.exp(
+                  -(
+                    ((px + 0.58) / 0.62) ** 2 +
+                    ((py - 0.12) / 0.82) ** 2 +
+                    ((pz + 0.18) / 0.58) ** 2
+                  ),
+                );
+                const second =
+                  0.92 *
+                  Math.exp(
+                    -(
+                      ((px - 0.63) / 0.72) ** 2 +
+                      ((py + 0.25) / 0.52) ** 2 +
+                      ((pz - 0.35) / 0.76) ** 2
+                    ),
+                  );
+                const ring =
+                  0.62 * Math.exp(-(((Math.hypot(px, pz) - 0.92) / 0.22) ** 2 + (py / 0.28) ** 2));
+                values.push(
+                  first +
+                    second +
+                    ring +
+                    0.08 * Math.cos(px * 3.2) * Math.sin(pz * 3.1) * Math.exp(-py * py),
+                );
               }
           return {
             dimensions: [size, size, size],
-            origin: [-1, -1, -1],
-            spacing: [2 / (size - 1), 2 / (size - 1), 2 / (size - 1)],
+            origin: [-1.5, -1.5, -1.5],
+            spacing: [3 / (size - 1), 3 / (size - 1), 3 / (size - 1)],
             values,
           };
         };
-        const common = (title, dark = false) => ({
+        const cycloneData = () => {
+          const side = 11;
+          const origins = [];
+          const vectors = [];
+          const colors = [];
+          const labels = [];
+          for (let depthIndex = 0; depthIndex < side; depthIndex += 1) {
+            for (let horizontalIndex = 0; horizontalIndex < side; horizontalIndex += 1) {
+              const x = -2.5 + (horizontalIndex / (side - 1)) * 5;
+              const z = -2.5 + (depthIndex / (side - 1)) * 5;
+              const radius = Math.hypot(x, z);
+              const swirl = 0.34 + 1.28 * Math.exp(-radius * 0.48);
+              const divisor = Math.max(0.36, radius);
+              origins.push([x, -0.82 + 0.06 * Math.sin(x + z), z]);
+              vectors.push([
+                (-z / divisor) * swirl,
+                0.28 + 0.92 * Math.exp(-radius * radius * 0.34),
+                (x / divisor) * swirl,
+              ]);
+              colors.push(paletteColor(coolToWarm, 1 - Math.min(1, radius / 3.6)));
+              labels.push(`cyclone ${depthIndex + 1}:${horizontalIndex + 1}`);
+            }
+          }
+          return { origins, vectors, colors, labels };
+        };
+        const streamData = () => {
+          const paths = Array.from({ length: 9 }, (_, pathIndex) => {
+            const phase = (pathIndex / 9) * Math.PI * 2;
+            return Array.from({ length: 58 }, (_, pointIndex) => {
+              const amount = pointIndex / 57;
+              const angle = phase + amount * Math.PI * 4.4;
+              const radius = 0.42 + amount * 1.08 + Math.sin(amount * Math.PI * 3 + phase) * 0.055;
+              return [
+                Math.cos(angle) * radius,
+                -1.8 + amount * 3.6 + Math.sin(phase * 2) * 0.1,
+                Math.sin(angle) * radius,
+              ];
+            });
+          });
+          return {
+            paths,
+            labels: paths.map((_, index) => `helical flow ${index + 1}`),
+            colors: flowPalette,
+          };
+        };
+        const noise = (index, salt) => {
+          const value = Math.sin(index * 12.9898 + salt * 78.233) * 43758.5453;
+          return value - Math.floor(value);
+        };
+        const scatterData = () => {
+          const positions = [];
+          const values = [];
+          const sizes = [];
+          const colors = [];
+          const labels = [];
+          for (let arm = 0; arm < 3; arm += 1) {
+            for (let index = 0; index < 160; index += 1) {
+              const amount = index / 159;
+              const radius = 0.22 + amount * 2.85;
+              const jitter = (noise(index + arm * 160, 1) - 0.5) * (0.1 + amount * 0.22);
+              const angle = (arm / 3) * Math.PI * 2 + radius * 2.05 + jitter;
+              positions.push([
+                Math.cos(angle) * (radius + jitter),
+                (noise(index + arm * 160, 2) - 0.5) * (0.42 - amount * 0.25),
+                Math.sin(angle) * (radius + jitter),
+              ]);
+              values.push(amount);
+              sizes.push(3 + (1 - amount) * 4 + noise(index, arm + 4) * 2);
+              colors.push(paletteColor(flowPalette, amount * 0.8 + arm * 0.06));
+              labels.push(`arm ${arm + 1} · star ${index + 1}`);
+            }
+          }
+          for (let index = 0; index < 96; index += 1) {
+            const longitude = noise(index, 6) * Math.PI * 2;
+            const latitude = (noise(index, 7) - 0.5) * Math.PI;
+            const radius = Math.cbrt(noise(index, 8)) * 0.52;
+            positions.push([
+              Math.cos(longitude) * Math.cos(latitude) * radius,
+              Math.sin(latitude) * radius * 0.58,
+              Math.sin(longitude) * Math.cos(latitude) * radius,
+            ]);
+            values.push(1);
+            sizes.push(5 + noise(index, 9) * 5);
+            colors.push(index % 3 === 0 ? '#fef3c7' : '#fbbf24');
+            labels.push(`core star ${index + 1}`);
+          }
+          return { positions, values, sizes, colors, labels };
+        };
+        const common = (title, background, camera, lighting) => ({
           title,
-          background: dark ? '#07111f' : '#f8fafc',
+          background,
+          camera,
+          lighting,
           interaction: { controls: true, picking: true, tooltip: true, wheel: 'modifier' },
           accessibility: { table: true, maxRows: 80 },
         });
+        const light = (direction = [-0.45, 0.9, 0.55]) => ({
+          ambient: 0.36,
+          diffuse: 0.92,
+          direction,
+        });
         const volume = volumeData();
+        const cyclone = cycloneData();
+        const streams = streamData();
+        const galaxy = scatterData();
         const definitions = [
           {
             id: 'surface',
             title: 'Surface',
             family: 'surface',
             api: 'surface()',
-            copy: '정규 격자의 높이와 색상',
+            copy: '35×35 정규 격자의 다봉형 높이와 연속 색상',
             render: (target) =>
-              api.surface(target, surfaceData(), { ...common('Surface'), color: '#6d28d9' }),
+              api.surface(target, surfaceData(), {
+                ...common(
+                  'Multi-peak terrain surface',
+                  '#f8fafc',
+                  { yaw: 0.3, pitch: 0.5, distance: 9.6, fov: 42 },
+                  light(),
+                ),
+                color: '#be123c',
+                opacity: 1,
+              }),
           },
           {
             id: 'mesh',
             title: 'Mesh',
             family: 'surface',
             api: 'mesh()',
-            copy: '임의 정점과 삼각형 연결',
+            copy: '900개 정점과 1,728개 삼각형의 다색 shell',
             render: (target) =>
-              api.mesh(
-                target,
-                {
-                  positions: [
-                    [-1.4, -0.8, -1.2],
-                    [1.4, -0.8, -1.2],
-                    [1.4, -0.8, 1.2],
-                    [-1.4, -0.8, 1.2],
-                    [0, 1.5, 0],
-                  ],
-                  triangles: [
-                    [0, 1, 4],
-                    [1, 2, 4],
-                    [2, 3, 4],
-                    [3, 0, 4],
-                    [0, 3, 2],
-                    [0, 2, 1],
-                  ],
-                  colors: ['#2563eb', '#7c3aed', '#db2777', '#ea580c', '#0f766e'],
-                  labels: ['west', 'south', 'east', 'north', 'peak'],
-                },
-                common('Mesh'),
-              ),
+              api.mesh(target, meshData(), {
+                ...common(
+                  'Faceted shell mesh',
+                  '#07111f',
+                  { yaw: 0.72, pitch: 0.4, distance: 7.8, fov: 40 },
+                  light([-0.65, 0.72, 0.48]),
+                ),
+                opacity: 1,
+              }),
           },
           {
             id: 'volume',
             title: 'Volume',
             family: 'volume',
             api: 'volume()',
-            copy: '스칼라 격자의 bounded point sampling',
+            copy: '19³ 스칼라 격자에서 고른 5,200개 투명 scalar sample',
             render: (target) =>
               api.volume(target, volume, {
-                ...common('Volume', true),
-                maxSamples: 900,
-                pointSize: 5,
-                opacity: 0.42,
-                colorLow: '#38bdf8',
-                colorHigh: '#fb7185',
+                ...common(
+                  'Sampled scalar cloud',
+                  '#050b18',
+                  { yaw: 0.68, pitch: 0.4, distance: 9, fov: 40 },
+                  { ambient: 0.52, diffuse: 0.76, direction: [-0.38, 0.82, 0.62] },
+                ),
+                maxSamples: 5200,
+                pointSize: 4.6,
+                opacity: 1,
+                colorLow: 'rgba(14, 165, 233, 0.01)',
+                colorHigh: 'rgba(251, 113, 133, 0.82)',
               }),
           },
           {
@@ -231,12 +422,18 @@
             title: 'Isosurface',
             family: 'volume',
             api: 'isosurface()',
-            copy: '상수값 경계의 실제 삼각형 추출',
+            copy: 'ring과 다중 peak가 결합된 실제 삼각형 경계',
             render: (target) =>
               api.isosurface(target, volume, {
-                ...common('Isosurface'),
-                isoValue: 0.22,
+                ...common(
+                  'Multi-lobe isosurface',
+                  '#f8fafc',
+                  { yaw: 0, pitch: 0.45, distance: 3.6, fov: 40 },
+                  light([-0.55, 0.88, 0.42]),
+                ),
+                isoValue: 0.43,
                 colorHigh: '#7c3aed',
+                opacity: 1,
               }),
           },
           {
@@ -244,73 +441,55 @@
             title: 'Vector cone',
             family: 'spatial-vector',
             api: 'vectorCone()',
-            copy: '방향과 크기를 가진 cone glyph',
+            copy: '11×11 cyclone field의 방향·크기·색상',
             render: (target) =>
-              api.vectorCone(
-                target,
-                {
-                  origins: [-1, 0, 1].flatMap((z) => [-1, 0, 1].map((x) => [x, -0.5, z])),
-                  vectors: [-1, 0, 1].flatMap((z) =>
-                    [-1, 0, 1].map((x) => [-z * 0.8, 1.2, x * 0.8]),
-                  ),
-                  labels: Array.from({ length: 9 }, (_, index) => `vector ${index + 1}`),
-                },
-                { ...common('Vector cone'), scale: 0.58, radius: 0.14, color: '#0f766e' },
-              ),
+              api.vectorCone(target, cyclone, {
+                ...common(
+                  'Cyclone vector field',
+                  '#f8fafc',
+                  { yaw: 0.72, pitch: 0.5, distance: 8.6, fov: 44 },
+                  light(),
+                ),
+                scale: 0.52,
+                radius: 0.085,
+                segments: 10,
+              }),
           },
           {
             id: 'streamtube',
             title: 'Streamtube',
             family: 'spatial-vector',
             api: 'streamtube()',
-            copy: '순서 있는 3차원 경로의 tube geometry',
+            copy: '9개 경로와 522개 point로 만든 다중 helix',
             render: (target) =>
-              api.streamtube(
-                target,
-                {
-                  paths: [-0.7, 0, 0.7].map((offset) =>
-                    Array.from({ length: 24 }, (_, index) => {
-                      const amount = index / 23;
-                      const angle = amount * Math.PI * 2.6 + offset;
-                      return [
-                        (amount - 0.5) * 4,
-                        Math.sin(angle) * 0.65 + offset,
-                        Math.cos(angle) * 0.65,
-                      ];
-                    }),
-                  ),
-                  labels: ['lower flow', 'middle flow', 'upper flow'],
-                  colors: ['#2563eb', '#7c3aed', '#db2777'],
-                },
-                { ...common('Streamtube'), radius: 0.055, segments: 8 },
-              ),
+              api.streamtube(target, streams, {
+                ...common(
+                  'Multi-helix streamtubes',
+                  '#07111f',
+                  { yaw: 0.68, pitch: 0.4, distance: 7.3, fov: 40 },
+                  light([-0.35, 0.9, 0.5]),
+                ),
+                radius: 0.045,
+                segments: 8,
+              }),
           },
           {
             id: 'spatial-scatter',
             title: 'Spatial scatter',
             family: 'spatial-vector',
             api: 'spatialScatter()',
-            copy: 'depth-tested 개별 관측점',
-            render: (target) => {
-              const positions = Array.from({ length: 64 }, (_, index) => {
-                const angle = index * 2.399963229728653;
-                const radius = 0.35 + (index % 12) * 0.12;
-                return [
-                  Math.cos(angle) * radius,
-                  ((index % 9) - 4) * 0.22,
-                  Math.sin(angle) * radius,
-                ];
-              });
-              return api.spatialScatter(
+            copy: '576개 depth-tested point의 3-arm galaxy cluster',
+            render: (target) =>
+              api.spatialScatter(
                 target,
-                {
-                  positions,
-                  values: positions.map(([, y]) => y),
-                  labels: positions.map((_, index) => `observation ${index + 1}`),
-                },
-                common('Spatial scatter'),
-              );
-            },
+                galaxy,
+                common(
+                  'Clustered galaxy scatter',
+                  '#050b18',
+                  { yaw: -0.58, pitch: 0.5, distance: 7.5, fov: 42 },
+                  { ambient: 0.58, diffuse: 0.72, direction: [-0.4, 0.78, 0.66] },
+                ),
+              ),
           },
           {
             id: 'globe',
@@ -333,9 +512,14 @@
                   ],
                 },
                 {
-                  ...common('Globe', true),
-                  oceanColor: '#0f2f57',
-                  landColor: '#84a98c',
+                  ...common(
+                    'Globe',
+                    '#050b18',
+                    { yaw: 0.35, pitch: 0.38, distance: 4.8, fov: 40 },
+                    { ambient: 0.48, diffuse: 0.86, direction: [-0.45, 0.82, 0.62] },
+                  ),
+                  oceanColor: '#0b2a4a',
+                  landColor: '#79a78d',
                   borderColor: '#d7e3d5',
                   pointColor: '#fb7185',
                   routeColor: '#fbbf24',

@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
+import { spatialSampleSpecs } from '../scripts/spatial-samples.mjs';
+
 import {
   compileSpatial,
   spatialCapabilities,
@@ -50,6 +52,56 @@ const surfaceSpec = {
     },
   ],
 };
+
+function distinctSpatialColors(geometry) {
+  const colors = new Set();
+  for (let offset = 0; offset < geometry.colors.length; offset += 4) {
+    colors.add(
+      Array.from(geometry.colors.slice(offset, offset + 4), (value) => value.toFixed(4)).join(','),
+    );
+  }
+  return colors.size;
+}
+
+function projectedSceneCoverage(spec, scene, width = 720, height = 420) {
+  const camera = normalizedCamera(
+    spec.projection ?? 'perspective',
+    scene.bounds.center,
+    scene.bounds.radius,
+    spec.camera,
+  );
+  const matrix = viewProjectionMat4(camera, width, height);
+  let minimumX = Number.POSITIVE_INFINITY;
+  let maximumX = Number.NEGATIVE_INFINITY;
+  let minimumY = Number.POSITIVE_INFINITY;
+  let maximumY = Number.NEGATIVE_INFINITY;
+  let visiblePoints = 0;
+  for (const geometry of scene.geometries) {
+    for (let offset = 0; offset < geometry.positions.length; offset += 3) {
+      const projected = projectPoint(
+        matrix,
+        [
+          geometry.positions[offset],
+          geometry.positions[offset + 1],
+          geometry.positions[offset + 2],
+        ],
+        width,
+        height,
+      );
+      if (!projected.visible) continue;
+      visiblePoints += 1;
+      minimumX = Math.min(minimumX, projected.x);
+      maximumX = Math.max(maximumX, projected.x);
+      minimumY = Math.min(minimumY, projected.y);
+      maximumY = Math.max(maximumY, projected.y);
+    }
+  }
+  return {
+    visiblePoints,
+    width: (maximumX - minimumX) / width,
+    height: (maximumY - minimumY) / height,
+  };
+}
 
 test('spatial catalog adds three canonical families without duplicating map', () => {
   assert.deepEqual(
@@ -107,6 +159,48 @@ test('surface and indexed mesh compile into real triangle geometry and pick targ
   assert.equal(mesh.geometries[0].positions.length, 12);
   assert.equal(mesh.geometries[0].indices.length, 6);
   assert.equal(mesh.geometries[0].picks[0].datum.label, 'origin');
+});
+
+test('spatial gallery samples compile rich geometry, color depth, and readable camera framing', () => {
+  const expected = {
+    surface: { vertices: 1_225, indices: 6_900, picks: 1_225, colors: 900 },
+    mesh: { vertices: 900, indices: 5_100, picks: 900, colors: 6 },
+    volume: { vertices: 5_200, indices: 0, picks: 5_200, colors: 2_000 },
+    isosurface: { vertices: 12_000, indices: 0, picks: 4_000, colors: 1 },
+    'vector-cone': { vertices: 1_400, indices: 7_000, picks: 121, colors: 7 },
+    streamtube: { vertices: 4_100, indices: 24_000, picks: 522, colors: 9 },
+    'spatial-scatter': { vertices: 576, indices: 0, picks: 576, colors: 10 },
+  };
+
+  for (const [name, minimum] of Object.entries(expected)) {
+    const spec = spatialSampleSpecs[name];
+    const scene = compileSpatial(spec);
+    const geometry = scene.geometries[0];
+    assert.ok(geometry.positions.length / 3 >= minimum.vertices, `${name} vertex density`);
+    assert.ok((geometry.indices?.length ?? 0) >= minimum.indices, `${name} index density`);
+    assert.ok(geometry.picks.length >= minimum.picks, `${name} semantic pick density`);
+    assert.ok(distinctSpatialColors(geometry) >= minimum.colors, `${name} color depth`);
+    assert.ok(spec.camera.pitch >= 0.35 && spec.camera.pitch <= 0.5, `${name} camera pitch`);
+
+    const coverage = projectedSceneCoverage(spec, scene);
+    assert.ok(coverage.visiblePoints > 0, `${name} has visible projected geometry`);
+    assert.ok(
+      coverage.width >= 0.28 && coverage.width <= 0.6,
+      `${name} projected width ${(coverage.width * 100).toFixed(1)}%`,
+    );
+    assert.ok(
+      coverage.height >= 0.6 && coverage.height <= 0.78,
+      `${name} projected height ${(coverage.height * 100).toFixed(1)}%`,
+    );
+  }
+
+  const volumeColors = spatialSampleSpecs.volume.layers[0].mark;
+  assert.equal(volumeColors.opacity, 1);
+  assert.match(volumeColors.colorLow, /0\.01\)/);
+  assert.match(volumeColors.colorHigh, /0\.82\)/);
+  for (const name of ['surface', 'mesh', 'isosurface']) {
+    assert.equal(spatialSampleSpecs[name].layers[0].mark.opacity, 1);
+  }
 });
 
 test('volume and isosurface modes compile bounded depth geometry', () => {
