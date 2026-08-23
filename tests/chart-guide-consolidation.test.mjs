@@ -142,6 +142,20 @@ test('every compatible preset is integrated into its family manual', async () =>
   }
 });
 
+test('parallel categories guide keeps every categorical dimension in its runnable rows', async () => {
+  const source = await readFile(new URL('parallel.md', chartDirectory), 'utf8');
+  const block = generatedBlock(source);
+  const section = block.slice(block.indexOf('<a id="variant-parallel-categories"></a>'));
+
+  assert.match(section, /\*\*Required example fields:\*\* `region`, `value`, `channel`, `outcome`/);
+  assert.match(section, /channel: 'Web'/);
+  assert.match(section, /outcome: 'Won'/);
+  assert.match(
+    section,
+    /categorical stages and the frequency of each complete path must be compared/,
+  );
+});
+
 test('common interaction guide covers the complete family catalog and semantic playback limits', async () => {
   const source = await readFile(new URL('interactions.md', chartDirectory), 'utf8');
 

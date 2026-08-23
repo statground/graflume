@@ -321,6 +321,7 @@ function fieldsFromMark(fields, mark) {
   for (const field of Object.values(mark.fields ?? {})) addField(fields, field);
   for (const field of mark.options?.fields ?? []) addField(fields, field);
   for (const field of mark.options?.columns ?? []) addField(fields, field);
+  for (const field of mark.options?.dimensions ?? []) addField(fields, field);
 }
 
 function fieldsForSpec(spec) {

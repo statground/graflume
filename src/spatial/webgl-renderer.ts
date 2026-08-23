@@ -371,6 +371,8 @@ export class SpatialWebGLRenderer {
       this.render();
       this.#callbacks.contextRestored();
     } catch (error) {
+      this.#lost = true;
+      this.#callbacks.unavailable(error instanceof Error ? error.message : String(error));
       this.#callbacks.error(error);
     }
   };

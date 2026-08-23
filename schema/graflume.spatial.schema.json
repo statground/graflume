@@ -118,6 +118,8 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "chart": { "type": "string", "maxLength": 256 },
+        "toolbar": { "type": "string", "maxLength": 256 },
         "orbit": { "type": "string", "maxLength": 256 },
         "pan": { "type": "string", "maxLength": 256 },
         "zoomIn": { "type": "string", "maxLength": 256 },
@@ -127,6 +129,7 @@
         "fullscreen": { "type": "string", "maxLength": 256 },
         "exportPng": { "type": "string", "maxLength": 256 },
         "instructions": { "type": "string", "maxLength": 256 },
+        "contextLost": { "type": "string", "maxLength": 256 },
         "unavailable": { "type": "string", "maxLength": 256 }
       }
     },

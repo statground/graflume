@@ -41,6 +41,8 @@ const INTERACTION_KEYS = new Set([
 ]);
 const TOOLTIP_KEYS = new Set(['title', 'fields']);
 const CONTROL_LABEL_KEYS = new Set([
+  'chart',
+  'toolbar',
   'orbit',
   'pan',
   'zoomIn',
@@ -50,6 +52,7 @@ const CONTROL_LABEL_KEYS = new Set([
   'fullscreen',
   'exportPng',
   'instructions',
+  'contextLost',
   'unavailable',
 ]);
 const ACCESSIBILITY_KEYS = new Set(['description', 'table', 'maxRows']);

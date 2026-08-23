@@ -340,6 +340,9 @@ export const webglSpatialRenderer = Object.freeze({
 export { SpatialChart, compileSpatial, type CompiledSpatialScene, type SpatialChartTarget };
 export * from './spatial/types.js';
 export type {
+  SpatialAvailabilityChangeEvent,
+  SpatialAvailabilityState,
+  SpatialAvailabilityStatus,
   SpatialCameraChangeEvent,
   SpatialCameraChangeReason,
   SpatialChartEventMap,

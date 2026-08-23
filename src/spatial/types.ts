@@ -28,6 +28,8 @@ export interface SpatialAccessibilitySpec {
 }
 
 export interface SpatialControlLabels {
+  readonly chart?: string;
+  readonly toolbar?: string;
   readonly orbit?: string;
   readonly pan?: string;
   readonly zoomIn?: string;
@@ -37,6 +39,7 @@ export interface SpatialControlLabels {
   readonly fullscreen?: string;
   readonly exportPng?: string;
   readonly instructions?: string;
+  readonly contextLost?: string;
   readonly unavailable?: string;
 }
 

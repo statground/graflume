@@ -35,7 +35,7 @@ Use this preset when several quantitative dimensions require pairwise comparison
 - **Quick API:** `scatterMatrix()`
 - **Mode:** `default`
 - **Portable mark:** `scatter-matrix`
-- **Required example fields:** `speed`, `quality`
+- **Required example fields:** `speed`, `quality`, `cost`
 
 ```js
 import { scatterMatrix } from 'graflume/complete';
@@ -44,18 +44,22 @@ const data = [
   {
     speed: 82,
     quality: 74,
+    cost: 61,
   },
   {
     speed: 66,
     quality: 88,
+    cost: 73,
   },
   {
     speed: 91,
     quality: 69,
+    cost: 54,
   },
   {
     speed: 75,
     quality: 81,
+    cost: 67,
   },
 ];
 
@@ -96,6 +100,11 @@ scatterMatrix('#chart', data, {
         {
           field: 'quality',
           label: 'quality',
+          format: 'number',
+        },
+        {
+          field: 'cost',
+          label: 'Cost',
           format: 'number',
         },
       ],

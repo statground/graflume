@@ -50,6 +50,13 @@ const chart = GraflumeSpatial.createSpatial('#chart', {
     picking: true,
     tooltip: true,
     controls: true,
+    labels: {
+      chart: 'Interactive three-dimensional chart',
+      toolbar: 'Three-dimensional chart controls',
+      instructions: 'Drag to orbit; use the arrow keys to move the camera.',
+      contextLost: 'The graphics context is being restored.',
+      unavailable: 'This environment cannot display the spatial chart.',
+    },
   },
   accessibility: {
     description: 'Three-dimensional observation positions and values.',
@@ -72,7 +79,7 @@ const chart = GraflumeSpatial.createSpatial('#chart', {
 });
 ```
 
-Every Quick API and `createSpatial()` returns a `SpatialChart` with `getSpec()`, `setSpec()`, `getCamera()`, `setCamera()`, `orbitBy()`, `panBy()`, `zoomBy()`, `resetCamera()`, `setProjection()`, `resize()`, `render()`, `toDataURL()`, `toggleFullscreen()`, `on()`, `off()`, and `destroy()`.
+Every Quick API and `createSpatial()` returns a `SpatialChart` with `getSpec()`, `setSpec()`, `getAvailability()`, `getCamera()`, `setCamera()`, `orbitBy()`, `panBy()`, `zoomBy()`, `resetCamera()`, `setProjection()`, `resize()`, `render()`, `toDataURL()`, `toggleFullscreen()`, `on()`, `off()`, and `destroy()`.
 
 ## Interaction and accessibility
 
@@ -81,6 +88,17 @@ The compact toolbar stays outside the primary data region at the upper-right edg
 Wheel zoom defaults to `wheel: "modifier"`, so it runs only with Control or Command and does not take normal page scrolling. `"always"` and `"off"` are explicit alternatives. The surface is `touch-action: pan-y` while idle and captures a horizontal or multi-pointer spatial gesture only while it is active.
 
 Picking uses an offscreen identifier and depth pass, so targets hidden behind an opaque surface or the far side of a globe do not produce tooltips. Fully transparent geometry is excluded from color, depth, and picking passes. Opaque geometry renders first; partially transparent geometry is sorted per geometry from back to front with depth writes disabled, so it does not become a false pick occluder. The pass is cached until the scene, camera, radius, or viewport changes; pointer movement reads one pixel instead of scanning every target. Safe text-only tooltips feed `hover`/`click` events. The adjacent screen-reader table is enabled by default, stops once `accessibility.maxRows` is reached, and does not flatten the remaining targets. If WebGL is unavailable or its context is lost, the status and table remain available; PNG export returns an explanatory Canvas fallback when necessary.
+
+All interface copy remains function-free inside `interaction.labels`. The chart-specific `ariaLabel` or `title` takes precedence over the localized `chart` fallback; `toolbar`, `instructions`, `contextLost`, and `unavailable` localize the control group, help text, and fallback state. A configured `unavailable` message is used instead of exposing a raw renderer error to users.
+
+Hosts can inspect `chart.getAvailability()`, which returns `{ status, available, message? }`. Status is one of `initializing`, `ready`, `unavailable`, `context-lost`, or `destroyed`. Subscribe to `availabilitychange` for later context loss and recovery:
+
+```js
+const state = chart.getAvailability();
+chart.on('availabilitychange', ({ state, previous }) => {
+  console.log(previous.status, state.status);
+});
+```
 
 Fullscreen always follows the fullscreen element's current box, even when embedded creation options supplied fixed dimensions. `setSpec()` synchronizes the toolbar's presence and localized labels, the Canvas accessible name, the combined custom description and interaction instructions referenced by `aria-describedby`, and the bounded data table.
 

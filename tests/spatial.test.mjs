@@ -436,6 +436,30 @@ test('fully transparent geometry is excluded while partial alpha keeps a transpa
 
 test('SpatialSpec validation is closed, portable, bounded, and mode-aware', () => {
   assert.deepEqual(validateSpatialSpec(surfaceSpec), []);
+  assert.deepEqual(
+    validateSpatialSpec({
+      ...surfaceSpec,
+      interaction: {
+        labels: {
+          chart: '3D 온도 지도',
+          toolbar: '차트 제어',
+          instructions: '드래그하여 회전합니다.',
+          contextLost: '그래픽 문맥을 복원하고 있습니다.',
+          unavailable: '이 환경에서는 공간 차트를 표시할 수 없습니다.',
+        },
+      },
+    }),
+    [],
+  );
+  assert.match(
+    validateSpatialSpec({
+      ...surfaceSpec,
+      interaction: { labels: { toolbar: () => '차트 제어' } },
+    })
+      .map(({ message }) => message)
+      .join(' '),
+    /JSON-serializable|Must be a string/,
+  );
   assert.match(
     validateSpatialSpec({ ...surfaceSpec, callback: () => true })
       .map(({ message }) => message)
@@ -587,4 +611,10 @@ test('spatial JSON schema is versioned and closes every object declaration', asy
   assert.deepEqual(schema.$defs.streamtubeMark.required, ['type']);
   assert.equal(schema.$defs.coneMark.properties.segments.maximum, 48);
   assert.equal(schema.$defs.streamtubeMark.properties.segments.maximum, 48);
+  assert.deepEqual(
+    Object.keys(schema.$defs.controlLabels.properties).filter((key) =>
+      ['chart', 'toolbar', 'instructions', 'contextLost', 'unavailable'].includes(key),
+    ),
+    ['chart', 'toolbar', 'instructions', 'contextLost', 'unavailable'],
+  );
 });

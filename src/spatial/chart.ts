@@ -8,6 +8,7 @@ import type {
   CompiledSpatialScene,
   SpatialCameraState,
   SpatialChartSpec,
+  SpatialControlLabels,
   SpatialCreateOptions,
   SpatialHitResult,
   SpatialProjection,
@@ -50,6 +51,21 @@ export interface SpatialErrorEvent {
   readonly error: unknown;
 }
 
+export type SpatialAvailabilityStatus =
+  'initializing' | 'ready' | 'unavailable' | 'context-lost' | 'destroyed';
+
+export interface SpatialAvailabilityState {
+  readonly status: SpatialAvailabilityStatus;
+  readonly available: boolean;
+  readonly message?: string;
+}
+
+export interface SpatialAvailabilityChangeEvent {
+  readonly chart: SpatialChart;
+  readonly state: SpatialAvailabilityState;
+  readonly previous: SpatialAvailabilityState;
+}
+
 export interface SpatialChartEventMap {
   readonly render: SpatialRenderEvent;
   readonly hover: SpatialPointerEvent;
@@ -59,6 +75,7 @@ export interface SpatialChartEventMap {
   readonly fullscreenchange: SpatialFullscreenChangeEvent;
   readonly contextloss: Readonly<{ chart: SpatialChart }>;
   readonly contextrestore: Readonly<{ chart: SpatialChart }>;
+  readonly availabilitychange: SpatialAvailabilityChangeEvent;
   readonly error: SpatialErrorEvent;
 }
 
@@ -73,7 +90,11 @@ interface PinchState {
   readonly camera: SpatialCameraState;
 }
 
-const defaultLabels = {
+type ResolvedSpatialLabels = Required<SpatialControlLabels>;
+
+const defaultLabels: ResolvedSpatialLabels = {
+  chart: 'Interactive three-dimensional chart',
+  toolbar: 'Three-dimensional chart controls',
   orbit: 'Orbit camera',
   pan: 'Pan camera',
   zoomIn: 'Zoom in',
@@ -84,6 +105,7 @@ const defaultLabels = {
   exportPng: 'Download PNG',
   instructions:
     'Drag to orbit. Use Pan mode, Shift-drag, or the secondary pointer button to pan. Use Control or Command with the wheel, pinch, or plus and minus keys to zoom. Arrow keys move the camera; zero resets it.',
+  contextLost: 'The 3D rendering context was lost. Restoring…',
   unavailable:
     'Hardware-accelerated 3D rendering is unavailable. The data table remains available.',
 } as const;
@@ -194,7 +216,7 @@ export class SpatialChart {
   #instructions: HTMLParagraphElement | null = null;
   #controls: HTMLDivElement | null = null;
   #destroyed = false;
-  #available = false;
+  #availability: SpatialAvailabilityState = { status: 'initializing', available: false };
   #width = 1;
   #height = 1;
   #gestureActive = false;
@@ -226,15 +248,16 @@ export class SpatialChart {
     this.#target.append(this.#wrapper);
     this.#renderer = new SpatialWebGLRenderer({
       contextLost: () => {
-        this.#showFallback('The 3D rendering context was lost. Restoring…');
+        this.#showFallback('context-lost');
         this.#events.emit('contextloss', { chart: this });
       },
       contextRestored: () => {
         this.#hideFallback();
+        this.#setAvailability('ready');
         this.#events.emit('contextrestore', { chart: this });
         this.render();
       },
-      unavailable: (message) => this.#showFallback(message),
+      unavailable: () => this.#showFallback('unavailable'),
       error: (error) => this.#events.emit('error', { chart: this, error }),
     });
     const labels = { ...defaultLabels, ...spec.interaction?.labels };
@@ -242,16 +265,18 @@ export class SpatialChart {
       spec.accessibility?.description,
       labels.instructions,
     );
-    this.#available = this.#renderer.mount(
+    const mounted = this.#renderer.mount(
       this.#wrapper,
-      spec.ariaLabel ?? spec.title ?? 'Interactive three-dimensional chart',
+      this.#chartLabel(labels),
       accessibleDescription,
     );
+    if (mounted) this.#setAvailability('ready');
     this.#renderer.setScene(this.#scene);
     this.#renderer.setCamera(this.#camera);
     this.#syncAccessibilityDom();
     this.#renderAccessibilityTable();
     this.#syncControlStructure();
+    this.#syncAvailabilityCopy();
     this.#attachInteraction();
     this.#configureResize();
     this.resize(options.width, options.height);
@@ -277,12 +302,17 @@ export class SpatialChart {
     this.#syncAccessibilityDom();
     this.#renderAccessibilityTable();
     this.#syncControlStructure();
+    this.#syncAvailabilityCopy();
     this.#emitCamera('spec');
     this.render();
   }
 
   getCamera(): SpatialCameraState {
     return { ...this.#camera, target: [...this.#camera.target] as [number, number, number] };
+  }
+
+  getAvailability(): SpatialAvailabilityState {
+    return { ...this.#availability };
   }
 
   setCamera(camera: Readonly<Partial<SpatialCameraState>>): void {
@@ -401,10 +431,10 @@ export class SpatialChart {
     context.fillRect(0, 0, fallback.width, fallback.height);
     context.fillStyle = '#0f172a';
     context.font = '600 18px sans-serif';
-    context.fillText(this.#spec.title ?? 'Three-dimensional chart', 24, 38);
+    context.fillText(this.#spec.title ?? this.#chartLabel(), 24, 38);
     context.fillStyle = '#64748b';
     context.font = '14px sans-serif';
-    context.fillText(defaultLabels.unavailable, 24, 68, Math.max(20, fallback.width - 48));
+    context.fillText(this.#labels().unavailable, 24, 68, Math.max(20, fallback.width - 48));
     return fallback.toDataURL('image/png');
   }
 
@@ -436,6 +466,7 @@ export class SpatialChart {
   destroy(): void {
     if (this.#destroyed) return;
     this.#destroyed = true;
+    this.#setAvailability('destroyed');
     this.#resizeObserver?.disconnect();
     if (this.#windowResizeListener !== null)
       window.removeEventListener('resize', this.#windowResizeListener);
@@ -667,12 +698,9 @@ export class SpatialChart {
   }
 
   #syncAccessibilityDom(): void {
-    const labels = { ...defaultLabels, ...this.#spec.interaction?.labels };
+    const labels = this.#labels();
     const surface = this.#renderer.surface();
-    surface.setAttribute(
-      'aria-label',
-      this.#spec.ariaLabel ?? this.#spec.title ?? 'Interactive three-dimensional chart',
-    );
+    surface.setAttribute('aria-label', this.#chartLabel(labels));
     surface.setAttribute(
       'aria-description',
       spatialAccessibleDescription(this.#spec.accessibility?.description, labels.instructions),
@@ -718,11 +746,11 @@ export class SpatialChart {
   }
 
   #createControls(): void {
-    const labels = { ...defaultLabels, ...this.#spec.interaction?.labels };
+    const labels = this.#labels();
     const toolbar = document.createElement('div');
     toolbar.dataset.graflumeSpatialControls = 'true';
     toolbar.setAttribute('role', 'toolbar');
-    toolbar.setAttribute('aria-label', 'Three-dimensional chart controls');
+    toolbar.setAttribute('aria-label', labels.toolbar);
     toolbar.style.position = 'absolute';
     toolbar.style.insetBlockStart = '6px';
     toolbar.style.insetInlineEnd = '6px';
@@ -795,7 +823,8 @@ export class SpatialChart {
       return;
     }
     if (this.#controls === null) this.#createControls();
-    const labels = { ...defaultLabels, ...this.#spec.interaction?.labels };
+    const labels = this.#labels();
+    this.#controls?.setAttribute('aria-label', labels.toolbar);
     const byId: Readonly<Record<string, string>> = {
       orbit: labels.orbit,
       pan: labels.pan,
@@ -902,7 +931,7 @@ export class SpatialChart {
     if (this.#tooltip !== null) this.#tooltip.hidden = true;
   }
 
-  #showFallback(message: string): void {
+  #showFallback(status: 'context-lost' | 'unavailable'): void {
     if (this.#fallback === null) {
       this.#fallback = document.createElement('div');
       this.#fallback.dataset.graflumeSpatialFallback = 'true';
@@ -918,10 +947,12 @@ export class SpatialChart {
       this.#fallback.style.font = '14px/1.5 ui-sans-serif, system-ui, sans-serif';
       this.#wrapper.append(this.#fallback);
     }
-    this.#fallback.textContent =
-      message || this.#spec.interaction?.labels?.unavailable || defaultLabels.unavailable;
+    const labels = this.#labels();
+    const message = status === 'context-lost' ? labels.contextLost : labels.unavailable;
+    this.#fallback.textContent = message;
     this.#fallback.style.display = 'grid';
     this.#fallback.hidden = false;
+    this.#setAvailability(status, message);
   }
 
   #hideFallback(): void {
@@ -944,7 +975,7 @@ export class SpatialChart {
     const table = document.createElement('table');
     const caption = document.createElement('caption');
     caption.textContent =
-      this.#spec.accessibility?.description ?? this.#spec.title ?? 'Three-dimensional chart data';
+      this.#spec.accessibility?.description ?? this.#spec.title ?? this.#chartLabel(this.#labels());
     table.append(caption);
     const picks = collectAccessibleSpatialPicks(
       this.#scene.geometries,
@@ -983,6 +1014,40 @@ export class SpatialChart {
 
   #emitCamera(reason: SpatialCameraChangeReason): void {
     this.#events.emit('camerachange', { chart: this, camera: this.getCamera(), reason });
+  }
+
+  #labels(): ResolvedSpatialLabels {
+    return { ...defaultLabels, ...this.#spec.interaction?.labels };
+  }
+
+  #chartLabel(labels = this.#labels()): string {
+    return this.#spec.ariaLabel ?? this.#spec.title ?? labels.chart;
+  }
+
+  #syncAvailabilityCopy(): void {
+    if (this.#availability.status === 'context-lost') this.#showFallback('context-lost');
+    else if (this.#availability.status === 'unavailable') this.#showFallback('unavailable');
+  }
+
+  #setAvailability(status: SpatialAvailabilityStatus, message?: string): void {
+    const previous = this.#availability;
+    const next: SpatialAvailabilityState = {
+      status,
+      available: status === 'ready',
+      ...(message === undefined ? {} : { message }),
+    };
+    if (
+      previous.status === next.status &&
+      previous.available === next.available &&
+      previous.message === next.message
+    )
+      return;
+    this.#availability = next;
+    this.#events.emit('availabilitychange', {
+      chart: this,
+      state: this.getAvailability(),
+      previous: { ...previous },
+    });
   }
 
   #assertAlive(): void {

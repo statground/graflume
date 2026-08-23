@@ -36,7 +36,7 @@ Use this preset when many quantitative dimensions must be compared for each row.
 - **Quick API:** `parallel()`
 - **Mode:** `default`
 - **Portable mark:** `parallel`
-- **Required example fields:** `name`, `speed`
+- **Required example fields:** `name`, `speed`, `quality`, `cost`
 
 ```js
 import { parallel } from 'graflume/complete';
@@ -45,14 +45,20 @@ const data = [
   {
     name: 'Alpha',
     speed: 82,
+    quality: 74,
+    cost: 61,
   },
   {
     name: 'Beta',
     speed: 66,
+    quality: 88,
+    cost: 73,
   },
   {
     name: 'Gamma',
     speed: 91,
+    quality: 69,
+    cost: 54,
   },
 ];
 
@@ -96,6 +102,16 @@ parallel('#chart', data, {
           label: 'speed',
           format: 'number',
         },
+        {
+          field: 'quality',
+          label: 'Quality',
+          format: 'number',
+        },
+        {
+          field: 'cost',
+          label: 'Cost',
+          format: 'number',
+        },
       ],
       trigger: 'mark',
     },
@@ -112,7 +128,7 @@ Use this preset when categorical stages and the frequency of each complete path 
 - **Quick API:** `parallelCategories()`
 - **Mode:** `categories`
 - **Portable mark:** `parallel`
-- **Required example fields:** `region`, `value`
+- **Required example fields:** `region`, `value`, `channel`, `outcome`
 
 ```js
 import { parallelCategories } from 'graflume/complete';
@@ -121,18 +137,26 @@ const data = [
   {
     region: 'East',
     value: 1,
+    channel: 'Web',
+    outcome: 'Won',
   },
   {
     region: 'East',
     value: 1,
+    channel: 'Web',
+    outcome: 'Won',
   },
   {
     region: 'East',
     value: 1,
+    channel: 'Store',
+    outcome: 'Lost',
   },
   {
     region: 'West',
     value: 1,
+    channel: 'Web',
+    outcome: 'Won',
   },
 ];
 
@@ -175,6 +199,16 @@ parallelCategories('#chart', data, {
           field: 'value',
           label: 'value',
           format: 'number',
+        },
+        {
+          field: 'channel',
+          label: 'Channel',
+          format: 'auto',
+        },
+        {
+          field: 'outcome',
+          label: 'Outcome',
+          format: 'auto',
         },
       ],
       trigger: 'mark',
