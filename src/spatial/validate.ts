@@ -55,10 +55,13 @@ const CONTROL_LABEL_KEYS = new Set([
   'projection',
   'fullscreen',
   'exportPng',
+  'showAnnotations',
+  'hideAnnotations',
   'instructions',
   'contextLost',
   'unavailable',
 ]);
+const CONTROLS_KEYS = new Set(['annotations']);
 const ACCESSIBILITY_KEYS = new Set(['description', 'table', 'maxRows']);
 const LAYER_KEYS = new Set(['id', 'name', 'mark', 'data']);
 const SELECTION_KEYS = new Set([
@@ -829,8 +832,13 @@ function validateInteraction(value: unknown, path: string, issues: SpatialSpecIs
   if (value === undefined) return;
   const interaction = closedObject(value, path, INTERACTION_KEYS, issues);
   if (interaction === undefined) return;
-  for (const key of ['orbit', 'pan', 'zoom', 'picking', 'controls'] as const) {
+  for (const key of ['orbit', 'pan', 'zoom', 'picking'] as const) {
     optionalBoolean(interaction[key], `${path}.${key}`, issues);
+  }
+  if (interaction.controls !== undefined && typeof interaction.controls !== 'boolean') {
+    const controls = closedObject(interaction.controls, `${path}.controls`, CONTROLS_KEYS, issues);
+    if (controls !== undefined)
+      optionalBoolean(controls.annotations, `${path}.controls.annotations`, issues);
   }
   optionalEnum(interaction.wheel, `${path}.wheel`, new Set(['off', 'modifier', 'always']), issues);
   if (interaction.tooltip !== undefined && typeof interaction.tooltip !== 'boolean') {

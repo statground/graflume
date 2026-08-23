@@ -346,6 +346,10 @@ function walk(element) {
   return [element, ...element.children.flatMap(walk)];
 }
 
+function sceneNodes(node) {
+  return node.type === 'group' ? [node, ...node.children.flatMap(sceneNodes)] : [node];
+}
+
 function byAria(root, label) {
   return walk(root).find((element) => element.getAttribute('aria-label') === label);
 }
@@ -363,6 +367,19 @@ function findAxisOnlyPoint(scene) {
     }
   }
   return null;
+}
+
+function findSceneNode(scene, predicate) {
+  const visit = (node) => {
+    if (predicate(node)) return node;
+    if (node.type !== 'group') return null;
+    for (const child of node.children) {
+      const match = visit(child);
+      if (match !== null) return match;
+    }
+    return null;
+  };
+  return visit(scene.root);
 }
 
 test('Chart inverses transformed hit tests and axis tooltips', () => {
@@ -867,9 +884,199 @@ test('playback keeps its base spec, advances on the core clock, and controls sta
   }
 });
 
+test('playback transitions interpolate stable datum keys on one RAF and suppress transient hits', () => {
+  const environment = installEnvironment();
+  const { registry, target, renderers } = createHarness(environment.document);
+  const chart = new Chart(
+    target,
+    {
+      width: 240,
+      height: 160,
+      data: [
+        { period: 'Q1', entity: 'A', x: 20, value: 8 },
+        { period: 'Q2', entity: 'A', x: 80, value: 24 },
+      ],
+      mark: { type: 'point', radius: 8 },
+      x: { field: 'x', scale: { domain: [0, 100] } },
+      y: { field: 'value', scale: { domain: [0, 30] } },
+      interaction: {
+        playback: {
+          field: 'period',
+          key: 'entity',
+          mode: 'frame',
+          filter: true,
+          transition: { duration: 600, easing: 'linear' },
+        },
+        selection: { key: 'entity' },
+      },
+    },
+    registry,
+    { width: 240, height: 160, autoResize: false },
+  );
+  const renderer = renderers[0];
+  const datumPoint = (scene) =>
+    findSceneNode(scene, (node) => node.type === 'circle' && node.datum?.datum.entity === 'A');
+  const initialScene = renderer.scene;
+  const initialPoint = datumPoint(initialScene);
+  const renderScenes = [];
+  const hoverHits = [];
+  const clickHits = [];
+  chart.on('render', ({ scene }) => renderScenes.push(scene));
+  chart.on('hover', ({ hit }) => hoverHits.push(hit));
+  chart.on('click', ({ hit }) => clickHits.push(hit));
+
+  try {
+    chart.seek(1);
+    const endpointScene = chart.getScene();
+    const endpointPoint = datumPoint(endpointScene);
+    assert.notEqual(initialPoint.cx, endpointPoint.cx);
+    assert.equal(renderer.scene, initialScene, 'the compiled endpoint must not flash before RAF');
+    assert.equal(renderScenes.length, 1, 'render emits once for the authoritative endpoint');
+    assert.equal(renderScenes[0], endpointScene);
+    assert.equal(environment.pendingFrames(), 1, 'playback and tween share one RAF owner');
+
+    environment.tick(0);
+    environment.tick(300);
+    const midpointScene = renderer.scene;
+    const midpoint = datumPoint(midpointScene);
+    assert.equal(midpoint.cx, (initialPoint.cx + endpointPoint.cx) / 2);
+    assert.equal(chart.getScene(), endpointScene, 'getScene remains the authoritative endpoint');
+    assert.equal(environment.pendingFrames(), 1);
+
+    renderer.chartSurface.dispatchEvent(
+      new FakePointerEvent('pointermove', { clientX: midpoint.cx, clientY: midpoint.cy }),
+    );
+    renderer.chartSurface.dispatchEvent(
+      new FakePointerEvent('click', { clientX: midpoint.cx, clientY: midpoint.cy }),
+    );
+    assert.deepEqual(hoverHits, [null]);
+    assert.deepEqual(clickHits, [null]);
+    assert.equal(
+      chart.getSelection().items.length,
+      0,
+      'selection never targets transient geometry',
+    );
+
+    environment.tick(600);
+    assert.equal(renderer.scene, endpointScene);
+    assert.equal(environment.pendingFrames(), 0);
+    assert.equal(renderScenes.length, 1, 'RAF frames do not emit extra endpoint render events');
+
+    chart.seek(0);
+    environment.tick(700);
+    environment.tick(850);
+    const interruptedScene = renderer.scene;
+    const interruptedPoint = datumPoint(interruptedScene);
+    assert.notEqual(interruptedPoint.cx, initialPoint.cx);
+    assert.notEqual(interruptedPoint.cx, endpointPoint.cx);
+    chart.seek(1);
+    assert.equal(
+      renderer.scene,
+      interruptedScene,
+      'seek restarts from the currently displayed scene',
+    );
+    assert.equal(environment.pendingFrames(), 1);
+    chart.pause();
+    assert.equal(renderer.scene, chart.getScene(), 'pause settles the current endpoint');
+    assert.equal(environment.pendingFrames(), 0);
+
+    const finalPoint = datumPoint(renderer.scene);
+    renderer.chartSurface.dispatchEvent(
+      new FakePointerEvent('click', { clientX: finalPoint.cx, clientY: finalPoint.cy }),
+    );
+    assert.equal(clickHits.at(-1)?.datum.entity, 'A');
+    assert.equal(chart.getSelection().items.length, 1);
+  } finally {
+    chart.destroy();
+    assert.equal(environment.pendingFrames(), 0);
+    environment.restore();
+  }
+});
+
+test('fast autoplay clamps transitions below intervals and never accumulates transient exits', () => {
+  const environment = installEnvironment();
+  const { registry, target, renderers } = createHarness(environment.document);
+  const chart = new Chart(
+    target,
+    {
+      width: 240,
+      height: 160,
+      data: [
+        { period: 'Q1', entity: 'A', category: 'Alpha', value: 8 },
+        { period: 'Q2', entity: 'A', category: 'Beta', value: 14 },
+        { period: 'Q3', entity: 'A', category: 'Gamma', value: 20 },
+        { period: 'Q4', entity: 'A', category: 'Delta', value: 26 },
+      ],
+      mark: 'point',
+      x: 'category',
+      y: { field: 'value', scale: { domain: [0, 30] } },
+      interaction: {
+        playback: {
+          field: 'period',
+          key: 'entity',
+          mode: 'frame',
+          filter: true,
+          interval: 100,
+          autoplay: true,
+          transition: { duration: 600, easing: 'linear' },
+        },
+      },
+    },
+    registry,
+    { width: 240, height: 160, autoResize: false },
+  );
+  const renderer = renderers[0];
+  const transientExitIds = () =>
+    sceneNodes(renderer.scene.root)
+      .map(({ id }) => id)
+      .filter((id) => id.startsWith('transition-exit-'));
+
+  try {
+    environment.tick(0);
+    environment.tick(100);
+    assert.equal(chart.getPlaybackState().index, 1);
+
+    environment.tick(125);
+    assert.ok(transientExitIds().length > 0, 'changed endpoint text uses a visible crossfade');
+
+    environment.tick(199);
+    assert.equal(
+      renderer.scene,
+      chart.getScene(),
+      'the effective 99ms transition settles before the 100ms frame boundary',
+    );
+    assert.deepEqual(transientExitIds(), []);
+
+    environment.tick(200);
+    assert.equal(chart.getPlaybackState().index, 2);
+    assert.deepEqual(
+      transientExitIds(),
+      [],
+      'the next autoplay transition starts from a clean authoritative endpoint',
+    );
+
+    environment.tick(225);
+    const secondCrossfade = transientExitIds();
+    assert.ok(secondCrossfade.length > 0);
+    assert.equal(
+      secondCrossfade.some((id) => id.includes(':transition-exit-')),
+      false,
+      'exit prefixes never nest across interrupted automatic transitions',
+    );
+
+    environment.tick(300);
+    assert.equal(chart.getPlaybackState().index, 3);
+    assert.deepEqual(transientExitIds(), []);
+  } finally {
+    chart.destroy();
+    assert.equal(environment.pendingFrames(), 0);
+    environment.restore();
+  }
+});
+
 test('reduced motion blocks autoplay and an existing motion frame selects the initial index', () => {
   const environment = installEnvironment({ reducedMotion: true });
-  const { registry, target } = createHarness(environment.document);
+  const { registry, target, renderers } = createHarness(environment.document);
   const chart = new Chart(
     target,
     {
@@ -881,7 +1088,14 @@ test('reduced motion blocks autoplay and an existing motion frame selects the in
       mark: { type: 'motion', options: { frame: 'Q2' } },
       x: 'category',
       y: 'value',
-      interaction: { playback: { field: 'period', autoplay: true } },
+      interaction: {
+        playback: {
+          field: 'period',
+          key: 'category',
+          autoplay: true,
+          transition: { duration: 600, easing: 'ease-in-out' },
+        },
+      },
     },
     registry,
     { width: 240, height: 160, autoResize: false },
@@ -892,6 +1106,10 @@ test('reduced motion blocks autoplay and an existing motion frame selects the in
     assert.equal(chart.getPlaybackState().frame, 'Q2');
     assert.equal(chart.getPlaybackState().playing, false);
     assert.equal(environment.pendingFrames(), 0);
+    chart.seek(2);
+    assert.equal(chart.getPlaybackState().frame, 'Q3');
+    assert.equal(renderers[0].scene, chart.getScene());
+    assert.equal(environment.pendingFrames(), 0, 'reduced motion keeps transitions immediate');
   } finally {
     chart.destroy();
     environment.restore();
@@ -980,7 +1198,15 @@ test('legend, selection, and annotation runtime state stay transient and emit on
     annotations: [
       { id: 'base-note', target: { type: 'datum', layerId: 'actual', rowIndex: 0 }, text: 'Base' },
     ],
-    interaction: { navigation: false, selection: { clearOnEscape: true } },
+    highlights: [{ id: 'persistent', target: { type: 'plot', x: 0.1, y: 0.1 } }],
+    interaction: {
+      navigation: false,
+      selection: { clearOnEscape: true },
+      controls: {
+        annotations: true,
+        labels: { showAnnotations: '주석 보기', hideAnnotations: '주석 숨기기' },
+      },
+    },
   };
   const chart = new Chart(target, spec, registry, {
     width: 240,
@@ -991,9 +1217,13 @@ test('legend, selection, and annotation runtime state stay transient and emit on
   const legendReasons = [];
   const selectionReasons = [];
   const annotationReasons = [];
+  const annotationVisibility = [];
   chart.on('legendchange', ({ reason }) => legendReasons.push(reason));
   chart.on('selectionchange', ({ reason }) => selectionReasons.push(reason));
   chart.on('annotationchange', ({ reason }) => annotationReasons.push(reason));
+  chart.on('annotationvisibilitychange', ({ visible, reason }) =>
+    annotationVisibility.push({ visible, reason }),
+  );
 
   try {
     assert.equal(chart.getLegendState().items.length, 2);
@@ -1035,6 +1265,34 @@ test('legend, selection, and annotation runtime state stay transient and emit on
     assert.equal(chart.getSelection().items.length, 0);
     assert.deepEqual(selectionReasons, ['programmatic', 'clear']);
 
+    const annotationsButton = byControl(renderer.host, 'annotations');
+    assert.notEqual(annotationsButton, undefined);
+    assert.equal(annotationsButton.getAttribute('aria-label'), '주석 숨기기');
+    assert.equal(chart.getAnnotationsVisible(), true);
+    annotationsButton.click();
+    assert.equal(chart.getAnnotationsVisible(), false);
+    assert.equal(annotationsButton.getAttribute('aria-label'), '주석 보기');
+    const hiddenSceneNodes = sceneNodes(chart.getScene().root);
+    assert.equal(
+      hiddenSceneNodes.some(({ id }) => id === 'annotation:base-note:bubble'),
+      false,
+    );
+    assert.equal(
+      hiddenSceneNodes.some(({ id }) => id === 'annotation:base-note:connector'),
+      false,
+    );
+    assert.equal(
+      hiddenSceneNodes.some(({ id }) => id === 'decoration:persistent'),
+      true,
+    );
+    assert.match(chart.getScene().accessibility.description, /Base/);
+    chart.setAnnotationsVisible(false);
+    chart.setAnnotationsVisible(true);
+    assert.deepEqual(annotationVisibility, [
+      { visible: false, reason: 'toggle' },
+      { visible: true, reason: 'programmatic' },
+    ]);
+
     const runtimeId = chart.addAnnotation({
       target: { type: 'datum', layerId: 'plan', rowIndex: 1 },
       text: 'Runtime',
@@ -1046,8 +1304,20 @@ test('legend, selection, and annotation runtime state stay transient and emit on
     );
     assert.equal(chart.removeAnnotation(runtimeId), true);
     assert.deepEqual(annotationReasons, ['add', 'update', 'remove']);
+    chart.setAnnotations([]);
+    assert.equal(byControl(renderer.host, 'annotations'), undefined);
+    chart.toggleAnnotations();
+    chart.setSpec(spec);
+    assert.equal(chart.getAnnotationsVisible(), true);
+    assert.notEqual(byControl(renderer.host, 'annotations'), undefined);
+    assert.deepEqual(annotationVisibility.slice(-2), [
+      { visible: false, reason: 'toggle' },
+      { visible: true, reason: 'spec' },
+    ]);
     assert.equal(chart.getSpec(), spec);
     assert.equal(spec.annotations.length, 1);
+    chart.destroy();
+    assert.throws(() => chart.getAnnotationsVisible(), /destroyed/i);
   } finally {
     chart.destroy();
     environment.restore();

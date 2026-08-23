@@ -23,6 +23,7 @@ import {
 import { collectPlaybackFrames, playbackSpec } from '../interaction/playback.js';
 import { resolveTooltipContent, TooltipController } from '../interaction/tooltip.js';
 import type { Renderer } from '../renderer/types.js';
+import { easeSceneProgress, interpolateScene } from '../scene/interpolate.js';
 import { normalizeSpec } from '../spec/normalize.js';
 import type {
   ChartSpec,
@@ -36,6 +37,7 @@ import type {
   NormalizedNavigationSpec,
   NormalizedPlaybackSpec,
   PlaybackMode,
+  PlaybackTransitionEasing,
 } from '../spec/types.js';
 import type { Scene } from '../scene/types.js';
 import type { RuntimeRegistry } from './registry.js';
@@ -157,6 +159,14 @@ export interface ChartAnnotationChangeEvent {
   readonly id?: string;
 }
 
+export type ChartAnnotationVisibilityChangeReason = 'toggle' | 'programmatic' | 'spec';
+
+export interface ChartAnnotationVisibilityChangeEvent {
+  readonly chart: Chart;
+  readonly visible: boolean;
+  readonly reason: ChartAnnotationVisibilityChangeReason;
+}
+
 export interface ChartEventMap {
   readonly render: ChartRenderEvent;
   readonly hover: ChartPointerEvent;
@@ -168,6 +178,7 @@ export interface ChartEventMap {
   readonly legendchange: ChartLegendChangeEvent;
   readonly selectionchange: ChartSelectionChangeEvent;
   readonly annotationchange: ChartAnnotationChangeEvent;
+  readonly annotationvisibilitychange: ChartAnnotationVisibilityChangeEvent;
   readonly error: ChartErrorEvent;
 }
 
@@ -179,6 +190,29 @@ interface PinchStart {
   readonly distance: number;
   readonly center: InspectionViewPoint;
   readonly view: InspectionViewState;
+}
+
+interface ActiveSceneTransition {
+  readonly from: Scene;
+  readonly to: Scene;
+  readonly duration: number;
+  readonly easing: PlaybackTransitionEasing;
+  readonly keyField: string | undefined;
+  elapsed: number;
+  previousTimestamp: number | null;
+}
+
+const PLAYBACK_TRANSITION_INTERVAL_GAP = 1;
+
+function effectivePlaybackTransitionDuration(playback: NormalizedPlaybackSpec): number {
+  if (playback.transition === false) return 0;
+  // Keep every automatic frame boundary authoritative. A long requested tween
+  // is shortened just below the frame interval so it cannot become the input
+  // Scene for the following automatic transition.
+  return Math.min(
+    playback.transition.duration,
+    Math.max(1, playback.interval - PLAYBACK_TRANSITION_INTERVAL_GAP),
+  );
 }
 
 function resolveTarget(target: ChartTarget): HTMLElement {
@@ -332,11 +366,14 @@ export class Chart {
   #playing = false;
   #playbackCancel: (() => void) | null = null;
   #playbackTimestamp: number | null = null;
+  #sceneTransition: ActiveSceneTransition | null = null;
+  #displayScene: Scene | null = null;
   #reducedMotion: MediaQueryList | null = null;
   #fullscreen = false;
   #hiddenLegendItems = new Set<string>();
   #selection: DatumTargetSpec[] = [];
   #annotations: AnnotationSpec[] = [];
+  #annotationsVisible = true;
   #selectionLive: HTMLDivElement | null = null;
   #selectionLiveHost: HTMLElement | null = null;
 
@@ -595,6 +632,20 @@ export class Chart {
     return this.#annotations.map(cloneAnnotation);
   }
 
+  getAnnotationsVisible(): boolean {
+    this.#assertAlive();
+    return this.#annotationsVisible;
+  }
+
+  setAnnotationsVisible(visible: boolean): this {
+    return this.#setAnnotationsVisible(visible, 'programmatic');
+  }
+
+  toggleAnnotations(): this {
+    this.#assertAlive();
+    return this.#setAnnotationsVisible(!this.#annotationsVisible, 'toggle');
+  }
+
   setAnnotations(annotations: readonly AnnotationSpec[]): this {
     this.#assertAlive();
     const resolved = annotations.map((annotation, index) => ({
@@ -658,6 +709,7 @@ export class Chart {
       id: annotationId(annotation, index),
     }));
     this.#selection = [];
+    this.#annotationsVisible = true;
     this.#hiddenLegendItems.clear();
     this.#configureInteraction(normalized, true);
     this.render();
@@ -670,6 +722,7 @@ export class Chart {
     });
     this.#emitSelection('spec');
     this.#emitAnnotations('spec');
+    this.#emitAnnotationVisibility('spec');
     this.#startAutoplay();
     return this;
   }
@@ -811,8 +864,7 @@ export class Chart {
     if (this.#playback === false || this.#playbackFrames.length <= 1 || this.#playing) return this;
     if (typeof document !== 'undefined' && document.hidden) return this;
     if (this.#playbackIndex === this.#playbackFrames.length - 1) {
-      this.#playbackIndex = 0;
-      this.render();
+      this.#renderPlaybackIndex(0);
       this.#emitPlayback('seek');
     }
     this.#playing = true;
@@ -824,11 +876,8 @@ export class Chart {
   }
 
   pause(): this {
-    if (this.#destroyed || !this.#playing) return this;
-    this.#playing = false;
-    this.#cancelPlaybackFrame();
-    this.#emitPlayback('pause');
-    this.#syncControls();
+    if (this.#destroyed || (!this.#playing && this.#sceneTransition === null)) return this;
+    this.#stopPlayback(true);
     return this;
   }
 
@@ -841,13 +890,15 @@ export class Chart {
     if (this.#playbackLoop) next = ((next % length) + length) % length;
     else next = Math.max(0, Math.min(length - 1, next));
     if (next === this.#playbackIndex) {
-      if (this.#playing && !this.#playbackLoop) this.pause();
+      if (this.#playing && !this.#playbackLoop) this.#stopPlayback(true);
+      else if (this.#sceneTransition !== null) this.#finishSceneTransition();
       return this;
     }
-    this.#playbackIndex = next;
-    this.render();
+    this.#renderPlaybackIndex(next);
     this.#emitPlayback('step');
-    if (this.#playing && !this.#playbackLoop && next === length - 1) this.pause();
+    if (this.#playing && !this.#playbackLoop && next === length - 1) {
+      this.#stopPlayback(false);
+    }
     return this;
   }
 
@@ -856,9 +907,11 @@ export class Chart {
     if (!Number.isFinite(index)) throw new RangeError('Playback index must be finite.');
     if (this.#playback === false || this.#playbackFrames.length === 0) return this;
     const next = Math.max(0, Math.min(this.#playbackFrames.length - 1, Math.trunc(index)));
-    if (next === this.#playbackIndex) return this;
-    this.#playbackIndex = next;
-    this.render();
+    if (next === this.#playbackIndex) {
+      if (this.#sceneTransition !== null) this.#finishSceneTransition();
+      return this;
+    }
+    this.#renderPlaybackIndex(next);
     this.#emitPlayback('seek');
     return this;
   }
@@ -925,6 +978,11 @@ export class Chart {
 
   render(): this {
     this.#assertAlive();
+    this.#cancelSceneTransition();
+    return this.#renderEndpoint();
+  }
+
+  #renderEndpoint(): this {
     const dimensions = this.#measure();
     const playbackSpecInput =
       this.#playback === false
@@ -938,6 +996,7 @@ export class Chart {
     const result = compileWithRegistry(effectiveSpec, this.#registry, dimensions, {
       hiddenLegendItemIds: this.#hiddenLegendItems,
       annotations: this.#annotations,
+      annotationsVisible: this.#annotationsVisible,
       selection: this.#selection,
     });
     const factory = this.#registry.resolveRenderer(result.spec.renderer);
@@ -984,6 +1043,7 @@ export class Chart {
     }
     renderer.setInspectionView?.(this.#view);
     renderer.render(result.scene);
+    this.#displayScene = result.scene;
     this.#syncSurfaceEvents();
     this.#syncControls();
     this.#syncLegend();
@@ -1007,6 +1067,7 @@ export class Chart {
     if (this.#destroyed) return;
     const exitFullscreen = this.#isOwnFullscreen();
     this.#playing = false;
+    this.#sceneTransition = null;
     this.#cancelPlaybackFrame();
     this.#scheduler.cancel();
     this.#resizeObserver?.disconnect();
@@ -1032,6 +1093,7 @@ export class Chart {
     this.#renderer?.destroy();
     this.#renderer = null;
     this.#result = null;
+    this.#displayScene = null;
     this.#events.clear();
     this.#destroyed = true;
   }
@@ -1116,7 +1178,7 @@ export class Chart {
     if (sameView(this.#view, view)) return;
     this.#view = view;
     this.#tooltip.hide();
-    const scene = this.#result?.scene;
+    const scene = this.#displayScene ?? this.#result?.scene;
     if (scene !== undefined) {
       this.#renderer?.setInspectionView?.(this.#view);
       this.#renderer?.render(scene);
@@ -1139,6 +1201,100 @@ export class Chart {
     });
   }
 
+  #renderPlaybackIndex(index: number): void {
+    const from = this.#displayScene ?? this.#result?.scene ?? null;
+    const previousRenderer = this.#renderer;
+    this.#cancelSceneTransition();
+    this.#playbackIndex = index;
+    this.#renderEndpoint();
+
+    const playback = this.#playback;
+    const to = this.#result?.scene;
+    const renderer = this.#renderer;
+    if (
+      playback === false ||
+      playback.transition === false ||
+      this.#reducedMotion?.matches === true ||
+      from === null ||
+      to === undefined ||
+      renderer === null ||
+      renderer !== previousRenderer ||
+      from.width !== to.width ||
+      from.height !== to.height
+    ) {
+      return;
+    }
+
+    this.#sceneTransition = {
+      from,
+      to,
+      duration: effectivePlaybackTransitionDuration(playback),
+      easing: playback.transition.easing,
+      keyField: playback.key,
+      elapsed: 0,
+      previousTimestamp:
+        this.#playing && this.#playbackTimestamp !== null ? this.#playbackTimestamp : null,
+    };
+    this.#displayScene = from;
+    this.#tooltip.hide();
+    renderer.render(from);
+    this.#schedulePlaybackFrame();
+  }
+
+  #advanceSceneTransition(timestamp: number): void {
+    const transition = this.#sceneTransition;
+    if (transition === null) return;
+    if (transition.previousTimestamp === null) {
+      transition.previousTimestamp = timestamp;
+      return;
+    }
+    transition.elapsed +=
+      Math.max(0, timestamp - transition.previousTimestamp) * this.#playbackRate;
+    transition.previousTimestamp = timestamp;
+    const progress = transition.elapsed / transition.duration;
+    if (progress >= 1) {
+      this.#finishSceneTransition();
+      return;
+    }
+    const scene = interpolateScene(
+      transition.from,
+      transition.to,
+      easeSceneProgress(progress, transition.easing),
+      transition.keyField === undefined ? {} : { keyField: transition.keyField },
+    );
+    this.#renderer?.render(scene);
+    this.#displayScene = scene;
+  }
+
+  #cancelSceneTransition(): void {
+    if (this.#sceneTransition === null) return;
+    this.#sceneTransition = null;
+    this.#tooltip.hide();
+    if (!this.#playing) this.#cancelScheduledPlaybackFrame();
+  }
+
+  #finishSceneTransition(): void {
+    const transition = this.#sceneTransition;
+    if (transition === null) return;
+    this.#sceneTransition = null;
+    this.#renderer?.render(transition.to);
+    this.#displayScene = transition.to;
+    this.#tooltip.hide();
+    if (!this.#playing) this.#cancelScheduledPlaybackFrame();
+  }
+
+  #stopPlayback(settleTransition: boolean): void {
+    const wasPlaying = this.#playing;
+    this.#playing = false;
+    this.#playbackTimestamp = null;
+    if (settleTransition) this.#finishSceneTransition();
+    if (this.#sceneTransition === null) this.#cancelScheduledPlaybackFrame();
+    else this.#schedulePlaybackFrame();
+    if (!wasPlaying) return;
+    this.#emitPlayback('pause');
+    this.#syncControls();
+  }
+
   #startAutoplay(): void {
     if (
       this.#playback !== false &&
@@ -1150,17 +1306,26 @@ export class Chart {
   }
 
   #schedulePlaybackFrame(): void {
-    this.#cancelScheduledPlaybackFrame();
+    if (this.#playbackCancel !== null || (!this.#playing && this.#sceneTransition === null)) {
+      return;
+    }
     const run = (timestamp: number): void => {
       this.#playbackCancel = null;
-      if (!this.#playing || this.#playback === false) return;
-      if (this.#playbackTimestamp === null) this.#playbackTimestamp = timestamp;
-      const duration = this.#playback.interval / this.#playbackRate;
-      if (timestamp - this.#playbackTimestamp >= duration) {
-        this.#playbackTimestamp = timestamp;
-        this.step(1);
+      if (this.#destroyed) return;
+      this.#advanceSceneTransition(timestamp);
+      if (this.#playing && this.#playback !== false) {
+        if (this.#playbackTimestamp === null) this.#playbackTimestamp = timestamp;
+        const duration = this.#playback.interval / this.#playbackRate;
+        if (timestamp - this.#playbackTimestamp >= duration) {
+          this.#playbackTimestamp = timestamp;
+          // Sparse RAF delivery can skip past the effective tween duration.
+          // Settle before advancing so transient crossfade/exit nodes never
+          // accumulate as inputs to the next automatic frame.
+          this.#finishSceneTransition();
+          this.step(1);
+        }
       }
-      if (this.#playing) this.#schedulePlaybackFrame();
+      if (this.#playing || this.#sceneTransition !== null) this.#schedulePlaybackFrame();
     };
     if (typeof requestAnimationFrame === 'function') {
       const handle = requestAnimationFrame(run);
@@ -1517,6 +1682,13 @@ export class Chart {
 
   #emitPointer(type: 'hover' | 'click', sourceEvent: PointerEvent): void {
     const result = this.#result;
+    if (this.#sceneTransition !== null) {
+      this.#tooltip.hide();
+      if (type === 'hover' || result?.spec.interaction.click !== false) {
+        this.#events.emit(type, { chart: this, hit: null, sourceEvent });
+      }
+      return;
+    }
     const screen = this.#surfacePoint(sourceEvent);
     const surface = this.#renderer?.surface();
     if (result === null || screen === null || surface === null || surface === undefined) return;
@@ -1616,6 +1788,25 @@ export class Chart {
     });
   }
 
+  #setAnnotationsVisible(visible: boolean, reason: ChartAnnotationVisibilityChangeReason): this {
+    this.#assertAlive();
+    if (typeof visible !== 'boolean')
+      throw new TypeError('Annotation visibility must be a boolean.');
+    if (visible === this.#annotationsVisible) return this;
+    this.#annotationsVisible = visible;
+    this.render();
+    this.#emitAnnotationVisibility(reason);
+    return this;
+  }
+
+  #emitAnnotationVisibility(reason: ChartAnnotationVisibilityChangeReason): void {
+    this.#events.emit('annotationvisibilitychange', {
+      chart: this,
+      visible: this.#annotationsVisible,
+      reason,
+    });
+  }
+
   #isOwnFullscreen(): boolean {
     if (typeof document === 'undefined') return false;
     const host = this.#renderer?.overlayHost?.();
@@ -1659,6 +1850,8 @@ export class Chart {
       exportAvailable:
         this.#renderer?.toDataURL !== undefined &&
         this.#renderer.capabilities.exportFormats.includes('image/png'),
+      annotationsAvailable: this.#annotations.length > 0,
+      annotationsVisible: this.#annotationsVisible,
       playbackEnabled: playbackState.enabled,
       playbackIndex: playbackState.index,
       playbackLength: playbackState.frames.length,
@@ -1676,6 +1869,7 @@ export class Chart {
       reset: () => this.resetView(),
       toggleFullscreen: () => void this.toggleFullscreen().catch(() => undefined),
       exportPng: () => this.#exportPng(),
+      toggleAnnotations: () => this.toggleAnnotations(),
       previousFrame: () => this.step(-1),
       togglePlayback: () => (this.#playing ? this.pause() : this.play()),
       nextFrame: () => this.step(1),

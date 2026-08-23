@@ -18,9 +18,9 @@ Graflume is an experimental, CDN-first visualization engine built around a porta
   rounded data strokes, and custom theme registration
 - custom mark, renderer, and theme plugins
 - responsive chart instances, mark-aware legends with keyboard visibility controls, portable static
-  highlights and reference bands, click/programmatic selection, safe text-only runtime callouts,
+  highlights and reference bands, click/programmatic selection, collision-aware text-only runtime callouts with an accessible visibility toggle,
   pointer hit testing, mark or axis-nearest tooltips, whole-Canvas inspection controls, fullscreen,
-  PNG export, and discrete playback
+  PNG export, and discrete playback with opt-in smooth Scene transitions
 - standard/large/ultra performance profiles with bounded line, point, and bar rendering
 - a DOM-free `compile()` path for wrappers, SSR pipelines, testing, and future language bindings
 
@@ -113,7 +113,7 @@ The Canvas 2D catalog covers 41 distinct chart families and 117 compatibility id
 | Hierarchy, flow, and networks | [Hierarchy](docs/charts/hierarchy.md), [Flow](docs/charts/flow.md), [Network](docs/charts/network.md), [Parallel coordinates](docs/charts/parallel.md), [Word tree](docs/charts/word-tree.md), [Table](docs/charts/table.md)                                                                                                                                                                                                  |
 | Geographic and specialized    | [Map](docs/charts/map.md), [Carpet](docs/charts/carpet.md), [Raster image](docs/charts/image.md), [Vector field](docs/charts/vector-field.md), [Venn](docs/charts/venn.md), [Word cloud](docs/charts/word-cloud.md), [Item](docs/charts/item.md), and the [full catalog index](docs/charts/README.md#unified-specialized-series)                                                                                              |
 
-Start with the [chart guide index and common options](docs/charts/README.md). The dedicated [Cartesian axis manual](docs/charts/axes.md) covers formatting, label layout, styling, reversed domains, secondary axes, and axis-nearest tooltips. The [common interaction manual](docs/charts/interactions.md) documents legends, highlights, reference bands, selection, runtime callouts, the inspection viewport, controls, fullscreen, PNG export, discrete playback, and a capability/constraint matrix for all 41 families. Every representative family page includes its compatible names, functional mode differences, a visible compiled-output gallery, and type-by-type runnable Quick API examples with required fields and stable links, followed by the shared portable contract, missing-value behavior, interaction/accessibility guidance, performance notes, and explicit limitations. Use the [compatibility preset index](docs/charts/compatibility-presets.md) to map any compatible name to its family manual; function-free compatibility adapters are documented separately in [Declarative adapters](docs/charts/adapters.md).
+Start with the [chart guide index and common options](docs/charts/README.md). The dedicated [Cartesian axis manual](docs/charts/axes.md) covers formatting, label layout, styling, reversed domains, secondary axes, and axis-nearest tooltips. The [common interaction manual](docs/charts/interactions.md) documents legends, highlights, reference bands, selection, runtime callouts, the inspection viewport, controls, fullscreen, PNG export, playback, optional stable-key Scene transitions, and a capability/constraint matrix for all 41 families. Every representative family page includes its compatible names, functional mode differences, a visible compiled-output gallery, and type-by-type runnable Quick API examples with required fields and stable links, followed by the shared portable contract, missing-value behavior, interaction/accessibility guidance, performance notes, and explicit limitations. Use the [compatibility preset index](docs/charts/compatibility-presets.md) to map any compatible name to its family manual; function-free compatibility adapters are documented separately in [Declarative adapters](docs/charts/adapters.md).
 
 The [spatial guide index](docs/spatial/README.md) documents `SpatialSpec 0.1`, the separate bundle boundary, camera and picking interactions, accessibility fallbacks, and actual generated previews for Surface/Mesh, Volume/Isosurface, Spatial Vector modes, and the Map globe mode. The [spatial browser gallery](examples/cdn/spatial-chart-types.html) renders filled multi-peak terrain and shell geometry, a sampled multi-lobe scalar field, a cyclone, multiple helical tubes, and a clustered galaxy with the real WebGL runtime.
 
@@ -299,26 +299,28 @@ line('#revenue', revenueRows, {
   y: { field: 'revenue', type: 'quantitative' },
   interaction: {
     navigation: { maxZoom: 4, wheel: 'modifier' },
-    controls: { zoom: true, reset: true, fullscreen: true, export: true },
+    controls: { zoom: true, reset: true, fullscreen: true, export: true, annotations: true },
   },
 });
 ```
 
-Playback is opt-in and discrete. A `motion` chart can select its native frame while retaining the full domain; other families show playback only through an explicitly approved transient filter, which may recompile domains and layouts:
+Playback is opt-in and frame selection remains discrete. A `motion` chart can select its native frame while retaining the full domain; other families show playback only through an explicitly approved transient filter, which may recompile domains and layouts. An explicit transition smoothly interpolates compatible compiled geometry and safely crossfades incompatible topology without inventing source values:
 
 ```ts
 interaction: {
   playback: {
     field: 'year',
+    key: 'country',
     mode: 'frame',
     interval: 1000,
+    transition: { duration: 600, easing: 'ease-in-out' },
     filter: false,
   },
   controls: { playback: true },
 }
 ```
 
-Frame order follows each value's first occurrence in source rows, not an automatic chronological sort. Sort temporal input before chart creation. Distribution, volume-profile, timeline intervals, Renko/Point & Figure, waterfall, and calculated-indicator playback need additional semantic review because generic row filtering can change aggregation, path history, or interval meaning. See [Common chart interactions](docs/charts/interactions.md) for the complete API, lifecycle methods/events, safe starter allowlist, and all-family matrix.
+Frame order follows each value's first occurrence in source rows, not an automatic chronological sort. Sort temporal input before chart creation. Transitions default to `false`; when enabled, a stable scalar `key` is recommended, the effective duration is clamped below the frame interval, and reduced-motion keeps endpoint changes immediate. Distribution, volume-profile, timeline intervals, Renko/Point & Figure, waterfall, and calculated-indicator playback need additional semantic review because generic row filtering can change aggregation, path history, or interval meaning. See [Common chart interactions](docs/charts/interactions.md) for the complete API, lifecycle methods/events, transition fallback rules, safe starter allowlist, and all-family matrix.
 
 ## Streaming-shaped updates
 

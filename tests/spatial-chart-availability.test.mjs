@@ -321,7 +321,11 @@ test('spatial legends, projected decorations, selection, and annotation APIs sha
   try {
     const target = environment.document.createElement('div');
     const spec = {
-      interaction: { controls: false, selection: { key: 'label' } },
+      interaction: {
+        controls: { annotations: true },
+        labels: { showAnnotations: '주석 보기', hideAnnotations: '주석 숨기기' },
+        selection: { key: 'label' },
+      },
       legend: { mode: 'layers', interactive: true },
       highlights: [{ id: 'region', target: { type: 'box', min: [-1, -1, -1], max: [1, 1, 1] } }],
       annotations: [
@@ -346,9 +350,13 @@ test('spatial legends, projected decorations, selection, and annotation APIs sha
     const legendReasons = [];
     const selectionReasons = [];
     const annotationReasons = [];
+    const annotationVisibility = [];
     chart.on('legendchange', ({ reason }) => legendReasons.push(reason));
     chart.on('selectionchange', ({ reason }) => selectionReasons.push(reason));
     chart.on('annotationchange', ({ reason }) => annotationReasons.push(reason));
+    chart.on('annotationvisibilitychange', ({ visible, reason }) =>
+      annotationVisibility.push({ visible, reason }),
+    );
 
     assert.equal(chart.getLegendState().items.length, 2);
     assert.equal(chart.getLegendState().items[0].symbol, 'point');
@@ -390,6 +398,35 @@ test('spatial legends, projected decorations, selection, and annotation APIs sha
     chart.clearSelection();
     assert.deepEqual(selectionReasons, ['programmatic', 'clear']);
 
+    const annotationsButton = walk(target).find(
+      ({ dataset }) => dataset.graflumeSpatialControl === 'annotations',
+    );
+    assert.notEqual(annotationsButton, undefined);
+    assert.equal(annotationsButton.getAttribute('aria-label'), '주석 숨기기');
+    annotationsButton.dispatchEvent(new Event('click'));
+    assert.equal(chart.getAnnotationsVisible(), false);
+    assert.equal(annotationsButton.getAttribute('aria-label'), '주석 보기');
+    assert.equal(
+      walk(target).some(({ dataset }) => dataset.graflumeSpatialAnnotation === 'origin'),
+      false,
+    );
+    assert.equal(
+      walk(target).some(({ dataset }) => dataset.graflumeSpatialAnnotationConnector === 'origin'),
+      false,
+    );
+    assert.equal(
+      walk(target).some(({ dataset }) => dataset.graflumeSpatialHighlight === 'region'),
+      true,
+    );
+    const canvas = walk(target).find(({ dataset }) => dataset.graflumeSpatialSurface === 'true');
+    assert.match(canvas.getAttribute('aria-description'), /Origin/);
+    chart.setAnnotationsVisible(false);
+    chart.setAnnotationsVisible(true);
+    assert.deepEqual(annotationVisibility, [
+      { visible: false, reason: 'toggle' },
+      { visible: true, reason: 'programmatic' },
+    ]);
+
     const id = chart.addAnnotation({
       target: { type: 'point', position: [0.5, 0.5, 0.5] },
       text: '<strong>plain text only</strong>',
@@ -397,11 +434,27 @@ test('spatial legends, projected decorations, selection, and annotation APIs sha
     chart.updateAnnotation(id, { detail: 'safe detail' });
     assert.equal(chart.removeAnnotation(id), true);
     assert.deepEqual(annotationReasons, ['add', 'update', 'remove']);
+    chart.setAnnotations([]);
+    assert.equal(
+      walk(target).some(({ dataset }) => dataset.graflumeSpatialControl === 'annotations'),
+      false,
+    );
+    chart.toggleAnnotations();
+    chart.setSpec(spec);
+    assert.equal(chart.getAnnotationsVisible(), true);
+    assert.equal(
+      walk(target).some(({ dataset }) => dataset.graflumeSpatialControl === 'annotations'),
+      true,
+    );
+    assert.deepEqual(annotationVisibility.slice(-2), [
+      { visible: false, reason: 'toggle' },
+      { visible: true, reason: 'spec' },
+    ]);
     assert.equal(chart.getSpec(), spec);
     assert.ok(walk(target).some(({ dataset }) => dataset.graflumeSpatialOverlays === 'true'));
-    const canvas = walk(target).find(({ dataset }) => dataset.graflumeSpatialSurface === 'true');
     assert.match(canvas.getAttribute('aria-description'), /Observed/);
     chart.destroy();
+    assert.throws(() => chart.getAnnotationsVisible(), /destroyed/i);
   } finally {
     environment.restore();
   }
@@ -517,6 +570,8 @@ test('spatial callouts stay within a tiny real plot viewport', () => {
   const environment = installDom(null);
   try {
     const target = environment.document.createElement('div');
+    const sourceText = 'https://example.com/averylongunbrokenannotationpath공백없는한국어';
+    const sourceDetail = 'تفاصيل عربية كاملة محفوظة لقارئ الشاشة';
     const chart = createSpatial(
       target,
       {
@@ -526,7 +581,8 @@ test('spatial callouts stay within a tiny real plot viewport', () => {
           {
             id: 'tiny',
             target: { type: 'point', position: [0, 0, 0] },
-            text: 'A long callout in a tiny viewport',
+            text: sourceText,
+            detail: sourceDetail,
           },
         ],
       },
@@ -539,6 +595,15 @@ test('spatial callouts stay within a tiny real plot viewport', () => {
     assert.ok(left >= 0 && left + width <= 12);
     assert.ok(top >= 0);
     assert.ok(Number.parseFloat(bubble.style.maxHeight) <= 10);
+    assert.equal(bubble.style.maxBlockSize, bubble.style.maxHeight);
+    assert.equal(bubble.style.overflowWrap, 'anywhere');
+    assert.equal(bubble.style.wordBreak, 'break-word');
+    assert.equal(bubble.children[0].style.overflowWrap, 'anywhere');
+    assert.ok(Number.parseInt(bubble.children[0].style.webkitLineClamp, 10) >= 1);
+    assert.equal(bubble.getAttribute('aria-label'), `${sourceText}: ${sourceDetail}`);
+    const canvas = walk(target).find(({ dataset }) => dataset.graflumeSpatialSurface === 'true');
+    assert.match(canvas.getAttribute('aria-description'), /averylongunbrokenannotationpath/);
+    assert.match(canvas.getAttribute('aria-description'), /تفاصيل عربية كاملة/);
     chart.destroy();
   } finally {
     environment.restore();

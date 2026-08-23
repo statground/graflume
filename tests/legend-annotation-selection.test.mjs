@@ -7,6 +7,7 @@ import { sceneLegendLayout } from '../.tmp/src/compiler/legend.js';
 import { compileWithRegistry } from '../.tmp/src/compiler/compile.js';
 import { AXISLESS_MARKS, isAxislessLayer } from '../.tmp/src/compiler/coordinate.js';
 import { axisTooltipTargetCount } from '../.tmp/src/interaction/axis-hit-test.js';
+import { placeCallout } from '../.tmp/src/interaction/callout-placement.js';
 import { sceneNodeBounds } from '../.tmp/src/scene/bounds.js';
 import { createDefaultRegistry } from '../.tmp/src/runtime/default-registry.js';
 import { validateSpec } from '../.tmp/src/spec/validate.js';
@@ -16,6 +17,276 @@ import { seriesSampleSpec } from '../scripts/series-samples.mjs';
 function nodes(node) {
   return node.type === 'group' ? [node, ...node.children.flatMap(nodes)] : [node];
 }
+
+function overlapArea(left, right) {
+  return (
+    Math.max(0, Math.min(left.x + left.width, right.x + right.width) - Math.max(left.x, right.x)) *
+    Math.max(0, Math.min(left.y + left.height, right.y + right.height) - Math.max(left.y, right.y))
+  );
+}
+
+function segmentTouchesRect(start, end, rect, padding = 2) {
+  const expanded = {
+    x: rect.x - padding,
+    y: rect.y - padding,
+    width: rect.width + padding * 2,
+    height: rect.height + padding * 2,
+  };
+  const steps = 240;
+  for (let step = 0; step <= steps; step += 1) {
+    const ratio = step / steps;
+    const x = start.x + (end.x - start.x) * ratio;
+    const y = start.y + (end.y - start.y) * ratio;
+    if (
+      x >= expanded.x &&
+      x <= expanded.x + expanded.width &&
+      y >= expanded.y &&
+      y <= expanded.y + expanded.height
+    )
+      return true;
+  }
+  return false;
+}
+
+test('callout placement avoids protected UI, data, targets, and earlier callouts deterministically', () => {
+  const boundary = { x: 0, y: 0, width: 320, height: 220 };
+  const target = { x: 150, y: 100, width: 4, height: 4 };
+  const first = placeCallout({ target, width: 88, height: 48, boundary });
+  const protectedUi = first.bounds;
+  const occupied = { x: 42, y: 78, width: 92, height: 52 };
+  const data = { x: 138, y: 156, width: 110, height: 40 };
+  const avoided = placeCallout({
+    target,
+    width: 88,
+    height: 48,
+    boundary,
+    protectedObstacles: [protectedUi],
+    occupiedCallouts: [occupied],
+    dataObstacles: [data],
+  });
+  assert.equal(overlapArea(avoided.bounds, protectedUi), 0);
+  assert.equal(overlapArea(avoided.bounds, occupied), 0);
+  assert.equal(overlapArea(avoided.bounds, target), 0);
+  assert.equal(overlapArea(avoided.bounds, data), 0);
+  assert.ok(avoided.x >= boundary.x && avoided.x + avoided.bounds.width <= boundary.width);
+  assert.ok(avoided.y >= boundary.y && avoided.y + avoided.bounds.height <= boundary.height);
+
+  const authored = placeCallout({
+    target,
+    width: 88,
+    height: 48,
+    boundary,
+    placement: 'top',
+  });
+  assert.equal(authored.placement, 'top');
+  const corrected = placeCallout({
+    target: { x: 150, y: 2, width: 4, height: 4 },
+    width: 88,
+    height: 48,
+    boundary,
+    placement: 'top',
+  });
+  assert.ok(corrected.y >= 0);
+  assert.notEqual(corrected.placement, 'top');
+});
+
+test('Canvas auto callouts avoid inside legends and earlier callout bubbles', () => {
+  const { scene } = compile(
+    {
+      data: [
+        { category: 'A', value: 10 },
+        { category: 'B', value: 14 },
+      ],
+      mark: 'point',
+      x: 'category',
+      y: 'value',
+      legend: { mode: 'layers', position: 'inside-top-right', title: 'Series' },
+      annotations: [
+        { id: 'first', target: { type: 'plot', x: 0.82, y: 0.14 }, text: 'First callout' },
+        { id: 'second', target: { type: 'plot', x: 0.82, y: 0.14 }, text: 'Second callout' },
+      ],
+      interaction: { controls: { annotations: true } },
+    },
+    { width: 640, height: 400 },
+  );
+  const bubbles = nodes(scene.root).filter(({ id }) => /annotation:(first|second):bubble/.test(id));
+  assert.equal(bubbles.length, 2);
+  assert.equal(overlapArea(sceneNodeBounds(bubbles[0]), sceneNodeBounds(bubbles[1])), 0);
+  const legend = sceneLegendLayout(scene);
+  assert.notEqual(legend, null);
+  for (const bubble of bubbles)
+    assert.equal(overlapArea(sceneNodeBounds(bubble), legend.bounds), 0);
+});
+
+test('parallel-coordinate callouts avoid dense local segments, inside legends, and controls', () => {
+  const data = Array.from({ length: 20 }, (_, index) => ({
+    product: `Dense ${index}`,
+    speed: 100,
+    quality: 0,
+    cost: 100,
+    series: 'dense',
+  }));
+  data.push({ product: 'Sparse', speed: 0, quality: 100, cost: 0, series: 'sparse' });
+  const { scene } = compile(
+    {
+      data,
+      mark: {
+        type: 'parallel',
+        fields: { group: 'series' },
+        options: { dimensions: ['speed', 'quality', 'cost'] },
+      },
+      x: { field: 'product', type: 'nominal' },
+      y: { field: 'speed', type: 'quantitative' },
+      legend: { mode: 'categories', field: 'series', position: 'inside-top-right' },
+      annotations: [
+        {
+          id: 'parallel-note',
+          target: { type: 'plot', x: 0.5, y: 0.5 },
+          text: 'Parallel note with custom placement',
+        },
+      ],
+      interaction: {
+        controls: {
+          annotations: true,
+          zoom: true,
+          reset: true,
+          fullscreen: true,
+          export: true,
+        },
+      },
+    },
+    { width: 720, height: 440 },
+  );
+  const flattened = nodes(scene.root);
+  const bubble = flattened.find(({ id }) => id === 'annotation:parallel-note:bubble');
+  const paths = flattened.filter(
+    (node) => node.type === 'path' && node.id.includes(':parallel-row:'),
+  );
+  assert.notEqual(bubble, undefined);
+  const touchingPaths = paths.filter(({ points }) =>
+    points.slice(1).some((point, index) => segmentTouchesRect(points[index], point, bubble, 2)),
+  );
+  assert.equal(touchingPaths.length, 0);
+
+  const legend = sceneLegendLayout(scene);
+  assert.notEqual(legend, null);
+  assert.equal(overlapArea(bubble, legend.bounds), 0);
+  const controlStrip = { x: 539, y: 6, width: 175, height: 30 };
+  assert.equal(overlapArea(bubble, controlStrip), 0);
+});
+
+test('Canvas callouts wrap unbroken Latin, CJK, and RTL graphemes inside a clipped bubble', () => {
+  const samples = {
+    latin: 'https://example.com/oneverylongunbrokenpathwithoutspacesorbreaks',
+    korean: '공백없이이어지는아주긴한국어말풍선문자열이안전하게여러줄로나뉩니다',
+    arabic: 'تعليق عربي طويل يبقى داخل حدود فقاعة الرسم البياني',
+  };
+  const { scene } = compile(
+    {
+      data: [{ x: 'A', y: 1 }],
+      mark: 'point',
+      x: 'x',
+      y: 'y',
+      locale: 'ar',
+      annotations: [
+        {
+          id: 'latin',
+          target: { type: 'plot', x: 0.2, y: 0.2 },
+          text: samples.latin,
+          style: { maxWidth: 112 },
+        },
+        {
+          id: 'korean',
+          target: { type: 'plot', x: 0.5, y: 0.5 },
+          text: samples.korean,
+          style: { maxWidth: 112 },
+        },
+        {
+          id: 'arabic',
+          target: { type: 'plot', x: 0.8, y: 0.8 },
+          text: samples.arabic,
+          style: { maxWidth: 112 },
+        },
+      ],
+    },
+    { width: 420, height: 280 },
+  );
+  const flattened = nodes(scene.root);
+  for (const [id, original] of Object.entries(samples)) {
+    const bubble = flattened.find((node) => node.id === `annotation:${id}:bubble`);
+    const content = flattened.find((node) => node.id === `annotation:${id}:content`);
+    const titleLines = flattened.filter((node) => node.id.startsWith(`annotation:${id}:title:`));
+    assert.notEqual(bubble, undefined);
+    assert.notEqual(content, undefined);
+    assert.deepEqual(content.clip, {
+      x: bubble.x + 10,
+      y: bubble.y + 10,
+      width: bubble.width - 20,
+      height: bubble.height - 20,
+    });
+    assert.ok(titleLines.length > 0);
+    assert.ok(titleLines.every(({ align }) => align === 'right'));
+    assert.ok(titleLines.every(({ text }) => text.length < original.length));
+    assert.ok(bubble.x >= 0 && bubble.x + bubble.width <= scene.width);
+    assert.ok(bubble.y >= 0 && bubble.y + bubble.height <= scene.height);
+    assert.match(
+      scene.accessibility.description,
+      new RegExp(original.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    );
+  }
+  assert.ok(flattened.filter((node) => node.id.startsWith('annotation:latin:title:')).length > 1);
+  assert.ok(flattened.filter((node) => node.id.startsWith('annotation:korean:title:')).length > 1);
+});
+
+test('Canvas callouts reserve custom-font glyph bearings for W, m, w, and emoji tokens', () => {
+  const samples = {
+    upper: 'WWWWWWWWWWWWWW',
+    lowerM: 'mmmmmmmmmmmmmm',
+    lowerW: 'wwwwwwwwwwwwww',
+    emoji: '👩🏽‍💻👩🏽‍💻👩🏽‍💻👩🏽‍💻👩🏽‍💻👩🏽‍💻👩🏽‍💻👩🏽‍💻',
+  };
+  const { scene } = compile(
+    {
+      data: [{ x: 'A', y: 1 }],
+      mark: 'point',
+      x: 'x',
+      y: 'y',
+      theme: { typography: { fontFamily: 'Wide Custom Test Face' } },
+      annotations: Object.entries(samples).map(([id, text], index) => ({
+        id,
+        target: { type: 'plot', x: 0.15 + index * 0.23, y: 0.5 },
+        text,
+        style: { maxWidth: 112 },
+      })),
+    },
+    { width: 620, height: 360 },
+  );
+  const flattened = nodes(scene.root);
+  const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+  for (const id of Object.keys(samples)) {
+    const bubble = flattened.find((node) => node.id === `annotation:${id}:bubble`);
+    const content = flattened.find((node) => node.id === `annotation:${id}:content`);
+    const lines = flattened.filter((node) => node.id.startsWith(`annotation:${id}:title:`));
+    assert.notEqual(bubble, undefined);
+    assert.notEqual(content, undefined);
+    assert.ok(content.clip.x > bubble.x);
+    assert.ok(content.clip.y > bubble.y);
+    assert.ok(content.clip.x + content.clip.width < bubble.x + bubble.width);
+    assert.ok(content.clip.y + content.clip.height < bubble.y + bubble.height);
+    assert.ok(lines.length >= 2);
+    assert.ok(lines.every(({ fontFamily }) => fontFamily === 'Wide Custom Test Face'));
+    assert.ok(
+      lines.every(({ x }) => x > content.clip.x && x < content.clip.x + content.clip.width),
+    );
+    const maximumGraphemes = id === 'emoji' ? 5 : 7;
+    assert.ok(
+      lines.every(
+        ({ text }) => [...segmenter.segment(text.replace(/…$/u, ''))].length <= maximumGraphemes,
+      ),
+      id,
+    );
+  }
+});
 
 test('every canonical 2D family compiles portable legend, highlight, annotation, and selection', () => {
   for (const family of fullCatalog) {
@@ -551,6 +822,14 @@ test('tiny charts clamp long RTL callouts and legend controls to scene bounds', 
   assert.ok(bubbleBounds.x >= 0 && bubbleBounds.y >= 0);
   assert.ok(bubbleBounds.x + bubbleBounds.width <= scene.width);
   assert.ok(bubbleBounds.y + bubbleBounds.height <= scene.height);
+  const content = nodes(scene.root).find(({ id }) => id === 'annotation:tiny:content');
+  const padding = Math.min(100, Math.max(0, Math.min(bubble.width / 5, bubble.height / 6)));
+  assert.deepEqual(content.clip, {
+    x: bubble.x + padding,
+    y: bubble.y + padding,
+    width: bubble.width - padding * 2,
+    height: bubble.height - padding * 2,
+  });
   const legend = sceneLegendLayout(scene);
   assert.ok(legend.bounds.x >= 0 && legend.bounds.x + legend.bounds.width <= scene.width);
   assert.ok(

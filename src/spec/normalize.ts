@@ -46,6 +46,8 @@ const defaultControlLabels = {
   enterFullscreen: 'Enter fullscreen',
   exitFullscreen: 'Exit fullscreen',
   exportPng: 'Download PNG',
+  showAnnotations: 'Show annotations',
+  hideAnnotations: 'Hide annotations',
   previousFrame: 'Previous frame',
   play: 'Play',
   pause: 'Pause',
@@ -141,6 +143,7 @@ function normalizeInteraction(input: ChartSpec['interaction']): NormalizedIntera
       : typeof playbackInput === 'object'
         ? {
             field: playbackInput.field,
+            ...(playbackInput.key === undefined ? {} : { key: playbackInput.key }),
             ...(playbackInput.layerId === undefined ? {} : { layerId: playbackInput.layerId }),
             mode: playbackInput.mode ?? 'frame',
             interval: playbackInput.interval ?? 1_000,
@@ -148,6 +151,13 @@ function normalizeInteraction(input: ChartSpec['interaction']): NormalizedIntera
             loop: playbackInput.loop ?? false,
             windowSize: playbackInput.windowSize ?? 1,
             autoplay: playbackInput.autoplay ?? false,
+            transition:
+              playbackInput.transition === undefined || playbackInput.transition === false
+                ? (false as const)
+                : {
+                    duration: playbackInput.transition.duration ?? 400,
+                    easing: playbackInput.transition.easing ?? 'ease-in-out',
+                  },
             filter: playbackInput.filter ?? false,
           }
         : false;
@@ -161,6 +171,8 @@ function normalizeInteraction(input: ChartSpec['interaction']): NormalizedIntera
           fullscreen:
             typeof controlsInput === 'object' ? (controlsInput.fullscreen ?? false) : true,
           export: typeof controlsInput === 'object' ? (controlsInput.export ?? false) : true,
+          annotations:
+            typeof controlsInput === 'object' ? (controlsInput.annotations ?? false) : true,
           playback: typeof controlsInput === 'object' ? (controlsInput.playback ?? false) : true,
           labels: {
             ...defaultControlLabels,

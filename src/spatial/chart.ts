@@ -4,7 +4,11 @@ import { compileSpatial, spatialColor } from './compile.js';
 import { resolveSpatialSize } from './layout.js';
 import { add3, cameraBasis, clamp, normalizedCamera, scale3 } from './math.js';
 import { assertFiniteSpatialNumber, resolveSpatialCameraPatch } from './programmatic.js';
-import { SpatialOverlayController, type SpatialLegendOverlayState } from './overlay.js';
+import {
+  SpatialOverlayController,
+  type ScreenBounds,
+  type SpatialLegendOverlayState,
+} from './overlay.js';
 import { assertValidSpatialSpec } from './validate.js';
 import type { HighlightStyleSpec, JsonPrimitive } from '../spec/types.js';
 import type {
@@ -103,6 +107,14 @@ export interface SpatialAnnotationChangeEvent {
   readonly id?: string;
 }
 
+export type SpatialAnnotationVisibilityChangeReason = 'toggle' | 'programmatic' | 'spec';
+
+export interface SpatialAnnotationVisibilityChangeEvent {
+  readonly chart: SpatialChart;
+  readonly visible: boolean;
+  readonly reason: SpatialAnnotationVisibilityChangeReason;
+}
+
 export interface SpatialErrorEvent {
   readonly chart: SpatialChart;
   readonly error: unknown;
@@ -133,6 +145,7 @@ export interface SpatialChartEventMap {
   readonly legendchange: SpatialLegendChangeEvent;
   readonly selectionchange: SpatialSelectionChangeEvent;
   readonly annotationchange: SpatialAnnotationChangeEvent;
+  readonly annotationvisibilitychange: SpatialAnnotationVisibilityChangeEvent;
   readonly contextloss: Readonly<{ chart: SpatialChart }>;
   readonly contextrestore: Readonly<{ chart: SpatialChart }>;
   readonly availabilitychange: SpatialAvailabilityChangeEvent;
@@ -202,6 +215,8 @@ const defaultLabels: ResolvedSpatialLabels = {
   projection: 'Switch projection',
   fullscreen: 'Toggle fullscreen',
   exportPng: 'Download PNG',
+  showAnnotations: 'Show annotations',
+  hideAnnotations: 'Hide annotations',
   instructions:
     'Drag to orbit. Use Pan mode, Shift-drag, or the secondary pointer button to pan. Use Control or Command with the wheel, pinch, or plus and minus keys to zoom. Arrow keys move the camera; zero resets it.',
   contextLost: 'The 3D rendering context was lost. Restoring…',
@@ -263,6 +278,14 @@ function icon(
     svg.append(circle);
   }
   return svg;
+}
+
+function annotationIcon(visible: boolean): SVGSVGElement {
+  return icon(
+    visible
+      ? ['M4.5 5.5h15v10h-9l-4 3v-3h-2v-10Z']
+      : ['M4.5 5.5h15v10h-5', 'M10.5 15.5l-4 3v-3h-2v-10h2', 'M4 4l16 16'],
+  );
 }
 
 function safeText(value: unknown, limit = 160): string {
@@ -406,6 +429,7 @@ export class SpatialChart {
   #hiddenLegendItems = new Set<string>();
   #selection: SpatialDatumTargetSpec[] = [];
   #annotations: SpatialAnnotationSpec[] = [];
+  #annotationsVisible = true;
   #annotationSequence = 0;
 
   constructor(
@@ -494,6 +518,7 @@ export class SpatialChart {
     this.#scene = scene;
     this.#hiddenLegendItems.clear();
     this.#selection = [];
+    this.#annotationsVisible = true;
     this.#annotations = (spec.annotations ?? []).map((annotation, index) => ({
       ...cloneSpatialAnnotation(annotation),
       id: annotation.id ?? `annotation-${index}`,
@@ -519,6 +544,7 @@ export class SpatialChart {
     });
     this.#emitSelection('spec');
     this.#emitAnnotations('spec');
+    this.#emitAnnotationVisibility('spec');
   }
 
   getLegendState(): SpatialLegendState {
@@ -603,6 +629,20 @@ export class SpatialChart {
 
   getAnnotations(): readonly SpatialAnnotationSpec[] {
     return this.#annotations.map(cloneSpatialAnnotation);
+  }
+
+  getAnnotationsVisible(): boolean {
+    this.#assertAlive();
+    return this.#annotationsVisible;
+  }
+
+  setAnnotationsVisible(visible: boolean): void {
+    this.#setAnnotationsVisible(visible, 'programmatic');
+  }
+
+  toggleAnnotations(): void {
+    this.#assertAlive();
+    this.#setAnnotationsVisible(!this.#annotationsVisible, 'toggle');
   }
 
   setAnnotations(annotations: readonly SpatialAnnotationSpec[]): void {
@@ -736,7 +776,7 @@ export class SpatialChart {
     if (projection !== 'perspective' && projection !== 'orthographic') return;
     this.#camera = { ...this.#camera, projection };
     this.#renderer.setCamera(this.#camera);
-    this.#syncControls();
+    this.#syncControlStructure();
     this.#emitCamera('projection');
     this.render();
   }
@@ -769,6 +809,7 @@ export class SpatialChart {
     this.#renderer.setCamera(this.#camera);
     this.#renderer.render();
     this.#syncAccessibilityDom();
+    this.#syncControlStructure();
     this.#syncOverlays();
     this.#events.emit('render', { chart: this, scene: this.#scene });
   }
@@ -1271,8 +1312,27 @@ export class SpatialChart {
     });
   }
 
+  #setAnnotationsVisible(visible: boolean, reason: SpatialAnnotationVisibilityChangeReason): void {
+    this.#assertAlive();
+    if (typeof visible !== 'boolean')
+      throw new TypeError('Annotation visibility must be a boolean.');
+    if (visible === this.#annotationsVisible) return;
+    this.#annotationsVisible = visible;
+    this.render();
+    this.#emitAnnotationVisibility(reason);
+  }
+
+  #emitAnnotationVisibility(reason: SpatialAnnotationVisibilityChangeReason): void {
+    this.#events.emit('annotationvisibilitychange', {
+      chart: this,
+      visible: this.#annotationsVisible,
+      reason,
+    });
+  }
+
   #syncOverlays(): void {
     const selection = this.#selectionConfig();
+    const controlBounds = this.#controlCollisionBounds();
     this.#overlays.sync(
       this.#wrapper,
       {
@@ -1280,6 +1340,7 @@ export class SpatialChart {
         width: this.#width,
         height: this.#height,
         plotBounds: this.#plotViewport,
+        ...(controlBounds === undefined ? {} : { controlBounds }),
         hiddenLayerIds: this.#hiddenLayerIds(),
         legend: this.#legendOverlayState(),
         highlights: this.#spec.highlights ?? [],
@@ -1287,6 +1348,7 @@ export class SpatialChart {
         selectionEnabled: selection !== false,
         selectionHighlight: selection === false ? {} : selection.highlight,
         annotations: this.#annotations,
+        annotationsVisible: this.#annotationsVisible,
         selectionLabel: selection === false ? 'Spatial chart selection' : selection.ariaLabel,
       },
       {
@@ -1303,6 +1365,25 @@ export class SpatialChart {
         setLegendVisible: (id, visible) => this.#setLegendItemVisible(id, visible, 'toggle'),
       },
     );
+  }
+
+  #controlCollisionBounds(): ScreenBounds | undefined {
+    if (this.#controls === null || this.#controlButtons.size === 0) return undefined;
+    const buttonSize = this.#width <= 560 ? 44 : 28;
+    const height = this.#width <= 560 ? 46 : 32;
+    const width = Math.min(
+      Math.max(1, this.#plotViewport.width - 12),
+      this.#controlButtons.size * buttonSize + Math.max(0, this.#controlButtons.size - 1) + 4,
+    );
+    return {
+      x: Math.max(
+        this.#plotViewport.x,
+        this.#plotViewport.x + this.#plotViewport.width - width - 6,
+      ),
+      y: this.#plotViewport.y + 6,
+      width,
+      height,
+    };
   }
 
   #attachInteraction(): void {
@@ -1472,7 +1553,7 @@ export class SpatialChart {
     toolbar.style.background = 'rgba(255, 255, 255, 0.82)';
     toolbar.style.backdropFilter = 'blur(5px)';
     toolbar.style.direction = 'ltr';
-    const definitions = [
+    const definitions: [string, string, SVGSVGElement][] = [
       [
         'orbit',
         labels.orbit,
@@ -1495,7 +1576,9 @@ export class SpatialChart {
       ],
       ['fullscreen', labels.fullscreen, icon(['M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5'])],
       ['png', labels.exportPng, icon(['M4 5h4l2-2h4l2 2h4v15H4V5'], [[12, 12, 4]])],
-    ] as const;
+    ];
+    if (this.#annotationControlVisible())
+      definitions.splice(6, 0, ['annotations', labels.hideAnnotations, annotationIcon(true)]);
     for (const [id, label, graphic] of definitions) {
       const button = document.createElement('button');
       button.type = 'button';
@@ -1554,6 +1637,14 @@ export class SpatialChart {
       this.#controlButtons.clear();
       return;
     }
+    if (
+      this.#controls !== null &&
+      this.#controlButtons.has('annotations') !== this.#annotationControlVisible()
+    ) {
+      this.#controls.remove();
+      this.#controls = null;
+      this.#controlButtons.clear();
+    }
     if (this.#controls === null) this.#createControls();
     const labels = this.#labels();
     this.#controls?.setAttribute('aria-label', labels.toolbar);
@@ -1566,6 +1657,7 @@ export class SpatialChart {
       projection: labels.projection,
       fullscreen: labels.fullscreen,
       png: labels.exportPng,
+      annotations: this.#annotationsVisible ? labels.hideAnnotations : labels.showAnnotations,
     };
     for (const [id, button] of this.#controlButtons) {
       const label = byId[id];
@@ -1576,7 +1668,8 @@ export class SpatialChart {
       button.disabled =
         (id === 'orbit' && this.#spec.interaction?.orbit === false) ||
         (id === 'pan' && this.#spec.interaction?.pan === false) ||
-        ((id === 'zoom-in' || id === 'zoom-out') && this.#spec.interaction?.zoom === false);
+        ((id === 'zoom-in' || id === 'zoom-out') && this.#spec.interaction?.zoom === false) ||
+        (id === 'annotations' && this.#annotations.length === 0);
     }
     if (this.#mode === 'orbit' && this.#spec.interaction?.orbit === false) this.#mode = 'pan';
     if (this.#mode === 'pan' && this.#spec.interaction?.pan === false) this.#mode = 'orbit';
@@ -1594,6 +1687,7 @@ export class SpatialChart {
       );
     else if (id === 'fullscreen') void this.toggleFullscreen();
     else if (id === 'png') this.#downloadPng();
+    else if (id === 'annotations') this.toggleAnnotations();
     this.#syncControls();
   }
 
@@ -1607,6 +1701,29 @@ export class SpatialChart {
     this.#controlButtons
       .get('projection')
       ?.setAttribute('aria-pressed', String(this.#camera.projection === 'orthographic'));
+    const annotations = this.#controlButtons.get('annotations');
+    if (annotations !== undefined) {
+      const labels = this.#labels();
+      const label = this.#annotationsVisible ? labels.hideAnnotations : labels.showAnnotations;
+      annotations.title = label;
+      annotations.setAttribute('aria-label', label);
+      annotations.setAttribute('aria-pressed', String(this.#annotationsVisible));
+      annotations.disabled = this.#annotations.length === 0;
+      annotations.style.background = this.#annotationsVisible ? '#e0e7ff' : 'transparent';
+      if (annotations.dataset.graflumeAnnotationVisibility !== String(this.#annotationsVisible)) {
+        annotations.replaceChildren(annotationIcon(this.#annotationsVisible));
+        annotations.dataset.graflumeAnnotationVisibility = String(this.#annotationsVisible);
+      }
+    }
+  }
+
+  #annotationControlEnabled(): boolean {
+    const controls = this.#spec.interaction?.controls;
+    return controls === true || (typeof controls === 'object' && controls.annotations === true);
+  }
+
+  #annotationControlVisible(): boolean {
+    return this.#annotationControlEnabled() && this.#annotations.length > 0;
   }
 
   #downloadPng(): void {

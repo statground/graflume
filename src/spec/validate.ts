@@ -31,6 +31,7 @@ const NAVIGATION_KEYS = new Set(['minZoom', 'maxZoom', 'wheel', 'drag', 'pinch',
 const NAVIGATION_WHEEL_MODES = new Set(['off', 'modifier', 'always']);
 const PLAYBACK_KEYS = new Set([
   'field',
+  'key',
   'layerId',
   'mode',
   'interval',
@@ -38,10 +39,21 @@ const PLAYBACK_KEYS = new Set([
   'loop',
   'windowSize',
   'autoplay',
+  'transition',
   'filter',
 ]);
 const PLAYBACK_MODES = new Set(['frame', 'cumulative', 'window']);
-const CONTROLS_KEYS = new Set(['zoom', 'reset', 'fullscreen', 'export', 'playback', 'labels']);
+const PLAYBACK_TRANSITION_KEYS = new Set(['duration', 'easing']);
+const PLAYBACK_TRANSITION_EASINGS = new Set(['linear', 'ease-in-out']);
+const CONTROLS_KEYS = new Set([
+  'zoom',
+  'reset',
+  'fullscreen',
+  'export',
+  'annotations',
+  'playback',
+  'labels',
+]);
 const CONTROL_LABEL_KEYS = new Set([
   'controls',
   'zoomIn',
@@ -50,6 +62,8 @@ const CONTROL_LABEL_KEYS = new Set([
   'enterFullscreen',
   'exitFullscreen',
   'exportPng',
+  'showAnnotations',
+  'hideAnnotations',
   'previousFrame',
   'play',
   'pause',
@@ -1052,6 +1066,10 @@ function validatePlayback(value: unknown, path: string, issues: SpecIssue[]): vo
   } else if (typeof value.field === 'string' && UNSAFE_FIELDS.has(value.field)) {
     issues.push({ path: `${path}.field`, message: `Unsafe field "${value.field}" is forbidden.` });
   }
+  validateOptionalString(value.key, `${path}.key`, 'Playback key', issues, false);
+  if (typeof value.key === 'string' && UNSAFE_FIELDS.has(value.key)) {
+    issues.push({ path: `${path}.key`, message: `Unsafe field "${value.key}" is forbidden.` });
+  }
   validateOptionalString(value.layerId, `${path}.layerId`, 'Playback layerId', issues, false);
   if (
     value.mode !== undefined &&
@@ -1077,6 +1095,41 @@ function validatePlayback(value: unknown, path: string, issues: SpecIssue[]): vo
     });
   validateOptionalBoolean(value.loop, `${path}.loop`, 'Playback loop', issues);
   validateOptionalBoolean(value.autoplay, `${path}.autoplay`, 'Playback autoplay', issues);
+  if (value.transition !== undefined && value.transition !== false) {
+    if (!isPlainObject(value.transition)) {
+      issues.push({
+        path: `${path}.transition`,
+        message: 'Playback transition must be false or an object.',
+      });
+    } else {
+      validateUnknownKeys(
+        value.transition,
+        PLAYBACK_TRANSITION_KEYS,
+        `${path}.transition`,
+        'playback transition',
+        issues,
+      );
+      if (value.transition.duration !== undefined) {
+        validateFiniteNumber(
+          value.transition.duration,
+          `${path}.transition.duration`,
+          'Playback transition duration',
+          issues,
+          { min: 50, max: 60_000 },
+        );
+      }
+      if (
+        value.transition.easing !== undefined &&
+        (typeof value.transition.easing !== 'string' ||
+          !PLAYBACK_TRANSITION_EASINGS.has(value.transition.easing))
+      ) {
+        issues.push({
+          path: `${path}.transition.easing`,
+          message: 'Playback transition easing must be "linear" or "ease-in-out".',
+        });
+      }
+    }
+  }
   validateOptionalBoolean(value.filter, `${path}.filter`, 'Playback filter', issues);
 }
 
@@ -1087,7 +1140,7 @@ function validateControls(value: unknown, path: string, issues: SpecIssue[]): vo
     return;
   }
   validateUnknownKeys(value, CONTROLS_KEYS, path, 'controls', issues);
-  for (const key of ['zoom', 'reset', 'fullscreen', 'export', 'playback'] as const) {
+  for (const key of ['zoom', 'reset', 'fullscreen', 'export', 'annotations', 'playback'] as const) {
     validateOptionalBoolean(value[key], `${path}.${key}`, `Controls ${key}`, issues);
   }
   if (value.labels !== undefined) {

@@ -363,6 +363,8 @@ export type {
   SpatialSelectionState,
   SpatialAnnotationChangeEvent,
   SpatialAnnotationChangeReason,
+  SpatialAnnotationVisibilityChangeEvent,
+  SpatialAnnotationVisibilityChangeReason,
   SpatialChartEventMap,
   SpatialErrorEvent,
   SpatialFullscreenChangeEvent,

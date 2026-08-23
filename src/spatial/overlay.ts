@@ -7,6 +7,7 @@ import type {
   SpatialVec3,
 } from './types.js';
 import type { HighlightStyleSpec } from '../spec/types.js';
+import { placeCallout, type CalloutRect } from '../interaction/callout-placement.js';
 
 export interface SpatialLegendOverlayItem {
   readonly id: string;
@@ -43,6 +44,7 @@ export interface SpatialOverlayState {
   readonly width: number;
   readonly height: number;
   readonly plotBounds: ScreenBounds;
+  readonly controlBounds?: ScreenBounds;
   readonly hiddenLayerIds: ReadonlySet<string>;
   readonly legend: SpatialLegendOverlayState | null;
   readonly highlights: readonly SpatialHighlightSpec[];
@@ -50,6 +52,7 @@ export interface SpatialOverlayState {
   readonly selectionEnabled: boolean;
   readonly selectionHighlight: HighlightStyleSpec;
   readonly annotations: readonly SpatialAnnotationSpec[];
+  readonly annotationsVisible: boolean;
   readonly selectionLabel: string;
 }
 
@@ -151,6 +154,57 @@ function targetBounds(
   };
 }
 
+function projectedDataObstacles(
+  state: SpatialOverlayState,
+  actions: SpatialOverlayActions,
+): readonly ScreenBounds[] {
+  const geometries = state.scene.geometries.filter((geometry) => geometry.picks.length > 0);
+  const budgetPerGeometry = Math.max(1, Math.floor(384 / Math.max(1, geometries.length)));
+  const columns = 12;
+  const rows = 8;
+  const buckets = new Map<number, ScreenBounds>();
+  for (const geometry of geometries) {
+    const stride = Math.max(1, Math.ceil(geometry.picks.length / budgetPerGeometry));
+    for (let index = 0; index < geometry.picks.length; index += stride) {
+      const pick = geometry.picks[index]!;
+      if (state.hiddenLayerIds.has(pick.layerId)) continue;
+      const point = actions.project(pick.position, pick);
+      if (point === null || !point.visible) continue;
+      const bounds = { x: point.x - 4, y: point.y - 4, width: 8, height: 8 };
+      const column = Math.max(
+        0,
+        Math.min(
+          columns - 1,
+          Math.floor(
+            ((point.x - state.plotBounds.x) / Math.max(1, state.plotBounds.width)) * columns,
+          ),
+        ),
+      );
+      const row = Math.max(
+        0,
+        Math.min(
+          rows - 1,
+          Math.floor(
+            ((point.y - state.plotBounds.y) / Math.max(1, state.plotBounds.height)) * rows,
+          ),
+        ),
+      );
+      const key = row * columns + column;
+      const prior = buckets.get(key);
+      if (prior === undefined) {
+        buckets.set(key, bounds);
+        continue;
+      }
+      const x = Math.min(prior.x, bounds.x);
+      const y = Math.min(prior.y, bounds.y);
+      const endX = Math.max(prior.x + prior.width, bounds.x + bounds.width);
+      const endY = Math.max(prior.y + prior.height, bounds.y + bounds.height);
+      buckets.set(key, { x, y, width: endX - x, height: endY - y });
+    }
+  }
+  return [...buckets.values()];
+}
+
 function applyHighlightStyle(
   element: HTMLDivElement,
   highlight: SpatialHighlightSpec,
@@ -198,6 +252,10 @@ interface PreparedAnnotation {
   readonly annotation: SpatialAnnotationSpec;
   readonly bounds: ScreenBounds;
   readonly bubble: HTMLDivElement;
+  readonly title: HTMLDivElement;
+  readonly detail?: HTMLDivElement;
+  readonly fontSize: number;
+  readonly padding: number;
   readonly availableWidth: number;
   readonly availableHeight: number;
   readonly fallbackWidth: number;
@@ -225,6 +283,10 @@ function prepareAnnotation(
   const bubble = document.createElement('div');
   bubble.dataset.graflumeSpatialAnnotation = annotation.id ?? 'true';
   bubble.setAttribute('role', 'note');
+  bubble.setAttribute(
+    'aria-label',
+    annotation.detail === undefined ? annotation.text : `${annotation.text}: ${annotation.detail}`,
+  );
   bubble.dir = 'auto';
   bubble.style.position = 'absolute';
   bubble.style.zIndex = '3';
@@ -239,16 +301,24 @@ function prepareAnnotation(
   bubble.style.opacity = String(style.opacity ?? 0.97);
   bubble.style.font = `700 ${fontSize}px/1.35 ui-sans-serif, system-ui, sans-serif`;
   bubble.style.textAlign = style.align ?? 'start';
+  bubble.style.overflowWrap = 'anywhere';
+  bubble.style.wordBreak = 'break-word';
+  bubble.style.hyphens = 'auto';
   bubble.style.pointerEvents = 'none';
   const title = document.createElement('div');
   title.textContent = annotation.text;
+  title.style.overflowWrap = 'anywhere';
+  title.style.wordBreak = 'break-word';
   bubble.append(title);
+  let detail: HTMLDivElement | undefined;
   if (annotation.detail !== undefined) {
-    const detail = document.createElement('div');
+    detail = document.createElement('div');
     detail.textContent = annotation.detail;
     detail.style.marginBlockStart = '4px';
     detail.style.fontWeight = '400';
     detail.style.color = style.color ?? '#475569';
+    detail.style.overflowWrap = 'anywhere';
+    detail.style.wordBreak = 'break-word';
     bubble.append(detail);
   }
   const longestText = Math.max(annotation.text.length, annotation.detail?.length ?? 0, 8);
@@ -273,6 +343,10 @@ function prepareAnnotation(
     annotation,
     bounds,
     bubble,
+    title,
+    ...(detail === undefined ? {} : { detail }),
+    fontSize,
+    padding,
     availableWidth,
     availableHeight,
     fallbackWidth,
@@ -295,7 +369,10 @@ function placeAnnotation(
   prepared: PreparedAnnotation,
   state: SpatialOverlayState,
   measured: Readonly<{ width: number; height: number }>,
-): readonly HTMLElement[] {
+  dataObstacles: readonly CalloutRect[],
+  protectedObstacles: readonly CalloutRect[],
+  occupiedCallouts: readonly CalloutRect[],
+): Readonly<{ elements: readonly HTMLElement[]; bounds: ScreenBounds }> {
   const { annotation, bounds, bubble } = prepared;
   const estimatedWidth = Math.min(
     prepared.availableWidth,
@@ -307,34 +384,52 @@ function placeAnnotation(
   );
   bubble.style.visibility = 'visible';
   bubble.style.overflow = 'hidden';
+  bubble.style.maxHeight = `${estimatedHeight}px`;
+  bubble.style.maxBlockSize = `${estimatedHeight}px`;
+  const detailGap = prepared.detail === undefined ? 0 : 4;
+  const lineHeight = prepared.fontSize * 1.35;
+  const lineBudget = Math.max(
+    1,
+    Math.floor((estimatedHeight - prepared.padding * 2 - detailGap) / Math.max(1, lineHeight)),
+  );
+  const titleLines =
+    prepared.detail === undefined || lineBudget < 2
+      ? lineBudget
+      : Math.max(1, Math.min(2, lineBudget - 1));
+  const clampLines = (element: HTMLDivElement, lines: number): void => {
+    element.style.display = '-webkit-box';
+    element.style.webkitBoxOrient = 'vertical';
+    element.style.webkitLineClamp = String(Math.max(1, lines));
+    element.style.overflow = 'hidden';
+    element.style.overflowWrap = 'anywhere';
+    element.style.wordBreak = 'break-word';
+  };
+  clampLines(prepared.title, titleLines);
+  if (prepared.detail !== undefined) {
+    if (lineBudget < 2) prepared.detail.style.display = 'none';
+    else clampLines(prepared.detail, Math.max(1, lineBudget - titleLines));
+  }
   const anchor = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
-  const placement =
-    annotation.placement === undefined || annotation.placement === 'auto'
-      ? anchor.x < state.width / 2
-        ? 'right'
-        : 'left'
-      : annotation.placement;
-  const gap = 18;
-  let x = anchor.x - estimatedWidth / 2;
-  let y = anchor.y - estimatedHeight / 2;
-  if (placement === 'top') y = bounds.y - estimatedHeight - gap;
-  if (placement === 'bottom') y = bounds.y + bounds.height + gap;
-  if (placement === 'left') x = bounds.x - estimatedWidth - gap;
-  if (placement === 'right') x = bounds.x + bounds.width + gap;
   const marginX = Math.min(4, Math.max(0, (state.plotBounds.width - estimatedWidth) / 2));
   const marginY = Math.min(4, Math.max(0, (state.plotBounds.height - estimatedHeight) / 2));
-  const minimumX = state.plotBounds.x + marginX;
-  const minimumY = state.plotBounds.y + marginY;
-  const maximumX = Math.max(
-    minimumX,
-    state.plotBounds.x + state.plotBounds.width - estimatedWidth - marginX,
-  );
-  const maximumY = Math.max(
-    minimumY,
-    state.plotBounds.y + state.plotBounds.height - estimatedHeight - marginY,
-  );
-  x = Math.max(minimumX, Math.min(maximumX, x + (annotation.offsetX ?? 0)));
-  y = Math.max(minimumY, Math.min(maximumY, y + (annotation.offsetY ?? 0)));
+  const placed = placeCallout({
+    target: bounds,
+    width: estimatedWidth,
+    height: estimatedHeight,
+    boundary: {
+      x: state.plotBounds.x + marginX,
+      y: state.plotBounds.y + marginY,
+      width: Math.max(1, state.plotBounds.width - marginX * 2),
+      height: Math.max(1, state.plotBounds.height - marginY * 2),
+    },
+    placement: annotation.placement ?? 'auto',
+    offsetX: annotation.offsetX ?? 0,
+    offsetY: annotation.offsetY ?? 0,
+    dataObstacles,
+    protectedObstacles,
+    occupiedCallouts,
+  });
+  const { x, y } = placed;
   bubble.style.left = `${x}px`;
   bubble.style.top = `${y}px`;
   const line = connector(
@@ -342,7 +437,10 @@ function placeAnnotation(
     { x: x + estimatedWidth / 2, y: y + estimatedHeight / 2 },
     annotation,
   );
-  return line === null ? [bubble] : [line, bubble];
+  return {
+    elements: line === null ? [bubble] : [line, bubble],
+    bounds: placed.bounds,
+  };
 }
 
 function externalLegendBounds(
@@ -358,6 +456,51 @@ function externalLegendBounds(
   if (position === 'left') return { x: 0, y: 0, width: plot.x, height: state.height };
   const x = plot.x + plot.width;
   return { x, y: 0, width: Math.max(0, state.width - x), height: state.height };
+}
+
+function insideLegendBounds(state: SpatialOverlayState): ScreenBounds | null {
+  const legend = state.legend;
+  if (legend === null || !legend.visible || !legend.position.startsWith('inside-')) return null;
+  const plot = state.plotBounds;
+  const inset = 8;
+  const titleHeight = legend.title === undefined ? 0 : 24;
+  const itemWidths = legend.items.map((item) => Math.max(64, item.label.length * 7 + 30));
+  let width: number;
+  let height: number;
+  if (legend.orientation === 'horizontal') {
+    width = Math.min(
+      Math.max(1, plot.width - inset * 2),
+      Math.max(150, itemWidths.reduce((a, b) => a + b, 0) + 20),
+    );
+    const availableRowWidth = Math.max(1, width - 20);
+    let rows = 1;
+    let rowWidth = 0;
+    for (const itemWidth of itemWidths) {
+      if (rowWidth > 0 && rowWidth + itemWidth > availableRowWidth) {
+        rows += 1;
+        rowWidth = 0;
+      }
+      rowWidth += itemWidth;
+    }
+    height = Math.min(Math.max(1, plot.height - inset * 2), titleHeight + rows * 24 + 16);
+  } else {
+    width = Math.min(
+      Math.max(1, plot.width - inset * 2),
+      Math.min(220, Math.max(96, ...itemWidths) + 20),
+    );
+    height = Math.min(
+      Math.max(1, plot.height - inset * 2),
+      titleHeight + Math.max(1, legend.items.length) * 24 + 16,
+    );
+  }
+  const right = legend.position.endsWith('right');
+  const bottom = legend.position.includes('bottom');
+  return {
+    x: right ? plot.x + plot.width - width - inset : plot.x + inset,
+    y: bottom ? plot.y + plot.height - height - inset : plot.y + inset,
+    width,
+    height,
+  };
 }
 
 function legendPosition(
@@ -559,7 +702,7 @@ export class SpatialOverlayController {
       content.append(element);
     }
     const preparedAnnotations: PreparedAnnotation[] = [];
-    for (const annotation of state.annotations) {
+    for (const annotation of state.annotationsVisible ? state.annotations : []) {
       const bounds = targetBounds(annotation.target, state, actions);
       if (bounds === null) continue;
       const prepared = prepareAnnotation(annotation, bounds, state);
@@ -583,13 +726,28 @@ export class SpatialOverlayController {
         height: bounds.height,
       });
     }
+    const dataObstacles =
+      preparedAnnotations.length === 0 ? [] : projectedDataObstacles(state, actions);
+    const protectedObstacles = [insideLegendBounds(state), state.controlBounds].filter(
+      (bounds): bounds is ScreenBounds => bounds !== null && bounds !== undefined,
+    );
+    const occupiedCallouts: ScreenBounds[] = [];
     for (const prepared of preparedAnnotations) {
       prepared.bubble.remove();
       const measured = this.#annotationMeasurements.get(prepared.measurementKey) ?? {
         width: prepared.fallbackWidth,
         height: prepared.fallbackHeight,
       };
-      content.append(...placeAnnotation(prepared, state, measured));
+      const placed = placeAnnotation(
+        prepared,
+        state,
+        measured,
+        dataObstacles,
+        protectedObstacles,
+        occupiedCallouts,
+      );
+      content.append(...placed.elements);
+      occupiedCallouts.push(placed.bounds);
     }
     let focusTarget: HTMLButtonElement | null = null;
     if (state.legend !== null && state.legend.visible) {

@@ -432,8 +432,18 @@ export interface NavigationSpec {
 
 export type PlaybackMode = 'frame' | 'cumulative' | 'window';
 
+export type PlaybackTransitionEasing = 'linear' | 'ease-in-out';
+
+export interface PlaybackTransitionSpec {
+  /** Requested maximum; runtime clamps below the playback interval for autoplay safety. */
+  readonly duration?: number;
+  readonly easing?: PlaybackTransitionEasing;
+}
+
 export interface PlaybackSpec {
   readonly field: string;
+  /** Stable scalar datum field used to match the same entity between frames. */
+  readonly key?: string;
   readonly layerId?: string;
   readonly mode?: PlaybackMode;
   readonly interval?: number;
@@ -441,6 +451,8 @@ export interface PlaybackSpec {
   readonly loop?: boolean;
   readonly windowSize?: number;
   readonly autoplay?: boolean;
+  /** Smoothly interpolate compatible rendered geometry without changing source data. */
+  readonly transition?: false | PlaybackTransitionSpec;
   /**
    * Apply a generic transient data filter. Keep this off unless the host has
    * explicitly approved the selected chart family; motion marks use frame
@@ -457,6 +469,8 @@ export interface ControlLabelsSpec {
   readonly enterFullscreen?: string;
   readonly exitFullscreen?: string;
   readonly exportPng?: string;
+  readonly showAnnotations?: string;
+  readonly hideAnnotations?: string;
   readonly previousFrame?: string;
   readonly play?: string;
   readonly pause?: string;
@@ -471,6 +485,7 @@ export interface ControlsSpec {
   readonly reset?: boolean;
   readonly fullscreen?: boolean;
   readonly export?: boolean;
+  readonly annotations?: boolean;
   readonly playback?: boolean;
   readonly labels?: ControlLabelsSpec;
 }
@@ -684,6 +699,7 @@ export interface NormalizedNavigationSpec {
 
 export interface NormalizedPlaybackSpec {
   readonly field: string;
+  readonly key?: string;
   readonly layerId?: string;
   readonly mode: PlaybackMode;
   readonly interval: number;
@@ -691,6 +707,12 @@ export interface NormalizedPlaybackSpec {
   readonly loop: boolean;
   readonly windowSize: number;
   readonly autoplay: boolean;
+  readonly transition:
+    | false
+    | {
+        readonly duration: number;
+        readonly easing: PlaybackTransitionEasing;
+      };
   readonly filter: boolean;
 }
 
@@ -702,6 +724,8 @@ export interface NormalizedControlLabelsSpec {
   readonly enterFullscreen: string;
   readonly exitFullscreen: string;
   readonly exportPng: string;
+  readonly showAnnotations: string;
+  readonly hideAnnotations: string;
   readonly previousFrame: string;
   readonly play: string;
   readonly pause: string;
@@ -716,6 +740,7 @@ export interface NormalizedControlsSpec {
   readonly reset: boolean;
   readonly fullscreen: boolean;
   readonly export: boolean;
+  readonly annotations: boolean;
   readonly playback: boolean;
   readonly labels: NormalizedControlLabelsSpec;
 }

@@ -41,8 +41,14 @@ test('interaction features are default-off and normalize portable defaults', () 
       playback: { field: 'period' },
       controls: {
         zoom: true,
+        annotations: true,
         playback: true,
-        labels: { controls: '차트 도구', loop: '반복' },
+        labels: {
+          controls: '차트 도구',
+          showAnnotations: '주석 보기',
+          hideAnnotations: '주석 숨기기',
+          loop: '반복',
+        },
       },
     }),
   ).interaction;
@@ -63,19 +69,24 @@ test('interaction features are default-off and normalize portable defaults', () 
     loop: false,
     windowSize: 1,
     autoplay: false,
+    transition: false,
     filter: false,
   });
   assert.equal(normalized.controls.zoom, true);
   assert.equal(normalized.controls.reset, false);
+  assert.equal(normalized.controls.annotations, true);
   assert.equal(normalized.controls.labels.controls, '차트 도구');
   assert.equal(normalized.controls.labels.loop, '반복');
   assert.equal(normalized.controls.labels.exportPng, 'Download PNG');
+  assert.equal(normalized.controls.labels.showAnnotations, '주석 보기');
+  assert.equal(normalized.controls.labels.hideAnnotations, '주석 숨기기');
 
   const allControls = normalizeSpec(baseSpec({ controls: true })).interaction.controls;
   assert.equal(allControls.zoom, true);
   assert.equal(allControls.reset, true);
   assert.equal(allControls.fullscreen, true);
   assert.equal(allControls.export, true);
+  assert.equal(allControls.annotations, true);
   assert.equal(allControls.playback, true);
   assert.equal(allControls.labels.controls, 'Chart controls');
 });
@@ -92,16 +103,21 @@ test('runtime validation closes and bounds the interaction contract', () => {
       },
       playback: {
         field: '__proto__',
+        key: 'constructor',
         mode: 'smooth',
         interval: 50,
         rate: 20,
         windowSize: 0,
         filter: 'yes',
+        transition: { duration: 20, easing: 'spring', html: '<b>unsafe</b>' },
       },
       controls: {
         zoom: 'yes',
+        annotations: 'yes',
         labels: {
           controls: '',
+          showAnnotations: '',
+          hideAnnotations: () => 'unsafe',
           loop: () => 'unsafe',
           html: '<b>unsafe</b>',
         },
@@ -115,13 +131,20 @@ test('runtime validation closes and bounds the interaction contract', () => {
     '$.interaction.navigation.wheel',
     '$.interaction.navigation.pinch',
     '$.interaction.playback.field',
+    '$.interaction.playback.key',
     '$.interaction.playback.mode',
     '$.interaction.playback.interval',
     '$.interaction.playback.rate',
     '$.interaction.playback.windowSize',
     '$.interaction.playback.filter',
+    '$.interaction.playback.transition.duration',
+    '$.interaction.playback.transition.easing',
+    '$.interaction.playback.transition.html',
     '$.interaction.controls.zoom',
+    '$.interaction.controls.annotations',
     '$.interaction.controls.labels.controls',
+    '$.interaction.controls.labels.showAnnotations',
+    '$.interaction.controls.labels.hideAnnotations',
     '$.interaction.controls.labels.loop',
     '$.interaction.controls.labels.html',
   ]) {
@@ -142,7 +165,15 @@ test('JSON Schema matches navigation, required playback field, and localized con
   assert.deepEqual(schema.$defs.playback.required, ['field']);
   assert.equal(schema.$defs.playback.properties.interval.minimum, 100);
   assert.equal(schema.$defs.playback.properties.rate.maximum, 16);
+  assert.equal(schema.$defs.playbackTransition.properties.duration.minimum, 50);
+  assert.deepEqual(schema.$defs.playbackTransition.properties.easing.enum, [
+    'linear',
+    'ease-in-out',
+  ]);
   assert.equal(schema.$defs.controlLabels.properties.controls.minLength, 1);
+  assert.equal(schema.$defs.controlLabels.properties.showAnnotations.minLength, 1);
+  assert.equal(schema.$defs.controlLabels.properties.hideAnnotations.minLength, 1);
+  assert.equal(schema.$defs.controls.properties.annotations.type, 'boolean');
   assert.equal(schema.$defs.controlLabels.properties.loop.minLength, 1);
   assert.deepEqual(schema.properties.interaction.properties.playback.oneOf[0], { const: false });
 });

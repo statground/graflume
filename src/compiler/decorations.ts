@@ -14,15 +14,22 @@ import type { ThemeTokens } from '../theme/types.js';
 import type { ScaleResolution } from './domain.js';
 import type { PlotArea } from './types.js';
 import { isAxislessLayer } from './coordinate.js';
+import { placeCallout, type CalloutRect } from '../interaction/callout-placement.js';
 
 export interface DecorationRuntimeState {
   readonly annotations?: readonly AnnotationSpec[];
+  readonly annotationsVisible?: boolean;
   readonly selection?: readonly DatumTargetSpec[];
 }
 
 interface TargetResolution {
   readonly bounds: Rect;
   readonly found: boolean;
+}
+
+interface AnnotationNodesResult {
+  readonly nodes: readonly SceneNode[];
+  readonly bounds: Rect | null;
 }
 
 function union(left: Rect | null, right: Rect | null): Rect | null {
@@ -256,36 +263,234 @@ function highlightNodes(
   ];
 }
 
-function wrapText(text: string, maxWidth: number, fontSize: number): readonly string[] {
-  const maxCharacters = Math.max(1, Math.floor(maxWidth / Math.max(1, fontSize * 0.58)));
-  const words = text.trim().split(/\s+/);
+function graphemes(text: string): readonly string[] {
+  try {
+    return [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text)].map(
+      ({ segment }) => segment,
+    );
+  } catch {
+    return Array.from(text);
+  }
+}
+
+function graphemeWidth(value: string, fontSize: number): number {
+  // Canvas cannot measure text during compilation, and a consumer may provide
+  // a wider custom face than the built-in theme. Keep the estimates
+  // deliberately conservative so wrapping happens before a glyph reaches the
+  // content edge. The extra factor also covers bold title text and bearings.
+  const customFontSafety = 1.08;
+  if (/^\s+$/u.test(value)) return fontSize * 0.42 * customFontSafety;
+  if (/\p{Extended_Pictographic}/u.test(value)) return fontSize * 1.25 * customFontSafety;
+  if (/^[\p{Script=Han}\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}]$/u.test(value))
+    return fontSize * 1.08 * customFontSafety;
+  if (/^[\p{Script=Arabic}\p{Script=Hebrew}]$/u.test(value))
+    return fontSize * 0.92 * customFontSafety;
+  if (/^[WM]$/u.test(value)) return fontSize * 1.05 * customFontSafety;
+  if (/^[mw]$/u.test(value)) return fontSize * 0.94 * customFontSafety;
+  if (/^[ilI1|!.,:;'`]$/u.test(value)) return fontSize * 0.48 * customFontSafety;
+  if (/^[A-Z0-9]$/u.test(value)) return fontSize * 0.82 * customFontSafety;
+  if (/^[a-z]$/u.test(value)) return fontSize * 0.72 * customFontSafety;
+  return fontSize * customFontSafety;
+}
+
+function textWidth(text: string, fontSize: number): number {
+  return graphemes(text).reduce((sum, value) => sum + graphemeWidth(value, fontSize), 0);
+}
+
+function ellipsizeLine(text: string, maxWidth: number, fontSize: number): string {
+  const suffix = '…';
+  if (textWidth(suffix, fontSize) > maxWidth) return '';
+  const output = [...graphemes(text)];
+  while (output.length > 0 && textWidth(`${output.join('')}${suffix}`, fontSize) > maxWidth)
+    output.pop();
+  return `${output.join('')}${suffix}`;
+}
+
+function wrapText(
+  text: string,
+  maxWidth: number,
+  fontSize: number,
+  maxLines = 6,
+): Readonly<{ lines: readonly string[]; truncated: boolean }> {
+  const words = text.trim().split(/\s+/u).filter(Boolean);
   const lines: string[] = [];
   let line = '';
-  for (const word of words) {
-    const next = line === '' ? word : `${line} ${word}`;
-    if (next.length <= maxCharacters) line = next;
-    else {
-      if (line !== '') lines.push(line);
-      const graphemes = (() => {
-        try {
-          return [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(word)].map(
-            ({ segment }) => segment,
-          );
-        } catch {
-          return Array.from(word);
-        }
-      })();
-      line =
-        graphemes.length <= maxCharacters
-          ? word
-          : maxCharacters === 1
-            ? '…'
-            : `${graphemes.slice(0, maxCharacters - 1).join('')}…`;
+  let truncated = false;
+  const pushLine = (): boolean => {
+    if (line === '') return true;
+    if (lines.length >= maxLines) {
+      truncated = true;
+      return false;
     }
-    if (lines.length >= 5) break;
+    lines.push(line);
+    line = '';
+    return true;
+  };
+  outer: for (const word of words) {
+    const combined = line === '' ? word : `${line} ${word}`;
+    if (textWidth(combined, fontSize) <= maxWidth) {
+      line = combined;
+      continue;
+    }
+    if (!pushLine()) break;
+    let chunk = '';
+    for (const value of graphemes(word)) {
+      if (chunk !== '' && textWidth(`${chunk}${value}`, fontSize) > maxWidth) {
+        line = chunk;
+        if (!pushLine()) break outer;
+        chunk = '';
+      }
+      if (chunk === '' && graphemeWidth(value, fontSize) > maxWidth) {
+        line = value;
+        if (!pushLine()) break outer;
+      } else {
+        chunk += value;
+      }
+    }
+    line = chunk;
   }
-  if (line !== '' && lines.length < 6) lines.push(line);
-  return lines;
+  if (line !== '') {
+    if (lines.length < maxLines) lines.push(line);
+    else truncated = true;
+  }
+  if (truncated && lines.length > 0)
+    lines[lines.length - 1] = ellipsizeLine(lines[lines.length - 1]!, maxWidth, fontSize);
+  return { lines, truncated };
+}
+
+function clippedBounds(bounds: Rect, clip: Rect): Rect | null {
+  const x = Math.max(bounds.x, clip.x);
+  const y = Math.max(bounds.y, clip.y);
+  const endX = Math.min(bounds.x + bounds.width, clip.x + clip.width);
+  const endY = Math.min(bounds.y + bounds.height, clip.y + clip.height);
+  if (endX < x || endY < y) return null;
+  return { x, y, width: Math.max(2, endX - x), height: Math.max(2, endY - y) };
+}
+
+function segmentObstacleBounds(
+  start: Readonly<{ x: number; y: number }>,
+  end: Readonly<{ x: number; y: number }>,
+  lineWidth: number,
+  plot: PlotArea,
+): readonly Rect[] {
+  const cellWidth = Math.max(1, plot.width / 12);
+  const cellHeight = Math.max(1, plot.height / 8);
+  const horizontalSpan = Math.abs(end.x - start.x) / cellWidth;
+  const verticalSpan = Math.abs(end.y - start.y) / cellHeight;
+  const stepCount = Math.max(
+    1,
+    Math.min(32, Math.ceil(Math.max(horizontalSpan, verticalSpan) * 2)),
+  );
+  const padding = Math.max(2, lineWidth / 2 + 1.25);
+  const pieces: Rect[] = [];
+  for (let step = 0; step < stepCount; step += 1) {
+    const fromRatio = step / stepCount;
+    const toRatio = (step + 1) / stepCount;
+    const fromX = start.x + (end.x - start.x) * fromRatio;
+    const fromY = start.y + (end.y - start.y) * fromRatio;
+    const toX = start.x + (end.x - start.x) * toRatio;
+    const toY = start.y + (end.y - start.y) * toRatio;
+    pieces.push({
+      x: Math.min(fromX, toX) - padding,
+      y: Math.min(fromY, toY) - padding,
+      width: Math.abs(toX - fromX) + padding * 2,
+      height: Math.abs(toY - fromY) + padding * 2,
+    });
+  }
+  return pieces;
+}
+
+function localObstacleBounds(node: SceneNode, plot: PlotArea): readonly Rect[] {
+  if (node.type === 'line') {
+    return segmentObstacleBounds(
+      { x: node.x1, y: node.y1 },
+      { x: node.x2, y: node.y2 },
+      node.lineWidth,
+      plot,
+    );
+  }
+  if (node.type !== 'path') {
+    const bounds = sceneNodeBounds(node);
+    return bounds === null ? [] : [bounds];
+  }
+  const pieces: Rect[] = [];
+  for (const points of [node.points, ...(node.subpaths ?? [])]) {
+    if (points.length === 1) {
+      const point = points[0]!;
+      const radius = Math.max(2, node.lineWidth / 2 + 1.25);
+      pieces.push({
+        x: point.x - radius,
+        y: point.y - radius,
+        width: radius * 2,
+        height: radius * 2,
+      });
+      continue;
+    }
+    for (let index = 1; index < points.length; index += 1) {
+      pieces.push(
+        ...segmentObstacleBounds(points[index - 1]!, points[index]!, node.lineWidth, plot),
+      );
+    }
+    if (node.closed && points.length > 2)
+      pieces.push(...segmentObstacleBounds(points.at(-1)!, points[0]!, node.lineWidth, plot));
+  }
+  return pieces;
+}
+
+function dataObstacleBounds(layerGroups: readonly SceneNode[], plot: PlotArea): readonly Rect[] {
+  const columns = 12;
+  const rows = 8;
+  const buckets = new Map<number, { bounds: Rect; count: number }>();
+  for (const node of layerGroups.flatMap((layer) => descendants(layer))) {
+    for (const bounds of localObstacleBounds(node, plot)) {
+      const clipped = clippedBounds(bounds, plot);
+      if (clipped === null) continue;
+      const centerX = clipped.x + clipped.width / 2;
+      const centerY = clipped.y + clipped.height / 2;
+      const column = Math.max(
+        0,
+        Math.min(columns - 1, Math.floor(((centerX - plot.x) / Math.max(1, plot.width)) * columns)),
+      );
+      const row = Math.max(
+        0,
+        Math.min(rows - 1, Math.floor(((centerY - plot.y) / Math.max(1, plot.height)) * rows)),
+      );
+      const key = row * columns + column;
+      const prior = buckets.get(key);
+      buckets.set(key, {
+        bounds: union(prior?.bounds ?? null, clipped) ?? clipped,
+        count: (prior?.count ?? 0) + 1,
+      });
+    }
+  }
+  return [...buckets.values()].flatMap(({ bounds, count }) =>
+    Array.from({ length: Math.min(8, Math.max(1, Math.ceil(Math.log2(count + 1)))) }, () => bounds),
+  );
+}
+
+function controlStripBounds(spec: NormalizedChartSpec, width: number): Rect | null {
+  const controls = spec.interaction.controls;
+  if (controls === false) return null;
+  const buttonSize = width <= 560 ? 44 : 28;
+  const height = width <= 560 ? 44 : 30;
+  const buttonCount =
+    (controls.zoom ? 2 : 0) +
+    (controls.reset ? 1 : 0) +
+    (controls.fullscreen ? 1 : 0) +
+    (controls.export ? 1 : 0) +
+    (controls.annotations ? 1 : 0) +
+    (controls.playback ? 4 : 0);
+  if (buttonCount === 0) return null;
+  const navigationGroup = controls.zoom || controls.reset;
+  const utilityGroup = controls.fullscreen || controls.export || controls.annotations;
+  const separators =
+    (navigationGroup && (utilityGroup || controls.playback) ? 1 : 0) +
+    (utilityGroup && controls.playback ? 1 : 0);
+  const stripWidth = Math.min(
+    Math.max(1, width - 12),
+    buttonCount * buttonSize + separators * 5 + 2,
+  );
+  return { x: Math.max(0, width - stripWidth - 6), y: 6, width: stripWidth, height };
 }
 
 function annotationNodes(
@@ -295,8 +500,11 @@ function annotationNodes(
   plot: PlotArea,
   theme: ThemeTokens,
   locale: string | undefined,
-): readonly SceneNode[] {
-  if (!resolution.found) return [];
+  dataObstacles: readonly CalloutRect[],
+  protectedObstacles: readonly CalloutRect[],
+  occupiedCallouts: readonly CalloutRect[],
+): AnnotationNodesResult {
+  if (!resolution.found) return { nodes: [], bounds: null };
   const style = annotation.style ?? {};
   const availableWidth = Math.max(1, plot.width);
   const availableHeight = Math.max(1, plot.height);
@@ -310,30 +518,51 @@ function annotationNodes(
     Math.max(1, Math.min(maxWidth / 3, availableHeight / 3)),
   );
   const detailFontSize = Math.max(1, fontSize - 1);
-  let titleLines = wrapText(annotation.text, maxWidth - padding * 2, fontSize);
-  let detailLines =
+  const maximumContentWidth = Math.max(1, maxWidth - padding * 2);
+  const glyphGuard = Math.min(maximumContentWidth / 4, Math.max(0.75, fontSize * 0.12));
+  const wrappingWidth = Math.max(1, maximumContentWidth - glyphGuard * 2);
+  const wrappedTitle = wrapText(annotation.text, wrappingWidth, fontSize);
+  const wrappedDetail =
     annotation.detail === undefined
-      ? []
-      : wrapText(annotation.detail, maxWidth - padding * 2, detailFontSize);
+      ? { lines: [], truncated: false }
+      : wrapText(annotation.detail, wrappingWidth, detailFontSize);
+  let titleLines = wrappedTitle.lines;
+  let detailLines = wrappedDetail.lines;
   const lineHeight = fontSize * 1.35;
   const detailLineHeight = detailFontSize * 1.35;
   const lineBudget = Math.max(1, Math.floor((availableHeight - padding * 2) / detailLineHeight));
   titleLines = titleLines.slice(0, Math.max(1, Math.min(titleLines.length, lineBudget)));
   detailLines = detailLines.slice(0, Math.max(0, lineBudget - titleLines.length));
-  const ellipsizeLast = (lines: readonly string[], truncated: boolean): readonly string[] => {
+  const ellipsizeLast = (
+    lines: readonly string[],
+    truncated: boolean,
+    lineFontSize: number,
+  ): readonly string[] => {
     if (!truncated || lines.length === 0) return lines;
     const last = lines[lines.length - 1]!;
-    return [...lines.slice(0, -1), last.endsWith('…') ? last : `${last}…`];
+    return [
+      ...lines.slice(0, -1),
+      last.endsWith('…') ? last : ellipsizeLine(last, wrappingWidth, lineFontSize),
+    ];
   };
-  titleLines = ellipsizeLast(titleLines, titleLines.join(' ').length < annotation.text.length);
+  titleLines = ellipsizeLast(
+    titleLines,
+    wrappedTitle.truncated || titleLines.length < wrappedTitle.lines.length,
+    fontSize,
+  );
   detailLines = ellipsizeLast(
     detailLines,
-    annotation.detail !== undefined && detailLines.join(' ').length < annotation.detail.length,
+    wrappedDetail.truncated || detailLines.length < wrappedDetail.lines.length,
+    detailFontSize,
   );
-  const longest = Math.max(8, ...[...titleLines, ...detailLines].map((line) => line.length));
+  const longestWidth = Math.max(
+    fontSize * 4,
+    ...titleLines.map((line) => textWidth(line, fontSize)),
+    ...detailLines.map((line) => textWidth(line, detailFontSize)),
+  );
   const width = Math.min(
     maxWidth,
-    Math.max(Math.min(96, maxWidth), longest * fontSize * 0.58 + padding * 2),
+    Math.max(Math.min(96, maxWidth), longestWidth + padding * 2 + glyphGuard * 2),
   );
   const height = Math.min(
     availableHeight,
@@ -344,29 +573,26 @@ function annotationNodes(
   );
   const target = resolution.bounds;
   const anchor = { x: target.x + target.width / 2, y: target.y + target.height / 2 };
-  const placement =
-    annotation.placement === undefined || annotation.placement === 'auto'
-      ? anchor.x < plot.x + plot.width / 2
-        ? 'right'
-        : 'left'
-      : annotation.placement;
-  const gap = 18;
-  let x = anchor.x - width / 2;
-  let y = anchor.y - height / 2;
-  if (placement === 'top') y = target.y - height - gap;
-  if (placement === 'bottom') y = target.y + target.height + gap;
-  if (placement === 'left') x = target.x - width - gap;
-  if (placement === 'right') x = target.x + target.width + gap;
-  x += annotation.offsetX ?? 0;
-  y += annotation.offsetY ?? 0;
-  x = Math.max(plot.x, Math.min(plot.x + plot.width - width, x));
-  y = Math.max(plot.y, Math.min(plot.y + plot.height - height, y));
+  const placed = placeCallout({
+    target,
+    width,
+    height,
+    boundary: plot,
+    placement: annotation.placement ?? 'auto',
+    offsetX: annotation.offsetX ?? 0,
+    offsetY: annotation.offsetY ?? 0,
+    dataObstacles,
+    protectedObstacles,
+    occupiedCallouts,
+  });
+  const { x, y } = placed;
   const id = annotation.id ?? `annotation-${index}`;
   const bubbleCenter = { x: x + width / 2, y: y + height / 2 };
   const connector = typeof annotation.connector === 'object' ? annotation.connector : {};
   const connectorVisible =
     typeof annotation.connector === 'boolean' ? annotation.connector : (connector.visible ?? true);
   const nodes: SceneNode[] = [];
+  const textNodes: SceneNode[] = [];
   const rtl = locale !== undefined && /^(ar|fa|he|ur)(?:-|$)/i.test(locale);
   const logicalAlign = style.align ?? 'start';
   const textAlign: CanvasTextAlign =
@@ -383,8 +609,8 @@ function annotationNodes(
     logicalAlign === 'center'
       ? x + width / 2
       : textAlign === 'right'
-        ? x + width - padding
-        : x + padding;
+        ? x + width - padding - glyphGuard
+        : x + padding + glyphGuard;
   if (connectorVisible) {
     nodes.push({
       type: 'line',
@@ -427,12 +653,12 @@ function annotationNodes(
       baseline: 'top',
       rotation: 0,
     };
-    nodes.push(node);
+    textNodes.push(node);
     textY += lineHeight;
   }
   if (detailLines.length > 0) textY += 4;
   for (const [lineIndex, text] of detailLines.entries()) {
-    nodes.push({
+    textNodes.push({
       type: 'text',
       ...nodeBase(`annotation:${id}:detail:${lineIndex}`, { zIndex: 702 }),
       x: textX,
@@ -448,7 +674,19 @@ function annotationNodes(
     });
     textY += detailLineHeight;
   }
-  return nodes;
+  if (textNodes.length > 0)
+    nodes.push(
+      group(`annotation:${id}:content`, textNodes, {
+        zIndex: 702,
+        clip: {
+          x: x + padding,
+          y: y + padding,
+          width: Math.max(0, width - padding * 2),
+          height: Math.max(0, height - padding * 2),
+        },
+      }),
+    );
+  return { nodes, bounds: placed.bounds };
 }
 
 export function compileDecorations(options: {
@@ -457,6 +695,8 @@ export function compileDecorations(options: {
   readonly scales: ScaleResolution;
   readonly plot: PlotArea;
   readonly theme: ThemeTokens;
+  readonly width: number;
+  readonly legendBounds?: Rect;
   readonly runtime?: DecorationRuntimeState;
   readonly datumVisible?: (
     layerId: string,
@@ -507,6 +747,20 @@ export function compileDecorations(options: {
     }
   }
   const annotations = options.runtime?.annotations ?? options.spec.annotations;
+  if (options.runtime?.annotationsVisible === false)
+    return {
+      underlay:
+        underlay.length === 0
+          ? []
+          : [group('decorations:underlay', underlay, { zIndex: -200, clip: options.plot })],
+      overlay: overlay.length === 0 ? [] : [group('decorations:overlay', overlay, { zIndex: 600 })],
+    };
+  const dataObstacles = dataObstacleBounds(options.layerGroups, options.plot);
+  const protectedObstacles = [
+    options.legendBounds,
+    controlStripBounds(options.spec, options.width),
+  ].filter((bounds): bounds is Rect => bounds !== undefined && bounds !== null);
+  const occupiedCallouts: Rect[] = [];
   annotations.forEach((annotation, index) => {
     const resolution = targetBounds(
       annotation.target,
@@ -515,16 +769,19 @@ export function compileDecorations(options: {
       options.plot,
       options.datumVisible,
     );
-    overlay.push(
-      ...annotationNodes(
-        annotation,
-        index,
-        resolution,
-        options.plot,
-        options.theme,
-        options.spec.locale,
-      ),
+    const compiled = annotationNodes(
+      annotation,
+      index,
+      resolution,
+      options.plot,
+      options.theme,
+      options.spec.locale,
+      dataObstacles,
+      protectedObstacles,
+      occupiedCallouts,
     );
+    overlay.push(...compiled.nodes);
+    if (compiled.bounds !== null) occupiedCallouts.push(compiled.bounds);
   });
   return {
     underlay:

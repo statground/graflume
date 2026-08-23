@@ -49,10 +49,12 @@ const chart = GraflumeSpatial.createSpatial('#chart', {
     wheel: 'modifier',
     picking: true,
     tooltip: true,
-    controls: true,
+    controls: { annotations: true },
     labels: {
       chart: 'Interactive three-dimensional chart',
       toolbar: 'Three-dimensional chart controls',
+      showAnnotations: 'Show notes',
+      hideAnnotations: 'Hide notes',
       instructions: 'Drag to orbit; use the arrow keys to move the camera.',
       contextLost: 'The graphics context is being restored.',
       unavailable: 'This environment cannot display the spatial chart.',
@@ -89,7 +91,7 @@ const chart = GraflumeSpatial.createSpatial('#chart', {
 });
 ```
 
-Every Quick API and `createSpatial()` returns a `SpatialChart` with `getSpec()`, `setSpec()`, `getAvailability()`, `getCamera()`, `setCamera()`, `orbitBy()`, `panBy()`, `zoomBy()`, `resetCamera()`, `setProjection()`, `getLegendState()`, `setLegendItemVisible()`, `resetLegend()`, `getSelection()`, `setSelection()`, `clearSelection()`, `getAnnotations()`, `setAnnotations()`, `addAnnotation()`, `updateAnnotation()`, `removeAnnotation()`, `resize()`, `render()`, `toDataURL()`, `toggleFullscreen()`, `on()`, `off()`, and `destroy()`.
+Every Quick API and `createSpatial()` returns a `SpatialChart` with `getSpec()`, `setSpec()`, `getAvailability()`, `getCamera()`, `setCamera()`, `orbitBy()`, `panBy()`, `zoomBy()`, `resetCamera()`, `setProjection()`, `getLegendState()`, `setLegendItemVisible()`, `resetLegend()`, `getSelection()`, `setSelection()`, `clearSelection()`, `getAnnotations()`, `setAnnotations()`, `addAnnotation()`, `updateAnnotation()`, `removeAnnotation()`, `getAnnotationsVisible()`, `setAnnotationsVisible()`, `toggleAnnotations()`, `resize()`, `render()`, `toDataURL()`, `toggleFullscreen()`, `on()`, `off()`, and `destroy()`.
 
 ## Spatial legends, highlights, selection, and callouts
 
@@ -97,12 +99,15 @@ Spatial uses the same portable legend and style vocabulary as Canvas charts, whi
 
 Layer legends are keyboard-operable visibility controls. Category legends require explicit items because arbitrary 3D geometry has no universal category field, and both category and continuous legends are descriptive rather than visibility toggles. Continuous inference follows actual scalar compiler meaning: surface/mesh values or elevation, volume scalar values, vector magnitude, and scatter values. Where source colors are supplied, endpoint colors follow the rendered low/high data colors. External `top`, `right`, `bottom`, and `left` positions reserve an adaptive rail and resize the WebGL viewport, while the four `inside-*` positions intentionally float over the plot. All eight positions remain bounded when the chart is resized.
 
-Selection uses real depth-aware picks and is opt-in through `interaction.selection`. Pointer click, enabled background/Escape clearing, and programmatic `setSelection()` share `selectionchange`; selection style adapts to a projected point or aggregate target bounds. Authored static surface/mesh highlights and callouts are explanatory overlays: they remain projected even when ordinary geometry passes in front of their anchor, while geographic targets on the far side of the globe are hidden. Pointer picking remains depth-aware. Text-only annotations accept no raw HTML or callbacks and follow their projected target. Legend, selection, and runtime annotation changes are transient and never mutate `getSpec()`; `setSpec()` installs a new base and emits `spec` lifecycle reasons.
+Selection uses real depth-aware picks and is opt-in through `interaction.selection`. Pointer click, enabled background/Escape clearing, and programmatic `setSelection()` share `selectionchange`; selection style adapts to a projected point or aggregate target bounds. Authored static surface/mesh highlights and callouts are explanatory overlays: they remain projected even when ordinary geometry passes in front of their anchor, while geographic targets on the far side of the globe are hidden. Pointer picking remains depth-aware. Text-only annotations accept no raw HTML or callbacks and follow their projected target. Auto placement scores chart bounds, the target, projected data samples, the toolbar, an inside legend, and earlier callouts; a safe explicit cardinal placement remains authoritative. DOM text wraps unbroken multilingual content and receives a bounded line clamp, while the complete original text remains in the DOM accessible name and chart description.
+
+Set `interaction.controls: { annotations: true }` to add the same accessible show/hide button used by Canvas charts; existing boolean `controls` remains compatible. The button is omitted while no annotation exists. Hiding removes bubbles and connectors only, so highlights, selection, and the authored accessibility description remain. Legend, selection, runtime annotation, and annotation visibility changes are transient and never mutate `getSpec()`; `setSpec()` restores visibility and emits `spec` lifecycle reasons.
 
 ```js
 chart.on('legendchange', ({ state, reason }) => console.log(reason, state.items));
 chart.on('selectionchange', ({ state, reason }) => console.log(reason, state.items));
 chart.on('annotationchange', ({ annotations, reason }) => console.log(reason, annotations.length));
+chart.on('annotationvisibilitychange', ({ visible, reason }) => console.log(reason, visible));
 
 const noteId = chart.addAnnotation({
   target: { type: 'datum', layerId: 'observations', datumIndex: 3 },
@@ -110,13 +115,14 @@ const noteId = chart.addAnnotation({
   detail: 'Authored by the host application',
 });
 chart.updateAnnotation(noteId, { placement: 'right' });
+chart.toggleAnnotations();
 ```
 
 Highlights, selection rings, callouts, and legends are safe DOM overlays over the WebGL framebuffer. Therefore `toDataURL()` and PNG export contain the GPU geometry but intentionally exclude those DOM overlays, tooltips, and controls. Export an application-composited capture if the callouts must be baked into an image.
 
 ## Interaction and accessibility
 
-The compact toolbar stays outside the primary data region at the upper-right edge. Its visual buttons are 28 px; coarse pointers and viewports up to 560 px receive 44 px targets. Keyboard focus uses a visible outline. Pointer drag orbits, Pan mode/Shift-drag/secondary-button drag pans, two pointers pinch, and keyboard arrows or `+`, `-`, `0` navigate.
+The compact toolbar stays at the upper-right edge and participates in automatic callout collision scoring. Its visual buttons are 28 px; coarse pointers and viewports up to 560 px receive 44 px targets. Keyboard focus uses a visible outline. `interaction.labels.showAnnotations` and `hideAnnotations` localize the annotation visibility button. Pointer drag orbits, Pan mode/Shift-drag/secondary-button drag pans, two pointers pinch, and keyboard arrows or `+`, `-`, `0` navigate.
 
 Wheel zoom defaults to `wheel: "modifier"`, so it runs only with Control or Command and does not take normal page scrolling. `"always"` and `"off"` are explicit alternatives. The surface is `touch-action: pan-y` while idle and captures a horizontal or multi-pointer spatial gesture only while it is active.
 

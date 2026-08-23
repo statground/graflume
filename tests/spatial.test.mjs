@@ -722,4 +722,40 @@ test('spatial JSON schema is versioned and closes every object declaration', asy
     ),
     ['chart', 'toolbar', 'instructions', 'contextLost', 'unavailable'],
   );
+  assert.equal(schema.$defs.controls.properties.annotations.type, 'boolean');
+  assert.deepEqual(schema.$defs.interaction.properties.controls.oneOf, [
+    { type: 'boolean' },
+    { $ref: '#/$defs/controls' },
+  ]);
+  assert.equal(schema.$defs.controlLabels.properties.showAnnotations.type, 'string');
+  assert.equal(schema.$defs.controlLabels.properties.hideAnnotations.type, 'string');
+  assert.deepEqual(schema.$defs.controls.additionalProperties, false);
+});
+
+test('spatial annotation controls and localized visibility labels validate portably', () => {
+  const base = {
+    interaction: {
+      controls: { annotations: true },
+      labels: { showAnnotations: '주석 보기', hideAnnotations: '주석 숨기기' },
+    },
+    layers: [
+      {
+        mark: { type: 'scatter' },
+        data: { positions: [[0, 0, 0]] },
+      },
+    ],
+  };
+  assert.deepEqual(validateSpatialSpec(base), []);
+  const issues = validateSpatialSpec({
+    ...base,
+    interaction: {
+      controls: { annotations: 'yes', html: true },
+      labels: { showAnnotations: 1, hideAnnotations: () => 'unsafe' },
+    },
+  });
+  const paths = new Set(issues.map(({ path }) => path));
+  assert.ok(paths.has('$.interaction.controls.annotations'));
+  assert.ok(paths.has('$.interaction.controls.html'));
+  assert.ok(paths.has('$.interaction.labels.showAnnotations'));
+  assert.ok(paths.has('$.interaction.labels.hideAnnotations'));
 });

@@ -10,6 +10,8 @@ export interface ControlsState {
   readonly fullscreenAvailable: boolean;
   readonly fullscreen: boolean;
   readonly exportAvailable: boolean;
+  readonly annotationsAvailable: boolean;
+  readonly annotationsVisible: boolean;
   readonly playbackEnabled: boolean;
   readonly playbackIndex: number;
   readonly playbackLength: number;
@@ -25,6 +27,7 @@ export interface ControlsActions {
   readonly reset: () => void;
   readonly toggleFullscreen: () => void;
   readonly exportPng: () => void;
+  readonly toggleAnnotations: () => void;
   readonly previousFrame: () => void;
   readonly togglePlayback: () => void;
   readonly nextFrame: () => void;
@@ -40,6 +43,7 @@ interface Elements {
   readonly reset?: HTMLButtonElement;
   readonly fullscreen?: HTMLButtonElement;
   readonly exportPng?: HTMLButtonElement;
+  readonly annotations?: HTMLButtonElement;
   readonly previousFrame?: HTMLButtonElement;
   readonly play?: HTMLButtonElement;
   readonly nextFrame?: HTMLButtonElement;
@@ -59,6 +63,8 @@ type IconName =
   | 'fullscreen'
   | 'exit-fullscreen'
   | 'export'
+  | 'annotations'
+  | 'annotations-hidden'
   | 'previous'
   | 'play'
   | 'pause'
@@ -74,6 +80,8 @@ const ICON_PATHS: Readonly<Record<IconName, string>> = {
   'exit-fullscreen': 'M9 4.5V9H4.5M19.5 9H15V4.5M15 19.5V15h4.5M4.5 15H9v4.5',
   export:
     'M4.5 8h3l1.4-2h6.2l1.4 2h3v10.5h-15V8ZM12 10a3.25 3.25 0 1 0 0 6.5A3.25 3.25 0 0 0 12 10Z',
+  annotations: 'M4.5 5.5h15v10h-9l-4 3v-3h-2v-10Z',
+  'annotations-hidden': 'M4.5 5.5h15v10h-5M10.5 15.5l-4 3v-3h-2v-10h2M4 4l16 16',
   previous: 'M6 5v14M18 6.5 9.5 12l8.5 5.5Z',
   play: 'M8 5.5 18 12 8 18.5Z',
   pause: 'M8.5 6v12M15.5 6v12',
@@ -208,12 +216,14 @@ export class ControlsController {
       reset: state.spec.reset,
       fullscreen: state.spec.fullscreen,
       export: state.spec.export,
+      annotations: state.spec.annotations,
+      annotationsAvailable: state.annotationsAvailable,
       playback: state.spec.playback,
       labels: state.spec.labels,
     });
     if (this.#elements === null || this.#signature !== signature) {
       this.destroy();
-      this.#elements = this.#create(host.ownerDocument, state.spec, actions);
+      this.#elements = this.#create(host.ownerDocument, state, actions);
       this.#signature = signature;
     }
     const elements = this.#elements;
@@ -230,7 +240,8 @@ export class ControlsController {
     this.#signature = '';
   }
 
-  #create(document: Document, spec: NormalizedControlsSpec, actions: ControlsActions): Elements {
+  #create(document: Document, state: ControlsState, actions: ControlsActions): Elements {
+    const spec = state.spec;
     const root = document.createElement('div');
     root.className = 'graflume-controls';
     root.dataset.graflumeControls = 'true';
@@ -254,6 +265,7 @@ export class ControlsController {
       reset?: HTMLButtonElement;
       fullscreen?: HTMLButtonElement;
       exportPng?: HTMLButtonElement;
+      annotations?: HTMLButtonElement;
       previousFrame?: HTMLButtonElement;
       play?: HTMLButtonElement;
       nextFrame?: HTMLButtonElement;
@@ -266,6 +278,7 @@ export class ControlsController {
       status?: HTMLSpanElement;
     } = { root };
     const labels = spec.labels;
+    const showAnnotations = spec.annotations && state.annotationsAvailable;
 
     if (spec.zoom) {
       elements.zoomOut = button(document, 'zoom-out', 'zoom-out', labels.zoomOut, actions.zoomOut);
@@ -276,7 +289,10 @@ export class ControlsController {
       elements.reset = button(document, 'reset', 'reset', labels.reset, actions.reset);
       strip.append(elements.reset);
     }
-    if ((spec.zoom || spec.reset) && (spec.fullscreen || spec.export || spec.playback)) {
+    if (
+      (spec.zoom || spec.reset) &&
+      (spec.fullscreen || spec.export || showAnnotations || spec.playback)
+    ) {
       strip.append(separator(document));
     }
     if (spec.fullscreen) {
@@ -299,7 +315,18 @@ export class ControlsController {
       );
       strip.append(elements.exportPng);
     }
-    if ((spec.fullscreen || spec.export) && spec.playback) strip.append(separator(document));
+    if (showAnnotations) {
+      elements.annotations = button(
+        document,
+        'annotations',
+        'annotations',
+        labels.hideAnnotations,
+        actions.toggleAnnotations,
+      );
+      strip.append(elements.annotations);
+    }
+    if ((spec.fullscreen || spec.export || showAnnotations) && spec.playback)
+      strip.append(separator(document));
     if (spec.playback) {
       const playbackOptionsLabel = `${labels.seek} · ${labels.speed} · ${labels.loop}`;
       elements.previousFrame = button(
@@ -411,6 +438,18 @@ export class ControlsController {
       elements.fullscreen.setAttribute('aria-pressed', String(state.fullscreen));
     }
     if (elements.exportPng !== undefined) elements.exportPng.disabled = !state.exportAvailable;
+    if (elements.annotations !== undefined) {
+      elements.annotations.disabled = !state.annotationsAvailable;
+      updateLabel(
+        elements.annotations,
+        state.annotationsVisible ? labels.hideAnnotations : labels.showAnnotations,
+      );
+      setIcon(
+        elements.annotations,
+        state.annotationsVisible ? 'annotations' : 'annotations-hidden',
+      );
+      elements.annotations.setAttribute('aria-pressed', String(state.annotationsVisible));
+    }
 
     const playbackDisabled = !state.playbackEnabled || state.playbackLength <= 1;
     if (elements.previousFrame !== undefined) elements.previousFrame.disabled = playbackDisabled;

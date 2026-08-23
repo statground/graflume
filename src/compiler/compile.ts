@@ -295,15 +295,6 @@ export function compileWithRegistry(
     });
   });
 
-  const decorations = compileDecorations({
-    spec,
-    layerGroups,
-    scales,
-    plot: layout.plot,
-    theme,
-    runtime,
-    datumVisible,
-  });
   const legend = compileLegend(
     legendModel,
     layerGroups,
@@ -313,6 +304,17 @@ export function compileWithRegistry(
     theme,
     hiddenLegendItems,
   );
+  const decorations = compileDecorations({
+    spec,
+    layerGroups,
+    scales,
+    plot: layout.plot,
+    theme,
+    width,
+    ...(legend.layout === null ? {} : { legendBounds: legend.layout.bounds }),
+    runtime,
+    datumVisible,
+  });
 
   const children: SceneNode[] = [
     ...decorations.underlay,

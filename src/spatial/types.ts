@@ -38,9 +38,15 @@ export interface SpatialControlLabels {
   readonly projection?: string;
   readonly fullscreen?: string;
   readonly exportPng?: string;
+  readonly showAnnotations?: string;
+  readonly hideAnnotations?: string;
   readonly instructions?: string;
   readonly contextLost?: string;
   readonly unavailable?: string;
+}
+
+export interface SpatialControlsSpec {
+  readonly annotations?: boolean;
 }
 
 export interface SpatialTooltipSpec {
@@ -55,7 +61,7 @@ export interface SpatialInteractionSpec {
   readonly wheel?: 'off' | 'modifier' | 'always';
   readonly picking?: boolean;
   readonly tooltip?: boolean | SpatialTooltipSpec;
-  readonly controls?: boolean;
+  readonly controls?: boolean | SpatialControlsSpec;
   readonly labels?: SpatialControlLabels;
   readonly selection?: boolean | SpatialSelectionSpec;
 }

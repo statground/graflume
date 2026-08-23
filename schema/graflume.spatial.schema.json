@@ -141,9 +141,18 @@
         "projection": { "type": "string", "maxLength": 256 },
         "fullscreen": { "type": "string", "maxLength": 256 },
         "exportPng": { "type": "string", "maxLength": 256 },
+        "showAnnotations": { "type": "string", "maxLength": 256 },
+        "hideAnnotations": { "type": "string", "maxLength": 256 },
         "instructions": { "type": "string", "maxLength": 256 },
         "contextLost": { "type": "string", "maxLength": 256 },
         "unavailable": { "type": "string", "maxLength": 256 }
+      }
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "annotations": { "type": "boolean" }
       }
     },
     "interaction": {
@@ -156,7 +165,9 @@
         "wheel": { "enum": ["off", "modifier", "always"] },
         "picking": { "type": "boolean" },
         "tooltip": { "$ref": "#/$defs/tooltip" },
-        "controls": { "type": "boolean" },
+        "controls": {
+          "oneOf": [{ "type": "boolean" }, { "$ref": "#/$defs/controls" }]
+        },
         "labels": { "$ref": "#/$defs/controlLabels" },
         "selection": {
           "oneOf": [{ "type": "boolean" }, { "$ref": "#/$defs/selection" }]

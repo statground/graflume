@@ -986,6 +986,13 @@
             "enum": ["__proto__", "prototype", "constructor"]
           }
         },
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "not": {
+            "enum": ["__proto__", "prototype", "constructor"]
+          }
+        },
         "layerId": {
           "type": "string",
           "minLength": 1
@@ -1014,8 +1021,26 @@
         "autoplay": {
           "type": "boolean"
         },
+        "transition": {
+          "oneOf": [{ "const": false }, { "$ref": "#/$defs/playbackTransition" }]
+        },
         "filter": {
           "type": "boolean"
+        }
+      }
+    },
+    "playbackTransition": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "duration": {
+          "type": "number",
+          "minimum": 50,
+          "maximum": 60000,
+          "description": "Requested maximum duration in milliseconds; runtime clamps it below the playback interval."
+        },
+        "easing": {
+          "enum": ["linear", "ease-in-out"]
         }
       }
     },
@@ -1033,6 +1058,9 @@
           "type": "boolean"
         },
         "export": {
+          "type": "boolean"
+        },
+        "annotations": {
           "type": "boolean"
         },
         "playback": {
@@ -1054,6 +1082,8 @@
         "enterFullscreen": { "type": "string", "minLength": 1 },
         "exitFullscreen": { "type": "string", "minLength": 1 },
         "exportPng": { "type": "string", "minLength": 1 },
+        "showAnnotations": { "type": "string", "minLength": 1 },
+        "hideAnnotations": { "type": "string", "minLength": 1 },
         "previousFrame": { "type": "string", "minLength": 1 },
         "play": { "type": "string", "minLength": 1 },
         "pause": { "type": "string", "minLength": 1 },
