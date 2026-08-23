@@ -119,6 +119,51 @@ test('continuous legend is one responsive gradient with distinct endpoint labels
   );
 });
 
+test('horizontal legends preserve fitting labels and ellipsize only constrained labels', () => {
+  const fittingLabels = ['Activity · size', 'Magnitude · length', 'Volume · width'];
+  for (const [index, label] of fittingLabels.entries()) {
+    const itemId = `channel-${index}`;
+    const { scene } = compile(
+      {
+        data: [{ category: 'A', value: 12 }],
+        mark: 'bar',
+        x: 'category',
+        y: 'value',
+        legend: {
+          mode: 'layers',
+          position: 'top',
+          items: [{ id: itemId, label, color: '#4f46e5' }],
+        },
+      },
+      { width: 320, height: 220 },
+    );
+    const renderedLabel = nodes(scene.root).find(({ id }) => id === `legend:item:${itemId}:label`);
+    assert.equal(renderedLabel.text, label);
+  }
+
+  const longLabel = 'A deliberately long legend label that exceeds a narrow chart';
+  const { scene } = compile(
+    {
+      data: [{ category: 'A', value: 12 }],
+      mark: 'bar',
+      x: 'category',
+      y: 'value',
+      legend: {
+        mode: 'layers',
+        position: 'top',
+        items: [{ id: 'constrained', label: longLabel, color: '#4f46e5' }],
+      },
+    },
+    { width: 150, height: 120 },
+  );
+  const renderedLabel = nodes(scene.root).find(({ id }) => id === 'legend:item:constrained:label');
+  assert.notEqual(renderedLabel.text, longLabel);
+  assert.equal(renderedLabel.text.endsWith('…'), true);
+  assert.match(scene.accessibility.description, new RegExp(longLabel));
+  const legend = sceneLegendLayout(scene);
+  assert.ok(legend.bounds.x >= 0 && legend.bounds.x + legend.bounds.width <= scene.width);
+});
+
 test('reversed band ranges expand to the same bounds and Arabic callouts align logically', () => {
   const base = {
     data: [
