@@ -24,6 +24,8 @@ Every image below is generated from the current compiled Scene rather than drawn
 
 The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. This family uses `trigger: "axis"` with `axis: "y"`. An exact rendered-mark hit still has priority; otherwise Graflume selects the nearest actual datum on that axis without inventing an interpolated row. Tooltip interaction is a pointer-only convenience, so keep a readable summary or data table available for exact values and keyboard access. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
 
+Every family can opt into the Canvas [inspection viewport, fullscreen, reset, and PNG controls](./interactions.md). Inspection magnifies and translates the complete already-rendered chart, including its title and axes; it is not data-domain or GIS zoom. Generated examples intentionally leave playback off. Add discrete playback only after selecting a meaningful frame field and reviewing the family-specific capability table.
+
 <a id="variant-volume-by-price"></a>
 
 ### Volume by price
@@ -548,6 +550,8 @@ Common `fill`, `stroke`, `opacity`, `lineWidth`, `radius`, and `cornerRadius` pr
 
 Rendered datum shapes keep `layerId`, `rowIndex`, and the source row. Standard mode enables hit testing; large and ultra profiles may disable per-mark hit testing. Decorative grid, shadow, depth, label, and arrowhead nodes do not create duplicate datum targets.
 
+Keep generic playback filtering off by default. Every filtered frame recomputes price-bin boundaries and aggregated volume, so apparent changes can come from a different binning basis rather than market activity. A trustworthy time animation needs fixed precomputed price bands or a dedicated aggregation contract. Inspection/fullscreen/export do not change the aggregation; see [Common chart interactions](./interactions.md).
+
 ## Accessibility
 
 Provide a concise `accessibility.label` and a description of the main pattern. Canvas output should be paired with the runtime data-table fallback. Do not encode a required distinction only with color, depth, angle, or area.
@@ -558,7 +562,7 @@ Scene cost is linear in rows for ordinary cases. Relationship crossings, repeate
 
 ## Current limitations
 
-This alpha implementation covers the documented data meaning and Scene output. Domain-specific editing tools, animation choreography, and very-large-data GPU paths remain separate follow-up work.
+This alpha implementation covers the documented data meaning and Scene output. Fixed-band temporal aggregation, animation choreography, and very-large-data GPU paths remain separate follow-up work.
 
 ## Runnable references
 

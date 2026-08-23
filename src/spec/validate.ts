@@ -18,6 +18,45 @@ const TOOLTIP_FIELD_KEYS = new Set([
   'prefix',
   'suffix',
 ]);
+const INTERACTION_KEYS = new Set([
+  'hover',
+  'click',
+  'tooltip',
+  'navigation',
+  'playback',
+  'controls',
+]);
+const NAVIGATION_KEYS = new Set(['minZoom', 'maxZoom', 'wheel', 'drag', 'pinch', 'keyboard']);
+const NAVIGATION_WHEEL_MODES = new Set(['off', 'modifier', 'always']);
+const PLAYBACK_KEYS = new Set([
+  'field',
+  'layerId',
+  'mode',
+  'interval',
+  'rate',
+  'loop',
+  'windowSize',
+  'autoplay',
+  'filter',
+]);
+const PLAYBACK_MODES = new Set(['frame', 'cumulative', 'window']);
+const CONTROLS_KEYS = new Set(['zoom', 'reset', 'fullscreen', 'export', 'playback', 'labels']);
+const CONTROL_LABEL_KEYS = new Set([
+  'controls',
+  'zoomIn',
+  'zoomOut',
+  'reset',
+  'enterFullscreen',
+  'exitFullscreen',
+  'exportPng',
+  'previousFrame',
+  'play',
+  'pause',
+  'nextFrame',
+  'seek',
+  'speed',
+  'loop',
+]);
 const ENCODING_KEYS = new Set(['field', 'type', 'title', 'scale', 'axis', 'axisId']);
 const FIELD_TYPES = new Set(['quantitative', 'temporal', 'ordinal', 'nominal']);
 const SCALE_KEYS = new Set([
@@ -696,73 +735,190 @@ function validateInteraction(value: unknown, path: string, issues: SpecIssue[]):
     issues.push({ path, message: 'Interaction must be an object.' });
     return;
   }
+  validateUnknownKeys(value, INTERACTION_KEYS, path, 'interaction', issues);
   for (const key of ['hover', 'click'] as const) {
     if (value[key] !== undefined && typeof value[key] !== 'boolean') {
       issues.push({ path: `${path}.${key}`, message: `Interaction ${key} must be a boolean.` });
     }
   }
   const tooltip = value.tooltip;
-  if (tooltip === undefined || typeof tooltip === 'boolean') return;
-  if (!isPlainObject(tooltip)) {
-    issues.push({ path: `${path}.tooltip`, message: 'Tooltip must be a boolean or an object.' });
-    return;
-  }
-  for (const key of Object.keys(tooltip)) {
-    if (!TOOLTIP_KEYS.has(key)) {
-      issues.push({
-        path: `${path}.tooltip.${key}`,
-        message: `Unknown tooltip property "${key}".`,
-      });
+  if (tooltip !== undefined && typeof tooltip !== 'boolean') {
+    if (!isPlainObject(tooltip)) {
+      issues.push({ path: `${path}.tooltip`, message: 'Tooltip must be a boolean or an object.' });
+    } else {
+      for (const key of Object.keys(tooltip)) {
+        if (!TOOLTIP_KEYS.has(key)) {
+          issues.push({
+            path: `${path}.tooltip.${key}`,
+            message: `Unknown tooltip property "${key}".`,
+          });
+        }
+      }
+      if (
+        tooltip.trigger !== undefined &&
+        (typeof tooltip.trigger !== 'string' || !['mark', 'axis'].includes(tooltip.trigger))
+      ) {
+        issues.push({
+          path: `${path}.tooltip.trigger`,
+          message: 'Tooltip trigger must be "mark" or "axis".',
+        });
+      }
+      if (
+        tooltip.axis !== undefined &&
+        (typeof tooltip.axis !== 'string' || !AXIS_IDS.has(tooltip.axis))
+      ) {
+        issues.push({
+          path: `${path}.tooltip.axis`,
+          message: 'Tooltip axis must be "x", "x2", "y", or "y2".',
+        });
+      }
+      const trigger = tooltip.trigger ?? 'mark';
+      if (trigger === 'axis' && tooltip.axis === undefined) {
+        issues.push({
+          path: `${path}.tooltip.axis`,
+          message: 'Tooltip axis is required when trigger is "axis".',
+        });
+      }
+      if (trigger !== 'axis' && tooltip.axis !== undefined) {
+        issues.push({
+          path: `${path}.tooltip.axis`,
+          message: 'Tooltip axis is only valid when trigger is "axis".',
+        });
+      }
+      if (tooltip.title !== undefined && typeof tooltip.title !== 'string') {
+        issues.push({ path: `${path}.tooltip.title`, message: 'Tooltip title must be a string.' });
+      }
+      if (tooltip.fields !== undefined) {
+        if (
+          !Array.isArray(tooltip.fields) ||
+          tooltip.fields.length === 0 ||
+          tooltip.fields.length > 12
+        ) {
+          issues.push({
+            path: `${path}.tooltip.fields`,
+            message: 'Tooltip fields must contain between 1 and 12 entries.',
+          });
+        } else {
+          tooltip.fields.forEach((field, index) =>
+            validateTooltipField(field, `${path}.tooltip.fields[${index}]`, issues),
+          );
+        }
+      }
     }
   }
+
+  validateNavigation(value.navigation, `${path}.navigation`, issues);
+  validatePlayback(value.playback, `${path}.playback`, issues);
+  validateControls(value.controls, `${path}.controls`, issues);
+}
+
+function validateNavigation(value: unknown, path: string, issues: SpecIssue[]): void {
+  if (value === undefined || typeof value === 'boolean') return;
+  if (!isPlainObject(value)) {
+    issues.push({ path, message: 'Navigation must be a boolean or an object.' });
+    return;
+  }
+  validateUnknownKeys(value, NAVIGATION_KEYS, path, 'navigation', issues);
+  if (value.minZoom !== undefined)
+    validateFiniteNumber(value.minZoom, `${path}.minZoom`, 'Navigation minZoom', issues, {
+      min: 1,
+      max: 6,
+    });
+  if (value.maxZoom !== undefined)
+    validateFiniteNumber(value.maxZoom, `${path}.maxZoom`, 'Navigation maxZoom', issues, {
+      min: 1,
+      max: 6,
+    });
   if (
-    tooltip.trigger !== undefined &&
-    (typeof tooltip.trigger !== 'string' || !['mark', 'axis'].includes(tooltip.trigger))
+    typeof value.minZoom === 'number' &&
+    typeof value.maxZoom === 'number' &&
+    value.minZoom > value.maxZoom
+  ) {
+    issues.push({ path: `${path}.maxZoom`, message: 'Navigation maxZoom must be >= minZoom.' });
+  }
+  if (
+    value.wheel !== undefined &&
+    (typeof value.wheel !== 'string' || !NAVIGATION_WHEEL_MODES.has(value.wheel))
   ) {
     issues.push({
-      path: `${path}.tooltip.trigger`,
-      message: 'Tooltip trigger must be "mark" or "axis".',
+      path: `${path}.wheel`,
+      message: 'Navigation wheel must be "off", "modifier", or "always".',
     });
   }
+  validateOptionalBoolean(value.drag, `${path}.drag`, 'Navigation drag', issues);
+  validateOptionalBoolean(value.pinch, `${path}.pinch`, 'Navigation pinch', issues);
+  validateOptionalBoolean(value.keyboard, `${path}.keyboard`, 'Navigation keyboard', issues);
+}
+
+function validatePlayback(value: unknown, path: string, issues: SpecIssue[]): void {
+  if (value === undefined || value === false) return;
+  if (value === true) {
+    issues.push({ path: `${path}.field`, message: 'Playback field is required.' });
+    return;
+  }
+  if (!isPlainObject(value)) {
+    issues.push({ path, message: 'Playback must be false or an object.' });
+    return;
+  }
+  validateUnknownKeys(value, PLAYBACK_KEYS, path, 'playback', issues);
+  validateOptionalString(value.field, `${path}.field`, 'Playback field', issues, false);
+  if (value.field === undefined) {
+    issues.push({ path: `${path}.field`, message: 'Playback field is required.' });
+  } else if (typeof value.field === 'string' && UNSAFE_FIELDS.has(value.field)) {
+    issues.push({ path: `${path}.field`, message: `Unsafe field "${value.field}" is forbidden.` });
+  }
+  validateOptionalString(value.layerId, `${path}.layerId`, 'Playback layerId', issues, false);
   if (
-    tooltip.axis !== undefined &&
-    (typeof tooltip.axis !== 'string' || !AXIS_IDS.has(tooltip.axis))
+    value.mode !== undefined &&
+    (typeof value.mode !== 'string' || !PLAYBACK_MODES.has(value.mode))
   ) {
-    issues.push({
-      path: `${path}.tooltip.axis`,
-      message: 'Tooltip axis must be "x", "x2", "y", or "y2".',
+    issues.push({ path: `${path}.mode`, message: 'Playback mode is not supported.' });
+  }
+  if (value.interval !== undefined)
+    validateFiniteNumber(value.interval, `${path}.interval`, 'Playback interval', issues, {
+      min: 100,
+      max: 60_000,
     });
-  }
-  const trigger = tooltip.trigger ?? 'mark';
-  if (trigger === 'axis' && tooltip.axis === undefined) {
-    issues.push({
-      path: `${path}.tooltip.axis`,
-      message: 'Tooltip axis is required when trigger is "axis".',
+  if (value.rate !== undefined)
+    validateFiniteNumber(value.rate, `${path}.rate`, 'Playback rate', issues, {
+      min: 0.1,
+      max: 16,
     });
-  }
-  if (trigger !== 'axis' && tooltip.axis !== undefined) {
-    issues.push({
-      path: `${path}.tooltip.axis`,
-      message: 'Tooltip axis is only valid when trigger is "axis".',
+  if (value.windowSize !== undefined)
+    validateFiniteNumber(value.windowSize, `${path}.windowSize`, 'Playback windowSize', issues, {
+      min: 1,
+      max: 10_000,
+      integer: true,
     });
+  validateOptionalBoolean(value.loop, `${path}.loop`, 'Playback loop', issues);
+  validateOptionalBoolean(value.autoplay, `${path}.autoplay`, 'Playback autoplay', issues);
+  validateOptionalBoolean(value.filter, `${path}.filter`, 'Playback filter', issues);
+}
+
+function validateControls(value: unknown, path: string, issues: SpecIssue[]): void {
+  if (value === undefined || typeof value === 'boolean') return;
+  if (!isPlainObject(value)) {
+    issues.push({ path, message: 'Controls must be a boolean or an object.' });
+    return;
   }
-  if (tooltip.title !== undefined && typeof tooltip.title !== 'string') {
-    issues.push({ path: `${path}.tooltip.title`, message: 'Tooltip title must be a string.' });
+  validateUnknownKeys(value, CONTROLS_KEYS, path, 'controls', issues);
+  for (const key of ['zoom', 'reset', 'fullscreen', 'export', 'playback'] as const) {
+    validateOptionalBoolean(value[key], `${path}.${key}`, `Controls ${key}`, issues);
   }
-  if (tooltip.fields !== undefined) {
-    if (
-      !Array.isArray(tooltip.fields) ||
-      tooltip.fields.length === 0 ||
-      tooltip.fields.length > 12
-    ) {
-      issues.push({
-        path: `${path}.tooltip.fields`,
-        message: 'Tooltip fields must contain between 1 and 12 entries.',
-      });
+  if (value.labels !== undefined) {
+    if (!isPlainObject(value.labels)) {
+      issues.push({ path: `${path}.labels`, message: 'Control labels must be an object.' });
     } else {
-      tooltip.fields.forEach((field, index) =>
-        validateTooltipField(field, `${path}.tooltip.fields[${index}]`, issues),
+      validateUnknownKeys(
+        value.labels,
+        CONTROL_LABEL_KEYS,
+        `${path}.labels`,
+        'control label',
+        issues,
       );
+      for (const [key, label] of Object.entries(value.labels)) {
+        validateOptionalString(label, `${path}.labels.${key}`, 'Control label', issues, false);
+      }
     }
   }
 }

@@ -4,7 +4,7 @@ Graflume `0.1.0-alpha.0` exposes 37 distinct chart families through two package 
 
 Every family below is implemented today. Direction, curve, depth, radius, glyph, layout, and indicator differences are presets inside one family instead of separate discovery entries.
 
-The directory contains one manual per representative family, not one file per historical name. Each family manual keeps every integrated type visible in a compiled-output gallery and follows it with type-by-type selection guidance, required data fields, stable anchors, and minimal runnable Quick API examples. The shared [Cartesian axis manual](./axes.md) documents formatting, label layout, styles, scale direction, secondary axes, and axis-nearest tooltips. The [compatibility preset index](./compatibility-presets.md) maps 139 family presets, while [Declarative adapters](./adapters.md) covers the remaining two compatibility names with the same visual-and-code structure; together they document all 141 historical names.
+The directory contains one manual per representative family, not one file per historical name. Each family manual keeps every integrated type visible in a compiled-output gallery and follows it with type-by-type selection guidance, required data fields, stable anchors, and minimal runnable Quick API examples. The shared [Cartesian axis manual](./axes.md) documents formatting, label layout, styles, scale direction, secondary axes, and axis-nearest tooltips. [Common chart interactions](./interactions.md) documents the inspection viewport, reset, fullscreen, PNG export, discrete playback, and the capability/constraint matrix for all 37 families. The [compatibility preset index](./compatibility-presets.md) maps 139 family presets, while [Declarative adapters](./adapters.md) covers the remaining two compatibility names with the same visual-and-code structure; together they document all 141 historical names.
 
 Use `resolveSeriesType(identifier)` from `graflume/complete` to resolve case, spaces, hyphens, or underscores into the catalog's single representative family. `seriesCompatibilityCatalog` exposes all 117 identifier-to-family mappings for adapters and migration tools.
 
@@ -157,6 +157,8 @@ const chart = line('#chart', data, {
   theme: 'graflume-light',
   locale: 'en-US',
   interaction: {
+    navigation: { maxZoom: 4, wheel: 'modifier' },
+    controls: { zoom: true, reset: true, fullscreen: true, export: true },
     tooltip: {
       title: 'Monthly sales',
       trigger: 'axis',
@@ -235,7 +237,7 @@ All active axes can be categorical, quantitative, or temporal. Layers sharing an
 | `locale`        | Number/date formatting locale for axes                        |
 | `renderer`      | `auto` or a registered renderer name; Canvas 2D is built in   |
 | `performance`   | `auto`, `standard`, `large`, or `ultra`                       |
-| `interaction`   | Configure hover, click, and the opt-in text-only tooltip      |
+| `interaction`   | Configure tooltips, inspection, controls, and opt-in playback |
 | `accessibility` | Canvas ARIA label and description                             |
 | `axes`          | Chart-level `x`/`x2`/`y`/`y2` axis defaults                   |
 
@@ -272,19 +274,32 @@ const unsubscribe = chart.on('hover', ({ hit }) => {
 
 chart.on('click', ({ hit }) => console.log(hit?.datum));
 chart.on('resize', ({ width, height }) => console.log(width, height));
+chart.on('viewchange', ({ view, reason }) => console.log(reason, view));
+chart.on('playbackchange', ({ state, reason }) => console.log(reason, state.frame));
+chart.on('fullscreenchange', ({ active }) => console.log({ active }));
 chart.on('error', ({ error }) => console.error(error));
 
 chart.setData(nextData);
 chart.appendData([{ month: 'Apr', sales: 63 }]);
 chart.setSpec(nextSpec);
 chart.resize();
+chart.zoomBy(1.25);
+chart.panBy(24, 0);
+chart.resetView();
+chart.play();
+chart.pause();
+chart.step(1);
+chart.seek(0);
+chart.setPlaybackRate(2);
+chart.setPlaybackLoop(true);
+await chart.toggleFullscreen();
 const png = chart.toDataURL('image/png');
 
 unsubscribe();
 chart.destroy();
 ```
 
-`hover` and `click` return structured datum references. The current `appendData()` implementation is copy-based; a ring-buffer/incremental engine is planned behind the same API.
+`hover` and `click` return structured datum references. `getViewState()` reports `{ enabled, zoom, offsetX, offsetY }`; `getPlaybackState()` reports `{ enabled, frames, index, frame?, playing, rate, loop, mode }`. Inspection and playback mutators require their corresponding opt-in specification. See [Common chart interactions](./interactions.md) for event payloads, method constraints, and semantic playback policy. The current `appendData()` implementation is copy-based; a ring-buffer/incremental engine is planned behind the same API.
 
 ### Built-in text-only tooltip
 
@@ -312,6 +327,12 @@ Supported formats are `auto`, `number`, `integer`, `percent`, `date`, and `datet
 Tooltip titles, labels, and values are inserted with DOM `textContent`. Raw HTML, formatter callbacks, expressions, and runtime code evaluation are intentionally unsupported. Aggregate marks may attach derived fields, such as a bin boundary and count, to their hit target; those derived values take precedence over a representative source row when the same tooltip field is requested.
 
 The tooltip follows the pointer and is clamped to the chart surface. It adds `role="tooltip"` and temporarily connects the Canvas through `aria-describedby`, but it does not replace the nearby summary or data-table fallback recommended below. Both trigger modes are pointer-only; they do not provide keyboard traversal or touch-specific interaction. Disabling `hover` also disables the tooltip. Large and ultra profiles disable datum hit lookup, so they do not display mark or axis-nearest tooltips.
+
+### Inspection, fullscreen, export, and playback
+
+The built-in Canvas renderer supports an opt-in inspection viewport and compact controls for zoom/reset, fullscreen, PNG export, and discrete playback. Inspection magnifies and translates the complete compiled chart, including its title and axes. It does not change scale domains, re-bin data, fit a geographic region, or provide GIS/slippy-map navigation.
+
+Playback requires an explicit field and follows distinct values in first-occurrence source order. It does not interpolate between frames. The native Motion path retains all source data and domains; generic filtering is deliberately gated by `filter: true` because it can change derived domains, aggregates, layouts, and path-dependent financial meaning. See [Common chart interactions](./interactions.md) for configuration, chart methods/events, the conservative allowlist, and the 37-family matrix.
 
 ## Interaction by mark
 

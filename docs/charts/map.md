@@ -34,6 +34,8 @@ Every image below is generated from the current compiled Scene rather than drawn
 
 The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. This family keeps `trigger: "mark"`, so the pointer must hit rendered datum geometry. Tooltip interaction is a pointer-only convenience, so keep a readable summary or data table available for exact values and keyboard access. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
 
+Every family can opt into the Canvas [inspection viewport, fullscreen, reset, and PNG controls](./interactions.md). Inspection magnifies and translates the complete already-rendered chart, including its title and axes; it is not data-domain or GIS zoom. Generated examples intentionally leave playback off. Add discrete playback only after selecting a meaningful frame field and reviewing the family-specific capability table.
+
 <a id="variant-geo"></a>
 
 ### Geographic region chart
@@ -816,13 +818,15 @@ The mark uses shared `fill`, `stroke`, `opacity`, `lineWidth`, `radius`, and `co
 
 Rendered datum shapes carry layer id, row index, and the original row for hover/click hit testing in the standard profile. The neutral basemap itself is noninteractive; choropleth overlays are interactive compound paths. Supply a concise `accessibility.label`, a useful `description`, and an adjacent text or table fallback. Canvas ARIA metadata does not replace keyboard-readable page content.
 
+The common inspection viewport can magnify and pan the complete rendered Canvas, including the title, basemap, and labels. It does not alter the equirectangular projection, fit a region, request higher-resolution boundaries, or load tiles. See [Common chart interactions](./interactions.md).
+
 ## Performance profiles
 
 The same `standard`, `large`, `ultra`, and `auto` profiles apply. Every visible basemap compiles the fixed 177-feature boundary dataset in addition to the source rows. Aggregate or filter very large point, route, and heat datasets before rendering; set `basemap: "none"` when a geographic background is unnecessary.
 
 ## Current limitations
 
-The built-in map is a statistical world basemap, not a complete GIS or provider-backed slippy map. It does not provide raster/vector web tiles, roads, place labels, geocoding, pan/zoom, regional fitting, wrapped longitude, or projections other than equirectangular. Routes are deterministic screen-space curves rather than geodesics. Natural Earth uses its documented default boundary point of view; applications with a different political-boundary requirement must not imply that the built-in dataset represents every jurisdiction's position.
+The built-in map is a statistical world basemap, not a complete GIS or provider-backed slippy map. It does not provide raster/vector web tiles, roads, place labels, geocoding, data-domain/GIS pan and zoom, regional fitting, wrapped longitude, or projections other than equirectangular. Whole-Canvas inspection is available, but it is only a view transform over the already-rendered map. Routes are deterministic screen-space curves rather than geodesics. Natural Earth uses its documented default boundary point of view; applications with a different political-boundary requirement must not imply that the built-in dataset represents every jurisdiction's position.
 
 `tiledMap()` is retained as a historical compatibility name, but it now uses the same embedded political basemap and does not request or simulate a tile service.
 

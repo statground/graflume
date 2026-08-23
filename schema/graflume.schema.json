@@ -272,6 +272,36 @@
               "$ref": "#/$defs/tooltip"
             }
           ]
+        },
+        "navigation": {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "#/$defs/navigation"
+            }
+          ]
+        },
+        "playback": {
+          "oneOf": [
+            {
+              "const": false
+            },
+            {
+              "$ref": "#/$defs/playback"
+            }
+          ]
+        },
+        "controls": {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "#/$defs/controls"
+            }
+          ]
         }
       }
     },
@@ -886,6 +916,123 @@
             "$ref": "#/$defs/tooltipField"
           }
         }
+      }
+    },
+    "navigation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "minZoom": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 6
+        },
+        "maxZoom": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 6
+        },
+        "wheel": {
+          "enum": ["off", "modifier", "always"]
+        },
+        "drag": {
+          "type": "boolean"
+        },
+        "pinch": {
+          "type": "boolean"
+        },
+        "keyboard": {
+          "type": "boolean"
+        }
+      }
+    },
+    "playback": {
+      "type": "object",
+      "required": ["field"],
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "type": "string",
+          "minLength": 1,
+          "not": {
+            "enum": ["__proto__", "prototype", "constructor"]
+          }
+        },
+        "layerId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mode": {
+          "enum": ["frame", "cumulative", "window"]
+        },
+        "interval": {
+          "type": "number",
+          "minimum": 100,
+          "maximum": 60000
+        },
+        "rate": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 16
+        },
+        "loop": {
+          "type": "boolean"
+        },
+        "windowSize": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "autoplay": {
+          "type": "boolean"
+        },
+        "filter": {
+          "type": "boolean"
+        }
+      }
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "zoom": {
+          "type": "boolean"
+        },
+        "reset": {
+          "type": "boolean"
+        },
+        "fullscreen": {
+          "type": "boolean"
+        },
+        "export": {
+          "type": "boolean"
+        },
+        "playback": {
+          "type": "boolean"
+        },
+        "labels": {
+          "$ref": "#/$defs/controlLabels"
+        }
+      }
+    },
+    "controlLabels": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "controls": { "type": "string", "minLength": 1 },
+        "zoomIn": { "type": "string", "minLength": 1 },
+        "zoomOut": { "type": "string", "minLength": 1 },
+        "reset": { "type": "string", "minLength": 1 },
+        "enterFullscreen": { "type": "string", "minLength": 1 },
+        "exitFullscreen": { "type": "string", "minLength": 1 },
+        "exportPng": { "type": "string", "minLength": 1 },
+        "previousFrame": { "type": "string", "minLength": 1 },
+        "play": { "type": "string", "minLength": 1 },
+        "pause": { "type": "string", "minLength": 1 },
+        "nextFrame": { "type": "string", "minLength": 1 },
+        "seek": { "type": "string", "minLength": 1 },
+        "speed": { "type": "string", "minLength": 1 },
+        "loop": { "type": "string", "minLength": 1 }
       }
     },
     "encodingObject": {

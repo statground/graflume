@@ -24,6 +24,8 @@ Every image below is generated from the current compiled Scene rather than drawn
 
 The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. This family keeps `trigger: "mark"`, so the pointer must hit rendered datum geometry. Tooltip interaction is a pointer-only convenience, so keep a readable summary or data table available for exact values and keyboard access. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
 
+Every family can opt into the Canvas [inspection viewport, fullscreen, reset, and PNG controls](./interactions.md). Inspection magnifies and translates the complete already-rendered chart, including its title and axes; it is not data-domain or GIS zoom. Generated examples intentionally leave playback off. Add discrete playback only after selecting a meaningful frame field and reviewing the family-specific capability table.
+
 <a id="variant-motion"></a>
 
 ### Motion chart
@@ -168,7 +170,7 @@ The same result can be created with `Graflume.create()` and `mark: { type: 'moti
 
 ## Data, ordering, and missing values
 
-The selected frame is rendered with the bubble compiler. Change the frame with `chart.setSpec()` to build a controlled animation outside the portable spec.
+The selected frame is rendered with the bubble compiler. `mark.options.frame` remains useful for a static initial frame. For discrete runtime playback, declare `interaction.playback` with the same time field, `mode: 'frame'`, and `filter: false`; Graflume retains the full source and derived domains while changing the selected mark frame.
 
 Rows keep source order unless the compiler must establish a deterministic temporal or hierarchy order. Unsafe field names are rejected, callbacks are forbidden in portable specs, and invalid or unmappable values are skipped rather than evaluated.
 
@@ -180,13 +182,27 @@ The mark uses shared `fill`, `stroke`, `opacity`, `lineWidth`, `radius`, and `co
 
 Rendered datum shapes carry layer id, row index, and the original row for hover/click hit testing in the standard profile. Supply a concise `accessibility.label`, a useful `description`, and an adjacent text or table fallback. Canvas ARIA metadata does not replace keyboard-readable page content.
 
+```ts
+interaction: {
+  playback: {
+    field: 'year',
+    mode: 'frame',
+    interval: 1000,
+    filter: false,
+  },
+  controls: { playback: true, fullscreen: true, export: true },
+}
+```
+
+Frame values follow their first occurrence in the source rows, so sort the rows before chart creation when chronological order matters. Playback is discrete and preserves the mark's existing coordinate, size, and color behavior; stable entity interpolation is not inferred. The [common interaction manual](./interactions.md) covers stepping, seeking, speed, events, and the inspection viewport.
+
 ## Performance profiles
 
 The same `standard`, `large`, `ultra`, and `auto` profiles apply. Complex layout marks currently favor deterministic bounded Scene output; aggregate or filter very large source data before rendering specialized diagrams.
 
 ## Current limitations
 
-Automatic playback controls, trails, interpolation, and frame tweening are not implemented. The historical Flash Motion Chart is treated as a compatibility category.
+Discrete playback controls are implemented. Trails, coordinate interpolation, frame tweening, and identity matching across frames are not implemented. The historical Flash Motion Chart is treated as a compatibility category, not a claim of Flash-era animation parity.
 
 ## Runnable example and regression coverage
 

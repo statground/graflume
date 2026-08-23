@@ -12,6 +12,7 @@ import type {
   Renderer,
   RendererCapabilities,
   RendererFactory,
+  InspectionViewTransform,
   RendererMountOptions,
 } from './types.js';
 
@@ -20,6 +21,7 @@ const capabilities: RendererCapabilities = {
   gpu: false,
   worker: false,
   exportFormats: ['image/png', 'image/jpeg', 'image/webp'],
+  inspectionViewport: true,
 };
 
 function roundedRectPath(
@@ -51,6 +53,7 @@ export class CanvasRenderer implements Renderer {
   #width = 0;
   #height = 0;
   #pixelRatio = 1;
+  #inspectionView: InspectionViewTransform = { zoom: 1, offsetX: 0, offsetY: 0 };
 
   mount(target: HTMLElement, options: RendererMountOptions): void {
     if (this.#root !== null) this.destroy();
@@ -104,6 +107,14 @@ export class CanvasRenderer implements Renderer {
     context.clearRect(0, 0, this.#width, this.#height);
     context.fillStyle = scene.background;
     context.fillRect(0, 0, scene.width, scene.height);
+    if (
+      this.#inspectionView.zoom !== 1 ||
+      this.#inspectionView.offsetX !== 0 ||
+      this.#inspectionView.offsetY !== 0
+    ) {
+      context.translate(this.#inspectionView.offsetX, this.#inspectionView.offsetY);
+      context.scale(this.#inspectionView.zoom, this.#inspectionView.zoom);
+    }
     this.#drawNode(context, scene.root);
     context.restore();
   }
@@ -116,6 +127,10 @@ export class CanvasRenderer implements Renderer {
     return this.#root;
   }
 
+  setInspectionView(transform: InspectionViewTransform): void {
+    this.#inspectionView = transform;
+  }
+
   toDataURL(type = 'image/png', quality?: number): string {
     if (this.#canvas === null) throw new Error('Renderer is not mounted.');
     return this.#canvas.toDataURL(type, quality);
@@ -126,6 +141,7 @@ export class CanvasRenderer implements Renderer {
     this.#root = null;
     this.#canvas = null;
     this.#context = null;
+    this.#inspectionView = { zoom: 1, offsetX: 0, offsetY: 0 };
   }
 
   #drawNode(context: CanvasRenderingContext2D, node: SceneNode): void {

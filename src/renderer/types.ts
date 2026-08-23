@@ -5,6 +5,14 @@ export interface RendererCapabilities {
   readonly gpu: boolean;
   readonly worker: boolean;
   readonly exportFormats: readonly string[];
+  /** Supports magnifying the complete rendered surface without recompiling data domains. */
+  readonly inspectionViewport?: boolean;
+}
+
+export interface InspectionViewTransform {
+  readonly zoom: number;
+  readonly offsetX: number;
+  readonly offsetY: number;
 }
 
 export interface RendererMountOptions {
@@ -24,6 +32,8 @@ export interface Renderer {
   surface(): HTMLElement | null;
   /** Optional positioned element used for DOM overlays such as the built-in tooltip. */
   overlayHost?(): HTMLElement | null;
+  /** Apply an inspection-only transform to the complete rendered chart surface. */
+  setInspectionView?(transform: InspectionViewTransform): void;
   toDataURL?(type?: string, quality?: number): string;
   destroy(): void;
 }

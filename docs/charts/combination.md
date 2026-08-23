@@ -25,6 +25,8 @@ Every image below is generated from the current compiled Scene rather than drawn
 
 The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. This family uses `trigger: "axis"` with `axis: "x"`. An exact rendered-mark hit still has priority; otherwise Graflume selects the nearest actual datum on that axis without inventing an interpolated row. Tooltip interaction is a pointer-only convenience, so keep a readable summary or data table available for exact values and keyboard access. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
 
+Every family can opt into the Canvas [inspection viewport, fullscreen, reset, and PNG controls](./interactions.md). Inspection magnifies and translates the complete already-rendered chart, including its title and axes; it is not data-domain or GIS zoom. Generated examples intentionally leave playback off. Add discrete playback only after selecting a meaningful frame field and reviewing the family-specific capability table.
+
 <a id="variant-combo"></a>
 
 ### Combo chart
@@ -349,12 +351,14 @@ chart.on('hover', ({ hit }) => {
 
 Use `textContent`, not raw HTML, when displaying user data.
 
+A reviewed cumulative playback can reveal a shared ordered source across all layers by omitting `layerId`. For independent sources, target one explicit layer or ensure every affected source carries the same frame field and meaning. Generic filtering recompiles scale domains, so set explicit domains when visual stability matters. The common inspection viewport magnifies the complete compiled composition rather than synchronizing data domains; see [Common chart interactions](./interactions.md).
+
 ## Current limitations
 
 - shared x/y scales only;
 - no independent, dual, or multiple axes;
 - no facet, repeat, concat, grid, dashboard, or inset layout;
-- no linked brushing, cross-filtering, synchronized zoom, or rendered crosshair guide;
+- no linked brushing, cross-filtering, synchronized data-domain zoom, or rendered crosshair guide; whole-Canvas inspection is available;
 - legend merging and synthesized per-layer shared tooltips are not built in;
 - annotation, interval, and trendline marks can participate when their shared scales are compatible; reference bands and forecast semantics remain planned;
 - no per-layer renderer selection.

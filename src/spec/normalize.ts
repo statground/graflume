@@ -33,6 +33,23 @@ import type {
   TooltipFieldInput,
 } from './types.js';
 
+const defaultControlLabels = {
+  controls: 'Chart controls',
+  zoomIn: 'Zoom in',
+  zoomOut: 'Zoom out',
+  reset: 'Reset view',
+  enterFullscreen: 'Enter fullscreen',
+  exitFullscreen: 'Exit fullscreen',
+  exportPng: 'Download PNG',
+  previousFrame: 'Previous frame',
+  play: 'Play',
+  pause: 'Pause',
+  nextFrame: 'Next frame',
+  seek: 'Playback position',
+  speed: 'Playback speed',
+  loop: 'Loop playback',
+} as const;
+
 function normalizePadding(input: PaddingInput | undefined): PaddingSpec {
   if (typeof input === 'number') {
     return { top: input, right: input, bottom: input, left: input };
@@ -92,10 +109,61 @@ function normalizeInteraction(input: ChartSpec['interaction']): NormalizedIntera
               ? (tooltipInput.fields ?? []).map(normalizeTooltipField)
               : [],
         };
+  const navigationInput = input?.navigation;
+  const navigation =
+    navigationInput === undefined || navigationInput === false
+      ? false
+      : {
+          minZoom: typeof navigationInput === 'object' ? (navigationInput.minZoom ?? 1) : 1,
+          maxZoom: typeof navigationInput === 'object' ? (navigationInput.maxZoom ?? 6) : 6,
+          wheel:
+            typeof navigationInput === 'object'
+              ? (navigationInput.wheel ?? 'modifier')
+              : ('modifier' as const),
+          drag: typeof navigationInput === 'object' ? (navigationInput.drag ?? true) : true,
+          pinch: typeof navigationInput === 'object' ? (navigationInput.pinch ?? true) : true,
+          keyboard: typeof navigationInput === 'object' ? (navigationInput.keyboard ?? true) : true,
+        };
+  const playbackInput = input?.playback;
+  const playback =
+    playbackInput === undefined || playbackInput === false
+      ? false
+      : typeof playbackInput === 'object'
+        ? {
+            field: playbackInput.field,
+            ...(playbackInput.layerId === undefined ? {} : { layerId: playbackInput.layerId }),
+            mode: playbackInput.mode ?? 'frame',
+            interval: playbackInput.interval ?? 1_000,
+            rate: playbackInput.rate ?? 1,
+            loop: playbackInput.loop ?? false,
+            windowSize: playbackInput.windowSize ?? 1,
+            autoplay: playbackInput.autoplay ?? false,
+            filter: playbackInput.filter ?? false,
+          }
+        : false;
+  const controlsInput = input?.controls;
+  const controls =
+    controlsInput === undefined || controlsInput === false
+      ? false
+      : {
+          zoom: typeof controlsInput === 'object' ? (controlsInput.zoom ?? false) : true,
+          reset: typeof controlsInput === 'object' ? (controlsInput.reset ?? false) : true,
+          fullscreen:
+            typeof controlsInput === 'object' ? (controlsInput.fullscreen ?? false) : true,
+          export: typeof controlsInput === 'object' ? (controlsInput.export ?? false) : true,
+          playback: typeof controlsInput === 'object' ? (controlsInput.playback ?? false) : true,
+          labels: {
+            ...defaultControlLabels,
+            ...(typeof controlsInput === 'object' ? controlsInput.labels : undefined),
+          },
+        };
   return {
     hover,
     click: input?.click ?? true,
     tooltip,
+    navigation,
+    playback,
+    controls,
   };
 }
 

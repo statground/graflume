@@ -41,6 +41,7 @@ test('chart documentation contains one manual per representative family', async 
     'adapters.md',
     'axes.md',
     'compatibility-presets.md',
+    'interactions.md',
     ...fullCatalog.map(({ id }) => `${id}.md`),
   ].sort();
   const actual = (await readdir(chartDirectory)).filter((name) => name.endsWith('.md')).sort();
@@ -60,6 +61,12 @@ test('every compatible preset is integrated into its family manual', async () =>
     assert.match(block, /## Integrated presets/);
     assert.match(block, /## Visual gallery/);
     assert.match(block, /## Type-by-type implementation/);
+    assert.ok(
+      block.includes(
+        '[inspection viewport, fullscreen, reset, and PNG controls](./interactions.md)',
+      ),
+      `${family.id} links the common interaction contract`,
+    );
     assert.doesNotMatch(block, /<details>/, 'compiled outputs remain visible without expansion');
     assert.ok(block.includes(`canonical Quick API is \`${family.quickApi}()\``));
     for (const variant of variants) {
@@ -120,6 +127,28 @@ test('every compatible preset is integrated into its family manual', async () =>
         `${family.id} uses its approved ${tooltipAxis}-axis`,
       );
     }
+  }
+});
+
+test('common interaction guide covers the complete family catalog and semantic playback limits', async () => {
+  const source = await readFile(new URL('interactions.md', chartDirectory), 'utf8');
+
+  for (const family of fullCatalog) {
+    assert.ok(source.includes(`](./${family.id}.md)`), `${family.id} has a capability row`);
+  }
+  for (const term of [
+    'inspection viewport, not data zoom',
+    '`frame`, `cumulative`, `window`',
+    'first occurrence',
+    'Do not generic-filter for time flow',
+    'Renko and Point & Figure are path-dependent',
+    'Removing rows recomputes price bins and volume totals',
+    'calculated indicators need full warm-up history',
+  ]) {
+    assert.ok(
+      source.toLowerCase().includes(term.toLowerCase()),
+      `interaction guide covers ${term}`,
+    );
   }
 });
 

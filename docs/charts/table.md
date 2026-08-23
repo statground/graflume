@@ -24,6 +24,8 @@ Every image below is generated from the current compiled Scene rather than drawn
 
 The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. This family keeps `trigger: "mark"`, so the pointer must hit rendered datum geometry. Tooltip interaction is a pointer-only convenience, so keep a readable summary or data table available for exact values and keyboard access. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
 
+Every family can opt into the Canvas [inspection viewport, fullscreen, reset, and PNG controls](./interactions.md). Inspection magnifies and translates the complete already-rendered chart, including its title and axes; it is not data-domain or GIS zoom. Generated examples intentionally leave playback off. Add discrete playback only after selecting a meaningful frame field and reviewing the family-specific capability table.
+
 <a id="variant-table"></a>
 
 ### Table chart
@@ -153,6 +155,8 @@ The mark uses shared `fill`, `stroke`, `opacity`, `lineWidth`, `radius`, and `co
 ## Interaction and accessibility
 
 Rendered datum shapes carry layer id, row index, and the original row for hover/click hit testing in the standard profile. Supply a concise `accessibility.label`, a useful `description`, and an adjacent text or table fallback. Canvas ARIA metadata does not replace keyboard-readable page content.
+
+The inspection viewport can magnify the rendered Scene table, but it is not sorting, paging, frozen-column navigation, or browser text zoom. Playback filtering is normally inappropriate for an exact-value reference because rows disappear by frame. Keep the adjacent semantic HTML table available to assistive technology and ordinary browser search; see [Common chart interactions](./interactions.md).
 
 ## Performance profiles
 

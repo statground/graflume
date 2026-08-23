@@ -242,16 +242,30 @@ export type {
 } from './catalog/chart-types.js';
 export type {
   ChartCreateOptions,
+  ChartErrorEvent,
   ChartEventMap,
+  ChartFullscreenChangeEvent,
+  ChartPlaybackChangeEvent,
+  ChartPlaybackChangeReason,
+  ChartPlaybackState,
   ChartPointerEvent,
   ChartRenderEvent,
   ChartResizeEvent,
   ChartTarget,
+  ChartViewChangeEvent,
+  ChartViewChangeReason,
+  ChartViewPoint,
+  ChartViewState,
 } from './runtime/chart.js';
 export type { GraflumePlugin, PluginContext } from './core/plugin.js';
 export type { MarkCompileContext, MarkCompiler, PlotArea } from './compiler/types.js';
 export type { CompileOptions, CompileResult } from './compiler/compile.js';
-export type { Renderer, RendererCapabilities, RendererFactory } from './renderer/types.js';
+export type {
+  InspectionViewTransform,
+  Renderer,
+  RendererCapabilities,
+  RendererFactory,
+} from './renderer/types.js';
 export type { Scene, SceneNode, DatumReference } from './scene/types.js';
 export type {
   AccessibilitySpec,
@@ -269,6 +283,8 @@ export type {
   AxisValueFormat,
   ChartSpec,
   ColumnarData,
+  ControlLabelsSpec,
+  ControlsSpec,
   DataInput,
   DataRow,
   DataValue,
@@ -281,8 +297,16 @@ export type {
   MarkInput,
   MarkSpec,
   MarkType,
+  NavigationSpec,
+  NavigationWheelMode,
   NormalizedChartSpec,
+  NormalizedControlLabelsSpec,
+  NormalizedControlsSpec,
+  NormalizedNavigationSpec,
+  NormalizedPlaybackSpec,
   PerformanceProfile,
+  PlaybackMode,
+  PlaybackSpec,
   RendererPreference,
   ScaleSpec,
   TitleSpec,

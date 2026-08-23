@@ -101,6 +101,12 @@ test('canvas renderer emits one compound path and uses its explicit fill rule', 
     save() {},
     restore() {},
     setTransform() {},
+    translate(x, y) {
+      operations.push(['translate', x, y]);
+    },
+    scale(x, y) {
+      operations.push(['scale', x, y]);
+    },
     clearRect() {},
     fillRect() {},
     beginPath() {
@@ -166,6 +172,14 @@ test('canvas renderer emits one compound path and uses its explicit fill rule', 
       operations.find(([operation]) => operation === 'fill'),
       ['fill', 'evenodd'],
     );
+
+    operations.length = 0;
+    renderer.setInspectionView({ zoom: 2, offsetX: -20, offsetY: -10 });
+    renderer.render(sceneWith(compoundPath()));
+    assert.deepEqual(operations.slice(0, 2), [
+      ['translate', -20, -10],
+      ['scale', 2, 2],
+    ]);
   } finally {
     if (previousDocument === undefined) delete globalThis.document;
     else globalThis.document = previousDocument;

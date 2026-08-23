@@ -278,6 +278,66 @@ export interface TooltipSpec {
   readonly fields?: readonly TooltipFieldInput[];
 }
 
+export type NavigationWheelMode = 'off' | 'modifier' | 'always';
+
+/**
+ * Inspect the already rendered Canvas by magnifying and translating the complete
+ * chart surface. This does not change data domains, projections, or mark layout.
+ */
+export interface NavigationSpec {
+  readonly minZoom?: number;
+  readonly maxZoom?: number;
+  readonly wheel?: NavigationWheelMode;
+  readonly drag?: boolean;
+  readonly pinch?: boolean;
+  readonly keyboard?: boolean;
+}
+
+export type PlaybackMode = 'frame' | 'cumulative' | 'window';
+
+export interface PlaybackSpec {
+  readonly field: string;
+  readonly layerId?: string;
+  readonly mode?: PlaybackMode;
+  readonly interval?: number;
+  readonly rate?: number;
+  readonly loop?: boolean;
+  readonly windowSize?: number;
+  readonly autoplay?: boolean;
+  /**
+   * Apply a generic transient data filter. Keep this off unless the host has
+   * explicitly approved the selected chart family; motion marks use frame
+   * selection without this option.
+   */
+  readonly filter?: boolean;
+}
+
+export interface ControlLabelsSpec {
+  readonly controls?: string;
+  readonly zoomIn?: string;
+  readonly zoomOut?: string;
+  readonly reset?: string;
+  readonly enterFullscreen?: string;
+  readonly exitFullscreen?: string;
+  readonly exportPng?: string;
+  readonly previousFrame?: string;
+  readonly play?: string;
+  readonly pause?: string;
+  readonly nextFrame?: string;
+  readonly seek?: string;
+  readonly speed?: string;
+  readonly loop?: string;
+}
+
+export interface ControlsSpec {
+  readonly zoom?: boolean;
+  readonly reset?: boolean;
+  readonly fullscreen?: boolean;
+  readonly export?: boolean;
+  readonly playback?: boolean;
+  readonly labels?: ControlLabelsSpec;
+}
+
 export interface InteractionSpec {
   readonly hover?: boolean;
   readonly click?: boolean;
@@ -286,6 +346,9 @@ export interface InteractionSpec {
    * Executable and raw-HTML formatters are intentionally unsupported.
    */
   readonly tooltip?: boolean | TooltipSpec;
+  readonly navigation?: boolean | NavigationSpec;
+  readonly playback?: false | PlaybackSpec;
+  readonly controls?: boolean | ControlsSpec;
 }
 
 export interface ChartSpec {
@@ -434,10 +497,60 @@ export interface NormalizedTooltipSpec {
   readonly fields: readonly NormalizedTooltipFieldSpec[];
 }
 
+export interface NormalizedNavigationSpec {
+  readonly minZoom: number;
+  readonly maxZoom: number;
+  readonly wheel: NavigationWheelMode;
+  readonly drag: boolean;
+  readonly pinch: boolean;
+  readonly keyboard: boolean;
+}
+
+export interface NormalizedPlaybackSpec {
+  readonly field: string;
+  readonly layerId?: string;
+  readonly mode: PlaybackMode;
+  readonly interval: number;
+  readonly rate: number;
+  readonly loop: boolean;
+  readonly windowSize: number;
+  readonly autoplay: boolean;
+  readonly filter: boolean;
+}
+
+export interface NormalizedControlLabelsSpec {
+  readonly controls: string;
+  readonly zoomIn: string;
+  readonly zoomOut: string;
+  readonly reset: string;
+  readonly enterFullscreen: string;
+  readonly exitFullscreen: string;
+  readonly exportPng: string;
+  readonly previousFrame: string;
+  readonly play: string;
+  readonly pause: string;
+  readonly nextFrame: string;
+  readonly seek: string;
+  readonly speed: string;
+  readonly loop: string;
+}
+
+export interface NormalizedControlsSpec {
+  readonly zoom: boolean;
+  readonly reset: boolean;
+  readonly fullscreen: boolean;
+  readonly export: boolean;
+  readonly playback: boolean;
+  readonly labels: NormalizedControlLabelsSpec;
+}
+
 export interface NormalizedInteractionSpec {
   readonly hover: boolean;
   readonly click: boolean;
   readonly tooltip: false | NormalizedTooltipSpec;
+  readonly navigation: false | NormalizedNavigationSpec;
+  readonly playback: false | NormalizedPlaybackSpec;
+  readonly controls: false | NormalizedControlsSpec;
 }
 
 export interface NormalizedChartSpec {
