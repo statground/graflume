@@ -50,9 +50,11 @@ export interface LineNode extends BaseNode {
 export interface PathNode extends BaseNode {
   readonly type: 'path';
   readonly points: readonly Point[];
+  readonly subpaths?: readonly (readonly Point[])[];
   readonly closed: boolean;
   readonly stroke?: string;
   readonly fill?: string;
+  readonly fillRule?: CanvasFillRule;
   readonly lineWidth: number;
   readonly dash?: readonly number[];
   readonly lineCap?: CanvasLineCap;

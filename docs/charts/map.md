@@ -6,16 +6,16 @@
 
 This is the single manual for the `map` family. Its canonical Quick API is `map()` from `graflume`, and its representative portable mark is `map`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
 
-| Compatible name                            | Quick API      | Mode          | Portable mark | Functional difference                                              |
-| ------------------------------------------ | -------------- | ------------- | ------------- | ------------------------------------------------------------------ |
-| [Geographic region chart](#variant-geo)    | `geo()`        | `region`      | `geo`         | Maps named regions through the built-in geographic reference data. |
-| [Map](#variant-map)                        | `map()`        | `default`     | `map`         | Projects longitude and latitude point rows.                        |
-| [Flow map](#variant-flow-map)              | `flowMap()`    | `flow-map`    | `geo-flow`    | Adds weighted directional routes between map coordinates.          |
-| [Geographic heatmap](#variant-geo-heatmap) | `geoHeatmap()` | `geo-heatmap` | `geo-heatmap` | Maps geographic intensity into nested heat circles.                |
-| [Map bubble chart](#variant-map-bubble)    | `mapBubble()`  | `map-bubble`  | `map`         | Scales projected point radius by value.                            |
-| [Map line chart](#variant-map-line)        | `mapLine()`    | `map-line`    | `geo-line`    | Draws curved geographic routes without flow weighting.             |
-| [Map point chart](#variant-map-point)      | `mapPoint()`   | `map-point`   | `map`         | Uses fixed-size projected point markers.                           |
-| [Tiled map](#variant-tiled-map)            | `tiledMap()`   | `tiled-map`   | `tiled-map`   | Adds a deterministic local tile surface under projected rows.      |
+| Compatible name                            | Quick API      | Mode          | Portable mark | Functional difference                                                                                                                           |
+| ------------------------------------------ | -------------- | ------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Geographic region chart](#variant-geo)    | `geo()`        | `region`      | `geo`         | Joins named regions to the built-in 177-feature Natural Earth world basemap; the example uses choropleth mode while bubble remains the default. |
+| [Map](#variant-map)                        | `map()`        | `default`     | `map`         | Projects valid longitude and latitude rows over the built-in Natural Earth world basemap.                                                       |
+| [Flow map](#variant-flow-map)              | `flowMap()`    | `flow-map`    | `geo-flow`    | Adds weighted directional routes over the shared static political basemap.                                                                      |
+| [Geographic heatmap](#variant-geo-heatmap) | `geoHeatmap()` | `geo-heatmap` | `geo-heatmap` | Maps geographic intensity into nested heat circles over country boundaries.                                                                     |
+| [Map bubble chart](#variant-map-bubble)    | `mapBubble()`  | `map-bubble`  | `map`         | Scales projected point radius by value over country boundaries.                                                                                 |
+| [Map line chart](#variant-map-line)        | `mapLine()`    | `map-line`    | `geo-line`    | Draws curved geographic routes without flow weighting over the shared basemap.                                                                  |
+| [Map point chart](#variant-map-point)      | `mapPoint()`   | `map-point`   | `map`         | Uses fixed-size projected point markers over the shared basemap.                                                                                |
+| [Tiled map](#variant-tiled-map)            | `tiledMap()`   | `tiled-map`   | `tiled-map`   | Retains the historical compatibility name for projected points on the built-in political basemap; it does not request or simulate web tiles.    |
 
 All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining manually maintained sections describe the canonical/default presentation unless a preset row above states a different behavior.
 
@@ -38,7 +38,7 @@ The snippets are minimal runnable examples. Change `#chart` to the target elemen
 
 ### Geographic region chart
 
-Use this preset when values or relationships must be interpreted geographically. Maps named regions through the built-in geographic reference data.
+Use this preset when values or relationships must be interpreted geographically. Joins named regions to the built-in 177-feature Natural Earth world basemap; the example uses choropleth mode while bubble remains the default.
 
 - **Quick API:** `geo()`
 - **Mode:** `region`
@@ -54,15 +54,15 @@ const data = [
     value: 72,
   },
   {
-    region: 'US',
+    region: 'United States',
     value: 88,
   },
   {
-    region: 'BR',
+    region: 'Brazil',
     value: 41,
   },
   {
-    region: 'RU',
+    region: 'RUS',
     value: 63,
   },
 ];
@@ -85,6 +85,11 @@ geo('#chart', data, {
   accessibility: {
     label: 'Geographic region chart example',
     description: 'A compiled geographic region chart example using the map family.',
+  },
+  mark: {
+    options: {
+      mode: 'choropleth',
+    },
   },
   locale: 'en-US',
   interaction: {
@@ -112,7 +117,7 @@ geo('#chart', data, {
 
 ### Map
 
-Use this preset when values or relationships must be interpreted geographically. Projects longitude and latitude point rows.
+Use this preset when values or relationships must be interpreted geographically. Projects valid longitude and latitude rows over the built-in Natural Earth world basemap.
 
 - **Quick API:** `map()`
 - **Mode:** `default`
@@ -195,7 +200,7 @@ map('#chart', data, {
 
 ### Flow map
 
-Use this preset when values or relationships must be interpreted geographically. Adds weighted directional routes between map coordinates.
+Use this preset when values or relationships must be interpreted geographically. Adds weighted directional routes over the shared static political basemap.
 
 - **Quick API:** `flowMap()`
 - **Mode:** `flow-map`
@@ -300,7 +305,7 @@ flowMap('#chart', data, {
 
 ### Geographic heatmap
 
-Use this preset when values or relationships must be interpreted geographically. Maps geographic intensity into nested heat circles.
+Use this preset when values or relationships must be interpreted geographically. Maps geographic intensity into nested heat circles over country boundaries.
 
 - **Quick API:** `geoHeatmap()`
 - **Mode:** `geo-heatmap`
@@ -387,7 +392,7 @@ geoHeatmap('#chart', data, {
 
 ### Map bubble chart
 
-Use this preset when values or relationships must be interpreted geographically. Scales projected point radius by value.
+Use this preset when values or relationships must be interpreted geographically. Scales projected point radius by value over country boundaries.
 
 - **Quick API:** `mapBubble()`
 - **Mode:** `map-bubble`
@@ -474,7 +479,7 @@ mapBubble('#chart', data, {
 
 ### Map line chart
 
-Use this preset when values or relationships must be interpreted geographically. Draws curved geographic routes without flow weighting.
+Use this preset when values or relationships must be interpreted geographically. Draws curved geographic routes without flow weighting over the shared basemap.
 
 - **Quick API:** `mapLine()`
 - **Mode:** `map-line`
@@ -579,7 +584,7 @@ mapLine('#chart', data, {
 
 ### Map point chart
 
-Use this preset when values or relationships must be interpreted geographically. Uses fixed-size projected point markers.
+Use this preset when values or relationships must be interpreted geographically. Uses fixed-size projected point markers over the shared basemap.
 
 - **Quick API:** `mapPoint()`
 - **Mode:** `map-point`
@@ -666,7 +671,7 @@ mapPoint('#chart', data, {
 
 ### Tiled map
 
-Use this preset when values or relationships must be interpreted geographically. Adds a deterministic local tile surface under projected rows.
+Use this preset when values or relationships must be interpreted geographically. Retains the historical compatibility name for projected points on the built-in political basemap; it does not request or simulate web tiles.
 
 - **Quick API:** `tiledMap()`
 - **Mode:** `tiled-map`
@@ -714,6 +719,11 @@ tiledMap('#chart', data, {
     x: false,
     y: false,
   },
+  mark: {
+    options: {
+      graticule: true,
+    },
+  },
   locale: 'en-US',
   interaction: {
     tooltip: {
@@ -738,7 +748,7 @@ tiledMap('#chart', data, {
 
 <!-- FAMILY_PRESETS_END -->
 
-Use a map for longitude/latitude point locations without a remote tile dependency.
+Use a map for country-level statistical comparison, longitude/latitude points, or routes without a remote tile dependency. Graflume embeds a versioned Natural Earth Admin-0 1:110m world basemap, so the same portable specification compiles deterministically in the browser, tests, and DOM-free environments.
 
 ## Implemented appearance
 
@@ -754,37 +764,67 @@ This image is generated from the current Graflume `compile()` Scene, not a hand-
 Graflume.map('#chart', data, {
   x: { field: 'longitude', type: 'quantitative' },
   y: { field: 'latitude', type: 'quantitative' },
-  mark: { fields: { size: 'population' } },
+  mark: {
+    fields: { size: 'population' },
+    options: {
+      basemap: 'natural-earth',
+      graticule: true,
+      attribution: true,
+    },
+  },
 });
 ```
 
 ## Portable ChartSpec mapping
 
-`x` is longitude, `y` is latitude, and optional `fields.size` scales marker radius.
+For `map`, `x` is longitude, `y` is latitude, and optional `fields.size` scales marker radius. Longitude must be between -180 and 180 and latitude between -90 and 90. Rows outside those bounds are skipped.
+
+For `geo`, `x` is a country identifier or name and `y` is its quantitative value. Bubble mode remains the compatibility default. Set `mark.options.mode` to `choropleth` to fill matched country geometry instead. Region matching accepts the Natural Earth feature identifier, available ISO alpha-2/alpha-3 and numeric codes, names and aliases, plus compatibility names such as `KR`, `US`, `UK`, `South Korea`, and `대한민국`.
 
 The same result can be created with `Graflume.create()` and `mark: { type: 'map' }`. Named `mark.fields` and `mark.options` values are function-free and JSON-serializable, so they remain portable across JavaScript, future Python/R/Java builders, and stored specs.
 
+## Geographic options
+
+These options are stored under `mark.options` and apply to `map`, `geo`, `geo-line`, `geo-flow`, `geo-heatmap`, and `tiled-map` where relevant.
+
+| Option             | Accepted values                             | Default           | Effect                                                                                          |
+| ------------------ | ------------------------------------------- | ----------------- | ----------------------------------------------------------------------------------------------- |
+| `basemap`          | `"natural-earth"`, `"none"`                 | `"natural-earth"` | Draws the embedded world surface and country boundaries, or suppresses the complete background. |
+| `graticule`        | boolean                                     | `false`           | Draws five longitude and five latitude reference lines.                                         |
+| `attribution`      | boolean                                     | `true`            | Shows the compact `Natural Earth · 1:110m` source label.                                        |
+| `oceanFill`        | CSS color string                            | theme-derived     | Sets the world viewport background.                                                             |
+| `landFill`         | CSS color string                            | theme-derived     | Sets the unbound country fill.                                                                  |
+| `countryStroke`    | CSS color string                            | theme-derived     | Sets country boundary color.                                                                    |
+| `countryLineWidth` | finite number greater than or equal to zero | `0.55`            | Sets country boundary width in Canvas pixels.                                                   |
+| `mode`             | `"bubble"`, `"choropleth"`                  | `"bubble"`        | Selects center-point bubbles or country fills for the `geo` mark.                               |
+
+`basemap: "none"` removes the ocean surface, country geometry, graticule, and attribution while preserving data points, bubbles, heat circles, or routes.
+
 ## Data, ordering, and missing values
 
-Coordinates use an equirectangular projection against a theme-aware surface, graticule, and built-in world outline. Markers use a quiet halo plus an interactive foreground circle.
+The generated basemap contains 177 Natural Earth v5.1.2 Admin-0 features at 1:110m resolution. It is compiled into the package and never fetched at runtime. Graflume projects it into a centered, undistorted 2:1 equirectangular viewport. Country polygons retain compound rings and use even-odd filling so holes remain visible. Natural Earth publishes this dataset in the public domain; the pinned source commit and checksum are recorded by the reproducible generator and third-party notice.
+
+Markers use a quiet halo plus an interactive foreground circle. Choropleth countries carry the matched source row for the same mark-level tooltip and data-event behavior. Unrecognized region names and nonnumeric or out-of-range coordinates are skipped rather than guessed.
 
 Rows keep source order unless the compiler must establish a deterministic temporal or hierarchy order. Unsafe field names are rejected, callbacks are forbidden in portable specs, and invalid or unmappable values are skipped rather than evaluated.
 
 ## Styling and themes
 
-The mark uses shared `fill`, `stroke`, `opacity`, `lineWidth`, `radius`, and `cornerRadius` options where the geometry makes them meaningful. Default colors, text, grid, focus, and palettes come from the active design-token theme and switch at runtime.
+The mark uses shared `fill`, `stroke`, `opacity`, `lineWidth`, `radius`, and `cornerRadius` options where the data geometry makes them meaningful. `oceanFill`, `landFill`, `countryStroke`, and `countryLineWidth` style the basemap independently. Default colors, text, grid, focus, and palettes come from the active design-token theme and switch at runtime. Choropleth values interpolate across the active sequential palette.
 
 ## Interaction and accessibility
 
-Rendered datum shapes carry layer id, row index, and the original row for hover/click hit testing in the standard profile. Supply a concise `accessibility.label`, a useful `description`, and an adjacent text or table fallback. Canvas ARIA metadata does not replace keyboard-readable page content.
+Rendered datum shapes carry layer id, row index, and the original row for hover/click hit testing in the standard profile. The neutral basemap itself is noninteractive; choropleth overlays are interactive compound paths. Supply a concise `accessibility.label`, a useful `description`, and an adjacent text or table fallback. Canvas ARIA metadata does not replace keyboard-readable page content.
 
 ## Performance profiles
 
-The same `standard`, `large`, `ultra`, and `auto` profiles apply. Complex layout marks currently favor deterministic bounded Scene output; aggregate or filter very large source data before rendering specialized diagrams.
+The same `standard`, `large`, `ultra`, and `auto` profiles apply. Every visible basemap compiles the fixed 177-feature boundary dataset in addition to the source rows. Aggregate or filter very large point, route, and heat datasets before rendering; set `basemap: "none"` when a geographic background is unnecessary.
 
 ## Current limitations
 
-Tiles, geocoding, roads, places, pan/zoom, wrapped longitude, and other projections are reserved for the maps package.
+The built-in map is a statistical world basemap, not a complete GIS or provider-backed slippy map. It does not provide raster/vector web tiles, roads, place labels, geocoding, pan/zoom, regional fitting, wrapped longitude, or projections other than equirectangular. Routes are deterministic screen-space curves rather than geodesics. Natural Earth uses its documented default boundary point of view; applications with a different political-boundary requirement must not imply that the built-in dataset represents every jurisdiction's position.
+
+`tiledMap()` is retained as a historical compatibility name, but it now uses the same embedded political basemap and does not request or simulate a tile service.
 
 ## Runnable example and regression coverage
 

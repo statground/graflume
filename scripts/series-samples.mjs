@@ -211,12 +211,12 @@ export function seriesSampleSpec(entry) {
     spec = base({ type: mark, options: { min: 0, max: 100 } }, composition);
   } else if (mark === 'geo') {
     spec = base(
-      mark,
+      { type: mark, options: { mode: 'choropleth' } },
       [
         { region: 'KR', value: 72 },
-        { region: 'US', value: 88 },
-        { region: 'BR', value: 41 },
-        { region: 'RU', value: 63 },
+        { region: 'United States', value: 88 },
+        { region: 'Brazil', value: 41 },
+        { region: 'RUS', value: 63 },
       ],
       'region',
       'value',
@@ -431,7 +431,7 @@ export function seriesSampleSpec(entry) {
   } else if (mark === 'map') {
     spec = base({ type: mark, fields: { size: 'value' } }, geo, 'longitude', 'latitude');
   } else if (mark === 'tiled-map') {
-    spec = base(mark, geo, 'longitude', 'latitude');
+    spec = base({ type: mark, options: { graticule: true } }, geo, 'longitude', 'latitude');
   } else {
     throw new Error(`Missing sample for ${id} (${mark})`);
   }

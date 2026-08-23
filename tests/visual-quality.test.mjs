@@ -108,23 +108,30 @@ test('structured charts use two-dimensional treemap tiles and smooth Sankey band
   assert.ok(flows.every((flow) => flow.points.length === 26));
 });
 
-test('maps include a quiet graticule, detailed land shapes, and marker halos', () => {
+test('maps render the 177-country Natural Earth basemap, optional graticule, and marker halos', () => {
   const { scene } = compile(
     {
       data: [{ longitude: 126.98, latitude: 37.57, size: 50 }],
-      mark: { type: 'map', fields: { size: 'size' } },
+      mark: { type: 'map', fields: { size: 'size' }, options: { graticule: true } },
       x: { field: 'longitude', type: 'quantitative' },
       y: { field: 'latitude', type: 'quantitative' },
     },
     { width: 680, height: 400 },
   );
   const nodes = flattenScene(scene.root);
-  assert.ok(nodes.some((node) => node.id.includes(':longitude:')));
-  assert.ok(nodes.some((node) => node.id.includes(':latitude:')));
-  assert.ok(nodes.some((node) => node.id.includes(':map-halo:')));
-  assert.ok(
-    nodes.some(
-      (node) => node.type === 'path' && node.id.includes(':continent:') && node.points.length > 8,
-    ),
+  const countryPaths = nodes.filter(
+    (node) => node.type === 'path' && node.id.includes(':natural-earth:country:'),
   );
+  const countryIds = new Set(
+    countryPaths.map((node) => node.id.match(/:natural-earth:country:([^:]+):/)?.[1]),
+  );
+
+  assert.equal(nodes.filter((node) => node.id.includes(':natural-earth:longitude:')).length, 5);
+  assert.equal(nodes.filter((node) => node.id.includes(':natural-earth:latitude:')).length, 5);
+  assert.ok(nodes.some((node) => node.id.includes(':map-halo:')));
+  assert.equal(countryIds.size, 177);
+  assert.ok(countryPaths.length >= 177);
+  assert.ok(countryPaths.every((node) => node.closed && node.fillRule === 'evenodd'));
+  assert.ok(countryPaths.some((node) => (node.subpaths?.length ?? 0) > 0));
+  assert.ok(nodes.some((node) => node.id.includes(':natural-earth:attribution')));
 });

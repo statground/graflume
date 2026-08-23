@@ -56,32 +56,50 @@ function distanceToSegment(
 }
 
 function pathDistance(node: PathNode, x: number, y: number): number {
-  if (node.closed && node.points.length >= 3) {
+  const paths = [node.points, ...(node.subpaths ?? [])];
+  if (node.closed) {
     let inside = false;
-    for (
-      let index = 0, previous = node.points.length - 1;
-      index < node.points.length;
-      previous = index, index += 1
-    ) {
-      const currentPoint = node.points[index];
-      const previousPoint = node.points[previous];
-      if (currentPoint === undefined || previousPoint === undefined) continue;
-      const crosses =
-        currentPoint.y > y !== previousPoint.y > y &&
-        x <
-          ((previousPoint.x - currentPoint.x) * (y - currentPoint.y)) /
-            (previousPoint.y - currentPoint.y || Number.EPSILON) +
-            currentPoint.x;
-      if (crosses) inside = !inside;
+    for (const points of paths) {
+      if (points.length < 3) continue;
+      for (
+        let index = 0, previous = points.length - 1;
+        index < points.length;
+        previous = index, index += 1
+      ) {
+        const currentPoint = points[index];
+        const previousPoint = points[previous];
+        if (currentPoint === undefined || previousPoint === undefined) continue;
+        const crosses =
+          currentPoint.y > y !== previousPoint.y > y &&
+          x <
+            ((previousPoint.x - currentPoint.x) * (y - currentPoint.y)) /
+              (previousPoint.y - currentPoint.y || Number.EPSILON) +
+              currentPoint.x;
+        if (crosses) inside = !inside;
+      }
     }
     if (inside) return 0;
   }
   let minimum = Number.POSITIVE_INFINITY;
-  for (let index = 1; index < node.points.length; index += 1) {
-    const first = node.points[index - 1];
-    const second = node.points[index];
-    if (first === undefined || second === undefined) continue;
-    minimum = Math.min(minimum, distanceToSegment(x, y, first.x, first.y, second.x, second.y));
+  for (const points of paths) {
+    const only = points[0];
+    if (points.length === 1 && only !== undefined) {
+      minimum = Math.min(minimum, Math.hypot(x - only.x, y - only.y));
+      continue;
+    }
+    for (let index = 1; index < points.length; index += 1) {
+      const first = points[index - 1];
+      const second = points[index];
+      if (first === undefined || second === undefined) continue;
+      minimum = Math.min(minimum, distanceToSegment(x, y, first.x, first.y, second.x, second.y));
+    }
+    if (node.closed && points.length > 1) {
+      const first = points[0];
+      const last = points[points.length - 1];
+      if (first !== undefined && last !== undefined) {
+        minimum = Math.min(minimum, distanceToSegment(x, y, last.x, last.y, first.x, first.y));
+      }
+    }
   }
   return minimum;
 }

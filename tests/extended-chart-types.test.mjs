@@ -144,7 +144,7 @@ const specs = new Map([
   [
     'geo',
     base(
-      'geo',
+      { type: 'geo', options: { mode: 'choropleth' } },
       [
         { region: 'KR', value: 72 },
         { region: 'US', value: 88 },
@@ -167,7 +167,7 @@ const specs = new Map([
   [
     'map',
     base(
-      { type: 'map', fields: { size: 'size' } },
+      { type: 'map', fields: { size: 'size' }, options: { graticule: true } },
       [
         { longitude: 126.98, latitude: 37.57, size: 50 },
         { longitude: 37.62, latitude: 55.75, size: 80 },
@@ -301,3 +301,19 @@ for (const entry of chartTypeCatalog) {
     assert.ok(nodes.some((node) => node.type !== 'group' && !node.id.startsWith('axis-')));
   });
 }
+
+test('the default map catalog fixture uses the Natural Earth country basemap', () => {
+  const { scene } = compile(specs.get('map'), { width: 680, height: 400 });
+  const nodes = flattenScene(scene.root);
+  const countryIds = new Set(
+    nodes
+      .filter((node) => node.type === 'path')
+      .map((node) => node.id.match(/:natural-earth:country:([^:]+):/)?.[1])
+      .filter(Boolean),
+  );
+
+  assert.equal(countryIds.size, 177);
+  assert.ok(nodes.some((node) => node.id.includes(':natural-earth:surface')));
+  assert.ok(nodes.some((node) => node.id.includes(':natural-earth:attribution')));
+  assert.ok(nodes.some((node) => node.id.includes(':map-point:')));
+});

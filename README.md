@@ -7,7 +7,7 @@ Graflume is an experimental, CDN-first visualization engine built around a porta
 ## What already works
 
 - 73 portable marks covering 37 distinct chart families, 141 compatible presets, and 117 public compatibility identifiers through default and opt-in entrypoints
-- Cartesian, radial, distribution, financial, interval, calendar, timeline/Gantt, table, hierarchy, flow, word, and lightweight map Scenes
+- Cartesian, radial, distribution, financial, interval, calendar, timeline/Gantt, table, hierarchy, flow, word, and statistical world-map Scenes backed by built-in Natural Earth 1:110m country boundaries
 - mixed layers such as bar + line + points on shared or independent `x`/`x2`/`y`/`y2` axes
 - row-oriented data and zero-copy `TypedArray` columnar input
 - a versioned, function-free `ChartSpec 0.1` plus JSON Schema for portable JSON data
@@ -21,7 +21,7 @@ Graflume is an experimental, CDN-first visualization engine built around a porta
 - standard/large/ultra performance profiles with bounded line, point, and bar rendering
 - a DOM-free `compile()` path for wrappers, SSR pipelines, testing, and future language bindings
 
-WebGL/WebGPU renderers, workers, Arrow/WASM ingestion, multi-view dashboards, full GIS/projection packages, 3D, and Python/R/Java wrappers are planned rather than claimed as complete. Some newly added specialist marks intentionally expose an alpha subset; every chart manual states its exact limits.
+WebGL/WebGPU renderers, workers, Arrow/WASM ingestion, multi-view dashboards, roads and place layers, geocoding, pan/zoom, multiple geographic projections, 3D, and Python/R/Java wrappers are planned rather than claimed as complete. The built-in map support is intended for deterministic statistical world maps rather than a general GIS or slippy-map runtime. Some newly added specialist marks intentionally expose an alpha subset; every chart manual states its exact limits.
 
 ## Local development
 

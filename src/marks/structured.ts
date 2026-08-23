@@ -3,6 +3,13 @@ import { BandScale } from '../scale/band.js';
 import { nodeBase } from '../scene/factory.js';
 import type { LineNode, PathNode, Point, RectNode, SceneNode, TextNode } from '../scene/types.js';
 import { colorWithOpacity, mixColor, readableTextColor } from '../theme/color.js';
+import {
+  isGeographicPosition,
+  naturalEarthCountry,
+  projectGeographicPosition,
+  worldBasemapNodes,
+  worldCountryOverlayNodes,
+} from './geographic.js';
 import { numericDataValue, scaleInput } from './utils.js';
 
 function optionNumber(
@@ -157,209 +164,38 @@ export const compileCalendarMark: MarkCompiler = (context) => {
   return nodes;
 };
 
-const countryCentroids: Readonly<Record<string, readonly [number, number]>> = {
-  KR: [127.8, 36.4],
-  KOREA: [127.8, 36.4],
-  US: [-98.5, 39.5],
-  USA: [-98.5, 39.5],
-  CA: [-106, 56],
-  CANADA: [-106, 56],
-  BR: [-51.9, -14.2],
-  BRAZIL: [-51.9, -14.2],
-  GB: [-3.4, 55.4],
-  UK: [-3.4, 55.4],
-  FR: [2.2, 46.2],
-  DE: [10.4, 51.2],
-  RU: [105.3, 61.5],
-  RUSSIA: [105.3, 61.5],
-  IN: [78.9, 20.6],
-  INDIA: [78.9, 20.6],
-  CN: [104.2, 35.9],
-  CHINA: [104.2, 35.9],
-  JP: [138.3, 36.2],
-  JAPAN: [138.3, 36.2],
-  AU: [133.8, -25.3],
-  AUSTRALIA: [133.8, -25.3],
-  ZA: [22.9, -30.6],
-};
-
-const continents: readonly (readonly [number, number])[][] = [
-  [
-    [-168, 70],
-    [-150, 60],
-    [-134, 55],
-    [-126, 48],
-    [-124, 32],
-    [-110, 24],
-    [-98, 17],
-    [-82, 23],
-    [-80, 31],
-    [-66, 45],
-    [-58, 52],
-    [-72, 61],
-    [-96, 69],
-    [-126, 72],
-  ],
-  [
-    [-81, 12],
-    [-69, 10],
-    [-52, 3],
-    [-35, -7],
-    [-42, -23],
-    [-53, -36],
-    [-68, -55],
-    [-76, -43],
-    [-78, -18],
-  ],
-  [
-    [-10, 36],
-    [-18, 15],
-    [-10, 1],
-    [10, -5],
-    [15, -24],
-    [29, -35],
-    [42, -18],
-    [51, 12],
-    [38, 31],
-    [20, 37],
-  ],
-  [
-    [-11, 36],
-    [-8, 44],
-    [2, 50],
-    [17, 58],
-    [31, 70],
-    [58, 72],
-    [88, 74],
-    [119, 68],
-    [151, 59],
-    [178, 51],
-    [162, 38],
-    [145, 33],
-    [122, 23],
-    [106, 5],
-    [83, 8],
-    [66, 24],
-    [46, 30],
-    [34, 39],
-    [20, 40],
-    [8, 38],
-  ],
-  [
-    [-52, 83],
-    [-23, 81],
-    [-18, 70],
-    [-31, 60],
-    [-48, 60],
-    [-62, 72],
-  ],
-  [
-    [112, -11],
-    [131, -12],
-    [145, -19],
-    [154, -28],
-    [148, -39],
-    [132, -43],
-    [116, -35],
-    [113, -22],
-  ],
-];
-
-function project(
-  plot: Parameters<MarkCompiler>[0]['plot'],
-  longitude: number,
-  latitude: number,
-): Point {
-  return {
-    x: plot.x + ((longitude + 180) / 360) * plot.width,
-    y: plot.y + ((90 - latitude) / 180) * plot.height,
-  };
-}
-
-function worldBackground(context: Parameters<MarkCompiler>[0]): SceneNode[] {
-  const { layer, plot, theme } = context;
-  const nodes: SceneNode[] = [
-    {
-      type: 'rect',
-      ...nodeBase(`${layer.id}:map-surface`, { zIndex: layer.zIndex - 4 }),
-      x: plot.x,
-      y: plot.y,
-      width: plot.width,
-      height: plot.height,
-      fill: theme.colors.surface,
-      stroke: theme.colors.grid,
-      lineWidth: 1,
-      cornerRadius: 12,
-    },
-  ];
-  for (let longitude = -120; longitude <= 120; longitude += 60) {
-    const top = project(plot, longitude, 78);
-    const bottom = project(plot, longitude, -60);
-    nodes.push({
-      type: 'line',
-      ...nodeBase(`${layer.id}:longitude:${longitude}`, {
-        zIndex: layer.zIndex - 3,
-        opacity: 0.7,
-      }),
-      x1: top.x,
-      y1: top.y,
-      x2: bottom.x,
-      y2: bottom.y,
-      stroke: theme.colors.grid,
-      lineWidth: 0.8,
-    });
-  }
-  for (let latitude = -60; latitude <= 60; latitude += 30) {
-    const left = project(plot, -180, latitude);
-    const right = project(plot, 180, latitude);
-    nodes.push({
-      type: 'line',
-      ...nodeBase(`${layer.id}:latitude:${latitude}`, {
-        zIndex: layer.zIndex - 3,
-        opacity: 0.7,
-      }),
-      x1: left.x,
-      y1: left.y,
-      x2: right.x,
-      y2: right.y,
-      stroke: theme.colors.grid,
-      lineWidth: 0.8,
-    });
-  }
-  continents.forEach((polygon, index) => {
-    nodes.push({
-      type: 'path',
-      ...nodeBase(`${layer.id}:continent:${index}`, {
-        zIndex: layer.zIndex - 2,
-        opacity: 0.96,
-      }),
-      points: polygon.map(([longitude, latitude]) => project(plot, longitude, latitude)),
-      closed: true,
-      fill: mixColor(theme.colors.surface, theme.colors.grid, 0.72),
-      stroke: theme.colors.axis,
-      lineWidth: 0.8,
-      lineJoin: 'round',
-    });
-  });
-  return nodes;
-}
-
 export const compileGeoMark: MarkCompiler = (context) => {
   const { table, layer, plot, theme, performance } = context;
-  const nodes: SceneNode[] = worldBackground(context);
-  const extent = table.extent(layer.y.field);
+  const nodes: SceneNode[] = worldBasemapNodes(context);
+  const rows: {
+    readonly rowIndex: number;
+    readonly value: number;
+    readonly country: NonNullable<ReturnType<typeof naturalEarthCountry>>;
+  }[] = [];
   for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
     const region = String(table.value(rowIndex, layer.x.field) ?? '').trim();
     const value = numericDataValue(table.value(rowIndex, layer.y.field));
-    const centroid = countryCentroids[region.toUpperCase()];
-    if (centroid === undefined || value === null) continue;
-    const ratio =
-      extent === null || extent[1] === extent[0]
-        ? 0.6
-        : (value - extent[0]) / (extent[1] - extent[0]);
-    const point = project(plot, centroid[0], centroid[1]);
-    const radius = 5 + Math.sqrt(Math.max(0, ratio)) * 12;
+    const country = naturalEarthCountry(region);
+    if (country === undefined || value === null) continue;
+    rows.push({ rowIndex, value, country });
+  }
+  if (rows.length === 0) return nodes;
+  const minimum = Math.min(...rows.map(({ value }) => value));
+  const maximum = Math.max(...rows.map(({ value }) => value));
+  const mode = optionString(layer.mark.options, 'mode') ?? 'bubble';
+  for (const { rowIndex, value, country } of rows) {
+    const ratio = maximum === minimum ? 0.6 : (value - minimum) / (maximum - minimum);
     const fill = layer.mark.fill ?? theme.colors.focus;
+    if (mode === 'choropleth') {
+      const start = theme.colors.sequential[0] ?? colorWithOpacity(fill, 0.18);
+      const end = theme.colors.sequential.at(-1) ?? fill;
+      nodes.push(
+        ...worldCountryOverlayNodes(context, country, rowIndex, mixColor(start, end, ratio)),
+      );
+      continue;
+    }
+    const point = projectGeographicPosition(plot, country[5], country[6]);
+    const radius = 5 + Math.sqrt(Math.max(0, ratio)) * 12;
     nodes.push({
       type: 'circle',
       ...nodeBase(`${layer.id}:region-halo:${rowIndex}`, {
@@ -392,20 +228,21 @@ export const compileGeoMark: MarkCompiler = (context) => {
 
 export const compileMapMark: MarkCompiler = (context) => {
   const { table, layer, plot, theme, performance } = context;
-  const nodes: SceneNode[] = worldBackground(context);
+  const nodes: SceneNode[] = worldBasemapNodes(context);
   const sizeField = layer.mark.fields.size;
   const extent = sizeField === undefined || !table.has(sizeField) ? null : table.extent(sizeField);
   for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
     const longitude = numericDataValue(table.value(rowIndex, layer.x.field));
     const latitude = numericDataValue(table.value(rowIndex, layer.y.field));
-    if (longitude === null || latitude === null) continue;
+    if (longitude === null || latitude === null || !isGeographicPosition(longitude, latitude))
+      continue;
     const rawSize =
       sizeField === undefined ? null : numericDataValue(table.value(rowIndex, sizeField));
     const ratio =
       rawSize === null || extent === null || extent[1] === extent[0]
         ? 0.5
         : (rawSize - extent[0]) / (extent[1] - extent[0]);
-    const point = project(plot, longitude, latitude);
+    const point = projectGeographicPosition(plot, longitude, latitude);
     const radius = layer.mark.radius ?? 5 + Math.sqrt(Math.max(0, ratio)) * 10;
     const fill = layer.mark.fill ?? theme.colors.focus;
     nodes.push({

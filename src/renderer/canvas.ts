@@ -179,21 +179,25 @@ export class CanvasRenderer implements Renderer {
   }
 
   #drawPath(context: CanvasRenderingContext2D, node: PathNode): void {
-    const first = node.points[0];
-    if (first === undefined) return;
+    const paths = [node.points, ...(node.subpaths ?? [])].filter((points) => points.length > 0);
+    if (paths.length === 0) return;
     context.beginPath();
-    context.moveTo(first.x, first.y);
-    for (let index = 1; index < node.points.length; index += 1) {
-      const point = node.points[index];
-      if (point !== undefined) context.lineTo(point.x, point.y);
+    for (const points of paths) {
+      const first = points[0];
+      if (first === undefined) continue;
+      context.moveTo(first.x, first.y);
+      for (let index = 1; index < points.length; index += 1) {
+        const point = points[index];
+        if (point !== undefined) context.lineTo(point.x, point.y);
+      }
+      if (node.closed) context.closePath();
     }
-    if (node.closed) context.closePath();
     context.setLineDash(node.dash === undefined ? [] : [...node.dash]);
     context.lineCap = node.lineCap ?? 'round';
     context.lineJoin = node.lineJoin ?? 'round';
     if (node.fill !== undefined) {
       context.fillStyle = node.fill;
-      context.fill();
+      context.fill(node.fillRule ?? 'nonzero');
     }
     if (node.stroke !== undefined && node.lineWidth > 0) {
       context.strokeStyle = node.stroke;

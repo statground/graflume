@@ -1,7 +1,7 @@
 import { strideSampleIndices } from '../data/sample.js';
 import type { AxisTooltipTarget } from '../interaction/axis-hit-test.js';
 import type { Scale } from '../scale/types.js';
-import type { Rect, SceneNode } from '../scene/types.js';
+import type { PathNode, Rect, SceneNode } from '../scene/types.js';
 import type { TooltipAxis } from '../spec/types.js';
 import type { PerformanceSettings } from '../data/performance.js';
 import type { ScaleResolution } from './domain.js';
@@ -14,6 +14,23 @@ interface AxisTooltipTargetContext {
   readonly scales: ScaleResolution;
   readonly plot: Rect;
   readonly performance: PerformanceSettings;
+}
+
+function pathBounds(node: PathNode): Rect | null {
+  let minX = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (const points of [node.points, ...(node.subpaths ?? [])]) {
+    for (const point of points) {
+      minX = Math.min(minX, point.x);
+      maxX = Math.max(maxX, point.x);
+      minY = Math.min(minY, point.y);
+      maxY = Math.max(maxY, point.y);
+    }
+  }
+  if (!Number.isFinite(minX)) return null;
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
 
 function anchor(node: Exclude<SceneNode, { readonly type: 'group' }>): {
@@ -30,18 +47,8 @@ function anchor(node: Exclude<SceneNode, { readonly type: 'group' }>): {
     case 'text':
       return { x: node.x, y: node.y };
     case 'path': {
-      if (node.points.length === 0) return null;
-      let minX = Number.POSITIVE_INFINITY;
-      let maxX = Number.NEGATIVE_INFINITY;
-      let minY = Number.POSITIVE_INFINITY;
-      let maxY = Number.NEGATIVE_INFINITY;
-      for (const point of node.points) {
-        minX = Math.min(minX, point.x);
-        maxX = Math.max(maxX, point.x);
-        minY = Math.min(minY, point.y);
-        maxY = Math.max(maxY, point.y);
-      }
-      return { x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
+      const path = pathBounds(node);
+      return path === null ? null : { x: path.x + path.width / 2, y: path.y + path.height / 2 };
     }
   }
 }
@@ -67,19 +74,7 @@ function bounds(node: Exclude<SceneNode, { readonly type: 'group' }>): Rect {
     case 'text':
       return { x: node.x, y: node.y, width: 0, height: 0 };
     case 'path': {
-      const point = anchor(node);
-      if (point === null) return { x: 0, y: 0, width: 0, height: 0 };
-      let minX = Number.POSITIVE_INFINITY;
-      let maxX = Number.NEGATIVE_INFINITY;
-      let minY = Number.POSITIVE_INFINITY;
-      let maxY = Number.NEGATIVE_INFINITY;
-      for (const current of node.points) {
-        minX = Math.min(minX, current.x);
-        maxX = Math.max(maxX, current.x);
-        minY = Math.min(minY, current.y);
-        maxY = Math.max(maxY, current.y);
-      }
-      return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+      return pathBounds(node) ?? { x: 0, y: 0, width: 0, height: 0 };
     }
   }
 }

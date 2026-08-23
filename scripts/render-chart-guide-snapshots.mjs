@@ -97,17 +97,22 @@ function renderScene(scene) {
     }
 
     if (node.type === 'path') {
-      if (node.points.length === 0) return '';
-      const [first, ...remaining] = node.points;
-      const commands = [
-        `M ${number(first.x)} ${number(first.y)}`,
-        ...remaining.map((point) => `L ${number(point.x)} ${number(point.y)}`),
-        ...(node.closed ? ['Z'] : []),
-      ].join(' ');
+      const commands = [node.points, ...(node.subpaths ?? [])]
+        .filter((points) => points.length > 0)
+        .map(([first, ...remaining]) =>
+          [
+            `M ${number(first.x)} ${number(first.y)}`,
+            ...remaining.map((point) => `L ${number(point.x)} ${number(point.y)}`),
+            ...(node.closed ? ['Z'] : []),
+          ].join(' '),
+        )
+        .join(' ');
+      if (commands.length === 0) return '';
       return `<path${attributes({
         ...common,
         d: commands,
         fill: node.fill ?? 'none',
+        'fill-rule': node.fillRule,
         stroke: node.stroke,
         'stroke-width': node.stroke === undefined ? undefined : number(node.lineWidth),
         'stroke-dasharray': dash(node),

@@ -4,6 +4,11 @@ import { nodeBase } from '../scene/factory.js';
 import type { Point, SceneNode, TextNode } from '../scene/types.js';
 import type { DataRow, DataValue, JsonValue } from '../spec/types.js';
 import { colorWithOpacity, mixColor, readableTextColor } from '../theme/color.js';
+import {
+  isGeographicPosition,
+  projectGeographicPosition,
+  worldBasemapNodes,
+} from './geographic.js';
 import { numericDataValue, scaleInput } from './utils.js';
 
 const TAU = Math.PI * 2;
@@ -2136,125 +2141,6 @@ export const compileVolumeProfileMark: MarkCompiler = (context) => {
   return nodes;
 };
 
-function projectGeo(plot: MarkCompileContext['plot'], longitude: number, latitude: number): Point {
-  return {
-    x: plot.x + ((longitude + 180) / 360) * plot.width,
-    y: plot.y + ((90 - latitude) / 180) * plot.height,
-  };
-}
-
-const continentShapes: readonly (readonly (readonly [number, number])[])[] = [
-  [
-    [-168, 70],
-    [-118, 72],
-    [-82, 48],
-    [-98, 17],
-    [-130, 28],
-    [-168, 55],
-  ],
-  [
-    [-82, 12],
-    [-45, 7],
-    [-36, -22],
-    [-60, -55],
-    [-76, -18],
-  ],
-  [
-    [-12, 36],
-    [32, 37],
-    [50, 11],
-    [26, -35],
-    [-5, -28],
-    [-18, 8],
-  ],
-  [
-    [-10, 72],
-    [58, 75],
-    [145, 55],
-    [160, 8],
-    [88, 5],
-    [42, 28],
-    [12, 36],
-  ],
-  [
-    [112, -10],
-    [154, -12],
-    [148, -44],
-    [116, -37],
-  ],
-];
-
-function geoLandNodes(context: MarkCompileContext, zIndex: number): SceneNode[] {
-  const { layer, plot, theme } = context;
-  const land = mixColor(
-    theme.colors.background,
-    theme.colors.palette[1] ?? theme.colors.mutedText,
-    theme.mode === 'dark' ? 0.18 : 0.11,
-  );
-  return continentShapes.map((shape, index) => ({
-    type: 'path',
-    ...nodeBase(`${layer.id}:geo-land:${index}`, { zIndex }),
-    points: shape.map(([longitude, latitude]) => projectGeo(plot, longitude, latitude)),
-    closed: true,
-    fill: land,
-    stroke: colorWithOpacity(theme.colors.axis, 0.42),
-    lineWidth: 0.8,
-    lineJoin: 'round',
-  }));
-}
-
-function geoBackdrop(context: MarkCompileContext): SceneNode[] {
-  const { layer, plot, theme } = context;
-  const nodes: SceneNode[] = [
-    {
-      type: 'rect',
-      ...nodeBase(`${layer.id}:geo-background`, { zIndex: layer.zIndex - 3 }),
-      x: plot.x,
-      y: plot.y,
-      width: plot.width,
-      height: plot.height,
-      fill: mixColor(
-        theme.colors.background,
-        theme.colors.sequential[0] ?? theme.colors.grid,
-        0.18,
-      ),
-      stroke: theme.colors.grid,
-      lineWidth: 1,
-      cornerRadius: 8,
-    },
-    ...geoLandNodes(context, layer.zIndex - 2.8),
-  ];
-  for (let longitude = -120; longitude <= 120; longitude += 60) {
-    const x = projectGeo(plot, longitude, 0).x;
-    nodes.push({
-      type: 'line',
-      ...nodeBase(`${layer.id}:geo-lon:${longitude}`, { zIndex: layer.zIndex - 2, opacity: 0.45 }),
-      x1: x,
-      y1: plot.y,
-      x2: x,
-      y2: plot.y + plot.height,
-      stroke: theme.colors.grid,
-      lineWidth: 0.8,
-      dash: [3, 4],
-    });
-  }
-  for (let latitude = -60; latitude <= 60; latitude += 30) {
-    const y = projectGeo(plot, 0, latitude).y;
-    nodes.push({
-      type: 'line',
-      ...nodeBase(`${layer.id}:geo-lat:${latitude}`, { zIndex: layer.zIndex - 2, opacity: 0.45 }),
-      x1: plot.x,
-      y1: y,
-      x2: plot.x + plot.width,
-      y2: y,
-      stroke: theme.colors.grid,
-      lineWidth: 0.8,
-      dash: [3, 4],
-    });
-  }
-  return nodes;
-}
-
 export const compileGeoLineMark: MarkCompiler = (context) => {
   const { layer, table, plot, theme } = context;
   const longitude2Field = layer.mark.fields.longitude2 ?? layer.mark.fields.x2 ?? 'longitude2';
@@ -2263,7 +2149,7 @@ export const compileGeoLineMark: MarkCompiler = (context) => {
   const valueExtent =
     valueField !== undefined && table.has(valueField) ? table.extent(valueField) : null;
   const flow = layer.mark.options.flow === true;
-  const nodes = geoBackdrop(context);
+  const nodes = worldBasemapNodes(context);
   for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
     const longitude = numericDataValue(table.value(rowIndex, layer.x.field));
     const latitude = numericDataValue(table.value(rowIndex, layer.y.field));
@@ -2273,10 +2159,17 @@ export const compileGeoLineMark: MarkCompiler = (context) => {
     const latitude2 = table.has(latitude2Field)
       ? numericDataValue(table.value(rowIndex, latitude2Field))
       : null;
-    if (longitude === null || latitude === null || longitude2 === null || latitude2 === null)
+    if (
+      longitude === null ||
+      latitude === null ||
+      longitude2 === null ||
+      latitude2 === null ||
+      !isGeographicPosition(longitude, latitude) ||
+      !isGeographicPosition(longitude2, latitude2)
+    )
       continue;
-    const start = projectGeo(plot, longitude, latitude);
-    const end = projectGeo(plot, longitude2, latitude2);
+    const start = projectGeographicPosition(plot, longitude, latitude);
+    const end = projectGeographicPosition(plot, longitude2, latitude2);
     const control = {
       x: (start.x + end.x) / 2,
       y: Math.min(start.y, end.y) - Math.abs(end.x - start.x) * 0.16,
@@ -2326,15 +2219,21 @@ export const compileGeoHeatmapMark: MarkCompiler = (context) => {
   const { layer, table, plot, theme } = context;
   const valueField = layer.mark.fields.value ?? 'value';
   const extent = table.has(valueField) ? table.extent(valueField) : null;
-  const nodes = geoBackdrop(context);
+  const nodes = worldBasemapNodes(context);
   for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
     const longitude = numericDataValue(table.value(rowIndex, layer.x.field));
     const latitude = numericDataValue(table.value(rowIndex, layer.y.field));
     const value = table.has(valueField)
       ? numericDataValue(table.value(rowIndex, valueField))
       : null;
-    if (longitude === null || latitude === null || value === null) continue;
-    const point = projectGeo(plot, longitude, latitude);
+    if (
+      longitude === null ||
+      latitude === null ||
+      value === null ||
+      !isGeographicPosition(longitude, latitude)
+    )
+      continue;
+    const point = projectGeographicPosition(plot, longitude, latitude);
     const ratio =
       extent === null || extent[1] === extent[0]
         ? 0.5
@@ -2371,38 +2270,13 @@ export const compileGeoHeatmapMark: MarkCompiler = (context) => {
 
 export const compileTiledMapMark: MarkCompiler = (context) => {
   const { layer, table, plot, theme } = context;
-  const nodes: SceneNode[] = [];
-  const columns = clamp(Math.floor(optionNumber(layer.mark.options.columns, 8)), 2, 24);
-  const rows = clamp(Math.floor(optionNumber(layer.mark.options.rows, 5)), 2, 16);
-  const width = plot.width / columns;
-  const height = plot.height / rows;
-  for (let row = 0; row < rows; row += 1) {
-    for (let column = 0; column < columns; column += 1) {
-      const shade = (row + column) % 2 === 0 ? 0.12 : 0.2;
-      nodes.push({
-        type: 'rect',
-        ...nodeBase(`${layer.id}:map-tile:${row}:${column}`, { zIndex: layer.zIndex - 3 }),
-        x: plot.x + column * width,
-        y: plot.y + row * height,
-        width,
-        height,
-        fill: mixColor(
-          theme.colors.background,
-          theme.colors.sequential[0] ?? theme.colors.grid,
-          shade,
-        ),
-        stroke: colorWithOpacity(theme.colors.grid, 0.55),
-        lineWidth: 0.6,
-        cornerRadius: 0,
-      });
-    }
-  }
-  nodes.push(...geoLandNodes(context, layer.zIndex - 2));
+  const nodes: SceneNode[] = worldBasemapNodes(context);
   for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
     const longitude = numericDataValue(table.value(rowIndex, layer.x.field));
     const latitude = numericDataValue(table.value(rowIndex, layer.y.field));
-    if (longitude === null || latitude === null) continue;
-    const point = projectGeo(plot, longitude, latitude);
+    if (longitude === null || latitude === null || !isGeographicPosition(longitude, latitude))
+      continue;
+    const point = projectGeographicPosition(plot, longitude, latitude);
     const color = layer.mark.fill ?? paletteColor(context, rowIndex);
     nodes.push({
       type: 'circle',
