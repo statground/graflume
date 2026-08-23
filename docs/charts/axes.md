@@ -478,5 +478,6 @@ specifications because they compose with the rest of the tick and label styles.
   [`graflume.schema.json`](../../schema/graflume.schema.json) describe the same contract.
 
 Automatic label collision routing beyond the current auto tilt, spacing, and truncation controls is
-not implemented. Crosshair guides, legends, facets, and keyboard traversal of individual marks
-remain separate future features.
+not implemented. Crosshair guides, facets, and keyboard traversal of individual marks remain
+separate future features. Legends, axis-aligned reference bands, and callouts use the shared
+[portable interaction contract](./interactions.md#legends-highlights-selection-and-callouts).

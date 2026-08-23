@@ -3,12 +3,14 @@ import { GraflumeError } from '../core/errors.js';
 import { EventEmitter } from '../core/events.js';
 import { DataTable } from '../data/table.js';
 import { hitTestAxisTooltip } from '../interaction/axis-hit-test.js';
+import { sceneLegendLayout } from '../compiler/legend.js';
 import {
   ControlsController,
   type ControlsActions,
   type ControlsState,
 } from '../interaction/controls.js';
 import { hitTestScene, type HitResult } from '../interaction/hit-test.js';
+import { LegendController } from '../interaction/legend.js';
 import {
   constrainInspectionView,
   identityInspectionView,
@@ -24,9 +26,12 @@ import type { Renderer } from '../renderer/types.js';
 import { normalizeSpec } from '../spec/normalize.js';
 import type {
   ChartSpec,
+  AnnotationSpec,
   DataInput,
   DataRow,
   DataValue,
+  DatumTargetSpec,
+  DecorationTargetSpec,
   NormalizedChartSpec,
   NormalizedNavigationSpec,
   NormalizedPlaybackSpec,
@@ -107,6 +112,51 @@ export interface ChartFullscreenChangeEvent {
   readonly active: boolean;
 }
 
+export interface ChartLegendItemState {
+  readonly id: string;
+  readonly label: string;
+  readonly color: string;
+  readonly visible: boolean;
+  readonly toggleable: boolean;
+  readonly layerId?: string;
+  readonly value?: import('../spec/types.js').JsonPrimitive;
+}
+
+export interface ChartLegendState {
+  readonly enabled: boolean;
+  readonly items: readonly ChartLegendItemState[];
+}
+
+export type ChartLegendChangeReason = 'toggle' | 'programmatic' | 'reset' | 'spec';
+
+export interface ChartLegendChangeEvent {
+  readonly chart: Chart;
+  readonly state: ChartLegendState;
+  readonly reason: ChartLegendChangeReason;
+}
+
+export interface ChartSelectionState {
+  readonly enabled: boolean;
+  readonly items: readonly DatumTargetSpec[];
+}
+
+export type ChartSelectionChangeReason = 'click' | 'programmatic' | 'clear' | 'spec';
+
+export interface ChartSelectionChangeEvent {
+  readonly chart: Chart;
+  readonly state: ChartSelectionState;
+  readonly reason: ChartSelectionChangeReason;
+}
+
+export type ChartAnnotationChangeReason = 'set' | 'add' | 'update' | 'remove' | 'spec';
+
+export interface ChartAnnotationChangeEvent {
+  readonly chart: Chart;
+  readonly annotations: readonly AnnotationSpec[];
+  readonly reason: ChartAnnotationChangeReason;
+  readonly id?: string;
+}
+
 export interface ChartEventMap {
   readonly render: ChartRenderEvent;
   readonly hover: ChartPointerEvent;
@@ -115,6 +165,9 @@ export interface ChartEventMap {
   readonly viewchange: ChartViewChangeEvent;
   readonly playbackchange: ChartPlaybackChangeEvent;
   readonly fullscreenchange: ChartFullscreenChangeEvent;
+  readonly legendchange: ChartLegendChangeEvent;
+  readonly selectionchange: ChartSelectionChangeEvent;
+  readonly annotationchange: ChartAnnotationChangeEvent;
   readonly error: ChartErrorEvent;
 }
 
@@ -188,6 +241,61 @@ function configuredFrame(spec: ChartSpec): DataValue | undefined {
   return undefined;
 }
 
+function cloneDatumTarget(target: DatumTargetSpec): DatumTargetSpec {
+  return {
+    ...target,
+    ...(Array.isArray(target.rowIndex) ? { rowIndex: [...target.rowIndex] } : {}),
+    ...(target.values === undefined ? {} : { values: [...target.values] }),
+  };
+}
+
+function cloneDecorationTarget(target: DecorationTargetSpec): DecorationTargetSpec {
+  switch (target.type) {
+    case 'datum':
+      return cloneDatumTarget(target);
+    case 'range':
+      return {
+        type: 'range',
+        ...(target.x === undefined ? {} : { x: { ...target.x } }),
+        ...(target.y === undefined ? {} : { y: { ...target.y } }),
+      };
+    case 'layer':
+    case 'plot':
+      return { ...target };
+  }
+}
+
+function cloneAnnotation(annotation: AnnotationSpec): AnnotationSpec {
+  return {
+    ...annotation,
+    target: cloneDecorationTarget(annotation.target),
+    ...(typeof annotation.connector === 'object'
+      ? { connector: { ...annotation.connector, dash: [...(annotation.connector.dash ?? [])] } }
+      : {}),
+    ...(annotation.style === undefined ? {} : { style: { ...annotation.style } }),
+  };
+}
+
+function annotationId(annotation: AnnotationSpec, index: number): string {
+  return annotation.id ?? `annotation-${index}`;
+}
+
+function selectionKey(target: DatumTargetSpec): string {
+  const values =
+    target.field === undefined
+      ? null
+      : [...(target.values ?? (target.value === undefined ? [] : [target.value]))].sort(
+          (left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)),
+        );
+  const rows =
+    target.rowIndex === undefined
+      ? null
+      : (Array.isArray(target.rowIndex) ? [...target.rowIndex] : [target.rowIndex]).sort(
+          (left, right) => left - right,
+        );
+  return JSON.stringify([target.layerId ?? null, rows, target.field ?? null, values]);
+}
+
 export class Chart {
   readonly #target: HTMLElement;
   readonly #registry: RuntimeRegistry;
@@ -195,6 +303,7 @@ export class Chart {
   readonly #scheduler = new RenderScheduler();
   readonly #tooltip = new TooltipController();
   readonly #controls = new ControlsController();
+  readonly #legend = new LegendController();
   readonly #options: ChartCreateOptions;
   readonly #activePointers = new Map<number, ActivePointer>();
   #spec: ChartSpec;
@@ -225,6 +334,11 @@ export class Chart {
   #playbackTimestamp: number | null = null;
   #reducedMotion: MediaQueryList | null = null;
   #fullscreen = false;
+  #hiddenLegendItems = new Set<string>();
+  #selection: DatumTargetSpec[] = [];
+  #annotations: AnnotationSpec[] = [];
+  #selectionLive: HTMLDivElement | null = null;
+  #selectionLiveHost: HTMLElement | null = null;
 
   readonly #pointerMoveListener = (event: Event): void => {
     if (!(event instanceof PointerEvent)) return;
@@ -257,7 +371,10 @@ export class Chart {
       this.#suppressClick = false;
       return;
     }
-    if (this.#result?.spec.interaction.click !== false) this.#emitPointer('click', event);
+    const interaction = this.#result?.spec.interaction;
+    if (interaction?.click !== false || interaction?.selection !== false) {
+      this.#emitPointer('click', event);
+    }
   };
 
   readonly #pointerLeaveListener = (event: Event): void => {
@@ -313,6 +430,10 @@ export class Chart {
     this.#manualWidth = options.width;
     this.#manualHeight = options.height;
     const normalized = normalizeSpec(spec);
+    this.#annotations = normalized.annotations.map((annotation, index) => ({
+      ...cloneAnnotation(annotation),
+      id: annotationId(annotation, index),
+    }));
     this.#configureInteraction(normalized, true);
     try {
       this.#configureEnvironmentListeners();
@@ -367,15 +488,188 @@ export class Chart {
     };
   }
 
+  getLegendState(): ChartLegendState {
+    const layout = this.#result === null ? null : sceneLegendLayout(this.#result.scene);
+    return {
+      enabled: layout !== null,
+      items:
+        layout?.entries.map((entry) => ({
+          id: entry.id,
+          label: entry.label,
+          color: entry.color,
+          visible: entry.visible,
+          toggleable: entry.toggleable,
+          ...(entry.layerId === undefined ? {} : { layerId: entry.layerId }),
+          ...(entry.value === undefined ? {} : { value: entry.value }),
+        })) ?? [],
+    };
+  }
+
+  setLegendItemVisible(id: string, visible: boolean): this {
+    return this.#setLegendItemVisible(id, visible, 'programmatic');
+  }
+
+  #setLegendItemVisible(id: string, visible: boolean, reason: ChartLegendChangeReason): this {
+    this.#assertAlive();
+    const item = this.getLegendState().items.find((candidate) => candidate.id === id);
+    if (item === undefined) {
+      throw new GraflumeError('INVALID_SPEC', `Legend item "${id}" was not found.`);
+    }
+    if (!item.toggleable) {
+      throw new GraflumeError('INVALID_SPEC', `Legend item "${id}" is not toggleable.`);
+    }
+    if (item.visible === visible) return this;
+    if (visible) this.#hiddenLegendItems.delete(id);
+    else this.#hiddenLegendItems.add(id);
+    this.render();
+    this.#events.emit('legendchange', {
+      chart: this,
+      state: this.getLegendState(),
+      reason,
+    });
+    return this;
+  }
+
+  resetLegend(): this {
+    this.#assertAlive();
+    if (this.#hiddenLegendItems.size === 0) return this;
+    this.#hiddenLegendItems.clear();
+    this.render();
+    this.#events.emit('legendchange', {
+      chart: this,
+      state: this.getLegendState(),
+      reason: 'reset',
+    });
+    return this;
+  }
+
+  getSelection(): ChartSelectionState {
+    return {
+      enabled: this.#result !== null && this.#result.spec.interaction.selection !== false,
+      items: this.#selection.map(cloneDatumTarget),
+    };
+  }
+
+  setSelection(items: readonly DatumTargetSpec[]): this {
+    this.#assertAlive();
+    if (this.#result?.spec.interaction.selection === false) {
+      throw new GraflumeError(
+        'INVALID_SPEC',
+        'Enable interaction.selection before setting selection state.',
+      );
+    }
+    normalizeSpec({
+      ...this.#spec,
+      // Replace authored highlights while validating selection targets so
+      // their count and IDs cannot interfere with transient selection state.
+      highlights: items.map((target) => ({ target })),
+    });
+    const selection = this.#result?.spec.interaction.selection;
+    if (selection !== undefined && selection.mode === 'single' && items.length > 1)
+      throw new GraflumeError('INVALID_SPEC', 'Single selection mode accepts at most one target.');
+    const next = items.map(cloneDatumTarget);
+    const keys = next.map(selectionKey);
+    if (new Set(keys).size !== keys.length)
+      throw new GraflumeError('INVALID_SPEC', 'Selection targets must be unique.');
+    if (
+      next.length === this.#selection.length &&
+      next.every((target, index) => selectionKey(target) === selectionKey(this.#selection[index]!))
+    )
+      return this;
+    this.#selection = next;
+    this.render();
+    this.#emitSelection('programmatic');
+    return this;
+  }
+
+  clearSelection(): this {
+    this.#assertAlive();
+    if (this.#selection.length === 0) return this;
+    this.#selection = [];
+    this.render();
+    this.#emitSelection('clear');
+    return this;
+  }
+
+  getAnnotations(): readonly AnnotationSpec[] {
+    return this.#annotations.map(cloneAnnotation);
+  }
+
+  setAnnotations(annotations: readonly AnnotationSpec[]): this {
+    this.#assertAlive();
+    const resolved = annotations.map((annotation, index) => ({
+      ...cloneAnnotation(annotation),
+      id: annotationId(annotation, index),
+    }));
+    normalizeSpec({ ...this.#spec, annotations: resolved });
+    this.#annotations = resolved;
+    this.render();
+    this.#emitAnnotations('set');
+    return this;
+  }
+
+  addAnnotation(annotation: AnnotationSpec): string {
+    this.#assertAlive();
+    const id = annotation.id ?? `annotation-runtime-${Date.now()}-${this.#annotations.length}`;
+    if (this.#annotations.some((candidate) => candidate.id === id)) {
+      throw new GraflumeError('INVALID_SPEC', `Annotation "${id}" already exists.`);
+    }
+    const next = [...this.#annotations, { ...cloneAnnotation(annotation), id }];
+    normalizeSpec({ ...this.#spec, annotations: next });
+    this.#annotations = next;
+    this.render();
+    this.#emitAnnotations('add', id);
+    return id;
+  }
+
+  updateAnnotation(id: string, patch: Partial<Omit<AnnotationSpec, 'id'>>): this {
+    this.#assertAlive();
+    const index = this.#annotations.findIndex((annotation) => annotation.id === id);
+    if (index < 0) throw new GraflumeError('INVALID_SPEC', `Annotation "${id}" was not found.`);
+    const current = this.#annotations[index]!;
+    const updated = cloneAnnotation({ ...current, ...patch, id } as AnnotationSpec);
+    const next = this.#annotations.map((annotation, candidate) =>
+      candidate === index ? updated : annotation,
+    );
+    normalizeSpec({ ...this.#spec, annotations: next });
+    this.#annotations = next;
+    this.render();
+    this.#emitAnnotations('update', id);
+    return this;
+  }
+
+  removeAnnotation(id: string): boolean {
+    this.#assertAlive();
+    const next = this.#annotations.filter((annotation) => annotation.id !== id);
+    if (next.length === this.#annotations.length) return false;
+    this.#annotations = next;
+    this.render();
+    this.#emitAnnotations('remove', id);
+    return true;
+  }
+
   setSpec(spec: ChartSpec): this {
     this.#assertAlive();
     const normalized = normalizeSpec(spec);
     this.pause();
     this.#spec = spec;
+    this.#annotations = normalized.annotations.map((annotation, index) => ({
+      ...cloneAnnotation(annotation),
+      id: annotationId(annotation, index),
+    }));
+    this.#selection = [];
+    this.#hiddenLegendItems.clear();
     this.#configureInteraction(normalized, true);
     this.render();
     this.#configureResizeObserver();
     this.#emitPlayback('spec');
+    this.#events.emit('legendchange', {
+      chart: this,
+      state: this.getLegendState(),
+      reason: 'spec',
+    });
+    this.#emitSelection('spec');
+    this.#emitAnnotations('spec');
     this.#startAutoplay();
     return this;
   }
@@ -641,7 +935,11 @@ export class Chart {
     const effectiveSpec = this.#fullscreen
       ? { ...playbackSpecInput, width: 'container' as const, height: 'container' as const }
       : playbackSpecInput;
-    const result = compileWithRegistry(effectiveSpec, this.#registry, dimensions);
+    const result = compileWithRegistry(effectiveSpec, this.#registry, dimensions, {
+      hiddenLegendItemIds: this.#hiddenLegendItems,
+      annotations: this.#annotations,
+      selection: this.#selection,
+    });
     const factory = this.#registry.resolveRenderer(result.spec.renderer);
     const pixelRatio = this.#pixelRatio();
     const rendererChanged = this.#renderer === null || this.#rendererName !== factory.name;
@@ -649,6 +947,8 @@ export class Chart {
     if (rendererChanged) {
       this.#detachSurfaceEvents();
       this.#controls.destroy();
+      this.#legend.destroy();
+      this.#destroySelectionLive();
       this.#renderer?.destroy();
       this.#renderer = factory.create();
       this.#rendererName = factory.name;
@@ -686,6 +986,8 @@ export class Chart {
     renderer.render(result.scene);
     this.#syncSurfaceEvents();
     this.#syncControls();
+    this.#syncLegend();
+    this.#syncSelectionAccessibility();
     this.#events.emit('render', { chart: this, scene: result.scene });
     return this;
   }
@@ -724,6 +1026,8 @@ export class Chart {
     this.#fullscreen = false;
     this.#detachSurfaceEvents();
     this.#controls.destroy();
+    this.#legend.destroy();
+    this.#destroySelectionLive();
     this.#tooltip.destroy();
     this.#renderer?.destroy();
     this.#renderer = null;
@@ -819,6 +1123,7 @@ export class Chart {
     }
     this.#syncSurfaceConfiguration();
     this.#syncControls();
+    this.#syncLegend();
     this.#emitView(reason);
   }
 
@@ -987,7 +1292,12 @@ export class Chart {
         : (this.#surfaceTouchAction ?? '');
     surface.style.cursor =
       navigation !== false && navigation.drag ? 'grab' : (this.#surfaceCursor ?? '');
-    if (navigation !== false && navigation.keyboard) surface.tabIndex = 0;
+    const selection = this.#result?.spec.interaction.selection;
+    if (
+      (navigation !== false && navigation.keyboard) ||
+      (selection !== undefined && selection !== false && selection.clearOnEscape)
+    )
+      surface.tabIndex = 0;
     else if (this.#surfaceTabIndex === null) surface.removeAttribute('tabindex');
     else surface.setAttribute('tabindex', this.#surfaceTabIndex);
   }
@@ -1158,6 +1468,18 @@ export class Chart {
   }
 
   #handleKeyDown(event: KeyboardEvent): void {
+    const selection = this.#result?.spec.interaction.selection;
+    if (
+      event.key === 'Escape' &&
+      selection !== undefined &&
+      selection !== false &&
+      selection.clearOnEscape &&
+      this.#selection.length > 0
+    ) {
+      this.clearSelection();
+      event.preventDefault();
+      return;
+    }
     const navigation = this.#navigation();
     if (navigation === false || !navigation.keyboard) return;
     const before = this.#view;
@@ -1228,7 +1550,70 @@ export class Chart {
           this.#renderer?.overlayHost?.() ?? surface.parentElement ?? surface,
         );
     }
-    this.#events.emit(type, { chart: this, hit: markHit, sourceEvent });
+    if (type === 'click') this.#applyClickSelection(markLocal);
+    if (type === 'hover' || result.spec.interaction.click !== false) {
+      this.#events.emit(type, { chart: this, hit: markHit, sourceEvent });
+    }
+  }
+
+  #applyClickSelection(hit: HitResult | null): void {
+    const selection = this.#result?.spec.interaction.selection;
+    if (selection === undefined || selection === false) return;
+    if (hit === null) {
+      if (selection.clearOnBackground && this.#selection.length > 0) {
+        this.#selection = [];
+        this.render();
+        this.#emitSelection('click');
+      }
+      return;
+    }
+    const keyValue =
+      selection.key === undefined
+        ? undefined
+        : (hit.tooltip?.[selection.key] ?? hit.datum[selection.key]);
+    const portableKey =
+      keyValue === null ||
+      typeof keyValue === 'string' ||
+      typeof keyValue === 'boolean' ||
+      (typeof keyValue === 'number' && Number.isFinite(keyValue))
+        ? keyValue
+        : undefined;
+    const target: DatumTargetSpec =
+      selection.key !== undefined && portableKey !== undefined
+        ? {
+            type: 'datum',
+            layerId: hit.layerId,
+            field: selection.key,
+            value: portableKey,
+          }
+        : { type: 'datum', layerId: hit.layerId, rowIndex: hit.rowIndex };
+    const key = selectionKey(target);
+    const existing = this.#selection.findIndex((candidate) => selectionKey(candidate) === key);
+    const before = this.#selection.map(selectionKey).join('|');
+    if (selection.mode === 'single') {
+      this.#selection = existing >= 0 && selection.toggle ? [] : [target];
+    } else if (existing >= 0 && selection.toggle) {
+      this.#selection = this.#selection.filter((_, index) => index !== existing);
+    } else if (existing < 0) {
+      this.#selection = [...this.#selection, target];
+    }
+    if (before === this.#selection.map(selectionKey).join('|')) return;
+    this.render();
+    this.#emitSelection('click');
+  }
+
+  #emitSelection(reason: ChartSelectionChangeReason): void {
+    this.#syncSelectionAccessibility();
+    this.#events.emit('selectionchange', { chart: this, state: this.getSelection(), reason });
+  }
+
+  #emitAnnotations(reason: ChartAnnotationChangeReason, id?: string): void {
+    this.#events.emit('annotationchange', {
+      chart: this,
+      annotations: this.getAnnotations(),
+      reason,
+      ...(id === undefined ? {} : { id }),
+    });
   }
 
   #isOwnFullscreen(): boolean {
@@ -1299,6 +1684,52 @@ export class Chart {
       setLoop: (loop) => this.setPlaybackLoop(loop),
     };
     this.#controls.sync(host, state, actions);
+  }
+
+  #syncLegend(): void {
+    const result = this.#result;
+    const host = this.#renderer?.overlayHost?.();
+    if (result === null || host === null || host === undefined) {
+      this.#legend.destroy();
+      return;
+    }
+    this.#legend.sync(host, sceneLegendLayout(result.scene), result.spec.legend, this.#view, {
+      setVisible: (id, visible) => this.#setLegendItemVisible(id, visible, 'toggle'),
+    });
+  }
+
+  #syncSelectionAccessibility(): void {
+    const host = this.#renderer?.overlayHost?.();
+    const selection = this.#result?.spec.interaction.selection;
+    if (host === null || host === undefined || selection === undefined || selection === false) {
+      this.#destroySelectionLive();
+      return;
+    }
+    if (this.#selectionLiveHost !== host) {
+      this.#destroySelectionLive();
+      const live = document.createElement('div');
+      live.dataset.graflumeSelectionStatus = 'true';
+      live.setAttribute('role', 'status');
+      live.setAttribute('aria-live', 'polite');
+      live.style.position = 'absolute';
+      live.style.width = '1px';
+      live.style.height = '1px';
+      live.style.overflow = 'hidden';
+      live.style.clipPath = 'inset(50%)';
+      host.append(live);
+      this.#selectionLive = live;
+      this.#selectionLiveHost = host;
+    }
+    if (this.#selectionLive !== null) {
+      const summary = `${selection.ariaLabel}: ${this.#selection.length}`;
+      if (this.#selectionLive.textContent !== summary) this.#selectionLive.textContent = summary;
+    }
+  }
+
+  #destroySelectionLive(): void {
+    this.#selectionLive?.remove();
+    this.#selectionLive = null;
+    this.#selectionLiveHost = null;
   }
 
   #exportPng(): void {

@@ -16,6 +16,9 @@ const ROOT_KEYS = new Set([
   'lighting',
   'interaction',
   'accessibility',
+  'legend',
+  'highlights',
+  'annotations',
   'layers',
 ]);
 const CAMERA_KEYS = new Set([
@@ -38,6 +41,7 @@ const INTERACTION_KEYS = new Set([
   'tooltip',
   'controls',
   'labels',
+  'selection',
 ]);
 const TOOLTIP_KEYS = new Set(['title', 'fields']);
 const CONTROL_LABEL_KEYS = new Set([
@@ -56,7 +60,64 @@ const CONTROL_LABEL_KEYS = new Set([
   'unavailable',
 ]);
 const ACCESSIBILITY_KEYS = new Set(['description', 'table', 'maxRows']);
-const LAYER_KEYS = new Set(['id', 'mark', 'data']);
+const LAYER_KEYS = new Set(['id', 'name', 'mark', 'data']);
+const SELECTION_KEYS = new Set([
+  'mode',
+  'toggle',
+  'key',
+  'clearOnBackground',
+  'clearOnEscape',
+  'ariaLabel',
+  'highlight',
+]);
+const LEGEND_KEYS = new Set([
+  'visible',
+  'mode',
+  'position',
+  'orientation',
+  'title',
+  'field',
+  'layerId',
+  'items',
+  'maxItems',
+  'interactive',
+  'labels',
+]);
+const LEGEND_ITEM_KEYS = new Set(['id', 'label', 'color', 'layerId', 'value', 'symbol']);
+const LEGEND_LABEL_KEYS = new Set(['show', 'hide']);
+const HIGHLIGHT_KEYS = new Set([
+  'id',
+  'target',
+  'fill',
+  'stroke',
+  'opacity',
+  'lineWidth',
+  'dash',
+  'padding',
+  'radius',
+]);
+const ANNOTATION_KEYS = new Set([
+  'id',
+  'target',
+  'text',
+  'detail',
+  'placement',
+  'offsetX',
+  'offsetY',
+  'connector',
+  'style',
+]);
+const CONNECTOR_KEYS = new Set(['visible', 'color', 'width', 'dash']);
+const ANNOTATION_STYLE_KEYS = new Set([
+  'background',
+  'border',
+  'color',
+  'opacity',
+  'fontSize',
+  'maxWidth',
+  'padding',
+  'align',
+]);
 const SURFACE_MARK_KEYS = new Set(['type', 'mode', 'color', 'opacity', 'wireframe']);
 const VOLUME_MARK_KEYS = new Set([
   'type',
@@ -201,6 +262,28 @@ function optionalString(
   if (value.length > maximum) issue(issues, path, `Must contain at most ${maximum} characters.`);
 }
 
+function optionalNonEmptyString(
+  value: unknown,
+  path: string,
+  issues: SpatialSpecIssue[],
+  maximum = MAX_STRING_LENGTH,
+): void {
+  optionalString(value, path, issues, maximum);
+  if (typeof value === 'string' && value.trim() === '')
+    issue(issues, path, 'Must contain at least one non-whitespace character.');
+}
+
+function optionalIdentifier(
+  value: unknown,
+  path: string,
+  issues: SpatialSpecIssue[],
+  maximum = 128,
+): void {
+  optionalNonEmptyString(value, path, issues, maximum);
+  if (typeof value === 'string' && value.trim() !== value)
+    issue(issues, path, 'Must not contain leading or trailing whitespace.');
+}
+
 function optionalBoolean(value: unknown, path: string, issues: SpatialSpecIssue[]): void {
   if (value !== undefined && typeof value !== 'boolean') issue(issues, path, 'Must be a boolean.');
 }
@@ -272,6 +355,397 @@ function color(value: unknown, path: string, issues: SpatialSpecIssue[]): value 
 
 function optionalColor(value: unknown, path: string, issues: SpatialSpecIssue[]): void {
   if (value !== undefined) color(value, path, issues);
+}
+
+function jsonScalar(value: unknown): boolean {
+  return (
+    value === null ||
+    typeof value === 'string' ||
+    typeof value === 'boolean' ||
+    (typeof value === 'number' && Number.isFinite(value))
+  );
+}
+
+function validateDash(value: unknown, path: string, issues: SpatialSpecIssue[]): void {
+  if (value === undefined) return;
+  if (!Array.isArray(value) || value.length > 16) {
+    issue(issues, path, 'Must be an array with at most 16 values.');
+    return;
+  }
+  value.forEach((entry, index) => finiteNumber(entry, `${path}[${index}]`, issues, 0, 256));
+}
+
+function validateHighlightStyle(
+  value: RecordValue,
+  path: string,
+  issues: SpatialSpecIssue[],
+): void {
+  optionalNonEmptyString(value.fill, `${path}.fill`, issues, 128);
+  optionalNonEmptyString(value.stroke, `${path}.stroke`, issues, 128);
+  if (value.opacity !== undefined) finiteNumber(value.opacity, `${path}.opacity`, issues, 0, 1);
+  if (value.lineWidth !== undefined)
+    finiteNumber(value.lineWidth, `${path}.lineWidth`, issues, 0, 64);
+  if (value.padding !== undefined) finiteNumber(value.padding, `${path}.padding`, issues, 0, 256);
+  if (value.radius !== undefined) finiteNumber(value.radius, `${path}.radius`, issues, 0, 256);
+  validateDash(value.dash, `${path}.dash`, issues);
+}
+
+function validateSpatialTarget(value: unknown, path: string, issues: SpatialSpecIssue[]): void {
+  const target = objectValue(value, path, issues);
+  if (target === undefined || typeof target.type !== 'string') {
+    if (target !== undefined) issue(issues, `${path}.type`, 'Target type is required.');
+    return;
+  }
+  if (target.type === 'datum') {
+    const datum = closedObject(
+      target,
+      path,
+      new Set(['type', 'layerId', 'datumIndex', 'field', 'value', 'values']),
+      issues,
+    );
+    if (datum === undefined) return;
+    optionalIdentifier(datum.layerId, `${path}.layerId`, issues);
+    if (datum.datumIndex !== undefined) {
+      const indices = Array.isArray(datum.datumIndex) ? datum.datumIndex : [datum.datumIndex];
+      if (indices.length === 0 || indices.length > 1000)
+        issue(issues, `${path}.datumIndex`, 'Must select between 1 and 1000 datum indices.');
+      indices.forEach((entry, index) =>
+        integer(
+          entry,
+          Array.isArray(datum.datumIndex) ? `${path}.datumIndex[${index}]` : `${path}.datumIndex`,
+          issues,
+          0,
+          Number.MAX_SAFE_INTEGER,
+        ),
+      );
+      if (new Set(indices).size !== indices.length)
+        issue(issues, `${path}.datumIndex`, 'Datum indices must be unique.');
+    }
+    optionalNonEmptyString(datum.field, `${path}.field`, issues, 128);
+    if (typeof datum.field === 'string' && UNSAFE_KEYS.has(datum.field))
+      issue(issues, `${path}.field`, 'Unsafe datum field is forbidden.');
+    const hasValue = Object.prototype.hasOwnProperty.call(datum, 'value');
+    const hasValues = Object.prototype.hasOwnProperty.call(datum, 'values');
+    if (hasValue && !jsonScalar(datum.value))
+      issue(issues, `${path}.value`, 'Must be a JSON scalar.');
+    if (hasValues) {
+      if (!Array.isArray(datum.values) || datum.values.length === 0 || datum.values.length > 200)
+        issue(issues, `${path}.values`, 'Must contain between 1 and 200 JSON scalars.');
+      else
+        datum.values.forEach((entry, index) => {
+          if (!jsonScalar(entry))
+            issue(issues, `${path}.values[${index}]`, 'Must be a JSON scalar.');
+        });
+      if (
+        Array.isArray(datum.values) &&
+        new Set(datum.values.map((entry) => JSON.stringify(entry))).size !== datum.values.length
+      )
+        issue(issues, `${path}.values`, 'Datum values must be unique.');
+    }
+    if (datum.field === undefined && (hasValue || hasValues))
+      issue(issues, `${path}.field`, 'Field is required for value matching.');
+    if (datum.field !== undefined && hasValue === hasValues)
+      issue(issues, path, 'Field matching requires exactly one of value or values.');
+    if (datum.datumIndex === undefined && datum.field === undefined)
+      issue(issues, path, 'Datum target requires datumIndex or field matching.');
+    return;
+  }
+  if (target.type === 'layer') {
+    const layer = closedObject(target, path, new Set(['type', 'layerId']), issues);
+    if (layer !== undefined) {
+      optionalIdentifier(layer.layerId, `${path}.layerId`, issues);
+      if (layer.layerId === undefined) issue(issues, `${path}.layerId`, 'Layer id is required.');
+    }
+    return;
+  }
+  if (target.type === 'point') {
+    const point = closedObject(target, path, new Set(['type', 'position']), issues);
+    if (point !== undefined) vec3(point.position, `${path}.position`, issues);
+    return;
+  }
+  if (target.type === 'box') {
+    const box = closedObject(target, path, new Set(['type', 'min', 'max']), issues);
+    if (box !== undefined) {
+      const minValid = vec3(box.min, `${path}.min`, issues);
+      const maxValid = vec3(box.max, `${path}.max`, issues);
+      if (
+        minValid &&
+        maxValid &&
+        (box.min as SpatialVec3).some(
+          (entry: number, index: number) => entry > (box.max as SpatialVec3)[index]!,
+        )
+      )
+        issue(issues, path, 'Box min values must not exceed max values.');
+    }
+    return;
+  }
+  issue(issues, `${path}.type`, 'Unsupported spatial decoration target.');
+}
+
+function validateSelection(value: unknown, path: string, issues: SpatialSpecIssue[]): void {
+  if (value === undefined || typeof value === 'boolean') return;
+  const selection = closedObject(value, path, SELECTION_KEYS, issues);
+  if (selection === undefined) return;
+  optionalEnum(selection.mode, `${path}.mode`, new Set(['single', 'multiple']), issues);
+  optionalBoolean(selection.toggle, `${path}.toggle`, issues);
+  optionalNonEmptyString(selection.key, `${path}.key`, issues, 128);
+  if (typeof selection.key === 'string' && UNSAFE_KEYS.has(selection.key))
+    issue(issues, `${path}.key`, 'Unsafe selection key is forbidden.');
+  optionalBoolean(selection.clearOnBackground, `${path}.clearOnBackground`, issues);
+  optionalBoolean(selection.clearOnEscape, `${path}.clearOnEscape`, issues);
+  optionalNonEmptyString(selection.ariaLabel, `${path}.ariaLabel`, issues, 256);
+  if (selection.highlight !== undefined) {
+    const highlight = closedObject(
+      selection.highlight,
+      `${path}.highlight`,
+      new Set(['fill', 'stroke', 'opacity', 'lineWidth', 'dash', 'padding', 'radius']),
+      issues,
+    );
+    if (highlight !== undefined) validateHighlightStyle(highlight, `${path}.highlight`, issues);
+  }
+}
+
+function validateLegend(value: unknown, path: string, issues: SpatialSpecIssue[]): void {
+  if (value === undefined || typeof value === 'boolean') return;
+  const legend = closedObject(value, path, LEGEND_KEYS, issues);
+  if (legend === undefined) return;
+  optionalBoolean(legend.visible, `${path}.visible`, issues);
+  optionalBoolean(legend.interactive, `${path}.interactive`, issues);
+  optionalEnum(
+    legend.mode,
+    `${path}.mode`,
+    new Set(['auto', 'layers', 'categories', 'continuous']),
+    issues,
+  );
+  optionalEnum(
+    legend.position,
+    `${path}.position`,
+    new Set([
+      'top',
+      'right',
+      'bottom',
+      'left',
+      'inside-top-left',
+      'inside-top-right',
+      'inside-bottom-left',
+      'inside-bottom-right',
+    ]),
+    issues,
+  );
+  optionalEnum(
+    legend.orientation,
+    `${path}.orientation`,
+    new Set(['auto', 'horizontal', 'vertical']),
+    issues,
+  );
+  optionalNonEmptyString(legend.title, `${path}.title`, issues, 256);
+  optionalNonEmptyString(legend.field, `${path}.field`, issues, 128);
+  if (typeof legend.field === 'string' && UNSAFE_KEYS.has(legend.field))
+    issue(issues, `${path}.field`, 'Unsafe legend field is forbidden.');
+  optionalIdentifier(legend.layerId, `${path}.layerId`, issues);
+  if (legend.maxItems !== undefined) integer(legend.maxItems, `${path}.maxItems`, issues, 1, 200);
+  if (legend.items !== undefined) {
+    if (!Array.isArray(legend.items) || legend.items.length === 0 || legend.items.length > 200) {
+      issue(issues, `${path}.items`, 'Must contain between 1 and 200 legend items.');
+    } else {
+      legend.items.forEach((entry, index) => {
+        const itemPath = `${path}.items[${index}]`;
+        const item = closedObject(entry, itemPath, LEGEND_ITEM_KEYS, issues);
+        if (item === undefined) return;
+        optionalNonEmptyString(item.id, `${itemPath}.id`, issues, 128);
+        optionalNonEmptyString(item.label, `${itemPath}.label`, issues, 256);
+        if (item.label === undefined) issue(issues, `${itemPath}.label`, 'Label is required.');
+        optionalNonEmptyString(item.color, `${itemPath}.color`, issues, 128);
+        optionalIdentifier(item.layerId, `${itemPath}.layerId`, issues);
+        if (item.value !== undefined && !jsonScalar(item.value))
+          issue(issues, `${itemPath}.value`, 'Must be a JSON scalar.');
+        optionalEnum(
+          item.symbol,
+          `${itemPath}.symbol`,
+          new Set(['auto', 'line', 'point', 'rect']),
+          issues,
+        );
+      });
+    }
+  }
+  if (legend.mode === 'categories' && legend.items === undefined)
+    issue(issues, `${path}.items`, 'Spatial category legends require explicit items.');
+  if (legend.labels !== undefined) {
+    const labels = closedObject(legend.labels, `${path}.labels`, LEGEND_LABEL_KEYS, issues);
+    if (labels !== undefined)
+      for (const key of LEGEND_LABEL_KEYS)
+        optionalNonEmptyString(labels[key], `${path}.labels.${key}`, issues, 128);
+  }
+}
+
+function validateHighlights(value: unknown, path: string, issues: SpatialSpecIssue[]): void {
+  if (value === undefined) return;
+  if (!Array.isArray(value) || value.length > 256) {
+    issue(issues, path, 'Must be an array with at most 256 highlights.');
+    return;
+  }
+  value.forEach((entry, index) => {
+    const itemPath = `${path}[${index}]`;
+    const highlight = closedObject(entry, itemPath, HIGHLIGHT_KEYS, issues);
+    if (highlight === undefined) return;
+    optionalNonEmptyString(highlight.id, `${itemPath}.id`, issues, 128);
+    validateSpatialTarget(highlight.target, `${itemPath}.target`, issues);
+    validateHighlightStyle(highlight, itemPath, issues);
+  });
+}
+
+function validateAnnotations(value: unknown, path: string, issues: SpatialSpecIssue[]): void {
+  if (value === undefined) return;
+  if (!Array.isArray(value) || value.length > 256) {
+    issue(issues, path, 'Must be an array with at most 256 annotations.');
+    return;
+  }
+  value.forEach((entry, index) => {
+    const itemPath = `${path}[${index}]`;
+    const annotation = closedObject(entry, itemPath, ANNOTATION_KEYS, issues);
+    if (annotation === undefined) return;
+    optionalNonEmptyString(annotation.id, `${itemPath}.id`, issues, 128);
+    optionalNonEmptyString(annotation.text, `${itemPath}.text`, issues, 2_000);
+    if (annotation.text === undefined) issue(issues, `${itemPath}.text`, 'Text is required.');
+    optionalString(annotation.detail, `${itemPath}.detail`, issues, 4_000);
+    validateSpatialTarget(annotation.target, `${itemPath}.target`, issues);
+    optionalEnum(
+      annotation.placement,
+      `${itemPath}.placement`,
+      new Set(['auto', 'top', 'right', 'bottom', 'left']),
+      issues,
+    );
+    for (const key of ['offsetX', 'offsetY'] as const)
+      if (annotation[key] !== undefined)
+        finiteNumber(annotation[key], `${itemPath}.${key}`, issues, -10_000, 10_000);
+    if (annotation.connector !== undefined && typeof annotation.connector !== 'boolean') {
+      const connector = closedObject(
+        annotation.connector,
+        `${itemPath}.connector`,
+        CONNECTOR_KEYS,
+        issues,
+      );
+      if (connector !== undefined) {
+        optionalBoolean(connector.visible, `${itemPath}.connector.visible`, issues);
+        optionalNonEmptyString(connector.color, `${itemPath}.connector.color`, issues, 128);
+        if (connector.width !== undefined)
+          finiteNumber(connector.width, `${itemPath}.connector.width`, issues, 0, 64);
+        validateDash(connector.dash, `${itemPath}.connector.dash`, issues);
+      }
+    }
+    if (annotation.style !== undefined) {
+      const style = closedObject(
+        annotation.style,
+        `${itemPath}.style`,
+        ANNOTATION_STYLE_KEYS,
+        issues,
+      );
+      if (style !== undefined) {
+        for (const key of ['background', 'border', 'color'] as const)
+          optionalString(style[key], `${itemPath}.style.${key}`, issues, 128);
+        if (style.opacity !== undefined)
+          finiteNumber(style.opacity, `${itemPath}.style.opacity`, issues, 0, 1);
+        for (const key of ['fontSize', 'maxWidth', 'padding'] as const)
+          if (style[key] !== undefined)
+            finiteNumber(style[key], `${itemPath}.style.${key}`, issues, 1, 2000);
+        optionalEnum(
+          style.align,
+          `${itemPath}.style.align`,
+          new Set(['start', 'center', 'end']),
+          issues,
+        );
+      }
+    }
+  });
+}
+
+function validateLayerReferences(spec: RecordValue, issues: SpatialSpecIssue[]): void {
+  const layerIds = new Set<string>();
+  if (Array.isArray(spec.layers)) {
+    spec.layers.forEach((value, index) => {
+      if (!isRecord(value)) return;
+      const layerId = value.id === undefined ? `spatial-layer-${index}` : value.id;
+      if (typeof layerId !== 'string' || layerId.trim() === '') return;
+      if (layerIds.has(layerId)) {
+        issue(issues, `$.layers[${index}].id`, `Layer id "${layerId}" must be unique.`);
+        return;
+      }
+      layerIds.add(layerId);
+    });
+  }
+
+  const check = (value: unknown, path: string): void => {
+    if (!isRecord(value) || typeof value.layerId !== 'string') return;
+    if (!layerIds.has(value.layerId)) {
+      issue(issues, `${path}.layerId`, `Layer id "${value.layerId}" does not exist.`);
+    }
+  };
+  const checkUniqueIds = (
+    value: unknown,
+    path: string,
+    label: string,
+    defaultPrefix: string,
+  ): void => {
+    if (!Array.isArray(value)) return;
+    const ids = new Set<string>();
+    value.forEach((entry, index) => {
+      if (!isRecord(entry)) return;
+      const id =
+        typeof entry.id === 'string' && entry.id.trim() !== ''
+          ? entry.id
+          : `${defaultPrefix}-${index}`;
+      if (ids.has(id)) {
+        issue(
+          issues,
+          `${path}[${index}].id`,
+          `${label} id "${id}" must be unique after defaults are resolved.`,
+        );
+        return;
+      }
+      ids.add(id);
+    });
+  };
+
+  if (isRecord(spec.legend)) {
+    const legend = spec.legend;
+    check(legend, '$.legend');
+    if (Array.isArray(legend.items)) {
+      legend.items.forEach((item, index) => check(item, `$.legend.items[${index}]`));
+    }
+    checkUniqueIds(legend.items, '$.legend.items', 'Legend item', 'item');
+    if (Array.isArray(legend.items)) {
+      const semanticOwners = new Set<string>();
+      legend.items.forEach((item, index) => {
+        if (!isRecord(item) || typeof item.layerId !== 'string') return;
+        const owner =
+          legend.mode === 'categories' && Object.prototype.hasOwnProperty.call(item, 'value')
+            ? JSON.stringify(['category', item.layerId, item.value])
+            : legend.mode === 'layers'
+              ? JSON.stringify(['layer', item.layerId])
+              : null;
+        if (owner === null) return;
+        if (semanticOwners.has(owner))
+          issue(
+            issues,
+            `$.legend.items[${index}]`,
+            'Interactive legend items must not control the same semantic owner.',
+          );
+        else semanticOwners.add(owner);
+      });
+    }
+  }
+  if (Array.isArray(spec.highlights)) {
+    spec.highlights.forEach((highlight, index) => {
+      if (isRecord(highlight)) check(highlight.target, `$.highlights[${index}].target`);
+    });
+  }
+  if (Array.isArray(spec.annotations)) {
+    spec.annotations.forEach((annotation, index) => {
+      if (isRecord(annotation)) check(annotation.target, `$.annotations[${index}].target`);
+    });
+  }
+  checkUniqueIds(spec.highlights, '$.highlights', 'Highlight', 'highlight');
+  checkUniqueIds(spec.annotations, '$.annotations', 'Annotation', 'annotation');
 }
 
 function vec3Array(
@@ -381,6 +855,7 @@ function validateInteraction(value: unknown, path: string, issues: SpatialSpecIs
         optionalString(labels[key], `${path}.labels.${key}`, issues, 256);
     }
   }
+  validateSelection(interaction.selection, `${path}.selection`, issues);
 }
 
 function validateAccessibility(value: unknown, path: string, issues: SpatialSpecIssue[]): void {
@@ -769,6 +1244,9 @@ export function validateSpatialSpec(input: unknown): readonly SpatialSpecIssue[]
   validateLighting(spec.lighting, '$.lighting', issues);
   validateInteraction(spec.interaction, '$.interaction', issues);
   validateAccessibility(spec.accessibility, '$.accessibility', issues);
+  validateLegend(spec.legend, '$.legend', issues);
+  validateHighlights(spec.highlights, '$.highlights', issues);
+  validateAnnotations(spec.annotations, '$.annotations', issues);
   if (!Array.isArray(spec.layers) || spec.layers.length === 0 || spec.layers.length > MAX_LAYERS) {
     issue(issues, '$.layers', `Must be an array with 1 to ${MAX_LAYERS} layers.`);
   } else {
@@ -776,10 +1254,12 @@ export function validateSpatialSpec(input: unknown): readonly SpatialSpecIssue[]
       const layerPath = `$.layers[${index}]`;
       const layer = closedObject(value, layerPath, LAYER_KEYS, issues);
       if (layer === undefined) return;
-      optionalString(layer.id, `${layerPath}.id`, issues, 128);
+      optionalIdentifier(layer.id, `${layerPath}.id`, issues);
+      optionalString(layer.name, `${layerPath}.name`, issues, 256);
       validateMarkAndData(layer.mark, layer.data, layerPath, issues);
     });
   }
+  validateLayerReferences(spec, issues);
   if (issues.length === 0) {
     for (const violation of spatialOutputBudgetViolations(
       estimateSpatialOutput(spec as unknown as SpatialChartSpec),

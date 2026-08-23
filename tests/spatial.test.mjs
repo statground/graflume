@@ -466,6 +466,17 @@ test('globe fallback picking rejects an antipodal target hidden by the sphere', 
   });
   assert.equal(isGlobePickFrontFacing(picks[0], camera), true);
   assert.equal(isGlobePickFrontFacing(picks[1], camera), false);
+  assert.equal(
+    isGlobePickFrontFacing(
+      {
+        ...picks[1],
+        occlusion: undefined,
+        datum: { country: 'ordinary scatter category' },
+      },
+      camera,
+    ),
+    true,
+  );
 });
 
 test('accessible rows stop before traversing later dense geometry', () => {

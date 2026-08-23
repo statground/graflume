@@ -22,6 +22,19 @@
     "lighting": { "$ref": "#/$defs/lighting" },
     "interaction": { "$ref": "#/$defs/interaction" },
     "accessibility": { "$ref": "#/$defs/accessibility" },
+    "legend": {
+      "oneOf": [{ "type": "boolean" }, { "$ref": "#/$defs/legend" }]
+    },
+    "highlights": {
+      "type": "array",
+      "maxItems": 256,
+      "items": { "$ref": "#/$defs/highlight" }
+    },
+    "annotations": {
+      "type": "array",
+      "maxItems": 256,
+      "items": { "$ref": "#/$defs/annotation" }
+    },
     "layers": {
       "type": "array",
       "minItems": 1,
@@ -144,7 +157,10 @@
         "picking": { "type": "boolean" },
         "tooltip": { "$ref": "#/$defs/tooltip" },
         "controls": { "type": "boolean" },
-        "labels": { "$ref": "#/$defs/controlLabels" }
+        "labels": { "$ref": "#/$defs/controlLabels" },
+        "selection": {
+          "oneOf": [{ "type": "boolean" }, { "$ref": "#/$defs/selection" }]
+        }
       }
     },
     "accessibility": {
@@ -154,6 +170,273 @@
         "description": { "type": "string", "maxLength": 4096 },
         "table": { "type": "boolean" },
         "maxRows": { "type": "integer", "minimum": 1, "maximum": 1000 }
+      }
+    },
+    "primitive": { "type": ["string", "number", "boolean", "null"] },
+    "highlightStyle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "fill": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "stroke": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "lineWidth": { "type": "number", "minimum": 0, "maximum": 64 },
+        "dash": {
+          "type": "array",
+          "maxItems": 16,
+          "items": { "type": "number", "minimum": 0, "maximum": 256 }
+        },
+        "padding": { "type": "number", "minimum": 0, "maximum": 256 },
+        "radius": { "type": "number", "minimum": 0, "maximum": 256 }
+      }
+    },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "enum": ["single", "multiple"] },
+        "toggle": { "type": "boolean" },
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "not": { "enum": ["__proto__", "prototype", "constructor"] }
+        },
+        "clearOnBackground": { "type": "boolean" },
+        "clearOnEscape": { "type": "boolean" },
+        "ariaLabel": { "type": "string", "minLength": 1, "maxLength": 256, "pattern": "\\S" },
+        "highlight": { "$ref": "#/$defs/highlightStyle" }
+      }
+    },
+    "legendItem": {
+      "type": "object",
+      "required": ["label"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "label": { "type": "string", "minLength": 1, "maxLength": 256, "pattern": "\\S" },
+        "color": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "layerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^\\S(?:.*\\S)?$"
+        },
+        "value": { "$ref": "#/$defs/primitive" },
+        "symbol": { "enum": ["auto", "line", "point", "rect"] }
+      }
+    },
+    "legend": {
+      "type": "object",
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": { "properties": { "mode": { "const": "categories" } }, "required": ["mode"] },
+          "then": { "required": ["items"] }
+        }
+      ],
+      "properties": {
+        "visible": { "type": "boolean" },
+        "mode": { "enum": ["auto", "layers", "categories", "continuous"] },
+        "position": {
+          "enum": [
+            "top",
+            "right",
+            "bottom",
+            "left",
+            "inside-top-left",
+            "inside-top-right",
+            "inside-bottom-left",
+            "inside-bottom-right"
+          ]
+        },
+        "orientation": { "enum": ["auto", "horizontal", "vertical"] },
+        "title": { "type": "string", "minLength": 1, "maxLength": 256, "pattern": "\\S" },
+        "field": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "not": { "enum": ["__proto__", "prototype", "constructor"] }
+        },
+        "layerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^\\S(?:.*\\S)?$"
+        },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 200,
+          "items": { "$ref": "#/$defs/legendItem" }
+        },
+        "maxItems": { "type": "integer", "minimum": 1, "maximum": 200 },
+        "interactive": { "type": "boolean" },
+        "labels": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "show": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S" },
+            "hide": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "\\S" }
+          }
+        }
+      }
+    },
+    "spatialDatumTarget": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "datum" },
+        "layerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^\\S(?:.*\\S)?$"
+        },
+        "datumIndex": {
+          "oneOf": [
+            { "type": "integer", "minimum": 0 },
+            {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 1000,
+              "uniqueItems": true,
+              "items": { "type": "integer", "minimum": 0 }
+            }
+          ]
+        },
+        "field": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "not": { "enum": ["__proto__", "prototype", "constructor"] }
+        },
+        "value": { "$ref": "#/$defs/primitive" },
+        "values": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 200,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/primitive" }
+        }
+      },
+      "anyOf": [{ "required": ["datumIndex"] }, { "required": ["field"] }],
+      "allOf": [
+        {
+          "if": { "required": ["field"] },
+          "then": {
+            "oneOf": [
+              { "required": ["value"], "not": { "required": ["values"] } },
+              { "required": ["values"], "not": { "required": ["value"] } }
+            ]
+          },
+          "else": {
+            "not": { "anyOf": [{ "required": ["value"] }, { "required": ["values"] }] }
+          }
+        }
+      ]
+    },
+    "spatialTarget": {
+      "oneOf": [
+        { "$ref": "#/$defs/spatialDatumTarget" },
+        {
+          "type": "object",
+          "required": ["type", "layerId"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "layer" },
+            "layerId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^\\S(?:.*\\S)?$"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "position"],
+          "additionalProperties": false,
+          "properties": { "type": { "const": "point" }, "position": { "$ref": "#/$defs/vec3" } }
+        },
+        {
+          "type": "object",
+          "required": ["type", "min", "max"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "box" },
+            "min": { "$ref": "#/$defs/vec3" },
+            "max": { "$ref": "#/$defs/vec3" }
+          }
+        }
+      ]
+    },
+    "highlight": {
+      "type": "object",
+      "required": ["target"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "target": { "$ref": "#/$defs/spatialTarget" },
+        "fill": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "stroke": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "lineWidth": { "type": "number", "minimum": 0, "maximum": 64 },
+        "dash": {
+          "type": "array",
+          "maxItems": 16,
+          "items": { "type": "number", "minimum": 0, "maximum": 256 }
+        },
+        "padding": { "type": "number", "minimum": 0, "maximum": 256 },
+        "radius": { "type": "number", "minimum": 0, "maximum": 256 }
+      }
+    },
+    "annotation": {
+      "type": "object",
+      "required": ["target", "text"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "target": { "$ref": "#/$defs/spatialTarget" },
+        "text": { "type": "string", "minLength": 1, "maxLength": 2000, "pattern": "\\S" },
+        "detail": { "type": "string", "maxLength": 4000 },
+        "placement": { "enum": ["auto", "top", "right", "bottom", "left"] },
+        "offsetX": { "type": "number", "minimum": -10000, "maximum": 10000 },
+        "offsetY": { "type": "number", "minimum": -10000, "maximum": 10000 },
+        "connector": {
+          "oneOf": [
+            { "type": "boolean" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "visible": { "type": "boolean" },
+                "color": { "type": "string", "minLength": 1, "maxLength": 128 },
+                "width": { "type": "number", "minimum": 0, "maximum": 64 },
+                "dash": {
+                  "type": "array",
+                  "maxItems": 16,
+                  "items": { "type": "number", "minimum": 0, "maximum": 256 }
+                }
+              }
+            }
+          ]
+        },
+        "style": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "background": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "border": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "color": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+            "fontSize": { "type": "number", "minimum": 1, "maximum": 2000 },
+            "maxWidth": { "type": "number", "minimum": 1, "maximum": 2000 },
+            "padding": { "type": "number", "minimum": 1, "maximum": 2000 },
+            "align": { "enum": ["start", "center", "end"] }
+          }
+        }
       }
     },
     "numberArray": {
@@ -240,7 +523,8 @@
       "additionalProperties": false,
       "required": ["mark", "data"],
       "properties": {
-        "id": { "type": "string", "maxLength": 128 },
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^\\S(?:.*\\S)?$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 256 },
         "mark": { "$ref": "#/$defs/surfaceGridMark" },
         "data": { "$ref": "#/$defs/surfaceGridData" }
       }
@@ -250,7 +534,8 @@
       "additionalProperties": false,
       "required": ["mark", "data"],
       "properties": {
-        "id": { "type": "string", "maxLength": 128 },
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^\\S(?:.*\\S)?$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 256 },
         "mark": { "$ref": "#/$defs/meshMark" },
         "data": { "$ref": "#/$defs/meshData" }
       }
@@ -300,7 +585,8 @@
       "additionalProperties": false,
       "required": ["mark", "data"],
       "properties": {
-        "id": { "type": "string", "maxLength": 128 },
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^\\S(?:.*\\S)?$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 256 },
         "mark": { "$ref": "#/$defs/volumeMark" },
         "data": { "$ref": "#/$defs/volumeData" }
       }
@@ -377,7 +663,8 @@
       "additionalProperties": false,
       "required": ["mark", "data"],
       "properties": {
-        "id": { "type": "string", "maxLength": 128 },
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^\\S(?:.*\\S)?$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 256 },
         "mark": { "$ref": "#/$defs/coneMark" },
         "data": { "$ref": "#/$defs/coneData" }
       }
@@ -387,7 +674,8 @@
       "additionalProperties": false,
       "required": ["mark", "data"],
       "properties": {
-        "id": { "type": "string", "maxLength": 128 },
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^\\S(?:.*\\S)?$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 256 },
         "mark": { "$ref": "#/$defs/streamtubeMark" },
         "data": { "$ref": "#/$defs/streamtubeData" }
       }
@@ -424,7 +712,8 @@
       "additionalProperties": false,
       "required": ["mark", "data"],
       "properties": {
-        "id": { "type": "string", "maxLength": 128 },
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^\\S(?:.*\\S)?$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 256 },
         "mark": { "$ref": "#/$defs/scatterMark" },
         "data": { "$ref": "#/$defs/scatterData" }
       }
@@ -487,7 +776,8 @@
       "additionalProperties": false,
       "required": ["mark"],
       "properties": {
-        "id": { "type": "string", "maxLength": 128 },
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^\\S(?:.*\\S)?$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 256 },
         "mark": { "$ref": "#/$defs/globeMark" },
         "data": { "$ref": "#/$defs/globeData" }
       }

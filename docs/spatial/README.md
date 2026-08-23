@@ -63,6 +63,16 @@ const chart = GraflumeSpatial.createSpatial('#chart', {
     table: true,
     maxRows: 100,
   },
+  legend: { mode: 'layers', interactive: true, title: 'Observation layers' },
+  highlights: [{ id: 'focus-volume', target: { type: 'box', min: [-1, -1, -1], max: [1, 1, 1] } }],
+  annotations: [
+    {
+      id: 'origin-note',
+      target: { type: 'point', position: [0, 0, 0] },
+      text: 'Reference origin',
+      connector: true,
+    },
+  ],
   layers: [
     {
       mark: { type: 'scatter', pointSize: 7 },
@@ -79,7 +89,30 @@ const chart = GraflumeSpatial.createSpatial('#chart', {
 });
 ```
 
-Every Quick API and `createSpatial()` returns a `SpatialChart` with `getSpec()`, `setSpec()`, `getAvailability()`, `getCamera()`, `setCamera()`, `orbitBy()`, `panBy()`, `zoomBy()`, `resetCamera()`, `setProjection()`, `resize()`, `render()`, `toDataURL()`, `toggleFullscreen()`, `on()`, `off()`, and `destroy()`.
+Every Quick API and `createSpatial()` returns a `SpatialChart` with `getSpec()`, `setSpec()`, `getAvailability()`, `getCamera()`, `setCamera()`, `orbitBy()`, `panBy()`, `zoomBy()`, `resetCamera()`, `setProjection()`, `getLegendState()`, `setLegendItemVisible()`, `resetLegend()`, `getSelection()`, `setSelection()`, `clearSelection()`, `getAnnotations()`, `setAnnotations()`, `addAnnotation()`, `updateAnnotation()`, `removeAnnotation()`, `resize()`, `render()`, `toDataURL()`, `toggleFullscreen()`, `on()`, `off()`, and `destroy()`.
+
+## Spatial legends, highlights, selection, and callouts
+
+Spatial uses the same portable legend and style vocabulary as Canvas charts, while its targets remain explicitly three-dimensional. A `datum` target selects semantic compiler picks by `layerId` plus bounded `datumIndex`, or by one portable scalar `field` with `value`/`values`. A `layer` target follows every visible pick in that layer. A `point` anchors a ring or callout to one world coordinate, and a `box` projects all eight corners of an axis-aligned world-space volume. Orbit, pan, zoom, resize, projection changes, and fullscreen continuously reproject those overlays.
+
+Layer legends are keyboard-operable visibility controls. Category legends require explicit items because arbitrary 3D geometry has no universal category field, and both category and continuous legends are descriptive rather than visibility toggles. Continuous inference follows actual scalar compiler meaning: surface/mesh values or elevation, volume scalar values, vector magnitude, and scatter values. Where source colors are supplied, endpoint colors follow the rendered low/high data colors. External `top`, `right`, `bottom`, and `left` positions reserve an adaptive rail and resize the WebGL viewport, while the four `inside-*` positions intentionally float over the plot. All eight positions remain bounded when the chart is resized.
+
+Selection uses real depth-aware picks and is opt-in through `interaction.selection`. Pointer click, enabled background/Escape clearing, and programmatic `setSelection()` share `selectionchange`; selection style adapts to a projected point or aggregate target bounds. Authored static surface/mesh highlights and callouts are explanatory overlays: they remain projected even when ordinary geometry passes in front of their anchor, while geographic targets on the far side of the globe are hidden. Pointer picking remains depth-aware. Text-only annotations accept no raw HTML or callbacks and follow their projected target. Legend, selection, and runtime annotation changes are transient and never mutate `getSpec()`; `setSpec()` installs a new base and emits `spec` lifecycle reasons.
+
+```js
+chart.on('legendchange', ({ state, reason }) => console.log(reason, state.items));
+chart.on('selectionchange', ({ state, reason }) => console.log(reason, state.items));
+chart.on('annotationchange', ({ annotations, reason }) => console.log(reason, annotations.length));
+
+const noteId = chart.addAnnotation({
+  target: { type: 'datum', layerId: 'observations', datumIndex: 3 },
+  text: 'Investigate this sample',
+  detail: 'Authored by the host application',
+});
+chart.updateAnnotation(noteId, { placement: 'right' });
+```
+
+Highlights, selection rings, callouts, and legends are safe DOM overlays over the WebGL framebuffer. Therefore `toDataURL()` and PNG export contain the GPU geometry but intentionally exclude those DOM overlays, tooltips, and controls. Export an application-composited capture if the callouts must be baked into an image.
 
 ## Interaction and accessibility
 

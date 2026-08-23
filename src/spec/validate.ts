@@ -25,6 +25,7 @@ const INTERACTION_KEYS = new Set([
   'navigation',
   'playback',
   'controls',
+  'selection',
 ]);
 const NAVIGATION_KEYS = new Set(['minZoom', 'maxZoom', 'wheel', 'drag', 'pinch', 'keyboard']);
 const NAVIGATION_WHEEL_MODES = new Set(['off', 'modifier', 'always']);
@@ -57,6 +58,92 @@ const CONTROL_LABEL_KEYS = new Set([
   'speed',
   'loop',
 ]);
+const SELECTION_KEYS = new Set([
+  'mode',
+  'toggle',
+  'key',
+  'clearOnBackground',
+  'clearOnEscape',
+  'ariaLabel',
+  'highlight',
+]);
+const SELECTION_MODES = new Set(['single', 'multiple']);
+const LEGEND_KEYS = new Set([
+  'visible',
+  'mode',
+  'position',
+  'orientation',
+  'title',
+  'field',
+  'layerId',
+  'items',
+  'maxItems',
+  'interactive',
+  'labels',
+]);
+const LEGEND_ITEM_KEYS = new Set(['id', 'label', 'color', 'layerId', 'value', 'symbol']);
+const LEGEND_ITEM_SYMBOLS = new Set(['auto', 'line', 'point', 'rect']);
+const LEGEND_LABEL_KEYS = new Set(['show', 'hide']);
+const LEGEND_MODES = new Set(['auto', 'layers', 'categories', 'continuous']);
+const LEGEND_POSITIONS = new Set([
+  'top',
+  'right',
+  'bottom',
+  'left',
+  'inside-top-left',
+  'inside-top-right',
+  'inside-bottom-left',
+  'inside-bottom-right',
+]);
+const LEGEND_ORIENTATIONS = new Set(['auto', 'horizontal', 'vertical']);
+const DECORATION_TARGET_KEYS = new Set([
+  'type',
+  'layerId',
+  'rowIndex',
+  'field',
+  'value',
+  'values',
+  'x',
+  'y',
+  'width',
+  'height',
+]);
+const AXIS_RANGE_KEYS = new Set(['axis', 'from', 'to']);
+const HIGHLIGHT_KEYS = new Set([
+  'id',
+  'target',
+  'fill',
+  'stroke',
+  'opacity',
+  'lineWidth',
+  'dash',
+  'padding',
+  'radius',
+]);
+const ANNOTATION_KEYS = new Set([
+  'id',
+  'target',
+  'text',
+  'detail',
+  'placement',
+  'offsetX',
+  'offsetY',
+  'connector',
+  'style',
+]);
+const ANNOTATION_PLACEMENTS = new Set(['auto', 'top', 'right', 'bottom', 'left']);
+const CONNECTOR_KEYS = new Set(['visible', 'color', 'width', 'dash']);
+const ANNOTATION_STYLE_KEYS = new Set([
+  'background',
+  'border',
+  'color',
+  'opacity',
+  'fontSize',
+  'maxWidth',
+  'padding',
+  'align',
+]);
+const ANNOTATION_TEXT_ALIGNS = new Set(['start', 'center', 'end']);
 const ENCODING_KEYS = new Set(['field', 'type', 'title', 'scale', 'axis', 'axisId']);
 const FIELD_TYPES = new Set(['quantitative', 'temporal', 'ordinal', 'nominal']);
 const SCALE_KEYS = new Set([
@@ -810,6 +897,104 @@ function validateInteraction(value: unknown, path: string, issues: SpecIssue[]):
   validateNavigation(value.navigation, `${path}.navigation`, issues);
   validatePlayback(value.playback, `${path}.playback`, issues);
   validateControls(value.controls, `${path}.controls`, issues);
+  validateSelection(value.selection, `${path}.selection`, issues);
+}
+
+function validateHighlightStyle(value: Record<string, unknown>, path: string, issues: SpecIssue[]) {
+  for (const key of ['fill', 'stroke'] as const) {
+    validateOptionalString(value[key], `${path}.${key}`, `Highlight ${key}`, issues, false);
+  }
+  if (value.opacity !== undefined)
+    validateFiniteNumber(value.opacity, `${path}.opacity`, 'Highlight opacity', issues, {
+      min: 0,
+      max: 1,
+    });
+  if (value.lineWidth !== undefined)
+    validateFiniteNumber(value.lineWidth, `${path}.lineWidth`, 'Highlight lineWidth', issues, {
+      min: 0,
+      max: 64,
+    });
+  if (value.padding !== undefined)
+    validateFiniteNumber(value.padding, `${path}.padding`, 'Highlight padding', issues, {
+      min: 0,
+      max: 256,
+    });
+  if (value.radius !== undefined)
+    validateFiniteNumber(value.radius, `${path}.radius`, 'Highlight radius', issues, {
+      min: 0,
+      max: 256,
+    });
+  if (value.dash !== undefined) {
+    if (!Array.isArray(value.dash) || value.dash.length > 16) {
+      issues.push({
+        path: `${path}.dash`,
+        message: 'Highlight dash must contain at most 16 values.',
+      });
+    } else {
+      value.dash.forEach((entry, index) =>
+        validateFiniteNumber(entry, `${path}.dash[${index}]`, 'Highlight dash value', issues, {
+          min: 0,
+          max: 256,
+        }),
+      );
+    }
+  }
+}
+
+function validateSelection(value: unknown, path: string, issues: SpecIssue[]): void {
+  if (value === undefined || typeof value === 'boolean') return;
+  if (!isPlainObject(value)) {
+    issues.push({ path, message: 'Selection must be a boolean or an object.' });
+    return;
+  }
+  validateUnknownKeys(value, SELECTION_KEYS, path, 'selection', issues);
+  if (
+    value.mode !== undefined &&
+    (typeof value.mode !== 'string' || !SELECTION_MODES.has(value.mode))
+  ) {
+    issues.push({
+      path: `${path}.mode`,
+      message: 'Selection mode must be "single" or "multiple".',
+    });
+  }
+  validateOptionalBoolean(value.toggle, `${path}.toggle`, 'Selection toggle', issues);
+  validateOptionalString(value.key, `${path}.key`, 'Selection key', issues, false);
+  if (typeof value.key === 'string' && UNSAFE_FIELDS.has(value.key)) {
+    issues.push({ path: `${path}.key`, message: `Unsafe field "${value.key}" is forbidden.` });
+  }
+  validateOptionalBoolean(
+    value.clearOnBackground,
+    `${path}.clearOnBackground`,
+    'Selection clearOnBackground',
+    issues,
+  );
+  validateOptionalBoolean(
+    value.clearOnEscape,
+    `${path}.clearOnEscape`,
+    'Selection clearOnEscape',
+    issues,
+  );
+  validateOptionalString(
+    value.ariaLabel,
+    `${path}.ariaLabel`,
+    'Selection ariaLabel',
+    issues,
+    false,
+  );
+  if (value.highlight !== undefined) {
+    if (!isPlainObject(value.highlight)) {
+      issues.push({ path: `${path}.highlight`, message: 'Selection highlight must be an object.' });
+    } else {
+      validateUnknownKeys(
+        value.highlight,
+        new Set(['fill', 'stroke', 'opacity', 'lineWidth', 'dash', 'padding', 'radius']),
+        `${path}.highlight`,
+        'selection highlight',
+        issues,
+      );
+      validateHighlightStyle(value.highlight, `${path}.highlight`, issues);
+    }
+  }
 }
 
 function validateNavigation(value: unknown, path: string, issues: SpecIssue[]): void {
@@ -934,6 +1119,8 @@ function validateLayer(
     return;
   }
 
+  validateOptionalString(layer.name, `${path}.name`, 'Layer name', issues, false);
+
   validateMark(layer.mark as MarkInput, `${path}.mark`, issues);
   validateEncoding(layer.x as EncodingInput, `${path}.x`, 'x', issues);
   validateEncoding(layer.y as EncodingInput, `${path}.y`, 'y', issues);
@@ -944,6 +1131,520 @@ function validateLayer(
       message: 'Layer data is required when chart-level data is absent.',
     });
   }
+}
+
+function validateLegend(value: unknown, path: string, issues: SpecIssue[]): void {
+  if (value === undefined || typeof value === 'boolean') return;
+  if (!isPlainObject(value)) {
+    issues.push({ path, message: 'Legend must be a boolean or an object.' });
+    return;
+  }
+  validateUnknownKeys(value, LEGEND_KEYS, path, 'legend', issues);
+  validateOptionalBoolean(value.visible, `${path}.visible`, 'Legend visibility', issues);
+  validateOptionalBoolean(value.interactive, `${path}.interactive`, 'Legend interactive', issues);
+  if (
+    value.mode !== undefined &&
+    (typeof value.mode !== 'string' || !LEGEND_MODES.has(value.mode))
+  ) {
+    issues.push({ path: `${path}.mode`, message: 'Legend mode is not supported.' });
+  }
+  if (
+    value.position !== undefined &&
+    (typeof value.position !== 'string' || !LEGEND_POSITIONS.has(value.position))
+  ) {
+    issues.push({ path: `${path}.position`, message: 'Legend position is not supported.' });
+  }
+  if (
+    value.orientation !== undefined &&
+    (typeof value.orientation !== 'string' || !LEGEND_ORIENTATIONS.has(value.orientation))
+  ) {
+    issues.push({ path: `${path}.orientation`, message: 'Legend orientation is not supported.' });
+  }
+  for (const key of ['title', 'field', 'layerId'] as const) {
+    validateOptionalString(value[key], `${path}.${key}`, `Legend ${key}`, issues, false);
+  }
+  if (typeof value.field === 'string' && UNSAFE_FIELDS.has(value.field)) {
+    issues.push({ path: `${path}.field`, message: `Unsafe field "${value.field}" is forbidden.` });
+  }
+  if (value.maxItems !== undefined)
+    validateFiniteNumber(value.maxItems, `${path}.maxItems`, 'Legend maxItems', issues, {
+      integer: true,
+      min: 1,
+      max: 200,
+    });
+  if (value.items !== undefined) {
+    if (!Array.isArray(value.items) || value.items.length === 0 || value.items.length > 200) {
+      issues.push({
+        path: `${path}.items`,
+        message: 'Legend items must contain between 1 and 200 entries.',
+      });
+    } else {
+      value.items.forEach((item, index) => {
+        const itemPath = `${path}.items[${index}]`;
+        if (!isPlainObject(item)) {
+          issues.push({ path: itemPath, message: 'Legend item must be an object.' });
+          return;
+        }
+        validateUnknownKeys(item, LEGEND_ITEM_KEYS, itemPath, 'legend item', issues);
+        validateOptionalString(item.id, `${itemPath}.id`, 'Legend item id', issues, false);
+        validateOptionalString(item.label, `${itemPath}.label`, 'Legend item label', issues, false);
+        if (item.label === undefined) {
+          issues.push({ path: `${itemPath}.label`, message: 'Legend item label is required.' });
+        }
+        validateOptionalString(item.color, `${itemPath}.color`, 'Legend item color', issues, false);
+        validateOptionalString(
+          item.layerId,
+          `${itemPath}.layerId`,
+          'Legend item layerId',
+          issues,
+          false,
+        );
+        if (
+          item.symbol !== undefined &&
+          (typeof item.symbol !== 'string' || !LEGEND_ITEM_SYMBOLS.has(item.symbol))
+        ) {
+          issues.push({
+            path: `${itemPath}.symbol`,
+            message: 'Legend item symbol is not supported.',
+          });
+        }
+        if (
+          item.value !== undefined &&
+          item.value !== null &&
+          (!['string', 'number', 'boolean'].includes(typeof item.value) ||
+            (typeof item.value === 'number' && !Number.isFinite(item.value)))
+        ) {
+          issues.push({
+            path: `${itemPath}.value`,
+            message: 'Legend item value must be JSON scalar.',
+          });
+        }
+      });
+    }
+  }
+  if (value.labels !== undefined) {
+    if (!isPlainObject(value.labels)) {
+      issues.push({ path: `${path}.labels`, message: 'Legend labels must be an object.' });
+    } else {
+      validateUnknownKeys(
+        value.labels,
+        LEGEND_LABEL_KEYS,
+        `${path}.labels`,
+        'legend label',
+        issues,
+      );
+      for (const [key, label] of Object.entries(value.labels)) {
+        validateOptionalString(label, `${path}.labels.${key}`, 'Legend label', issues, false);
+      }
+    }
+  }
+}
+
+function validateAxisRange(
+  value: unknown,
+  path: string,
+  channel: 'x' | 'y',
+  issues: SpecIssue[],
+): void {
+  if (!isPlainObject(value)) {
+    issues.push({ path, message: 'Axis range target must be an object.' });
+    return;
+  }
+  validateUnknownKeys(value, AXIS_RANGE_KEYS, path, 'axis range target', issues);
+  if (
+    value.from === undefined ||
+    !['number', 'string'].includes(typeof value.from) ||
+    (typeof value.from === 'number' && !Number.isFinite(value.from))
+  ) {
+    issues.push({ path: `${path}.from`, message: 'Axis range from must be a number or string.' });
+  }
+  if (
+    value.to === undefined ||
+    !['number', 'string'].includes(typeof value.to) ||
+    (typeof value.to === 'number' && !Number.isFinite(value.to))
+  ) {
+    issues.push({ path: `${path}.to`, message: 'Axis range to must be a number or string.' });
+  }
+  if (
+    value.axis !== undefined &&
+    (typeof value.axis !== 'string' ||
+      !AXIS_IDS.has(value.axis) ||
+      (channel === 'x' ? !['x', 'x2'].includes(value.axis) : !['y', 'y2'].includes(value.axis)))
+  ) {
+    issues.push({ path: `${path}.axis`, message: `Range ${channel} axis is not compatible.` });
+  }
+}
+
+function validateDecorationTarget(value: unknown, path: string, issues: SpecIssue[]): void {
+  if (!isPlainObject(value) || typeof value.type !== 'string') {
+    issues.push({ path, message: 'Decoration target must be an object with a type.' });
+    return;
+  }
+  validateUnknownKeys(value, DECORATION_TARGET_KEYS, path, 'decoration target', issues);
+  if (value.type === 'datum') {
+    validateUnknownKeys(
+      value,
+      new Set(['type', 'layerId', 'rowIndex', 'field', 'value', 'values']),
+      path,
+      'datum target',
+      issues,
+    );
+    validateOptionalString(value.layerId, `${path}.layerId`, 'Datum target layerId', issues, false);
+    if (value.rowIndex !== undefined) {
+      const rows = Array.isArray(value.rowIndex) ? value.rowIndex : [value.rowIndex];
+      if (rows.length === 0 || rows.length > 1000) {
+        issues.push({
+          path: `${path}.rowIndex`,
+          message: 'Datum rowIndex must select 1..1000 rows.',
+        });
+      }
+      rows.forEach((row, index) =>
+        validateFiniteNumber(
+          row,
+          Array.isArray(value.rowIndex) ? `${path}.rowIndex[${index}]` : `${path}.rowIndex`,
+          'Datum rowIndex',
+          issues,
+          { integer: true, min: 0 },
+        ),
+      );
+      if (new Set(rows).size !== rows.length) {
+        issues.push({ path: `${path}.rowIndex`, message: 'Datum rowIndex values must be unique.' });
+      }
+    }
+    validateOptionalString(value.field, `${path}.field`, 'Datum target field', issues, false);
+    if (typeof value.field === 'string' && UNSAFE_FIELDS.has(value.field)) {
+      issues.push({
+        path: `${path}.field`,
+        message: `Unsafe field "${value.field}" is forbidden.`,
+      });
+    }
+    const hasValue = Object.prototype.hasOwnProperty.call(value, 'value');
+    const hasValues = Object.prototype.hasOwnProperty.call(value, 'values');
+    if (hasValue) {
+      const valid =
+        value.value === null ||
+        typeof value.value === 'string' ||
+        typeof value.value === 'boolean' ||
+        (typeof value.value === 'number' && Number.isFinite(value.value));
+      if (!valid)
+        issues.push({
+          path: `${path}.value`,
+          message: 'Datum target value must be a JSON scalar.',
+        });
+    }
+    if (hasValues) {
+      if (!Array.isArray(value.values) || value.values.length === 0 || value.values.length > 200) {
+        issues.push({
+          path: `${path}.values`,
+          message: 'Datum target values must contain 1..200 JSON scalars.',
+        });
+      } else {
+        value.values.forEach((entry, index) => {
+          const valid =
+            entry === null ||
+            typeof entry === 'string' ||
+            typeof entry === 'boolean' ||
+            (typeof entry === 'number' && Number.isFinite(entry));
+          if (!valid)
+            issues.push({
+              path: `${path}.values[${index}]`,
+              message: 'Datum target values must be JSON scalars.',
+            });
+        });
+        if (
+          new Set(value.values.map((entry) => JSON.stringify(entry))).size !== value.values.length
+        )
+          issues.push({ path: `${path}.values`, message: 'Datum target values must be unique.' });
+      }
+    }
+    if (value.field === undefined && (value.value !== undefined || value.values !== undefined)) {
+      issues.push({ path: `${path}.field`, message: 'Datum target field is required for values.' });
+    }
+    if (value.field !== undefined && hasValue === hasValues) {
+      issues.push({
+        path,
+        message: 'Datum target field matching requires exactly one of value or values.',
+      });
+    }
+    if (value.rowIndex === undefined && value.field === undefined) {
+      issues.push({ path, message: 'Datum target requires rowIndex or field matching.' });
+    }
+    return;
+  }
+  if (value.type === 'layer') {
+    validateUnknownKeys(value, new Set(['type', 'layerId']), path, 'layer target', issues);
+    validateOptionalString(value.layerId, `${path}.layerId`, 'Layer target layerId', issues, false);
+    if (value.layerId === undefined)
+      issues.push({ path: `${path}.layerId`, message: 'Layer target layerId is required.' });
+    return;
+  }
+  if (value.type === 'range') {
+    validateUnknownKeys(value, new Set(['type', 'x', 'y']), path, 'range target', issues);
+    if (value.x === undefined && value.y === undefined) {
+      issues.push({ path, message: 'Range target requires x or y.' });
+    }
+    if (value.x !== undefined) validateAxisRange(value.x, `${path}.x`, 'x', issues);
+    if (value.y !== undefined) validateAxisRange(value.y, `${path}.y`, 'y', issues);
+    return;
+  }
+  if (value.type === 'plot') {
+    validateUnknownKeys(
+      value,
+      new Set(['type', 'x', 'y', 'width', 'height']),
+      path,
+      'plot target',
+      issues,
+    );
+    for (const key of ['x', 'y', 'width', 'height'] as const) {
+      if ((key === 'x' || key === 'y') && value[key] === undefined) {
+        issues.push({ path: `${path}.${key}`, message: `Plot target ${key} is required.` });
+      } else if (value[key] !== undefined) {
+        validateFiniteNumber(value[key], `${path}.${key}`, `Plot target ${key}`, issues, {
+          min: 0,
+          max: 1,
+        });
+      }
+    }
+    return;
+  }
+  issues.push({ path: `${path}.type`, message: 'Decoration target type is not supported.' });
+}
+
+function validateHighlights(value: unknown, path: string, issues: SpecIssue[]): void {
+  if (value === undefined) return;
+  if (!Array.isArray(value) || value.length > 256) {
+    issues.push({ path, message: 'Highlights must be an array of at most 256 entries.' });
+    return;
+  }
+  value.forEach((highlight, index) => {
+    const itemPath = `${path}[${index}]`;
+    if (!isPlainObject(highlight)) {
+      issues.push({ path: itemPath, message: 'Highlight must be an object.' });
+      return;
+    }
+    validateUnknownKeys(highlight, HIGHLIGHT_KEYS, itemPath, 'highlight', issues);
+    validateOptionalString(highlight.id, `${itemPath}.id`, 'Highlight id', issues, false);
+    validateDecorationTarget(highlight.target, `${itemPath}.target`, issues);
+    validateHighlightStyle(highlight, itemPath, issues);
+  });
+}
+
+function validateAnnotations(value: unknown, path: string, issues: SpecIssue[]): void {
+  if (value === undefined) return;
+  if (!Array.isArray(value) || value.length > 256) {
+    issues.push({ path, message: 'Annotations must be an array of at most 256 entries.' });
+    return;
+  }
+  value.forEach((annotation, index) => {
+    const itemPath = `${path}[${index}]`;
+    if (!isPlainObject(annotation)) {
+      issues.push({ path: itemPath, message: 'Annotation must be an object.' });
+      return;
+    }
+    validateUnknownKeys(annotation, ANNOTATION_KEYS, itemPath, 'annotation', issues);
+    validateOptionalString(annotation.id, `${itemPath}.id`, 'Annotation id', issues, false);
+    validateOptionalString(annotation.text, `${itemPath}.text`, 'Annotation text', issues, false);
+    if (annotation.text === undefined)
+      issues.push({ path: `${itemPath}.text`, message: 'Annotation text is required.' });
+    validateOptionalString(annotation.detail, `${itemPath}.detail`, 'Annotation detail', issues);
+    validateDecorationTarget(annotation.target, `${itemPath}.target`, issues);
+    if (
+      annotation.placement !== undefined &&
+      (typeof annotation.placement !== 'string' || !ANNOTATION_PLACEMENTS.has(annotation.placement))
+    ) {
+      issues.push({
+        path: `${itemPath}.placement`,
+        message: 'Annotation placement is not supported.',
+      });
+    }
+    for (const key of ['offsetX', 'offsetY'] as const) {
+      if (annotation[key] !== undefined)
+        validateFiniteNumber(annotation[key], `${itemPath}.${key}`, `Annotation ${key}`, issues, {
+          min: -10_000,
+          max: 10_000,
+        });
+    }
+    if (annotation.connector !== undefined && typeof annotation.connector !== 'boolean') {
+      if (!isPlainObject(annotation.connector)) {
+        issues.push({ path: `${itemPath}.connector`, message: 'Annotation connector is invalid.' });
+      } else {
+        validateUnknownKeys(
+          annotation.connector,
+          CONNECTOR_KEYS,
+          `${itemPath}.connector`,
+          'annotation connector',
+          issues,
+        );
+        validateOptionalBoolean(
+          annotation.connector.visible,
+          `${itemPath}.connector.visible`,
+          'Annotation connector visibility',
+          issues,
+        );
+        validateOptionalString(
+          annotation.connector.color,
+          `${itemPath}.connector.color`,
+          'Annotation connector color',
+          issues,
+          false,
+        );
+        validateHighlightStyle(
+          {
+            lineWidth: annotation.connector.width,
+            dash: annotation.connector.dash,
+          },
+          `${itemPath}.connector`,
+          issues,
+        );
+      }
+    }
+    if (annotation.style !== undefined) {
+      if (!isPlainObject(annotation.style)) {
+        issues.push({ path: `${itemPath}.style`, message: 'Annotation style must be an object.' });
+      } else {
+        validateUnknownKeys(
+          annotation.style,
+          ANNOTATION_STYLE_KEYS,
+          `${itemPath}.style`,
+          'annotation style',
+          issues,
+        );
+        for (const key of ['background', 'border', 'color'] as const) {
+          validateOptionalString(
+            annotation.style[key],
+            `${itemPath}.style.${key}`,
+            `Annotation style ${key}`,
+            issues,
+            false,
+          );
+        }
+        if (annotation.style.opacity !== undefined)
+          validateFiniteNumber(
+            annotation.style.opacity,
+            `${itemPath}.style.opacity`,
+            'Annotation style opacity',
+            issues,
+            { min: 0, max: 1 },
+          );
+        for (const key of ['fontSize', 'maxWidth', 'padding'] as const) {
+          if (annotation.style[key] !== undefined)
+            validateFiniteNumber(
+              annotation.style[key],
+              `${itemPath}.style.${key}`,
+              `Annotation style ${key}`,
+              issues,
+              { min: 1, max: 2000 },
+            );
+        }
+        if (
+          annotation.style.align !== undefined &&
+          (typeof annotation.style.align !== 'string' ||
+            !ANNOTATION_TEXT_ALIGNS.has(annotation.style.align))
+        ) {
+          issues.push({
+            path: `${itemPath}.style.align`,
+            message: 'Annotation text alignment is not supported.',
+          });
+        }
+      }
+    }
+  });
+}
+
+function validateLayerReferences(input: Record<string, unknown>, issues: SpecIssue[]): void {
+  const sourceLayers = Array.isArray(input.layers)
+    ? input.layers
+    : input.mark !== undefined || input.x !== undefined || input.y !== undefined
+      ? [input]
+      : [];
+  const layerIds = new Set<string>();
+  sourceLayers.forEach((layer, index) => {
+    if (!isPlainObject(layer)) return;
+    const layerId = layer.id === undefined ? `layer-${index}` : layer.id;
+    if (typeof layerId !== 'string' || layerId.trim() === '') return;
+    if (layerIds.has(layerId)) {
+      issues.push({
+        path: Array.isArray(input.layers) ? `$.layers[${index}].id` : '$.id',
+        message: `Layer id "${layerId}" must be unique.`,
+      });
+      return;
+    }
+    layerIds.add(layerId);
+  });
+
+  const check = (value: unknown, path: string): void => {
+    if (!isPlainObject(value) || typeof value.layerId !== 'string') return;
+    if (!layerIds.has(value.layerId)) {
+      issues.push({
+        path: `${path}.layerId`,
+        message: `Layer id "${value.layerId}" does not exist.`,
+      });
+    }
+  };
+  const checkUniqueIds = (
+    value: unknown,
+    path: string,
+    label: string,
+    defaultPrefix: string,
+  ): void => {
+    if (!Array.isArray(value)) return;
+    const ids = new Set<string>();
+    value.forEach((entry, index) => {
+      if (!isPlainObject(entry)) return;
+      const id =
+        typeof entry.id === 'string' && entry.id.trim() !== ''
+          ? entry.id
+          : `${defaultPrefix}-${index}`;
+      if (ids.has(id)) {
+        issues.push({
+          path: `${path}[${index}].id`,
+          message: `${label} id "${id}" must be unique after defaults are resolved.`,
+        });
+        return;
+      }
+      ids.add(id);
+    });
+  };
+
+  if (isPlainObject(input.legend)) {
+    const legend = input.legend;
+    check(legend, '$.legend');
+    if (Array.isArray(legend.items)) {
+      legend.items.forEach((item, index) => check(item, `$.legend.items[${index}]`));
+    }
+    checkUniqueIds(legend.items, '$.legend.items', 'Legend item', 'item');
+    if (Array.isArray(legend.items)) {
+      const semanticOwners = new Set<string>();
+      legend.items.forEach((item, index) => {
+        if (!isPlainObject(item) || typeof item.layerId !== 'string') return;
+        const owner =
+          legend.mode === 'categories' && Object.prototype.hasOwnProperty.call(item, 'value')
+            ? JSON.stringify(['category', item.layerId, item.value])
+            : legend.mode === 'layers'
+              ? JSON.stringify(['layer', item.layerId])
+              : null;
+        if (owner === null) return;
+        if (semanticOwners.has(owner)) {
+          issues.push({
+            path: `$.legend.items[${index}]`,
+            message: 'Interactive legend items must not control the same semantic owner.',
+          });
+        } else semanticOwners.add(owner);
+      });
+    }
+  }
+  if (Array.isArray(input.highlights)) {
+    input.highlights.forEach((highlight, index) => {
+      if (isPlainObject(highlight)) check(highlight.target, `$.highlights[${index}].target`);
+    });
+  }
+  if (Array.isArray(input.annotations)) {
+    input.annotations.forEach((annotation, index) => {
+      if (isPlainObject(annotation)) check(annotation.target, `$.annotations[${index}].target`);
+    });
+  }
+  checkUniqueIds(input.highlights, '$.highlights', 'Highlight', 'highlight');
+  checkUniqueIds(input.annotations, '$.annotations', 'Annotation', 'annotation');
 }
 
 function findFunctions(
@@ -1015,7 +1716,11 @@ export function validateSpec(input: unknown): readonly SpecIssue[] {
   }
 
   validateAxes(input.axes, '$.axes', issues);
+  validateLegend(input.legend, '$.legend', issues);
+  validateHighlights(input.highlights, '$.highlights', issues);
+  validateAnnotations(input.annotations, '$.annotations', issues);
   validateInteraction(input.interaction, '$.interaction', issues);
+  validateLayerReferences(input, issues);
 
   findFunctions(input, '$', issues, new WeakSet());
   return issues;

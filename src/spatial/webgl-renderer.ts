@@ -279,12 +279,7 @@ export function isGlobePickFrontFacing(
   pick: SpatialPickTarget,
   camera: SpatialCameraState,
 ): boolean {
-  const datum = pick.datum;
-  const globeTarget =
-    ('longitude' in datum && 'latitude' in datum) ||
-    'country' in datum ||
-    ('fromLongitude' in datum && 'toLongitude' in datum);
-  if (!globeTarget) return true;
+  if (pick.occlusion !== 'globe-front') return true;
   const outward = normalize3(pick.position);
   return dot3(outward, subtract3(cameraEye(camera), pick.position)) > 0;
 }
@@ -520,6 +515,22 @@ export class SpatialWebGLRenderer {
       }
     }
     return best;
+  }
+
+  project(position: readonly [number, number, number]): Readonly<{
+    x: number;
+    y: number;
+    depth: number;
+    visible: boolean;
+  }> | null {
+    const camera = this.#camera;
+    if (camera === null) return null;
+    return projectPoint(
+      viewProjectionMat4(camera, this.#width, this.#height),
+      position,
+      this.#width,
+      this.#height,
+    );
   }
 
   toDataURL(): string {

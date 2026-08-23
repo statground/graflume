@@ -14,6 +14,11 @@ interface AxisTooltipTargetContext {
   readonly scales: ScaleResolution;
   readonly plot: Rect;
   readonly performance: PerformanceSettings;
+  readonly datumVisible?: (
+    layerId: string,
+    rowIndex: number,
+    datum: Readonly<Record<string, unknown>>,
+  ) => boolean;
 }
 
 function pathBounds(node: PathNode): Rect | null {
@@ -168,6 +173,7 @@ export function collectAxisTooltipTargets(
     for (const rowIndex of indices) {
       if (representedRows.has(`${layerData.layer.id}\u0000${rowIndex}`)) continue;
       const datum = layerData.table.row(rowIndex);
+      if (context.datumVisible?.(layerData.layer.id, rowIndex, datum) === false) continue;
       const x = scaleValue(layerData.xScale, datum[layerData.layer.x.field]);
       const y = scaleValue(layerData.yScale, datum[layerData.layer.y.field]);
       if (x === null || y === null) continue;

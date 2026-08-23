@@ -947,3 +947,196 @@ test('constructor failure destroys a partially mounted renderer and global liste
     environment.restore();
   }
 });
+
+test('legend, selection, and annotation runtime state stay transient and emit one lifecycle event', () => {
+  const environment = installEnvironment();
+  const { registry, target, renderers } = createHarness(environment.document);
+  const spec = {
+    layers: [
+      {
+        id: 'actual',
+        name: 'Actual',
+        data: [
+          { category: 'A', value: 10 },
+          { category: 'B', value: 14 },
+        ],
+        mark: 'line',
+        x: 'category',
+        y: 'value',
+      },
+      {
+        id: 'plan',
+        name: 'Plan',
+        data: [
+          { category: 'A', value: 11 },
+          { category: 'B', value: 13 },
+        ],
+        mark: 'point',
+        x: 'category',
+        y: 'value',
+      },
+    ],
+    legend: { mode: 'layers', interactive: true },
+    annotations: [
+      { id: 'base-note', target: { type: 'datum', layerId: 'actual', rowIndex: 0 }, text: 'Base' },
+    ],
+    interaction: { navigation: false, selection: { clearOnEscape: true } },
+  };
+  const chart = new Chart(target, spec, registry, {
+    width: 240,
+    height: 160,
+    autoResize: false,
+  });
+  const renderer = renderers[0];
+  const legendReasons = [];
+  const selectionReasons = [];
+  const annotationReasons = [];
+  chart.on('legendchange', ({ reason }) => legendReasons.push(reason));
+  chart.on('selectionchange', ({ reason }) => selectionReasons.push(reason));
+  chart.on('annotationchange', ({ reason }) => annotationReasons.push(reason));
+
+  try {
+    assert.equal(chart.getLegendState().items.length, 2);
+    const actual = chart.getLegendState().items.find(({ layerId }) => layerId === 'actual');
+    const button = walk(renderer.host).find(
+      (element) => element.dataset.graflumeLegendItem === actual.id,
+    );
+    button.click();
+    assert.equal(chart.getLegendState().items.find(({ id }) => id === actual.id).visible, false);
+    assert.deepEqual(legendReasons, ['toggle']);
+    chart.setLegendItemVisible(actual.id, true);
+    assert.deepEqual(legendReasons, ['toggle', 'programmatic']);
+    chart.resetLegend();
+    assert.deepEqual(legendReasons, ['toggle', 'programmatic']);
+
+    assert.equal(renderer.chartSurface.tabIndex, 0, 'selection-only Escape path is focusable');
+    chart.setSelection([{ type: 'datum', layerId: 'actual', rowIndex: 1 }]);
+    assert.equal(chart.getSelection().items.length, 1);
+    assert.deepEqual(selectionReasons, ['programmatic']);
+    assert.throws(
+      () =>
+        chart.setSelection([
+          { type: 'datum', layerId: 'actual', rowIndex: 0 },
+          { type: 'datum', layerId: 'actual', rowIndex: 1 },
+        ]),
+      /at most one/,
+    );
+    assert.throws(
+      () =>
+        chart.setSelection([
+          { type: 'datum', layerId: 'actual', rowIndex: 1 },
+          { type: 'datum', layerId: 'actual', rowIndex: 1 },
+        ]),
+      /at most one/,
+    );
+    const escape = new FakeKeyboardEvent('keydown', { key: 'Escape' });
+    renderer.chartSurface.dispatchEvent(escape);
+    assert.equal(escape.defaultPrevented, true);
+    assert.equal(chart.getSelection().items.length, 0);
+    assert.deepEqual(selectionReasons, ['programmatic', 'clear']);
+
+    const runtimeId = chart.addAnnotation({
+      target: { type: 'datum', layerId: 'plan', rowIndex: 1 },
+      text: 'Runtime',
+    });
+    chart.updateAnnotation(runtimeId, { detail: 'Updated safely' });
+    assert.equal(
+      chart.getAnnotations().find(({ id }) => id === runtimeId).detail,
+      'Updated safely',
+    );
+    assert.equal(chart.removeAnnotation(runtimeId), true);
+    assert.deepEqual(annotationReasons, ['add', 'update', 'remove']);
+    assert.equal(chart.getSpec(), spec);
+    assert.equal(spec.annotations.length, 1);
+  } finally {
+    chart.destroy();
+    environment.restore();
+  }
+});
+
+test('interactive legend controls follow the Canvas inspection transform', () => {
+  const environment = installEnvironment();
+  const { registry, target, renderers } = createHarness(environment.document);
+  const chart = new Chart(
+    target,
+    {
+      layers: [
+        { id: 'a', data: [{ x: 'A', y: 1 }], mark: 'line', x: 'x', y: 'y' },
+        { id: 'b', data: [{ x: 'A', y: 2 }], mark: 'point', x: 'x', y: 'y' },
+      ],
+      legend: { mode: 'layers', interactive: true, title: 'Before' },
+      interaction: { navigation: { maxZoom: 2 } },
+    },
+    registry,
+    { width: 240, height: 160, autoResize: false },
+  );
+
+  try {
+    const host = renderers[0].host;
+    const before = walk(host).find(({ dataset }) => dataset.graflumeLegendItem === 'layer-a-0');
+    const group = walk(host).find(({ dataset }) => dataset.graflumeLegendControls === 'true');
+    assert.equal(group.getAttribute('aria-label'), 'Before');
+    before.focus();
+    before.click();
+    const restored = walk(host).find(({ dataset }) => dataset.graflumeLegendItem === 'layer-a-0');
+    assert.equal(environment.document.activeElement, restored);
+    chart.setSpec({
+      ...chart.getSpec(),
+      legend: { mode: 'layers', interactive: true, title: 'After' },
+    });
+    assert.equal(group.getAttribute('aria-label'), 'After');
+    const x = Number.parseFloat(before.style.left);
+    const y = Number.parseFloat(before.style.top);
+    const width = Number.parseFloat(before.style.width);
+    chart.zoomBy(2, { x: 0, y: 0 });
+    const zoomed = walk(host).find(({ dataset }) => dataset.graflumeLegendItem === 'layer-a-0');
+    assert.equal(Number.parseFloat(zoomed.style.left), x * 2);
+    assert.equal(Number.parseFloat(zoomed.style.top), y * 2);
+    assert.equal(Number.parseFloat(zoomed.style.width), width * 2);
+    chart.panBy(-10, -5);
+    const panned = walk(host).find(({ dataset }) => dataset.graflumeLegendItem === 'layer-a-0');
+    assert.equal(Number.parseFloat(panned.style.left), x * 2 - 10);
+    assert.equal(Number.parseFloat(panned.style.top), y * 2 - 5);
+  } finally {
+    chart.destroy();
+    environment.restore();
+  }
+});
+
+test('multiple selection keys preserve compound rows and canonicalize selector sets', () => {
+  const environment = installEnvironment();
+  const { registry, target } = createHarness(environment.document);
+  const chart = new Chart(
+    target,
+    {
+      data: [
+        { category: 'A', value: 10 },
+        { category: 'A', value: 14 },
+      ],
+      mark: 'point',
+      x: 'category',
+      y: 'value',
+      interaction: { selection: { mode: 'multiple' } },
+    },
+    registry,
+    { width: 240, height: 160, autoResize: false },
+  );
+  try {
+    chart.setSelection([
+      { type: 'datum', rowIndex: 0, field: 'category', value: 'A' },
+      { type: 'datum', rowIndex: 1, field: 'category', value: 'A' },
+    ]);
+    assert.equal(chart.getSelection().items.length, 2);
+    assert.throws(
+      () =>
+        chart.setSelection([
+          { type: 'datum', rowIndex: [0, 1], field: 'category', values: ['A', 'B'] },
+          { type: 'datum', rowIndex: [1, 0], field: 'category', values: ['B', 'A'] },
+        ]),
+      /unique/,
+    );
+  } finally {
+    chart.destroy();
+    environment.restore();
+  }
+});

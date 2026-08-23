@@ -9,6 +9,9 @@ import type {
   SpatialConeVectorData,
   SpatialCreateOptions,
   SpatialGlobeData,
+  SpatialHighlightSpec,
+  SpatialAnnotationSpec,
+  SpatialLegendSpec,
   SpatialInteractionSpec,
   SpatialLightingSpec,
   SpatialMeshData,
@@ -43,6 +46,9 @@ export interface SpatialQuickOptions {
   readonly lighting?: SpatialLightingSpec;
   readonly interaction?: SpatialInteractionSpec;
   readonly accessibility?: SpatialAccessibilitySpec;
+  readonly legend?: boolean | SpatialLegendSpec;
+  readonly highlights?: readonly SpatialHighlightSpec[];
+  readonly annotations?: readonly SpatialAnnotationSpec[];
   readonly create?: SpatialCreateOptions;
 }
 
@@ -96,6 +102,9 @@ function specBase(options: SpatialQuickOptions): Omit<SpatialChartSpec, 'layers'
     ...(options.lighting === undefined ? {} : { lighting: options.lighting }),
     ...(options.interaction === undefined ? {} : { interaction: options.interaction }),
     ...(options.accessibility === undefined ? {} : { accessibility: options.accessibility }),
+    ...(options.legend === undefined ? {} : { legend: options.legend }),
+    ...(options.highlights === undefined ? {} : { highlights: options.highlights }),
+    ...(options.annotations === undefined ? {} : { annotations: options.annotations }),
   };
 }
 
@@ -345,6 +354,15 @@ export type {
   SpatialAvailabilityStatus,
   SpatialCameraChangeEvent,
   SpatialCameraChangeReason,
+  SpatialLegendChangeEvent,
+  SpatialLegendChangeReason,
+  SpatialLegendItemState,
+  SpatialLegendState,
+  SpatialSelectionChangeEvent,
+  SpatialSelectionChangeReason,
+  SpatialSelectionState,
+  SpatialAnnotationChangeEvent,
+  SpatialAnnotationChangeReason,
   SpatialChartEventMap,
   SpatialErrorEvent,
   SpatialFullscreenChangeEvent,

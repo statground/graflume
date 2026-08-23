@@ -70,6 +70,7 @@ export interface RectNode extends BaseNode {
   readonly fill?: string;
   readonly stroke?: string;
   readonly lineWidth: number;
+  readonly dash?: readonly number[];
   readonly cornerRadius: number;
 }
 

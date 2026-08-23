@@ -132,6 +132,7 @@ function renderScene(scene) {
         fill: node.fill ?? 'none',
         stroke: node.stroke,
         'stroke-width': node.stroke === undefined ? undefined : number(node.lineWidth),
+        'stroke-dasharray': node.dash?.join(' '),
       })}/>`;
     }
 

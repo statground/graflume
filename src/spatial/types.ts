@@ -57,7 +57,67 @@ export interface SpatialInteractionSpec {
   readonly tooltip?: boolean | SpatialTooltipSpec;
   readonly controls?: boolean;
   readonly labels?: SpatialControlLabels;
+  readonly selection?: boolean | SpatialSelectionSpec;
 }
+
+export interface SpatialSelectionSpec {
+  readonly mode?: 'single' | 'multiple';
+  readonly toggle?: boolean;
+  /** Stable scalar datum field used instead of transient datumIndex when available. */
+  readonly key?: string;
+  readonly clearOnBackground?: boolean;
+  readonly clearOnEscape?: boolean;
+  readonly ariaLabel?: string;
+  readonly highlight?: HighlightStyleSpec;
+}
+
+export interface SpatialDatumTargetSpec {
+  readonly type: 'datum';
+  readonly layerId?: string;
+  readonly datumIndex?: number | readonly number[];
+  readonly field?: string;
+  readonly value?: JsonPrimitive;
+  readonly values?: readonly JsonPrimitive[];
+}
+
+export interface SpatialLayerTargetSpec {
+  readonly type: 'layer';
+  readonly layerId: string;
+}
+
+export interface SpatialPointTargetSpec {
+  readonly type: 'point';
+  readonly position: SpatialVec3;
+}
+
+export interface SpatialBoxTargetSpec {
+  readonly type: 'box';
+  readonly min: SpatialVec3;
+  readonly max: SpatialVec3;
+}
+
+export type SpatialDecorationTargetSpec =
+  SpatialDatumTargetSpec | SpatialLayerTargetSpec | SpatialPointTargetSpec | SpatialBoxTargetSpec;
+
+export interface SpatialHighlightSpec extends HighlightStyleSpec {
+  readonly id?: string;
+  readonly target: SpatialDecorationTargetSpec;
+}
+
+export interface SpatialAnnotationSpec {
+  readonly id?: string;
+  readonly target: SpatialDecorationTargetSpec;
+  readonly text: string;
+  readonly detail?: string;
+  readonly placement?: 'auto' | 'top' | 'right' | 'bottom' | 'left';
+  readonly offsetX?: number;
+  readonly offsetY?: number;
+  readonly connector?: boolean | AnnotationConnectorSpec;
+  readonly style?: AnnotationStyleSpec;
+}
+
+/** Spatial legends share the portable legend contract; category mode requires explicit items. */
+export type SpatialLegendSpec = LegendSpec;
 
 export interface SpatialSurfaceGridData {
   readonly rows: number;
@@ -86,6 +146,7 @@ export interface SpatialSurfaceMark {
 
 export interface SpatialSurfaceLayer {
   readonly id?: string;
+  readonly name?: string;
   readonly mark: SpatialSurfaceMark;
   readonly data: SpatialSurfaceGridData | SpatialMeshData;
 }
@@ -110,6 +171,7 @@ export interface SpatialVolumeMark {
 
 export interface SpatialVolumeLayer {
   readonly id?: string;
+  readonly name?: string;
   readonly mark: SpatialVolumeMark;
   readonly data: SpatialVolumeData;
 }
@@ -139,6 +201,7 @@ export interface SpatialVectorMark {
 
 export interface SpatialVectorLayer {
   readonly id?: string;
+  readonly name?: string;
   readonly mark: SpatialVectorMark;
   readonly data: SpatialConeVectorData | SpatialStreamtubeData;
 }
@@ -160,6 +223,7 @@ export interface SpatialScatterMark {
 
 export interface SpatialScatterLayer {
   readonly id?: string;
+  readonly name?: string;
   readonly mark: SpatialScatterMark;
   readonly data: SpatialScatterData;
 }
@@ -200,6 +264,7 @@ export interface SpatialGlobeMark {
 
 export interface SpatialGlobeLayer {
   readonly id?: string;
+  readonly name?: string;
   readonly mark: SpatialGlobeMark;
   readonly data?: SpatialGlobeData;
 }
@@ -220,6 +285,9 @@ export interface SpatialChartSpec {
   readonly lighting?: SpatialLightingSpec;
   readonly interaction?: SpatialInteractionSpec;
   readonly accessibility?: SpatialAccessibilitySpec;
+  readonly legend?: boolean | SpatialLegendSpec;
+  readonly highlights?: readonly SpatialHighlightSpec[];
+  readonly annotations?: readonly SpatialAnnotationSpec[];
   readonly layers: readonly SpatialLayerSpec[];
 }
 
@@ -250,6 +318,8 @@ export interface SpatialPickTarget {
   readonly nodeId: string;
   readonly position: SpatialVec3;
   readonly datum: Readonly<Record<string, unknown>>;
+  /** Projection-specific overlay occlusion policy resolved by the compiler. */
+  readonly occlusion?: 'globe-front';
 }
 
 export interface CompiledSpatialGeometry {
@@ -287,3 +357,10 @@ export interface SpatialCapabilities {
   readonly marks: Readonly<Record<string, readonly string[]>>;
   readonly exportFormats: readonly ['image/png'];
 }
+import type {
+  AnnotationConnectorSpec,
+  AnnotationStyleSpec,
+  HighlightStyleSpec,
+  JsonPrimitive,
+  LegendSpec,
+} from '../spec/types.js';

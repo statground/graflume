@@ -232,6 +232,8 @@ export type MarkInput = MarkType | MarkSpec;
 
 export interface LayerSpec {
   readonly id?: string;
+  /** Human-readable series name used by automatic layer legends. */
+  readonly name?: string;
   readonly data?: DataInput;
   readonly mark: MarkInput;
   readonly x: EncodingInput;
@@ -258,6 +260,135 @@ export interface TitleSpec {
 export interface AccessibilitySpec {
   readonly label?: string;
   readonly description?: string;
+}
+
+export type LegendMode = 'auto' | 'layers' | 'categories' | 'continuous';
+export type LegendPosition =
+  | 'top'
+  | 'right'
+  | 'bottom'
+  | 'left'
+  | 'inside-top-left'
+  | 'inside-top-right'
+  | 'inside-bottom-left'
+  | 'inside-bottom-right';
+
+export interface LegendItemSpec {
+  readonly id?: string;
+  readonly label: string;
+  readonly color?: string;
+  /** Optional layer controlled by this item when interactive toggling is enabled. */
+  readonly layerId?: string;
+  /** Optional portable category value controlled by this item. */
+  readonly value?: JsonPrimitive;
+  /** Compact glyph used for this series/category. Auto follows the owning mark. */
+  readonly symbol?: 'auto' | 'line' | 'point' | 'rect';
+}
+
+export interface LegendLabelsSpec {
+  readonly show?: string;
+  readonly hide?: string;
+}
+
+export interface LegendSpec {
+  readonly visible?: boolean;
+  readonly mode?: LegendMode;
+  readonly position?: LegendPosition;
+  readonly orientation?: 'auto' | 'horizontal' | 'vertical';
+  readonly title?: string;
+  /** Category field for categories/continuous legends. */
+  readonly field?: string;
+  /** Restrict an inferred category legend to one layer. */
+  readonly layerId?: string;
+  /** Explicit items are the safe fallback when a family has no unambiguous auto semantics. */
+  readonly items?: readonly LegendItemSpec[];
+  readonly maxItems?: number;
+  readonly interactive?: boolean;
+  readonly labels?: LegendLabelsSpec;
+}
+
+export interface DatumTargetSpec {
+  readonly type: 'datum';
+  readonly layerId?: string;
+  readonly rowIndex?: number | readonly number[];
+  readonly field?: string;
+  readonly value?: JsonPrimitive;
+  readonly values?: readonly JsonPrimitive[];
+}
+
+export interface LayerTargetSpec {
+  readonly type: 'layer';
+  readonly layerId: string;
+}
+
+export interface AxisRangeTargetSpec {
+  readonly axis?: AxisId;
+  readonly from: number | string;
+  readonly to: number | string;
+}
+
+export interface RangeTargetSpec {
+  readonly type: 'range';
+  readonly x?: AxisRangeTargetSpec;
+  readonly y?: AxisRangeTargetSpec;
+}
+
+/** A renderer-neutral plot-relative target where every value is in the 0..1 interval. */
+export interface PlotTargetSpec {
+  readonly type: 'plot';
+  readonly x: number;
+  readonly y: number;
+  readonly width?: number;
+  readonly height?: number;
+}
+
+export type DecorationTargetSpec =
+  DatumTargetSpec | LayerTargetSpec | RangeTargetSpec | PlotTargetSpec;
+
+export interface HighlightStyleSpec {
+  readonly fill?: string;
+  readonly stroke?: string;
+  readonly opacity?: number;
+  readonly lineWidth?: number;
+  readonly dash?: readonly number[];
+  readonly padding?: number;
+  readonly radius?: number;
+}
+
+export interface HighlightSpec extends HighlightStyleSpec {
+  readonly id?: string;
+  readonly target: DecorationTargetSpec;
+}
+
+export interface AnnotationConnectorSpec {
+  readonly visible?: boolean;
+  readonly color?: string;
+  readonly width?: number;
+  readonly dash?: readonly number[];
+}
+
+export interface AnnotationStyleSpec {
+  readonly background?: string;
+  readonly border?: string;
+  readonly color?: string;
+  readonly opacity?: number;
+  readonly fontSize?: number;
+  readonly maxWidth?: number;
+  readonly padding?: number;
+  /** Logical text alignment. Start/end follow the chart locale direction. */
+  readonly align?: 'start' | 'center' | 'end';
+}
+
+export interface AnnotationSpec {
+  readonly id?: string;
+  readonly target: DecorationTargetSpec;
+  readonly text: string;
+  readonly detail?: string;
+  readonly placement?: 'auto' | 'top' | 'right' | 'bottom' | 'left';
+  readonly offsetX?: number;
+  readonly offsetY?: number;
+  readonly connector?: boolean | AnnotationConnectorSpec;
+  readonly style?: AnnotationStyleSpec;
 }
 
 export type TooltipValueFormat = 'auto' | 'number' | 'integer' | 'percent' | 'date' | 'datetime';
@@ -344,6 +475,16 @@ export interface ControlsSpec {
   readonly labels?: ControlLabelsSpec;
 }
 
+export interface SelectionSpec {
+  readonly mode?: 'single' | 'multiple';
+  readonly toggle?: boolean;
+  readonly key?: string;
+  readonly clearOnBackground?: boolean;
+  readonly clearOnEscape?: boolean;
+  readonly ariaLabel?: string;
+  readonly highlight?: HighlightStyleSpec;
+}
+
 export interface InteractionSpec {
   readonly hover?: boolean;
   readonly click?: boolean;
@@ -355,6 +496,8 @@ export interface InteractionSpec {
   readonly navigation?: boolean | NavigationSpec;
   readonly playback?: false | PlaybackSpec;
   readonly controls?: boolean | ControlsSpec;
+  /** Click-driven, renderer-neutral datum selection. */
+  readonly selection?: boolean | SelectionSpec;
 }
 
 export interface ChartSpec {
@@ -380,6 +523,9 @@ export interface ChartSpec {
     readonly y?: AxisSpec | false;
     readonly y2?: AxisSpec | false;
   };
+  readonly legend?: boolean | LegendSpec;
+  readonly highlights?: readonly HighlightSpec[];
+  readonly annotations?: readonly AnnotationSpec[];
   readonly interaction?: InteractionSpec;
   readonly accessibility?: AccessibilitySpec;
 }
@@ -479,12 +625,36 @@ export interface NormalizedMarkSpec {
 
 export interface NormalizedLayerSpec {
   readonly id: string;
+  readonly name: string;
   readonly data: DataInput;
   readonly mark: NormalizedMarkSpec;
   readonly x: NormalizedEncodingSpec;
   readonly y: NormalizedEncodingSpec;
   readonly visible: boolean;
   readonly zIndex: number;
+}
+
+export interface NormalizedLegendItemSpec {
+  readonly id: string;
+  readonly label: string;
+  readonly color?: string;
+  readonly layerId?: string;
+  readonly value?: JsonPrimitive;
+  readonly symbol: 'auto' | 'line' | 'point' | 'rect';
+}
+
+export interface NormalizedLegendSpec {
+  readonly visible: boolean;
+  readonly mode: LegendMode;
+  readonly position: LegendPosition;
+  readonly orientation: 'horizontal' | 'vertical';
+  readonly title?: string;
+  readonly field?: string;
+  readonly layerId?: string;
+  readonly items: readonly NormalizedLegendItemSpec[];
+  readonly maxItems: number;
+  readonly interactive: boolean;
+  readonly labels: Required<LegendLabelsSpec>;
 }
 
 export interface NormalizedTooltipFieldSpec {
@@ -550,6 +720,16 @@ export interface NormalizedControlsSpec {
   readonly labels: NormalizedControlLabelsSpec;
 }
 
+export interface NormalizedSelectionSpec {
+  readonly mode: 'single' | 'multiple';
+  readonly toggle: boolean;
+  readonly key?: string;
+  readonly clearOnBackground: boolean;
+  readonly clearOnEscape: boolean;
+  readonly ariaLabel: string;
+  readonly highlight: Required<HighlightStyleSpec>;
+}
+
 export interface NormalizedInteractionSpec {
   readonly hover: boolean;
   readonly click: boolean;
@@ -557,6 +737,7 @@ export interface NormalizedInteractionSpec {
   readonly navigation: false | NormalizedNavigationSpec;
   readonly playback: false | NormalizedPlaybackSpec;
   readonly controls: false | NormalizedControlsSpec;
+  readonly selection: false | NormalizedSelectionSpec;
 }
 
 export interface NormalizedChartSpec {
@@ -577,6 +758,9 @@ export interface NormalizedChartSpec {
     readonly y: NormalizedAxisSpec | false;
     readonly y2: NormalizedAxisSpec | false;
   };
+  readonly legend: false | NormalizedLegendSpec;
+  readonly highlights: readonly HighlightSpec[];
+  readonly annotations: readonly AnnotationSpec[];
   readonly interaction: NormalizedInteractionSpec;
   readonly accessibility: AccessibilitySpec;
 }

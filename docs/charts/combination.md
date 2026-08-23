@@ -27,6 +27,8 @@ The snippets are minimal runnable examples. Change `#chart` to the target elemen
 
 Every family can opt into the Canvas [inspection viewport, fullscreen, reset, and PNG controls](./interactions.md). Inspection magnifies and translates the complete already-rendered chart, including its title and axes; it is not data-domain or GIS zoom. Generated examples intentionally leave playback off. Add discrete playback only after selecting a meaningful frame field and reviewing the family-specific capability table.
 
+Every family also accepts the shared portable [legend, highlight, selection, and callout contract](./interactions.md#legends-highlights-selection-and-callouts). Automatic legend semantics follow the compiled mark and palette where they are unambiguous; use explicit function-free items for a domain-specific series or category legend. Static datum/layer/range highlights and text-only top-level callouts remain available even when a family has no Cartesian point geometry.
+
 <a id="variant-combo"></a>
 
 ### Combo chart
@@ -278,16 +280,16 @@ const chart = combo('#chart', data, {
 
 ## Scale resolution
 
-The initial composition model resolves one shared x scale and one shared y scale across all visible layers.
+The composition model resolves `x`, `x2`, `y`, and `y2` independently. Layers bound to the same axis id share that scale; layers bound to a secondary axis receive its own domain, formatting, position, and grid contract.
 
 - categorical x layers share the union of categories in encounter order;
 - numeric/temporal domains use values from every visible layer;
 - a bar or area y layer forces zero into the shared y domain;
 - categorical and numeric families cannot be mixed on one shared axis;
 - categorical y scales are supported for horizontal bars and interval layouts, but every layer on a shared axis must use the same type family;
-- the first visible layer supplies shared axis formatting and scale-tuning options.
+- the chart-level `axes` object supplies shared axis formatting and scale options, while an encoding-level `axis` object may override them for that channel.
 
-Independent/dual axes are not implemented yet. Do not imply a second axis by styling a layer differently.
+Bind a layer encoding with `axisId: 'x2'` or `axisId: 'y2'` and configure the matching chart axis. Do not imply a second axis only by styling a layer differently.
 
 ## Shared and per-layer data
 
@@ -341,7 +343,7 @@ Use `group` consistently for the related bar layers. The default `overlay` posit
 
 ## Tooltip arbitration
 
-Graflume's built-in axis tooltip can select the nearest actual datum on the shared x axis, while an exact rendered-mark hit retains priority. It does not synthesize interpolated values or build a separate per-layer aggregate: include every desired row field explicitly. Native legend merging and rendered crosshair arbitration remain outside the current contract.
+Graflume's built-in axis tooltip can select the nearest actual datum on the requested shared axis, while an exact rendered-mark hit retains priority. It does not synthesize interpolated values or build a separate per-layer aggregate: include every desired row field explicitly. The automatic layer legend uses each compiled layer's actual paint and glyph; rendered crosshair arbitration remains outside the current contract.
 
 ```ts
 chart.on('hover', ({ hit }) => {
@@ -355,12 +357,11 @@ A reviewed cumulative playback can reveal a shared ordered source across all lay
 
 ## Current limitations
 
-- shared x/y scales only;
-- no independent, dual, or multiple axes;
+- four axis ids (`x`, `x2`, `y`, `y2`) rather than an unbounded number of axes;
 - no facet, repeat, concat, grid, dashboard, or inset layout;
 - no linked brushing, cross-filtering, synchronized data-domain zoom, or rendered crosshair guide; whole-Canvas inspection is available;
-- legend merging and synthesized per-layer shared tooltips are not built in;
-- annotation, interval, and trendline marks can participate when their shared scales are compatible; reference bands and forecast semantics remain planned;
+- synthesized per-layer shared tooltip aggregation is not built in;
+- annotation, interval, and trendline marks can participate when their scales are compatible; top-level range highlights provide reference bands, while forecast semantics remain host-defined;
 - no per-layer renderer selection.
 
 ## Runnable examples and tests

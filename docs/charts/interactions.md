@@ -1,6 +1,6 @@
 # Common chart interactions
 
-Graflume keeps interaction portable by separating the chart specification from the browser controls that operate it. The built-in Canvas renderer supports an opt-in inspection viewport, reset, fullscreen, PNG export, and discrete playback. The same contract is available to every one of the 41 chart families, but playback remains an explicit semantic choice rather than an automatic family default.
+Graflume keeps interaction portable by separating the chart specification from the browser controls that operate it. The built-in Canvas renderer supports legends, static highlights, selection, text-only callouts, an opt-in inspection viewport, reset, fullscreen, PNG export, and discrete playback. The same contract is available to every one of the 41 chart families, but playback and automatic legend meaning remain explicit semantic choices rather than guesses.
 
 ## Inspection viewport, not data zoom
 
@@ -79,6 +79,71 @@ The desktop strip is 30 CSS pixels high and sits 6 pixels from the chart's top a
 A control does not enable the underlying capability. Pair zoom/reset controls with `navigation`, and pair playback controls with a valid `playback` object. Controls whose renderer, browser, or playback prerequisite is unavailable remain disabled.
 
 Fullscreen depends on the browser Fullscreen API and a live DOM target. Graflume requests fullscreen for the renderer overlay host, remeasures and renders at the temporary fullscreen size, and restores the ordinary measured dimensions after exit. PNG export depends on the active renderer exposing `toDataURL()`; the built-in Canvas renderer does, and the built-in control downloads `graflume-chart.png`. The exported image contains the current inspection transform but not DOM overlays such as the toolbar or tooltip. Neither action changes the underlying data specification.
+
+## Legends, highlights, selection, and callouts
+
+The same function-free customization contract applies to all Canvas families. Its behavior follows each family's geometry: line and area series use a line glyph, point and bubble families use a point glyph, categorical partitions use category swatches, and scalar surfaces such as heatmaps use one continuous scale with locale-formatted endpoints. `mode: "auto"` uses the compiled mark, palette, and scale meaning; choose `layers`, `categories`, or `continuous` explicitly when a domain requires a particular reading. A single-series family with no unambiguous category meaning may use explicit `items` as a portable fallback.
+
+```ts
+const chart = create('#chart', {
+  layers: [
+    {
+      id: 'actual',
+      name: 'Actual',
+      data: rows,
+      mark: { type: 'line', point: true },
+      x: { field: 'month', type: 'ordinal' },
+      y: { field: 'value', type: 'quantitative' },
+    },
+    {
+      id: 'target',
+      name: 'Target',
+      data: targetRows,
+      mark: 'line',
+      x: { field: 'month', type: 'ordinal' },
+      y: { field: 'value', type: 'quantitative' },
+    },
+  ],
+  legend: { mode: 'layers', interactive: true, position: 'top' },
+  highlights: [
+    {
+      id: 'launch-window',
+      target: { type: 'range', x: { from: 'Mar', to: 'May' } },
+      fill: '#4f46e5',
+      opacity: 0.12,
+    },
+  ],
+  annotations: [
+    {
+      id: 'launch-note',
+      target: { type: 'datum', layerId: 'actual', field: 'month', value: 'Apr' },
+      text: 'Campaign launched',
+      detail: 'The callout follows the matching source or derived semantic datum.',
+      connector: true,
+    },
+  ],
+  interaction: {
+    selection: { mode: 'multiple', toggle: true, clearOnEscape: true },
+  },
+});
+```
+
+Legend items expose native keyboard-operable buttons when `interactive: true`. Layer items can toggle their complete compiled group. Category items are toggleable only for row-owned, independent geometry such as bars, heatmap cells, points, bubbles, pie/funnel/treemap partitions, intervals, and independent financial or glyph marks; Graflume filters the matching datum and every owned label or leader together. Connected or aggregate geometry such as line/area paths, density/violin shapes, motion trails, polar/radar paths, chord ribbons, and parallel-coordinate paths stays descriptive because removing one category would change the meaning of the whole compiled path. This capability follows the owning mark and cannot be bypassed by changing the legend glyph. A continuous scale is descriptive and is not a visibility switch. Hosts should inspect each item's resolved `toggleable` state rather than assuming that `interactive: true` makes every semantic item actionable. Hover and focus preserve the compact visual surface. `getLegendState()`, `setLegendItemVisible(id, visible)`, and `resetLegend()` expose the same transient state to the host, and `legendchange` reports `toggle`, `programmatic`, `reset`, or `spec` as its reason.
+
+Decoration targets are closed and portable:
+
+- `datum` prefers a stable `layerId` plus `field` and one scalar `value` or a non-empty `values` list. `rowIndex` is the bounded fallback. Aggregate families may match compiler-derived semantic datum fields rather than a representative source row.
+- `layer` highlights the compiled bounds of one existing layer.
+- `range` creates an x, y, or rectangular reference band and supports `x2`/`y2` through the nested `axis` value. Reversed `from`/`to` values produce the same band.
+- `plot` addresses a renderer-neutral location or rectangle using values from zero through one, so non-Cartesian families can still receive a stable highlight or callout.
+
+Static `highlights` stay compiled in large and ultra profiles. Pointer selection follows the family's existing hit-test policy, so dense profiles that disable per-datum hit lookup also disable click selection; configured and programmatic targets remain stored and simply stop drawing when the selected datum is absent from a playback frame. Selection is opt-in. Click selects or toggles a datum, an enabled background clear removes it, and Escape clears it from a focused surface. Hosts use `getSelection()`, `setSelection()`, `clearSelection()`, and `selectionchange`; `setSelection()` requires `interaction.selection` to be enabled.
+
+Top-level `annotations` are general overlay callouts and are distinct from the canonical `mark: "annotation"` chart family. The mark turns an annotation field into an ordered event-series presentation; a top-level callout can target any compiled family without changing its mark. Callouts accept plain `text` and optional `detail`, placement, connector, and safe style fields. They never accept raw HTML or executable formatters. Runtime authoring uses `getAnnotations()`, `setAnnotations()`, `addAnnotation()`, `updateAnnotation()`, and `removeAnnotation()`; `annotationchange` reports `set`, `add`, `update`, `remove`, or `spec`.
+
+Legend visibility, selection, and runtime annotations are presentation state. They do not mutate the caller's specification. `setSpec()` installs the new base contract and resets transient state, while playback hides unresolved targets without deleting their configuration. IDs and referenced layer IDs are validated for uniqueness and existence so DOM controls, Scene nodes, and host state remain deterministic. Legend controls and selection summaries expose accessible names and an `aria-live` status; Canvas marks still require a nearby readable summary or table for full keyboard access.
+
+![Compiled Graflume legend, reference band, highlight, and callout](../assets/charts/customization.svg)
 
 ## Discrete playback
 

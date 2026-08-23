@@ -4,7 +4,7 @@ Graflume `0.1.0-alpha.0` exposes 41 distinct chart families through two package 
 
 Every family below is implemented today. Direction, curve, depth, radius, glyph, layout, and indicator differences are presets inside one family instead of separate discovery entries.
 
-The directory contains one manual per representative family, not one file per compatible name. Each family manual keeps every integrated type visible in a compiled-output gallery and follows it with type-by-type selection guidance, required data fields, stable anchors, and minimal runnable Quick API examples. The shared [Cartesian axis manual](./axes.md) documents formatting, label layout, styles, scale direction, secondary axes, and axis-nearest tooltips. [Common chart interactions](./interactions.md) documents the inspection viewport, reset, fullscreen, PNG export, discrete playback, and the capability/constraint matrix for all 41 families. The [compatibility preset index](./compatibility-presets.md) maps 160 family presets, while [Declarative adapters](./adapters.md) covers the remaining two adapter names with the same visual-and-code structure; together they document all 162 presets.
+The directory contains one manual per representative family, not one file per compatible name. Each family manual keeps every integrated type visible in a compiled-output gallery and follows it with type-by-type selection guidance, required data fields, stable anchors, and minimal runnable Quick API examples. The shared [Cartesian axis manual](./axes.md) documents formatting, label layout, styles, scale direction, secondary axes, and axis-nearest tooltips. [Common chart interactions](./interactions.md) documents legends, highlights, reference bands, selection, safe runtime callouts, the inspection viewport, reset, fullscreen, PNG export, discrete playback, and the capability/constraint matrix for all 41 families. The [compatibility preset index](./compatibility-presets.md) maps 160 family presets, while [Declarative adapters](./adapters.md) covers the remaining two adapter names with the same visual-and-code structure; together they document all 162 presets.
 
 Use `resolveSeriesType(identifier)` from `graflume/complete` to resolve case, spaces, hyphens, or underscores into the catalog's single representative family. `seriesCompatibilityCatalog` exposes all 117 identifier-to-family mappings for adapters and migration tools.
 
@@ -379,8 +379,8 @@ Automatic data tables and keyboard traversal of individual marks are not impleme
 
 ## Still planned, not presented as complete
 
-- stacked and normalized stacks and editable annotations; violin and density modes are implemented in the consolidated Distribution family;
+- stacked and normalized stacks and direct-manipulation callout editing; portable programmatic callout authoring plus violin and density modes are implemented;
 - full map boundary/projection packages, force-directed large-network layout, multi-stage Sankey layout, implicit Word Tree tokenization, and complete Vega grammar conversion;
 - facets, concat, dashboards, linked views, and automatic cross-chart scale synchronization;
-- native legends, shared multi-series or advanced collision-aware tooltip routing, rendered crosshair guides, label-collision routing, automatic data tables, and keyboard mark traversal;
+- shared multi-series or advanced collision-aware tooltip routing, rendered crosshair guides, label-collision routing, automatic data tables, and keyboard mark traversal; native mark-aware legends and keyboard legend visibility controls are implemented;
 - built-in SVG and WebGPU renderer parity. The separate `graflume/spatial` entrypoint already provides WebGL spatial/3D rendering; it does not yet mix GPU layers into a normal Canvas `ChartSpec` scene.

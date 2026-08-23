@@ -14,8 +14,17 @@ import {
   type AxisCompileContext,
 } from './axis.js';
 import { collectAxisTooltipTargets } from './axis-tooltip.js';
+import { isAxislessLayer } from './coordinate.js';
 import { resolveScales, type ScaleResolution } from './domain.js';
 import { createLayout } from './layout.js';
+import { compileDecorations, type DecorationRuntimeState } from './decorations.js';
+import {
+  compileLegend,
+  legendExternalInsets,
+  legendItemToggleable,
+  registerLegendLayout,
+  resolveLegendModel,
+} from './legend.js';
 
 export interface CompileOptions {
   readonly width?: number;
@@ -28,41 +37,9 @@ export interface CompileResult {
   readonly theme: ThemeTokens;
 }
 
-const AXISLESS_MARKS = new Set([
-  'arc-diagram',
-  'calendar',
-  'carpet',
-  'chord',
-  'funnel',
-  'gauge',
-  'geo-flow',
-  'geo-heatmap',
-  'geo-line',
-  'graph',
-  'geo',
-  'item',
-  'map',
-  'org',
-  'packed-bubble',
-  'parallel',
-  'pie',
-  'polar',
-  'radar',
-  'sankey',
-  'scatter-matrix',
-  'smith',
-  'solid-gauge',
-  'sunburst',
-  'table',
-  'ternary',
-  'tiled-map',
-  'tilemap',
-  'tree',
-  'treemap',
-  'venn',
-  'word-cloud',
-  'word-tree',
-]);
+export interface CompileRuntimeState extends DecorationRuntimeState {
+  readonly hiddenLegendItemIds?: ReadonlySet<string>;
+}
 
 const AXIS_ORDER = ['x', 'x2', 'y', 'y2'] as const;
 
@@ -77,7 +54,7 @@ function activeAxes(scales: ScaleResolution): readonly ActiveAxis[] {
   return AXIS_ORDER.flatMap((id) => {
     const resolved = scales.axes[id];
     if (resolved === undefined) return [];
-    const layerData = resolved.layers.find(({ layer }) => !AXISLESS_MARKS.has(layer.mark.type));
+    const layerData = resolved.layers.find(({ layer }) => !isAxislessLayer(layer));
     if (layerData === undefined) return [];
     const encoding = resolved.channel === 'x' ? layerData.layer.x : layerData.layer.y;
     return [{ id, axis: encoding.axis, scale: resolved.scale, title: encoding.title }];
@@ -170,12 +147,15 @@ export function compileWithRegistry(
   input: ChartSpec,
   registry: RuntimeRegistry,
   options: CompileOptions = {},
+  runtime: CompileRuntimeState = {},
 ): CompileResult {
   const spec = normalizeSpec(input);
   const width = Math.max(1, spec.width === 'container' ? (options.width ?? 640) : spec.width);
   const height = Math.max(1, spec.height === 'container' ? (options.height ?? 400) : spec.height);
   const theme = registry.themes.resolve(spec.theme);
-  let layout = createLayout(spec, width, height, theme);
+  const legendModel = resolveLegendModel(spec, theme, width, height);
+  const legendInsets = legendExternalInsets(legendModel);
+  let layout = createLayout(spec, width, height, theme, {}, legendInsets);
   let scales = resolveScales(spec, layout.plot);
   let axes = activeAxes(scales);
   const minimumInsets = { top: 0, right: 0, bottom: 0, left: 0 };
@@ -184,7 +164,7 @@ export function compileWithRegistry(
     const required = measureAxisGutter(axisContext(axis, layout.plot, theme, spec.locale));
     minimumInsets[axis.axis.position] = Math.max(minimumInsets[axis.axis.position], required);
   }
-  const measuredLayout = createLayout(spec, width, height, theme, minimumInsets);
+  const measuredLayout = createLayout(spec, width, height, theme, minimumInsets, legendInsets);
   if (!samePlot(layout.plot, measuredLayout.plot)) {
     layout = measuredLayout;
     scales = resolveScales(spec, layout.plot);
@@ -213,6 +193,59 @@ export function compileWithRegistry(
       ),
     );
   }
+  const hiddenLegendItems = runtime.hiddenLegendItemIds ?? new Set<string>();
+  const hiddenLayerIds = new Set(
+    (legendModel?.items ?? [])
+      .filter(
+        (item) =>
+          hiddenLegendItems.has(item.id) &&
+          legendModel !== null &&
+          legendItemToggleable(legendModel, item) &&
+          item.layerId !== undefined &&
+          (legendModel.mode === 'layers' || item.value === undefined),
+      )
+      .map((item) => item.layerId!),
+  );
+  const hiddenCategories =
+    legendModel?.mode === 'categories' && legendModel.field !== undefined
+      ? legendModel.items.filter(
+          (item) =>
+            hiddenLegendItems.has(item.id) &&
+            legendItemToggleable(legendModel, item) &&
+            item.value !== undefined,
+        )
+      : [];
+  const datumVisible = (
+    layerId: string,
+    _rowIndex: number,
+    datum: Readonly<Record<string, unknown>>,
+  ): boolean => {
+    if (hiddenLayerIds.has(layerId)) return false;
+    if (legendModel?.field === undefined) return true;
+    return !hiddenCategories.some(
+      (item) =>
+        (item.layerId === undefined || item.layerId === layerId) &&
+        datum[legendModel.field!] === item.value,
+    );
+  };
+  const inheritSiblingDatum = (nodes: readonly SceneNode[]): readonly SceneNode[] => {
+    const nested = nodes.map((node) =>
+      node.type === 'group' ? { ...node, children: inheritSiblingDatum(node.children) } : node,
+    );
+    const owners = new Map<string, NonNullable<SceneNode['datum']> | null>();
+    for (const node of nested) {
+      if (node.datum === undefined) continue;
+      const suffix = node.id.slice(node.id.lastIndexOf(':') + 1);
+      const prior = owners.get(suffix);
+      owners.set(suffix, prior === undefined ? node.datum : null);
+    }
+    return nested.map((node) => {
+      if (node.datum !== undefined) return node;
+      const suffix = node.id.slice(node.id.lastIndexOf(':') + 1);
+      const owner = owners.get(suffix);
+      return owner === undefined || owner === null ? node : { ...node, datum: owner };
+    });
+  };
   const layerGroups: SceneNode[] = scales.layers.map((layerData, layerIndex) => {
     const color =
       theme.colors.palette[layerIndex % theme.colors.palette.length] ?? theme.colors.focus;
@@ -220,7 +253,7 @@ export function compileWithRegistry(
     const barLayers = groupedBarLayers.get(barGroupKey) ?? [];
     const barGroupIndex = barLayers.findIndex(({ layer }) => layer.id === layerData.layer.id);
     const compiler = registry.mark(layerData.layer.mark.type);
-    const children = compiler({
+    const compiledChildren = compiler({
       ...layerData,
       xScale: layerData.xScale,
       yScale: layerData.yScale,
@@ -233,15 +266,60 @@ export function compileWithRegistry(
         index: Math.max(0, barGroupIndex),
       },
     });
+    let children =
+      legendModel?.mode === 'categories' &&
+      legendModel.categoryToggleableLayerIds.has(layerData.layer.id)
+        ? inheritSiblingDatum(compiledChildren)
+        : compiledChildren;
+    if (legendModel?.mode === 'categories' && legendModel.field !== undefined) {
+      if (hiddenCategories.length > 0) {
+        const hide = (node: SceneNode): SceneNode => {
+          if (node.type === 'group') return { ...node, children: node.children.map(hide) };
+          const sources: Readonly<Record<string, unknown>>[] = [];
+          if (node.datum?.tooltip !== undefined) sources.push(node.datum.tooltip);
+          if (node.datum?.datum !== undefined) sources.push(node.datum.datum);
+          const hidden =
+            sources.length > 0 &&
+            sources.some(
+              (datum) => !datumVisible(layerData.layer.id, node.datum?.rowIndex ?? -1, datum),
+            );
+          return hidden ? { ...node, visible: false } : node;
+        };
+        children = children.map(hide);
+      }
+    }
     return group(`${layerData.layer.id}:group`, children, {
       zIndex: layerData.layer.zIndex,
       clip: layout.plot,
+      visible: !hiddenLayerIds.has(layerData.layer.id),
     });
   });
 
+  const decorations = compileDecorations({
+    spec,
+    layerGroups,
+    scales,
+    plot: layout.plot,
+    theme,
+    runtime,
+    datumVisible,
+  });
+  const legend = compileLegend(
+    legendModel,
+    layerGroups,
+    layout.plot,
+    width,
+    height,
+    theme,
+    hiddenLegendItems,
+  );
+
   const children: SceneNode[] = [
+    ...decorations.underlay,
     ...axisNodes,
     ...layerGroups,
+    ...decorations.overlay,
+    ...legend.nodes,
     ...titleNodes(spec, theme, width, layout.titleY, layout.subtitleY),
   ];
   const root = group('scene:root', children);
@@ -252,11 +330,26 @@ export function compileWithRegistry(
     root,
     accessibility: {
       label: accessibilityLabel(spec, totalRows),
-      ...(spec.accessibility.description === undefined
-        ? spec.description === undefined
-          ? {}
-          : { description: spec.description }
-        : { description: spec.accessibility.description }),
+      ...(() => {
+        const base = spec.accessibility.description ?? spec.description;
+        const annotationText = (runtime.annotations ?? spec.annotations)
+          .map((annotation) =>
+            annotation.detail === undefined
+              ? annotation.text
+              : `${annotation.text}: ${annotation.detail}`,
+          )
+          .join('. ');
+        const description = [base, annotationText].filter(Boolean).join('. ');
+        const legendText =
+          legendModel === null
+            ? ''
+            : `${legendModel.spec.title ?? 'Legend'}: ${legendModel.items
+                .slice(0, 12)
+                .map((item) => item.label)
+                .join(', ')}`;
+        const accessibleDescription = [description, legendText].filter(Boolean).join('. ');
+        return accessibleDescription === '' ? {} : { description: accessibleDescription };
+      })(),
     },
     metadata: {
       rowCount: totalRows,
@@ -265,6 +358,7 @@ export function compileWithRegistry(
       hitTestingEnabled: performance.enableHitTesting,
     },
   };
+  registerLegendLayout(scene, legend.layout);
 
   const tooltip = spec.interaction.tooltip;
   if (tooltip !== false && tooltip.trigger === 'axis' && tooltip.axis !== undefined) {
@@ -308,6 +402,7 @@ export function compileWithRegistry(
         scales,
         plot: layout.plot,
         performance,
+        datumVisible,
       }),
     });
   }

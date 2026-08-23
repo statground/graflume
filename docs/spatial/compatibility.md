@@ -23,6 +23,8 @@ The boundary is 41 default/complete canonical families plus 3 spatial canonical 
 
 Use `validateSpatialSpec(value)` to collect `{ path, message }` issues and `assertValidSpatialSpec(value)` to throw on the first invalid contract. `compileSpatial()` and every Quick API validate before compiling. The JSON schema is exported as `graflume/spatial-schema` and copied to `dist/graflume.spatial.schema.json` during the build.
 
+`legend`, `highlights`, `annotations`, and `interaction.selection` use the same JSON-portable style fields as Canvas charts but a separate Spatial target union: `datum`, `layer`, world-space `point`, or world-space axis-aligned `box`. Explicit ids must be unique, and every supplied `layerId` must resolve to a declared layer. Category legends require explicit items; semantic items may omit `layerId`, while any supplied reference is checked. Raw HTML, formatter callbacks, and arbitrary objects are outside both schemas.
+
 ## Renderer boundary
 
 The spatial module registers no renderer or mark in the default/complete Canvas registry. It owns a WebGL surface and spatial compiler, while reusing only small environment-independent utilities. Consequently:
@@ -32,6 +34,7 @@ The spatial module registers no renderer or mark in the default/complete Canvas 
 - a page may place normal and spatial chart instances side by side;
 - a spatial layer cannot currently be inserted into a normal `ChartSpec` layer array;
 - PNG fallback, accessibility, context recovery, resize, and fullscreen are handled by `SpatialChart`.
+- projected legend, highlight, selection, and callout DOM overlays are handled by `SpatialChart`, follow the active camera, and are intentionally not part of the WebGL framebuffer returned by `toDataURL()`. External legend positions reserve an adaptive edge rail and resize the GPU viewport; `inside-*` positions overlay it. Static surface/mesh decorations intentionally remain explanatory projections through intervening geometry, globe far-side targets are suppressed, and pointer picking remains depth-aware.
 
 `SpatialSpec 0.1` is deliberately closed to the five built-in spatial mark discriminators. The alpha entry does not expose a custom mark compiler registration or built-in override hook; a future extension contract must version its validator, types, schema, compiler, and safety budgets together.
 

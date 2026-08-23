@@ -24,6 +24,7 @@ export function createLayout(
   height: number,
   theme: ThemeTokens,
   minimumInsets: Partial<LayoutInsets> = {},
+  additionalInsets: Partial<LayoutInsets> = {},
 ): ChartLayout {
   const titleBlock =
     spec.title === undefined
@@ -37,10 +38,19 @@ export function createLayout(
     // the caller's outer top padding for the heading, then reserve the measured
     // axis gutter inside it. The other sides retain the legacy contract where
     // the normalized padding already includes the primary-axis gutter.
-    top: spec.padding.top + Math.max(0, minimumInsets.top ?? 0),
-    right: Math.max(spec.padding.right, minimumInsets.right ?? 0),
-    bottom: Math.max(spec.padding.bottom, minimumInsets.bottom ?? 0),
-    left: Math.max(spec.padding.left, minimumInsets.left ?? 0),
+    top:
+      spec.padding.top +
+      Math.max(0, minimumInsets.top ?? 0) +
+      Math.max(0, additionalInsets.top ?? 0),
+    right:
+      Math.max(spec.padding.right, minimumInsets.right ?? 0) +
+      Math.max(0, additionalInsets.right ?? 0),
+    bottom:
+      Math.max(spec.padding.bottom, minimumInsets.bottom ?? 0) +
+      Math.max(0, additionalInsets.bottom ?? 0),
+    left:
+      Math.max(spec.padding.left, minimumInsets.left ?? 0) +
+      Math.max(0, additionalInsets.left ?? 0),
   };
   const plotX = insets.left;
   const plotY = insets.top + titleBlock;

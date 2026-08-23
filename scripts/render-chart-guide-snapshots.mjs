@@ -136,6 +136,7 @@ function renderScene(scene) {
         fill: node.fill ?? 'none',
         stroke: node.stroke,
         'stroke-width': node.stroke === undefined ? undefined : number(node.lineWidth),
+        'stroke-dasharray': dash(node),
       })}/>`;
     }
 
@@ -274,6 +275,67 @@ const snapshots = [
       accessibility: {
         label: 'Monthly sales line chart',
         description: 'A connected line shows the sales trend from January through June.',
+      },
+    },
+  },
+  {
+    filename: 'customization.svg',
+    width: 680,
+    expected: {},
+    spec: {
+      title: {
+        text: 'Campaign performance',
+        subtitle: 'Legend, reference band, highlight, and portable callout',
+      },
+      layers: [
+        {
+          id: 'actual',
+          name: 'Actual',
+          data: monthly,
+          mark: { type: 'line', point: true, stroke: '#2563eb', lineWidth: 3 },
+          x: encoding('month', 'ordinal', 'Month', false),
+          y: encoding('actual', 'quantitative', 'Sales'),
+        },
+        {
+          id: 'target',
+          name: 'Target',
+          data: monthly,
+          mark: { type: 'line', point: true, stroke: '#f97316', lineWidth: 2 },
+          x: encoding('month', 'ordinal', 'Month', false),
+          y: encoding('target', 'quantitative', 'Sales'),
+        },
+      ],
+      legend: { mode: 'layers', position: 'top', title: 'Series' },
+      highlights: [
+        {
+          id: 'campaign-window',
+          target: { type: 'range', x: { from: 'Mar', to: 'May' } },
+          fill: '#818cf8',
+          stroke: '#4f46e5',
+          opacity: 0.12,
+          dash: [6, 4],
+        },
+        {
+          id: 'peak',
+          target: { type: 'datum', layerId: 'actual', field: 'month', value: 'May' },
+          fill: '#fef3c7',
+          stroke: '#d97706',
+          radius: 10,
+        },
+      ],
+      annotations: [
+        {
+          id: 'launch-note',
+          target: { type: 'datum', layerId: 'actual', field: 'month', value: 'Apr' },
+          text: 'Campaign launched',
+          detail: 'Runtime callouts use the same portable target.',
+          placement: 'top',
+          connector: true,
+        },
+      ],
+      interaction: { selection: true },
+      accessibility: {
+        label: 'Campaign chart with legend, highlights, and callout',
       },
     },
   },

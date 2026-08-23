@@ -1,19 +1,30 @@
 import { EventEmitter } from '../core/events.js';
 import { collectAccessibleSpatialPicks, spatialAccessibleDescription } from './accessibility.js';
-import { compileSpatial } from './compile.js';
+import { compileSpatial, spatialColor } from './compile.js';
 import { resolveSpatialSize } from './layout.js';
 import { add3, cameraBasis, clamp, normalizedCamera, scale3 } from './math.js';
 import { assertFiniteSpatialNumber, resolveSpatialCameraPatch } from './programmatic.js';
+import { SpatialOverlayController, type SpatialLegendOverlayState } from './overlay.js';
+import { assertValidSpatialSpec } from './validate.js';
+import type { HighlightStyleSpec, JsonPrimitive } from '../spec/types.js';
 import type {
   CompiledSpatialScene,
+  SpatialAnnotationSpec,
   SpatialCameraState,
   SpatialChartSpec,
   SpatialControlLabels,
   SpatialCreateOptions,
   SpatialHitResult,
+  SpatialDatumTargetSpec,
+  SpatialDecorationTargetSpec,
+  SpatialLayerSpec,
   SpatialProjection,
+  SpatialVec3,
+  SpatialVolumeData,
+  SpatialSurfaceGridData,
+  SpatialScatterData,
 } from './types.js';
-import { SpatialWebGLRenderer } from './webgl-renderer.js';
+import { isGlobePickFrontFacing, SpatialWebGLRenderer } from './webgl-renderer.js';
 
 export type SpatialChartTarget = string | HTMLElement;
 export type SpatialCameraChangeReason = 'orbit' | 'pan' | 'zoom' | 'projection' | 'reset' | 'spec';
@@ -46,6 +57,52 @@ export interface SpatialFullscreenChangeEvent {
   readonly active: boolean;
 }
 
+export interface SpatialLegendItemState {
+  readonly id: string;
+  readonly label: string;
+  readonly color: string;
+  readonly visible: boolean;
+  readonly toggleable: boolean;
+  readonly symbol: 'line' | 'point' | 'rect';
+  readonly layerId?: string;
+  readonly value?: JsonPrimitive;
+}
+
+export interface SpatialLegendState {
+  readonly enabled: boolean;
+  readonly items: readonly SpatialLegendItemState[];
+}
+
+export type SpatialLegendChangeReason = 'toggle' | 'programmatic' | 'reset' | 'spec';
+
+export interface SpatialLegendChangeEvent {
+  readonly chart: SpatialChart;
+  readonly state: SpatialLegendState;
+  readonly reason: SpatialLegendChangeReason;
+}
+
+export interface SpatialSelectionState {
+  readonly enabled: boolean;
+  readonly items: readonly SpatialDatumTargetSpec[];
+}
+
+export type SpatialSelectionChangeReason = 'click' | 'programmatic' | 'clear' | 'spec';
+
+export interface SpatialSelectionChangeEvent {
+  readonly chart: SpatialChart;
+  readonly state: SpatialSelectionState;
+  readonly reason: SpatialSelectionChangeReason;
+}
+
+export type SpatialAnnotationChangeReason = 'set' | 'add' | 'update' | 'remove' | 'spec';
+
+export interface SpatialAnnotationChangeEvent {
+  readonly chart: SpatialChart;
+  readonly annotations: readonly SpatialAnnotationSpec[];
+  readonly reason: SpatialAnnotationChangeReason;
+  readonly id?: string;
+}
+
 export interface SpatialErrorEvent {
   readonly chart: SpatialChart;
   readonly error: unknown;
@@ -73,6 +130,9 @@ export interface SpatialChartEventMap {
   readonly resize: SpatialResizeEvent;
   readonly camerachange: SpatialCameraChangeEvent;
   readonly fullscreenchange: SpatialFullscreenChangeEvent;
+  readonly legendchange: SpatialLegendChangeEvent;
+  readonly selectionchange: SpatialSelectionChangeEvent;
+  readonly annotationchange: SpatialAnnotationChangeEvent;
   readonly contextloss: Readonly<{ chart: SpatialChart }>;
   readonly contextrestore: Readonly<{ chart: SpatialChart }>;
   readonly availabilitychange: SpatialAvailabilityChangeEvent;
@@ -82,6 +142,45 @@ export interface SpatialChartEventMap {
 interface PointerPosition {
   readonly x: number;
   readonly y: number;
+}
+
+interface SpatialPlotViewport {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+function spatialPlotViewport(
+  spec: SpatialChartSpec,
+  width: number,
+  height: number,
+): SpatialPlotViewport {
+  const input = spec.legend;
+  if (
+    input === undefined ||
+    input === false ||
+    (typeof input === 'object' && input.visible === false)
+  )
+    return { x: 0, y: 0, width, height };
+  const position = typeof input === 'object' ? (input.position ?? 'right') : 'right';
+  if (position.startsWith('inside-')) return { x: 0, y: 0, width, height };
+  if (position === 'top' || position === 'bottom') {
+    const rail = Math.min(Math.max(0, height - 1), Math.max(32, Math.min(72, height * 0.2)));
+    return {
+      x: 0,
+      y: position === 'top' ? rail : 0,
+      width,
+      height: Math.max(1, height - rail),
+    };
+  }
+  const rail = Math.min(Math.max(0, width - 1), Math.max(88, Math.min(176, width * 0.3)));
+  return {
+    x: position === 'left' ? rail : 0,
+    y: 0,
+    width: Math.max(1, width - rail),
+    height,
+  };
 }
 
 interface PinchState {
@@ -193,10 +292,93 @@ function scalarEntries(
   return output;
 }
 
+function safeId(value: string): string {
+  return value.replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'item';
+}
+
+function colorCss(value: Parameters<typeof spatialColor>[0]): string {
+  const color = spatialColor(value);
+  return `rgba(${Math.round(color[0] * 255)},${Math.round(color[1] * 255)},${Math.round(color[2] * 255)},${color[3]})`;
+}
+
+function layerColor(layer: SpatialLayerSpec, endpoint: 'low' | 'high' = 'low'): string {
+  if (layer.mark.type === 'volume')
+    return colorCss(
+      endpoint === 'low' ? (layer.mark.colorLow ?? '#0ea5e9') : (layer.mark.colorHigh ?? '#7c3aed'),
+    );
+  if (layer.mark.type === 'surface')
+    return colorCss(endpoint === 'low' ? '#0ea5e9' : (layer.mark.color ?? '#7c3aed'));
+  if (layer.mark.type === 'scatter')
+    return colorCss(endpoint === 'low' ? '#06b6d4' : (layer.mark.color ?? '#7c3aed'));
+  if (layer.mark.type === 'vector')
+    return colorCss(endpoint === 'low' ? '#99f6e4' : (layer.mark.color ?? '#0f9f8a'));
+  if (layer.mark.type === 'globe') return colorCss(layer.mark.pointColor ?? layer.mark.landColor);
+  return '#4f46e5';
+}
+
+function layerLegendSymbol(layer: SpatialLayerSpec | undefined): 'line' | 'point' | 'rect' {
+  if (layer?.mark.type === 'scatter') return 'point';
+  if (layer?.mark.type === 'vector' && layer.mark.mode === 'streamtube') return 'line';
+  if (layer?.mark.type === 'globe') return 'point';
+  return 'rect';
+}
+
+function cloneSpatialTarget(target: SpatialDecorationTargetSpec): SpatialDecorationTargetSpec {
+  if (target.type === 'datum') {
+    return {
+      ...target,
+      ...(Array.isArray(target.datumIndex) ? { datumIndex: [...target.datumIndex] } : {}),
+      ...(target.values === undefined ? {} : { values: [...target.values] }),
+    };
+  }
+  if (target.type === 'point')
+    return { type: 'point', position: [...target.position] as SpatialVec3 };
+  if (target.type === 'box') {
+    return {
+      type: 'box',
+      min: [...target.min] as SpatialVec3,
+      max: [...target.max] as SpatialVec3,
+    };
+  }
+  return { ...target };
+}
+
+function cloneSpatialDatumTarget(target: SpatialDatumTargetSpec): SpatialDatumTargetSpec {
+  return cloneSpatialTarget(target) as SpatialDatumTargetSpec;
+}
+
+function cloneSpatialAnnotation(annotation: SpatialAnnotationSpec): SpatialAnnotationSpec {
+  return {
+    ...annotation,
+    target: cloneSpatialTarget(annotation.target),
+    ...(typeof annotation.connector === 'object'
+      ? { connector: { ...annotation.connector, dash: [...(annotation.connector.dash ?? [])] } }
+      : {}),
+    ...(annotation.style === undefined ? {} : { style: { ...annotation.style } }),
+  };
+}
+
+function spatialSelectionKey(target: SpatialDatumTargetSpec): string {
+  const values =
+    target.field === undefined
+      ? null
+      : [...(target.values ?? [target.value ?? null])].sort((left, right) =>
+          JSON.stringify(left).localeCompare(JSON.stringify(right)),
+        );
+  const indices =
+    target.datumIndex === undefined
+      ? null
+      : (Array.isArray(target.datumIndex) ? [...target.datumIndex] : [target.datumIndex]).sort(
+          (left, right) => left - right,
+        );
+  return JSON.stringify([target.layerId ?? null, indices, target.field ?? null, values]);
+}
+
 export class SpatialChart {
   readonly #target: HTMLElement;
   readonly #wrapper: HTMLDivElement;
   readonly #renderer: SpatialWebGLRenderer;
+  readonly #overlays = new SpatialOverlayController();
   readonly #events = new EventEmitter<SpatialChartEventMap>();
   readonly #options: SpatialCreateOptions;
   readonly #activePointers = new Map<number, PointerPosition>();
@@ -219,7 +401,12 @@ export class SpatialChart {
   #availability: SpatialAvailabilityState = { status: 'initializing', available: false };
   #width = 1;
   #height = 1;
+  #plotViewport: SpatialPlotViewport = { x: 0, y: 0, width: 1, height: 1 };
   #gestureActive = false;
+  #hiddenLegendItems = new Set<string>();
+  #selection: SpatialDatumTargetSpec[] = [];
+  #annotations: SpatialAnnotationSpec[] = [];
+  #annotationSequence = 0;
 
   constructor(
     target: SpatialChartTarget,
@@ -232,6 +419,10 @@ export class SpatialChart {
     this.#spec = spec;
     this.#options = options;
     this.#scene = compileSpatial(spec);
+    this.#annotations = (spec.annotations ?? []).map((annotation, index) => ({
+      ...cloneSpatialAnnotation(annotation),
+      id: annotation.id ?? `annotation-${index}`,
+    }));
     this.#camera = this.#cameraForScene(this.#scene);
     this.#initialCamera = this.#camera;
     this.#wrapper = document.createElement('div');
@@ -244,8 +435,6 @@ export class SpatialChart {
     this.#wrapper.style.minHeight = options.height === undefined ? '280px' : '0';
     this.#wrapper.style.background =
       typeof spec.background === 'string' ? spec.background : '#ffffff';
-    this.#installScopedStyles();
-    this.#target.append(this.#wrapper);
     this.#renderer = new SpatialWebGLRenderer({
       contextLost: () => {
         this.#showFallback('context-lost');
@@ -260,27 +449,38 @@ export class SpatialChart {
       unavailable: () => this.#showFallback('unavailable'),
       error: (error) => this.#events.emit('error', { chart: this, error }),
     });
-    const labels = { ...defaultLabels, ...spec.interaction?.labels };
-    const accessibleDescription = spatialAccessibleDescription(
-      spec.accessibility?.description,
-      labels.instructions,
-    );
-    const mounted = this.#renderer.mount(
-      this.#wrapper,
-      this.#chartLabel(labels),
-      accessibleDescription,
-    );
-    if (mounted) this.#setAvailability('ready');
-    this.#renderer.setScene(this.#scene);
-    this.#renderer.setCamera(this.#camera);
-    this.#syncAccessibilityDom();
-    this.#renderAccessibilityTable();
-    this.#syncControlStructure();
-    this.#syncAvailabilityCopy();
-    this.#attachInteraction();
-    this.#configureResize();
-    this.resize(options.width, options.height);
-    this.render();
+    try {
+      this.#installScopedStyles();
+      this.#target.append(this.#wrapper);
+      const labels = { ...defaultLabels, ...spec.interaction?.labels };
+      const accessibleDescription = spatialAccessibleDescription(
+        spec.accessibility?.description,
+        labels.instructions,
+      );
+      const mounted = this.#renderer.mount(
+        this.#wrapper,
+        this.#chartLabel(labels),
+        accessibleDescription,
+      );
+      if (mounted) this.#setAvailability('ready');
+      this.#renderer.setScene(this.#scene);
+      this.#renderer.setCamera(this.#camera);
+      this.#syncAccessibilityDom();
+      this.#renderAccessibilityTable();
+      this.#syncControlStructure();
+      this.#syncAvailabilityCopy();
+      this.#attachInteraction();
+      this.#configureResize();
+      this.resize(options.width, options.height);
+      this.render();
+    } catch (error) {
+      try {
+        this.destroy();
+      } catch {
+        // Preserve the original constructor failure after best-effort cleanup.
+      }
+      throw error;
+    }
   }
 
   getSpec(): SpatialChartSpec {
@@ -292,6 +492,12 @@ export class SpatialChart {
     const scene = compileSpatial(spec);
     this.#spec = spec;
     this.#scene = scene;
+    this.#hiddenLegendItems.clear();
+    this.#selection = [];
+    this.#annotations = (spec.annotations ?? []).map((annotation, index) => ({
+      ...cloneSpatialAnnotation(annotation),
+      id: annotation.id ?? `annotation-${index}`,
+    }));
     this.#camera = this.#cameraForScene(scene);
     this.#initialCamera = this.#camera;
     this.#renderer.setScene(scene);
@@ -303,8 +509,154 @@ export class SpatialChart {
     this.#renderAccessibilityTable();
     this.#syncControlStructure();
     this.#syncAvailabilityCopy();
+    this.#resizeRendererViewport();
     this.#emitCamera('spec');
     this.render();
+    this.#events.emit('legendchange', {
+      chart: this,
+      state: this.getLegendState(),
+      reason: 'spec',
+    });
+    this.#emitSelection('spec');
+    this.#emitAnnotations('spec');
+  }
+
+  getLegendState(): SpatialLegendState {
+    const resolved = this.#legendOverlayState();
+    return {
+      enabled: resolved !== null,
+      items:
+        resolved?.items.map((item) => ({
+          id: item.id,
+          label: item.label,
+          color: item.color,
+          visible: item.visible,
+          toggleable: item.toggleable,
+          symbol: item.symbol,
+          ...(item.layerId === undefined ? {} : { layerId: item.layerId }),
+          ...(item.value === undefined ? {} : { value: item.value }),
+        })) ?? [],
+    };
+  }
+
+  setLegendItemVisible(id: string, visible: boolean): void {
+    this.#setLegendItemVisible(id, visible, 'programmatic');
+  }
+
+  resetLegend(): void {
+    this.#assertAlive();
+    if (this.#hiddenLegendItems.size === 0) return;
+    this.#hiddenLegendItems.clear();
+    this.#installEffectiveScene();
+    this.render();
+    this.#events.emit('legendchange', {
+      chart: this,
+      state: this.getLegendState(),
+      reason: 'reset',
+    });
+  }
+
+  getSelection(): SpatialSelectionState {
+    return {
+      enabled: this.#selectionConfig() !== false,
+      items: this.#selection.map(cloneSpatialDatumTarget),
+    };
+  }
+
+  setSelection(items: readonly SpatialDatumTargetSpec[]): void {
+    this.#assertAlive();
+    if (this.#selectionConfig() === false)
+      throw new TypeError('Enable interaction.selection before setting selection state.');
+    assertValidSpatialSpec({
+      ...this.#spec,
+      // Replace authored highlights while validating selection targets so
+      // their count and IDs cannot interfere with transient selection state.
+      highlights: items.map((target) => ({ target })),
+    });
+    const selection = this.#selectionConfig();
+    if (selection !== false && selection.mode === 'single' && items.length > 1)
+      throw new TypeError('Single selection mode accepts at most one target.');
+    const next = items.map(cloneSpatialDatumTarget);
+    const keys = next.map(spatialSelectionKey);
+    if (new Set(keys).size !== keys.length)
+      throw new TypeError('Selection targets must be unique.');
+    if (
+      next.length === this.#selection.length &&
+      next.every(
+        (target, index) =>
+          spatialSelectionKey(target) === spatialSelectionKey(this.#selection[index]!),
+      )
+    )
+      return;
+    this.#selection = next;
+    this.render();
+    this.#emitSelection('programmatic');
+  }
+
+  clearSelection(): void {
+    this.#assertAlive();
+    if (this.#selection.length === 0) return;
+    this.#selection = [];
+    this.render();
+    this.#emitSelection('clear');
+  }
+
+  getAnnotations(): readonly SpatialAnnotationSpec[] {
+    return this.#annotations.map(cloneSpatialAnnotation);
+  }
+
+  setAnnotations(annotations: readonly SpatialAnnotationSpec[]): void {
+    this.#assertAlive();
+    const resolved = annotations.map((annotation, index) => ({
+      ...cloneSpatialAnnotation(annotation),
+      id: annotation.id ?? `annotation-${index}`,
+    }));
+    assertValidSpatialSpec({ ...this.#spec, annotations: resolved });
+    this.#annotations = resolved;
+    this.render();
+    this.#emitAnnotations('set');
+  }
+
+  addAnnotation(annotation: SpatialAnnotationSpec): string {
+    this.#assertAlive();
+    this.#annotationSequence += 1;
+    const id = annotation.id ?? `annotation-runtime-${this.#annotationSequence}`;
+    if (this.#annotations.some((candidate) => candidate.id === id))
+      throw new TypeError(`Spatial annotation "${id}" already exists.`);
+    const next = [...this.#annotations, { ...cloneSpatialAnnotation(annotation), id }];
+    assertValidSpatialSpec({ ...this.#spec, annotations: next });
+    this.#annotations = next;
+    this.render();
+    this.#emitAnnotations('add', id);
+    return id;
+  }
+
+  updateAnnotation(id: string, patch: Partial<Omit<SpatialAnnotationSpec, 'id'>>): void {
+    this.#assertAlive();
+    const index = this.#annotations.findIndex((annotation) => annotation.id === id);
+    if (index < 0) throw new TypeError(`Spatial annotation "${id}" was not found.`);
+    const updated = cloneSpatialAnnotation({
+      ...this.#annotations[index]!,
+      ...patch,
+      id,
+    } as SpatialAnnotationSpec);
+    const next = this.#annotations.map((annotation, candidate) =>
+      candidate === index ? updated : annotation,
+    );
+    assertValidSpatialSpec({ ...this.#spec, annotations: next });
+    this.#annotations = next;
+    this.render();
+    this.#emitAnnotations('update', id);
+  }
+
+  removeAnnotation(id: string): boolean {
+    this.#assertAlive();
+    const next = this.#annotations.filter((annotation) => annotation.id !== id);
+    if (next.length === this.#annotations.length) return false;
+    this.#annotations = next;
+    this.render();
+    this.#emitAnnotations('remove', id);
+    return true;
   }
 
   getCamera(): SpatialCameraState {
@@ -347,7 +699,7 @@ export class SpatialChart {
     this.#assertFiniteInteraction('pan deltaY', deltaY);
     if (this.#spec.interaction?.pan === false) return;
     const basis = cameraBasis(this.#camera);
-    const scale = this.#camera.distance / Math.max(120, this.#height);
+    const scale = this.#camera.distance / Math.max(120, this.#plotViewport.height);
     const movement = add3(scale3(basis.right, -deltaX * scale), scale3(basis.up, deltaY * scale));
     this.#camera = { ...this.#camera, target: add3(this.#camera.target, movement) };
     this.#renderer.setCamera(this.#camera);
@@ -407,8 +759,8 @@ export class SpatialChart {
     this.#width = resolvedWidth;
     this.#height = resolvedHeight;
     this.#wrapper.style.height = `${resolvedHeight}px`;
-    const ratio = this.#options.pixelRatio ?? window.devicePixelRatio ?? 1;
-    this.#renderer.resize(resolvedWidth, resolvedHeight, ratio);
+    this.#resizeRendererViewport();
+    this.#syncOverlays();
     this.#events.emit('resize', { chart: this, width: resolvedWidth, height: resolvedHeight });
   }
 
@@ -416,6 +768,8 @@ export class SpatialChart {
     this.#assertAlive();
     this.#renderer.setCamera(this.#camera);
     this.#renderer.render();
+    this.#syncAccessibilityDom();
+    this.#syncOverlays();
     this.#events.emit('render', { chart: this, scene: this.#scene });
   }
 
@@ -472,6 +826,7 @@ export class SpatialChart {
       window.removeEventListener('resize', this.#windowResizeListener);
     document.removeEventListener('fullscreenchange', this.#fullscreenListener);
     this.#detachInteraction();
+    this.#overlays.destroy();
     this.#renderer.destroy();
     this.#tooltip?.remove();
     this.#fallback?.remove();
@@ -562,6 +917,7 @@ export class SpatialChart {
     if (!(event instanceof PointerEvent) || this.#spec.interaction?.picking === false) return;
     const point = eventPoint(event, this.#renderer.surface());
     const hit = this.#renderer.hitTest(point.x, point.y);
+    this.#applyClickSelection(hit);
     this.#events.emit('click', { chart: this, hit, sourceEvent: event });
   };
 
@@ -577,6 +933,17 @@ export class SpatialChart {
 
   readonly #keyDownListener = (event: Event): void => {
     if (!(event instanceof KeyboardEvent)) return;
+    const selection = this.#selectionConfig();
+    if (
+      event.key === 'Escape' &&
+      selection !== false &&
+      selection.clearOnEscape &&
+      this.#selection.length > 0
+    ) {
+      this.clearSelection();
+      event.preventDefault();
+      return;
+    }
     const pan = event.shiftKey || this.#mode === 'pan';
     let handled = true;
     const navigationAllowed = pan
@@ -615,6 +982,328 @@ export class SpatialChart {
     this.resize();
     this.#events.emit('fullscreenchange', { chart: this, active });
   };
+
+  #selectionConfig():
+    | false
+    | Readonly<{
+        mode: 'single' | 'multiple';
+        toggle: boolean;
+        key?: string;
+        clearOnBackground: boolean;
+        clearOnEscape: boolean;
+        ariaLabel: string;
+        highlight: HighlightStyleSpec;
+      }> {
+    const input = this.#spec.interaction?.selection;
+    if (input === undefined || input === false) return false;
+    const value = typeof input === 'object' ? input : {};
+    return {
+      mode: value.mode ?? 'single',
+      toggle: value.toggle ?? true,
+      ...(value.key === undefined ? {} : { key: value.key }),
+      clearOnBackground: value.clearOnBackground ?? true,
+      clearOnEscape: value.clearOnEscape ?? true,
+      ariaLabel: value.ariaLabel ?? 'Spatial chart selection',
+      highlight: { ...value.highlight },
+    };
+  }
+
+  #legendOverlayState(): SpatialLegendOverlayState | null {
+    const input = this.#spec.legend;
+    if (input === undefined || input === false) return null;
+    const legend = typeof input === 'object' ? input : {};
+    if (legend.visible === false) return null;
+    const selectedLayer =
+      this.#spec.layers.find((layer) => layer.id === legend.layerId) ?? this.#spec.layers[0];
+    const autoMode =
+      this.#spec.layers.length === 1 &&
+      (selectedLayer?.mark.type === 'surface' || selectedLayer?.mark.type === 'volume')
+        ? 'continuous'
+        : 'layers';
+    const mode = legend.mode === undefined || legend.mode === 'auto' ? autoMode : legend.mode;
+    let items: SpatialLegendOverlayState['items'];
+    if (legend.items !== undefined && legend.items.length > 0) {
+      const configuredItems = legend.items.slice(0, legend.maxItems ?? 24);
+      items = configuredItems.map((item, index) => {
+        const id = item.id ?? `item-${index}`;
+        const owner = this.#spec.layers.find((layer) => layer.id === item.layerId);
+        return {
+          id,
+          label: item.label,
+          color: item.color ?? (owner === undefined ? '#4f46e5' : layerColor(owner)),
+          visible: !this.#hiddenLegendItems.has(id),
+          toggleable:
+            (legend.interactive ?? false) && mode === 'layers' && item.layerId !== undefined,
+          symbol:
+            item.symbol === undefined || item.symbol === 'auto'
+              ? layerLegendSymbol(owner)
+              : item.symbol,
+          ...(item.layerId === undefined ? {} : { layerId: item.layerId }),
+          ...(item.value === undefined ? {} : { value: item.value }),
+        };
+      });
+    } else if (mode === 'continuous' && selectedLayer !== undefined) {
+      let values: readonly number[] = [];
+      let configuredColors: readonly Parameters<typeof spatialColor>[0][] | undefined;
+      const selectedData = selectedLayer.data;
+      const selectedLayerId =
+        selectedLayer.id ?? `spatial-layer-${this.#spec.layers.indexOf(selectedLayer)}`;
+      const inferredField =
+        legend.field ??
+        (selectedLayer.mark.type === 'vector' && selectedLayer.mark.mode !== 'streamtube'
+          ? 'magnitude'
+          : selectedLayer.mark.type === 'surface' &&
+              selectedData !== undefined &&
+              'positions' in selectedData
+            ? 'y'
+            : 'value');
+      const compiledValues = this.#scene.geometries
+        .flatMap((geometry) => geometry.picks)
+        .filter((pick) => pick.layerId === selectedLayerId)
+        .map((pick) => pick.datum[inferredField])
+        .filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+      if (legend.field !== undefined) {
+        values = compiledValues;
+      } else if (
+        selectedLayer.mark.type === 'vector' &&
+        selectedData !== undefined &&
+        'vectors' in selectedData
+      ) {
+        values = selectedData.vectors.map((vector) => Math.hypot(...vector));
+        configuredColors = selectedData.colors;
+      } else if (selectedLayer.mark.type === 'volume')
+        values = (selectedLayer.data as SpatialVolumeData).values;
+      else if (selectedLayer.mark.type === 'surface') {
+        if (selectedData !== undefined && 'positions' in selectedData) {
+          values = selectedData.positions.map((position) => position[1]);
+          configuredColors = selectedData.colors;
+        } else {
+          const data = selectedLayer.data as SpatialSurfaceGridData;
+          values = data.values ?? data.z ?? [];
+        }
+      } else if (selectedLayer.mark.type === 'scatter') {
+        const data = selectedLayer.data as SpatialScatterData;
+        values = data.values ?? [];
+        configuredColors = data.colors;
+      }
+      if (values.length === 0) values = compiledValues;
+      const finite = values.filter(Number.isFinite);
+      const minimum = finite.length === 0 ? 0 : Math.min(...finite);
+      const maximum = finite.length === 0 ? 1 : Math.max(...finite);
+      const minimumIndex = values.findIndex((value) => value === minimum);
+      const maximumIndex = values.findIndex((value) => value === maximum);
+      const lowColor =
+        minimumIndex >= 0 && configuredColors?.[minimumIndex] !== undefined
+          ? colorCss(configuredColors[minimumIndex])
+          : layerColor(selectedLayer, 'low');
+      const highColor =
+        maximumIndex >= 0 && configuredColors?.[maximumIndex] !== undefined
+          ? colorCss(configuredColors[maximumIndex])
+          : layerColor(selectedLayer, 'high');
+      let formatter: Intl.NumberFormat;
+      try {
+        formatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 6 });
+      } catch {
+        formatter = new Intl.NumberFormat();
+      }
+      items = [
+        {
+          id: 'continuous-min',
+          label: formatter.format(minimum),
+          color: lowColor,
+          visible: true,
+          toggleable: false,
+          symbol: 'rect',
+          layerId: selectedLayer.id ?? 'spatial-layer-0',
+          value: minimum,
+        },
+        {
+          id: 'continuous-max',
+          label: formatter.format(maximum),
+          color: highColor,
+          visible: true,
+          toggleable: false,
+          symbol: 'rect',
+          layerId: selectedLayer.id ?? 'spatial-layer-0',
+          value: maximum,
+        },
+      ];
+    } else {
+      items = this.#spec.layers.slice(0, legend.maxItems ?? 24).map((layer, index) => {
+        const layerId = layer.id ?? `spatial-layer-${index}`;
+        const id = `layer-${safeId(layerId)}-${index}`;
+        return {
+          id,
+          label: layer.name ?? layer.id ?? `Series ${index + 1}`,
+          color: layerColor(layer),
+          visible: !this.#hiddenLegendItems.has(id),
+          toggleable: (legend.interactive ?? false) && mode === 'layers',
+          symbol: layerLegendSymbol(layer),
+          layerId,
+        };
+      });
+    }
+    const position = legend.position ?? 'right';
+    return {
+      visible: true,
+      ...(legend.title === undefined ? {} : { title: legend.title }),
+      position,
+      orientation:
+        legend.orientation === undefined || legend.orientation === 'auto'
+          ? position === 'top' || position === 'bottom'
+            ? 'horizontal'
+            : 'vertical'
+          : legend.orientation,
+      mode,
+      showLabel: legend.labels?.show ?? 'Show',
+      hideLabel: legend.labels?.hide ?? 'Hide',
+      items,
+    };
+  }
+
+  #hiddenLayerIds(): ReadonlySet<string> {
+    const hidden = new Set<string>();
+    for (const item of this.#legendOverlayState()?.items ?? []) {
+      if (!item.visible && item.layerId !== undefined) hidden.add(item.layerId);
+    }
+    return hidden;
+  }
+
+  #installEffectiveScene(): void {
+    const hidden = this.#hiddenLayerIds();
+    if (hidden.size === 0) {
+      this.#renderer.setScene(this.#scene);
+      return;
+    }
+    this.#renderer.setScene({
+      ...this.#scene,
+      geometries: this.#scene.geometries.map((geometry) => {
+        const layerId = geometry.picks[0]?.layerId;
+        const hiddenGeometry =
+          (layerId !== undefined && hidden.has(layerId)) ||
+          [...hidden].some(
+            (candidate) => geometry.id === candidate || geometry.id.startsWith(`${candidate}:`),
+          );
+        if (!hiddenGeometry) return geometry;
+        const colors = new Float32Array(geometry.colors);
+        for (let index = 3; index < colors.length; index += 4) colors[index] = 0;
+        return { ...geometry, colors };
+      }),
+    });
+  }
+
+  #setLegendItemVisible(id: string, visible: boolean, reason: SpatialLegendChangeReason): void {
+    this.#assertAlive();
+    const item = this.getLegendState().items.find((candidate) => candidate.id === id);
+    if (item === undefined) throw new TypeError(`Spatial legend item "${id}" was not found.`);
+    if (!item.toggleable) throw new TypeError(`Spatial legend item "${id}" is not toggleable.`);
+    if (item.visible === visible) return;
+    if (visible) this.#hiddenLegendItems.delete(id);
+    else this.#hiddenLegendItems.add(id);
+    this.#installEffectiveScene();
+    this.render();
+    this.#events.emit('legendchange', {
+      chart: this,
+      state: this.getLegendState(),
+      reason,
+    });
+  }
+
+  #applyClickSelection(hit: SpatialHitResult | null): void {
+    const selection = this.#selectionConfig();
+    if (selection === false) return;
+    if (hit === null) {
+      if (selection.clearOnBackground && this.#selection.length > 0) {
+        this.#selection = [];
+        this.render();
+        this.#emitSelection('click');
+      }
+      return;
+    }
+    const keyValue = selection.key === undefined ? undefined : hit.datum[selection.key];
+    const portable =
+      keyValue === null ||
+      typeof keyValue === 'string' ||
+      typeof keyValue === 'boolean' ||
+      (typeof keyValue === 'number' && Number.isFinite(keyValue))
+        ? keyValue
+        : undefined;
+    const target: SpatialDatumTargetSpec =
+      selection.key !== undefined && portable !== undefined
+        ? {
+            type: 'datum',
+            layerId: hit.layerId,
+            field: selection.key,
+            value: portable,
+          }
+        : { type: 'datum', layerId: hit.layerId, datumIndex: hit.datumIndex };
+    const key = spatialSelectionKey(target);
+    const existing = this.#selection.findIndex(
+      (candidate) => spatialSelectionKey(candidate) === key,
+    );
+    const before = this.#selection.map(spatialSelectionKey).join('|');
+    if (selection.mode === 'single') {
+      this.#selection = existing >= 0 && selection.toggle ? [] : [target];
+    } else if (existing >= 0 && selection.toggle) {
+      this.#selection = this.#selection.filter((_, index) => index !== existing);
+    } else if (existing < 0) {
+      this.#selection = [...this.#selection, target];
+    }
+    if (before === this.#selection.map(spatialSelectionKey).join('|')) return;
+    this.render();
+    this.#emitSelection('click');
+  }
+
+  #emitSelection(reason: SpatialSelectionChangeReason): void {
+    this.#events.emit('selectionchange', {
+      chart: this,
+      state: this.getSelection(),
+      reason,
+    });
+  }
+
+  #emitAnnotations(reason: SpatialAnnotationChangeReason, id?: string): void {
+    this.#events.emit('annotationchange', {
+      chart: this,
+      annotations: this.getAnnotations(),
+      reason,
+      ...(id === undefined ? {} : { id }),
+    });
+  }
+
+  #syncOverlays(): void {
+    const selection = this.#selectionConfig();
+    this.#overlays.sync(
+      this.#wrapper,
+      {
+        scene: this.#scene,
+        width: this.#width,
+        height: this.#height,
+        plotBounds: this.#plotViewport,
+        hiddenLayerIds: this.#hiddenLayerIds(),
+        legend: this.#legendOverlayState(),
+        highlights: this.#spec.highlights ?? [],
+        selection: selection === false ? [] : this.#selection,
+        selectionEnabled: selection !== false,
+        selectionHighlight: selection === false ? {} : selection.highlight,
+        annotations: this.#annotations,
+        selectionLabel: selection === false ? 'Spatial chart selection' : selection.ariaLabel,
+      },
+      {
+        project: (position, pick) => {
+          if (pick !== undefined && !isGlobePickFrontFacing(pick, this.#camera)) return null;
+          const projected = this.#renderer.project(position);
+          if (projected === null) return null;
+          return {
+            ...projected,
+            x: projected.x + this.#plotViewport.x,
+            y: projected.y + this.#plotViewport.y,
+          };
+        },
+        setLegendVisible: (id, visible) => this.#setLegendItemVisible(id, visible, 'toggle'),
+      },
+    );
+  }
 
   #attachInteraction(): void {
     const surface = this.#renderer.surface();
@@ -700,11 +1389,34 @@ export class SpatialChart {
   #syncAccessibilityDom(): void {
     const labels = this.#labels();
     const surface = this.#renderer.surface();
-    surface.setAttribute('aria-label', this.#chartLabel(labels));
-    surface.setAttribute(
-      'aria-description',
-      spatialAccessibleDescription(this.#spec.accessibility?.description, labels.instructions),
+    const annotationDescription = this.#annotations
+      .map((annotation) =>
+        annotation.detail === undefined
+          ? annotation.text
+          : `${annotation.text}: ${annotation.detail}`,
+      )
+      .join('. ');
+    const legend = this.#legendOverlayState();
+    const legendDescription =
+      legend === null
+        ? ''
+        : `${legend.title ?? 'Legend'}: ${legend.items
+            .slice(0, 12)
+            .map((item) => item.label)
+            .join(', ')}`;
+    const authoredDescription = [
+      this.#spec.accessibility?.description,
+      annotationDescription,
+      legendDescription,
+    ]
+      .filter(Boolean)
+      .join('. ');
+    const description = spatialAccessibleDescription(
+      authoredDescription === '' ? undefined : authoredDescription,
+      labels.instructions,
     );
+    surface.setAttribute('aria-label', this.#chartLabel(labels));
+    surface.setAttribute('aria-description', description);
     if (this.#instructions === null) {
       this.#instructions = document.createElement('p');
       this.#instructions.id = `graflume-spatial-instructions-${Math.random().toString(36).slice(2)}`;
@@ -715,10 +1427,7 @@ export class SpatialChart {
       this.#instructions.style.clipPath = 'inset(50%)';
       this.#wrapper.append(this.#instructions);
     }
-    this.#instructions.textContent = spatialAccessibleDescription(
-      this.#spec.accessibility?.description,
-      labels.instructions,
-    );
+    this.#instructions.textContent = description;
     surface.setAttribute('aria-describedby', this.#instructions.id);
   }
 
@@ -811,7 +1520,30 @@ export class SpatialChart {
     }
     this.#wrapper.append(toolbar);
     this.#controls = toolbar;
+    this.#syncControlLayout();
     this.#syncControls();
+  }
+
+  #resizeRendererViewport(): void {
+    this.#plotViewport = spatialPlotViewport(this.#spec, this.#width, this.#height);
+    const surface = this.#renderer.surface();
+    surface.style.position = 'absolute';
+    surface.style.left = `${this.#plotViewport.x}px`;
+    surface.style.top = `${this.#plotViewport.y}px`;
+    const ratio = this.#options.pixelRatio ?? window.devicePixelRatio ?? 1;
+    this.#renderer.resize(this.#plotViewport.width, this.#plotViewport.height, ratio);
+    this.#syncControlLayout();
+  }
+
+  #syncControlLayout(): void {
+    if (this.#controls === null) return;
+    this.#controls.style.insetBlockStart = 'auto';
+    this.#controls.style.insetInlineEnd = 'auto';
+    this.#controls.style.top = `${this.#plotViewport.y + 6}px`;
+    this.#controls.style.right = `${Math.max(
+      6,
+      this.#width - this.#plotViewport.x - this.#plotViewport.width + 6,
+    )}px`;
   }
 
   #syncControlStructure(): void {

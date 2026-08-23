@@ -226,6 +226,7 @@ export class CanvasRenderer implements Renderer {
     context.beginPath();
     roundedRectPath(context, node.x, node.y, node.width, node.height, node.cornerRadius);
     context.closePath();
+    context.setLineDash(node.dash === undefined ? [] : [...node.dash]);
     if (node.fill !== undefined) {
       context.fillStyle = node.fill;
       context.fill();

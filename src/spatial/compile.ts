@@ -1195,6 +1195,7 @@ function compileGlobe(
       nodeId: `${id}:country:${countryId}`,
       position: pickPosition,
       datum: { country: name, iso2, iso3, longitude: labelLongitude, latitude: labelLatitude },
+      occlusion: 'globe-front',
     });
   }
   const landPositionArray = new Float32Array(landPositions);
@@ -1252,6 +1253,7 @@ function compileGlobe(
         value: point.value,
         label: point.label,
       },
+      occlusion: 'globe-front',
     });
   }
   const pointPositionArray = new Float32Array(pointPositions);
@@ -1291,6 +1293,7 @@ function compileGlobe(
         value: route.value,
         label: route.label,
       },
+      occlusion: 'globe-front',
     });
   }
   const routePositionArray = new Float32Array(routePositions);

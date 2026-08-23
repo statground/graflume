@@ -9,10 +9,14 @@ import type {
   AxisStrokeSpec,
   AxisTickSpec,
   AxisTitleSpec,
+  AnnotationSpec,
   ChartSpec,
   DataInput,
+  DecorationTargetSpec,
   EncodingInput,
   LayerSpec,
+  LegendItemSpec,
+  LegendSpec,
   MarkInput,
   NormalizedAxisFontSpec,
   NormalizedAxisFormatSpec,
@@ -24,6 +28,7 @@ import type {
   NormalizedChartSpec,
   NormalizedEncodingSpec,
   NormalizedInteractionSpec,
+  NormalizedLegendSpec,
   NormalizedLayerSpec,
   NormalizedMarkSpec,
   NormalizedTooltipFieldSpec,
@@ -48,6 +53,11 @@ const defaultControlLabels = {
   seek: 'Playback position',
   speed: 'Playback speed',
   loop: 'Loop playback',
+} as const;
+
+const defaultLegendLabels = {
+  show: 'Show',
+  hide: 'Hide',
 } as const;
 
 function normalizePadding(input: PaddingInput | undefined): PaddingSpec {
@@ -157,6 +167,47 @@ function normalizeInteraction(input: ChartSpec['interaction']): NormalizedIntera
             ...(typeof controlsInput === 'object' ? controlsInput.labels : undefined),
           },
         };
+  const selectionInput = input?.selection;
+  const selection =
+    selectionInput === undefined || selectionInput === false
+      ? false
+      : {
+          mode: typeof selectionInput === 'object' ? (selectionInput.mode ?? 'single') : 'single',
+          toggle: typeof selectionInput === 'object' ? (selectionInput.toggle ?? true) : true,
+          ...(typeof selectionInput === 'object' && selectionInput.key !== undefined
+            ? { key: selectionInput.key }
+            : {}),
+          clearOnBackground:
+            typeof selectionInput === 'object' ? (selectionInput.clearOnBackground ?? true) : true,
+          clearOnEscape:
+            typeof selectionInput === 'object' ? (selectionInput.clearOnEscape ?? true) : true,
+          ariaLabel:
+            typeof selectionInput === 'object'
+              ? (selectionInput.ariaLabel ?? 'Chart selection')
+              : 'Chart selection',
+          highlight: {
+            fill:
+              typeof selectionInput === 'object'
+                ? (selectionInput.highlight?.fill ?? 'rgba(79,70,229,0.12)')
+                : 'rgba(79,70,229,0.12)',
+            stroke:
+              typeof selectionInput === 'object'
+                ? (selectionInput.highlight?.stroke ?? '#4f46e5')
+                : '#4f46e5',
+            opacity:
+              typeof selectionInput === 'object' ? (selectionInput.highlight?.opacity ?? 1) : 1,
+            lineWidth:
+              typeof selectionInput === 'object'
+                ? (selectionInput.highlight?.lineWidth ?? 2.5)
+                : 2.5,
+            dash:
+              typeof selectionInput === 'object' ? [...(selectionInput.highlight?.dash ?? [])] : [],
+            padding:
+              typeof selectionInput === 'object' ? (selectionInput.highlight?.padding ?? 5) : 5,
+            radius:
+              typeof selectionInput === 'object' ? (selectionInput.highlight?.radius ?? 7) : 7,
+          },
+        };
   return {
     hover,
     click: input?.click ?? true,
@@ -164,6 +215,74 @@ function normalizeInteraction(input: ChartSpec['interaction']): NormalizedIntera
     navigation,
     playback,
     controls,
+    selection,
+  };
+}
+
+function normalizeLegendItem(item: LegendItemSpec, index: number) {
+  return {
+    id: item.id ?? `item-${index}`,
+    label: item.label,
+    ...(item.color === undefined ? {} : { color: item.color }),
+    ...(item.layerId === undefined ? {} : { layerId: item.layerId }),
+    ...(item.value === undefined ? {} : { value: item.value }),
+    symbol: item.symbol ?? 'auto',
+  };
+}
+
+function normalizeLegend(input: ChartSpec['legend']): false | NormalizedLegendSpec {
+  if (input === undefined || input === false) return false;
+  const legend: LegendSpec = typeof input === 'object' ? input : {};
+  const position = legend.position ?? 'right';
+  return {
+    visible: legend.visible ?? true,
+    mode: legend.mode ?? 'auto',
+    position,
+    orientation:
+      legend.orientation === undefined || legend.orientation === 'auto'
+        ? position === 'top' || position === 'bottom'
+          ? 'horizontal'
+          : 'vertical'
+        : legend.orientation,
+    ...(legend.title === undefined ? {} : { title: legend.title }),
+    ...(legend.field === undefined ? {} : { field: legend.field }),
+    ...(legend.layerId === undefined ? {} : { layerId: legend.layerId }),
+    items: (legend.items ?? []).map(normalizeLegendItem),
+    maxItems: legend.maxItems ?? 24,
+    interactive: legend.interactive ?? false,
+    labels: { ...defaultLegendLabels, ...legend.labels },
+  };
+}
+
+function cloneDecorationTarget(target: DecorationTargetSpec): DecorationTargetSpec {
+  switch (target.type) {
+    case 'datum':
+      return {
+        ...target,
+        ...(Array.isArray(target.rowIndex) ? { rowIndex: [...target.rowIndex] } : {}),
+        ...(target.values === undefined ? {} : { values: [...target.values] }),
+      };
+    case 'range':
+      return {
+        type: 'range',
+        ...(target.x === undefined ? {} : { x: { ...target.x } }),
+        ...(target.y === undefined ? {} : { y: { ...target.y } }),
+      };
+    case 'layer':
+      return { ...target };
+    case 'plot':
+      return { ...target };
+  }
+}
+
+function cloneAnnotation(annotation: AnnotationSpec): AnnotationSpec {
+  return {
+    ...annotation,
+    target: cloneDecorationTarget(annotation.target),
+    ...(typeof annotation.connector !== 'object'
+      ? {}
+      : { connector: { ...annotation.connector, dash: [...(annotation.connector.dash ?? [])] } }),
+    ...(annotation.style === undefined ? {} : { style: { ...annotation.style } }),
   };
 }
 
@@ -429,6 +548,7 @@ function normalizeLayer(
   }
   return {
     id: layer.id ?? `layer-${index}`,
+    name: layer.name ?? layer.id ?? `Series ${index + 1}`,
     data,
     mark: normalizeMark(layer.mark),
     x: normalizeEncoding(layer.x, 'x', chartAxes),
@@ -476,6 +596,13 @@ export function normalizeSpec(input: ChartSpec): NormalizedChartSpec {
     performance: input.performance ?? 'auto',
     theme: input.theme ?? 'graflume-light',
     axes,
+    legend: normalizeLegend(input.legend),
+    highlights: (input.highlights ?? []).map((highlight) => ({
+      ...highlight,
+      target: cloneDecorationTarget(highlight.target),
+      ...(highlight.dash === undefined ? {} : { dash: [...highlight.dash] }),
+    })),
+    annotations: (input.annotations ?? []).map(cloneAnnotation),
     interaction: normalizeInteraction(input.interaction),
     accessibility: {
       ...(input.accessibility?.label === undefined ? {} : { label: input.accessibility.label }),
