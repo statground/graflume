@@ -4,6 +4,7 @@ import { minify } from 'terser';
 const bundles = [
   ['graflume.global.js', 'graflume.min.js'],
   ['graflume.complete.global.js', 'graflume.complete.min.js'],
+  ['graflume.spatial.global.js', 'graflume.spatial.min.js'],
 ];
 
 for (const [inputName, outputName] of bundles) {

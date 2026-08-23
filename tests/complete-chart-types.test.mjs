@@ -214,15 +214,102 @@ const fixtures = new Map([
       y: { field: 'y', type: 'quantitative' },
     },
   ],
+  [
+    'polar',
+    {
+      data: [
+        { angle: 0, radius: 7 },
+        { angle: 60, radius: 10 },
+        { angle: 120, radius: 6 },
+        { angle: 180, radius: 9 },
+      ],
+      mark: { type: 'polar', options: { mode: 'line' } },
+      x: { field: 'angle', type: 'quantitative' },
+      y: { field: 'radius', type: 'quantitative' },
+    },
+  ],
+  [
+    'image',
+    {
+      data: [
+        { column: 'A', row: '1', red: 239, green: 68, blue: 68 },
+        { column: 'B', row: '1', red: 59, green: 130, blue: 246 },
+        { column: 'A', row: '2', red: 16, green: 185, blue: 129 },
+        { column: 'B', row: '2', red: 245, green: 158, blue: 11 },
+      ],
+      mark: { type: 'image' },
+      x: { field: 'column', type: 'ordinal' },
+      y: { field: 'row', type: 'ordinal' },
+    },
+  ],
+  [
+    'ternary',
+    {
+      data: [
+        { a: 60, b: 30, c: 10 },
+        { a: 25, b: 55, c: 20 },
+        { a: 15, b: 20, c: 65 },
+      ],
+      mark: { type: 'ternary', fields: { c: 'c' } },
+      x: { field: 'a', type: 'quantitative' },
+      y: { field: 'b', type: 'quantitative' },
+    },
+  ],
+  [
+    'smith',
+    {
+      data: [
+        { resistance: 0.2, reactance: -1 },
+        { resistance: 0.7, reactance: -0.2 },
+        { resistance: 1.2, reactance: 0.5 },
+        { resistance: 2.4, reactance: 1.4 },
+      ],
+      mark: { type: 'smith' },
+      x: { field: 'resistance', type: 'quantitative' },
+      y: { field: 'reactance', type: 'quantitative' },
+    },
+  ],
+  [
+    'scatter-matrix',
+    {
+      data: [
+        { speed: 3, quality: 8, cost: 4 },
+        { speed: 5, quality: 6, cost: 7 },
+        { speed: 8, quality: 4, cost: 9 },
+        { speed: 9, quality: 7, cost: 3 },
+      ],
+      mark: { type: 'scatter-matrix', options: { dimensions: ['speed', 'quality', 'cost'] } },
+      x: { field: 'speed', type: 'quantitative' },
+      y: { field: 'quality', type: 'quantitative' },
+    },
+  ],
+  [
+    'carpet',
+    {
+      data: [
+        { a: '0', b: '0', physicalX: 0, physicalY: 0, value: 1 },
+        { a: '1', b: '0', physicalX: 1.1, physicalY: 0.2, value: 3 },
+        { a: '0', b: '1', physicalX: 0.2, physicalY: 1.2, value: 4 },
+        { a: '1', b: '1', physicalX: 1.3, physicalY: 1.4, value: 7 },
+      ],
+      mark: {
+        type: 'carpet',
+        fields: { x: 'physicalX', y: 'physicalY', value: 'value' },
+        options: { mode: 'scatter' },
+      },
+      x: { field: 'a', type: 'ordinal' },
+      y: { field: 'b', type: 'ordinal' },
+    },
+  ],
 ]);
 
 fixtures.set('network', fixtures.get('graph'));
 
 test('the opt-in catalog exposes distinct families and retains every preset', () => {
-  assert.equal(additionalChartTypeCatalog.length, 7);
-  assert.equal(additionalChartVariantCatalog.length, 14);
-  assert.equal(fullCatalog.length, 37);
-  assert.equal(fullVariantCatalog.length, 141);
+  assert.equal(additionalChartTypeCatalog.length, 11);
+  assert.equal(additionalChartVariantCatalog.length, 27);
+  assert.equal(fullCatalog.length, 41);
+  assert.equal(fullVariantCatalog.length, 162);
   const marks = capabilities().marks;
   for (const entry of additionalChartTypeCatalog) {
     assert.ok(
@@ -238,8 +325,8 @@ test('the JSON Schema advertises the full built-in catalog without closing plugi
   );
   const catalog = schema['x-graflume-catalog'];
   assert.equal(catalog.defaultFamilyCount, 22);
-  assert.equal(catalog.fullFamilyCount, 37);
-  assert.equal(catalog.fullVariantCount, 141);
+  assert.equal(catalog.fullFamilyCount, 41);
+  assert.equal(catalog.fullVariantCount, 162);
   for (const entry of additionalChartTypeCatalog) {
     assert.ok(catalog.additionalMarks.includes(entry.mark), entry.mark);
   }

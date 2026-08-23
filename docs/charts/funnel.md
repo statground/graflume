@@ -6,12 +6,13 @@
 
 This is the single manual for the `funnel` family. Its canonical Quick API is `funnel()` from `graflume/complete`, and its representative portable mark is `funnel`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
 
-| Compatible name                            | Quick API     | Mode         | Portable mark | Functional difference                                    |
-| ------------------------------------------ | ------------- | ------------ | ------------- | -------------------------------------------------------- |
-| [Funnel chart](#variant-funnel)            | `funnel()`    | `default`    | `funnel`      | Uses decreasing centered stages.                         |
-| [Depth funnel chart](#variant-funnel-3d)   | `funnel3d()`  | `funnel-3d`  | `pyramid`     | Adds portable depth faces to funnel stages.              |
-| [Pyramid chart](#variant-pyramid)          | `pyramid()`   | `pyramid`    | `pyramid`     | Reverses the stage emphasis into a pyramid presentation. |
-| [Depth pyramid chart](#variant-pyramid-3d) | `pyramid3d()` | `pyramid-3d` | `pyramid`     | Adds portable depth faces to pyramid stages.             |
+| Compatible name                            | Quick API      | Mode         | Portable mark | Functional difference                                       |
+| ------------------------------------------ | -------------- | ------------ | ------------- | ----------------------------------------------------------- |
+| [Funnel chart](#variant-funnel)            | `funnel()`     | `default`    | `funnel`      | Uses decreasing centered stages.                            |
+| [Funnel area chart](#variant-funnel-area)  | `funnelArea()` | `area`       | `funnel`      | Scales both stage dimensions so visible area follows value. |
+| [Depth funnel chart](#variant-funnel-3d)   | `funnel3d()`   | `funnel-3d`  | `pyramid`     | Adds portable depth faces to funnel stages.                 |
+| [Pyramid chart](#variant-pyramid)          | `pyramid()`    | `pyramid`    | `pyramid`     | Reverses the stage emphasis into a pyramid presentation.    |
+| [Depth pyramid chart](#variant-pyramid-3d) | `pyramid3d()`  | `pyramid-3d` | `pyramid`     | Adds portable depth faces to pyramid stages.                |
 
 All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining manually maintained sections describe the canonical/default presentation unless a preset row above states a different behavior.
 
@@ -19,10 +20,11 @@ All presets reuse the same validation, normalization, scale, compiler, renderer-
 
 Every image below is generated from the current compiled Scene rather than drawn by hand. Select a name to jump to its data fields and implementation.
 
-|                                                                                                                                        |                                                                                                                                                             |
-| -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **[Funnel chart](#variant-funnel)**<br>[![Current Funnel chart output](../assets/charts/funnel.svg)](../assets/charts/funnel.svg)      | **[Depth funnel chart](#variant-funnel-3d)**<br>[![Current Depth funnel chart output](../assets/charts/funnel-3d.svg)](../assets/charts/funnel-3d.svg)      |
-| **[Pyramid chart](#variant-pyramid)**<br>[![Current Pyramid chart output](../assets/charts/pyramid.svg)](../assets/charts/pyramid.svg) | **[Depth pyramid chart](#variant-pyramid-3d)**<br>[![Current Depth pyramid chart output](../assets/charts/pyramid-3d.svg)](../assets/charts/pyramid-3d.svg) |
+|                                                                                                                                                             |                                                                                                                                                            |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **[Funnel chart](#variant-funnel)**<br>[![Current Funnel chart output](../assets/charts/funnel.svg)](../assets/charts/funnel.svg)                           | **[Funnel area chart](#variant-funnel-area)**<br>[![Current Funnel area chart output](../assets/charts/funnel-area.svg)](../assets/charts/funnel-area.svg) |
+| **[Depth funnel chart](#variant-funnel-3d)**<br>[![Current Depth funnel chart output](../assets/charts/funnel-3d.svg)](../assets/charts/funnel-3d.svg)      | **[Pyramid chart](#variant-pyramid)**<br>[![Current Pyramid chart output](../assets/charts/pyramid.svg)](../assets/charts/pyramid.svg)                     |
+| **[Depth pyramid chart](#variant-pyramid-3d)**<br>[![Current Depth pyramid chart output](../assets/charts/pyramid-3d.svg)](../assets/charts/pyramid-3d.svg) |                                                                                                                                                            |
 
 ## Type-by-type implementation
 
@@ -82,10 +84,94 @@ funnel('#chart', data, {
     label: 'Funnel chart example',
     description: 'A compiled funnel chart example using the funnel family.',
   },
+  mark: {
+    options: {
+      mode: 'default',
+    },
+  },
   locale: 'en-US',
   interaction: {
     tooltip: {
       title: 'Funnel chart',
+      fields: [
+        {
+          field: 'category',
+          label: 'category',
+          format: 'auto',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+      ],
+      trigger: 'mark',
+    },
+  },
+});
+```
+
+<a id="variant-funnel-area"></a>
+
+### Funnel area chart
+
+Use this preset when ordered stages and their decreasing or increasing magnitude must be compared. Scales both stage dimensions so visible area follows value.
+
+- **Quick API:** `funnelArea()`
+- **Mode:** `area`
+- **Portable mark:** `funnel`
+- **Required example fields:** `category`, `value`
+
+```js
+import { funnelArea } from 'graflume/complete';
+
+const data = [
+  {
+    category: 'Search',
+    value: 46,
+  },
+  {
+    category: 'Direct',
+    value: 28,
+  },
+  {
+    category: 'Social',
+    value: 17,
+  },
+  {
+    category: 'Other',
+    value: 9,
+  },
+];
+
+funnelArea('#chart', data, {
+  x: {
+    field: 'category',
+    type: 'ordinal',
+    title: 'category',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Funnel area chart',
+    subtitle: 'funnel family · area mode',
+  },
+  accessibility: {
+    label: 'Funnel area chart example',
+    description: 'A compiled funnel area chart example using the funnel family.',
+  },
+  mark: {
+    options: {
+      mode: 'area',
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Funnel area chart',
       fields: [
         {
           field: 'category',

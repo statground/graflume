@@ -452,12 +452,12 @@
           ),
         ],
         [
-          'histogram',
-          'Histogram',
-          'Graflume.histogram()',
-          '연속값의 빈도 분포',
+          'distribution',
+          'Distribution',
+          'Graflume.distribution()',
+          '히스토그램·바이올린·요약을 통합한 분포',
           base(
-            { type: 'histogram', options: { bins: 8 } },
+            { type: 'distribution', options: { mode: 'histogram', bins: 8 } },
             Array.from({ length: 60 }, (_, index) => ({
               score: 42 + ((index * 17) % 49) + Math.sin(index) * 5,
             })),
@@ -678,7 +678,7 @@
         ['timeline', ['timeline', 'Timeline and range']],
         ['gauge', ['gauge', 'Gauge']],
         ['map', ['map', 'Map']],
-        ['histogram', ['histogram', 'Histogram']],
+        ['distribution', ['distribution', 'Distribution']],
         ['intervals', ['interval', 'Interval']],
         ['line', ['line', 'Line']],
         ['motion', ['motion', 'Motion']],

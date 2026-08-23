@@ -816,6 +816,208 @@ interface TreemapTile extends TreemapItem {
   readonly height: number;
 }
 
+interface IcicleItem extends TreemapItem {
+  readonly parent?: string;
+}
+
+interface IcicleNode extends IcicleItem {
+  readonly children: IcicleNode[];
+}
+
+function compileIcicleMark(context: Parameters<MarkCompiler>[0]): readonly SceneNode[] {
+  const { table, layer, plot, theme, performance } = context;
+  const parentField = layer.mark.fields.parent ?? 'parent';
+  const items: IcicleItem[] = [];
+  for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+    const rawLabel = table.value(rowIndex, layer.x.field);
+    const value = numericDataValue(table.value(rowIndex, layer.y.field));
+    if (rawLabel === null || rawLabel === undefined || value === null || value < 0) continue;
+    const rawParent = table.has(parentField) ? table.value(rowIndex, parentField) : undefined;
+    const parent =
+      rawParent === null || rawParent === undefined || String(rawParent).trim() === ''
+        ? undefined
+        : String(rawParent);
+    items.push({
+      rowIndex,
+      label: String(rawLabel),
+      value,
+      ...(parent === undefined ? {} : { parent }),
+    });
+  }
+  if (items.length === 0) return [];
+
+  const byLabel = new Map<string, IcicleNode>();
+  items.forEach((item) => byLabel.set(item.label, { ...item, children: [] }));
+  const orderedNodes = [...byLabel.values()];
+  const parentByNode = new Map<IcicleNode, IcicleNode>();
+  orderedNodes.forEach((node) => {
+    const parent = node.parent === undefined ? undefined : byLabel.get(node.parent);
+    if (parent !== undefined && parent !== node) parentByNode.set(node, parent);
+  });
+
+  // Each node has at most one parent, so cycles can be broken in linear time by
+  // walking the parent chains once. Breaking the first repeated edge keeps the
+  // result deterministic while making every malformed component renderable.
+  const resolved = new Set<IcicleNode>();
+  orderedNodes.forEach((start) => {
+    if (resolved.has(start)) return;
+    const path: IcicleNode[] = [];
+    const positions = new Map<IcicleNode, number>();
+    let cursor: IcicleNode | undefined = start;
+    while (cursor !== undefined && !resolved.has(cursor)) {
+      if (positions.has(cursor)) {
+        parentByNode.delete(cursor);
+        break;
+      }
+      positions.set(cursor, path.length);
+      path.push(cursor);
+      cursor = parentByNode.get(cursor);
+    }
+    path.forEach((node) => resolved.add(node));
+  });
+
+  parentByNode.forEach((parent, node) => parent.children.push(node));
+  const roots = orderedNodes.filter((node) => !parentByNode.has(node));
+
+  // Memoize subtree weight and depth in one iterative leaf-to-root pass. This
+  // avoids both the previous repeated subtree scans and call-stack exhaustion
+  // on deep, valid hierarchies without allocating one frame object per edge.
+  const weights = new Map<IcicleNode, number>();
+  const depths = new Map<IcicleNode, number>();
+  const remainingChildren = new Map<IcicleNode, number>();
+  const accumulatedWeights = new Map<IcicleNode, number>();
+  const accumulatedDepths = new Map<IcicleNode, number>();
+  const ready: IcicleNode[] = [];
+  orderedNodes.forEach((node) => {
+    remainingChildren.set(node, node.children.length);
+    if (node.children.length === 0) ready.push(node);
+  });
+  for (let readyIndex = 0; readyIndex < ready.length; readyIndex += 1) {
+    const node = ready[readyIndex];
+    if (node === undefined) continue;
+    const weight = Math.max(node.value, accumulatedWeights.get(node) ?? 0, 0.000001);
+    const depth = 1 + (accumulatedDepths.get(node) ?? 0);
+    weights.set(node, weight);
+    depths.set(node, depth);
+    const parent = parentByNode.get(node);
+    if (parent === undefined) continue;
+    accumulatedWeights.set(parent, (accumulatedWeights.get(parent) ?? 0) + weight);
+    accumulatedDepths.set(parent, Math.max(accumulatedDepths.get(parent) ?? 0, depth));
+    const remaining = (remainingChildren.get(parent) ?? 1) - 1;
+    remainingChildren.set(parent, remaining);
+    if (remaining === 0) ready.push(parent);
+  }
+
+  let maxDepth = 1;
+  roots.forEach((root) => {
+    maxDepth = Math.max(maxDepth, depths.get(root) ?? 1);
+  });
+  const levelHeight = plot.height / maxDepth;
+  const rootTotal = roots.reduce((sum, root) => sum + (weights.get(root) ?? 0), 0);
+  const nodes: SceneNode[] = [];
+  const markBudget = Math.max(1, Math.floor(performance.maxBarMarks));
+  interface IcicleFrame {
+    readonly node: IcicleNode;
+    readonly level: number;
+    readonly x: number;
+    readonly width: number;
+    readonly colorIndex: number;
+  }
+  const renderStack: IcicleFrame[] = [];
+  let rootX = plot.x;
+  const rootFrames: IcicleFrame[] = [];
+  roots.forEach((root, rootIndex) => {
+    const rootWidth = plot.width * ((weights.get(root) ?? 0) / Math.max(rootTotal, 0.000001));
+    if (rootIndex < markBudget) {
+      rootFrames.push({ node: root, level: 0, x: rootX, width: rootWidth, colorIndex: rootIndex });
+    }
+    rootX += rootWidth;
+  });
+  for (let index = rootFrames.length - 1; index >= 0; index -= 1) {
+    const frame = rootFrames[index];
+    if (frame !== undefined) renderStack.push(frame);
+  }
+
+  let renderedMarks = 0;
+  while (renderStack.length > 0 && renderedMarks < markBudget) {
+    const frame = renderStack.pop();
+    if (frame === undefined || frame.width <= 0) continue;
+    const { node, level, x, width, colorIndex } = frame;
+    const gap = Math.min(1.5, levelHeight * 0.12, width * 0.02);
+    const y = plot.y + level * levelHeight;
+    const fill =
+      layer.mark.fill ??
+      mixColor(
+        theme.colors.palette[colorIndex % theme.colors.palette.length] ?? theme.colors.focus,
+        theme.colors.background,
+        Math.min(0.5, level * 0.1),
+      );
+    nodes.push({
+      type: 'rect',
+      ...nodeBase(`${layer.id}:icicle:${node.rowIndex}`, {
+        zIndex: layer.zIndex + level * 0.01,
+        opacity: layer.mark.opacity,
+        interactive: performance.enableHitTesting,
+        datum: {
+          layerId: layer.id,
+          rowIndex: node.rowIndex,
+          datum: table.row(node.rowIndex),
+          tooltip: { label: node.label, value: node.value, depth: level },
+        },
+      }),
+      x: x + gap,
+      y: y + gap,
+      width: Math.max(1, width - gap * 2),
+      height: Math.max(1, levelHeight - gap * 2),
+      fill,
+      stroke: colorWithOpacity(theme.colors.background, 0.78),
+      lineWidth: 1,
+      cornerRadius: layer.mark.cornerRadius ?? 3,
+    });
+    renderedMarks += 1;
+    if (width > 42 && levelHeight > 20) {
+      nodes.push(
+        textNode(
+          `${layer.id}:icicle-label:${node.rowIndex}`,
+          x + 8,
+          y + levelHeight / 2,
+          node.label,
+          context,
+          {
+            align: 'left',
+            size: Math.max(8, Math.min(12, levelHeight * 0.28)),
+            weight: 700,
+            fill: readableTextColor(fill, '#ffffff', '#0f172a'),
+          },
+        ),
+      );
+    }
+    if (node.children.length === 0 || level + 1 >= maxDepth) continue;
+    const childTotal = node.children.reduce((sum, child) => sum + (weights.get(child) ?? 0), 0);
+    let childX = x;
+    const childFrames: IcicleFrame[] = [];
+    const childLimit = Math.min(node.children.length, markBudget - renderedMarks);
+    for (let childIndex = 0; childIndex < childLimit; childIndex += 1) {
+      const child = node.children[childIndex];
+      if (child === undefined) continue;
+      const childWidth = width * ((weights.get(child) ?? 0) / Math.max(childTotal, 0.000001));
+      childFrames.push({
+        node: child,
+        level: level + 1,
+        x: childX,
+        width: childWidth,
+        colorIndex: colorIndex + childIndex + 1,
+      });
+      childX += childWidth;
+    }
+    for (let index = childFrames.length - 1; index >= 0; index -= 1) {
+      const childFrame = childFrames[index];
+      if (childFrame !== undefined) renderStack.push(childFrame);
+    }
+  }
+  return nodes;
+}
+
 function layoutTreemap(
   items: readonly TreemapItem[],
   rectangle: {
@@ -871,6 +1073,7 @@ function layoutTreemap(
 }
 
 export const compileTreemapMark: MarkCompiler = (context) => {
+  if (context.layer.mark.options.mode === 'icicle') return compileIcicleMark(context);
   const { table, layer, plot, theme, performance } = context;
   const items: TreemapItem[] = [];
   for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {

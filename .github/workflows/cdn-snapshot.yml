@@ -56,6 +56,7 @@ jobs:
           mkdir -p cdn
           cp dist/graflume.global.js cdn/graflume.global.js
           cp dist/graflume.complete.global.js cdn/graflume.complete.global.js
+          cp dist/graflume.spatial.global.js cdn/graflume.spatial.global.js
           node - "$VERSION" "$SOURCE_SHA" <<'NODE'
           const fs = require('node:fs');
           const [version, sourceCommit] = process.argv.slice(2);
@@ -70,6 +71,7 @@ jobs:
                 entries: {
                   default: './graflume.global.js',
                   complete: './graflume.complete.global.js',
+                  spatial: './graflume.spatial.global.js',
                 },
               },
               null,
@@ -81,22 +83,24 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
 
-          git add cdn/graflume.global.js cdn/graflume.complete.global.js cdn/manifest.json
+          git add cdn/graflume.global.js cdn/graflume.complete.global.js cdn/graflume.spatial.global.js cdn/manifest.json
           if ! git diff --cached --quiet; then
             git commit -m 'Build Graflume CDN snapshots [skip ci]'
           fi
 
-          BUNDLE_SHA="$(git log -1 --format=%H -- cdn/graflume.complete.global.js)"
+          BUNDLE_SHA="$(git rev-parse HEAD)"
           DEFAULT_SRI="sha384-$(openssl dgst -sha384 -binary cdn/graflume.global.js | openssl base64 -A)"
           COMPLETE_SRI="sha384-$(openssl dgst -sha384 -binary cdn/graflume.complete.global.js | openssl base64 -A)"
+          SPATIAL_SRI="sha384-$(openssl dgst -sha384 -binary cdn/graflume.spatial.global.js | openssl base64 -A)"
 
-          node scripts/pin-cdn-examples.mjs "$BUNDLE_SHA" "$DEFAULT_SRI" "$COMPLETE_SRI"
+          node scripts/pin-cdn-examples.mjs "$BUNDLE_SHA" "$DEFAULT_SRI" "$COMPLETE_SRI" "$SPATIAL_SRI"
           git add \
             examples/cdn/bar-chart.html \
             examples/cdn/chart-types.html \
             examples/cdn/complete-chart-types.html \
             examples/cdn/additional-chart-types.html \
-            examples/cdn/series-chart-types.html
+            examples/cdn/series-chart-types.html \
+            examples/cdn/spatial-chart-types.html
           if ! git diff --cached --quiet; then
             git commit -m 'Pin Graflume CDN examples [skip ci]'
           fi
@@ -130,15 +134,19 @@ jobs:
 
           verify_bundle 'graflume.global.js' "$DEFAULT_SRI" /tmp/graflume.default.cdn.js
           verify_bundle 'graflume.complete.global.js' "$COMPLETE_SRI" /tmp/graflume.complete.cdn.js
+          verify_bundle 'graflume.spatial.global.js' "$SPATIAL_SRI" /tmp/graflume.spatial.cdn.js
 
           VERIFIED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           DEFAULT_URL="https://cdn.jsdelivr.net/gh/statground/graflume@${BUNDLE_SHA}/cdn/graflume.global.js"
           COMPLETE_URL="https://cdn.jsdelivr.net/gh/statground/graflume@${BUNDLE_SHA}/cdn/graflume.complete.global.js"
+          SPATIAL_URL="https://cdn.jsdelivr.net/gh/statground/graflume@${BUNDLE_SHA}/cdn/graflume.spatial.global.js"
           DEFAULT_BYTES="$(wc -c < /tmp/graflume.default.cdn.js | tr -d ' ')"
           COMPLETE_BYTES="$(wc -c < /tmp/graflume.complete.cdn.js | tr -d ' ')"
+          SPATIAL_BYTES="$(wc -c < /tmp/graflume.spatial.cdn.js | tr -d ' ')"
           node - \
             "$SOURCE_SHA" "$BUNDLE_SHA" "$DEFAULT_URL" "$DEFAULT_SRI" "$DEFAULT_BYTES" \
-            "$COMPLETE_URL" "$COMPLETE_SRI" "$COMPLETE_BYTES" "$VERIFIED_AT" <<'NODE'
+            "$COMPLETE_URL" "$COMPLETE_SRI" "$COMPLETE_BYTES" \
+            "$SPATIAL_URL" "$SPATIAL_SRI" "$SPATIAL_BYTES" "$VERIFIED_AT" <<'NODE'
           const fs = require('node:fs');
           const [
             sourceCommit,
@@ -149,6 +157,9 @@ jobs:
             completeUrl,
             completeIntegrity,
             completeByteLength,
+            spatialUrl,
+            spatialIntegrity,
+            spatialByteLength,
             verifiedAt,
           ] = process.argv.slice(2);
           fs.writeFileSync(
@@ -164,6 +175,11 @@ jobs:
                   cdnUrl: completeUrl,
                   integrity: completeIntegrity,
                   byteLength: Number(completeByteLength),
+                },
+                spatial: {
+                  cdnUrl: spatialUrl,
+                  integrity: spatialIntegrity,
+                  byteLength: Number(spatialByteLength),
                 },
                 verifiedAt,
               },

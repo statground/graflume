@@ -44,6 +44,7 @@ export type MarkType =
   | 'graph'
   | 'heatmap'
   | 'histogram'
+  | 'image'
   | 'interval'
   | 'indicator'
   | 'item'
@@ -63,19 +64,23 @@ export type MarkType =
   | 'polygon'
   | 'pyramid'
   | 'radar'
+  | 'polar'
   | 'range'
   | 'renko'
   | 'sankey'
+  | 'scatter-matrix'
   | 'scatter-3d'
   | 'smooth'
   | 'solid-gauge'
   | 'stepped-area'
   | 'sunburst'
+  | 'smith'
   | 'table'
   | 'theme-river'
   | 'tiled-map'
   | 'tilemap'
   | 'timeline'
+  | 'ternary'
   | 'tree'
   | 'treemap'
   | 'trendline'
@@ -88,7 +93,8 @@ export type MarkType =
   | 'waterfall'
   | 'wind-barb'
   | 'word-cloud'
-  | 'word-tree';
+  | 'word-tree'
+  | 'carpet';
 export type PerformanceProfile = 'auto' | 'standard' | 'large' | 'ultra';
 export type RendererPreference = 'auto' | 'canvas' | 'svg' | 'webgl' | 'webgpu' | string;
 

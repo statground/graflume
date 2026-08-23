@@ -240,9 +240,9 @@ test('the unified series catalog covers every public series identifier', () => {
   assert.equal(seriesCompatibilityCatalog.length, 117);
   assert.equal(seriesChartTypeCatalog.length, 8);
   assert.equal(seriesChartVariantCatalog.length, 96);
-  assert.equal(fullCatalog.length, 37);
-  assert.equal(fullVariantCatalog.length, 141);
-  assert.equal(new Set(fullCatalog.map((entry) => entry.id)).size, 37);
+  assert.equal(fullCatalog.length, 41);
+  assert.equal(fullVariantCatalog.length, 162);
+  assert.equal(new Set(fullCatalog.map((entry) => entry.id)).size, 41);
   const familyIds = new Set(fullCatalog.map((entry) => entry.id));
   const variantIds = new Set(fullVariantCatalog.map((entry) => entry.id));
   for (const item of seriesCompatibilityCatalog) {
@@ -289,7 +289,7 @@ test('schema metadata matches the unified runtime catalog', async () => {
     await readFile(new URL('../schema/graflume.schema.json', import.meta.url), 'utf8'),
   );
   const catalog = schema['x-graflume-catalog'];
-  assert.equal(catalog.fullFamilyCount, 37);
+  assert.equal(catalog.fullFamilyCount, 41);
   assert.equal(catalog.seriesFamilyCount, 8);
   assert.equal(catalog.seriesVariantCount, 96);
   assert.equal(catalog.compatibilitySeriesCount, 117);

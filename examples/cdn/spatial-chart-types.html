@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>Graflume 공간 차트 갤러리</title>
+    <style>
+      :root {
+        font-family: Inter, Pretendard, system-ui, sans-serif;
+        color: #0f172a;
+        background: #f1f5f9;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 28px 16px 52px;
+      }
+      main {
+        width: min(1480px, 100%);
+        margin: 0 auto;
+      }
+      h1 {
+        margin: 0;
+        font-size: clamp(1.8rem, 4vw, 3rem);
+        letter-spacing: -0.05em;
+      }
+      .lede {
+        max-width: 920px;
+        margin: 10px 0 20px;
+        color: #64748b;
+        line-height: 1.7;
+      }
+      #status {
+        margin: 0 0 18px;
+        padding: 12px 15px;
+        background: #eef2ff;
+        border-radius: 12px;
+      }
+      #status.error {
+        color: #991b1b;
+        background: #fee2e2;
+      }
+      .gallery {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+      }
+      article {
+        min-width: 0;
+        overflow: hidden;
+        background: #fff;
+        border: 1px solid #dbe3ee;
+        border-radius: 18px;
+        box-shadow: 0 14px 42px rgb(15 23 42 / 8%);
+      }
+      .head {
+        display: flex;
+        gap: 12px;
+        align-items: start;
+        justify-content: space-between;
+        padding: 16px 18px 12px;
+      }
+      h2 {
+        margin: 0;
+        font-size: 1.05rem;
+      }
+      .copy {
+        margin: 5px 0 0;
+        color: #64748b;
+        font-size: 0.82rem;
+        line-height: 1.45;
+      }
+      code {
+        color: #4f46e5;
+        font-size: 0.76rem;
+      }
+      .badge {
+        flex: 0 0 auto;
+        padding: 4px 8px;
+        color: #4338ca;
+        background: #eef2ff;
+        border-radius: 999px;
+        font-size: 0.7rem;
+        font-weight: 800;
+      }
+      .chart {
+        width: 100%;
+        height: 360px;
+        border-top: 1px solid #e2e8f0;
+      }
+      @media (max-width: 760px) {
+        .gallery {
+          grid-template-columns: 1fr;
+        }
+        .chart {
+          height: 340px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Graflume 공간 차트 갤러리</h1>
+      <p class="lede">
+        별도 공간 entry의 실제 GPU renderer로 surface, volume, spatial-vector와 map의 globe mode를
+        그립니다. 차트의 타이트한 도구막대, 드래그, Control/Command+wheel, 키보드, tooltip,
+        fullscreen과 PNG를 직접 시험할 수 있습니다.
+      </p>
+      <p id="status" role="status">8개 공간 차트를 렌더링하고 있습니다…</p>
+      <section id="gallery" class="gallery" aria-label="Graflume 공간 차트 갤러리"></section>
+    </main>
+
+    <!-- Exact commit pin and SRI are replaced by the repository CDN snapshot workflow. -->
+    <script
+      src="https://cdn.jsdelivr.net/gh/statground/graflume@__GRAFLUME_CDN_COMMIT__/cdn/graflume.spatial.global.js"
+      integrity="__GRAFLUME_SPATIAL_CDN_SRI__"
+      crossorigin="anonymous"
+    ></script>
+    <script>
+      (() => {
+        const api = window.GraflumeSpatial;
+        const status = document.querySelector('#status');
+        const gallery = document.querySelector('#gallery');
+        const instances = [];
+
+        const surfaceData = () => {
+          const rows = 15;
+          const columns = 15;
+          const x = Array.from(
+            { length: columns },
+            (_, index) => -2.4 + (index * 4.8) / (columns - 1),
+          );
+          const y = Array.from({ length: rows }, (_, index) => -2.4 + (index * 4.8) / (rows - 1));
+          return {
+            rows,
+            columns,
+            x,
+            y,
+            z: y.flatMap((depth) =>
+              x.map((horizontal) => Math.sin(horizontal * 1.5) * Math.cos(depth * 1.25) * 0.72),
+            ),
+          };
+        };
+        const volumeData = () => {
+          const size = 9;
+          const values = [];
+          for (let z = 0; z < size; z += 1)
+            for (let y = 0; y < size; y += 1)
+              for (let x = 0; x < size; x += 1) {
+                const dx = (x / (size - 1)) * 2 - 1;
+                const dy = (y / (size - 1)) * 2 - 1;
+                const dz = (z / (size - 1)) * 2 - 1;
+                values.push(1 - Math.hypot(dx, dy, dz));
+              }
+          return {
+            dimensions: [size, size, size],
+            origin: [-1, -1, -1],
+            spacing: [2 / (size - 1), 2 / (size - 1), 2 / (size - 1)],
+            values,
+          };
+        };
+        const common = (title, dark = false) => ({
+          title,
+          background: dark ? '#07111f' : '#f8fafc',
+          interaction: { controls: true, picking: true, tooltip: true, wheel: 'modifier' },
+          accessibility: { table: true, maxRows: 80 },
+        });
+        const volume = volumeData();
+        const definitions = [
+          {
+            id: 'surface',
+            title: 'Surface',
+            family: 'surface',
+            api: 'surface()',
+            copy: '정규 격자의 높이와 색상',
+            render: (target) =>
+              api.surface(target, surfaceData(), { ...common('Surface'), color: '#6d28d9' }),
+          },
+          {
+            id: 'mesh',
+            title: 'Mesh',
+            family: 'surface',
+            api: 'mesh()',
+            copy: '임의 정점과 삼각형 연결',
+            render: (target) =>
+              api.mesh(
+                target,
+                {
+                  positions: [
+                    [-1.4, -0.8, -1.2],
+                    [1.4, -0.8, -1.2],
+                    [1.4, -0.8, 1.2],
+                    [-1.4, -0.8, 1.2],
+                    [0, 1.5, 0],
+                  ],
+                  triangles: [
+                    [0, 1, 4],
+                    [1, 2, 4],
+                    [2, 3, 4],
+                    [3, 0, 4],
+                    [0, 3, 2],
+                    [0, 2, 1],
+                  ],
+                  colors: ['#2563eb', '#7c3aed', '#db2777', '#ea580c', '#0f766e'],
+                  labels: ['west', 'south', 'east', 'north', 'peak'],
+                },
+                common('Mesh'),
+              ),
+          },
+          {
+            id: 'volume',
+            title: 'Volume',
+            family: 'volume',
+            api: 'volume()',
+            copy: '스칼라 격자의 bounded point sampling',
+            render: (target) =>
+              api.volume(target, volume, {
+                ...common('Volume', true),
+                maxSamples: 900,
+                pointSize: 5,
+                opacity: 0.42,
+                colorLow: '#38bdf8',
+                colorHigh: '#fb7185',
+              }),
+          },
+          {
+            id: 'isosurface',
+            title: 'Isosurface',
+            family: 'volume',
+            api: 'isosurface()',
+            copy: '상수값 경계의 실제 삼각형 추출',
+            render: (target) =>
+              api.isosurface(target, volume, {
+                ...common('Isosurface'),
+                isoValue: 0.22,
+                colorHigh: '#7c3aed',
+              }),
+          },
+          {
+            id: 'vector-cone',
+            title: 'Vector cone',
+            family: 'spatial-vector',
+            api: 'vectorCone()',
+            copy: '방향과 크기를 가진 cone glyph',
+            render: (target) =>
+              api.vectorCone(
+                target,
+                {
+                  origins: [-1, 0, 1].flatMap((z) => [-1, 0, 1].map((x) => [x, -0.5, z])),
+                  vectors: [-1, 0, 1].flatMap((z) =>
+                    [-1, 0, 1].map((x) => [-z * 0.8, 1.2, x * 0.8]),
+                  ),
+                  labels: Array.from({ length: 9 }, (_, index) => `vector ${index + 1}`),
+                },
+                { ...common('Vector cone'), scale: 0.58, radius: 0.14, color: '#0f766e' },
+              ),
+          },
+          {
+            id: 'streamtube',
+            title: 'Streamtube',
+            family: 'spatial-vector',
+            api: 'streamtube()',
+            copy: '순서 있는 3차원 경로의 tube geometry',
+            render: (target) =>
+              api.streamtube(
+                target,
+                {
+                  paths: [-0.7, 0, 0.7].map((offset) =>
+                    Array.from({ length: 24 }, (_, index) => {
+                      const amount = index / 23;
+                      const angle = amount * Math.PI * 2.6 + offset;
+                      return [
+                        (amount - 0.5) * 4,
+                        Math.sin(angle) * 0.65 + offset,
+                        Math.cos(angle) * 0.65,
+                      ];
+                    }),
+                  ),
+                  labels: ['lower flow', 'middle flow', 'upper flow'],
+                  colors: ['#2563eb', '#7c3aed', '#db2777'],
+                },
+                { ...common('Streamtube'), radius: 0.055, segments: 8 },
+              ),
+          },
+          {
+            id: 'spatial-scatter',
+            title: 'Spatial scatter',
+            family: 'spatial-vector',
+            api: 'spatialScatter()',
+            copy: 'depth-tested 개별 관측점',
+            render: (target) => {
+              const positions = Array.from({ length: 64 }, (_, index) => {
+                const angle = index * 2.399963229728653;
+                const radius = 0.35 + (index % 12) * 0.12;
+                return [
+                  Math.cos(angle) * radius,
+                  ((index % 9) - 4) * 0.22,
+                  Math.sin(angle) * radius,
+                ];
+              });
+              return api.spatialScatter(
+                target,
+                {
+                  positions,
+                  values: positions.map(([, y]) => y),
+                  labels: positions.map((_, index) => `observation ${index + 1}`),
+                },
+                common('Spatial scatter'),
+              );
+            },
+          },
+          {
+            id: 'globe',
+            title: 'Globe',
+            family: 'map mode',
+            api: 'globe()',
+            copy: 'bundled Natural Earth sphere, points, routes',
+            render: (target) =>
+              api.globe(
+                target,
+                {
+                  points: [
+                    { longitude: 126.978, latitude: 37.5665, label: 'Seoul', value: 96 },
+                    { longitude: -74.006, latitude: 40.7128, label: 'New York', value: 88 },
+                    { longitude: 151.2093, latitude: -33.8688, label: 'Sydney', value: 74 },
+                  ],
+                  routes: [
+                    { from: [126.978, 37.5665], to: [-74.006, 40.7128], label: 'Seoul–New York' },
+                    { from: [126.978, 37.5665], to: [151.2093, -33.8688], label: 'Seoul–Sydney' },
+                  ],
+                },
+                {
+                  ...common('Globe', true),
+                  oceanColor: '#0f2f57',
+                  landColor: '#84a98c',
+                  borderColor: '#d7e3d5',
+                  pointColor: '#fb7185',
+                  routeColor: '#fbbf24',
+                },
+              ),
+          },
+        ];
+
+        if (!api) {
+          status.className = 'error';
+          status.textContent = '공간 bundle을 불러오지 못했습니다.';
+          return;
+        }
+        try {
+          for (const definition of definitions) {
+            const article = document.createElement('article');
+            article.innerHTML = `<div class="head"><div><h2>${definition.title}</h2><p class="copy">${definition.copy}</p><code>GraflumeSpatial.${definition.api}</code></div><span class="badge">${definition.family}</span></div><div id="${definition.id}" class="chart"></div>`;
+            gallery.append(article);
+            instances.push(definition.render(`#${definition.id}`));
+          }
+          status.textContent = `${instances.length}개 실제 GPU 공간 차트를 렌더링했습니다.`;
+        } catch (error) {
+          status.className = 'error';
+          status.textContent = error instanceof Error ? error.message : String(error);
+        }
+        window.addEventListener('pagehide', (event) => {
+          if (!event.persisted) instances.forEach((instance) => instance.destroy());
+        });
+        window.addEventListener('pageshow', () =>
+          instances.forEach((instance) => instance.resize()),
+        );
+      })();
+    </script>
+  </body>
+</html>

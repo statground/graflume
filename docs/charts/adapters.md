@@ -1,13 +1,13 @@
 # Declarative adapters
 
-Adapters translate a constrained external or custom declarative shape into Graflume's portable specification. They are compatibility surfaces, not additional chart families, so they do not appear in the 37-family discovery catalog.
+Adapters translate a constrained external or custom declarative shape into Graflume's portable specification. They are compatibility surfaces, not additional chart families, so they do not appear in the 41-family discovery catalog.
 
 | Adapter                  | Quick API     | Portable mark | Contract                                                              |
 | ------------------------ | ------------- | ------------- | --------------------------------------------------------------------- |
 | Portable adapter chart   | `vegaChart()` | `vega`        | Translates the supported function-free embedded mark subset.          |
 | Declarative custom chart | `custom()`    | `custom`      | Builds row-level declarative primitives without executable callbacks. |
 
-Both adapters reject executable callbacks and enter the ordinary validation, Scene compilation, rendering, interaction, and accessibility pipeline. Prefer a representative family Quick API when the data meaning already matches one of the [37 chart families](./README.md#choose-a-chart).
+Both adapters reject executable callbacks and enter the ordinary validation, Scene compilation, rendering, interaction, and accessibility pipeline. Prefer a representative family Quick API when the data meaning already matches one of the [41 chart families](./README.md#choose-a-chart).
 
 ## Visual gallery
 

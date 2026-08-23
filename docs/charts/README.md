@@ -1,10 +1,10 @@
 # Chart guides
 
-Graflume `0.1.0-alpha.0` exposes 37 distinct chart families through two package entrypoints. The default entrypoint contains 22 established families, while `graflume/complete` adds 7 advanced and 8 specialized families. All 141 historical names remain available as compatible presets, including 117 public series identifiers, without duplicating the shared compiler, theme, Scene, Canvas renderer, interaction, or accessibility contracts.
+Graflume `0.1.0-alpha.0` exposes 41 distinct chart families through two package entrypoints. The default entrypoint contains 22 established families, while `graflume/complete` adds 11 advanced and 8 specialized families. The 162 documented presets include 117 public compatibility identifiers without duplicating the shared compiler, theme, Scene, Canvas renderer, interaction, or accessibility contracts.
 
 Every family below is implemented today. Direction, curve, depth, radius, glyph, layout, and indicator differences are presets inside one family instead of separate discovery entries.
 
-The directory contains one manual per representative family, not one file per historical name. Each family manual keeps every integrated type visible in a compiled-output gallery and follows it with type-by-type selection guidance, required data fields, stable anchors, and minimal runnable Quick API examples. The shared [Cartesian axis manual](./axes.md) documents formatting, label layout, styles, scale direction, secondary axes, and axis-nearest tooltips. [Common chart interactions](./interactions.md) documents the inspection viewport, reset, fullscreen, PNG export, discrete playback, and the capability/constraint matrix for all 37 families. The [compatibility preset index](./compatibility-presets.md) maps 139 family presets, while [Declarative adapters](./adapters.md) covers the remaining two compatibility names with the same visual-and-code structure; together they document all 141 historical names.
+The directory contains one manual per representative family, not one file per compatible name. Each family manual keeps every integrated type visible in a compiled-output gallery and follows it with type-by-type selection guidance, required data fields, stable anchors, and minimal runnable Quick API examples. The shared [Cartesian axis manual](./axes.md) documents formatting, label layout, styles, scale direction, secondary axes, and axis-nearest tooltips. [Common chart interactions](./interactions.md) documents the inspection viewport, reset, fullscreen, PNG export, discrete playback, and the capability/constraint matrix for all 41 families. The [compatibility preset index](./compatibility-presets.md) maps 160 family presets, while [Declarative adapters](./adapters.md) covers the remaining two adapter names with the same visual-and-code structure; together they document all 162 presets.
 
 Use `resolveSeriesType(identifier)` from `graflume/complete` to resolve case, spaces, hyphens, or underscores into the catalog's single representative family. `seriesCompatibilityCatalog` exposes all 117 identifier-to-family mappings for adapters and migration tools.
 
@@ -12,44 +12,48 @@ Use `resolveSeriesType(identifier)` from `graflume/complete` to resolve case, sp
 
 ### Default entrypoint
 
-| Family                              | Quick API       | Integrated presets                                                                 |
-| ----------------------------------- | --------------- | ---------------------------------------------------------------------------------- |
-| [Annotation](./annotation.md)       | `annotation()`  | timeline annotations, event flags                                                  |
-| [Area](./area.md)                   | `area()`        | stepped, smooth, polygon, stream                                                   |
-| [Bar](./bar.md)                     | `bar()`         | horizontal, column, pictorial, bullet, cylinder, pyramid, lollipop, variable width |
-| [Bubble](./bubble.md)               | `bubble()`      | coordinate and packed layouts                                                      |
-| [Calendar](./calendar.md)           | `calendar()`    | calendar cells                                                                     |
-| [Candlestick](./candlestick.md)     | `candlestick()` | OHLC, HLC, derived, hollow bodies                                                  |
-| [Combination](./combination.md)     | `combo()`       | layered series, Pareto                                                             |
-| [Difference](./difference.md)       | `diff()`        | before/after difference                                                            |
-| [Pie](./pie.md)                     | `pie()`         | pie, donut, variable radius                                                        |
-| [Timeline and range](./timeline.md) | `timeline()`    | timeline, Gantt, horizontal range                                                  |
-| [Gauge](./gauge.md)                 | `gauge()`       | dial and solid arc                                                                 |
-| [Map](./map.md)                     | `map()`         | regions, points, bubbles, routes, density, tiles                                   |
-| [Histogram](./histogram.md)         | `histogram()`   | bins and density curve                                                             |
-| [Interval](./interval.md)           | `intervals()`   | error, area range, column range, dumbbell                                          |
-| [Line](./line.md)                   | `line()`        | straight, smooth, trend                                                            |
-| [Motion](./motion.md)               | `motion()`      | frame-filtered scatter                                                             |
-| [Hierarchy](./hierarchy.md)         | `treemap()`     | tree, organization, treemap, sunburst                                              |
-| [Flow](./flow.md)                   | `sankey()`      | weighted flow                                                                      |
-| [Scatter](./scatter.md)             | `scatter()`     | standard, emphasis, depth projection                                               |
-| [Table](./table.md)                 | `table()`       | data table                                                                         |
-| [Waterfall](./waterfall.md)         | `waterfall()`   | cumulative bridge                                                                  |
-| [Word tree](./word-tree.md)         | `wordTree()`    | weighted word hierarchy                                                            |
+| Family                              | Quick API        | Integrated presets                                                                 |
+| ----------------------------------- | ---------------- | ---------------------------------------------------------------------------------- |
+| [Annotation](./annotation.md)       | `annotation()`   | timeline annotations, event flags                                                  |
+| [Area](./area.md)                   | `area()`         | stepped, smooth, polygon, stream                                                   |
+| [Bar](./bar.md)                     | `bar()`          | horizontal, column, pictorial, bullet, cylinder, pyramid, lollipop, variable width |
+| [Bubble](./bubble.md)               | `bubble()`       | coordinate and packed layouts                                                      |
+| [Calendar](./calendar.md)           | `calendar()`     | calendar cells                                                                     |
+| [Candlestick](./candlestick.md)     | `candlestick()`  | OHLC, HLC, derived, hollow bodies                                                  |
+| [Combination](./combination.md)     | `combo()`        | layered series, Pareto                                                             |
+| [Difference](./difference.md)       | `diff()`         | before/after difference                                                            |
+| [Pie](./pie.md)                     | `pie()`          | pie, donut, variable radius                                                        |
+| [Timeline and range](./timeline.md) | `timeline()`     | timeline, Gantt, horizontal range                                                  |
+| [Gauge](./gauge.md)                 | `gauge()`        | dial, number, delta, bullet, and solid arc                                         |
+| [Map](./map.md)                     | `map()`          | regions, points, bubbles, routes, density, tiles                                   |
+| [Distribution](./distribution.md)   | `distribution()` | histogram, violin, box summary, bivariate cells and contours                       |
+| [Interval](./interval.md)           | `intervals()`    | error, area range, column range, dumbbell                                          |
+| [Line](./line.md)                   | `line()`         | straight, smooth, trend                                                            |
+| [Motion](./motion.md)               | `motion()`       | frame-filtered scatter                                                             |
+| [Hierarchy](./hierarchy.md)         | `treemap()`      | tree, organization, treemap, icicle, sunburst                                      |
+| [Flow](./flow.md)                   | `sankey()`       | weighted flow                                                                      |
+| [Scatter](./scatter.md)             | `scatter()`      | standard, emphasis, depth projection                                               |
+| [Table](./table.md)                 | `table()`        | data table                                                                         |
+| [Waterfall](./waterfall.md)         | `waterfall()`    | cumulative bridge                                                                  |
+| [Word tree](./word-tree.md)         | `wordTree()`     | weighted word hierarchy                                                            |
 
 ### Complete opt-in entrypoint
 
 Import these families from `graflume/complete`, or use the dedicated complete browser bundle.
 
-| Family                                | Quick API    | Integrated presets                    |
-| ------------------------------------- | ------------ | ------------------------------------- |
-| [Radar](./radar.md)                   | `radar()`    | radial multivariate comparison        |
-| [Network](./network.md)               | `network()`  | node-link, arc, connection lines      |
-| [Chord](./chord.md)                   | `chord()`    | chord and dependency wheel            |
-| [Funnel](./funnel.md)                 | `funnel()`   | funnel, pyramid, portable depth faces |
-| [Parallel coordinates](./parallel.md) | `parallel()` | multivariate paths                    |
-| [Boxplot](./boxplot.md)               | `boxplot()`  | five-number summary                   |
-| [Heatmap](./heatmap.md)               | `heatmap()`  | matrix and equal-area tile layouts    |
+| Family                                | Quick API         | Integrated presets                                        |
+| ------------------------------------- | ----------------- | --------------------------------------------------------- |
+| [Polar](./polar.md)                   | `polar()`         | radial line, point, bar, area, and radar                  |
+| [Network](./network.md)               | `network()`       | node-link, arc, connection lines                          |
+| [Chord](./chord.md)                   | `chord()`         | chord and dependency wheel                                |
+| [Funnel](./funnel.md)                 | `funnel()`        | funnel, area-scaled stages, pyramid, portable depth faces |
+| [Parallel coordinates](./parallel.md) | `parallel()`      | numeric paths and categorical ribbons                     |
+| [Heatmap](./heatmap.md)               | `heatmap()`       | matrix and equal-area tile layouts                        |
+| [Raster image](./image.md)            | `image()`         | interactive color and RGBA cells                          |
+| [Ternary](./ternary.md)               | `ternary()`       | three-component compositions                              |
+| [Smith](./smith.md)                   | `smith()`         | complex impedance traces                                  |
+| [Scatter matrix](./scatter-matrix.md) | `scatterMatrix()` | pairwise plots and diagonal histograms                    |
+| [Carpet](./carpet.md)                 | `carpet()`        | warped grids, points, and contours                        |
 
 ## Unified specialized series
 
@@ -97,7 +101,7 @@ The following catalog is generated from runtime metadata and contains only the e
 
 <!-- SERIES_CATALOG_END -->
 
-The default, advanced, and specialized galleries render 37 distinct families. The specialized gallery shows eight cards and lists the compatible modes folded into each card. The smaller [introductory gallery](../../examples/cdn/chart-types.html) remains useful for a quick start.
+The default, advanced, and specialized galleries render 41 distinct families. The specialized gallery shows eight cards and lists the compatible modes folded into each card. The smaller [introductory gallery](../../examples/cdn/chart-types.html) remains useful for a quick start.
 
 Every family guide includes a current visual snapshot for every integrated preset, generated from the actual Graflume `compile()` Scene, followed by its runnable Quick API example. Run `npm run docs:snapshots` after a rendering or guide-example data change to rebuild and verify the assets deterministically.
 
@@ -117,13 +121,13 @@ Area marks use separate fill and top-line Scene paths, pie and donut labels incl
 
 The individual pages above show full-width implemented output. The following contact grid links representative families directly to their manuals.
 
-| Cartesian                                                                           | Radial / distribution                                                         | Structure / flow                                                           |
-| ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| [![Current line output](../assets/charts/line.svg)](./line.md)                      | [![Current pie output](../assets/charts/pie.svg)](./pie.md)                   | [![Current Sankey output](../assets/charts/sankey.svg)](./flow.md)         |
-| [![Current candlestick output](../assets/charts/candlestick.svg)](./candlestick.md) | [![Current gauge output](../assets/charts/gauge.svg)](./gauge.md)             | [![Current organization output](../assets/charts/org.svg)](./hierarchy.md) |
-| [![Current waterfall output](../assets/charts/waterfall.svg)](./waterfall.md)       | [![Current histogram output](../assets/charts/histogram.svg)](./histogram.md) | [![Current map output](../assets/charts/map.svg)](./map.md)                |
-| [![Current heatmap output](../assets/charts/heatmap.svg)](./heatmap.md)             | [![Current radar output](../assets/charts/radar.svg)](./radar.md)             | [![Current graph output](../assets/charts/graph.svg)](./network.md)        |
-| [![Current boxplot output](../assets/charts/boxplot.svg)](./boxplot.md)             | [![Current sunburst output](../assets/charts/sunburst.svg)](./hierarchy.md)   | [![Current tree output](../assets/charts/tree.svg)](./hierarchy.md)        |
+| Cartesian                                                                           | Radial / distribution                                                                  | Structure / flow                                                           |
+| ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| [![Current line output](../assets/charts/line.svg)](./line.md)                      | [![Current pie output](../assets/charts/pie.svg)](./pie.md)                            | [![Current Sankey output](../assets/charts/sankey.svg)](./flow.md)         |
+| [![Current candlestick output](../assets/charts/candlestick.svg)](./candlestick.md) | [![Current gauge output](../assets/charts/gauge.svg)](./gauge.md)                      | [![Current organization output](../assets/charts/org.svg)](./hierarchy.md) |
+| [![Current waterfall output](../assets/charts/waterfall.svg)](./waterfall.md)       | [![Current distribution output](../assets/charts/distribution.svg)](./distribution.md) | [![Current map output](../assets/charts/map.svg)](./map.md)                |
+| [![Current heatmap output](../assets/charts/heatmap.svg)](./heatmap.md)             | [![Current polar output](../assets/charts/polar.svg)](./polar.md)                      | [![Current graph output](../assets/charts/graph.svg)](./network.md)        |
+| [![Current carpet output](../assets/charts/carpet.svg)](./carpet.md)                | [![Current ternary output](../assets/charts/ternary.svg)](./ternary.md)                | [![Current tree output](../assets/charts/tree.svg)](./hierarchy.md)        |
 
 ## Common Quick API shape
 
@@ -332,7 +336,7 @@ The tooltip follows the pointer and is clamped to the chart surface. It adds `ro
 
 The built-in Canvas renderer supports an opt-in inspection viewport and compact controls for zoom/reset, fullscreen, PNG export, and discrete playback. Inspection magnifies and translates the complete compiled chart, including its title and axes. It does not change scale domains, re-bin data, fit a geographic region, or provide GIS/slippy-map navigation.
 
-Playback requires an explicit field and follows distinct values in first-occurrence source order. It does not interpolate between frames. The native Motion path retains all source data and domains; generic filtering is deliberately gated by `filter: true` because it can change derived domains, aggregates, layouts, and path-dependent financial meaning. See [Common chart interactions](./interactions.md) for configuration, chart methods/events, the conservative allowlist, and the 37-family matrix.
+Playback requires an explicit field and follows distinct values in first-occurrence source order. It does not interpolate between frames. The native Motion path retains all source data and domains; generic filtering is deliberately gated by `filter: true` because it can change derived domains, aggregates, layouts, and path-dependent financial meaning. See [Common chart interactions](./interactions.md) for configuration, chart methods/events, the conservative allowlist, and the 41-family matrix.
 
 ## Interaction by mark
 
@@ -375,8 +379,8 @@ Automatic data tables and keyboard traversal of individual marks are not impleme
 
 ## Still planned, not presented as complete
 
-- stacked and normalized stacks, violin and density plots, 3D, and editable annotations;
+- stacked and normalized stacks and editable annotations; violin and density modes are implemented in the consolidated Distribution family;
 - full map boundary/projection packages, force-directed large-network layout, multi-stage Sankey layout, implicit Word Tree tokenization, and complete Vega grammar conversion;
 - facets, concat, dashboards, linked views, and automatic cross-chart scale synchronization;
 - native legends, shared multi-series or advanced collision-aware tooltip routing, rendered crosshair guides, label-collision routing, automatic data tables, and keyboard mark traversal;
-- built-in SVG, WebGL2, and WebGPU renderer parity.
+- built-in SVG and WebGPU renderer parity. The separate `graflume/spatial` entrypoint already provides WebGL spatial/3D rendering; it does not yet mix GPU layers into a normal Canvas `ChartSpec` scene.

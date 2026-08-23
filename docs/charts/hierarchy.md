@@ -10,6 +10,7 @@ This is the single manual for the `hierarchy` family. Its canonical Quick API is
 | ----------------------------------------------------- | ----------------------- | ---------------------- | ------------- | ------------------------------------------------------------ |
 | [Organization chart](#variant-org)                    | `org()`                 | `organization`         | `org`         | Uses a compact organization-card layout.                     |
 | [Tree map](#variant-treemap)                          | `treemap()`             | `treemap`              | `treemap`     | Allocates nested rectangles by hierarchy value.              |
+| [Icicle chart](#variant-icicle)                       | `icicle()`              | `icicle`               | `treemap`     | Allocates hierarchy depth to stacked horizontal bands.       |
 | [Tree chart](#variant-tree)                           | `tree()`                | `tree`                 | `tree`        | Uses a parent-child node-link tree layout.                   |
 | [Sunburst chart](#variant-sunburst)                   | `sunburst()`            | `sunburst`             | `sunburst`    | Uses radial hierarchy partitions.                            |
 | [Organization network](#variant-organization-network) | `organizationNetwork()` | `organization-network` | `org`         | Uses organization semantics with relationship styling.       |
@@ -21,11 +22,12 @@ All presets reuse the same validation, normalization, scale, compiler, renderer-
 
 Every image below is generated from the current compiled Scene rather than drawn by hand. Select a name to jump to its data fields and implementation.
 
-|                                                                                                                                                                                             |                                                                                                                                             |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| **[Organization chart](#variant-org)**<br>[![Current Organization chart output](../assets/charts/org.svg)](../assets/charts/org.svg)                                                        | **[Tree map](#variant-treemap)**<br>[![Current Tree map output](../assets/charts/treemap.svg)](../assets/charts/treemap.svg)                |
-| **[Tree chart](#variant-tree)**<br>[![Current Tree chart output](../assets/charts/tree.svg)](../assets/charts/tree.svg)                                                                     | **[Sunburst chart](#variant-sunburst)**<br>[![Current Sunburst chart output](../assets/charts/sunburst.svg)](../assets/charts/sunburst.svg) |
-| **[Organization network](#variant-organization-network)**<br>[![Current Organization network output](../assets/charts/organization-network.svg)](../assets/charts/organization-network.svg) | **[Tree graph](#variant-tree-graph)**<br>[![Current Tree graph output](../assets/charts/tree-graph.svg)](../assets/charts/tree-graph.svg)   |
+|                                                                                                                                             |                                                                                                                                                                                             |
+| ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **[Organization chart](#variant-org)**<br>[![Current Organization chart output](../assets/charts/org.svg)](../assets/charts/org.svg)        | **[Tree map](#variant-treemap)**<br>[![Current Tree map output](../assets/charts/treemap.svg)](../assets/charts/treemap.svg)                                                                |
+| **[Icicle chart](#variant-icicle)**<br>[![Current Icicle chart output](../assets/charts/icicle.svg)](../assets/charts/icicle.svg)           | **[Tree chart](#variant-tree)**<br>[![Current Tree chart output](../assets/charts/tree.svg)](../assets/charts/tree.svg)                                                                     |
+| **[Sunburst chart](#variant-sunburst)**<br>[![Current Sunburst chart output](../assets/charts/sunburst.svg)](../assets/charts/sunburst.svg) | **[Organization network](#variant-organization-network)**<br>[![Current Organization network output](../assets/charts/organization-network.svg)](../assets/charts/organization-network.svg) |
+| **[Tree graph](#variant-tree-graph)**<br>[![Current Tree graph output](../assets/charts/tree-graph.svg)](../assets/charts/tree-graph.svg)   |                                                                                                                                                                                             |
 
 ## Type-by-type implementation
 
@@ -181,11 +183,103 @@ treemap('#chart', data, {
     fields: {
       parent: 'parent',
     },
+    options: {},
   },
   locale: 'en-US',
   interaction: {
     tooltip: {
       title: 'Tree map',
+      fields: [
+        {
+          field: 'id',
+          label: 'id',
+          format: 'auto',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'parent',
+          label: 'Parent',
+          format: 'auto',
+        },
+      ],
+      trigger: 'mark',
+    },
+  },
+});
+```
+
+<a id="variant-icicle"></a>
+
+### Icicle chart
+
+Use this preset when parent-child structure and relative size must be inspected together. Allocates hierarchy depth to stacked horizontal bands.
+
+- **Quick API:** `icicle()`
+- **Mode:** `icicle`
+- **Portable mark:** `treemap`
+- **Required example fields:** `id`, `value`, `parent`
+
+```js
+import { icicle } from 'graflume';
+
+const data = [
+  {
+    id: 'All',
+    value: 12,
+    parent: '',
+  },
+  {
+    id: 'Data',
+    value: 8,
+    parent: 'All',
+  },
+  {
+    id: 'Design',
+    value: 7,
+    parent: 'All',
+  },
+  {
+    id: 'Runtime',
+    value: 5,
+    parent: 'Data',
+  },
+];
+
+icicle('#chart', data, {
+  x: {
+    field: 'id',
+    type: 'ordinal',
+    title: 'id',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Icicle chart',
+    subtitle: 'hierarchy family · icicle mode',
+  },
+  accessibility: {
+    label: 'Icicle chart example',
+    description: 'A compiled icicle chart example using the hierarchy family.',
+  },
+  mark: {
+    fields: {
+      parent: 'parent',
+    },
+    options: {
+      mode: 'icicle',
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Icicle chart',
       fields: [
         {
           field: 'id',
@@ -357,6 +451,7 @@ sunburst('#chart', data, {
     fields: {
       parent: 'parent',
     },
+    options: {},
   },
   locale: 'en-US',
   interaction: {

@@ -269,10 +269,19 @@ for (const [familyId, representativeId] of [
 ]) {
   specs.set(familyId, specs.get(representativeId));
 }
+specs.set(
+  'distribution',
+  base(
+    { type: 'distribution', options: { mode: 'histogram', bins: 5 } },
+    xy,
+    { field: 'x', type: 'quantitative' },
+    { field: 'x', type: 'quantitative' },
+  ),
+);
 
 test('catalog separates distinct families from compatible variant names', () => {
   assert.equal(chartTypeCatalog.length, 22);
-  assert.equal(chartVariantCatalog.length, 31);
+  assert.equal(chartVariantCatalog.length, 39);
   const familyIds = new Set(chartTypeCatalog.map((entry) => entry.id));
   for (const entry of chartVariantCatalog) {
     if (entry.familyId !== 'custom') assert.ok(familyIds.has(entry.familyId), entry.id);

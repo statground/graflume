@@ -1,4 +1,5 @@
 import type { MarkCompileContext, MarkCompiler } from '../compiler/types.js';
+import { exactStrideSampleIndices } from '../data/sample.js';
 import type { DataRow, DataValue, JsonValue } from '../spec/types.js';
 import { nodeBase } from '../scene/factory.js';
 import type { Point, SceneNode, TextNode } from '../scene/types.js';
@@ -133,17 +134,41 @@ function datumBase(
 }
 
 export const compileRadarMark: MarkCompiler = (context) => {
-  const { layer, table, plot, theme } = context;
-  const categories = table.unique(layer.x.field);
-  if (categories.length < 3) return [];
-
+  const { layer, table, plot, theme, performance } = context;
   const seriesField = layer.mark.fields.series;
-  const seriesNames = seriesField === undefined ? ['Series'] : table.unique(seriesField);
   const maxOption = finiteOption(layer.mark.options.max, Number.NaN);
   let maximum = Number.isFinite(maxOption) && maxOption > 0 ? maxOption : 0;
+  const categoryNames: string[] = [];
+  const categorySet = new Set<string>();
+  const seriesNames: string[] = [];
+  const seriesRows = new Map<
+    string,
+    Map<string, { readonly value: number; readonly rowIndex: number }>
+  >();
+
+  // Build the category/series matrix in one pass. The previous implementation
+  // rescanned the full table once per series, which became quadratic when both
+  // fields were high-cardinality.
   for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
-    maximum = Math.max(maximum, numericDataValue(table.value(rowIndex, layer.y.field)) ?? 0);
+    const category = stringValue(table.value(rowIndex, layer.x.field));
+    const value = numericDataValue(table.value(rowIndex, layer.y.field));
+    const seriesName =
+      seriesField === undefined ? 'Series' : stringValue(table.value(rowIndex, seriesField));
+    if (category === null || value === null || seriesName === null) continue;
+    maximum = Math.max(maximum, value);
+    if (!categorySet.has(category)) {
+      categorySet.add(category);
+      categoryNames.push(category);
+    }
+    let rows = seriesRows.get(seriesName);
+    if (rows === undefined) {
+      rows = new Map();
+      seriesRows.set(seriesName, rows);
+      seriesNames.push(seriesName);
+    }
+    rows.set(category, { value, rowIndex });
   }
+  if (categoryNames.length < 3 || seriesNames.length === 0) return [];
   if (maximum <= 0) maximum = 1;
 
   const cx = plot.x + plot.width / 2;
@@ -151,6 +176,15 @@ export const compileRadarMark: MarkCompiler = (context) => {
   const radius = Math.max(16, Math.min(plot.width, plot.height) * 0.34);
   const nodes: SceneNode[] = [];
   const rings = clamp(Math.floor(finiteOption(layer.mark.options.rings, 5)), 1, 8);
+  const linePointBudget = Math.max(1, Math.floor(performance.maxLinePoints));
+  const balancedSeriesLimit = Math.max(1, Math.floor(Math.sqrt(linePointBudget)));
+  const plannedSeriesCount = Math.min(seriesNames.length, balancedSeriesLimit);
+  const categoryLimit = Math.floor(linePointBudget / (rings + plannedSeriesCount));
+  if (categoryLimit < 3) return [];
+  const categories = categoryNames.slice(0, Math.min(categoryNames.length, categoryLimit));
+  const seriesLimit = Math.max(0, Math.floor(linePointBudget / categories.length) - rings);
+  const retainedSeries = seriesNames.slice(0, seriesLimit);
+  if (retainedSeries.length === 0) return [];
 
   for (let ring = 1; ring <= rings; ring += 1) {
     nodes.push({
@@ -195,25 +229,13 @@ export const compileRadarMark: MarkCompiler = (context) => {
     );
   });
 
-  seriesNames.forEach((seriesName, seriesIndex) => {
-    const rows = new Map<string, number>();
-    const rowIndexes = new Map<string, number>();
-    for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
-      if (
-        seriesField !== undefined &&
-        stringValue(table.value(rowIndex, seriesField)) !== seriesName
-      ) {
-        continue;
-      }
-      const category = stringValue(table.value(rowIndex, layer.x.field));
-      const value = numericDataValue(table.value(rowIndex, layer.y.field));
-      if (category === null || value === null) continue;
-      rows.set(category, value);
-      rowIndexes.set(category, rowIndex);
-    }
+  let renderedPointMarks = 0;
+  retainedSeries.forEach((seriesName, seriesIndex) => {
+    const rows = seriesRows.get(seriesName);
+    if (rows === undefined) return;
     const color = themeColor(context, seriesIndex);
     const points = categories.map((category, index) => {
-      const ratio = clamp((rows.get(category) ?? 0) / maximum, 0, 1);
+      const ratio = clamp((rows.get(category)?.value ?? 0) / maximum, 0, 1);
       return pointOnCircle(
         cx,
         cy,
@@ -235,11 +257,12 @@ export const compileRadarMark: MarkCompiler = (context) => {
       lineJoin: 'round',
     });
     points.forEach((point, index) => {
-      const rowIndex = rowIndexes.get(categories[index] ?? '');
-      if (rowIndex === undefined) return;
+      if (renderedPointMarks >= performance.maxPointMarks) return;
+      const row = rows.get(categories[index] ?? '');
+      if (row === undefined) return;
       nodes.push({
         type: 'circle',
-        ...datumBase(context, `${layer.id}:radar-point:${seriesIndex}:${index}`, rowIndex, 2),
+        ...datumBase(context, `${layer.id}:radar-point:${seriesIndex}:${index}`, row.rowIndex, 2),
         cx: point.x,
         cy: point.y,
         radius: layer.mark.radius ?? 3.6,
@@ -247,6 +270,7 @@ export const compileRadarMark: MarkCompiler = (context) => {
         stroke: layer.mark.stroke ?? color,
         lineWidth: 2,
       });
+      renderedPointMarks += 1;
     });
   });
 
@@ -626,22 +650,80 @@ export const compileChordMark: MarkCompiler = (context) => {
 };
 
 export const compileFunnelMark: MarkCompiler = (context) => {
-  const { layer, table, plot, theme } = context;
+  const { layer, table, plot, theme, performance } = context;
   const items: { label: string; value: number; rowIndex: number }[] = [];
+  let maxValue = 1;
   for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
     const label = stringValue(table.value(rowIndex, layer.x.field));
     const value = numericDataValue(table.value(rowIndex, layer.y.field));
     if (label === null || value === null || value < 0) continue;
     items.push({ label, value, rowIndex });
+    maxValue = Math.max(maxValue, value);
   }
   if (layer.mark.options.sort !== false) items.sort((left, right) => right.value - left.value);
   if (items.length === 0) return [];
-  const maxValue = Math.max(1, ...items.map((item) => item.value));
-  const stageHeight = plot.height / items.length;
+  const itemBudget = Math.max(1, Math.floor(performance.maxBarMarks / 2));
+  const retainedItems = exactStrideSampleIndices(items.length, itemBudget).map(
+    (index) => items[index],
+  );
+  const stageHeight = plot.height / retainedItems.length;
   const nodes: SceneNode[] = [];
 
-  items.forEach((item, index) => {
-    const next = items[index + 1];
+  if (layer.mark.options.mode === 'area') {
+    retainedItems.forEach((item, index) => {
+      if (item === undefined) return;
+      // Scaling both dimensions by sqrt(value) keeps the visible stage area
+      // proportional while retaining a stable slot for labels and hit testing.
+      const scale = Math.sqrt(clamp(item.value / maxValue, 0.015, 1));
+      const width = plot.width * scale;
+      const height = Math.max(8, (stageHeight - 4) * scale);
+      const cx = plot.x + plot.width / 2;
+      const cy = plot.y + stageHeight * (index + 0.5);
+      const topWidth = width;
+      const bottomWidth = width * 0.82;
+      const fill = layer.mark.fill ?? themeColor(context, index);
+      nodes.push({
+        type: 'path',
+        ...datumBase(context, `${layer.id}:funnel-area:${index}`, item.rowIndex, 0, {
+          stage: item.label,
+          value: item.value,
+          share: item.value / maxValue,
+        }),
+        points: [
+          { x: cx - topWidth / 2, y: cy - height / 2 },
+          { x: cx + topWidth / 2, y: cy - height / 2 },
+          { x: cx + bottomWidth / 2, y: cy + height / 2 },
+          { x: cx - bottomWidth / 2, y: cy + height / 2 },
+        ],
+        closed: true,
+        fill,
+        stroke: layer.mark.stroke ?? theme.colors.background,
+        lineWidth: layer.mark.lineWidth ?? 2,
+        lineJoin: 'round',
+      });
+      if (width > 68 && height > 18) {
+        nodes.push(
+          textNode(
+            `${layer.id}:funnel-area-label:${index}`,
+            cx,
+            cy,
+            `${item.label}  ${item.value}`,
+            context,
+            {
+              fill: readableTextColor(fill, '#ffffff', '#0f172a'),
+              size: Math.max(9, Math.min(theme.typography.fontSize, height * 0.42)),
+              weight: 700,
+            },
+          ),
+        );
+      }
+    });
+    return nodes;
+  }
+
+  retainedItems.forEach((item, index) => {
+    if (item === undefined) return;
+    const next = retainedItems[index + 1];
     const topWidth = plot.width * clamp(item.value / maxValue, 0.08, 1);
     const bottomWidth = plot.width * clamp((next?.value ?? item.value * 0.78) / maxValue, 0.06, 1);
     const y1 = plot.y + index * stageHeight + 2;
@@ -689,7 +771,10 @@ interface ParallelDimension {
   readonly numeric: boolean;
 }
 
-function parallelDimensions(context: MarkCompileContext): ParallelDimension[] {
+function parallelDimensions(
+  context: MarkCompileContext,
+  maximumDimensions = Number.POSITIVE_INFINITY,
+): ParallelDimension[] {
   const { layer, table } = context;
   const configured = optionStrings(layer.mark.options.dimensions);
   const candidates =
@@ -699,7 +784,7 @@ function parallelDimensions(context: MarkCompileContext): ParallelDimension[] {
   const fields = candidates.filter(
     (field, index, all) => table.has(field) && all.indexOf(field) === index,
   );
-  return fields.map((field) => {
+  return fields.slice(0, maximumDimensions).map((field) => {
     const extent = table.extent(field);
     const values = table.unique(field);
     return extent === null
@@ -708,10 +793,195 @@ function parallelDimensions(context: MarkCompileContext): ParallelDimension[] {
   });
 }
 
+function compileParallelCategories(
+  context: MarkCompileContext,
+  dimensions: readonly ParallelDimension[],
+): readonly SceneNode[] {
+  const { layer, table, plot, theme, performance } = context;
+  const nodeBudget = Math.max(1, Math.floor(performance.maxBarMarks));
+  const linePointBudget = Math.max(1, Math.floor(performance.maxLinePoints));
+  // One retained combination can emit one ribbon, up to one block and one
+  // label per dimension, plus one title per dimension. Reserve that worst-case
+  // footprint up front so wide categorical tables cannot bypass the profile.
+  const dimensionLimit = Math.min(
+    dimensions.length,
+    Math.floor((nodeBudget - 1) / 3),
+    Math.floor(linePointBudget / 2),
+  );
+  if (dimensionLimit < 2) return [];
+  const retainedDimensions = dimensions.slice(0, dimensionLimit);
+  const xFor = (index: number) =>
+    plot.x + (index / Math.max(1, retainedDimensions.length - 1)) * plot.width;
+  const combinations = new Map<
+    string,
+    { readonly values: readonly string[]; count: number; readonly rowIndex: number }
+  >();
+  const combinationBudget = Math.min(
+    Math.floor((nodeBudget - retainedDimensions.length) / (retainedDimensions.length * 2 + 1)),
+    Math.floor(linePointBudget / (retainedDimensions.length * 2)),
+  );
+  if (combinationBudget < 1) return [];
+  for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+    const values = retainedDimensions.map((dimension) =>
+      stringValue(table.value(rowIndex, dimension.field)),
+    );
+    if (values.some((value) => value === null)) continue;
+    const categories = values as string[];
+    const key = JSON.stringify(categories);
+    const existing = combinations.get(key);
+    if (existing !== undefined) existing.count += 1;
+    else if (combinations.size < combinationBudget) {
+      combinations.set(key, { values: categories, count: 1, rowIndex });
+    }
+  }
+  const retainedCombinations = [...combinations.values()];
+  const retainedTotal = retainedCombinations.reduce(
+    (sum, combination) => sum + combination.count,
+    0,
+  );
+  if (retainedTotal <= 0) return [];
+
+  const categoryCounts = retainedDimensions.map(() => new Map<string, number>());
+  const categoryOrders = retainedDimensions.map(() => [] as string[]);
+  retainedCombinations.forEach((combination) => {
+    combination.values.forEach((value, dimensionIndex) => {
+      const counts = categoryCounts[dimensionIndex];
+      const order = categoryOrders[dimensionIndex];
+      if (counts !== undefined) {
+        if (!counts.has(value)) order?.push(value);
+        counts.set(value, (counts.get(value) ?? 0) + combination.count);
+      }
+    });
+  });
+  const countScale = plot.height / retainedTotal;
+  const categoryLayouts = retainedDimensions.map((_dimension, dimensionIndex) => {
+    const counts = categoryCounts[dimensionIndex] ?? new Map<string, number>();
+    let offset = 0;
+    const layouts = new Map<
+      string,
+      { readonly start: number; readonly center: number; readonly height: number }
+    >();
+    categoryOrders[dimensionIndex]?.forEach((value) => {
+      const count = counts.get(value) ?? 0;
+      if (count <= 0) return;
+      const height = count * countScale;
+      const start = plot.y + offset * countScale;
+      layouts.set(value, { start, center: start + height / 2, height });
+      offset += count;
+    });
+    return layouts;
+  });
+
+  const nodes: SceneNode[] = [];
+  const categoryOffsets = retainedDimensions.map(() => new Map<string, number>());
+  retainedCombinations.forEach((combination, combinationIndex) => {
+    const bands = combination.values.map((value, dimensionIndex) => {
+      const layout = categoryLayouts[dimensionIndex]?.get(value);
+      const offsets = categoryOffsets[dimensionIndex];
+      const offset = offsets?.get(value) ?? 0;
+      if (offsets !== undefined) offsets.set(value, offset + combination.count);
+      const top = (layout?.start ?? plot.y) + offset * countScale;
+      return {
+        x: xFor(dimensionIndex),
+        top,
+        bottom: top + combination.count * countScale,
+      };
+    });
+    const polygon = [
+      ...bands.map(({ x, top }) => ({ x, y: top })),
+      ...[...bands].reverse().map(({ x, bottom }) => ({ x, y: bottom })),
+    ];
+    const fill = layer.mark.fill ?? colorWithOpacity(themeColor(context, combinationIndex), 0.34);
+    nodes.push({
+      type: 'path',
+      ...datumBase(
+        context,
+        `${layer.id}:parallel-ribbon:${combinationIndex}`,
+        combination.rowIndex,
+        0,
+        {
+          path: combination.values.join(' → '),
+          count: combination.count,
+        },
+      ),
+      points: polygon,
+      closed: true,
+      fill,
+      stroke: colorWithOpacity(themeColor(context, combinationIndex), 0.72),
+      lineWidth: layer.mark.lineWidth ?? 1,
+      lineJoin: 'round',
+    });
+  });
+  retainedDimensions.forEach((dimension, dimensionIndex) => {
+    const x = xFor(dimensionIndex);
+    const layouts = categoryLayouts[dimensionIndex];
+    categoryOrders[dimensionIndex]?.forEach((value, categoryIndex) => {
+      const item = layouts?.get(value);
+      if (item === undefined) return;
+      const blockGap = Math.min(2, item.height * 0.08);
+      const rectHeight = Math.max(Number.EPSILON, item.height - blockGap);
+      const rectY = item.start + blockGap / 2;
+      nodes.push({
+        type: 'rect',
+        ...nodeBase(`${layer.id}:parallel-category:${dimensionIndex}:${categoryIndex}`, {
+          zIndex: layer.zIndex + 2,
+        }),
+        x: x - 6,
+        y: rectY,
+        width: 12,
+        height: rectHeight,
+        fill: theme.colors.surface,
+        stroke: theme.colors.axis,
+        lineWidth: 1,
+        cornerRadius: 2,
+      });
+      if (item.height >= 10) {
+        nodes.push(
+          textNode(
+            `${layer.id}:parallel-category-label:${dimensionIndex}:${categoryIndex}`,
+            x + (dimensionIndex === retainedDimensions.length - 1 ? -10 : 10),
+            item.center,
+            value,
+            context,
+            {
+              align: dimensionIndex === retainedDimensions.length - 1 ? 'right' : 'left',
+              fill: theme.colors.mutedText,
+              size: Math.max(8, theme.typography.fontSize - 2),
+            },
+          ),
+        );
+      }
+    });
+    nodes.push(
+      textNode(
+        `${layer.id}:parallel-category-title:${dimensionIndex}`,
+        x,
+        plot.y - 10,
+        dimension.field,
+        context,
+        { fill: theme.colors.text, size: Math.max(9, theme.typography.fontSize - 1), weight: 700 },
+      ),
+    );
+  });
+  return nodes;
+}
+
 export const compileParallelMark: MarkCompiler = (context) => {
-  const { layer, table, plot, theme } = context;
-  const dimensions = parallelDimensions(context);
+  const { layer, table, plot, theme, performance } = context;
+  const mode =
+    typeof layer.mark.options.mode === 'string' ? layer.mark.options.mode : 'coordinates';
+  const categorical = mode === 'categories' || mode === 'categorical' || mode === 'ribbons';
+  const dimensionScanLimit = categorical
+    ? Math.min(
+        Math.floor((performance.maxBarMarks - 1) / 3),
+        Math.floor(performance.maxLinePoints / 2),
+      )
+    : Number.POSITIVE_INFINITY;
+  const dimensions = parallelDimensions(context, dimensionScanLimit);
   if (dimensions.length < 2) return [];
+  if (categorical) {
+    return compileParallelCategories(context, dimensions);
+  }
   const nodes: SceneNode[] = [];
   const xFor = (index: number) =>
     plot.x +

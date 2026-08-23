@@ -6,10 +6,13 @@
 
 This is the single manual for the `gauge` family. Its canonical Quick API is `gauge()` from `graflume`, and its representative portable mark is `gauge`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
 
-| Compatible name                     | Quick API      | Mode          | Portable mark | Functional difference                         |
-| ----------------------------------- | -------------- | ------------- | ------------- | --------------------------------------------- |
-| [Gauge chart](#variant-gauge)       | `gauge()`      | `default`     | `gauge`       | Uses a dial, reference ticks, and needle.     |
-| [Solid gauge](#variant-solid-gauge) | `solidGauge()` | `solid-gauge` | `solid-gauge` | Uses concentric filled arcs without a needle. |
+| Compatible name                           | Quick API       | Mode          | Portable mark | Functional difference                                       |
+| ----------------------------------------- | --------------- | ------------- | ------------- | ----------------------------------------------------------- |
+| [Gauge chart](#variant-gauge)             | `gauge()`       | `default`     | `gauge`       | Uses a dial, reference ticks, and needle.                   |
+| [Number indicator](#variant-gauge-number) | `gaugeNumber()` | `number`      | `gauge`       | Presents the current value as a compact numeric indicator.  |
+| [Delta indicator](#variant-gauge-delta)   | `gaugeDelta()`  | `delta`       | `gauge`       | Adds a signed comparison with the supplied reference field. |
+| [Bullet gauge](#variant-gauge-bullet)     | `gaugeBullet()` | `bullet`      | `gauge`       | Uses a horizontal value track with an explicit target rule. |
+| [Solid gauge](#variant-solid-gauge)       | `solidGauge()`  | `solid-gauge` | `solid-gauge` | Uses concentric filled arcs without a needle.               |
 
 All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining manually maintained sections describe the canonical/default presentation unless a preset row above states a different behavior.
 
@@ -17,9 +20,11 @@ All presets reuse the same validation, normalization, scale, compiler, renderer-
 
 Every image below is generated from the current compiled Scene rather than drawn by hand. Select a name to jump to its data fields and implementation.
 
-|                                                                                                                              |                                                                                                                                                |
-| ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| **[Gauge chart](#variant-gauge)**<br>[![Current Gauge chart output](../assets/charts/gauge.svg)](../assets/charts/gauge.svg) | **[Solid gauge](#variant-solid-gauge)**<br>[![Current Solid gauge output](../assets/charts/solid-gauge.svg)](../assets/charts/solid-gauge.svg) |
+|                                                                                                                                                        |                                                                                                                                                             |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **[Gauge chart](#variant-gauge)**<br>[![Current Gauge chart output](../assets/charts/gauge.svg)](../assets/charts/gauge.svg)                           | **[Number indicator](#variant-gauge-number)**<br>[![Current Number indicator output](../assets/charts/gauge-number.svg)](../assets/charts/gauge-number.svg) |
+| **[Delta indicator](#variant-gauge-delta)**<br>[![Current Delta indicator output](../assets/charts/gauge-delta.svg)](../assets/charts/gauge-delta.svg) | **[Bullet gauge](#variant-gauge-bullet)**<br>[![Current Bullet gauge output](../assets/charts/gauge-bullet.svg)](../assets/charts/gauge-bullet.svg)         |
+| **[Solid gauge](#variant-solid-gauge)**<br>[![Current Solid gauge output](../assets/charts/solid-gauge.svg)](../assets/charts/solid-gauge.svg)         |                                                                                                                                                             |
 
 ## Type-by-type implementation
 
@@ -36,27 +41,29 @@ Use this preset when a small set of current values must be judged against a know
 - **Quick API:** `gauge()`
 - **Mode:** `default`
 - **Portable mark:** `gauge`
-- **Required example fields:** `category`, `value`
+- **Required example fields:** `category`, `value`, `previous`, `target`
 
 ```js
 import { gauge } from 'graflume';
 
 const data = [
   {
-    category: 'Search',
-    value: 46,
+    category: 'P1',
+    value: 24,
+    previous: 20,
+    target: 29,
   },
   {
-    category: 'Direct',
-    value: 28,
+    category: 'P2',
+    value: 29.916,
+    previous: 20.8,
+    target: 30,
   },
   {
-    category: 'Social',
-    value: 17,
-  },
-  {
-    category: 'Other',
-    value: 9,
+    category: 'P3',
+    value: 33.54,
+    previous: 21.6,
+    target: 31,
   },
 ];
 
@@ -80,9 +87,14 @@ gauge('#chart', data, {
     description: 'A compiled gauge chart example using the gauge family.',
   },
   mark: {
+    fields: {
+      reference: 'previous',
+      target: 'target',
+    },
     options: {
       min: 0,
       max: 100,
+      mode: 'angular',
     },
   },
   locale: 'en-US',
@@ -98,6 +110,307 @@ gauge('#chart', data, {
         {
           field: 'value',
           label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'previous',
+          label: 'Previous',
+          format: 'number',
+        },
+        {
+          field: 'target',
+          label: 'Target',
+          format: 'number',
+        },
+      ],
+      trigger: 'mark',
+    },
+  },
+});
+```
+
+<a id="variant-gauge-number"></a>
+
+### Number indicator
+
+Use this preset when a small set of current values must be judged against a known range. Presents the current value as a compact numeric indicator.
+
+- **Quick API:** `gaugeNumber()`
+- **Mode:** `number`
+- **Portable mark:** `gauge`
+- **Required example fields:** `category`, `value`, `previous`, `target`
+
+```js
+import { gaugeNumber } from 'graflume';
+
+const data = [
+  {
+    category: 'P1',
+    value: 24,
+    previous: 20,
+    target: 29,
+  },
+  {
+    category: 'P2',
+    value: 29.916,
+    previous: 20.8,
+    target: 30,
+  },
+  {
+    category: 'P3',
+    value: 33.54,
+    previous: 21.6,
+    target: 31,
+  },
+];
+
+gaugeNumber('#chart', data, {
+  x: {
+    field: 'category',
+    type: 'ordinal',
+    title: 'category',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Number indicator',
+    subtitle: 'gauge family · number mode',
+  },
+  accessibility: {
+    label: 'Number indicator example',
+    description: 'A compiled number indicator example using the gauge family.',
+  },
+  mark: {
+    fields: {
+      reference: 'previous',
+      target: 'target',
+    },
+    options: {
+      min: 0,
+      max: 100,
+      mode: 'number',
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Number indicator',
+      fields: [
+        {
+          field: 'category',
+          label: 'category',
+          format: 'auto',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'previous',
+          label: 'Previous',
+          format: 'number',
+        },
+        {
+          field: 'target',
+          label: 'Target',
+          format: 'number',
+        },
+      ],
+      trigger: 'mark',
+    },
+  },
+});
+```
+
+<a id="variant-gauge-delta"></a>
+
+### Delta indicator
+
+Use this preset when a small set of current values must be judged against a known range. Adds a signed comparison with the supplied reference field.
+
+- **Quick API:** `gaugeDelta()`
+- **Mode:** `delta`
+- **Portable mark:** `gauge`
+- **Required example fields:** `category`, `value`, `previous`, `target`
+
+```js
+import { gaugeDelta } from 'graflume';
+
+const data = [
+  {
+    category: 'P1',
+    value: 24,
+    previous: 20,
+    target: 29,
+  },
+  {
+    category: 'P2',
+    value: 29.916,
+    previous: 20.8,
+    target: 30,
+  },
+  {
+    category: 'P3',
+    value: 33.54,
+    previous: 21.6,
+    target: 31,
+  },
+];
+
+gaugeDelta('#chart', data, {
+  x: {
+    field: 'category',
+    type: 'ordinal',
+    title: 'category',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Delta indicator',
+    subtitle: 'gauge family · delta mode',
+  },
+  accessibility: {
+    label: 'Delta indicator example',
+    description: 'A compiled delta indicator example using the gauge family.',
+  },
+  mark: {
+    fields: {
+      reference: 'previous',
+      target: 'target',
+    },
+    options: {
+      min: 0,
+      max: 100,
+      mode: 'delta',
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Delta indicator',
+      fields: [
+        {
+          field: 'category',
+          label: 'category',
+          format: 'auto',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'previous',
+          label: 'Previous',
+          format: 'number',
+        },
+        {
+          field: 'target',
+          label: 'Target',
+          format: 'number',
+        },
+      ],
+      trigger: 'mark',
+    },
+  },
+});
+```
+
+<a id="variant-gauge-bullet"></a>
+
+### Bullet gauge
+
+Use this preset when a small set of current values must be judged against a known range. Uses a horizontal value track with an explicit target rule.
+
+- **Quick API:** `gaugeBullet()`
+- **Mode:** `bullet`
+- **Portable mark:** `gauge`
+- **Required example fields:** `category`, `value`, `previous`, `target`
+
+```js
+import { gaugeBullet } from 'graflume';
+
+const data = [
+  {
+    category: 'P1',
+    value: 24,
+    previous: 20,
+    target: 29,
+  },
+  {
+    category: 'P2',
+    value: 29.916,
+    previous: 20.8,
+    target: 30,
+  },
+  {
+    category: 'P3',
+    value: 33.54,
+    previous: 21.6,
+    target: 31,
+  },
+];
+
+gaugeBullet('#chart', data, {
+  x: {
+    field: 'category',
+    type: 'ordinal',
+    title: 'category',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Bullet gauge',
+    subtitle: 'gauge family · bullet mode',
+  },
+  accessibility: {
+    label: 'Bullet gauge example',
+    description: 'A compiled bullet gauge example using the gauge family.',
+  },
+  mark: {
+    fields: {
+      reference: 'previous',
+      target: 'target',
+    },
+    options: {
+      min: 0,
+      max: 100,
+      mode: 'bullet',
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Bullet gauge',
+      fields: [
+        {
+          field: 'category',
+          label: 'category',
+          format: 'auto',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'previous',
+          label: 'Previous',
+          format: 'number',
+        },
+        {
+          field: 'target',
+          label: 'Target',
           format: 'number',
         },
       ],

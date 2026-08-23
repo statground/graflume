@@ -751,6 +751,7 @@
             'region',
             'indicator',
             'name',
+            'series',
           ].includes(field)
         )
           return 'ordinal';
@@ -842,7 +843,10 @@
         } else if (mark === 'diff') {
           spec = base({ type: mark, fields: { old: 'previous', new: 'value' } });
         } else if (mark === 'funnel') {
-          spec = base(mark, composition);
+          spec = base(
+            { type: mark, options: { mode: entry.mode === 'area' ? 'area' : 'default' } },
+            composition,
+          );
         } else if (mark === 'gantt') {
           spec = base(
             { type: mark, fields: { id: 'id', end: 'end', progress: 'progress' } },
@@ -851,7 +855,18 @@
             'task',
           );
         } else if (mark === 'gauge') {
-          spec = base({ type: mark, options: { min: 0, max: 100 } }, composition);
+          spec = base(
+            {
+              type: mark,
+              fields: { reference: 'previous', target: 'target' },
+              options: {
+                min: 0,
+                max: 100,
+                mode: entry.mode === 'default' ? 'angular' : entry.mode,
+              },
+            },
+            trend.slice(0, 3),
+          );
         } else if (mark === 'geo') {
           spec = base(
             { type: mark, options: { mode: 'choropleth' } },
@@ -883,15 +898,32 @@
             'y',
           );
         } else if (mark === 'parallel') {
+          const categorical = entry.mode === 'categories';
           spec = base(
-            { type: mark, options: { dimensions: ['speed', 'quality', 'cost'] } },
-            [
-              { name: 'Alpha', speed: 82, quality: 74, cost: 61 },
-              { name: 'Beta', speed: 66, quality: 88, cost: 73 },
-              { name: 'Gamma', speed: 91, quality: 69, cost: 54 },
-            ],
-            'name',
-            'speed',
+            {
+              type: mark,
+              options: {
+                mode: categorical ? 'categories' : 'coordinates',
+                dimensions: categorical
+                  ? ['region', 'channel', 'outcome']
+                  : ['speed', 'quality', 'cost'],
+              },
+            },
+            categorical
+              ? [
+                  { region: 'East', channel: 'Web', outcome: 'Won', value: 1 },
+                  { region: 'East', channel: 'Web', outcome: 'Won', value: 1 },
+                  { region: 'East', channel: 'Store', outcome: 'Lost', value: 1 },
+                  { region: 'West', channel: 'Web', outcome: 'Won', value: 1 },
+                  { region: 'West', channel: 'Store', outcome: 'Lost', value: 1 },
+                ]
+              : [
+                  { name: 'Alpha', speed: 82, quality: 74, cost: 61 },
+                  { name: 'Beta', speed: 66, quality: 88, cost: 73 },
+                  { name: 'Gamma', speed: 91, quality: 69, cost: 54 },
+                ],
+            categorical ? 'region' : 'name',
+            categorical ? 'value' : 'speed',
           );
         } else if (mark === 'pie') {
           spec = base(
@@ -902,10 +934,37 @@
           spec = base(mark, points, 'x', 'y');
         } else if (mark === 'radar') {
           spec = base({ type: mark, fields: { series: 'series' } }, radar, 'indicator', 'value');
+        } else if (mark === 'polar') {
+          spec = base(
+            {
+              type: mark,
+              fields: { series: 'series' },
+              options: { mode: entry.mode === 'default' ? 'line' : entry.mode, closed: true },
+            },
+            [
+              { angle: 0, series: 'Alpha', value: 56 },
+              { angle: 60, series: 'Alpha', value: 82 },
+              { angle: 120, series: 'Alpha', value: 67 },
+              { angle: 180, series: 'Alpha', value: 91 },
+              { angle: 240, series: 'Alpha', value: 72 },
+              { angle: 300, series: 'Alpha', value: 63 },
+            ],
+            'angle',
+            'value',
+          );
         } else if (mark === 'sankey' || mark === 'lines') {
           spec = base({ type: mark, fields: { target: 'target' } }, relation, 'source', 'value');
         } else if (mark === 'sunburst' || mark === 'treemap') {
-          spec = base({ type: mark, fields: { parent: 'parent' } }, hierarchy, 'id', 'value');
+          spec = base(
+            {
+              type: mark,
+              fields: { parent: 'parent' },
+              options: mark === 'treemap' && entry.mode === 'icicle' ? { mode: 'icicle' } : {},
+            },
+            hierarchy,
+            'id',
+            'value',
+          );
         } else if (mark === 'table') {
           spec = base({ type: mark, options: { columns: ['category', 'value', 'target'] } });
         } else if (mark === 'waterfall') {
@@ -948,7 +1007,100 @@
         } else if (mark === 'smooth') {
           spec = base({ type: mark, point: true, options: { area: id.includes('area') } });
         } else if (mark === 'distribution') {
-          spec = base(mark);
+          const mode = entry.mode === 'default' ? 'histogram' : entry.mode;
+          if (mode === 'histogram-2d' || mode === 'histogram-2d-contour') {
+            spec = base(
+              { type: mark, options: { mode, binsX: 6, binsY: 5, levels: 4 } },
+              grid.flatMap((row, index) =>
+                Array.from({ length: 1 + (index % 5) }, () => ({ x: row.x, y: row.y })),
+              ),
+              'x',
+              'y',
+            );
+          } else {
+            const violinMode = mode === 'violin';
+            spec = base(
+              {
+                type: mark,
+                fields: { group: 'series', value: 'value' },
+                options: { mode: mode === 'bell-curve' ? 'curve' : mode },
+              },
+              trend,
+              violinMode ? 'series' : 'value',
+              'value',
+            );
+          }
+        } else if (mark === 'image') {
+          spec = base(
+            { type: mark, fields: { red: 'red', green: 'green', blue: 'blue' } },
+            Array.from({ length: 30 }, (_, index) => ({
+              x: index % 6,
+              y: Math.floor(index / 6),
+              red: 38 + (index % 6) * 35,
+              green: 72 + Math.floor(index / 6) * 32,
+              blue: 210 - (index % 5) * 24,
+            })),
+            'x',
+            'y',
+          );
+        } else if (mark === 'ternary') {
+          spec = base(
+            { type: mark, fields: { c: 'c', series: 'series' }, options: { mode: 'line' } },
+            [
+              { a: 65, b: 25, c: 10, series: 'Mix' },
+              { a: 42, b: 38, c: 20, series: 'Mix' },
+              { a: 24, b: 31, c: 45, series: 'Mix' },
+              { a: 12, b: 58, c: 30, series: 'Mix' },
+            ],
+            'a',
+            'b',
+          );
+        } else if (mark === 'smith') {
+          spec = base(
+            { type: mark, options: { mode: 'line' } },
+            [
+              { real: 0.15, imaginary: -1.4 },
+              { real: 0.35, imaginary: -0.6 },
+              { real: 0.8, imaginary: 0 },
+              { real: 1.5, imaginary: 0.7 },
+              { real: 2.6, imaginary: 1.4 },
+            ],
+            'real',
+            'imaginary',
+          );
+        } else if (mark === 'scatter-matrix') {
+          spec = base(
+            { type: mark, options: { dimensions: ['speed', 'quality', 'cost'] } },
+            [
+              { speed: 82, quality: 74, cost: 61 },
+              { speed: 66, quality: 88, cost: 73 },
+              { speed: 91, quality: 69, cost: 54 },
+              { speed: 75, quality: 81, cost: 67 },
+            ],
+            'speed',
+            'quality',
+          );
+        } else if (mark === 'carpet') {
+          spec = base(
+            {
+              type: mark,
+              fields: { x: 'px', y: 'py', value: 'value' },
+              options: { mode: entry.mode === 'default' ? 'grid' : entry.mode, levels: 4 },
+            },
+            Array.from({ length: 20 }, (_, index) => {
+              const a = index % 5;
+              const b = Math.floor(index / 5);
+              return {
+                a,
+                b,
+                px: a + b * 0.2,
+                py: b + a * 0.08 + Math.sin(a * 0.8) * 0.12,
+                value: 8 + ((a * 7 + b * 11) % 29),
+              };
+            }),
+            'a',
+            'b',
+          );
         } else if (mark === 'bullet') {
           spec = base({ type: mark, fields: { target: 'target' } });
         } else if (mark === 'contour') {

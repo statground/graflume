@@ -1,6 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises';
 
-const [commit, defaultIntegrity, completeIntegrity] = process.argv.slice(2);
+const [commit, defaultIntegrity, completeIntegrity, spatialIntegrity] = process.argv.slice(2);
 
 if (!/^[0-9a-f]{40}$/.test(commit ?? '')) {
   throw new Error('Expected a full lowercase Git commit SHA.');
@@ -8,6 +8,7 @@ if (!/^[0-9a-f]{40}$/.test(commit ?? '')) {
 for (const [name, integrity] of [
   ['default', defaultIntegrity],
   ['complete', completeIntegrity],
+  ['spatial', spatialIntegrity],
 ]) {
   if (!/^sha384-[A-Za-z0-9+/]+={0,2}$/.test(integrity ?? '')) {
     throw new Error(`Expected a valid ${name} SHA-384 Subresource Integrity value.`);
@@ -30,6 +31,12 @@ const targets = [
     bundle: 'graflume.complete.global.js',
     placeholder: '__GRAFLUME_COMPLETE_CDN_SRI__',
     integrity: completeIntegrity,
+  },
+  {
+    paths: ['examples/cdn/spatial-chart-types.html'],
+    bundle: 'graflume.spatial.global.js',
+    placeholder: '__GRAFLUME_SPATIAL_CDN_SRI__',
+    integrity: spatialIntegrity,
   },
 ];
 

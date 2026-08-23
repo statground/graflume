@@ -61,7 +61,12 @@ function specialized(
 ): Chart {
   return quickChart(create, type, target, data, {
     ...options,
-    mark: { ...markDefaults, ...options.mark },
+    mark: {
+      ...markDefaults,
+      ...options.mark,
+      fields: { ...markDefaults.fields, ...options.mark?.fields },
+      options: { ...markDefaults.options, ...options.mark?.options },
+    },
   });
 }
 
@@ -133,12 +138,75 @@ export function gauge(target: ChartTarget, data: DataInput, options: QuickChartO
   return specialized('gauge', target, data, options);
 }
 
+export function gaugeNumber(
+  target: ChartTarget,
+  data: DataInput,
+  options: QuickChartOptions,
+): Chart {
+  return specialized('gauge', target, data, options, { options: { mode: 'number' } });
+}
+
+export function gaugeDelta(
+  target: ChartTarget,
+  data: DataInput,
+  options: QuickChartOptions,
+): Chart {
+  return specialized('gauge', target, data, options, {
+    fields: { reference: 'reference' },
+    options: { mode: 'delta' },
+  });
+}
+
+export function gaugeBullet(
+  target: ChartTarget,
+  data: DataInput,
+  options: QuickChartOptions,
+): Chart {
+  return specialized('gauge', target, data, options, {
+    fields: { target: 'target' },
+    options: { mode: 'bullet' },
+  });
+}
+
 export function geo(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
   return specialized('geo', target, data, options);
 }
 
 export function histogram(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
   return specialized('histogram', target, data, options);
+}
+
+/** Canonical API for histogram, box, violin, curve, and bivariate distribution modes. */
+export function distribution(
+  target: ChartTarget,
+  data: DataInput,
+  options: QuickChartOptions,
+): Chart {
+  return specialized('distribution', target, data, options, { options: { mode: 'histogram' } });
+}
+
+export function violin(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
+  return specialized('distribution', target, data, options, { options: { mode: 'violin' } });
+}
+
+export function histogram2d(
+  target: ChartTarget,
+  data: DataInput,
+  options: QuickChartOptions,
+): Chart {
+  return specialized('distribution', target, data, options, {
+    options: { mode: 'histogram-2d' },
+  });
+}
+
+export function histogram2dContour(
+  target: ChartTarget,
+  data: DataInput,
+  options: QuickChartOptions,
+): Chart {
+  return specialized('distribution', target, data, options, {
+    options: { mode: 'histogram-2d-contour' },
+  });
 }
 
 export function intervals(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
@@ -181,6 +249,13 @@ export function timeline(target: ChartTarget, data: DataInput, options: QuickCha
 
 export function treemap(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
   return specialized('treemap', target, data, options);
+}
+
+export function icicle(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
+  return specialized('treemap', target, data, options, {
+    fields: { parent: 'parent' },
+    options: { mode: 'icicle' },
+  });
 }
 
 export function trendline(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {

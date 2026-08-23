@@ -2,7 +2,7 @@ import typescript from '@rollup/plugin-typescript';
 
 const banner = '/*! Graflume v0.1.0-alpha.0 | https://github.com/statground/graflume */';
 
-function config(input, files) {
+function config(input, files, globalName = 'Graflume') {
   return {
     input,
     output: [
@@ -15,7 +15,7 @@ function config(input, files) {
       {
         file: files.global,
         format: 'iife',
-        name: 'Graflume',
+        name: globalName,
         exports: 'named',
         sourcemap: true,
         banner,
@@ -40,4 +40,12 @@ export default [
     module: 'dist/graflume.complete.js',
     global: 'dist/graflume.complete.global.js',
   }),
+  config(
+    'src/spatial.ts',
+    {
+      module: 'dist/graflume.spatial.js',
+      global: 'dist/graflume.spatial.global.js',
+    },
+    'GraflumeSpatial',
+  ),
 ];

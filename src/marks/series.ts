@@ -1,4 +1,5 @@
 import type { MarkCompileContext, MarkCompiler } from '../compiler/types.js';
+import { normalDensity, summarizeNormalDistribution } from '../data/distribution.js';
 import { BandScale } from '../scale/band.js';
 import { nodeBase } from '../scene/factory.js';
 import type { Point, SceneNode, TextNode } from '../scene/types.js';
@@ -360,36 +361,41 @@ export const compileRangeMark: MarkCompiler = (context) => {
 };
 
 export const compileDistributionMark: MarkCompiler = (context) => {
-  const { layer, table, plot, theme } = context;
+  const { layer, table, xScale, yScale, plot, theme } = context;
   const sourceField = layer.mark.fields.value ?? layer.y.field;
   const values: number[] = [];
   for (let index = 0; index < table.length; index += 1) {
     const value = numericDataValue(table.value(index, sourceField));
     if (value !== null) values.push(value);
   }
-  if (values.length < 2) return [];
-  const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
-  const deviation = Math.sqrt(
-    values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / Math.max(1, values.length - 1),
-  );
-  const sigma = deviation || 1;
+  const summary = summarizeNormalDistribution(values);
+  if (summary === null) return [];
+  const { mean, standardDeviation: sigma } = summary;
   const samples = clamp(Math.floor(optionNumber(layer.mark.options.samples, 72)), 24, 160);
   const densities = Array.from({ length: samples + 1 }, (_, index) => {
-    const xValue = mean - sigma * 3.5 + (sigma * 7 * index) / samples;
-    const density = Math.exp(-0.5 * ((xValue - mean) / sigma) ** 2) / (sigma * Math.sqrt(TAU));
+    const xValue =
+      summary.domainMinimum + ((summary.domainMaximum - summary.domainMinimum) * index) / samples;
+    const density = normalDensity(xValue, summary);
     return { xValue, density };
   });
-  const maximum = Math.max(...densities.map(({ density }) => density));
   const points = densities.map(({ xValue, density }) => ({
-    x: plot.x + ((xValue - (mean - sigma * 3.5)) / (sigma * 7)) * plot.width,
-    y: plot.y + plot.height - (density / maximum) * plot.height * 0.82,
+    x: xScale.map(xValue),
+    y: yScale.map(density),
   }));
-  const baseline = plot.y + plot.height;
+  const baseline = yScale.map(0);
   const stroke = layer.mark.stroke ?? context.color;
+  const tooltip = {
+    kind: 'normal-density',
+    mean,
+    standardDeviation: sigma,
+    sampleCount: values.length,
+    minimum: summary.observedMinimum,
+    maximum: summary.observedMaximum,
+  };
   return [
     {
       type: 'path',
-      ...datumBase(context, `${layer.id}:distribution-area`, 0),
+      ...datumBase(context, `${layer.id}:distribution-area`, 0, 0, tooltip),
       points: [{ x: points[0]!.x, y: baseline }, ...points, { x: points.at(-1)!.x, y: baseline }],
       closed: true,
       fill: layer.mark.fill ?? colorWithOpacity(stroke, 0.2),
@@ -397,7 +403,7 @@ export const compileDistributionMark: MarkCompiler = (context) => {
     },
     {
       type: 'path',
-      ...nodeBase(`${layer.id}:distribution-line`, { zIndex: layer.zIndex + 1 }),
+      ...datumBase(context, `${layer.id}:distribution-line`, 0, 1, tooltip),
       points,
       closed: false,
       stroke,
@@ -408,7 +414,7 @@ export const compileDistributionMark: MarkCompiler = (context) => {
     textNode(
       context,
       `${layer.id}:distribution-mean`,
-      plot.x + plot.width / 2,
+      xScale.map(mean),
       plot.y + 14,
       `μ ${mean.toFixed(2)} · σ ${sigma.toFixed(2)}`,
       {

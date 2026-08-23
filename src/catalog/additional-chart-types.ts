@@ -18,24 +18,41 @@ const variant = (
 
 /** Distinct families added by the complete entrypoint. */
 export const additionalChartTypeCatalog = [
-  family('radar', 'Radar chart', 'radar', 'radar'),
+  family('polar', 'Polar chart', 'polar', 'polar'),
   family('network', 'Network chart', 'network', 'graph'),
   family('chord', 'Chord diagram', 'chord', 'chord'),
   family('funnel', 'Funnel chart', 'funnel', 'funnel'),
   family('parallel', 'Parallel coordinates', 'parallel', 'parallel'),
-  family('boxplot', 'Boxplot', 'boxplot', 'boxplot'),
   family('heatmap', 'Heatmap', 'heatmap', 'heatmap'),
+  family('image', 'Raster image', 'image', 'image'),
+  family('ternary', 'Ternary chart', 'ternary', 'ternary'),
+  family('smith', 'Smith chart', 'smith', 'smith'),
+  family('scatter-matrix', 'Scatter matrix', 'scatterMatrix', 'scatter-matrix'),
+  family('carpet', 'Carpet chart', 'carpet', 'carpet'),
 ] as const;
 
 /** Existing advanced names retained as compatible presets. */
 export const additionalChartVariantCatalog = [
-  variant('radar', 'Radar chart', 'radar', 'radar', 'radar'),
+  variant('polar', 'Polar chart', 'polar', 'polar', 'polar'),
+  variant('radar', 'Radar chart', 'radar', 'radar', 'polar', 'radar'),
+  variant('polar-line', 'Polar line chart', 'polarLine', 'polar', 'polar', 'line'),
+  variant('polar-scatter', 'Polar scatter chart', 'polarScatter', 'polar', 'polar', 'scatter'),
+  variant('polar-bar', 'Polar bar chart', 'polarBar', 'polar', 'polar', 'bar'),
   variant('tree', 'Tree chart', 'tree', 'tree', 'hierarchy', 'tree'),
   variant('graph', 'Graph chart', 'graph', 'graph', 'network', 'node-link'),
   variant('chord', 'Chord diagram', 'chord', 'chord', 'chord'),
   variant('funnel', 'Funnel chart', 'funnel', 'funnel', 'funnel'),
+  variant('funnel-area', 'Funnel area chart', 'funnelArea', 'funnel', 'funnel', 'area'),
   variant('parallel', 'Parallel coordinates', 'parallel', 'parallel', 'parallel'),
-  variant('boxplot', 'Boxplot', 'boxplot', 'boxplot', 'boxplot'),
+  variant(
+    'parallel-categories',
+    'Parallel categories',
+    'parallelCategories',
+    'parallel',
+    'parallel',
+    'categories',
+  ),
+  variant('boxplot', 'Boxplot', 'boxplot', 'boxplot', 'distribution', 'boxplot'),
   variant(
     'effect-scatter',
     'Effect scatter chart',
@@ -46,6 +63,27 @@ export const additionalChartVariantCatalog = [
   ),
   variant('lines', 'Connection lines', 'lines', 'lines', 'network', 'connections'),
   variant('heatmap', 'Heatmap', 'heatmap', 'heatmap', 'heatmap'),
+  variant('image', 'Raster image', 'image', 'image', 'image'),
+  variant('ternary', 'Ternary chart', 'ternary', 'ternary', 'ternary'),
+  variant('smith', 'Smith chart', 'smith', 'smith', 'smith'),
+  variant('scatter-matrix', 'Scatter matrix', 'scatterMatrix', 'scatter-matrix', 'scatter-matrix'),
+  variant('carpet', 'Carpet chart', 'carpet', 'carpet', 'carpet'),
+  variant(
+    'carpet-scatter',
+    'Carpet scatter overlay',
+    'carpetScatter',
+    'carpet',
+    'carpet',
+    'scatter',
+  ),
+  variant(
+    'carpet-contour',
+    'Carpet contour overlay',
+    'carpetContour',
+    'carpet',
+    'carpet',
+    'contour',
+  ),
   variant(
     'pictorial-bar',
     'Pictorial bar chart',

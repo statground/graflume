@@ -1,10 +1,12 @@
 import { GraflumeError } from '../core/errors.js';
+import { summarizeNormalDistribution } from '../data/distribution.js';
 import { inferFieldType } from '../data/infer.js';
 import { DataTable } from '../data/table.js';
 import { BandScale } from '../scale/band.js';
 import { LinearScale } from '../scale/linear.js';
 import type { Scale } from '../scale/types.js';
 import type { AxisId, FieldType, NormalizedChartSpec, NormalizedLayerSpec } from '../spec/types.js';
+import { resolveDistributionMode } from '../spec/distribution.js';
 import type { PlotArea } from './types.js';
 
 export interface LayerData {
@@ -91,8 +93,23 @@ function numericDomain(
 
   for (const { layer, table } of layers) {
     const encoding = layer[axis];
+    const distributionMode =
+      layer.mark.type === 'distribution' ? resolveDistributionMode(layer.mark.options.mode) : null;
+    const densitySummary =
+      distributionMode === 'curve'
+        ? summarizeNormalDistribution(
+            Array.from({ length: table.length }, (_, index) => {
+              const value = table.value(index, layer.mark.fields.value ?? layer.y.field);
+              return value instanceof Date ? value.getTime() : value;
+            }).filter((value): value is number => typeof value === 'number'),
+          )
+        : null;
     const fields =
-      axis === 'y' && (layer.mark.type === 'histogram' || layer.mark.type === 'theme-river')
+      densitySummary !== null ||
+      (axis === 'y' &&
+        (layer.mark.type === 'histogram' ||
+          layer.mark.type === 'theme-river' ||
+          distributionMode === 'histogram'))
         ? []
         : [encoding.field];
     if (axis === 'x' && (layer.mark.type === 'timeline' || layer.mark.type === 'gantt')) {
@@ -128,7 +145,7 @@ function numericDomain(
         );
       }
     }
-    if (axis === 'y' && layer.mark.type === 'boxplot') {
+    if (axis === 'y' && (layer.mark.type === 'boxplot' || distributionMode === 'boxplot')) {
       fields.push(
         layer.mark.fields.min ?? 'min',
         layer.mark.fields.q1 ?? 'q1',
@@ -157,7 +174,17 @@ function numericDomain(
       }
     }
 
-    if (axis === 'y' && layer.mark.type === 'histogram') {
+    if (densitySummary !== null) {
+      if (axis === 'x') {
+        min = Math.min(min, densitySummary.domainMinimum);
+        max = Math.max(max, densitySummary.domainMaximum);
+      } else {
+        min = Math.min(min, 0);
+        max = Math.max(max, densitySummary.maximumDensity);
+      }
+    }
+
+    if (axis === 'y' && (layer.mark.type === 'histogram' || distributionMode === 'histogram')) {
       const binCount = Math.max(
         1,
         Math.min(
@@ -216,6 +243,7 @@ function numericDomain(
           layer.mark.type === 'bullet' ||
           layer.mark.type === 'cylinder' ||
           layer.mark.type === 'histogram' ||
+          distributionMode === 'histogram' ||
           layer.mark.type === 'item' ||
           layer.mark.type === 'lollipop' ||
           layer.mark.type === 'packed-bubble' ||

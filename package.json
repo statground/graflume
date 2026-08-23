@@ -37,6 +37,14 @@
       "types": "./dist/complete.d.ts",
       "import": "./dist/graflume.complete.js",
       "default": "./dist/graflume.complete.js"
+    },
+    "./spatial": {
+      "types": "./dist/spatial.d.ts",
+      "import": "./dist/graflume.spatial.js",
+      "default": "./dist/graflume.spatial.js"
+    },
+    "./spatial-schema": {
+      "default": "./schema/graflume.spatial.schema.json"
     }
   },
   "files": [
@@ -68,7 +76,8 @@
     "build": "npm run clean && npm run build:types && npm run build:bundle && npm run build:minify && npm run build:static && npm run build:size && npm run build:verify",
     "docs:guides": "npm run build:bundle && node ./scripts/generate-consolidated-family-guides.mjs && node ./scripts/generate-series-gallery.mjs",
     "docs:snapshots": "npm run build:bundle && node ./scripts/render-chart-guide-snapshots.mjs && node ./scripts/render-additional-chart-snapshots.mjs && node ./scripts/render-series-chart-snapshots.mjs",
-    "docs:snapshots:check": "npm run build:bundle && node ./scripts/render-chart-guide-snapshots.mjs --check && node ./scripts/render-additional-chart-snapshots.mjs --check && node ./scripts/render-series-chart-snapshots.mjs --check",
+    "docs:spatial:snapshots": "npm run build:bundle && node ./scripts/render-spatial-snapshots.mjs",
+    "docs:snapshots:check": "npm run build:bundle && node ./scripts/render-chart-guide-snapshots.mjs --check && node ./scripts/render-additional-chart-snapshots.mjs --check && node ./scripts/render-series-chart-snapshots.mjs --check && node ./scripts/render-spatial-snapshots.mjs --check",
     "docs:links": "node ./scripts/check-doc-links.mjs",
     "geography:update": "node ./scripts/generate-natural-earth-world.mjs",
     "check": "npm run naming:check && npm run typecheck && npm test && npm run build && npm run docs:snapshots:check && npm run docs:links && npm run format:check && npm run package:check",

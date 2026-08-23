@@ -9,15 +9,19 @@ const chartDirectory = new URL('../docs/charts/', import.meta.url);
 const assetDirectory = new URL('../docs/assets/charts/', import.meta.url);
 const startMarker = '<!-- FAMILY_PRESETS_START -->';
 const endMarker = '<!-- FAMILY_PRESETS_END -->';
+const compatibilityGuideStubs = {
+  'boxplot.md': './distribution.md#variant-boxplot',
+  'histogram.md': './distribution.md#variant-histogram',
+  'radar.md': './polar.md#variant-radar',
+};
 const axisTooltipFamilies = new Map([
   ['annotation', 'x'],
   ['area', 'x'],
   ['bar', 'x'],
-  ['boxplot', 'x'],
   ['candlestick', 'x'],
   ['combination', 'x'],
   ['difference', 'x'],
-  ['histogram', 'x'],
+  ['distribution', 'x'],
   ['interval', 'x'],
   ['line', 'x'],
   ['technical-indicator', 'x'],
@@ -42,13 +46,21 @@ test('chart documentation contains one manual per representative family', async 
     'axes.md',
     'compatibility-presets.md',
     'interactions.md',
+    ...Object.keys(compatibilityGuideStubs),
     ...fullCatalog.map(({ id }) => `${id}.md`),
   ].sort();
   const actual = (await readdir(chartDirectory)).filter((name) => name.endsWith('.md')).sort();
 
-  assert.equal(fullCatalog.length, 37);
-  assert.equal(fullVariantCatalog.length, 141);
+  assert.equal(fullCatalog.length, 41);
+  assert.equal(fullVariantCatalog.length, 162);
   assert.deepEqual(actual, expected);
+});
+
+test('legacy family URLs remain as compatibility stubs linked to canonical manuals', async () => {
+  for (const [filename, target] of Object.entries(compatibilityGuideStubs)) {
+    const source = await readFile(new URL(filename, chartDirectory), 'utf8');
+    assert.ok(source.includes(`](${target})`), `${filename} links to ${target}`);
+  }
 });
 
 test('every compatible preset is integrated into its family manual', async () => {
@@ -179,7 +191,7 @@ test('compatibility index maps all names and keeps adapters separate', async () 
 
 test('aggregate and relationship examples document their derived hover semantics', async () => {
   const expectations = {
-    'histogram.md': ['binStart', 'binEnd', 'count', 'proportion'],
+    'distribution.md': ['binStart', 'binEnd', 'count', 'proportion'],
     'volume-profile.md': ['priceStart', 'priceEnd', 'volume', 'proportion'],
     'price-blocks.md': ['brickStart', 'brickEnd', 'brickSize'],
     'network.md': ['node', 'degree', 'total', 'source', 'target', 'value'],

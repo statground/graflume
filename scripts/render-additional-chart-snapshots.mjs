@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 
+import { fullVariantCatalog } from '../dist/graflume.complete.js';
+import { seriesSampleSpec } from './series-samples.mjs';
+
 const compile = await loadCompile();
 
 async function loadCompile() {
@@ -490,9 +493,44 @@ const graphSnapshot = snapshots.find((snapshot) => snapshot.filename === 'graph.
 assert.ok(graphSnapshot, 'graph representative exists');
 snapshots.push({ ...graphSnapshot, filename: 'network.svg' });
 
+const expanded2dSnapshotIds = new Set([
+  'distribution',
+  'histogram-2d',
+  'histogram-2d-contour',
+  'violin',
+  'polar',
+  'polar-line',
+  'polar-scatter',
+  'polar-bar',
+  'image',
+  'ternary',
+  'smith',
+  'scatter-matrix',
+  'carpet',
+  'carpet-scatter',
+  'carpet-contour',
+  'icicle',
+  'funnel-area',
+  'parallel-categories',
+  'gauge-number',
+  'gauge-delta',
+  'gauge-bullet',
+]);
+for (const entry of fullVariantCatalog) {
+  if (!expanded2dSnapshotIds.has(entry.id)) continue;
+  snapshots.push({ filename: `${entry.id}.svg`, minimum: {}, spec: seriesSampleSpec(entry) });
+}
+
 await mkdir(outputDirectory, { recursive: true });
 for (const snapshot of snapshots) {
-  const { scene } = compile(snapshot.spec, { width: 680, height: 400 });
+  let scene;
+  try {
+    ({ scene } = compile(snapshot.spec, { width: 680, height: 400 }));
+  } catch (error) {
+    throw new Error(`${snapshot.filename}: ${error instanceof Error ? error.message : error}`, {
+      cause: error,
+    });
+  }
   const counts = countSceneTypes(scene.root);
   for (const [type, minimumCount] of Object.entries(snapshot.minimum)) {
     assert.ok(

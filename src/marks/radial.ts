@@ -1,4 +1,5 @@
 import type { MarkCompiler } from '../compiler/types.js';
+import { exactStrideSampleIndices } from '../data/sample.js';
 import { nodeBase } from '../scene/factory.js';
 import type { CircleNode, LineNode, PathNode, Point, SceneNode, TextNode } from '../scene/types.js';
 import { mixColor, readableTextColor } from '../theme/color.js';
@@ -194,7 +195,203 @@ export const compilePieMark: MarkCompiler = (context) => {
   return nodes;
 };
 
+function compileNumberGauge(context: Parameters<MarkCompiler>[0], showDelta: boolean): SceneNode[] {
+  const { table, layer, plot, theme, performance } = context;
+  const referenceField = layer.mark.fields.reference ?? 'reference';
+  const nodesPerRow = showDelta ? 4 : 3;
+  const rowBudget = Math.max(1, Math.floor(performance.maxBarMarks / nodesPerRow));
+  const rowIndices = exactStrideSampleIndices(table.length, rowBudget);
+  const count = Math.max(1, rowIndices.length);
+  const slotWidth = plot.width / count;
+  const nodes: SceneNode[] = [];
+  for (let outputIndex = 0; outputIndex < rowIndices.length; outputIndex += 1) {
+    const rowIndex = rowIndices[outputIndex];
+    if (rowIndex === undefined) continue;
+    const value = numericDataValue(table.value(rowIndex, layer.y.field));
+    const rawLabel = table.value(rowIndex, layer.x.field);
+    if (value === null || rawLabel === null || rawLabel === undefined) continue;
+    const reference = table.has(referenceField)
+      ? numericDataValue(table.value(rowIndex, referenceField))
+      : null;
+    const delta = reference === null ? null : value - reference;
+    const x = plot.x + slotWidth * outputIndex + 4;
+    const y = plot.y + 6;
+    const width = Math.max(1, slotWidth - 8);
+    const height = Math.max(1, plot.height - 12);
+    const fill = layer.mark.fill ?? theme.colors.surface;
+    nodes.push({
+      type: 'rect',
+      ...nodeBase(`${layer.id}:gauge-${showDelta ? 'delta' : 'number'}:${rowIndex}`, {
+        zIndex: layer.zIndex,
+        opacity: layer.mark.opacity,
+        interactive: performance.enableHitTesting,
+        datum: {
+          layerId: layer.id,
+          rowIndex,
+          datum: table.row(rowIndex),
+          tooltip: {
+            label: String(rawLabel),
+            value,
+            ...(reference === null ? {} : { reference }),
+            ...(delta === null ? {} : { delta }),
+          },
+        },
+      }),
+      x,
+      y,
+      width,
+      height,
+      fill,
+      stroke: mixColor(theme.colors.grid, theme.colors.axis, 0.22),
+      lineWidth: 1,
+      cornerRadius: layer.mark.cornerRadius ?? 9,
+    });
+    nodes.push(
+      labelNode(
+        `${layer.id}:gauge-${showDelta ? 'delta' : 'number'}-label:${rowIndex}`,
+        x + width / 2,
+        y + height * 0.24,
+        String(rawLabel),
+        context,
+        11,
+        { fill: theme.colors.mutedText, weight: 650 },
+      ),
+      labelNode(
+        `${layer.id}:gauge-${showDelta ? 'delta-current' : 'number-value'}:${rowIndex}`,
+        x + width / 2,
+        y + height * (showDelta ? 0.5 : 0.58),
+        String(value),
+        context,
+        Math.max(18, Math.min(34, width * 0.2)),
+        { fill: theme.colors.text, weight: 780 },
+      ),
+    );
+    if (showDelta) {
+      const positive = (delta ?? 0) >= 0;
+      nodes.push(
+        labelNode(
+          `${layer.id}:gauge-delta-value:${rowIndex}`,
+          x + width / 2,
+          y + height * 0.75,
+          delta === null ? '—' : `${positive ? '+' : ''}${delta}`,
+          context,
+          13,
+          {
+            fill: delta === null ? theme.colors.mutedText : positive ? '#15803d' : '#b91c1c',
+            weight: 750,
+          },
+        ),
+      );
+    }
+  }
+  return nodes;
+}
+
+function compileBulletGauge(context: Parameters<MarkCompiler>[0]): SceneNode[] {
+  const { table, layer, plot, theme, performance } = context;
+  const minimum = optionNumber(layer.mark.options, 'min', 0);
+  const maximum = optionNumber(layer.mark.options, 'max', 100);
+  const span = maximum - minimum || 1;
+  const targetField = layer.mark.fields.target ?? 'target';
+  const rowBudget = Math.max(1, Math.floor(performance.maxBarMarks / 4));
+  const rowIndices = exactStrideSampleIndices(table.length, rowBudget);
+  const count = Math.max(1, rowIndices.length);
+  const slotHeight = plot.height / count;
+  const nodes: SceneNode[] = [];
+  for (let outputIndex = 0; outputIndex < rowIndices.length; outputIndex += 1) {
+    const rowIndex = rowIndices[outputIndex];
+    if (rowIndex === undefined) continue;
+    const value = numericDataValue(table.value(rowIndex, layer.y.field));
+    const rawLabel = table.value(rowIndex, layer.x.field);
+    if (value === null || rawLabel === null || rawLabel === undefined) continue;
+    const target = table.has(targetField)
+      ? numericDataValue(table.value(rowIndex, targetField))
+      : null;
+    const ratio = Math.max(0, Math.min(1, (value - minimum) / span));
+    const targetRatio =
+      target === null ? null : Math.max(0, Math.min(1, (target - minimum) / span));
+    const trackX = plot.x + Math.min(110, plot.width * 0.28);
+    const trackWidth = Math.max(24, plot.x + plot.width - trackX - 12);
+    const cy = plot.y + slotHeight * (outputIndex + 0.5);
+    const trackHeight = Math.max(12, Math.min(28, slotHeight * 0.48));
+    const fill =
+      layer.mark.fill ??
+      theme.colors.palette[rowIndex % theme.colors.palette.length] ??
+      theme.colors.focus;
+    nodes.push({
+      type: 'rect',
+      ...nodeBase(`${layer.id}:gauge-bullet-track:${rowIndex}`, { zIndex: layer.zIndex }),
+      x: trackX,
+      y: cy - trackHeight / 2,
+      width: trackWidth,
+      height: trackHeight,
+      fill: mixColor(theme.colors.grid, theme.colors.surface, 0.32),
+      stroke: 'transparent',
+      lineWidth: 0,
+      cornerRadius: trackHeight / 2,
+    });
+    nodes.push({
+      type: 'rect',
+      ...nodeBase(`${layer.id}:gauge-bullet-value:${rowIndex}`, {
+        zIndex: layer.zIndex + 0.2,
+        opacity: layer.mark.opacity,
+        interactive: performance.enableHitTesting,
+        datum: {
+          layerId: layer.id,
+          rowIndex,
+          datum: table.row(rowIndex),
+          tooltip: {
+            label: String(rawLabel),
+            value,
+            ...(target === null ? {} : { target }),
+          },
+        },
+      }),
+      x: trackX,
+      y: cy - trackHeight * 0.28,
+      width: Math.max(1, trackWidth * ratio),
+      height: trackHeight * 0.56,
+      fill,
+      stroke: 'transparent',
+      lineWidth: 0,
+      cornerRadius: trackHeight * 0.28,
+    });
+    if (targetRatio !== null) {
+      const targetX = trackX + trackWidth * targetRatio;
+      nodes.push({
+        type: 'line',
+        ...nodeBase(`${layer.id}:gauge-bullet-target:${rowIndex}`, {
+          zIndex: layer.zIndex + 0.5,
+        }),
+        x1: targetX,
+        y1: cy - trackHeight * 0.7,
+        x2: targetX,
+        y2: cy + trackHeight * 0.7,
+        stroke: theme.colors.text,
+        lineWidth: 2,
+        lineCap: 'round',
+      });
+    }
+    nodes.push(
+      labelNode(
+        `${layer.id}:gauge-bullet-label:${rowIndex}`,
+        trackX - 8,
+        cy,
+        String(rawLabel),
+        context,
+        10,
+        { align: 'right', fill: theme.colors.mutedText, weight: 650 },
+      ),
+    );
+  }
+  return nodes;
+}
+
 export const compileGaugeMark: MarkCompiler = (context) => {
+  const mode = context.layer.mark.options.mode;
+  if (mode === 'number') return compileNumberGauge(context, false);
+  if (mode === 'delta') return compileNumberGauge(context, true);
+  if (mode === 'bullet') return compileBulletGauge(context);
   const { table, layer, plot, theme, performance } = context;
   const minimum = optionNumber(layer.mark.options, 'min', 0);
   const maximum = optionNumber(layer.mark.options, 'max', 100);

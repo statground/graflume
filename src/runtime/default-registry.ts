@@ -1,4 +1,5 @@
 import { compileAreaMark } from '../marks/area.js';
+import { compileDistributionFamilyMark } from '../marks/analytical-2d.js';
 import { compileBarMark } from '../marks/bar.js';
 import { compileLineMark } from '../marks/line.js';
 import { compilePointMark } from '../marks/point.js';
@@ -46,6 +47,7 @@ export function createDefaultRegistry(): RuntimeRegistry {
   registry.registerMark('gauge', compileGaugeMark);
   registry.registerMark('geo', compileGeoMark);
   registry.registerMark('histogram', compileHistogramMark);
+  registry.registerMark('distribution', compileDistributionFamilyMark);
   registry.registerMark('interval', compileIntervalMark);
   registry.registerMark('map', compileMapMark);
   registry.registerMark('motion', compileBubbleMark);

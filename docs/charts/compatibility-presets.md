@@ -1,6 +1,6 @@
 # Compatibility preset index
 
-Graflume exposes 37 representative chart families while preserving all historical names. This index maps the 139 family presets to the one manual that documents their data contract, functional differences, and current compiled output.
+Graflume exposes 41 representative chart families while preserving compatible names. This index maps the 160 family presets to the one manual that documents their data contract, functional differences, and current compiled output.
 
 Use `resolveSeriesType(identifier)` from `graflume/complete` when an integration receives names with mixed case, spaces, hyphens, or underscores. The returned `familyId` selects the representative manual and `variantId` preserves the requested preset.
 
@@ -93,10 +93,13 @@ The two function-free adapter names are documented separately in [Adapters](./ad
 
 ## [Gauge chart](./gauge.md#integrated-presets)
 
-| Identifier    | Compatible name                               | Quick API      | Mode          | Portable mark |
-| ------------- | --------------------------------------------- | -------------- | ------------- | ------------- |
-| `gauge`       | [Gauge chart](./gauge.md#variant-gauge)       | `gauge()`      | `default`     | `gauge`       |
-| `solid-gauge` | [Solid gauge](./gauge.md#variant-solid-gauge) | `solidGauge()` | `solid-gauge` | `solid-gauge` |
+| Identifier     | Compatible name                                     | Quick API       | Mode          | Portable mark |
+| -------------- | --------------------------------------------------- | --------------- | ------------- | ------------- |
+| `gauge`        | [Gauge chart](./gauge.md#variant-gauge)             | `gauge()`       | `default`     | `gauge`       |
+| `gauge-number` | [Number indicator](./gauge.md#variant-gauge-number) | `gaugeNumber()` | `number`      | `gauge`       |
+| `gauge-delta`  | [Delta indicator](./gauge.md#variant-gauge-delta)   | `gaugeDelta()`  | `delta`       | `gauge`       |
+| `gauge-bullet` | [Bullet gauge](./gauge.md#variant-gauge-bullet)     | `gaugeBullet()` | `bullet`      | `gauge`       |
+| `solid-gauge`  | [Solid gauge](./gauge.md#variant-solid-gauge)       | `solidGauge()`  | `solid-gauge` | `solid-gauge` |
 
 ## [Map chart](./map.md#integrated-presets)
 
@@ -111,12 +114,17 @@ The two function-free adapter names are documented separately in [Adapters](./ad
 | `map-point`   | [Map point chart](./map.md#variant-map-point)      | `mapPoint()`   | `map-point`   | `map`         |
 | `tiled-map`   | [Tiled map](./map.md#variant-tiled-map)            | `tiledMap()`   | `tiled-map`   | `tiled-map`   |
 
-## [Histogram](./histogram.md#integrated-presets)
+## [Distribution chart](./distribution.md#integrated-presets)
 
-| Identifier   | Compatible name                                 | Quick API     | Mode         | Portable mark  |
-| ------------ | ----------------------------------------------- | ------------- | ------------ | -------------- |
-| `histogram`  | [Histogram](./histogram.md#variant-histogram)   | `histogram()` | `default`    | `histogram`    |
-| `bell-curve` | [Bell curve](./histogram.md#variant-bell-curve) | `bellCurve()` | `bell-curve` | `distribution` |
+| Identifier             | Compatible name                                                              | Quick API              | Mode                   | Portable mark  |
+| ---------------------- | ---------------------------------------------------------------------------- | ---------------------- | ---------------------- | -------------- |
+| `distribution`         | [Distribution chart](./distribution.md#variant-distribution)                 | `distribution()`       | `histogram`            | `distribution` |
+| `histogram`            | [Histogram](./distribution.md#variant-histogram)                             | `histogram()`          | `histogram`            | `histogram`    |
+| `histogram-2d`         | [Bivariate histogram](./distribution.md#variant-histogram-2d)                | `histogram2d()`        | `histogram-2d`         | `distribution` |
+| `histogram-2d-contour` | [Bivariate density contours](./distribution.md#variant-histogram-2d-contour) | `histogram2dContour()` | `histogram-2d-contour` | `distribution` |
+| `violin`               | [Violin chart](./distribution.md#variant-violin)                             | `violin()`             | `violin`               | `distribution` |
+| `boxplot`              | [Boxplot](./distribution.md#variant-boxplot)                                 | `boxplot()`            | `boxplot`              | `boxplot`      |
+| `bell-curve`           | [Bell curve](./distribution.md#variant-bell-curve)                           | `bellCurve()`          | `bell-curve`           | `distribution` |
 
 ## [Interval chart](./interval.md#integrated-presets)
 
@@ -149,6 +157,7 @@ The two function-free adapter names are documented separately in [Adapters](./ad
 | ---------------------- | ------------------------------------------------------------------- | ----------------------- | ---------------------- | ------------- |
 | `org`                  | [Organization chart](./hierarchy.md#variant-org)                    | `org()`                 | `organization`         | `org`         |
 | `treemap`              | [Tree map](./hierarchy.md#variant-treemap)                          | `treemap()`             | `treemap`              | `treemap`     |
+| `icicle`               | [Icicle chart](./hierarchy.md#variant-icicle)                       | `icicle()`              | `icicle`               | `treemap`     |
 | `tree`                 | [Tree chart](./hierarchy.md#variant-tree)                           | `tree()`                | `tree`                 | `tree`        |
 | `sunburst`             | [Sunburst chart](./hierarchy.md#variant-sunburst)                   | `sunburst()`            | `sunburst`             | `sunburst`    |
 | `organization-network` | [Organization network](./hierarchy.md#variant-organization-network) | `organizationNetwork()` | `organization-network` | `org`         |
@@ -186,11 +195,15 @@ The two function-free adapter names are documented separately in [Adapters](./ad
 | ----------- | --------------------------------------------- | ------------ | --------- | ------------- |
 | `word-tree` | [Word tree](./word-tree.md#variant-word-tree) | `wordTree()` | `default` | `word-tree`   |
 
-## [Radar chart](./radar.md#integrated-presets)
+## [Polar chart](./polar.md#integrated-presets)
 
-| Identifier | Compatible name                         | Quick API | Mode      | Portable mark |
-| ---------- | --------------------------------------- | --------- | --------- | ------------- |
-| `radar`    | [Radar chart](./radar.md#variant-radar) | `radar()` | `default` | `radar`       |
+| Identifier      | Compatible name                                         | Quick API        | Mode      | Portable mark |
+| --------------- | ------------------------------------------------------- | ---------------- | --------- | ------------- |
+| `polar`         | [Polar chart](./polar.md#variant-polar)                 | `polar()`        | `default` | `polar`       |
+| `radar`         | [Radar chart](./polar.md#variant-radar)                 | `radar()`        | `radar`   | `radar`       |
+| `polar-line`    | [Polar line chart](./polar.md#variant-polar-line)       | `polarLine()`    | `line`    | `polar`       |
+| `polar-scatter` | [Polar scatter chart](./polar.md#variant-polar-scatter) | `polarScatter()` | `scatter` | `polar`       |
+| `polar-bar`     | [Polar bar chart](./polar.md#variant-polar-bar)         | `polarBar()`     | `bar`     | `polar`       |
 
 ## [Network chart](./network.md#integrated-presets)
 
@@ -210,24 +223,20 @@ The two function-free adapter names are documented separately in [Adapters](./ad
 
 ## [Funnel chart](./funnel.md#integrated-presets)
 
-| Identifier   | Compatible name                                       | Quick API     | Mode         | Portable mark |
-| ------------ | ----------------------------------------------------- | ------------- | ------------ | ------------- |
-| `funnel`     | [Funnel chart](./funnel.md#variant-funnel)            | `funnel()`    | `default`    | `funnel`      |
-| `funnel-3d`  | [Depth funnel chart](./funnel.md#variant-funnel-3d)   | `funnel3d()`  | `funnel-3d`  | `pyramid`     |
-| `pyramid`    | [Pyramid chart](./funnel.md#variant-pyramid)          | `pyramid()`   | `pyramid`    | `pyramid`     |
-| `pyramid-3d` | [Depth pyramid chart](./funnel.md#variant-pyramid-3d) | `pyramid3d()` | `pyramid-3d` | `pyramid`     |
+| Identifier    | Compatible name                                       | Quick API      | Mode         | Portable mark |
+| ------------- | ----------------------------------------------------- | -------------- | ------------ | ------------- |
+| `funnel`      | [Funnel chart](./funnel.md#variant-funnel)            | `funnel()`     | `default`    | `funnel`      |
+| `funnel-area` | [Funnel area chart](./funnel.md#variant-funnel-area)  | `funnelArea()` | `area`       | `funnel`      |
+| `funnel-3d`   | [Depth funnel chart](./funnel.md#variant-funnel-3d)   | `funnel3d()`   | `funnel-3d`  | `pyramid`     |
+| `pyramid`     | [Pyramid chart](./funnel.md#variant-pyramid)          | `pyramid()`    | `pyramid`    | `pyramid`     |
+| `pyramid-3d`  | [Depth pyramid chart](./funnel.md#variant-pyramid-3d) | `pyramid3d()`  | `pyramid-3d` | `pyramid`     |
 
 ## [Parallel coordinates](./parallel.md#integrated-presets)
 
-| Identifier | Compatible name                                        | Quick API    | Mode      | Portable mark |
-| ---------- | ------------------------------------------------------ | ------------ | --------- | ------------- |
-| `parallel` | [Parallel coordinates](./parallel.md#variant-parallel) | `parallel()` | `default` | `parallel`    |
-
-## [Boxplot](./boxplot.md#integrated-presets)
-
-| Identifier | Compatible name                         | Quick API   | Mode      | Portable mark |
-| ---------- | --------------------------------------- | ----------- | --------- | ------------- |
-| `boxplot`  | [Boxplot](./boxplot.md#variant-boxplot) | `boxplot()` | `default` | `boxplot`     |
+| Identifier            | Compatible name                                                  | Quick API              | Mode         | Portable mark |
+| --------------------- | ---------------------------------------------------------------- | ---------------------- | ------------ | ------------- |
+| `parallel`            | [Parallel coordinates](./parallel.md#variant-parallel)           | `parallel()`           | `default`    | `parallel`    |
+| `parallel-categories` | [Parallel categories](./parallel.md#variant-parallel-categories) | `parallelCategories()` | `categories` | `parallel`    |
 
 ## [Heatmap](./heatmap.md#integrated-presets)
 
@@ -235,6 +244,38 @@ The two function-free adapter names are documented separately in [Adapters](./ad
 | ---------- | ----------------------------------------- | ----------- | ---------- | ------------- |
 | `heatmap`  | [Heatmap](./heatmap.md#variant-heatmap)   | `heatmap()` | `default`  | `heatmap`     |
 | `tile-map` | [Tile map](./heatmap.md#variant-tile-map) | `tileMap()` | `tile-map` | `tilemap`     |
+
+## [Raster image](./image.md#integrated-presets)
+
+| Identifier | Compatible name                          | Quick API | Mode      | Portable mark |
+| ---------- | ---------------------------------------- | --------- | --------- | ------------- |
+| `image`    | [Raster image](./image.md#variant-image) | `image()` | `default` | `image`       |
+
+## [Ternary chart](./ternary.md#integrated-presets)
+
+| Identifier | Compatible name                               | Quick API   | Mode      | Portable mark |
+| ---------- | --------------------------------------------- | ----------- | --------- | ------------- |
+| `ternary`  | [Ternary chart](./ternary.md#variant-ternary) | `ternary()` | `default` | `ternary`     |
+
+## [Smith chart](./smith.md#integrated-presets)
+
+| Identifier | Compatible name                         | Quick API | Mode      | Portable mark |
+| ---------- | --------------------------------------- | --------- | --------- | ------------- |
+| `smith`    | [Smith chart](./smith.md#variant-smith) | `smith()` | `default` | `smith`       |
+
+## [Scatter matrix](./scatter-matrix.md#integrated-presets)
+
+| Identifier       | Compatible name                                              | Quick API         | Mode      | Portable mark    |
+| ---------------- | ------------------------------------------------------------ | ----------------- | --------- | ---------------- |
+| `scatter-matrix` | [Scatter matrix](./scatter-matrix.md#variant-scatter-matrix) | `scatterMatrix()` | `default` | `scatter-matrix` |
+
+## [Carpet chart](./carpet.md#integrated-presets)
+
+| Identifier       | Compatible name                                              | Quick API         | Mode      | Portable mark |
+| ---------------- | ------------------------------------------------------------ | ----------------- | --------- | ------------- |
+| `carpet`         | [Carpet chart](./carpet.md#variant-carpet)                   | `carpet()`        | `default` | `carpet`      |
+| `carpet-scatter` | [Carpet scatter overlay](./carpet.md#variant-carpet-scatter) | `carpetScatter()` | `scatter` | `carpet`      |
+| `carpet-contour` | [Carpet contour overlay](./carpet.md#variant-carpet-contour) | `carpetContour()` | `contour` | `carpet`      |
 
 ## [Contour chart](./contour.md#integrated-presets)
 

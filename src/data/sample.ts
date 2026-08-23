@@ -9,6 +9,23 @@ export function strideSampleIndices(length: number, target: number): readonly nu
   return indices;
 }
 
+/**
+ * Returns at most `target` evenly spaced indices, including both endpoints when
+ * the budget allows. Unlike the compatibility sampler above, this helper never
+ * emits an extra endpoint beyond the requested budget.
+ */
+export function exactStrideSampleIndices(length: number, target: number): readonly number[] {
+  const safeLength = Number.isFinite(length) ? Math.max(0, Math.trunc(length)) : 0;
+  const safeTarget = Number.isFinite(target) ? Math.max(0, Math.trunc(target)) : 0;
+  const count = Math.min(safeLength, safeTarget);
+  if (count === 0) return [];
+  if (count === safeLength) return Array.from({ length: safeLength }, (_, index) => index);
+  if (count === 1) return [Math.floor((safeLength - 1) / 2)];
+  return Array.from({ length: count }, (_, index) =>
+    Math.round((index * (safeLength - 1)) / (count - 1)),
+  );
+}
+
 export function minMaxSampleIndices(
   values: ArrayLike<number | null>,
   target: number,

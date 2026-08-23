@@ -6,3 +6,7 @@ await copyFile(
   new URL('../schema/graflume.schema.json', import.meta.url),
   new URL('graflume.schema.json', dist),
 );
+await copyFile(
+  new URL('../schema/graflume.spatial.schema.json', import.meta.url),
+  new URL('graflume.spatial.schema.json', dist),
+);

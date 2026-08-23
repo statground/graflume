@@ -40,11 +40,19 @@ import {
   compileTreeMark,
 } from './marks/advanced.js';
 import {
+  compileCarpetMark,
+  compileDistributionFamilyMark,
+  compileImageMark,
+  compilePolarMark,
+  compileScatterMatrixMark,
+  compileSmithMark,
+  compileTernaryMark,
+} from './marks/analytical-2d.js';
+import {
   compileArcDiagramMark,
   compileBulletMark,
   compileContourMark,
   compileCylinderMark,
-  compileDistributionMark,
   compileFinancialMark,
   compileFlagsMark,
   compileGeoFlowMark,
@@ -82,12 +90,18 @@ import type { ThemeTokens } from './theme/types.js';
 
 const additionalMarkCompilers: readonly (readonly [MarkType, MarkCompiler])[] = [
   ['radar', compileRadarMark],
+  ['polar', compilePolarMark],
   ['tree', compileTreeMark],
   ['graph', compileGraphMark],
   ['chord', compileChordMark],
   ['funnel', compileFunnelMark],
   ['parallel', compileParallelMark],
   ['boxplot', compileBoxplotMark],
+  ['image', compileImageMark],
+  ['ternary', compileTernaryMark],
+  ['smith', compileSmithMark],
+  ['scatter-matrix', compileScatterMatrixMark],
+  ['carpet', compileCarpetMark],
   ['effect-scatter', compileEffectScatterMark],
   ['lines', compileLinesMark],
   ['heatmap', compileHeatmapMark],
@@ -98,7 +112,7 @@ const additionalMarkCompilers: readonly (readonly [MarkType, MarkCompiler])[] = 
   ['arc-diagram', compileArcDiagramMark],
   ['range', compileRangeMark],
   ['smooth', compileSmoothMark],
-  ['distribution', compileDistributionMark],
+  ['distribution', compileDistributionFamilyMark],
   ['bullet', compileBulletMark],
   ['contour', compileContourMark],
   ['cylinder', compileCylinderMark],
@@ -204,7 +218,12 @@ function specialized(
 ): Chart {
   return quickChart(create, type, target, data, {
     ...options,
-    mark: { ...markDefaults, ...options.mark },
+    mark: {
+      ...markDefaults,
+      ...options.mark,
+      fields: { ...markDefaults.fields, ...options.mark?.fields },
+      options: { ...markDefaults.options, ...options.mark?.options },
+    },
   });
 }
 
@@ -276,12 +295,75 @@ export function gauge(target: ChartTarget, data: DataInput, options: QuickChartO
   return specialized('gauge', target, data, options);
 }
 
+export function gaugeNumber(
+  target: ChartTarget,
+  data: DataInput,
+  options: QuickChartOptions,
+): Chart {
+  return specialized('gauge', target, data, options, { options: { mode: 'number' } });
+}
+
+export function gaugeDelta(
+  target: ChartTarget,
+  data: DataInput,
+  options: QuickChartOptions,
+): Chart {
+  return specialized('gauge', target, data, options, {
+    fields: { reference: 'reference' },
+    options: { mode: 'delta' },
+  });
+}
+
+export function gaugeBullet(
+  target: ChartTarget,
+  data: DataInput,
+  options: QuickChartOptions,
+): Chart {
+  return specialized('gauge', target, data, options, {
+    fields: { target: 'target' },
+    options: { mode: 'bullet' },
+  });
+}
+
 export function geo(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
   return specialized('geo', target, data, options);
 }
 
 export function histogram(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
   return specialized('histogram', target, data, options);
+}
+
+/** Canonical API for histogram, box, violin, curve, and bivariate distribution modes. */
+export function distribution(
+  target: ChartTarget,
+  data: DataInput,
+  options: QuickChartOptions,
+): Chart {
+  return specialized('distribution', target, data, options, { options: { mode: 'histogram' } });
+}
+
+export function violin(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
+  return specialized('distribution', target, data, options, { options: { mode: 'violin' } });
+}
+
+export function histogram2d(
+  target: ChartTarget,
+  data: DataInput,
+  options: QuickChartOptions,
+): Chart {
+  return specialized('distribution', target, data, options, {
+    options: { mode: 'histogram-2d' },
+  });
+}
+
+export function histogram2dContour(
+  target: ChartTarget,
+  data: DataInput,
+  options: QuickChartOptions,
+): Chart {
+  return specialized('distribution', target, data, options, {
+    options: { mode: 'histogram-2d-contour' },
+  });
 }
 
 export function intervals(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
@@ -326,6 +408,13 @@ export function treemap(target: ChartTarget, data: DataInput, options: QuickChar
   return specialized('treemap', target, data, options);
 }
 
+export function icicle(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
+  return specialized('treemap', target, data, options, {
+    fields: { parent: 'parent' },
+    options: { mode: 'icicle' },
+  });
+}
+
 export function trendline(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
   return specialized('trendline', target, data, options);
 }
@@ -353,6 +442,81 @@ function additional(
 
 export function radar(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
   return additional('radar', target, data, options);
+}
+
+export function polar(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
+  return additional('polar', target, data, options);
+}
+
+export function polarLine(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
+  return additional('polar', target, data, mergeDefaults({ options: { mode: 'line' } }, options));
+}
+
+export function polarScatter(
+  target: ChartTarget,
+  data: DataInput,
+  options: QuickChartOptions,
+): Chart {
+  return additional(
+    'polar',
+    target,
+    data,
+    mergeDefaults({ options: { mode: 'scatter' } }, options),
+  );
+}
+
+export function polarBar(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
+  return additional('polar', target, data, mergeDefaults({ options: { mode: 'bar' } }, options));
+}
+
+export function image(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
+  return additional('image', target, data, options);
+}
+
+export function ternary(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
+  return additional('ternary', target, data, options);
+}
+
+export function smith(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
+  return additional('smith', target, data, options);
+}
+
+export function scatterMatrix(
+  target: ChartTarget,
+  data: DataInput,
+  options: QuickChartOptions,
+): Chart {
+  return additional('scatter-matrix', target, data, options);
+}
+
+export function carpet(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
+  return additional('carpet', target, data, options);
+}
+
+export function carpetScatter(
+  target: ChartTarget,
+  data: DataInput,
+  options: QuickChartOptions,
+): Chart {
+  return additional(
+    'carpet',
+    target,
+    data,
+    mergeDefaults({ options: { mode: 'scatter' } }, options),
+  );
+}
+
+export function carpetContour(
+  target: ChartTarget,
+  data: DataInput,
+  options: QuickChartOptions,
+): Chart {
+  return additional(
+    'carpet',
+    target,
+    data,
+    mergeDefaults({ options: { mode: 'contour' } }, options),
+  );
 }
 
 export function tree(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
@@ -384,8 +548,29 @@ export function funnel(target: ChartTarget, data: DataInput, options: QuickChart
   return additional('funnel', target, data, options);
 }
 
+export function funnelArea(
+  target: ChartTarget,
+  data: DataInput,
+  options: QuickChartOptions,
+): Chart {
+  return additional('funnel', target, data, mergeDefaults({ options: { mode: 'area' } }, options));
+}
+
 export function parallel(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
   return additional('parallel', target, data, options);
+}
+
+export function parallelCategories(
+  target: ChartTarget,
+  data: DataInput,
+  options: QuickChartOptions,
+): Chart {
+  return additional(
+    'parallel',
+    target,
+    data,
+    mergeDefaults({ options: { mode: 'categories' } }, options),
+  );
 }
 
 export function boxplot(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
@@ -470,7 +655,7 @@ export const areaSplineRange = makeSeriesQuick('range', {
   fields: { low: 'low', high: 'high' },
   options: { mode: 'area', smooth: true },
 });
-export const bellCurve = makeSeriesQuick('distribution');
+export const bellCurve = makeSeriesQuick('distribution', { options: { mode: 'curve' } });
 export const bullet = makeSeriesQuick('bullet', { fields: { target: 'target' } });
 export const columnPyramid = makeSeriesQuick('pyramid', { options: { variant: 'column' } });
 export const columnRange = makeSeriesQuick('range', {

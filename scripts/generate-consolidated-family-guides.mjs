@@ -22,11 +22,10 @@ const axisTooltipFamilies = new Map([
   ['annotation', 'x'],
   ['area', 'x'],
   ['bar', 'x'],
-  ['boxplot', 'x'],
   ['candlestick', 'x'],
   ['combination', 'x'],
   ['difference', 'x'],
-  ['histogram', 'x'],
+  ['distribution', 'x'],
   ['interval', 'x'],
   ['line', 'x'],
   ['technical-indicator', 'x'],
@@ -82,6 +81,9 @@ const presetDescriptions = {
   timeline: 'Uses dated events or intervals on an ordered time axis.',
   'x-range': 'Uses horizontal start/end intervals per category.',
   gauge: 'Uses a dial, reference ticks, and needle.',
+  'gauge-number': 'Presents the current value as a compact numeric indicator.',
+  'gauge-delta': 'Adds a signed comparison with the supplied reference field.',
+  'gauge-bullet': 'Uses a horizontal value track with an explicit target rule.',
   'solid-gauge': 'Uses concentric filled arcs without a needle.',
   geo: 'Joins named regions to the built-in 177-feature Natural Earth world basemap; the example uses choropleth mode while bubble remains the default.',
   map: 'Projects valid longitude and latitude rows over the built-in Natural Earth world basemap.',
@@ -93,6 +95,10 @@ const presetDescriptions = {
   'tiled-map':
     'Retains the historical compatibility name for projected points on the built-in political basemap; it does not request or simulate web tiles.',
   histogram: 'Bins samples into counts.',
+  distribution: 'Uses the canonical raw-sample histogram presentation.',
+  violin: 'Estimates a mirrored kernel-density shape for each group.',
+  'histogram-2d': 'Bins two quantitative coordinates into rectangular heat cells.',
+  'histogram-2d-contour': 'Traces density isolines over the complete bivariate bin grid.',
   'bell-curve': 'Derives and overlays a sampled normal-density curve.',
   intervals: 'Uses a central point with low/high stems and caps.',
   'area-range': 'Fills the band between low and high values.',
@@ -105,6 +111,7 @@ const presetDescriptions = {
   spline: 'Uses a sampled smooth path.',
   org: 'Uses a compact organization-card layout.',
   treemap: 'Allocates nested rectangles by hierarchy value.',
+  icicle: 'Allocates hierarchy depth to stacked horizontal bands.',
   tree: 'Uses a parent-child node-link tree layout.',
   sunburst: 'Uses radial hierarchy partitions.',
   'organization-network': 'Uses organization semantics with relationship styling.',
@@ -120,10 +127,23 @@ const presetDescriptions = {
   chord: 'Uses circular weighted relationship bands.',
   'dependency-wheel': 'Uses chord geometry with dependency-oriented naming.',
   funnel: 'Uses decreasing centered stages.',
+  'funnel-area': 'Scales both stage dimensions so visible area follows value.',
   'funnel-3d': 'Adds portable depth faces to funnel stages.',
   pyramid: 'Reverses the stage emphasis into a pyramid presentation.',
   'pyramid-3d': 'Adds portable depth faces to pyramid stages.',
   heatmap: 'Uses a rectangular value matrix.',
+  image: 'Renders explicit color or RGBA rows as interactive raster cells.',
+  polar: 'Uses an ordered radial line as the canonical polar presentation.',
+  'polar-line': 'Connects values in angular order.',
+  'polar-scatter': 'Shows radial points without a connecting path.',
+  'polar-bar': 'Uses angular sectors whose radius encodes value.',
+  ternary: 'Normalizes three non-negative components into triangular coordinates.',
+  smith: 'Transforms complex impedance onto resistance and reactance curves.',
+  'scatter-matrix': 'Combines diagonal histograms with pairwise scatter cells.',
+  carpet: 'Shows the curvilinear logical coordinate grid.',
+  'carpet-scatter': 'Overlays interactive points on the warped grid.',
+  'carpet-contour': 'Overlays actual value isolines on the warped grid.',
+  'parallel-categories': 'Aggregates categorical paths into proportional ribbons.',
   'tile-map': 'Uses equal-area square, circle, diamond, or hexagonal tiles.',
   vector: 'Draws direction and magnitude as arrow shafts and heads.',
   'wind-barb': 'Converts speed and direction into meteorological barb feathers.',
@@ -138,7 +158,6 @@ const familyUseCases = {
   annotation: 'you need to place named events or notes on an ordered series',
   area: 'the magnitude and continuity of an ordered series matter more than individual points',
   bar: 'you need to compare values across discrete categories',
-  boxplot: 'you need to compare distributions through quartiles and extremes',
   bubble: 'position and an additional magnitude channel must be read together',
   calendar: 'daily values need to be scanned in calendar order',
   candlestick: 'open, high, low, and close values must remain visually distinct',
@@ -151,7 +170,7 @@ const familyUseCases = {
   gauge: 'a small set of current values must be judged against a known range',
   heatmap: 'two discrete dimensions and one value should be scanned as a matrix',
   hierarchy: 'parent-child structure and relative size must be inspected together',
-  histogram: 'the shape of a numeric distribution is more important than individual rows',
+  distribution: 'the shape or summary of one or two quantitative distributions matters',
   interval: 'a central value and its lower and upper bounds must be compared',
   item: 'counts should be represented as repeated tangible units',
   line: 'change across an ordered domain is the main reading task',
@@ -161,7 +180,12 @@ const familyUseCases = {
   parallel: 'many quantitative dimensions must be compared for each row',
   pie: 'a small number of positive values form one meaningful whole',
   'price-blocks': 'price movement should be quantized rather than shown on a continuous time path',
-  radar: 'several normalized indicators must be compared as a profile',
+  polar: 'angle and radius, or several normalized indicators, define the reading task',
+  image: 'a bounded color matrix must preserve row-level pixel semantics',
+  ternary: 'three non-negative components must be compared as relative composition',
+  smith: 'normalized complex impedance must be inspected on a reflection grid',
+  'scatter-matrix': 'several quantitative dimensions require pairwise comparison',
+  carpet: 'logical coordinates must be read through a supplied curvilinear surface',
   scatter: 'the relationship between quantitative coordinates must be inspected',
   table: 'exact row values are more important than geometric comparison',
   'technical-indicator':
@@ -364,14 +388,54 @@ function markTypesForSpec(spec) {
 
 function derivedTooltipFields(spec) {
   const marks = markTypesForSpec(spec);
+  const markDefinitions = [spec.mark, ...(spec.layers ?? []).map((layer) => layer.mark)].filter(
+    (mark) => typeof mark === 'object' && mark !== null && !Array.isArray(mark),
+  );
+  const distributionMark = markDefinitions.find((mark) => mark.type === 'distribution');
+  const distributionMode = distributionMark?.options?.mode ?? 'histogram';
+  const carpetMark = markDefinitions.find((mark) => mark.type === 'carpet');
+  const carpetMode = carpetMark?.options?.mode ?? 'base';
   const fields = [];
-  if (marks.has('histogram')) {
+  if (marks.has('histogram') || (marks.has('distribution') && distributionMode === 'histogram')) {
     fields.push(
       { field: 'binStart', label: 'Bin start', format: 'number' },
       { field: 'binEnd', label: 'Bin end', format: 'number' },
       { field: 'count', label: 'Count', format: 'integer' },
       { field: 'proportion', label: 'Share', format: 'percent', fractionDigits: 1 },
     );
+  }
+  if (marks.has('distribution') && distributionMode === 'curve') {
+    fields.push(
+      { field: 'mean', label: 'Mean', format: 'number' },
+      { field: 'standardDeviation', label: 'Standard deviation', format: 'number' },
+      { field: 'sampleCount', label: 'Sample count', format: 'integer' },
+      { field: 'minimum', label: 'Minimum', format: 'number' },
+      { field: 'maximum', label: 'Maximum', format: 'number' },
+    );
+  }
+  if (marks.has('distribution') && distributionMode === 'histogram-2d-contour') {
+    fields.push(
+      { field: 'level', label: 'Density level', format: 'number' },
+      { field: 'minimumCount', label: 'Minimum count', format: 'integer' },
+      { field: 'maximumCount', label: 'Maximum count', format: 'integer' },
+      { field: 'binsX', label: 'X bins', format: 'integer' },
+      { field: 'binsY', label: 'Y bins', format: 'integer' },
+    );
+  }
+  if (marks.has('carpet')) {
+    fields.push(
+      { field: 'axis', label: 'Logical axis', format: 'auto' },
+      { field: 'key', label: 'Logical key', format: 'auto' },
+      { field: 'logicalCoordinate', label: 'Coordinate', format: 'auto' },
+    );
+    if (carpetMode === 'contour') {
+      fields.push(
+        { field: 'level', label: 'Contour level', format: 'number' },
+        { field: 'minimumValue', label: 'Minimum value', format: 'number' },
+        { field: 'maximumValue', label: 'Maximum value', format: 'number' },
+        { field: 'valueField', label: 'Value field', format: 'auto' },
+      );
+    }
   }
   if (marks.has('volume-profile')) {
     fields.push(
@@ -444,7 +508,8 @@ ${rows.join('\n')}`;
 }
 
 function implementationExamples(family, variants) {
-  const useCase = familyUseCases[family.id] ?? 'this preset matches the intended reading task';
+  const familyUseCase =
+    familyUseCases[family.id] ?? 'this preset matches the intended reading task';
   const tooltipAxis = axisTooltipFamilies.get(family.id);
   const tooltipGuidance =
     tooltipAxis === undefined
@@ -453,6 +518,10 @@ function implementationExamples(family, variants) {
   const sections = variants
     .map((variant) => {
       const fields = requiredFields(variant);
+      const useCase =
+        variant.id === 'parallel-categories'
+          ? 'categorical stages and the frequency of each complete path must be compared'
+          : familyUseCase;
       return `<a id="variant-${variant.id}"></a>
 
 ### ${variant.name}
@@ -522,7 +591,7 @@ ${rows}`;
     .join('\n\n');
   return `# Compatibility preset index
 
-Graflume exposes 37 representative chart families while preserving all historical names. This index maps the ${fullVariantCatalog.filter(({ familyId }) => familyId !== 'custom').length} family presets to the one manual that documents their data contract, functional differences, and current compiled output.
+Graflume exposes ${fullCatalog.length} representative chart families while preserving compatible names. This index maps the ${fullVariantCatalog.filter(({ familyId }) => familyId !== 'custom').length} family presets to the one manual that documents their data contract, functional differences, and current compiled output.
 
 Use \`resolveSeriesType(identifier)\` from \`graflume/complete\` when an integration receives names with mixed case, spaces, hyphens, or underscores. The returned \`familyId\` selects the representative manual and \`variantId\` preserves the requested preset.
 
@@ -545,13 +614,13 @@ function adapterGuide(assetNames) {
     .join('\n');
   return `# Declarative adapters
 
-Adapters translate a constrained external or custom declarative shape into Graflume's portable specification. They are compatibility surfaces, not additional chart families, so they do not appear in the 37-family discovery catalog.
+Adapters translate a constrained external or custom declarative shape into Graflume's portable specification. They are compatibility surfaces, not additional chart families, so they do not appear in the ${fullCatalog.length}-family discovery catalog.
 
 | Adapter | Quick API | Portable mark | Contract |
 | --- | --- | --- | --- |
 ${rows}
 
-Both adapters reject executable callbacks and enter the ordinary validation, Scene compilation, rendering, interaction, and accessibility pipeline. Prefer a representative family Quick API when the data meaning already matches one of the [37 chart families](./README.md#choose-a-chart).
+Both adapters reject executable callbacks and enter the ordinary validation, Scene compilation, rendering, interaction, and accessibility pipeline. Prefer a representative family Quick API when the data meaning already matches one of the [${fullCatalog.length} chart families](./README.md#choose-a-chart).
 
 ${visualGallery(adapterFamily, adapters, assetNames)}
 
@@ -603,8 +672,11 @@ const retainedFiles = new Set([
   'README.md',
   'adapters.md',
   'axes.md',
+  'boxplot.md',
   'compatibility-presets.md',
+  'histogram.md',
   'interactions.md',
+  'radar.md',
   ...fullCatalog.map(({ id }) => `${id}.md`),
 ]);
 const chartFiles = await readdir(chartDirectory);
