@@ -1655,10 +1655,13 @@ var GraflumeSpatial = (function (exports) {
         'projection',
         'fullscreen',
         'exportPng',
+        'showAnnotations',
+        'hideAnnotations',
         'instructions',
         'contextLost',
         'unavailable',
     ]);
+    const CONTROLS_KEYS = new Set(['annotations']);
     const ACCESSIBILITY_KEYS = new Set(['description', 'table', 'maxRows']);
     const LAYER_KEYS = new Set(['id', 'name', 'mark', 'data']);
     const SELECTION_KEYS = new Set([
@@ -2292,8 +2295,13 @@ var GraflumeSpatial = (function (exports) {
         const interaction = closedObject(value, path, INTERACTION_KEYS, issues);
         if (interaction === undefined)
             return;
-        for (const key of ['orbit', 'pan', 'zoom', 'picking', 'controls']) {
+        for (const key of ['orbit', 'pan', 'zoom', 'picking']) {
             optionalBoolean(interaction[key], `${path}.${key}`, issues);
+        }
+        if (interaction.controls !== undefined && typeof interaction.controls !== 'boolean') {
+            const controls = closedObject(interaction.controls, `${path}.controls`, CONTROLS_KEYS, issues);
+            if (controls !== undefined)
+                optionalBoolean(controls.annotations, `${path}.controls.annotations`, issues);
         }
         optionalEnum(interaction.wheel, `${path}.wheel`, new Set(['off', 'modifier', 'always']), issues);
         if (interaction.tooltip !== undefined && typeof interaction.tooltip !== 'boolean') {
@@ -3832,6 +3840,128 @@ var GraflumeSpatial = (function (exports) {
         return normalizedCamera(candidate.projection, candidate.target, sceneRadius, candidate);
     }
 
+    function intersectionArea(left, right) {
+        const width = Math.max(0, Math.min(left.x + left.width, right.x + right.width) - Math.max(left.x, right.x));
+        const height = Math.max(0, Math.min(left.y + left.height, right.y + right.height) - Math.max(left.y, right.y));
+        return width * height;
+    }
+    function overlapArea(bounds, obstacles) {
+        return obstacles.reduce((sum, obstacle) => sum + intersectionArea(bounds, obstacle), 0);
+    }
+    function outsideArea(bounds, boundary) {
+        return Math.max(0, bounds.width * bounds.height - intersectionArea(bounds, boundary));
+    }
+    function clampBounds(bounds, boundary) {
+        const minimumX = boundary.x;
+        const minimumY = boundary.y;
+        const maximumX = Math.max(minimumX, boundary.x + boundary.width - bounds.width);
+        const maximumY = Math.max(minimumY, boundary.y + boundary.height - bounds.height);
+        return {
+            ...bounds,
+            x: Math.max(minimumX, Math.min(maximumX, bounds.x)),
+            y: Math.max(minimumY, Math.min(maximumY, bounds.y)),
+        };
+    }
+    function candidateBounds(placement, alignment, options) {
+        const gap = options.gap ?? 18;
+        const targetCenterX = options.target.x + options.target.width / 2;
+        const targetCenterY = options.target.y + options.target.height / 2;
+        let x = targetCenterX - options.width / 2;
+        let y = targetCenterY - options.height / 2;
+        if (placement === 'top' || placement === 'bottom') {
+            x += alignment * Math.max(options.width * 0.58, options.target.width / 2 + gap);
+            y =
+                placement === 'top'
+                    ? options.target.y - options.height - gap
+                    : options.target.y + options.target.height + gap;
+        }
+        else {
+            y += alignment * Math.max(options.height * 0.58, options.target.height / 2 + gap);
+            x =
+                placement === 'left'
+                    ? options.target.x - options.width - gap
+                    : options.target.x + options.target.width + gap;
+        }
+        return {
+            x: x + (options.offsetX ?? 0),
+            y: y + (options.offsetY ?? 0),
+            width: options.width,
+            height: options.height,
+        };
+    }
+    function score(candidate, options) {
+        const rawOverflow = outsideArea(candidate.rawBounds, options.boundary);
+        const protectedOverlap = overlapArea(candidate.bounds, options.protectedObstacles ?? []);
+        const occupiedOverlap = overlapArea(candidate.bounds, options.occupiedCallouts ?? []);
+        const targetOverlap = intersectionArea(candidate.bounds, options.target);
+        const dataOverlap = overlapArea(candidate.bounds, options.dataObstacles ?? []);
+        const targetCenterX = options.target.x + options.target.width / 2;
+        const targetCenterY = options.target.y + options.target.height / 2;
+        const candidateCenterX = candidate.bounds.x + candidate.bounds.width / 2;
+        const candidateCenterY = candidate.bounds.y + candidate.bounds.height / 2;
+        const distance = Math.hypot(candidateCenterX - targetCenterX, candidateCenterY - targetCenterY);
+        return (rawOverflow * 1_000_000 +
+            occupiedOverlap * 80_000 +
+            protectedOverlap * 60_000 +
+            targetOverlap * 40_000 +
+            dataOverlap * 16 +
+            distance * 0.01 +
+            candidate.order * 0.0001);
+    }
+    function explicitIsUnsafe(candidate, options) {
+        const area = Math.max(1, candidate.bounds.width * candidate.bounds.height);
+        return (outsideArea(candidate.rawBounds, options.boundary) > 0.5 ||
+            overlapArea(candidate.bounds, options.protectedObstacles ?? []) > area * 0.08 ||
+            overlapArea(candidate.bounds, options.occupiedCallouts ?? []) > area * 0.08 ||
+            intersectionArea(candidate.bounds, options.target) > area * 0.25 ||
+            overlapArea(candidate.bounds, options.dataObstacles ?? []) > area * 0.72);
+    }
+    /**
+     * Select a deterministic, renderer-neutral perimeter position for a callout.
+     * Authored cardinal placement wins while it remains in bounds and avoids a
+     * severe collision; `auto` and unsafe authored positions use the lowest score.
+     */
+    function placeCallout(options) {
+        const targetCenterX = options.target.x + options.target.width / 2;
+        const targetCenterY = options.target.y + options.target.height / 2;
+        const boundaryCenterX = options.boundary.x + options.boundary.width / 2;
+        const boundaryCenterY = options.boundary.y + options.boundary.height / 2;
+        const horizontalFirst = targetCenterX <= boundaryCenterX ? ['right', 'left'] : ['left', 'right'];
+        const verticalFirst = targetCenterY <= boundaryCenterY ? ['bottom', 'top'] : ['top', 'bottom'];
+        const preferred = options.placement === undefined ? 'auto' : options.placement;
+        const placements = preferred === 'auto'
+            ? [horizontalFirst[0], verticalFirst[0], horizontalFirst[1], verticalFirst[1]]
+            : [preferred, ...[...horizontalFirst, ...verticalFirst].filter((item) => item !== preferred)];
+        const candidates = [];
+        let order = 0;
+        for (const placement of placements) {
+            for (const alignment of [0, -1, 1]) {
+                const rawBounds = candidateBounds(placement, alignment, options);
+                const bounds = clampBounds(rawBounds, options.boundary);
+                candidates.push({
+                    x: bounds.x,
+                    y: bounds.y,
+                    bounds,
+                    placement,
+                    rawBounds,
+                    order,
+                });
+                order += 1;
+            }
+        }
+        const explicit = candidates[0];
+        if (preferred !== 'auto' && !explicitIsUnsafe(explicit, options)) {
+            return {
+                x: explicit.x,
+                y: explicit.y,
+                bounds: explicit.bounds,
+                placement: explicit.placement,
+            };
+        }
+        const best = candidates.reduce((winner, candidate) => score(candidate, options) < score(winner, options) ? candidate : winner);
+        return { x: best.x, y: best.y, bounds: best.bounds, placement: best.placement };
+    }
+
     function scalarEqual(left, right) {
         return left === right;
     }
@@ -3897,6 +4027,39 @@ var GraflumeSpatial = (function (exports) {
             height: Math.max(0, Math.max(...ys) - y),
         };
     }
+    function projectedDataObstacles(state, actions) {
+        const geometries = state.scene.geometries.filter((geometry) => geometry.picks.length > 0);
+        const budgetPerGeometry = Math.max(1, Math.floor(384 / Math.max(1, geometries.length)));
+        const columns = 12;
+        const rows = 8;
+        const buckets = new Map();
+        for (const geometry of geometries) {
+            const stride = Math.max(1, Math.ceil(geometry.picks.length / budgetPerGeometry));
+            for (let index = 0; index < geometry.picks.length; index += stride) {
+                const pick = geometry.picks[index];
+                if (state.hiddenLayerIds.has(pick.layerId))
+                    continue;
+                const point = actions.project(pick.position, pick);
+                if (point === null || !point.visible)
+                    continue;
+                const bounds = { x: point.x - 4, y: point.y - 4, width: 8, height: 8 };
+                const column = Math.max(0, Math.min(columns - 1, Math.floor(((point.x - state.plotBounds.x) / Math.max(1, state.plotBounds.width)) * columns)));
+                const row = Math.max(0, Math.min(rows - 1, Math.floor(((point.y - state.plotBounds.y) / Math.max(1, state.plotBounds.height)) * rows)));
+                const key = row * columns + column;
+                const prior = buckets.get(key);
+                if (prior === undefined) {
+                    buckets.set(key, bounds);
+                    continue;
+                }
+                const x = Math.min(prior.x, bounds.x);
+                const y = Math.min(prior.y, bounds.y);
+                const endX = Math.max(prior.x + prior.width, bounds.x + bounds.width);
+                const endY = Math.max(prior.y + prior.height, bounds.y + bounds.height);
+                buckets.set(key, { x, y, width: endX - x, height: endY - y });
+            }
+        }
+        return [...buckets.values()];
+    }
     function applyHighlightStyle(element, highlight, bounds) {
         const padding = highlight.padding ?? 5;
         const point = bounds.width <= 2 && bounds.height <= 2;
@@ -3940,6 +4103,7 @@ var GraflumeSpatial = (function (exports) {
         const bubble = document.createElement('div');
         bubble.dataset.graflumeSpatialAnnotation = annotation.id ?? 'true';
         bubble.setAttribute('role', 'note');
+        bubble.setAttribute('aria-label', annotation.detail === undefined ? annotation.text : `${annotation.text}: ${annotation.detail}`);
         bubble.dir = 'auto';
         bubble.style.position = 'absolute';
         bubble.style.zIndex = '3';
@@ -3954,16 +4118,24 @@ var GraflumeSpatial = (function (exports) {
         bubble.style.opacity = String(style.opacity ?? 0.97);
         bubble.style.font = `700 ${fontSize}px/1.35 ui-sans-serif, system-ui, sans-serif`;
         bubble.style.textAlign = style.align ?? 'start';
+        bubble.style.overflowWrap = 'anywhere';
+        bubble.style.wordBreak = 'break-word';
+        bubble.style.hyphens = 'auto';
         bubble.style.pointerEvents = 'none';
         const title = document.createElement('div');
         title.textContent = annotation.text;
+        title.style.overflowWrap = 'anywhere';
+        title.style.wordBreak = 'break-word';
         bubble.append(title);
+        let detail;
         if (annotation.detail !== undefined) {
-            const detail = document.createElement('div');
+            detail = document.createElement('div');
             detail.textContent = annotation.detail;
             detail.style.marginBlockStart = '4px';
             detail.style.fontWeight = '400';
             detail.style.color = style.color ?? '#475569';
+            detail.style.overflowWrap = 'anywhere';
+            detail.style.wordBreak = 'break-word';
             bubble.append(detail);
         }
         const longestText = Math.max(annotation.text.length, annotation.detail?.length ?? 0, 8);
@@ -3979,6 +4151,10 @@ var GraflumeSpatial = (function (exports) {
             annotation,
             bounds,
             bubble,
+            title,
+            ...(detail === undefined ? {} : { detail }),
+            fontSize,
+            padding,
             availableWidth,
             availableHeight,
             fallbackWidth,
@@ -3996,41 +4172,63 @@ var GraflumeSpatial = (function (exports) {
             ]),
         };
     }
-    function placeAnnotation(prepared, state, measured) {
+    function placeAnnotation(prepared, state, measured, dataObstacles, protectedObstacles, occupiedCallouts) {
         const { annotation, bounds, bubble } = prepared;
         const estimatedWidth = Math.min(prepared.availableWidth, measured.width > 0 ? measured.width : prepared.fallbackWidth);
         const estimatedHeight = Math.min(prepared.availableHeight, measured.height > 0 ? measured.height : prepared.fallbackHeight);
         bubble.style.visibility = 'visible';
         bubble.style.overflow = 'hidden';
+        bubble.style.maxHeight = `${estimatedHeight}px`;
+        bubble.style.maxBlockSize = `${estimatedHeight}px`;
+        const detailGap = prepared.detail === undefined ? 0 : 4;
+        const lineHeight = prepared.fontSize * 1.35;
+        const lineBudget = Math.max(1, Math.floor((estimatedHeight - prepared.padding * 2 - detailGap) / Math.max(1, lineHeight)));
+        const titleLines = prepared.detail === undefined || lineBudget < 2
+            ? lineBudget
+            : Math.max(1, Math.min(2, lineBudget - 1));
+        const clampLines = (element, lines) => {
+            element.style.display = '-webkit-box';
+            element.style.webkitBoxOrient = 'vertical';
+            element.style.webkitLineClamp = String(Math.max(1, lines));
+            element.style.overflow = 'hidden';
+            element.style.overflowWrap = 'anywhere';
+            element.style.wordBreak = 'break-word';
+        };
+        clampLines(prepared.title, titleLines);
+        if (prepared.detail !== undefined) {
+            if (lineBudget < 2)
+                prepared.detail.style.display = 'none';
+            else
+                clampLines(prepared.detail, Math.max(1, lineBudget - titleLines));
+        }
         const anchor = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
-        const placement = annotation.placement === undefined || annotation.placement === 'auto'
-            ? anchor.x < state.width / 2
-                ? 'right'
-                : 'left'
-            : annotation.placement;
-        const gap = 18;
-        let x = anchor.x - estimatedWidth / 2;
-        let y = anchor.y - estimatedHeight / 2;
-        if (placement === 'top')
-            y = bounds.y - estimatedHeight - gap;
-        if (placement === 'bottom')
-            y = bounds.y + bounds.height + gap;
-        if (placement === 'left')
-            x = bounds.x - estimatedWidth - gap;
-        if (placement === 'right')
-            x = bounds.x + bounds.width + gap;
         const marginX = Math.min(4, Math.max(0, (state.plotBounds.width - estimatedWidth) / 2));
         const marginY = Math.min(4, Math.max(0, (state.plotBounds.height - estimatedHeight) / 2));
-        const minimumX = state.plotBounds.x + marginX;
-        const minimumY = state.plotBounds.y + marginY;
-        const maximumX = Math.max(minimumX, state.plotBounds.x + state.plotBounds.width - estimatedWidth - marginX);
-        const maximumY = Math.max(minimumY, state.plotBounds.y + state.plotBounds.height - estimatedHeight - marginY);
-        x = Math.max(minimumX, Math.min(maximumX, x + (annotation.offsetX ?? 0)));
-        y = Math.max(minimumY, Math.min(maximumY, y + (annotation.offsetY ?? 0)));
+        const placed = placeCallout({
+            target: bounds,
+            width: estimatedWidth,
+            height: estimatedHeight,
+            boundary: {
+                x: state.plotBounds.x + marginX,
+                y: state.plotBounds.y + marginY,
+                width: Math.max(1, state.plotBounds.width - marginX * 2),
+                height: Math.max(1, state.plotBounds.height - marginY * 2),
+            },
+            placement: annotation.placement ?? 'auto',
+            offsetX: annotation.offsetX ?? 0,
+            offsetY: annotation.offsetY ?? 0,
+            dataObstacles,
+            protectedObstacles,
+            occupiedCallouts,
+        });
+        const { x, y } = placed;
         bubble.style.left = `${x}px`;
         bubble.style.top = `${y}px`;
         const line = connector(anchor, { x: x + estimatedWidth / 2, y: y + estimatedHeight / 2 }, annotation);
-        return line === null ? [bubble] : [line, bubble];
+        return {
+            elements: line === null ? [bubble] : [line, bubble],
+            bounds: placed.bounds,
+        };
     }
     function externalLegendBounds(position, state) {
         const plot = state.plotBounds;
@@ -4044,6 +4242,43 @@ var GraflumeSpatial = (function (exports) {
             return { x: 0, y: 0, width: plot.x, height: state.height };
         const x = plot.x + plot.width;
         return { x, y: 0, width: Math.max(0, state.width - x), height: state.height };
+    }
+    function insideLegendBounds(state) {
+        const legend = state.legend;
+        if (legend === null || !legend.visible || !legend.position.startsWith('inside-'))
+            return null;
+        const plot = state.plotBounds;
+        const inset = 8;
+        const titleHeight = legend.title === undefined ? 0 : 24;
+        const itemWidths = legend.items.map((item) => Math.max(64, item.label.length * 7 + 30));
+        let width;
+        let height;
+        if (legend.orientation === 'horizontal') {
+            width = Math.min(Math.max(1, plot.width - inset * 2), Math.max(150, itemWidths.reduce((a, b) => a + b, 0) + 20));
+            const availableRowWidth = Math.max(1, width - 20);
+            let rows = 1;
+            let rowWidth = 0;
+            for (const itemWidth of itemWidths) {
+                if (rowWidth > 0 && rowWidth + itemWidth > availableRowWidth) {
+                    rows += 1;
+                    rowWidth = 0;
+                }
+                rowWidth += itemWidth;
+            }
+            height = Math.min(Math.max(1, plot.height - inset * 2), titleHeight + rows * 24 + 16);
+        }
+        else {
+            width = Math.min(Math.max(1, plot.width - inset * 2), Math.min(220, Math.max(96, ...itemWidths) + 20));
+            height = Math.min(Math.max(1, plot.height - inset * 2), titleHeight + Math.max(1, legend.items.length) * 24 + 16);
+        }
+        const right = legend.position.endsWith('right');
+        const bottom = legend.position.includes('bottom');
+        return {
+            x: right ? plot.x + plot.width - width - inset : plot.x + inset,
+            y: bottom ? plot.y + plot.height - height - inset : plot.y + inset,
+            width,
+            height,
+        };
     }
     function legendPosition(element, legend, state) {
         const external = !legend.position.startsWith('inside-');
@@ -4233,7 +4468,7 @@ var GraflumeSpatial = (function (exports) {
                 content.append(element);
             }
             const preparedAnnotations = [];
-            for (const annotation of state.annotations) {
+            for (const annotation of state.annotationsVisible ? state.annotations : []) {
                 const bounds = targetBounds(annotation.target, state, actions);
                 if (bounds === null)
                     continue;
@@ -4258,13 +4493,18 @@ var GraflumeSpatial = (function (exports) {
                     height: bounds.height,
                 });
             }
+            const dataObstacles = preparedAnnotations.length === 0 ? [] : projectedDataObstacles(state, actions);
+            const protectedObstacles = [insideLegendBounds(state), state.controlBounds].filter((bounds) => bounds !== null && bounds !== undefined);
+            const occupiedCallouts = [];
             for (const prepared of preparedAnnotations) {
                 prepared.bubble.remove();
                 const measured = this.#annotationMeasurements.get(prepared.measurementKey) ?? {
                     width: prepared.fallbackWidth,
                     height: prepared.fallbackHeight,
                 };
-                content.append(...placeAnnotation(prepared, state, measured));
+                const placed = placeAnnotation(prepared, state, measured, dataObstacles, protectedObstacles, occupiedCallouts);
+                content.append(...placed.elements);
+                occupiedCallouts.push(placed.bounds);
             }
             let focusTarget = null;
             if (state.legend !== null && state.legend.visible) {
@@ -5035,6 +5275,8 @@ void main() {
         projection: 'Switch projection',
         fullscreen: 'Toggle fullscreen',
         exportPng: 'Download PNG',
+        showAnnotations: 'Show annotations',
+        hideAnnotations: 'Hide annotations',
         instructions: 'Drag to orbit. Use Pan mode, Shift-drag, or the secondary pointer button to pan. Use Control or Command with the wheel, pinch, or plus and minus keys to zoom. Arrow keys move the camera; zero resets it.',
         contextLost: 'The 3D rendering context was lost. Restoring…',
         unavailable: 'Hardware-accelerated 3D rendering is unavailable. The data table remains available.',
@@ -5087,6 +5329,11 @@ void main() {
             svg.append(circle);
         }
         return svg;
+    }
+    function annotationIcon(visible) {
+        return icon(visible
+            ? ['M4.5 5.5h15v10h-9l-4 3v-3h-2v-10Z']
+            : ['M4.5 5.5h15v10h-5', 'M10.5 15.5l-4 3v-3h-2v-10h2', 'M4 4l16 16']);
     }
     function safeText(value, limit = 160) {
         const text = value === null || value === undefined ? '—' : String(value);
@@ -5211,6 +5458,7 @@ void main() {
         #hiddenLegendItems = new Set();
         #selection = [];
         #annotations = [];
+        #annotationsVisible = true;
         #annotationSequence = 0;
         constructor(target, spec, options = {}) {
             if (typeof document === 'undefined')
@@ -5288,6 +5536,7 @@ void main() {
             this.#scene = scene;
             this.#hiddenLegendItems.clear();
             this.#selection = [];
+            this.#annotationsVisible = true;
             this.#annotations = (spec.annotations ?? []).map((annotation, index) => ({
                 ...cloneSpatialAnnotation(annotation),
                 id: annotation.id ?? `annotation-${index}`,
@@ -5313,6 +5562,7 @@ void main() {
             });
             this.#emitSelection('spec');
             this.#emitAnnotations('spec');
+            this.#emitAnnotationVisibility('spec');
         }
         getLegendState() {
             const resolved = this.#legendOverlayState();
@@ -5386,6 +5636,17 @@ void main() {
         }
         getAnnotations() {
             return this.#annotations.map(cloneSpatialAnnotation);
+        }
+        getAnnotationsVisible() {
+            this.#assertAlive();
+            return this.#annotationsVisible;
+        }
+        setAnnotationsVisible(visible) {
+            this.#setAnnotationsVisible(visible, 'programmatic');
+        }
+        toggleAnnotations() {
+            this.#assertAlive();
+            this.#setAnnotationsVisible(!this.#annotationsVisible, 'toggle');
         }
         setAnnotations(annotations) {
             this.#assertAlive();
@@ -5507,7 +5768,7 @@ void main() {
                 return;
             this.#camera = { ...this.#camera, projection };
             this.#renderer.setCamera(this.#camera);
-            this.#syncControls();
+            this.#syncControlStructure();
             this.#emitCamera('projection');
             this.render();
         }
@@ -5538,6 +5799,7 @@ void main() {
             this.#renderer.setCamera(this.#camera);
             this.#renderer.render();
             this.#syncAccessibilityDom();
+            this.#syncControlStructure();
             this.#syncOverlays();
             this.#events.emit('render', { chart: this, scene: this.#scene });
         }
@@ -6022,13 +6284,32 @@ void main() {
                 ...(id === undefined ? {} : { id }),
             });
         }
+        #setAnnotationsVisible(visible, reason) {
+            this.#assertAlive();
+            if (typeof visible !== 'boolean')
+                throw new TypeError('Annotation visibility must be a boolean.');
+            if (visible === this.#annotationsVisible)
+                return;
+            this.#annotationsVisible = visible;
+            this.render();
+            this.#emitAnnotationVisibility(reason);
+        }
+        #emitAnnotationVisibility(reason) {
+            this.#events.emit('annotationvisibilitychange', {
+                chart: this,
+                visible: this.#annotationsVisible,
+                reason,
+            });
+        }
         #syncOverlays() {
             const selection = this.#selectionConfig();
+            const controlBounds = this.#controlCollisionBounds();
             this.#overlays.sync(this.#wrapper, {
                 scene: this.#scene,
                 width: this.#width,
                 height: this.#height,
                 plotBounds: this.#plotViewport,
+                ...(controlBounds === undefined ? {} : { controlBounds }),
                 hiddenLayerIds: this.#hiddenLayerIds(),
                 legend: this.#legendOverlayState(),
                 highlights: this.#spec.highlights ?? [],
@@ -6036,6 +6317,7 @@ void main() {
                 selectionEnabled: selection !== false,
                 selectionHighlight: selection === false ? {} : selection.highlight,
                 annotations: this.#annotations,
+                annotationsVisible: this.#annotationsVisible,
                 selectionLabel: selection === false ? 'Spatial chart selection' : selection.ariaLabel,
             }, {
                 project: (position, pick) => {
@@ -6052,6 +6334,19 @@ void main() {
                 },
                 setLegendVisible: (id, visible) => this.#setLegendItemVisible(id, visible, 'toggle'),
             });
+        }
+        #controlCollisionBounds() {
+            if (this.#controls === null || this.#controlButtons.size === 0)
+                return undefined;
+            const buttonSize = this.#width <= 560 ? 44 : 28;
+            const height = this.#width <= 560 ? 46 : 32;
+            const width = Math.min(Math.max(1, this.#plotViewport.width - 12), this.#controlButtons.size * buttonSize + Math.max(0, this.#controlButtons.size - 1) + 4);
+            return {
+                x: Math.max(this.#plotViewport.x, this.#plotViewport.x + this.#plotViewport.width - width - 6),
+                y: this.#plotViewport.y + 6,
+                width,
+                height,
+            };
         }
         #attachInteraction() {
             const surface = this.#renderer.surface();
@@ -6227,6 +6522,8 @@ void main() {
                 ['fullscreen', labels.fullscreen, icon(['M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5'])],
                 ['png', labels.exportPng, icon(['M4 5h4l2-2h4l2 2h4v15H4V5'], [[12, 12, 4]])],
             ];
+            if (this.#annotationControlVisible())
+                definitions.splice(6, 0, ['annotations', labels.hideAnnotations, annotationIcon(true)]);
             for (const [id, label, graphic] of definitions) {
                 const button = document.createElement('button');
                 button.type = 'button';
@@ -6280,6 +6577,12 @@ void main() {
                 this.#controlButtons.clear();
                 return;
             }
+            if (this.#controls !== null &&
+                this.#controlButtons.has('annotations') !== this.#annotationControlVisible()) {
+                this.#controls.remove();
+                this.#controls = null;
+                this.#controlButtons.clear();
+            }
             if (this.#controls === null)
                 this.#createControls();
             const labels = this.#labels();
@@ -6293,6 +6596,7 @@ void main() {
                 projection: labels.projection,
                 fullscreen: labels.fullscreen,
                 png: labels.exportPng,
+                annotations: this.#annotationsVisible ? labels.hideAnnotations : labels.showAnnotations,
             };
             for (const [id, button] of this.#controlButtons) {
                 const label = byId[id];
@@ -6303,7 +6607,8 @@ void main() {
                 button.disabled =
                     (id === 'orbit' && this.#spec.interaction?.orbit === false) ||
                         (id === 'pan' && this.#spec.interaction?.pan === false) ||
-                        ((id === 'zoom-in' || id === 'zoom-out') && this.#spec.interaction?.zoom === false);
+                        ((id === 'zoom-in' || id === 'zoom-out') && this.#spec.interaction?.zoom === false) ||
+                        (id === 'annotations' && this.#annotations.length === 0);
             }
             if (this.#mode === 'orbit' && this.#spec.interaction?.orbit === false)
                 this.#mode = 'pan';
@@ -6326,6 +6631,8 @@ void main() {
                 void this.toggleFullscreen();
             else if (id === 'png')
                 this.#downloadPng();
+            else if (id === 'annotations')
+                this.toggleAnnotations();
             this.#syncControls();
         }
         #syncControls() {
@@ -6338,6 +6645,27 @@ void main() {
             this.#controlButtons
                 .get('projection')
                 ?.setAttribute('aria-pressed', String(this.#camera.projection === 'orthographic'));
+            const annotations = this.#controlButtons.get('annotations');
+            if (annotations !== undefined) {
+                const labels = this.#labels();
+                const label = this.#annotationsVisible ? labels.hideAnnotations : labels.showAnnotations;
+                annotations.title = label;
+                annotations.setAttribute('aria-label', label);
+                annotations.setAttribute('aria-pressed', String(this.#annotationsVisible));
+                annotations.disabled = this.#annotations.length === 0;
+                annotations.style.background = this.#annotationsVisible ? '#e0e7ff' : 'transparent';
+                if (annotations.dataset.graflumeAnnotationVisibility !== String(this.#annotationsVisible)) {
+                    annotations.replaceChildren(annotationIcon(this.#annotationsVisible));
+                    annotations.dataset.graflumeAnnotationVisibility = String(this.#annotationsVisible);
+                }
+            }
+        }
+        #annotationControlEnabled() {
+            const controls = this.#spec.interaction?.controls;
+            return controls === true || (typeof controls === 'object' && controls.annotations === true);
+        }
+        #annotationControlVisible() {
+            return this.#annotationControlEnabled() && this.#annotations.length > 0;
         }
         #downloadPng() {
             const anchor = document.createElement('a');

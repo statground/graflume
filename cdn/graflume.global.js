@@ -256,7 +256,7 @@ var Graflume = (function (exports) {
         assertSafeKey(key, `data.${key}`);
         return Object.prototype.hasOwnProperty.call(record, key) ? record[key] : null;
     }
-    function clamp$2(value, min, max) {
+    function clamp$3(value, min, max) {
         return Math.min(max, Math.max(min, value));
     }
     function finiteNumber(value) {
@@ -293,6 +293,7 @@ var Graflume = (function (exports) {
     const NAVIGATION_WHEEL_MODES = new Set(['off', 'modifier', 'always']);
     const PLAYBACK_KEYS = new Set([
         'field',
+        'key',
         'layerId',
         'mode',
         'interval',
@@ -300,10 +301,21 @@ var Graflume = (function (exports) {
         'loop',
         'windowSize',
         'autoplay',
+        'transition',
         'filter',
     ]);
     const PLAYBACK_MODES = new Set(['frame', 'cumulative', 'window']);
-    const CONTROLS_KEYS = new Set(['zoom', 'reset', 'fullscreen', 'export', 'playback', 'labels']);
+    const PLAYBACK_TRANSITION_KEYS = new Set(['duration', 'easing']);
+    const PLAYBACK_TRANSITION_EASINGS = new Set(['linear', 'ease-in-out']);
+    const CONTROLS_KEYS = new Set([
+        'zoom',
+        'reset',
+        'fullscreen',
+        'export',
+        'annotations',
+        'playback',
+        'labels',
+    ]);
     const CONTROL_LABEL_KEYS = new Set([
         'controls',
         'zoomIn',
@@ -312,6 +324,8 @@ var Graflume = (function (exports) {
         'enterFullscreen',
         'exitFullscreen',
         'exportPng',
+        'showAnnotations',
+        'hideAnnotations',
         'previousFrame',
         'play',
         'pause',
@@ -1187,6 +1201,10 @@ var Graflume = (function (exports) {
         else if (typeof value.field === 'string' && UNSAFE_FIELDS.has(value.field)) {
             issues.push({ path: `${path}.field`, message: `Unsafe field "${value.field}" is forbidden.` });
         }
+        validateOptionalString(value.key, `${path}.key`, 'Playback key', issues, false);
+        if (typeof value.key === 'string' && UNSAFE_FIELDS.has(value.key)) {
+            issues.push({ path: `${path}.key`, message: `Unsafe field "${value.key}" is forbidden.` });
+        }
         validateOptionalString(value.layerId, `${path}.layerId`, 'Playback layerId', issues, false);
         if (value.mode !== undefined &&
             (typeof value.mode !== 'string' || !PLAYBACK_MODES.has(value.mode))) {
@@ -1210,6 +1228,28 @@ var Graflume = (function (exports) {
             });
         validateOptionalBoolean(value.loop, `${path}.loop`, 'Playback loop', issues);
         validateOptionalBoolean(value.autoplay, `${path}.autoplay`, 'Playback autoplay', issues);
+        if (value.transition !== undefined && value.transition !== false) {
+            if (!isPlainObject(value.transition)) {
+                issues.push({
+                    path: `${path}.transition`,
+                    message: 'Playback transition must be false or an object.',
+                });
+            }
+            else {
+                validateUnknownKeys(value.transition, PLAYBACK_TRANSITION_KEYS, `${path}.transition`, 'playback transition', issues);
+                if (value.transition.duration !== undefined) {
+                    validateFiniteNumber(value.transition.duration, `${path}.transition.duration`, 'Playback transition duration', issues, { min: 50, max: 60_000 });
+                }
+                if (value.transition.easing !== undefined &&
+                    (typeof value.transition.easing !== 'string' ||
+                        !PLAYBACK_TRANSITION_EASINGS.has(value.transition.easing))) {
+                    issues.push({
+                        path: `${path}.transition.easing`,
+                        message: 'Playback transition easing must be "linear" or "ease-in-out".',
+                    });
+                }
+            }
+        }
         validateOptionalBoolean(value.filter, `${path}.filter`, 'Playback filter', issues);
     }
     function validateControls(value, path, issues) {
@@ -1220,7 +1260,7 @@ var Graflume = (function (exports) {
             return;
         }
         validateUnknownKeys(value, CONTROLS_KEYS, path, 'controls', issues);
-        for (const key of ['zoom', 'reset', 'fullscreen', 'export', 'playback']) {
+        for (const key of ['zoom', 'reset', 'fullscreen', 'export', 'annotations', 'playback']) {
             validateOptionalBoolean(value[key], `${path}.${key}`, `Controls ${key}`, issues);
         }
         if (value.labels !== undefined) {
@@ -1750,6 +1790,8 @@ var Graflume = (function (exports) {
         enterFullscreen: 'Enter fullscreen',
         exitFullscreen: 'Exit fullscreen',
         exportPng: 'Download PNG',
+        showAnnotations: 'Show annotations',
+        hideAnnotations: 'Hide annotations',
         previousFrame: 'Previous frame',
         play: 'Play',
         pause: 'Pause',
@@ -1835,6 +1877,7 @@ var Graflume = (function (exports) {
             : typeof playbackInput === 'object'
                 ? {
                     field: playbackInput.field,
+                    ...(playbackInput.key === undefined ? {} : { key: playbackInput.key }),
                     ...(playbackInput.layerId === undefined ? {} : { layerId: playbackInput.layerId }),
                     mode: playbackInput.mode ?? 'frame',
                     interval: playbackInput.interval ?? 1_000,
@@ -1842,6 +1885,12 @@ var Graflume = (function (exports) {
                     loop: playbackInput.loop ?? false,
                     windowSize: playbackInput.windowSize ?? 1,
                     autoplay: playbackInput.autoplay ?? false,
+                    transition: playbackInput.transition === undefined || playbackInput.transition === false
+                        ? false
+                        : {
+                            duration: playbackInput.transition.duration ?? 400,
+                            easing: playbackInput.transition.easing ?? 'ease-in-out',
+                        },
                     filter: playbackInput.filter ?? false,
                 }
                 : false;
@@ -1853,6 +1902,7 @@ var Graflume = (function (exports) {
                 reset: typeof controlsInput === 'object' ? (controlsInput.reset ?? false) : true,
                 fullscreen: typeof controlsInput === 'object' ? (controlsInput.fullscreen ?? false) : true,
                 export: typeof controlsInput === 'object' ? (controlsInput.export ?? false) : true,
+                annotations: typeof controlsInput === 'object' ? (controlsInput.annotations ?? false) : true,
                 playback: typeof controlsInput === 'object' ? (controlsInput.playback ?? false) : true,
                 labels: {
                     ...defaultControlLabels,
@@ -3294,7 +3344,7 @@ var Graflume = (function (exports) {
         bandwidth;
         constructor(options) {
             this.#domain = [...options.domain];
-            const paddingInner = clamp$2(options.paddingInner ?? 0.1, 0, 1);
+            const paddingInner = clamp$3(options.paddingInner ?? 0.1, 0, 1);
             const paddingOuter = Math.max(0, options.paddingOuter ?? 0.05);
             const [start, end] = options.range;
             const direction = end >= start ? 1 : -1;
@@ -3389,7 +3439,7 @@ var Graflume = (function (exports) {
             const [rangeStart, rangeEnd] = this.#range;
             const denominator = domainEnd - domainStart;
             const ratio = denominator === 0 ? 0.5 : (value - domainStart) / denominator;
-            const normalized = this.#clamp ? clamp$2(ratio, 0, 1) : ratio;
+            const normalized = this.#clamp ? clamp$3(ratio, 0, 1) : ratio;
             return rangeStart + normalized * (rangeEnd - rangeStart);
         }
         invert(position) {
@@ -3397,7 +3447,7 @@ var Graflume = (function (exports) {
             const [rangeStart, rangeEnd] = this.#range;
             const denominator = rangeEnd - rangeStart;
             const ratio = denominator === 0 ? 0.5 : (position - rangeStart) / denominator;
-            const normalized = this.#clamp ? clamp$2(ratio, 0, 1) : ratio;
+            const normalized = this.#clamp ? clamp$3(ratio, 0, 1) : ratio;
             return domainStart + normalized * (domainEnd - domainStart);
         }
         ticks(count, locale) {
@@ -3946,6 +3996,128 @@ var Graflume = (function (exports) {
         return undefined;
     }
 
+    function intersectionArea(left, right) {
+        const width = Math.max(0, Math.min(left.x + left.width, right.x + right.width) - Math.max(left.x, right.x));
+        const height = Math.max(0, Math.min(left.y + left.height, right.y + right.height) - Math.max(left.y, right.y));
+        return width * height;
+    }
+    function overlapArea(bounds, obstacles) {
+        return obstacles.reduce((sum, obstacle) => sum + intersectionArea(bounds, obstacle), 0);
+    }
+    function outsideArea(bounds, boundary) {
+        return Math.max(0, bounds.width * bounds.height - intersectionArea(bounds, boundary));
+    }
+    function clampBounds(bounds, boundary) {
+        const minimumX = boundary.x;
+        const minimumY = boundary.y;
+        const maximumX = Math.max(minimumX, boundary.x + boundary.width - bounds.width);
+        const maximumY = Math.max(minimumY, boundary.y + boundary.height - bounds.height);
+        return {
+            ...bounds,
+            x: Math.max(minimumX, Math.min(maximumX, bounds.x)),
+            y: Math.max(minimumY, Math.min(maximumY, bounds.y)),
+        };
+    }
+    function candidateBounds(placement, alignment, options) {
+        const gap = options.gap ?? 18;
+        const targetCenterX = options.target.x + options.target.width / 2;
+        const targetCenterY = options.target.y + options.target.height / 2;
+        let x = targetCenterX - options.width / 2;
+        let y = targetCenterY - options.height / 2;
+        if (placement === 'top' || placement === 'bottom') {
+            x += alignment * Math.max(options.width * 0.58, options.target.width / 2 + gap);
+            y =
+                placement === 'top'
+                    ? options.target.y - options.height - gap
+                    : options.target.y + options.target.height + gap;
+        }
+        else {
+            y += alignment * Math.max(options.height * 0.58, options.target.height / 2 + gap);
+            x =
+                placement === 'left'
+                    ? options.target.x - options.width - gap
+                    : options.target.x + options.target.width + gap;
+        }
+        return {
+            x: x + (options.offsetX ?? 0),
+            y: y + (options.offsetY ?? 0),
+            width: options.width,
+            height: options.height,
+        };
+    }
+    function score(candidate, options) {
+        const rawOverflow = outsideArea(candidate.rawBounds, options.boundary);
+        const protectedOverlap = overlapArea(candidate.bounds, options.protectedObstacles ?? []);
+        const occupiedOverlap = overlapArea(candidate.bounds, options.occupiedCallouts ?? []);
+        const targetOverlap = intersectionArea(candidate.bounds, options.target);
+        const dataOverlap = overlapArea(candidate.bounds, options.dataObstacles ?? []);
+        const targetCenterX = options.target.x + options.target.width / 2;
+        const targetCenterY = options.target.y + options.target.height / 2;
+        const candidateCenterX = candidate.bounds.x + candidate.bounds.width / 2;
+        const candidateCenterY = candidate.bounds.y + candidate.bounds.height / 2;
+        const distance = Math.hypot(candidateCenterX - targetCenterX, candidateCenterY - targetCenterY);
+        return (rawOverflow * 1_000_000 +
+            occupiedOverlap * 80_000 +
+            protectedOverlap * 60_000 +
+            targetOverlap * 40_000 +
+            dataOverlap * 16 +
+            distance * 0.01 +
+            candidate.order * 0.0001);
+    }
+    function explicitIsUnsafe(candidate, options) {
+        const area = Math.max(1, candidate.bounds.width * candidate.bounds.height);
+        return (outsideArea(candidate.rawBounds, options.boundary) > 0.5 ||
+            overlapArea(candidate.bounds, options.protectedObstacles ?? []) > area * 0.08 ||
+            overlapArea(candidate.bounds, options.occupiedCallouts ?? []) > area * 0.08 ||
+            intersectionArea(candidate.bounds, options.target) > area * 0.25 ||
+            overlapArea(candidate.bounds, options.dataObstacles ?? []) > area * 0.72);
+    }
+    /**
+     * Select a deterministic, renderer-neutral perimeter position for a callout.
+     * Authored cardinal placement wins while it remains in bounds and avoids a
+     * severe collision; `auto` and unsafe authored positions use the lowest score.
+     */
+    function placeCallout(options) {
+        const targetCenterX = options.target.x + options.target.width / 2;
+        const targetCenterY = options.target.y + options.target.height / 2;
+        const boundaryCenterX = options.boundary.x + options.boundary.width / 2;
+        const boundaryCenterY = options.boundary.y + options.boundary.height / 2;
+        const horizontalFirst = targetCenterX <= boundaryCenterX ? ['right', 'left'] : ['left', 'right'];
+        const verticalFirst = targetCenterY <= boundaryCenterY ? ['bottom', 'top'] : ['top', 'bottom'];
+        const preferred = options.placement === undefined ? 'auto' : options.placement;
+        const placements = preferred === 'auto'
+            ? [horizontalFirst[0], verticalFirst[0], horizontalFirst[1], verticalFirst[1]]
+            : [preferred, ...[...horizontalFirst, ...verticalFirst].filter((item) => item !== preferred)];
+        const candidates = [];
+        let order = 0;
+        for (const placement of placements) {
+            for (const alignment of [0, -1, 1]) {
+                const rawBounds = candidateBounds(placement, alignment, options);
+                const bounds = clampBounds(rawBounds, options.boundary);
+                candidates.push({
+                    x: bounds.x,
+                    y: bounds.y,
+                    bounds,
+                    placement,
+                    rawBounds,
+                    order,
+                });
+                order += 1;
+            }
+        }
+        const explicit = candidates[0];
+        if (preferred !== 'auto' && !explicitIsUnsafe(explicit, options)) {
+            return {
+                x: explicit.x,
+                y: explicit.y,
+                bounds: explicit.bounds,
+                placement: explicit.placement,
+            };
+        }
+        const best = candidates.reduce((winner, candidate) => score(candidate, options) < score(winner, options) ? candidate : winner);
+        return { x: best.x, y: best.y, bounds: best.bounds, placement: best.placement };
+    }
+
     function union(left, right) {
         if (left === null)
             return right;
@@ -4143,43 +4315,214 @@ var Graflume = (function (exports) {
             },
         ];
     }
-    function wrapText(text, maxWidth, fontSize) {
-        const maxCharacters = Math.max(1, Math.floor(maxWidth / Math.max(1, fontSize * 0.58)));
-        const words = text.trim().split(/\s+/);
+    function graphemes(text) {
+        try {
+            return [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text)].map(({ segment }) => segment);
+        }
+        catch {
+            return Array.from(text);
+        }
+    }
+    function graphemeWidth(value, fontSize) {
+        // Canvas cannot measure text during compilation, and a consumer may provide
+        // a wider custom face than the built-in theme. Keep the estimates
+        // deliberately conservative so wrapping happens before a glyph reaches the
+        // content edge. The extra factor also covers bold title text and bearings.
+        const customFontSafety = 1.08;
+        if (/^\s+$/u.test(value))
+            return fontSize * 0.42 * customFontSafety;
+        if (/\p{Extended_Pictographic}/u.test(value))
+            return fontSize * 1.25 * customFontSafety;
+        if (/^[\p{Script=Han}\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}]$/u.test(value))
+            return fontSize * 1.08 * customFontSafety;
+        if (/^[\p{Script=Arabic}\p{Script=Hebrew}]$/u.test(value))
+            return fontSize * 0.92 * customFontSafety;
+        if (/^[WM]$/u.test(value))
+            return fontSize * 1.05 * customFontSafety;
+        if (/^[mw]$/u.test(value))
+            return fontSize * 0.94 * customFontSafety;
+        if (/^[ilI1|!.,:;'`]$/u.test(value))
+            return fontSize * 0.48 * customFontSafety;
+        if (/^[A-Z0-9]$/u.test(value))
+            return fontSize * 0.82 * customFontSafety;
+        if (/^[a-z]$/u.test(value))
+            return fontSize * 0.72 * customFontSafety;
+        return fontSize * customFontSafety;
+    }
+    function textWidth(text, fontSize) {
+        return graphemes(text).reduce((sum, value) => sum + graphemeWidth(value, fontSize), 0);
+    }
+    function ellipsizeLine(text, maxWidth, fontSize) {
+        const suffix = '…';
+        if (textWidth(suffix, fontSize) > maxWidth)
+            return '';
+        const output = [...graphemes(text)];
+        while (output.length > 0 && textWidth(`${output.join('')}${suffix}`, fontSize) > maxWidth)
+            output.pop();
+        return `${output.join('')}${suffix}`;
+    }
+    function wrapText(text, maxWidth, fontSize, maxLines = 6) {
+        const words = text.trim().split(/\s+/u).filter(Boolean);
         const lines = [];
         let line = '';
-        for (const word of words) {
-            const next = line === '' ? word : `${line} ${word}`;
-            if (next.length <= maxCharacters)
-                line = next;
-            else {
-                if (line !== '')
-                    lines.push(line);
-                const graphemes = (() => {
-                    try {
-                        return [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(word)].map(({ segment }) => segment);
-                    }
-                    catch {
-                        return Array.from(word);
-                    }
-                })();
-                line =
-                    graphemes.length <= maxCharacters
-                        ? word
-                        : maxCharacters === 1
-                            ? '…'
-                            : `${graphemes.slice(0, maxCharacters - 1).join('')}…`;
+        let truncated = false;
+        const pushLine = () => {
+            if (line === '')
+                return true;
+            if (lines.length >= maxLines) {
+                truncated = true;
+                return false;
             }
-            if (lines.length >= 5)
-                break;
-        }
-        if (line !== '' && lines.length < 6)
             lines.push(line);
-        return lines;
+            line = '';
+            return true;
+        };
+        outer: for (const word of words) {
+            const combined = line === '' ? word : `${line} ${word}`;
+            if (textWidth(combined, fontSize) <= maxWidth) {
+                line = combined;
+                continue;
+            }
+            if (!pushLine())
+                break;
+            let chunk = '';
+            for (const value of graphemes(word)) {
+                if (chunk !== '' && textWidth(`${chunk}${value}`, fontSize) > maxWidth) {
+                    line = chunk;
+                    if (!pushLine())
+                        break outer;
+                    chunk = '';
+                }
+                if (chunk === '' && graphemeWidth(value, fontSize) > maxWidth) {
+                    line = value;
+                    if (!pushLine())
+                        break outer;
+                }
+                else {
+                    chunk += value;
+                }
+            }
+            line = chunk;
+        }
+        if (line !== '') {
+            if (lines.length < maxLines)
+                lines.push(line);
+            else
+                truncated = true;
+        }
+        if (truncated && lines.length > 0)
+            lines[lines.length - 1] = ellipsizeLine(lines[lines.length - 1], maxWidth, fontSize);
+        return { lines, truncated };
     }
-    function annotationNodes(annotation, index, resolution, plot, theme, locale) {
+    function clippedBounds(bounds, clip) {
+        const x = Math.max(bounds.x, clip.x);
+        const y = Math.max(bounds.y, clip.y);
+        const endX = Math.min(bounds.x + bounds.width, clip.x + clip.width);
+        const endY = Math.min(bounds.y + bounds.height, clip.y + clip.height);
+        if (endX < x || endY < y)
+            return null;
+        return { x, y, width: Math.max(2, endX - x), height: Math.max(2, endY - y) };
+    }
+    function segmentObstacleBounds(start, end, lineWidth, plot) {
+        const cellWidth = Math.max(1, plot.width / 12);
+        const cellHeight = Math.max(1, plot.height / 8);
+        const horizontalSpan = Math.abs(end.x - start.x) / cellWidth;
+        const verticalSpan = Math.abs(end.y - start.y) / cellHeight;
+        const stepCount = Math.max(1, Math.min(32, Math.ceil(Math.max(horizontalSpan, verticalSpan) * 2)));
+        const padding = Math.max(2, lineWidth / 2 + 1.25);
+        const pieces = [];
+        for (let step = 0; step < stepCount; step += 1) {
+            const fromRatio = step / stepCount;
+            const toRatio = (step + 1) / stepCount;
+            const fromX = start.x + (end.x - start.x) * fromRatio;
+            const fromY = start.y + (end.y - start.y) * fromRatio;
+            const toX = start.x + (end.x - start.x) * toRatio;
+            const toY = start.y + (end.y - start.y) * toRatio;
+            pieces.push({
+                x: Math.min(fromX, toX) - padding,
+                y: Math.min(fromY, toY) - padding,
+                width: Math.abs(toX - fromX) + padding * 2,
+                height: Math.abs(toY - fromY) + padding * 2,
+            });
+        }
+        return pieces;
+    }
+    function localObstacleBounds(node, plot) {
+        if (node.type === 'line') {
+            return segmentObstacleBounds({ x: node.x1, y: node.y1 }, { x: node.x2, y: node.y2 }, node.lineWidth, plot);
+        }
+        if (node.type !== 'path') {
+            const bounds = sceneNodeBounds(node);
+            return bounds === null ? [] : [bounds];
+        }
+        const pieces = [];
+        for (const points of [node.points, ...(node.subpaths ?? [])]) {
+            if (points.length === 1) {
+                const point = points[0];
+                const radius = Math.max(2, node.lineWidth / 2 + 1.25);
+                pieces.push({
+                    x: point.x - radius,
+                    y: point.y - radius,
+                    width: radius * 2,
+                    height: radius * 2,
+                });
+                continue;
+            }
+            for (let index = 1; index < points.length; index += 1) {
+                pieces.push(...segmentObstacleBounds(points[index - 1], points[index], node.lineWidth, plot));
+            }
+            if (node.closed && points.length > 2)
+                pieces.push(...segmentObstacleBounds(points.at(-1), points[0], node.lineWidth, plot));
+        }
+        return pieces;
+    }
+    function dataObstacleBounds(layerGroups, plot) {
+        const columns = 12;
+        const rows = 8;
+        const buckets = new Map();
+        for (const node of layerGroups.flatMap((layer) => descendants$1(layer))) {
+            for (const bounds of localObstacleBounds(node, plot)) {
+                const clipped = clippedBounds(bounds, plot);
+                if (clipped === null)
+                    continue;
+                const centerX = clipped.x + clipped.width / 2;
+                const centerY = clipped.y + clipped.height / 2;
+                const column = Math.max(0, Math.min(columns - 1, Math.floor(((centerX - plot.x) / Math.max(1, plot.width)) * columns)));
+                const row = Math.max(0, Math.min(rows - 1, Math.floor(((centerY - plot.y) / Math.max(1, plot.height)) * rows)));
+                const key = row * columns + column;
+                const prior = buckets.get(key);
+                buckets.set(key, {
+                    bounds: union(prior?.bounds ?? null, clipped) ?? clipped,
+                    count: (prior?.count ?? 0) + 1,
+                });
+            }
+        }
+        return [...buckets.values()].flatMap(({ bounds, count }) => Array.from({ length: Math.min(8, Math.max(1, Math.ceil(Math.log2(count + 1)))) }, () => bounds));
+    }
+    function controlStripBounds(spec, width) {
+        const controls = spec.interaction.controls;
+        if (controls === false)
+            return null;
+        const buttonSize = width <= 560 ? 44 : 28;
+        const height = width <= 560 ? 44 : 30;
+        const buttonCount = (controls.zoom ? 2 : 0) +
+            (controls.reset ? 1 : 0) +
+            (controls.fullscreen ? 1 : 0) +
+            (controls.export ? 1 : 0) +
+            (controls.annotations ? 1 : 0) +
+            (controls.playback ? 4 : 0);
+        if (buttonCount === 0)
+            return null;
+        const navigationGroup = controls.zoom || controls.reset;
+        const utilityGroup = controls.fullscreen || controls.export || controls.annotations;
+        const separators = (navigationGroup && (utilityGroup || controls.playback) ? 1 : 0) +
+            (utilityGroup && controls.playback ? 1 : 0);
+        const stripWidth = Math.min(Math.max(1, width - 12), buttonCount * buttonSize + separators * 5 + 2);
+        return { x: Math.max(0, width - stripWidth - 6), y: 6, width: stripWidth, height };
+    }
+    function annotationNodes(annotation, index, resolution, plot, theme, locale, dataObstacles, protectedObstacles, occupiedCallouts) {
         if (!resolution.found)
-            return [];
+            return { nodes: [], bounds: null };
         const style = annotation.style ?? {};
         const availableWidth = Math.max(1, plot.width);
         const availableHeight = Math.max(1, plot.height);
@@ -4187,56 +4530,58 @@ var Graflume = (function (exports) {
         const padding = Math.min(style.padding ?? 10, Math.max(0, Math.min(maxWidth / 5, availableHeight / 6)));
         const fontSize = Math.min(style.fontSize ?? 12, Math.max(1, Math.min(maxWidth / 3, availableHeight / 3)));
         const detailFontSize = Math.max(1, fontSize - 1);
-        let titleLines = wrapText(annotation.text, maxWidth - padding * 2, fontSize);
-        let detailLines = annotation.detail === undefined
-            ? []
-            : wrapText(annotation.detail, maxWidth - padding * 2, detailFontSize);
+        const maximumContentWidth = Math.max(1, maxWidth - padding * 2);
+        const glyphGuard = Math.min(maximumContentWidth / 4, Math.max(0.75, fontSize * 0.12));
+        const wrappingWidth = Math.max(1, maximumContentWidth - glyphGuard * 2);
+        const wrappedTitle = wrapText(annotation.text, wrappingWidth, fontSize);
+        const wrappedDetail = annotation.detail === undefined
+            ? { lines: [], truncated: false }
+            : wrapText(annotation.detail, wrappingWidth, detailFontSize);
+        let titleLines = wrappedTitle.lines;
+        let detailLines = wrappedDetail.lines;
         const lineHeight = fontSize * 1.35;
         const detailLineHeight = detailFontSize * 1.35;
         const lineBudget = Math.max(1, Math.floor((availableHeight - padding * 2) / detailLineHeight));
         titleLines = titleLines.slice(0, Math.max(1, Math.min(titleLines.length, lineBudget)));
         detailLines = detailLines.slice(0, Math.max(0, lineBudget - titleLines.length));
-        const ellipsizeLast = (lines, truncated) => {
+        const ellipsizeLast = (lines, truncated, lineFontSize) => {
             if (!truncated || lines.length === 0)
                 return lines;
             const last = lines[lines.length - 1];
-            return [...lines.slice(0, -1), last.endsWith('…') ? last : `${last}…`];
+            return [
+                ...lines.slice(0, -1),
+                last.endsWith('…') ? last : ellipsizeLine(last, wrappingWidth, lineFontSize),
+            ];
         };
-        titleLines = ellipsizeLast(titleLines, titleLines.join(' ').length < annotation.text.length);
-        detailLines = ellipsizeLast(detailLines, annotation.detail !== undefined && detailLines.join(' ').length < annotation.detail.length);
-        const longest = Math.max(8, ...[...titleLines, ...detailLines].map((line) => line.length));
-        const width = Math.min(maxWidth, Math.max(Math.min(96, maxWidth), longest * fontSize * 0.58 + padding * 2));
+        titleLines = ellipsizeLast(titleLines, wrappedTitle.truncated || titleLines.length < wrappedTitle.lines.length, fontSize);
+        detailLines = ellipsizeLast(detailLines, wrappedDetail.truncated || detailLines.length < wrappedDetail.lines.length, detailFontSize);
+        const longestWidth = Math.max(fontSize * 4, ...titleLines.map((line) => textWidth(line, fontSize)), ...detailLines.map((line) => textWidth(line, detailFontSize)));
+        const width = Math.min(maxWidth, Math.max(Math.min(96, maxWidth), longestWidth + padding * 2 + glyphGuard * 2));
         const height = Math.min(availableHeight, padding * 2 +
             titleLines.length * lineHeight +
             detailLines.length * detailLineHeight +
             (detailLines.length > 0 ? 4 : 0));
         const target = resolution.bounds;
         const anchor = { x: target.x + target.width / 2, y: target.y + target.height / 2 };
-        const placement = annotation.placement === undefined || annotation.placement === 'auto'
-            ? anchor.x < plot.x + plot.width / 2
-                ? 'right'
-                : 'left'
-            : annotation.placement;
-        const gap = 18;
-        let x = anchor.x - width / 2;
-        let y = anchor.y - height / 2;
-        if (placement === 'top')
-            y = target.y - height - gap;
-        if (placement === 'bottom')
-            y = target.y + target.height + gap;
-        if (placement === 'left')
-            x = target.x - width - gap;
-        if (placement === 'right')
-            x = target.x + target.width + gap;
-        x += annotation.offsetX ?? 0;
-        y += annotation.offsetY ?? 0;
-        x = Math.max(plot.x, Math.min(plot.x + plot.width - width, x));
-        y = Math.max(plot.y, Math.min(plot.y + plot.height - height, y));
+        const placed = placeCallout({
+            target,
+            width,
+            height,
+            boundary: plot,
+            placement: annotation.placement ?? 'auto',
+            offsetX: annotation.offsetX ?? 0,
+            offsetY: annotation.offsetY ?? 0,
+            dataObstacles,
+            protectedObstacles,
+            occupiedCallouts,
+        });
+        const { x, y } = placed;
         const id = annotation.id ?? `annotation-${index}`;
         const bubbleCenter = { x: x + width / 2, y: y + height / 2 };
         const connector = typeof annotation.connector === 'object' ? annotation.connector : {};
         const connectorVisible = typeof annotation.connector === 'boolean' ? annotation.connector : (connector.visible ?? true);
         const nodes = [];
+        const textNodes = [];
         const rtl = locale !== undefined && /^(ar|fa|he|ur)(?:-|$)/i.test(locale);
         const logicalAlign = style.align ?? 'start';
         const textAlign = logicalAlign === 'center'
@@ -4251,8 +4596,8 @@ var Graflume = (function (exports) {
         const textX = logicalAlign === 'center'
             ? x + width / 2
             : textAlign === 'right'
-                ? x + width - padding
-                : x + padding;
+                ? x + width - padding - glyphGuard
+                : x + padding + glyphGuard;
         if (connectorVisible) {
             nodes.push({
                 type: 'line',
@@ -4295,13 +4640,13 @@ var Graflume = (function (exports) {
                 baseline: 'top',
                 rotation: 0,
             };
-            nodes.push(node);
+            textNodes.push(node);
             textY += lineHeight;
         }
         if (detailLines.length > 0)
             textY += 4;
         for (const [lineIndex, text] of detailLines.entries()) {
-            nodes.push({
+            textNodes.push({
                 type: 'text',
                 ...nodeBase(`annotation:${id}:detail:${lineIndex}`, { zIndex: 702 }),
                 x: textX,
@@ -4317,7 +4662,17 @@ var Graflume = (function (exports) {
             });
             textY += detailLineHeight;
         }
-        return nodes;
+        if (textNodes.length > 0)
+            nodes.push(group(`annotation:${id}:content`, textNodes, {
+                zIndex: 702,
+                clip: {
+                    x: x + padding,
+                    y: y + padding,
+                    width: Math.max(0, width - padding * 2),
+                    height: Math.max(0, height - padding * 2),
+                },
+            }));
+        return { nodes, bounds: placed.bounds };
     }
     function compileDecorations(options) {
         const underlay = [];
@@ -4338,9 +4693,25 @@ var Graflume = (function (exports) {
             }
         }
         const annotations = options.runtime?.annotations ?? options.spec.annotations;
+        if (options.runtime?.annotationsVisible === false)
+            return {
+                underlay: underlay.length === 0
+                    ? []
+                    : [group('decorations:underlay', underlay, { zIndex: -200, clip: options.plot })],
+                overlay: overlay.length === 0 ? [] : [group('decorations:overlay', overlay, { zIndex: 600 })],
+            };
+        const dataObstacles = dataObstacleBounds(options.layerGroups, options.plot);
+        const protectedObstacles = [
+            options.legendBounds,
+            controlStripBounds(options.spec, options.width),
+        ].filter((bounds) => bounds !== undefined && bounds !== null);
+        const occupiedCallouts = [];
         annotations.forEach((annotation, index) => {
             const resolution = targetBounds(annotation.target, options.layerGroups, options.scales, options.plot, options.datumVisible);
-            overlay.push(...annotationNodes(annotation, index, resolution, options.plot, options.theme, options.spec.locale));
+            const compiled = annotationNodes(annotation, index, resolution, options.plot, options.theme, options.spec.locale, dataObstacles, protectedObstacles, occupiedCallouts);
+            overlay.push(...compiled.nodes);
+            if (compiled.bounds !== null)
+                occupiedCallouts.push(compiled.bounds);
         });
         return {
             underlay: underlay.length === 0
@@ -5149,16 +5520,18 @@ var Graflume = (function (exports) {
                 visible: !hiddenLayerIds.has(layerData.layer.id),
             });
         });
+        const legend = compileLegend(legendModel, layerGroups, layout.plot, width, height, theme, hiddenLegendItems);
         const decorations = compileDecorations({
             spec,
             layerGroups,
             scales,
             plot: layout.plot,
             theme,
+            width,
+            ...(legend.layout === null ? {} : { legendBounds: legend.layout.bounds }),
             runtime,
             datumVisible,
         });
-        const legend = compileLegend(legendModel, layerGroups, layout.plot, width, height, theme, hiddenLegendItems);
         const children = [
             ...decorations.underlay,
             ...axisNodes,
@@ -5279,6 +5652,8 @@ var Graflume = (function (exports) {
         fullscreen: 'M4.5 9V4.5H9M15 4.5h4.5V9M19.5 15v4.5H15M9 19.5H4.5V15',
         'exit-fullscreen': 'M9 4.5V9H4.5M19.5 9H15V4.5M15 19.5V15h4.5M4.5 15H9v4.5',
         export: 'M4.5 8h3l1.4-2h6.2l1.4 2h3v10.5h-15V8ZM12 10a3.25 3.25 0 1 0 0 6.5A3.25 3.25 0 0 0 12 10Z',
+        annotations: 'M4.5 5.5h15v10h-9l-4 3v-3h-2v-10Z',
+        'annotations-hidden': 'M4.5 5.5h15v10h-5M10.5 15.5l-4 3v-3h-2v-10h2M4 4l16 16',
         previous: 'M6 5v14M18 6.5 9.5 12l8.5 5.5Z',
         play: 'M8 5.5 18 12 8 18.5Z',
         pause: 'M8.5 6v12M15.5 6v12',
@@ -5399,12 +5774,14 @@ var Graflume = (function (exports) {
                 reset: state.spec.reset,
                 fullscreen: state.spec.fullscreen,
                 export: state.spec.export,
+                annotations: state.spec.annotations,
+                annotationsAvailable: state.annotationsAvailable,
                 playback: state.spec.playback,
                 labels: state.spec.labels,
             });
             if (this.#elements === null || this.#signature !== signature) {
                 this.destroy();
-                this.#elements = this.#create(host.ownerDocument, state.spec, actions);
+                this.#elements = this.#create(host.ownerDocument, state, actions);
                 this.#signature = signature;
             }
             const elements = this.#elements;
@@ -5420,7 +5797,8 @@ var Graflume = (function (exports) {
             this.#elements = null;
             this.#signature = '';
         }
-        #create(document, spec, actions) {
+        #create(document, state, actions) {
+            const spec = state.spec;
             const root = document.createElement('div');
             root.className = 'graflume-controls';
             root.dataset.graflumeControls = 'true';
@@ -5437,6 +5815,7 @@ var Graflume = (function (exports) {
             root.append(strip);
             const elements = { root };
             const labels = spec.labels;
+            const showAnnotations = spec.annotations && state.annotationsAvailable;
             if (spec.zoom) {
                 elements.zoomOut = button(document, 'zoom-out', 'zoom-out', labels.zoomOut, actions.zoomOut);
                 elements.zoomIn = button(document, 'zoom-in', 'zoom-in', labels.zoomIn, actions.zoomIn);
@@ -5446,7 +5825,8 @@ var Graflume = (function (exports) {
                 elements.reset = button(document, 'reset', 'reset', labels.reset, actions.reset);
                 strip.append(elements.reset);
             }
-            if ((spec.zoom || spec.reset) && (spec.fullscreen || spec.export || spec.playback)) {
+            if ((spec.zoom || spec.reset) &&
+                (spec.fullscreen || spec.export || showAnnotations || spec.playback)) {
                 strip.append(separator(document));
             }
             if (spec.fullscreen) {
@@ -5457,7 +5837,11 @@ var Graflume = (function (exports) {
                 elements.exportPng = button(document, 'export-png', 'export', labels.exportPng, actions.exportPng);
                 strip.append(elements.exportPng);
             }
-            if ((spec.fullscreen || spec.export) && spec.playback)
+            if (showAnnotations) {
+                elements.annotations = button(document, 'annotations', 'annotations', labels.hideAnnotations, actions.toggleAnnotations);
+                strip.append(elements.annotations);
+            }
+            if ((spec.fullscreen || spec.export || showAnnotations) && spec.playback)
                 strip.append(separator(document));
             if (spec.playback) {
                 const playbackOptionsLabel = `${labels.seek} · ${labels.speed} · ${labels.loop}`;
@@ -5538,6 +5922,12 @@ var Graflume = (function (exports) {
             }
             if (elements.exportPng !== undefined)
                 elements.exportPng.disabled = !state.exportAvailable;
+            if (elements.annotations !== undefined) {
+                elements.annotations.disabled = !state.annotationsAvailable;
+                updateLabel(elements.annotations, state.annotationsVisible ? labels.hideAnnotations : labels.showAnnotations);
+                setIcon(elements.annotations, state.annotationsVisible ? 'annotations' : 'annotations-hidden');
+                elements.annotations.setAttribute('aria-pressed', String(state.annotationsVisible));
+            }
             const playbackDisabled = !state.playbackEnabled || state.playbackLength <= 1;
             if (elements.previousFrame !== undefined)
                 elements.previousFrame.disabled = playbackDisabled;
@@ -6261,6 +6651,418 @@ var Graflume = (function (exports) {
         }
     }
 
+    function clamp$2(value, minimum, maximum) {
+        return Math.max(minimum, Math.min(maximum, value));
+    }
+    function mix(from, to, progress) {
+        return from + (to - from) * progress;
+    }
+    function easeSceneProgress(progress, easing) {
+        if (!Number.isFinite(progress))
+            throw new RangeError('Scene transition progress must be finite.');
+        const value = clamp$2(progress, 0, 1);
+        return easing === 'ease-in-out' ? value * value * (3 - 2 * value) : value;
+    }
+    function mixRect(from, to, progress) {
+        return {
+            x: mix(from.x, to.x, progress),
+            y: mix(from.y, to.y, progress),
+            width: mix(from.width, to.width, progress),
+            height: mix(from.height, to.height, progress),
+        };
+    }
+    function mixPoints(from, to, progress) {
+        return to.map((point, index) => {
+            const previous = from[index];
+            return {
+                x: mix(previous.x, point.x, progress),
+                y: mix(previous.y, point.y, progress),
+            };
+        });
+    }
+    function parseHexColor(input) {
+        const value = input.slice(1);
+        if (![3, 4, 6, 8].includes(value.length) || !/^[0-9a-f]+$/i.test(value))
+            return null;
+        const expanded = value.length <= 4 ? [...value].map((character) => `${character}${character}`).join('') : value;
+        const red = Number.parseInt(expanded.slice(0, 2), 16);
+        const green = Number.parseInt(expanded.slice(2, 4), 16);
+        const blue = Number.parseInt(expanded.slice(4, 6), 16);
+        const alpha = expanded.length === 8 ? Number.parseInt(expanded.slice(6, 8), 16) / 255 : 1;
+        return { red, green, blue, alpha };
+    }
+    function parseRgbChannel(input) {
+        const value = input.trim();
+        const percentage = value.endsWith('%');
+        const parsed = Number.parseFloat(percentage ? value.slice(0, -1) : value);
+        if (!Number.isFinite(parsed))
+            return null;
+        return clamp$2(percentage ? (parsed / 100) * 255 : parsed, 0, 255);
+    }
+    function parseAlpha(input) {
+        const value = input.trim();
+        const percentage = value.endsWith('%');
+        const parsed = Number.parseFloat(percentage ? value.slice(0, -1) : value);
+        if (!Number.isFinite(parsed))
+            return null;
+        return clamp$2(percentage ? parsed / 100 : parsed, 0, 1);
+    }
+    function parseFunctionalColor(input) {
+        const match = /^rgba?\((.*)\)$/i.exec(input.trim());
+        if (match === null)
+            return null;
+        const parts = match[1]
+            .trim()
+            .replace(/\s*\/\s*/, ' ')
+            .split(/[\s,]+/);
+        if (parts.length !== 3 && parts.length !== 4)
+            return null;
+        const red = parseRgbChannel(parts[0]);
+        const green = parseRgbChannel(parts[1]);
+        const blue = parseRgbChannel(parts[2]);
+        const alpha = parts[3] === undefined ? 1 : parseAlpha(parts[3]);
+        if (red === null || green === null || blue === null || alpha === null)
+            return null;
+        return { red, green, blue, alpha };
+    }
+    function parseColor(input) {
+        const value = input.trim();
+        if (value.toLowerCase() === 'transparent')
+            return { red: 0, green: 0, blue: 0, alpha: 0 };
+        if (value.startsWith('#'))
+            return parseHexColor(value);
+        return parseFunctionalColor(value);
+    }
+    function colorCompatible(from, to) {
+        if (from === to)
+            return true;
+        if (from === undefined || to === undefined)
+            return false;
+        return parseColor(from) !== null && parseColor(to) !== null;
+    }
+    function mixColor$1(from, to, progress) {
+        if (from === to)
+            return to;
+        const left = parseColor(from);
+        const right = parseColor(to);
+        const red = Math.round(mix(left.red, right.red, progress));
+        const green = Math.round(mix(left.green, right.green, progress));
+        const blue = Math.round(mix(left.blue, right.blue, progress));
+        const alpha = Math.round(mix(left.alpha, right.alpha, progress) * 1_000) / 1_000;
+        return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+    }
+    function mixOptionalColor(from, to, progress) {
+        if (from === undefined || to === undefined)
+            return to;
+        return mixColor$1(from, to, progress);
+    }
+    function normalizedDash(input) {
+        return input ?? [];
+    }
+    function dashCompatible(from, to) {
+        return normalizedDash(from).length === normalizedDash(to).length;
+    }
+    function mixDash(from, to, progress) {
+        const left = normalizedDash(from);
+        const right = normalizedDash(to);
+        if (right.length === 0)
+            return undefined;
+        return right.map((value, index) => mix(left[index], value, progress));
+    }
+    function effectiveOpacity(node) {
+        return node.visible ? node.opacity : 0;
+    }
+    function baseTransition(from, to, progress) {
+        const opacity = mix(effectiveOpacity(from), effectiveOpacity(to), progress);
+        return {
+            id: to.id,
+            zIndex: to.zIndex,
+            opacity,
+            visible: opacity > 0,
+        };
+    }
+    function scalarKey(value) {
+        if (value instanceof Date)
+            return `date:${value.getTime()}`;
+        if (value === null)
+            return 'null';
+        if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+            return `${typeof value}:${String(value)}`;
+        }
+        return null;
+    }
+    function stableDatumIdentity(node, keyField) {
+        const datum = node.datum;
+        if (keyField !== undefined && datum !== undefined) {
+            const key = scalarKey(datum.datum[keyField] ?? datum.tooltip?.[keyField]);
+            if (key !== null) {
+                return `datum:${node.type}:${datum.layerId}:${key}`;
+            }
+        }
+        return null;
+    }
+    function nodeIdentity(node, keyField) {
+        return stableDatumIdentity(node, keyField) ?? `node:${node.type}:${node.id}`;
+    }
+    function stableDatumRoleCandidates(node) {
+        if (node.datum === undefined)
+            return new Set();
+        const parts = node.id.split(':');
+        const rowIndex = String(node.datum.rowIndex);
+        const roles = new Set();
+        for (let index = 0; index < parts.length; index += 1) {
+            if (parts[index] !== rowIndex)
+                continue;
+            const candidate = [...parts];
+            candidate[index] = '@datum';
+            roles.add(candidate.join(':'));
+        }
+        return roles;
+    }
+    function sameStableDatumRole(from, to) {
+        if (from.id === to.id)
+            return true;
+        const left = stableDatumRoleCandidates(from);
+        const right = stableDatumRoleCandidates(to);
+        return [...left].some((role) => right.has(role));
+    }
+    function samePathTopology(from, to) {
+        if (from.closed !== to.closed || from.points.length !== to.points.length)
+            return false;
+        const left = from.subpaths ?? [];
+        const right = to.subpaths ?? [];
+        return (left.length === right.length &&
+            left.every((subpath, index) => subpath.length === right[index].length));
+    }
+    function nodeCompatible(from, to) {
+        if (from.type !== to.type)
+            return false;
+        switch (to.type) {
+            case 'group': {
+                const previous = from;
+                return (previous.clip === undefined) === (to.clip === undefined);
+            }
+            case 'line': {
+                const previous = from;
+                return (previous.lineCap === to.lineCap &&
+                    colorCompatible(previous.stroke, to.stroke) &&
+                    dashCompatible(previous.dash, to.dash));
+            }
+            case 'path': {
+                const previous = from;
+                return (samePathTopology(previous, to) &&
+                    previous.fillRule === to.fillRule &&
+                    previous.lineCap === to.lineCap &&
+                    previous.lineJoin === to.lineJoin &&
+                    colorCompatible(previous.fill, to.fill) &&
+                    colorCompatible(previous.stroke, to.stroke) &&
+                    dashCompatible(previous.dash, to.dash));
+            }
+            case 'rect': {
+                const previous = from;
+                return (colorCompatible(previous.fill, to.fill) &&
+                    colorCompatible(previous.stroke, to.stroke) &&
+                    dashCompatible(previous.dash, to.dash));
+            }
+            case 'circle': {
+                const previous = from;
+                return colorCompatible(previous.fill, to.fill) && colorCompatible(previous.stroke, to.stroke);
+            }
+            case 'text': {
+                const previous = from;
+                return (previous.text === to.text &&
+                    previous.fontFamily === to.fontFamily &&
+                    previous.fontWeight === to.fontWeight &&
+                    previous.fontStyle === to.fontStyle &&
+                    previous.align === to.align &&
+                    previous.baseline === to.baseline &&
+                    colorCompatible(previous.fill, to.fill));
+            }
+        }
+    }
+    function interpolateCompatibleNode(from, to, progress, options) {
+        switch (to.type) {
+            case 'group': {
+                const previous = from;
+                return {
+                    ...to,
+                    ...baseTransition(previous, to, progress),
+                    children: mergeChildren(previous.children, to.children, progress, options),
+                    ...(previous.clip === undefined || to.clip === undefined
+                        ? {}
+                        : { clip: mixRect(previous.clip, to.clip, progress) }),
+                };
+            }
+            case 'line': {
+                const previous = from;
+                const dash = mixDash(previous.dash, to.dash, progress);
+                return {
+                    ...to,
+                    ...baseTransition(previous, to, progress),
+                    x1: mix(previous.x1, to.x1, progress),
+                    y1: mix(previous.y1, to.y1, progress),
+                    x2: mix(previous.x2, to.x2, progress),
+                    y2: mix(previous.y2, to.y2, progress),
+                    stroke: mixColor$1(previous.stroke, to.stroke, progress),
+                    lineWidth: mix(previous.lineWidth, to.lineWidth, progress),
+                    ...(dash === undefined ? {} : { dash }),
+                };
+            }
+            case 'path': {
+                const previous = from;
+                const leftSubpaths = previous.subpaths ?? [];
+                const rightSubpaths = to.subpaths ?? [];
+                const dash = mixDash(previous.dash, to.dash, progress);
+                const fill = mixOptionalColor(previous.fill, to.fill, progress);
+                const stroke = mixOptionalColor(previous.stroke, to.stroke, progress);
+                return {
+                    ...to,
+                    ...baseTransition(previous, to, progress),
+                    points: mixPoints(previous.points, to.points, progress),
+                    ...(rightSubpaths.length === 0
+                        ? {}
+                        : {
+                            subpaths: rightSubpaths.map((subpath, index) => mixPoints(leftSubpaths[index], subpath, progress)),
+                        }),
+                    lineWidth: mix(previous.lineWidth, to.lineWidth, progress),
+                    ...(fill === undefined ? {} : { fill }),
+                    ...(stroke === undefined ? {} : { stroke }),
+                    ...(dash === undefined ? {} : { dash }),
+                };
+            }
+            case 'rect': {
+                const previous = from;
+                const dash = mixDash(previous.dash, to.dash, progress);
+                const fill = mixOptionalColor(previous.fill, to.fill, progress);
+                const stroke = mixOptionalColor(previous.stroke, to.stroke, progress);
+                return {
+                    ...to,
+                    ...baseTransition(previous, to, progress),
+                    x: mix(previous.x, to.x, progress),
+                    y: mix(previous.y, to.y, progress),
+                    width: mix(previous.width, to.width, progress),
+                    height: mix(previous.height, to.height, progress),
+                    lineWidth: mix(previous.lineWidth, to.lineWidth, progress),
+                    cornerRadius: mix(previous.cornerRadius, to.cornerRadius, progress),
+                    ...(fill === undefined ? {} : { fill }),
+                    ...(stroke === undefined ? {} : { stroke }),
+                    ...(dash === undefined ? {} : { dash }),
+                };
+            }
+            case 'circle': {
+                const previous = from;
+                const fill = mixOptionalColor(previous.fill, to.fill, progress);
+                const stroke = mixOptionalColor(previous.stroke, to.stroke, progress);
+                return {
+                    ...to,
+                    ...baseTransition(previous, to, progress),
+                    cx: mix(previous.cx, to.cx, progress),
+                    cy: mix(previous.cy, to.cy, progress),
+                    radius: mix(previous.radius, to.radius, progress),
+                    lineWidth: mix(previous.lineWidth, to.lineWidth, progress),
+                    ...(fill === undefined ? {} : { fill }),
+                    ...(stroke === undefined ? {} : { stroke }),
+                };
+            }
+            case 'text': {
+                const previous = from;
+                return {
+                    ...to,
+                    ...baseTransition(previous, to, progress),
+                    x: mix(previous.x, to.x, progress),
+                    y: mix(previous.y, to.y, progress),
+                    fill: mixColor$1(previous.fill, to.fill, progress),
+                    fontSize: mix(previous.fontSize, to.fontSize, progress),
+                    rotation: mix(previous.rotation, to.rotation, progress),
+                };
+            }
+        }
+    }
+    function fadeNode(node, opacity, idPrefix) {
+        const id = idPrefix === undefined ? node.id : `${idPrefix}:${node.id}`;
+        if (node.type === 'group') {
+            return {
+                ...node,
+                id,
+                opacity: effectiveOpacity(node) * opacity,
+                visible: node.visible && opacity > 0,
+                children: idPrefix === undefined
+                    ? node.children
+                    : node.children.map((child) => fadeNode(child, 1, idPrefix)),
+            };
+        }
+        return {
+            ...node,
+            id,
+            opacity: effectiveOpacity(node) * opacity,
+            visible: node.visible && opacity > 0,
+        };
+    }
+    function mergeChildren(from, to, progress, options) {
+        const previousByIdentity = new Map();
+        for (const node of from) {
+            const identity = nodeIdentity(node, options.keyField);
+            const candidates = previousByIdentity.get(identity) ?? [];
+            candidates.push(node);
+            previousByIdentity.set(identity, candidates);
+        }
+        let exitSequence = 0;
+        const output = [];
+        for (const node of to) {
+            const identity = nodeIdentity(node, options.keyField);
+            const candidates = previousByIdentity.get(identity);
+            const stableIdentity = stableDatumIdentity(node, options.keyField) !== null;
+            const candidateIndex = candidates === undefined
+                ? -1
+                : stableIdentity
+                    ? candidates.findIndex((candidate) => sameStableDatumRole(candidate, node))
+                    : 0;
+            const previous = candidateIndex < 0 ? undefined : candidates?.splice(candidateIndex, 1)[0];
+            if (candidates !== undefined && candidates.length === 0)
+                previousByIdentity.delete(identity);
+            if (previous === undefined) {
+                output.push(fadeNode(node, progress));
+                continue;
+            }
+            if (nodeCompatible(previous, node)) {
+                output.push(interpolateCompatibleNode(previous, node, progress, options));
+                continue;
+            }
+            exitSequence += 1;
+            output.push(fadeNode(previous, 1 - progress, `transition-exit-${exitSequence}`), fadeNode(node, progress));
+        }
+        for (const candidates of previousByIdentity.values()) {
+            for (const node of candidates) {
+                exitSequence += 1;
+                output.push(fadeNode(node, 1 - progress, `transition-exit-${exitSequence}`));
+            }
+        }
+        return output;
+    }
+    /**
+     * Create a transient render-only Scene between two compiled endpoint Scenes.
+     * The endpoint Scenes are never mutated and their data/accessibility contracts
+     * remain authoritative; incompatible nodes safely crossfade.
+     */
+    function interpolateScene(from, to, progress, options = {}) {
+        if (!Number.isFinite(progress))
+            throw new RangeError('Scene transition progress must be finite.');
+        if (progress <= 0)
+            return from;
+        if (progress >= 1)
+            return to;
+        if (from.root.type !== 'group' || to.root.type !== 'group')
+            return to;
+        const background = colorCompatible(from.background, to.background)
+            ? mixColor$1(from.background, to.background, progress)
+            : to.background;
+        return {
+            ...to,
+            background,
+            root: interpolateCompatibleNode(from.root, to.root, progress, options),
+        };
+    }
+
     class RenderScheduler {
         #handle = null;
         schedule(task) {
@@ -6291,6 +7093,15 @@ var Graflume = (function (exports) {
         }
     }
 
+    const PLAYBACK_TRANSITION_INTERVAL_GAP = 1;
+    function effectivePlaybackTransitionDuration(playback) {
+        if (playback.transition === false)
+            return 0;
+        // Keep every automatic frame boundary authoritative. A long requested tween
+        // is shortened just below the frame interval so it cannot become the input
+        // Scene for the following automatic transition.
+        return Math.min(playback.transition.duration, Math.max(1, playback.interval - PLAYBACK_TRANSITION_INTERVAL_GAP));
+    }
     function resolveTarget(target) {
         if (typeof target !== 'string')
             return target;
@@ -6427,11 +7238,14 @@ var Graflume = (function (exports) {
         #playing = false;
         #playbackCancel = null;
         #playbackTimestamp = null;
+        #sceneTransition = null;
+        #displayScene = null;
         #reducedMotion = null;
         #fullscreen = false;
         #hiddenLegendItems = new Set();
         #selection = [];
         #annotations = [];
+        #annotationsVisible = true;
         #selectionLive = null;
         #selectionLiveHost = null;
         #pointerMoveListener = (event) => {
@@ -6668,6 +7482,17 @@ var Graflume = (function (exports) {
         getAnnotations() {
             return this.#annotations.map(cloneAnnotation);
         }
+        getAnnotationsVisible() {
+            this.#assertAlive();
+            return this.#annotationsVisible;
+        }
+        setAnnotationsVisible(visible) {
+            return this.#setAnnotationsVisible(visible, 'programmatic');
+        }
+        toggleAnnotations() {
+            this.#assertAlive();
+            return this.#setAnnotationsVisible(!this.#annotationsVisible, 'toggle');
+        }
         setAnnotations(annotations) {
             this.#assertAlive();
             const resolved = annotations.map((annotation, index) => ({
@@ -6727,6 +7552,7 @@ var Graflume = (function (exports) {
                 id: annotationId(annotation, index),
             }));
             this.#selection = [];
+            this.#annotationsVisible = true;
             this.#hiddenLegendItems.clear();
             this.#configureInteraction(normalized, true);
             this.render();
@@ -6739,6 +7565,7 @@ var Graflume = (function (exports) {
             });
             this.#emitSelection('spec');
             this.#emitAnnotations('spec');
+            this.#emitAnnotationVisibility('spec');
             this.#startAutoplay();
             return this;
         }
@@ -6859,8 +7686,7 @@ var Graflume = (function (exports) {
             if (typeof document !== 'undefined' && document.hidden)
                 return this;
             if (this.#playbackIndex === this.#playbackFrames.length - 1) {
-                this.#playbackIndex = 0;
-                this.render();
+                this.#renderPlaybackIndex(0);
                 this.#emitPlayback('seek');
             }
             this.#playing = true;
@@ -6871,12 +7697,9 @@ var Graflume = (function (exports) {
             return this;
         }
         pause() {
-            if (this.#destroyed || !this.#playing)
+            if (this.#destroyed || (!this.#playing && this.#sceneTransition === null))
                 return this;
-            this.#playing = false;
-            this.#cancelPlaybackFrame();
-            this.#emitPlayback('pause');
-            this.#syncControls();
+            this.#stopPlayback(true);
             return this;
         }
         step(delta = 1) {
@@ -6893,14 +7716,16 @@ var Graflume = (function (exports) {
                 next = Math.max(0, Math.min(length - 1, next));
             if (next === this.#playbackIndex) {
                 if (this.#playing && !this.#playbackLoop)
-                    this.pause();
+                    this.#stopPlayback(true);
+                else if (this.#sceneTransition !== null)
+                    this.#finishSceneTransition();
                 return this;
             }
-            this.#playbackIndex = next;
-            this.render();
+            this.#renderPlaybackIndex(next);
             this.#emitPlayback('step');
-            if (this.#playing && !this.#playbackLoop && next === length - 1)
-                this.pause();
+            if (this.#playing && !this.#playbackLoop && next === length - 1) {
+                this.#stopPlayback(false);
+            }
             return this;
         }
         seek(index) {
@@ -6910,10 +7735,12 @@ var Graflume = (function (exports) {
             if (this.#playback === false || this.#playbackFrames.length === 0)
                 return this;
             const next = Math.max(0, Math.min(this.#playbackFrames.length - 1, Math.trunc(index)));
-            if (next === this.#playbackIndex)
+            if (next === this.#playbackIndex) {
+                if (this.#sceneTransition !== null)
+                    this.#finishSceneTransition();
                 return this;
-            this.#playbackIndex = next;
-            this.render();
+            }
+            this.#renderPlaybackIndex(next);
             this.#emitPlayback('seek');
             return this;
         }
@@ -6977,6 +7804,10 @@ var Graflume = (function (exports) {
         }
         render() {
             this.#assertAlive();
+            this.#cancelSceneTransition();
+            return this.#renderEndpoint();
+        }
+        #renderEndpoint() {
             const dimensions = this.#measure();
             const playbackSpecInput = this.#playback === false
                 ? this.#spec
@@ -6989,6 +7820,7 @@ var Graflume = (function (exports) {
             const result = compileWithRegistry(effectiveSpec, this.#registry, dimensions, {
                 hiddenLegendItemIds: this.#hiddenLegendItems,
                 annotations: this.#annotations,
+                annotationsVisible: this.#annotationsVisible,
                 selection: this.#selection,
             });
             const factory = this.#registry.resolveRenderer(result.spec.renderer);
@@ -7035,6 +7867,7 @@ var Graflume = (function (exports) {
             }
             renderer.setInspectionView?.(this.#view);
             renderer.render(result.scene);
+            this.#displayScene = result.scene;
             this.#syncSurfaceEvents();
             this.#syncControls();
             this.#syncLegend();
@@ -7054,6 +7887,7 @@ var Graflume = (function (exports) {
                 return;
             const exitFullscreen = this.#isOwnFullscreen();
             this.#playing = false;
+            this.#sceneTransition = null;
             this.#cancelPlaybackFrame();
             this.#scheduler.cancel();
             this.#resizeObserver?.disconnect();
@@ -7077,6 +7911,7 @@ var Graflume = (function (exports) {
             this.#renderer?.destroy();
             this.#renderer = null;
             this.#result = null;
+            this.#displayScene = null;
             this.#events.clear();
             this.#destroyed = true;
         }
@@ -7149,7 +7984,7 @@ var Graflume = (function (exports) {
                 return;
             this.#view = view;
             this.#tooltip.hide();
-            const scene = this.#result?.scene;
+            const scene = this.#displayScene ?? this.#result?.scene;
             if (scene !== undefined) {
                 this.#renderer?.setInspectionView?.(this.#view);
                 this.#renderer?.render(scene);
@@ -7169,6 +8004,94 @@ var Graflume = (function (exports) {
                 reason,
             });
         }
+        #renderPlaybackIndex(index) {
+            const from = this.#displayScene ?? this.#result?.scene ?? null;
+            const previousRenderer = this.#renderer;
+            this.#cancelSceneTransition();
+            this.#playbackIndex = index;
+            this.#renderEndpoint();
+            const playback = this.#playback;
+            const to = this.#result?.scene;
+            const renderer = this.#renderer;
+            if (playback === false ||
+                playback.transition === false ||
+                this.#reducedMotion?.matches === true ||
+                from === null ||
+                to === undefined ||
+                renderer === null ||
+                renderer !== previousRenderer ||
+                from.width !== to.width ||
+                from.height !== to.height) {
+                return;
+            }
+            this.#sceneTransition = {
+                from,
+                to,
+                duration: effectivePlaybackTransitionDuration(playback),
+                easing: playback.transition.easing,
+                keyField: playback.key,
+                elapsed: 0,
+                previousTimestamp: this.#playing && this.#playbackTimestamp !== null ? this.#playbackTimestamp : null,
+            };
+            this.#displayScene = from;
+            this.#tooltip.hide();
+            renderer.render(from);
+            this.#schedulePlaybackFrame();
+        }
+        #advanceSceneTransition(timestamp) {
+            const transition = this.#sceneTransition;
+            if (transition === null)
+                return;
+            if (transition.previousTimestamp === null) {
+                transition.previousTimestamp = timestamp;
+                return;
+            }
+            transition.elapsed +=
+                Math.max(0, timestamp - transition.previousTimestamp) * this.#playbackRate;
+            transition.previousTimestamp = timestamp;
+            const progress = transition.elapsed / transition.duration;
+            if (progress >= 1) {
+                this.#finishSceneTransition();
+                return;
+            }
+            const scene = interpolateScene(transition.from, transition.to, easeSceneProgress(progress, transition.easing), transition.keyField === undefined ? {} : { keyField: transition.keyField });
+            this.#renderer?.render(scene);
+            this.#displayScene = scene;
+        }
+        #cancelSceneTransition() {
+            if (this.#sceneTransition === null)
+                return;
+            this.#sceneTransition = null;
+            this.#tooltip.hide();
+            if (!this.#playing)
+                this.#cancelScheduledPlaybackFrame();
+        }
+        #finishSceneTransition() {
+            const transition = this.#sceneTransition;
+            if (transition === null)
+                return;
+            this.#sceneTransition = null;
+            this.#renderer?.render(transition.to);
+            this.#displayScene = transition.to;
+            this.#tooltip.hide();
+            if (!this.#playing)
+                this.#cancelScheduledPlaybackFrame();
+        }
+        #stopPlayback(settleTransition) {
+            const wasPlaying = this.#playing;
+            this.#playing = false;
+            this.#playbackTimestamp = null;
+            if (settleTransition)
+                this.#finishSceneTransition();
+            if (this.#sceneTransition === null)
+                this.#cancelScheduledPlaybackFrame();
+            else
+                this.#schedulePlaybackFrame();
+            if (!wasPlaying)
+                return;
+            this.#emitPlayback('pause');
+            this.#syncControls();
+        }
         #startAutoplay() {
             if (this.#playback !== false &&
                 this.#playback.autoplay &&
@@ -7177,19 +8100,28 @@ var Graflume = (function (exports) {
             }
         }
         #schedulePlaybackFrame() {
-            this.#cancelScheduledPlaybackFrame();
+            if (this.#playbackCancel !== null || (!this.#playing && this.#sceneTransition === null)) {
+                return;
+            }
             const run = (timestamp) => {
                 this.#playbackCancel = null;
-                if (!this.#playing || this.#playback === false)
+                if (this.#destroyed)
                     return;
-                if (this.#playbackTimestamp === null)
-                    this.#playbackTimestamp = timestamp;
-                const duration = this.#playback.interval / this.#playbackRate;
-                if (timestamp - this.#playbackTimestamp >= duration) {
-                    this.#playbackTimestamp = timestamp;
-                    this.step(1);
+                this.#advanceSceneTransition(timestamp);
+                if (this.#playing && this.#playback !== false) {
+                    if (this.#playbackTimestamp === null)
+                        this.#playbackTimestamp = timestamp;
+                    const duration = this.#playback.interval / this.#playbackRate;
+                    if (timestamp - this.#playbackTimestamp >= duration) {
+                        this.#playbackTimestamp = timestamp;
+                        // Sparse RAF delivery can skip past the effective tween duration.
+                        // Settle before advancing so transient crossfade/exit nodes never
+                        // accumulate as inputs to the next automatic frame.
+                        this.#finishSceneTransition();
+                        this.step(1);
+                    }
                 }
-                if (this.#playing)
+                if (this.#playing || this.#sceneTransition !== null)
                     this.#schedulePlaybackFrame();
             };
             if (typeof requestAnimationFrame === 'function') {
@@ -7534,6 +8466,13 @@ var Graflume = (function (exports) {
         }
         #emitPointer(type, sourceEvent) {
             const result = this.#result;
+            if (this.#sceneTransition !== null) {
+                this.#tooltip.hide();
+                if (type === 'hover' || result?.spec.interaction.click !== false) {
+                    this.#events.emit(type, { chart: this, hit: null, sourceEvent });
+                }
+                return;
+            }
             const screen = this.#surfacePoint(sourceEvent);
             const surface = this.#renderer?.surface();
             if (result === null || screen === null || surface === null || surface === undefined)
@@ -7625,6 +8564,24 @@ var Graflume = (function (exports) {
                 ...(id === undefined ? {} : { id }),
             });
         }
+        #setAnnotationsVisible(visible, reason) {
+            this.#assertAlive();
+            if (typeof visible !== 'boolean')
+                throw new TypeError('Annotation visibility must be a boolean.');
+            if (visible === this.#annotationsVisible)
+                return this;
+            this.#annotationsVisible = visible;
+            this.render();
+            this.#emitAnnotationVisibility(reason);
+            return this;
+        }
+        #emitAnnotationVisibility(reason) {
+            this.#events.emit('annotationvisibilitychange', {
+                chart: this,
+                visible: this.#annotationsVisible,
+                reason,
+            });
+        }
         #isOwnFullscreen() {
             if (typeof document === 'undefined')
                 return false;
@@ -7662,6 +8619,8 @@ var Graflume = (function (exports) {
                 fullscreen: this.#fullscreen,
                 exportAvailable: this.#renderer?.toDataURL !== undefined &&
                     this.#renderer.capabilities.exportFormats.includes('image/png'),
+                annotationsAvailable: this.#annotations.length > 0,
+                annotationsVisible: this.#annotationsVisible,
                 playbackEnabled: playbackState.enabled,
                 playbackIndex: playbackState.index,
                 playbackLength: playbackState.frames.length,
@@ -7678,6 +8637,7 @@ var Graflume = (function (exports) {
                 reset: () => this.resetView(),
                 toggleFullscreen: () => void this.toggleFullscreen().catch(() => undefined),
                 exportPng: () => this.#exportPng(),
+                toggleAnnotations: () => this.toggleAnnotations(),
                 previousFrame: () => this.step(-1),
                 togglePlayback: () => (this.#playing ? this.pause() : this.play()),
                 nextFrame: () => this.step(1),

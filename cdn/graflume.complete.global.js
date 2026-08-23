@@ -722,7 +722,7 @@ var Graflume = (function (exports) {
         assertSafeKey(key, `data.${key}`);
         return Object.prototype.hasOwnProperty.call(record, key) ? record[key] : null;
     }
-    function clamp$3(value, min, max) {
+    function clamp$4(value, min, max) {
         return Math.min(max, Math.max(min, value));
     }
     function finiteNumber(value) {
@@ -759,6 +759,7 @@ var Graflume = (function (exports) {
     const NAVIGATION_WHEEL_MODES = new Set(['off', 'modifier', 'always']);
     const PLAYBACK_KEYS = new Set([
         'field',
+        'key',
         'layerId',
         'mode',
         'interval',
@@ -766,10 +767,21 @@ var Graflume = (function (exports) {
         'loop',
         'windowSize',
         'autoplay',
+        'transition',
         'filter',
     ]);
     const PLAYBACK_MODES = new Set(['frame', 'cumulative', 'window']);
-    const CONTROLS_KEYS = new Set(['zoom', 'reset', 'fullscreen', 'export', 'playback', 'labels']);
+    const PLAYBACK_TRANSITION_KEYS = new Set(['duration', 'easing']);
+    const PLAYBACK_TRANSITION_EASINGS = new Set(['linear', 'ease-in-out']);
+    const CONTROLS_KEYS = new Set([
+        'zoom',
+        'reset',
+        'fullscreen',
+        'export',
+        'annotations',
+        'playback',
+        'labels',
+    ]);
     const CONTROL_LABEL_KEYS = new Set([
         'controls',
         'zoomIn',
@@ -778,6 +790,8 @@ var Graflume = (function (exports) {
         'enterFullscreen',
         'exitFullscreen',
         'exportPng',
+        'showAnnotations',
+        'hideAnnotations',
         'previousFrame',
         'play',
         'pause',
@@ -1653,6 +1667,10 @@ var Graflume = (function (exports) {
         else if (typeof value.field === 'string' && UNSAFE_FIELDS.has(value.field)) {
             issues.push({ path: `${path}.field`, message: `Unsafe field "${value.field}" is forbidden.` });
         }
+        validateOptionalString(value.key, `${path}.key`, 'Playback key', issues, false);
+        if (typeof value.key === 'string' && UNSAFE_FIELDS.has(value.key)) {
+            issues.push({ path: `${path}.key`, message: `Unsafe field "${value.key}" is forbidden.` });
+        }
         validateOptionalString(value.layerId, `${path}.layerId`, 'Playback layerId', issues, false);
         if (value.mode !== undefined &&
             (typeof value.mode !== 'string' || !PLAYBACK_MODES.has(value.mode))) {
@@ -1676,6 +1694,28 @@ var Graflume = (function (exports) {
             });
         validateOptionalBoolean(value.loop, `${path}.loop`, 'Playback loop', issues);
         validateOptionalBoolean(value.autoplay, `${path}.autoplay`, 'Playback autoplay', issues);
+        if (value.transition !== undefined && value.transition !== false) {
+            if (!isPlainObject(value.transition)) {
+                issues.push({
+                    path: `${path}.transition`,
+                    message: 'Playback transition must be false or an object.',
+                });
+            }
+            else {
+                validateUnknownKeys(value.transition, PLAYBACK_TRANSITION_KEYS, `${path}.transition`, 'playback transition', issues);
+                if (value.transition.duration !== undefined) {
+                    validateFiniteNumber(value.transition.duration, `${path}.transition.duration`, 'Playback transition duration', issues, { min: 50, max: 60_000 });
+                }
+                if (value.transition.easing !== undefined &&
+                    (typeof value.transition.easing !== 'string' ||
+                        !PLAYBACK_TRANSITION_EASINGS.has(value.transition.easing))) {
+                    issues.push({
+                        path: `${path}.transition.easing`,
+                        message: 'Playback transition easing must be "linear" or "ease-in-out".',
+                    });
+                }
+            }
+        }
         validateOptionalBoolean(value.filter, `${path}.filter`, 'Playback filter', issues);
     }
     function validateControls(value, path, issues) {
@@ -1686,7 +1726,7 @@ var Graflume = (function (exports) {
             return;
         }
         validateUnknownKeys(value, CONTROLS_KEYS, path, 'controls', issues);
-        for (const key of ['zoom', 'reset', 'fullscreen', 'export', 'playback']) {
+        for (const key of ['zoom', 'reset', 'fullscreen', 'export', 'annotations', 'playback']) {
             validateOptionalBoolean(value[key], `${path}.${key}`, `Controls ${key}`, issues);
         }
         if (value.labels !== undefined) {
@@ -2216,6 +2256,8 @@ var Graflume = (function (exports) {
         enterFullscreen: 'Enter fullscreen',
         exitFullscreen: 'Exit fullscreen',
         exportPng: 'Download PNG',
+        showAnnotations: 'Show annotations',
+        hideAnnotations: 'Hide annotations',
         previousFrame: 'Previous frame',
         play: 'Play',
         pause: 'Pause',
@@ -2301,6 +2343,7 @@ var Graflume = (function (exports) {
             : typeof playbackInput === 'object'
                 ? {
                     field: playbackInput.field,
+                    ...(playbackInput.key === undefined ? {} : { key: playbackInput.key }),
                     ...(playbackInput.layerId === undefined ? {} : { layerId: playbackInput.layerId }),
                     mode: playbackInput.mode ?? 'frame',
                     interval: playbackInput.interval ?? 1_000,
@@ -2308,6 +2351,12 @@ var Graflume = (function (exports) {
                     loop: playbackInput.loop ?? false,
                     windowSize: playbackInput.windowSize ?? 1,
                     autoplay: playbackInput.autoplay ?? false,
+                    transition: playbackInput.transition === undefined || playbackInput.transition === false
+                        ? false
+                        : {
+                            duration: playbackInput.transition.duration ?? 400,
+                            easing: playbackInput.transition.easing ?? 'ease-in-out',
+                        },
                     filter: playbackInput.filter ?? false,
                 }
                 : false;
@@ -2319,6 +2368,7 @@ var Graflume = (function (exports) {
                 reset: typeof controlsInput === 'object' ? (controlsInput.reset ?? false) : true,
                 fullscreen: typeof controlsInput === 'object' ? (controlsInput.fullscreen ?? false) : true,
                 export: typeof controlsInput === 'object' ? (controlsInput.export ?? false) : true,
+                annotations: typeof controlsInput === 'object' ? (controlsInput.annotations ?? false) : true,
                 playback: typeof controlsInput === 'object' ? (controlsInput.playback ?? false) : true,
                 labels: {
                     ...defaultControlLabels,
@@ -3760,7 +3810,7 @@ var Graflume = (function (exports) {
         bandwidth;
         constructor(options) {
             this.#domain = [...options.domain];
-            const paddingInner = clamp$3(options.paddingInner ?? 0.1, 0, 1);
+            const paddingInner = clamp$4(options.paddingInner ?? 0.1, 0, 1);
             const paddingOuter = Math.max(0, options.paddingOuter ?? 0.05);
             const [start, end] = options.range;
             const direction = end >= start ? 1 : -1;
@@ -3855,7 +3905,7 @@ var Graflume = (function (exports) {
             const [rangeStart, rangeEnd] = this.#range;
             const denominator = domainEnd - domainStart;
             const ratio = denominator === 0 ? 0.5 : (value - domainStart) / denominator;
-            const normalized = this.#clamp ? clamp$3(ratio, 0, 1) : ratio;
+            const normalized = this.#clamp ? clamp$4(ratio, 0, 1) : ratio;
             return rangeStart + normalized * (rangeEnd - rangeStart);
         }
         invert(position) {
@@ -3863,7 +3913,7 @@ var Graflume = (function (exports) {
             const [rangeStart, rangeEnd] = this.#range;
             const denominator = rangeEnd - rangeStart;
             const ratio = denominator === 0 ? 0.5 : (position - rangeStart) / denominator;
-            const normalized = this.#clamp ? clamp$3(ratio, 0, 1) : ratio;
+            const normalized = this.#clamp ? clamp$4(ratio, 0, 1) : ratio;
             return domainStart + normalized * (domainEnd - domainStart);
         }
         ticks(count, locale) {
@@ -4412,6 +4462,128 @@ var Graflume = (function (exports) {
         return undefined;
     }
 
+    function intersectionArea(left, right) {
+        const width = Math.max(0, Math.min(left.x + left.width, right.x + right.width) - Math.max(left.x, right.x));
+        const height = Math.max(0, Math.min(left.y + left.height, right.y + right.height) - Math.max(left.y, right.y));
+        return width * height;
+    }
+    function overlapArea(bounds, obstacles) {
+        return obstacles.reduce((sum, obstacle) => sum + intersectionArea(bounds, obstacle), 0);
+    }
+    function outsideArea(bounds, boundary) {
+        return Math.max(0, bounds.width * bounds.height - intersectionArea(bounds, boundary));
+    }
+    function clampBounds(bounds, boundary) {
+        const minimumX = boundary.x;
+        const minimumY = boundary.y;
+        const maximumX = Math.max(minimumX, boundary.x + boundary.width - bounds.width);
+        const maximumY = Math.max(minimumY, boundary.y + boundary.height - bounds.height);
+        return {
+            ...bounds,
+            x: Math.max(minimumX, Math.min(maximumX, bounds.x)),
+            y: Math.max(minimumY, Math.min(maximumY, bounds.y)),
+        };
+    }
+    function candidateBounds(placement, alignment, options) {
+        const gap = options.gap ?? 18;
+        const targetCenterX = options.target.x + options.target.width / 2;
+        const targetCenterY = options.target.y + options.target.height / 2;
+        let x = targetCenterX - options.width / 2;
+        let y = targetCenterY - options.height / 2;
+        if (placement === 'top' || placement === 'bottom') {
+            x += alignment * Math.max(options.width * 0.58, options.target.width / 2 + gap);
+            y =
+                placement === 'top'
+                    ? options.target.y - options.height - gap
+                    : options.target.y + options.target.height + gap;
+        }
+        else {
+            y += alignment * Math.max(options.height * 0.58, options.target.height / 2 + gap);
+            x =
+                placement === 'left'
+                    ? options.target.x - options.width - gap
+                    : options.target.x + options.target.width + gap;
+        }
+        return {
+            x: x + (options.offsetX ?? 0),
+            y: y + (options.offsetY ?? 0),
+            width: options.width,
+            height: options.height,
+        };
+    }
+    function score(candidate, options) {
+        const rawOverflow = outsideArea(candidate.rawBounds, options.boundary);
+        const protectedOverlap = overlapArea(candidate.bounds, options.protectedObstacles ?? []);
+        const occupiedOverlap = overlapArea(candidate.bounds, options.occupiedCallouts ?? []);
+        const targetOverlap = intersectionArea(candidate.bounds, options.target);
+        const dataOverlap = overlapArea(candidate.bounds, options.dataObstacles ?? []);
+        const targetCenterX = options.target.x + options.target.width / 2;
+        const targetCenterY = options.target.y + options.target.height / 2;
+        const candidateCenterX = candidate.bounds.x + candidate.bounds.width / 2;
+        const candidateCenterY = candidate.bounds.y + candidate.bounds.height / 2;
+        const distance = Math.hypot(candidateCenterX - targetCenterX, candidateCenterY - targetCenterY);
+        return (rawOverflow * 1_000_000 +
+            occupiedOverlap * 80_000 +
+            protectedOverlap * 60_000 +
+            targetOverlap * 40_000 +
+            dataOverlap * 16 +
+            distance * 0.01 +
+            candidate.order * 0.0001);
+    }
+    function explicitIsUnsafe(candidate, options) {
+        const area = Math.max(1, candidate.bounds.width * candidate.bounds.height);
+        return (outsideArea(candidate.rawBounds, options.boundary) > 0.5 ||
+            overlapArea(candidate.bounds, options.protectedObstacles ?? []) > area * 0.08 ||
+            overlapArea(candidate.bounds, options.occupiedCallouts ?? []) > area * 0.08 ||
+            intersectionArea(candidate.bounds, options.target) > area * 0.25 ||
+            overlapArea(candidate.bounds, options.dataObstacles ?? []) > area * 0.72);
+    }
+    /**
+     * Select a deterministic, renderer-neutral perimeter position for a callout.
+     * Authored cardinal placement wins while it remains in bounds and avoids a
+     * severe collision; `auto` and unsafe authored positions use the lowest score.
+     */
+    function placeCallout(options) {
+        const targetCenterX = options.target.x + options.target.width / 2;
+        const targetCenterY = options.target.y + options.target.height / 2;
+        const boundaryCenterX = options.boundary.x + options.boundary.width / 2;
+        const boundaryCenterY = options.boundary.y + options.boundary.height / 2;
+        const horizontalFirst = targetCenterX <= boundaryCenterX ? ['right', 'left'] : ['left', 'right'];
+        const verticalFirst = targetCenterY <= boundaryCenterY ? ['bottom', 'top'] : ['top', 'bottom'];
+        const preferred = options.placement === undefined ? 'auto' : options.placement;
+        const placements = preferred === 'auto'
+            ? [horizontalFirst[0], verticalFirst[0], horizontalFirst[1], verticalFirst[1]]
+            : [preferred, ...[...horizontalFirst, ...verticalFirst].filter((item) => item !== preferred)];
+        const candidates = [];
+        let order = 0;
+        for (const placement of placements) {
+            for (const alignment of [0, -1, 1]) {
+                const rawBounds = candidateBounds(placement, alignment, options);
+                const bounds = clampBounds(rawBounds, options.boundary);
+                candidates.push({
+                    x: bounds.x,
+                    y: bounds.y,
+                    bounds,
+                    placement,
+                    rawBounds,
+                    order,
+                });
+                order += 1;
+            }
+        }
+        const explicit = candidates[0];
+        if (preferred !== 'auto' && !explicitIsUnsafe(explicit, options)) {
+            return {
+                x: explicit.x,
+                y: explicit.y,
+                bounds: explicit.bounds,
+                placement: explicit.placement,
+            };
+        }
+        const best = candidates.reduce((winner, candidate) => score(candidate, options) < score(winner, options) ? candidate : winner);
+        return { x: best.x, y: best.y, bounds: best.bounds, placement: best.placement };
+    }
+
     function union(left, right) {
         if (left === null)
             return right;
@@ -4609,43 +4781,214 @@ var Graflume = (function (exports) {
             },
         ];
     }
-    function wrapText(text, maxWidth, fontSize) {
-        const maxCharacters = Math.max(1, Math.floor(maxWidth / Math.max(1, fontSize * 0.58)));
-        const words = text.trim().split(/\s+/);
+    function graphemes(text) {
+        try {
+            return [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text)].map(({ segment }) => segment);
+        }
+        catch {
+            return Array.from(text);
+        }
+    }
+    function graphemeWidth(value, fontSize) {
+        // Canvas cannot measure text during compilation, and a consumer may provide
+        // a wider custom face than the built-in theme. Keep the estimates
+        // deliberately conservative so wrapping happens before a glyph reaches the
+        // content edge. The extra factor also covers bold title text and bearings.
+        const customFontSafety = 1.08;
+        if (/^\s+$/u.test(value))
+            return fontSize * 0.42 * customFontSafety;
+        if (/\p{Extended_Pictographic}/u.test(value))
+            return fontSize * 1.25 * customFontSafety;
+        if (/^[\p{Script=Han}\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}]$/u.test(value))
+            return fontSize * 1.08 * customFontSafety;
+        if (/^[\p{Script=Arabic}\p{Script=Hebrew}]$/u.test(value))
+            return fontSize * 0.92 * customFontSafety;
+        if (/^[WM]$/u.test(value))
+            return fontSize * 1.05 * customFontSafety;
+        if (/^[mw]$/u.test(value))
+            return fontSize * 0.94 * customFontSafety;
+        if (/^[ilI1|!.,:;'`]$/u.test(value))
+            return fontSize * 0.48 * customFontSafety;
+        if (/^[A-Z0-9]$/u.test(value))
+            return fontSize * 0.82 * customFontSafety;
+        if (/^[a-z]$/u.test(value))
+            return fontSize * 0.72 * customFontSafety;
+        return fontSize * customFontSafety;
+    }
+    function textWidth(text, fontSize) {
+        return graphemes(text).reduce((sum, value) => sum + graphemeWidth(value, fontSize), 0);
+    }
+    function ellipsizeLine(text, maxWidth, fontSize) {
+        const suffix = '…';
+        if (textWidth(suffix, fontSize) > maxWidth)
+            return '';
+        const output = [...graphemes(text)];
+        while (output.length > 0 && textWidth(`${output.join('')}${suffix}`, fontSize) > maxWidth)
+            output.pop();
+        return `${output.join('')}${suffix}`;
+    }
+    function wrapText(text, maxWidth, fontSize, maxLines = 6) {
+        const words = text.trim().split(/\s+/u).filter(Boolean);
         const lines = [];
         let line = '';
-        for (const word of words) {
-            const next = line === '' ? word : `${line} ${word}`;
-            if (next.length <= maxCharacters)
-                line = next;
-            else {
-                if (line !== '')
-                    lines.push(line);
-                const graphemes = (() => {
-                    try {
-                        return [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(word)].map(({ segment }) => segment);
-                    }
-                    catch {
-                        return Array.from(word);
-                    }
-                })();
-                line =
-                    graphemes.length <= maxCharacters
-                        ? word
-                        : maxCharacters === 1
-                            ? '…'
-                            : `${graphemes.slice(0, maxCharacters - 1).join('')}…`;
+        let truncated = false;
+        const pushLine = () => {
+            if (line === '')
+                return true;
+            if (lines.length >= maxLines) {
+                truncated = true;
+                return false;
             }
-            if (lines.length >= 5)
-                break;
-        }
-        if (line !== '' && lines.length < 6)
             lines.push(line);
-        return lines;
+            line = '';
+            return true;
+        };
+        outer: for (const word of words) {
+            const combined = line === '' ? word : `${line} ${word}`;
+            if (textWidth(combined, fontSize) <= maxWidth) {
+                line = combined;
+                continue;
+            }
+            if (!pushLine())
+                break;
+            let chunk = '';
+            for (const value of graphemes(word)) {
+                if (chunk !== '' && textWidth(`${chunk}${value}`, fontSize) > maxWidth) {
+                    line = chunk;
+                    if (!pushLine())
+                        break outer;
+                    chunk = '';
+                }
+                if (chunk === '' && graphemeWidth(value, fontSize) > maxWidth) {
+                    line = value;
+                    if (!pushLine())
+                        break outer;
+                }
+                else {
+                    chunk += value;
+                }
+            }
+            line = chunk;
+        }
+        if (line !== '') {
+            if (lines.length < maxLines)
+                lines.push(line);
+            else
+                truncated = true;
+        }
+        if (truncated && lines.length > 0)
+            lines[lines.length - 1] = ellipsizeLine(lines[lines.length - 1], maxWidth, fontSize);
+        return { lines, truncated };
     }
-    function annotationNodes(annotation, index, resolution, plot, theme, locale) {
+    function clippedBounds(bounds, clip) {
+        const x = Math.max(bounds.x, clip.x);
+        const y = Math.max(bounds.y, clip.y);
+        const endX = Math.min(bounds.x + bounds.width, clip.x + clip.width);
+        const endY = Math.min(bounds.y + bounds.height, clip.y + clip.height);
+        if (endX < x || endY < y)
+            return null;
+        return { x, y, width: Math.max(2, endX - x), height: Math.max(2, endY - y) };
+    }
+    function segmentObstacleBounds(start, end, lineWidth, plot) {
+        const cellWidth = Math.max(1, plot.width / 12);
+        const cellHeight = Math.max(1, plot.height / 8);
+        const horizontalSpan = Math.abs(end.x - start.x) / cellWidth;
+        const verticalSpan = Math.abs(end.y - start.y) / cellHeight;
+        const stepCount = Math.max(1, Math.min(32, Math.ceil(Math.max(horizontalSpan, verticalSpan) * 2)));
+        const padding = Math.max(2, lineWidth / 2 + 1.25);
+        const pieces = [];
+        for (let step = 0; step < stepCount; step += 1) {
+            const fromRatio = step / stepCount;
+            const toRatio = (step + 1) / stepCount;
+            const fromX = start.x + (end.x - start.x) * fromRatio;
+            const fromY = start.y + (end.y - start.y) * fromRatio;
+            const toX = start.x + (end.x - start.x) * toRatio;
+            const toY = start.y + (end.y - start.y) * toRatio;
+            pieces.push({
+                x: Math.min(fromX, toX) - padding,
+                y: Math.min(fromY, toY) - padding,
+                width: Math.abs(toX - fromX) + padding * 2,
+                height: Math.abs(toY - fromY) + padding * 2,
+            });
+        }
+        return pieces;
+    }
+    function localObstacleBounds(node, plot) {
+        if (node.type === 'line') {
+            return segmentObstacleBounds({ x: node.x1, y: node.y1 }, { x: node.x2, y: node.y2 }, node.lineWidth, plot);
+        }
+        if (node.type !== 'path') {
+            const bounds = sceneNodeBounds(node);
+            return bounds === null ? [] : [bounds];
+        }
+        const pieces = [];
+        for (const points of [node.points, ...(node.subpaths ?? [])]) {
+            if (points.length === 1) {
+                const point = points[0];
+                const radius = Math.max(2, node.lineWidth / 2 + 1.25);
+                pieces.push({
+                    x: point.x - radius,
+                    y: point.y - radius,
+                    width: radius * 2,
+                    height: radius * 2,
+                });
+                continue;
+            }
+            for (let index = 1; index < points.length; index += 1) {
+                pieces.push(...segmentObstacleBounds(points[index - 1], points[index], node.lineWidth, plot));
+            }
+            if (node.closed && points.length > 2)
+                pieces.push(...segmentObstacleBounds(points.at(-1), points[0], node.lineWidth, plot));
+        }
+        return pieces;
+    }
+    function dataObstacleBounds(layerGroups, plot) {
+        const columns = 12;
+        const rows = 8;
+        const buckets = new Map();
+        for (const node of layerGroups.flatMap((layer) => descendants$1(layer))) {
+            for (const bounds of localObstacleBounds(node, plot)) {
+                const clipped = clippedBounds(bounds, plot);
+                if (clipped === null)
+                    continue;
+                const centerX = clipped.x + clipped.width / 2;
+                const centerY = clipped.y + clipped.height / 2;
+                const column = Math.max(0, Math.min(columns - 1, Math.floor(((centerX - plot.x) / Math.max(1, plot.width)) * columns)));
+                const row = Math.max(0, Math.min(rows - 1, Math.floor(((centerY - plot.y) / Math.max(1, plot.height)) * rows)));
+                const key = row * columns + column;
+                const prior = buckets.get(key);
+                buckets.set(key, {
+                    bounds: union(prior?.bounds ?? null, clipped) ?? clipped,
+                    count: (prior?.count ?? 0) + 1,
+                });
+            }
+        }
+        return [...buckets.values()].flatMap(({ bounds, count }) => Array.from({ length: Math.min(8, Math.max(1, Math.ceil(Math.log2(count + 1)))) }, () => bounds));
+    }
+    function controlStripBounds(spec, width) {
+        const controls = spec.interaction.controls;
+        if (controls === false)
+            return null;
+        const buttonSize = width <= 560 ? 44 : 28;
+        const height = width <= 560 ? 44 : 30;
+        const buttonCount = (controls.zoom ? 2 : 0) +
+            (controls.reset ? 1 : 0) +
+            (controls.fullscreen ? 1 : 0) +
+            (controls.export ? 1 : 0) +
+            (controls.annotations ? 1 : 0) +
+            (controls.playback ? 4 : 0);
+        if (buttonCount === 0)
+            return null;
+        const navigationGroup = controls.zoom || controls.reset;
+        const utilityGroup = controls.fullscreen || controls.export || controls.annotations;
+        const separators = (navigationGroup && (utilityGroup || controls.playback) ? 1 : 0) +
+            (utilityGroup && controls.playback ? 1 : 0);
+        const stripWidth = Math.min(Math.max(1, width - 12), buttonCount * buttonSize + separators * 5 + 2);
+        return { x: Math.max(0, width - stripWidth - 6), y: 6, width: stripWidth, height };
+    }
+    function annotationNodes(annotation, index, resolution, plot, theme, locale, dataObstacles, protectedObstacles, occupiedCallouts) {
         if (!resolution.found)
-            return [];
+            return { nodes: [], bounds: null };
         const style = annotation.style ?? {};
         const availableWidth = Math.max(1, plot.width);
         const availableHeight = Math.max(1, plot.height);
@@ -4653,56 +4996,58 @@ var Graflume = (function (exports) {
         const padding = Math.min(style.padding ?? 10, Math.max(0, Math.min(maxWidth / 5, availableHeight / 6)));
         const fontSize = Math.min(style.fontSize ?? 12, Math.max(1, Math.min(maxWidth / 3, availableHeight / 3)));
         const detailFontSize = Math.max(1, fontSize - 1);
-        let titleLines = wrapText(annotation.text, maxWidth - padding * 2, fontSize);
-        let detailLines = annotation.detail === undefined
-            ? []
-            : wrapText(annotation.detail, maxWidth - padding * 2, detailFontSize);
+        const maximumContentWidth = Math.max(1, maxWidth - padding * 2);
+        const glyphGuard = Math.min(maximumContentWidth / 4, Math.max(0.75, fontSize * 0.12));
+        const wrappingWidth = Math.max(1, maximumContentWidth - glyphGuard * 2);
+        const wrappedTitle = wrapText(annotation.text, wrappingWidth, fontSize);
+        const wrappedDetail = annotation.detail === undefined
+            ? { lines: [], truncated: false }
+            : wrapText(annotation.detail, wrappingWidth, detailFontSize);
+        let titleLines = wrappedTitle.lines;
+        let detailLines = wrappedDetail.lines;
         const lineHeight = fontSize * 1.35;
         const detailLineHeight = detailFontSize * 1.35;
         const lineBudget = Math.max(1, Math.floor((availableHeight - padding * 2) / detailLineHeight));
         titleLines = titleLines.slice(0, Math.max(1, Math.min(titleLines.length, lineBudget)));
         detailLines = detailLines.slice(0, Math.max(0, lineBudget - titleLines.length));
-        const ellipsizeLast = (lines, truncated) => {
+        const ellipsizeLast = (lines, truncated, lineFontSize) => {
             if (!truncated || lines.length === 0)
                 return lines;
             const last = lines[lines.length - 1];
-            return [...lines.slice(0, -1), last.endsWith('…') ? last : `${last}…`];
+            return [
+                ...lines.slice(0, -1),
+                last.endsWith('…') ? last : ellipsizeLine(last, wrappingWidth, lineFontSize),
+            ];
         };
-        titleLines = ellipsizeLast(titleLines, titleLines.join(' ').length < annotation.text.length);
-        detailLines = ellipsizeLast(detailLines, annotation.detail !== undefined && detailLines.join(' ').length < annotation.detail.length);
-        const longest = Math.max(8, ...[...titleLines, ...detailLines].map((line) => line.length));
-        const width = Math.min(maxWidth, Math.max(Math.min(96, maxWidth), longest * fontSize * 0.58 + padding * 2));
+        titleLines = ellipsizeLast(titleLines, wrappedTitle.truncated || titleLines.length < wrappedTitle.lines.length, fontSize);
+        detailLines = ellipsizeLast(detailLines, wrappedDetail.truncated || detailLines.length < wrappedDetail.lines.length, detailFontSize);
+        const longestWidth = Math.max(fontSize * 4, ...titleLines.map((line) => textWidth(line, fontSize)), ...detailLines.map((line) => textWidth(line, detailFontSize)));
+        const width = Math.min(maxWidth, Math.max(Math.min(96, maxWidth), longestWidth + padding * 2 + glyphGuard * 2));
         const height = Math.min(availableHeight, padding * 2 +
             titleLines.length * lineHeight +
             detailLines.length * detailLineHeight +
             (detailLines.length > 0 ? 4 : 0));
         const target = resolution.bounds;
         const anchor = { x: target.x + target.width / 2, y: target.y + target.height / 2 };
-        const placement = annotation.placement === undefined || annotation.placement === 'auto'
-            ? anchor.x < plot.x + plot.width / 2
-                ? 'right'
-                : 'left'
-            : annotation.placement;
-        const gap = 18;
-        let x = anchor.x - width / 2;
-        let y = anchor.y - height / 2;
-        if (placement === 'top')
-            y = target.y - height - gap;
-        if (placement === 'bottom')
-            y = target.y + target.height + gap;
-        if (placement === 'left')
-            x = target.x - width - gap;
-        if (placement === 'right')
-            x = target.x + target.width + gap;
-        x += annotation.offsetX ?? 0;
-        y += annotation.offsetY ?? 0;
-        x = Math.max(plot.x, Math.min(plot.x + plot.width - width, x));
-        y = Math.max(plot.y, Math.min(plot.y + plot.height - height, y));
+        const placed = placeCallout({
+            target,
+            width,
+            height,
+            boundary: plot,
+            placement: annotation.placement ?? 'auto',
+            offsetX: annotation.offsetX ?? 0,
+            offsetY: annotation.offsetY ?? 0,
+            dataObstacles,
+            protectedObstacles,
+            occupiedCallouts,
+        });
+        const { x, y } = placed;
         const id = annotation.id ?? `annotation-${index}`;
         const bubbleCenter = { x: x + width / 2, y: y + height / 2 };
         const connector = typeof annotation.connector === 'object' ? annotation.connector : {};
         const connectorVisible = typeof annotation.connector === 'boolean' ? annotation.connector : (connector.visible ?? true);
         const nodes = [];
+        const textNodes = [];
         const rtl = locale !== undefined && /^(ar|fa|he|ur)(?:-|$)/i.test(locale);
         const logicalAlign = style.align ?? 'start';
         const textAlign = logicalAlign === 'center'
@@ -4717,8 +5062,8 @@ var Graflume = (function (exports) {
         const textX = logicalAlign === 'center'
             ? x + width / 2
             : textAlign === 'right'
-                ? x + width - padding
-                : x + padding;
+                ? x + width - padding - glyphGuard
+                : x + padding + glyphGuard;
         if (connectorVisible) {
             nodes.push({
                 type: 'line',
@@ -4761,13 +5106,13 @@ var Graflume = (function (exports) {
                 baseline: 'top',
                 rotation: 0,
             };
-            nodes.push(node);
+            textNodes.push(node);
             textY += lineHeight;
         }
         if (detailLines.length > 0)
             textY += 4;
         for (const [lineIndex, text] of detailLines.entries()) {
-            nodes.push({
+            textNodes.push({
                 type: 'text',
                 ...nodeBase(`annotation:${id}:detail:${lineIndex}`, { zIndex: 702 }),
                 x: textX,
@@ -4783,7 +5128,17 @@ var Graflume = (function (exports) {
             });
             textY += detailLineHeight;
         }
-        return nodes;
+        if (textNodes.length > 0)
+            nodes.push(group(`annotation:${id}:content`, textNodes, {
+                zIndex: 702,
+                clip: {
+                    x: x + padding,
+                    y: y + padding,
+                    width: Math.max(0, width - padding * 2),
+                    height: Math.max(0, height - padding * 2),
+                },
+            }));
+        return { nodes, bounds: placed.bounds };
     }
     function compileDecorations(options) {
         const underlay = [];
@@ -4804,9 +5159,25 @@ var Graflume = (function (exports) {
             }
         }
         const annotations = options.runtime?.annotations ?? options.spec.annotations;
+        if (options.runtime?.annotationsVisible === false)
+            return {
+                underlay: underlay.length === 0
+                    ? []
+                    : [group('decorations:underlay', underlay, { zIndex: -200, clip: options.plot })],
+                overlay: overlay.length === 0 ? [] : [group('decorations:overlay', overlay, { zIndex: 600 })],
+            };
+        const dataObstacles = dataObstacleBounds(options.layerGroups, options.plot);
+        const protectedObstacles = [
+            options.legendBounds,
+            controlStripBounds(options.spec, options.width),
+        ].filter((bounds) => bounds !== undefined && bounds !== null);
+        const occupiedCallouts = [];
         annotations.forEach((annotation, index) => {
             const resolution = targetBounds(annotation.target, options.layerGroups, options.scales, options.plot, options.datumVisible);
-            overlay.push(...annotationNodes(annotation, index, resolution, options.plot, options.theme, options.spec.locale));
+            const compiled = annotationNodes(annotation, index, resolution, options.plot, options.theme, options.spec.locale, dataObstacles, protectedObstacles, occupiedCallouts);
+            overlay.push(...compiled.nodes);
+            if (compiled.bounds !== null)
+                occupiedCallouts.push(compiled.bounds);
         });
         return {
             underlay: underlay.length === 0
@@ -5615,16 +5986,18 @@ var Graflume = (function (exports) {
                 visible: !hiddenLayerIds.has(layerData.layer.id),
             });
         });
+        const legend = compileLegend(legendModel, layerGroups, layout.plot, width, height, theme, hiddenLegendItems);
         const decorations = compileDecorations({
             spec,
             layerGroups,
             scales,
             plot: layout.plot,
             theme,
+            width,
+            ...(legend.layout === null ? {} : { legendBounds: legend.layout.bounds }),
             runtime,
             datumVisible,
         });
-        const legend = compileLegend(legendModel, layerGroups, layout.plot, width, height, theme, hiddenLegendItems);
         const children = [
             ...decorations.underlay,
             ...axisNodes,
@@ -5724,7 +6097,7 @@ var Graflume = (function (exports) {
     function channel(color, index) {
         return Number.parseInt(color.slice(index * 2, index * 2 + 2), 16);
     }
-    function mixColor(start, end, ratio) {
+    function mixColor$1(start, end, ratio) {
         const startHex = normalizedHex(start);
         const endHex = normalizedHex(end);
         if (startHex === null || endHex === null)
@@ -5774,7 +6147,7 @@ var Graflume = (function (exports) {
     }
 
     const TAU$2 = Math.PI * 2;
-    function clamp$2(value, min, max) {
+    function clamp$3(value, min, max) {
         return Math.max(min, Math.min(max, value));
     }
     function finiteOption(value, fallback) {
@@ -5892,7 +6265,7 @@ var Graflume = (function (exports) {
         const cy = plot.y + plot.height / 2;
         const radius = Math.max(16, Math.min(plot.width, plot.height) * 0.34);
         const nodes = [];
-        const rings = clamp$2(Math.floor(finiteOption(layer.mark.options.rings, 5)), 1, 8);
+        const rings = clamp$3(Math.floor(finiteOption(layer.mark.options.rings, 5)), 1, 8);
         const linePointBudget = Math.max(1, Math.floor(performance.maxLinePoints));
         const balancedSeriesLimit = Math.max(1, Math.floor(Math.sqrt(linePointBudget)));
         const plannedSeriesCount = Math.min(seriesNames.length, balancedSeriesLimit);
@@ -5943,7 +6316,7 @@ var Graflume = (function (exports) {
                 return;
             const color = themeColor(context, seriesIndex);
             const points = categories.map((category, index) => {
-                const ratio = clamp$2((rows.get(category)?.value ?? 0) / maximum, 0, 1);
+                const ratio = clamp$3((rows.get(category)?.value ?? 0) / maximum, 0, 1);
                 return pointOnCircle$1(cx, cy, radius * ratio, -Math.PI / 2 + (index * TAU$2) / categories.length);
             });
             nodes.push({
@@ -6073,7 +6446,7 @@ var Graflume = (function (exports) {
                 lineJoin: 'round',
             });
         });
-        const cardWidth = clamp$2(plot.width / Math.max(3, Math.max(...levels.map((level) => level.length))), 66, 112);
+        const cardWidth = clamp$3(plot.width / Math.max(3, Math.max(...levels.map((level) => level.length))), 66, 112);
         const cardHeight = 30;
         items.forEach((item, index) => {
             const position = positions.get(item.id);
@@ -6319,7 +6692,7 @@ var Graflume = (function (exports) {
                     return;
                 // Scaling both dimensions by sqrt(value) keeps the visible stage area
                 // proportional while retaining a stable slot for labels and hit testing.
-                const scale = Math.sqrt(clamp$2(item.value / maxValue, 0.015, 1));
+                const scale = Math.sqrt(clamp$3(item.value / maxValue, 0.015, 1));
                 const width = plot.width * scale;
                 const height = Math.max(8, (stageHeight - 4) * scale);
                 const cx = plot.x + plot.width / 2;
@@ -6360,8 +6733,8 @@ var Graflume = (function (exports) {
             if (item === undefined)
                 return;
             const next = retainedItems[index + 1];
-            const topWidth = plot.width * clamp$2(item.value / maxValue, 0.08, 1);
-            const bottomWidth = plot.width * clamp$2((next?.value ?? item.value * 0.78) / maxValue, 0.06, 1);
+            const topWidth = plot.width * clamp$3(item.value / maxValue, 0.08, 1);
+            const bottomWidth = plot.width * clamp$3((next?.value ?? item.value * 0.78) / maxValue, 0.06, 1);
             const y1 = plot.y + index * stageHeight + 2;
             const y2 = plot.y + (index + 1) * stageHeight - 2;
             const cx = plot.x + plot.width / 2;
@@ -6596,7 +6969,7 @@ var Graflume = (function (exports) {
                         return;
                     ratio = dimension.values.length <= 1 ? 0.5 : index / (dimension.values.length - 1);
                 }
-                points.push({ x: xFor(dimensionIndex), y: plot.y + plot.height * (1 - clamp$2(ratio, 0, 1)) });
+                points.push({ x: xFor(dimensionIndex), y: plot.y + plot.height * (1 - clamp$3(ratio, 0, 1)) });
             });
             if (points.length !== dimensions.length)
                 continue;
@@ -6687,7 +7060,7 @@ var Graflume = (function (exports) {
                 y1: yMedian,
                 x2: x + boxWidth / 2,
                 y2: yMedian,
-                stroke: mixColor(stroke, theme.colors.text, 0.22),
+                stroke: mixColor$1(stroke, theme.colors.text, 0.22),
                 lineWidth: 2.2,
                 lineCap: 'round',
             });
@@ -6703,7 +7076,7 @@ var Graflume = (function (exports) {
             maxSize = Math.max(1, extent?.[1] ?? 1);
         }
         const nodes = [];
-        const ringCount = clamp$2(Math.floor(finiteOption(layer.mark.options.rings, 2)), 1, 4);
+        const ringCount = clamp$3(Math.floor(finiteOption(layer.mark.options.rings, 2)), 1, 4);
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
             const xValue = scaleInput(table.value(rowIndex, layer.x.field));
             const yValue = scaleInput(table.value(rowIndex, layer.y.field));
@@ -6751,7 +7124,7 @@ var Graflume = (function (exports) {
         const x2Field = layer.mark.fields.x2 ?? 'x2';
         const y2Field = layer.mark.fields.y2 ?? 'y2';
         const valueField = layer.mark.fields.value;
-        const curvature = clamp$2(finiteOption(layer.mark.options.curvature, 0.18), -1, 1);
+        const curvature = clamp$3(finiteOption(layer.mark.options.curvature, 0.18), -1, 1);
         const nodes = [];
         let maxValue = 1;
         if (valueField !== undefined && table.has(valueField))
@@ -6840,7 +7213,7 @@ var Graflume = (function (exports) {
             return [];
         const min = Math.min(...values);
         const max = Math.max(...values);
-        const cellGap = clamp$2(finiteOption(layer.mark.options.cellGap, 1), 0, 24);
+        const cellGap = clamp$3(finiteOption(layer.mark.options.cellGap, 1), 0, 24);
         const xCellPositions = xScale instanceof BandScale ? xScale.domain().map((value) => xScale.map(value)) : xPositions;
         const yCellPositions = yScale instanceof BandScale ? yScale.domain().map((value) => yScale.map(value)) : yPositions;
         const cellWidth = heatmapCellSpan(xCellPositions, xScale instanceof BandScale ? plot.width / Math.max(1, xScale.domain().length) : 18, cellGap);
@@ -6856,7 +7229,7 @@ var Graflume = (function (exports) {
             const y = yScale.map(yValue);
             if (!Number.isFinite(x) || !Number.isFinite(y))
                 continue;
-            const ratio = max === min ? 0.5 : clamp$2((value - min) / (max - min), 0, 1);
+            const ratio = max === min ? 0.5 : clamp$3((value - min) / (max - min), 0, 1);
             const palette = theme.colors.sequential;
             const color = layer.mark.fill ?? palette[Math.round(ratio * (palette.length - 1))] ?? theme.colors.focus;
             nodes.push({
@@ -6883,7 +7256,7 @@ var Graflume = (function (exports) {
     };
     const compilePictorialBarMark = (context) => {
         const { layer, table, xScale, yScale, plot, theme } = context;
-        const maxSymbols = clamp$2(Math.floor(finiteOption(layer.mark.options.maxSymbols, 12)), 2, 40);
+        const maxSymbols = clamp$3(Math.floor(finiteOption(layer.mark.options.maxSymbols, 12)), 2, 40);
         let maxAbs = 0;
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
             maxAbs = Math.max(maxAbs, Math.abs(numericDataValue(table.value(rowIndex, layer.y.field)) ?? 0));
@@ -6906,7 +7279,7 @@ var Graflume = (function (exports) {
             const step = Math.abs(end - zero) / count;
             const requestedSize = finiteOption(layer.mark.options.symbolSize, Number.NaN);
             const size = Number.isFinite(requestedSize)
-                ? clamp$2(Math.abs(requestedSize), 3, Math.max(3, band * 0.9))
+                ? clamp$3(Math.abs(requestedSize), 3, Math.max(3, band * 0.9))
                 : Math.max(3, Math.min(band * 0.62, step * 0.72, 18));
             const color = layer.mark.fill ?? themeColor(context, rowIndex);
             for (let index = 0; index < count; index += 1) {
@@ -7076,7 +7449,7 @@ var Graflume = (function (exports) {
         const cx = plot.x + plot.width / 2;
         const cy = plot.y + plot.height / 2;
         const outerRadius = Math.max(20, Math.min(plot.width, plot.height) * 0.42);
-        const innerHole = outerRadius * clamp$2(finiteOption(layer.mark.options.innerRadius, 0.12), 0, 0.7);
+        const innerHole = outerRadius * clamp$3(finiteOption(layer.mark.options.innerRadius, 0.12), 0, 0.7);
         const ringWidth = (outerRadius - innerHole) / Math.max(1, maxDepth + 1);
         const nodes = [];
         let colorIndex = 0;
@@ -7090,7 +7463,7 @@ var Graflume = (function (exports) {
                 ...datumBase$2(context, `${layer.id}:sunburst:${node.id}`, node.rowIndex, depth / 100),
                 points: annularSector$1(cx, cy, inner, outer, start, end),
                 closed: true,
-                fill: layer.mark.fill ?? mixColor(color, theme.colors.background, depth * 0.08),
+                fill: layer.mark.fill ?? mixColor$1(color, theme.colors.background, depth * 0.08),
                 stroke: layer.mark.stroke ?? theme.colors.background,
                 lineWidth: layer.mark.lineWidth ?? 1.5,
                 lineJoin: 'round',
@@ -7252,7 +7625,7 @@ var Graflume = (function (exports) {
                 table.has(labelField)) {
                 const label = stringValue$2(table.value(rowIndex, labelField));
                 if (label !== null && label !== '') {
-                    nodes.push(textNode$4(`${layer.id}:custom-label:${rowIndex}`, x, clamp$2(y - size / 2 - 8, context.plot.y + 8, context.plot.y + context.plot.height - 8), label, context, {
+                    nodes.push(textNode$4(`${layer.id}:custom-label:${rowIndex}`, x, clamp$3(y - size / 2 - 8, context.plot.y + 8, context.plot.y + context.plot.height - 8), label, context, {
                         fill: theme.colors.mutedText,
                         size: Math.max(9, theme.typography.fontSize - 1),
                         weight: 600,
@@ -7714,7 +8087,7 @@ var Graflume = (function (exports) {
                 y1: yHigh,
                 x2: x,
                 y2: yLow,
-                stroke: layer.mark.stroke ?? mixColor(fill, theme.colors.text, 0.28),
+                stroke: layer.mark.stroke ?? mixColor$1(fill, theme.colors.text, 0.28),
                 lineWidth: layer.mark.lineWidth ?? 1.5,
                 lineCap: 'round',
             });
@@ -9430,8 +9803,8 @@ var Graflume = (function (exports) {
         if (optionString$4(context, 'basemap', DEFAULT_BASEMAP) === 'none')
             return [];
         const viewport = geographicViewport(plot);
-        const oceanFill = optionString$4(context, 'oceanFill', mixColor(theme.colors.background, theme.colors.sequential[0] ?? theme.colors.surface, 0.2));
-        const landFill = optionString$4(context, 'landFill', mixColor(theme.colors.surface, theme.colors.grid, theme.mode === 'dark' ? 0.3 : 0.48));
+        const oceanFill = optionString$4(context, 'oceanFill', mixColor$1(theme.colors.background, theme.colors.sequential[0] ?? theme.colors.surface, 0.2));
+        const landFill = optionString$4(context, 'landFill', mixColor$1(theme.colors.surface, theme.colors.grid, theme.mode === 'dark' ? 0.3 : 0.48));
         const countryStroke = optionString$4(context, 'countryStroke', colorWithOpacity(theme.colors.axis, theme.mode === 'dark' ? 0.62 : 0.48));
         const countryLineWidth = Math.max(0, optionNumber$4(context, 'countryLineWidth', 0.55));
         const nodes = [
@@ -9530,7 +9903,7 @@ var Graflume = (function (exports) {
     }
 
     const TAU$1 = Math.PI * 2;
-    function clamp$1(value, minimum, maximum) {
+    function clamp$2(value, minimum, maximum) {
         return Math.max(minimum, Math.min(maximum, value));
     }
     function optionNumber$3(value, fallback) {
@@ -9829,7 +10202,7 @@ var Graflume = (function (exports) {
         if (summary === null)
             return [];
         const { mean, standardDeviation: sigma } = summary;
-        const samples = clamp$1(Math.floor(optionNumber$3(layer.mark.options.samples, 72)), 24, 160);
+        const samples = clamp$2(Math.floor(optionNumber$3(layer.mark.options.samples, 72)), 24, 160);
         const densities = Array.from({ length: samples + 1 }, (_, index) => {
             const xValue = summary.domainMinimum + ((summary.domainMaximum - summary.domainMinimum) * index) / samples;
             const density = normalDensity(xValue, summary);
@@ -9907,7 +10280,7 @@ var Graflume = (function (exports) {
                     y: Math.min(y, baseline),
                     width,
                     height: Math.max(1, Math.abs(baseline - y)),
-                    fill: mixColor(theme.colors.background, theme.colors.mutedText, 0.15 + index * 0.12),
+                    fill: mixColor$1(theme.colors.background, theme.colors.mutedText, 0.15 + index * 0.12),
                     lineWidth: 0,
                     cornerRadius: 2,
                 });
@@ -9977,7 +10350,7 @@ var Graflume = (function (exports) {
                 cornerRadius: layer.mark.cornerRadius ?? 2,
             };
         });
-        const levelCount = clamp$1(Math.floor(optionNumber$3(layer.mark.options.levels, 5)), 2, 10);
+        const levelCount = clamp$2(Math.floor(optionNumber$3(layer.mark.options.levels, 5)), 2, 10);
         for (let levelIndex = 1; levelIndex < levelCount; levelIndex += 1) {
             const target = minimum + ((maximum - minimum) * levelIndex) / levelCount;
             const candidates = rows.filter((row) => row.value >= target);
@@ -10012,7 +10385,7 @@ var Graflume = (function (exports) {
         const width = Math.max(8, xScale instanceof BandScale
             ? xScale.bandwidth * 0.58
             : plot.width / Math.max(3, table.length * 1.8));
-        const ellipseHeight = clamp$1(width * 0.28, 4, 18);
+        const ellipseHeight = clamp$2(width * 0.28, 4, 18);
         const baseline = yScale.map(0);
         const nodes = [];
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
@@ -10035,13 +10408,13 @@ var Graflume = (function (exports) {
                 width,
                 height: Math.max(1, bottom - top),
                 fill: color,
-                stroke: layer.mark.stroke ?? mixColor(color, theme.colors.text, 0.25),
+                stroke: layer.mark.stroke ?? mixColor$1(color, theme.colors.text, 0.25),
                 lineWidth: layer.mark.lineWidth ?? 1,
                 cornerRadius: 0,
             });
             for (const [suffix, centerY, fill] of [
-                ['top', top, mixColor(color, '#ffffff', 0.22)],
-                ['bottom', bottom, mixColor(color, theme.colors.text, 0.12)],
+                ['top', top, mixColor$1(color, '#ffffff', 0.22)],
+                ['bottom', bottom, mixColor$1(color, theme.colors.text, 0.12)],
             ]) {
                 const points = Array.from({ length: 25 }, (_, index) => {
                     const angle = (index / 24) * TAU$1;
@@ -10056,7 +10429,7 @@ var Graflume = (function (exports) {
                     points,
                     closed: true,
                     fill,
-                    stroke: layer.mark.stroke ?? mixColor(color, theme.colors.text, 0.25),
+                    stroke: layer.mark.stroke ?? mixColor$1(color, theme.colors.text, 0.25),
                     lineWidth: layer.mark.lineWidth ?? 1,
                 });
             }
@@ -10144,7 +10517,7 @@ var Graflume = (function (exports) {
         }
         if (values.length === 0 || total <= 0)
             return [];
-        const count = clamp$1(Math.floor(optionNumber$3(layer.mark.options.items, 100)), 20, 400);
+        const count = clamp$2(Math.floor(optionNumber$3(layer.mark.options.items, 100)), 20, 400);
         const columns = Math.ceil(Math.sqrt((count * plot.width) / Math.max(1, plot.height)));
         const rows = Math.ceil(count / columns);
         const gap = 2;
@@ -10194,7 +10567,7 @@ var Graflume = (function (exports) {
                 y1: baseline,
                 x2: x,
                 y2: y,
-                stroke: layer.mark.stroke ?? mixColor(color, theme.colors.background, 0.18),
+                stroke: layer.mark.stroke ?? mixColor$1(color, theme.colors.background, 0.18),
                 lineWidth: layer.mark.lineWidth ?? 2,
                 lineCap: 'round',
             });
@@ -10261,7 +10634,7 @@ var Graflume = (function (exports) {
             if (radius >= 18) {
                 nodes.push(textNode$2(context, `${layer.id}:packed-label:${item.rowIndex}`, position.x, position.y, item.label, {
                     fill: readableTextColor(color, '#ffffff', '#0f172a'),
-                    size: clamp$1(radius * 0.34, 9, 14),
+                    size: clamp$2(radius * 0.34, 9, 14),
                 }));
             }
         });
@@ -10401,7 +10774,7 @@ var Graflume = (function (exports) {
         const variant = optionString$3(layer.mark.options.variant, 'pyramid');
         const reverse = variant.includes('funnel');
         const depth = variant.includes('3d')
-            ? clamp$1(optionNumber$3(layer.mark.options.depth, 12), 4, 24)
+            ? clamp$2(optionNumber$3(layer.mark.options.depth, 12), 4, 24)
             : 0;
         const sorted = layer.mark.options.sort === false ? rows : rows.slice().sort((a, b) => b.value - a.value);
         const maximum = Math.max(1, ...sorted.map(({ value }) => value));
@@ -10410,8 +10783,8 @@ var Graflume = (function (exports) {
         const maxWidth = plot.width * 0.82;
         const nodes = [];
         sorted.forEach((row, index) => {
-            const currentRatio = clamp$1(row.value / maximum, 0.06, 1);
-            const nextRatio = clamp$1((sorted[index + 1]?.value ?? 0) / maximum, 0.03, 1);
+            const currentRatio = clamp$2(row.value / maximum, 0.06, 1);
+            const nextRatio = clamp$2((sorted[index + 1]?.value ?? 0) / maximum, 0.03, 1);
             const topRatio = reverse ? currentRatio : nextRatio;
             const bottomRatio = reverse ? nextRatio : currentRatio;
             const y1 = plot.y + index * height + 1;
@@ -10434,7 +10807,7 @@ var Graflume = (function (exports) {
                         front[2],
                     ],
                     closed: true,
-                    fill: mixColor(color, theme.colors.text, 0.18),
+                    fill: mixColor$1(color, theme.colors.text, 0.18),
                     lineWidth: 0,
                 });
             }
@@ -10469,7 +10842,7 @@ var Graflume = (function (exports) {
             if (xValue === null || yValue === null || z === null)
                 continue;
             const ratio = extent === null || extent[1] === extent[0] ? 0.5 : (z - extent[0]) / (extent[1] - extent[0]);
-            const perspective = (ratio - 0.5) * clamp$1(optionNumber$3(layer.mark.options.perspective, 18), 0, 42);
+            const perspective = (ratio - 0.5) * clamp$2(optionNumber$3(layer.mark.options.perspective, 18), 0, 42);
             const x = xScale.map(xValue) + perspective;
             const y = yScale.map(yValue) - perspective * 0.55;
             const radius = (layer.mark.radius ?? 5) * (0.72 + ratio * 0.9);
@@ -10492,7 +10865,7 @@ var Graflume = (function (exports) {
                 cx: x,
                 cy: y,
                 radius,
-                fill: mixColor(color, '#ffffff', (1 - ratio) * 0.18),
+                fill: mixColor$1(color, '#ffffff', (1 - ratio) * 0.18),
                 stroke: layer.mark.stroke ?? theme.colors.background,
                 lineWidth: layer.mark.lineWidth ?? 1.5,
             });
@@ -10508,7 +10881,7 @@ var Graflume = (function (exports) {
         const cx = plot.x + plot.width / 2;
         const cy = plot.y + plot.height * 0.58;
         const outer = Math.min(plot.width, plot.height) * 0.38;
-        const thickness = clamp$1(optionNumber$3(layer.mark.options.thickness, outer * 0.18), 6, outer * 0.45);
+        const thickness = clamp$2(optionNumber$3(layer.mark.options.thickness, outer * 0.18), 6, outer * 0.45);
         const nodes = [
             {
                 type: 'path',
@@ -10524,7 +10897,7 @@ var Graflume = (function (exports) {
             const value = numericDataValue(table.value(rowIndex, layer.y.field));
             if (value === null)
                 continue;
-            const ratio = clamp$1((value - minimum) / Math.max(1e-9, maximum - minimum), 0, 1);
+            const ratio = clamp$2((value - minimum) / Math.max(1e-9, maximum - minimum), 0, 1);
             const ringOuter = outer - rowIndex * (thickness + 5);
             const ringInner = Math.max(4, ringOuter - thickness);
             const color = layer.mark.fill ?? paletteColor$1(context, rowIndex);
@@ -10539,7 +10912,7 @@ var Graflume = (function (exports) {
             });
             if (rowIndex === count - 1) {
                 nodes.push(textNode$2(context, `${layer.id}:solid-label`, cx, cy + outer * 0.2, `${Math.round(value)}`, {
-                    size: clamp$1(outer * 0.2, 16, 30),
+                    size: clamp$2(outer * 0.2, 16, 30),
                     weight: 700,
                 }));
             }
@@ -10736,7 +11109,7 @@ var Graflume = (function (exports) {
             const ratio = extent === null || extent[1] === extent[0]
                 ? 0.6
                 : (magnitude - extent[0]) / (extent[1] - extent[0]);
-            const length = 10 + clamp$1(ratio, 0, 1) * 26;
+            const length = 10 + clamp$2(ratio, 0, 1) * 26;
             const angle = (direction * Math.PI) / 180 - Math.PI / 2;
             const end = pointOnCircle(start.x, start.y, length, angle);
             const color = layer.mark.stroke ?? context.color;
@@ -10823,7 +11196,7 @@ var Graflume = (function (exports) {
             if (xValue === null || yValue === null || speed === null || direction === null)
                 continue;
             const start = { x: xScale.map(xValue), y: yScale.map(yValue) };
-            const length = clamp$1(18 + speed * 0.35, 20, 44);
+            const length = clamp$2(18 + speed * 0.35, 20, 44);
             const angle = (direction * Math.PI) / 180 - Math.PI / 2;
             const end = pointOnCircle(start.x, start.y, length, angle);
             const stroke = layer.mark.stroke ?? context.color;
@@ -10838,7 +11211,7 @@ var Graflume = (function (exports) {
                 lineWidth: layer.mark.lineWidth ?? 2,
                 lineCap: 'round',
             });
-            const featherCount = clamp$1(Math.round(speed / 10), 1, 6);
+            const featherCount = clamp$2(Math.round(speed / 10), 1, 6);
             for (let feather = 0; feather < featherCount; feather += 1) {
                 const ratio = 0.32 + (feather / featherCount) * 0.58;
                 const anchor = {
@@ -11061,7 +11434,7 @@ var Graflume = (function (exports) {
         const lowerField = layer.mark.fields.lower ?? 'lower';
         const upperField = layer.mark.fields.upper ?? 'upper';
         const fields = indicatorFields(context);
-        const period = clamp$1(Math.floor(optionNumber$3(layer.mark.options.period, 14)), 2, 200);
+        const period = clamp$2(Math.floor(optionNumber$3(layer.mark.options.period, 14)), 2, 200);
         const sourceValues = Array.from({ length: table.length }, (_, rowIndex) => numericDataValue(table.value(rowIndex, layer.y.field)));
         const calculated = layer.mark.options.calculate === true
             ? calculatedIndicator(kind, sourceValues, period)
@@ -11350,7 +11723,7 @@ var Graflume = (function (exports) {
                 nodes.push({
                     ...textNode$2(context, `${layer.id}:point-figure:${row.rowIndex}:${level}`, x, y, rising ? '×' : '○', {
                         fill: layer.mark.stroke ?? color,
-                        size: clamp$1(Math.min(cellWidth, cellHeight) * 0.82, 9, 22),
+                        size: clamp$2(Math.min(cellWidth, cellHeight) * 0.82, 9, 22),
                         weight: 700,
                     }),
                     ...datumBase$1(context, `${layer.id}:point-figure:${row.rowIndex}:${level}`, row.rowIndex),
@@ -11418,7 +11791,7 @@ var Graflume = (function (exports) {
         const { layer, table, plot, theme } = context;
         const priceField = layer.mark.fields.price ?? layer.y.field;
         const volumeField = layer.mark.fields.volume ?? 'volume';
-        const bins = clamp$1(Math.floor(optionNumber$3(layer.mark.options.bins, 12)), 4, 50);
+        const bins = clamp$2(Math.floor(optionNumber$3(layer.mark.options.bins, 12)), 4, 50);
         const priceExtent = table.has(priceField) ? table.extent(priceField) : null;
         if (priceExtent === null || !table.has(volumeField))
             return [];
@@ -11430,7 +11803,7 @@ var Graflume = (function (exports) {
             const volume = numericDataValue(table.value(rowIndex, volumeField));
             if (price === null || volume === null)
                 continue;
-            const bin = clamp$1(Math.floor(((price - priceExtent[0]) / span) * bins), 0, bins - 1);
+            const bin = clamp$2(Math.floor(((price - priceExtent[0]) / span) * bins), 0, bins - 1);
             totals[bin] = (totals[bin] ?? 0) + Math.max(0, volume);
             rowIndexes[bin] = rowIndex;
         }
@@ -11615,7 +11988,7 @@ var Graflume = (function (exports) {
     });
 
     const TAU = Math.PI * 2;
-    function clamp(value, minimum, maximum) {
+    function clamp$1(value, minimum, maximum) {
         return Math.max(minimum, Math.min(maximum, value));
     }
     function optionNumber$2(options, key, fallback) {
@@ -11698,7 +12071,7 @@ var Graflume = (function (exports) {
         return Number.isFinite(smallest) ? Math.max(1, smallest) : Math.max(1, fallback);
     }
     function interpolateContourPoint(start, end, startValue, endValue, level) {
-        const ratio = clamp((level - startValue) / (endValue - startValue || 1), 0, 1);
+        const ratio = clamp$1((level - startValue) / (endValue - startValue || 1), 0, 1);
         return {
             x: start.x + (end.x - start.x) * ratio,
             y: start.y + (end.y - start.y) * ratio,
@@ -11776,7 +12149,7 @@ var Graflume = (function (exports) {
     }
     function byteChannel(value, fallback) {
         const numeric = numericDataValue(value);
-        return numeric === null ? fallback : Math.round(clamp(numeric, 0, 255));
+        return numeric === null ? fallback : Math.round(clamp$1(numeric, 0, 255));
     }
     /** A raster compiler that keeps every pixel portable as a data row. */
     const compileImageMark = (context) => {
@@ -11808,7 +12181,7 @@ var Graflume = (function (exports) {
         const cellHeight = yScale instanceof BandScale
             ? yScale.bandwidth
             : inferredCellSpan(yPositions, plot.height / Math.max(1, Math.sqrt(table.length)));
-        const gap = clamp(optionNumber$2(layer.mark.options, 'cellGap', 0), 0, 8);
+        const gap = clamp$1(optionNumber$2(layer.mark.options, 'cellGap', 0), 0, 8);
         const nodes = [];
         for (const { rowIndex, x, y } of sampledItems(rasterRows, context.performance.maxBarMarks)) {
             const explicit = colorField === undefined || !table.has(colorField)
@@ -11818,7 +12191,7 @@ var Graflume = (function (exports) {
             const green = table.has(greenField) ? byteChannel(table.value(rowIndex, greenField), 0) : 0;
             const blue = table.has(blueField) ? byteChannel(table.value(rowIndex, blueField), 0) : 0;
             const alpha = alphaField !== undefined && table.has(alphaField)
-                ? clamp(byteChannel(table.value(rowIndex, alphaField), 255) / 255, 0, 1)
+                ? clamp$1(byteChannel(table.value(rowIndex, alphaField), 255) / 255, 0, 1)
                 : 1;
             const fill = layer.mark.fill ?? explicit ?? `rgba(${red}, ${green}, ${blue}, ${alpha})`;
             nodes.push({
@@ -11938,7 +12311,7 @@ var Graflume = (function (exports) {
         const allViolins = [...groups].map(([name, values]) => ({ name, ...values }));
         if (allViolins.length === 0)
             return [];
-        const samples = clamp(Math.floor(optionNumber$2(layer.mark.options, 'samples', 56)), 20, 160);
+        const samples = clamp$1(Math.floor(optionNumber$2(layer.mark.options, 'samples', 56)), 20, 160);
         const maximumGroups = Math.max(1, Math.min(context.performance.maxBarMarks, Math.floor(context.performance.maxLinePoints / (2 * (samples + 1)))));
         const violins = sampledItems(allViolins, maximumGroups);
         const width = xScale instanceof BandScale
@@ -12001,7 +12374,7 @@ var Graflume = (function (exports) {
                 y1: yScale.map(median),
                 x2: center + width * 0.18,
                 y2: yScale.map(median),
-                stroke: mixColor(stroke, theme.colors.text, 0.25),
+                stroke: mixColor$1(stroke, theme.colors.text, 0.25),
                 lineWidth: 2.2,
                 lineCap: 'round',
             });
@@ -12032,8 +12405,8 @@ var Graflume = (function (exports) {
         const yExtent = table.extent(layer.y.field, layer.y.type === 'temporal');
         if (xExtent === null || yExtent === null)
             return [];
-        const requestedBinsX = clamp(Math.floor(optionNumber$2(layer.mark.options, 'binsX', 12)), 2, 80);
-        const requestedBinsY = clamp(Math.floor(optionNumber$2(layer.mark.options, 'binsY', 10)), 2, 80);
+        const requestedBinsX = clamp$1(Math.floor(optionNumber$2(layer.mark.options, 'binsX', 12)), 2, 80);
+        const requestedBinsY = clamp$1(Math.floor(optionNumber$2(layer.mark.options, 'binsY', 10)), 2, 80);
         const [binsX, binsY] = boundedGridDimensions(requestedBinsX, requestedBinsY, context.performance.maxBarMarks);
         const counts = Array.from({ length: binsY }, () => Array.from({ length: binsX }, () => 0));
         const rows = Array.from({ length: binsY }, () => Array.from({ length: binsX }, () => -1));
@@ -12044,8 +12417,8 @@ var Graflume = (function (exports) {
             const y = numericDataValue(table.value(rowIndex, layer.y.field), layer.y.type === 'temporal');
             if (x === null || y === null)
                 continue;
-            const xBin = clamp(Math.floor(((x - xExtent[0]) / xSpan) * binsX), 0, binsX - 1);
-            const yBin = clamp(Math.floor(((y - yExtent[0]) / ySpan) * binsY), 0, binsY - 1);
+            const xBin = clamp$1(Math.floor(((x - xExtent[0]) / xSpan) * binsX), 0, binsX - 1);
+            const yBin = clamp$1(Math.floor(((y - yExtent[0]) / ySpan) * binsY), 0, binsY - 1);
             const rowCounts = counts[yBin];
             const rowRefs = rows[yBin];
             if (rowCounts === undefined || rowRefs === undefined)
@@ -12101,7 +12474,7 @@ var Graflume = (function (exports) {
             }
         }
         if (contours) {
-            const levelCount = clamp(Math.floor(optionNumber$2(layer.mark.options, 'levels', 6)), 2, 16);
+            const levelCount = clamp$1(Math.floor(optionNumber$2(layer.mark.options, 'levels', 6)), 2, 16);
             const levels = Array.from({ length: levelCount }, (_, index) => ((index + 1) / (levelCount + 1)) * maximum);
             contourSegments(counts, centerPoints, levels, Math.floor(context.performance.maxLinePoints / 2)).forEach((segment, index) => {
                 const ratio = segment.levelIndex / Math.max(1, levelCount - 1);
@@ -12249,7 +12622,7 @@ var Graflume = (function (exports) {
                     return [];
                 return [
                     {
-                        point: circlePoint(cx, cy, radius * clamp(row.value / maximum, 0, 1), angle),
+                        point: circlePoint(cx, cy, radius * clamp$1(row.value / maximum, 0, 1), angle),
                         angle,
                         rowIndex: row.rowIndex,
                         value: row.value,
@@ -12264,9 +12637,9 @@ var Graflume = (function (exports) {
             const color = layer.mark.stroke ?? paletteColor(context, seriesIndex);
             if (mode === 'bar') {
                 const barSpan = optionNumber$2(layer.mark.options, 'barAngle', TAU / Math.max(16, rows.length * 2));
-                const boundedBarSpan = clamp(barSpan, 0.000001, TAU);
+                const boundedBarSpan = clamp$1(barSpan, 0.000001, TAU);
                 rows.forEach((row) => {
-                    const outer = radius * clamp(row.value / maximum, 0, 1);
+                    const outer = radius * clamp$1(row.value / maximum, 0, 1);
                     nodes.push({
                         type: 'path',
                         ...datumBase(context, `${layer.id}:polar-bar:${row.rowIndex}`, row.rowIndex),
@@ -12567,7 +12940,7 @@ var Graflume = (function (exports) {
             .slice(0, 8);
         if (dimensions.length < 2)
             return [];
-        const gap = clamp(optionNumber$2(layer.mark.options, 'gap', 5), 0, 18);
+        const gap = clamp$1(optionNumber$2(layer.mark.options, 'gap', 5), 0, 18);
         const cellWidth = plot.width / dimensions.length;
         const cellHeight = plot.height / dimensions.length;
         const colorField = layer.mark.fields.color ?? layer.mark.fields.group;
@@ -12614,7 +12987,7 @@ var Graflume = (function (exports) {
                     for (const value of dimensionValues) {
                         if (!Number.isFinite(value))
                             continue;
-                        const bin = clamp(Math.floor(((value - xDimension.minimum) / (xDimension.maximum - xDimension.minimum || 1)) *
+                        const bin = clamp$1(Math.floor(((value - xDimension.minimum) / (xDimension.maximum - xDimension.minimum || 1)) *
                             bins.length), 0, bins.length - 1);
                         bins[bin] = (bins[bin] ?? 0) + 1;
                     }
@@ -12661,7 +13034,7 @@ var Graflume = (function (exports) {
                         ...datumBase(context, `${layer.id}:matrix-point:${row}:${column}:${rowIndex}`, rowIndex, 1),
                         cx: mapCell(xValue, xDimension, x + 3, width - 6),
                         cy: y + height - 3 - mapCell(yValue, yDimension, 0, height - 6),
-                        radius: clamp(layer.mark.radius ?? 2.2, 1, 6),
+                        radius: clamp$1(layer.mark.radius ?? 2.2, 1, 6),
                         fill: layer.mark.fill ?? colorWithOpacity(paletteColor(context, colorIndex), 0.72),
                         stroke: theme.colors.background,
                         lineWidth: 0.5,
@@ -12802,7 +13175,7 @@ var Graflume = (function (exports) {
                     const datum = indexed.get(a)?.get(b);
                     return datum === undefined ? null : position(datum);
                 }));
-                const levelCount = clamp(Math.floor(optionNumber$2(layer.mark.options, 'levels', 6)), 2, 16);
+                const levelCount = clamp$1(Math.floor(optionNumber$2(layer.mark.options, 'levels', 6)), 2, 16);
                 const levels = Array.from({ length: levelCount }, (_, index) => valueMinimum + ((index + 1) / (levelCount + 1)) * (valueMaximum - valueMinimum || 1));
                 contourSegments(gridValues, gridPoints, levels, maximumSegments).forEach((segment, index) => {
                     const ratio = segment.levelIndex / Math.max(1, levelCount - 1);
@@ -12881,6 +13254,8 @@ var Graflume = (function (exports) {
         fullscreen: 'M4.5 9V4.5H9M15 4.5h4.5V9M19.5 15v4.5H15M9 19.5H4.5V15',
         'exit-fullscreen': 'M9 4.5V9H4.5M19.5 9H15V4.5M15 19.5V15h4.5M4.5 15H9v4.5',
         export: 'M4.5 8h3l1.4-2h6.2l1.4 2h3v10.5h-15V8ZM12 10a3.25 3.25 0 1 0 0 6.5A3.25 3.25 0 0 0 12 10Z',
+        annotations: 'M4.5 5.5h15v10h-9l-4 3v-3h-2v-10Z',
+        'annotations-hidden': 'M4.5 5.5h15v10h-5M10.5 15.5l-4 3v-3h-2v-10h2M4 4l16 16',
         previous: 'M6 5v14M18 6.5 9.5 12l8.5 5.5Z',
         play: 'M8 5.5 18 12 8 18.5Z',
         pause: 'M8.5 6v12M15.5 6v12',
@@ -13001,12 +13376,14 @@ var Graflume = (function (exports) {
                 reset: state.spec.reset,
                 fullscreen: state.spec.fullscreen,
                 export: state.spec.export,
+                annotations: state.spec.annotations,
+                annotationsAvailable: state.annotationsAvailable,
                 playback: state.spec.playback,
                 labels: state.spec.labels,
             });
             if (this.#elements === null || this.#signature !== signature) {
                 this.destroy();
-                this.#elements = this.#create(host.ownerDocument, state.spec, actions);
+                this.#elements = this.#create(host.ownerDocument, state, actions);
                 this.#signature = signature;
             }
             const elements = this.#elements;
@@ -13022,7 +13399,8 @@ var Graflume = (function (exports) {
             this.#elements = null;
             this.#signature = '';
         }
-        #create(document, spec, actions) {
+        #create(document, state, actions) {
+            const spec = state.spec;
             const root = document.createElement('div');
             root.className = 'graflume-controls';
             root.dataset.graflumeControls = 'true';
@@ -13039,6 +13417,7 @@ var Graflume = (function (exports) {
             root.append(strip);
             const elements = { root };
             const labels = spec.labels;
+            const showAnnotations = spec.annotations && state.annotationsAvailable;
             if (spec.zoom) {
                 elements.zoomOut = button(document, 'zoom-out', 'zoom-out', labels.zoomOut, actions.zoomOut);
                 elements.zoomIn = button(document, 'zoom-in', 'zoom-in', labels.zoomIn, actions.zoomIn);
@@ -13048,7 +13427,8 @@ var Graflume = (function (exports) {
                 elements.reset = button(document, 'reset', 'reset', labels.reset, actions.reset);
                 strip.append(elements.reset);
             }
-            if ((spec.zoom || spec.reset) && (spec.fullscreen || spec.export || spec.playback)) {
+            if ((spec.zoom || spec.reset) &&
+                (spec.fullscreen || spec.export || showAnnotations || spec.playback)) {
                 strip.append(separator(document));
             }
             if (spec.fullscreen) {
@@ -13059,7 +13439,11 @@ var Graflume = (function (exports) {
                 elements.exportPng = button(document, 'export-png', 'export', labels.exportPng, actions.exportPng);
                 strip.append(elements.exportPng);
             }
-            if ((spec.fullscreen || spec.export) && spec.playback)
+            if (showAnnotations) {
+                elements.annotations = button(document, 'annotations', 'annotations', labels.hideAnnotations, actions.toggleAnnotations);
+                strip.append(elements.annotations);
+            }
+            if ((spec.fullscreen || spec.export || showAnnotations) && spec.playback)
                 strip.append(separator(document));
             if (spec.playback) {
                 const playbackOptionsLabel = `${labels.seek} · ${labels.speed} · ${labels.loop}`;
@@ -13140,6 +13524,12 @@ var Graflume = (function (exports) {
             }
             if (elements.exportPng !== undefined)
                 elements.exportPng.disabled = !state.exportAvailable;
+            if (elements.annotations !== undefined) {
+                elements.annotations.disabled = !state.annotationsAvailable;
+                updateLabel(elements.annotations, state.annotationsVisible ? labels.hideAnnotations : labels.showAnnotations);
+                setIcon(elements.annotations, state.annotationsVisible ? 'annotations' : 'annotations-hidden');
+                elements.annotations.setAttribute('aria-pressed', String(state.annotationsVisible));
+            }
             const playbackDisabled = !state.playbackEnabled || state.playbackLength <= 1;
             if (elements.previousFrame !== undefined)
                 elements.previousFrame.disabled = playbackDisabled;
@@ -13863,6 +14253,418 @@ var Graflume = (function (exports) {
         }
     }
 
+    function clamp(value, minimum, maximum) {
+        return Math.max(minimum, Math.min(maximum, value));
+    }
+    function mix(from, to, progress) {
+        return from + (to - from) * progress;
+    }
+    function easeSceneProgress(progress, easing) {
+        if (!Number.isFinite(progress))
+            throw new RangeError('Scene transition progress must be finite.');
+        const value = clamp(progress, 0, 1);
+        return easing === 'ease-in-out' ? value * value * (3 - 2 * value) : value;
+    }
+    function mixRect(from, to, progress) {
+        return {
+            x: mix(from.x, to.x, progress),
+            y: mix(from.y, to.y, progress),
+            width: mix(from.width, to.width, progress),
+            height: mix(from.height, to.height, progress),
+        };
+    }
+    function mixPoints(from, to, progress) {
+        return to.map((point, index) => {
+            const previous = from[index];
+            return {
+                x: mix(previous.x, point.x, progress),
+                y: mix(previous.y, point.y, progress),
+            };
+        });
+    }
+    function parseHexColor(input) {
+        const value = input.slice(1);
+        if (![3, 4, 6, 8].includes(value.length) || !/^[0-9a-f]+$/i.test(value))
+            return null;
+        const expanded = value.length <= 4 ? [...value].map((character) => `${character}${character}`).join('') : value;
+        const red = Number.parseInt(expanded.slice(0, 2), 16);
+        const green = Number.parseInt(expanded.slice(2, 4), 16);
+        const blue = Number.parseInt(expanded.slice(4, 6), 16);
+        const alpha = expanded.length === 8 ? Number.parseInt(expanded.slice(6, 8), 16) / 255 : 1;
+        return { red, green, blue, alpha };
+    }
+    function parseRgbChannel(input) {
+        const value = input.trim();
+        const percentage = value.endsWith('%');
+        const parsed = Number.parseFloat(percentage ? value.slice(0, -1) : value);
+        if (!Number.isFinite(parsed))
+            return null;
+        return clamp(percentage ? (parsed / 100) * 255 : parsed, 0, 255);
+    }
+    function parseAlpha(input) {
+        const value = input.trim();
+        const percentage = value.endsWith('%');
+        const parsed = Number.parseFloat(percentage ? value.slice(0, -1) : value);
+        if (!Number.isFinite(parsed))
+            return null;
+        return clamp(percentage ? parsed / 100 : parsed, 0, 1);
+    }
+    function parseFunctionalColor(input) {
+        const match = /^rgba?\((.*)\)$/i.exec(input.trim());
+        if (match === null)
+            return null;
+        const parts = match[1]
+            .trim()
+            .replace(/\s*\/\s*/, ' ')
+            .split(/[\s,]+/);
+        if (parts.length !== 3 && parts.length !== 4)
+            return null;
+        const red = parseRgbChannel(parts[0]);
+        const green = parseRgbChannel(parts[1]);
+        const blue = parseRgbChannel(parts[2]);
+        const alpha = parts[3] === undefined ? 1 : parseAlpha(parts[3]);
+        if (red === null || green === null || blue === null || alpha === null)
+            return null;
+        return { red, green, blue, alpha };
+    }
+    function parseColor(input) {
+        const value = input.trim();
+        if (value.toLowerCase() === 'transparent')
+            return { red: 0, green: 0, blue: 0, alpha: 0 };
+        if (value.startsWith('#'))
+            return parseHexColor(value);
+        return parseFunctionalColor(value);
+    }
+    function colorCompatible(from, to) {
+        if (from === to)
+            return true;
+        if (from === undefined || to === undefined)
+            return false;
+        return parseColor(from) !== null && parseColor(to) !== null;
+    }
+    function mixColor(from, to, progress) {
+        if (from === to)
+            return to;
+        const left = parseColor(from);
+        const right = parseColor(to);
+        const red = Math.round(mix(left.red, right.red, progress));
+        const green = Math.round(mix(left.green, right.green, progress));
+        const blue = Math.round(mix(left.blue, right.blue, progress));
+        const alpha = Math.round(mix(left.alpha, right.alpha, progress) * 1_000) / 1_000;
+        return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+    }
+    function mixOptionalColor(from, to, progress) {
+        if (from === undefined || to === undefined)
+            return to;
+        return mixColor(from, to, progress);
+    }
+    function normalizedDash(input) {
+        return input ?? [];
+    }
+    function dashCompatible(from, to) {
+        return normalizedDash(from).length === normalizedDash(to).length;
+    }
+    function mixDash(from, to, progress) {
+        const left = normalizedDash(from);
+        const right = normalizedDash(to);
+        if (right.length === 0)
+            return undefined;
+        return right.map((value, index) => mix(left[index], value, progress));
+    }
+    function effectiveOpacity(node) {
+        return node.visible ? node.opacity : 0;
+    }
+    function baseTransition(from, to, progress) {
+        const opacity = mix(effectiveOpacity(from), effectiveOpacity(to), progress);
+        return {
+            id: to.id,
+            zIndex: to.zIndex,
+            opacity,
+            visible: opacity > 0,
+        };
+    }
+    function scalarKey(value) {
+        if (value instanceof Date)
+            return `date:${value.getTime()}`;
+        if (value === null)
+            return 'null';
+        if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+            return `${typeof value}:${String(value)}`;
+        }
+        return null;
+    }
+    function stableDatumIdentity(node, keyField) {
+        const datum = node.datum;
+        if (keyField !== undefined && datum !== undefined) {
+            const key = scalarKey(datum.datum[keyField] ?? datum.tooltip?.[keyField]);
+            if (key !== null) {
+                return `datum:${node.type}:${datum.layerId}:${key}`;
+            }
+        }
+        return null;
+    }
+    function nodeIdentity(node, keyField) {
+        return stableDatumIdentity(node, keyField) ?? `node:${node.type}:${node.id}`;
+    }
+    function stableDatumRoleCandidates(node) {
+        if (node.datum === undefined)
+            return new Set();
+        const parts = node.id.split(':');
+        const rowIndex = String(node.datum.rowIndex);
+        const roles = new Set();
+        for (let index = 0; index < parts.length; index += 1) {
+            if (parts[index] !== rowIndex)
+                continue;
+            const candidate = [...parts];
+            candidate[index] = '@datum';
+            roles.add(candidate.join(':'));
+        }
+        return roles;
+    }
+    function sameStableDatumRole(from, to) {
+        if (from.id === to.id)
+            return true;
+        const left = stableDatumRoleCandidates(from);
+        const right = stableDatumRoleCandidates(to);
+        return [...left].some((role) => right.has(role));
+    }
+    function samePathTopology(from, to) {
+        if (from.closed !== to.closed || from.points.length !== to.points.length)
+            return false;
+        const left = from.subpaths ?? [];
+        const right = to.subpaths ?? [];
+        return (left.length === right.length &&
+            left.every((subpath, index) => subpath.length === right[index].length));
+    }
+    function nodeCompatible(from, to) {
+        if (from.type !== to.type)
+            return false;
+        switch (to.type) {
+            case 'group': {
+                const previous = from;
+                return (previous.clip === undefined) === (to.clip === undefined);
+            }
+            case 'line': {
+                const previous = from;
+                return (previous.lineCap === to.lineCap &&
+                    colorCompatible(previous.stroke, to.stroke) &&
+                    dashCompatible(previous.dash, to.dash));
+            }
+            case 'path': {
+                const previous = from;
+                return (samePathTopology(previous, to) &&
+                    previous.fillRule === to.fillRule &&
+                    previous.lineCap === to.lineCap &&
+                    previous.lineJoin === to.lineJoin &&
+                    colorCompatible(previous.fill, to.fill) &&
+                    colorCompatible(previous.stroke, to.stroke) &&
+                    dashCompatible(previous.dash, to.dash));
+            }
+            case 'rect': {
+                const previous = from;
+                return (colorCompatible(previous.fill, to.fill) &&
+                    colorCompatible(previous.stroke, to.stroke) &&
+                    dashCompatible(previous.dash, to.dash));
+            }
+            case 'circle': {
+                const previous = from;
+                return colorCompatible(previous.fill, to.fill) && colorCompatible(previous.stroke, to.stroke);
+            }
+            case 'text': {
+                const previous = from;
+                return (previous.text === to.text &&
+                    previous.fontFamily === to.fontFamily &&
+                    previous.fontWeight === to.fontWeight &&
+                    previous.fontStyle === to.fontStyle &&
+                    previous.align === to.align &&
+                    previous.baseline === to.baseline &&
+                    colorCompatible(previous.fill, to.fill));
+            }
+        }
+    }
+    function interpolateCompatibleNode(from, to, progress, options) {
+        switch (to.type) {
+            case 'group': {
+                const previous = from;
+                return {
+                    ...to,
+                    ...baseTransition(previous, to, progress),
+                    children: mergeChildren(previous.children, to.children, progress, options),
+                    ...(previous.clip === undefined || to.clip === undefined
+                        ? {}
+                        : { clip: mixRect(previous.clip, to.clip, progress) }),
+                };
+            }
+            case 'line': {
+                const previous = from;
+                const dash = mixDash(previous.dash, to.dash, progress);
+                return {
+                    ...to,
+                    ...baseTransition(previous, to, progress),
+                    x1: mix(previous.x1, to.x1, progress),
+                    y1: mix(previous.y1, to.y1, progress),
+                    x2: mix(previous.x2, to.x2, progress),
+                    y2: mix(previous.y2, to.y2, progress),
+                    stroke: mixColor(previous.stroke, to.stroke, progress),
+                    lineWidth: mix(previous.lineWidth, to.lineWidth, progress),
+                    ...(dash === undefined ? {} : { dash }),
+                };
+            }
+            case 'path': {
+                const previous = from;
+                const leftSubpaths = previous.subpaths ?? [];
+                const rightSubpaths = to.subpaths ?? [];
+                const dash = mixDash(previous.dash, to.dash, progress);
+                const fill = mixOptionalColor(previous.fill, to.fill, progress);
+                const stroke = mixOptionalColor(previous.stroke, to.stroke, progress);
+                return {
+                    ...to,
+                    ...baseTransition(previous, to, progress),
+                    points: mixPoints(previous.points, to.points, progress),
+                    ...(rightSubpaths.length === 0
+                        ? {}
+                        : {
+                            subpaths: rightSubpaths.map((subpath, index) => mixPoints(leftSubpaths[index], subpath, progress)),
+                        }),
+                    lineWidth: mix(previous.lineWidth, to.lineWidth, progress),
+                    ...(fill === undefined ? {} : { fill }),
+                    ...(stroke === undefined ? {} : { stroke }),
+                    ...(dash === undefined ? {} : { dash }),
+                };
+            }
+            case 'rect': {
+                const previous = from;
+                const dash = mixDash(previous.dash, to.dash, progress);
+                const fill = mixOptionalColor(previous.fill, to.fill, progress);
+                const stroke = mixOptionalColor(previous.stroke, to.stroke, progress);
+                return {
+                    ...to,
+                    ...baseTransition(previous, to, progress),
+                    x: mix(previous.x, to.x, progress),
+                    y: mix(previous.y, to.y, progress),
+                    width: mix(previous.width, to.width, progress),
+                    height: mix(previous.height, to.height, progress),
+                    lineWidth: mix(previous.lineWidth, to.lineWidth, progress),
+                    cornerRadius: mix(previous.cornerRadius, to.cornerRadius, progress),
+                    ...(fill === undefined ? {} : { fill }),
+                    ...(stroke === undefined ? {} : { stroke }),
+                    ...(dash === undefined ? {} : { dash }),
+                };
+            }
+            case 'circle': {
+                const previous = from;
+                const fill = mixOptionalColor(previous.fill, to.fill, progress);
+                const stroke = mixOptionalColor(previous.stroke, to.stroke, progress);
+                return {
+                    ...to,
+                    ...baseTransition(previous, to, progress),
+                    cx: mix(previous.cx, to.cx, progress),
+                    cy: mix(previous.cy, to.cy, progress),
+                    radius: mix(previous.radius, to.radius, progress),
+                    lineWidth: mix(previous.lineWidth, to.lineWidth, progress),
+                    ...(fill === undefined ? {} : { fill }),
+                    ...(stroke === undefined ? {} : { stroke }),
+                };
+            }
+            case 'text': {
+                const previous = from;
+                return {
+                    ...to,
+                    ...baseTransition(previous, to, progress),
+                    x: mix(previous.x, to.x, progress),
+                    y: mix(previous.y, to.y, progress),
+                    fill: mixColor(previous.fill, to.fill, progress),
+                    fontSize: mix(previous.fontSize, to.fontSize, progress),
+                    rotation: mix(previous.rotation, to.rotation, progress),
+                };
+            }
+        }
+    }
+    function fadeNode(node, opacity, idPrefix) {
+        const id = idPrefix === undefined ? node.id : `${idPrefix}:${node.id}`;
+        if (node.type === 'group') {
+            return {
+                ...node,
+                id,
+                opacity: effectiveOpacity(node) * opacity,
+                visible: node.visible && opacity > 0,
+                children: idPrefix === undefined
+                    ? node.children
+                    : node.children.map((child) => fadeNode(child, 1, idPrefix)),
+            };
+        }
+        return {
+            ...node,
+            id,
+            opacity: effectiveOpacity(node) * opacity,
+            visible: node.visible && opacity > 0,
+        };
+    }
+    function mergeChildren(from, to, progress, options) {
+        const previousByIdentity = new Map();
+        for (const node of from) {
+            const identity = nodeIdentity(node, options.keyField);
+            const candidates = previousByIdentity.get(identity) ?? [];
+            candidates.push(node);
+            previousByIdentity.set(identity, candidates);
+        }
+        let exitSequence = 0;
+        const output = [];
+        for (const node of to) {
+            const identity = nodeIdentity(node, options.keyField);
+            const candidates = previousByIdentity.get(identity);
+            const stableIdentity = stableDatumIdentity(node, options.keyField) !== null;
+            const candidateIndex = candidates === undefined
+                ? -1
+                : stableIdentity
+                    ? candidates.findIndex((candidate) => sameStableDatumRole(candidate, node))
+                    : 0;
+            const previous = candidateIndex < 0 ? undefined : candidates?.splice(candidateIndex, 1)[0];
+            if (candidates !== undefined && candidates.length === 0)
+                previousByIdentity.delete(identity);
+            if (previous === undefined) {
+                output.push(fadeNode(node, progress));
+                continue;
+            }
+            if (nodeCompatible(previous, node)) {
+                output.push(interpolateCompatibleNode(previous, node, progress, options));
+                continue;
+            }
+            exitSequence += 1;
+            output.push(fadeNode(previous, 1 - progress, `transition-exit-${exitSequence}`), fadeNode(node, progress));
+        }
+        for (const candidates of previousByIdentity.values()) {
+            for (const node of candidates) {
+                exitSequence += 1;
+                output.push(fadeNode(node, 1 - progress, `transition-exit-${exitSequence}`));
+            }
+        }
+        return output;
+    }
+    /**
+     * Create a transient render-only Scene between two compiled endpoint Scenes.
+     * The endpoint Scenes are never mutated and their data/accessibility contracts
+     * remain authoritative; incompatible nodes safely crossfade.
+     */
+    function interpolateScene(from, to, progress, options = {}) {
+        if (!Number.isFinite(progress))
+            throw new RangeError('Scene transition progress must be finite.');
+        if (progress <= 0)
+            return from;
+        if (progress >= 1)
+            return to;
+        if (from.root.type !== 'group' || to.root.type !== 'group')
+            return to;
+        const background = colorCompatible(from.background, to.background)
+            ? mixColor(from.background, to.background, progress)
+            : to.background;
+        return {
+            ...to,
+            background,
+            root: interpolateCompatibleNode(from.root, to.root, progress, options),
+        };
+    }
+
     class RenderScheduler {
         #handle = null;
         schedule(task) {
@@ -13893,6 +14695,15 @@ var Graflume = (function (exports) {
         }
     }
 
+    const PLAYBACK_TRANSITION_INTERVAL_GAP = 1;
+    function effectivePlaybackTransitionDuration(playback) {
+        if (playback.transition === false)
+            return 0;
+        // Keep every automatic frame boundary authoritative. A long requested tween
+        // is shortened just below the frame interval so it cannot become the input
+        // Scene for the following automatic transition.
+        return Math.min(playback.transition.duration, Math.max(1, playback.interval - PLAYBACK_TRANSITION_INTERVAL_GAP));
+    }
     function resolveTarget(target) {
         if (typeof target !== 'string')
             return target;
@@ -14029,11 +14840,14 @@ var Graflume = (function (exports) {
         #playing = false;
         #playbackCancel = null;
         #playbackTimestamp = null;
+        #sceneTransition = null;
+        #displayScene = null;
         #reducedMotion = null;
         #fullscreen = false;
         #hiddenLegendItems = new Set();
         #selection = [];
         #annotations = [];
+        #annotationsVisible = true;
         #selectionLive = null;
         #selectionLiveHost = null;
         #pointerMoveListener = (event) => {
@@ -14270,6 +15084,17 @@ var Graflume = (function (exports) {
         getAnnotations() {
             return this.#annotations.map(cloneAnnotation);
         }
+        getAnnotationsVisible() {
+            this.#assertAlive();
+            return this.#annotationsVisible;
+        }
+        setAnnotationsVisible(visible) {
+            return this.#setAnnotationsVisible(visible, 'programmatic');
+        }
+        toggleAnnotations() {
+            this.#assertAlive();
+            return this.#setAnnotationsVisible(!this.#annotationsVisible, 'toggle');
+        }
         setAnnotations(annotations) {
             this.#assertAlive();
             const resolved = annotations.map((annotation, index) => ({
@@ -14329,6 +15154,7 @@ var Graflume = (function (exports) {
                 id: annotationId(annotation, index),
             }));
             this.#selection = [];
+            this.#annotationsVisible = true;
             this.#hiddenLegendItems.clear();
             this.#configureInteraction(normalized, true);
             this.render();
@@ -14341,6 +15167,7 @@ var Graflume = (function (exports) {
             });
             this.#emitSelection('spec');
             this.#emitAnnotations('spec');
+            this.#emitAnnotationVisibility('spec');
             this.#startAutoplay();
             return this;
         }
@@ -14461,8 +15288,7 @@ var Graflume = (function (exports) {
             if (typeof document !== 'undefined' && document.hidden)
                 return this;
             if (this.#playbackIndex === this.#playbackFrames.length - 1) {
-                this.#playbackIndex = 0;
-                this.render();
+                this.#renderPlaybackIndex(0);
                 this.#emitPlayback('seek');
             }
             this.#playing = true;
@@ -14473,12 +15299,9 @@ var Graflume = (function (exports) {
             return this;
         }
         pause() {
-            if (this.#destroyed || !this.#playing)
+            if (this.#destroyed || (!this.#playing && this.#sceneTransition === null))
                 return this;
-            this.#playing = false;
-            this.#cancelPlaybackFrame();
-            this.#emitPlayback('pause');
-            this.#syncControls();
+            this.#stopPlayback(true);
             return this;
         }
         step(delta = 1) {
@@ -14495,14 +15318,16 @@ var Graflume = (function (exports) {
                 next = Math.max(0, Math.min(length - 1, next));
             if (next === this.#playbackIndex) {
                 if (this.#playing && !this.#playbackLoop)
-                    this.pause();
+                    this.#stopPlayback(true);
+                else if (this.#sceneTransition !== null)
+                    this.#finishSceneTransition();
                 return this;
             }
-            this.#playbackIndex = next;
-            this.render();
+            this.#renderPlaybackIndex(next);
             this.#emitPlayback('step');
-            if (this.#playing && !this.#playbackLoop && next === length - 1)
-                this.pause();
+            if (this.#playing && !this.#playbackLoop && next === length - 1) {
+                this.#stopPlayback(false);
+            }
             return this;
         }
         seek(index) {
@@ -14512,10 +15337,12 @@ var Graflume = (function (exports) {
             if (this.#playback === false || this.#playbackFrames.length === 0)
                 return this;
             const next = Math.max(0, Math.min(this.#playbackFrames.length - 1, Math.trunc(index)));
-            if (next === this.#playbackIndex)
+            if (next === this.#playbackIndex) {
+                if (this.#sceneTransition !== null)
+                    this.#finishSceneTransition();
                 return this;
-            this.#playbackIndex = next;
-            this.render();
+            }
+            this.#renderPlaybackIndex(next);
             this.#emitPlayback('seek');
             return this;
         }
@@ -14579,6 +15406,10 @@ var Graflume = (function (exports) {
         }
         render() {
             this.#assertAlive();
+            this.#cancelSceneTransition();
+            return this.#renderEndpoint();
+        }
+        #renderEndpoint() {
             const dimensions = this.#measure();
             const playbackSpecInput = this.#playback === false
                 ? this.#spec
@@ -14591,6 +15422,7 @@ var Graflume = (function (exports) {
             const result = compileWithRegistry(effectiveSpec, this.#registry, dimensions, {
                 hiddenLegendItemIds: this.#hiddenLegendItems,
                 annotations: this.#annotations,
+                annotationsVisible: this.#annotationsVisible,
                 selection: this.#selection,
             });
             const factory = this.#registry.resolveRenderer(result.spec.renderer);
@@ -14637,6 +15469,7 @@ var Graflume = (function (exports) {
             }
             renderer.setInspectionView?.(this.#view);
             renderer.render(result.scene);
+            this.#displayScene = result.scene;
             this.#syncSurfaceEvents();
             this.#syncControls();
             this.#syncLegend();
@@ -14656,6 +15489,7 @@ var Graflume = (function (exports) {
                 return;
             const exitFullscreen = this.#isOwnFullscreen();
             this.#playing = false;
+            this.#sceneTransition = null;
             this.#cancelPlaybackFrame();
             this.#scheduler.cancel();
             this.#resizeObserver?.disconnect();
@@ -14679,6 +15513,7 @@ var Graflume = (function (exports) {
             this.#renderer?.destroy();
             this.#renderer = null;
             this.#result = null;
+            this.#displayScene = null;
             this.#events.clear();
             this.#destroyed = true;
         }
@@ -14751,7 +15586,7 @@ var Graflume = (function (exports) {
                 return;
             this.#view = view;
             this.#tooltip.hide();
-            const scene = this.#result?.scene;
+            const scene = this.#displayScene ?? this.#result?.scene;
             if (scene !== undefined) {
                 this.#renderer?.setInspectionView?.(this.#view);
                 this.#renderer?.render(scene);
@@ -14771,6 +15606,94 @@ var Graflume = (function (exports) {
                 reason,
             });
         }
+        #renderPlaybackIndex(index) {
+            const from = this.#displayScene ?? this.#result?.scene ?? null;
+            const previousRenderer = this.#renderer;
+            this.#cancelSceneTransition();
+            this.#playbackIndex = index;
+            this.#renderEndpoint();
+            const playback = this.#playback;
+            const to = this.#result?.scene;
+            const renderer = this.#renderer;
+            if (playback === false ||
+                playback.transition === false ||
+                this.#reducedMotion?.matches === true ||
+                from === null ||
+                to === undefined ||
+                renderer === null ||
+                renderer !== previousRenderer ||
+                from.width !== to.width ||
+                from.height !== to.height) {
+                return;
+            }
+            this.#sceneTransition = {
+                from,
+                to,
+                duration: effectivePlaybackTransitionDuration(playback),
+                easing: playback.transition.easing,
+                keyField: playback.key,
+                elapsed: 0,
+                previousTimestamp: this.#playing && this.#playbackTimestamp !== null ? this.#playbackTimestamp : null,
+            };
+            this.#displayScene = from;
+            this.#tooltip.hide();
+            renderer.render(from);
+            this.#schedulePlaybackFrame();
+        }
+        #advanceSceneTransition(timestamp) {
+            const transition = this.#sceneTransition;
+            if (transition === null)
+                return;
+            if (transition.previousTimestamp === null) {
+                transition.previousTimestamp = timestamp;
+                return;
+            }
+            transition.elapsed +=
+                Math.max(0, timestamp - transition.previousTimestamp) * this.#playbackRate;
+            transition.previousTimestamp = timestamp;
+            const progress = transition.elapsed / transition.duration;
+            if (progress >= 1) {
+                this.#finishSceneTransition();
+                return;
+            }
+            const scene = interpolateScene(transition.from, transition.to, easeSceneProgress(progress, transition.easing), transition.keyField === undefined ? {} : { keyField: transition.keyField });
+            this.#renderer?.render(scene);
+            this.#displayScene = scene;
+        }
+        #cancelSceneTransition() {
+            if (this.#sceneTransition === null)
+                return;
+            this.#sceneTransition = null;
+            this.#tooltip.hide();
+            if (!this.#playing)
+                this.#cancelScheduledPlaybackFrame();
+        }
+        #finishSceneTransition() {
+            const transition = this.#sceneTransition;
+            if (transition === null)
+                return;
+            this.#sceneTransition = null;
+            this.#renderer?.render(transition.to);
+            this.#displayScene = transition.to;
+            this.#tooltip.hide();
+            if (!this.#playing)
+                this.#cancelScheduledPlaybackFrame();
+        }
+        #stopPlayback(settleTransition) {
+            const wasPlaying = this.#playing;
+            this.#playing = false;
+            this.#playbackTimestamp = null;
+            if (settleTransition)
+                this.#finishSceneTransition();
+            if (this.#sceneTransition === null)
+                this.#cancelScheduledPlaybackFrame();
+            else
+                this.#schedulePlaybackFrame();
+            if (!wasPlaying)
+                return;
+            this.#emitPlayback('pause');
+            this.#syncControls();
+        }
         #startAutoplay() {
             if (this.#playback !== false &&
                 this.#playback.autoplay &&
@@ -14779,19 +15702,28 @@ var Graflume = (function (exports) {
             }
         }
         #schedulePlaybackFrame() {
-            this.#cancelScheduledPlaybackFrame();
+            if (this.#playbackCancel !== null || (!this.#playing && this.#sceneTransition === null)) {
+                return;
+            }
             const run = (timestamp) => {
                 this.#playbackCancel = null;
-                if (!this.#playing || this.#playback === false)
+                if (this.#destroyed)
                     return;
-                if (this.#playbackTimestamp === null)
-                    this.#playbackTimestamp = timestamp;
-                const duration = this.#playback.interval / this.#playbackRate;
-                if (timestamp - this.#playbackTimestamp >= duration) {
-                    this.#playbackTimestamp = timestamp;
-                    this.step(1);
+                this.#advanceSceneTransition(timestamp);
+                if (this.#playing && this.#playback !== false) {
+                    if (this.#playbackTimestamp === null)
+                        this.#playbackTimestamp = timestamp;
+                    const duration = this.#playback.interval / this.#playbackRate;
+                    if (timestamp - this.#playbackTimestamp >= duration) {
+                        this.#playbackTimestamp = timestamp;
+                        // Sparse RAF delivery can skip past the effective tween duration.
+                        // Settle before advancing so transient crossfade/exit nodes never
+                        // accumulate as inputs to the next automatic frame.
+                        this.#finishSceneTransition();
+                        this.step(1);
+                    }
                 }
-                if (this.#playing)
+                if (this.#playing || this.#sceneTransition !== null)
                     this.#schedulePlaybackFrame();
             };
             if (typeof requestAnimationFrame === 'function') {
@@ -15136,6 +16068,13 @@ var Graflume = (function (exports) {
         }
         #emitPointer(type, sourceEvent) {
             const result = this.#result;
+            if (this.#sceneTransition !== null) {
+                this.#tooltip.hide();
+                if (type === 'hover' || result?.spec.interaction.click !== false) {
+                    this.#events.emit(type, { chart: this, hit: null, sourceEvent });
+                }
+                return;
+            }
             const screen = this.#surfacePoint(sourceEvent);
             const surface = this.#renderer?.surface();
             if (result === null || screen === null || surface === null || surface === undefined)
@@ -15227,6 +16166,24 @@ var Graflume = (function (exports) {
                 ...(id === undefined ? {} : { id }),
             });
         }
+        #setAnnotationsVisible(visible, reason) {
+            this.#assertAlive();
+            if (typeof visible !== 'boolean')
+                throw new TypeError('Annotation visibility must be a boolean.');
+            if (visible === this.#annotationsVisible)
+                return this;
+            this.#annotationsVisible = visible;
+            this.render();
+            this.#emitAnnotationVisibility(reason);
+            return this;
+        }
+        #emitAnnotationVisibility(reason) {
+            this.#events.emit('annotationvisibilitychange', {
+                chart: this,
+                visible: this.#annotationsVisible,
+                reason,
+            });
+        }
         #isOwnFullscreen() {
             if (typeof document === 'undefined')
                 return false;
@@ -15264,6 +16221,8 @@ var Graflume = (function (exports) {
                 fullscreen: this.#fullscreen,
                 exportAvailable: this.#renderer?.toDataURL !== undefined &&
                     this.#renderer.capabilities.exportFormats.includes('image/png'),
+                annotationsAvailable: this.#annotations.length > 0,
+                annotationsVisible: this.#annotationsVisible,
                 playbackEnabled: playbackState.enabled,
                 playbackIndex: playbackState.index,
                 playbackLength: playbackState.frames.length,
@@ -15280,6 +16239,7 @@ var Graflume = (function (exports) {
                 reset: () => this.resetView(),
                 toggleFullscreen: () => void this.toggleFullscreen().catch(() => undefined),
                 exportPng: () => this.#exportPng(),
+                toggleAnnotations: () => this.toggleAnnotations(),
                 previousFrame: () => this.step(-1),
                 togglePlayback: () => (this.#playing ? this.pause() : this.play()),
                 nextFrame: () => this.step(1),
@@ -15458,7 +16418,7 @@ var Graflume = (function (exports) {
                         ...nodeBase(`${layer.id}:leader:${item.rowIndex}`, { zIndex: layer.zIndex + 0.9 }),
                         points: [edge, elbow, { x: elbow.x + side * 10, y: elbow.y }],
                         closed: false,
-                        stroke: mixColor(fill, theme.colors.text, 0.18),
+                        stroke: mixColor$1(fill, theme.colors.text, 0.18),
                         lineWidth: 1.2,
                         lineCap: 'round',
                         lineJoin: 'round',
@@ -15532,7 +16492,7 @@ var Graflume = (function (exports) {
                 width,
                 height,
                 fill,
-                stroke: mixColor(theme.colors.grid, theme.colors.axis, 0.22),
+                stroke: mixColor$1(theme.colors.grid, theme.colors.axis, 0.22),
                 lineWidth: 1,
                 cornerRadius: layer.mark.cornerRadius ?? 9,
             });
@@ -15585,7 +16545,7 @@ var Graflume = (function (exports) {
                 y: cy - trackHeight / 2,
                 width: trackWidth,
                 height: trackHeight,
-                fill: mixColor(theme.colors.grid, theme.colors.surface, 0.32),
+                fill: mixColor$1(theme.colors.grid, theme.colors.surface, 0.32),
                 stroke: 'transparent',
                 lineWidth: 0,
                 cornerRadius: trackHeight / 2,
@@ -15669,7 +16629,7 @@ var Graflume = (function (exports) {
                 ...nodeBase(`${layer.id}:gauge-background:${rowIndex}`, { zIndex: layer.zIndex }),
                 points: arcPoints(cx, cy, radius, Math.PI, Math.PI * 2, inner),
                 closed: true,
-                fill: mixColor(theme.colors.grid, theme.colors.surface, 0.3),
+                fill: mixColor$1(theme.colors.grid, theme.colors.surface, 0.3),
                 lineWidth: 0,
             });
             nodes.push({
@@ -15823,7 +16783,7 @@ var Graflume = (function (exports) {
                 y: originY + weekday * (cell + gap),
                 width: cell,
                 height: cell,
-                fill: mixColor(theme.colors.sequential[0] ?? '#eff6ff', theme.colors.sequential.at(-1) ?? '#1e3a8a', ratio),
+                fill: mixColor$1(theme.colors.sequential[0] ?? '#eff6ff', theme.colors.sequential.at(-1) ?? '#1e3a8a', ratio),
                 stroke: theme.colors.background,
                 lineWidth: 0.5,
                 cornerRadius: Math.min(2, cell * 0.15),
@@ -15854,7 +16814,7 @@ var Graflume = (function (exports) {
             if (mode === 'choropleth') {
                 const start = theme.colors.sequential[0] ?? colorWithOpacity(fill, 0.18);
                 const end = theme.colors.sequential.at(-1) ?? fill;
-                nodes.push(...worldCountryOverlayNodes(context, country, rowIndex, mixColor(start, end, ratio)));
+                nodes.push(...worldCountryOverlayNodes(context, country, rowIndex, mixColor$1(start, end, ratio)));
                 continue;
             }
             const point = projectGeographicPosition(plot, country[5], country[6]);
@@ -16213,7 +17173,7 @@ var Graflume = (function (exports) {
                 y: plot.y,
                 width: columnWidth,
                 height: headerHeight,
-                fill: mixColor(theme.colors.surface, theme.colors.focus, theme.mode === 'dark' ? 0.08 : 0.045),
+                fill: mixColor$1(theme.colors.surface, theme.colors.focus, theme.mode === 'dark' ? 0.08 : 0.045),
                 stroke: theme.colors.grid,
                 lineWidth: 0.75,
                 cornerRadius: 0,
@@ -16296,7 +17256,7 @@ var Graflume = (function (exports) {
                         y: y - barHeight / 2,
                         width: Math.max(0, (Math.abs(x2 - x1) * Math.max(0, Math.min(100, progress))) / 100),
                         height: barHeight,
-                        fill: mixColor(fill, theme.colors.text, theme.mode === 'dark' ? 0.18 : 0.26),
+                        fill: mixColor$1(fill, theme.colors.text, theme.mode === 'dark' ? 0.18 : 0.26),
                         lineWidth: 0,
                         cornerRadius: layer.mark.cornerRadius ?? 6,
                     });
@@ -16466,7 +17426,7 @@ var Graflume = (function (exports) {
             const gap = Math.min(1.5, levelHeight * 0.12, width * 0.02);
             const y = plot.y + level * levelHeight;
             const fill = layer.mark.fill ??
-                mixColor(theme.colors.palette[colorIndex % theme.colors.palette.length] ?? theme.colors.focus, theme.colors.background, Math.min(0.5, level * 0.1));
+                mixColor$1(theme.colors.palette[colorIndex % theme.colors.palette.length] ?? theme.colors.focus, theme.colors.background, Math.min(0.5, level * 0.1));
             nodes.push({
                 type: 'rect',
                 ...nodeBase(`${layer.id}:icicle:${node.rowIndex}`, {
@@ -16589,7 +17549,7 @@ var Graflume = (function (exports) {
         const tiles = layoutTreemap(items, plot);
         tiles.forEach((item, index) => {
             const base = theme.colors.palette[index % theme.colors.palette.length] ?? theme.colors.focus;
-            const fill = mixColor(base, theme.colors.background, theme.mode === 'dark' ? 0.06 : 0.02);
+            const fill = mixColor$1(base, theme.colors.background, theme.mode === 'dark' ? 0.06 : 0.02);
             const gap = 2;
             const x = item.x + gap;
             const y = item.y + gap;
