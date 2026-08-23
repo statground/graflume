@@ -4587,7 +4587,7 @@ var Graflume = (function (exports) {
         }
         if (legend.orientation === 'horizontal') {
             const totalWidth = items.reduce((sum, item) => sum + Math.max(64, item.label.length * 7 + 34), 0);
-            const modelWidth = Math.min(maxWidth, Math.max(96, totalWidth));
+            const modelWidth = Math.min(maxWidth, Math.max(96, totalWidth + 20));
             const usableWidth = Math.max(48, modelWidth - 20);
             let rowWidth = 0;
             let rows = 1;
