@@ -26,26 +26,43 @@ var Graflume = (function (exports) {
     const variant$1 = (id, name, quickApi, mark, familyId, mode = 'default') => ({ id, name, quickApi, mark, familyId, mode });
     /** Distinct families added by the complete entrypoint. */
     const additionalChartTypeCatalog = [
-        family$2('radar', 'Radar chart', 'radar', 'radar'),
+        family$2('polar', 'Polar chart', 'polar', 'polar'),
         family$2('network', 'Network chart', 'network', 'graph'),
         family$2('chord', 'Chord diagram', 'chord', 'chord'),
         family$2('funnel', 'Funnel chart', 'funnel', 'funnel'),
         family$2('parallel', 'Parallel coordinates', 'parallel', 'parallel'),
-        family$2('boxplot', 'Boxplot', 'boxplot', 'boxplot'),
         family$2('heatmap', 'Heatmap', 'heatmap', 'heatmap'),
+        family$2('image', 'Raster image', 'image', 'image'),
+        family$2('ternary', 'Ternary chart', 'ternary', 'ternary'),
+        family$2('smith', 'Smith chart', 'smith', 'smith'),
+        family$2('scatter-matrix', 'Scatter matrix', 'scatterMatrix', 'scatter-matrix'),
+        family$2('carpet', 'Carpet chart', 'carpet', 'carpet'),
     ];
     /** Existing advanced names retained as compatible presets. */
     const additionalChartVariantCatalog = [
-        variant$1('radar', 'Radar chart', 'radar', 'radar', 'radar'),
+        variant$1('polar', 'Polar chart', 'polar', 'polar', 'polar'),
+        variant$1('radar', 'Radar chart', 'radar', 'radar', 'polar', 'radar'),
+        variant$1('polar-line', 'Polar line chart', 'polarLine', 'polar', 'polar', 'line'),
+        variant$1('polar-scatter', 'Polar scatter chart', 'polarScatter', 'polar', 'polar', 'scatter'),
+        variant$1('polar-bar', 'Polar bar chart', 'polarBar', 'polar', 'polar', 'bar'),
         variant$1('tree', 'Tree chart', 'tree', 'tree', 'hierarchy', 'tree'),
         variant$1('graph', 'Graph chart', 'graph', 'graph', 'network', 'node-link'),
         variant$1('chord', 'Chord diagram', 'chord', 'chord', 'chord'),
         variant$1('funnel', 'Funnel chart', 'funnel', 'funnel', 'funnel'),
+        variant$1('funnel-area', 'Funnel area chart', 'funnelArea', 'funnel', 'funnel', 'area'),
         variant$1('parallel', 'Parallel coordinates', 'parallel', 'parallel', 'parallel'),
-        variant$1('boxplot', 'Boxplot', 'boxplot', 'boxplot', 'boxplot'),
+        variant$1('parallel-categories', 'Parallel categories', 'parallelCategories', 'parallel', 'parallel', 'categories'),
+        variant$1('boxplot', 'Boxplot', 'boxplot', 'boxplot', 'distribution', 'boxplot'),
         variant$1('effect-scatter', 'Effect scatter chart', 'effectScatter', 'effect-scatter', 'scatter', 'emphasis'),
         variant$1('lines', 'Connection lines', 'lines', 'lines', 'network', 'connections'),
         variant$1('heatmap', 'Heatmap', 'heatmap', 'heatmap', 'heatmap'),
+        variant$1('image', 'Raster image', 'image', 'image', 'image'),
+        variant$1('ternary', 'Ternary chart', 'ternary', 'ternary', 'ternary'),
+        variant$1('smith', 'Smith chart', 'smith', 'smith', 'smith'),
+        variant$1('scatter-matrix', 'Scatter matrix', 'scatterMatrix', 'scatter-matrix', 'scatter-matrix'),
+        variant$1('carpet', 'Carpet chart', 'carpet', 'carpet', 'carpet'),
+        variant$1('carpet-scatter', 'Carpet scatter overlay', 'carpetScatter', 'carpet', 'carpet', 'scatter'),
+        variant$1('carpet-contour', 'Carpet contour overlay', 'carpetContour', 'carpet', 'carpet', 'contour'),
         variant$1('pictorial-bar', 'Pictorial bar chart', 'pictorialBar', 'pictorial-bar', 'bar', 'pictorial'),
         variant$1('theme-river', 'Theme river chart', 'themeRiver', 'theme-river', 'area', 'stream'),
         variant$1('sunburst', 'Sunburst chart', 'sunburst', 'sunburst', 'hierarchy', 'sunburst'),
@@ -73,7 +90,7 @@ var Graflume = (function (exports) {
         family$1('timeline', 'Timeline and range chart', 'timeline', 'timeline'),
         family$1('gauge', 'Gauge chart', 'gauge', 'gauge'),
         family$1('map', 'Map chart', 'map', 'map'),
-        family$1('histogram', 'Histogram', 'histogram', 'histogram'),
+        family$1('distribution', 'Distribution chart', 'distribution', 'distribution'),
         family$1('interval', 'Interval chart', 'intervals', 'interval'),
         family$1('line', 'Line chart', 'line', 'line'),
         family$1('motion', 'Motion chart', 'motion', 'motion'),
@@ -99,8 +116,15 @@ var Graflume = (function (exports) {
         variant('donut', 'Donut chart', 'donut', 'pie', 'pie', 'donut'),
         variant('gantt', 'Gantt chart', 'gantt', 'gantt', 'timeline', 'gantt'),
         variant('gauge', 'Gauge chart', 'gauge', 'gauge', 'gauge'),
+        variant('gauge-number', 'Number indicator', 'gaugeNumber', 'gauge', 'gauge', 'number'),
+        variant('gauge-delta', 'Delta indicator', 'gaugeDelta', 'gauge', 'gauge', 'delta'),
+        variant('gauge-bullet', 'Bullet gauge', 'gaugeBullet', 'gauge', 'gauge', 'bullet'),
         variant('geo', 'Geographic region chart', 'geo', 'geo', 'map', 'region'),
-        variant('histogram', 'Histogram', 'histogram', 'histogram', 'histogram'),
+        variant('distribution', 'Distribution chart', 'distribution', 'distribution', 'distribution', 'histogram'),
+        variant('histogram', 'Histogram', 'histogram', 'histogram', 'distribution', 'histogram'),
+        variant('histogram-2d', 'Bivariate histogram', 'histogram2d', 'distribution', 'distribution', 'histogram-2d'),
+        variant('histogram-2d-contour', 'Bivariate density contours', 'histogram2dContour', 'distribution', 'distribution', 'histogram-2d-contour'),
+        variant('violin', 'Violin chart', 'violin', 'distribution', 'distribution', 'violin'),
         variant('intervals', 'Intervals', 'intervals', 'interval', 'interval'),
         variant('line', 'Line chart', 'line', 'line', 'line'),
         variant('map', 'Map', 'map', 'map', 'map'),
@@ -113,6 +137,7 @@ var Graflume = (function (exports) {
         variant('table', 'Table chart', 'table', 'table', 'table'),
         variant('timeline', 'Timeline', 'timeline', 'timeline', 'timeline'),
         variant('treemap', 'Tree map', 'treemap', 'treemap', 'hierarchy', 'treemap'),
+        variant('icicle', 'Icicle chart', 'icicle', 'treemap', 'hierarchy', 'icicle'),
         variant('trendline', 'Trendline', 'trendline', 'trendline', 'line', 'trend'),
         variant('vega', 'Portable adapter chart', 'vegaChart', 'vega', 'custom', 'adapter'),
         variant('waterfall', 'Waterfall chart', 'waterfall', 'waterfall', 'waterfall'),
@@ -124,7 +149,7 @@ var Graflume = (function (exports) {
         'area-range': 'interval',
         'area-spline': 'area',
         'area-spline-range': 'interval',
-        'bell-curve': 'histogram',
+        'bell-curve': 'distribution',
         bullet: 'bar',
         'column-pyramid': 'bar',
         'column-range': 'interval',
@@ -302,7 +327,7 @@ var Graflume = (function (exports) {
     const directFamilyByVariant = {
         area: 'area',
         bar: 'bar',
-        boxplot: 'boxplot',
+        boxplot: 'distribution',
         bubble: 'bubble',
         candlestick: 'candlestick',
         column: 'bar',
@@ -310,7 +335,7 @@ var Graflume = (function (exports) {
         gantt: 'timeline',
         gauge: 'gauge',
         heatmap: 'heatmap',
-        histogram: 'histogram',
+        histogram: 'distribution',
         line: 'line',
         map: 'map',
         pie: 'pie',
@@ -697,7 +722,7 @@ var Graflume = (function (exports) {
         assertSafeKey(key, `data.${key}`);
         return Object.prototype.hasOwnProperty.call(record, key) ? record[key] : null;
     }
-    function clamp$2(value, min, max) {
+    function clamp$3(value, min, max) {
         return Math.min(max, Math.max(min, value));
     }
     function finiteNumber(value) {
@@ -2565,6 +2590,23 @@ var Graflume = (function (exports) {
             indices.push(length - 1);
         return indices;
     }
+    /**
+     * Returns at most `target` evenly spaced indices, including both endpoints when
+     * the budget allows. Unlike the compatibility sampler above, this helper never
+     * emits an extra endpoint beyond the requested budget.
+     */
+    function exactStrideSampleIndices(length, target) {
+        const safeLength = Number.isFinite(length) ? Math.max(0, Math.trunc(length)) : 0;
+        const safeTarget = Number.isFinite(target) ? Math.max(0, Math.trunc(target)) : 0;
+        const count = Math.min(safeLength, safeTarget);
+        if (count === 0)
+            return [];
+        if (count === safeLength)
+            return Array.from({ length: safeLength }, (_, index) => index);
+        if (count === 1)
+            return [Math.floor((safeLength - 1) / 2)];
+        return Array.from({ length: count }, (_, index) => Math.round((index * (safeLength - 1)) / (count - 1)));
+    }
     function minMaxSampleIndices(values, target) {
         const length = values.length;
         if (length <= target || target < 4)
@@ -2766,6 +2808,42 @@ var Graflume = (function (exports) {
         return targets;
     }
 
+    const NORMAL_RANGE_SIGMAS = 3.5;
+    const SQRT_TWO_PI = Math.sqrt(Math.PI * 2);
+    function normalDensity(value, summary) {
+        const standardized = (value - summary.mean) / summary.standardDeviation;
+        return Math.exp(-0.5 * standardized * standardized) / (summary.standardDeviation * SQRT_TWO_PI);
+    }
+    function summarizeNormalDistribution(values) {
+        const accepted = [];
+        let sum = 0;
+        let observedMinimum = Number.POSITIVE_INFINITY;
+        let observedMaximum = Number.NEGATIVE_INFINITY;
+        for (const value of values) {
+            if (!Number.isFinite(value))
+                continue;
+            accepted.push(value);
+            sum += value;
+            observedMinimum = Math.min(observedMinimum, value);
+            observedMaximum = Math.max(observedMaximum, value);
+        }
+        if (accepted.length < 2)
+            return null;
+        const mean = sum / accepted.length;
+        const variance = accepted.reduce((total, value) => total + (value - mean) ** 2, 0) /
+            Math.max(1, accepted.length - 1);
+        const standardDeviation = Math.sqrt(variance) || 1;
+        return {
+            mean,
+            standardDeviation,
+            observedMinimum,
+            observedMaximum,
+            domainMinimum: mean - standardDeviation * NORMAL_RANGE_SIGMAS,
+            domainMaximum: mean + standardDeviation * NORMAL_RANGE_SIGMAS,
+            maximumDensity: 1 / (standardDeviation * SQRT_TWO_PI),
+        };
+    }
+
     function isColumnarData(input) {
         return !Array.isArray(input);
     }
@@ -2944,7 +3022,7 @@ var Graflume = (function (exports) {
         bandwidth;
         constructor(options) {
             this.#domain = [...options.domain];
-            const paddingInner = clamp$2(options.paddingInner ?? 0.1, 0, 1);
+            const paddingInner = clamp$3(options.paddingInner ?? 0.1, 0, 1);
             const paddingOuter = Math.max(0, options.paddingOuter ?? 0.05);
             const [start, end] = options.range;
             const direction = end >= start ? 1 : -1;
@@ -3039,7 +3117,7 @@ var Graflume = (function (exports) {
             const [rangeStart, rangeEnd] = this.#range;
             const denominator = domainEnd - domainStart;
             const ratio = denominator === 0 ? 0.5 : (value - domainStart) / denominator;
-            const normalized = this.#clamp ? clamp$2(ratio, 0, 1) : ratio;
+            const normalized = this.#clamp ? clamp$3(ratio, 0, 1) : ratio;
             return rangeStart + normalized * (rangeEnd - rangeStart);
         }
         invert(position) {
@@ -3047,7 +3125,7 @@ var Graflume = (function (exports) {
             const [rangeStart, rangeEnd] = this.#range;
             const denominator = rangeEnd - rangeStart;
             const ratio = denominator === 0 ? 0.5 : (position - rangeStart) / denominator;
-            const normalized = this.#clamp ? clamp$2(ratio, 0, 1) : ratio;
+            const normalized = this.#clamp ? clamp$3(ratio, 0, 1) : ratio;
             return domainStart + normalized * (domainEnd - domainStart);
         }
         ticks(count, locale) {
@@ -3083,6 +3161,22 @@ var Graflume = (function (exports) {
         }
     }
 
+    /** Resolves canonical/default labels and unknown compatibility values to histogram mode. */
+    function resolveDistributionMode(value) {
+        if (value === 'box' || value === 'boxplot')
+            return 'boxplot';
+        if (value === 'violin')
+            return 'violin';
+        if (value === 'curve' || value === 'bell-curve')
+            return 'curve';
+        if (value === 'histogram-2d' || value === 'bivariate')
+            return 'histogram-2d';
+        if (value === 'histogram-2d-contour' || value === 'bivariate-contour') {
+            return 'histogram-2d-contour';
+        }
+        return 'histogram';
+    }
+
     function typeFamily(type) {
         if (type === 'nominal' || type === 'ordinal')
             return 'categorical';
@@ -3116,7 +3210,18 @@ var Graflume = (function (exports) {
         let includeZero = false;
         for (const { layer, table } of layers) {
             const encoding = layer[axis];
-            const fields = axis === 'y' && (layer.mark.type === 'histogram' || layer.mark.type === 'theme-river')
+            const distributionMode = layer.mark.type === 'distribution' ? resolveDistributionMode(layer.mark.options.mode) : null;
+            const densitySummary = distributionMode === 'curve'
+                ? summarizeNormalDistribution(Array.from({ length: table.length }, (_, index) => {
+                    const value = table.value(index, layer.mark.fields.value ?? layer.y.field);
+                    return value instanceof Date ? value.getTime() : value;
+                }).filter((value) => typeof value === 'number'))
+                : null;
+            const fields = densitySummary !== null ||
+                (axis === 'y' &&
+                    (layer.mark.type === 'histogram' ||
+                        layer.mark.type === 'theme-river' ||
+                        distributionMode === 'histogram'))
                 ? []
                 : [encoding.field];
             if (axis === 'x' && (layer.mark.type === 'timeline' || layer.mark.type === 'gantt')) {
@@ -3142,7 +3247,7 @@ var Graflume = (function (exports) {
                     fields.push(...optionFields.filter((field) => typeof field === 'string' && field.trim() !== ''));
                 }
             }
-            if (axis === 'y' && layer.mark.type === 'boxplot') {
+            if (axis === 'y' && (layer.mark.type === 'boxplot' || distributionMode === 'boxplot')) {
                 fields.push(layer.mark.fields.min ?? 'min', layer.mark.fields.q1 ?? 'q1', layer.mark.fields.median ?? encoding.field, layer.mark.fields.q3 ?? 'q3', layer.mark.fields.max ?? 'max');
             }
             if (axis === 'y' && (layer.mark.type === 'lines' || layer.mark.type === 'custom')) {
@@ -3165,7 +3270,17 @@ var Graflume = (function (exports) {
                     max = Math.max(max, extent[1]);
                 }
             }
-            if (axis === 'y' && layer.mark.type === 'histogram') {
+            if (densitySummary !== null) {
+                if (axis === 'x') {
+                    min = Math.min(min, densitySummary.domainMinimum);
+                    max = Math.max(max, densitySummary.domainMaximum);
+                }
+                else {
+                    min = Math.min(min, 0);
+                    max = Math.max(max, densitySummary.maximumDensity);
+                }
+            }
+            if (axis === 'y' && (layer.mark.type === 'histogram' || distributionMode === 'histogram')) {
                 const binCount = Math.max(1, Math.min(100, Math.floor(typeof layer.mark.options.bins === 'number' ? layer.mark.options.bins : 10)));
                 const sourceExtent = table.extent(layer.x.field, layer.x.type === 'temporal');
                 if (sourceExtent !== null) {
@@ -3216,6 +3331,7 @@ var Graflume = (function (exports) {
                         layer.mark.type === 'bullet' ||
                         layer.mark.type === 'cylinder' ||
                         layer.mark.type === 'histogram' ||
+                        distributionMode === 'histogram' ||
                         layer.mark.type === 'item' ||
                         layer.mark.type === 'lollipop' ||
                         layer.mark.type === 'packed-bubble' ||
@@ -3434,6 +3550,7 @@ var Graflume = (function (exports) {
     const AXISLESS_MARKS = new Set([
         'arc-diagram',
         'calendar',
+        'carpet',
         'chord',
         'funnel',
         'gauge',
@@ -3448,11 +3565,15 @@ var Graflume = (function (exports) {
         'packed-bubble',
         'parallel',
         'pie',
+        'polar',
         'radar',
         'sankey',
+        'scatter-matrix',
+        'smith',
         'solid-gauge',
         'sunburst',
         'table',
+        'ternary',
         'tiled-map',
         'tilemap',
         'tree',
@@ -3730,21 +3851,21 @@ var Graflume = (function (exports) {
         return null;
     }
 
-    const TAU$1 = Math.PI * 2;
-    function clamp$1(value, min, max) {
+    const TAU$2 = Math.PI * 2;
+    function clamp$2(value, min, max) {
         return Math.max(min, Math.min(max, value));
     }
     function finiteOption(value, fallback) {
         return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
     }
-    function stringValue$1(value) {
+    function stringValue$2(value) {
         if (value === null || value === undefined)
             return null;
         if (value instanceof Date)
             return value.toISOString();
         return String(value);
     }
-    function optionStrings$1(value) {
+    function optionStrings$2(value) {
         if (!Array.isArray(value))
             return [];
         return value.filter((item) => typeof item === 'string' && item.trim() !== '');
@@ -3761,7 +3882,7 @@ var Graflume = (function (exports) {
     }
     function annularSector$1(cx, cy, innerRadius, outerRadius, startAngle, endAngle) {
         const span = Math.abs(endAngle - startAngle);
-        const segments = Math.max(4, Math.ceil((span / TAU$1) * 48));
+        const segments = Math.max(4, Math.ceil((span / TAU$2) * 48));
         return [
             ...sampledArc$1(cx, cy, outerRadius, startAngle, endAngle, segments),
             ...sampledArc$1(cx, cy, innerRadius, endAngle, startAngle, segments),
@@ -3781,7 +3902,7 @@ var Graflume = (function (exports) {
         return (context.theme.colors.palette[index % context.theme.colors.palette.length] ??
             context.theme.colors.focus);
     }
-    function textNode$3(id, x, y, text, context, options = {}) {
+    function textNode$4(id, x, y, text, context, options = {}) {
         return {
             type: 'text',
             ...nodeBase(id, { zIndex: options.zIndex ?? context.layer.zIndex + 2 }),
@@ -3797,7 +3918,7 @@ var Graflume = (function (exports) {
             rotation: options.rotation ?? 0,
         };
     }
-    function datumBase$1(context, id, rowIndex, zIndex = 0, tooltip) {
+    function datumBase$2(context, id, rowIndex, zIndex = 0, tooltip) {
         return nodeBase(id, {
             zIndex: context.layer.zIndex + zIndex,
             opacity: context.layer.mark.opacity,
@@ -3811,29 +3932,61 @@ var Graflume = (function (exports) {
         });
     }
     const compileRadarMark = (context) => {
-        const { layer, table, plot, theme } = context;
-        const categories = table.unique(layer.x.field);
-        if (categories.length < 3)
-            return [];
+        const { layer, table, plot, theme, performance } = context;
         const seriesField = layer.mark.fields.series;
-        const seriesNames = seriesField === undefined ? ['Series'] : table.unique(seriesField);
         const maxOption = finiteOption(layer.mark.options.max, Number.NaN);
         let maximum = Number.isFinite(maxOption) && maxOption > 0 ? maxOption : 0;
+        const categoryNames = [];
+        const categorySet = new Set();
+        const seriesNames = [];
+        const seriesRows = new Map();
+        // Build the category/series matrix in one pass. The previous implementation
+        // rescanned the full table once per series, which became quadratic when both
+        // fields were high-cardinality.
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
-            maximum = Math.max(maximum, numericDataValue(table.value(rowIndex, layer.y.field)) ?? 0);
+            const category = stringValue$2(table.value(rowIndex, layer.x.field));
+            const value = numericDataValue(table.value(rowIndex, layer.y.field));
+            const seriesName = seriesField === undefined ? 'Series' : stringValue$2(table.value(rowIndex, seriesField));
+            if (category === null || value === null || seriesName === null)
+                continue;
+            maximum = Math.max(maximum, value);
+            if (!categorySet.has(category)) {
+                categorySet.add(category);
+                categoryNames.push(category);
+            }
+            let rows = seriesRows.get(seriesName);
+            if (rows === undefined) {
+                rows = new Map();
+                seriesRows.set(seriesName, rows);
+                seriesNames.push(seriesName);
+            }
+            rows.set(category, { value, rowIndex });
         }
+        if (categoryNames.length < 3 || seriesNames.length === 0)
+            return [];
         if (maximum <= 0)
             maximum = 1;
         const cx = plot.x + plot.width / 2;
         const cy = plot.y + plot.height / 2;
         const radius = Math.max(16, Math.min(plot.width, plot.height) * 0.34);
         const nodes = [];
-        const rings = clamp$1(Math.floor(finiteOption(layer.mark.options.rings, 5)), 1, 8);
+        const rings = clamp$2(Math.floor(finiteOption(layer.mark.options.rings, 5)), 1, 8);
+        const linePointBudget = Math.max(1, Math.floor(performance.maxLinePoints));
+        const balancedSeriesLimit = Math.max(1, Math.floor(Math.sqrt(linePointBudget)));
+        const plannedSeriesCount = Math.min(seriesNames.length, balancedSeriesLimit);
+        const categoryLimit = Math.floor(linePointBudget / (rings + plannedSeriesCount));
+        if (categoryLimit < 3)
+            return [];
+        const categories = categoryNames.slice(0, Math.min(categoryNames.length, categoryLimit));
+        const seriesLimit = Math.max(0, Math.floor(linePointBudget / categories.length) - rings);
+        const retainedSeries = seriesNames.slice(0, seriesLimit);
+        if (retainedSeries.length === 0)
+            return [];
         for (let ring = 1; ring <= rings; ring += 1) {
             nodes.push({
                 type: 'path',
                 ...nodeBase(`${layer.id}:radar-grid:${ring}`, { zIndex: layer.zIndex }),
-                points: categories.map((_, index) => pointOnCircle$1(cx, cy, (radius * ring) / rings, -Math.PI / 2 + (index * TAU$1) / categories.length)),
+                points: categories.map((_, index) => pointOnCircle$1(cx, cy, (radius * ring) / rings, -Math.PI / 2 + (index * TAU$2) / categories.length)),
                 closed: true,
                 stroke: colorWithOpacity(theme.colors.grid, ring === rings ? 0.9 : 0.7),
                 lineWidth: ring === rings ? 1.2 : 1,
@@ -3841,7 +3994,7 @@ var Graflume = (function (exports) {
             });
         }
         categories.forEach((category, index) => {
-            const angle = -Math.PI / 2 + (index * TAU$1) / categories.length;
+            const angle = -Math.PI / 2 + (index * TAU$2) / categories.length;
             const edge = pointOnCircle$1(cx, cy, radius, angle);
             const label = pointOnCircle$1(cx, cy, radius + 18, angle);
             nodes.push({
@@ -3855,31 +4008,21 @@ var Graflume = (function (exports) {
                 lineWidth: 1,
                 lineCap: 'round',
             });
-            nodes.push(textNode$3(`${layer.id}:radar-label:${index}`, label.x, label.y, category, context, {
+            nodes.push(textNode$4(`${layer.id}:radar-label:${index}`, label.x, label.y, category, context, {
                 fill: theme.colors.mutedText,
                 size: Math.max(9, theme.typography.fontSize - 1),
                 weight: 600,
             }));
         });
-        seriesNames.forEach((seriesName, seriesIndex) => {
-            const rows = new Map();
-            const rowIndexes = new Map();
-            for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
-                if (seriesField !== undefined &&
-                    stringValue$1(table.value(rowIndex, seriesField)) !== seriesName) {
-                    continue;
-                }
-                const category = stringValue$1(table.value(rowIndex, layer.x.field));
-                const value = numericDataValue(table.value(rowIndex, layer.y.field));
-                if (category === null || value === null)
-                    continue;
-                rows.set(category, value);
-                rowIndexes.set(category, rowIndex);
-            }
+        let renderedPointMarks = 0;
+        retainedSeries.forEach((seriesName, seriesIndex) => {
+            const rows = seriesRows.get(seriesName);
+            if (rows === undefined)
+                return;
             const color = themeColor(context, seriesIndex);
             const points = categories.map((category, index) => {
-                const ratio = clamp$1((rows.get(category) ?? 0) / maximum, 0, 1);
-                return pointOnCircle$1(cx, cy, radius * ratio, -Math.PI / 2 + (index * TAU$1) / categories.length);
+                const ratio = clamp$2((rows.get(category)?.value ?? 0) / maximum, 0, 1);
+                return pointOnCircle$1(cx, cy, radius * ratio, -Math.PI / 2 + (index * TAU$2) / categories.length);
             });
             nodes.push({
                 type: 'path',
@@ -3895,12 +4038,14 @@ var Graflume = (function (exports) {
                 lineJoin: 'round',
             });
             points.forEach((point, index) => {
-                const rowIndex = rowIndexes.get(categories[index] ?? '');
-                if (rowIndex === undefined)
+                if (renderedPointMarks >= performance.maxPointMarks)
+                    return;
+                const row = rows.get(categories[index] ?? '');
+                if (row === undefined)
                     return;
                 nodes.push({
                     type: 'circle',
-                    ...datumBase$1(context, `${layer.id}:radar-point:${seriesIndex}:${index}`, rowIndex, 2),
+                    ...datumBase$2(context, `${layer.id}:radar-point:${seriesIndex}:${index}`, row.rowIndex, 2),
                     cx: point.x,
                     cy: point.y,
                     radius: layer.mark.radius ?? 3.6,
@@ -3908,6 +4053,7 @@ var Graflume = (function (exports) {
                     stroke: layer.mark.stroke ?? color,
                     lineWidth: 2,
                 });
+                renderedPointMarks += 1;
             });
         });
         return nodes;
@@ -3920,11 +4066,11 @@ var Graflume = (function (exports) {
         const valueField = layer.mark.fields.value;
         const items = [];
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
-            const id = stringValue$1(table.value(rowIndex, idField));
+            const id = stringValue$2(table.value(rowIndex, idField));
             if (id === null || id === '')
                 continue;
-            const parentRaw = stringValue$1(table.value(rowIndex, parentField));
-            const label = stringValue$1(table.value(rowIndex, labelField)) ?? id;
+            const parentRaw = stringValue$2(table.value(rowIndex, parentField));
+            const label = stringValue$2(table.value(rowIndex, labelField)) ?? id;
             const value = valueField === undefined
                 ? (numericDataValue(table.value(rowIndex, layer.y.field)) ?? 1)
                 : (numericDataValue(table.value(rowIndex, valueField)) ?? 1);
@@ -4005,7 +4151,7 @@ var Graflume = (function (exports) {
                 lineJoin: 'round',
             });
         });
-        const cardWidth = clamp$1(plot.width / Math.max(3, Math.max(...levels.map((level) => level.length))), 66, 112);
+        const cardWidth = clamp$2(plot.width / Math.max(3, Math.max(...levels.map((level) => level.length))), 66, 112);
         const cardHeight = 30;
         items.forEach((item, index) => {
             const position = positions.get(item.id);
@@ -4014,7 +4160,7 @@ var Graflume = (function (exports) {
             const color = themeColor(context, depths.get(item.id) ?? index);
             nodes.push({
                 type: 'rect',
-                ...datumBase$1(context, `${layer.id}:tree-node:${item.id}`, item.rowIndex, 1),
+                ...datumBase$2(context, `${layer.id}:tree-node:${item.id}`, item.rowIndex, 1),
                 x: position.x - cardWidth / 2,
                 y: position.y - cardHeight / 2,
                 width: cardWidth,
@@ -4024,7 +4170,7 @@ var Graflume = (function (exports) {
                 lineWidth: layer.mark.lineWidth ?? 1.5,
                 cornerRadius: layer.mark.cornerRadius ?? 8,
             });
-            nodes.push(textNode$3(`${layer.id}:tree-label:${item.id}`, position.x, position.y, item.label, context, {
+            nodes.push(textNode$4(`${layer.id}:tree-label:${item.id}`, position.x, position.y, item.label, context, {
                 size: Math.max(9, theme.typography.fontSize - 1),
                 weight: 650,
                 zIndex: layer.zIndex + 2,
@@ -4051,17 +4197,17 @@ var Graflume = (function (exports) {
         };
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
             if (idField !== undefined && table.has(idField)) {
-                const id = stringValue$1(table.value(rowIndex, idField));
+                const id = stringValue$2(table.value(rowIndex, idField));
                 if (id !== null && id !== '') {
                     ensureNode(id, rowIndex, labelField !== undefined && table.has(labelField)
-                        ? (stringValue$1(table.value(rowIndex, labelField)) ?? id)
+                        ? (stringValue$2(table.value(rowIndex, labelField)) ?? id)
                         : id);
                 }
             }
             if (!table.has(sourceField) || !table.has(targetField))
                 continue;
-            const source = stringValue$1(table.value(rowIndex, sourceField));
-            const target = stringValue$1(table.value(rowIndex, targetField));
+            const source = stringValue$2(table.value(rowIndex, sourceField));
+            const target = stringValue$2(table.value(rowIndex, targetField));
             if (source === null || target === null || source === '' || target === '')
                 continue;
             const sourceNode = ensureNode(source, rowIndex);
@@ -4085,7 +4231,7 @@ var Graflume = (function (exports) {
         const radius = Math.max(20, Math.min(plot.width, plot.height) * 0.34);
         const positions = new Map();
         graphNodes.forEach((node, index) => {
-            positions.set(node.id, pointOnCircle$1(cx, cy, radius, -Math.PI / 2 + (index * TAU$1) / graphNodes.length));
+            positions.set(node.id, pointOnCircle$1(cx, cy, radius, -Math.PI / 2 + (index * TAU$2) / graphNodes.length));
         });
         const maxEdge = Math.max(1, ...edges.map((edge) => edge.value));
         const totals = new Map(graphNodes.map((node) => [node.id, 0]));
@@ -4101,7 +4247,7 @@ var Graflume = (function (exports) {
                 return;
             nodes.push({
                 type: 'line',
-                ...datumBase$1(context, `${layer.id}:graph-edge:${index}`, edge.rowIndex, 0, {
+                ...datumBase$2(context, `${layer.id}:graph-edge:${index}`, edge.rowIndex, 0, {
                     kind: 'edge',
                     source: edge.source,
                     target: edge.target,
@@ -4125,7 +4271,7 @@ var Graflume = (function (exports) {
             const color = themeColor(context, index);
             nodes.push({
                 type: 'circle',
-                ...datumBase$1(context, `${layer.id}:graph-node:${node.id}`, node.rowIndex, 1, {
+                ...datumBase$2(context, `${layer.id}:graph-node:${node.id}`, node.rowIndex, 1, {
                     kind: 'node',
                     node: node.label,
                     degree: node.degree,
@@ -4138,8 +4284,8 @@ var Graflume = (function (exports) {
                 stroke: layer.mark.stroke ?? theme.colors.background,
                 lineWidth: layer.mark.lineWidth ?? 2,
             });
-            const label = pointOnCircle$1(cx, cy, radius + 20, -Math.PI / 2 + (index * TAU$1) / graphNodes.length);
-            nodes.push(textNode$3(`${layer.id}:graph-label:${node.id}`, label.x, label.y, node.label, context, {
+            const label = pointOnCircle$1(cx, cy, radius + 20, -Math.PI / 2 + (index * TAU$2) / graphNodes.length);
+            nodes.push(textNode$4(`${layer.id}:graph-label:${node.id}`, label.x, label.y, node.label, context, {
                 fill: theme.colors.mutedText,
                 size: Math.max(9, theme.typography.fontSize - 1),
                 weight: 600,
@@ -4161,11 +4307,11 @@ var Graflume = (function (exports) {
             totals.set(edge.target, (totals.get(edge.target) ?? 0) + edge.value);
         });
         const grandTotal = Math.max(1, [...totals.values()].reduce((sum, value) => sum + value, 0));
-        const gap = Math.min(0.06, TAU$1 / graphNodes.length / 4);
+        const gap = Math.min(0.06, TAU$2 / graphNodes.length / 4);
         let cursor = -Math.PI / 2;
         const spans = new Map();
         graphNodes.forEach((node) => {
-            const rawSpan = (Math.max(1, totals.get(node.id) ?? 1) / grandTotal) * (TAU$1 - gap * graphNodes.length);
+            const rawSpan = (Math.max(1, totals.get(node.id) ?? 1) / grandTotal) * (TAU$2 - gap * graphNodes.length);
             const start = cursor;
             const end = start + rawSpan;
             spans.set(node.id, { start, end, mid: (start + end) / 2 });
@@ -4183,7 +4329,7 @@ var Graflume = (function (exports) {
             const control = { x: cx, y: cy };
             nodes.push({
                 type: 'path',
-                ...datumBase$1(context, `${layer.id}:chord-ribbon:${index}`, edge.rowIndex, 0, {
+                ...datumBase$2(context, `${layer.id}:chord-ribbon:${index}`, edge.rowIndex, 0, {
                     kind: 'flow',
                     source: edge.source,
                     target: edge.target,
@@ -4204,7 +4350,7 @@ var Graflume = (function (exports) {
             const color = themeColor(context, index);
             nodes.push({
                 type: 'path',
-                ...datumBase$1(context, `${layer.id}:chord-segment:${node.id}`, node.rowIndex, 1, {
+                ...datumBase$2(context, `${layer.id}:chord-segment:${node.id}`, node.rowIndex, 1, {
                     kind: 'segment',
                     node: node.label,
                     total: totals.get(node.id) ?? 0,
@@ -4217,7 +4363,7 @@ var Graflume = (function (exports) {
                 lineJoin: 'round',
             });
             const label = pointOnCircle$1(cx, cy, radius + 20, span.mid);
-            nodes.push(textNode$3(`${layer.id}:chord-label:${node.id}`, label.x, label.y, node.label, context, {
+            nodes.push(textNode$4(`${layer.id}:chord-label:${node.id}`, label.x, label.y, node.label, context, {
                 fill: theme.colors.mutedText,
                 size: Math.max(9, theme.typography.fontSize - 1),
                 weight: 650,
@@ -4226,33 +4372,81 @@ var Graflume = (function (exports) {
         return nodes;
     };
     const compileFunnelMark = (context) => {
-        const { layer, table, plot, theme } = context;
+        const { layer, table, plot, theme, performance } = context;
         const items = [];
+        let maxValue = 1;
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
-            const label = stringValue$1(table.value(rowIndex, layer.x.field));
+            const label = stringValue$2(table.value(rowIndex, layer.x.field));
             const value = numericDataValue(table.value(rowIndex, layer.y.field));
             if (label === null || value === null || value < 0)
                 continue;
             items.push({ label, value, rowIndex });
+            maxValue = Math.max(maxValue, value);
         }
         if (layer.mark.options.sort !== false)
             items.sort((left, right) => right.value - left.value);
         if (items.length === 0)
             return [];
-        const maxValue = Math.max(1, ...items.map((item) => item.value));
-        const stageHeight = plot.height / items.length;
+        const itemBudget = Math.max(1, Math.floor(performance.maxBarMarks / 2));
+        const retainedItems = exactStrideSampleIndices(items.length, itemBudget).map((index) => items[index]);
+        const stageHeight = plot.height / retainedItems.length;
         const nodes = [];
-        items.forEach((item, index) => {
-            const next = items[index + 1];
-            const topWidth = plot.width * clamp$1(item.value / maxValue, 0.08, 1);
-            const bottomWidth = plot.width * clamp$1((next?.value ?? item.value * 0.78) / maxValue, 0.06, 1);
+        if (layer.mark.options.mode === 'area') {
+            retainedItems.forEach((item, index) => {
+                if (item === undefined)
+                    return;
+                // Scaling both dimensions by sqrt(value) keeps the visible stage area
+                // proportional while retaining a stable slot for labels and hit testing.
+                const scale = Math.sqrt(clamp$2(item.value / maxValue, 0.015, 1));
+                const width = plot.width * scale;
+                const height = Math.max(8, (stageHeight - 4) * scale);
+                const cx = plot.x + plot.width / 2;
+                const cy = plot.y + stageHeight * (index + 0.5);
+                const topWidth = width;
+                const bottomWidth = width * 0.82;
+                const fill = layer.mark.fill ?? themeColor(context, index);
+                nodes.push({
+                    type: 'path',
+                    ...datumBase$2(context, `${layer.id}:funnel-area:${index}`, item.rowIndex, 0, {
+                        stage: item.label,
+                        value: item.value,
+                        share: item.value / maxValue,
+                    }),
+                    points: [
+                        { x: cx - topWidth / 2, y: cy - height / 2 },
+                        { x: cx + topWidth / 2, y: cy - height / 2 },
+                        { x: cx + bottomWidth / 2, y: cy + height / 2 },
+                        { x: cx - bottomWidth / 2, y: cy + height / 2 },
+                    ],
+                    closed: true,
+                    fill,
+                    stroke: layer.mark.stroke ?? theme.colors.background,
+                    lineWidth: layer.mark.lineWidth ?? 2,
+                    lineJoin: 'round',
+                });
+                if (width > 68 && height > 18) {
+                    nodes.push(textNode$4(`${layer.id}:funnel-area-label:${index}`, cx, cy, `${item.label}  ${item.value}`, context, {
+                        fill: readableTextColor(fill, '#ffffff', '#0f172a'),
+                        size: Math.max(9, Math.min(theme.typography.fontSize, height * 0.42)),
+                        weight: 700,
+                    }));
+                }
+            });
+            return nodes;
+        }
+        retainedItems.forEach((item, index) => {
+            if (item === undefined)
+                return;
+            const next = retainedItems[index + 1];
+            const topWidth = plot.width * clamp$2(item.value / maxValue, 0.08, 1);
+            const bottomWidth = plot.width * clamp$2((next?.value ?? item.value * 0.78) / maxValue, 0.06, 1);
             const y1 = plot.y + index * stageHeight + 2;
             const y2 = plot.y + (index + 1) * stageHeight - 2;
             const cx = plot.x + plot.width / 2;
             const fill = layer.mark.fill ?? themeColor(context, index);
             nodes.push({
                 type: 'path',
-                ...datumBase$1(context, `${layer.id}:funnel:${index}`, item.rowIndex),
+                ...datumBase$2(context, `${layer.id}:funnel:${index}`, item.rowIndex),
                 points: [
                     { x: cx - topWidth / 2, y: y1 },
                     { x: cx + topWidth / 2, y: y1 },
@@ -4265,7 +4459,7 @@ var Graflume = (function (exports) {
                 lineWidth: layer.mark.lineWidth ?? 2,
                 lineJoin: 'round',
             });
-            nodes.push(textNode$3(`${layer.id}:funnel-label:${index}`, cx, (y1 + y2) / 2, `${item.label}  ${item.value}`, context, {
+            nodes.push(textNode$4(`${layer.id}:funnel-label:${index}`, cx, (y1 + y2) / 2, `${item.label}  ${item.value}`, context, {
                 fill: readableTextColor(fill, '#ffffff', '#0f172a'),
                 size: Math.max(10, theme.typography.fontSize),
                 weight: 700,
@@ -4273,14 +4467,14 @@ var Graflume = (function (exports) {
         });
         return nodes;
     };
-    function parallelDimensions(context) {
+    function parallelDimensions(context, maximumDimensions = Number.POSITIVE_INFINITY) {
         const { layer, table } = context;
-        const configured = optionStrings$1(layer.mark.options.dimensions);
+        const configured = optionStrings$2(layer.mark.options.dimensions);
         const candidates = configured.length > 0
             ? configured
             : [layer.x.field, layer.y.field, ...Object.values(layer.mark.fields)];
         const fields = candidates.filter((field, index, all) => table.has(field) && all.indexOf(field) === index);
-        return fields.map((field) => {
+        return fields.slice(0, maximumDimensions).map((field) => {
             const extent = table.extent(field);
             const values = table.unique(field);
             return extent === null
@@ -4288,11 +4482,152 @@ var Graflume = (function (exports) {
                 : { field, values, min: extent[0], max: extent[1], numeric: true };
         });
     }
+    function compileParallelCategories(context, dimensions) {
+        const { layer, table, plot, theme, performance } = context;
+        const nodeBudget = Math.max(1, Math.floor(performance.maxBarMarks));
+        const linePointBudget = Math.max(1, Math.floor(performance.maxLinePoints));
+        // One retained combination can emit one ribbon, up to one block and one
+        // label per dimension, plus one title per dimension. Reserve that worst-case
+        // footprint up front so wide categorical tables cannot bypass the profile.
+        const dimensionLimit = Math.min(dimensions.length, Math.floor((nodeBudget - 1) / 3), Math.floor(linePointBudget / 2));
+        if (dimensionLimit < 2)
+            return [];
+        const retainedDimensions = dimensions.slice(0, dimensionLimit);
+        const xFor = (index) => plot.x + (index / Math.max(1, retainedDimensions.length - 1)) * plot.width;
+        const combinations = new Map();
+        const combinationBudget = Math.min(Math.floor((nodeBudget - retainedDimensions.length) / (retainedDimensions.length * 2 + 1)), Math.floor(linePointBudget / (retainedDimensions.length * 2)));
+        if (combinationBudget < 1)
+            return [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const values = retainedDimensions.map((dimension) => stringValue$2(table.value(rowIndex, dimension.field)));
+            if (values.some((value) => value === null))
+                continue;
+            const categories = values;
+            const key = JSON.stringify(categories);
+            const existing = combinations.get(key);
+            if (existing !== undefined)
+                existing.count += 1;
+            else if (combinations.size < combinationBudget) {
+                combinations.set(key, { values: categories, count: 1, rowIndex });
+            }
+        }
+        const retainedCombinations = [...combinations.values()];
+        const retainedTotal = retainedCombinations.reduce((sum, combination) => sum + combination.count, 0);
+        if (retainedTotal <= 0)
+            return [];
+        const categoryCounts = retainedDimensions.map(() => new Map());
+        const categoryOrders = retainedDimensions.map(() => []);
+        retainedCombinations.forEach((combination) => {
+            combination.values.forEach((value, dimensionIndex) => {
+                const counts = categoryCounts[dimensionIndex];
+                const order = categoryOrders[dimensionIndex];
+                if (counts !== undefined) {
+                    if (!counts.has(value))
+                        order?.push(value);
+                    counts.set(value, (counts.get(value) ?? 0) + combination.count);
+                }
+            });
+        });
+        const countScale = plot.height / retainedTotal;
+        const categoryLayouts = retainedDimensions.map((_dimension, dimensionIndex) => {
+            const counts = categoryCounts[dimensionIndex] ?? new Map();
+            let offset = 0;
+            const layouts = new Map();
+            categoryOrders[dimensionIndex]?.forEach((value) => {
+                const count = counts.get(value) ?? 0;
+                if (count <= 0)
+                    return;
+                const height = count * countScale;
+                const start = plot.y + offset * countScale;
+                layouts.set(value, { start, center: start + height / 2, height });
+                offset += count;
+            });
+            return layouts;
+        });
+        const nodes = [];
+        const categoryOffsets = retainedDimensions.map(() => new Map());
+        retainedCombinations.forEach((combination, combinationIndex) => {
+            const bands = combination.values.map((value, dimensionIndex) => {
+                const layout = categoryLayouts[dimensionIndex]?.get(value);
+                const offsets = categoryOffsets[dimensionIndex];
+                const offset = offsets?.get(value) ?? 0;
+                if (offsets !== undefined)
+                    offsets.set(value, offset + combination.count);
+                const top = (layout?.start ?? plot.y) + offset * countScale;
+                return {
+                    x: xFor(dimensionIndex),
+                    top,
+                    bottom: top + combination.count * countScale,
+                };
+            });
+            const polygon = [
+                ...bands.map(({ x, top }) => ({ x, y: top })),
+                ...[...bands].reverse().map(({ x, bottom }) => ({ x, y: bottom })),
+            ];
+            const fill = layer.mark.fill ?? colorWithOpacity(themeColor(context, combinationIndex), 0.34);
+            nodes.push({
+                type: 'path',
+                ...datumBase$2(context, `${layer.id}:parallel-ribbon:${combinationIndex}`, combination.rowIndex, 0, {
+                    path: combination.values.join(' → '),
+                    count: combination.count,
+                }),
+                points: polygon,
+                closed: true,
+                fill,
+                stroke: colorWithOpacity(themeColor(context, combinationIndex), 0.72),
+                lineWidth: layer.mark.lineWidth ?? 1,
+                lineJoin: 'round',
+            });
+        });
+        retainedDimensions.forEach((dimension, dimensionIndex) => {
+            const x = xFor(dimensionIndex);
+            const layouts = categoryLayouts[dimensionIndex];
+            categoryOrders[dimensionIndex]?.forEach((value, categoryIndex) => {
+                const item = layouts?.get(value);
+                if (item === undefined)
+                    return;
+                const blockGap = Math.min(2, item.height * 0.08);
+                const rectHeight = Math.max(Number.EPSILON, item.height - blockGap);
+                const rectY = item.start + blockGap / 2;
+                nodes.push({
+                    type: 'rect',
+                    ...nodeBase(`${layer.id}:parallel-category:${dimensionIndex}:${categoryIndex}`, {
+                        zIndex: layer.zIndex + 2,
+                    }),
+                    x: x - 6,
+                    y: rectY,
+                    width: 12,
+                    height: rectHeight,
+                    fill: theme.colors.surface,
+                    stroke: theme.colors.axis,
+                    lineWidth: 1,
+                    cornerRadius: 2,
+                });
+                if (item.height >= 10) {
+                    nodes.push(textNode$4(`${layer.id}:parallel-category-label:${dimensionIndex}:${categoryIndex}`, x + (dimensionIndex === retainedDimensions.length - 1 ? -10 : 10), item.center, value, context, {
+                        align: dimensionIndex === retainedDimensions.length - 1 ? 'right' : 'left',
+                        fill: theme.colors.mutedText,
+                        size: Math.max(8, theme.typography.fontSize - 2),
+                    }));
+                }
+            });
+            nodes.push(textNode$4(`${layer.id}:parallel-category-title:${dimensionIndex}`, x, plot.y - 10, dimension.field, context, { fill: theme.colors.text, size: Math.max(9, theme.typography.fontSize - 1), weight: 700 }));
+        });
+        return nodes;
+    }
     const compileParallelMark = (context) => {
-        const { layer, table, plot, theme } = context;
-        const dimensions = parallelDimensions(context);
+        const { layer, table, plot, theme, performance } = context;
+        const mode = typeof layer.mark.options.mode === 'string' ? layer.mark.options.mode : 'coordinates';
+        const categorical = mode === 'categories' || mode === 'categorical' || mode === 'ribbons';
+        const dimensionScanLimit = categorical
+            ? Math.min(Math.floor((performance.maxBarMarks - 1) / 3), Math.floor(performance.maxLinePoints / 2))
+            : Number.POSITIVE_INFINITY;
+        const dimensions = parallelDimensions(context, dimensionScanLimit);
         if (dimensions.length < 2)
             return [];
+        if (categorical) {
+            return compileParallelCategories(context, dimensions);
+        }
         const nodes = [];
         const xFor = (index) => plot.x +
             (dimensions.length === 1 ? plot.width / 2 : (index / (dimensions.length - 1)) * plot.width);
@@ -4309,7 +4644,7 @@ var Graflume = (function (exports) {
                 lineWidth: 1.2,
                 lineCap: 'round',
             });
-            nodes.push(textNode$3(`${layer.id}:parallel-label:${dimension.field}`, x, plot.y + 10, dimension.field, context, {
+            nodes.push(textNode$4(`${layer.id}:parallel-label:${dimension.field}`, x, plot.y + 10, dimension.field, context, {
                 fill: theme.colors.mutedText,
                 size: Math.max(9, theme.typography.fontSize - 1),
                 weight: 650,
@@ -4333,21 +4668,21 @@ var Graflume = (function (exports) {
                             : (value - dimension.min) / (dimension.max - dimension.min);
                 }
                 else {
-                    const value = stringValue$1(raw);
+                    const value = stringValue$2(raw);
                     const index = value === null ? -1 : dimension.values.indexOf(value);
                     if (index < 0)
                         return;
                     ratio = dimension.values.length <= 1 ? 0.5 : index / (dimension.values.length - 1);
                 }
-                points.push({ x: xFor(dimensionIndex), y: plot.y + plot.height * (1 - clamp$1(ratio, 0, 1)) });
+                points.push({ x: xFor(dimensionIndex), y: plot.y + plot.height * (1 - clamp$2(ratio, 0, 1)) });
             });
             if (points.length !== dimensions.length)
                 continue;
-            const key = colorField === undefined ? null : stringValue$1(table.value(rowIndex, colorField));
+            const key = colorField === undefined ? null : stringValue$2(table.value(rowIndex, colorField));
             const colorIndex = key === null ? rowIndex : Math.max(0, colorKeys.indexOf(key));
             nodes.push({
                 type: 'path',
-                ...datumBase$1(context, `${layer.id}:parallel-row:${rowIndex}`, rowIndex, 1),
+                ...datumBase$2(context, `${layer.id}:parallel-row:${rowIndex}`, rowIndex, 1),
                 points,
                 closed: false,
                 stroke: layer.mark.stroke ?? themeColor(context, colorIndex),
@@ -4413,7 +4748,7 @@ var Graflume = (function (exports) {
             });
             nodes.push({
                 type: 'rect',
-                ...datumBase$1(context, `${layer.id}:boxplot-box:${rowIndex}`, rowIndex, 1),
+                ...datumBase$2(context, `${layer.id}:boxplot-box:${rowIndex}`, rowIndex, 1),
                 x: x - boxWidth / 2,
                 y: Math.min(yQ1, yQ3),
                 width: boxWidth,
@@ -4446,7 +4781,7 @@ var Graflume = (function (exports) {
             maxSize = Math.max(1, extent?.[1] ?? 1);
         }
         const nodes = [];
-        const ringCount = clamp$1(Math.floor(finiteOption(layer.mark.options.rings, 2)), 1, 4);
+        const ringCount = clamp$2(Math.floor(finiteOption(layer.mark.options.rings, 2)), 1, 4);
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
             const xValue = scaleInput(table.value(rowIndex, layer.x.field));
             const yValue = scaleInput(table.value(rowIndex, layer.y.field));
@@ -4478,7 +4813,7 @@ var Graflume = (function (exports) {
             }
             nodes.push({
                 type: 'circle',
-                ...datumBase$1(context, `${layer.id}:effect-point:${rowIndex}`, rowIndex, 2),
+                ...datumBase$2(context, `${layer.id}:effect-point:${rowIndex}`, rowIndex, 2),
                 cx: x,
                 cy: y,
                 radius,
@@ -4494,7 +4829,7 @@ var Graflume = (function (exports) {
         const x2Field = layer.mark.fields.x2 ?? 'x2';
         const y2Field = layer.mark.fields.y2 ?? 'y2';
         const valueField = layer.mark.fields.value;
-        const curvature = clamp$1(finiteOption(layer.mark.options.curvature, 0.18), -1, 1);
+        const curvature = clamp$2(finiteOption(layer.mark.options.curvature, 0.18), -1, 1);
         const nodes = [];
         let maxValue = 1;
         if (valueField !== undefined && table.has(valueField))
@@ -4526,7 +4861,7 @@ var Graflume = (function (exports) {
             const stroke = layer.mark.stroke ?? context.color;
             nodes.push({
                 type: 'path',
-                ...datumBase$1(context, `${layer.id}:lines-path:${rowIndex}`, rowIndex),
+                ...datumBase$2(context, `${layer.id}:lines-path:${rowIndex}`, rowIndex),
                 points,
                 closed: false,
                 stroke,
@@ -4583,7 +4918,7 @@ var Graflume = (function (exports) {
             return [];
         const min = Math.min(...values);
         const max = Math.max(...values);
-        const cellGap = clamp$1(finiteOption(layer.mark.options.cellGap, 1), 0, 24);
+        const cellGap = clamp$2(finiteOption(layer.mark.options.cellGap, 1), 0, 24);
         const xCellPositions = xScale instanceof BandScale ? xScale.domain().map((value) => xScale.map(value)) : xPositions;
         const yCellPositions = yScale instanceof BandScale ? yScale.domain().map((value) => yScale.map(value)) : yPositions;
         const cellWidth = heatmapCellSpan(xCellPositions, xScale instanceof BandScale ? plot.width / Math.max(1, xScale.domain().length) : 18, cellGap);
@@ -4599,12 +4934,12 @@ var Graflume = (function (exports) {
             const y = yScale.map(yValue);
             if (!Number.isFinite(x) || !Number.isFinite(y))
                 continue;
-            const ratio = max === min ? 0.5 : clamp$1((value - min) / (max - min), 0, 1);
+            const ratio = max === min ? 0.5 : clamp$2((value - min) / (max - min), 0, 1);
             const palette = theme.colors.sequential;
             const color = layer.mark.fill ?? palette[Math.round(ratio * (palette.length - 1))] ?? theme.colors.focus;
             nodes.push({
                 type: 'rect',
-                ...datumBase$1(context, `${layer.id}:heatmap:${rowIndex}`, rowIndex),
+                ...datumBase$2(context, `${layer.id}:heatmap:${rowIndex}`, rowIndex),
                 x: x - cellWidth / 2,
                 y: y - cellHeight / 2,
                 width: cellWidth,
@@ -4615,7 +4950,7 @@ var Graflume = (function (exports) {
                 cornerRadius: layer.mark.cornerRadius ?? 1,
             });
             if (cellWidth >= 34 && cellHeight >= 24 && layer.mark.options.labels !== false) {
-                nodes.push(textNode$3(`${layer.id}:heatmap-label:${rowIndex}`, x, y, String(value), context, {
+                nodes.push(textNode$4(`${layer.id}:heatmap-label:${rowIndex}`, x, y, String(value), context, {
                     fill: readableTextColor(color, '#ffffff', '#0f172a'),
                     size: Math.max(9, theme.typography.fontSize - 1),
                     weight: 650,
@@ -4626,7 +4961,7 @@ var Graflume = (function (exports) {
     };
     const compilePictorialBarMark = (context) => {
         const { layer, table, xScale, yScale, plot, theme } = context;
-        const maxSymbols = clamp$1(Math.floor(finiteOption(layer.mark.options.maxSymbols, 12)), 2, 40);
+        const maxSymbols = clamp$2(Math.floor(finiteOption(layer.mark.options.maxSymbols, 12)), 2, 40);
         let maxAbs = 0;
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
             maxAbs = Math.max(maxAbs, Math.abs(numericDataValue(table.value(rowIndex, layer.y.field)) ?? 0));
@@ -4649,7 +4984,7 @@ var Graflume = (function (exports) {
             const step = Math.abs(end - zero) / count;
             const requestedSize = finiteOption(layer.mark.options.symbolSize, Number.NaN);
             const size = Number.isFinite(requestedSize)
-                ? clamp$1(Math.abs(requestedSize), 3, Math.max(3, band * 0.9))
+                ? clamp$2(Math.abs(requestedSize), 3, Math.max(3, band * 0.9))
                 : Math.max(3, Math.min(band * 0.62, step * 0.72, 18));
             const color = layer.mark.fill ?? themeColor(context, rowIndex);
             for (let index = 0; index < count; index += 1) {
@@ -4658,7 +4993,7 @@ var Graflume = (function (exports) {
                 if (symbol === 'square') {
                     nodes.push({
                         type: 'rect',
-                        ...datumBase$1(context, id, rowIndex),
+                        ...datumBase$2(context, id, rowIndex),
                         x: x - size / 2,
                         y: y - size / 2,
                         width: size,
@@ -4672,7 +5007,7 @@ var Graflume = (function (exports) {
                 else if (symbol === 'diamond') {
                     nodes.push({
                         type: 'path',
-                        ...datumBase$1(context, id, rowIndex),
+                        ...datumBase$2(context, id, rowIndex),
                         points: [
                             { x, y: y - size / 2 },
                             { x: x + size / 2, y },
@@ -4689,7 +5024,7 @@ var Graflume = (function (exports) {
                 else {
                     nodes.push({
                         type: 'circle',
-                        ...datumBase$1(context, id, rowIndex),
+                        ...datumBase$2(context, id, rowIndex),
                         cx: x,
                         cy: y,
                         radius: size / 2,
@@ -4710,7 +5045,7 @@ var Graflume = (function (exports) {
         const points = [];
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
             const xValue = scaleInput(table.value(rowIndex, layer.x.field));
-            const series = stringValue$1(table.value(rowIndex, seriesField));
+            const series = stringValue$2(table.value(rowIndex, seriesField));
             const value = numericDataValue(table.value(rowIndex, layer.y.field));
             if (xValue === null || series === null || value === null)
                 continue;
@@ -4819,7 +5154,7 @@ var Graflume = (function (exports) {
         const cx = plot.x + plot.width / 2;
         const cy = plot.y + plot.height / 2;
         const outerRadius = Math.max(20, Math.min(plot.width, plot.height) * 0.42);
-        const innerHole = outerRadius * clamp$1(finiteOption(layer.mark.options.innerRadius, 0.12), 0, 0.7);
+        const innerHole = outerRadius * clamp$2(finiteOption(layer.mark.options.innerRadius, 0.12), 0, 0.7);
         const ringWidth = (outerRadius - innerHole) / Math.max(1, maxDepth + 1);
         const nodes = [];
         let colorIndex = 0;
@@ -4830,7 +5165,7 @@ var Graflume = (function (exports) {
             colorIndex += 1;
             nodes.push({
                 type: 'path',
-                ...datumBase$1(context, `${layer.id}:sunburst:${node.id}`, node.rowIndex, depth / 100),
+                ...datumBase$2(context, `${layer.id}:sunburst:${node.id}`, node.rowIndex, depth / 100),
                 points: annularSector$1(cx, cy, inner, outer, start, end),
                 closed: true,
                 fill: layer.mark.fill ?? mixColor(color, theme.colors.background, depth * 0.08),
@@ -4841,7 +5176,7 @@ var Graflume = (function (exports) {
             if (end - start > 0.18 && outer - inner > 18) {
                 const angle = (start + end) / 2;
                 const labelPoint = pointOnCircle$1(cx, cy, (inner + outer) / 2, angle);
-                nodes.push(textNode$3(`${layer.id}:sunburst-label:${node.id}`, labelPoint.x, labelPoint.y, node.label, context, {
+                nodes.push(textNode$4(`${layer.id}:sunburst-label:${node.id}`, labelPoint.x, labelPoint.y, node.label, context, {
                     fill: readableTextColor(layer.mark.fill ?? color, '#ffffff', '#0f172a'),
                     size: Math.max(8, theme.typography.fontSize - 2),
                     weight: 650,
@@ -4861,7 +5196,7 @@ var Graflume = (function (exports) {
         const rootTotal = Math.max(1, roots.reduce((sum, root) => sum + root.total, 0));
         let cursor = -Math.PI / 2;
         roots.forEach((root) => {
-            const end = cursor + (TAU$1 * root.total) / rootTotal;
+            const end = cursor + (TAU$2 * root.total) / rootTotal;
             drawNode(root, cursor, end, 0);
             cursor = end;
         });
@@ -4889,7 +5224,7 @@ var Graflume = (function (exports) {
             if (!Number.isFinite(x) || !Number.isFinite(y))
                 continue;
             const primitive = primitiveField !== undefined && table.has(primitiveField)
-                ? (stringValue$1(table.value(rowIndex, primitiveField)) ?? defaultPrimitive)
+                ? (stringValue$2(table.value(rowIndex, primitiveField)) ?? defaultPrimitive)
                 : defaultPrimitive;
             const size = sizeField !== undefined && table.has(sizeField)
                 ? Math.abs(numericDataValue(table.value(rowIndex, sizeField)) ?? 12)
@@ -4910,7 +5245,7 @@ var Graflume = (function (exports) {
                     continue;
                 nodes.push({
                     type: 'line',
-                    ...datumBase$1(context, `${layer.id}:custom-line:${rowIndex}`, rowIndex),
+                    ...datumBase$2(context, `${layer.id}:custom-line:${rowIndex}`, rowIndex),
                     x1: x,
                     y1: y,
                     x2,
@@ -4933,7 +5268,7 @@ var Graflume = (function (exports) {
                         : finiteOption(layer.mark.options.height, size);
                 nodes.push({
                     type: 'rect',
-                    ...datumBase$1(context, `${layer.id}:custom-rect:${rowIndex}`, rowIndex),
+                    ...datumBase$2(context, `${layer.id}:custom-rect:${rowIndex}`, rowIndex),
                     x: x - Math.abs(width) / 2,
                     y: y - Math.abs(height) / 2,
                     width: Math.abs(width),
@@ -4950,7 +5285,7 @@ var Graflume = (function (exports) {
                 const radius = Math.max(1, size / 2);
                 nodes.push({
                     type: 'path',
-                    ...datumBase$1(context, `${layer.id}:custom-diamond:${rowIndex}`, rowIndex),
+                    ...datumBase$2(context, `${layer.id}:custom-diamond:${rowIndex}`, rowIndex),
                     points: [
                         { x, y: y - radius },
                         { x: x + radius, y },
@@ -4966,9 +5301,9 @@ var Graflume = (function (exports) {
             }
             else if (primitive === 'text') {
                 const label = labelField !== undefined && table.has(labelField)
-                    ? (stringValue$1(table.value(rowIndex, labelField)) ?? '')
+                    ? (stringValue$2(table.value(rowIndex, labelField)) ?? '')
                     : String(layer.mark.options.label ?? '');
-                nodes.push(textNode$3(`${layer.id}:custom-text:${rowIndex}`, x, y, label, context, {
+                nodes.push(textNode$4(`${layer.id}:custom-text:${rowIndex}`, x, y, label, context, {
                     fill: layer.mark.stroke ?? fill,
                     size: finiteOption(layer.mark.options.fontSize, Math.max(theme.typography.fontSize, size)),
                     weight: 650,
@@ -4980,7 +5315,7 @@ var Graflume = (function (exports) {
                     : (layer.mark.radius ?? finiteOption(layer.mark.options.radius, size / 2));
                 nodes.push({
                     type: 'circle',
-                    ...datumBase$1(context, `${layer.id}:custom-circle:${rowIndex}`, rowIndex),
+                    ...datumBase$2(context, `${layer.id}:custom-circle:${rowIndex}`, rowIndex),
                     cx: x,
                     cy: y,
                     radius: Math.max(0, Math.abs(radius)),
@@ -4993,9 +5328,9 @@ var Graflume = (function (exports) {
                 layer.mark.options.labels !== false &&
                 labelField !== undefined &&
                 table.has(labelField)) {
-                const label = stringValue$1(table.value(rowIndex, labelField));
+                const label = stringValue$2(table.value(rowIndex, labelField));
                 if (label !== null && label !== '') {
-                    nodes.push(textNode$3(`${layer.id}:custom-label:${rowIndex}`, x, clamp$1(y - size / 2 - 8, context.plot.y + 8, context.plot.y + context.plot.height - 8), label, context, {
+                    nodes.push(textNode$4(`${layer.id}:custom-label:${rowIndex}`, x, clamp$2(y - size / 2 - 8, context.plot.y + 8, context.plot.y + context.plot.height - 8), label, context, {
                         fill: theme.colors.mutedText,
                         size: Math.max(9, theme.typography.fontSize - 1),
                         weight: 600,
@@ -5005,6 +5340,843 @@ var Graflume = (function (exports) {
             }
         }
         return nodes;
+    };
+
+    const compileAreaMark = (context) => {
+        const { table, layer, xScale, yScale, color, theme, performance } = context;
+        const yValues = Array.from({ length: table.length }, (_, index) => numericDataValue(table.value(index, layer.y.field), layer.y.type === 'temporal'));
+        const indices = minMaxSampleIndices(yValues, performance.maxLinePoints);
+        const baseline = yScale.map(0);
+        const top = [];
+        const topRowIndices = [];
+        for (const rowIndex of indices) {
+            const xInput = scaleInput(table.value(rowIndex, layer.x.field));
+            const yInput = scaleInput(table.value(rowIndex, layer.y.field));
+            if (xInput === null || yInput === null)
+                continue;
+            const x = xScale.map(xInput);
+            const y = yScale.map(yInput);
+            if (Number.isFinite(x) && Number.isFinite(y)) {
+                top.push({ x, y });
+                topRowIndices.push(rowIndex);
+            }
+        }
+        if (top.length === 0)
+            return [];
+        const first = top[0];
+        const last = top.at(-1);
+        if (first === undefined || last === undefined)
+            return [];
+        const points = [...top, { x: last.x, y: baseline }, { x: first.x, y: baseline }];
+        const fill = {
+            type: 'path',
+            ...nodeBase(`${layer.id}:area-fill`, {
+                zIndex: layer.zIndex,
+                opacity: layer.mark.opacity,
+            }),
+            points,
+            closed: true,
+            fill: layer.mark.fill ?? colorWithOpacity(color, theme.mode === 'dark' ? 0.28 : 0.2),
+            lineWidth: 0,
+        };
+        const stroke = {
+            type: 'path',
+            ...nodeBase(`${layer.id}:area-line`, {
+                zIndex: layer.zIndex + 0.1,
+                opacity: layer.mark.opacity,
+            }),
+            points: top,
+            closed: false,
+            stroke: layer.mark.stroke ?? color,
+            lineWidth: layer.mark.lineWidth ?? theme.mark.lineWidth,
+            lineCap: 'round',
+            lineJoin: 'round',
+        };
+        const nodes = [fill, stroke];
+        if (layer.mark.point) {
+            const pointIndices = new Set(strideSampleIndices(top.length, performance.maxPointMarks).filter((index) => index !== undefined));
+            top.forEach((point, pointIndex) => {
+                const rowIndex = topRowIndices[pointIndex];
+                if (rowIndex === undefined || !pointIndices.has(pointIndex))
+                    return;
+                const circle = {
+                    type: 'circle',
+                    ...nodeBase(`${layer.id}:area-point:${rowIndex}`, {
+                        zIndex: layer.zIndex + 0.2,
+                        opacity: layer.mark.opacity,
+                        interactive: performance.enableHitTesting,
+                        datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) },
+                    }),
+                    cx: point.x,
+                    cy: point.y,
+                    radius: layer.mark.radius ?? theme.mark.pointRadius,
+                    fill: theme.colors.background,
+                    stroke: layer.mark.stroke ?? color,
+                    lineWidth: Math.max(1.5, (layer.mark.lineWidth ?? theme.mark.lineWidth) * 0.68),
+                };
+                nodes.push(circle);
+            });
+        }
+        return nodes;
+    };
+
+    const compileBarMark = (context) => {
+        const { table, layer, xScale, yScale, color, theme, barGroup, performance, plot } = context;
+        if (layer.mark.orientation === 'horizontal') {
+            const baseline = xScale.map(0);
+            const slotHeight = yScale instanceof BandScale
+                ? yScale.bandwidth / Math.max(1, barGroup.count)
+                : Math.max(1, ((plot.height / Math.max(1, table.length)) * 0.8) / Math.max(1, barGroup.count));
+            const barHeight = Math.max(1, slotHeight * 0.74);
+            const nodes = [];
+            const indices = strideSampleIndices(table.length, performance.maxBarMarks);
+            for (const rowIndex of indices) {
+                const xInput = scaleInput(table.value(rowIndex, layer.x.field));
+                const yInput = scaleInput(table.value(rowIndex, layer.y.field));
+                if (xInput === null || yInput === null)
+                    continue;
+                const xValue = xScale.map(xInput);
+                const yCenter = yScale.map(yInput);
+                if (!Number.isFinite(xValue) || !Number.isFinite(yCenter) || !Number.isFinite(baseline))
+                    continue;
+                const groupOffset = layer.mark.position === 'group'
+                    ? (barGroup.index - (barGroup.count - 1) / 2) * slotHeight
+                    : 0;
+                nodes.push({
+                    type: 'rect',
+                    ...nodeBase(`${layer.id}:bar:${rowIndex}`, {
+                        zIndex: layer.zIndex,
+                        opacity: layer.mark.opacity,
+                        interactive: performance.enableHitTesting,
+                        datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) },
+                    }),
+                    x: Math.min(xValue, baseline),
+                    y: yCenter + groupOffset - barHeight / 2,
+                    width: Math.max(0.5, Math.abs(baseline - xValue)),
+                    height: barHeight,
+                    fill: layer.mark.fill ?? color,
+                    ...(layer.mark.stroke === undefined ? {} : { stroke: layer.mark.stroke }),
+                    lineWidth: layer.mark.lineWidth ?? 0,
+                    cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
+                });
+            }
+            return nodes;
+        }
+        const baseline = yScale.map(0);
+        const nodes = [];
+        const slotWidth = xScale instanceof BandScale
+            ? xScale.bandwidth / Math.max(1, barGroup.count)
+            : Math.max(1, ((plot.width / Math.max(1, table.length)) * 0.8) / Math.max(1, barGroup.count));
+        const barWidth = Math.max(1, slotWidth * 0.74);
+        const indices = strideSampleIndices(table.length, performance.maxBarMarks);
+        for (const rowIndex of indices) {
+            const xInput = scaleInput(table.value(rowIndex, layer.x.field));
+            const yInput = scaleInput(table.value(rowIndex, layer.y.field));
+            if (xInput === null || yInput === null)
+                continue;
+            const xCenter = xScale.map(xInput);
+            const yValue = yScale.map(yInput);
+            if (!Number.isFinite(xCenter) || !Number.isFinite(yValue) || !Number.isFinite(baseline))
+                continue;
+            const groupOffset = layer.mark.position === 'group' ? (barGroup.index - (barGroup.count - 1) / 2) * slotWidth : 0;
+            const x = xCenter + groupOffset - barWidth / 2;
+            const y = Math.min(yValue, baseline);
+            const height = Math.max(0.5, Math.abs(baseline - yValue));
+            nodes.push({
+                type: 'rect',
+                ...nodeBase(`${layer.id}:bar:${rowIndex}`, {
+                    zIndex: layer.zIndex,
+                    opacity: layer.mark.opacity,
+                    interactive: performance.enableHitTesting,
+                    datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) },
+                }),
+                x,
+                y,
+                width: barWidth,
+                height,
+                fill: layer.mark.fill ?? color,
+                ...(layer.mark.stroke === undefined ? {} : { stroke: layer.mark.stroke }),
+                lineWidth: layer.mark.lineWidth ?? 0,
+                cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
+            });
+        }
+        return nodes;
+    };
+
+    const compileLineMark = (context) => {
+        const { table, layer, xScale, yScale, color, theme, performance } = context;
+        const yValues = Array.from({ length: table.length }, (_, index) => numericDataValue(table.value(index, layer.y.field), layer.y.type === 'temporal'));
+        const indices = minMaxSampleIndices(yValues, performance.maxLinePoints);
+        const nodes = [];
+        const pointRows = new Set(strideSampleIndices(indices.length, performance.maxPointMarks)
+            .map((sampleIndex) => indices[sampleIndex])
+            .filter((rowIndex) => rowIndex !== undefined));
+        const segments = [];
+        let current = { points: [], rowIndices: [] };
+        const flush = () => {
+            if (current.points.length > 0)
+                segments.push(current);
+            current = { points: [], rowIndices: [] };
+        };
+        for (const rowIndex of indices) {
+            const xInput = scaleInput(table.value(rowIndex, layer.x.field));
+            const yInput = scaleInput(table.value(rowIndex, layer.y.field));
+            if (xInput === null || yInput === null) {
+                flush();
+                continue;
+            }
+            const x = xScale.map(xInput);
+            const y = yScale.map(yInput);
+            if (!Number.isFinite(x) || !Number.isFinite(y)) {
+                flush();
+                continue;
+            }
+            current.points.push({ x, y });
+            current.rowIndices.push(rowIndex);
+        }
+        flush();
+        const stroke = layer.mark.stroke ?? color;
+        const lineWidth = layer.mark.lineWidth ?? theme.mark.lineWidth;
+        segments.forEach((segment, segmentIndex) => {
+            const path = {
+                type: 'path',
+                ...nodeBase(`${layer.id}:line:${segmentIndex}`, {
+                    zIndex: layer.zIndex,
+                    opacity: layer.mark.opacity,
+                }),
+                points: segment.points,
+                closed: false,
+                stroke,
+                lineWidth,
+                lineCap: 'round',
+                lineJoin: 'round',
+            };
+            nodes.push(path);
+            if (layer.mark.point) {
+                segment.points.forEach((point, pointIndex) => {
+                    const rowIndex = segment.rowIndices[pointIndex];
+                    if (rowIndex === undefined || !pointRows.has(rowIndex))
+                        return;
+                    const circle = {
+                        type: 'circle',
+                        ...nodeBase(`${layer.id}:point:${rowIndex}`, {
+                            zIndex: layer.zIndex + 0.1,
+                            opacity: layer.mark.opacity,
+                            interactive: performance.enableHitTesting,
+                            datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) },
+                        }),
+                        cx: point.x,
+                        cy: point.y,
+                        radius: layer.mark.radius ?? theme.mark.pointRadius,
+                        fill: layer.mark.fill ?? theme.colors.background,
+                        stroke,
+                        lineWidth: Math.max(1.5, lineWidth * 0.68),
+                    };
+                    nodes.push(circle);
+                });
+            }
+        });
+        return nodes;
+    };
+
+    const compilePointMark = (context) => {
+        const { table, layer, xScale, yScale, color, theme, performance } = context;
+        const indices = strideSampleIndices(table.length, performance.maxPointMarks);
+        const nodes = [];
+        for (const rowIndex of indices) {
+            const xInput = scaleInput(table.value(rowIndex, layer.x.field));
+            const yInput = scaleInput(table.value(rowIndex, layer.y.field));
+            if (xInput === null || yInput === null)
+                continue;
+            const cx = xScale.map(xInput);
+            const cy = yScale.map(yInput);
+            if (!Number.isFinite(cx) || !Number.isFinite(cy))
+                continue;
+            nodes.push({
+                type: 'circle',
+                ...nodeBase(`${layer.id}:point:${rowIndex}`, {
+                    zIndex: layer.zIndex,
+                    opacity: layer.mark.opacity,
+                    interactive: performance.enableHitTesting,
+                    datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) },
+                }),
+                cx,
+                cy,
+                radius: layer.mark.radius ?? theme.mark.pointRadius,
+                fill: layer.mark.fill ?? color,
+                stroke: layer.mark.stroke ?? theme.colors.background,
+                lineWidth: layer.mark.lineWidth ?? 1.75,
+            });
+        }
+        return nodes;
+    };
+
+    function optionNumber$5(options, name, fallback) {
+        const value = options[name];
+        return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+    }
+    function optionString$5(options, name) {
+        const value = options[name];
+        return typeof value === 'string' ? value : undefined;
+    }
+    function textNode$3(id, x, y, text, context, options = {}) {
+        return {
+            type: 'text',
+            ...nodeBase(id, { zIndex: context.layer.zIndex + 2 }),
+            x,
+            y,
+            text,
+            fill: context.theme.colors.text,
+            fontFamily: context.theme.typography.fontFamily,
+            fontSize: options.size ?? context.theme.typography.fontSize,
+            fontWeight: options.weight ?? 500,
+            align: options.align ?? 'center',
+            baseline: options.baseline ?? 'middle',
+            rotation: 0,
+        };
+    }
+    const compileSteppedAreaMark = (context) => {
+        const { table, layer, xScale, yScale, color, theme } = context;
+        const top = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const xInput = scaleInput(table.value(rowIndex, layer.x.field));
+            const yInput = scaleInput(table.value(rowIndex, layer.y.field));
+            if (xInput === null || yInput === null)
+                continue;
+            const x = xScale.map(xInput);
+            const y = yScale.map(yInput);
+            if (!Number.isFinite(x) || !Number.isFinite(y))
+                continue;
+            const previous = top.at(-1);
+            if (previous !== undefined)
+                top.push({ x, y: previous.y });
+            top.push({ x, y });
+        }
+        const first = top[0];
+        const last = top.at(-1);
+        if (first === undefined || last === undefined)
+            return [];
+        const baseline = yScale.map(0);
+        const area = {
+            type: 'path',
+            ...nodeBase(`${layer.id}:stepped-area-fill`, {
+                zIndex: layer.zIndex,
+                opacity: layer.mark.opacity,
+            }),
+            points: [...top, { x: last.x, y: baseline }, { x: first.x, y: baseline }],
+            closed: true,
+            fill: layer.mark.fill ?? colorWithOpacity(color, theme.mode === 'dark' ? 0.28 : 0.2),
+            lineWidth: 0,
+        };
+        const outline = {
+            type: 'path',
+            ...nodeBase(`${layer.id}:stepped-area-line`, {
+                zIndex: layer.zIndex + 0.1,
+                opacity: layer.mark.opacity,
+            }),
+            points: top,
+            closed: false,
+            stroke: layer.mark.stroke ?? color,
+            lineWidth: layer.mark.lineWidth ?? theme.mark.lineWidth,
+            lineCap: 'round',
+            lineJoin: 'round',
+        };
+        return [area, outline];
+    };
+    const compileBubbleMark = (context) => {
+        const { table, layer, xScale, yScale, theme, color, performance } = context;
+        const sizeField = layer.mark.fields.size;
+        const colorField = layer.mark.fields.color;
+        const timeField = layer.mark.fields.time;
+        const frame = layer.mark.options.frame;
+        let minimum = Number.POSITIVE_INFINITY;
+        let maximum = Number.NEGATIVE_INFINITY;
+        if (sizeField !== undefined && table.has(sizeField)) {
+            const extent = table.extent(sizeField);
+            if (extent !== null)
+                [minimum, maximum] = extent;
+        }
+        if (!Number.isFinite(minimum) || !Number.isFinite(maximum)) {
+            minimum = 1;
+            maximum = 1;
+        }
+        const categoryColors = new Map();
+        const nodes = [];
+        const minimumRadius = optionNumber$5(layer.mark.options, 'minRadius', layer.mark.radius ?? 5);
+        const maximumRadius = optionNumber$5(layer.mark.options, 'maxRadius', 24);
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            if (timeField !== undefined &&
+                frame !== undefined &&
+                String(table.value(rowIndex, timeField)) !== String(frame)) {
+                continue;
+            }
+            const xInput = scaleInput(table.value(rowIndex, layer.x.field));
+            const yInput = scaleInput(table.value(rowIndex, layer.y.field));
+            if (xInput === null || yInput === null)
+                continue;
+            const cx = xScale.map(xInput);
+            const cy = yScale.map(yInput);
+            if (!Number.isFinite(cx) || !Number.isFinite(cy))
+                continue;
+            const size = sizeField === undefined ? maximum : numericDataValue(table.value(rowIndex, sizeField));
+            const ratio = size === null || maximum === minimum
+                ? 0.5
+                : Math.max(0, Math.min(1, (size - minimum) / (maximum - minimum)));
+            let fill = layer.mark.fill ?? color;
+            if (colorField !== undefined) {
+                const category = String(table.value(rowIndex, colorField) ?? '');
+                let categoryColor = categoryColors.get(category);
+                if (categoryColor === undefined) {
+                    categoryColor =
+                        theme.colors.palette[categoryColors.size % theme.colors.palette.length] ??
+                            theme.colors.focus;
+                    categoryColors.set(category, categoryColor);
+                }
+                fill = categoryColor;
+            }
+            nodes.push({
+                type: 'circle',
+                ...nodeBase(`${layer.id}:bubble:${rowIndex}`, {
+                    zIndex: layer.zIndex,
+                    opacity: layer.mark.opacity,
+                    interactive: performance.enableHitTesting,
+                    datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) },
+                }),
+                cx,
+                cy,
+                radius: minimumRadius + Math.sqrt(ratio) * (maximumRadius - minimumRadius),
+                fill,
+                stroke: layer.mark.stroke ?? theme.colors.background,
+                lineWidth: layer.mark.lineWidth ?? 2,
+            });
+        }
+        return nodes;
+    };
+    const compileCandlestickMark = (context) => {
+        const { table, layer, xScale, yScale, plot, theme, performance } = context;
+        const openField = layer.mark.fields.open ?? 'open';
+        const highField = layer.mark.fields.high ?? 'high';
+        const lowField = layer.mark.fields.low ?? 'low';
+        const closeField = layer.mark.fields.close ?? layer.y.field;
+        const width = Math.max(3, xScale instanceof BandScale
+            ? xScale.bandwidth * 0.58
+            : (plot.width / Math.max(1, table.length)) * 0.56);
+        const nodes = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const xInput = scaleInput(table.value(rowIndex, layer.x.field));
+            const open = numericDataValue(table.value(rowIndex, openField));
+            const high = numericDataValue(table.value(rowIndex, highField));
+            const low = numericDataValue(table.value(rowIndex, lowField));
+            const close = numericDataValue(table.value(rowIndex, closeField));
+            if (xInput === null || open === null || high === null || low === null || close === null)
+                continue;
+            const x = xScale.map(xInput);
+            const yOpen = yScale.map(open);
+            const yHigh = yScale.map(high);
+            const yLow = yScale.map(low);
+            const yClose = yScale.map(close);
+            if (![x, yOpen, yHigh, yLow, yClose].every(Number.isFinite))
+                continue;
+            const rising = close >= open;
+            const fill = rising
+                ? (optionString$5(layer.mark.options, 'risingColor') ?? theme.colors.palette[1] ?? '#0f9f8a')
+                : (optionString$5(layer.mark.options, 'fallingColor') ?? theme.colors.palette[3] ?? '#ef4444');
+            const datum = { layerId: layer.id, rowIndex, datum: table.row(rowIndex) };
+            nodes.push({
+                type: 'line',
+                ...nodeBase(`${layer.id}:wick:${rowIndex}`, {
+                    zIndex: layer.zIndex,
+                    opacity: layer.mark.opacity,
+                }),
+                x1: x,
+                y1: yHigh,
+                x2: x,
+                y2: yLow,
+                stroke: layer.mark.stroke ?? mixColor(fill, theme.colors.text, 0.28),
+                lineWidth: layer.mark.lineWidth ?? 1.5,
+                lineCap: 'round',
+            });
+            nodes.push({
+                type: 'rect',
+                ...nodeBase(`${layer.id}:body:${rowIndex}`, {
+                    zIndex: layer.zIndex + 0.1,
+                    opacity: layer.mark.opacity,
+                    interactive: performance.enableHitTesting,
+                    datum,
+                }),
+                x: x - width / 2,
+                y: Math.min(yOpen, yClose),
+                width,
+                height: Math.max(1.5, Math.abs(yOpen - yClose)),
+                fill,
+                stroke: layer.mark.stroke ?? fill,
+                lineWidth: layer.mark.lineWidth ?? 1,
+                cornerRadius: layer.mark.cornerRadius ?? 1,
+            });
+        }
+        return nodes;
+    };
+    const compileHistogramMark = (context) => {
+        const { table, layer, xScale, yScale, theme, color, performance } = context;
+        const binCount = Math.max(1, Math.min(100, Math.floor(optionNumber$5(layer.mark.options, 'bins', 10))));
+        const extent = table.extent(layer.x.field, layer.x.type === 'temporal');
+        if (extent === null)
+            return [];
+        const span = extent[1] - extent[0] || 1;
+        const bins = Array.from({ length: binCount }, () => 0);
+        const rows = Array.from({ length: binCount }, () => []);
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const value = numericDataValue(table.value(rowIndex, layer.x.field), layer.x.type === 'temporal');
+            if (value === null)
+                continue;
+            const bin = Math.min(binCount - 1, Math.max(0, Math.floor(((value - extent[0]) / span) * binCount)));
+            bins[bin] = (bins[bin] ?? 0) + 1;
+            rows[bin]?.push(rowIndex);
+        }
+        const baseline = yScale.map(0);
+        const nodes = [];
+        const totalCount = bins.reduce((sum, count) => sum + count, 0);
+        bins.forEach((count, index) => {
+            const start = extent[0] + (span * index) / binCount;
+            const end = extent[0] + (span * (index + 1)) / binCount;
+            const x1 = xScale.map(start);
+            const x2 = xScale.map(end);
+            const y = yScale.map(count);
+            const rowIndex = rows[index]?.[0];
+            if (![x1, x2, y, baseline].every(Number.isFinite))
+                return;
+            nodes.push({
+                type: 'rect',
+                ...nodeBase(`${layer.id}:bin:${index}`, {
+                    zIndex: layer.zIndex,
+                    opacity: layer.mark.opacity,
+                    interactive: performance.enableHitTesting && rowIndex !== undefined,
+                    ...(rowIndex === undefined
+                        ? {}
+                        : {
+                            datum: {
+                                layerId: layer.id,
+                                rowIndex,
+                                datum: table.row(rowIndex),
+                                tooltip: {
+                                    binStart: start,
+                                    binEnd: end,
+                                    count,
+                                    proportion: totalCount === 0 ? 0 : count / totalCount,
+                                },
+                            },
+                        }),
+                }),
+                x: Math.min(x1, x2) + 2,
+                y: Math.min(y, baseline),
+                width: Math.max(1, Math.abs(x2 - x1) - 4),
+                height: Math.max(0.5, Math.abs(baseline - y)),
+                fill: layer.mark.fill ?? color,
+                stroke: layer.mark.stroke ?? theme.colors.background,
+                lineWidth: layer.mark.lineWidth ?? 1,
+                cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
+            });
+        });
+        return nodes;
+    };
+    const compileIntervalMark = (context) => {
+        const { table, layer, xScale, yScale, color, theme, performance } = context;
+        const lowField = layer.mark.fields.low ?? 'low';
+        const highField = layer.mark.fields.high ?? 'high';
+        const nodes = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const xInput = scaleInput(table.value(rowIndex, layer.x.field));
+            const value = numericDataValue(table.value(rowIndex, layer.y.field));
+            const low = numericDataValue(table.value(rowIndex, lowField));
+            const high = numericDataValue(table.value(rowIndex, highField));
+            if (xInput === null || value === null || low === null || high === null)
+                continue;
+            const x = xScale.map(xInput);
+            const y = yScale.map(value);
+            const yLow = yScale.map(low);
+            const yHigh = yScale.map(high);
+            if (![x, y, yLow, yHigh].every(Number.isFinite))
+                continue;
+            const stroke = layer.mark.stroke ?? color;
+            const cap = Math.max(4, (xScale instanceof BandScale ? xScale.bandwidth : 14) * 0.25);
+            const base = `${layer.id}:interval:${rowIndex}`;
+            const lineWidth = layer.mark.lineWidth ?? 2;
+            const lines = [
+                {
+                    type: 'line',
+                    ...nodeBase(`${base}:range`, { zIndex: layer.zIndex }),
+                    x1: x,
+                    y1: yHigh,
+                    x2: x,
+                    y2: yLow,
+                    stroke,
+                    lineWidth,
+                    lineCap: 'round',
+                },
+                {
+                    type: 'line',
+                    ...nodeBase(`${base}:high`, { zIndex: layer.zIndex }),
+                    x1: x - cap,
+                    y1: yHigh,
+                    x2: x + cap,
+                    y2: yHigh,
+                    stroke,
+                    lineWidth,
+                    lineCap: 'round',
+                },
+                {
+                    type: 'line',
+                    ...nodeBase(`${base}:low`, { zIndex: layer.zIndex }),
+                    x1: x - cap,
+                    y1: yLow,
+                    x2: x + cap,
+                    y2: yLow,
+                    stroke,
+                    lineWidth,
+                    lineCap: 'round',
+                },
+            ];
+            nodes.push(...lines);
+            nodes.push({
+                type: 'circle',
+                ...nodeBase(`${base}:value`, {
+                    zIndex: layer.zIndex + 0.1,
+                    interactive: performance.enableHitTesting,
+                    datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) },
+                }),
+                cx: x,
+                cy: y,
+                radius: layer.mark.radius ?? theme.mark.pointRadius + 1,
+                fill: layer.mark.fill ?? theme.colors.background,
+                stroke,
+                lineWidth,
+            });
+        }
+        return nodes;
+    };
+    const compileTrendlineMark = (context) => {
+        const { table, layer, xScale, yScale, color, theme } = context;
+        const points = compilePointMark(context);
+        const pairs = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const x = numericDataValue(table.value(rowIndex, layer.x.field), layer.x.type === 'temporal');
+            const y = numericDataValue(table.value(rowIndex, layer.y.field), layer.y.type === 'temporal');
+            if (x !== null && y !== null)
+                pairs.push({ x, y });
+        }
+        if (pairs.length < 2)
+            return points;
+        const meanX = pairs.reduce((sum, point) => sum + point.x, 0) / pairs.length;
+        const meanY = pairs.reduce((sum, point) => sum + point.y, 0) / pairs.length;
+        const numerator = pairs.reduce((sum, point) => sum + (point.x - meanX) * (point.y - meanY), 0);
+        const denominator = pairs.reduce((sum, point) => sum + (point.x - meanX) ** 2, 0) || 1;
+        const slope = numerator / denominator;
+        const intercept = meanY - slope * meanX;
+        const minimum = Math.min(...pairs.map((point) => point.x));
+        const maximum = Math.max(...pairs.map((point) => point.x));
+        const line = {
+            type: 'path',
+            ...nodeBase(`${layer.id}:trendline`, {
+                zIndex: layer.zIndex + 0.2,
+                opacity: layer.mark.opacity,
+            }),
+            points: [
+                { x: xScale.map(minimum), y: yScale.map(intercept + slope * minimum) },
+                { x: xScale.map(maximum), y: yScale.map(intercept + slope * maximum) },
+            ],
+            closed: false,
+            stroke: layer.mark.stroke ?? color,
+            lineWidth: layer.mark.lineWidth ?? theme.mark.lineWidth + 0.5,
+            dash: [7, 4],
+            lineCap: 'round',
+            lineJoin: 'round',
+        };
+        return [...points, line];
+    };
+    const compileWaterfallMark = (context) => {
+        const { table, layer, xScale, yScale, theme, performance, plot } = context;
+        const width = Math.max(3, xScale instanceof BandScale
+            ? xScale.bandwidth * 0.62
+            : (plot.width / Math.max(1, table.length)) * 0.6);
+        const nodes = [];
+        let total = 0;
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const xInput = scaleInput(table.value(rowIndex, layer.x.field));
+            const delta = numericDataValue(table.value(rowIndex, layer.y.field));
+            if (xInput === null || delta === null)
+                continue;
+            const previous = total;
+            total += delta;
+            const x = xScale.map(xInput);
+            const y1 = yScale.map(previous);
+            const y2 = yScale.map(total);
+            if (![x, y1, y2].every(Number.isFinite))
+                continue;
+            const fill = delta >= 0
+                ? (optionString$5(layer.mark.options, 'positiveColor') ??
+                    theme.colors.palette[1] ??
+                    '#0f9f8a')
+                : (optionString$5(layer.mark.options, 'negativeColor') ??
+                    theme.colors.palette[3] ??
+                    '#ef4444');
+            nodes.push({
+                type: 'rect',
+                ...nodeBase(`${layer.id}:waterfall:${rowIndex}`, {
+                    zIndex: layer.zIndex,
+                    opacity: layer.mark.opacity,
+                    interactive: performance.enableHitTesting,
+                    datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) },
+                }),
+                x: x - width / 2,
+                y: Math.min(y1, y2),
+                width,
+                height: Math.max(1, Math.abs(y2 - y1)),
+                fill,
+                lineWidth: 0,
+                cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
+            });
+            const nextInput = rowIndex + 1 < table.length ? scaleInput(table.value(rowIndex + 1, layer.x.field)) : null;
+            if (nextInput !== null) {
+                const nextX = xScale.map(nextInput);
+                nodes.push({
+                    type: 'line',
+                    ...nodeBase(`${layer.id}:connector:${rowIndex}`, { zIndex: layer.zIndex - 0.1 }),
+                    x1: x + width / 2,
+                    y1: y2,
+                    x2: nextX - width / 2,
+                    y2,
+                    stroke: theme.colors.axis,
+                    lineWidth: 1,
+                    dash: [3, 3],
+                    lineCap: 'round',
+                });
+            }
+        }
+        return nodes;
+    };
+    const compileDiffMark = (context) => {
+        const { table, layer, xScale, yScale, theme, performance, plot } = context;
+        const oldField = layer.mark.fields.old ?? 'old';
+        const newField = layer.mark.fields.new ?? layer.y.field;
+        const width = Math.max(4, xScale instanceof BandScale
+            ? xScale.bandwidth * 0.64
+            : (plot.width / Math.max(1, table.length)) * 0.62);
+        const baseline = yScale.map(0);
+        const nodes = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const xInput = scaleInput(table.value(rowIndex, layer.x.field));
+            const oldValue = numericDataValue(table.value(rowIndex, oldField));
+            const newValue = numericDataValue(table.value(rowIndex, newField));
+            if (xInput === null || oldValue === null || newValue === null)
+                continue;
+            const x = xScale.map(xInput);
+            const oldY = yScale.map(oldValue);
+            const newY = yScale.map(newValue);
+            if (![x, oldY, newY, baseline].every(Number.isFinite))
+                continue;
+            nodes.push({
+                type: 'rect',
+                ...nodeBase(`${layer.id}:old:${rowIndex}`, { zIndex: layer.zIndex, opacity: 0.28 }),
+                x: x - width / 2,
+                y: Math.min(oldY, baseline),
+                width,
+                height: Math.max(1, Math.abs(baseline - oldY)),
+                fill: optionString$5(layer.mark.options, 'oldColor') ?? theme.colors.mutedText,
+                lineWidth: 0,
+                cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
+            });
+            nodes.push({
+                type: 'rect',
+                ...nodeBase(`${layer.id}:new:${rowIndex}`, {
+                    zIndex: layer.zIndex + 0.1,
+                    opacity: layer.mark.opacity,
+                    interactive: performance.enableHitTesting,
+                    datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) },
+                }),
+                x: x - width * 0.32,
+                y: Math.min(newY, baseline),
+                width: width * 0.64,
+                height: Math.max(1, Math.abs(baseline - newY)),
+                fill: layer.mark.fill ?? theme.colors.focus,
+                lineWidth: 0,
+                cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
+            });
+            nodes.push({
+                type: 'line',
+                ...nodeBase(`${layer.id}:delta:${rowIndex}`, { zIndex: layer.zIndex + 0.2 }),
+                x1: x,
+                y1: oldY,
+                x2: x,
+                y2: newY,
+                stroke: theme.colors.text,
+                lineWidth: 1.5,
+                lineCap: 'round',
+            });
+        }
+        return nodes;
+    };
+    const compileAnnotationMark = (context) => {
+        const nodes = [...compileLineMark(context)];
+        const { table, layer, xScale, plot, theme } = context;
+        const titleField = layer.mark.fields.annotation ?? 'annotation';
+        const textField = layer.mark.fields.annotationText;
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            if (!table.has(titleField))
+                break;
+            const annotation = table.value(rowIndex, titleField);
+            const xInput = scaleInput(table.value(rowIndex, layer.x.field));
+            if (annotation === null || annotation === undefined || annotation === '' || xInput === null)
+                continue;
+            const x = xScale.map(xInput);
+            if (!Number.isFinite(x))
+                continue;
+            nodes.push({
+                type: 'line',
+                ...nodeBase(`${layer.id}:annotation-line:${rowIndex}`, { zIndex: layer.zIndex + 0.5 }),
+                x1: x,
+                y1: plot.y,
+                x2: x,
+                y2: plot.y + plot.height,
+                stroke: layer.mark.stroke ?? theme.colors.focus,
+                lineWidth: 1.25,
+                dash: [4, 3],
+            });
+            const suffix = textField !== undefined && table.has(textField)
+                ? table.value(rowIndex, textField)
+                : undefined;
+            const label = suffix === undefined || suffix === null
+                ? String(annotation)
+                : `${String(annotation)} — ${String(suffix)}`;
+            const width = Math.min(190, Math.max(54, label.length * 6.1 + 16));
+            const labelX = Math.min(plot.x + plot.width - width - 4, x + 6);
+            nodes.push({
+                type: 'rect',
+                ...nodeBase(`${layer.id}:annotation-pill:${rowIndex}`, {
+                    zIndex: layer.zIndex + 0.6,
+                    opacity: 0.96,
+                }),
+                x: labelX,
+                y: plot.y + 4,
+                width,
+                height: 22,
+                fill: theme.colors.surface,
+                stroke: colorWithOpacity(layer.mark.stroke ?? theme.colors.focus, 0.46),
+                lineWidth: 1,
+                cornerRadius: 6,
+            });
+            nodes.push(textNode$3(`${layer.id}:annotation-label:${rowIndex}`, labelX + 8, plot.y + 15, label, context, { align: 'left', baseline: 'middle', size: 10, weight: 650 }));
+        }
+        return nodes;
+    };
+    const compileVegaMark = (context) => {
+        const mark = optionString$5(context.layer.mark.options, 'mark') ?? 'line';
+        if (mark === 'bar')
+            return compileBarMark(context);
+        if (mark === 'area')
+            return compileAreaMark(context);
+        if (mark === 'point' || mark === 'circle')
+            return compilePointMark(context);
+        return compileLineMark(context);
     };
 
     /* This file is generated by scripts/generate-natural-earth-world.mjs. */
@@ -6435,8 +7607,8 @@ var Graflume = (function (exports) {
         });
     }
 
-    const TAU = Math.PI * 2;
-    function clamp(value, minimum, maximum) {
+    const TAU$1 = Math.PI * 2;
+    function clamp$1(value, minimum, maximum) {
         return Math.max(minimum, Math.min(maximum, value));
     }
     function optionNumber$3(value, fallback) {
@@ -6445,16 +7617,16 @@ var Graflume = (function (exports) {
     function optionString$3(value, fallback) {
         return typeof value === 'string' && value.trim() !== '' ? value : fallback;
     }
-    function stringValue(value) {
+    function stringValue$1(value) {
         if (value === null || value === undefined)
             return null;
         return value instanceof Date ? value.toISOString() : String(value);
     }
-    function paletteColor(context, index) {
+    function paletteColor$1(context, index) {
         return (context.theme.colors.palette[index % context.theme.colors.palette.length] ??
             context.theme.colors.focus);
     }
-    function datumBase(context, id, rowIndex, offset = 0, tooltip) {
+    function datumBase$1(context, id, rowIndex, offset = 0, tooltip) {
         return nodeBase(id, {
             zIndex: context.layer.zIndex + offset,
             opacity: context.layer.mark.opacity,
@@ -6490,7 +7662,7 @@ var Graflume = (function (exports) {
         return Array.from({ length: segments + 1 }, (_, index) => pointOnCircle(cx, cy, radius, start + ((end - start) * index) / segments));
     }
     function annularSector(cx, cy, innerRadius, outerRadius, start, end) {
-        const segments = Math.max(6, Math.ceil((Math.abs(end - start) / TAU) * 64));
+        const segments = Math.max(6, Math.ceil((Math.abs(end - start) / TAU$1) * 64));
         return [
             ...sampledArc(cx, cy, outerRadius, start, end, segments),
             ...sampledArc(cx, cy, innerRadius, end, start, segments),
@@ -6590,7 +7762,7 @@ var Graflume = (function (exports) {
             for (const row of rows) {
                 nodes.push({
                     type: 'circle',
-                    ...datumBase(context, `${layer.id}:smooth-point:${row.rowIndex}`, row.rowIndex, 2),
+                    ...datumBase$1(context, `${layer.id}:smooth-point:${row.rowIndex}`, row.rowIndex, 2),
                     cx: row.x,
                     cy: row.y,
                     radius: layer.mark.radius ?? theme.mark.pointRadius,
@@ -6604,7 +7776,7 @@ var Graflume = (function (exports) {
             rows.forEach((row) => {
                 nodes.push({
                     type: 'circle',
-                    ...datumBase(context, `${layer.id}:smooth-hit:${row.rowIndex}`, row.rowIndex, 2),
+                    ...datumBase$1(context, `${layer.id}:smooth-hit:${row.rowIndex}`, row.rowIndex, 2),
                     cx: row.x,
                     cy: row.y,
                     radius: Math.max(2.5, layer.mark.radius ?? 3),
@@ -6662,7 +7834,7 @@ var Graflume = (function (exports) {
             for (const row of rows) {
                 nodes.push({
                     type: 'circle',
-                    ...datumBase(context, `${layer.id}:range-hit:${row.rowIndex}`, row.rowIndex, 1),
+                    ...datumBase$1(context, `${layer.id}:range-hit:${row.rowIndex}`, row.rowIndex, 1),
                     cx: row.x,
                     cy: (row.low + row.high) / 2,
                     radius: Math.max(3, layer.mark.radius ?? 3.5),
@@ -6680,7 +7852,7 @@ var Graflume = (function (exports) {
             if (mode === 'column') {
                 nodes.push({
                     type: 'rect',
-                    ...datumBase(context, `${layer.id}:range-column:${row.rowIndex}`, row.rowIndex),
+                    ...datumBase$1(context, `${layer.id}:range-column:${row.rowIndex}`, row.rowIndex),
                     x: row.x - width / 2,
                     y: Math.min(row.low, row.high),
                     width,
@@ -6710,7 +7882,7 @@ var Graflume = (function (exports) {
             ]) {
                 nodes.push({
                     type: 'circle',
-                    ...datumBase(context, `${layer.id}:${suffix}:${row.rowIndex}`, row.rowIndex, 1),
+                    ...datumBase$1(context, `${layer.id}:${suffix}:${row.rowIndex}`, row.rowIndex, 1),
                     cx: row.x,
                     cy: y,
                     radius,
@@ -6723,7 +7895,7 @@ var Graflume = (function (exports) {
         return nodes;
     };
     const compileDistributionMark = (context) => {
-        const { layer, table, plot, theme } = context;
+        const { layer, table, xScale, yScale, plot, theme } = context;
         const sourceField = layer.mark.fields.value ?? layer.y.field;
         const values = [];
         for (let index = 0; index < table.length; index += 1) {
@@ -6731,28 +7903,34 @@ var Graflume = (function (exports) {
             if (value !== null)
                 values.push(value);
         }
-        if (values.length < 2)
+        const summary = summarizeNormalDistribution(values);
+        if (summary === null)
             return [];
-        const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
-        const deviation = Math.sqrt(values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / Math.max(1, values.length - 1));
-        const sigma = deviation || 1;
-        const samples = clamp(Math.floor(optionNumber$3(layer.mark.options.samples, 72)), 24, 160);
+        const { mean, standardDeviation: sigma } = summary;
+        const samples = clamp$1(Math.floor(optionNumber$3(layer.mark.options.samples, 72)), 24, 160);
         const densities = Array.from({ length: samples + 1 }, (_, index) => {
-            const xValue = mean - sigma * 3.5 + (sigma * 7 * index) / samples;
-            const density = Math.exp(-0.5 * ((xValue - mean) / sigma) ** 2) / (sigma * Math.sqrt(TAU));
+            const xValue = summary.domainMinimum + ((summary.domainMaximum - summary.domainMinimum) * index) / samples;
+            const density = normalDensity(xValue, summary);
             return { xValue, density };
         });
-        const maximum = Math.max(...densities.map(({ density }) => density));
         const points = densities.map(({ xValue, density }) => ({
-            x: plot.x + ((xValue - (mean - sigma * 3.5)) / (sigma * 7)) * plot.width,
-            y: plot.y + plot.height - (density / maximum) * plot.height * 0.82,
+            x: xScale.map(xValue),
+            y: yScale.map(density),
         }));
-        const baseline = plot.y + plot.height;
+        const baseline = yScale.map(0);
         const stroke = layer.mark.stroke ?? context.color;
+        const tooltip = {
+            kind: 'normal-density',
+            mean,
+            standardDeviation: sigma,
+            sampleCount: values.length,
+            minimum: summary.observedMinimum,
+            maximum: summary.observedMaximum,
+        };
         return [
             {
                 type: 'path',
-                ...datumBase(context, `${layer.id}:distribution-area`, 0),
+                ...datumBase$1(context, `${layer.id}:distribution-area`, 0, 0, tooltip),
                 points: [{ x: points[0].x, y: baseline }, ...points, { x: points.at(-1).x, y: baseline }],
                 closed: true,
                 fill: layer.mark.fill ?? colorWithOpacity(stroke, 0.2),
@@ -6760,7 +7938,7 @@ var Graflume = (function (exports) {
             },
             {
                 type: 'path',
-                ...nodeBase(`${layer.id}:distribution-line`, { zIndex: layer.zIndex + 1 }),
+                ...datumBase$1(context, `${layer.id}:distribution-line`, 0, 1, tooltip),
                 points,
                 closed: false,
                 stroke,
@@ -6768,7 +7946,7 @@ var Graflume = (function (exports) {
                 lineCap: 'round',
                 lineJoin: 'round',
             },
-            textNode$2(context, `${layer.id}:distribution-mean`, plot.x + plot.width / 2, plot.y + 14, `μ ${mean.toFixed(2)} · σ ${sigma.toFixed(2)}`, {
+            textNode$2(context, `${layer.id}:distribution-mean`, xScale.map(mean), plot.y + 14, `μ ${mean.toFixed(2)} · σ ${sigma.toFixed(2)}`, {
                 fill: theme.colors.mutedText,
                 size: Math.max(9, theme.typography.fontSize - 1),
             }),
@@ -6816,7 +7994,7 @@ var Graflume = (function (exports) {
             const targetY = yScale.map(target);
             nodes.push({
                 type: 'rect',
-                ...datumBase(context, `${layer.id}:bullet-value:${rowIndex}`, rowIndex),
+                ...datumBase$1(context, `${layer.id}:bullet-value:${rowIndex}`, rowIndex),
                 x: x - width * 0.22,
                 y: Math.min(valueY, baseline),
                 width: width * 0.44,
@@ -6867,7 +8045,7 @@ var Graflume = (function (exports) {
             const index = Math.round(ratio * (theme.colors.sequential.length - 1));
             return {
                 type: 'rect',
-                ...datumBase(context, `${layer.id}:contour-cell:${row.rowIndex}`, row.rowIndex),
+                ...datumBase$1(context, `${layer.id}:contour-cell:${row.rowIndex}`, row.rowIndex),
                 x: row.x - cellWidth / 2,
                 y: row.y - cellHeight / 2,
                 width: cellWidth,
@@ -6877,7 +8055,7 @@ var Graflume = (function (exports) {
                 cornerRadius: layer.mark.cornerRadius ?? 2,
             };
         });
-        const levelCount = clamp(Math.floor(optionNumber$3(layer.mark.options.levels, 5)), 2, 10);
+        const levelCount = clamp$1(Math.floor(optionNumber$3(layer.mark.options.levels, 5)), 2, 10);
         for (let levelIndex = 1; levelIndex < levelCount; levelIndex += 1) {
             const target = minimum + ((maximum - minimum) * levelIndex) / levelCount;
             const candidates = rows.filter((row) => row.value >= target);
@@ -6893,7 +8071,7 @@ var Graflume = (function (exports) {
                 type: 'path',
                 ...nodeBase(`${layer.id}:contour-line:${levelIndex}`, { zIndex: layer.zIndex + 2 }),
                 points: Array.from({ length: 37 }, (_, index) => {
-                    const angle = (index / 36) * TAU;
+                    const angle = (index / 36) * TAU$1;
                     return {
                         x: center.x + Math.cos(angle) * radiusX,
                         y: center.y + Math.sin(angle) * radiusY,
@@ -6912,7 +8090,7 @@ var Graflume = (function (exports) {
         const width = Math.max(8, xScale instanceof BandScale
             ? xScale.bandwidth * 0.58
             : plot.width / Math.max(3, table.length * 1.8));
-        const ellipseHeight = clamp(width * 0.28, 4, 18);
+        const ellipseHeight = clamp$1(width * 0.28, 4, 18);
         const baseline = yScale.map(0);
         const nodes = [];
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
@@ -6926,10 +8104,10 @@ var Graflume = (function (exports) {
                 continue;
             const top = Math.min(y, baseline);
             const bottom = Math.max(y, baseline);
-            const color = layer.mark.fill ?? paletteColor(context, rowIndex);
+            const color = layer.mark.fill ?? paletteColor$1(context, rowIndex);
             nodes.push({
                 type: 'rect',
-                ...datumBase(context, `${layer.id}:cylinder-body:${rowIndex}`, rowIndex),
+                ...datumBase$1(context, `${layer.id}:cylinder-body:${rowIndex}`, rowIndex),
                 x: x - width / 2,
                 y: top,
                 width,
@@ -6944,7 +8122,7 @@ var Graflume = (function (exports) {
                 ['bottom', bottom, mixColor(color, theme.colors.text, 0.12)],
             ]) {
                 const points = Array.from({ length: 25 }, (_, index) => {
-                    const angle = (index / 24) * TAU;
+                    const angle = (index / 24) * TAU$1;
                     return {
                         x: x + Math.cos(angle) * (width / 2),
                         y: centerY + Math.sin(angle) * (ellipseHeight / 2),
@@ -6972,8 +8150,8 @@ var Graflume = (function (exports) {
         const seen = new Set();
         const links = [];
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
-            const source = stringValue(table.value(rowIndex, sourceField));
-            const target = table.has(targetField) ? stringValue(table.value(rowIndex, targetField)) : null;
+            const source = stringValue$1(table.value(rowIndex, sourceField));
+            const target = table.has(targetField) ? stringValue$1(table.value(rowIndex, targetField)) : null;
             const value = numericDataValue(table.value(rowIndex, valueField)) ?? 1;
             if (source === null || target === null)
                 continue;
@@ -7002,10 +8180,10 @@ var Graflume = (function (exports) {
             const height = Math.min(plot.height * 0.64, Math.abs(endX - startX) * 0.55 + 18);
             nodes.push({
                 type: 'path',
-                ...datumBase(context, `${layer.id}:arc-link:${link.rowIndex}`, link.rowIndex),
+                ...datumBase$1(context, `${layer.id}:arc-link:${link.rowIndex}`, link.rowIndex),
                 points: quadraticPoints({ x: startX, y: baseline }, { x: (startX + endX) / 2, y: baseline - height }, { x: endX, y: baseline }, 32),
                 closed: false,
-                stroke: layer.mark.stroke ?? paletteColor(context, names.indexOf(link.source)),
+                stroke: layer.mark.stroke ?? paletteColor$1(context, names.indexOf(link.source)),
                 lineWidth: (layer.mark.lineWidth ?? 1.6) + (link.value / maximum) * 5,
                 lineCap: 'round',
                 lineJoin: 'round',
@@ -7019,7 +8197,7 @@ var Graflume = (function (exports) {
                 cx: x,
                 cy: baseline,
                 radius: layer.mark.radius ?? 6,
-                fill: paletteColor(context, index),
+                fill: paletteColor$1(context, index),
                 stroke: theme.colors.background,
                 lineWidth: 2,
             });
@@ -7035,7 +8213,7 @@ var Graflume = (function (exports) {
         const values = [];
         let total = 0;
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
-            const label = stringValue(table.value(rowIndex, layer.x.field));
+            const label = stringValue$1(table.value(rowIndex, layer.x.field));
             const value = numericDataValue(table.value(rowIndex, layer.y.field));
             if (label === null || value === null || value <= 0)
                 continue;
@@ -7044,7 +8222,7 @@ var Graflume = (function (exports) {
         }
         if (values.length === 0 || total <= 0)
             return [];
-        const count = clamp(Math.floor(optionNumber$3(layer.mark.options.items, 100)), 20, 400);
+        const count = clamp$1(Math.floor(optionNumber$3(layer.mark.options.items, 100)), 20, 400);
         const columns = Math.ceil(Math.sqrt((count * plot.width) / Math.max(1, plot.height)));
         const rows = Math.ceil(count / columns);
         const gap = 2;
@@ -7063,11 +8241,11 @@ var Graflume = (function (exports) {
             const row = Math.floor(index / columns);
             return {
                 type: 'circle',
-                ...datumBase(context, `${layer.id}:item:${index}`, assignment.rowIndex),
+                ...datumBase$1(context, `${layer.id}:item:${index}`, assignment.rowIndex),
                 cx: plot.x + column * (size + gap) + size / 2,
                 cy: plot.y + plot.height - row * (size + gap) - size / 2,
                 radius: size / 2,
-                fill: layer.mark.fill ?? paletteColor(context, assignment.colorIndex),
+                fill: layer.mark.fill ?? paletteColor$1(context, assignment.colorIndex),
                 stroke: theme.colors.background,
                 lineWidth: 0.8,
             };
@@ -7086,7 +8264,7 @@ var Graflume = (function (exports) {
             const y = yScale.map(yValue);
             if (![x, y, baseline].every(Number.isFinite))
                 continue;
-            const color = layer.mark.fill ?? paletteColor(context, rowIndex);
+            const color = layer.mark.fill ?? paletteColor$1(context, rowIndex);
             nodes.push({
                 type: 'line',
                 ...nodeBase(`${layer.id}:lollipop-stem:${rowIndex}`, { zIndex: layer.zIndex }),
@@ -7100,7 +8278,7 @@ var Graflume = (function (exports) {
             });
             nodes.push({
                 type: 'circle',
-                ...datumBase(context, `${layer.id}:lollipop-head:${rowIndex}`, rowIndex, 1),
+                ...datumBase$1(context, `${layer.id}:lollipop-head:${rowIndex}`, rowIndex, 1),
                 cx: x,
                 cy: y,
                 radius: layer.mark.radius ?? 7,
@@ -7116,7 +8294,7 @@ var Graflume = (function (exports) {
         const values = [];
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
             const value = numericDataValue(table.value(rowIndex, layer.y.field));
-            const label = stringValue(table.value(rowIndex, layer.x.field));
+            const label = stringValue$1(table.value(rowIndex, layer.x.field));
             if (value !== null && value >= 0 && label !== null)
                 values.push({ rowIndex, value, label });
         }
@@ -7147,10 +8325,10 @@ var Graflume = (function (exports) {
                 }
             }
             placed.push({ ...position, radius });
-            const color = layer.mark.fill ?? paletteColor(context, index);
+            const color = layer.mark.fill ?? paletteColor$1(context, index);
             nodes.push({
                 type: 'circle',
-                ...datumBase(context, `${layer.id}:packed:${item.rowIndex}`, item.rowIndex),
+                ...datumBase$1(context, `${layer.id}:packed:${item.rowIndex}`, item.rowIndex),
                 cx: position.x,
                 cy: position.y,
                 radius,
@@ -7161,7 +8339,7 @@ var Graflume = (function (exports) {
             if (radius >= 18) {
                 nodes.push(textNode$2(context, `${layer.id}:packed-label:${item.rowIndex}`, position.x, position.y, item.label, {
                     fill: readableTextColor(color, '#ffffff', '#0f172a'),
-                    size: clamp(radius * 0.34, 9, 14),
+                    size: clamp$1(radius * 0.34, 9, 14),
                 }));
             }
         });
@@ -7195,7 +8373,7 @@ var Graflume = (function (exports) {
             cumulative.push({ x: row.x, y: plot.y + plot.height * (1 - running / total) });
             nodes.push({
                 type: 'rect',
-                ...datumBase(context, `${layer.id}:pareto-bar:${row.rowIndex}`, row.rowIndex),
+                ...datumBase$1(context, `${layer.id}:pareto-bar:${row.rowIndex}`, row.rowIndex),
                 x: row.x - width / 2,
                 y: Math.min(y, baseline),
                 width,
@@ -7220,7 +8398,7 @@ var Graflume = (function (exports) {
             const row = rows[index];
             nodes.push({
                 type: 'circle',
-                ...datumBase(context, `${layer.id}:pareto-point:${row.rowIndex}`, row.rowIndex, 3),
+                ...datumBase$1(context, `${layer.id}:pareto-point:${row.rowIndex}`, row.rowIndex, 3),
                 cx: point.x,
                 cy: point.y,
                 radius: 3.5,
@@ -7245,7 +8423,7 @@ var Graflume = (function (exports) {
                 continue;
             const key = seriesField === undefined || !table.has(seriesField)
                 ? 'Series'
-                : (stringValue(table.value(rowIndex, seriesField)) ?? 'Series');
+                : (stringValue$1(table.value(rowIndex, seriesField)) ?? 'Series');
             const group = groups.get(key) ?? [];
             group.push({ rowIndex, point });
             groups.set(key, group);
@@ -7254,10 +8432,10 @@ var Graflume = (function (exports) {
         [...groups.entries()].forEach(([key, rows], groupIndex) => {
             if (rows.length < 3)
                 return;
-            const color = layer.mark.fill ?? paletteColor(context, groupIndex);
+            const color = layer.mark.fill ?? paletteColor$1(context, groupIndex);
             nodes.push({
                 type: 'path',
-                ...datumBase(context, `${layer.id}:polygon:${groupIndex}`, rows[0].rowIndex),
+                ...datumBase$1(context, `${layer.id}:polygon:${groupIndex}`, rows[0].rowIndex),
                 points: rows.map(({ point }) => point),
                 closed: true,
                 fill: colorWithOpacity(color, 0.24),
@@ -7268,7 +8446,7 @@ var Graflume = (function (exports) {
             rows.forEach(({ rowIndex, point }) => {
                 nodes.push({
                     type: 'circle',
-                    ...datumBase(context, `${layer.id}:polygon-point:${rowIndex}`, rowIndex, 1),
+                    ...datumBase$1(context, `${layer.id}:polygon-point:${rowIndex}`, rowIndex, 1),
                     cx: point.x,
                     cy: point.y,
                     radius: layer.mark.radius ?? 3.5,
@@ -7291,7 +8469,7 @@ var Graflume = (function (exports) {
         const { layer, table, plot, theme } = context;
         const rows = [];
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
-            const label = stringValue(table.value(rowIndex, layer.x.field));
+            const label = stringValue$1(table.value(rowIndex, layer.x.field));
             const value = numericDataValue(table.value(rowIndex, layer.y.field));
             if (label !== null && value !== null && value >= 0)
                 rows.push({ rowIndex, label, value });
@@ -7301,7 +8479,7 @@ var Graflume = (function (exports) {
         const variant = optionString$3(layer.mark.options.variant, 'pyramid');
         const reverse = variant.includes('funnel');
         const depth = variant.includes('3d')
-            ? clamp(optionNumber$3(layer.mark.options.depth, 12), 4, 24)
+            ? clamp$1(optionNumber$3(layer.mark.options.depth, 12), 4, 24)
             : 0;
         const sorted = layer.mark.options.sort === false ? rows : rows.slice().sort((a, b) => b.value - a.value);
         const maximum = Math.max(1, ...sorted.map(({ value }) => value));
@@ -7310,13 +8488,13 @@ var Graflume = (function (exports) {
         const maxWidth = plot.width * 0.82;
         const nodes = [];
         sorted.forEach((row, index) => {
-            const currentRatio = clamp(row.value / maximum, 0.06, 1);
-            const nextRatio = clamp((sorted[index + 1]?.value ?? 0) / maximum, 0.03, 1);
+            const currentRatio = clamp$1(row.value / maximum, 0.06, 1);
+            const nextRatio = clamp$1((sorted[index + 1]?.value ?? 0) / maximum, 0.03, 1);
             const topRatio = reverse ? currentRatio : nextRatio;
             const bottomRatio = reverse ? nextRatio : currentRatio;
             const y1 = plot.y + index * height + 1;
             const y2 = plot.y + (index + 1) * height - 1;
-            const color = layer.mark.fill ?? paletteColor(context, index);
+            const color = layer.mark.fill ?? paletteColor$1(context, index);
             const front = [
                 { x: centerX - (maxWidth * topRatio) / 2, y: y1 },
                 { x: centerX + (maxWidth * topRatio) / 2, y: y1 },
@@ -7340,7 +8518,7 @@ var Graflume = (function (exports) {
             }
             nodes.push({
                 type: 'path',
-                ...datumBase(context, `${layer.id}:pyramid:${row.rowIndex}`, row.rowIndex, 1),
+                ...datumBase$1(context, `${layer.id}:pyramid:${row.rowIndex}`, row.rowIndex, 1),
                 points: front,
                 closed: true,
                 fill: color,
@@ -7369,11 +8547,11 @@ var Graflume = (function (exports) {
             if (xValue === null || yValue === null || z === null)
                 continue;
             const ratio = extent === null || extent[1] === extent[0] ? 0.5 : (z - extent[0]) / (extent[1] - extent[0]);
-            const perspective = (ratio - 0.5) * clamp(optionNumber$3(layer.mark.options.perspective, 18), 0, 42);
+            const perspective = (ratio - 0.5) * clamp$1(optionNumber$3(layer.mark.options.perspective, 18), 0, 42);
             const x = xScale.map(xValue) + perspective;
             const y = yScale.map(yValue) - perspective * 0.55;
             const radius = (layer.mark.radius ?? 5) * (0.72 + ratio * 0.9);
-            const color = layer.mark.fill ?? paletteColor(context, rowIndex);
+            const color = layer.mark.fill ?? paletteColor$1(context, rowIndex);
             nodes.push({
                 type: 'circle',
                 ...nodeBase(`${layer.id}:scatter-shadow:${rowIndex}`, {
@@ -7388,7 +8566,7 @@ var Graflume = (function (exports) {
             });
             nodes.push({
                 type: 'circle',
-                ...datumBase(context, `${layer.id}:scatter-3d:${rowIndex}`, rowIndex, ratio),
+                ...datumBase$1(context, `${layer.id}:scatter-3d:${rowIndex}`, rowIndex, ratio),
                 cx: x,
                 cy: y,
                 radius,
@@ -7408,7 +8586,7 @@ var Graflume = (function (exports) {
         const cx = plot.x + plot.width / 2;
         const cy = plot.y + plot.height * 0.58;
         const outer = Math.min(plot.width, plot.height) * 0.38;
-        const thickness = clamp(optionNumber$3(layer.mark.options.thickness, outer * 0.18), 6, outer * 0.45);
+        const thickness = clamp$1(optionNumber$3(layer.mark.options.thickness, outer * 0.18), 6, outer * 0.45);
         const nodes = [
             {
                 type: 'path',
@@ -7424,13 +8602,13 @@ var Graflume = (function (exports) {
             const value = numericDataValue(table.value(rowIndex, layer.y.field));
             if (value === null)
                 continue;
-            const ratio = clamp((value - minimum) / Math.max(1e-9, maximum - minimum), 0, 1);
+            const ratio = clamp$1((value - minimum) / Math.max(1e-9, maximum - minimum), 0, 1);
             const ringOuter = outer - rowIndex * (thickness + 5);
             const ringInner = Math.max(4, ringOuter - thickness);
-            const color = layer.mark.fill ?? paletteColor(context, rowIndex);
+            const color = layer.mark.fill ?? paletteColor$1(context, rowIndex);
             nodes.push({
                 type: 'path',
-                ...datumBase(context, `${layer.id}:solid-value:${rowIndex}`, rowIndex, 1),
+                ...datumBase$1(context, `${layer.id}:solid-value:${rowIndex}`, rowIndex, 1),
                 points: annularSector(cx, cy, ringInner, ringOuter, start, start + (end - start) * ratio),
                 closed: true,
                 fill: color,
@@ -7439,7 +8617,7 @@ var Graflume = (function (exports) {
             });
             if (rowIndex === count - 1) {
                 nodes.push(textNode$2(context, `${layer.id}:solid-label`, cx, cy + outer * 0.2, `${Math.round(value)}`, {
-                    size: clamp(outer * 0.2, 16, 30),
+                    size: clamp$1(outer * 0.2, 16, 30),
                     weight: 700,
                 }));
             }
@@ -7489,7 +8667,7 @@ var Graflume = (function (exports) {
             if (shape === 'circle') {
                 nodes.push({
                     type: 'circle',
-                    ...datumBase(context, `${layer.id}:tile:${rowIndex}`, rowIndex),
+                    ...datumBase$1(context, `${layer.id}:tile:${rowIndex}`, rowIndex),
                     cx: x,
                     cy: y,
                     radius: Math.min(width, height) / 2,
@@ -7501,7 +8679,7 @@ var Graflume = (function (exports) {
             else if (shape === 'square') {
                 nodes.push({
                     type: 'rect',
-                    ...datumBase(context, `${layer.id}:tile:${rowIndex}`, rowIndex),
+                    ...datumBase$1(context, `${layer.id}:tile:${rowIndex}`, rowIndex),
                     x: x - width / 2,
                     y: y - height / 2,
                     width,
@@ -7515,7 +8693,7 @@ var Graflume = (function (exports) {
             else {
                 nodes.push({
                     type: 'path',
-                    ...datumBase(context, `${layer.id}:tile:${rowIndex}`, rowIndex),
+                    ...datumBase$1(context, `${layer.id}:tile:${rowIndex}`, rowIndex),
                     points: tilePolygon(shape, x, y, width, height),
                     closed: true,
                     fill: color,
@@ -7532,7 +8710,7 @@ var Graflume = (function (exports) {
         const radiusField = layer.mark.fields.radius ?? layer.mark.fields.size ?? 'radius';
         const rows = [];
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
-            const label = stringValue(table.value(rowIndex, layer.x.field));
+            const label = stringValue$1(table.value(rowIndex, layer.x.field));
             const value = numericDataValue(table.value(rowIndex, layer.y.field));
             const radius = table.has(radiusField)
                 ? numericDataValue(table.value(rowIndex, radiusField))
@@ -7551,12 +8729,12 @@ var Graflume = (function (exports) {
         let angle = -Math.PI / 2;
         const nodes = [];
         rows.forEach((row, index) => {
-            const next = angle + (row.value / total) * TAU;
+            const next = angle + (row.value / total) * TAU$1;
             const outer = minRadius + Math.sqrt(row.radius / radiusMaximum) * (maxRadius - minRadius);
-            const color = layer.mark.fill ?? paletteColor(context, index);
+            const color = layer.mark.fill ?? paletteColor$1(context, index);
             nodes.push({
                 type: 'path',
-                ...datumBase(context, `${layer.id}:variable-pie:${row.rowIndex}`, row.rowIndex),
+                ...datumBase$1(context, `${layer.id}:variable-pie:${row.rowIndex}`, row.rowIndex),
                 points: annularSector(cx, cy, optionNumber$3(layer.mark.options.innerRadius, 0), outer, angle, next),
                 closed: true,
                 fill: color,
@@ -7583,7 +8761,7 @@ var Graflume = (function (exports) {
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
             const value = numericDataValue(table.value(rowIndex, layer.y.field));
             const width = table.has(widthField) ? numericDataValue(table.value(rowIndex, widthField)) : 1;
-            const label = stringValue(table.value(rowIndex, layer.x.field));
+            const label = stringValue$1(table.value(rowIndex, layer.x.field));
             if (value !== null && width !== null && width > 0 && label !== null)
                 rows.push({ rowIndex, value, width, label });
         }
@@ -7596,10 +8774,10 @@ var Graflume = (function (exports) {
         rows.forEach((row, index) => {
             const width = (row.width / widthTotal) * plot.width;
             const y = yScale.map(row.value);
-            const color = layer.mark.fill ?? paletteColor(context, index);
+            const color = layer.mark.fill ?? paletteColor$1(context, index);
             nodes.push({
                 type: 'rect',
-                ...datumBase(context, `${layer.id}:variwide:${row.rowIndex}`, row.rowIndex),
+                ...datumBase$1(context, `${layer.id}:variwide:${row.rowIndex}`, row.rowIndex),
                 x: cursor + 1,
                 y: Math.min(y, baseline),
                 width: Math.max(1, width - 2),
@@ -7636,13 +8814,13 @@ var Graflume = (function (exports) {
             const ratio = extent === null || extent[1] === extent[0]
                 ? 0.6
                 : (magnitude - extent[0]) / (extent[1] - extent[0]);
-            const length = 10 + clamp(ratio, 0, 1) * 26;
+            const length = 10 + clamp$1(ratio, 0, 1) * 26;
             const angle = (direction * Math.PI) / 180 - Math.PI / 2;
             const end = pointOnCircle(start.x, start.y, length, angle);
             const color = layer.mark.stroke ?? context.color;
             nodes.push({
                 type: 'line',
-                ...datumBase(context, `${layer.id}:vector:${rowIndex}`, rowIndex),
+                ...datumBase$1(context, `${layer.id}:vector:${rowIndex}`, rowIndex),
                 x1: start.x,
                 y1: start.y,
                 x2: end.x,
@@ -7671,7 +8849,7 @@ var Graflume = (function (exports) {
         const { layer, table, plot, theme } = context;
         const rows = [];
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
-            const label = stringValue(table.value(rowIndex, layer.x.field));
+            const label = stringValue$1(table.value(rowIndex, layer.x.field));
             const value = numericDataValue(table.value(rowIndex, layer.y.field));
             if (label !== null && value !== null && value > 0)
                 rows.push({ rowIndex, label, value });
@@ -7685,13 +8863,13 @@ var Graflume = (function (exports) {
         const maxRadius = Math.min(plot.width, plot.height) * 0.25;
         const nodes = [];
         rows.slice(0, 6).forEach((row, index, visibleRows) => {
-            const angle = -Math.PI / 2 + (index * TAU) / Math.max(1, visibleRows.length);
+            const angle = -Math.PI / 2 + (index * TAU$1) / Math.max(1, visibleRows.length);
             const center = pointOnCircle(cx, cy, visibleRows.length === 1 ? 0 : orbit, angle);
             const radius = Math.max(24, Math.sqrt(row.value / maximum) * maxRadius);
-            const color = layer.mark.fill ?? paletteColor(context, index);
+            const color = layer.mark.fill ?? paletteColor$1(context, index);
             nodes.push({
                 type: 'circle',
-                ...datumBase(context, `${layer.id}:venn:${row.rowIndex}`, row.rowIndex, index * 0.01),
+                ...datumBase$1(context, `${layer.id}:venn:${row.rowIndex}`, row.rowIndex, index * 0.01),
                 cx: center.x,
                 cy: center.y,
                 radius,
@@ -7723,13 +8901,13 @@ var Graflume = (function (exports) {
             if (xValue === null || yValue === null || speed === null || direction === null)
                 continue;
             const start = { x: xScale.map(xValue), y: yScale.map(yValue) };
-            const length = clamp(18 + speed * 0.35, 20, 44);
+            const length = clamp$1(18 + speed * 0.35, 20, 44);
             const angle = (direction * Math.PI) / 180 - Math.PI / 2;
             const end = pointOnCircle(start.x, start.y, length, angle);
             const stroke = layer.mark.stroke ?? context.color;
             nodes.push({
                 type: 'line',
-                ...datumBase(context, `${layer.id}:wind:${rowIndex}`, rowIndex),
+                ...datumBase$1(context, `${layer.id}:wind:${rowIndex}`, rowIndex),
                 x1: start.x,
                 y1: start.y,
                 x2: end.x,
@@ -7738,7 +8916,7 @@ var Graflume = (function (exports) {
                 lineWidth: layer.mark.lineWidth ?? 2,
                 lineCap: 'round',
             });
-            const featherCount = clamp(Math.round(speed / 10), 1, 6);
+            const featherCount = clamp$1(Math.round(speed / 10), 1, 6);
             for (let feather = 0; feather < featherCount; feather += 1) {
                 const ratio = 0.32 + (feather / featherCount) * 0.58;
                 const anchor = {
@@ -7777,7 +8955,7 @@ var Graflume = (function (exports) {
         const { layer, table, plot, theme } = context;
         const rows = [];
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
-            const word = stringValue(table.value(rowIndex, layer.x.field));
+            const word = stringValue$1(table.value(rowIndex, layer.x.field));
             const weight = numericDataValue(table.value(rowIndex, layer.y.field));
             if (word !== null && word !== '' && weight !== null && weight > 0)
                 rows.push({ rowIndex, word, weight });
@@ -7835,14 +9013,14 @@ var Graflume = (function (exports) {
             }
             if (!found)
                 return;
-            const color = layer.mark.fill ?? paletteColor(context, index);
+            const color = layer.mark.fill ?? paletteColor$1(context, index);
             const node = textNode$2(context, `${layer.id}:word-cloud:${row.rowIndex}`, x, y, row.word, {
                 fill: color,
                 size,
                 weight: 520 + Math.round(ratio * 220),
                 rotation,
             });
-            nodes.push({ ...node, ...datumBase(context, node.id, row.rowIndex, ratio) });
+            nodes.push({ ...node, ...datumBase$1(context, node.id, row.rowIndex, ratio) });
         });
         return nodes;
     };
@@ -7961,7 +9139,7 @@ var Graflume = (function (exports) {
         const lowerField = layer.mark.fields.lower ?? 'lower';
         const upperField = layer.mark.fields.upper ?? 'upper';
         const fields = indicatorFields(context);
-        const period = clamp(Math.floor(optionNumber$3(layer.mark.options.period, 14)), 2, 200);
+        const period = clamp$1(Math.floor(optionNumber$3(layer.mark.options.period, 14)), 2, 200);
         const sourceValues = Array.from({ length: table.length }, (_, rowIndex) => numericDataValue(table.value(rowIndex, layer.y.field)));
         const calculated = layer.mark.options.calculate === true
             ? calculatedIndicator(kind, sourceValues, period)
@@ -8011,14 +9189,14 @@ var Graflume = (function (exports) {
             }
             const color = fieldIndex === 0
                 ? (layer.mark.stroke ?? context.color)
-                : paletteColor(context, fieldIndex + 1);
+                : paletteColor$1(context, fieldIndex + 1);
             if (columnKinds.has(kind)) {
                 const baseline = yScale.map(0);
                 const width = Math.max(2, plot.width / Math.max(8, table.length * 1.6));
                 points.forEach(({ rowIndex, point, value }) => {
                     nodes.push({
                         type: 'rect',
-                        ...datumBase(context, `${layer.id}:indicator-column:${fieldIndex}:${rowIndex}`, rowIndex, fieldIndex),
+                        ...datumBase$1(context, `${layer.id}:indicator-column:${fieldIndex}:${rowIndex}`, rowIndex, fieldIndex),
                         x: point.x - width / 2,
                         y: Math.min(point.y, baseline),
                         width,
@@ -8050,7 +9228,7 @@ var Graflume = (function (exports) {
                         return;
                     nodes.push({
                         type: 'circle',
-                        ...datumBase(context, `${layer.id}:indicator-point:${fieldIndex}:${rowIndex}`, rowIndex, fieldIndex + 2),
+                        ...datumBase$1(context, `${layer.id}:indicator-point:${fieldIndex}:${rowIndex}`, rowIndex, fieldIndex + 2),
                         cx: point.x,
                         cy: point.y,
                         radius: kind === 'psar' ? 3.2 : 2.2,
@@ -8075,7 +9253,7 @@ var Graflume = (function (exports) {
             const x = xScale.map(xValue);
             const y = yScale.map(yValue);
             const label = table.has(titleField)
-                ? (stringValue(table.value(rowIndex, titleField)) ?? '•')
+                ? (stringValue$1(table.value(rowIndex, titleField)) ?? '•')
                 : '•';
             const color = layer.mark.fill ?? context.color;
             nodes.push({
@@ -8091,7 +9269,7 @@ var Graflume = (function (exports) {
             });
             nodes.push({
                 type: 'path',
-                ...datumBase(context, `${layer.id}:flag:${rowIndex}`, rowIndex, 1),
+                ...datumBase$1(context, `${layer.id}:flag:${rowIndex}`, rowIndex, 1),
                 points: [
                     { x, y: y - 27 },
                     { x: x + 30, y: y - 27 },
@@ -8194,7 +9372,7 @@ var Graflume = (function (exports) {
                     });
                 nodes.push({
                     type: 'line',
-                    ...datumBase(context, `${layer.id}:financial-close:${row.rowIndex}`, row.rowIndex, 1),
+                    ...datumBase$1(context, `${layer.id}:financial-close:${row.rowIndex}`, row.rowIndex, 1),
                     x1: row.x,
                     y1: close,
                     x2: row.x + width / 2,
@@ -8207,7 +9385,7 @@ var Graflume = (function (exports) {
             const hollow = kind === 'hollow-candlestick' && rising;
             nodes.push({
                 type: 'rect',
-                ...datumBase(context, `${layer.id}:financial-body:${row.rowIndex}`, row.rowIndex, 1),
+                ...datumBase$1(context, `${layer.id}:financial-body:${row.rowIndex}`, row.rowIndex, 1),
                 x: row.x - width / 2,
                 y: Math.min(open, close),
                 width,
@@ -8250,10 +9428,10 @@ var Graflume = (function (exports) {
                 nodes.push({
                     ...textNode$2(context, `${layer.id}:point-figure:${row.rowIndex}:${level}`, x, y, rising ? '×' : '○', {
                         fill: layer.mark.stroke ?? color,
-                        size: clamp(Math.min(cellWidth, cellHeight) * 0.82, 9, 22),
+                        size: clamp$1(Math.min(cellWidth, cellHeight) * 0.82, 9, 22),
                         weight: 700,
                     }),
-                    ...datumBase(context, `${layer.id}:point-figure:${row.rowIndex}:${level}`, row.rowIndex),
+                    ...datumBase$1(context, `${layer.id}:point-figure:${row.rowIndex}:${level}`, row.rowIndex),
                 });
             }
         });
@@ -8297,7 +9475,7 @@ var Graflume = (function (exports) {
             const end = mapY(brick.end);
             return {
                 type: 'rect',
-                ...datumBase(context, `${layer.id}:renko:${index}`, brick.rowIndex, 0, {
+                ...datumBase$1(context, `${layer.id}:renko:${index}`, brick.rowIndex, 0, {
                     ...table.row(brick.rowIndex),
                     brickStart: brick.start,
                     brickEnd: brick.end,
@@ -8318,7 +9496,7 @@ var Graflume = (function (exports) {
         const { layer, table, plot, theme } = context;
         const priceField = layer.mark.fields.price ?? layer.y.field;
         const volumeField = layer.mark.fields.volume ?? 'volume';
-        const bins = clamp(Math.floor(optionNumber$3(layer.mark.options.bins, 12)), 4, 50);
+        const bins = clamp$1(Math.floor(optionNumber$3(layer.mark.options.bins, 12)), 4, 50);
         const priceExtent = table.has(priceField) ? table.extent(priceField) : null;
         if (priceExtent === null || !table.has(volumeField))
             return [];
@@ -8330,7 +9508,7 @@ var Graflume = (function (exports) {
             const volume = numericDataValue(table.value(rowIndex, volumeField));
             if (price === null || volume === null)
                 continue;
-            const bin = clamp(Math.floor(((price - priceExtent[0]) / span) * bins), 0, bins - 1);
+            const bin = clamp$1(Math.floor(((price - priceExtent[0]) / span) * bins), 0, bins - 1);
             totals[bin] = (totals[bin] ?? 0) + Math.max(0, volume);
             rowIndexes[bin] = rowIndex;
         }
@@ -8342,7 +9520,7 @@ var Graflume = (function (exports) {
             const width = (volume / maximum) * plot.width * 0.48;
             const rowIndex = rowIndexes[index] ?? -1;
             const base = rowIndex >= 0
-                ? datumBase(context, `${layer.id}:volume-profile:${index}`, rowIndex, 0, {
+                ? datumBase$1(context, `${layer.id}:volume-profile:${index}`, rowIndex, 0, {
                     priceStart: priceExtent[0] + (span * index) / bins,
                     priceEnd: priceExtent[0] + (span * (index + 1)) / bins,
                     volume,
@@ -8401,10 +9579,10 @@ var Graflume = (function (exports) {
                 ? 0.5
                 : (value - valueExtent[0]) / (valueExtent[1] - valueExtent[0]);
             const points = quadraticPoints(start, control, end, 28);
-            const color = layer.mark.stroke ?? paletteColor(context, rowIndex);
+            const color = layer.mark.stroke ?? paletteColor$1(context, rowIndex);
             nodes.push({
                 type: 'path',
-                ...datumBase(context, `${layer.id}:geo-line:${rowIndex}`, rowIndex),
+                ...datumBase$1(context, `${layer.id}:geo-line:${rowIndex}`, rowIndex),
                 points,
                 closed: false,
                 stroke: color,
@@ -8469,7 +9647,7 @@ var Graflume = (function (exports) {
             });
             nodes.push({
                 type: 'circle',
-                ...datumBase(context, `${layer.id}:geo-heat:${rowIndex}`, rowIndex),
+                ...datumBase$1(context, `${layer.id}:geo-heat:${rowIndex}`, rowIndex),
                 cx: point.x,
                 cy: point.y,
                 radius: 5 + ratio * 9,
@@ -8489,10 +9667,10 @@ var Graflume = (function (exports) {
             if (longitude === null || latitude === null || !isGeographicPosition(longitude, latitude))
                 continue;
             const point = projectGeographicPosition(plot, longitude, latitude);
-            const color = layer.mark.fill ?? paletteColor(context, rowIndex);
+            const color = layer.mark.fill ?? paletteColor$1(context, rowIndex);
             nodes.push({
                 type: 'circle',
-                ...datumBase(context, `${layer.id}:tiled-point:${rowIndex}`, rowIndex),
+                ...datumBase$1(context, `${layer.id}:tiled-point:${rowIndex}`, rowIndex),
                 cx: point.x,
                 cy: point.y,
                 radius: layer.mark.radius ?? 6,
@@ -8513,6 +9691,1239 @@ var Graflume = (function (exports) {
             },
         },
     });
+
+    const TAU = Math.PI * 2;
+    function clamp(value, minimum, maximum) {
+        return Math.max(minimum, Math.min(maximum, value));
+    }
+    function optionNumber$2(options, key, fallback) {
+        const value = options[key];
+        return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+    }
+    function optionString$2(options, key, fallback) {
+        const value = options[key];
+        return typeof value === 'string' && value.trim() !== '' ? value : fallback;
+    }
+    function optionStrings$1(value) {
+        if (!Array.isArray(value))
+            return [];
+        return value.filter((entry) => typeof entry === 'string' && entry.trim() !== '');
+    }
+    function allocatedBudget(total, count, index) {
+        if (total <= 0 || count <= 0 || index < 0 || index >= count)
+            return 0;
+        const base = Math.floor(total / count);
+        return base + (index < total % count ? 1 : 0);
+    }
+    function sampledItems(values, target) {
+        return exactStrideSampleIndices(values.length, target).flatMap((index) => {
+            const value = values[index];
+            return value === undefined ? [] : [value];
+        });
+    }
+    function sampledLineItems(values, target, metric) {
+        if (target < 4 || values.length <= target)
+            return sampledItems(values, target);
+        return minMaxSampleIndices(values.map(metric), target).flatMap((index) => {
+            const value = values[index];
+            return value === undefined ? [] : [value];
+        });
+    }
+    function stringValue(value) {
+        if (value === null || value === undefined)
+            return null;
+        return value instanceof Date ? value.toISOString() : String(value);
+    }
+    function paletteColor(context, index) {
+        return (context.theme.colors.palette[index % context.theme.colors.palette.length] ??
+            context.theme.colors.focus);
+    }
+    function textNode$1(context, id, x, y, text, options = {}) {
+        return {
+            type: 'text',
+            ...nodeBase(id, { zIndex: context.layer.zIndex + 4 }),
+            x,
+            y,
+            text,
+            fill: options.fill ?? context.theme.colors.text,
+            fontFamily: context.theme.typography.fontFamily,
+            fontSize: options.size ?? context.theme.typography.fontSize,
+            fontWeight: options.weight ?? 600,
+            align: options.align ?? 'center',
+            baseline: options.baseline ?? 'middle',
+            rotation: options.rotation ?? 0,
+        };
+    }
+    function datumBase(context, id, rowIndex, zIndex = 1, tooltip) {
+        return nodeBase(id, {
+            zIndex: context.layer.zIndex + zIndex,
+            opacity: context.layer.mark.opacity,
+            interactive: context.performance.enableHitTesting,
+            datum: {
+                layerId: context.layer.id,
+                rowIndex,
+                datum: context.table.row(rowIndex),
+                ...(tooltip === undefined ? {} : { tooltip }),
+            },
+        });
+    }
+    function inferredCellSpan(values, fallback) {
+        const sorted = [...new Set(values.filter(Number.isFinite))].sort((left, right) => left - right);
+        let smallest = Number.POSITIVE_INFINITY;
+        for (let index = 1; index < sorted.length; index += 1) {
+            smallest = Math.min(smallest, (sorted[index] ?? 0) - (sorted[index - 1] ?? 0));
+        }
+        return Number.isFinite(smallest) ? Math.max(1, smallest) : Math.max(1, fallback);
+    }
+    function interpolateContourPoint(start, end, startValue, endValue, level) {
+        const ratio = clamp((level - startValue) / (endValue - startValue || 1), 0, 1);
+        return {
+            x: start.x + (end.x - start.x) * ratio,
+            y: start.y + (end.y - start.y) * ratio,
+        };
+    }
+    /** Deterministic marching-squares segments for regular or warped grids. */
+    function contourSegments(values, points, levels, maximumSegments = Number.POSITIVE_INFINITY) {
+        const limit = Math.max(0, Math.trunc(maximumSegments));
+        if (limit === 0)
+            return [];
+        const segments = [];
+        for (let row = 0; row < values.length - 1; row += 1) {
+            const current = values[row];
+            const next = values[row + 1];
+            const currentPoints = points[row];
+            const nextPoints = points[row + 1];
+            if (current === undefined ||
+                next === undefined ||
+                currentPoints === undefined ||
+                nextPoints === undefined)
+                continue;
+            const width = Math.min(current.length, next.length, currentPoints.length, nextPoints.length);
+            for (let column = 0; column < width - 1; column += 1) {
+                const cellValues = [current[column], current[column + 1], next[column + 1], next[column]];
+                const cellPoints = [
+                    currentPoints[column],
+                    currentPoints[column + 1],
+                    nextPoints[column + 1],
+                    nextPoints[column],
+                ];
+                if (cellValues.some((value) => value === null || value === undefined) ||
+                    cellPoints.some((point) => point === null || point === undefined))
+                    continue;
+                const numeric = cellValues;
+                const corners = cellPoints;
+                for (let levelIndex = 0; levelIndex < levels.length; levelIndex += 1) {
+                    const level = levels[levelIndex];
+                    if (level === undefined)
+                        continue;
+                    const crossings = [];
+                    for (let edge = 0; edge < 4; edge += 1) {
+                        const nextEdge = (edge + 1) % 4;
+                        const startValue = numeric[edge] ?? 0;
+                        const endValue = numeric[nextEdge] ?? 0;
+                        if ((startValue < level && endValue >= level) ||
+                            (endValue < level && startValue >= level)) {
+                            crossings.push(interpolateContourPoint(corners[edge] ?? corners[0], corners[nextEdge] ?? corners[0], startValue, endValue, level));
+                        }
+                    }
+                    if (crossings.length === 2 && crossings[0] !== undefined && crossings[1] !== undefined) {
+                        segments.push({ levelIndex, points: [crossings[0], crossings[1]] });
+                        if (segments.length >= limit)
+                            return segments;
+                    }
+                    else if (crossings.length === 4) {
+                        const first = crossings[0];
+                        const second = crossings[1];
+                        const third = crossings[2];
+                        const fourth = crossings[3];
+                        if (first !== undefined && second !== undefined) {
+                            segments.push({ levelIndex, points: [first, second] });
+                            if (segments.length >= limit)
+                                return segments;
+                        }
+                        if (third !== undefined && fourth !== undefined) {
+                            segments.push({ levelIndex, points: [third, fourth] });
+                            if (segments.length >= limit)
+                                return segments;
+                        }
+                    }
+                }
+            }
+        }
+        return segments;
+    }
+    function byteChannel(value, fallback) {
+        const numeric = numericDataValue(value);
+        return numeric === null ? fallback : Math.round(clamp(numeric, 0, 255));
+    }
+    /** A raster compiler that keeps every pixel portable as a data row. */
+    const compileImageMark = (context) => {
+        const { layer, table, xScale, yScale, plot, theme } = context;
+        const colorField = layer.mark.fields.color;
+        const redField = layer.mark.fields.red ?? 'red';
+        const greenField = layer.mark.fields.green ?? 'green';
+        const blueField = layer.mark.fields.blue ?? 'blue';
+        const alphaField = layer.mark.fields.alpha;
+        const xPositions = [];
+        const yPositions = [];
+        const rasterRows = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const x = scaleInput(table.value(rowIndex, layer.x.field));
+            const y = scaleInput(table.value(rowIndex, layer.y.field));
+            if (x === null || y === null)
+                continue;
+            const mappedX = xScale.map(x);
+            const mappedY = yScale.map(y);
+            if (!Number.isFinite(mappedX) || !Number.isFinite(mappedY))
+                continue;
+            xPositions.push(mappedX);
+            yPositions.push(mappedY);
+            rasterRows.push({ rowIndex, x: mappedX, y: mappedY });
+        }
+        const cellWidth = xScale instanceof BandScale
+            ? xScale.bandwidth
+            : inferredCellSpan(xPositions, plot.width / Math.max(1, Math.sqrt(table.length)));
+        const cellHeight = yScale instanceof BandScale
+            ? yScale.bandwidth
+            : inferredCellSpan(yPositions, plot.height / Math.max(1, Math.sqrt(table.length)));
+        const gap = clamp(optionNumber$2(layer.mark.options, 'cellGap', 0), 0, 8);
+        const nodes = [];
+        for (const { rowIndex, x, y } of sampledItems(rasterRows, context.performance.maxBarMarks)) {
+            const explicit = colorField === undefined || !table.has(colorField)
+                ? null
+                : stringValue(table.value(rowIndex, colorField));
+            const red = table.has(redField) ? byteChannel(table.value(rowIndex, redField), 0) : 0;
+            const green = table.has(greenField) ? byteChannel(table.value(rowIndex, greenField), 0) : 0;
+            const blue = table.has(blueField) ? byteChannel(table.value(rowIndex, blueField), 0) : 0;
+            const alpha = alphaField !== undefined && table.has(alphaField)
+                ? clamp(byteChannel(table.value(rowIndex, alphaField), 255) / 255, 0, 1)
+                : 1;
+            const fill = layer.mark.fill ?? explicit ?? `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+            nodes.push({
+                type: 'rect',
+                ...datumBase(context, `${layer.id}:image:${rowIndex}`, rowIndex, 1, {
+                    x: table.value(rowIndex, layer.x.field) ?? null,
+                    y: table.value(rowIndex, layer.y.field) ?? null,
+                    red,
+                    green,
+                    blue,
+                    alpha,
+                }),
+                x: x - cellWidth / 2 + gap / 2,
+                y: y - cellHeight / 2 + gap / 2,
+                width: Math.max(1, cellWidth - gap),
+                height: Math.max(1, cellHeight - gap),
+                fill,
+                ...(layer.mark.stroke === undefined && gap <= 0
+                    ? {}
+                    : { stroke: layer.mark.stroke ?? theme.colors.background }),
+                lineWidth: gap > 0 ? (layer.mark.lineWidth ?? 1) : 0,
+                cornerRadius: layer.mark.cornerRadius ?? 0,
+            });
+        }
+        return nodes;
+    };
+    function gaussianKernel(distance) {
+        return Math.exp(-0.5 * distance * distance) / Math.sqrt(TAU);
+    }
+    function swapNumbers(values, left, right) {
+        const value = values[left];
+        if (value === undefined || values[right] === undefined)
+            return;
+        values[left] = values[right];
+        values[right] = value;
+    }
+    /** Deterministic three-way quickselect that does not allocate a sorted copy. */
+    function selectNumber(values, target) {
+        let left = 0;
+        let right = values.length - 1;
+        while (left < right) {
+            const pivot = values[Math.floor((left + right) / 2)];
+            if (pivot === undefined)
+                break;
+            let lower = left;
+            let cursor = left;
+            let upper = right;
+            while (cursor <= upper) {
+                const value = values[cursor];
+                if (value === undefined)
+                    break;
+                if (value < pivot) {
+                    swapNumbers(values, lower, cursor);
+                    lower += 1;
+                    cursor += 1;
+                }
+                else if (value > pivot) {
+                    swapNumbers(values, cursor, upper);
+                    upper -= 1;
+                }
+                else
+                    cursor += 1;
+            }
+            if (target < lower)
+                right = lower - 1;
+            else if (target > upper)
+                left = upper + 1;
+            else
+                return values[target] ?? pivot;
+        }
+        return values[left] ?? 0;
+    }
+    function exactMedianInPlace(values) {
+        const middle = Math.floor(values.length / 2);
+        const upper = selectNumber(values, middle);
+        return values.length % 2 === 0
+            ? (selectNumber(values, Math.max(0, middle - 1)) + upper) / 2
+            : upper;
+    }
+    function summarizeViolinValues(values) {
+        if (values.length === 0)
+            return null;
+        let minimum = Number.POSITIVE_INFINITY;
+        let maximum = Number.NEGATIVE_INFINITY;
+        let mean = 0;
+        let squaredDifference = 0;
+        values.forEach((value, index) => {
+            minimum = Math.min(minimum, value);
+            maximum = Math.max(maximum, value);
+            const count = index + 1;
+            const difference = value - mean;
+            mean += difference / count;
+            squaredDifference += difference * (value - mean);
+        });
+        return {
+            minimum,
+            maximum,
+            mean,
+            deviation: Math.sqrt(squaredDifference / Math.max(1, values.length - 1)),
+        };
+    }
+    function compileViolin(context) {
+        const { layer, table, xScale, yScale, plot, theme } = context;
+        const valueField = layer.mark.fields.value ?? layer.y.field;
+        const groupField = layer.mark.fields.group ?? layer.x.field;
+        const groups = new Map();
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const group = stringValue(table.value(rowIndex, groupField));
+            const value = numericDataValue(table.value(rowIndex, valueField));
+            if (group === null || value === null)
+                continue;
+            const bucket = groups.get(group) ?? { rows: [], values: [] };
+            bucket.rows.push(rowIndex);
+            bucket.values.push(value);
+            groups.set(group, bucket);
+        }
+        const allViolins = [...groups].map(([name, values]) => ({ name, ...values }));
+        if (allViolins.length === 0)
+            return [];
+        const samples = clamp(Math.floor(optionNumber$2(layer.mark.options, 'samples', 56)), 20, 160);
+        const maximumGroups = Math.max(1, Math.min(context.performance.maxBarMarks, Math.floor(context.performance.maxLinePoints / (2 * (samples + 1)))));
+        const violins = sampledItems(allViolins, maximumGroups);
+        const width = xScale instanceof BandScale
+            ? xScale.bandwidth * 0.78
+            : plot.width / Math.max(3, violins.length * 1.6);
+        const nodes = [];
+        violins.forEach((violin, groupIndex) => {
+            const summary = summarizeViolinValues(violin.values);
+            if (summary === null)
+                return;
+            const { minimum, maximum, mean, deviation } = summary;
+            const densitySource = sampledItems(violin.values, Math.max(1, allocatedBudget(context.performance.maxPointMarks, violins.length, groupIndex)));
+            const span = maximum - minimum || Math.max(1, Math.abs(mean) * 0.1);
+            const bandwidth = Math.max(span / samples, optionNumber$2(layer.mark.options, 'bandwidth', 1.06 * (deviation || span / 4) * violin.values.length ** -0.2));
+            const density = Array.from({ length: samples + 1 }, (_, index) => {
+                const value = minimum - bandwidth + ((span + bandwidth * 2) * index) / samples;
+                const amount = densitySource.reduce((sum, sample) => sum + gaussianKernel((value - sample) / bandwidth), 0) /
+                    (densitySource.length * bandwidth);
+                return { value, amount };
+            });
+            const maxDensity = Math.max(...density.map(({ amount }) => amount), Number.EPSILON);
+            const xInput = scaleInput(table.value(violin.rows[0] ?? 0, groupField));
+            if (xInput === null)
+                return;
+            const center = xScale.map(xInput);
+            const right = density.map(({ value, amount }) => ({
+                x: center + (amount / maxDensity) * width * 0.5,
+                y: yScale.map(value),
+            }));
+            const left = [...density].reverse().map(({ value, amount }) => ({
+                x: center - (amount / maxDensity) * width * 0.5,
+                y: yScale.map(value),
+            }));
+            const fill = layer.mark.fill ?? colorWithOpacity(paletteColor(context, groupIndex), 0.28);
+            const stroke = layer.mark.stroke ?? paletteColor(context, groupIndex);
+            const representative = violin.rows[0] ?? 0;
+            const median = exactMedianInPlace(violin.values);
+            nodes.push({
+                type: 'path',
+                ...datumBase(context, `${layer.id}:violin:${groupIndex}`, representative, 1, {
+                    group: violin.name,
+                    count: violin.values.length,
+                    minimum,
+                    maximum,
+                    mean,
+                    median,
+                    densitySampleCount: densitySource.length,
+                }),
+                points: [...right, ...left],
+                closed: true,
+                fill,
+                stroke,
+                lineWidth: layer.mark.lineWidth ?? 1.8,
+                lineJoin: 'round',
+            });
+            nodes.push({
+                type: 'line',
+                ...nodeBase(`${layer.id}:violin-median:${groupIndex}`, { zIndex: layer.zIndex + 3 }),
+                x1: center - width * 0.18,
+                y1: yScale.map(median),
+                x2: center + width * 0.18,
+                y2: yScale.map(median),
+                stroke: mixColor(stroke, theme.colors.text, 0.25),
+                lineWidth: 2.2,
+                lineCap: 'round',
+            });
+        });
+        return nodes;
+    }
+    function boundedGridDimensions(requestedX, requestedY, maximumCells) {
+        const budget = Math.max(4, Math.trunc(maximumCells));
+        if (requestedX * requestedY <= budget)
+            return [requestedX, requestedY];
+        const scale = Math.sqrt(budget / (requestedX * requestedY));
+        let x = Math.max(2, Math.min(requestedX, Math.floor(requestedX * scale)));
+        let y = Math.max(2, Math.min(requestedY, Math.floor(budget / x)));
+        x = Math.max(2, Math.min(requestedX, Math.floor(budget / y)));
+        while (x * y > budget) {
+            if (x >= y && x > 2)
+                x -= 1;
+            else if (y > 2)
+                y -= 1;
+            else
+                break;
+        }
+        return [x, y];
+    }
+    function compileHistogram2d(context, contours = false) {
+        const { layer, table, xScale, yScale, theme } = context;
+        const xExtent = table.extent(layer.x.field, layer.x.type === 'temporal');
+        const yExtent = table.extent(layer.y.field, layer.y.type === 'temporal');
+        if (xExtent === null || yExtent === null)
+            return [];
+        const requestedBinsX = clamp(Math.floor(optionNumber$2(layer.mark.options, 'binsX', 12)), 2, 80);
+        const requestedBinsY = clamp(Math.floor(optionNumber$2(layer.mark.options, 'binsY', 10)), 2, 80);
+        const [binsX, binsY] = boundedGridDimensions(requestedBinsX, requestedBinsY, context.performance.maxBarMarks);
+        const counts = Array.from({ length: binsY }, () => Array.from({ length: binsX }, () => 0));
+        const rows = Array.from({ length: binsY }, () => Array.from({ length: binsX }, () => -1));
+        const xSpan = xExtent[1] - xExtent[0] || 1;
+        const ySpan = yExtent[1] - yExtent[0] || 1;
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const x = numericDataValue(table.value(rowIndex, layer.x.field), layer.x.type === 'temporal');
+            const y = numericDataValue(table.value(rowIndex, layer.y.field), layer.y.type === 'temporal');
+            if (x === null || y === null)
+                continue;
+            const xBin = clamp(Math.floor(((x - xExtent[0]) / xSpan) * binsX), 0, binsX - 1);
+            const yBin = clamp(Math.floor(((y - yExtent[0]) / ySpan) * binsY), 0, binsY - 1);
+            const rowCounts = counts[yBin];
+            const rowRefs = rows[yBin];
+            if (rowCounts === undefined || rowRefs === undefined)
+                continue;
+            rowCounts[xBin] = (rowCounts[xBin] ?? 0) + 1;
+            if ((rowRefs[xBin] ?? -1) < 0)
+                rowRefs[xBin] = rowIndex;
+        }
+        const maximum = Math.max(1, ...counts.flat());
+        const nodes = [];
+        const centerPoints = Array.from({ length: binsY }, () => []);
+        for (let yBin = 0; yBin < binsY; yBin += 1) {
+            for (let xBin = 0; xBin < binsX; xBin += 1) {
+                const count = counts[yBin]?.[xBin] ?? 0;
+                const xStart = xExtent[0] + (xSpan * xBin) / binsX;
+                const xEnd = xExtent[0] + (xSpan * (xBin + 1)) / binsX;
+                const yStart = yExtent[0] + (ySpan * yBin) / binsY;
+                const yEnd = yExtent[0] + (ySpan * (yBin + 1)) / binsY;
+                const left = xScale.map(xStart);
+                const right = xScale.map(xEnd);
+                const top = yScale.map(yEnd);
+                const bottom = yScale.map(yStart);
+                const ratio = count / maximum;
+                const palette = theme.colors.sequential;
+                const fill = layer.mark.fill ?? palette[Math.round(ratio * (palette.length - 1))] ?? theme.colors.focus;
+                const rowIndex = Math.max(0, rows[yBin]?.[xBin] ?? 0);
+                const centerRow = centerPoints[yBin];
+                if (centerRow !== undefined) {
+                    centerRow[xBin] = { x: (left + right) / 2, y: (top + bottom) / 2 };
+                }
+                if (contours)
+                    continue;
+                if (count === 0 && layer.mark.options.empty !== true)
+                    continue;
+                nodes.push({
+                    type: 'rect',
+                    ...datumBase(context, `${layer.id}:histogram-2d:${xBin}:${yBin}`, rowIndex, 1, {
+                        xStart,
+                        xEnd,
+                        yStart,
+                        yEnd,
+                        count,
+                    }),
+                    x: Math.min(left, right),
+                    y: Math.min(top, bottom),
+                    width: Math.max(1, Math.abs(right - left)),
+                    height: Math.max(1, Math.abs(bottom - top)),
+                    fill,
+                    stroke: layer.mark.stroke ?? colorWithOpacity(theme.colors.background, 0.55),
+                    lineWidth: layer.mark.lineWidth ?? 0.8,
+                    cornerRadius: layer.mark.cornerRadius ?? 0,
+                });
+            }
+        }
+        if (contours) {
+            const levelCount = clamp(Math.floor(optionNumber$2(layer.mark.options, 'levels', 6)), 2, 16);
+            const levels = Array.from({ length: levelCount }, (_, index) => ((index + 1) / (levelCount + 1)) * maximum);
+            contourSegments(counts, centerPoints, levels, Math.floor(context.performance.maxLinePoints / 2)).forEach((segment, index) => {
+                const ratio = segment.levelIndex / Math.max(1, levelCount - 1);
+                const palette = theme.colors.sequential;
+                const stroke = layer.mark.stroke ??
+                    palette[Math.round(ratio * (palette.length - 1))] ??
+                    theme.colors.focus;
+                nodes.push({
+                    type: 'path',
+                    ...datumBase(context, `${layer.id}:histogram-2d-contour:${segment.levelIndex}:${index}`, 0, 1, {
+                        kind: 'density-isoline',
+                        level: levels[segment.levelIndex] ?? 0,
+                        minimumCount: 0,
+                        maximumCount: maximum,
+                        binsX,
+                        binsY,
+                    }),
+                    points: segment.points,
+                    closed: false,
+                    stroke,
+                    lineWidth: layer.mark.lineWidth ?? 1.8,
+                    lineCap: 'round',
+                    lineJoin: 'round',
+                });
+            });
+        }
+        return nodes;
+    }
+    /** One implementation surface for histogram, box, violin, curve, and bivariate modes. */
+    const compileDistributionFamilyMark = (context) => {
+        const mode = resolveDistributionMode(context.layer.mark.options.mode);
+        if (mode === 'boxplot')
+            return compileBoxplotMark(context);
+        if (mode === 'violin')
+            return compileViolin(context);
+        if (mode === 'curve')
+            return compileDistributionMark(context);
+        if (mode === 'histogram-2d')
+            return compileHistogram2d(context);
+        if (mode === 'histogram-2d-contour') {
+            return compileHistogram2d(context, true);
+        }
+        return compileHistogramMark(context);
+    };
+    function angleValue(value, categories, unit) {
+        const numeric = numericDataValue(value);
+        if (numeric !== null)
+            return unit === 'radians' ? numeric : (numeric * Math.PI) / 180;
+        const category = stringValue(value);
+        if (category === null)
+            return null;
+        const index = categories.indexOf(category);
+        return index < 0 ? null : -Math.PI / 2 + (index * TAU) / Math.max(1, categories.length);
+    }
+    function circlePoint(cx, cy, radius, angle) {
+        return { x: cx + Math.cos(angle) * radius, y: cy + Math.sin(angle) * radius };
+    }
+    function arcPoints$1(cx, cy, radius, start, end) {
+        const segments = Math.max(4, Math.ceil((Math.abs(end - start) / TAU) * 72));
+        return Array.from({ length: segments + 1 }, (_, index) => circlePoint(cx, cy, radius, start + ((end - start) * index) / segments));
+    }
+    const compilePolarMark = (context) => {
+        const { layer, table, plot, theme } = context;
+        const mode = optionString$2(layer.mark.options, 'mode', 'line');
+        if (mode === 'radar')
+            return compileRadarMark(context);
+        const unit = optionString$2(layer.mark.options, 'angleUnit', 'degrees');
+        const seriesField = layer.mark.fields.series;
+        const categoriesSeen = new Set();
+        const rowsBySeries = new Map();
+        let maximum = optionNumber$2(layer.mark.options, 'max', 0);
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const angle = table.value(rowIndex, layer.x.field);
+            const category = stringValue(angle);
+            const value = numericDataValue(table.value(rowIndex, layer.y.field));
+            if (category !== null)
+                categoriesSeen.add(category);
+            if (value === null)
+                continue;
+            const seriesName = seriesField === undefined
+                ? 'Series'
+                : (stringValue(table.value(rowIndex, seriesField)) ?? 'Series');
+            const rows = rowsBySeries.get(seriesName) ?? [];
+            rows.push({ angleValue: angle, rowIndex, value });
+            rowsBySeries.set(seriesName, rows);
+            maximum = Math.max(maximum, value);
+        }
+        const allCategories = [...categoriesSeen];
+        const categoricalAngles = allCategories.length > 0 && allCategories.every((value) => Number.isNaN(Number(value)));
+        const maximumSpokes = Math.max(1, Math.min(360, Math.floor(context.performance.maxPointMarks / 4)));
+        const categories = categoricalAngles ? sampledItems(allCategories, maximumSpokes) : allCategories;
+        if (maximum <= 0)
+            maximum = 1;
+        const cx = plot.x + plot.width / 2;
+        const cy = plot.y + plot.height / 2;
+        const radius = Math.max(18, Math.min(plot.width, plot.height) * 0.42);
+        const nodes = [];
+        for (let ring = 1; ring <= 4; ring += 1) {
+            nodes.push({
+                type: 'path',
+                ...nodeBase(`${layer.id}:polar-ring:${ring}`, { zIndex: layer.zIndex }),
+                points: arcPoints$1(cx, cy, (radius * ring) / 4, 0, TAU),
+                closed: true,
+                stroke: colorWithOpacity(theme.colors.grid, 0.78),
+                lineWidth: 1,
+            });
+        }
+        const spokes = categoricalAngles
+            ? categories.map((value, index) => ({
+                value,
+                angle: -Math.PI / 2 + (index * TAU) / categories.length,
+            }))
+            : Array.from({ length: 8 }, (_, index) => ({
+                value: String(index * 45),
+                angle: (index * TAU) / 8,
+            }));
+        spokes.forEach((spoke, index) => {
+            const edge = circlePoint(cx, cy, radius, spoke.angle);
+            nodes.push({
+                type: 'line',
+                ...nodeBase(`${layer.id}:polar-spoke:${index}`, { zIndex: layer.zIndex }),
+                x1: cx,
+                y1: cy,
+                x2: edge.x,
+                y2: edge.y,
+                stroke: colorWithOpacity(theme.colors.grid, 0.7),
+                lineWidth: 1,
+            });
+            const label = circlePoint(cx, cy, radius + 14, spoke.angle);
+            nodes.push(textNode$1(context, `${layer.id}:polar-label:${index}`, label.x, label.y, spoke.value, {
+                fill: theme.colors.mutedText,
+                size: Math.max(9, theme.typography.fontSize - 2),
+            }));
+        });
+        const rowBudget = mode === 'bar'
+            ? context.performance.maxBarMarks
+            : mode === 'line' || mode === 'area'
+                ? Math.min(context.performance.maxPointMarks, context.performance.maxLinePoints)
+                : context.performance.maxPointMarks;
+        const series = sampledItems([...rowsBySeries.keys()], rowBudget);
+        series.forEach((seriesName, seriesIndex) => {
+            const availableRows = (rowsBySeries.get(seriesName) ?? []).flatMap((row) => {
+                const angle = angleValue(row.angleValue, categories, unit);
+                if (angle === null)
+                    return [];
+                return [
+                    {
+                        point: circlePoint(cx, cy, radius * clamp(row.value / maximum, 0, 1), angle),
+                        angle,
+                        rowIndex: row.rowIndex,
+                        value: row.value,
+                    },
+                ];
+            });
+            availableRows.sort((left, right) => left.angle - right.angle);
+            const seriesBudget = allocatedBudget(rowBudget, series.length, seriesIndex);
+            const rows = mode === 'line' || mode === 'area'
+                ? sampledLineItems(availableRows, seriesBudget, ({ value }) => value)
+                : sampledItems(availableRows, seriesBudget);
+            const color = layer.mark.stroke ?? paletteColor(context, seriesIndex);
+            if (mode === 'bar') {
+                const barSpan = optionNumber$2(layer.mark.options, 'barAngle', TAU / Math.max(16, rows.length * 2));
+                const boundedBarSpan = clamp(barSpan, 0.000001, TAU);
+                rows.forEach((row) => {
+                    const outer = radius * clamp(row.value / maximum, 0, 1);
+                    nodes.push({
+                        type: 'path',
+                        ...datumBase(context, `${layer.id}:polar-bar:${row.rowIndex}`, row.rowIndex),
+                        points: [
+                            { x: cx, y: cy },
+                            ...arcPoints$1(cx, cy, outer, row.angle - boundedBarSpan / 2, row.angle + boundedBarSpan / 2),
+                        ],
+                        closed: true,
+                        fill: layer.mark.fill ?? colorWithOpacity(color, 0.72),
+                        stroke: color,
+                        lineWidth: layer.mark.lineWidth ?? 1,
+                        lineJoin: 'round',
+                    });
+                });
+                return;
+            }
+            if ((mode === 'line' || mode === 'area') && rows.length > 1) {
+                nodes.push({
+                    type: 'path',
+                    ...nodeBase(`${layer.id}:polar-line:${seriesIndex}`, { zIndex: layer.zIndex + 1 }),
+                    points: rows.map(({ point }) => point),
+                    closed: layer.mark.options.closed === true,
+                    ...(mode === 'area' ? { fill: layer.mark.fill ?? colorWithOpacity(color, 0.18) } : {}),
+                    stroke: color,
+                    lineWidth: layer.mark.lineWidth ?? 2,
+                    lineCap: 'round',
+                    lineJoin: 'round',
+                });
+            }
+            rows.forEach((row) => {
+                nodes.push({
+                    type: 'circle',
+                    ...datumBase(context, `${layer.id}:polar-point:${row.rowIndex}`, row.rowIndex, 2),
+                    cx: row.point.x,
+                    cy: row.point.y,
+                    radius: layer.mark.radius ?? 4,
+                    fill: layer.mark.fill ?? color,
+                    stroke: theme.colors.background,
+                    lineWidth: 1.2,
+                });
+            });
+        });
+        return nodes;
+    };
+    const compileTernaryMark = (context) => {
+        const { layer, table, plot, theme } = context;
+        const aField = layer.mark.fields.a ?? layer.x.field;
+        const bField = layer.mark.fields.b ?? layer.y.field;
+        const cField = layer.mark.fields.c ?? 'c';
+        if (!table.has(aField) || !table.has(bField) || !table.has(cField))
+            return [];
+        const height = Math.min(plot.height, (plot.width * Math.sqrt(3)) / 2) * 0.88;
+        const width = (height * 2) / Math.sqrt(3);
+        const topY = plot.y + (plot.height - height) / 2;
+        const left = { x: plot.x + (plot.width - width) / 2, y: topY + height };
+        const right = { x: left.x + width, y: left.y };
+        const top = { x: plot.x + plot.width / 2, y: topY };
+        const nodes = [
+            {
+                type: 'path',
+                ...nodeBase(`${layer.id}:ternary-frame`, { zIndex: layer.zIndex }),
+                points: [left, right, top],
+                closed: true,
+                stroke: theme.colors.axis,
+                lineWidth: 1.5,
+                lineJoin: 'round',
+            },
+        ];
+        for (let step = 1; step < 5; step += 1) {
+            const ratio = step / 5;
+            const pairs = [
+                [
+                    { x: left.x + (top.x - left.x) * ratio, y: left.y + (top.y - left.y) * ratio },
+                    { x: right.x + (top.x - right.x) * ratio, y: right.y + (top.y - right.y) * ratio },
+                ],
+                [
+                    { x: left.x + (right.x - left.x) * ratio, y: left.y },
+                    { x: top.x + (right.x - top.x) * ratio, y: top.y + (right.y - top.y) * ratio },
+                ],
+                [
+                    { x: right.x + (left.x - right.x) * ratio, y: right.y },
+                    { x: top.x + (left.x - top.x) * ratio, y: top.y + (left.y - top.y) * ratio },
+                ],
+            ];
+            pairs.forEach(([start, end], index) => nodes.push({
+                type: 'line',
+                ...nodeBase(`${layer.id}:ternary-grid:${step}:${index}`, { zIndex: layer.zIndex }),
+                x1: start.x,
+                y1: start.y,
+                x2: end.x,
+                y2: end.y,
+                stroke: colorWithOpacity(theme.colors.grid, 0.65),
+                lineWidth: 1,
+            }));
+        }
+        const labels = optionStrings$1(layer.mark.options.labels);
+        [labels[0] ?? aField, labels[1] ?? bField, labels[2] ?? cField].forEach((label, index) => {
+            const point = [top, right, left][index] ?? top;
+            nodes.push(textNode$1(context, `${layer.id}:ternary-label:${index}`, point.x, point.y + (index === 0 ? -15 : 15), label, {
+                fill: theme.colors.mutedText,
+                weight: 700,
+            }));
+        });
+        const mode = optionString$2(layer.mark.options, 'mode', 'scatter');
+        const seriesField = layer.mark.fields.series;
+        const pointsBySeries = new Map();
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const a = numericDataValue(table.value(rowIndex, aField));
+            const b = numericDataValue(table.value(rowIndex, bField));
+            const c = numericDataValue(table.value(rowIndex, cField));
+            if (a === null || b === null || c === null || a < 0 || b < 0 || c < 0)
+                continue;
+            const total = a + b + c;
+            if (total <= 0)
+                continue;
+            const series = seriesField === undefined
+                ? 'Series'
+                : (stringValue(table.value(rowIndex, seriesField)) ?? 'Series');
+            const points = pointsBySeries.get(series) ?? [];
+            points.push({
+                point: {
+                    x: (a * top.x + b * right.x + c * left.x) / total,
+                    y: (a * top.y + b * right.y + c * left.y) / total,
+                },
+                rowIndex,
+                component: a / total,
+            });
+            pointsBySeries.set(series, points);
+        }
+        const pointBudget = mode === 'line'
+            ? Math.min(context.performance.maxPointMarks, context.performance.maxLinePoints)
+            : context.performance.maxPointMarks;
+        const seriesValues = sampledItems([...pointsBySeries.keys()], pointBudget);
+        seriesValues.forEach((series, seriesIndex) => {
+            const seriesBudget = allocatedBudget(pointBudget, seriesValues.length, seriesIndex);
+            const available = pointsBySeries.get(series) ?? [];
+            const points = mode === 'line'
+                ? sampledLineItems(available, seriesBudget, ({ component }) => component)
+                : sampledItems(available, seriesBudget);
+            const color = layer.mark.stroke ?? paletteColor(context, seriesIndex);
+            if (mode === 'line' && points.length > 1)
+                nodes.push({
+                    type: 'path',
+                    ...nodeBase(`${layer.id}:ternary-line:${seriesIndex}`, { zIndex: layer.zIndex + 1 }),
+                    points: points.map(({ point }) => point),
+                    closed: layer.mark.options.closed === true,
+                    stroke: color,
+                    lineWidth: layer.mark.lineWidth ?? 2,
+                    lineCap: 'round',
+                    lineJoin: 'round',
+                });
+            points.forEach(({ point, rowIndex }) => nodes.push({
+                type: 'circle',
+                ...datumBase(context, `${layer.id}:ternary-point:${rowIndex}`, rowIndex, 2),
+                cx: point.x,
+                cy: point.y,
+                radius: layer.mark.radius ?? 4.5,
+                fill: layer.mark.fill ?? color,
+                stroke: theme.colors.background,
+                lineWidth: 1.2,
+            }));
+        });
+        return nodes;
+    };
+    /** Maps normalized impedance to reflection coefficient coordinates. */
+    function smithPoint(real, imaginary, cx, cy, radius) {
+        const denominator = (real + 1) ** 2 + imaginary ** 2;
+        if (denominator <= Number.EPSILON)
+            return { x: cx - radius, y: cy };
+        const reflectedReal = (real * real + imaginary * imaginary - 1) / denominator;
+        const reflectedImaginary = (2 * imaginary) / denominator;
+        return {
+            x: cx + reflectedReal * radius,
+            y: cy - reflectedImaginary * radius,
+        };
+    }
+    const compileSmithMark = (context) => {
+        const { layer, table, plot, theme } = context;
+        const realField = layer.mark.fields.real ?? layer.x.field;
+        const imaginaryField = layer.mark.fields.imaginary ?? layer.y.field;
+        const cx = plot.x + plot.width / 2;
+        const cy = plot.y + plot.height / 2;
+        const radius = Math.max(18, Math.min(plot.width, plot.height) * 0.44);
+        const nodes = [
+            {
+                type: 'path',
+                ...nodeBase(`${layer.id}:smith-frame`, { zIndex: layer.zIndex }),
+                points: arcPoints$1(cx, cy, radius, 0, TAU),
+                closed: true,
+                stroke: theme.colors.axis,
+                lineWidth: 1.5,
+            },
+            {
+                type: 'line',
+                ...nodeBase(`${layer.id}:smith-axis`, { zIndex: layer.zIndex }),
+                x1: cx - radius,
+                y1: cy,
+                x2: cx + radius,
+                y2: cy,
+                stroke: theme.colors.axis,
+                lineWidth: 1,
+            },
+        ];
+        for (const resistance of [0, 0.2, 0.5, 1, 2, 5]) {
+            const center = cx + (radius * resistance) / (resistance + 1);
+            const ringRadius = radius / (resistance + 1);
+            nodes.push({
+                type: 'path',
+                ...nodeBase(`${layer.id}:smith-resistance:${resistance}`, { zIndex: layer.zIndex }),
+                points: arcPoints$1(center, cy, ringRadius, 0, TAU),
+                closed: true,
+                stroke: colorWithOpacity(theme.colors.grid, 0.72),
+                lineWidth: 1,
+            });
+        }
+        for (const reactance of [-5, -2, -1, -0.5, 0.5, 1, 2, 5]) {
+            const sampled = [];
+            for (let index = 0; index <= 80; index += 1) {
+                const real = (index / 80) * 12;
+                sampled.push(smithPoint(real, reactance, cx, cy, radius));
+            }
+            nodes.push({
+                type: 'path',
+                ...nodeBase(`${layer.id}:smith-reactance:${reactance}`, { zIndex: layer.zIndex }),
+                points: sampled,
+                closed: false,
+                stroke: colorWithOpacity(theme.colors.grid, 0.72),
+                lineWidth: 1,
+                lineCap: 'round',
+            });
+        }
+        const mode = optionString$2(layer.mark.options, 'mode', 'line');
+        const seriesField = layer.mark.fields.series;
+        const pointsBySeries = new Map();
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const real = numericDataValue(table.value(rowIndex, realField));
+            const imaginary = numericDataValue(table.value(rowIndex, imaginaryField));
+            if (real === null || imaginary === null)
+                continue;
+            const name = seriesField === undefined
+                ? 'Series'
+                : (stringValue(table.value(rowIndex, seriesField)) ?? 'Series');
+            const points = pointsBySeries.get(name) ?? [];
+            points.push({
+                point: smithPoint(real, imaginary, cx, cy, radius),
+                rowIndex,
+                magnitude: Math.hypot(real, imaginary),
+            });
+            pointsBySeries.set(name, points);
+        }
+        const pointBudget = mode === 'scatter'
+            ? context.performance.maxPointMarks
+            : Math.min(context.performance.maxPointMarks, context.performance.maxLinePoints);
+        const series = sampledItems([...pointsBySeries.keys()], pointBudget);
+        series.forEach((name, seriesIndex) => {
+            const seriesBudget = allocatedBudget(pointBudget, series.length, seriesIndex);
+            const available = pointsBySeries.get(name) ?? [];
+            const points = mode === 'scatter'
+                ? sampledItems(available, seriesBudget)
+                : sampledLineItems(available, seriesBudget, ({ magnitude }) => magnitude);
+            const color = layer.mark.stroke ?? paletteColor(context, seriesIndex);
+            if (mode !== 'scatter' && points.length > 1)
+                nodes.push({
+                    type: 'path',
+                    ...nodeBase(`${layer.id}:smith-line:${seriesIndex}`, { zIndex: layer.zIndex + 1 }),
+                    points: points.map(({ point }) => point),
+                    closed: false,
+                    stroke: color,
+                    lineWidth: layer.mark.lineWidth ?? 2,
+                    lineCap: 'round',
+                    lineJoin: 'round',
+                });
+            points.forEach(({ point, rowIndex }) => nodes.push({
+                type: 'circle',
+                ...datumBase(context, `${layer.id}:smith-point:${rowIndex}`, rowIndex, 2),
+                cx: point.x,
+                cy: point.y,
+                radius: layer.mark.radius ?? 4,
+                fill: layer.mark.fill ?? color,
+                stroke: theme.colors.background,
+                lineWidth: 1.2,
+            }));
+        });
+        return nodes;
+    };
+    const compileScatterMatrixMark = (context) => {
+        const { layer, table, plot, theme } = context;
+        const requested = optionStrings$1(layer.mark.options.dimensions);
+        const candidates = requested.length > 0
+            ? requested
+            : [layer.x.field, layer.y.field, ...Object.values(layer.mark.fields)];
+        const dimensions = candidates
+            .filter((field, index, all) => all.indexOf(field) === index && table.has(field))
+            .flatMap((field) => {
+            const extent = table.extent(field);
+            return extent === null ? [] : [{ field, minimum: extent[0], maximum: extent[1] }];
+        })
+            .slice(0, 8);
+        if (dimensions.length < 2)
+            return [];
+        const gap = clamp(optionNumber$2(layer.mark.options, 'gap', 5), 0, 18);
+        const cellWidth = plot.width / dimensions.length;
+        const cellHeight = plot.height / dimensions.length;
+        const colorField = layer.mark.fields.color ?? layer.mark.fields.group;
+        const colorKeys = colorField === undefined || !table.has(colorField) ? [] : table.unique(colorField);
+        const colorIndexByKey = new Map(colorKeys.map((key, index) => [key, index]));
+        const valuesByField = new Map();
+        for (const dimension of dimensions) {
+            const values = new Float64Array(table.length);
+            values.fill(Number.NaN);
+            for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+                const value = numericDataValue(table.value(rowIndex, dimension.field));
+                if (value !== null)
+                    values[rowIndex] = value;
+            }
+            valuesByField.set(dimension.field, values);
+        }
+        const nodes = [];
+        const offDiagonalCells = dimensions.length * (dimensions.length - 1);
+        let offDiagonalIndex = 0;
+        const mapCell = (value, dimension, start, span) => start + ((value - dimension.minimum) / (dimension.maximum - dimension.minimum || 1)) * span;
+        dimensions.forEach((yDimension, row) => {
+            dimensions.forEach((xDimension, column) => {
+                const x = plot.x + column * cellWidth + gap / 2;
+                const y = plot.y + row * cellHeight + gap / 2;
+                const width = Math.max(1, cellWidth - gap);
+                const height = Math.max(1, cellHeight - gap);
+                nodes.push({
+                    type: 'rect',
+                    ...nodeBase(`${layer.id}:matrix-cell:${row}:${column}`, { zIndex: layer.zIndex }),
+                    x,
+                    y,
+                    width,
+                    height,
+                    fill: colorWithOpacity(theme.colors.surface, 0.55),
+                    stroke: theme.colors.grid,
+                    lineWidth: 1,
+                    cornerRadius: 2,
+                });
+                if (row === column) {
+                    const bins = Array.from({ length: 10 }, () => 0);
+                    const dimensionValues = valuesByField.get(xDimension.field);
+                    if (dimensionValues === undefined)
+                        return;
+                    for (const value of dimensionValues) {
+                        if (!Number.isFinite(value))
+                            continue;
+                        const bin = clamp(Math.floor(((value - xDimension.minimum) / (xDimension.maximum - xDimension.minimum || 1)) *
+                            bins.length), 0, bins.length - 1);
+                        bins[bin] = (bins[bin] ?? 0) + 1;
+                    }
+                    const maximum = Math.max(1, ...bins);
+                    bins.forEach((count, index) => nodes.push({
+                        type: 'rect',
+                        ...nodeBase(`${layer.id}:matrix-hist:${row}:${index}`, { zIndex: layer.zIndex + 1 }),
+                        x: x + (index / bins.length) * width,
+                        y: y + height - (count / maximum) * height * 0.72,
+                        width: Math.max(1, width / bins.length - 1),
+                        height: Math.max(1, (count / maximum) * height * 0.72),
+                        fill: colorWithOpacity(context.color, 0.62),
+                        lineWidth: 0,
+                        cornerRadius: 1,
+                    }));
+                    nodes.push(textNode$1(context, `${layer.id}:matrix-label:${row}`, x + width / 2, y + 12, xDimension.field, {
+                        fill: theme.colors.mutedText,
+                        size: Math.max(8, theme.typography.fontSize - 2),
+                        weight: 700,
+                    }));
+                    return;
+                }
+                const cellBudget = allocatedBudget(context.performance.maxPointMarks, offDiagonalCells, offDiagonalIndex);
+                offDiagonalIndex += 1;
+                const xValues = valuesByField.get(xDimension.field);
+                const yValues = valuesByField.get(yDimension.field);
+                if (xValues === undefined || yValues === undefined)
+                    return;
+                const validRows = [];
+                for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+                    if (Number.isFinite(xValues[rowIndex]) && Number.isFinite(yValues[rowIndex])) {
+                        validRows.push(rowIndex);
+                    }
+                }
+                for (const rowIndex of sampledItems(validRows, cellBudget)) {
+                    const xValue = xValues[rowIndex];
+                    const yValue = yValues[rowIndex];
+                    if (xValue === undefined || yValue === undefined)
+                        continue;
+                    const key = colorField === undefined ? null : stringValue(table.value(rowIndex, colorField));
+                    const colorIndex = key === null ? 0 : (colorIndexByKey.get(key) ?? 0);
+                    nodes.push({
+                        type: 'circle',
+                        ...datumBase(context, `${layer.id}:matrix-point:${row}:${column}:${rowIndex}`, rowIndex, 1),
+                        cx: mapCell(xValue, xDimension, x + 3, width - 6),
+                        cy: y + height - 3 - mapCell(yValue, yDimension, 0, height - 6),
+                        radius: clamp(layer.mark.radius ?? 2.2, 1, 6),
+                        fill: layer.mark.fill ?? colorWithOpacity(paletteColor(context, colorIndex), 0.72),
+                        stroke: theme.colors.background,
+                        lineWidth: 0.5,
+                    });
+                }
+            });
+        });
+        return nodes;
+    };
+    function boundedGridKeys(aKeys, bKeys, maximumCells) {
+        const cellBudget = Math.max(1, Math.trunc(maximumCells));
+        if (aKeys.length * bKeys.length <= cellBudget)
+            return [aKeys, bKeys];
+        const ratio = aKeys.length / Math.max(1, bKeys.length);
+        let aCount = Math.max(1, Math.min(aKeys.length, Math.floor(Math.sqrt(cellBudget * ratio))));
+        let bCount = Math.max(1, Math.min(bKeys.length, Math.floor(cellBudget / aCount)));
+        aCount = Math.max(1, Math.min(aKeys.length, Math.floor(cellBudget / bCount)));
+        while (aCount * bCount > cellBudget) {
+            if (aCount >= bCount && aCount > 1)
+                aCount -= 1;
+            else if (bCount > 1)
+                bCount -= 1;
+            else
+                break;
+        }
+        return [sampledItems(aKeys, aCount), sampledItems(bKeys, bCount)];
+    }
+    const compileCarpetMark = (context) => {
+        const { layer, table, plot, theme } = context;
+        const aField = layer.mark.fields.a ?? layer.x.field;
+        const bField = layer.mark.fields.b ?? layer.y.field;
+        const xField = layer.mark.fields.x ?? 'x';
+        const yField = layer.mark.fields.y ?? 'y';
+        const valueField = layer.mark.fields.value;
+        if (![aField, bField, xField, yField].every((field) => table.has(field)))
+            return [];
+        const data = [];
+        const aGroups = new Map();
+        const bGroups = new Map();
+        const indexed = new Map();
+        let xMinimum = Number.POSITIVE_INFINITY;
+        let xMaximum = Number.NEGATIVE_INFINITY;
+        let yMinimum = Number.POSITIVE_INFINITY;
+        let yMaximum = Number.NEGATIVE_INFINITY;
+        let valueMinimum = Number.POSITIVE_INFINITY;
+        let valueMaximum = Number.NEGATIVE_INFINITY;
+        let valueCount = 0;
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const a = stringValue(table.value(rowIndex, aField));
+            const b = stringValue(table.value(rowIndex, bField));
+            const x = numericDataValue(table.value(rowIndex, xField));
+            const y = numericDataValue(table.value(rowIndex, yField));
+            if (a === null || b === null || x === null || y === null)
+                continue;
+            const datum = {
+                rowIndex,
+                a,
+                b,
+                x,
+                y,
+                value: valueField === undefined || !table.has(valueField)
+                    ? null
+                    : numericDataValue(table.value(rowIndex, valueField)),
+            };
+            data.push(datum);
+            const aGroup = aGroups.get(a) ?? [];
+            aGroup.push(datum);
+            aGroups.set(a, aGroup);
+            const bGroup = bGroups.get(b) ?? [];
+            bGroup.push(datum);
+            bGroups.set(b, bGroup);
+            const row = indexed.get(a) ?? new Map();
+            if (!row.has(b))
+                row.set(b, datum);
+            indexed.set(a, row);
+            xMinimum = Math.min(xMinimum, x);
+            xMaximum = Math.max(xMaximum, x);
+            yMinimum = Math.min(yMinimum, y);
+            yMaximum = Math.max(yMaximum, y);
+            if (datum.value !== null) {
+                valueMinimum = Math.min(valueMinimum, datum.value);
+                valueMaximum = Math.max(valueMaximum, datum.value);
+                valueCount += 1;
+            }
+        }
+        if (data.length === 0)
+            return [];
+        const position = (datum) => ({
+            x: plot.x + ((datum.x - xMinimum) / (xMaximum - xMinimum || 1)) * plot.width,
+            y: plot.y + plot.height - ((datum.y - yMinimum) / (yMaximum - yMinimum || 1)) * plot.height,
+        });
+        const nodes = [];
+        const mode = optionString$2(layer.mark.options, 'mode', 'base');
+        const totalLineBudget = context.performance.maxLinePoints;
+        const gridLineBudget = mode === 'contour' ? Math.floor(totalLineBudget / 2) : totalLineBudget;
+        const gridAxes = [
+            { axis: 'a', groups: aGroups, budget: Math.ceil(gridLineBudget / 2) },
+            { axis: 'b', groups: bGroups, budget: Math.floor(gridLineBudget / 2) },
+        ];
+        for (const { axis, groups, budget } of gridAxes) {
+            const candidates = [...groups].map(([key, path], index) => ({ key, path, index }));
+            const selected = sampledItems(candidates, Math.floor(budget / 2));
+            selected.forEach(({ key, path: unsorted, index }, selectedIndex) => {
+                const groupBudget = allocatedBudget(budget, selected.length, selectedIndex);
+                const ordered = [...unsorted].sort((left, right) => axis === 'a' ? left.y - right.y : left.x - right.x);
+                const path = sampledItems(ordered, groupBudget);
+                if (path.length < 2)
+                    return;
+                const representative = path[0];
+                if (representative === undefined)
+                    return;
+                nodes.push({
+                    type: 'path',
+                    ...datumBase(context, `${layer.id}:carpet-grid:${axis}:${index}`, representative.rowIndex, 0, {
+                        kind: 'carpet-axis',
+                        axis: axis === 'a' ? aField : bField,
+                        key,
+                        logicalCoordinate: axis,
+                    }),
+                    points: path.map(position),
+                    closed: false,
+                    stroke: axis === 'a'
+                        ? colorWithOpacity(theme.colors.axis, 0.82)
+                        : colorWithOpacity(theme.colors.grid, 0.9),
+                    lineWidth: axis === 'a' ? 1.35 : 1,
+                    lineCap: 'round',
+                    lineJoin: 'round',
+                });
+            });
+        }
+        if (mode === 'contour') {
+            if (valueCount > 0) {
+                const contourPointBudget = totalLineBudget - gridLineBudget;
+                const maximumSegments = Math.floor(contourPointBudget / 2);
+                const [aKeys, bKeys] = boundedGridKeys([...aGroups.keys()], [...bGroups.keys()], Math.min(context.performance.maxBarMarks, Math.max(1, contourPointBudget)));
+                const gridValues = bKeys.map((b) => aKeys.map((a) => indexed.get(a)?.get(b)?.value ?? null));
+                const gridPoints = bKeys.map((b) => aKeys.map((a) => {
+                    const datum = indexed.get(a)?.get(b);
+                    return datum === undefined ? null : position(datum);
+                }));
+                const levelCount = clamp(Math.floor(optionNumber$2(layer.mark.options, 'levels', 6)), 2, 16);
+                const levels = Array.from({ length: levelCount }, (_, index) => valueMinimum + ((index + 1) / (levelCount + 1)) * (valueMaximum - valueMinimum || 1));
+                contourSegments(gridValues, gridPoints, levels, maximumSegments).forEach((segment, index) => {
+                    const ratio = segment.levelIndex / Math.max(1, levelCount - 1);
+                    const palette = theme.colors.sequential;
+                    const stroke = layer.mark.stroke ??
+                        palette[Math.round(ratio * (palette.length - 1))] ??
+                        theme.colors.focus;
+                    nodes.push({
+                        type: 'path',
+                        ...datumBase(context, `${layer.id}:carpet-contour:${segment.levelIndex}:${index}`, data[0]?.rowIndex ?? 0, 2, {
+                            kind: 'value-isoline',
+                            level: levels[segment.levelIndex] ?? valueMinimum,
+                            minimumValue: valueMinimum,
+                            maximumValue: valueMaximum,
+                            valueField: valueField ?? 'value',
+                        }),
+                        points: segment.points,
+                        closed: false,
+                        stroke,
+                        lineWidth: layer.mark.lineWidth ?? 1.8,
+                        lineCap: 'round',
+                        lineJoin: 'round',
+                    });
+                });
+            }
+        }
+        else if (mode === 'scatter') {
+            sampledItems(data, context.performance.maxPointMarks).forEach((datum) => {
+                const point = position(datum);
+                nodes.push({
+                    type: 'circle',
+                    ...datumBase(context, `${layer.id}:carpet-point:${datum.rowIndex}`, datum.rowIndex, 2),
+                    cx: point.x,
+                    cy: point.y,
+                    radius: layer.mark.radius ?? 4,
+                    fill: layer.mark.fill ?? context.color,
+                    stroke: theme.colors.background,
+                    lineWidth: 1.2,
+                });
+            });
+        }
+        return nodes;
+    };
 
     class EventEmitter {
         #listeners = new Map();
@@ -10597,843 +13008,6 @@ var Graflume = (function (exports) {
         }
     }
 
-    const compileAreaMark = (context) => {
-        const { table, layer, xScale, yScale, color, theme, performance } = context;
-        const yValues = Array.from({ length: table.length }, (_, index) => numericDataValue(table.value(index, layer.y.field), layer.y.type === 'temporal'));
-        const indices = minMaxSampleIndices(yValues, performance.maxLinePoints);
-        const baseline = yScale.map(0);
-        const top = [];
-        const topRowIndices = [];
-        for (const rowIndex of indices) {
-            const xInput = scaleInput(table.value(rowIndex, layer.x.field));
-            const yInput = scaleInput(table.value(rowIndex, layer.y.field));
-            if (xInput === null || yInput === null)
-                continue;
-            const x = xScale.map(xInput);
-            const y = yScale.map(yInput);
-            if (Number.isFinite(x) && Number.isFinite(y)) {
-                top.push({ x, y });
-                topRowIndices.push(rowIndex);
-            }
-        }
-        if (top.length === 0)
-            return [];
-        const first = top[0];
-        const last = top.at(-1);
-        if (first === undefined || last === undefined)
-            return [];
-        const points = [...top, { x: last.x, y: baseline }, { x: first.x, y: baseline }];
-        const fill = {
-            type: 'path',
-            ...nodeBase(`${layer.id}:area-fill`, {
-                zIndex: layer.zIndex,
-                opacity: layer.mark.opacity,
-            }),
-            points,
-            closed: true,
-            fill: layer.mark.fill ?? colorWithOpacity(color, theme.mode === 'dark' ? 0.28 : 0.2),
-            lineWidth: 0,
-        };
-        const stroke = {
-            type: 'path',
-            ...nodeBase(`${layer.id}:area-line`, {
-                zIndex: layer.zIndex + 0.1,
-                opacity: layer.mark.opacity,
-            }),
-            points: top,
-            closed: false,
-            stroke: layer.mark.stroke ?? color,
-            lineWidth: layer.mark.lineWidth ?? theme.mark.lineWidth,
-            lineCap: 'round',
-            lineJoin: 'round',
-        };
-        const nodes = [fill, stroke];
-        if (layer.mark.point) {
-            const pointIndices = new Set(strideSampleIndices(top.length, performance.maxPointMarks).filter((index) => index !== undefined));
-            top.forEach((point, pointIndex) => {
-                const rowIndex = topRowIndices[pointIndex];
-                if (rowIndex === undefined || !pointIndices.has(pointIndex))
-                    return;
-                const circle = {
-                    type: 'circle',
-                    ...nodeBase(`${layer.id}:area-point:${rowIndex}`, {
-                        zIndex: layer.zIndex + 0.2,
-                        opacity: layer.mark.opacity,
-                        interactive: performance.enableHitTesting,
-                        datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) },
-                    }),
-                    cx: point.x,
-                    cy: point.y,
-                    radius: layer.mark.radius ?? theme.mark.pointRadius,
-                    fill: theme.colors.background,
-                    stroke: layer.mark.stroke ?? color,
-                    lineWidth: Math.max(1.5, (layer.mark.lineWidth ?? theme.mark.lineWidth) * 0.68),
-                };
-                nodes.push(circle);
-            });
-        }
-        return nodes;
-    };
-
-    const compileBarMark = (context) => {
-        const { table, layer, xScale, yScale, color, theme, barGroup, performance, plot } = context;
-        if (layer.mark.orientation === 'horizontal') {
-            const baseline = xScale.map(0);
-            const slotHeight = yScale instanceof BandScale
-                ? yScale.bandwidth / Math.max(1, barGroup.count)
-                : Math.max(1, ((plot.height / Math.max(1, table.length)) * 0.8) / Math.max(1, barGroup.count));
-            const barHeight = Math.max(1, slotHeight * 0.74);
-            const nodes = [];
-            const indices = strideSampleIndices(table.length, performance.maxBarMarks);
-            for (const rowIndex of indices) {
-                const xInput = scaleInput(table.value(rowIndex, layer.x.field));
-                const yInput = scaleInput(table.value(rowIndex, layer.y.field));
-                if (xInput === null || yInput === null)
-                    continue;
-                const xValue = xScale.map(xInput);
-                const yCenter = yScale.map(yInput);
-                if (!Number.isFinite(xValue) || !Number.isFinite(yCenter) || !Number.isFinite(baseline))
-                    continue;
-                const groupOffset = layer.mark.position === 'group'
-                    ? (barGroup.index - (barGroup.count - 1) / 2) * slotHeight
-                    : 0;
-                nodes.push({
-                    type: 'rect',
-                    ...nodeBase(`${layer.id}:bar:${rowIndex}`, {
-                        zIndex: layer.zIndex,
-                        opacity: layer.mark.opacity,
-                        interactive: performance.enableHitTesting,
-                        datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) },
-                    }),
-                    x: Math.min(xValue, baseline),
-                    y: yCenter + groupOffset - barHeight / 2,
-                    width: Math.max(0.5, Math.abs(baseline - xValue)),
-                    height: barHeight,
-                    fill: layer.mark.fill ?? color,
-                    ...(layer.mark.stroke === undefined ? {} : { stroke: layer.mark.stroke }),
-                    lineWidth: layer.mark.lineWidth ?? 0,
-                    cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
-                });
-            }
-            return nodes;
-        }
-        const baseline = yScale.map(0);
-        const nodes = [];
-        const slotWidth = xScale instanceof BandScale
-            ? xScale.bandwidth / Math.max(1, barGroup.count)
-            : Math.max(1, ((plot.width / Math.max(1, table.length)) * 0.8) / Math.max(1, barGroup.count));
-        const barWidth = Math.max(1, slotWidth * 0.74);
-        const indices = strideSampleIndices(table.length, performance.maxBarMarks);
-        for (const rowIndex of indices) {
-            const xInput = scaleInput(table.value(rowIndex, layer.x.field));
-            const yInput = scaleInput(table.value(rowIndex, layer.y.field));
-            if (xInput === null || yInput === null)
-                continue;
-            const xCenter = xScale.map(xInput);
-            const yValue = yScale.map(yInput);
-            if (!Number.isFinite(xCenter) || !Number.isFinite(yValue) || !Number.isFinite(baseline))
-                continue;
-            const groupOffset = layer.mark.position === 'group' ? (barGroup.index - (barGroup.count - 1) / 2) * slotWidth : 0;
-            const x = xCenter + groupOffset - barWidth / 2;
-            const y = Math.min(yValue, baseline);
-            const height = Math.max(0.5, Math.abs(baseline - yValue));
-            nodes.push({
-                type: 'rect',
-                ...nodeBase(`${layer.id}:bar:${rowIndex}`, {
-                    zIndex: layer.zIndex,
-                    opacity: layer.mark.opacity,
-                    interactive: performance.enableHitTesting,
-                    datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) },
-                }),
-                x,
-                y,
-                width: barWidth,
-                height,
-                fill: layer.mark.fill ?? color,
-                ...(layer.mark.stroke === undefined ? {} : { stroke: layer.mark.stroke }),
-                lineWidth: layer.mark.lineWidth ?? 0,
-                cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
-            });
-        }
-        return nodes;
-    };
-
-    const compileLineMark = (context) => {
-        const { table, layer, xScale, yScale, color, theme, performance } = context;
-        const yValues = Array.from({ length: table.length }, (_, index) => numericDataValue(table.value(index, layer.y.field), layer.y.type === 'temporal'));
-        const indices = minMaxSampleIndices(yValues, performance.maxLinePoints);
-        const nodes = [];
-        const pointRows = new Set(strideSampleIndices(indices.length, performance.maxPointMarks)
-            .map((sampleIndex) => indices[sampleIndex])
-            .filter((rowIndex) => rowIndex !== undefined));
-        const segments = [];
-        let current = { points: [], rowIndices: [] };
-        const flush = () => {
-            if (current.points.length > 0)
-                segments.push(current);
-            current = { points: [], rowIndices: [] };
-        };
-        for (const rowIndex of indices) {
-            const xInput = scaleInput(table.value(rowIndex, layer.x.field));
-            const yInput = scaleInput(table.value(rowIndex, layer.y.field));
-            if (xInput === null || yInput === null) {
-                flush();
-                continue;
-            }
-            const x = xScale.map(xInput);
-            const y = yScale.map(yInput);
-            if (!Number.isFinite(x) || !Number.isFinite(y)) {
-                flush();
-                continue;
-            }
-            current.points.push({ x, y });
-            current.rowIndices.push(rowIndex);
-        }
-        flush();
-        const stroke = layer.mark.stroke ?? color;
-        const lineWidth = layer.mark.lineWidth ?? theme.mark.lineWidth;
-        segments.forEach((segment, segmentIndex) => {
-            const path = {
-                type: 'path',
-                ...nodeBase(`${layer.id}:line:${segmentIndex}`, {
-                    zIndex: layer.zIndex,
-                    opacity: layer.mark.opacity,
-                }),
-                points: segment.points,
-                closed: false,
-                stroke,
-                lineWidth,
-                lineCap: 'round',
-                lineJoin: 'round',
-            };
-            nodes.push(path);
-            if (layer.mark.point) {
-                segment.points.forEach((point, pointIndex) => {
-                    const rowIndex = segment.rowIndices[pointIndex];
-                    if (rowIndex === undefined || !pointRows.has(rowIndex))
-                        return;
-                    const circle = {
-                        type: 'circle',
-                        ...nodeBase(`${layer.id}:point:${rowIndex}`, {
-                            zIndex: layer.zIndex + 0.1,
-                            opacity: layer.mark.opacity,
-                            interactive: performance.enableHitTesting,
-                            datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) },
-                        }),
-                        cx: point.x,
-                        cy: point.y,
-                        radius: layer.mark.radius ?? theme.mark.pointRadius,
-                        fill: layer.mark.fill ?? theme.colors.background,
-                        stroke,
-                        lineWidth: Math.max(1.5, lineWidth * 0.68),
-                    };
-                    nodes.push(circle);
-                });
-            }
-        });
-        return nodes;
-    };
-
-    const compilePointMark = (context) => {
-        const { table, layer, xScale, yScale, color, theme, performance } = context;
-        const indices = strideSampleIndices(table.length, performance.maxPointMarks);
-        const nodes = [];
-        for (const rowIndex of indices) {
-            const xInput = scaleInput(table.value(rowIndex, layer.x.field));
-            const yInput = scaleInput(table.value(rowIndex, layer.y.field));
-            if (xInput === null || yInput === null)
-                continue;
-            const cx = xScale.map(xInput);
-            const cy = yScale.map(yInput);
-            if (!Number.isFinite(cx) || !Number.isFinite(cy))
-                continue;
-            nodes.push({
-                type: 'circle',
-                ...nodeBase(`${layer.id}:point:${rowIndex}`, {
-                    zIndex: layer.zIndex,
-                    opacity: layer.mark.opacity,
-                    interactive: performance.enableHitTesting,
-                    datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) },
-                }),
-                cx,
-                cy,
-                radius: layer.mark.radius ?? theme.mark.pointRadius,
-                fill: layer.mark.fill ?? color,
-                stroke: layer.mark.stroke ?? theme.colors.background,
-                lineWidth: layer.mark.lineWidth ?? 1.75,
-            });
-        }
-        return nodes;
-    };
-
-    function optionNumber$2(options, name, fallback) {
-        const value = options[name];
-        return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
-    }
-    function optionString$2(options, name) {
-        const value = options[name];
-        return typeof value === 'string' ? value : undefined;
-    }
-    function textNode$1(id, x, y, text, context, options = {}) {
-        return {
-            type: 'text',
-            ...nodeBase(id, { zIndex: context.layer.zIndex + 2 }),
-            x,
-            y,
-            text,
-            fill: context.theme.colors.text,
-            fontFamily: context.theme.typography.fontFamily,
-            fontSize: options.size ?? context.theme.typography.fontSize,
-            fontWeight: options.weight ?? 500,
-            align: options.align ?? 'center',
-            baseline: options.baseline ?? 'middle',
-            rotation: 0,
-        };
-    }
-    const compileSteppedAreaMark = (context) => {
-        const { table, layer, xScale, yScale, color, theme } = context;
-        const top = [];
-        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
-            const xInput = scaleInput(table.value(rowIndex, layer.x.field));
-            const yInput = scaleInput(table.value(rowIndex, layer.y.field));
-            if (xInput === null || yInput === null)
-                continue;
-            const x = xScale.map(xInput);
-            const y = yScale.map(yInput);
-            if (!Number.isFinite(x) || !Number.isFinite(y))
-                continue;
-            const previous = top.at(-1);
-            if (previous !== undefined)
-                top.push({ x, y: previous.y });
-            top.push({ x, y });
-        }
-        const first = top[0];
-        const last = top.at(-1);
-        if (first === undefined || last === undefined)
-            return [];
-        const baseline = yScale.map(0);
-        const area = {
-            type: 'path',
-            ...nodeBase(`${layer.id}:stepped-area-fill`, {
-                zIndex: layer.zIndex,
-                opacity: layer.mark.opacity,
-            }),
-            points: [...top, { x: last.x, y: baseline }, { x: first.x, y: baseline }],
-            closed: true,
-            fill: layer.mark.fill ?? colorWithOpacity(color, theme.mode === 'dark' ? 0.28 : 0.2),
-            lineWidth: 0,
-        };
-        const outline = {
-            type: 'path',
-            ...nodeBase(`${layer.id}:stepped-area-line`, {
-                zIndex: layer.zIndex + 0.1,
-                opacity: layer.mark.opacity,
-            }),
-            points: top,
-            closed: false,
-            stroke: layer.mark.stroke ?? color,
-            lineWidth: layer.mark.lineWidth ?? theme.mark.lineWidth,
-            lineCap: 'round',
-            lineJoin: 'round',
-        };
-        return [area, outline];
-    };
-    const compileBubbleMark = (context) => {
-        const { table, layer, xScale, yScale, theme, color, performance } = context;
-        const sizeField = layer.mark.fields.size;
-        const colorField = layer.mark.fields.color;
-        const timeField = layer.mark.fields.time;
-        const frame = layer.mark.options.frame;
-        let minimum = Number.POSITIVE_INFINITY;
-        let maximum = Number.NEGATIVE_INFINITY;
-        if (sizeField !== undefined && table.has(sizeField)) {
-            const extent = table.extent(sizeField);
-            if (extent !== null)
-                [minimum, maximum] = extent;
-        }
-        if (!Number.isFinite(minimum) || !Number.isFinite(maximum)) {
-            minimum = 1;
-            maximum = 1;
-        }
-        const categoryColors = new Map();
-        const nodes = [];
-        const minimumRadius = optionNumber$2(layer.mark.options, 'minRadius', layer.mark.radius ?? 5);
-        const maximumRadius = optionNumber$2(layer.mark.options, 'maxRadius', 24);
-        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
-            if (timeField !== undefined &&
-                frame !== undefined &&
-                String(table.value(rowIndex, timeField)) !== String(frame)) {
-                continue;
-            }
-            const xInput = scaleInput(table.value(rowIndex, layer.x.field));
-            const yInput = scaleInput(table.value(rowIndex, layer.y.field));
-            if (xInput === null || yInput === null)
-                continue;
-            const cx = xScale.map(xInput);
-            const cy = yScale.map(yInput);
-            if (!Number.isFinite(cx) || !Number.isFinite(cy))
-                continue;
-            const size = sizeField === undefined ? maximum : numericDataValue(table.value(rowIndex, sizeField));
-            const ratio = size === null || maximum === minimum
-                ? 0.5
-                : Math.max(0, Math.min(1, (size - minimum) / (maximum - minimum)));
-            let fill = layer.mark.fill ?? color;
-            if (colorField !== undefined) {
-                const category = String(table.value(rowIndex, colorField) ?? '');
-                let categoryColor = categoryColors.get(category);
-                if (categoryColor === undefined) {
-                    categoryColor =
-                        theme.colors.palette[categoryColors.size % theme.colors.palette.length] ??
-                            theme.colors.focus;
-                    categoryColors.set(category, categoryColor);
-                }
-                fill = categoryColor;
-            }
-            nodes.push({
-                type: 'circle',
-                ...nodeBase(`${layer.id}:bubble:${rowIndex}`, {
-                    zIndex: layer.zIndex,
-                    opacity: layer.mark.opacity,
-                    interactive: performance.enableHitTesting,
-                    datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) },
-                }),
-                cx,
-                cy,
-                radius: minimumRadius + Math.sqrt(ratio) * (maximumRadius - minimumRadius),
-                fill,
-                stroke: layer.mark.stroke ?? theme.colors.background,
-                lineWidth: layer.mark.lineWidth ?? 2,
-            });
-        }
-        return nodes;
-    };
-    const compileCandlestickMark = (context) => {
-        const { table, layer, xScale, yScale, plot, theme, performance } = context;
-        const openField = layer.mark.fields.open ?? 'open';
-        const highField = layer.mark.fields.high ?? 'high';
-        const lowField = layer.mark.fields.low ?? 'low';
-        const closeField = layer.mark.fields.close ?? layer.y.field;
-        const width = Math.max(3, xScale instanceof BandScale
-            ? xScale.bandwidth * 0.58
-            : (plot.width / Math.max(1, table.length)) * 0.56);
-        const nodes = [];
-        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
-            const xInput = scaleInput(table.value(rowIndex, layer.x.field));
-            const open = numericDataValue(table.value(rowIndex, openField));
-            const high = numericDataValue(table.value(rowIndex, highField));
-            const low = numericDataValue(table.value(rowIndex, lowField));
-            const close = numericDataValue(table.value(rowIndex, closeField));
-            if (xInput === null || open === null || high === null || low === null || close === null)
-                continue;
-            const x = xScale.map(xInput);
-            const yOpen = yScale.map(open);
-            const yHigh = yScale.map(high);
-            const yLow = yScale.map(low);
-            const yClose = yScale.map(close);
-            if (![x, yOpen, yHigh, yLow, yClose].every(Number.isFinite))
-                continue;
-            const rising = close >= open;
-            const fill = rising
-                ? (optionString$2(layer.mark.options, 'risingColor') ?? theme.colors.palette[1] ?? '#0f9f8a')
-                : (optionString$2(layer.mark.options, 'fallingColor') ?? theme.colors.palette[3] ?? '#ef4444');
-            const datum = { layerId: layer.id, rowIndex, datum: table.row(rowIndex) };
-            nodes.push({
-                type: 'line',
-                ...nodeBase(`${layer.id}:wick:${rowIndex}`, {
-                    zIndex: layer.zIndex,
-                    opacity: layer.mark.opacity,
-                }),
-                x1: x,
-                y1: yHigh,
-                x2: x,
-                y2: yLow,
-                stroke: layer.mark.stroke ?? mixColor(fill, theme.colors.text, 0.28),
-                lineWidth: layer.mark.lineWidth ?? 1.5,
-                lineCap: 'round',
-            });
-            nodes.push({
-                type: 'rect',
-                ...nodeBase(`${layer.id}:body:${rowIndex}`, {
-                    zIndex: layer.zIndex + 0.1,
-                    opacity: layer.mark.opacity,
-                    interactive: performance.enableHitTesting,
-                    datum,
-                }),
-                x: x - width / 2,
-                y: Math.min(yOpen, yClose),
-                width,
-                height: Math.max(1.5, Math.abs(yOpen - yClose)),
-                fill,
-                stroke: layer.mark.stroke ?? fill,
-                lineWidth: layer.mark.lineWidth ?? 1,
-                cornerRadius: layer.mark.cornerRadius ?? 1,
-            });
-        }
-        return nodes;
-    };
-    const compileHistogramMark = (context) => {
-        const { table, layer, xScale, yScale, theme, color, performance } = context;
-        const binCount = Math.max(1, Math.min(100, Math.floor(optionNumber$2(layer.mark.options, 'bins', 10))));
-        const extent = table.extent(layer.x.field, layer.x.type === 'temporal');
-        if (extent === null)
-            return [];
-        const span = extent[1] - extent[0] || 1;
-        const bins = Array.from({ length: binCount }, () => 0);
-        const rows = Array.from({ length: binCount }, () => []);
-        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
-            const value = numericDataValue(table.value(rowIndex, layer.x.field), layer.x.type === 'temporal');
-            if (value === null)
-                continue;
-            const bin = Math.min(binCount - 1, Math.max(0, Math.floor(((value - extent[0]) / span) * binCount)));
-            bins[bin] = (bins[bin] ?? 0) + 1;
-            rows[bin]?.push(rowIndex);
-        }
-        const baseline = yScale.map(0);
-        const nodes = [];
-        const totalCount = bins.reduce((sum, count) => sum + count, 0);
-        bins.forEach((count, index) => {
-            const start = extent[0] + (span * index) / binCount;
-            const end = extent[0] + (span * (index + 1)) / binCount;
-            const x1 = xScale.map(start);
-            const x2 = xScale.map(end);
-            const y = yScale.map(count);
-            const rowIndex = rows[index]?.[0];
-            if (![x1, x2, y, baseline].every(Number.isFinite))
-                return;
-            nodes.push({
-                type: 'rect',
-                ...nodeBase(`${layer.id}:bin:${index}`, {
-                    zIndex: layer.zIndex,
-                    opacity: layer.mark.opacity,
-                    interactive: performance.enableHitTesting && rowIndex !== undefined,
-                    ...(rowIndex === undefined
-                        ? {}
-                        : {
-                            datum: {
-                                layerId: layer.id,
-                                rowIndex,
-                                datum: table.row(rowIndex),
-                                tooltip: {
-                                    binStart: start,
-                                    binEnd: end,
-                                    count,
-                                    proportion: totalCount === 0 ? 0 : count / totalCount,
-                                },
-                            },
-                        }),
-                }),
-                x: Math.min(x1, x2) + 2,
-                y: Math.min(y, baseline),
-                width: Math.max(1, Math.abs(x2 - x1) - 4),
-                height: Math.max(0.5, Math.abs(baseline - y)),
-                fill: layer.mark.fill ?? color,
-                stroke: layer.mark.stroke ?? theme.colors.background,
-                lineWidth: layer.mark.lineWidth ?? 1,
-                cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
-            });
-        });
-        return nodes;
-    };
-    const compileIntervalMark = (context) => {
-        const { table, layer, xScale, yScale, color, theme, performance } = context;
-        const lowField = layer.mark.fields.low ?? 'low';
-        const highField = layer.mark.fields.high ?? 'high';
-        const nodes = [];
-        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
-            const xInput = scaleInput(table.value(rowIndex, layer.x.field));
-            const value = numericDataValue(table.value(rowIndex, layer.y.field));
-            const low = numericDataValue(table.value(rowIndex, lowField));
-            const high = numericDataValue(table.value(rowIndex, highField));
-            if (xInput === null || value === null || low === null || high === null)
-                continue;
-            const x = xScale.map(xInput);
-            const y = yScale.map(value);
-            const yLow = yScale.map(low);
-            const yHigh = yScale.map(high);
-            if (![x, y, yLow, yHigh].every(Number.isFinite))
-                continue;
-            const stroke = layer.mark.stroke ?? color;
-            const cap = Math.max(4, (xScale instanceof BandScale ? xScale.bandwidth : 14) * 0.25);
-            const base = `${layer.id}:interval:${rowIndex}`;
-            const lineWidth = layer.mark.lineWidth ?? 2;
-            const lines = [
-                {
-                    type: 'line',
-                    ...nodeBase(`${base}:range`, { zIndex: layer.zIndex }),
-                    x1: x,
-                    y1: yHigh,
-                    x2: x,
-                    y2: yLow,
-                    stroke,
-                    lineWidth,
-                    lineCap: 'round',
-                },
-                {
-                    type: 'line',
-                    ...nodeBase(`${base}:high`, { zIndex: layer.zIndex }),
-                    x1: x - cap,
-                    y1: yHigh,
-                    x2: x + cap,
-                    y2: yHigh,
-                    stroke,
-                    lineWidth,
-                    lineCap: 'round',
-                },
-                {
-                    type: 'line',
-                    ...nodeBase(`${base}:low`, { zIndex: layer.zIndex }),
-                    x1: x - cap,
-                    y1: yLow,
-                    x2: x + cap,
-                    y2: yLow,
-                    stroke,
-                    lineWidth,
-                    lineCap: 'round',
-                },
-            ];
-            nodes.push(...lines);
-            nodes.push({
-                type: 'circle',
-                ...nodeBase(`${base}:value`, {
-                    zIndex: layer.zIndex + 0.1,
-                    interactive: performance.enableHitTesting,
-                    datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) },
-                }),
-                cx: x,
-                cy: y,
-                radius: layer.mark.radius ?? theme.mark.pointRadius + 1,
-                fill: layer.mark.fill ?? theme.colors.background,
-                stroke,
-                lineWidth,
-            });
-        }
-        return nodes;
-    };
-    const compileTrendlineMark = (context) => {
-        const { table, layer, xScale, yScale, color, theme } = context;
-        const points = compilePointMark(context);
-        const pairs = [];
-        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
-            const x = numericDataValue(table.value(rowIndex, layer.x.field), layer.x.type === 'temporal');
-            const y = numericDataValue(table.value(rowIndex, layer.y.field), layer.y.type === 'temporal');
-            if (x !== null && y !== null)
-                pairs.push({ x, y });
-        }
-        if (pairs.length < 2)
-            return points;
-        const meanX = pairs.reduce((sum, point) => sum + point.x, 0) / pairs.length;
-        const meanY = pairs.reduce((sum, point) => sum + point.y, 0) / pairs.length;
-        const numerator = pairs.reduce((sum, point) => sum + (point.x - meanX) * (point.y - meanY), 0);
-        const denominator = pairs.reduce((sum, point) => sum + (point.x - meanX) ** 2, 0) || 1;
-        const slope = numerator / denominator;
-        const intercept = meanY - slope * meanX;
-        const minimum = Math.min(...pairs.map((point) => point.x));
-        const maximum = Math.max(...pairs.map((point) => point.x));
-        const line = {
-            type: 'path',
-            ...nodeBase(`${layer.id}:trendline`, {
-                zIndex: layer.zIndex + 0.2,
-                opacity: layer.mark.opacity,
-            }),
-            points: [
-                { x: xScale.map(minimum), y: yScale.map(intercept + slope * minimum) },
-                { x: xScale.map(maximum), y: yScale.map(intercept + slope * maximum) },
-            ],
-            closed: false,
-            stroke: layer.mark.stroke ?? color,
-            lineWidth: layer.mark.lineWidth ?? theme.mark.lineWidth + 0.5,
-            dash: [7, 4],
-            lineCap: 'round',
-            lineJoin: 'round',
-        };
-        return [...points, line];
-    };
-    const compileWaterfallMark = (context) => {
-        const { table, layer, xScale, yScale, theme, performance, plot } = context;
-        const width = Math.max(3, xScale instanceof BandScale
-            ? xScale.bandwidth * 0.62
-            : (plot.width / Math.max(1, table.length)) * 0.6);
-        const nodes = [];
-        let total = 0;
-        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
-            const xInput = scaleInput(table.value(rowIndex, layer.x.field));
-            const delta = numericDataValue(table.value(rowIndex, layer.y.field));
-            if (xInput === null || delta === null)
-                continue;
-            const previous = total;
-            total += delta;
-            const x = xScale.map(xInput);
-            const y1 = yScale.map(previous);
-            const y2 = yScale.map(total);
-            if (![x, y1, y2].every(Number.isFinite))
-                continue;
-            const fill = delta >= 0
-                ? (optionString$2(layer.mark.options, 'positiveColor') ??
-                    theme.colors.palette[1] ??
-                    '#0f9f8a')
-                : (optionString$2(layer.mark.options, 'negativeColor') ??
-                    theme.colors.palette[3] ??
-                    '#ef4444');
-            nodes.push({
-                type: 'rect',
-                ...nodeBase(`${layer.id}:waterfall:${rowIndex}`, {
-                    zIndex: layer.zIndex,
-                    opacity: layer.mark.opacity,
-                    interactive: performance.enableHitTesting,
-                    datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) },
-                }),
-                x: x - width / 2,
-                y: Math.min(y1, y2),
-                width,
-                height: Math.max(1, Math.abs(y2 - y1)),
-                fill,
-                lineWidth: 0,
-                cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
-            });
-            const nextInput = rowIndex + 1 < table.length ? scaleInput(table.value(rowIndex + 1, layer.x.field)) : null;
-            if (nextInput !== null) {
-                const nextX = xScale.map(nextInput);
-                nodes.push({
-                    type: 'line',
-                    ...nodeBase(`${layer.id}:connector:${rowIndex}`, { zIndex: layer.zIndex - 0.1 }),
-                    x1: x + width / 2,
-                    y1: y2,
-                    x2: nextX - width / 2,
-                    y2,
-                    stroke: theme.colors.axis,
-                    lineWidth: 1,
-                    dash: [3, 3],
-                    lineCap: 'round',
-                });
-            }
-        }
-        return nodes;
-    };
-    const compileDiffMark = (context) => {
-        const { table, layer, xScale, yScale, theme, performance, plot } = context;
-        const oldField = layer.mark.fields.old ?? 'old';
-        const newField = layer.mark.fields.new ?? layer.y.field;
-        const width = Math.max(4, xScale instanceof BandScale
-            ? xScale.bandwidth * 0.64
-            : (plot.width / Math.max(1, table.length)) * 0.62);
-        const baseline = yScale.map(0);
-        const nodes = [];
-        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
-            const xInput = scaleInput(table.value(rowIndex, layer.x.field));
-            const oldValue = numericDataValue(table.value(rowIndex, oldField));
-            const newValue = numericDataValue(table.value(rowIndex, newField));
-            if (xInput === null || oldValue === null || newValue === null)
-                continue;
-            const x = xScale.map(xInput);
-            const oldY = yScale.map(oldValue);
-            const newY = yScale.map(newValue);
-            if (![x, oldY, newY, baseline].every(Number.isFinite))
-                continue;
-            nodes.push({
-                type: 'rect',
-                ...nodeBase(`${layer.id}:old:${rowIndex}`, { zIndex: layer.zIndex, opacity: 0.28 }),
-                x: x - width / 2,
-                y: Math.min(oldY, baseline),
-                width,
-                height: Math.max(1, Math.abs(baseline - oldY)),
-                fill: optionString$2(layer.mark.options, 'oldColor') ?? theme.colors.mutedText,
-                lineWidth: 0,
-                cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
-            });
-            nodes.push({
-                type: 'rect',
-                ...nodeBase(`${layer.id}:new:${rowIndex}`, {
-                    zIndex: layer.zIndex + 0.1,
-                    opacity: layer.mark.opacity,
-                    interactive: performance.enableHitTesting,
-                    datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) },
-                }),
-                x: x - width * 0.32,
-                y: Math.min(newY, baseline),
-                width: width * 0.64,
-                height: Math.max(1, Math.abs(baseline - newY)),
-                fill: layer.mark.fill ?? theme.colors.focus,
-                lineWidth: 0,
-                cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
-            });
-            nodes.push({
-                type: 'line',
-                ...nodeBase(`${layer.id}:delta:${rowIndex}`, { zIndex: layer.zIndex + 0.2 }),
-                x1: x,
-                y1: oldY,
-                x2: x,
-                y2: newY,
-                stroke: theme.colors.text,
-                lineWidth: 1.5,
-                lineCap: 'round',
-            });
-        }
-        return nodes;
-    };
-    const compileAnnotationMark = (context) => {
-        const nodes = [...compileLineMark(context)];
-        const { table, layer, xScale, plot, theme } = context;
-        const titleField = layer.mark.fields.annotation ?? 'annotation';
-        const textField = layer.mark.fields.annotationText;
-        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
-            if (!table.has(titleField))
-                break;
-            const annotation = table.value(rowIndex, titleField);
-            const xInput = scaleInput(table.value(rowIndex, layer.x.field));
-            if (annotation === null || annotation === undefined || annotation === '' || xInput === null)
-                continue;
-            const x = xScale.map(xInput);
-            if (!Number.isFinite(x))
-                continue;
-            nodes.push({
-                type: 'line',
-                ...nodeBase(`${layer.id}:annotation-line:${rowIndex}`, { zIndex: layer.zIndex + 0.5 }),
-                x1: x,
-                y1: plot.y,
-                x2: x,
-                y2: plot.y + plot.height,
-                stroke: layer.mark.stroke ?? theme.colors.focus,
-                lineWidth: 1.25,
-                dash: [4, 3],
-            });
-            const suffix = textField !== undefined && table.has(textField)
-                ? table.value(rowIndex, textField)
-                : undefined;
-            const label = suffix === undefined || suffix === null
-                ? String(annotation)
-                : `${String(annotation)} — ${String(suffix)}`;
-            const width = Math.min(190, Math.max(54, label.length * 6.1 + 16));
-            const labelX = Math.min(plot.x + plot.width - width - 4, x + 6);
-            nodes.push({
-                type: 'rect',
-                ...nodeBase(`${layer.id}:annotation-pill:${rowIndex}`, {
-                    zIndex: layer.zIndex + 0.6,
-                    opacity: 0.96,
-                }),
-                x: labelX,
-                y: plot.y + 4,
-                width,
-                height: 22,
-                fill: theme.colors.surface,
-                stroke: colorWithOpacity(layer.mark.stroke ?? theme.colors.focus, 0.46),
-                lineWidth: 1,
-                cornerRadius: 6,
-            });
-            nodes.push(textNode$1(`${layer.id}:annotation-label:${rowIndex}`, labelX + 8, plot.y + 15, label, context, { align: 'left', baseline: 'middle', size: 10, weight: 650 }));
-        }
-        return nodes;
-    };
-    const compileVegaMark = (context) => {
-        const mark = optionString$2(context.layer.mark.options, 'mark') ?? 'line';
-        if (mark === 'bar')
-            return compileBarMark(context);
-        if (mark === 'area')
-            return compileAreaMark(context);
-        if (mark === 'point' || mark === 'circle')
-            return compilePointMark(context);
-        return compileLineMark(context);
-    };
-
     function optionNumber$1(options, name, fallback) {
         const value = options[name];
         return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
@@ -11561,7 +13135,167 @@ var Graflume = (function (exports) {
         }
         return nodes;
     };
+    function compileNumberGauge(context, showDelta) {
+        const { table, layer, plot, theme, performance } = context;
+        const referenceField = layer.mark.fields.reference ?? 'reference';
+        const nodesPerRow = showDelta ? 4 : 3;
+        const rowBudget = Math.max(1, Math.floor(performance.maxBarMarks / nodesPerRow));
+        const rowIndices = exactStrideSampleIndices(table.length, rowBudget);
+        const count = Math.max(1, rowIndices.length);
+        const slotWidth = plot.width / count;
+        const nodes = [];
+        for (let outputIndex = 0; outputIndex < rowIndices.length; outputIndex += 1) {
+            const rowIndex = rowIndices[outputIndex];
+            if (rowIndex === undefined)
+                continue;
+            const value = numericDataValue(table.value(rowIndex, layer.y.field));
+            const rawLabel = table.value(rowIndex, layer.x.field);
+            if (value === null || rawLabel === null || rawLabel === undefined)
+                continue;
+            const reference = table.has(referenceField)
+                ? numericDataValue(table.value(rowIndex, referenceField))
+                : null;
+            const delta = reference === null ? null : value - reference;
+            const x = plot.x + slotWidth * outputIndex + 4;
+            const y = plot.y + 6;
+            const width = Math.max(1, slotWidth - 8);
+            const height = Math.max(1, plot.height - 12);
+            const fill = layer.mark.fill ?? theme.colors.surface;
+            nodes.push({
+                type: 'rect',
+                ...nodeBase(`${layer.id}:gauge-${showDelta ? 'delta' : 'number'}:${rowIndex}`, {
+                    zIndex: layer.zIndex,
+                    opacity: layer.mark.opacity,
+                    interactive: performance.enableHitTesting,
+                    datum: {
+                        layerId: layer.id,
+                        rowIndex,
+                        datum: table.row(rowIndex),
+                        tooltip: {
+                            label: String(rawLabel),
+                            value,
+                            ...(reference === null ? {} : { reference }),
+                            ...(delta === null ? {} : { delta }),
+                        },
+                    },
+                }),
+                x,
+                y,
+                width,
+                height,
+                fill,
+                stroke: mixColor(theme.colors.grid, theme.colors.axis, 0.22),
+                lineWidth: 1,
+                cornerRadius: layer.mark.cornerRadius ?? 9,
+            });
+            nodes.push(labelNode(`${layer.id}:gauge-${showDelta ? 'delta' : 'number'}-label:${rowIndex}`, x + width / 2, y + height * 0.24, String(rawLabel), context, 11, { fill: theme.colors.mutedText, weight: 650 }), labelNode(`${layer.id}:gauge-${showDelta ? 'delta-current' : 'number-value'}:${rowIndex}`, x + width / 2, y + height * (showDelta ? 0.5 : 0.58), String(value), context, Math.max(18, Math.min(34, width * 0.2)), { fill: theme.colors.text, weight: 780 }));
+            if (showDelta) {
+                const positive = (delta ?? 0) >= 0;
+                nodes.push(labelNode(`${layer.id}:gauge-delta-value:${rowIndex}`, x + width / 2, y + height * 0.75, delta === null ? '—' : `${positive ? '+' : ''}${delta}`, context, 13, {
+                    fill: delta === null ? theme.colors.mutedText : positive ? '#15803d' : '#b91c1c',
+                    weight: 750,
+                }));
+            }
+        }
+        return nodes;
+    }
+    function compileBulletGauge(context) {
+        const { table, layer, plot, theme, performance } = context;
+        const minimum = optionNumber$1(layer.mark.options, 'min', 0);
+        const maximum = optionNumber$1(layer.mark.options, 'max', 100);
+        const span = maximum - minimum || 1;
+        const targetField = layer.mark.fields.target ?? 'target';
+        const rowBudget = Math.max(1, Math.floor(performance.maxBarMarks / 4));
+        const rowIndices = exactStrideSampleIndices(table.length, rowBudget);
+        const count = Math.max(1, rowIndices.length);
+        const slotHeight = plot.height / count;
+        const nodes = [];
+        for (let outputIndex = 0; outputIndex < rowIndices.length; outputIndex += 1) {
+            const rowIndex = rowIndices[outputIndex];
+            if (rowIndex === undefined)
+                continue;
+            const value = numericDataValue(table.value(rowIndex, layer.y.field));
+            const rawLabel = table.value(rowIndex, layer.x.field);
+            if (value === null || rawLabel === null || rawLabel === undefined)
+                continue;
+            const target = table.has(targetField)
+                ? numericDataValue(table.value(rowIndex, targetField))
+                : null;
+            const ratio = Math.max(0, Math.min(1, (value - minimum) / span));
+            const targetRatio = target === null ? null : Math.max(0, Math.min(1, (target - minimum) / span));
+            const trackX = plot.x + Math.min(110, plot.width * 0.28);
+            const trackWidth = Math.max(24, plot.x + plot.width - trackX - 12);
+            const cy = plot.y + slotHeight * (outputIndex + 0.5);
+            const trackHeight = Math.max(12, Math.min(28, slotHeight * 0.48));
+            const fill = layer.mark.fill ??
+                theme.colors.palette[rowIndex % theme.colors.palette.length] ??
+                theme.colors.focus;
+            nodes.push({
+                type: 'rect',
+                ...nodeBase(`${layer.id}:gauge-bullet-track:${rowIndex}`, { zIndex: layer.zIndex }),
+                x: trackX,
+                y: cy - trackHeight / 2,
+                width: trackWidth,
+                height: trackHeight,
+                fill: mixColor(theme.colors.grid, theme.colors.surface, 0.32),
+                stroke: 'transparent',
+                lineWidth: 0,
+                cornerRadius: trackHeight / 2,
+            });
+            nodes.push({
+                type: 'rect',
+                ...nodeBase(`${layer.id}:gauge-bullet-value:${rowIndex}`, {
+                    zIndex: layer.zIndex + 0.2,
+                    opacity: layer.mark.opacity,
+                    interactive: performance.enableHitTesting,
+                    datum: {
+                        layerId: layer.id,
+                        rowIndex,
+                        datum: table.row(rowIndex),
+                        tooltip: {
+                            label: String(rawLabel),
+                            value,
+                            ...(target === null ? {} : { target }),
+                        },
+                    },
+                }),
+                x: trackX,
+                y: cy - trackHeight * 0.28,
+                width: Math.max(1, trackWidth * ratio),
+                height: trackHeight * 0.56,
+                fill,
+                stroke: 'transparent',
+                lineWidth: 0,
+                cornerRadius: trackHeight * 0.28,
+            });
+            if (targetRatio !== null) {
+                const targetX = trackX + trackWidth * targetRatio;
+                nodes.push({
+                    type: 'line',
+                    ...nodeBase(`${layer.id}:gauge-bullet-target:${rowIndex}`, {
+                        zIndex: layer.zIndex + 0.5,
+                    }),
+                    x1: targetX,
+                    y1: cy - trackHeight * 0.7,
+                    x2: targetX,
+                    y2: cy + trackHeight * 0.7,
+                    stroke: theme.colors.text,
+                    lineWidth: 2,
+                    lineCap: 'round',
+                });
+            }
+            nodes.push(labelNode(`${layer.id}:gauge-bullet-label:${rowIndex}`, trackX - 8, cy, String(rawLabel), context, 10, { align: 'right', fill: theme.colors.mutedText, weight: 650 }));
+        }
+        return nodes;
+    }
     const compileGaugeMark = (context) => {
+        const mode = context.layer.mark.options.mode;
+        if (mode === 'number')
+            return compileNumberGauge(context, false);
+        if (mode === 'delta')
+            return compileNumberGauge(context, true);
+        if (mode === 'bullet')
+            return compileBulletGauge(context);
         const { table, layer, plot, theme, performance } = context;
         const minimum = optionNumber$1(layer.mark.options, 'min', 0);
         const maximum = optionNumber$1(layer.mark.options, 'max', 100);
@@ -12266,6 +14000,184 @@ var Graflume = (function (exports) {
     }
     const compileTimelineMark = (context) => compileTimeline(context, false);
     const compileGanttMark = (context) => compileTimeline(context, true);
+    function compileIcicleMark(context) {
+        const { table, layer, plot, theme, performance } = context;
+        const parentField = layer.mark.fields.parent ?? 'parent';
+        const items = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const rawLabel = table.value(rowIndex, layer.x.field);
+            const value = numericDataValue(table.value(rowIndex, layer.y.field));
+            if (rawLabel === null || rawLabel === undefined || value === null || value < 0)
+                continue;
+            const rawParent = table.has(parentField) ? table.value(rowIndex, parentField) : undefined;
+            const parent = rawParent === null || rawParent === undefined || String(rawParent).trim() === ''
+                ? undefined
+                : String(rawParent);
+            items.push({
+                rowIndex,
+                label: String(rawLabel),
+                value,
+                ...(parent === undefined ? {} : { parent }),
+            });
+        }
+        if (items.length === 0)
+            return [];
+        const byLabel = new Map();
+        items.forEach((item) => byLabel.set(item.label, { ...item, children: [] }));
+        const orderedNodes = [...byLabel.values()];
+        const parentByNode = new Map();
+        orderedNodes.forEach((node) => {
+            const parent = node.parent === undefined ? undefined : byLabel.get(node.parent);
+            if (parent !== undefined && parent !== node)
+                parentByNode.set(node, parent);
+        });
+        // Each node has at most one parent, so cycles can be broken in linear time by
+        // walking the parent chains once. Breaking the first repeated edge keeps the
+        // result deterministic while making every malformed component renderable.
+        const resolved = new Set();
+        orderedNodes.forEach((start) => {
+            if (resolved.has(start))
+                return;
+            const path = [];
+            const positions = new Map();
+            let cursor = start;
+            while (cursor !== undefined && !resolved.has(cursor)) {
+                if (positions.has(cursor)) {
+                    parentByNode.delete(cursor);
+                    break;
+                }
+                positions.set(cursor, path.length);
+                path.push(cursor);
+                cursor = parentByNode.get(cursor);
+            }
+            path.forEach((node) => resolved.add(node));
+        });
+        parentByNode.forEach((parent, node) => parent.children.push(node));
+        const roots = orderedNodes.filter((node) => !parentByNode.has(node));
+        // Memoize subtree weight and depth in one iterative leaf-to-root pass. This
+        // avoids both the previous repeated subtree scans and call-stack exhaustion
+        // on deep, valid hierarchies without allocating one frame object per edge.
+        const weights = new Map();
+        const depths = new Map();
+        const remainingChildren = new Map();
+        const accumulatedWeights = new Map();
+        const accumulatedDepths = new Map();
+        const ready = [];
+        orderedNodes.forEach((node) => {
+            remainingChildren.set(node, node.children.length);
+            if (node.children.length === 0)
+                ready.push(node);
+        });
+        for (let readyIndex = 0; readyIndex < ready.length; readyIndex += 1) {
+            const node = ready[readyIndex];
+            if (node === undefined)
+                continue;
+            const weight = Math.max(node.value, accumulatedWeights.get(node) ?? 0, 0.000001);
+            const depth = 1 + (accumulatedDepths.get(node) ?? 0);
+            weights.set(node, weight);
+            depths.set(node, depth);
+            const parent = parentByNode.get(node);
+            if (parent === undefined)
+                continue;
+            accumulatedWeights.set(parent, (accumulatedWeights.get(parent) ?? 0) + weight);
+            accumulatedDepths.set(parent, Math.max(accumulatedDepths.get(parent) ?? 0, depth));
+            const remaining = (remainingChildren.get(parent) ?? 1) - 1;
+            remainingChildren.set(parent, remaining);
+            if (remaining === 0)
+                ready.push(parent);
+        }
+        let maxDepth = 1;
+        roots.forEach((root) => {
+            maxDepth = Math.max(maxDepth, depths.get(root) ?? 1);
+        });
+        const levelHeight = plot.height / maxDepth;
+        const rootTotal = roots.reduce((sum, root) => sum + (weights.get(root) ?? 0), 0);
+        const nodes = [];
+        const markBudget = Math.max(1, Math.floor(performance.maxBarMarks));
+        const renderStack = [];
+        let rootX = plot.x;
+        const rootFrames = [];
+        roots.forEach((root, rootIndex) => {
+            const rootWidth = plot.width * ((weights.get(root) ?? 0) / Math.max(rootTotal, 0.000001));
+            if (rootIndex < markBudget) {
+                rootFrames.push({ node: root, level: 0, x: rootX, width: rootWidth, colorIndex: rootIndex });
+            }
+            rootX += rootWidth;
+        });
+        for (let index = rootFrames.length - 1; index >= 0; index -= 1) {
+            const frame = rootFrames[index];
+            if (frame !== undefined)
+                renderStack.push(frame);
+        }
+        let renderedMarks = 0;
+        while (renderStack.length > 0 && renderedMarks < markBudget) {
+            const frame = renderStack.pop();
+            if (frame === undefined || frame.width <= 0)
+                continue;
+            const { node, level, x, width, colorIndex } = frame;
+            const gap = Math.min(1.5, levelHeight * 0.12, width * 0.02);
+            const y = plot.y + level * levelHeight;
+            const fill = layer.mark.fill ??
+                mixColor(theme.colors.palette[colorIndex % theme.colors.palette.length] ?? theme.colors.focus, theme.colors.background, Math.min(0.5, level * 0.1));
+            nodes.push({
+                type: 'rect',
+                ...nodeBase(`${layer.id}:icicle:${node.rowIndex}`, {
+                    zIndex: layer.zIndex + level * 0.01,
+                    opacity: layer.mark.opacity,
+                    interactive: performance.enableHitTesting,
+                    datum: {
+                        layerId: layer.id,
+                        rowIndex: node.rowIndex,
+                        datum: table.row(node.rowIndex),
+                        tooltip: { label: node.label, value: node.value, depth: level },
+                    },
+                }),
+                x: x + gap,
+                y: y + gap,
+                width: Math.max(1, width - gap * 2),
+                height: Math.max(1, levelHeight - gap * 2),
+                fill,
+                stroke: colorWithOpacity(theme.colors.background, 0.78),
+                lineWidth: 1,
+                cornerRadius: layer.mark.cornerRadius ?? 3,
+            });
+            renderedMarks += 1;
+            if (width > 42 && levelHeight > 20) {
+                nodes.push(textNode(`${layer.id}:icicle-label:${node.rowIndex}`, x + 8, y + levelHeight / 2, node.label, context, {
+                    align: 'left',
+                    size: Math.max(8, Math.min(12, levelHeight * 0.28)),
+                    weight: 700,
+                    fill: readableTextColor(fill, '#ffffff', '#0f172a'),
+                }));
+            }
+            if (node.children.length === 0 || level + 1 >= maxDepth)
+                continue;
+            const childTotal = node.children.reduce((sum, child) => sum + (weights.get(child) ?? 0), 0);
+            let childX = x;
+            const childFrames = [];
+            const childLimit = Math.min(node.children.length, markBudget - renderedMarks);
+            for (let childIndex = 0; childIndex < childLimit; childIndex += 1) {
+                const child = node.children[childIndex];
+                if (child === undefined)
+                    continue;
+                const childWidth = width * ((weights.get(child) ?? 0) / Math.max(childTotal, 0.000001));
+                childFrames.push({
+                    node: child,
+                    level: level + 1,
+                    x: childX,
+                    width: childWidth,
+                    colorIndex: colorIndex + childIndex + 1,
+                });
+                childX += childWidth;
+            }
+            for (let index = childFrames.length - 1; index >= 0; index -= 1) {
+                const childFrame = childFrames[index];
+                if (childFrame !== undefined)
+                    renderStack.push(childFrame);
+            }
+        }
+        return nodes;
+    }
     function layoutTreemap(items, rectangle) {
         if (items.length === 0)
             return [];
@@ -12312,6 +14224,8 @@ var Graflume = (function (exports) {
         ];
     }
     const compileTreemapMark = (context) => {
+        if (context.layer.mark.options.mode === 'icicle')
+            return compileIcicleMark(context);
         const { table, layer, plot, theme, performance } = context;
         const items = [];
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
@@ -12863,6 +14777,7 @@ var Graflume = (function (exports) {
         registry.registerMark('gauge', compileGaugeMark);
         registry.registerMark('geo', compileGeoMark);
         registry.registerMark('histogram', compileHistogramMark);
+        registry.registerMark('distribution', compileDistributionFamilyMark);
         registry.registerMark('interval', compileIntervalMark);
         registry.registerMark('map', compileMapMark);
         registry.registerMark('motion', compileBubbleMark);
@@ -12883,12 +14798,18 @@ var Graflume = (function (exports) {
 
     const additionalMarkCompilers = [
         ['radar', compileRadarMark],
+        ['polar', compilePolarMark],
         ['tree', compileTreeMark],
         ['graph', compileGraphMark],
         ['chord', compileChordMark],
         ['funnel', compileFunnelMark],
         ['parallel', compileParallelMark],
         ['boxplot', compileBoxplotMark],
+        ['image', compileImageMark],
+        ['ternary', compileTernaryMark],
+        ['smith', compileSmithMark],
+        ['scatter-matrix', compileScatterMatrixMark],
+        ['carpet', compileCarpetMark],
         ['effect-scatter', compileEffectScatterMark],
         ['lines', compileLinesMark],
         ['heatmap', compileHeatmapMark],
@@ -12899,7 +14820,7 @@ var Graflume = (function (exports) {
         ['arc-diagram', compileArcDiagramMark],
         ['range', compileRangeMark],
         ['smooth', compileSmoothMark],
-        ['distribution', compileDistributionMark],
+        ['distribution', compileDistributionFamilyMark],
         ['bullet', compileBulletMark],
         ['contour', compileContourMark],
         ['cylinder', compileCylinderMark],
@@ -12982,7 +14903,12 @@ var Graflume = (function (exports) {
     function specialized(type, target, data, options, markDefaults = {}) {
         return quickChart(create, type, target, data, {
             ...options,
-            mark: { ...markDefaults, ...options.mark },
+            mark: {
+                ...markDefaults,
+                ...options.mark,
+                fields: { ...markDefaults.fields, ...options.mark?.fields },
+                options: { ...markDefaults.options, ...options.mark?.options },
+            },
         });
     }
     function annotation(target, data, options) {
@@ -13024,11 +14950,43 @@ var Graflume = (function (exports) {
     function gauge(target, data, options) {
         return specialized('gauge', target, data, options);
     }
+    function gaugeNumber(target, data, options) {
+        return specialized('gauge', target, data, options, { options: { mode: 'number' } });
+    }
+    function gaugeDelta(target, data, options) {
+        return specialized('gauge', target, data, options, {
+            fields: { reference: 'reference' },
+            options: { mode: 'delta' },
+        });
+    }
+    function gaugeBullet(target, data, options) {
+        return specialized('gauge', target, data, options, {
+            fields: { target: 'target' },
+            options: { mode: 'bullet' },
+        });
+    }
     function geo(target, data, options) {
         return specialized('geo', target, data, options);
     }
     function histogram(target, data, options) {
         return specialized('histogram', target, data, options);
+    }
+    /** Canonical API for histogram, box, violin, curve, and bivariate distribution modes. */
+    function distribution(target, data, options) {
+        return specialized('distribution', target, data, options, { options: { mode: 'histogram' } });
+    }
+    function violin(target, data, options) {
+        return specialized('distribution', target, data, options, { options: { mode: 'violin' } });
+    }
+    function histogram2d(target, data, options) {
+        return specialized('distribution', target, data, options, {
+            options: { mode: 'histogram-2d' },
+        });
+    }
+    function histogram2dContour(target, data, options) {
+        return specialized('distribution', target, data, options, {
+            options: { mode: 'histogram-2d-contour' },
+        });
     }
     function intervals(target, data, options) {
         return specialized('interval', target, data, options);
@@ -13058,6 +15016,12 @@ var Graflume = (function (exports) {
     function treemap(target, data, options) {
         return specialized('treemap', target, data, options);
     }
+    function icicle(target, data, options) {
+        return specialized('treemap', target, data, options, {
+            fields: { parent: 'parent' },
+            options: { mode: 'icicle' },
+        });
+    }
     function trendline(target, data, options) {
         return specialized('trendline', target, data, options);
     }
@@ -13075,6 +15039,39 @@ var Graflume = (function (exports) {
     }
     function radar(target, data, options) {
         return additional('radar', target, data, options);
+    }
+    function polar(target, data, options) {
+        return additional('polar', target, data, options);
+    }
+    function polarLine(target, data, options) {
+        return additional('polar', target, data, mergeDefaults({ options: { mode: 'line' } }, options));
+    }
+    function polarScatter(target, data, options) {
+        return additional('polar', target, data, mergeDefaults({ options: { mode: 'scatter' } }, options));
+    }
+    function polarBar(target, data, options) {
+        return additional('polar', target, data, mergeDefaults({ options: { mode: 'bar' } }, options));
+    }
+    function image(target, data, options) {
+        return additional('image', target, data, options);
+    }
+    function ternary(target, data, options) {
+        return additional('ternary', target, data, options);
+    }
+    function smith(target, data, options) {
+        return additional('smith', target, data, options);
+    }
+    function scatterMatrix(target, data, options) {
+        return additional('scatter-matrix', target, data, options);
+    }
+    function carpet(target, data, options) {
+        return additional('carpet', target, data, options);
+    }
+    function carpetScatter(target, data, options) {
+        return additional('carpet', target, data, mergeDefaults({ options: { mode: 'scatter' } }, options));
+    }
+    function carpetContour(target, data, options) {
+        return additional('carpet', target, data, mergeDefaults({ options: { mode: 'contour' } }, options));
     }
     function tree(target, data, options) {
         return additional('tree', target, data, options);
@@ -13101,8 +15098,14 @@ var Graflume = (function (exports) {
     function funnel(target, data, options) {
         return additional('funnel', target, data, options);
     }
+    function funnelArea(target, data, options) {
+        return additional('funnel', target, data, mergeDefaults({ options: { mode: 'area' } }, options));
+    }
     function parallel(target, data, options) {
         return additional('parallel', target, data, options);
+    }
+    function parallelCategories(target, data, options) {
+        return additional('parallel', target, data, mergeDefaults({ options: { mode: 'categories' } }, options));
     }
     function boxplot(target, data, options) {
         return additional('boxplot', target, data, options);
@@ -13160,7 +15163,7 @@ var Graflume = (function (exports) {
         fields: { low: 'low', high: 'high' },
         options: { mode: 'area', smooth: true },
     });
-    const bellCurve = makeSeriesQuick('distribution');
+    const bellCurve = makeSeriesQuick('distribution', { options: { mode: 'curve' } });
     const bullet = makeSeriesQuick('bullet', { fields: { target: 'target' } });
     const columnPyramid = makeSeriesQuick('pyramid', { options: { variant: 'column' } });
     const columnRange = makeSeriesQuick('range', {
@@ -13367,6 +15370,9 @@ var Graflume = (function (exports) {
     exports.candlestick = candlestick;
     exports.canvasRendererFactory = canvasRendererFactory;
     exports.capabilities = capabilities;
+    exports.carpet = carpet;
+    exports.carpetContour = carpetContour;
+    exports.carpetScatter = carpetScatter;
     exports.chaikinMoneyFlow = chaikinMoneyFlow;
     exports.chaikinOscillator = chaikinOscillator;
     exports.chandeMomentumOscillator = chandeMomentumOscillator;
@@ -13390,6 +15396,7 @@ var Graflume = (function (exports) {
     exports.diff = diff;
     exports.directionalMovementIndex = directionalMovementIndex;
     exports.disparityIndex = disparityIndex;
+    exports.distribution = distribution;
     exports.donut = donut;
     exports.doubleExponentialMovingAverage = doubleExponentialMovingAverage;
     exports.dumbbell = dumbbell;
@@ -13402,8 +15409,12 @@ var Graflume = (function (exports) {
     exports.fullVariantCatalog = fullVariantCatalog;
     exports.funnel = funnel;
     exports.funnel3d = funnel3d;
+    exports.funnelArea = funnelArea;
     exports.gantt = gantt;
     exports.gauge = gauge;
+    exports.gaugeBullet = gaugeBullet;
+    exports.gaugeDelta = gaugeDelta;
+    exports.gaugeNumber = gaugeNumber;
     exports.geo = geo;
     exports.geoHeatmap = geoHeatmap;
     exports.graflumeDark = graflumeDark;
@@ -13413,10 +15424,14 @@ var Graflume = (function (exports) {
     exports.heikinAshi = heikinAshi;
     exports.highLowClose = highLowClose;
     exports.histogram = histogram;
+    exports.histogram2d = histogram2d;
+    exports.histogram2dContour = histogram2dContour;
     exports.hitTestScene = hitTestScene;
     exports.hollowCandlestick = hollowCandlestick;
     exports.horizontalBar = horizontalBar;
     exports.ichimokuCloud = ichimokuCloud;
+    exports.icicle = icicle;
+    exports.image = image;
     exports.interval = interval;
     exports.intervals = intervals;
     exports.itemChart = itemChart;
@@ -13448,6 +15463,7 @@ var Graflume = (function (exports) {
     exports.packedBubble = packedBubble;
     exports.parabolicStopAndReverse = parabolicStopAndReverse;
     exports.parallel = parallel;
+    exports.parallelCategories = parallelCategories;
     exports.pareto = pareto;
     exports.percentagePriceOscillator = percentagePriceOscillator;
     exports.pictorialBar = pictorialBar;
@@ -13457,6 +15473,10 @@ var Graflume = (function (exports) {
     exports.pluginApiVersion = pluginApiVersion;
     exports.point = point;
     exports.pointAndFigure = pointAndFigure;
+    exports.polar = polar;
+    exports.polarBar = polarBar;
+    exports.polarLine = polarLine;
+    exports.polarScatter = polarScatter;
     exports.polygon = polygon;
     exports.priceBlocks = priceBlocks;
     exports.priceChannel = priceChannel;
@@ -13475,12 +15495,14 @@ var Graflume = (function (exports) {
     exports.sankey = sankey;
     exports.scatter = scatter;
     exports.scatter3d = scatter3d;
+    exports.scatterMatrix = scatterMatrix;
     exports.seriesChartTypeCatalog = seriesChartTypeCatalog;
     exports.seriesChartVariantCatalog = seriesChartVariantCatalog;
     exports.seriesCompatibilityCatalog = seriesCompatibilityCatalog;
     exports.seriesCompatibilityIds = seriesCompatibilityIds;
     exports.simpleMovingAverage = simpleMovingAverage;
     exports.slowStochastic = slowStochastic;
+    exports.smith = smith;
     exports.solidGauge = solidGauge;
     exports.specVersion = specVersion;
     exports.spline = spline;
@@ -13491,6 +15513,7 @@ var Graflume = (function (exports) {
     exports.supertrend = supertrend;
     exports.table = table;
     exports.technicalIndicator = technicalIndicator;
+    exports.ternary = ternary;
     exports.themeRiver = themeRiver;
     exports.tileMap = tileMap;
     exports.tiledMap = tiledMap;
@@ -13510,6 +15533,7 @@ var Graflume = (function (exports) {
     exports.vegaChart = vegaChart;
     exports.venn = venn;
     exports.version = version;
+    exports.violin = violin;
     exports.volatilityBands = volatilityBands;
     exports.volumeByPrice = volumeByPrice;
     exports.volumeProfile = volumeProfile;

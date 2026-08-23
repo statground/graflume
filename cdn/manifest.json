@@ -1,10 +1,11 @@
 {
   "package": "graflume",
   "version": "0.1.0-alpha.0",
-  "sourceCommit": "69033ddd26bb67bcc56445fb9f176bbfa820a1b6",
+  "sourceCommit": "e6d245822b8bbd3534c3d057f268490d45f4d51b",
   "entry": "./graflume.global.js",
   "entries": {
     "default": "./graflume.global.js",
-    "complete": "./graflume.complete.global.js"
+    "complete": "./graflume.complete.global.js",
+    "spatial": "./graflume.spatial.global.js"
   }
 }
