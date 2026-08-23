@@ -721,6 +721,45 @@ var Graflume = (function (exports) {
         'prefix',
         'suffix',
     ]);
+    const INTERACTION_KEYS = new Set([
+        'hover',
+        'click',
+        'tooltip',
+        'navigation',
+        'playback',
+        'controls',
+    ]);
+    const NAVIGATION_KEYS = new Set(['minZoom', 'maxZoom', 'wheel', 'drag', 'pinch', 'keyboard']);
+    const NAVIGATION_WHEEL_MODES = new Set(['off', 'modifier', 'always']);
+    const PLAYBACK_KEYS = new Set([
+        'field',
+        'layerId',
+        'mode',
+        'interval',
+        'rate',
+        'loop',
+        'windowSize',
+        'autoplay',
+        'filter',
+    ]);
+    const PLAYBACK_MODES = new Set(['frame', 'cumulative', 'window']);
+    const CONTROLS_KEYS = new Set(['zoom', 'reset', 'fullscreen', 'export', 'playback', 'labels']);
+    const CONTROL_LABEL_KEYS = new Set([
+        'controls',
+        'zoomIn',
+        'zoomOut',
+        'reset',
+        'enterFullscreen',
+        'exitFullscreen',
+        'exportPng',
+        'previousFrame',
+        'play',
+        'pause',
+        'nextFrame',
+        'seek',
+        'speed',
+        'loop',
+    ]);
     const ENCODING_KEYS = new Set(['field', 'type', 'title', 'scale', 'axis', 'axisId']);
     const FIELD_TYPES = new Set(['quantitative', 'temporal', 'ordinal', 'nominal']);
     const SCALE_KEYS = new Set([
@@ -1307,67 +1346,173 @@ var Graflume = (function (exports) {
             issues.push({ path, message: 'Interaction must be an object.' });
             return;
         }
+        validateUnknownKeys(value, INTERACTION_KEYS, path, 'interaction', issues);
         for (const key of ['hover', 'click']) {
             if (value[key] !== undefined && typeof value[key] !== 'boolean') {
                 issues.push({ path: `${path}.${key}`, message: `Interaction ${key} must be a boolean.` });
             }
         }
         const tooltip = value.tooltip;
-        if (tooltip === undefined || typeof tooltip === 'boolean')
-            return;
-        if (!isPlainObject(tooltip)) {
-            issues.push({ path: `${path}.tooltip`, message: 'Tooltip must be a boolean or an object.' });
-            return;
-        }
-        for (const key of Object.keys(tooltip)) {
-            if (!TOOLTIP_KEYS.has(key)) {
-                issues.push({
-                    path: `${path}.tooltip.${key}`,
-                    message: `Unknown tooltip property "${key}".`,
-                });
-            }
-        }
-        if (tooltip.trigger !== undefined &&
-            (typeof tooltip.trigger !== 'string' || !['mark', 'axis'].includes(tooltip.trigger))) {
-            issues.push({
-                path: `${path}.tooltip.trigger`,
-                message: 'Tooltip trigger must be "mark" or "axis".',
-            });
-        }
-        if (tooltip.axis !== undefined &&
-            (typeof tooltip.axis !== 'string' || !AXIS_IDS.has(tooltip.axis))) {
-            issues.push({
-                path: `${path}.tooltip.axis`,
-                message: 'Tooltip axis must be "x", "x2", "y", or "y2".',
-            });
-        }
-        const trigger = tooltip.trigger ?? 'mark';
-        if (trigger === 'axis' && tooltip.axis === undefined) {
-            issues.push({
-                path: `${path}.tooltip.axis`,
-                message: 'Tooltip axis is required when trigger is "axis".',
-            });
-        }
-        if (trigger !== 'axis' && tooltip.axis !== undefined) {
-            issues.push({
-                path: `${path}.tooltip.axis`,
-                message: 'Tooltip axis is only valid when trigger is "axis".',
-            });
-        }
-        if (tooltip.title !== undefined && typeof tooltip.title !== 'string') {
-            issues.push({ path: `${path}.tooltip.title`, message: 'Tooltip title must be a string.' });
-        }
-        if (tooltip.fields !== undefined) {
-            if (!Array.isArray(tooltip.fields) ||
-                tooltip.fields.length === 0 ||
-                tooltip.fields.length > 12) {
-                issues.push({
-                    path: `${path}.tooltip.fields`,
-                    message: 'Tooltip fields must contain between 1 and 12 entries.',
-                });
+        if (tooltip !== undefined && typeof tooltip !== 'boolean') {
+            if (!isPlainObject(tooltip)) {
+                issues.push({ path: `${path}.tooltip`, message: 'Tooltip must be a boolean or an object.' });
             }
             else {
-                tooltip.fields.forEach((field, index) => validateTooltipField(field, `${path}.tooltip.fields[${index}]`, issues));
+                for (const key of Object.keys(tooltip)) {
+                    if (!TOOLTIP_KEYS.has(key)) {
+                        issues.push({
+                            path: `${path}.tooltip.${key}`,
+                            message: `Unknown tooltip property "${key}".`,
+                        });
+                    }
+                }
+                if (tooltip.trigger !== undefined &&
+                    (typeof tooltip.trigger !== 'string' || !['mark', 'axis'].includes(tooltip.trigger))) {
+                    issues.push({
+                        path: `${path}.tooltip.trigger`,
+                        message: 'Tooltip trigger must be "mark" or "axis".',
+                    });
+                }
+                if (tooltip.axis !== undefined &&
+                    (typeof tooltip.axis !== 'string' || !AXIS_IDS.has(tooltip.axis))) {
+                    issues.push({
+                        path: `${path}.tooltip.axis`,
+                        message: 'Tooltip axis must be "x", "x2", "y", or "y2".',
+                    });
+                }
+                const trigger = tooltip.trigger ?? 'mark';
+                if (trigger === 'axis' && tooltip.axis === undefined) {
+                    issues.push({
+                        path: `${path}.tooltip.axis`,
+                        message: 'Tooltip axis is required when trigger is "axis".',
+                    });
+                }
+                if (trigger !== 'axis' && tooltip.axis !== undefined) {
+                    issues.push({
+                        path: `${path}.tooltip.axis`,
+                        message: 'Tooltip axis is only valid when trigger is "axis".',
+                    });
+                }
+                if (tooltip.title !== undefined && typeof tooltip.title !== 'string') {
+                    issues.push({ path: `${path}.tooltip.title`, message: 'Tooltip title must be a string.' });
+                }
+                if (tooltip.fields !== undefined) {
+                    if (!Array.isArray(tooltip.fields) ||
+                        tooltip.fields.length === 0 ||
+                        tooltip.fields.length > 12) {
+                        issues.push({
+                            path: `${path}.tooltip.fields`,
+                            message: 'Tooltip fields must contain between 1 and 12 entries.',
+                        });
+                    }
+                    else {
+                        tooltip.fields.forEach((field, index) => validateTooltipField(field, `${path}.tooltip.fields[${index}]`, issues));
+                    }
+                }
+            }
+        }
+        validateNavigation(value.navigation, `${path}.navigation`, issues);
+        validatePlayback(value.playback, `${path}.playback`, issues);
+        validateControls(value.controls, `${path}.controls`, issues);
+    }
+    function validateNavigation(value, path, issues) {
+        if (value === undefined || typeof value === 'boolean')
+            return;
+        if (!isPlainObject(value)) {
+            issues.push({ path, message: 'Navigation must be a boolean or an object.' });
+            return;
+        }
+        validateUnknownKeys(value, NAVIGATION_KEYS, path, 'navigation', issues);
+        if (value.minZoom !== undefined)
+            validateFiniteNumber(value.minZoom, `${path}.minZoom`, 'Navigation minZoom', issues, {
+                min: 1,
+                max: 6,
+            });
+        if (value.maxZoom !== undefined)
+            validateFiniteNumber(value.maxZoom, `${path}.maxZoom`, 'Navigation maxZoom', issues, {
+                min: 1,
+                max: 6,
+            });
+        if (typeof value.minZoom === 'number' &&
+            typeof value.maxZoom === 'number' &&
+            value.minZoom > value.maxZoom) {
+            issues.push({ path: `${path}.maxZoom`, message: 'Navigation maxZoom must be >= minZoom.' });
+        }
+        if (value.wheel !== undefined &&
+            (typeof value.wheel !== 'string' || !NAVIGATION_WHEEL_MODES.has(value.wheel))) {
+            issues.push({
+                path: `${path}.wheel`,
+                message: 'Navigation wheel must be "off", "modifier", or "always".',
+            });
+        }
+        validateOptionalBoolean(value.drag, `${path}.drag`, 'Navigation drag', issues);
+        validateOptionalBoolean(value.pinch, `${path}.pinch`, 'Navigation pinch', issues);
+        validateOptionalBoolean(value.keyboard, `${path}.keyboard`, 'Navigation keyboard', issues);
+    }
+    function validatePlayback(value, path, issues) {
+        if (value === undefined || value === false)
+            return;
+        if (value === true) {
+            issues.push({ path: `${path}.field`, message: 'Playback field is required.' });
+            return;
+        }
+        if (!isPlainObject(value)) {
+            issues.push({ path, message: 'Playback must be false or an object.' });
+            return;
+        }
+        validateUnknownKeys(value, PLAYBACK_KEYS, path, 'playback', issues);
+        validateOptionalString(value.field, `${path}.field`, 'Playback field', issues, false);
+        if (value.field === undefined) {
+            issues.push({ path: `${path}.field`, message: 'Playback field is required.' });
+        }
+        else if (typeof value.field === 'string' && UNSAFE_FIELDS.has(value.field)) {
+            issues.push({ path: `${path}.field`, message: `Unsafe field "${value.field}" is forbidden.` });
+        }
+        validateOptionalString(value.layerId, `${path}.layerId`, 'Playback layerId', issues, false);
+        if (value.mode !== undefined &&
+            (typeof value.mode !== 'string' || !PLAYBACK_MODES.has(value.mode))) {
+            issues.push({ path: `${path}.mode`, message: 'Playback mode is not supported.' });
+        }
+        if (value.interval !== undefined)
+            validateFiniteNumber(value.interval, `${path}.interval`, 'Playback interval', issues, {
+                min: 100,
+                max: 60_000,
+            });
+        if (value.rate !== undefined)
+            validateFiniteNumber(value.rate, `${path}.rate`, 'Playback rate', issues, {
+                min: 0.1,
+                max: 16,
+            });
+        if (value.windowSize !== undefined)
+            validateFiniteNumber(value.windowSize, `${path}.windowSize`, 'Playback windowSize', issues, {
+                min: 1,
+                max: 10_000,
+                integer: true,
+            });
+        validateOptionalBoolean(value.loop, `${path}.loop`, 'Playback loop', issues);
+        validateOptionalBoolean(value.autoplay, `${path}.autoplay`, 'Playback autoplay', issues);
+        validateOptionalBoolean(value.filter, `${path}.filter`, 'Playback filter', issues);
+    }
+    function validateControls(value, path, issues) {
+        if (value === undefined || typeof value === 'boolean')
+            return;
+        if (!isPlainObject(value)) {
+            issues.push({ path, message: 'Controls must be a boolean or an object.' });
+            return;
+        }
+        validateUnknownKeys(value, CONTROLS_KEYS, path, 'controls', issues);
+        for (const key of ['zoom', 'reset', 'fullscreen', 'export', 'playback']) {
+            validateOptionalBoolean(value[key], `${path}.${key}`, `Controls ${key}`, issues);
+        }
+        if (value.labels !== undefined) {
+            if (!isPlainObject(value.labels)) {
+                issues.push({ path: `${path}.labels`, message: 'Control labels must be an object.' });
+            }
+            else {
+                validateUnknownKeys(value.labels, CONTROL_LABEL_KEYS, `${path}.labels`, 'control label', issues);
+                for (const [key, label] of Object.entries(value.labels)) {
+                    validateOptionalString(label, `${path}.labels.${key}`, 'Control label', issues, false);
+                }
             }
         }
     }
@@ -1458,6 +1603,22 @@ var Graflume = (function (exports) {
         });
     }
 
+    const defaultControlLabels = {
+        controls: 'Chart controls',
+        zoomIn: 'Zoom in',
+        zoomOut: 'Zoom out',
+        reset: 'Reset view',
+        enterFullscreen: 'Enter fullscreen',
+        exitFullscreen: 'Exit fullscreen',
+        exportPng: 'Download PNG',
+        previousFrame: 'Previous frame',
+        play: 'Play',
+        pause: 'Pause',
+        nextFrame: 'Next frame',
+        seek: 'Playback position',
+        speed: 'Playback speed',
+        loop: 'Loop playback',
+    };
     function normalizePadding(input) {
         if (typeof input === 'number') {
             return { top: input, right: input, bottom: input, left: input };
@@ -1512,10 +1673,56 @@ var Graflume = (function (exports) {
                     ? (tooltipInput.fields ?? []).map(normalizeTooltipField)
                     : [],
             };
+        const navigationInput = input?.navigation;
+        const navigation = navigationInput === undefined || navigationInput === false
+            ? false
+            : {
+                minZoom: typeof navigationInput === 'object' ? (navigationInput.minZoom ?? 1) : 1,
+                maxZoom: typeof navigationInput === 'object' ? (navigationInput.maxZoom ?? 6) : 6,
+                wheel: typeof navigationInput === 'object'
+                    ? (navigationInput.wheel ?? 'modifier')
+                    : 'modifier',
+                drag: typeof navigationInput === 'object' ? (navigationInput.drag ?? true) : true,
+                pinch: typeof navigationInput === 'object' ? (navigationInput.pinch ?? true) : true,
+                keyboard: typeof navigationInput === 'object' ? (navigationInput.keyboard ?? true) : true,
+            };
+        const playbackInput = input?.playback;
+        const playback = playbackInput === undefined || playbackInput === false
+            ? false
+            : typeof playbackInput === 'object'
+                ? {
+                    field: playbackInput.field,
+                    ...(playbackInput.layerId === undefined ? {} : { layerId: playbackInput.layerId }),
+                    mode: playbackInput.mode ?? 'frame',
+                    interval: playbackInput.interval ?? 1_000,
+                    rate: playbackInput.rate ?? 1,
+                    loop: playbackInput.loop ?? false,
+                    windowSize: playbackInput.windowSize ?? 1,
+                    autoplay: playbackInput.autoplay ?? false,
+                    filter: playbackInput.filter ?? false,
+                }
+                : false;
+        const controlsInput = input?.controls;
+        const controls = controlsInput === undefined || controlsInput === false
+            ? false
+            : {
+                zoom: typeof controlsInput === 'object' ? (controlsInput.zoom ?? false) : true,
+                reset: typeof controlsInput === 'object' ? (controlsInput.reset ?? false) : true,
+                fullscreen: typeof controlsInput === 'object' ? (controlsInput.fullscreen ?? false) : true,
+                export: typeof controlsInput === 'object' ? (controlsInput.export ?? false) : true,
+                playback: typeof controlsInput === 'object' ? (controlsInput.playback ?? false) : true,
+                labels: {
+                    ...defaultControlLabels,
+                    ...(typeof controlsInput === 'object' ? controlsInput.labels : undefined),
+                },
+            };
         return {
             hover,
             click: input?.click ?? true,
             tooltip,
+            navigation,
+            playback,
+            controls,
         };
     }
     const axisDefaults = {
@@ -8334,6 +8541,198 @@ var Graflume = (function (exports) {
         }
     }
 
+    const buttonStyle = 'display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 8px;border:1px solid rgba(148,163,184,.5);border-radius:8px;background:rgba(255,255,255,.94);color:#0f172a;font:600 13px/1 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer';
+    function button(glyph, label, action) {
+        const element = document.createElement('button');
+        element.type = 'button';
+        element.textContent = glyph;
+        element.title = label;
+        element.setAttribute('aria-label', label);
+        element.style.cssText = buttonStyle;
+        element.addEventListener('click', action);
+        return element;
+    }
+    function updateLabel(element, label) {
+        element.title = label;
+        element.setAttribute('aria-label', label);
+    }
+    function separator() {
+        const element = document.createElement('span');
+        element.setAttribute('aria-hidden', 'true');
+        element.style.cssText = 'width:1px;height:20px;background:rgba(148,163,184,.45)';
+        return element;
+    }
+    class ControlsController {
+        #elements = null;
+        #signature = '';
+        sync(host, state, actions) {
+            const signature = JSON.stringify({
+                zoom: state.spec.zoom,
+                reset: state.spec.reset,
+                fullscreen: state.spec.fullscreen,
+                export: state.spec.export,
+                playback: state.spec.playback,
+                labels: state.spec.labels,
+            });
+            if (this.#elements === null || this.#signature !== signature) {
+                this.destroy();
+                this.#elements = this.#create(state.spec, actions);
+                this.#signature = signature;
+            }
+            const elements = this.#elements;
+            if (elements.root.parentElement !== host)
+                host.append(elements.root);
+            this.#update(elements, state);
+        }
+        destroy() {
+            this.#elements?.root.remove();
+            this.#elements = null;
+            this.#signature = '';
+        }
+        #create(spec, actions) {
+            const root = document.createElement('div');
+            root.dataset.graflumeControls = 'true';
+            root.setAttribute('role', 'toolbar');
+            root.setAttribute('aria-label', spec.labels.controls);
+            root.style.cssText =
+                'position:absolute;z-index:30;top:8px;right:8px;display:flex;align-items:center;gap:4px;max-width:calc(100% - 16px);padding:4px;border:1px solid rgba(148,163,184,.35);border-radius:10px;background:rgba(248,250,252,.9);box-shadow:0 4px 16px rgba(15,23,42,.12);backdrop-filter:blur(6px);overflow-x:auto;overscroll-behavior:contain';
+            root.addEventListener('pointerdown', (event) => event.stopPropagation());
+            const elements = { root };
+            const labels = spec.labels;
+            if (spec.zoom) {
+                elements.zoomOut = button('−', labels.zoomOut, actions.zoomOut);
+                elements.zoomIn = button('+', labels.zoomIn, actions.zoomIn);
+                root.append(elements.zoomOut, elements.zoomIn);
+            }
+            if (spec.reset) {
+                elements.reset = button('↺', labels.reset, actions.reset);
+                root.append(elements.reset);
+            }
+            if ((spec.zoom || spec.reset) && (spec.fullscreen || spec.export || spec.playback)) {
+                root.append(separator());
+            }
+            if (spec.fullscreen) {
+                elements.fullscreen = button('⛶', labels.enterFullscreen, actions.toggleFullscreen);
+                root.append(elements.fullscreen);
+            }
+            if (spec.export) {
+                elements.exportPng = button('⇩', labels.exportPng, actions.exportPng);
+                root.append(elements.exportPng);
+            }
+            if ((spec.fullscreen || spec.export) && spec.playback)
+                root.append(separator());
+            if (spec.playback) {
+                elements.previousFrame = button('◀', labels.previousFrame, actions.previousFrame);
+                elements.play = button('▶', labels.play, actions.togglePlayback);
+                elements.nextFrame = button('▶|', labels.nextFrame, actions.nextFrame);
+                const seek = document.createElement('input');
+                seek.type = 'range';
+                seek.min = '0';
+                seek.step = '1';
+                seek.title = labels.seek;
+                seek.setAttribute('aria-label', labels.seek);
+                seek.style.cssText = 'width:clamp(72px,14vw,128px);accent-color:#4f46e5';
+                seek.addEventListener('input', () => actions.seek(Number(seek.value)));
+                elements.seek = seek;
+                const speed = document.createElement('select');
+                speed.title = labels.speed;
+                speed.setAttribute('aria-label', labels.speed);
+                speed.style.cssText =
+                    'height:30px;border:1px solid rgba(148,163,184,.5);border-radius:8px;background:#fff;color:#0f172a;font:600 12px/1 ui-sans-serif,system-ui;padding:0 4px';
+                for (const rate of [0.25, 0.5, 1, 2, 4]) {
+                    const option = document.createElement('option');
+                    option.value = String(rate);
+                    option.textContent = `${rate}×`;
+                    speed.append(option);
+                }
+                speed.addEventListener('change', () => actions.setRate(Number(speed.value)));
+                elements.speed = speed;
+                elements.loop = button('↻', labels.loop, () => actions.setLoop(elements.loop?.getAttribute('aria-pressed') !== 'true'));
+                root.append(elements.previousFrame, elements.play, elements.nextFrame, seek, speed, elements.loop);
+            }
+            const status = document.createElement('span');
+            status.setAttribute('aria-live', 'polite');
+            status.setAttribute('aria-atomic', 'true');
+            status.style.cssText =
+                'position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0';
+            root.append(status);
+            elements.status = status;
+            return elements;
+        }
+        #update(elements, state) {
+            const labels = state.spec.labels;
+            if (elements.zoomIn !== undefined) {
+                elements.zoomIn.disabled = !state.navigationEnabled || state.zoom >= state.maxZoom;
+            }
+            if (elements.zoomOut !== undefined) {
+                elements.zoomOut.disabled = !state.navigationEnabled || state.zoom <= state.minZoom;
+            }
+            if (elements.reset !== undefined) {
+                elements.reset.disabled = !state.navigationEnabled || !state.viewDirty;
+            }
+            if (elements.fullscreen !== undefined) {
+                elements.fullscreen.disabled = !state.fullscreenAvailable;
+                updateLabel(elements.fullscreen, state.fullscreen ? labels.exitFullscreen : labels.enterFullscreen);
+                elements.fullscreen.setAttribute('aria-pressed', String(state.fullscreen));
+            }
+            if (elements.exportPng !== undefined)
+                elements.exportPng.disabled = !state.exportAvailable;
+            const playbackDisabled = !state.playbackEnabled || state.playbackLength <= 1;
+            if (elements.previousFrame !== undefined)
+                elements.previousFrame.disabled = playbackDisabled;
+            if (elements.nextFrame !== undefined)
+                elements.nextFrame.disabled = playbackDisabled;
+            if (elements.play !== undefined) {
+                elements.play.disabled = playbackDisabled;
+                elements.play.textContent = state.playing ? '❚❚' : '▶';
+                updateLabel(elements.play, state.playing ? labels.pause : labels.play);
+                elements.play.setAttribute('aria-pressed', String(state.playing));
+            }
+            if (elements.seek !== undefined) {
+                elements.seek.disabled = !state.playbackEnabled || state.playbackLength === 0;
+                elements.seek.max = String(Math.max(0, state.playbackLength - 1));
+                elements.seek.value = String(Math.max(0, state.playbackIndex));
+                elements.seek.setAttribute('aria-valuetext', state.frameLabel);
+            }
+            if (elements.speed !== undefined) {
+                elements.speed.disabled = !state.playbackEnabled;
+                const rate = String(state.playbackRate);
+                if (![...elements.speed.options].some((option) => option.value === rate)) {
+                    const option = document.createElement('option');
+                    option.value = rate;
+                    option.textContent = `${rate}×`;
+                    elements.speed.append(option);
+                }
+                elements.speed.value = rate;
+            }
+            if (elements.loop !== undefined) {
+                elements.loop.disabled = !state.playbackEnabled;
+                elements.loop.setAttribute('aria-pressed', String(state.loop));
+            }
+            for (const element of [
+                elements.zoomIn,
+                elements.zoomOut,
+                elements.reset,
+                elements.fullscreen,
+                elements.exportPng,
+                elements.previousFrame,
+                elements.play,
+                elements.nextFrame,
+                elements.loop,
+            ]) {
+                if (element === undefined)
+                    continue;
+                element.style.opacity = element.disabled ? '0.48' : '1';
+                element.style.cursor = element.disabled ? 'not-allowed' : 'pointer';
+            }
+            if (!state.playing) {
+                elements.status.textContent = state.playbackEnabled
+                    ? `${Math.round(state.zoom * 100)}%. ${state.frameLabel}`
+                    : `${Math.round(state.zoom * 100)}%`;
+            }
+        }
+    }
+
     const hitCandidateCache = new WeakMap();
     function sceneHitCandidates(scene) {
         const cached = hitCandidateCache.get(scene);
@@ -8482,6 +8881,171 @@ var Graflume = (function (exports) {
             };
         }
         return best;
+    }
+
+    const identityInspectionView = {
+        zoom: 1,
+        offsetX: 0,
+        offsetY: 0,
+    };
+    function finite(value, fallback) {
+        return Number.isFinite(value) ? value : fallback;
+    }
+    function constrainInspectionView(input, bounds) {
+        const minZoom = Math.max(1, finite(bounds.minZoom, 1));
+        const maxZoom = Math.max(minZoom, finite(bounds.maxZoom, 6));
+        const zoom = Math.max(minZoom, Math.min(maxZoom, finite(input.zoom, minZoom)));
+        const width = Math.max(1, finite(bounds.width, 1));
+        const height = Math.max(1, finite(bounds.height, 1));
+        return {
+            zoom,
+            offsetX: Math.max(width - width * zoom, Math.min(0, finite(input.offsetX, 0))),
+            offsetY: Math.max(height - height * zoom, Math.min(0, finite(input.offsetY, 0))),
+        };
+    }
+    function zoomInspectionView(current, factor, anchor, bounds) {
+        if (!Number.isFinite(factor) || factor <= 0)
+            throw new RangeError('Zoom factor must be > 0.');
+        const nextZoom = Math.max(bounds.minZoom, Math.min(bounds.maxZoom, current.zoom * factor));
+        const ratio = nextZoom / current.zoom;
+        return constrainInspectionView({
+            zoom: nextZoom,
+            offsetX: anchor.x - (anchor.x - current.offsetX) * ratio,
+            offsetY: anchor.y - (anchor.y - current.offsetY) * ratio,
+        }, bounds);
+    }
+    function panInspectionView(current, deltaX, deltaY, bounds) {
+        if (!Number.isFinite(deltaX) || !Number.isFinite(deltaY)) {
+            throw new RangeError('Pan deltas must be finite numbers.');
+        }
+        return constrainInspectionView({
+            ...current,
+            offsetX: current.offsetX + deltaX,
+            offsetY: current.offsetY + deltaY,
+        }, bounds);
+    }
+    function inverseInspectionPoint(view, point) {
+        return {
+            x: (point.x - view.offsetX) / view.zoom,
+            y: (point.y - view.offsetY) / view.zoom,
+        };
+    }
+
+    function valueKey(value) {
+        if (value instanceof Date)
+            return `date:${value.getTime()}`;
+        return `${typeof value}:${String(value)}`;
+    }
+    function markType(mark) {
+        return typeof mark === 'string' ? mark : mark?.type;
+    }
+    function tableRows(input) {
+        if (Array.isArray(input))
+            return input;
+        const table = DataTable.from(input);
+        return Array.from({ length: table.length }, (_, index) => table.row(index));
+    }
+    function matchingLayer(requestedLayerId, layerId) {
+        return requestedLayerId === undefined || requestedLayerId === layerId;
+    }
+    function collectPlaybackFrames(spec, playback) {
+        const frames = new Map();
+        const add = (input) => {
+            if (input === undefined)
+                return;
+            const table = DataTable.from(input);
+            if (!table.has(playback.field))
+                return;
+            for (let index = 0; index < table.length; index += 1) {
+                const value = table.value(index, playback.field);
+                if (value === null || value === undefined)
+                    continue;
+                const key = valueKey(value);
+                if (!frames.has(key))
+                    frames.set(key, value);
+            }
+        };
+        if (spec.layers === undefined) {
+            if (matchingLayer(playback.layerId, 'layer-0'))
+                add(spec.data);
+        }
+        else {
+            spec.layers.forEach((layer, index) => {
+                if (matchingLayer(playback.layerId, layer.id ?? `layer-${index}`)) {
+                    add(layer.data ?? spec.data);
+                }
+            });
+        }
+        return [...frames.values()];
+    }
+    function visibleFrameKeys(frames, index, playback) {
+        const start = playback.mode === 'frame'
+            ? index
+            : playback.mode === 'window'
+                ? Math.max(0, index - playback.windowSize + 1)
+                : 0;
+        return new Set(frames.slice(start, index + 1).map(valueKey));
+    }
+    function filterInput(input, field, visible) {
+        return tableRows(input).filter((row) => visible.has(valueKey(row[field])));
+    }
+    function withMotionFrame(mark, field, frame) {
+        const source = typeof mark === 'string' ? { type: mark } : mark;
+        const options = { ...source.options };
+        if (frame === undefined)
+            delete options.frame;
+        else
+            options.frame = frame;
+        return {
+            ...source,
+            fields: { ...source.fields, time: field },
+            options: options,
+        };
+    }
+    function playbackSpec(base, playback, frames, index) {
+        const frame = frames[index];
+        if (frame === undefined)
+            return base;
+        const visible = visibleFrameKeys(frames, index, playback);
+        if (base.layers === undefined) {
+            if (!matchingLayer(playback.layerId, 'layer-0') || base.mark === undefined)
+                return base;
+            const motion = markType(base.mark) === 'motion';
+            const filter = playback.filter || (motion && playback.mode !== 'frame');
+            return {
+                ...base,
+                ...(filter && base.data !== undefined
+                    ? { data: filterInput(base.data, playback.field, visible) }
+                    : {}),
+                ...(motion
+                    ? {
+                        mark: withMotionFrame(base.mark, playback.field, playback.mode === 'frame' ? frame : undefined),
+                    }
+                    : {}),
+            };
+        }
+        return {
+            ...base,
+            layers: base.layers.map((layer, layerIndex) => {
+                const layerId = layer.id ?? `layer-${layerIndex}`;
+                if (!matchingLayer(playback.layerId, layerId))
+                    return layer;
+                const source = layer.data ?? base.data;
+                if (source === undefined || !DataTable.from(source).has(playback.field))
+                    return layer;
+                const motion = markType(layer.mark) === 'motion';
+                const filter = playback.filter || (motion && playback.mode !== 'frame');
+                return {
+                    ...layer,
+                    ...(filter ? { data: filterInput(source, playback.field, visible) } : {}),
+                    ...(motion
+                        ? {
+                            mark: withMotionFrame(layer.mark, playback.field, playback.mode === 'frame' ? frame : undefined),
+                        }
+                        : {}),
+                };
+            }),
+        };
     }
 
     let nextId = 0;
@@ -8790,13 +9354,50 @@ var Graflume = (function (exports) {
     function appendInput(input, rows) {
         return [...dataRows(input), ...rows];
     }
+    function sameView(left, right) {
+        return (Math.abs(left.zoom - right.zoom) < 1e-9 &&
+            Math.abs(left.offsetX - right.offsetX) < 1e-6 &&
+            Math.abs(left.offsetY - right.offsetY) < 1e-6);
+    }
+    function pointDistance(left, right) {
+        return Math.hypot(left.x - right.x, left.y - right.y);
+    }
+    function pointCenter(left, right) {
+        return { x: (left.x + right.x) / 2, y: (left.y + right.y) / 2 };
+    }
+    function frameKey(value) {
+        if (value instanceof Date)
+            return `date:${value.getTime()}`;
+        return `${typeof value}:${String(value)}`;
+    }
+    function configuredFrame(spec) {
+        const markFrame = (mark) => {
+            if (typeof mark !== 'object' || mark === null)
+                return undefined;
+            const value = mark.options?.frame;
+            return typeof value === 'string' || typeof value === 'number' || value === null
+                ? value
+                : undefined;
+        };
+        const shorthand = markFrame(spec.mark);
+        if (shorthand !== undefined)
+            return shorthand;
+        for (const layer of spec.layers ?? []) {
+            const frame = markFrame(layer.mark);
+            if (frame !== undefined)
+                return frame;
+        }
+        return undefined;
+    }
     class Chart {
         #target;
         #registry;
         #events = new EventEmitter();
         #scheduler = new RenderScheduler();
         #tooltip = new TooltipController();
+        #controls = new ControlsController();
         #options;
+        #activePointers = new Map();
         #spec;
         #renderer = null;
         #rendererName = null;
@@ -8806,21 +9407,100 @@ var Graflume = (function (exports) {
         #windowResizeListener = null;
         #manualWidth;
         #manualHeight;
+        #eventSurface = null;
+        #surfaceTouchAction = null;
+        #surfaceTabIndex = null;
+        #surfaceCursor = null;
+        #view = identityInspectionView;
+        #dragPrevious = null;
+        #pinchStart = null;
+        #dragDistance = 0;
+        #suppressClick = false;
+        #playback = false;
+        #playbackFrames = [];
+        #playbackIndex = 0;
+        #playbackRate = 1;
+        #playbackLoop = false;
+        #playing = false;
+        #playbackCancel = null;
+        #playbackTimestamp = null;
+        #reducedMotion = null;
+        #fullscreen = false;
         #pointerMoveListener = (event) => {
             if (!(event instanceof PointerEvent))
                 return;
-            this.#emitPointer('hover', event);
+            const navigating = this.#handlePointerMove(event);
+            if (!navigating && this.#result?.spec.interaction.hover !== false) {
+                this.#emitPointer('hover', event);
+            }
+        };
+        #pointerDownListener = (event) => {
+            if (event instanceof PointerEvent)
+                this.#handlePointerDown(event);
+        };
+        #pointerUpListener = (event) => {
+            if (event instanceof PointerEvent)
+                this.#handlePointerEnd(event);
+        };
+        #pointerCancelListener = (event) => {
+            if (!(event instanceof PointerEvent))
+                return;
+            this.#handlePointerEnd(event);
+            this.#tooltip.hide();
+            if (this.#result?.spec.interaction.hover !== false) {
+                this.#events.emit('hover', { chart: this, hit: null, sourceEvent: event });
+            }
         };
         #clickListener = (event) => {
             if (!(event instanceof PointerEvent))
                 return;
-            this.#emitPointer('click', event);
+            if (this.#suppressClick) {
+                this.#suppressClick = false;
+                return;
+            }
+            if (this.#result?.spec.interaction.click !== false)
+                this.#emitPointer('click', event);
         };
         #pointerLeaveListener = (event) => {
             if (!(event instanceof PointerEvent))
                 return;
             this.#tooltip.hide();
-            this.#events.emit('hover', { chart: this, hit: null, sourceEvent: event });
+            if (this.#result?.spec.interaction.hover !== false) {
+                this.#events.emit('hover', { chart: this, hit: null, sourceEvent: event });
+            }
+        };
+        #wheelListener = (event) => {
+            if (event instanceof WheelEvent)
+                this.#handleWheel(event);
+        };
+        #keyDownListener = (event) => {
+            if (event instanceof KeyboardEvent)
+                this.#handleKeyDown(event);
+        };
+        #visibilityListener = () => {
+            if (typeof document !== 'undefined' && document.hidden)
+                this.pause();
+        };
+        #reducedMotionListener = (event) => {
+            if (event.matches)
+                this.pause();
+        };
+        #fullscreenListener = () => {
+            const active = this.#isOwnFullscreen();
+            if (active === this.#fullscreen)
+                return;
+            this.#fullscreen = active;
+            try {
+                this.render();
+                const scene = this.#result?.scene;
+                if (scene !== undefined) {
+                    this.#events.emit('resize', { chart: this, width: scene.width, height: scene.height });
+                }
+            }
+            catch (error) {
+                this.#events.emit('error', { chart: this, error });
+            }
+            this.#events.emit('fullscreenchange', { chart: this, active });
         };
         constructor(target, spec, registry, options = {}) {
             this.#target = resolveTarget(target);
@@ -8829,8 +9509,23 @@ var Graflume = (function (exports) {
             this.#options = options;
             this.#manualWidth = options.width;
             this.#manualHeight = options.height;
-            this.render();
-            this.#configureResizeObserver();
+            const normalized = normalizeSpec(spec);
+            this.#configureInteraction(normalized, true);
+            try {
+                this.#configureEnvironmentListeners();
+                this.render();
+                this.#configureResizeObserver();
+                this.#startAutoplay();
+            }
+            catch (error) {
+                try {
+                    this.destroy();
+                }
+                catch {
+                    // Preserve the original constructor failure after best-effort cleanup.
+                }
+                throw error;
+            }
         }
         on(type, listener) {
             this.#assertAlive();
@@ -8845,11 +9540,32 @@ var Graflume = (function (exports) {
         getScene() {
             return this.#result?.scene ?? null;
         }
+        getViewState() {
+            return { ...this.#view, enabled: this.#navigation() !== false };
+        }
+        getPlaybackState() {
+            const frame = this.#playbackFrames[this.#playbackIndex];
+            return {
+                enabled: this.#playback !== false,
+                frames: this.#playbackFrames,
+                index: this.#playbackIndex,
+                ...(frame === undefined ? {} : { frame }),
+                playing: this.#playing,
+                rate: this.#playbackRate,
+                loop: this.#playbackLoop,
+                mode: this.#playback === false ? 'frame' : this.#playback.mode,
+            };
+        }
         setSpec(spec) {
             this.#assertAlive();
+            const normalized = normalizeSpec(spec);
+            this.pause();
             this.#spec = spec;
+            this.#configureInteraction(normalized, true);
             this.render();
             this.#configureResizeObserver();
+            this.#emitPlayback('spec');
+            this.#startAutoplay();
             return this;
         }
         setData(data, layerId) {
@@ -8916,8 +9632,163 @@ var Graflume = (function (exports) {
             const scene = this.#result?.scene;
             if (scene !== undefined) {
                 this.#events.emit('resize', { chart: this, width: scene.width, height: scene.height });
+                this.#emitView('resize');
             }
             return this;
+        }
+        zoomBy(factor, anchor) {
+            this.#assertAlive();
+            const navigation = this.#requireNavigation();
+            const scene = this.#result?.scene;
+            if (scene === undefined)
+                return this;
+            this.#setView(zoomInspectionView(this.#view, factor, anchor ?? { x: scene.width / 2, y: scene.height / 2 }, {
+                width: scene.width,
+                height: scene.height,
+                minZoom: navigation.minZoom,
+                maxZoom: navigation.maxZoom,
+            }), 'zoom');
+            return this;
+        }
+        panBy(deltaX, deltaY) {
+            this.#assertAlive();
+            const navigation = this.#requireNavigation();
+            const scene = this.#result?.scene;
+            if (scene === undefined)
+                return this;
+            this.#setView(panInspectionView(this.#view, deltaX, deltaY, {
+                width: scene.width,
+                height: scene.height,
+                minZoom: navigation.minZoom,
+                maxZoom: navigation.maxZoom,
+            }), 'pan');
+            return this;
+        }
+        resetView() {
+            this.#assertAlive();
+            const navigation = this.#requireNavigation();
+            const scene = this.#result?.scene;
+            if (scene === undefined)
+                return this;
+            this.#setView(constrainInspectionView(identityInspectionView, {
+                width: scene.width,
+                height: scene.height,
+                minZoom: navigation.minZoom,
+                maxZoom: navigation.maxZoom,
+            }), 'reset');
+            return this;
+        }
+        play() {
+            this.#assertAlive();
+            if (this.#playback === false || this.#playbackFrames.length <= 1 || this.#playing)
+                return this;
+            if (typeof document !== 'undefined' && document.hidden)
+                return this;
+            if (this.#playbackIndex === this.#playbackFrames.length - 1) {
+                this.#playbackIndex = 0;
+                this.render();
+                this.#emitPlayback('seek');
+            }
+            this.#playing = true;
+            this.#playbackTimestamp = null;
+            this.#schedulePlaybackFrame();
+            this.#emitPlayback('play');
+            this.#syncControls();
+            return this;
+        }
+        pause() {
+            if (this.#destroyed || !this.#playing)
+                return this;
+            this.#playing = false;
+            this.#cancelPlaybackFrame();
+            this.#emitPlayback('pause');
+            this.#syncControls();
+            return this;
+        }
+        step(delta = 1) {
+            this.#assertAlive();
+            if (!Number.isFinite(delta))
+                throw new RangeError('Playback step must be finite.');
+            if (this.#playback === false || this.#playbackFrames.length === 0)
+                return this;
+            const length = this.#playbackFrames.length;
+            let next = this.#playbackIndex + Math.trunc(delta);
+            if (this.#playbackLoop)
+                next = ((next % length) + length) % length;
+            else
+                next = Math.max(0, Math.min(length - 1, next));
+            if (next === this.#playbackIndex) {
+                if (this.#playing && !this.#playbackLoop)
+                    this.pause();
+                return this;
+            }
+            this.#playbackIndex = next;
+            this.render();
+            this.#emitPlayback('step');
+            if (this.#playing && !this.#playbackLoop && next === length - 1)
+                this.pause();
+            return this;
+        }
+        seek(index) {
+            this.#assertAlive();
+            if (!Number.isFinite(index))
+                throw new RangeError('Playback index must be finite.');
+            if (this.#playback === false || this.#playbackFrames.length === 0)
+                return this;
+            const next = Math.max(0, Math.min(this.#playbackFrames.length - 1, Math.trunc(index)));
+            if (next === this.#playbackIndex)
+                return this;
+            this.#playbackIndex = next;
+            this.render();
+            this.#emitPlayback('seek');
+            return this;
+        }
+        setPlaybackRate(rate) {
+            this.#assertAlive();
+            if (!Number.isFinite(rate) || rate < 0.1 || rate > 16) {
+                throw new RangeError('Playback rate must be from 0.1 to 16.');
+            }
+            if (this.#playback === false || this.#playbackRate === rate)
+                return this;
+            this.#playbackRate = rate;
+            this.#emitPlayback('rate');
+            this.#syncControls();
+            return this;
+        }
+        setPlaybackLoop(loop) {
+            this.#assertAlive();
+            if (typeof loop !== 'boolean')
+                throw new TypeError('Playback loop must be a boolean.');
+            if (this.#playback === false || this.#playbackLoop === loop)
+                return this;
+            this.#playbackLoop = loop;
+            this.#emitPlayback('loop');
+            this.#syncControls();
+            return this;
+        }
+        async toggleFullscreen() {
+            this.#assertAlive();
+            const host = this.#renderer?.overlayHost?.();
+            if (host === null ||
+                host === undefined ||
+                typeof document === 'undefined' ||
+                typeof host.requestFullscreen !== 'function' ||
+                typeof document.exitFullscreen !== 'function') {
+                throw new GraflumeError('UNSUPPORTED_RENDERER', 'Fullscreen is unavailable for the active chart surface.');
+            }
+            try {
+                if (document.fullscreenElement === host)
+                    await document.exitFullscreen();
+                else {
+                    if (document.fullscreenElement !== null)
+                        await document.exitFullscreen();
+                    await host.requestFullscreen();
+                }
+            }
+            catch (error) {
+                this.#events.emit('error', { chart: this, error });
+                throw error;
+            }
         }
         scheduleRender() {
             this.#assertAlive();
@@ -8933,11 +9804,21 @@ var Graflume = (function (exports) {
         render() {
             this.#assertAlive();
             const dimensions = this.#measure();
-            const result = compileWithRegistry(this.#spec, this.#registry, dimensions);
+            const playbackSpecInput = this.#playback === false
+                ? this.#spec
+                : playbackSpec(this.#spec, this.#playback, this.#playbackFrames, this.#playbackIndex);
+            // Fullscreen sizing is transient: it must override fixed chart dimensions
+            // without mutating the caller's portable base spec.
+            const effectiveSpec = this.#fullscreen
+                ? { ...playbackSpecInput, width: 'container', height: 'container' }
+                : playbackSpecInput;
+            const result = compileWithRegistry(effectiveSpec, this.#registry, dimensions);
             const factory = this.#registry.resolveRenderer(result.spec.renderer);
             const pixelRatio = this.#pixelRatio();
-            this.#detachSurfaceEvents();
-            if (this.#renderer === null || this.#rendererName !== factory.name) {
+            const rendererChanged = this.#renderer === null || this.#rendererName !== factory.name;
+            if (rendererChanged) {
+                this.#detachSurfaceEvents();
+                this.#controls.destroy();
                 this.#renderer?.destroy();
                 this.#renderer = factory.create();
                 this.#rendererName = factory.name;
@@ -8952,8 +9833,12 @@ var Graflume = (function (exports) {
                 });
             }
             else {
-                this.#renderer.resize(result.scene.width, result.scene.height, pixelRatio);
-                const surface = this.#renderer.surface();
+                const renderer = this.#renderer;
+                if (renderer === null) {
+                    throw new GraflumeError('UNSUPPORTED_RENDERER', 'The active renderer is unavailable.');
+                }
+                renderer.resize(result.scene.width, result.scene.height, pixelRatio);
+                const surface = renderer.surface();
                 surface?.setAttribute('aria-label', result.scene.accessibility.label);
                 if (result.scene.accessibility.description === undefined) {
                     surface?.removeAttribute('aria-description');
@@ -8962,9 +9847,16 @@ var Graflume = (function (exports) {
                     surface?.setAttribute('aria-description', result.scene.accessibility.description);
                 }
             }
-            this.#renderer.render(result.scene);
             this.#result = result;
-            this.#attachSurfaceEvents();
+            this.#constrainViewToScene();
+            const renderer = this.#renderer;
+            if (renderer === null) {
+                throw new GraflumeError('UNSUPPORTED_RENDERER', 'The active renderer is unavailable.');
+            }
+            renderer.setInspectionView?.(this.#view);
+            renderer.render(result.scene);
+            this.#syncSurfaceEvents();
+            this.#syncControls();
             this.#events.emit('render', { chart: this, scene: result.scene });
             return this;
         }
@@ -8978,6 +9870,9 @@ var Graflume = (function (exports) {
         destroy() {
             if (this.#destroyed)
                 return;
+            const exitFullscreen = this.#isOwnFullscreen();
+            this.#playing = false;
+            this.#cancelPlaybackFrame();
             this.#scheduler.cancel();
             this.#resizeObserver?.disconnect();
             this.#resizeObserver = null;
@@ -8985,7 +9880,15 @@ var Graflume = (function (exports) {
                 window.removeEventListener('resize', this.#windowResizeListener);
             }
             this.#windowResizeListener = null;
+            this.#detachEnvironmentListeners();
+            if (exitFullscreen &&
+                typeof document !== 'undefined' &&
+                typeof document.exitFullscreen === 'function') {
+                void document.exitFullscreen().catch(() => undefined);
+            }
+            this.#fullscreen = false;
             this.#detachSurfaceEvents();
+            this.#controls.destroy();
             this.#tooltip.destroy();
             this.#renderer?.destroy();
             this.#renderer = null;
@@ -8993,7 +9896,160 @@ var Graflume = (function (exports) {
             this.#events.clear();
             this.#destroyed = true;
         }
+        #configureInteraction(spec, reset) {
+            this.#cancelActiveGesture();
+            const navigation = spec.interaction.navigation;
+            if (navigation === false)
+                this.#view = identityInspectionView;
+            else if (reset)
+                this.#view = { zoom: navigation.minZoom, offsetX: 0, offsetY: 0 };
+            this.#playback = spec.interaction.playback;
+            if (this.#playback === false) {
+                this.#playbackFrames = [];
+                this.#playbackIndex = 0;
+                this.#playbackRate = 1;
+                this.#playbackLoop = false;
+                return;
+            }
+            this.#playbackFrames = collectPlaybackFrames(this.#spec, this.#playback);
+            this.#playbackRate = this.#playback.rate;
+            this.#playbackLoop = this.#playback.loop;
+            const initial = configuredFrame(this.#spec);
+            const initialIndex = initial === undefined
+                ? -1
+                : this.#playbackFrames.findIndex((frame) => frameKey(frame) === frameKey(initial));
+            this.#playbackIndex =
+                initialIndex >= 0
+                    ? initialIndex
+                    : this.#playback.autoplay || this.#playback.mode === 'frame'
+                        ? 0
+                        : Math.max(0, this.#playbackFrames.length - 1);
+        }
+        #navigation() {
+            return this.#result?.spec.interaction.navigation ?? false;
+        }
+        #requireNavigation() {
+            const navigation = this.#navigation();
+            if (navigation === false) {
+                throw new GraflumeError('INVALID_SPEC', 'Enable interaction.navigation before changing the inspection viewport.');
+            }
+            if (this.#renderer?.capabilities.inspectionViewport !== true ||
+                this.#renderer.setInspectionView === undefined) {
+                throw new GraflumeError('UNSUPPORTED_RENDERER', 'The active renderer does not support inspection viewport navigation.');
+            }
+            return navigation;
+        }
+        #viewBounds(navigation) {
+            const scene = this.#result?.scene;
+            return scene === undefined
+                ? null
+                : {
+                    width: scene.width,
+                    height: scene.height,
+                    minZoom: navigation.minZoom,
+                    maxZoom: navigation.maxZoom,
+                };
+        }
+        #constrainViewToScene() {
+            const navigation = this.#navigation();
+            if (navigation === false) {
+                this.#view = identityInspectionView;
+                return;
+            }
+            const bounds = this.#viewBounds(navigation);
+            if (bounds !== null)
+                this.#view = constrainInspectionView(this.#view, bounds);
+        }
+        #setView(view, reason) {
+            if (sameView(this.#view, view))
+                return;
+            this.#view = view;
+            this.#tooltip.hide();
+            const scene = this.#result?.scene;
+            if (scene !== undefined) {
+                this.#renderer?.setInspectionView?.(this.#view);
+                this.#renderer?.render(scene);
+            }
+            this.#syncSurfaceConfiguration();
+            this.#syncControls();
+            this.#emitView(reason);
+        }
+        #emitView(reason) {
+            this.#events.emit('viewchange', { chart: this, view: this.getViewState(), reason });
+        }
+        #emitPlayback(reason) {
+            this.#events.emit('playbackchange', {
+                chart: this,
+                state: this.getPlaybackState(),
+                reason,
+            });
+        }
+        #startAutoplay() {
+            if (this.#playback !== false &&
+                this.#playback.autoplay &&
+                this.#reducedMotion?.matches !== true) {
+                this.play();
+            }
+        }
+        #schedulePlaybackFrame() {
+            this.#cancelScheduledPlaybackFrame();
+            const run = (timestamp) => {
+                this.#playbackCancel = null;
+                if (!this.#playing || this.#playback === false)
+                    return;
+                if (this.#playbackTimestamp === null)
+                    this.#playbackTimestamp = timestamp;
+                const duration = this.#playback.interval / this.#playbackRate;
+                if (timestamp - this.#playbackTimestamp >= duration) {
+                    this.#playbackTimestamp = timestamp;
+                    this.step(1);
+                }
+                if (this.#playing)
+                    this.#schedulePlaybackFrame();
+            };
+            if (typeof requestAnimationFrame === 'function') {
+                const handle = requestAnimationFrame(run);
+                this.#playbackCancel = () => cancelAnimationFrame(handle);
+            }
+            else {
+                const handle = setTimeout(() => run(typeof performance === 'undefined' ? Date.now() : performance.now()), 16);
+                this.#playbackCancel = () => clearTimeout(handle);
+            }
+        }
+        #cancelPlaybackFrame() {
+            this.#cancelScheduledPlaybackFrame();
+            this.#playbackTimestamp = null;
+        }
+        #cancelScheduledPlaybackFrame() {
+            this.#playbackCancel?.();
+            this.#playbackCancel = null;
+        }
+        #configureEnvironmentListeners() {
+            if (typeof document !== 'undefined') {
+                document.addEventListener('visibilitychange', this.#visibilityListener);
+                document.addEventListener('fullscreenchange', this.#fullscreenListener);
+            }
+            if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+                this.#reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+                this.#reducedMotion.addEventListener?.('change', this.#reducedMotionListener);
+            }
+        }
+        #detachEnvironmentListeners() {
+            if (typeof document !== 'undefined') {
+                document.removeEventListener('visibilitychange', this.#visibilityListener);
+                document.removeEventListener('fullscreenchange', this.#fullscreenListener);
+            }
+            this.#reducedMotion?.removeEventListener?.('change', this.#reducedMotionListener);
+            this.#reducedMotion = null;
+        }
         #measure() {
+            const fullscreenHost = this.#renderer?.overlayHost?.();
+            if (this.#fullscreen && fullscreenHost !== null && fullscreenHost !== undefined) {
+                const bounds = fullscreenHost.getBoundingClientRect();
+                const width = bounds.width || (typeof window === 'undefined' ? 640 : window.innerWidth);
+                const height = bounds.height || (typeof window === 'undefined' ? 400 : window.innerHeight);
+                return { width: Math.max(1, width), height: Math.max(1, height) };
+            }
             const width = this.#manualWidth ??
                 (typeof this.#spec.width === 'number' ? this.#spec.width : this.#target.clientWidth || 640);
             const height = this.#manualHeight ??
@@ -9038,44 +10094,270 @@ var Graflume = (function (exports) {
                 window.addEventListener('resize', this.#windowResizeListener, { passive: true });
             }
         }
-        #attachSurfaceEvents() {
-            const surface = this.#renderer?.surface();
-            if (surface === null || surface === undefined)
-                return;
-            if (this.#result?.spec.interaction.hover !== false) {
-                surface.addEventListener('pointermove', this.#pointerMoveListener, { passive: true });
+        #syncSurfaceEvents() {
+            const surface = this.#renderer?.surface() ?? null;
+            if (surface !== this.#eventSurface) {
+                this.#detachSurfaceEvents();
+                if (surface === null)
+                    return;
+                this.#eventSurface = surface;
+                this.#surfaceTouchAction = surface.style.touchAction;
+                this.#surfaceTabIndex = surface.getAttribute('tabindex');
+                this.#surfaceCursor = surface.style.cursor;
+                surface.addEventListener('pointermove', this.#pointerMoveListener, { passive: false });
+                surface.addEventListener('pointerdown', this.#pointerDownListener, { passive: false });
+                surface.addEventListener('pointerup', this.#pointerUpListener, { passive: false });
+                surface.addEventListener('pointercancel', this.#pointerCancelListener, { passive: false });
                 surface.addEventListener('pointerleave', this.#pointerLeaveListener, { passive: true });
-                surface.addEventListener('pointercancel', this.#pointerLeaveListener, { passive: true });
-            }
-            if (this.#result?.spec.interaction.click !== false) {
                 surface.addEventListener('click', this.#clickListener, { passive: true });
+                surface.addEventListener('wheel', this.#wheelListener, { passive: false });
+                surface.addEventListener('keydown', this.#keyDownListener);
             }
+            this.#syncSurfaceConfiguration();
+        }
+        #syncSurfaceConfiguration() {
+            const surface = this.#eventSurface;
+            if (surface === null)
+                return;
+            const navigation = this.#navigation();
+            const inspecting = this.#view.zoom > 1 || this.#view.offsetX !== 0 || this.#view.offsetY !== 0;
+            surface.style.touchAction =
+                navigation !== false && (navigation.drag || navigation.pinch)
+                    ? inspecting
+                        ? 'none'
+                        : 'pan-y'
+                    : (this.#surfaceTouchAction ?? '');
+            surface.style.cursor =
+                navigation !== false && navigation.drag ? 'grab' : (this.#surfaceCursor ?? '');
+            if (navigation !== false && navigation.keyboard)
+                surface.tabIndex = 0;
+            else if (this.#surfaceTabIndex === null)
+                surface.removeAttribute('tabindex');
+            else
+                surface.setAttribute('tabindex', this.#surfaceTabIndex);
         }
         #detachSurfaceEvents() {
-            const surface = this.#renderer?.surface();
+            const surface = this.#eventSurface;
+            if (surface === null)
+                return;
+            this.#cancelActiveGesture();
             this.#tooltip.hide();
-            surface?.removeEventListener('pointermove', this.#pointerMoveListener);
-            surface?.removeEventListener('pointerleave', this.#pointerLeaveListener);
-            surface?.removeEventListener('pointercancel', this.#pointerLeaveListener);
-            surface?.removeEventListener('click', this.#clickListener);
+            surface.removeEventListener('pointermove', this.#pointerMoveListener);
+            surface.removeEventListener('pointerdown', this.#pointerDownListener);
+            surface.removeEventListener('pointerup', this.#pointerUpListener);
+            surface.removeEventListener('pointercancel', this.#pointerCancelListener);
+            surface.removeEventListener('pointerleave', this.#pointerLeaveListener);
+            surface.removeEventListener('click', this.#clickListener);
+            surface.removeEventListener('wheel', this.#wheelListener);
+            surface.removeEventListener('keydown', this.#keyDownListener);
+            surface.style.touchAction = this.#surfaceTouchAction ?? '';
+            surface.style.cursor = this.#surfaceCursor ?? '';
+            if (this.#surfaceTabIndex === null)
+                surface.removeAttribute('tabindex');
+            else
+                surface.setAttribute('tabindex', this.#surfaceTabIndex);
+            this.#eventSurface = null;
+            this.#surfaceTouchAction = null;
+            this.#surfaceTabIndex = null;
+            this.#surfaceCursor = null;
+        }
+        #cancelActiveGesture() {
+            const surface = this.#eventSurface;
+            if (surface !== null) {
+                for (const pointerId of this.#activePointers.keys()) {
+                    if (surface.hasPointerCapture?.(pointerId))
+                        surface.releasePointerCapture?.(pointerId);
+                }
+                surface.style.cursor = this.#surfaceCursor ?? '';
+            }
+            this.#activePointers.clear();
+            this.#dragPrevious = null;
+            this.#pinchStart = null;
+            this.#dragDistance = 0;
+            this.#suppressClick = false;
+        }
+        #surfacePoint(event) {
+            const surface = this.#eventSurface;
+            const scene = this.#result?.scene;
+            if (surface === null || scene === undefined)
+                return null;
+            const bounds = surface.getBoundingClientRect();
+            return {
+                x: ((event.clientX - bounds.left) / Math.max(1, bounds.width)) * scene.width,
+                y: ((event.clientY - bounds.top) / Math.max(1, bounds.height)) * scene.height,
+            };
+        }
+        #handleWheel(event) {
+            const navigation = this.#navigation();
+            if (navigation === false ||
+                navigation.wheel === 'off' ||
+                (navigation.wheel === 'modifier' && !event.ctrlKey && !event.metaKey)) {
+                return;
+            }
+            const point = this.#surfacePoint(event);
+            if (point === null)
+                return;
+            event.preventDefault();
+            this.zoomBy(Math.exp(-event.deltaY * 0.002), point);
+        }
+        #handlePointerDown(event) {
+            const navigation = this.#navigation();
+            if (navigation === false || (event.pointerType === 'mouse' && event.button !== 0))
+                return;
+            if (!navigation.drag && !(navigation.pinch && event.pointerType === 'touch'))
+                return;
+            const point = this.#surfacePoint(event);
+            if (point === null)
+                return;
+            if (this.#activePointers.size === 0) {
+                this.#suppressClick = false;
+                this.#dragDistance = 0;
+            }
+            this.#activePointers.set(event.pointerId, { ...point, pointerType: event.pointerType });
+            this.#eventSurface?.setPointerCapture?.(event.pointerId);
+            this.#dragPrevious = point;
+            this.#pinchStart = this.#pinchSnapshot(navigation);
+            if (navigation.drag)
+                this.#eventSurface?.style.setProperty('cursor', 'grabbing');
+            event.preventDefault();
+        }
+        #handlePointerMove(event) {
+            const navigation = this.#navigation();
+            if (navigation === false || !this.#activePointers.has(event.pointerId))
+                return false;
+            const point = this.#surfacePoint(event);
+            if (point === null)
+                return false;
+            const previous = this.#activePointers.get(event.pointerId);
+            this.#activePointers.set(event.pointerId, { ...point, pointerType: event.pointerType });
+            if (navigation.pinch && this.#activePointers.size >= 2) {
+                if (this.#pinchStart === null)
+                    this.#pinchStart = this.#pinchSnapshot(navigation);
+                const [first, second] = [...this.#activePointers.values()];
+                const start = this.#pinchStart;
+                if (first !== undefined && second !== undefined && start !== null && start.distance > 0) {
+                    const center = pointCenter(first, second);
+                    const distance = pointDistance(first, second);
+                    const scene = this.#result?.scene;
+                    if (scene !== undefined) {
+                        const zoom = Math.max(navigation.minZoom, Math.min(navigation.maxZoom, start.view.zoom * (distance / start.distance)));
+                        const local = inverseInspectionPoint(start.view, start.center);
+                        this.#setView(constrainInspectionView({
+                            zoom,
+                            offsetX: center.x - local.x * zoom,
+                            offsetY: center.y - local.y * zoom,
+                        }, {
+                            width: scene.width,
+                            height: scene.height,
+                            minZoom: navigation.minZoom,
+                            maxZoom: navigation.maxZoom,
+                        }), 'zoom');
+                    }
+                }
+            }
+            else if (navigation.drag && this.#dragPrevious !== null) {
+                const deltaX = point.x - this.#dragPrevious.x;
+                const deltaY = point.y - this.#dragPrevious.y;
+                this.#dragDistance += Math.hypot(deltaX, deltaY);
+                this.panBy(deltaX, deltaY);
+                this.#dragPrevious = point;
+            }
+            else if (previous !== undefined)
+                this.#dragDistance += pointDistance(previous, point);
+            if (this.#dragDistance > 4 || this.#activePointers.size > 1)
+                this.#suppressClick = true;
+            event.preventDefault();
+            return true;
+        }
+        #handlePointerEnd(event) {
+            if (!this.#activePointers.has(event.pointerId))
+                return;
+            this.#activePointers.delete(event.pointerId);
+            if (this.#eventSurface?.hasPointerCapture?.(event.pointerId)) {
+                this.#eventSurface.releasePointerCapture?.(event.pointerId);
+            }
+            const remaining = [...this.#activePointers.values()];
+            this.#dragPrevious = remaining[0] ?? null;
+            this.#pinchStart = null;
+            const navigation = this.#navigation();
+            if (remaining.length >= 2 && navigation !== false)
+                this.#pinchStart = this.#pinchSnapshot(navigation);
+            if (remaining.length === 0) {
+                this.#eventSurface?.style.setProperty('cursor', navigation !== false && navigation.drag ? 'grab' : (this.#surfaceCursor ?? ''));
+            }
+        }
+        #pinchSnapshot(navigation) {
+            if (!navigation.pinch || this.#activePointers.size < 2)
+                return null;
+            const [first, second] = [...this.#activePointers.values()];
+            if (first === undefined || second === undefined)
+                return null;
+            return {
+                distance: pointDistance(first, second),
+                center: pointCenter(first, second),
+                view: this.#view,
+            };
+        }
+        #handleKeyDown(event) {
+            const navigation = this.#navigation();
+            if (navigation === false || !navigation.keyboard)
+                return;
+            const before = this.#view;
+            let handled = true;
+            switch (event.key) {
+                case '+':
+                case '=':
+                    this.zoomBy(1.25);
+                    break;
+                case '-':
+                case '_':
+                    this.zoomBy(0.8);
+                    break;
+                case 'ArrowLeft':
+                    this.panBy(24, 0);
+                    break;
+                case 'ArrowRight':
+                    this.panBy(-24, 0);
+                    break;
+                case 'ArrowUp':
+                    this.panBy(0, 24);
+                    break;
+                case 'ArrowDown':
+                    this.panBy(0, -24);
+                    break;
+                case '0':
+                case 'Home':
+                    this.resetView();
+                    break;
+                default:
+                    handled = false;
+            }
+            if (handled && !sameView(before, this.#view))
+                event.preventDefault();
         }
         #emitPointer(type, sourceEvent) {
             const result = this.#result;
+            const screen = this.#surfacePoint(sourceEvent);
             const surface = this.#renderer?.surface();
-            if (result === null || surface === null || surface === undefined)
+            if (result === null || screen === null || surface === null || surface === undefined)
                 return;
             const scene = result.scene;
-            const bounds = surface.getBoundingClientRect();
-            const x = ((sourceEvent.clientX - bounds.left) / Math.max(1, bounds.width)) * scene.width;
-            const y = ((sourceEvent.clientY - bounds.top) / Math.max(1, bounds.height)) * scene.height;
-            const markHit = scene.metadata.hitTestingEnabled ? hitTestScene(scene, x, y) : null;
+            const local = inverseInspectionPoint(this.#view, screen);
+            const markLocal = scene.metadata.hitTestingEnabled
+                ? hitTestScene(scene, local.x, local.y, 8 / this.#view.zoom)
+                : null;
             const tooltipSpec = result.spec.interaction.tooltip;
-            const tooltipHit = type === 'hover' &&
+            const tooltipLocal = type === 'hover' &&
                 tooltipSpec !== false &&
                 tooltipSpec.trigger === 'axis' &&
-                markHit === null
-                ? hitTestAxisTooltip(scene, x, y)
-                : markHit;
+                markLocal === null
+                ? hitTestAxisTooltip(scene, local.x, local.y)
+                : markLocal;
+            const screenHit = (hit) => hit === null
+                ? null
+                : { ...hit, x: screen.x, y: screen.y, distance: hit.distance * this.#view.zoom };
+            const markHit = screenHit(markLocal);
+            const tooltipHit = screenHit(tooltipLocal);
             if (type === 'hover' && tooltipSpec !== false) {
                 if (tooltipHit === null)
                     this.#tooltip.hide();
@@ -9083,6 +10365,84 @@ var Graflume = (function (exports) {
                     this.#tooltip.show(resolveTooltipContent(tooltipHit, result.spec), tooltipHit, sourceEvent, surface, this.#renderer?.overlayHost?.() ?? surface.parentElement ?? surface);
             }
             this.#events.emit(type, { chart: this, hit: markHit, sourceEvent });
+        }
+        #isOwnFullscreen() {
+            if (typeof document === 'undefined')
+                return false;
+            const host = this.#renderer?.overlayHost?.();
+            return host !== null && host !== undefined && document.fullscreenElement === host;
+        }
+        #fullscreenAvailable() {
+            const host = this.#renderer?.overlayHost?.();
+            return (host !== null &&
+                host !== undefined &&
+                typeof document !== 'undefined' &&
+                typeof host.requestFullscreen === 'function' &&
+                typeof document.exitFullscreen === 'function');
+        }
+        #syncControls() {
+            const controls = this.#result?.spec.interaction.controls;
+            const host = this.#renderer?.overlayHost?.();
+            if (controls === false || controls === undefined || host === null || host === undefined) {
+                this.#controls.destroy();
+                return;
+            }
+            const navigation = this.#navigation();
+            const playbackState = this.getPlaybackState();
+            const state = {
+                spec: controls,
+                navigationEnabled: navigation !== false &&
+                    this.#renderer?.capabilities.inspectionViewport === true &&
+                    this.#renderer.setInspectionView !== undefined,
+                viewDirty: navigation !== false &&
+                    !sameView(this.#view, { zoom: navigation.minZoom, offsetX: 0, offsetY: 0 }),
+                zoom: this.#view.zoom,
+                minZoom: navigation === false ? 1 : navigation.minZoom,
+                maxZoom: navigation === false ? 1 : navigation.maxZoom,
+                fullscreenAvailable: this.#fullscreenAvailable(),
+                fullscreen: this.#fullscreen,
+                exportAvailable: this.#renderer?.toDataURL !== undefined &&
+                    this.#renderer.capabilities.exportFormats.includes('image/png'),
+                playbackEnabled: playbackState.enabled,
+                playbackIndex: playbackState.index,
+                playbackLength: playbackState.frames.length,
+                playing: playbackState.playing,
+                playbackRate: playbackState.rate,
+                loop: playbackState.loop,
+                frameLabel: playbackState.frame instanceof Date
+                    ? playbackState.frame.toISOString()
+                    : String(playbackState.frame ?? ''),
+            };
+            const actions = {
+                zoomIn: () => this.zoomBy(1.25),
+                zoomOut: () => this.zoomBy(0.8),
+                reset: () => this.resetView(),
+                toggleFullscreen: () => void this.toggleFullscreen().catch(() => undefined),
+                exportPng: () => this.#exportPng(),
+                previousFrame: () => this.step(-1),
+                togglePlayback: () => (this.#playing ? this.pause() : this.play()),
+                nextFrame: () => this.step(1),
+                seek: (index) => this.seek(index),
+                setRate: (rate) => this.setPlaybackRate(rate),
+                setLoop: (loop) => this.setPlaybackLoop(loop),
+            };
+            this.#controls.sync(host, state, actions);
+        }
+        #exportPng() {
+            if (typeof document === 'undefined')
+                return;
+            try {
+                const link = document.createElement('a');
+                link.href = this.toDataURL('image/png');
+                link.download = 'graflume-chart.png';
+                link.hidden = true;
+                document.body.append(link);
+                link.click();
+                link.remove();
+            }
+            catch (error) {
+                this.#events.emit('error', { chart: this, error });
+            }
         }
         #assertAlive() {
             if (this.#destroyed) {
@@ -10928,6 +12288,7 @@ var Graflume = (function (exports) {
         gpu: false,
         worker: false,
         exportFormats: ['image/png', 'image/jpeg', 'image/webp'],
+        inspectionViewport: true,
     };
     function roundedRectPath(context, x, y, width, height, radius) {
         const resolvedRadius = Math.max(0, Math.min(radius, Math.abs(width) / 2, Math.abs(height) / 2));
@@ -10950,6 +12311,7 @@ var Graflume = (function (exports) {
         #width = 0;
         #height = 0;
         #pixelRatio = 1;
+        #inspectionView = { zoom: 1, offsetX: 0, offsetY: 0 };
         mount(target, options) {
             if (this.#root !== null)
                 this.destroy();
@@ -11000,6 +12362,12 @@ var Graflume = (function (exports) {
             context.clearRect(0, 0, this.#width, this.#height);
             context.fillStyle = scene.background;
             context.fillRect(0, 0, scene.width, scene.height);
+            if (this.#inspectionView.zoom !== 1 ||
+                this.#inspectionView.offsetX !== 0 ||
+                this.#inspectionView.offsetY !== 0) {
+                context.translate(this.#inspectionView.offsetX, this.#inspectionView.offsetY);
+                context.scale(this.#inspectionView.zoom, this.#inspectionView.zoom);
+            }
             this.#drawNode(context, scene.root);
             context.restore();
         }
@@ -11008,6 +12376,9 @@ var Graflume = (function (exports) {
         }
         overlayHost() {
             return this.#root;
+        }
+        setInspectionView(transform) {
+            this.#inspectionView = transform;
         }
         toDataURL(type = 'image/png', quality) {
             if (this.#canvas === null)
@@ -11019,6 +12390,7 @@ var Graflume = (function (exports) {
             this.#root = null;
             this.#canvas = null;
             this.#context = null;
+            this.#inspectionView = { zoom: 1, offsetX: 0, offsetY: 0 };
         }
         #drawNode(context, node) {
             if (!node.visible || node.opacity <= 0)
