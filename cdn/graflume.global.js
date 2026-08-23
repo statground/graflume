@@ -287,6 +287,7 @@ var Graflume = (function (exports) {
         'navigation',
         'playback',
         'controls',
+        'selection',
     ]);
     const NAVIGATION_KEYS = new Set(['minZoom', 'maxZoom', 'wheel', 'drag', 'pinch', 'keyboard']);
     const NAVIGATION_WHEEL_MODES = new Set(['off', 'modifier', 'always']);
@@ -319,6 +320,92 @@ var Graflume = (function (exports) {
         'speed',
         'loop',
     ]);
+    const SELECTION_KEYS = new Set([
+        'mode',
+        'toggle',
+        'key',
+        'clearOnBackground',
+        'clearOnEscape',
+        'ariaLabel',
+        'highlight',
+    ]);
+    const SELECTION_MODES = new Set(['single', 'multiple']);
+    const LEGEND_KEYS = new Set([
+        'visible',
+        'mode',
+        'position',
+        'orientation',
+        'title',
+        'field',
+        'layerId',
+        'items',
+        'maxItems',
+        'interactive',
+        'labels',
+    ]);
+    const LEGEND_ITEM_KEYS = new Set(['id', 'label', 'color', 'layerId', 'value', 'symbol']);
+    const LEGEND_ITEM_SYMBOLS = new Set(['auto', 'line', 'point', 'rect']);
+    const LEGEND_LABEL_KEYS = new Set(['show', 'hide']);
+    const LEGEND_MODES = new Set(['auto', 'layers', 'categories', 'continuous']);
+    const LEGEND_POSITIONS = new Set([
+        'top',
+        'right',
+        'bottom',
+        'left',
+        'inside-top-left',
+        'inside-top-right',
+        'inside-bottom-left',
+        'inside-bottom-right',
+    ]);
+    const LEGEND_ORIENTATIONS = new Set(['auto', 'horizontal', 'vertical']);
+    const DECORATION_TARGET_KEYS = new Set([
+        'type',
+        'layerId',
+        'rowIndex',
+        'field',
+        'value',
+        'values',
+        'x',
+        'y',
+        'width',
+        'height',
+    ]);
+    const AXIS_RANGE_KEYS = new Set(['axis', 'from', 'to']);
+    const HIGHLIGHT_KEYS = new Set([
+        'id',
+        'target',
+        'fill',
+        'stroke',
+        'opacity',
+        'lineWidth',
+        'dash',
+        'padding',
+        'radius',
+    ]);
+    const ANNOTATION_KEYS = new Set([
+        'id',
+        'target',
+        'text',
+        'detail',
+        'placement',
+        'offsetX',
+        'offsetY',
+        'connector',
+        'style',
+    ]);
+    const ANNOTATION_PLACEMENTS = new Set(['auto', 'top', 'right', 'bottom', 'left']);
+    const CONNECTOR_KEYS = new Set(['visible', 'color', 'width', 'dash']);
+    const ANNOTATION_STYLE_KEYS = new Set([
+        'background',
+        'border',
+        'color',
+        'opacity',
+        'fontSize',
+        'maxWidth',
+        'padding',
+        'align',
+    ]);
+    const ANNOTATION_TEXT_ALIGNS = new Set(['start', 'center', 'end']);
     const ENCODING_KEYS = new Set(['field', 'type', 'title', 'scale', 'axis', 'axisId']);
     const FIELD_TYPES = new Set(['quantitative', 'temporal', 'ordinal', 'nominal']);
     const SCALE_KEYS = new Set([
@@ -973,6 +1060,79 @@ var Graflume = (function (exports) {
         validateNavigation(value.navigation, `${path}.navigation`, issues);
         validatePlayback(value.playback, `${path}.playback`, issues);
         validateControls(value.controls, `${path}.controls`, issues);
+        validateSelection(value.selection, `${path}.selection`, issues);
+    }
+    function validateHighlightStyle(value, path, issues) {
+        for (const key of ['fill', 'stroke']) {
+            validateOptionalString(value[key], `${path}.${key}`, `Highlight ${key}`, issues, false);
+        }
+        if (value.opacity !== undefined)
+            validateFiniteNumber(value.opacity, `${path}.opacity`, 'Highlight opacity', issues, {
+                min: 0,
+                max: 1,
+            });
+        if (value.lineWidth !== undefined)
+            validateFiniteNumber(value.lineWidth, `${path}.lineWidth`, 'Highlight lineWidth', issues, {
+                min: 0,
+                max: 64,
+            });
+        if (value.padding !== undefined)
+            validateFiniteNumber(value.padding, `${path}.padding`, 'Highlight padding', issues, {
+                min: 0,
+                max: 256,
+            });
+        if (value.radius !== undefined)
+            validateFiniteNumber(value.radius, `${path}.radius`, 'Highlight radius', issues, {
+                min: 0,
+                max: 256,
+            });
+        if (value.dash !== undefined) {
+            if (!Array.isArray(value.dash) || value.dash.length > 16) {
+                issues.push({
+                    path: `${path}.dash`,
+                    message: 'Highlight dash must contain at most 16 values.',
+                });
+            }
+            else {
+                value.dash.forEach((entry, index) => validateFiniteNumber(entry, `${path}.dash[${index}]`, 'Highlight dash value', issues, {
+                    min: 0,
+                    max: 256,
+                }));
+            }
+        }
+    }
+    function validateSelection(value, path, issues) {
+        if (value === undefined || typeof value === 'boolean')
+            return;
+        if (!isPlainObject(value)) {
+            issues.push({ path, message: 'Selection must be a boolean or an object.' });
+            return;
+        }
+        validateUnknownKeys(value, SELECTION_KEYS, path, 'selection', issues);
+        if (value.mode !== undefined &&
+            (typeof value.mode !== 'string' || !SELECTION_MODES.has(value.mode))) {
+            issues.push({
+                path: `${path}.mode`,
+                message: 'Selection mode must be "single" or "multiple".',
+            });
+        }
+        validateOptionalBoolean(value.toggle, `${path}.toggle`, 'Selection toggle', issues);
+        validateOptionalString(value.key, `${path}.key`, 'Selection key', issues, false);
+        if (typeof value.key === 'string' && UNSAFE_FIELDS.has(value.key)) {
+            issues.push({ path: `${path}.key`, message: `Unsafe field "${value.key}" is forbidden.` });
+        }
+        validateOptionalBoolean(value.clearOnBackground, `${path}.clearOnBackground`, 'Selection clearOnBackground', issues);
+        validateOptionalBoolean(value.clearOnEscape, `${path}.clearOnEscape`, 'Selection clearOnEscape', issues);
+        validateOptionalString(value.ariaLabel, `${path}.ariaLabel`, 'Selection ariaLabel', issues, false);
+        if (value.highlight !== undefined) {
+            if (!isPlainObject(value.highlight)) {
+                issues.push({ path: `${path}.highlight`, message: 'Selection highlight must be an object.' });
+            }
+            else {
+                validateUnknownKeys(value.highlight, new Set(['fill', 'stroke', 'opacity', 'lineWidth', 'dash', 'padding', 'radius']), `${path}.highlight`, 'selection highlight', issues);
+                validateHighlightStyle(value.highlight, `${path}.highlight`, issues);
+            }
+        }
     }
     function validateNavigation(value, path, issues) {
         if (value === undefined || typeof value === 'boolean')
@@ -1080,6 +1240,7 @@ var Graflume = (function (exports) {
             issues.push({ path, message: 'Layer must be an object.' });
             return;
         }
+        validateOptionalString(layer.name, `${path}.name`, 'Layer name', issues, false);
         validateMark(layer.mark, `${path}.mark`, issues);
         validateEncoding(layer.x, `${path}.x`, 'x', issues);
         validateEncoding(layer.y, `${path}.y`, 'y', issues);
@@ -1089,6 +1250,421 @@ var Graflume = (function (exports) {
                 message: 'Layer data is required when chart-level data is absent.',
             });
         }
+    }
+    function validateLegend(value, path, issues) {
+        if (value === undefined || typeof value === 'boolean')
+            return;
+        if (!isPlainObject(value)) {
+            issues.push({ path, message: 'Legend must be a boolean or an object.' });
+            return;
+        }
+        validateUnknownKeys(value, LEGEND_KEYS, path, 'legend', issues);
+        validateOptionalBoolean(value.visible, `${path}.visible`, 'Legend visibility', issues);
+        validateOptionalBoolean(value.interactive, `${path}.interactive`, 'Legend interactive', issues);
+        if (value.mode !== undefined &&
+            (typeof value.mode !== 'string' || !LEGEND_MODES.has(value.mode))) {
+            issues.push({ path: `${path}.mode`, message: 'Legend mode is not supported.' });
+        }
+        if (value.position !== undefined &&
+            (typeof value.position !== 'string' || !LEGEND_POSITIONS.has(value.position))) {
+            issues.push({ path: `${path}.position`, message: 'Legend position is not supported.' });
+        }
+        if (value.orientation !== undefined &&
+            (typeof value.orientation !== 'string' || !LEGEND_ORIENTATIONS.has(value.orientation))) {
+            issues.push({ path: `${path}.orientation`, message: 'Legend orientation is not supported.' });
+        }
+        for (const key of ['title', 'field', 'layerId']) {
+            validateOptionalString(value[key], `${path}.${key}`, `Legend ${key}`, issues, false);
+        }
+        if (typeof value.field === 'string' && UNSAFE_FIELDS.has(value.field)) {
+            issues.push({ path: `${path}.field`, message: `Unsafe field "${value.field}" is forbidden.` });
+        }
+        if (value.maxItems !== undefined)
+            validateFiniteNumber(value.maxItems, `${path}.maxItems`, 'Legend maxItems', issues, {
+                integer: true,
+                min: 1,
+                max: 200,
+            });
+        if (value.items !== undefined) {
+            if (!Array.isArray(value.items) || value.items.length === 0 || value.items.length > 200) {
+                issues.push({
+                    path: `${path}.items`,
+                    message: 'Legend items must contain between 1 and 200 entries.',
+                });
+            }
+            else {
+                value.items.forEach((item, index) => {
+                    const itemPath = `${path}.items[${index}]`;
+                    if (!isPlainObject(item)) {
+                        issues.push({ path: itemPath, message: 'Legend item must be an object.' });
+                        return;
+                    }
+                    validateUnknownKeys(item, LEGEND_ITEM_KEYS, itemPath, 'legend item', issues);
+                    validateOptionalString(item.id, `${itemPath}.id`, 'Legend item id', issues, false);
+                    validateOptionalString(item.label, `${itemPath}.label`, 'Legend item label', issues, false);
+                    if (item.label === undefined) {
+                        issues.push({ path: `${itemPath}.label`, message: 'Legend item label is required.' });
+                    }
+                    validateOptionalString(item.color, `${itemPath}.color`, 'Legend item color', issues, false);
+                    validateOptionalString(item.layerId, `${itemPath}.layerId`, 'Legend item layerId', issues, false);
+                    if (item.symbol !== undefined &&
+                        (typeof item.symbol !== 'string' || !LEGEND_ITEM_SYMBOLS.has(item.symbol))) {
+                        issues.push({
+                            path: `${itemPath}.symbol`,
+                            message: 'Legend item symbol is not supported.',
+                        });
+                    }
+                    if (item.value !== undefined &&
+                        item.value !== null &&
+                        (!['string', 'number', 'boolean'].includes(typeof item.value) ||
+                            (typeof item.value === 'number' && !Number.isFinite(item.value)))) {
+                        issues.push({
+                            path: `${itemPath}.value`,
+                            message: 'Legend item value must be JSON scalar.',
+                        });
+                    }
+                });
+            }
+        }
+        if (value.labels !== undefined) {
+            if (!isPlainObject(value.labels)) {
+                issues.push({ path: `${path}.labels`, message: 'Legend labels must be an object.' });
+            }
+            else {
+                validateUnknownKeys(value.labels, LEGEND_LABEL_KEYS, `${path}.labels`, 'legend label', issues);
+                for (const [key, label] of Object.entries(value.labels)) {
+                    validateOptionalString(label, `${path}.labels.${key}`, 'Legend label', issues, false);
+                }
+            }
+        }
+    }
+    function validateAxisRange(value, path, channel, issues) {
+        if (!isPlainObject(value)) {
+            issues.push({ path, message: 'Axis range target must be an object.' });
+            return;
+        }
+        validateUnknownKeys(value, AXIS_RANGE_KEYS, path, 'axis range target', issues);
+        if (value.from === undefined ||
+            !['number', 'string'].includes(typeof value.from) ||
+            (typeof value.from === 'number' && !Number.isFinite(value.from))) {
+            issues.push({ path: `${path}.from`, message: 'Axis range from must be a number or string.' });
+        }
+        if (value.to === undefined ||
+            !['number', 'string'].includes(typeof value.to) ||
+            (typeof value.to === 'number' && !Number.isFinite(value.to))) {
+            issues.push({ path: `${path}.to`, message: 'Axis range to must be a number or string.' });
+        }
+        if (value.axis !== undefined &&
+            (typeof value.axis !== 'string' ||
+                !AXIS_IDS.has(value.axis) ||
+                (channel === 'x' ? !['x', 'x2'].includes(value.axis) : !['y', 'y2'].includes(value.axis)))) {
+            issues.push({ path: `${path}.axis`, message: `Range ${channel} axis is not compatible.` });
+        }
+    }
+    function validateDecorationTarget(value, path, issues) {
+        if (!isPlainObject(value) || typeof value.type !== 'string') {
+            issues.push({ path, message: 'Decoration target must be an object with a type.' });
+            return;
+        }
+        validateUnknownKeys(value, DECORATION_TARGET_KEYS, path, 'decoration target', issues);
+        if (value.type === 'datum') {
+            validateUnknownKeys(value, new Set(['type', 'layerId', 'rowIndex', 'field', 'value', 'values']), path, 'datum target', issues);
+            validateOptionalString(value.layerId, `${path}.layerId`, 'Datum target layerId', issues, false);
+            if (value.rowIndex !== undefined) {
+                const rows = Array.isArray(value.rowIndex) ? value.rowIndex : [value.rowIndex];
+                if (rows.length === 0 || rows.length > 1000) {
+                    issues.push({
+                        path: `${path}.rowIndex`,
+                        message: 'Datum rowIndex must select 1..1000 rows.',
+                    });
+                }
+                rows.forEach((row, index) => validateFiniteNumber(row, Array.isArray(value.rowIndex) ? `${path}.rowIndex[${index}]` : `${path}.rowIndex`, 'Datum rowIndex', issues, { integer: true, min: 0 }));
+                if (new Set(rows).size !== rows.length) {
+                    issues.push({ path: `${path}.rowIndex`, message: 'Datum rowIndex values must be unique.' });
+                }
+            }
+            validateOptionalString(value.field, `${path}.field`, 'Datum target field', issues, false);
+            if (typeof value.field === 'string' && UNSAFE_FIELDS.has(value.field)) {
+                issues.push({
+                    path: `${path}.field`,
+                    message: `Unsafe field "${value.field}" is forbidden.`,
+                });
+            }
+            const hasValue = Object.prototype.hasOwnProperty.call(value, 'value');
+            const hasValues = Object.prototype.hasOwnProperty.call(value, 'values');
+            if (hasValue) {
+                const valid = value.value === null ||
+                    typeof value.value === 'string' ||
+                    typeof value.value === 'boolean' ||
+                    (typeof value.value === 'number' && Number.isFinite(value.value));
+                if (!valid)
+                    issues.push({
+                        path: `${path}.value`,
+                        message: 'Datum target value must be a JSON scalar.',
+                    });
+            }
+            if (hasValues) {
+                if (!Array.isArray(value.values) || value.values.length === 0 || value.values.length > 200) {
+                    issues.push({
+                        path: `${path}.values`,
+                        message: 'Datum target values must contain 1..200 JSON scalars.',
+                    });
+                }
+                else {
+                    value.values.forEach((entry, index) => {
+                        const valid = entry === null ||
+                            typeof entry === 'string' ||
+                            typeof entry === 'boolean' ||
+                            (typeof entry === 'number' && Number.isFinite(entry));
+                        if (!valid)
+                            issues.push({
+                                path: `${path}.values[${index}]`,
+                                message: 'Datum target values must be JSON scalars.',
+                            });
+                    });
+                    if (new Set(value.values.map((entry) => JSON.stringify(entry))).size !== value.values.length)
+                        issues.push({ path: `${path}.values`, message: 'Datum target values must be unique.' });
+                }
+            }
+            if (value.field === undefined && (value.value !== undefined || value.values !== undefined)) {
+                issues.push({ path: `${path}.field`, message: 'Datum target field is required for values.' });
+            }
+            if (value.field !== undefined && hasValue === hasValues) {
+                issues.push({
+                    path,
+                    message: 'Datum target field matching requires exactly one of value or values.',
+                });
+            }
+            if (value.rowIndex === undefined && value.field === undefined) {
+                issues.push({ path, message: 'Datum target requires rowIndex or field matching.' });
+            }
+            return;
+        }
+        if (value.type === 'layer') {
+            validateUnknownKeys(value, new Set(['type', 'layerId']), path, 'layer target', issues);
+            validateOptionalString(value.layerId, `${path}.layerId`, 'Layer target layerId', issues, false);
+            if (value.layerId === undefined)
+                issues.push({ path: `${path}.layerId`, message: 'Layer target layerId is required.' });
+            return;
+        }
+        if (value.type === 'range') {
+            validateUnknownKeys(value, new Set(['type', 'x', 'y']), path, 'range target', issues);
+            if (value.x === undefined && value.y === undefined) {
+                issues.push({ path, message: 'Range target requires x or y.' });
+            }
+            if (value.x !== undefined)
+                validateAxisRange(value.x, `${path}.x`, 'x', issues);
+            if (value.y !== undefined)
+                validateAxisRange(value.y, `${path}.y`, 'y', issues);
+            return;
+        }
+        if (value.type === 'plot') {
+            validateUnknownKeys(value, new Set(['type', 'x', 'y', 'width', 'height']), path, 'plot target', issues);
+            for (const key of ['x', 'y', 'width', 'height']) {
+                if ((key === 'x' || key === 'y') && value[key] === undefined) {
+                    issues.push({ path: `${path}.${key}`, message: `Plot target ${key} is required.` });
+                }
+                else if (value[key] !== undefined) {
+                    validateFiniteNumber(value[key], `${path}.${key}`, `Plot target ${key}`, issues, {
+                        min: 0,
+                        max: 1,
+                    });
+                }
+            }
+            return;
+        }
+        issues.push({ path: `${path}.type`, message: 'Decoration target type is not supported.' });
+    }
+    function validateHighlights(value, path, issues) {
+        if (value === undefined)
+            return;
+        if (!Array.isArray(value) || value.length > 256) {
+            issues.push({ path, message: 'Highlights must be an array of at most 256 entries.' });
+            return;
+        }
+        value.forEach((highlight, index) => {
+            const itemPath = `${path}[${index}]`;
+            if (!isPlainObject(highlight)) {
+                issues.push({ path: itemPath, message: 'Highlight must be an object.' });
+                return;
+            }
+            validateUnknownKeys(highlight, HIGHLIGHT_KEYS, itemPath, 'highlight', issues);
+            validateOptionalString(highlight.id, `${itemPath}.id`, 'Highlight id', issues, false);
+            validateDecorationTarget(highlight.target, `${itemPath}.target`, issues);
+            validateHighlightStyle(highlight, itemPath, issues);
+        });
+    }
+    function validateAnnotations(value, path, issues) {
+        if (value === undefined)
+            return;
+        if (!Array.isArray(value) || value.length > 256) {
+            issues.push({ path, message: 'Annotations must be an array of at most 256 entries.' });
+            return;
+        }
+        value.forEach((annotation, index) => {
+            const itemPath = `${path}[${index}]`;
+            if (!isPlainObject(annotation)) {
+                issues.push({ path: itemPath, message: 'Annotation must be an object.' });
+                return;
+            }
+            validateUnknownKeys(annotation, ANNOTATION_KEYS, itemPath, 'annotation', issues);
+            validateOptionalString(annotation.id, `${itemPath}.id`, 'Annotation id', issues, false);
+            validateOptionalString(annotation.text, `${itemPath}.text`, 'Annotation text', issues, false);
+            if (annotation.text === undefined)
+                issues.push({ path: `${itemPath}.text`, message: 'Annotation text is required.' });
+            validateOptionalString(annotation.detail, `${itemPath}.detail`, 'Annotation detail', issues);
+            validateDecorationTarget(annotation.target, `${itemPath}.target`, issues);
+            if (annotation.placement !== undefined &&
+                (typeof annotation.placement !== 'string' || !ANNOTATION_PLACEMENTS.has(annotation.placement))) {
+                issues.push({
+                    path: `${itemPath}.placement`,
+                    message: 'Annotation placement is not supported.',
+                });
+            }
+            for (const key of ['offsetX', 'offsetY']) {
+                if (annotation[key] !== undefined)
+                    validateFiniteNumber(annotation[key], `${itemPath}.${key}`, `Annotation ${key}`, issues, {
+                        min: -1e4,
+                        max: 10_000,
+                    });
+            }
+            if (annotation.connector !== undefined && typeof annotation.connector !== 'boolean') {
+                if (!isPlainObject(annotation.connector)) {
+                    issues.push({ path: `${itemPath}.connector`, message: 'Annotation connector is invalid.' });
+                }
+                else {
+                    validateUnknownKeys(annotation.connector, CONNECTOR_KEYS, `${itemPath}.connector`, 'annotation connector', issues);
+                    validateOptionalBoolean(annotation.connector.visible, `${itemPath}.connector.visible`, 'Annotation connector visibility', issues);
+                    validateOptionalString(annotation.connector.color, `${itemPath}.connector.color`, 'Annotation connector color', issues, false);
+                    validateHighlightStyle({
+                        lineWidth: annotation.connector.width,
+                        dash: annotation.connector.dash,
+                    }, `${itemPath}.connector`, issues);
+                }
+            }
+            if (annotation.style !== undefined) {
+                if (!isPlainObject(annotation.style)) {
+                    issues.push({ path: `${itemPath}.style`, message: 'Annotation style must be an object.' });
+                }
+                else {
+                    validateUnknownKeys(annotation.style, ANNOTATION_STYLE_KEYS, `${itemPath}.style`, 'annotation style', issues);
+                    for (const key of ['background', 'border', 'color']) {
+                        validateOptionalString(annotation.style[key], `${itemPath}.style.${key}`, `Annotation style ${key}`, issues, false);
+                    }
+                    if (annotation.style.opacity !== undefined)
+                        validateFiniteNumber(annotation.style.opacity, `${itemPath}.style.opacity`, 'Annotation style opacity', issues, { min: 0, max: 1 });
+                    for (const key of ['fontSize', 'maxWidth', 'padding']) {
+                        if (annotation.style[key] !== undefined)
+                            validateFiniteNumber(annotation.style[key], `${itemPath}.style.${key}`, `Annotation style ${key}`, issues, { min: 1, max: 2000 });
+                    }
+                    if (annotation.style.align !== undefined &&
+                        (typeof annotation.style.align !== 'string' ||
+                            !ANNOTATION_TEXT_ALIGNS.has(annotation.style.align))) {
+                        issues.push({
+                            path: `${itemPath}.style.align`,
+                            message: 'Annotation text alignment is not supported.',
+                        });
+                    }
+                }
+            }
+        });
+    }
+    function validateLayerReferences(input, issues) {
+        const sourceLayers = Array.isArray(input.layers)
+            ? input.layers
+            : input.mark !== undefined || input.x !== undefined || input.y !== undefined
+                ? [input]
+                : [];
+        const layerIds = new Set();
+        sourceLayers.forEach((layer, index) => {
+            if (!isPlainObject(layer))
+                return;
+            const layerId = layer.id === undefined ? `layer-${index}` : layer.id;
+            if (typeof layerId !== 'string' || layerId.trim() === '')
+                return;
+            if (layerIds.has(layerId)) {
+                issues.push({
+                    path: Array.isArray(input.layers) ? `$.layers[${index}].id` : '$.id',
+                    message: `Layer id "${layerId}" must be unique.`,
+                });
+                return;
+            }
+            layerIds.add(layerId);
+        });
+        const check = (value, path) => {
+            if (!isPlainObject(value) || typeof value.layerId !== 'string')
+                return;
+            if (!layerIds.has(value.layerId)) {
+                issues.push({
+                    path: `${path}.layerId`,
+                    message: `Layer id "${value.layerId}" does not exist.`,
+                });
+            }
+        };
+        const checkUniqueIds = (value, path, label, defaultPrefix) => {
+            if (!Array.isArray(value))
+                return;
+            const ids = new Set();
+            value.forEach((entry, index) => {
+                if (!isPlainObject(entry))
+                    return;
+                const id = typeof entry.id === 'string' && entry.id.trim() !== ''
+                    ? entry.id
+                    : `${defaultPrefix}-${index}`;
+                if (ids.has(id)) {
+                    issues.push({
+                        path: `${path}[${index}].id`,
+                        message: `${label} id "${id}" must be unique after defaults are resolved.`,
+                    });
+                    return;
+                }
+                ids.add(id);
+            });
+        };
+        if (isPlainObject(input.legend)) {
+            const legend = input.legend;
+            check(legend, '$.legend');
+            if (Array.isArray(legend.items)) {
+                legend.items.forEach((item, index) => check(item, `$.legend.items[${index}]`));
+            }
+            checkUniqueIds(legend.items, '$.legend.items', 'Legend item', 'item');
+            if (Array.isArray(legend.items)) {
+                const semanticOwners = new Set();
+                legend.items.forEach((item, index) => {
+                    if (!isPlainObject(item) || typeof item.layerId !== 'string')
+                        return;
+                    const owner = legend.mode === 'categories' && Object.prototype.hasOwnProperty.call(item, 'value')
+                        ? JSON.stringify(['category', item.layerId, item.value])
+                        : legend.mode === 'layers'
+                            ? JSON.stringify(['layer', item.layerId])
+                            : null;
+                    if (owner === null)
+                        return;
+                    if (semanticOwners.has(owner)) {
+                        issues.push({
+                            path: `$.legend.items[${index}]`,
+                            message: 'Interactive legend items must not control the same semantic owner.',
+                        });
+                    }
+                    else
+                        semanticOwners.add(owner);
+                });
+            }
+        }
+        if (Array.isArray(input.highlights)) {
+            input.highlights.forEach((highlight, index) => {
+                if (isPlainObject(highlight))
+                    check(highlight.target, `$.highlights[${index}].target`);
+            });
+        }
+        if (Array.isArray(input.annotations)) {
+            input.annotations.forEach((annotation, index) => {
+                if (isPlainObject(annotation))
+                    check(annotation.target, `$.annotations[${index}].target`);
+            });
+        }
+        checkUniqueIds(input.highlights, '$.highlights', 'Highlight', 'highlight');
+        checkUniqueIds(input.annotations, '$.annotations', 'Annotation', 'annotation');
     }
     function findFunctions(value, path, issues, seen) {
         if (typeof value === 'function') {
@@ -1147,7 +1723,11 @@ var Graflume = (function (exports) {
             }
         }
         validateAxes(input.axes, '$.axes', issues);
+        validateLegend(input.legend, '$.legend', issues);
+        validateHighlights(input.highlights, '$.highlights', issues);
+        validateAnnotations(input.annotations, '$.annotations', issues);
         validateInteraction(input.interaction, '$.interaction', issues);
+        validateLayerReferences(input, issues);
         findFunctions(input, '$', issues, new WeakSet());
         return issues;
     }
@@ -1177,6 +1757,10 @@ var Graflume = (function (exports) {
         seek: 'Playback position',
         speed: 'Playback speed',
         loop: 'Loop playback',
+    };
+    const defaultLegendLabels = {
+        show: 'Show',
+        hide: 'Hide',
     };
     function normalizePadding(input) {
         if (typeof input === 'number') {
@@ -1275,6 +1859,36 @@ var Graflume = (function (exports) {
                     ...(typeof controlsInput === 'object' ? controlsInput.labels : undefined),
                 },
             };
+        const selectionInput = input?.selection;
+        const selection = selectionInput === undefined || selectionInput === false
+            ? false
+            : {
+                mode: typeof selectionInput === 'object' ? (selectionInput.mode ?? 'single') : 'single',
+                toggle: typeof selectionInput === 'object' ? (selectionInput.toggle ?? true) : true,
+                ...(typeof selectionInput === 'object' && selectionInput.key !== undefined
+                    ? { key: selectionInput.key }
+                    : {}),
+                clearOnBackground: typeof selectionInput === 'object' ? (selectionInput.clearOnBackground ?? true) : true,
+                clearOnEscape: typeof selectionInput === 'object' ? (selectionInput.clearOnEscape ?? true) : true,
+                ariaLabel: typeof selectionInput === 'object'
+                    ? (selectionInput.ariaLabel ?? 'Chart selection')
+                    : 'Chart selection',
+                highlight: {
+                    fill: typeof selectionInput === 'object'
+                        ? (selectionInput.highlight?.fill ?? 'rgba(79,70,229,0.12)')
+                        : 'rgba(79,70,229,0.12)',
+                    stroke: typeof selectionInput === 'object'
+                        ? (selectionInput.highlight?.stroke ?? '#4f46e5')
+                        : '#4f46e5',
+                    opacity: typeof selectionInput === 'object' ? (selectionInput.highlight?.opacity ?? 1) : 1,
+                    lineWidth: typeof selectionInput === 'object'
+                        ? (selectionInput.highlight?.lineWidth ?? 2.5)
+                        : 2.5,
+                    dash: typeof selectionInput === 'object' ? [...(selectionInput.highlight?.dash ?? [])] : [],
+                    padding: typeof selectionInput === 'object' ? (selectionInput.highlight?.padding ?? 5) : 5,
+                    radius: typeof selectionInput === 'object' ? (selectionInput.highlight?.radius ?? 7) : 7,
+                },
+            };
         return {
             hover,
             click: input?.click ?? true,
@@ -1282,6 +1896,70 @@ var Graflume = (function (exports) {
             navigation,
             playback,
             controls,
+            selection,
+        };
+    }
+    function normalizeLegendItem(item, index) {
+        return {
+            id: item.id ?? `item-${index}`,
+            label: item.label,
+            ...(item.color === undefined ? {} : { color: item.color }),
+            ...(item.layerId === undefined ? {} : { layerId: item.layerId }),
+            ...(item.value === undefined ? {} : { value: item.value }),
+            symbol: item.symbol ?? 'auto',
+        };
+    }
+    function normalizeLegend(input) {
+        if (input === undefined || input === false)
+            return false;
+        const legend = typeof input === 'object' ? input : {};
+        const position = legend.position ?? 'right';
+        return {
+            visible: legend.visible ?? true,
+            mode: legend.mode ?? 'auto',
+            position,
+            orientation: legend.orientation === undefined || legend.orientation === 'auto'
+                ? position === 'top' || position === 'bottom'
+                    ? 'horizontal'
+                    : 'vertical'
+                : legend.orientation,
+            ...(legend.title === undefined ? {} : { title: legend.title }),
+            ...(legend.field === undefined ? {} : { field: legend.field }),
+            ...(legend.layerId === undefined ? {} : { layerId: legend.layerId }),
+            items: (legend.items ?? []).map(normalizeLegendItem),
+            maxItems: legend.maxItems ?? 24,
+            interactive: legend.interactive ?? false,
+            labels: { ...defaultLegendLabels, ...legend.labels },
+        };
+    }
+    function cloneDecorationTarget$1(target) {
+        switch (target.type) {
+            case 'datum':
+                return {
+                    ...target,
+                    ...(Array.isArray(target.rowIndex) ? { rowIndex: [...target.rowIndex] } : {}),
+                    ...(target.values === undefined ? {} : { values: [...target.values] }),
+                };
+            case 'range':
+                return {
+                    type: 'range',
+                    ...(target.x === undefined ? {} : { x: { ...target.x } }),
+                    ...(target.y === undefined ? {} : { y: { ...target.y } }),
+                };
+            case 'layer':
+                return { ...target };
+            case 'plot':
+                return { ...target };
+        }
+    }
+    function cloneAnnotation$1(annotation) {
+        return {
+            ...annotation,
+            target: cloneDecorationTarget$1(annotation.target),
+            ...(typeof annotation.connector !== 'object'
+                ? {}
+                : { connector: { ...annotation.connector, dash: [...(annotation.connector.dash ?? [])] } }),
+            ...(annotation.style === undefined ? {} : { style: { ...annotation.style } }),
         };
     }
     const axisDefaults = {
@@ -1490,6 +2168,7 @@ var Graflume = (function (exports) {
         }
         return {
             id: layer.id ?? `layer-${index}`,
+            name: layer.name ?? layer.id ?? `Series ${index + 1}`,
             data,
             mark: normalizeMark(layer.mark),
             x: normalizeEncoding(layer.x, 'x', chartAxes),
@@ -1528,6 +2207,13 @@ var Graflume = (function (exports) {
             performance: input.performance ?? 'auto',
             theme: input.theme ?? 'graflume-light',
             axes,
+            legend: normalizeLegend(input.legend),
+            highlights: (input.highlights ?? []).map((highlight) => ({
+                ...highlight,
+                target: cloneDecorationTarget$1(highlight.target),
+                ...(highlight.dash === undefined ? {} : { dash: [...highlight.dash] }),
+            })),
+            annotations: (input.annotations ?? []).map(cloneAnnotation$1),
             interaction: normalizeInteraction(input.interaction),
             accessibility: {
                 ...(input.accessibility?.label === undefined ? {} : { label: input.accessibility.label }),
@@ -2322,6 +3008,8 @@ var Graflume = (function (exports) {
                 if (representedRows.has(`${layerData.layer.id}\u0000${rowIndex}`))
                     continue;
                 const datum = layerData.table.row(rowIndex);
+                if (context.datumVisible?.(layerData.layer.id, rowIndex, datum) === false)
+                    continue;
                 const x = scaleValue(layerData.xScale, datum[layerData.layer.x.field]);
                 const y = scaleValue(layerData.yScale, datum[layerData.layer.y.field]);
                 if (x === null || y === null)
@@ -2340,6 +3028,56 @@ var Graflume = (function (exports) {
             }
         }
         return targets;
+    }
+
+    /** Marks whose geometry is usually laid out independently of Cartesian x/y axes. */
+    const AXISLESS_MARKS = new Set([
+        'arc-diagram',
+        'calendar',
+        'carpet',
+        'chord',
+        'funnel',
+        'gauge',
+        'geo-flow',
+        'geo-heatmap',
+        'geo-line',
+        'graph',
+        'geo',
+        'item',
+        'map',
+        'org',
+        'packed-bubble',
+        'parallel',
+        'pie',
+        'polar',
+        'pyramid',
+        'radar',
+        'sankey',
+        'scatter-matrix',
+        'smith',
+        'solid-gauge',
+        'sunburst',
+        'table',
+        'ternary',
+        'tiled-map',
+        'tilemap',
+        'tree',
+        'treemap',
+        'variable-pie',
+        'venn',
+        'word-cloud',
+        'word-tree',
+    ]);
+    /**
+     * Resolve coordinate semantics from the normalized layer, not just the mark name.
+     * `pyramid` serves both radial funnel/pyramid layouts and the Cartesian
+     * `column-pyramid` compatibility variant.
+     */
+    function isAxislessLayer(layer) {
+        if (layer.mark.type === 'pyramid') {
+            return layer.mark.options.variant !== 'column-pyramid';
+        }
+        return AXISLESS_MARKS.has(layer.mark.type);
     }
 
     const NORMAL_RANGE_SIGMAS = 3.5;
@@ -3050,7 +3788,7 @@ var Graflume = (function (exports) {
         };
     }
 
-    function createLayout(spec, width, height, theme, minimumInsets = {}) {
+    function createLayout(spec, width, height, theme, minimumInsets = {}, additionalInsets = {}) {
         const titleBlock = spec.title === undefined
             ? 0
             : theme.typography.titleSize +
@@ -3062,10 +3800,15 @@ var Graflume = (function (exports) {
             // the caller's outer top padding for the heading, then reserve the measured
             // axis gutter inside it. The other sides retain the legacy contract where
             // the normalized padding already includes the primary-axis gutter.
-            top: spec.padding.top + Math.max(0, minimumInsets.top ?? 0),
-            right: Math.max(spec.padding.right, minimumInsets.right ?? 0),
-            bottom: Math.max(spec.padding.bottom, minimumInsets.bottom ?? 0),
-            left: Math.max(spec.padding.left, minimumInsets.left ?? 0),
+            top: spec.padding.top +
+                Math.max(0, minimumInsets.top ?? 0) +
+                Math.max(0, additionalInsets.top ?? 0),
+            right: Math.max(spec.padding.right, minimumInsets.right ?? 0) +
+                Math.max(0, additionalInsets.right ?? 0),
+            bottom: Math.max(spec.padding.bottom, minimumInsets.bottom ?? 0) +
+                Math.max(0, additionalInsets.bottom ?? 0),
+            left: Math.max(spec.padding.left, minimumInsets.left ?? 0) +
+                Math.max(0, additionalInsets.left ?? 0),
         };
         const plotX = insets.left;
         const plotY = insets.top + titleBlock;
@@ -3081,48 +3824,1137 @@ var Graflume = (function (exports) {
         };
     }
 
-    const AXISLESS_MARKS = new Set([
-        'arc-diagram',
-        'calendar',
-        'carpet',
-        'chord',
-        'funnel',
-        'gauge',
-        'geo-flow',
-        'geo-heatmap',
-        'geo-line',
-        'graph',
-        'geo',
-        'item',
-        'map',
-        'org',
-        'packed-bubble',
-        'parallel',
+    function union$1(left, right) {
+        if (left === null)
+            return right;
+        if (right === null)
+            return left;
+        const x = Math.min(left.x, right.x);
+        const y = Math.min(left.y, right.y);
+        const endX = Math.max(left.x + left.width, right.x + right.width);
+        const endY = Math.max(left.y + left.height, right.y + right.height);
+        return { x, y, width: endX - x, height: endY - y };
+    }
+    function textBounds(node) {
+        const width = Math.max(node.fontSize * 0.6, Array.from(node.text).length * node.fontSize * 0.6);
+        const height = Math.max(1, node.fontSize * 1.2);
+        const left = node.align === 'center'
+            ? -width / 2
+            : node.align === 'right' || node.align === 'end'
+                ? -width
+                : 0;
+        const top = node.baseline === 'middle'
+            ? -height / 2
+            : node.baseline === 'bottom' || node.baseline === 'ideographic'
+                ? -height
+                : node.baseline === 'alphabetic'
+                    ? -height * 0.8
+                    : 0;
+        if (node.rotation === 0)
+            return { x: node.x + left, y: node.y + top, width, height };
+        const angle = (node.rotation * Math.PI) / 180;
+        const corners = [
+            [left, top],
+            [left + width, top],
+            [left + width, top + height],
+            [left, top + height],
+        ];
+        const points = corners.map(([x, y]) => ({
+            x: node.x + x * Math.cos(angle) - y * Math.sin(angle),
+            y: node.y + x * Math.sin(angle) + y * Math.cos(angle),
+        }));
+        const xs = points.map((point) => point.x);
+        const ys = points.map((point) => point.y);
+        const x = Math.min(...xs);
+        const y = Math.min(...ys);
+        return { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y };
+    }
+    function sceneNodeBounds(node) {
+        if (!node.visible || node.opacity <= 0)
+            return null;
+        switch (node.type) {
+            case 'circle':
+                return {
+                    x: node.cx - node.radius,
+                    y: node.cy - node.radius,
+                    width: node.radius * 2,
+                    height: node.radius * 2,
+                };
+            case 'rect':
+                return {
+                    x: Math.min(node.x, node.x + node.width),
+                    y: Math.min(node.y, node.y + node.height),
+                    width: Math.abs(node.width),
+                    height: Math.abs(node.height),
+                };
+            case 'line': {
+                const padding = Math.max(0.5, node.lineWidth / 2);
+                const x = Math.min(node.x1, node.x2) - padding;
+                const y = Math.min(node.y1, node.y2) - padding;
+                return {
+                    x,
+                    y,
+                    width: Math.abs(node.x2 - node.x1) + padding * 2,
+                    height: Math.abs(node.y2 - node.y1) + padding * 2,
+                };
+            }
+            case 'path': {
+                const points = [node.points, ...(node.subpaths ?? [])].flat();
+                if (points.length === 0)
+                    return null;
+                const padding = Math.max(0, node.lineWidth / 2);
+                const xs = points.map((point) => point.x);
+                const ys = points.map((point) => point.y);
+                const x = Math.min(...xs) - padding;
+                const y = Math.min(...ys) - padding;
+                return {
+                    x,
+                    y,
+                    width: Math.max(...xs) - Math.min(...xs) + padding * 2,
+                    height: Math.max(...ys) - Math.min(...ys) + padding * 2,
+                };
+            }
+            case 'text':
+                return textBounds(node);
+            case 'group': {
+                let bounds = null;
+                for (const child of node.children)
+                    bounds = union$1(bounds, sceneNodeBounds(child));
+                if (bounds === null || node.clip === undefined)
+                    return bounds;
+                const x = Math.max(bounds.x, node.clip.x);
+                const y = Math.max(bounds.y, node.clip.y);
+                const endX = Math.min(bounds.x + bounds.width, node.clip.x + node.clip.width);
+                const endY = Math.min(bounds.y + bounds.height, node.clip.y + node.clip.height);
+                return endX < x || endY < y ? null : { x, y, width: endX - x, height: endY - y };
+            }
+        }
+    }
+    function nodePaint(node) {
+        if (node.type === 'rect' || node.type === 'circle' || node.type === 'path') {
+            return node.fill ?? node.stroke;
+        }
+        if (node.type === 'line')
+            return node.stroke;
+        if (node.type === 'text')
+            return node.fill;
+        for (const child of node.children) {
+            const paint = nodePaint(child);
+            if (paint !== undefined)
+                return paint;
+        }
+        return undefined;
+    }
+
+    function union(left, right) {
+        if (left === null)
+            return right;
+        if (right === null)
+            return left;
+        const x = Math.min(left.x, right.x);
+        const y = Math.min(left.y, right.y);
+        const endX = Math.max(left.x + left.width, right.x + right.width);
+        const endY = Math.max(left.y + left.height, right.y + right.height);
+        return { x, y, width: endX - x, height: endY - y };
+    }
+    function scalarEqual(left, right) {
+        if (left instanceof Date) {
+            return typeof right === 'string'
+                ? left.toISOString() === right || left.toISOString().slice(0, 10) === right
+                : typeof right === 'number' && left.getTime() === right;
+        }
+        return left === right;
+    }
+    function datumMatches(target, node) {
+        const reference = node.datum;
+        if (reference === undefined)
+            return false;
+        if (target.layerId !== undefined && reference.layerId !== target.layerId)
+            return false;
+        if (target.rowIndex !== undefined) {
+            const rows = Array.isArray(target.rowIndex) ? target.rowIndex : [target.rowIndex];
+            if (!rows.includes(reference.rowIndex))
+                return false;
+        }
+        if (target.field !== undefined) {
+            const sources = [reference.tooltip, reference.datum].filter((source) => source !== undefined);
+            const matches = (source) => {
+                const candidate = source[target.field];
+                if (target.values !== undefined)
+                    return target.values.some((value) => scalarEqual(candidate, value));
+                return scalarEqual(candidate, target.value ?? null);
+            };
+            if (!sources.some(matches))
+                return false;
+        }
+        return true;
+    }
+    function descendants$1(node, ancestorVisible = true) {
+        const effectivelyVisible = ancestorVisible && node.visible && node.opacity > 0;
+        if (!effectivelyVisible)
+            return [];
+        if (node.type !== 'group')
+            return [node];
+        return node.children.flatMap((child) => descendants$1(child, effectivelyVisible));
+    }
+    function nodesForTarget(target, layerGroups) {
+        if (target.type === 'layer') {
+            const groupNode = layerGroups.find((node) => node.id === `${target.layerId}:group`);
+            return groupNode === undefined ? [] : descendants$1(groupNode);
+        }
+        if (target.type !== 'datum')
+            return [];
+        return layerGroups
+            .flatMap((node) => descendants$1(node))
+            .filter((node) => datumMatches(target, node));
+    }
+    function fallbackDatumBounds(target, scales, datumVisible) {
+        let bounds = null;
+        for (const layerData of scales.layers) {
+            if (target.layerId !== undefined && target.layerId !== layerData.layer.id)
+                continue;
+            if (isAxislessLayer(layerData.layer))
+                continue;
+            for (let rowIndex = 0; rowIndex < layerData.table.length; rowIndex += 1) {
+                const datum = layerData.table.row(rowIndex);
+                if (datumVisible?.(layerData.layer.id, rowIndex, datum) === false)
+                    continue;
+                const synthetic = {
+                    datum: {
+                        layerId: layerData.layer.id,
+                        rowIndex,
+                        datum,
+                    }};
+                if (!datumMatches(target, synthetic))
+                    continue;
+                const xValue = layerData.table.value(rowIndex, layerData.layer.x.field);
+                const yValue = layerData.table.value(rowIndex, layerData.layer.y.field);
+                if (xValue === undefined ||
+                    xValue === null ||
+                    typeof xValue === 'boolean' ||
+                    yValue === undefined ||
+                    yValue === null ||
+                    typeof yValue === 'boolean')
+                    continue;
+                const x = layerData.xScale.map(xValue);
+                const y = layerData.yScale.map(yValue);
+                if (!Number.isFinite(x) || !Number.isFinite(y))
+                    continue;
+                bounds = union(bounds, { x, y, width: 0, height: 0 });
+            }
+        }
+        return bounds;
+    }
+    function rangeBounds(target, scales, plot) {
+        let x1 = plot.x;
+        let x2 = plot.x + plot.width;
+        let y1 = plot.y;
+        let y2 = plot.y + plot.height;
+        if (target.x !== undefined) {
+            const resolved = scales.axes[target.x.axis ?? 'x'];
+            if (resolved === undefined)
+                return null;
+            const mappedFrom = resolved.scale.map(target.x.from);
+            const mappedTo = resolved.scale.map(target.x.to);
+            const padding = resolved.scale.bandwidth / 2;
+            x1 = Math.min(mappedFrom, mappedTo) - padding;
+            x2 = Math.max(mappedFrom, mappedTo) + padding;
+        }
+        if (target.y !== undefined) {
+            const resolved = scales.axes[target.y.axis ?? 'y'];
+            if (resolved === undefined)
+                return null;
+            const mappedFrom = resolved.scale.map(target.y.from);
+            const mappedTo = resolved.scale.map(target.y.to);
+            const padding = resolved.scale.bandwidth / 2;
+            y1 = Math.min(mappedFrom, mappedTo) - padding;
+            y2 = Math.max(mappedFrom, mappedTo) + padding;
+        }
+        if (![x1, x2, y1, y2].every(Number.isFinite))
+            return null;
+        return {
+            x: Math.min(x1, x2),
+            y: Math.min(y1, y2),
+            width: Math.abs(x2 - x1),
+            height: Math.abs(y2 - y1),
+        };
+    }
+    function targetBounds(target, layerGroups, scales, plot, datumVisible) {
+        if (target.type === 'range') {
+            const bounds = rangeBounds(target, scales, plot);
+            return { bounds: bounds ?? { x: 0, y: 0, width: 0, height: 0 }, found: bounds !== null };
+        }
+        if (target.type === 'plot') {
+            return {
+                bounds: {
+                    x: plot.x + plot.width * target.x,
+                    y: plot.y + plot.height * target.y,
+                    width: plot.width * (target.width ?? 0),
+                    height: plot.height * (target.height ?? 0),
+                },
+                found: true,
+            };
+        }
+        let bounds = null;
+        for (const node of nodesForTarget(target, layerGroups))
+            bounds = union(bounds, sceneNodeBounds(node));
+        if (bounds === null && target.type === 'datum')
+            bounds = fallbackDatumBounds(target, scales, datumVisible);
+        return { bounds: bounds ?? { x: 0, y: 0, width: 0, height: 0 }, found: bounds !== null };
+    }
+    function highlightNodes(highlight, index, resolution, theme, zIndex) {
+        if (!resolution.found)
+            return [];
+        const padding = highlight.padding ?? 5;
+        const bounds = resolution.bounds;
+        const stroke = highlight.stroke ?? theme.colors.focus;
+        const fill = highlight.fill ?? 'rgba(79,70,229,0.12)';
+        const lineWidth = highlight.lineWidth ?? 2;
+        const opacity = highlight.opacity ?? 1;
+        const dash = [...(highlight.dash ?? [])];
+        const id = highlight.id ?? `highlight-${index}`;
+        if (bounds.width <= 2 && bounds.height <= 2) {
+            return [
+                {
+                    type: 'circle',
+                    ...nodeBase(`decoration:${id}`, { zIndex, opacity }),
+                    cx: bounds.x + bounds.width / 2,
+                    cy: bounds.y + bounds.height / 2,
+                    radius: highlight.radius ?? Math.max(7, padding + 3),
+                    fill,
+                    stroke,
+                    lineWidth,
+                },
+            ];
+        }
+        return [
+            {
+                type: 'rect',
+                ...nodeBase(`decoration:${id}`, { zIndex, opacity }),
+                x: bounds.x - padding,
+                y: bounds.y - padding,
+                width: Math.max(1, bounds.width + padding * 2),
+                height: Math.max(1, bounds.height + padding * 2),
+                fill,
+                stroke,
+                lineWidth,
+                cornerRadius: highlight.radius ?? 7,
+                ...(dash.length === 0 ? {} : { dash }),
+            },
+        ];
+    }
+    function wrapText(text, maxWidth, fontSize) {
+        const maxCharacters = Math.max(1, Math.floor(maxWidth / Math.max(1, fontSize * 0.58)));
+        const words = text.trim().split(/\s+/);
+        const lines = [];
+        let line = '';
+        for (const word of words) {
+            const next = line === '' ? word : `${line} ${word}`;
+            if (next.length <= maxCharacters)
+                line = next;
+            else {
+                if (line !== '')
+                    lines.push(line);
+                const graphemes = (() => {
+                    try {
+                        return [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(word)].map(({ segment }) => segment);
+                    }
+                    catch {
+                        return Array.from(word);
+                    }
+                })();
+                line =
+                    graphemes.length <= maxCharacters
+                        ? word
+                        : maxCharacters === 1
+                            ? '…'
+                            : `${graphemes.slice(0, maxCharacters - 1).join('')}…`;
+            }
+            if (lines.length >= 5)
+                break;
+        }
+        if (line !== '' && lines.length < 6)
+            lines.push(line);
+        return lines;
+    }
+    function annotationNodes(annotation, index, resolution, plot, theme, locale) {
+        if (!resolution.found)
+            return [];
+        const style = annotation.style ?? {};
+        const availableWidth = Math.max(1, plot.width);
+        const availableHeight = Math.max(1, plot.height);
+        const maxWidth = Math.min(style.maxWidth ?? 220, availableWidth);
+        const padding = Math.min(style.padding ?? 10, Math.max(0, Math.min(maxWidth / 5, availableHeight / 6)));
+        const fontSize = Math.min(style.fontSize ?? 12, Math.max(1, Math.min(maxWidth / 3, availableHeight / 3)));
+        const detailFontSize = Math.max(1, fontSize - 1);
+        let titleLines = wrapText(annotation.text, maxWidth - padding * 2, fontSize);
+        let detailLines = annotation.detail === undefined
+            ? []
+            : wrapText(annotation.detail, maxWidth - padding * 2, detailFontSize);
+        const lineHeight = fontSize * 1.35;
+        const detailLineHeight = detailFontSize * 1.35;
+        const lineBudget = Math.max(1, Math.floor((availableHeight - padding * 2) / detailLineHeight));
+        titleLines = titleLines.slice(0, Math.max(1, Math.min(titleLines.length, lineBudget)));
+        detailLines = detailLines.slice(0, Math.max(0, lineBudget - titleLines.length));
+        const ellipsizeLast = (lines, truncated) => {
+            if (!truncated || lines.length === 0)
+                return lines;
+            const last = lines[lines.length - 1];
+            return [...lines.slice(0, -1), last.endsWith('…') ? last : `${last}…`];
+        };
+        titleLines = ellipsizeLast(titleLines, titleLines.join(' ').length < annotation.text.length);
+        detailLines = ellipsizeLast(detailLines, annotation.detail !== undefined && detailLines.join(' ').length < annotation.detail.length);
+        const longest = Math.max(8, ...[...titleLines, ...detailLines].map((line) => line.length));
+        const width = Math.min(maxWidth, Math.max(Math.min(96, maxWidth), longest * fontSize * 0.58 + padding * 2));
+        const height = Math.min(availableHeight, padding * 2 +
+            titleLines.length * lineHeight +
+            detailLines.length * detailLineHeight +
+            (detailLines.length > 0 ? 4 : 0));
+        const target = resolution.bounds;
+        const anchor = { x: target.x + target.width / 2, y: target.y + target.height / 2 };
+        const placement = annotation.placement === undefined || annotation.placement === 'auto'
+            ? anchor.x < plot.x + plot.width / 2
+                ? 'right'
+                : 'left'
+            : annotation.placement;
+        const gap = 18;
+        let x = anchor.x - width / 2;
+        let y = anchor.y - height / 2;
+        if (placement === 'top')
+            y = target.y - height - gap;
+        if (placement === 'bottom')
+            y = target.y + target.height + gap;
+        if (placement === 'left')
+            x = target.x - width - gap;
+        if (placement === 'right')
+            x = target.x + target.width + gap;
+        x += annotation.offsetX ?? 0;
+        y += annotation.offsetY ?? 0;
+        x = Math.max(plot.x, Math.min(plot.x + plot.width - width, x));
+        y = Math.max(plot.y, Math.min(plot.y + plot.height - height, y));
+        const id = annotation.id ?? `annotation-${index}`;
+        const bubbleCenter = { x: x + width / 2, y: y + height / 2 };
+        const connector = typeof annotation.connector === 'object' ? annotation.connector : {};
+        const connectorVisible = typeof annotation.connector === 'boolean' ? annotation.connector : (connector.visible ?? true);
+        const nodes = [];
+        const rtl = locale !== undefined && /^(ar|fa|he|ur)(?:-|$)/i.test(locale);
+        const logicalAlign = style.align ?? 'start';
+        const textAlign = logicalAlign === 'center'
+            ? 'center'
+            : logicalAlign === 'start'
+                ? rtl
+                    ? 'right'
+                    : 'left'
+                : rtl
+                    ? 'left'
+                    : 'right';
+        const textX = logicalAlign === 'center'
+            ? x + width / 2
+            : textAlign === 'right'
+                ? x + width - padding
+                : x + padding;
+        if (connectorVisible) {
+            nodes.push({
+                type: 'line',
+                ...nodeBase(`annotation:${id}:connector`, { zIndex: 700 }),
+                x1: anchor.x,
+                y1: anchor.y,
+                x2: bubbleCenter.x,
+                y2: bubbleCenter.y,
+                stroke: connector.color ?? style.border ?? theme.colors.focus,
+                lineWidth: connector.width ?? 1.5,
+                dash: [...(connector.dash ?? [])],
+                lineCap: 'round',
+            });
+        }
+        nodes.push({
+            type: 'rect',
+            ...nodeBase(`annotation:${id}:bubble`, { zIndex: 701, opacity: style.opacity ?? 0.97 }),
+            x,
+            y,
+            width,
+            height,
+            fill: style.background ?? theme.colors.surface,
+            stroke: style.border ?? theme.colors.focus,
+            lineWidth: 1.25,
+            cornerRadius: 9,
+        });
+        let textY = y + padding;
+        for (const [lineIndex, text] of titleLines.entries()) {
+            const node = {
+                type: 'text',
+                ...nodeBase(`annotation:${id}:title:${lineIndex}`, { zIndex: 702 }),
+                x: textX,
+                y: textY,
+                text,
+                fill: style.color ?? theme.colors.text,
+                fontFamily: theme.typography.fontFamily,
+                fontSize,
+                fontWeight: 700,
+                align: textAlign,
+                baseline: 'top',
+                rotation: 0,
+            };
+            nodes.push(node);
+            textY += lineHeight;
+        }
+        if (detailLines.length > 0)
+            textY += 4;
+        for (const [lineIndex, text] of detailLines.entries()) {
+            nodes.push({
+                type: 'text',
+                ...nodeBase(`annotation:${id}:detail:${lineIndex}`, { zIndex: 702 }),
+                x: textX,
+                y: textY,
+                text,
+                fill: style.color ?? theme.colors.mutedText,
+                fontFamily: theme.typography.fontFamily,
+                fontSize: detailFontSize,
+                fontWeight: 400,
+                align: textAlign,
+                baseline: 'top',
+                rotation: 0,
+            });
+            textY += detailLineHeight;
+        }
+        return nodes;
+    }
+    function compileDecorations(options) {
+        const underlay = [];
+        const overlay = [];
+        options.spec.highlights.forEach((highlight, index) => {
+            const resolution = targetBounds(highlight.target, options.layerGroups, options.scales, options.plot, options.datumVisible);
+            const nodes = highlightNodes(highlight, index, resolution, options.theme, highlight.target.type === 'range' || highlight.target.type === 'plot' ? -200 : 600);
+            if (highlight.target.type === 'range' || highlight.target.type === 'plot')
+                underlay.push(...nodes);
+            else
+                overlay.push(...nodes);
+        });
+        if (options.spec.interaction.selection !== false) {
+            const selectionStyle = options.spec.interaction.selection.highlight;
+            for (const [index, target] of (options.runtime?.selection ?? []).entries()) {
+                const resolution = targetBounds(target, options.layerGroups, options.scales, options.plot, options.datumVisible);
+                overlay.push(...highlightNodes({ id: `selection-${index}`, ...selectionStyle }, index, resolution, options.theme, 650));
+            }
+        }
+        const annotations = options.runtime?.annotations ?? options.spec.annotations;
+        annotations.forEach((annotation, index) => {
+            const resolution = targetBounds(annotation.target, options.layerGroups, options.scales, options.plot, options.datumVisible);
+            overlay.push(...annotationNodes(annotation, index, resolution, options.plot, options.theme, options.spec.locale));
+        });
+        return {
+            underlay: underlay.length === 0
+                ? []
+                : [group('decorations:underlay', underlay, { zIndex: -200, clip: options.plot })],
+            overlay: overlay.length === 0 ? [] : [group('decorations:overlay', overlay, { zIndex: 600 })],
+        };
+    }
+
+    const legendByScene = new WeakMap();
+    const categoricalMarks = new Set([
         'pie',
-        'polar',
-        'radar',
-        'sankey',
-        'scatter-matrix',
-        'smith',
-        'solid-gauge',
-        'sunburst',
-        'table',
-        'ternary',
-        'tiled-map',
-        'tilemap',
-        'tree',
+        'variable-pie',
         'treemap',
+        'sunburst',
+        'packed-bubble',
+        'funnel',
+        'pyramid',
         'venn',
         'word-cloud',
-        'word-tree',
     ]);
+    const continuousMarks = new Set([
+        'heatmap',
+        'geo',
+        'geo-heatmap',
+        'map',
+        'contour',
+        'volume-profile',
+    ]);
+    const lineMarks = new Set([
+        'annotation',
+        'area',
+        'diff',
+        'line',
+        'lines',
+        'smooth',
+        'stepped-area',
+        'trendline',
+    ]);
+    const pointMarks = new Set([
+        'bubble',
+        'effect-scatter',
+        'item',
+        'lollipop',
+        'packed-bubble',
+        'point',
+        'scatter-3d',
+        'scatter-matrix',
+        'ternary',
+    ]);
+    /** Category filtering is safe only when a row owns independent geometry. */
+    const CATEGORY_LEGEND_TOGGLE_MARKS = new Set([
+        'bar',
+        'bubble',
+        'candlestick',
+        'calendar',
+        'cylinder',
+        'effect-scatter',
+        'financial',
+        'flags',
+        'funnel',
+        'gantt',
+        'heatmap',
+        'interval',
+        'item',
+        'lollipop',
+        'packed-bubble',
+        'pie',
+        'point',
+        'pictorial-bar',
+        'pyramid',
+        'range',
+        'scatter-3d',
+        'scatter-matrix',
+        'sunburst',
+        'ternary',
+        'timeline',
+        'tilemap',
+        'tiled-map',
+        'treemap',
+        'variable-pie',
+        'variwide',
+        'venn',
+        'waterfall',
+        'wind-barb',
+        'word-cloud',
+    ]);
+    function markSymbol(mark) {
+        if (mark !== undefined && lineMarks.has(mark))
+            return 'line';
+        if (mark !== undefined && pointMarks.has(mark))
+            return 'point';
+        return 'rect';
+    }
+    function valueKey$1(value) {
+        return `${value === null ? 'null' : typeof value}:${String(value)}`;
+    }
+    function safeId(value) {
+        return value.replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'item';
+    }
+    /** Keep inferred category state stable across row reordering and slug collisions. */
+    function stableCategoryId(value) {
+        const canonical = JSON.stringify([value === null ? 'null' : typeof value, value]);
+        let encoded = '';
+        for (let index = 0; index < canonical.length; index += 1) {
+            encoded += canonical.charCodeAt(index).toString(16).padStart(4, '0');
+        }
+        return encoded;
+    }
+    function autoMode(spec) {
+        if (spec.legend === false)
+            return 'layers';
+        if (spec.legend.mode !== 'auto')
+            return spec.legend.mode;
+        if (spec.layers.length > 1)
+            return 'layers';
+        const mark = spec.layers[0]?.mark.type;
+        if (mark !== undefined && continuousMarks.has(mark))
+            return 'continuous';
+        if (mark !== undefined && categoricalMarks.has(mark))
+            return 'categories';
+        return 'layers';
+    }
+    function categoryItems(spec, legend) {
+        const layer = spec.layers.find((candidate) => candidate.id === legend.layerId) ?? spec.layers[0];
+        if (layer === undefined)
+            return [];
+        const field = legend.field ?? layer.x.field;
+        const table = DataTable.from(layer.data);
+        const seen = new Set();
+        const output = [];
+        for (let index = 0; index < table.length && output.length < legend.maxItems; index += 1) {
+            const raw = table.value(index, field);
+            if (raw === undefined ||
+                raw instanceof Date ||
+                (typeof raw === 'number' && !Number.isFinite(raw)))
+                continue;
+            const value = raw;
+            const key = valueKey$1(value);
+            if (seen.has(key))
+                continue;
+            seen.add(key);
+            output.push({
+                id: `category-${stableCategoryId(value)}`,
+                label: raw === null ? '—' : String(raw),
+                layerId: layer.id,
+                value,
+                symbol: markSymbol(layer.mark.type),
+            });
+        }
+        return output;
+    }
+    function layerItems(spec) {
+        return spec.layers.map((layer, index) => ({
+            id: `layer-${safeId(layer.id)}-${index}`,
+            label: layer.name,
+            layerId: layer.id,
+            symbol: markSymbol(layer.mark.type),
+        }));
+    }
+    function legendItemToggleable(model, item) {
+        return (model.spec.interactive &&
+            model.mode !== 'continuous' &&
+            item.layerId !== undefined &&
+            (model.mode !== 'categories' || model.categoryToggleableLayerIds.has(item.layerId)));
+    }
+    function continuousItems(spec, legend) {
+        const layer = spec.layers.find((candidate) => candidate.id === legend.layerId) ?? spec.layers[0];
+        if (layer === undefined)
+            return [];
+        const field = legend.field ?? layer.mark.fields.value ?? layer.y.field;
+        const table = DataTable.from(layer.data);
+        const extent = table.extent(field, false);
+        if (extent === null)
+            return [{ id: 'continuous-scale', label: field, layerId: layer.id, symbol: 'rect' }];
+        let formatter;
+        try {
+            formatter = new Intl.NumberFormat(spec.locale, { maximumFractionDigits: 6 });
+        }
+        catch {
+            formatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 6 });
+        }
+        return [
+            {
+                id: 'continuous-min',
+                label: formatter.format(extent[0]),
+                layerId: layer.id,
+                value: extent[0],
+                symbol: 'rect',
+            },
+            {
+                id: 'continuous-max',
+                label: formatter.format(extent[1]),
+                layerId: layer.id,
+                value: extent[1],
+                symbol: 'rect',
+            },
+        ];
+    }
+    function resolveLegendModel(spec, theme, availableWidth = 640, availableHeight = 400) {
+        const legend = spec.legend;
+        if (legend === false || !legend.visible)
+            return null;
+        const mode = autoMode(spec);
+        const selectedLayer = spec.layers.find((candidate) => candidate.id === legend.layerId) ?? spec.layers[0];
+        const field = mode === 'categories'
+            ? (legend.field ?? selectedLayer?.x.field)
+            : mode === 'continuous'
+                ? (legend.field ?? selectedLayer?.mark.fields.value ?? selectedLayer?.y.field)
+                : undefined;
+        const inferred = legend.items.length > 0
+            ? legend.items
+            : mode === 'layers'
+                ? layerItems(spec)
+                : mode === 'categories'
+                    ? categoryItems(spec, legend)
+                    : continuousItems(spec, legend);
+        let items = inferred.slice(0, legend.maxItems).map((item) => {
+            if (item.symbol !== 'auto')
+                return item;
+            const layer = spec.layers.find((candidate) => candidate.id === item.layerId);
+            return { ...item, symbol: markSymbol(layer?.mark.type) };
+        });
+        if (items.length === 0)
+            return null;
+        const titleHeight = legend.title === undefined ? 0 : theme.typography.fontSize + 8;
+        const maxWidth = Math.max(1, availableWidth - 8);
+        const maxHeight = Math.max(1, availableHeight - 8);
+        const direction = spec.locale !== undefined && /^(ar|fa|he|ur)(?:-|$)/i.test(spec.locale) ? 'rtl' : 'ltr';
+        const categoryToggleableLayerIds = new Set(spec.layers
+            .filter((layer) => CATEGORY_LEGEND_TOGGLE_MARKS.has(layer.mark.type))
+            .map((layer) => layer.id));
+        if (mode === 'continuous' && items.length >= 2) {
+            return {
+                spec: legend,
+                mode,
+                items,
+                ...(field === undefined ? {} : { field }),
+                width: Math.min(maxWidth, Math.max(120, (legend.title?.length ?? 0) * 7 + (legend.title === undefined ? 0 : 24), 168)),
+                height: Math.min(maxHeight, titleHeight + 42),
+                direction,
+                categoryToggleableLayerIds,
+            };
+        }
+        if (legend.orientation === 'horizontal') {
+            const totalWidth = items.reduce((sum, item) => sum + Math.max(64, item.label.length * 7 + 34), 0);
+            const modelWidth = Math.min(maxWidth, Math.max(96, totalWidth));
+            const usableWidth = Math.max(48, modelWidth - 20);
+            let rowWidth = 0;
+            let rows = 1;
+            for (const item of items) {
+                const itemWidth = Math.max(64, item.label.length * 7 + 34);
+                if (rowWidth > 0 && rowWidth + itemWidth > usableWidth) {
+                    rows += 1;
+                    rowWidth = 0;
+                }
+                rowWidth += itemWidth;
+            }
+            const visibleRows = Math.max(1, Math.floor((maxHeight - titleHeight - 12) / 24));
+            if (rows > visibleRows) {
+                let usedRows = 1;
+                rowWidth = 0;
+                items = items.filter((item) => {
+                    const itemWidth = Math.max(64, item.label.length * 7 + 34);
+                    if (rowWidth > 0 && rowWidth + itemWidth > usableWidth) {
+                        usedRows += 1;
+                        rowWidth = 0;
+                    }
+                    if (usedRows > visibleRows)
+                        return false;
+                    rowWidth += itemWidth;
+                    return true;
+                });
+                rows = visibleRows;
+            }
+            return {
+                spec: legend,
+                mode,
+                items,
+                ...(field === undefined ? {} : { field }),
+                width: modelWidth,
+                height: Math.min(maxHeight, titleHeight + rows * 24 + 12),
+                direction,
+                categoryToggleableLayerIds,
+            };
+        }
+        const maxVisibleItems = Math.max(1, Math.floor((maxHeight - titleHeight - 12) / 24));
+        items = items.slice(0, maxVisibleItems);
+        return {
+            spec: legend,
+            mode,
+            items,
+            ...(field === undefined ? {} : { field }),
+            width: Math.min(maxWidth, Math.min(220, Math.max(72, legend.title === undefined ? 0 : legend.title.length * 7 + 20, ...items.map((item) => item.label.length * 7 + 42)))),
+            height: Math.min(maxHeight, titleHeight + items.length * 24 + 12),
+            direction,
+            categoryToggleableLayerIds,
+        };
+    }
+    function truncateText(text, width, fontSize) {
+        const maximum = Math.max(1, Math.floor(width / Math.max(5, fontSize * 0.58)));
+        let graphemes;
+        try {
+            graphemes = [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text)].map(({ segment }) => segment);
+        }
+        catch {
+            graphemes = Array.from(text);
+        }
+        if (graphemes.length <= maximum)
+            return text;
+        return `${graphemes.slice(0, Math.max(1, maximum - 1)).join('')}…`;
+    }
+    function legendExternalInsets(model) {
+        const empty = { top: 0, right: 0, bottom: 0, left: 0 };
+        if (model === null)
+            return empty;
+        switch (model.spec.position) {
+            case 'top':
+                return { ...empty, top: model.height + 8 };
+            case 'right':
+                return { ...empty, right: model.width + 8 };
+            case 'bottom':
+                return { ...empty, bottom: model.height + 8 };
+            case 'left':
+                return { ...empty, left: model.width + 8 };
+            default:
+                return empty;
+        }
+    }
+    function descendants(node) {
+        if (node.type !== 'group')
+            return [node];
+        return node.children.flatMap(descendants);
+    }
+    function itemPaint(item, index, mode, layerGroups, field, theme) {
+        if (item.color !== undefined)
+            return item.color;
+        if (mode === 'continuous') {
+            const palette = theme.colors.sequential;
+            return palette[index === 0 ? 0 : palette.length - 1] ?? theme.colors.focus;
+        }
+        const group = layerGroups.find((candidate) => candidate.id === `${item.layerId}:group`);
+        if (group !== undefined) {
+            const nodes = descendants(group);
+            const matching = mode === 'categories' && field !== undefined && item.value !== undefined
+                ? nodes.find((node) => [node.datum?.tooltip, node.datum?.datum].some((datum) => datum !== undefined &&
+                    Object.prototype.hasOwnProperty.call(datum, field) &&
+                    valueKey$1(datum[field]) === valueKey$1(item.value)))
+                : nodes.find((node) => nodePaint(node) !== undefined);
+            const paint = matching === undefined ? undefined : nodePaint(matching);
+            if (paint !== undefined)
+                return paint;
+        }
+        return theme.colors.palette[index % theme.colors.palette.length] ?? theme.colors.focus;
+    }
+    function legendOrigin(model, plot, width, height) {
+        const gap = 8;
+        const origin = (() => {
+            switch (model.spec.position) {
+                case 'top':
+                    return { x: plot.x, y: Math.max(gap, plot.y - model.height - gap) };
+                case 'right':
+                    return { x: plot.x + plot.width + gap, y: plot.y };
+                case 'bottom':
+                    return { x: plot.x, y: Math.min(height - model.height - gap, plot.y + plot.height + gap) };
+                case 'left':
+                    return { x: Math.max(gap, plot.x - model.width - gap), y: plot.y };
+                case 'inside-top-left':
+                    return { x: plot.x + gap, y: plot.y + gap };
+                case 'inside-bottom-left':
+                    return { x: plot.x + gap, y: plot.y + plot.height - model.height - gap };
+                case 'inside-bottom-right':
+                    return {
+                        x: plot.x + plot.width - model.width - gap,
+                        y: plot.y + plot.height - model.height - gap,
+                    };
+                case 'inside-top-right':
+                default:
+                    return { x: plot.x + plot.width - model.width - gap, y: plot.y + gap };
+            }
+        })();
+        return {
+            x: Math.max(4, Math.min(Math.max(4, width - model.width - 4), origin.x)),
+            y: Math.max(4, Math.min(Math.max(4, height - model.height - 4), origin.y)),
+        };
+    }
+    function compileLegend(model, layerGroups, plot, width, height, theme, hiddenItems = new Set()) {
+        if (model === null)
+            return { nodes: [], layout: null };
+        const origin = legendOrigin(model, plot, width, height);
+        const background = {
+            type: 'rect',
+            ...nodeBase('legend:surface', { zIndex: 500, opacity: 0.94 }),
+            x: origin.x,
+            y: origin.y,
+            width: model.width,
+            height: model.height,
+            fill: theme.colors.surface,
+            stroke: theme.colors.axis,
+            lineWidth: 1,
+            cornerRadius: 8,
+        };
+        const nodes = [background];
+        const inset = Math.min(10, Math.max(0, model.width / 4));
+        let cursorX = origin.x + inset;
+        let cursorY = origin.y + 10;
+        if (model.spec.title !== undefined) {
+            nodes.push({
+                type: 'text',
+                ...nodeBase('legend:title', { zIndex: 502 }),
+                x: model.direction === 'rtl' ? origin.x + model.width - inset : cursorX,
+                y: cursorY,
+                text: truncateText(model.spec.title, model.width - inset * 2, theme.typography.fontSize),
+                fill: theme.colors.text,
+                fontFamily: theme.typography.fontFamily,
+                fontSize: theme.typography.fontSize,
+                fontWeight: 700,
+                align: model.direction === 'rtl' ? 'right' : 'left',
+                baseline: 'top',
+                rotation: 0,
+            });
+            cursorY += theme.typography.fontSize + 8;
+        }
+        const entries = [];
+        const field = model.field;
+        if (model.mode === 'continuous' && model.items.length >= 2) {
+            const scaleX = origin.x + inset;
+            const scaleWidth = Math.max(1, model.width - inset * 2);
+            const palette = model.spec.items.length > 0
+                ? model.items.map((item, index) => {
+                    const paletteIndex = Math.round((index / Math.max(1, model.items.length - 1)) *
+                        Math.max(0, theme.colors.sequential.length - 1));
+                    return item.color ?? theme.colors.sequential[paletteIndex] ?? theme.colors.focus;
+                })
+                : theme.colors.sequential;
+            palette.forEach((paint, paletteIndex) => {
+                nodes.push({
+                    type: 'rect',
+                    ...nodeBase(`legend:scale:${paletteIndex}`, { zIndex: 501 }),
+                    x: scaleX + (scaleWidth * paletteIndex) / palette.length,
+                    y: cursorY,
+                    width: scaleWidth / palette.length + 0.5,
+                    height: 10,
+                    fill: paint,
+                    lineWidth: 0,
+                    cornerRadius: 0,
+                });
+            });
+            const endpoints = [model.items[0], model.items[model.items.length - 1]];
+            endpoints.forEach((item, index) => {
+                const color = itemPaint(item, index, model.mode, layerGroups, field, theme);
+                const left = index === 0;
+                nodes.push({
+                    type: 'text',
+                    ...nodeBase(`legend:item:${item.id}:label`, { zIndex: 502 }),
+                    x: model.direction === 'rtl'
+                        ? left
+                            ? scaleX + scaleWidth
+                            : scaleX
+                        : left
+                            ? scaleX
+                            : scaleX + scaleWidth,
+                    y: cursorY + 14,
+                    text: truncateText(item.label, scaleWidth / 2 - 4, theme.typography.fontSize),
+                    fill: theme.colors.mutedText,
+                    fontFamily: theme.typography.fontFamily,
+                    fontSize: theme.typography.fontSize,
+                    fontWeight: 500,
+                    align: model.direction === 'rtl' ? (left ? 'right' : 'left') : left ? 'left' : 'right',
+                    baseline: 'top',
+                    rotation: 0,
+                });
+                entries.push({
+                    ...item,
+                    color,
+                    bounds: {
+                        x: left ? scaleX : scaleX + scaleWidth / 2,
+                        y: cursorY + 12,
+                        width: scaleWidth / 2,
+                        height: 20,
+                    },
+                    toggleable: false,
+                    visible: true,
+                });
+            });
+            return {
+                nodes: [
+                    group('legend:group', nodes, {
+                        zIndex: 500,
+                        clip: { ...origin, width: model.width, height: model.height },
+                    }),
+                ],
+                layout: {
+                    mode: model.mode,
+                    entries,
+                    bounds: { ...origin, width: model.width, height: model.height },
+                },
+            };
+        }
+        for (const [index, item] of model.items.entries()) {
+            const itemWidth = Math.max(64, item.label.length * 7 + 34);
+            if (model.spec.orientation === 'horizontal' &&
+                cursorX > origin.x + 10 &&
+                cursorX + itemWidth > origin.x + model.width - 10) {
+                cursorX = origin.x + 10;
+                cursorY += 24;
+            }
+            const bounds = {
+                x: cursorX - 4,
+                y: cursorY - 4,
+                width: model.spec.orientation === 'horizontal'
+                    ? Math.max(1, Math.min(itemWidth, origin.x + model.width - (cursorX - 4) - 6))
+                    : model.width - 12,
+                height: 22,
+            };
+            const visible = !hiddenItems.has(item.id);
+            const color = itemPaint(item, index, model.mode, layerGroups, field, theme);
+            const swatchX = model.direction === 'rtl' ? bounds.x + bounds.width - 16 : cursorX;
+            if (item.symbol === 'line') {
+                nodes.push({
+                    type: 'line',
+                    ...nodeBase(`legend:item:${item.id}:swatch`, {
+                        zIndex: 501,
+                        opacity: visible ? 1 : 0.28,
+                    }),
+                    x1: swatchX,
+                    y1: cursorY + 6,
+                    x2: swatchX + 13,
+                    y2: cursorY + 6,
+                    stroke: color,
+                    lineWidth: 2.5,
+                    lineCap: 'round',
+                });
+            }
+            else if (item.symbol === 'point') {
+                nodes.push({
+                    type: 'circle',
+                    ...nodeBase(`legend:item:${item.id}:swatch`, {
+                        zIndex: 501,
+                        opacity: visible ? 1 : 0.28,
+                    }),
+                    cx: swatchX + 6,
+                    cy: cursorY + 6,
+                    radius: 5,
+                    fill: color,
+                    lineWidth: 0,
+                });
+            }
+            else {
+                nodes.push({
+                    type: 'rect',
+                    ...nodeBase(`legend:item:${item.id}:swatch`, {
+                        zIndex: 501,
+                        opacity: visible ? 1 : 0.28,
+                    }),
+                    x: swatchX,
+                    y: cursorY,
+                    width: 12,
+                    height: 12,
+                    fill: color,
+                    lineWidth: 0,
+                    cornerRadius: 3,
+                });
+            }
+            nodes.push({
+                type: 'text',
+                ...nodeBase(`legend:item:${item.id}:label`, { zIndex: 502, opacity: visible ? 1 : 0.45 }),
+                x: model.direction === 'rtl' ? swatchX - 7 : cursorX + 19,
+                y: cursorY + 6,
+                text: truncateText(item.label, Math.max(8, bounds.width - 26), theme.typography.fontSize),
+                fill: theme.colors.text,
+                fontFamily: theme.typography.fontFamily,
+                fontSize: theme.typography.fontSize,
+                fontWeight: 500,
+                align: model.direction === 'rtl' ? 'right' : 'left',
+                baseline: 'middle',
+                rotation: 0,
+            });
+            const toggleable = legendItemToggleable(model, item);
+            entries.push({ ...item, color, bounds, toggleable, visible });
+            if (model.spec.orientation === 'horizontal')
+                cursorX += itemWidth;
+            else
+                cursorY += 24;
+        }
+        return {
+            nodes: [
+                group('legend:group', nodes, {
+                    zIndex: 500,
+                    clip: { ...origin, width: model.width, height: model.height },
+                }),
+            ],
+            layout: {
+                mode: model.mode,
+                entries,
+                bounds: { ...origin, width: model.width, height: model.height },
+            },
+        };
+    }
+    function registerLegendLayout(scene, layout) {
+        if (layout !== null)
+            legendByScene.set(scene, layout);
+    }
+    function sceneLegendLayout(scene) {
+        return legendByScene.get(scene) ?? null;
+    }
+
     const AXIS_ORDER = ['x', 'x2', 'y', 'y2'];
     function activeAxes(scales) {
         return AXIS_ORDER.flatMap((id) => {
             const resolved = scales.axes[id];
             if (resolved === undefined)
                 return [];
-            const layerData = resolved.layers.find(({ layer }) => !AXISLESS_MARKS.has(layer.mark.type));
+            const layerData = resolved.layers.find(({ layer }) => !isAxislessLayer(layer));
             if (layerData === undefined)
                 return [];
             const encoding = resolved.channel === 'x' ? layerData.layer.x : layerData.layer.y;
@@ -3195,12 +5027,14 @@ var Graflume = (function (exports) {
         const rowSummary = `${rowCount.toLocaleString()} ${rowCount === 1 ? 'row' : 'rows'}`;
         return `${title}. ${layerSummary}, ${rowSummary}.`;
     }
-    function compileWithRegistry(input, registry, options = {}) {
+    function compileWithRegistry(input, registry, options = {}, runtime = {}) {
         const spec = normalizeSpec(input);
         const width = Math.max(1, spec.width === 'container' ? (options.width ?? 640) : spec.width);
         const height = Math.max(1, spec.height === 'container' ? (options.height ?? 400) : spec.height);
         const theme = registry.themes.resolve(spec.theme);
-        let layout = createLayout(spec, width, height, theme);
+        const legendModel = resolveLegendModel(spec, theme, width, height);
+        const legendInsets = legendExternalInsets(legendModel);
+        let layout = createLayout(spec, width, height, theme, {}, legendInsets);
         let scales = resolveScales(spec, layout.plot);
         let axes = activeAxes(scales);
         const minimumInsets = { top: 0, right: 0, bottom: 0, left: 0 };
@@ -3210,7 +5044,7 @@ var Graflume = (function (exports) {
             const required = measureAxisGutter(axisContext(axis, layout.plot, theme, spec.locale));
             minimumInsets[axis.axis.position] = Math.max(minimumInsets[axis.axis.position], required);
         }
-        const measuredLayout = createLayout(spec, width, height, theme, minimumInsets);
+        const measuredLayout = createLayout(spec, width, height, theme, minimumInsets, legendInsets);
         if (!samePlot(layout.plot, measuredLayout.plot)) {
             layout = measuredLayout;
             scales = resolveScales(spec, layout.plot);
@@ -3230,13 +5064,52 @@ var Graflume = (function (exports) {
                 candidate.xAxisId === layerData.xAxisId &&
                 candidate.yAxisId === layerData.yAxisId));
         }
+        const hiddenLegendItems = runtime.hiddenLegendItemIds ?? new Set();
+        const hiddenLayerIds = new Set((legendModel?.items ?? [])
+            .filter((item) => hiddenLegendItems.has(item.id) &&
+            legendModel !== null &&
+            legendItemToggleable(legendModel, item) &&
+            item.layerId !== undefined &&
+            (legendModel.mode === 'layers' || item.value === undefined))
+            .map((item) => item.layerId));
+        const hiddenCategories = legendModel?.mode === 'categories' && legendModel.field !== undefined
+            ? legendModel.items.filter((item) => hiddenLegendItems.has(item.id) &&
+                legendItemToggleable(legendModel, item) &&
+                item.value !== undefined)
+            : [];
+        const datumVisible = (layerId, _rowIndex, datum) => {
+            if (hiddenLayerIds.has(layerId))
+                return false;
+            if (legendModel?.field === undefined)
+                return true;
+            return !hiddenCategories.some((item) => (item.layerId === undefined || item.layerId === layerId) &&
+                datum[legendModel.field] === item.value);
+        };
+        const inheritSiblingDatum = (nodes) => {
+            const nested = nodes.map((node) => node.type === 'group' ? { ...node, children: inheritSiblingDatum(node.children) } : node);
+            const owners = new Map();
+            for (const node of nested) {
+                if (node.datum === undefined)
+                    continue;
+                const suffix = node.id.slice(node.id.lastIndexOf(':') + 1);
+                const prior = owners.get(suffix);
+                owners.set(suffix, prior === undefined ? node.datum : null);
+            }
+            return nested.map((node) => {
+                if (node.datum !== undefined)
+                    return node;
+                const suffix = node.id.slice(node.id.lastIndexOf(':') + 1);
+                const owner = owners.get(suffix);
+                return owner === undefined || owner === null ? node : { ...node, datum: owner };
+            });
+        };
         const layerGroups = scales.layers.map((layerData, layerIndex) => {
             const color = theme.colors.palette[layerIndex % theme.colors.palette.length] ?? theme.colors.focus;
             const barGroupKey = `${layerData.layer.mark.orientation}:${layerData.xAxisId}:${layerData.yAxisId}`;
             const barLayers = groupedBarLayers.get(barGroupKey) ?? [];
             const barGroupIndex = barLayers.findIndex(({ layer }) => layer.id === layerData.layer.id);
             const compiler = registry.mark(layerData.layer.mark.type);
-            const children = compiler({
+            const compiledChildren = compiler({
                 ...layerData,
                 xScale: layerData.xScale,
                 yScale: layerData.yScale,
@@ -3249,14 +5122,49 @@ var Graflume = (function (exports) {
                     index: Math.max(0, barGroupIndex),
                 },
             });
+            let children = legendModel?.mode === 'categories' &&
+                legendModel.categoryToggleableLayerIds.has(layerData.layer.id)
+                ? inheritSiblingDatum(compiledChildren)
+                : compiledChildren;
+            if (legendModel?.mode === 'categories' && legendModel.field !== undefined) {
+                if (hiddenCategories.length > 0) {
+                    const hide = (node) => {
+                        if (node.type === 'group')
+                            return { ...node, children: node.children.map(hide) };
+                        const sources = [];
+                        if (node.datum?.tooltip !== undefined)
+                            sources.push(node.datum.tooltip);
+                        if (node.datum?.datum !== undefined)
+                            sources.push(node.datum.datum);
+                        const hidden = sources.length > 0 &&
+                            sources.some((datum) => !datumVisible(layerData.layer.id, node.datum?.rowIndex ?? -1, datum));
+                        return hidden ? { ...node, visible: false } : node;
+                    };
+                    children = children.map(hide);
+                }
+            }
             return group(`${layerData.layer.id}:group`, children, {
                 zIndex: layerData.layer.zIndex,
                 clip: layout.plot,
+                visible: !hiddenLayerIds.has(layerData.layer.id),
             });
         });
+        const decorations = compileDecorations({
+            spec,
+            layerGroups,
+            scales,
+            plot: layout.plot,
+            theme,
+            runtime,
+            datumVisible,
+        });
+        const legend = compileLegend(legendModel, layerGroups, layout.plot, width, height, theme, hiddenLegendItems);
         const children = [
+            ...decorations.underlay,
             ...axisNodes,
             ...layerGroups,
+            ...decorations.overlay,
+            ...legend.nodes,
             ...titleNodes(spec, theme, width, layout.titleY, layout.subtitleY),
         ];
         const root = group('scene:root', children);
@@ -3267,11 +5175,23 @@ var Graflume = (function (exports) {
             root,
             accessibility: {
                 label: accessibilityLabel(spec, totalRows),
-                ...(spec.accessibility.description === undefined
-                    ? spec.description === undefined
-                        ? {}
-                        : { description: spec.description }
-                    : { description: spec.accessibility.description }),
+                ...(() => {
+                    const base = spec.accessibility.description ?? spec.description;
+                    const annotationText = (runtime.annotations ?? spec.annotations)
+                        .map((annotation) => annotation.detail === undefined
+                        ? annotation.text
+                        : `${annotation.text}: ${annotation.detail}`)
+                        .join('. ');
+                    const description = [base, annotationText].filter(Boolean).join('. ');
+                    const legendText = legendModel === null
+                        ? ''
+                        : `${legendModel.spec.title ?? 'Legend'}: ${legendModel.items
+                        .slice(0, 12)
+                        .map((item) => item.label)
+                        .join(', ')}`;
+                    const accessibleDescription = [description, legendText].filter(Boolean).join('. ');
+                    return accessibleDescription === '' ? {} : { description: accessibleDescription };
+                })(),
             },
             metadata: {
                 rowCount: totalRows,
@@ -3280,6 +5200,7 @@ var Graflume = (function (exports) {
                 hitTestingEnabled: performance.enableHitTesting,
             },
         };
+        registerLegendLayout(scene, legend.layout);
         const tooltip = spec.interaction.tooltip;
         if (tooltip !== false && tooltip.trigger === 'axis' && tooltip.axis !== undefined) {
             const axis = tooltip.axis;
@@ -3317,6 +5238,7 @@ var Graflume = (function (exports) {
                     scales,
                     plot: layout.plot,
                     performance,
+                    datumVisible,
                 }),
             });
         }
@@ -3838,6 +5760,87 @@ var Graflume = (function (exports) {
         return best;
     }
 
+    class LegendController {
+        #host = null;
+        #surface = null;
+        sync(host, layout, spec, view, actions) {
+            if (layout === null || spec === false || !spec.interactive) {
+                this.destroy();
+                return;
+            }
+            if (this.#host !== host) {
+                this.destroy();
+                this.#host = host;
+                const surface = document.createElement('div');
+                surface.dataset.graflumeLegendControls = 'true';
+                surface.setAttribute('role', 'group');
+                surface.setAttribute('aria-label', spec.title ?? 'Chart legend');
+                surface.style.position = 'absolute';
+                surface.style.inset = '0';
+                surface.style.zIndex = '18';
+                surface.style.pointerEvents = 'none';
+                surface.style.overflow = 'hidden';
+                host.append(surface);
+                this.#surface = surface;
+            }
+            const surface = this.#surface;
+            if (surface === null)
+                return;
+            const focusedId = document.activeElement?.dataset?.graflumeLegendItem;
+            surface.setAttribute('aria-label', spec.title ?? 'Chart legend');
+            surface.replaceChildren();
+            let focusTarget = null;
+            for (const entry of layout.entries) {
+                if (!entry.toggleable)
+                    continue;
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.dataset.graflumeLegendItem = entry.id;
+                button.setAttribute('aria-pressed', String(entry.visible));
+                const action = entry.visible ? spec.labels.hide : spec.labels.show;
+                button.setAttribute('aria-label', `${action} ${entry.label}`);
+                button.title = `${action} ${entry.label}`;
+                button.textContent = entry.label;
+                button.style.position = 'absolute';
+                button.style.left = `${entry.bounds.x * view.zoom + view.offsetX}px`;
+                button.style.top = `${entry.bounds.y * view.zoom + view.offsetY}px`;
+                button.style.width = `${Math.max(24, entry.bounds.width * view.zoom)}px`;
+                button.style.height = `${Math.max(24, entry.bounds.height * view.zoom)}px`;
+                button.style.padding = '0';
+                button.style.border = '1px solid transparent';
+                button.style.borderRadius = '6px';
+                button.style.background = 'transparent';
+                button.style.color = 'transparent';
+                button.style.fontSize = '1px';
+                button.style.cursor = 'pointer';
+                button.style.pointerEvents = 'auto';
+                button.addEventListener('pointerenter', () => {
+                    button.style.background = 'rgba(79,70,229,.08)';
+                });
+                button.addEventListener('pointerleave', () => {
+                    button.style.background = 'transparent';
+                });
+                button.addEventListener('focus', () => {
+                    button.style.outline = '2px solid #4f46e5';
+                    button.style.outlineOffset = '1px';
+                });
+                button.addEventListener('blur', () => {
+                    button.style.outline = 'none';
+                });
+                button.addEventListener('click', () => actions.setVisible(entry.id, !entry.visible));
+                surface.append(button);
+                if (entry.id === focusedId)
+                    focusTarget = button;
+            }
+            focusTarget?.focus();
+        }
+        destroy() {
+            this.#surface?.remove();
+            this.#surface = null;
+            this.#host = null;
+        }
+    }
+
     const identityInspectionView = {
         zoom: 1,
         offsetX: 0,
@@ -4344,6 +6347,50 @@ var Graflume = (function (exports) {
         }
         return undefined;
     }
+    function cloneDatumTarget(target) {
+        return {
+            ...target,
+            ...(Array.isArray(target.rowIndex) ? { rowIndex: [...target.rowIndex] } : {}),
+            ...(target.values === undefined ? {} : { values: [...target.values] }),
+        };
+    }
+    function cloneDecorationTarget(target) {
+        switch (target.type) {
+            case 'datum':
+                return cloneDatumTarget(target);
+            case 'range':
+                return {
+                    type: 'range',
+                    ...(target.x === undefined ? {} : { x: { ...target.x } }),
+                    ...(target.y === undefined ? {} : { y: { ...target.y } }),
+                };
+            case 'layer':
+            case 'plot':
+                return { ...target };
+        }
+    }
+    function cloneAnnotation(annotation) {
+        return {
+            ...annotation,
+            target: cloneDecorationTarget(annotation.target),
+            ...(typeof annotation.connector === 'object'
+                ? { connector: { ...annotation.connector, dash: [...(annotation.connector.dash ?? [])] } }
+                : {}),
+            ...(annotation.style === undefined ? {} : { style: { ...annotation.style } }),
+        };
+    }
+    function annotationId(annotation, index) {
+        return annotation.id ?? `annotation-${index}`;
+    }
+    function selectionKey(target) {
+        const values = target.field === undefined
+            ? null
+            : [...(target.values ?? (target.value === undefined ? [] : [target.value]))].sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
+        const rows = target.rowIndex === undefined
+            ? null
+            : (Array.isArray(target.rowIndex) ? [...target.rowIndex] : [target.rowIndex]).sort((left, right) => left - right);
+        return JSON.stringify([target.layerId ?? null, rows, target.field ?? null, values]);
+    }
     class Chart {
         #target;
         #registry;
@@ -4351,6 +6398,7 @@ var Graflume = (function (exports) {
         #scheduler = new RenderScheduler();
         #tooltip = new TooltipController();
         #controls = new ControlsController();
+        #legend = new LegendController();
         #options;
         #activePointers = new Map();
         #spec;
@@ -4381,6 +6429,11 @@ var Graflume = (function (exports) {
         #playbackTimestamp = null;
         #reducedMotion = null;
         #fullscreen = false;
+        #hiddenLegendItems = new Set();
+        #selection = [];
+        #annotations = [];
+        #selectionLive = null;
+        #selectionLiveHost = null;
         #pointerMoveListener = (event) => {
             if (!(event instanceof PointerEvent))
                 return;
@@ -4413,8 +6466,10 @@ var Graflume = (function (exports) {
                 this.#suppressClick = false;
                 return;
             }
-            if (this.#result?.spec.interaction.click !== false)
+            const interaction = this.#result?.spec.interaction;
+            if (interaction?.click !== false || interaction?.selection !== false) {
                 this.#emitPointer('click', event);
+            }
         };
         #pointerLeaveListener = (event) => {
             if (!(event instanceof PointerEvent))
@@ -4465,6 +6520,10 @@ var Graflume = (function (exports) {
             this.#manualWidth = options.width;
             this.#manualHeight = options.height;
             const normalized = normalizeSpec(spec);
+            this.#annotations = normalized.annotations.map((annotation, index) => ({
+                ...cloneAnnotation(annotation),
+                id: annotationId(annotation, index),
+            }));
             this.#configureInteraction(normalized, true);
             try {
                 this.#configureEnvironmentListeners();
@@ -4511,15 +6570,175 @@ var Graflume = (function (exports) {
                 mode: this.#playback === false ? 'frame' : this.#playback.mode,
             };
         }
+        getLegendState() {
+            const layout = this.#result === null ? null : sceneLegendLayout(this.#result.scene);
+            return {
+                enabled: layout !== null,
+                items: layout?.entries.map((entry) => ({
+                    id: entry.id,
+                    label: entry.label,
+                    color: entry.color,
+                    visible: entry.visible,
+                    toggleable: entry.toggleable,
+                    ...(entry.layerId === undefined ? {} : { layerId: entry.layerId }),
+                    ...(entry.value === undefined ? {} : { value: entry.value }),
+                })) ?? [],
+            };
+        }
+        setLegendItemVisible(id, visible) {
+            return this.#setLegendItemVisible(id, visible, 'programmatic');
+        }
+        #setLegendItemVisible(id, visible, reason) {
+            this.#assertAlive();
+            const item = this.getLegendState().items.find((candidate) => candidate.id === id);
+            if (item === undefined) {
+                throw new GraflumeError('INVALID_SPEC', `Legend item "${id}" was not found.`);
+            }
+            if (!item.toggleable) {
+                throw new GraflumeError('INVALID_SPEC', `Legend item "${id}" is not toggleable.`);
+            }
+            if (item.visible === visible)
+                return this;
+            if (visible)
+                this.#hiddenLegendItems.delete(id);
+            else
+                this.#hiddenLegendItems.add(id);
+            this.render();
+            this.#events.emit('legendchange', {
+                chart: this,
+                state: this.getLegendState(),
+                reason,
+            });
+            return this;
+        }
+        resetLegend() {
+            this.#assertAlive();
+            if (this.#hiddenLegendItems.size === 0)
+                return this;
+            this.#hiddenLegendItems.clear();
+            this.render();
+            this.#events.emit('legendchange', {
+                chart: this,
+                state: this.getLegendState(),
+                reason: 'reset',
+            });
+            return this;
+        }
+        getSelection() {
+            return {
+                enabled: this.#result !== null && this.#result.spec.interaction.selection !== false,
+                items: this.#selection.map(cloneDatumTarget),
+            };
+        }
+        setSelection(items) {
+            this.#assertAlive();
+            if (this.#result?.spec.interaction.selection === false) {
+                throw new GraflumeError('INVALID_SPEC', 'Enable interaction.selection before setting selection state.');
+            }
+            normalizeSpec({
+                ...this.#spec,
+                // Replace authored highlights while validating selection targets so
+                // their count and IDs cannot interfere with transient selection state.
+                highlights: items.map((target) => ({ target })),
+            });
+            const selection = this.#result?.spec.interaction.selection;
+            if (selection !== undefined && selection.mode === 'single' && items.length > 1)
+                throw new GraflumeError('INVALID_SPEC', 'Single selection mode accepts at most one target.');
+            const next = items.map(cloneDatumTarget);
+            const keys = next.map(selectionKey);
+            if (new Set(keys).size !== keys.length)
+                throw new GraflumeError('INVALID_SPEC', 'Selection targets must be unique.');
+            if (next.length === this.#selection.length &&
+                next.every((target, index) => selectionKey(target) === selectionKey(this.#selection[index])))
+                return this;
+            this.#selection = next;
+            this.render();
+            this.#emitSelection('programmatic');
+            return this;
+        }
+        clearSelection() {
+            this.#assertAlive();
+            if (this.#selection.length === 0)
+                return this;
+            this.#selection = [];
+            this.render();
+            this.#emitSelection('clear');
+            return this;
+        }
+        getAnnotations() {
+            return this.#annotations.map(cloneAnnotation);
+        }
+        setAnnotations(annotations) {
+            this.#assertAlive();
+            const resolved = annotations.map((annotation, index) => ({
+                ...cloneAnnotation(annotation),
+                id: annotationId(annotation, index),
+            }));
+            normalizeSpec({ ...this.#spec, annotations: resolved });
+            this.#annotations = resolved;
+            this.render();
+            this.#emitAnnotations('set');
+            return this;
+        }
+        addAnnotation(annotation) {
+            this.#assertAlive();
+            const id = annotation.id ?? `annotation-runtime-${Date.now()}-${this.#annotations.length}`;
+            if (this.#annotations.some((candidate) => candidate.id === id)) {
+                throw new GraflumeError('INVALID_SPEC', `Annotation "${id}" already exists.`);
+            }
+            const next = [...this.#annotations, { ...cloneAnnotation(annotation), id }];
+            normalizeSpec({ ...this.#spec, annotations: next });
+            this.#annotations = next;
+            this.render();
+            this.#emitAnnotations('add', id);
+            return id;
+        }
+        updateAnnotation(id, patch) {
+            this.#assertAlive();
+            const index = this.#annotations.findIndex((annotation) => annotation.id === id);
+            if (index < 0)
+                throw new GraflumeError('INVALID_SPEC', `Annotation "${id}" was not found.`);
+            const current = this.#annotations[index];
+            const updated = cloneAnnotation({ ...current, ...patch, id });
+            const next = this.#annotations.map((annotation, candidate) => candidate === index ? updated : annotation);
+            normalizeSpec({ ...this.#spec, annotations: next });
+            this.#annotations = next;
+            this.render();
+            this.#emitAnnotations('update', id);
+            return this;
+        }
+        removeAnnotation(id) {
+            this.#assertAlive();
+            const next = this.#annotations.filter((annotation) => annotation.id !== id);
+            if (next.length === this.#annotations.length)
+                return false;
+            this.#annotations = next;
+            this.render();
+            this.#emitAnnotations('remove', id);
+            return true;
+        }
         setSpec(spec) {
             this.#assertAlive();
             const normalized = normalizeSpec(spec);
             this.pause();
             this.#spec = spec;
+            this.#annotations = normalized.annotations.map((annotation, index) => ({
+                ...cloneAnnotation(annotation),
+                id: annotationId(annotation, index),
+            }));
+            this.#selection = [];
+            this.#hiddenLegendItems.clear();
             this.#configureInteraction(normalized, true);
             this.render();
             this.#configureResizeObserver();
             this.#emitPlayback('spec');
+            this.#events.emit('legendchange', {
+                chart: this,
+                state: this.getLegendState(),
+                reason: 'spec',
+            });
+            this.#emitSelection('spec');
+            this.#emitAnnotations('spec');
             this.#startAutoplay();
             return this;
         }
@@ -4767,13 +6986,19 @@ var Graflume = (function (exports) {
             const effectiveSpec = this.#fullscreen
                 ? { ...playbackSpecInput, width: 'container', height: 'container' }
                 : playbackSpecInput;
-            const result = compileWithRegistry(effectiveSpec, this.#registry, dimensions);
+            const result = compileWithRegistry(effectiveSpec, this.#registry, dimensions, {
+                hiddenLegendItemIds: this.#hiddenLegendItems,
+                annotations: this.#annotations,
+                selection: this.#selection,
+            });
             const factory = this.#registry.resolveRenderer(result.spec.renderer);
             const pixelRatio = this.#pixelRatio();
             const rendererChanged = this.#renderer === null || this.#rendererName !== factory.name;
             if (rendererChanged) {
                 this.#detachSurfaceEvents();
                 this.#controls.destroy();
+                this.#legend.destroy();
+                this.#destroySelectionLive();
                 this.#renderer?.destroy();
                 this.#renderer = factory.create();
                 this.#rendererName = factory.name;
@@ -4812,6 +7037,8 @@ var Graflume = (function (exports) {
             renderer.render(result.scene);
             this.#syncSurfaceEvents();
             this.#syncControls();
+            this.#syncLegend();
+            this.#syncSelectionAccessibility();
             this.#events.emit('render', { chart: this, scene: result.scene });
             return this;
         }
@@ -4844,6 +7071,8 @@ var Graflume = (function (exports) {
             this.#fullscreen = false;
             this.#detachSurfaceEvents();
             this.#controls.destroy();
+            this.#legend.destroy();
+            this.#destroySelectionLive();
             this.#tooltip.destroy();
             this.#renderer?.destroy();
             this.#renderer = null;
@@ -4927,6 +7156,7 @@ var Graflume = (function (exports) {
             }
             this.#syncSurfaceConfiguration();
             this.#syncControls();
+            this.#syncLegend();
             this.#emitView(reason);
         }
         #emitView(reason) {
@@ -5084,7 +7314,9 @@ var Graflume = (function (exports) {
                     : (this.#surfaceTouchAction ?? '');
             surface.style.cursor =
                 navigation !== false && navigation.drag ? 'grab' : (this.#surfaceCursor ?? '');
-            if (navigation !== false && navigation.keyboard)
+            const selection = this.#result?.spec.interaction.selection;
+            if ((navigation !== false && navigation.keyboard) ||
+                (selection !== undefined && selection !== false && selection.clearOnEscape))
                 surface.tabIndex = 0;
             else if (this.#surfaceTabIndex === null)
                 surface.removeAttribute('tabindex');
@@ -5254,6 +7486,16 @@ var Graflume = (function (exports) {
             };
         }
         #handleKeyDown(event) {
+            const selection = this.#result?.spec.interaction.selection;
+            if (event.key === 'Escape' &&
+                selection !== undefined &&
+                selection !== false &&
+                selection.clearOnEscape &&
+                this.#selection.length > 0) {
+                this.clearSelection();
+                event.preventDefault();
+                return;
+            }
             const navigation = this.#navigation();
             if (navigation === false || !navigation.keyboard)
                 return;
@@ -5319,7 +7561,69 @@ var Graflume = (function (exports) {
                 else
                     this.#tooltip.show(resolveTooltipContent(tooltipHit, result.spec), tooltipHit, sourceEvent, surface, this.#renderer?.overlayHost?.() ?? surface.parentElement ?? surface);
             }
-            this.#events.emit(type, { chart: this, hit: markHit, sourceEvent });
+            if (type === 'click')
+                this.#applyClickSelection(markLocal);
+            if (type === 'hover' || result.spec.interaction.click !== false) {
+                this.#events.emit(type, { chart: this, hit: markHit, sourceEvent });
+            }
+        }
+        #applyClickSelection(hit) {
+            const selection = this.#result?.spec.interaction.selection;
+            if (selection === undefined || selection === false)
+                return;
+            if (hit === null) {
+                if (selection.clearOnBackground && this.#selection.length > 0) {
+                    this.#selection = [];
+                    this.render();
+                    this.#emitSelection('click');
+                }
+                return;
+            }
+            const keyValue = selection.key === undefined
+                ? undefined
+                : (hit.tooltip?.[selection.key] ?? hit.datum[selection.key]);
+            const portableKey = keyValue === null ||
+                typeof keyValue === 'string' ||
+                typeof keyValue === 'boolean' ||
+                (typeof keyValue === 'number' && Number.isFinite(keyValue))
+                ? keyValue
+                : undefined;
+            const target = selection.key !== undefined && portableKey !== undefined
+                ? {
+                    type: 'datum',
+                    layerId: hit.layerId,
+                    field: selection.key,
+                    value: portableKey,
+                }
+                : { type: 'datum', layerId: hit.layerId, rowIndex: hit.rowIndex };
+            const key = selectionKey(target);
+            const existing = this.#selection.findIndex((candidate) => selectionKey(candidate) === key);
+            const before = this.#selection.map(selectionKey).join('|');
+            if (selection.mode === 'single') {
+                this.#selection = existing >= 0 && selection.toggle ? [] : [target];
+            }
+            else if (existing >= 0 && selection.toggle) {
+                this.#selection = this.#selection.filter((_, index) => index !== existing);
+            }
+            else if (existing < 0) {
+                this.#selection = [...this.#selection, target];
+            }
+            if (before === this.#selection.map(selectionKey).join('|'))
+                return;
+            this.render();
+            this.#emitSelection('click');
+        }
+        #emitSelection(reason) {
+            this.#syncSelectionAccessibility();
+            this.#events.emit('selectionchange', { chart: this, state: this.getSelection(), reason });
+        }
+        #emitAnnotations(reason, id) {
+            this.#events.emit('annotationchange', {
+                chart: this,
+                annotations: this.getAnnotations(),
+                reason,
+                ...(id === undefined ? {} : { id }),
+            });
         }
         #isOwnFullscreen() {
             if (typeof document === 'undefined')
@@ -5382,6 +7686,50 @@ var Graflume = (function (exports) {
                 setLoop: (loop) => this.setPlaybackLoop(loop),
             };
             this.#controls.sync(host, state, actions);
+        }
+        #syncLegend() {
+            const result = this.#result;
+            const host = this.#renderer?.overlayHost?.();
+            if (result === null || host === null || host === undefined) {
+                this.#legend.destroy();
+                return;
+            }
+            this.#legend.sync(host, sceneLegendLayout(result.scene), result.spec.legend, this.#view, {
+                setVisible: (id, visible) => this.#setLegendItemVisible(id, visible, 'toggle'),
+            });
+        }
+        #syncSelectionAccessibility() {
+            const host = this.#renderer?.overlayHost?.();
+            const selection = this.#result?.spec.interaction.selection;
+            if (host === null || host === undefined || selection === undefined || selection === false) {
+                this.#destroySelectionLive();
+                return;
+            }
+            if (this.#selectionLiveHost !== host) {
+                this.#destroySelectionLive();
+                const live = document.createElement('div');
+                live.dataset.graflumeSelectionStatus = 'true';
+                live.setAttribute('role', 'status');
+                live.setAttribute('aria-live', 'polite');
+                live.style.position = 'absolute';
+                live.style.width = '1px';
+                live.style.height = '1px';
+                live.style.overflow = 'hidden';
+                live.style.clipPath = 'inset(50%)';
+                host.append(live);
+                this.#selectionLive = live;
+                this.#selectionLiveHost = host;
+            }
+            if (this.#selectionLive !== null) {
+                const summary = `${selection.ariaLabel}: ${this.#selection.length}`;
+                if (this.#selectionLive.textContent !== summary)
+                    this.#selectionLive.textContent = summary;
+            }
+        }
+        #destroySelectionLive() {
+            this.#selectionLive?.remove();
+            this.#selectionLive = null;
+            this.#selectionLiveHost = null;
         }
         #exportPng() {
             if (typeof document === 'undefined')
@@ -9867,6 +12215,7 @@ var Graflume = (function (exports) {
             context.beginPath();
             roundedRectPath(context, node.x, node.y, node.width, node.height, node.cornerRadius);
             context.closePath();
+            context.setLineDash(node.dash === undefined ? [] : [...node.dash]);
             if (node.fill !== undefined) {
                 context.fillStyle = node.fill;
                 context.fill();

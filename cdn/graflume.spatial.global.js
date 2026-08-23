@@ -1616,6 +1616,9 @@ var GraflumeSpatial = (function (exports) {
         'lighting',
         'interaction',
         'accessibility',
+        'legend',
+        'highlights',
+        'annotations',
         'layers',
     ]);
     const CAMERA_KEYS = new Set([
@@ -1638,6 +1641,7 @@ var GraflumeSpatial = (function (exports) {
         'tooltip',
         'controls',
         'labels',
+        'selection',
     ]);
     const TOOLTIP_KEYS = new Set(['title', 'fields']);
     const CONTROL_LABEL_KEYS = new Set([
@@ -1656,7 +1660,64 @@ var GraflumeSpatial = (function (exports) {
         'unavailable',
     ]);
     const ACCESSIBILITY_KEYS = new Set(['description', 'table', 'maxRows']);
-    const LAYER_KEYS = new Set(['id', 'mark', 'data']);
+    const LAYER_KEYS = new Set(['id', 'name', 'mark', 'data']);
+    const SELECTION_KEYS = new Set([
+        'mode',
+        'toggle',
+        'key',
+        'clearOnBackground',
+        'clearOnEscape',
+        'ariaLabel',
+        'highlight',
+    ]);
+    const LEGEND_KEYS = new Set([
+        'visible',
+        'mode',
+        'position',
+        'orientation',
+        'title',
+        'field',
+        'layerId',
+        'items',
+        'maxItems',
+        'interactive',
+        'labels',
+    ]);
+    const LEGEND_ITEM_KEYS = new Set(['id', 'label', 'color', 'layerId', 'value', 'symbol']);
+    const LEGEND_LABEL_KEYS = new Set(['show', 'hide']);
+    const HIGHLIGHT_KEYS = new Set([
+        'id',
+        'target',
+        'fill',
+        'stroke',
+        'opacity',
+        'lineWidth',
+        'dash',
+        'padding',
+        'radius',
+    ]);
+    const ANNOTATION_KEYS = new Set([
+        'id',
+        'target',
+        'text',
+        'detail',
+        'placement',
+        'offsetX',
+        'offsetY',
+        'connector',
+        'style',
+    ]);
+    const CONNECTOR_KEYS = new Set(['visible', 'color', 'width', 'dash']);
+    const ANNOTATION_STYLE_KEYS = new Set([
+        'background',
+        'border',
+        'color',
+        'opacity',
+        'fontSize',
+        'maxWidth',
+        'padding',
+        'align',
+    ]);
     const SURFACE_MARK_KEYS = new Set(['type', 'mode', 'color', 'opacity', 'wireframe']);
     const VOLUME_MARK_KEYS = new Set([
         'type',
@@ -1768,6 +1829,16 @@ var GraflumeSpatial = (function (exports) {
         if (value.length > maximum)
             issue(issues, path, `Must contain at most ${maximum} characters.`);
     }
+    function optionalNonEmptyString(value, path, issues, maximum = MAX_STRING_LENGTH) {
+        optionalString(value, path, issues, maximum);
+        if (typeof value === 'string' && value.trim() === '')
+            issue(issues, path, 'Must contain at least one non-whitespace character.');
+    }
+    function optionalIdentifier(value, path, issues, maximum = 128) {
+        optionalNonEmptyString(value, path, issues, maximum);
+        if (typeof value === 'string' && value.trim() !== value)
+            issue(issues, path, 'Must not contain leading or trailing whitespace.');
+    }
     function optionalBoolean(value, path, issues) {
         if (value !== undefined && typeof value !== 'boolean')
             issue(issues, path, 'Must be a boolean.');
@@ -1823,6 +1894,333 @@ var GraflumeSpatial = (function (exports) {
     function optionalColor(value, path, issues) {
         if (value !== undefined)
             color(value, path, issues);
+    }
+    function jsonScalar(value) {
+        return (value === null ||
+            typeof value === 'string' ||
+            typeof value === 'boolean' ||
+            (typeof value === 'number' && Number.isFinite(value)));
+    }
+    function validateDash(value, path, issues) {
+        if (value === undefined)
+            return;
+        if (!Array.isArray(value) || value.length > 16) {
+            issue(issues, path, 'Must be an array with at most 16 values.');
+            return;
+        }
+        value.forEach((entry, index) => finiteNumber(entry, `${path}[${index}]`, issues, 0, 256));
+    }
+    function validateHighlightStyle(value, path, issues) {
+        optionalNonEmptyString(value.fill, `${path}.fill`, issues, 128);
+        optionalNonEmptyString(value.stroke, `${path}.stroke`, issues, 128);
+        if (value.opacity !== undefined)
+            finiteNumber(value.opacity, `${path}.opacity`, issues, 0, 1);
+        if (value.lineWidth !== undefined)
+            finiteNumber(value.lineWidth, `${path}.lineWidth`, issues, 0, 64);
+        if (value.padding !== undefined)
+            finiteNumber(value.padding, `${path}.padding`, issues, 0, 256);
+        if (value.radius !== undefined)
+            finiteNumber(value.radius, `${path}.radius`, issues, 0, 256);
+        validateDash(value.dash, `${path}.dash`, issues);
+    }
+    function validateSpatialTarget(value, path, issues) {
+        const target = objectValue(value, path, issues);
+        if (target === undefined || typeof target.type !== 'string') {
+            if (target !== undefined)
+                issue(issues, `${path}.type`, 'Target type is required.');
+            return;
+        }
+        if (target.type === 'datum') {
+            const datum = closedObject(target, path, new Set(['type', 'layerId', 'datumIndex', 'field', 'value', 'values']), issues);
+            if (datum === undefined)
+                return;
+            optionalIdentifier(datum.layerId, `${path}.layerId`, issues);
+            if (datum.datumIndex !== undefined) {
+                const indices = Array.isArray(datum.datumIndex) ? datum.datumIndex : [datum.datumIndex];
+                if (indices.length === 0 || indices.length > 1000)
+                    issue(issues, `${path}.datumIndex`, 'Must select between 1 and 1000 datum indices.');
+                indices.forEach((entry, index) => integer(entry, Array.isArray(datum.datumIndex) ? `${path}.datumIndex[${index}]` : `${path}.datumIndex`, issues, 0, Number.MAX_SAFE_INTEGER));
+                if (new Set(indices).size !== indices.length)
+                    issue(issues, `${path}.datumIndex`, 'Datum indices must be unique.');
+            }
+            optionalNonEmptyString(datum.field, `${path}.field`, issues, 128);
+            if (typeof datum.field === 'string' && UNSAFE_KEYS.has(datum.field))
+                issue(issues, `${path}.field`, 'Unsafe datum field is forbidden.');
+            const hasValue = Object.prototype.hasOwnProperty.call(datum, 'value');
+            const hasValues = Object.prototype.hasOwnProperty.call(datum, 'values');
+            if (hasValue && !jsonScalar(datum.value))
+                issue(issues, `${path}.value`, 'Must be a JSON scalar.');
+            if (hasValues) {
+                if (!Array.isArray(datum.values) || datum.values.length === 0 || datum.values.length > 200)
+                    issue(issues, `${path}.values`, 'Must contain between 1 and 200 JSON scalars.');
+                else
+                    datum.values.forEach((entry, index) => {
+                        if (!jsonScalar(entry))
+                            issue(issues, `${path}.values[${index}]`, 'Must be a JSON scalar.');
+                    });
+                if (Array.isArray(datum.values) &&
+                    new Set(datum.values.map((entry) => JSON.stringify(entry))).size !== datum.values.length)
+                    issue(issues, `${path}.values`, 'Datum values must be unique.');
+            }
+            if (datum.field === undefined && (hasValue || hasValues))
+                issue(issues, `${path}.field`, 'Field is required for value matching.');
+            if (datum.field !== undefined && hasValue === hasValues)
+                issue(issues, path, 'Field matching requires exactly one of value or values.');
+            if (datum.datumIndex === undefined && datum.field === undefined)
+                issue(issues, path, 'Datum target requires datumIndex or field matching.');
+            return;
+        }
+        if (target.type === 'layer') {
+            const layer = closedObject(target, path, new Set(['type', 'layerId']), issues);
+            if (layer !== undefined) {
+                optionalIdentifier(layer.layerId, `${path}.layerId`, issues);
+                if (layer.layerId === undefined)
+                    issue(issues, `${path}.layerId`, 'Layer id is required.');
+            }
+            return;
+        }
+        if (target.type === 'point') {
+            const point = closedObject(target, path, new Set(['type', 'position']), issues);
+            if (point !== undefined)
+                vec3(point.position, `${path}.position`, issues);
+            return;
+        }
+        if (target.type === 'box') {
+            const box = closedObject(target, path, new Set(['type', 'min', 'max']), issues);
+            if (box !== undefined) {
+                const minValid = vec3(box.min, `${path}.min`, issues);
+                const maxValid = vec3(box.max, `${path}.max`, issues);
+                if (minValid &&
+                    maxValid &&
+                    box.min.some((entry, index) => entry > box.max[index]))
+                    issue(issues, path, 'Box min values must not exceed max values.');
+            }
+            return;
+        }
+        issue(issues, `${path}.type`, 'Unsupported spatial decoration target.');
+    }
+    function validateSelection(value, path, issues) {
+        if (value === undefined || typeof value === 'boolean')
+            return;
+        const selection = closedObject(value, path, SELECTION_KEYS, issues);
+        if (selection === undefined)
+            return;
+        optionalEnum(selection.mode, `${path}.mode`, new Set(['single', 'multiple']), issues);
+        optionalBoolean(selection.toggle, `${path}.toggle`, issues);
+        optionalNonEmptyString(selection.key, `${path}.key`, issues, 128);
+        if (typeof selection.key === 'string' && UNSAFE_KEYS.has(selection.key))
+            issue(issues, `${path}.key`, 'Unsafe selection key is forbidden.');
+        optionalBoolean(selection.clearOnBackground, `${path}.clearOnBackground`, issues);
+        optionalBoolean(selection.clearOnEscape, `${path}.clearOnEscape`, issues);
+        optionalNonEmptyString(selection.ariaLabel, `${path}.ariaLabel`, issues, 256);
+        if (selection.highlight !== undefined) {
+            const highlight = closedObject(selection.highlight, `${path}.highlight`, new Set(['fill', 'stroke', 'opacity', 'lineWidth', 'dash', 'padding', 'radius']), issues);
+            if (highlight !== undefined)
+                validateHighlightStyle(highlight, `${path}.highlight`, issues);
+        }
+    }
+    function validateLegend(value, path, issues) {
+        if (value === undefined || typeof value === 'boolean')
+            return;
+        const legend = closedObject(value, path, LEGEND_KEYS, issues);
+        if (legend === undefined)
+            return;
+        optionalBoolean(legend.visible, `${path}.visible`, issues);
+        optionalBoolean(legend.interactive, `${path}.interactive`, issues);
+        optionalEnum(legend.mode, `${path}.mode`, new Set(['auto', 'layers', 'categories', 'continuous']), issues);
+        optionalEnum(legend.position, `${path}.position`, new Set([
+            'top',
+            'right',
+            'bottom',
+            'left',
+            'inside-top-left',
+            'inside-top-right',
+            'inside-bottom-left',
+            'inside-bottom-right',
+        ]), issues);
+        optionalEnum(legend.orientation, `${path}.orientation`, new Set(['auto', 'horizontal', 'vertical']), issues);
+        optionalNonEmptyString(legend.title, `${path}.title`, issues, 256);
+        optionalNonEmptyString(legend.field, `${path}.field`, issues, 128);
+        if (typeof legend.field === 'string' && UNSAFE_KEYS.has(legend.field))
+            issue(issues, `${path}.field`, 'Unsafe legend field is forbidden.');
+        optionalIdentifier(legend.layerId, `${path}.layerId`, issues);
+        if (legend.maxItems !== undefined)
+            integer(legend.maxItems, `${path}.maxItems`, issues, 1, 200);
+        if (legend.items !== undefined) {
+            if (!Array.isArray(legend.items) || legend.items.length === 0 || legend.items.length > 200) {
+                issue(issues, `${path}.items`, 'Must contain between 1 and 200 legend items.');
+            }
+            else {
+                legend.items.forEach((entry, index) => {
+                    const itemPath = `${path}.items[${index}]`;
+                    const item = closedObject(entry, itemPath, LEGEND_ITEM_KEYS, issues);
+                    if (item === undefined)
+                        return;
+                    optionalNonEmptyString(item.id, `${itemPath}.id`, issues, 128);
+                    optionalNonEmptyString(item.label, `${itemPath}.label`, issues, 256);
+                    if (item.label === undefined)
+                        issue(issues, `${itemPath}.label`, 'Label is required.');
+                    optionalNonEmptyString(item.color, `${itemPath}.color`, issues, 128);
+                    optionalIdentifier(item.layerId, `${itemPath}.layerId`, issues);
+                    if (item.value !== undefined && !jsonScalar(item.value))
+                        issue(issues, `${itemPath}.value`, 'Must be a JSON scalar.');
+                    optionalEnum(item.symbol, `${itemPath}.symbol`, new Set(['auto', 'line', 'point', 'rect']), issues);
+                });
+            }
+        }
+        if (legend.mode === 'categories' && legend.items === undefined)
+            issue(issues, `${path}.items`, 'Spatial category legends require explicit items.');
+        if (legend.labels !== undefined) {
+            const labels = closedObject(legend.labels, `${path}.labels`, LEGEND_LABEL_KEYS, issues);
+            if (labels !== undefined)
+                for (const key of LEGEND_LABEL_KEYS)
+                    optionalNonEmptyString(labels[key], `${path}.labels.${key}`, issues, 128);
+        }
+    }
+    function validateHighlights(value, path, issues) {
+        if (value === undefined)
+            return;
+        if (!Array.isArray(value) || value.length > 256) {
+            issue(issues, path, 'Must be an array with at most 256 highlights.');
+            return;
+        }
+        value.forEach((entry, index) => {
+            const itemPath = `${path}[${index}]`;
+            const highlight = closedObject(entry, itemPath, HIGHLIGHT_KEYS, issues);
+            if (highlight === undefined)
+                return;
+            optionalNonEmptyString(highlight.id, `${itemPath}.id`, issues, 128);
+            validateSpatialTarget(highlight.target, `${itemPath}.target`, issues);
+            validateHighlightStyle(highlight, itemPath, issues);
+        });
+    }
+    function validateAnnotations(value, path, issues) {
+        if (value === undefined)
+            return;
+        if (!Array.isArray(value) || value.length > 256) {
+            issue(issues, path, 'Must be an array with at most 256 annotations.');
+            return;
+        }
+        value.forEach((entry, index) => {
+            const itemPath = `${path}[${index}]`;
+            const annotation = closedObject(entry, itemPath, ANNOTATION_KEYS, issues);
+            if (annotation === undefined)
+                return;
+            optionalNonEmptyString(annotation.id, `${itemPath}.id`, issues, 128);
+            optionalNonEmptyString(annotation.text, `${itemPath}.text`, issues, 2_000);
+            if (annotation.text === undefined)
+                issue(issues, `${itemPath}.text`, 'Text is required.');
+            optionalString(annotation.detail, `${itemPath}.detail`, issues, 4_000);
+            validateSpatialTarget(annotation.target, `${itemPath}.target`, issues);
+            optionalEnum(annotation.placement, `${itemPath}.placement`, new Set(['auto', 'top', 'right', 'bottom', 'left']), issues);
+            for (const key of ['offsetX', 'offsetY'])
+                if (annotation[key] !== undefined)
+                    finiteNumber(annotation[key], `${itemPath}.${key}`, issues, -1e4, 10_000);
+            if (annotation.connector !== undefined && typeof annotation.connector !== 'boolean') {
+                const connector = closedObject(annotation.connector, `${itemPath}.connector`, CONNECTOR_KEYS, issues);
+                if (connector !== undefined) {
+                    optionalBoolean(connector.visible, `${itemPath}.connector.visible`, issues);
+                    optionalNonEmptyString(connector.color, `${itemPath}.connector.color`, issues, 128);
+                    if (connector.width !== undefined)
+                        finiteNumber(connector.width, `${itemPath}.connector.width`, issues, 0, 64);
+                    validateDash(connector.dash, `${itemPath}.connector.dash`, issues);
+                }
+            }
+            if (annotation.style !== undefined) {
+                const style = closedObject(annotation.style, `${itemPath}.style`, ANNOTATION_STYLE_KEYS, issues);
+                if (style !== undefined) {
+                    for (const key of ['background', 'border', 'color'])
+                        optionalString(style[key], `${itemPath}.style.${key}`, issues, 128);
+                    if (style.opacity !== undefined)
+                        finiteNumber(style.opacity, `${itemPath}.style.opacity`, issues, 0, 1);
+                    for (const key of ['fontSize', 'maxWidth', 'padding'])
+                        if (style[key] !== undefined)
+                            finiteNumber(style[key], `${itemPath}.style.${key}`, issues, 1, 2000);
+                    optionalEnum(style.align, `${itemPath}.style.align`, new Set(['start', 'center', 'end']), issues);
+                }
+            }
+        });
+    }
+    function validateLayerReferences(spec, issues) {
+        const layerIds = new Set();
+        if (Array.isArray(spec.layers)) {
+            spec.layers.forEach((value, index) => {
+                if (!isRecord(value))
+                    return;
+                const layerId = value.id === undefined ? `spatial-layer-${index}` : value.id;
+                if (typeof layerId !== 'string' || layerId.trim() === '')
+                    return;
+                if (layerIds.has(layerId)) {
+                    issue(issues, `$.layers[${index}].id`, `Layer id "${layerId}" must be unique.`);
+                    return;
+                }
+                layerIds.add(layerId);
+            });
+        }
+        const check = (value, path) => {
+            if (!isRecord(value) || typeof value.layerId !== 'string')
+                return;
+            if (!layerIds.has(value.layerId)) {
+                issue(issues, `${path}.layerId`, `Layer id "${value.layerId}" does not exist.`);
+            }
+        };
+        const checkUniqueIds = (value, path, label, defaultPrefix) => {
+            if (!Array.isArray(value))
+                return;
+            const ids = new Set();
+            value.forEach((entry, index) => {
+                if (!isRecord(entry))
+                    return;
+                const id = typeof entry.id === 'string' && entry.id.trim() !== ''
+                    ? entry.id
+                    : `${defaultPrefix}-${index}`;
+                if (ids.has(id)) {
+                    issue(issues, `${path}[${index}].id`, `${label} id "${id}" must be unique after defaults are resolved.`);
+                    return;
+                }
+                ids.add(id);
+            });
+        };
+        if (isRecord(spec.legend)) {
+            const legend = spec.legend;
+            check(legend, '$.legend');
+            if (Array.isArray(legend.items)) {
+                legend.items.forEach((item, index) => check(item, `$.legend.items[${index}]`));
+            }
+            checkUniqueIds(legend.items, '$.legend.items', 'Legend item', 'item');
+            if (Array.isArray(legend.items)) {
+                const semanticOwners = new Set();
+                legend.items.forEach((item, index) => {
+                    if (!isRecord(item) || typeof item.layerId !== 'string')
+                        return;
+                    const owner = legend.mode === 'categories' && Object.prototype.hasOwnProperty.call(item, 'value')
+                        ? JSON.stringify(['category', item.layerId, item.value])
+                        : legend.mode === 'layers'
+                            ? JSON.stringify(['layer', item.layerId])
+                            : null;
+                    if (owner === null)
+                        return;
+                    if (semanticOwners.has(owner))
+                        issue(issues, `$.legend.items[${index}]`, 'Interactive legend items must not control the same semantic owner.');
+                    else
+                        semanticOwners.add(owner);
+                });
+            }
+        }
+        if (Array.isArray(spec.highlights)) {
+            spec.highlights.forEach((highlight, index) => {
+                if (isRecord(highlight))
+                    check(highlight.target, `$.highlights[${index}].target`);
+            });
+        }
+        if (Array.isArray(spec.annotations)) {
+            spec.annotations.forEach((annotation, index) => {
+                if (isRecord(annotation))
+                    check(annotation.target, `$.annotations[${index}].target`);
+            });
+        }
+        checkUniqueIds(spec.highlights, '$.highlights', 'Highlight', 'highlight');
+        checkUniqueIds(spec.annotations, '$.annotations', 'Annotation', 'annotation');
     }
     function vec3Array(value, path, issues, maximum) {
         if (!Array.isArray(value)) {
@@ -1919,6 +2317,7 @@ var GraflumeSpatial = (function (exports) {
                     optionalString(labels[key], `${path}.labels.${key}`, issues, 256);
             }
         }
+        validateSelection(interaction.selection, `${path}.selection`, issues);
     }
     function validateAccessibility(value, path, issues) {
         if (value === undefined)
@@ -2259,6 +2658,9 @@ var GraflumeSpatial = (function (exports) {
         validateLighting(spec.lighting, '$.lighting', issues);
         validateInteraction(spec.interaction, '$.interaction', issues);
         validateAccessibility(spec.accessibility, '$.accessibility', issues);
+        validateLegend(spec.legend, '$.legend', issues);
+        validateHighlights(spec.highlights, '$.highlights', issues);
+        validateAnnotations(spec.annotations, '$.annotations', issues);
         if (!Array.isArray(spec.layers) || spec.layers.length === 0 || spec.layers.length > MAX_LAYERS) {
             issue(issues, '$.layers', `Must be an array with 1 to ${MAX_LAYERS} layers.`);
         }
@@ -2268,10 +2670,12 @@ var GraflumeSpatial = (function (exports) {
                 const layer = closedObject(value, layerPath, LAYER_KEYS, issues);
                 if (layer === undefined)
                     return;
-                optionalString(layer.id, `${layerPath}.id`, issues, 128);
+                optionalIdentifier(layer.id, `${layerPath}.id`, issues);
+                optionalString(layer.name, `${layerPath}.name`, issues, 256);
                 validateMarkAndData(layer.mark, layer.data, layerPath, issues);
             });
         }
+        validateLayerReferences(spec, issues);
         if (issues.length === 0) {
             for (const violation of spatialOutputBudgetViolations(estimateSpatialOutput(spec))) {
                 issue(issues, '$.layers', `Derived output ${violation.resource} (${violation.actual}) exceeds the safe limit (${violation.maximum}).`);
@@ -3263,6 +3667,7 @@ var GraflumeSpatial = (function (exports) {
                 nodeId: `${id}:country:${countryId}`,
                 position: pickPosition,
                 datum: { country: name, iso2, iso3, longitude: labelLongitude, latitude: labelLatitude },
+                occlusion: 'globe-front',
             });
         }
         const landPositionArray = new Float32Array(landPositions);
@@ -3316,6 +3721,7 @@ var GraflumeSpatial = (function (exports) {
                     value: point.value,
                     label: point.label,
                 },
+                occlusion: 'globe-front',
             });
         }
         const pointPositionArray = new Float32Array(pointPositions);
@@ -3355,6 +3761,7 @@ var GraflumeSpatial = (function (exports) {
                     value: route.value,
                     label: route.label,
                 },
+                occlusion: 'globe-front',
             });
         }
         const routePositionArray = new Float32Array(routePositions);
@@ -3423,6 +3830,461 @@ var GraflumeSpatial = (function (exports) {
         const candidate = { ...current, ...patch };
         assertValidSpatialSpec({ ...spec, camera: candidate });
         return normalizedCamera(candidate.projection, candidate.target, sceneRadius, candidate);
+    }
+
+    function scalarEqual(left, right) {
+        return left === right;
+    }
+    function datumMatches(target, pick) {
+        if (target.layerId !== undefined && target.layerId !== pick.layerId)
+            return false;
+        if (target.datumIndex !== undefined) {
+            const indices = Array.isArray(target.datumIndex) ? target.datumIndex : [target.datumIndex];
+            if (!indices.includes(pick.datumIndex))
+                return false;
+        }
+        if (target.field !== undefined) {
+            const candidate = pick.datum[target.field];
+            if (target.values !== undefined)
+                return target.values.some((value) => scalarEqual(candidate, value));
+            return scalarEqual(candidate, target.value);
+        }
+        return true;
+    }
+    function boxCorners(min, max) {
+        return [
+            [min[0], min[1], min[2]],
+            [min[0], min[1], max[2]],
+            [min[0], max[1], min[2]],
+            [min[0], max[1], max[2]],
+            [max[0], min[1], min[2]],
+            [max[0], min[1], max[2]],
+            [max[0], max[1], min[2]],
+            [max[0], max[1], max[2]],
+        ];
+    }
+    function targetPositions(target, state) {
+        if (target.type === 'point')
+            return [{ position: target.position }];
+        if (target.type === 'box')
+            return boxCorners(target.min, target.max).map((position) => ({ position }));
+        const picks = state.scene.geometries.flatMap((geometry) => geometry.picks);
+        if (target.type === 'layer') {
+            if (state.hiddenLayerIds.has(target.layerId))
+                return [];
+            return picks
+                .filter((pick) => pick.layerId === target.layerId)
+                .map((pick) => ({ position: pick.position, pick }));
+        }
+        return picks
+            .filter((pick) => !state.hiddenLayerIds.has(pick.layerId) && datumMatches(target, pick))
+            .map((pick) => ({ position: pick.position, pick }));
+    }
+    function targetBounds(target, state, actions) {
+        const points = targetPositions(target, state)
+            .map(({ position, pick }) => actions.project(position, pick))
+            .filter((point) => point !== null && point.visible);
+        if (points.length === 0)
+            return null;
+        const xs = points.map((point) => point.x);
+        const ys = points.map((point) => point.y);
+        const x = Math.min(...xs);
+        const y = Math.min(...ys);
+        return {
+            x,
+            y,
+            width: Math.max(0, Math.max(...xs) - x),
+            height: Math.max(0, Math.max(...ys) - y),
+        };
+    }
+    function applyHighlightStyle(element, highlight, bounds) {
+        const padding = highlight.padding ?? 5;
+        const point = bounds.width <= 2 && bounds.height <= 2;
+        const radius = point ? (highlight.radius ?? Math.max(7, padding + 3)) : 0;
+        element.style.position = 'absolute';
+        element.style.left = `${bounds.x - (point ? radius : padding)}px`;
+        element.style.top = `${bounds.y - (point ? radius : padding)}px`;
+        element.style.width = `${Math.max(1, point ? radius * 2 : bounds.width + padding * 2)}px`;
+        element.style.height = `${Math.max(1, point ? radius * 2 : bounds.height + padding * 2)}px`;
+        element.style.boxSizing = 'border-box';
+        element.style.border = `${highlight.lineWidth ?? 2}px ${highlight.dash?.length ? 'dashed' : 'solid'} ${highlight.stroke ?? '#4f46e5'}`;
+        element.style.borderRadius = point ? '999px' : `${highlight.radius ?? 7}px`;
+        element.style.background = highlight.fill ?? 'rgba(79,70,229,.12)';
+        element.style.opacity = String(highlight.opacity ?? 1);
+    }
+    function connector(from, to, annotation) {
+        const configured = typeof annotation.connector === 'object' ? annotation.connector : {};
+        const visible = typeof annotation.connector === 'boolean' ? annotation.connector : (configured.visible ?? true);
+        if (!visible)
+            return null;
+        const length = Math.hypot(to.x - from.x, to.y - from.y);
+        const line = document.createElement('div');
+        line.dataset.graflumeSpatialAnnotationConnector = annotation.id ?? 'true';
+        line.style.position = 'absolute';
+        line.style.left = `${from.x}px`;
+        line.style.top = `${from.y}px`;
+        line.style.width = `${length}px`;
+        line.style.height = '0';
+        line.style.borderTop = `${configured.width ?? 1.5}px ${configured.dash?.length ? 'dashed' : 'solid'} ${configured.color ?? annotation.style?.border ?? '#4f46e5'}`;
+        line.style.transformOrigin = '0 0';
+        line.style.transform = `rotate(${Math.atan2(to.y - from.y, to.x - from.x)}rad)`;
+        return line;
+    }
+    function prepareAnnotation(annotation, bounds, state) {
+        const style = annotation.style ?? {};
+        const availableWidth = Math.max(1, state.plotBounds.width - 8);
+        const availableHeight = Math.max(1, state.plotBounds.height - 8);
+        const maxWidth = Math.min(style.maxWidth ?? 220, availableWidth);
+        const padding = Math.min(style.padding ?? 10, Math.max(0, Math.min(maxWidth / 5, availableHeight / 6)));
+        const fontSize = Math.min(style.fontSize ?? 12, Math.max(1, Math.min(maxWidth / 3, availableHeight / 3)));
+        const bubble = document.createElement('div');
+        bubble.dataset.graflumeSpatialAnnotation = annotation.id ?? 'true';
+        bubble.setAttribute('role', 'note');
+        bubble.dir = 'auto';
+        bubble.style.position = 'absolute';
+        bubble.style.zIndex = '3';
+        bubble.style.maxWidth = `${maxWidth}px`;
+        bubble.style.maxHeight = `${availableHeight}px`;
+        bubble.style.padding = `${padding}px`;
+        bubble.style.boxSizing = 'border-box';
+        bubble.style.border = `1.25px solid ${style.border ?? '#4f46e5'}`;
+        bubble.style.borderRadius = '9px';
+        bubble.style.background = style.background ?? 'rgba(255,255,255,.97)';
+        bubble.style.color = style.color ?? '#0f172a';
+        bubble.style.opacity = String(style.opacity ?? 0.97);
+        bubble.style.font = `700 ${fontSize}px/1.35 ui-sans-serif, system-ui, sans-serif`;
+        bubble.style.textAlign = style.align ?? 'start';
+        bubble.style.pointerEvents = 'none';
+        const title = document.createElement('div');
+        title.textContent = annotation.text;
+        bubble.append(title);
+        if (annotation.detail !== undefined) {
+            const detail = document.createElement('div');
+            detail.textContent = annotation.detail;
+            detail.style.marginBlockStart = '4px';
+            detail.style.fontWeight = '400';
+            detail.style.color = style.color ?? '#475569';
+            bubble.append(detail);
+        }
+        const longestText = Math.max(annotation.text.length, annotation.detail?.length ?? 0, 8);
+        const fallbackWidth = Math.min(maxWidth, Math.max(Math.min(72, maxWidth), longestText * fontSize * 0.58 + padding * 2));
+        bubble.style.width = `${fallbackWidth}px`;
+        bubble.style.visibility = 'hidden';
+        bubble.style.left = '0';
+        bubble.style.top = '0';
+        const fallbackLines = Math.max(1, Math.ceil((annotation.text.length + (annotation.detail?.length ?? 0)) /
+            Math.max(8, Math.floor(fallbackWidth / (fontSize * 0.58)))));
+        const fallbackHeight = padding * 2 + fallbackLines * fontSize * 1.35 + (annotation.detail === undefined ? 0 : 4);
+        return {
+            annotation,
+            bounds,
+            bubble,
+            availableWidth,
+            availableHeight,
+            fallbackWidth,
+            fallbackHeight,
+            measurementKey: JSON.stringify([
+                annotation.text,
+                annotation.detail ?? null,
+                annotation.style ?? null,
+                state.width,
+                state.height,
+                state.plotBounds.x,
+                state.plotBounds.y,
+                state.plotBounds.width,
+                state.plotBounds.height,
+            ]),
+        };
+    }
+    function placeAnnotation(prepared, state, measured) {
+        const { annotation, bounds, bubble } = prepared;
+        const estimatedWidth = Math.min(prepared.availableWidth, measured.width > 0 ? measured.width : prepared.fallbackWidth);
+        const estimatedHeight = Math.min(prepared.availableHeight, measured.height > 0 ? measured.height : prepared.fallbackHeight);
+        bubble.style.visibility = 'visible';
+        bubble.style.overflow = 'hidden';
+        const anchor = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
+        const placement = annotation.placement === undefined || annotation.placement === 'auto'
+            ? anchor.x < state.width / 2
+                ? 'right'
+                : 'left'
+            : annotation.placement;
+        const gap = 18;
+        let x = anchor.x - estimatedWidth / 2;
+        let y = anchor.y - estimatedHeight / 2;
+        if (placement === 'top')
+            y = bounds.y - estimatedHeight - gap;
+        if (placement === 'bottom')
+            y = bounds.y + bounds.height + gap;
+        if (placement === 'left')
+            x = bounds.x - estimatedWidth - gap;
+        if (placement === 'right')
+            x = bounds.x + bounds.width + gap;
+        const marginX = Math.min(4, Math.max(0, (state.plotBounds.width - estimatedWidth) / 2));
+        const marginY = Math.min(4, Math.max(0, (state.plotBounds.height - estimatedHeight) / 2));
+        const minimumX = state.plotBounds.x + marginX;
+        const minimumY = state.plotBounds.y + marginY;
+        const maximumX = Math.max(minimumX, state.plotBounds.x + state.plotBounds.width - estimatedWidth - marginX);
+        const maximumY = Math.max(minimumY, state.plotBounds.y + state.plotBounds.height - estimatedHeight - marginY);
+        x = Math.max(minimumX, Math.min(maximumX, x + (annotation.offsetX ?? 0)));
+        y = Math.max(minimumY, Math.min(maximumY, y + (annotation.offsetY ?? 0)));
+        bubble.style.left = `${x}px`;
+        bubble.style.top = `${y}px`;
+        const line = connector(anchor, { x: x + estimatedWidth / 2, y: y + estimatedHeight / 2 }, annotation);
+        return line === null ? [bubble] : [line, bubble];
+    }
+    function externalLegendBounds(position, state) {
+        const plot = state.plotBounds;
+        if (position === 'top')
+            return { x: 0, y: 0, width: state.width, height: plot.y };
+        if (position === 'bottom') {
+            const y = plot.y + plot.height;
+            return { x: 0, y, width: state.width, height: Math.max(0, state.height - y) };
+        }
+        if (position === 'left')
+            return { x: 0, y: 0, width: plot.x, height: state.height };
+        const x = plot.x + plot.width;
+        return { x, y: 0, width: Math.max(0, state.width - x), height: state.height };
+    }
+    function legendPosition(element, legend, state) {
+        const external = !legend.position.startsWith('inside-');
+        const bounds = external
+            ? externalLegendBounds(legend.position, state)
+            : state.plotBounds;
+        const inset = Math.min(8, bounds.width / 4, bounds.height / 4);
+        const width = Math.max(1, bounds.width - inset * 2);
+        const height = Math.max(1, bounds.height - inset * 2);
+        element.style.maxWidth = `${width}px`;
+        element.style.maxHeight = `${height}px`;
+        if (external || legend.position.endsWith('left'))
+            element.style.left = `${bounds.x + inset}px`;
+        else
+            element.style.right = `${state.width - bounds.x - bounds.width + inset}px`;
+        if (external || legend.position.includes('top'))
+            element.style.top = `${bounds.y + inset}px`;
+        else
+            element.style.bottom = `${state.height - bounds.y - bounds.height + inset}px`;
+        if (external && (legend.position === 'top' || legend.position === 'bottom'))
+            element.style.width = `${width}px`;
+    }
+    function createLegend(legend, state, actions, focusedItemId) {
+        const element = document.createElement('div');
+        let focusTarget = null;
+        element.dataset.graflumeSpatialLegend = 'true';
+        element.setAttribute('role', 'group');
+        element.setAttribute('aria-label', legend.title ?? 'Chart legend');
+        element.style.position = 'absolute';
+        element.style.zIndex = '4';
+        element.style.display = 'flex';
+        element.style.flexDirection = legend.orientation === 'horizontal' ? 'row' : 'column';
+        element.style.flexWrap = 'wrap';
+        element.style.gap = '6px 10px';
+        element.style.overflow = 'auto';
+        element.style.padding = '8px 10px';
+        element.style.boxSizing = 'border-box';
+        element.style.border = '1px solid rgba(148,163,184,.55)';
+        element.style.borderRadius = '8px';
+        element.style.background = 'rgba(255,255,255,.9)';
+        element.style.backdropFilter = 'blur(5px)';
+        element.style.pointerEvents = 'auto';
+        legendPosition(element, legend, state);
+        if (legend.title !== undefined) {
+            const title = document.createElement('strong');
+            title.textContent = legend.title;
+            title.style.inlineSize = legend.orientation === 'horizontal' ? '100%' : 'auto';
+            element.append(title);
+        }
+        if (legend.mode === 'continuous' && legend.items.length >= 2) {
+            const scale = document.createElement('div');
+            scale.style.display = 'grid';
+            scale.style.gridTemplateColumns = '1fr 1fr';
+            scale.style.minWidth = '150px';
+            const gradient = document.createElement('div');
+            gradient.style.gridColumn = '1 / -1';
+            gradient.style.height = '10px';
+            gradient.style.borderRadius = '3px';
+            gradient.style.background = `linear-gradient(90deg, ${legend.items
+            .map((item, index) => `${item.color} ${(index / Math.max(1, legend.items.length - 1)) * 100}%`)
+            .join(', ')})`;
+            scale.append(gradient);
+            [legend.items[0], legend.items[legend.items.length - 1]].forEach((item, index) => {
+                const label = document.createElement('span');
+                label.textContent = item.label;
+                label.style.font = '500 11px/1.4 ui-sans-serif, system-ui, sans-serif';
+                label.style.textAlign = index === 0 ? 'start' : 'end';
+                scale.append(label);
+            });
+            element.append(scale);
+            return { element, focusTarget };
+        }
+        for (const item of legend.items) {
+            const row = document.createElement(item.toggleable ? 'button' : 'div');
+            row.dataset.graflumeSpatialLegendItem = item.id;
+            if (item.toggleable) {
+                const button = row;
+                button.type = 'button';
+                button.setAttribute('aria-pressed', String(item.visible));
+                const action = item.visible ? legend.hideLabel : legend.showLabel;
+                button.setAttribute('aria-label', `${action} ${item.label}`);
+                button.addEventListener('click', () => actions.setLegendVisible(item.id, !item.visible));
+                if (item.id === focusedItemId)
+                    focusTarget = button;
+            }
+            row.style.display = 'inline-flex';
+            row.style.alignItems = 'center';
+            row.style.gap = '6px';
+            row.style.padding = '2px';
+            row.style.border = '0';
+            row.style.background = 'transparent';
+            row.style.color = '#0f172a';
+            row.style.font = '500 12px/1.35 ui-sans-serif, system-ui, sans-serif';
+            row.style.cursor = item.toggleable ? 'pointer' : 'default';
+            row.style.opacity = item.visible ? '1' : '.42';
+            const swatch = document.createElement('span');
+            swatch.setAttribute('aria-hidden', 'true');
+            swatch.style.width = item.symbol === 'line' ? '14px' : '10px';
+            swatch.style.height = item.symbol === 'line' ? '2px' : '10px';
+            swatch.style.borderRadius = item.symbol === 'point' ? '999px' : '3px';
+            swatch.style.background = item.color;
+            const label = document.createElement('span');
+            label.textContent = item.label;
+            row.append(swatch, label);
+            element.append(row);
+        }
+        return { element, focusTarget };
+    }
+    class SpatialOverlayController {
+        #host = null;
+        #root = null;
+        #content = null;
+        #live = null;
+        #annotationMeasurements = new Map();
+        sync(host, state, actions) {
+            if (this.#host !== host) {
+                this.destroy();
+                this.#host = host;
+                const root = document.createElement('div');
+                root.dataset.graflumeSpatialOverlays = 'true';
+                root.style.position = 'absolute';
+                root.style.inset = '0';
+                root.style.zIndex = '3';
+                root.style.pointerEvents = 'none';
+                root.style.overflow = 'hidden';
+                const content = document.createElement('div');
+                content.style.position = 'absolute';
+                content.style.inset = '0';
+                content.style.pointerEvents = 'none';
+                content.style.overflow = 'hidden';
+                root.append(content);
+                host.append(root);
+                this.#root = root;
+                this.#content = content;
+            }
+            const content = this.#content;
+            if (content === null)
+                return;
+            if (state.selectionEnabled && this.#live === null) {
+                const live = document.createElement('div');
+                live.dataset.graflumeSpatialSelectionStatus = 'true';
+                live.setAttribute('role', 'status');
+                live.setAttribute('aria-live', 'polite');
+                live.style.position = 'absolute';
+                live.style.width = '1px';
+                live.style.height = '1px';
+                live.style.overflow = 'hidden';
+                live.style.clipPath = 'inset(50%)';
+                this.#root?.append(live);
+                this.#live = live;
+            }
+            else if (!state.selectionEnabled && this.#live !== null) {
+                this.#live.remove();
+                this.#live = null;
+            }
+            const focusedItemId = document.activeElement?.dataset
+                ?.graflumeSpatialLegendItem;
+            content.replaceChildren();
+            for (const [index, highlight] of state.highlights.entries()) {
+                const bounds = targetBounds(highlight.target, state, actions);
+                if (bounds === null)
+                    continue;
+                const element = document.createElement('div');
+                element.dataset.graflumeSpatialHighlight = highlight.id ?? `highlight-${index}`;
+                applyHighlightStyle(element, highlight, bounds);
+                content.append(element);
+            }
+            for (const [index, target] of state.selection.entries()) {
+                const bounds = targetBounds(target, state, actions);
+                if (bounds === null)
+                    continue;
+                const element = document.createElement('div');
+                element.dataset.graflumeSpatialSelection = String(index);
+                applyHighlightStyle(element, {
+                    fill: state.selectionHighlight.fill ?? 'rgba(37,99,235,.16)',
+                    stroke: state.selectionHighlight.stroke ?? '#2563eb',
+                    lineWidth: state.selectionHighlight.lineWidth ?? 2.5,
+                    padding: state.selectionHighlight.padding ?? 5,
+                    radius: state.selectionHighlight.radius ?? 8,
+                    ...(state.selectionHighlight.opacity === undefined
+                        ? {}
+                        : { opacity: state.selectionHighlight.opacity }),
+                    ...(state.selectionHighlight.dash === undefined
+                        ? {}
+                        : { dash: state.selectionHighlight.dash }),
+                }, bounds);
+                content.append(element);
+            }
+            const preparedAnnotations = [];
+            for (const annotation of state.annotations) {
+                const bounds = targetBounds(annotation.target, state, actions);
+                if (bounds === null)
+                    continue;
+                const prepared = prepareAnnotation(annotation, bounds, state);
+                preparedAnnotations.push(prepared);
+                if (!this.#annotationMeasurements.has(prepared.measurementKey))
+                    content.append(prepared.bubble);
+            }
+            const activeMeasurementKeys = new Set(preparedAnnotations.map(({ measurementKey }) => measurementKey));
+            for (const key of this.#annotationMeasurements.keys()) {
+                if (!activeMeasurementKeys.has(key))
+                    this.#annotationMeasurements.delete(key);
+            }
+            // All writes happen before the read phase, so even a full 256-callout
+            // scene incurs one layout pass. Camera-only renders reuse the cached size.
+            for (const prepared of preparedAnnotations) {
+                if (this.#annotationMeasurements.has(prepared.measurementKey))
+                    continue;
+                const bounds = prepared.bubble.getBoundingClientRect();
+                this.#annotationMeasurements.set(prepared.measurementKey, {
+                    width: bounds.width,
+                    height: bounds.height,
+                });
+            }
+            for (const prepared of preparedAnnotations) {
+                prepared.bubble.remove();
+                const measured = this.#annotationMeasurements.get(prepared.measurementKey) ?? {
+                    width: prepared.fallbackWidth,
+                    height: prepared.fallbackHeight,
+                };
+                content.append(...placeAnnotation(prepared, state, measured));
+            }
+            let focusTarget = null;
+            if (state.legend !== null && state.legend.visible) {
+                const legend = createLegend(state.legend, state, actions, focusedItemId);
+                content.append(legend.element);
+                focusTarget = legend.focusTarget;
+            }
+            const summary = `${state.selectionLabel}: ${state.selection.length}`;
+            if (this.#live !== null && this.#live.textContent !== summary)
+                this.#live.textContent = summary;
+            focusTarget?.focus();
+        }
+        destroy() {
+            this.#root?.remove();
+            this.#root = null;
+            this.#content = null;
+            this.#live = null;
+            this.#host = null;
+            this.#annotationMeasurements.clear();
+        }
     }
 
     function spatialGeometryAlphaClass(geometry) {
@@ -3617,11 +4479,7 @@ void main() {
         return (pixel[0] ?? 0) | ((pixel[1] ?? 0) << 8) | ((pixel[2] ?? 0) << 16);
     }
     function isGlobePickFrontFacing(pick, camera) {
-        const datum = pick.datum;
-        const globeTarget = ('longitude' in datum && 'latitude' in datum) ||
-            'country' in datum ||
-            ('fromLongitude' in datum && 'toLongitude' in datum);
-        if (!globeTarget)
+        if (pick.occlusion !== 'globe-front')
             return true;
         const outward = normalize3(pick.position);
         return dot3(outward, subtract3(cameraEye(camera), pick.position)) > 0;
@@ -3843,6 +4701,12 @@ void main() {
                 }
             }
             return best;
+        }
+        project(position) {
+            const camera = this.#camera;
+            if (camera === null)
+                return null;
+            return projectPoint(viewProjectionMat4(camera, this.#width, this.#height), position, this.#width, this.#height);
         }
         toDataURL() {
             this.render();
@@ -4134,6 +4998,32 @@ void main() {
         }
     }
 
+    function spatialPlotViewport(spec, width, height) {
+        const input = spec.legend;
+        if (input === undefined ||
+            input === false ||
+            (typeof input === 'object' && input.visible === false))
+            return { x: 0, y: 0, width, height };
+        const position = typeof input === 'object' ? (input.position ?? 'right') : 'right';
+        if (position.startsWith('inside-'))
+            return { x: 0, y: 0, width, height };
+        if (position === 'top' || position === 'bottom') {
+            const rail = Math.min(Math.max(0, height - 1), Math.max(32, Math.min(72, height * 0.2)));
+            return {
+                x: 0,
+                y: position === 'top' ? rail : 0,
+                width,
+                height: Math.max(1, height - rail),
+            };
+        }
+        const rail = Math.min(Math.max(0, width - 1), Math.max(88, Math.min(176, width * 0.3)));
+        return {
+            x: position === 'left' ? rail : 0,
+            y: 0,
+            width: Math.max(1, width - rail),
+            height,
+        };
+    }
     const defaultLabels = {
         chart: 'Interactive three-dimensional chart',
         toolbar: 'Three-dimensional chart controls',
@@ -4219,10 +5109,81 @@ void main() {
         }
         return output;
     }
+    function safeId(value) {
+        return value.replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'item';
+    }
+    function colorCss(value) {
+        const color = spatialColor(value);
+        return `rgba(${Math.round(color[0] * 255)},${Math.round(color[1] * 255)},${Math.round(color[2] * 255)},${color[3]})`;
+    }
+    function layerColor(layer, endpoint = 'low') {
+        if (layer.mark.type === 'volume')
+            return colorCss(endpoint === 'low' ? (layer.mark.colorLow ?? '#0ea5e9') : (layer.mark.colorHigh ?? '#7c3aed'));
+        if (layer.mark.type === 'surface')
+            return colorCss(endpoint === 'low' ? '#0ea5e9' : (layer.mark.color ?? '#7c3aed'));
+        if (layer.mark.type === 'scatter')
+            return colorCss(endpoint === 'low' ? '#06b6d4' : (layer.mark.color ?? '#7c3aed'));
+        if (layer.mark.type === 'vector')
+            return colorCss(endpoint === 'low' ? '#99f6e4' : (layer.mark.color ?? '#0f9f8a'));
+        if (layer.mark.type === 'globe')
+            return colorCss(layer.mark.pointColor ?? layer.mark.landColor);
+        return '#4f46e5';
+    }
+    function layerLegendSymbol(layer) {
+        if (layer?.mark.type === 'scatter')
+            return 'point';
+        if (layer?.mark.type === 'vector' && layer.mark.mode === 'streamtube')
+            return 'line';
+        if (layer?.mark.type === 'globe')
+            return 'point';
+        return 'rect';
+    }
+    function cloneSpatialTarget(target) {
+        if (target.type === 'datum') {
+            return {
+                ...target,
+                ...(Array.isArray(target.datumIndex) ? { datumIndex: [...target.datumIndex] } : {}),
+                ...(target.values === undefined ? {} : { values: [...target.values] }),
+            };
+        }
+        if (target.type === 'point')
+            return { type: 'point', position: [...target.position] };
+        if (target.type === 'box') {
+            return {
+                type: 'box',
+                min: [...target.min],
+                max: [...target.max],
+            };
+        }
+        return { ...target };
+    }
+    function cloneSpatialDatumTarget(target) {
+        return cloneSpatialTarget(target);
+    }
+    function cloneSpatialAnnotation(annotation) {
+        return {
+            ...annotation,
+            target: cloneSpatialTarget(annotation.target),
+            ...(typeof annotation.connector === 'object'
+                ? { connector: { ...annotation.connector, dash: [...(annotation.connector.dash ?? [])] } }
+                : {}),
+            ...(annotation.style === undefined ? {} : { style: { ...annotation.style } }),
+        };
+    }
+    function spatialSelectionKey(target) {
+        const values = target.field === undefined
+            ? null
+            : [...(target.values ?? [target.value ?? null])].sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
+        const indices = target.datumIndex === undefined
+            ? null
+            : (Array.isArray(target.datumIndex) ? [...target.datumIndex] : [target.datumIndex]).sort((left, right) => left - right);
+        return JSON.stringify([target.layerId ?? null, indices, target.field ?? null, values]);
+    }
     class SpatialChart {
         #target;
         #wrapper;
         #renderer;
+        #overlays = new SpatialOverlayController();
         #events = new EventEmitter();
         #options;
         #activePointers = new Map();
@@ -4245,7 +5206,12 @@ void main() {
         #availability = { status: 'initializing', available: false };
         #width = 1;
         #height = 1;
+        #plotViewport = { x: 0, y: 0, width: 1, height: 1 };
         #gestureActive = false;
+        #hiddenLegendItems = new Set();
+        #selection = [];
+        #annotations = [];
+        #annotationSequence = 0;
         constructor(target, spec, options = {}) {
             if (typeof document === 'undefined')
                 throw new Error('A DOM environment is required for a spatial chart.');
@@ -4253,6 +5219,10 @@ void main() {
             this.#spec = spec;
             this.#options = options;
             this.#scene = compileSpatial(spec);
+            this.#annotations = (spec.annotations ?? []).map((annotation, index) => ({
+                ...cloneSpatialAnnotation(annotation),
+                id: annotation.id ?? `annotation-${index}`,
+            }));
             this.#camera = this.#cameraForScene(this.#scene);
             this.#initialCamera = this.#camera;
             this.#wrapper = document.createElement('div');
@@ -4265,8 +5235,6 @@ void main() {
             this.#wrapper.style.minHeight = options.height === undefined ? '280px' : '0';
             this.#wrapper.style.background =
                 typeof spec.background === 'string' ? spec.background : '#ffffff';
-            this.#installScopedStyles();
-            this.#target.append(this.#wrapper);
             this.#renderer = new SpatialWebGLRenderer({
                 contextLost: () => {
                     this.#showFallback('context-lost');
@@ -4281,21 +5249,34 @@ void main() {
                 unavailable: () => this.#showFallback('unavailable'),
                 error: (error) => this.#events.emit('error', { chart: this, error }),
             });
-            const labels = { ...defaultLabels, ...spec.interaction?.labels };
-            const accessibleDescription = spatialAccessibleDescription(spec.accessibility?.description, labels.instructions);
-            const mounted = this.#renderer.mount(this.#wrapper, this.#chartLabel(labels), accessibleDescription);
-            if (mounted)
-                this.#setAvailability('ready');
-            this.#renderer.setScene(this.#scene);
-            this.#renderer.setCamera(this.#camera);
-            this.#syncAccessibilityDom();
-            this.#renderAccessibilityTable();
-            this.#syncControlStructure();
-            this.#syncAvailabilityCopy();
-            this.#attachInteraction();
-            this.#configureResize();
-            this.resize(options.width, options.height);
-            this.render();
+            try {
+                this.#installScopedStyles();
+                this.#target.append(this.#wrapper);
+                const labels = { ...defaultLabels, ...spec.interaction?.labels };
+                const accessibleDescription = spatialAccessibleDescription(spec.accessibility?.description, labels.instructions);
+                const mounted = this.#renderer.mount(this.#wrapper, this.#chartLabel(labels), accessibleDescription);
+                if (mounted)
+                    this.#setAvailability('ready');
+                this.#renderer.setScene(this.#scene);
+                this.#renderer.setCamera(this.#camera);
+                this.#syncAccessibilityDom();
+                this.#renderAccessibilityTable();
+                this.#syncControlStructure();
+                this.#syncAvailabilityCopy();
+                this.#attachInteraction();
+                this.#configureResize();
+                this.resize(options.width, options.height);
+                this.render();
+            }
+            catch (error) {
+                try {
+                    this.destroy();
+                }
+                catch {
+                    // Preserve the original constructor failure after best-effort cleanup.
+                }
+                throw error;
+            }
         }
         getSpec() {
             return this.#spec;
@@ -4305,6 +5286,12 @@ void main() {
             const scene = compileSpatial(spec);
             this.#spec = spec;
             this.#scene = scene;
+            this.#hiddenLegendItems.clear();
+            this.#selection = [];
+            this.#annotations = (spec.annotations ?? []).map((annotation, index) => ({
+                ...cloneSpatialAnnotation(annotation),
+                id: annotation.id ?? `annotation-${index}`,
+            }));
             this.#camera = this.#cameraForScene(scene);
             this.#initialCamera = this.#camera;
             this.#renderer.setScene(scene);
@@ -4316,8 +5303,139 @@ void main() {
             this.#renderAccessibilityTable();
             this.#syncControlStructure();
             this.#syncAvailabilityCopy();
+            this.#resizeRendererViewport();
             this.#emitCamera('spec');
             this.render();
+            this.#events.emit('legendchange', {
+                chart: this,
+                state: this.getLegendState(),
+                reason: 'spec',
+            });
+            this.#emitSelection('spec');
+            this.#emitAnnotations('spec');
+        }
+        getLegendState() {
+            const resolved = this.#legendOverlayState();
+            return {
+                enabled: resolved !== null,
+                items: resolved?.items.map((item) => ({
+                    id: item.id,
+                    label: item.label,
+                    color: item.color,
+                    visible: item.visible,
+                    toggleable: item.toggleable,
+                    symbol: item.symbol,
+                    ...(item.layerId === undefined ? {} : { layerId: item.layerId }),
+                    ...(item.value === undefined ? {} : { value: item.value }),
+                })) ?? [],
+            };
+        }
+        setLegendItemVisible(id, visible) {
+            this.#setLegendItemVisible(id, visible, 'programmatic');
+        }
+        resetLegend() {
+            this.#assertAlive();
+            if (this.#hiddenLegendItems.size === 0)
+                return;
+            this.#hiddenLegendItems.clear();
+            this.#installEffectiveScene();
+            this.render();
+            this.#events.emit('legendchange', {
+                chart: this,
+                state: this.getLegendState(),
+                reason: 'reset',
+            });
+        }
+        getSelection() {
+            return {
+                enabled: this.#selectionConfig() !== false,
+                items: this.#selection.map(cloneSpatialDatumTarget),
+            };
+        }
+        setSelection(items) {
+            this.#assertAlive();
+            if (this.#selectionConfig() === false)
+                throw new TypeError('Enable interaction.selection before setting selection state.');
+            assertValidSpatialSpec({
+                ...this.#spec,
+                // Replace authored highlights while validating selection targets so
+                // their count and IDs cannot interfere with transient selection state.
+                highlights: items.map((target) => ({ target })),
+            });
+            const selection = this.#selectionConfig();
+            if (selection !== false && selection.mode === 'single' && items.length > 1)
+                throw new TypeError('Single selection mode accepts at most one target.');
+            const next = items.map(cloneSpatialDatumTarget);
+            const keys = next.map(spatialSelectionKey);
+            if (new Set(keys).size !== keys.length)
+                throw new TypeError('Selection targets must be unique.');
+            if (next.length === this.#selection.length &&
+                next.every((target, index) => spatialSelectionKey(target) === spatialSelectionKey(this.#selection[index])))
+                return;
+            this.#selection = next;
+            this.render();
+            this.#emitSelection('programmatic');
+        }
+        clearSelection() {
+            this.#assertAlive();
+            if (this.#selection.length === 0)
+                return;
+            this.#selection = [];
+            this.render();
+            this.#emitSelection('clear');
+        }
+        getAnnotations() {
+            return this.#annotations.map(cloneSpatialAnnotation);
+        }
+        setAnnotations(annotations) {
+            this.#assertAlive();
+            const resolved = annotations.map((annotation, index) => ({
+                ...cloneSpatialAnnotation(annotation),
+                id: annotation.id ?? `annotation-${index}`,
+            }));
+            assertValidSpatialSpec({ ...this.#spec, annotations: resolved });
+            this.#annotations = resolved;
+            this.render();
+            this.#emitAnnotations('set');
+        }
+        addAnnotation(annotation) {
+            this.#assertAlive();
+            this.#annotationSequence += 1;
+            const id = annotation.id ?? `annotation-runtime-${this.#annotationSequence}`;
+            if (this.#annotations.some((candidate) => candidate.id === id))
+                throw new TypeError(`Spatial annotation "${id}" already exists.`);
+            const next = [...this.#annotations, { ...cloneSpatialAnnotation(annotation), id }];
+            assertValidSpatialSpec({ ...this.#spec, annotations: next });
+            this.#annotations = next;
+            this.render();
+            this.#emitAnnotations('add', id);
+            return id;
+        }
+        updateAnnotation(id, patch) {
+            this.#assertAlive();
+            const index = this.#annotations.findIndex((annotation) => annotation.id === id);
+            if (index < 0)
+                throw new TypeError(`Spatial annotation "${id}" was not found.`);
+            const updated = cloneSpatialAnnotation({
+                ...this.#annotations[index],
+                ...patch,
+                id,
+            });
+            const next = this.#annotations.map((annotation, candidate) => candidate === index ? updated : annotation);
+            assertValidSpatialSpec({ ...this.#spec, annotations: next });
+            this.#annotations = next;
+            this.render();
+            this.#emitAnnotations('update', id);
+        }
+        removeAnnotation(id) {
+            this.#assertAlive();
+            const next = this.#annotations.filter((annotation) => annotation.id !== id);
+            if (next.length === this.#annotations.length)
+                return false;
+            this.#annotations = next;
+            this.render();
+            this.#emitAnnotations('remove', id);
+            return true;
         }
         getCamera() {
             return { ...this.#camera, target: [...this.#camera.target] };
@@ -4352,7 +5470,7 @@ void main() {
             if (this.#spec.interaction?.pan === false)
                 return;
             const basis = cameraBasis(this.#camera);
-            const scale = this.#camera.distance / Math.max(120, this.#height);
+            const scale = this.#camera.distance / Math.max(120, this.#plotViewport.height);
             const movement = add3(scale3(basis.right, -deltaX * scale), scale3(basis.up, deltaY * scale));
             this.#camera = { ...this.#camera, target: add3(this.#camera.target, movement) };
             this.#renderer.setCamera(this.#camera);
@@ -4411,14 +5529,16 @@ void main() {
             this.#width = resolvedWidth;
             this.#height = resolvedHeight;
             this.#wrapper.style.height = `${resolvedHeight}px`;
-            const ratio = this.#options.pixelRatio ?? window.devicePixelRatio ?? 1;
-            this.#renderer.resize(resolvedWidth, resolvedHeight, ratio);
+            this.#resizeRendererViewport();
+            this.#syncOverlays();
             this.#events.emit('resize', { chart: this, width: resolvedWidth, height: resolvedHeight });
         }
         render() {
             this.#assertAlive();
             this.#renderer.setCamera(this.#camera);
             this.#renderer.render();
+            this.#syncAccessibilityDom();
+            this.#syncOverlays();
             this.#events.emit('render', { chart: this, scene: this.#scene });
         }
         toDataURL() {
@@ -4468,6 +5588,7 @@ void main() {
                 window.removeEventListener('resize', this.#windowResizeListener);
             document.removeEventListener('fullscreenchange', this.#fullscreenListener);
             this.#detachInteraction();
+            this.#overlays.destroy();
             this.#renderer.destroy();
             this.#tooltip?.remove();
             this.#fallback?.remove();
@@ -4561,6 +5682,7 @@ void main() {
                 return;
             const point = eventPoint(event, this.#renderer.surface());
             const hit = this.#renderer.hitTest(point.x, point.y);
+            this.#applyClickSelection(hit);
             this.#events.emit('click', { chart: this, hit, sourceEvent: event });
         };
         #wheelListener = (event) => {
@@ -4576,6 +5698,15 @@ void main() {
         #keyDownListener = (event) => {
             if (!(event instanceof KeyboardEvent))
                 return;
+            const selection = this.#selectionConfig();
+            if (event.key === 'Escape' &&
+                selection !== false &&
+                selection.clearOnEscape &&
+                this.#selection.length > 0) {
+                this.clearSelection();
+                event.preventDefault();
+                return;
+            }
             const pan = event.shiftKey || this.#mode === 'pan';
             let handled = true;
             const navigationAllowed = pan
@@ -4616,6 +5747,312 @@ void main() {
             this.resize();
             this.#events.emit('fullscreenchange', { chart: this, active });
         };
+        #selectionConfig() {
+            const input = this.#spec.interaction?.selection;
+            if (input === undefined || input === false)
+                return false;
+            const value = typeof input === 'object' ? input : {};
+            return {
+                mode: value.mode ?? 'single',
+                toggle: value.toggle ?? true,
+                ...(value.key === undefined ? {} : { key: value.key }),
+                clearOnBackground: value.clearOnBackground ?? true,
+                clearOnEscape: value.clearOnEscape ?? true,
+                ariaLabel: value.ariaLabel ?? 'Spatial chart selection',
+                highlight: { ...value.highlight },
+            };
+        }
+        #legendOverlayState() {
+            const input = this.#spec.legend;
+            if (input === undefined || input === false)
+                return null;
+            const legend = typeof input === 'object' ? input : {};
+            if (legend.visible === false)
+                return null;
+            const selectedLayer = this.#spec.layers.find((layer) => layer.id === legend.layerId) ?? this.#spec.layers[0];
+            const autoMode = this.#spec.layers.length === 1 &&
+                (selectedLayer?.mark.type === 'surface' || selectedLayer?.mark.type === 'volume')
+                ? 'continuous'
+                : 'layers';
+            const mode = legend.mode === undefined || legend.mode === 'auto' ? autoMode : legend.mode;
+            let items;
+            if (legend.items !== undefined && legend.items.length > 0) {
+                const configuredItems = legend.items.slice(0, legend.maxItems ?? 24);
+                items = configuredItems.map((item, index) => {
+                    const id = item.id ?? `item-${index}`;
+                    const owner = this.#spec.layers.find((layer) => layer.id === item.layerId);
+                    return {
+                        id,
+                        label: item.label,
+                        color: item.color ?? (owner === undefined ? '#4f46e5' : layerColor(owner)),
+                        visible: !this.#hiddenLegendItems.has(id),
+                        toggleable: (legend.interactive ?? false) && mode === 'layers' && item.layerId !== undefined,
+                        symbol: item.symbol === undefined || item.symbol === 'auto'
+                            ? layerLegendSymbol(owner)
+                            : item.symbol,
+                        ...(item.layerId === undefined ? {} : { layerId: item.layerId }),
+                        ...(item.value === undefined ? {} : { value: item.value }),
+                    };
+                });
+            }
+            else if (mode === 'continuous' && selectedLayer !== undefined) {
+                let values = [];
+                let configuredColors;
+                const selectedData = selectedLayer.data;
+                const selectedLayerId = selectedLayer.id ?? `spatial-layer-${this.#spec.layers.indexOf(selectedLayer)}`;
+                const inferredField = legend.field ??
+                    (selectedLayer.mark.type === 'vector' && selectedLayer.mark.mode !== 'streamtube'
+                        ? 'magnitude'
+                        : selectedLayer.mark.type === 'surface' &&
+                            selectedData !== undefined &&
+                            'positions' in selectedData
+                            ? 'y'
+                            : 'value');
+                const compiledValues = this.#scene.geometries
+                    .flatMap((geometry) => geometry.picks)
+                    .filter((pick) => pick.layerId === selectedLayerId)
+                    .map((pick) => pick.datum[inferredField])
+                    .filter((value) => typeof value === 'number' && Number.isFinite(value));
+                if (legend.field !== undefined) {
+                    values = compiledValues;
+                }
+                else if (selectedLayer.mark.type === 'vector' &&
+                    selectedData !== undefined &&
+                    'vectors' in selectedData) {
+                    values = selectedData.vectors.map((vector) => Math.hypot(...vector));
+                    configuredColors = selectedData.colors;
+                }
+                else if (selectedLayer.mark.type === 'volume')
+                    values = selectedLayer.data.values;
+                else if (selectedLayer.mark.type === 'surface') {
+                    if (selectedData !== undefined && 'positions' in selectedData) {
+                        values = selectedData.positions.map((position) => position[1]);
+                        configuredColors = selectedData.colors;
+                    }
+                    else {
+                        const data = selectedLayer.data;
+                        values = data.values ?? data.z ?? [];
+                    }
+                }
+                else if (selectedLayer.mark.type === 'scatter') {
+                    const data = selectedLayer.data;
+                    values = data.values ?? [];
+                    configuredColors = data.colors;
+                }
+                if (values.length === 0)
+                    values = compiledValues;
+                const finite = values.filter(Number.isFinite);
+                const minimum = finite.length === 0 ? 0 : Math.min(...finite);
+                const maximum = finite.length === 0 ? 1 : Math.max(...finite);
+                const minimumIndex = values.findIndex((value) => value === minimum);
+                const maximumIndex = values.findIndex((value) => value === maximum);
+                const lowColor = minimumIndex >= 0 && configuredColors?.[minimumIndex] !== undefined
+                    ? colorCss(configuredColors[minimumIndex])
+                    : layerColor(selectedLayer, 'low');
+                const highColor = maximumIndex >= 0 && configuredColors?.[maximumIndex] !== undefined
+                    ? colorCss(configuredColors[maximumIndex])
+                    : layerColor(selectedLayer, 'high');
+                let formatter;
+                try {
+                    formatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 6 });
+                }
+                catch {
+                    formatter = new Intl.NumberFormat();
+                }
+                items = [
+                    {
+                        id: 'continuous-min',
+                        label: formatter.format(minimum),
+                        color: lowColor,
+                        visible: true,
+                        toggleable: false,
+                        symbol: 'rect',
+                        layerId: selectedLayer.id ?? 'spatial-layer-0',
+                        value: minimum,
+                    },
+                    {
+                        id: 'continuous-max',
+                        label: formatter.format(maximum),
+                        color: highColor,
+                        visible: true,
+                        toggleable: false,
+                        symbol: 'rect',
+                        layerId: selectedLayer.id ?? 'spatial-layer-0',
+                        value: maximum,
+                    },
+                ];
+            }
+            else {
+                items = this.#spec.layers.slice(0, legend.maxItems ?? 24).map((layer, index) => {
+                    const layerId = layer.id ?? `spatial-layer-${index}`;
+                    const id = `layer-${safeId(layerId)}-${index}`;
+                    return {
+                        id,
+                        label: layer.name ?? layer.id ?? `Series ${index + 1}`,
+                        color: layerColor(layer),
+                        visible: !this.#hiddenLegendItems.has(id),
+                        toggleable: (legend.interactive ?? false) && mode === 'layers',
+                        symbol: layerLegendSymbol(layer),
+                        layerId,
+                    };
+                });
+            }
+            const position = legend.position ?? 'right';
+            return {
+                visible: true,
+                ...(legend.title === undefined ? {} : { title: legend.title }),
+                position,
+                orientation: legend.orientation === undefined || legend.orientation === 'auto'
+                    ? position === 'top' || position === 'bottom'
+                        ? 'horizontal'
+                        : 'vertical'
+                    : legend.orientation,
+                mode,
+                showLabel: legend.labels?.show ?? 'Show',
+                hideLabel: legend.labels?.hide ?? 'Hide',
+                items,
+            };
+        }
+        #hiddenLayerIds() {
+            const hidden = new Set();
+            for (const item of this.#legendOverlayState()?.items ?? []) {
+                if (!item.visible && item.layerId !== undefined)
+                    hidden.add(item.layerId);
+            }
+            return hidden;
+        }
+        #installEffectiveScene() {
+            const hidden = this.#hiddenLayerIds();
+            if (hidden.size === 0) {
+                this.#renderer.setScene(this.#scene);
+                return;
+            }
+            this.#renderer.setScene({
+                ...this.#scene,
+                geometries: this.#scene.geometries.map((geometry) => {
+                    const layerId = geometry.picks[0]?.layerId;
+                    const hiddenGeometry = (layerId !== undefined && hidden.has(layerId)) ||
+                        [...hidden].some((candidate) => geometry.id === candidate || geometry.id.startsWith(`${candidate}:`));
+                    if (!hiddenGeometry)
+                        return geometry;
+                    const colors = new Float32Array(geometry.colors);
+                    for (let index = 3; index < colors.length; index += 4)
+                        colors[index] = 0;
+                    return { ...geometry, colors };
+                }),
+            });
+        }
+        #setLegendItemVisible(id, visible, reason) {
+            this.#assertAlive();
+            const item = this.getLegendState().items.find((candidate) => candidate.id === id);
+            if (item === undefined)
+                throw new TypeError(`Spatial legend item "${id}" was not found.`);
+            if (!item.toggleable)
+                throw new TypeError(`Spatial legend item "${id}" is not toggleable.`);
+            if (item.visible === visible)
+                return;
+            if (visible)
+                this.#hiddenLegendItems.delete(id);
+            else
+                this.#hiddenLegendItems.add(id);
+            this.#installEffectiveScene();
+            this.render();
+            this.#events.emit('legendchange', {
+                chart: this,
+                state: this.getLegendState(),
+                reason,
+            });
+        }
+        #applyClickSelection(hit) {
+            const selection = this.#selectionConfig();
+            if (selection === false)
+                return;
+            if (hit === null) {
+                if (selection.clearOnBackground && this.#selection.length > 0) {
+                    this.#selection = [];
+                    this.render();
+                    this.#emitSelection('click');
+                }
+                return;
+            }
+            const keyValue = selection.key === undefined ? undefined : hit.datum[selection.key];
+            const portable = keyValue === null ||
+                typeof keyValue === 'string' ||
+                typeof keyValue === 'boolean' ||
+                (typeof keyValue === 'number' && Number.isFinite(keyValue))
+                ? keyValue
+                : undefined;
+            const target = selection.key !== undefined && portable !== undefined
+                ? {
+                    type: 'datum',
+                    layerId: hit.layerId,
+                    field: selection.key,
+                    value: portable,
+                }
+                : { type: 'datum', layerId: hit.layerId, datumIndex: hit.datumIndex };
+            const key = spatialSelectionKey(target);
+            const existing = this.#selection.findIndex((candidate) => spatialSelectionKey(candidate) === key);
+            const before = this.#selection.map(spatialSelectionKey).join('|');
+            if (selection.mode === 'single') {
+                this.#selection = existing >= 0 && selection.toggle ? [] : [target];
+            }
+            else if (existing >= 0 && selection.toggle) {
+                this.#selection = this.#selection.filter((_, index) => index !== existing);
+            }
+            else if (existing < 0) {
+                this.#selection = [...this.#selection, target];
+            }
+            if (before === this.#selection.map(spatialSelectionKey).join('|'))
+                return;
+            this.render();
+            this.#emitSelection('click');
+        }
+        #emitSelection(reason) {
+            this.#events.emit('selectionchange', {
+                chart: this,
+                state: this.getSelection(),
+                reason,
+            });
+        }
+        #emitAnnotations(reason, id) {
+            this.#events.emit('annotationchange', {
+                chart: this,
+                annotations: this.getAnnotations(),
+                reason,
+                ...(id === undefined ? {} : { id }),
+            });
+        }
+        #syncOverlays() {
+            const selection = this.#selectionConfig();
+            this.#overlays.sync(this.#wrapper, {
+                scene: this.#scene,
+                width: this.#width,
+                height: this.#height,
+                plotBounds: this.#plotViewport,
+                hiddenLayerIds: this.#hiddenLayerIds(),
+                legend: this.#legendOverlayState(),
+                highlights: this.#spec.highlights ?? [],
+                selection: selection === false ? [] : this.#selection,
+                selectionEnabled: selection !== false,
+                selectionHighlight: selection === false ? {} : selection.highlight,
+                annotations: this.#annotations,
+                selectionLabel: selection === false ? 'Spatial chart selection' : selection.ariaLabel,
+            }, {
+                project: (position, pick) => {
+                    if (pick !== undefined && !isGlobePickFrontFacing(pick, this.#camera))
+                        return null;
+                    const projected = this.#renderer.project(position);
+                    if (projected === null)
+                        return null;
+                    return {
+                        ...projected,
+                        x: projected.x + this.#plotViewport.x,
+                        y: projected.y + this.#plotViewport.y,
+                    };
+                },
+                setLegendVisible: (id, visible) => this.#setLegendItemVisible(id, visible, 'toggle'),
+            });
+        }
         #attachInteraction() {
             const surface = this.#renderer.surface();
             surface.addEventListener('pointerdown', this.#pointerDownListener);
@@ -4691,8 +6128,28 @@ void main() {
         #syncAccessibilityDom() {
             const labels = this.#labels();
             const surface = this.#renderer.surface();
+            const annotationDescription = this.#annotations
+                .map((annotation) => annotation.detail === undefined
+                ? annotation.text
+                : `${annotation.text}: ${annotation.detail}`)
+                .join('. ');
+            const legend = this.#legendOverlayState();
+            const legendDescription = legend === null
+                ? ''
+                : `${legend.title ?? 'Legend'}: ${legend.items
+                .slice(0, 12)
+                .map((item) => item.label)
+                .join(', ')}`;
+            const authoredDescription = [
+                this.#spec.accessibility?.description,
+                annotationDescription,
+                legendDescription,
+            ]
+                .filter(Boolean)
+                .join('. ');
+            const description = spatialAccessibleDescription(authoredDescription === '' ? undefined : authoredDescription, labels.instructions);
             surface.setAttribute('aria-label', this.#chartLabel(labels));
-            surface.setAttribute('aria-description', spatialAccessibleDescription(this.#spec.accessibility?.description, labels.instructions));
+            surface.setAttribute('aria-description', description);
             if (this.#instructions === null) {
                 this.#instructions = document.createElement('p');
                 this.#instructions.id = `graflume-spatial-instructions-${Math.random().toString(36).slice(2)}`;
@@ -4703,7 +6160,7 @@ void main() {
                 this.#instructions.style.clipPath = 'inset(50%)';
                 this.#wrapper.append(this.#instructions);
             }
-            this.#instructions.textContent = spatialAccessibleDescription(this.#spec.accessibility?.description, labels.instructions);
+            this.#instructions.textContent = description;
             surface.setAttribute('aria-describedby', this.#instructions.id);
         }
         #installScopedStyles() {
@@ -4794,7 +6251,26 @@ void main() {
             }
             this.#wrapper.append(toolbar);
             this.#controls = toolbar;
+            this.#syncControlLayout();
             this.#syncControls();
+        }
+        #resizeRendererViewport() {
+            this.#plotViewport = spatialPlotViewport(this.#spec, this.#width, this.#height);
+            const surface = this.#renderer.surface();
+            surface.style.position = 'absolute';
+            surface.style.left = `${this.#plotViewport.x}px`;
+            surface.style.top = `${this.#plotViewport.y}px`;
+            const ratio = this.#options.pixelRatio ?? window.devicePixelRatio ?? 1;
+            this.#renderer.resize(this.#plotViewport.width, this.#plotViewport.height, ratio);
+            this.#syncControlLayout();
+        }
+        #syncControlLayout() {
+            if (this.#controls === null)
+                return;
+            this.#controls.style.insetBlockStart = 'auto';
+            this.#controls.style.insetInlineEnd = 'auto';
+            this.#controls.style.top = `${this.#plotViewport.y + 6}px`;
+            this.#controls.style.right = `${Math.max(6, this.#width - this.#plotViewport.x - this.#plotViewport.width + 6)}px`;
         }
         #syncControlStructure() {
             const controlsEnabled = this.#spec.interaction?.controls !== false;
@@ -5138,6 +6614,9 @@ void main() {
             ...(options.lighting === undefined ? {} : { lighting: options.lighting }),
             ...(options.interaction === undefined ? {} : { interaction: options.interaction }),
             ...(options.accessibility === undefined ? {} : { accessibility: options.accessibility }),
+            ...(options.legend === undefined ? {} : { legend: options.legend }),
+            ...(options.highlights === undefined ? {} : { highlights: options.highlights }),
+            ...(options.annotations === undefined ? {} : { annotations: options.annotations }),
         };
     }
     function createSpatial(target, spec, options) {
