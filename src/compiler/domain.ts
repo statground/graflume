@@ -4,7 +4,7 @@ import { DataTable } from '../data/table.js';
 import { BandScale } from '../scale/band.js';
 import { LinearScale } from '../scale/linear.js';
 import type { Scale } from '../scale/types.js';
-import type { FieldType, NormalizedChartSpec, NormalizedLayerSpec } from '../spec/types.js';
+import type { AxisId, FieldType, NormalizedChartSpec, NormalizedLayerSpec } from '../spec/types.js';
 import type { PlotArea } from './types.js';
 
 export interface LayerData {
@@ -12,14 +12,37 @@ export interface LayerData {
   readonly table: DataTable;
   readonly xType: FieldType;
   readonly yType: FieldType;
+  readonly xAxisId: 'x' | 'x2';
+  readonly yAxisId: 'y' | 'y2';
+  readonly xScale: Scale;
+  readonly yScale: Scale;
+}
+
+export interface ResolvedAxisScale {
+  readonly id: AxisId;
+  readonly channel: 'x' | 'y';
+  readonly fieldType: FieldType;
+  readonly scale: Scale;
+  readonly layers: readonly LayerData[];
 }
 
 export interface ScaleResolution {
   readonly layers: readonly LayerData[];
+  readonly axes: Readonly<Partial<Record<AxisId, ResolvedAxisScale>>>;
+  /** Primary-axis compatibility aliases. Prefer `axes` and layer-local scales. */
   readonly xType: FieldType;
   readonly yType: FieldType;
   readonly xScale: Scale;
   readonly yScale: Scale;
+}
+
+interface PreparedLayerData {
+  readonly layer: NormalizedLayerSpec;
+  readonly table: DataTable;
+  readonly xType: FieldType;
+  readonly yType: FieldType;
+  readonly xAxisId: 'x' | 'x2';
+  readonly yAxisId: 'y' | 'y2';
 }
 
 function typeFamily(type: FieldType): 'categorical' | 'numeric' | 'temporal' {
@@ -42,7 +65,7 @@ function resolveCommonType(types: readonly FieldType[], axis: 'x' | 'y'): FieldT
 }
 
 function explicitNumericDomain(
-  layers: readonly LayerData[],
+  layers: readonly PreparedLayerData[],
   axis: 'x' | 'y',
 ): readonly [number, number] | null {
   for (const { layer } of layers) {
@@ -55,7 +78,7 @@ function explicitNumericDomain(
 }
 
 function numericDomain(
-  layers: readonly LayerData[],
+  layers: readonly PreparedLayerData[],
   axis: 'x' | 'y',
   fieldType: FieldType,
 ): readonly [number, number] {
@@ -233,7 +256,10 @@ function numericDomain(
   return [min, max];
 }
 
-function categoricalDomain(layers: readonly LayerData[], axis: 'x' | 'y'): readonly string[] {
+function categoricalDomain(
+  layers: readonly PreparedLayerData[],
+  axis: 'x' | 'y',
+): readonly string[] {
   const seen = new Set<string>();
   const domain: string[] = [];
   for (const { layer, table } of layers) {
@@ -248,8 +274,94 @@ function categoricalDomain(layers: readonly LayerData[], axis: 'x' | 'y'): reado
   return domain;
 }
 
+function xAxisId(layer: NormalizedLayerSpec): 'x' | 'x2' {
+  if (layer.x.axisId === 'x' || layer.x.axisId === 'x2') return layer.x.axisId;
+  throw new GraflumeError('INVALID_SPEC', 'The x encoding axisId must be "x" or "x2".', {
+    path: `$.layers[${layer.id}].x.axisId`,
+  });
+}
+
+function yAxisId(layer: NormalizedLayerSpec): 'y' | 'y2' {
+  if (layer.y.axisId === 'y' || layer.y.axisId === 'y2') return layer.y.axisId;
+  throw new GraflumeError('INVALID_SPEC', 'The y encoding axisId must be "y" or "y2".', {
+    path: `$.layers[${layer.id}].y.axisId`,
+  });
+}
+
+function resolveAxisScale(
+  id: AxisId,
+  layers: readonly PreparedLayerData[],
+  plot: PlotArea,
+): Omit<ResolvedAxisScale, 'layers'> {
+  const channel = id === 'x' || id === 'x2' ? 'x' : 'y';
+  const fieldType = resolveCommonType(
+    layers.map((layer) => (channel === 'x' ? layer.xType : layer.yType)),
+    channel,
+  );
+  const firstEncoding = layers[0]?.layer[channel];
+  const requestedScaleTypes = new Set(
+    layers
+      .map((layer) => layer.layer[channel].scale.type)
+      .filter((type): type is 'linear' | 'band' | 'time' => type !== undefined),
+  );
+  if (requestedScaleTypes.size > 1) {
+    throw new GraflumeError(
+      'INCOMPATIBLE_SCALE',
+      `Layers bound to ${id} request incompatible scale types: ${[...requestedScaleTypes].join(
+        ', ',
+      )}.`,
+      { path: `$.layers[].${channel}.scale.type` },
+    );
+  }
+  const requestedScaleType = [...requestedScaleTypes][0];
+  const family = typeFamily(fieldType);
+  if (
+    (requestedScaleType === 'band' && family !== 'categorical') ||
+    (requestedScaleType === 'linear' && family !== 'numeric') ||
+    (requestedScaleType === 'time' && family !== 'temporal')
+  ) {
+    throw new GraflumeError(
+      'INCOMPATIBLE_SCALE',
+      `Scale type "${requestedScaleType}" is incompatible with the ${id} field type "${fieldType}".`,
+      { path: `$.layers[].${channel}.scale.type` },
+    );
+  }
+  const reverse = firstEncoding?.scale.reverse === true;
+  const categorical = requestedScaleType === 'band' || family === 'categorical';
+
+  let scale: Scale;
+  if (categorical) {
+    const domain = categoricalDomain(layers, channel);
+    scale = new BandScale({
+      domain: reverse ? [...domain].reverse() : domain,
+      range: channel === 'x' ? [plot.x, plot.x + plot.width] : [plot.y, plot.y + plot.height],
+      ...(firstEncoding?.scale.paddingInner === undefined
+        ? {}
+        : { paddingInner: firstEncoding.scale.paddingInner }),
+      ...(firstEncoding?.scale.paddingOuter === undefined
+        ? {}
+        : { paddingOuter: firstEncoding.scale.paddingOuter }),
+    });
+  } else {
+    const normalRange: readonly [number, number] =
+      channel === 'x' ? [plot.x, plot.x + plot.width] : [plot.y + plot.height, plot.y];
+    const range: readonly [number, number] = reverse
+      ? [normalRange[1], normalRange[0]]
+      : normalRange;
+    scale = new LinearScale({
+      domain: numericDomain(layers, channel, fieldType),
+      range,
+      kind: requestedScaleType === 'time' || fieldType === 'temporal' ? 'time' : 'linear',
+      ...(firstEncoding?.scale.nice === undefined ? {} : { nice: firstEncoding.scale.nice }),
+      ...(firstEncoding?.scale.clamp === undefined ? {} : { clamp: firstEncoding.scale.clamp }),
+    });
+  }
+
+  return { id, channel, fieldType, scale };
+}
+
 export function resolveScales(spec: NormalizedChartSpec, plot: PlotArea): ScaleResolution {
-  const layers: LayerData[] = spec.layers
+  const preparedLayers: PreparedLayerData[] = spec.layers
     .filter((layer) => layer.visible)
     .map((layer) => {
       const table = DataTable.from(layer.data);
@@ -258,71 +370,74 @@ export function resolveScales(spec: NormalizedChartSpec, plot: PlotArea): ScaleR
         table,
         xType: layer.x.type ?? inferFieldType(table, layer.x.field),
         yType: layer.y.type ?? inferFieldType(table, layer.y.field),
+        xAxisId: xAxisId(layer),
+        yAxisId: yAxisId(layer),
       };
     });
 
-  if (layers.length === 0) {
+  if (preparedLayers.length === 0) {
     throw new GraflumeError('INVALID_SPEC', 'At least one visible layer is required.', {
       path: '$.layers',
     });
   }
 
-  const xType = resolveCommonType(
-    layers.map((layer) => layer.xType),
-    'x',
-  );
-  const yType = resolveCommonType(
-    layers.map((layer) => layer.yType),
-    'y',
-  );
+  const grouped = new Map<AxisId, PreparedLayerData[]>();
+  for (const layer of preparedLayers) {
+    for (const id of [layer.xAxisId, layer.yAxisId] as const) {
+      const entries = grouped.get(id) ?? [];
+      entries.push(layer);
+      grouped.set(id, entries);
+    }
+  }
 
-  const xScale: Scale =
-    typeFamily(xType) === 'categorical'
-      ? new BandScale({
-          domain: categoricalDomain(layers, 'x'),
-          range: [plot.x, plot.x + plot.width],
-          ...(layers[0]?.layer.x.scale.paddingInner === undefined
-            ? {}
-            : { paddingInner: layers[0].layer.x.scale.paddingInner }),
-          ...(layers[0]?.layer.x.scale.paddingOuter === undefined
-            ? {}
-            : { paddingOuter: layers[0].layer.x.scale.paddingOuter }),
-        })
-      : new LinearScale({
-          domain: numericDomain(layers, 'x', xType),
-          range: [plot.x, plot.x + plot.width],
-          kind: xType === 'temporal' ? 'time' : 'linear',
-          ...(layers[0]?.layer.x.scale.nice === undefined
-            ? {}
-            : { nice: layers[0].layer.x.scale.nice }),
-          ...(layers[0]?.layer.x.scale.clamp === undefined
-            ? {}
-            : { clamp: layers[0].layer.x.scale.clamp }),
-        });
+  const partialAxes: Partial<Record<AxisId, Omit<ResolvedAxisScale, 'layers'>>> = {};
+  for (const id of ['x', 'x2', 'y', 'y2'] as const) {
+    const entries = grouped.get(id);
+    if (entries === undefined || entries.length === 0) continue;
+    partialAxes[id] = resolveAxisScale(id, entries, plot);
+  }
 
-  const yScale: Scale =
-    typeFamily(yType) === 'categorical'
-      ? new BandScale({
-          domain: categoricalDomain(layers, 'y'),
-          range: [plot.y, plot.y + plot.height],
-          ...(layers[0]?.layer.y.scale.paddingInner === undefined
-            ? {}
-            : { paddingInner: layers[0].layer.y.scale.paddingInner }),
-          ...(layers[0]?.layer.y.scale.paddingOuter === undefined
-            ? {}
-            : { paddingOuter: layers[0].layer.y.scale.paddingOuter }),
-        })
-      : new LinearScale({
-          domain: numericDomain(layers, 'y', yType),
-          range: [plot.y + plot.height, plot.y],
-          kind: yType === 'temporal' ? 'time' : 'linear',
-          ...(layers[0]?.layer.y.scale.nice === undefined
-            ? {}
-            : { nice: layers[0].layer.y.scale.nice }),
-          ...(layers[0]?.layer.y.scale.clamp === undefined
-            ? {}
-            : { clamp: layers[0].layer.y.scale.clamp }),
-        });
+  const layers: LayerData[] = preparedLayers.map((layer) => {
+    const xResolved = partialAxes[layer.xAxisId];
+    const yResolved = partialAxes[layer.yAxisId];
+    if (xResolved === undefined || yResolved === undefined) {
+      throw new GraflumeError('INVALID_SPEC', 'Unable to resolve layer axis scales.', {
+        path: `$.layers[${layer.layer.id}]`,
+      });
+    }
+    return {
+      ...layer,
+      xScale: xResolved.scale,
+      yScale: yResolved.scale,
+    };
+  });
 
-  return { layers, xType, yType, xScale, yScale };
+  const axes: Partial<Record<AxisId, ResolvedAxisScale>> = {};
+  for (const id of ['x', 'x2', 'y', 'y2'] as const) {
+    const resolved = partialAxes[id];
+    if (resolved === undefined) continue;
+    axes[id] = {
+      ...resolved,
+      layers: layers.filter((layer) =>
+        resolved.channel === 'x' ? layer.xAxisId === id : layer.yAxisId === id,
+      ),
+    };
+  }
+
+  const resolvedX = axes.x ?? axes.x2;
+  const resolvedY = axes.y ?? axes.y2;
+  if (resolvedX === undefined || resolvedY === undefined) {
+    throw new GraflumeError('INVALID_SPEC', 'Both x and y scales are required.', {
+      path: '$.layers',
+    });
+  }
+
+  return {
+    layers,
+    axes,
+    xType: resolvedX.fieldType,
+    yType: resolvedY.fieldType,
+    xScale: resolvedX.scale,
+    yScale: resolvedY.scale,
+  };
 }

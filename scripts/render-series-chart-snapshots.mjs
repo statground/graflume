@@ -154,6 +154,7 @@ function renderScene(scene) {
       'font-family': node.fontFamily,
       'font-size': number(node.fontSize),
       'font-weight': node.fontWeight,
+      'font-style': node.fontStyle,
       'text-anchor': textAnchor(node.align),
       'dominant-baseline': dominantBaseline(node.baseline),
       transform,

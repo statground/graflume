@@ -8,7 +8,7 @@ Graflume is an experimental, CDN-first visualization engine built around a porta
 
 - 73 portable marks covering 37 distinct chart families, 141 compatible presets, and 117 public compatibility identifiers through default and opt-in entrypoints
 - Cartesian, radial, distribution, financial, interval, calendar, timeline/Gantt, table, hierarchy, flow, word, and lightweight map Scenes
-- mixed layers such as bar + line + points on shared axes
+- mixed layers such as bar + line + points on shared or independent `x`/`x2`/`y`/`y2` axes
 - row-oriented data and zero-copy `TypedArray` columnar input
 - a versioned, function-free `ChartSpec 0.1` plus JSON Schema for portable JSON data
 - runtime validation and canonical normalization
@@ -106,7 +106,7 @@ The public catalog covers 37 distinct chart families and 117 compatibility ident
 | Hierarchy, flow, and networks | [Hierarchy](docs/charts/hierarchy.md), [Flow](docs/charts/flow.md), [Network](docs/charts/network.md), [Parallel coordinates](docs/charts/parallel.md), [Word tree](docs/charts/word-tree.md), [Table](docs/charts/table.md)                                                                                                                                |
 | Geographic and specialized    | [Map](docs/charts/map.md), [Vector field](docs/charts/vector-field.md), [Venn](docs/charts/venn.md), [Word cloud](docs/charts/word-cloud.md), [Item](docs/charts/item.md), and the [full catalog index](docs/charts/README.md#unified-specialized-series)                                                                                                   |
 
-Start with the [chart guide index and common options](docs/charts/README.md). Every representative family page includes its compatible names, functional mode differences, a visible compiled-output gallery, and type-by-type runnable Quick API examples with required fields and stable links, followed by the shared portable contract, missing-value behavior, interaction/accessibility guidance, performance notes, and explicit limitations. Use the [compatibility preset index](docs/charts/compatibility-presets.md) to map any historical name to its family manual; function-free compatibility adapters are documented separately in [Declarative adapters](docs/charts/adapters.md).
+Start with the [chart guide index and common options](docs/charts/README.md). The dedicated [Cartesian axis manual](docs/charts/axes.md) covers formatting, label layout, styling, reversed domains, secondary axes, and axis-nearest tooltips. Every representative family page includes its compatible names, functional mode differences, a visible compiled-output gallery, and type-by-type runnable Quick API examples with required fields and stable links, followed by the shared portable contract, missing-value behavior, interaction/accessibility guidance, performance notes, and explicit limitations. Use the [compatibility preset index](docs/charts/compatibility-presets.md) to map any historical name to its family manual; function-free compatibility adapters are documented separately in [Declarative adapters](docs/charts/adapters.md).
 
 The default visual system is intentionally presentation-ready: horizontal grid lines remain available for quantitative comparison, categorical vertical grids are suppressed by default, data strokes use rounded joins and caps, point marks receive a contrasting outline, and structural charts use the same spacing, surface, and palette tokens. Explicit mark and axis styles still override these defaults.
 
@@ -225,14 +225,60 @@ line('#chart', data, {
 ```
 
 Built-in tooltips are opt-in. `tooltip: true`, or an object without `trigger`, keeps exact
-`mark` hit testing. Ordered charts can explicitly set `trigger: 'axis'` and `axis: 'x'` or `'y'`:
-an exact rendered-mark hit still wins, while other pointer positions in the plot or corresponding
-axis region resolve the nearest actual datum without interpolation. This fallback changes only the
-tooltip; structured hover and click events continue to report exact rendered-mark hits. Tooltip
-content is rendered with DOM `textContent`; raw HTML and executable formatter callbacks are not
-part of the portable spec. Number and date formatting follows `locale`, and ISO date-only values
-retain their calendar date across browser time zones. Axis lookup is pointer-only, so applications
-should keep a readable summary or data table available for exact values and keyboard access.
+`mark` hit testing. Ordered charts can explicitly set `trigger: 'axis'` and select `x`, `x2`, `y`,
+or `y2`: an exact rendered-mark hit still wins, while other pointer positions in the plot or
+corresponding axis region resolve the nearest actual datum from layers bound to that axis without
+interpolation. This fallback changes only the tooltip; structured hover and click events continue
+to report exact rendered-mark hits. Tooltip content is rendered with DOM `textContent`; raw HTML
+and executable formatter callbacks are not part of the portable spec. Number and date formatting
+follows `locale`, and ISO date-only values retain their calendar date across browser time zones.
+Axis lookup is pointer-only, so applications should keep a readable summary or data table available
+for exact values and keyboard access.
+
+## Cartesian axes
+
+Graflume resolves `x`, `x2`, `y`, and `y2` independently. The primary defaults are bottom x and
+left y; secondary axes default to top x2 and right y2. Only the primary y grid is enabled by
+default. Axis formatting and styling remain declarative and serializable:
+
+```ts
+import { line } from 'graflume';
+
+const revenueRows = [
+  { date: '2026-08-01', revenue: 124000 },
+  { date: '2026-08-08', revenue: 151000 },
+  { date: '2026-08-15', revenue: 143000 },
+];
+
+line('#revenue', revenueRows, {
+  x: {
+    field: 'date',
+    type: 'temporal',
+    scale: { type: 'time' },
+  },
+  y: {
+    field: 'revenue',
+    type: 'quantitative',
+    scale: { domain: [0, 200000] },
+  },
+  axes: {
+    x: {
+      format: { type: 'date', dateStyle: 'medium', timeZone: 'Asia/Seoul' },
+      labels: { angle: -35, font: { size: 11 } },
+    },
+    y: {
+      title: 'Revenue',
+      format: { type: 'currency', currency: 'KRW', fractionDigits: 0 },
+    },
+  },
+  locale: 'ko-KR',
+});
+```
+
+Bind an encoding to a secondary axis with `axisId: 'x2'` or `axisId: 'y2'`. Chart-level `axes`
+settings are deeply merged with encoding-level `axis` overrides. See the [Cartesian axis
+manual](docs/charts/axes.md) for label orientation, fonts, spacing, styles, reversed domains,
+independent dual-axis layers, and axis-nearest tooltip examples.
 
 ## Streaming-shaped updates
 

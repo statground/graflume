@@ -118,6 +118,7 @@ export function collectAxisTooltipTargets(
 ): readonly AxisTooltipTarget[] {
   if (!context.performance.enableHitTesting) return [];
   const { axis, scales, plot } = context;
+  const channel = axis === 'x' || axis === 'x2' ? 'x' : 'y';
   const layerDataById = new Map(scales.layers.map((layerData) => [layerData.layer.id, layerData]));
   const targets: AxisTooltipTarget[] = [];
   const representedRows = new Set<string>();
@@ -136,14 +137,20 @@ export function collectAxisTooltipTargets(
     if (geometry === null || !intersectsPlot(plot, bounds(node))) return;
     const clippedGeometry = clampToPlot(plot, geometry.x, geometry.y);
     const layerData = layerDataById.get(node.datum.layerId);
+    if (
+      layerData !== undefined &&
+      (channel === 'x' ? layerData.xAxisId : layerData.yAxisId) !== axis
+    ) {
+      return;
+    }
     let x = clippedGeometry.x;
     let y = clippedGeometry.y;
     if (node.datum.tooltip === undefined && layerData !== undefined) {
-      const encoding = axis === 'x' ? layerData.layer.x : layerData.layer.y;
-      const scale = axis === 'x' ? scales.xScale : scales.yScale;
+      const encoding = layerData.layer[channel];
+      const scale = channel === 'x' ? layerData.xScale : layerData.yScale;
       const encoded = scaleValue(scale, node.datum.datum[encoding.field]);
       if (encoded !== null) {
-        if (axis === 'x') x = encoded;
+        if (channel === 'x') x = encoded;
         else y = encoded;
       }
     }
@@ -161,12 +168,13 @@ export function collectAxisTooltipTargets(
 
   for (const layerData of scales.layers) {
     if (!ROW_TARGET_MARKS.has(layerData.layer.mark.type)) continue;
+    if ((channel === 'x' ? layerData.xAxisId : layerData.yAxisId) !== axis) continue;
     const indices = strideSampleIndices(layerData.table.length, context.performance.maxPointMarks);
     for (const rowIndex of indices) {
       if (representedRows.has(`${layerData.layer.id}\u0000${rowIndex}`)) continue;
       const datum = layerData.table.row(rowIndex);
-      const x = scaleValue(scales.xScale, datum[layerData.layer.x.field]);
-      const y = scaleValue(scales.yScale, datum[layerData.layer.y.field]);
+      const x = scaleValue(layerData.xScale, datum[layerData.layer.x.field]);
+      const y = scaleValue(layerData.yScale, datum[layerData.layer.y.field]);
       if (x === null || y === null) continue;
       const position = clampToPlot(plot, x, y);
       targets.push({

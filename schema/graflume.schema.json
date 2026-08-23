@@ -156,10 +156,10 @@
       "$ref": "#/$defs/mark"
     },
     "x": {
-      "$ref": "#/$defs/encoding"
+      "$ref": "#/$defs/xEncoding"
     },
     "y": {
-      "$ref": "#/$defs/encoding"
+      "$ref": "#/$defs/yEncoding"
     },
     "layers": {
       "type": "array",
@@ -240,10 +240,16 @@
       "additionalProperties": false,
       "properties": {
         "x": {
-          "$ref": "#/$defs/axisOrFalse"
+          "$ref": "#/$defs/xAxisOrFalse"
+        },
+        "x2": {
+          "$ref": "#/$defs/xAxisOrFalse"
         },
         "y": {
-          "$ref": "#/$defs/axisOrFalse"
+          "$ref": "#/$defs/yAxisOrFalse"
+        },
+        "y2": {
+          "$ref": "#/$defs/yAxisOrFalse"
         }
       }
     },
@@ -363,6 +369,9 @@
         "clamp": {
           "type": "boolean"
         },
+        "reverse": {
+          "type": "boolean"
+        },
         "paddingInner": {
           "type": "number",
           "minimum": 0,
@@ -374,28 +383,363 @@
         }
       }
     },
-    "axis": {
+    "axisFont": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "title": {
+        "family": {
+          "type": "string",
+          "minLength": 1
+        },
+        "size": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 256
+        },
+        "weight": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 100,
+              "maximum": 900
+            },
+            {
+              "enum": ["normal", "medium", "semibold", "bold"]
+            }
+          ]
+        },
+        "style": {
+          "enum": ["normal", "italic"]
+        }
+      }
+    },
+    "axisFormat": {
+      "oneOf": [
+        {
+          "enum": [
+            "auto",
+            "number",
+            "integer",
+            "percent",
+            "compact",
+            "scientific",
+            "currency",
+            "date",
+            "time",
+            "datetime"
+          ]
+        },
+        {
+          "$ref": "#/$defs/axisFormatObject"
+        }
+      ]
+    },
+    "axisFormatObject": {
+      "type": "object",
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "required": ["type", "currency"]
+          },
+          "then": {
+            "properties": {
+              "type": {
+                "const": "currency"
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "auto",
+            "number",
+            "integer",
+            "percent",
+            "compact",
+            "scientific",
+            "currency",
+            "date",
+            "time",
+            "datetime"
+          ]
+        },
+        "fractionDigits": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 20
+        },
+        "notation": {
+          "enum": ["standard", "compact", "scientific", "engineering"]
+        },
+        "useGrouping": {
+          "type": "boolean"
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "currencyDisplay": {
+          "enum": ["symbol", "narrowSymbol", "code", "name"]
+        },
+        "dateStyle": {
+          "enum": ["short", "medium", "long", "full"]
+        },
+        "timeStyle": {
+          "enum": ["short", "medium", "long"]
+        },
+        "timeZone": {
+          "type": "string",
+          "minLength": 1
+        },
+        "prefix": {
+          "type": "string"
+        },
+        "suffix": {
+          "type": "string"
+        }
+      }
+    },
+    "axisStroke": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "visible": {
+          "type": "boolean"
+        },
+        "color": {
+          "type": "string",
+          "minLength": 1
+        },
+        "width": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 32
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "dash": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 256
+          }
+        }
+      }
+    },
+    "axisStrokeOrBoolean": {
+      "oneOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "$ref": "#/$defs/axisStroke"
+        }
+      ]
+    },
+    "axisTicks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "visible": {
+          "type": "boolean"
+        },
+        "color": {
+          "type": "string",
+          "minLength": 1
+        },
+        "width": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 32
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "dash": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 256
+          }
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200
+        },
+        "spacing": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 256
+        },
+        "size": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 256
+        },
+        "values": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 200,
+          "items": {
+            "type": ["number", "string"]
+          }
+        }
+      }
+    },
+    "axisTicksOrBoolean": {
+      "oneOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "$ref": "#/$defs/axisTicks"
+        }
+      ]
+    },
+    "axisLabels": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "visible": {
+          "type": "boolean"
+        },
+        "orientation": {
+          "enum": ["auto", "horizontal", "vertical-up", "vertical-down"]
+        },
+        "angle": {
+          "type": "number",
+          "minimum": -360,
+          "maximum": 360
+        },
+        "align": {
+          "enum": ["auto", "start", "center", "end"]
+        },
+        "padding": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 256
+        },
+        "maxLength": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "color": {
+          "type": "string",
+          "minLength": 1
+        },
+        "font": {
+          "$ref": "#/$defs/axisFont"
+        }
+      }
+    },
+    "axisLabelsOrBoolean": {
+      "oneOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "$ref": "#/$defs/axisLabels"
+        }
+      ]
+    },
+    "axisTitle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "text": {
           "type": "string"
         },
         "visible": {
           "type": "boolean"
         },
-        "grid": {
+        "align": {
+          "enum": ["start", "center", "end"]
+        },
+        "angle": {
+          "type": "number",
+          "minimum": -360,
+          "maximum": 360
+        },
+        "padding": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 256
+        },
+        "color": {
+          "type": "string",
+          "minLength": 1
+        },
+        "font": {
+          "$ref": "#/$defs/axisFont"
+        }
+      }
+    },
+    "axis": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "const": false
+            },
+            {
+              "$ref": "#/$defs/axisTitle"
+            }
+          ]
+        },
+        "visible": {
           "type": "boolean"
+        },
+        "position": {
+          "enum": ["top", "bottom", "left", "right"]
+        },
+        "offset": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 256
+        },
+        "line": {
+          "$ref": "#/$defs/axisStrokeOrBoolean"
+        },
+        "grid": {
+          "$ref": "#/$defs/axisStrokeOrBoolean"
+        },
+        "ticks": {
+          "$ref": "#/$defs/axisTicksOrBoolean"
+        },
+        "labels": {
+          "$ref": "#/$defs/axisLabelsOrBoolean"
         },
         "tickCount": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 1,
+          "maximum": 200
         },
         "format": {
-          "type": "string"
+          "$ref": "#/$defs/axisFormat"
         },
         "labelAngle": {
-          "type": "number"
+          "type": "number",
+          "minimum": -360,
+          "maximum": 360
         }
       }
     },
@@ -403,6 +747,48 @@
       "oneOf": [
         {
           "$ref": "#/$defs/axis"
+        },
+        {
+          "const": false
+        }
+      ]
+    },
+    "xAxisOrFalse": {
+      "oneOf": [
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/axis"
+            },
+            {
+              "properties": {
+                "position": {
+                  "enum": ["top", "bottom"]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "const": false
+        }
+      ]
+    },
+    "yAxisOrFalse": {
+      "oneOf": [
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/axis"
+            },
+            {
+              "properties": {
+                "position": {
+                  "enum": ["left", "right"]
+                }
+              }
+            }
+          ]
         },
         {
           "const": false
@@ -487,7 +873,7 @@
           "enum": ["mark", "axis"]
         },
         "axis": {
-          "enum": ["x", "y"]
+          "enum": ["x", "x2", "y", "y2"]
         },
         "title": {
           "type": "string"
@@ -525,6 +911,9 @@
         },
         "axis": {
           "$ref": "#/$defs/axisOrFalse"
+        },
+        "axisId": {
+          "enum": ["x", "x2", "y", "y2"]
         }
       }
     },
@@ -539,6 +928,50 @@
         },
         {
           "$ref": "#/$defs/encodingObject"
+        }
+      ]
+    },
+    "xEncoding": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/encoding"
+        },
+        {
+          "if": {
+            "type": "object"
+          },
+          "then": {
+            "properties": {
+              "axisId": {
+                "enum": ["x", "x2"]
+              },
+              "axis": {
+                "$ref": "#/$defs/xAxisOrFalse"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "yEncoding": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/encoding"
+        },
+        {
+          "if": {
+            "type": "object"
+          },
+          "then": {
+            "properties": {
+              "axisId": {
+                "enum": ["y", "y2"]
+              },
+              "axis": {
+                "$ref": "#/$defs/yAxisOrFalse"
+              }
+            }
+          }
         }
       ]
     },
@@ -663,10 +1096,10 @@
           "$ref": "#/$defs/mark"
         },
         "x": {
-          "$ref": "#/$defs/encoding"
+          "$ref": "#/$defs/xEncoding"
         },
         "y": {
-          "$ref": "#/$defs/encoding"
+          "$ref": "#/$defs/yEncoding"
         },
         "visible": {
           "type": "boolean"

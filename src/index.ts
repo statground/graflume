@@ -255,7 +255,18 @@ export type { Renderer, RendererCapabilities, RendererFactory } from './renderer
 export type { Scene, SceneNode, DatumReference } from './scene/types.js';
 export type {
   AccessibilitySpec,
+  AxisFontSpec,
+  AxisFormatInput,
+  AxisFormatSpec,
+  AxisId,
+  AxisLabelOrientation,
+  AxisLabelSpec,
+  AxisPosition,
   AxisSpec,
+  AxisStrokeSpec,
+  AxisTickSpec,
+  AxisTitleSpec,
+  AxisValueFormat,
   ChartSpec,
   ColumnarData,
   DataInput,

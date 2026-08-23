@@ -174,7 +174,7 @@ export class CanvasRenderer implements Renderer {
     context.strokeStyle = node.stroke;
     context.lineWidth = node.lineWidth;
     context.lineCap = node.lineCap ?? 'butt';
-    context.setLineDash(node.dash ?? []);
+    context.setLineDash(node.dash === undefined ? [] : [...node.dash]);
     context.stroke();
   }
 
@@ -188,7 +188,7 @@ export class CanvasRenderer implements Renderer {
       if (point !== undefined) context.lineTo(point.x, point.y);
     }
     if (node.closed) context.closePath();
-    context.setLineDash(node.dash ?? []);
+    context.setLineDash(node.dash === undefined ? [] : [...node.dash]);
     context.lineCap = node.lineCap ?? 'round';
     context.lineJoin = node.lineJoin ?? 'round';
     if (node.fill !== undefined) {
@@ -235,7 +235,8 @@ export class CanvasRenderer implements Renderer {
     context.translate(node.x, node.y);
     context.rotate((node.rotation * Math.PI) / 180);
     context.fillStyle = node.fill;
-    context.font = `${node.fontWeight} ${node.fontSize}px ${node.fontFamily}`;
+    const fontStyle = node.fontStyle === undefined ? '' : `${node.fontStyle} `;
+    context.font = `${fontStyle}${node.fontWeight} ${node.fontSize}px ${node.fontFamily}`;
     context.textAlign = node.align;
     context.textBaseline = node.baseline;
     context.fillText(node.text, 0, 0);

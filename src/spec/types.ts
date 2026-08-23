@@ -98,16 +98,98 @@ export interface ScaleSpec {
   readonly zero?: boolean;
   readonly nice?: boolean;
   readonly clamp?: boolean;
+  readonly reverse?: boolean;
   readonly paddingInner?: number;
   readonly paddingOuter?: number;
 }
 
-export interface AxisSpec {
-  readonly title?: string;
+export type AxisId = 'x' | 'x2' | 'y' | 'y2';
+export type AxisPosition = 'top' | 'bottom' | 'left' | 'right';
+export type AxisLabelOrientation = 'auto' | 'horizontal' | 'vertical-up' | 'vertical-down';
+export type AxisValueFormat =
+  | 'auto'
+  | 'number'
+  | 'integer'
+  | 'percent'
+  | 'compact'
+  | 'scientific'
+  | 'currency'
+  | 'date'
+  | 'time'
+  | 'datetime';
+
+export interface AxisFontSpec {
+  readonly family?: string;
+  readonly size?: number;
+  readonly weight?: number | 'normal' | 'medium' | 'semibold' | 'bold';
+  readonly style?: 'normal' | 'italic';
+}
+
+export interface AxisFormatSpec {
+  readonly type?: AxisValueFormat;
+  readonly fractionDigits?: number;
+  readonly notation?: 'standard' | 'compact' | 'scientific' | 'engineering';
+  readonly useGrouping?: boolean;
+  readonly currency?: string;
+  readonly currencyDisplay?: 'symbol' | 'narrowSymbol' | 'code' | 'name';
+  readonly dateStyle?: 'short' | 'medium' | 'long' | 'full';
+  readonly timeStyle?: 'short' | 'medium' | 'long';
+  readonly timeZone?: string;
+  readonly prefix?: string;
+  readonly suffix?: string;
+}
+
+export type AxisFormatInput = AxisValueFormat | AxisFormatSpec;
+
+export interface AxisStrokeSpec {
   readonly visible?: boolean;
-  readonly grid?: boolean;
+  readonly color?: string;
+  readonly width?: number;
+  readonly opacity?: number;
+  readonly dash?: readonly number[];
+}
+
+export interface AxisTickSpec extends AxisStrokeSpec {
+  readonly count?: number;
+  readonly spacing?: number;
+  readonly size?: number;
+  readonly values?: readonly (number | string)[];
+}
+
+export interface AxisLabelSpec {
+  readonly visible?: boolean;
+  readonly orientation?: AxisLabelOrientation;
+  readonly angle?: number;
+  readonly align?: 'auto' | 'start' | 'center' | 'end';
+  readonly padding?: number;
+  readonly maxLength?: number;
+  readonly color?: string;
+  readonly font?: AxisFontSpec;
+}
+
+export interface AxisTitleSpec {
+  readonly text?: string;
+  readonly visible?: boolean;
+  readonly align?: 'start' | 'center' | 'end';
+  readonly angle?: number;
+  readonly padding?: number;
+  readonly color?: string;
+  readonly font?: AxisFontSpec;
+}
+
+export interface AxisSpec {
+  readonly title?: string | false | AxisTitleSpec;
+  readonly visible?: boolean;
+  readonly position?: AxisPosition;
+  readonly offset?: number;
+  readonly line?: boolean | AxisStrokeSpec;
+  readonly grid?: boolean | AxisStrokeSpec;
+  readonly ticks?: boolean | AxisTickSpec;
+  readonly labels?: boolean | AxisLabelSpec;
+  /** Compatibility alias for ticks.count. */
   readonly tickCount?: number;
-  readonly format?: string;
+  readonly format?: AxisFormatInput;
+  /** Compatibility alias for labels.angle. */
   readonly labelAngle?: number;
 }
 
@@ -117,6 +199,8 @@ export interface EncodingSpec {
   readonly title?: string;
   readonly scale?: ScaleSpec;
   readonly axis?: AxisSpec | false;
+  /** Bind this encoding to the primary or secondary axis for its channel. */
+  readonly axisId?: AxisId;
 }
 
 export type EncodingInput = string | EncodingSpec;
@@ -172,7 +256,7 @@ export interface AccessibilitySpec {
 
 export type TooltipValueFormat = 'auto' | 'number' | 'integer' | 'percent' | 'date' | 'datetime';
 export type TooltipTrigger = 'mark' | 'axis';
-export type TooltipAxis = 'x' | 'y';
+export type TooltipAxis = AxisId;
 
 export interface TooltipFieldSpec {
   readonly field: string;
@@ -223,7 +307,9 @@ export interface ChartSpec {
   readonly locale?: string;
   readonly axes?: {
     readonly x?: AxisSpec | false;
+    readonly x2?: AxisSpec | false;
     readonly y?: AxisSpec | false;
+    readonly y2?: AxisSpec | false;
   };
   readonly interaction?: InteractionSpec;
   readonly accessibility?: AccessibilitySpec;
@@ -234,7 +320,77 @@ export interface NormalizedEncodingSpec {
   readonly type?: FieldType;
   readonly title: string;
   readonly scale: ScaleSpec;
-  readonly axis: AxisSpec | false;
+  readonly axisId: AxisId;
+  readonly axis: NormalizedAxisSpec | false;
+}
+
+export interface NormalizedAxisFontSpec {
+  readonly family?: string;
+  readonly size?: number;
+  readonly weight?: number | 'normal' | 'medium' | 'semibold' | 'bold';
+  readonly style: 'normal' | 'italic';
+}
+
+export interface NormalizedAxisFormatSpec {
+  readonly type: AxisValueFormat;
+  readonly fractionDigits?: number;
+  readonly notation: 'standard' | 'compact' | 'scientific' | 'engineering';
+  readonly useGrouping: boolean;
+  readonly currency?: string;
+  readonly currencyDisplay: 'symbol' | 'narrowSymbol' | 'code' | 'name';
+  readonly dateStyle: 'short' | 'medium' | 'long' | 'full';
+  readonly timeStyle: 'short' | 'medium' | 'long';
+  readonly timeZone: string;
+  readonly prefix: string;
+  readonly suffix: string;
+}
+
+export interface NormalizedAxisStrokeSpec {
+  readonly visible: boolean;
+  readonly color?: string;
+  readonly width?: number;
+  readonly opacity: number;
+  readonly dash: readonly number[];
+}
+
+export interface NormalizedAxisTickSpec extends NormalizedAxisStrokeSpec {
+  readonly count?: number;
+  readonly spacing: number;
+  readonly size?: number;
+  readonly values?: readonly (number | string)[];
+}
+
+export interface NormalizedAxisLabelSpec {
+  readonly visible: boolean;
+  readonly orientation: AxisLabelOrientation;
+  readonly angle?: number;
+  readonly align: 'auto' | 'start' | 'center' | 'end';
+  readonly padding?: number;
+  readonly maxLength?: number;
+  readonly color?: string;
+  readonly font: NormalizedAxisFontSpec;
+}
+
+export interface NormalizedAxisTitleSpec {
+  readonly text?: string;
+  readonly visible: boolean;
+  readonly align: 'start' | 'center' | 'end';
+  readonly angle?: number;
+  readonly padding: number;
+  readonly color?: string;
+  readonly font: NormalizedAxisFontSpec;
+}
+
+export interface NormalizedAxisSpec {
+  readonly visible: boolean;
+  readonly position: AxisPosition;
+  readonly offset: number;
+  readonly line: NormalizedAxisStrokeSpec;
+  readonly grid: NormalizedAxisStrokeSpec;
+  readonly ticks: NormalizedAxisTickSpec;
+  readonly labels: NormalizedAxisLabelSpec;
+  readonly title: NormalizedAxisTitleSpec;
+  readonly format: NormalizedAxisFormatSpec;
 }
 
 export interface NormalizedMarkSpec {
@@ -297,8 +453,10 @@ export interface NormalizedChartSpec {
   readonly theme: NonNullable<ChartSpec['theme']>;
   readonly locale?: string;
   readonly axes: {
-    readonly x: AxisSpec | false;
-    readonly y: AxisSpec | false;
+    readonly x: NormalizedAxisSpec | false;
+    readonly x2: NormalizedAxisSpec | false;
+    readonly y: NormalizedAxisSpec | false;
+    readonly y2: NormalizedAxisSpec | false;
   };
   readonly interaction: NormalizedInteractionSpec;
   readonly accessibility: AccessibilitySpec;

@@ -1,5 +1,5 @@
 import type { DatumReference, Rect, Scene } from '../scene/types.js';
-import type { TooltipAxis } from '../spec/types.js';
+import type { AxisPosition, TooltipAxis } from '../spec/types.js';
 import type { HitResult } from './hit-test.js';
 
 export interface AxisTooltipTarget extends DatumReference {
@@ -11,6 +11,7 @@ export interface AxisTooltipTarget extends DatumReference {
 
 export interface AxisTooltipRegistration {
   readonly axis: TooltipAxis;
+  readonly position?: AxisPosition;
   readonly plot: Rect;
   readonly axisVisible: boolean;
   readonly axisStripSize: number;
@@ -25,11 +26,11 @@ const indexByScene = new WeakMap<Scene, AxisTooltipIndex>();
 const coordinateEpsilon = 1e-6;
 
 function primary(target: AxisTooltipTarget, axis: TooltipAxis): number {
-  return axis === 'x' ? target.x : target.y;
+  return axis === 'x' || axis === 'x2' ? target.x : target.y;
 }
 
 function perpendicular(target: AxisTooltipTarget, axis: TooltipAxis): number {
-  return axis === 'x' ? target.y : target.x;
+  return axis === 'x' || axis === 'x2' ? target.y : target.x;
 }
 
 export function registerAxisTooltipIndex(
@@ -55,12 +56,20 @@ function insideActivationRegion(index: AxisTooltipIndex, x: number, y: number): 
   const { plot, axis, axisVisible, axisStripSize } = index;
   const right = plot.x + plot.width;
   const bottom = plot.y + plot.height;
-  if (axis === 'x') {
-    const stripBottom = bottom + (axisVisible ? axisStripSize : 0);
-    return x >= plot.x && x <= right && y >= plot.y && y <= stripBottom;
+  const horizontal = axis === 'x' || axis === 'x2';
+  const position =
+    index.position ??
+    (horizontal ? (axis === 'x2' ? 'top' : 'bottom') : axis === 'y2' ? 'right' : 'left');
+  if (horizontal) {
+    const strip = axisVisible ? axisStripSize : 0;
+    const top = position === 'top' ? plot.y - strip : plot.y;
+    const stripBottom = position === 'bottom' ? bottom + strip : bottom;
+    return x >= plot.x && x <= right && y >= top && y <= stripBottom;
   }
-  const stripLeft = plot.x - (axisVisible ? axisStripSize : 0);
-  return x >= stripLeft && x <= right && y >= plot.y && y <= bottom;
+  const strip = axisVisible ? axisStripSize : 0;
+  const left = position === 'left' ? plot.x - strip : plot.x;
+  const stripRight = position === 'right' ? right + strip : right;
+  return x >= left && x <= stripRight && y >= plot.y && y <= bottom;
 }
 
 function lowerBound(
@@ -104,8 +113,9 @@ export function hitTestAxisTooltip(scene: Scene, x: number, y: number): HitResul
     return null;
   }
 
-  const pointerPrimary = index.axis === 'x' ? x : y;
-  const pointerPerpendicular = index.axis === 'x' ? y : x;
+  const horizontal = index.axis === 'x' || index.axis === 'x2';
+  const pointerPrimary = horizontal ? x : y;
+  const pointerPerpendicular = horizontal ? y : x;
   const coordinate = nearestCoordinate(index, pointerPrimary);
   if (coordinate === null) return null;
 

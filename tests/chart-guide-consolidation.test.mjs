@@ -39,6 +39,7 @@ test('chart documentation contains one manual per representative family', async 
   const expected = [
     'README.md',
     'adapters.md',
+    'axes.md',
     'compatibility-presets.md',
     ...fullCatalog.map(({ id }) => `${id}.md`),
   ].sort();

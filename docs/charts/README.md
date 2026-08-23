@@ -4,7 +4,7 @@ Graflume `0.1.0-alpha.0` exposes 37 distinct chart families through two package 
 
 Every family below is implemented today. Direction, curve, depth, radius, glyph, layout, and indicator differences are presets inside one family instead of separate discovery entries.
 
-The directory contains one manual per representative family, not one file per historical name. Each family manual keeps every integrated type visible in a compiled-output gallery and follows it with type-by-type selection guidance, required data fields, stable anchors, and minimal runnable Quick API examples. The [compatibility preset index](./compatibility-presets.md) maps 139 family presets, while [Declarative adapters](./adapters.md) covers the remaining two compatibility names with the same visual-and-code structure; together they document all 141 historical names.
+The directory contains one manual per representative family, not one file per historical name. Each family manual keeps every integrated type visible in a compiled-output gallery and follows it with type-by-type selection guidance, required data fields, stable anchors, and minimal runnable Quick API examples. The shared [Cartesian axis manual](./axes.md) documents formatting, label layout, styles, scale direction, secondary axes, and axis-nearest tooltips. The [compatibility preset index](./compatibility-presets.md) maps 139 family presets, while [Declarative adapters](./adapters.md) covers the remaining two compatibility names with the same visual-and-code structure; together they document all 141 historical names.
 
 Use `resolveSeriesType(identifier)` from `graflume/complete` to resolve case, spaces, hyphens, or underscores into the catalog's single representative family. `seriesCompatibilityCatalog` exposes all 117 identifier-to-family mappings for adapters and migration tools.
 
@@ -106,7 +106,7 @@ Every family guide includes a current visual snapshot for every integrated prese
 The built-in light and dark themes share one presentation-ready visual language:
 
 - a balanced ten-color categorical palette and coordinated sequential/diverging ramps;
-- low-contrast domain lines and grids, with x grids off and y grids on by default;
+- low-contrast domain lines and grids, with the primary x grid off, primary y grid on, and secondary grids off by default;
 - rounded line/path joins, outlined points, airier bars, and a clear title/subtitle rhythm;
 - theme-aware surfaces and labels across radial, table, hierarchy, flow, and map charts;
 - explicit `mark`, `axis`, and custom-theme values continuing to take precedence.
@@ -215,10 +215,12 @@ An encoding may be a field-name shorthand or a full object.
 | `scale.zero`                          | Include zero in a numeric domain                    |
 | `scale.nice`                          | Expand a numeric domain to readable boundaries      |
 | `scale.clamp`                         | Clamp numeric values to the scale range             |
+| `scale.reverse`                       | Reverse the rendered scale direction                |
 | `scale.paddingInner` / `paddingOuter` | Category-band spacing                               |
+| `axisId`                              | Bind x to `x`/`x2`, or y to `y`/`y2`                |
 | `axis`                                | Axis options or `false` to hide the axis            |
 
-Both axes can be categorical, quantitative, or temporal. Layers sharing an axis must use compatible field-type families. Specialized marks use `mark.fields` for additional channels such as `high`, `low`, `end`, `parent`, `target`, or `size`.
+All active axes can be categorical, quantitative, or temporal. Layers sharing an `axisId` must use compatible field-type families. Specialized marks use `mark.fields` for additional channels such as `high`, `low`, `end`, `parent`, `target`, or `size`.
 
 ## Common chart options
 
@@ -235,9 +237,9 @@ Both axes can be categorical, quantitative, or temporal. Layers sharing an axis 
 | `performance`   | `auto`, `standard`, `large`, or `ultra`                       |
 | `interaction`   | Configure hover, click, and the opt-in text-only tooltip      |
 | `accessibility` | Canvas ARIA label and description                             |
-| `axes`          | Chart-level x/y axis defaults                                 |
+| `axes`          | Chart-level `x`/`x2`/`y`/`y2` axis defaults                   |
 
-The default x axis uses `grid: false`; the default y axis uses `grid: true`. Set either value explicitly at the chart or encoding level when a different comparison grid is more appropriate, such as enabling both directions for scatter plots.
+The defaults are x at the bottom, x2 at the top, y at the left, and y2 at the right. Only the primary y grid is enabled by default. Chart-level settings are deeply merged with an encoding's `axis` override. See [Cartesian axes](./axes.md) for the complete function-free contract and runnable examples.
 
 Quick APIs also accept `create` options for `autoResize`, manual width/height, and pixel ratio.
 
@@ -305,7 +307,7 @@ interaction: {
 
 Supported formats are `auto`, `number`, `integer`, `percent`, `date`, and `datetime`. `fractionDigits`, `prefix`, and `suffix` remain declarative and serializable. Number and date output follows the chart `locale`; an ISO date-only string such as `2026-08-23` is treated as a calendar date and does not shift to the previous day in a western time zone. `percent` expects a ratio such as `0.42` and displays it as 42%.
 
-`trigger: 'mark'` is the default for `tooltip: true` and for tooltip objects that omit `trigger`. It requires the pointer to hit rendered datum geometry. Ordered charts may opt into `trigger: 'axis'` with `axis: 'x'` or `'y'`. In axis mode, an exact rendered-mark hit still has priority; otherwise a pointer in the plot or corresponding bounded axis region selects the nearest actual compiled datum on that axis. Graflume does not interpolate a synthetic row between observations. The axis fallback controls only tooltip presentation, so structured `hover` and `click` events retain their exact rendered-mark hit semantics.
+`trigger: 'mark'` is the default for `tooltip: true` and for tooltip objects that omit `trigger`. It requires the pointer to hit rendered datum geometry. Ordered charts may opt into `trigger: 'axis'` with `axis: 'x'`, `'x2'`, `'y'`, or `'y2'`. In axis mode, an exact rendered-mark hit still has priority; otherwise a pointer in the plot or corresponding bounded axis region selects the nearest actual compiled datum from layers bound to that axis. Graflume does not interpolate a synthetic row between observations. The axis fallback controls only tooltip presentation, so structured `hover` and `click` events retain their exact rendered-mark hit semantics.
 
 Tooltip titles, labels, and values are inserted with DOM `textContent`. Raw HTML, formatter callbacks, expressions, and runtime code evaluation are intentionally unsupported. Aggregate marks may attach derived fields, such as a bin boundary and count, to their hit target; those derived values take precedence over a representative source row when the same tooltip field is requested.
 
@@ -354,6 +356,6 @@ Automatic data tables and keyboard traversal of individual marks are not impleme
 
 - stacked and normalized stacks, violin and density plots, 3D, and editable annotations;
 - full map boundary/projection packages, force-directed large-network layout, multi-stage Sankey layout, implicit Word Tree tokenization, and complete Vega grammar conversion;
-- independent and dual scales, facets, concat, dashboards, and linked views;
+- facets, concat, dashboards, linked views, and automatic cross-chart scale synchronization;
 - native legends, shared multi-series or advanced collision-aware tooltip routing, rendered crosshair guides, label-collision routing, automatic data tables, and keyboard mark traversal;
 - built-in SVG, WebGL2, and WebGPU renderer parity.

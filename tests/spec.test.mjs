@@ -24,8 +24,8 @@ test('normalizes the quick mark/x/y shorthand into a canonical layer', () => {
   assert.equal(spec.layers[0].mark.point, true);
   assert.equal(spec.layers[0].x.field, 'month');
   assert.equal(spec.layers[0].y.title, 'value');
-  assert.equal(spec.layers[0].x.axis.grid, false);
-  assert.equal(spec.layers[0].y.axis.grid, true);
+  assert.equal(spec.layers[0].x.axis.grid.visible, false);
+  assert.equal(spec.layers[0].y.axis.grid.visible, true);
   assert.deepEqual(spec.padding, { top: 24, right: 24, bottom: 44, left: 56 });
 });
 

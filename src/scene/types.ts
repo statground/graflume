@@ -90,6 +90,7 @@ export interface TextNode extends BaseNode {
   readonly fontFamily: string;
   readonly fontSize: number;
   readonly fontWeight: string | number;
+  readonly fontStyle?: 'normal' | 'italic';
   readonly align: CanvasTextAlign;
   readonly baseline: CanvasTextBaseline;
   readonly rotation: number;

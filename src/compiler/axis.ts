@@ -1,17 +1,99 @@
 import { nodeBase } from '../scene/factory.js';
 import type { LineNode, SceneNode, TextNode } from '../scene/types.js';
-import type { Scale } from '../scale/types.js';
-import type { AxisSpec } from '../spec/types.js';
+import type { Scale, Tick } from '../scale/types.js';
+import type {
+  AxisId,
+  AxisPosition,
+  NormalizedAxisFontSpec,
+  NormalizedAxisSpec,
+} from '../spec/types.js';
 import type { ThemeTokens } from '../theme/types.js';
+import { formatAxisTick, truncateAxisLabel } from './axis-format.js';
 import type { PlotArea } from './types.js';
 
-interface AxisContext {
-  readonly axis: AxisSpec | false;
+export interface AxisCompileContext {
+  readonly id: AxisId;
+  readonly axis: NormalizedAxisSpec | false;
   readonly scale: Scale;
   readonly plot: PlotArea;
   readonly theme: ThemeTokens;
   readonly locale?: string;
+  /** Encoding title used when the axis does not declare its own title text. */
   readonly title: string;
+}
+
+type LegacyAxisContext = Omit<AxisCompileContext, 'id'>;
+
+interface ResolvedTick extends Tick {
+  readonly formattedLabel: string;
+}
+
+interface ResolvedTextStyle {
+  readonly fill: string;
+  readonly fontFamily: string;
+  readonly fontSize: number;
+  readonly fontWeight: string | number;
+  readonly fontStyle?: 'italic';
+}
+
+function defaultPosition(id: AxisId): AxisPosition {
+  switch (id) {
+    case 'x':
+      return 'bottom';
+    case 'x2':
+      return 'top';
+    case 'y':
+      return 'left';
+    case 'y2':
+      return 'right';
+  }
+}
+
+function channel(id: AxisId): 'x' | 'y' {
+  return id === 'x' || id === 'x2' ? 'x' : 'y';
+}
+
+function position(context: AxisCompileContext): AxisPosition {
+  if (context.axis === false) return defaultPosition(context.id);
+  const requested = context.axis.position;
+  if (channel(context.id) === 'x') {
+    return requested === 'top' || requested === 'bottom' ? requested : defaultPosition(context.id);
+  }
+  return requested === 'left' || requested === 'right' ? requested : defaultPosition(context.id);
+}
+
+function mappedFontWeight(
+  weight: NormalizedAxisFontSpec['weight'],
+  fallback: number,
+): string | number {
+  if (typeof weight === 'number') return weight;
+  switch (weight) {
+    case 'normal':
+      return 400;
+    case 'medium':
+      return 500;
+    case 'semibold':
+      return 600;
+    case 'bold':
+      return 700;
+    default:
+      return fallback;
+  }
+}
+
+function resolveTextStyle(
+  font: NormalizedAxisFontSpec,
+  color: string | undefined,
+  theme: ThemeTokens,
+  fallbackWeight: number,
+): ResolvedTextStyle {
+  return {
+    fill: color ?? theme.colors.mutedText,
+    fontFamily: font.family ?? theme.typography.fontFamily,
+    fontSize: font.size ?? theme.typography.fontSize,
+    fontWeight: mappedFontWeight(font.weight, fallbackWeight),
+    ...(font.style === 'italic' ? { fontStyle: 'italic' as const } : {}),
+  };
 }
 
 function line(
@@ -23,7 +105,8 @@ function line(
   stroke: string,
   lineWidth: number,
   zIndex: number,
-  opacity = 1,
+  opacity: number,
+  dash: readonly number[],
 ): LineNode {
   return {
     type: 'line',
@@ -34,6 +117,7 @@ function line(
     y2,
     stroke,
     lineWidth,
+    ...(dash.length === 0 ? {} : { dash }),
     lineCap: 'round',
   };
 }
@@ -43,10 +127,8 @@ function text(
   x: number,
   y: number,
   value: string,
-  theme: ThemeTokens,
-  options: Partial<
-    Pick<TextNode, 'align' | 'baseline' | 'rotation' | 'fontWeight' | 'fontSize'>
-  > = {},
+  style: ResolvedTextStyle,
+  options: Pick<TextNode, 'align' | 'baseline' | 'rotation'>,
 ): TextNode {
   return {
     type: 'text',
@@ -54,176 +136,503 @@ function text(
     x,
     y,
     text: value,
-    fill: theme.colors.mutedText,
-    fontFamily: theme.typography.fontFamily,
-    fontSize: options.fontSize ?? theme.typography.fontSize,
-    fontWeight: options.fontWeight ?? 400,
-    align: options.align ?? 'center',
-    baseline: options.baseline ?? 'top',
-    rotation: options.rotation ?? 0,
+    fill: style.fill,
+    fontFamily: style.fontFamily,
+    fontSize: style.fontSize,
+    fontWeight: style.fontWeight,
+    ...(style.fontStyle === undefined ? {} : { fontStyle: style.fontStyle }),
+    align: options.align,
+    baseline: options.baseline,
+    rotation: options.rotation,
   };
 }
 
-export function compileXAxis(context: AxisContext): readonly SceneNode[] {
-  const { axis, scale, plot, theme, locale, title } = context;
-  if (axis === false || axis.visible === false) return [];
-  const nodes: SceneNode[] = [];
-  const axisY = plot.y + plot.height;
-  const ticks = scale.ticks(axis.tickCount ?? Math.max(2, Math.floor(plot.width / 96)), locale);
-  const angle = axis.labelAngle ?? (scale.kind === 'band' && ticks.length > 10 ? -35 : 0);
+function explicitTickLabel(value: number | string, scale: Scale, locale?: string): string {
+  if (scale.kind === 'time') {
+    const date = new Date(typeof value === 'number' ? value : Date.parse(value));
+    if (Number.isFinite(date.getTime())) {
+      try {
+        return new Intl.DateTimeFormat(locale, {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          timeZone: 'UTC',
+        }).format(date);
+      } catch {
+        return new Intl.DateTimeFormat(undefined, {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          timeZone: 'UTC',
+        }).format(date);
+      }
+    }
+  }
+  if (scale.kind === 'linear' && typeof value === 'number') {
+    try {
+      return new Intl.NumberFormat(locale, { maximumFractionDigits: 6 }).format(value);
+    } catch {
+      return new Intl.NumberFormat(undefined, { maximumFractionDigits: 6 }).format(value);
+    }
+  }
+  return String(value);
+}
 
-  nodes.push(
-    line(
-      'axis-x:line',
-      plot.x,
-      axisY,
-      plot.x + plot.width,
-      axisY,
-      theme.colors.axis,
-      theme.axis.lineWidth,
-      100,
+function requestedTickCount(context: AxisCompileContext): number {
+  if (context.axis === false) return 0;
+  const length = channel(context.id) === 'x' ? context.plot.width : context.plot.height;
+  const automatic = Math.max(2, Math.floor(length / (channel(context.id) === 'x' ? 96 : 58)));
+  const requested = context.axis.ticks.count ?? automatic;
+  if (context.axis.ticks.spacing <= 0) return Math.max(1, requested);
+  return Math.max(1, Math.min(requested, Math.floor(length / context.axis.ticks.spacing)));
+}
+
+function pruneTicksBySpacing(ticks: readonly Tick[], spacing: number): readonly Tick[] {
+  if (spacing <= 0 || ticks.length <= 1) return ticks;
+  const ordered = [...ticks].sort((left, right) => left.position - right.position);
+  const kept: Tick[] = [];
+  for (const tick of ordered) {
+    const previous = kept.at(-1);
+    if (previous === undefined || tick.position - previous.position >= spacing) kept.push(tick);
+  }
+  return kept;
+}
+
+function resolveTicks(context: AxisCompileContext): readonly ResolvedTick[] {
+  const axis = context.axis;
+  if (axis === false) return [];
+  const configuredValues = axis.ticks.values;
+  const rawTicks: readonly Tick[] =
+    configuredValues === undefined
+      ? context.scale.ticks(requestedTickCount(context), context.locale)
+      : configuredValues.flatMap((value) => {
+          const mapped = context.scale.map(value);
+          const minimum = channel(context.id) === 'x' ? context.plot.x : context.plot.y;
+          const maximum =
+            minimum + (channel(context.id) === 'x' ? context.plot.width : context.plot.height);
+          return Number.isFinite(mapped) && mapped >= minimum - 0.5 && mapped <= maximum + 0.5
+            ? [
+                {
+                  value,
+                  position: mapped,
+                  label: explicitTickLabel(value, context.scale, context.locale),
+                },
+              ]
+            : [];
+        });
+  return pruneTicksBySpacing(rawTicks, axis.ticks.spacing).map((tick) => ({
+    ...tick,
+    formattedLabel: truncateAxisLabel(
+      formatAxisTick(tick, axis.format, context.locale),
+      axis.labels.maxLength,
     ),
-  );
+  }));
+}
 
-  ticks.forEach((tick, index) => {
-    if (axis.grid !== false && Math.abs(tick.position - plot.x) > 0.5) {
-      const isZero = typeof tick.value === 'number' && Math.abs(tick.value) < Number.EPSILON;
-      nodes.push(
-        line(
-          `axis-x:grid:${index}`,
-          tick.position,
-          plot.y,
-          tick.position,
-          axisY,
-          isZero ? theme.colors.axis : theme.colors.grid,
-          isZero ? Math.max(1, theme.axis.gridLineWidth) : theme.axis.gridLineWidth,
-          -20,
-          isZero ? 0.9 : 0.82,
-        ),
-      );
-    }
-    if (theme.axis.tickLength > 0) {
-      nodes.push(
-        line(
-          `axis-x:tick:${index}`,
-          tick.position,
-          axisY,
-          tick.position,
-          axisY + theme.axis.tickLength,
-          theme.colors.axis,
-          theme.axis.lineWidth,
-          100,
-        ),
-      );
-    }
-    nodes.push(
-      text(
-        `axis-x:label:${index}`,
-        tick.position,
-        axisY + theme.axis.tickLength + theme.axis.labelPadding,
-        tick.label,
-        theme,
-        {
-          align: angle === 0 ? 'center' : 'right',
-          baseline: 'top',
-          rotation: angle,
-          fontWeight: 500,
-        },
-      ),
-    );
-  });
+function labelAngle(context: AxisCompileContext, ticks: readonly ResolvedTick[]): number {
+  if (context.axis === false) return 0;
+  if (context.axis.labels.angle !== undefined) return context.axis.labels.angle;
+  switch (context.axis.labels.orientation) {
+    case 'horizontal':
+      return 0;
+    case 'vertical-up':
+      return -90;
+    case 'vertical-down':
+      return 90;
+    case 'auto':
+      return channel(context.id) === 'x' && context.scale.kind === 'band' && ticks.length > 10
+        ? -35
+        : 0;
+  }
+}
 
-  if (axis.title !== '' && title !== '') {
+function explicitAlign(align: 'auto' | 'start' | 'center' | 'end'): CanvasTextAlign | null {
+  return align === 'auto' ? null : align;
+}
+
+function labelAlign(
+  context: AxisCompileContext,
+  axisPosition: AxisPosition,
+  angle: number,
+): CanvasTextAlign {
+  if (context.axis === false) return 'center';
+  const configured = explicitAlign(context.axis.labels.align);
+  if (configured !== null) return configured;
+  if (channel(context.id) === 'x') {
+    if (angle === 0) return 'center';
+    const startsOutward =
+      (axisPosition === 'bottom' && angle > 0) || (axisPosition === 'top' && angle < 0);
+    return startsOutward ? 'left' : 'right';
+  }
+  if (angle !== 0) return 'center';
+  return axisPosition === 'left' ? 'right' : 'left';
+}
+
+function titleAlign(context: AxisCompileContext, angle: number): CanvasTextAlign {
+  if (context.axis === false) return 'center';
+  const align = context.axis.title.align;
+  if (channel(context.id) !== 'y' || angle >= 0 || align === 'center') return align;
+  return align === 'start' ? 'end' : 'start';
+}
+
+function coordinateAlongAxis(
+  plot: PlotArea,
+  axisChannel: 'x' | 'y',
+  align: 'start' | 'center' | 'end',
+): number {
+  if (axisChannel === 'x') {
+    if (align === 'start') return plot.x;
+    if (align === 'end') return plot.x + plot.width;
+    return plot.x + plot.width / 2;
+  }
+  if (align === 'start') return plot.y;
+  if (align === 'end') return plot.y + plot.height;
+  return plot.y + plot.height / 2;
+}
+
+function axisCoordinate(plot: PlotArea, axisPosition: AxisPosition, offset: number): number {
+  switch (axisPosition) {
+    case 'top':
+      return plot.y - offset;
+    case 'bottom':
+      return plot.y + plot.height + offset;
+    case 'left':
+      return plot.x - offset;
+    case 'right':
+      return plot.x + plot.width + offset;
+  }
+}
+
+function outwardSign(axisPosition: AxisPosition): -1 | 1 {
+  return axisPosition === 'top' || axisPosition === 'left' ? -1 : 1;
+}
+
+function gridIsBoundary(tick: Tick, plot: PlotArea, axisChannel: 'x' | 'y'): boolean {
+  const boundary = axisChannel === 'x' ? plot.x : plot.y + plot.height;
+  return Math.abs(tick.position - boundary) <= 0.5;
+}
+
+function titleText(context: AxisCompileContext): string {
+  if (context.axis === false || context.axis.title.visible === false) return '';
+  return context.axis.title.text ?? context.title;
+}
+
+/** Compile any primary or secondary Cartesian axis into renderer-neutral Scene primitives. */
+export function compileAxis(context: AxisCompileContext): readonly SceneNode[] {
+  const { axis, plot, theme } = context;
+  if (axis === false || axis.visible === false) return [];
+
+  const nodes: SceneNode[] = [];
+  const axisChannel = channel(context.id);
+  const axisPosition = position(context);
+  const coordinate = axisCoordinate(plot, axisPosition, axis.offset);
+  const sign = outwardSign(axisPosition);
+  const prefix = `axis-${context.id}`;
+  const ticks = resolveTicks(context);
+  const angle = labelAngle(context, ticks);
+  const tickSize = axis.ticks.visible ? (axis.ticks.size ?? theme.axis.tickLength) : 0;
+  const labelPadding = axis.labels.padding ?? theme.axis.labelPadding;
+
+  if (axis.line.visible) {
+    const stroke = axis.line.color ?? theme.colors.axis;
+    const width = axis.line.width ?? theme.axis.lineWidth;
     nodes.push(
-      text('axis-x:title', plot.x + plot.width / 2, axisY + 32, axis.title ?? title, theme, {
-        align: 'center',
-        baseline: 'top',
-        fontWeight: 600,
-      }),
+      axisChannel === 'x'
+        ? line(
+            `${prefix}:line`,
+            plot.x,
+            coordinate,
+            plot.x + plot.width,
+            coordinate,
+            stroke,
+            width,
+            100,
+            axis.line.opacity,
+            axis.line.dash,
+          )
+        : line(
+            `${prefix}:line`,
+            coordinate,
+            plot.y,
+            coordinate,
+            plot.y + plot.height,
+            stroke,
+            width,
+            100,
+            axis.line.opacity,
+            axis.line.dash,
+          ),
     );
   }
+
+  const labelStyle = resolveTextStyle(axis.labels.font, axis.labels.color, theme, 500);
+  ticks.forEach((tick, index) => {
+    const isZero = typeof tick.value === 'number' && Math.abs(tick.value) < Number.EPSILON;
+    if (axis.grid.visible && !gridIsBoundary(tick, plot, axisChannel)) {
+      const defaultZeroStyle = axis.grid.color === undefined;
+      const gridStroke = axis.grid.color ?? (isZero ? theme.colors.axis : theme.colors.grid);
+      const gridWidth = axis.grid.width ?? theme.axis.gridLineWidth;
+      nodes.push(
+        axisChannel === 'x'
+          ? line(
+              `${prefix}:grid:${index}`,
+              tick.position,
+              plot.y,
+              tick.position,
+              plot.y + plot.height,
+              gridStroke,
+              isZero && defaultZeroStyle ? Math.max(1, gridWidth) : gridWidth,
+              -20,
+              isZero && defaultZeroStyle ? Math.max(0.9, axis.grid.opacity) : axis.grid.opacity,
+              axis.grid.dash,
+            )
+          : line(
+              `${prefix}:grid:${index}`,
+              plot.x,
+              tick.position,
+              plot.x + plot.width,
+              tick.position,
+              gridStroke,
+              isZero && defaultZeroStyle ? Math.max(1, gridWidth) : gridWidth,
+              -20,
+              isZero && defaultZeroStyle ? Math.max(0.9, axis.grid.opacity) : axis.grid.opacity,
+              axis.grid.dash,
+            ),
+      );
+    }
+
+    if (axis.ticks.visible && tickSize > 0) {
+      const stroke = axis.ticks.color ?? theme.colors.axis;
+      const width = axis.ticks.width ?? theme.axis.lineWidth;
+      nodes.push(
+        axisChannel === 'x'
+          ? line(
+              `${prefix}:tick:${index}`,
+              tick.position,
+              coordinate,
+              tick.position,
+              coordinate + sign * tickSize,
+              stroke,
+              width,
+              100,
+              axis.ticks.opacity,
+              axis.ticks.dash,
+            )
+          : line(
+              `${prefix}:tick:${index}`,
+              coordinate,
+              tick.position,
+              coordinate + sign * tickSize,
+              tick.position,
+              stroke,
+              width,
+              100,
+              axis.ticks.opacity,
+              axis.ticks.dash,
+            ),
+      );
+    }
+
+    if (!axis.labels.visible) return;
+    if (axisChannel === 'x') {
+      nodes.push(
+        text(
+          `${prefix}:label:${index}`,
+          tick.position,
+          coordinate + sign * (tickSize + labelPadding),
+          tick.formattedLabel,
+          labelStyle,
+          {
+            align: labelAlign(context, axisPosition, angle),
+            baseline: axisPosition === 'top' ? 'bottom' : 'top',
+            rotation: angle,
+          },
+        ),
+      );
+    } else {
+      nodes.push(
+        text(
+          `${prefix}:label:${index}`,
+          coordinate + sign * (tickSize + labelPadding),
+          tick.position,
+          tick.formattedLabel,
+          labelStyle,
+          {
+            align: labelAlign(context, axisPosition, angle),
+            baseline: 'middle',
+            rotation: angle,
+          },
+        ),
+      );
+    }
+  });
+
+  const resolvedTitle = titleText(context);
+  if (resolvedTitle !== '') {
+    const titleStyle = resolveTextStyle(axis.title.font, axis.title.color, theme, 600);
+    const titlePosition = coordinateAlongAxis(plot, axisChannel, axis.title.align);
+    const titleAngle =
+      axis.title.angle ?? (axisChannel === 'x' ? 0 : axisPosition === 'left' ? -90 : 90);
+    const titleCoordinate = coordinate + sign * axis.title.padding;
+    if (axisChannel === 'x') {
+      nodes.push(
+        text(`${prefix}:title`, titlePosition, titleCoordinate, resolvedTitle, titleStyle, {
+          align: titleAlign(context, titleAngle),
+          baseline: axisPosition === 'top' ? 'bottom' : 'top',
+          rotation: titleAngle,
+        }),
+      );
+    } else {
+      nodes.push(
+        text(
+          `${prefix}:title`,
+          axisPosition === 'left' ? Math.max(12, titleCoordinate) : titleCoordinate,
+          titlePosition,
+          resolvedTitle,
+          titleStyle,
+          { align: titleAlign(context, titleAngle), baseline: 'middle', rotation: titleAngle },
+        ),
+      );
+    }
+  }
+
   return nodes;
 }
 
-export function compileYAxis(context: AxisContext): readonly SceneNode[] {
-  const { axis, scale, plot, theme, locale, title } = context;
-  if (axis === false || axis.visible === false) return [];
-  const nodes: SceneNode[] = [];
-  const axisX = plot.x;
-  const ticks = scale.ticks(axis.tickCount ?? Math.max(2, Math.floor(plot.height / 58)), locale);
-
-  nodes.push(
-    line(
-      'axis-y:line',
-      axisX,
-      plot.y,
-      axisX,
-      plot.y + plot.height,
-      theme.colors.axis,
-      theme.axis.lineWidth,
-      100,
-    ),
-  );
-
-  ticks.forEach((tick, index) => {
-    if (axis.grid !== false && Math.abs(tick.position - (plot.y + plot.height)) > 0.5) {
-      const isZero = typeof tick.value === 'number' && Math.abs(tick.value) < Number.EPSILON;
-      nodes.push(
-        line(
-          `axis-y:grid:${index}`,
-          axisX,
-          tick.position,
-          plot.x + plot.width,
-          tick.position,
-          isZero ? theme.colors.axis : theme.colors.grid,
-          isZero ? Math.max(1, theme.axis.gridLineWidth) : theme.axis.gridLineWidth,
-          -20,
-          isZero ? 0.9 : 0.82,
-        ),
-      );
-    }
-    if (theme.axis.tickLength > 0) {
-      nodes.push(
-        line(
-          `axis-y:tick:${index}`,
-          axisX - theme.axis.tickLength,
-          tick.position,
-          axisX,
-          tick.position,
-          theme.colors.axis,
-          theme.axis.lineWidth,
-          100,
-        ),
-      );
-    }
-    nodes.push(
-      text(
-        `axis-y:label:${index}`,
-        axisX - theme.axis.tickLength - theme.axis.labelPadding,
-        tick.position,
-        tick.label,
-        theme,
-        { align: 'right', baseline: 'middle', fontWeight: 500 },
-      ),
-    );
-  });
-
-  if (axis.title !== '' && title !== '') {
-    nodes.push(
-      text(
-        'axis-y:title',
-        Math.max(12, axisX - 46),
-        plot.y + plot.height / 2,
-        axis.title ?? title,
-        theme,
-        {
-          align: 'center',
-          baseline: 'middle',
-          rotation: -90,
-          fontWeight: 600,
-        },
-      ),
-    );
+function estimatedTextWidth(value: string, fontSize: number): number {
+  let units = 0;
+  for (const character of Array.from(value)) {
+    if (/\s/u.test(character)) units += 0.33;
+    else if (/[^\u0000-\u024f]/u.test(character)) units += 1;
+    else units += 0.6;
   }
-  return nodes;
+  return Math.max(fontSize * 0.6, units * fontSize);
+}
+
+function projectedSize(
+  width: number,
+  height: number,
+  angle: number,
+): {
+  readonly width: number;
+  readonly height: number;
+} {
+  const radians = (angle * Math.PI) / 180;
+  const cosine = Math.abs(Math.cos(radians));
+  const sine = Math.abs(Math.sin(radians));
+  return {
+    width: width * cosine + height * sine,
+    height: width * sine + height * cosine,
+  };
+}
+
+function usesLegacyPrimaryGutter(context: AxisCompileContext): boolean {
+  const axis = context.axis;
+  if (axis === false || (context.id !== 'x' && context.id !== 'y')) return false;
+  const expectedPosition = context.id === 'x' ? 'bottom' : 'left';
+  const expectedTitlePadding = context.id === 'x' ? 32 : 46;
+  return (
+    axis.position === expectedPosition &&
+    axis.offset === 0 &&
+    axis.line.width === undefined &&
+    axis.ticks.spacing === 0 &&
+    axis.ticks.size === undefined &&
+    axis.ticks.values === undefined &&
+    axis.labels.orientation === 'auto' &&
+    axis.labels.angle === undefined &&
+    axis.labels.align === 'auto' &&
+    axis.labels.padding === undefined &&
+    axis.labels.maxLength === undefined &&
+    axis.labels.font.family === undefined &&
+    axis.labels.font.size === undefined &&
+    axis.labels.font.weight === undefined &&
+    axis.labels.font.style === 'normal' &&
+    axis.title.angle === undefined &&
+    axis.title.padding === expectedTitlePadding &&
+    axis.title.font.family === undefined &&
+    axis.title.font.size === undefined &&
+    axis.title.font.weight === undefined &&
+    axis.title.font.style === 'normal' &&
+    axis.format.type === 'auto' &&
+    axis.format.fractionDigits === undefined &&
+    axis.format.notation === 'standard' &&
+    axis.format.useGrouping &&
+    axis.format.currency === undefined &&
+    axis.format.prefix === '' &&
+    axis.format.suffix === ''
+  );
+}
+
+/**
+ * Deterministically estimate the outward axis gutter from the same ticks, formatting,
+ * truncation, fonts and rotations used by compileAxis().
+ */
+export function measureAxisGutter(context: AxisCompileContext): number {
+  const { axis, theme } = context;
+  if (axis === false || axis.visible === false) return 0;
+  const axisChannel = channel(context.id);
+  let required = measureAxisLabelGutter(context);
+
+  const resolvedTitle = titleText(context);
+  if (resolvedTitle !== '') {
+    const style = resolveTextStyle(axis.title.font, axis.title.color, theme, 600);
+    const axisPosition = position(context);
+    const titleAngle =
+      axis.title.angle ?? (axisChannel === 'x' ? 0 : axisPosition === 'left' ? -90 : 90);
+    const projected = projectedSize(
+      estimatedTextWidth(resolvedTitle, style.fontSize),
+      style.fontSize,
+      titleAngle,
+    );
+    const outwardTextExtent =
+      axisChannel === 'x'
+        ? projected.height
+        : axis.title.align === 'center'
+          ? projected.width / 2
+          : projected.width;
+    required = Math.max(required, axis.offset + axis.title.padding + outwardTextExtent);
+  }
+  const measured = Math.ceil(required);
+  if (!usesLegacyPrimaryGutter(context)) return measured;
+  return Math.min(measured, context.id === 'x' ? 44 : 56);
+}
+
+/** Measure the interactive tick/label strip without extending it through the axis title. */
+export function measureAxisLabelGutter(context: AxisCompileContext): number {
+  const { axis, theme } = context;
+  if (axis === false || axis.visible === false) return 0;
+  const axisChannel = channel(context.id);
+  const ticks = resolveTicks(context);
+  const angle = labelAngle(context, ticks);
+  const tickSize = axis.ticks.visible ? (axis.ticks.size ?? theme.axis.tickLength) : 0;
+  const labelPadding = axis.labels.padding ?? theme.axis.labelPadding;
+  const lineWidth = axis.line.visible ? (axis.line.width ?? theme.axis.lineWidth) : 0;
+  let required = axis.offset + lineWidth / 2;
+
+  if (axis.labels.visible && ticks.length > 0) {
+    const style = resolveTextStyle(axis.labels.font, axis.labels.color, theme, 500);
+    let labelExtent = 0;
+    for (const tick of ticks) {
+      const projected = projectedSize(
+        estimatedTextWidth(tick.formattedLabel, style.fontSize),
+        style.fontSize,
+        angle,
+      );
+      labelExtent = Math.max(labelExtent, axisChannel === 'x' ? projected.height : projected.width);
+    }
+    required = Math.max(required, axis.offset + tickSize + labelPadding + labelExtent);
+  } else if (axis.ticks.visible) {
+    required = Math.max(required, axis.offset + tickSize);
+  }
+  return Math.ceil(required);
+}
+
+/** Backward-compatible primary x-axis adapter. */
+export function compileXAxis(context: LegacyAxisContext): readonly SceneNode[] {
+  return compileAxis({ ...context, id: 'x' });
+}
+
+/** Backward-compatible primary y-axis adapter. */
+export function compileYAxis(context: LegacyAxisContext): readonly SceneNode[] {
+  return compileAxis({ ...context, id: 'y' });
 }

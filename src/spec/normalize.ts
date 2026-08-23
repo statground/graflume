@@ -1,12 +1,26 @@
 import { specVersion } from '../version.js';
 import { assertValidSpec } from './validate.js';
 import type {
+  AxisFormatInput,
+  AxisFontSpec,
+  AxisId,
+  AxisLabelSpec,
   AxisSpec,
+  AxisStrokeSpec,
+  AxisTickSpec,
+  AxisTitleSpec,
   ChartSpec,
   DataInput,
   EncodingInput,
   LayerSpec,
   MarkInput,
+  NormalizedAxisFontSpec,
+  NormalizedAxisFormatSpec,
+  NormalizedAxisLabelSpec,
+  NormalizedAxisSpec,
+  NormalizedAxisStrokeSpec,
+  NormalizedAxisTickSpec,
+  NormalizedAxisTitleSpec,
   NormalizedChartSpec,
   NormalizedEncodingSpec,
   NormalizedInteractionSpec,
@@ -85,38 +99,235 @@ function normalizeInteraction(input: ChartSpec['interaction']): NormalizedIntera
   };
 }
 
+const axisDefaults: Readonly<
+  Record<
+    AxisId,
+    {
+      readonly position: NormalizedAxisSpec['position'];
+      readonly grid: boolean;
+      readonly titlePadding: number;
+    }
+  >
+> = {
+  x: { position: 'bottom', grid: false, titlePadding: 32 },
+  x2: { position: 'top', grid: false, titlePadding: 32 },
+  y: { position: 'left', grid: true, titlePadding: 46 },
+  y2: { position: 'right', grid: false, titlePadding: 46 },
+};
+
+function normalizeAxisFont(input: AxisFontSpec | undefined): NormalizedAxisFontSpec {
+  return {
+    ...(input?.family === undefined ? {} : { family: input.family }),
+    ...(input?.size === undefined ? {} : { size: input.size }),
+    ...(input?.weight === undefined ? {} : { weight: input.weight }),
+    style: input?.style ?? 'normal',
+  };
+}
+
+function normalizeAxisStroke(
+  input: boolean | AxisStrokeSpec | undefined,
+  defaultVisible: boolean,
+  defaultOpacity = 1,
+): NormalizedAxisStrokeSpec {
+  const stroke = typeof input === 'object' ? input : undefined;
+  return {
+    visible: typeof input === 'boolean' ? input : (stroke?.visible ?? defaultVisible),
+    ...(stroke?.color === undefined ? {} : { color: stroke.color }),
+    ...(stroke?.width === undefined ? {} : { width: stroke.width }),
+    opacity: stroke?.opacity ?? defaultOpacity,
+    dash: [...(stroke?.dash ?? [])],
+  };
+}
+
+function normalizeAxisTicks(
+  input: boolean | AxisTickSpec | undefined,
+  legacyCount: number | undefined,
+): NormalizedAxisTickSpec {
+  const ticks = typeof input === 'object' ? input : undefined;
+  const count = ticks?.count ?? legacyCount;
+  return {
+    ...normalizeAxisStroke(input, true),
+    ...(count === undefined ? {} : { count }),
+    spacing: ticks?.spacing ?? 0,
+    ...(ticks?.size === undefined ? {} : { size: ticks.size }),
+    ...(ticks?.values === undefined ? {} : { values: [...ticks.values] }),
+  };
+}
+
+function normalizeAxisLabels(
+  input: boolean | AxisLabelSpec | undefined,
+  legacyAngle: number | undefined,
+): NormalizedAxisLabelSpec {
+  const labels = typeof input === 'object' ? input : undefined;
+  const angle = labels?.angle ?? legacyAngle;
+  return {
+    visible: typeof input === 'boolean' ? input : (labels?.visible ?? true),
+    orientation: labels?.orientation ?? 'auto',
+    ...(angle === undefined ? {} : { angle }),
+    align: labels?.align ?? 'auto',
+    ...(labels?.padding === undefined ? {} : { padding: labels.padding }),
+    ...(labels?.maxLength === undefined ? {} : { maxLength: labels.maxLength }),
+    ...(labels?.color === undefined ? {} : { color: labels.color }),
+    font: normalizeAxisFont(labels?.font),
+  };
+}
+
+function normalizeAxisTitle(
+  input: AxisSpec['title'],
+  defaultPadding: number,
+): NormalizedAxisTitleSpec {
+  const title = typeof input === 'object' ? input : undefined;
+  return {
+    ...(typeof input === 'string'
+      ? { text: input }
+      : title?.text === undefined
+        ? {}
+        : { text: title.text }),
+    visible: input === false ? false : (title?.visible ?? true),
+    align: title?.align ?? 'center',
+    ...(title?.angle === undefined ? {} : { angle: title.angle }),
+    padding: title?.padding ?? defaultPadding,
+    ...(title?.color === undefined ? {} : { color: title.color }),
+    font: normalizeAxisFont(title?.font),
+  };
+}
+
+function normalizeAxisFormat(input: AxisFormatInput | undefined): NormalizedAxisFormatSpec {
+  const format = typeof input === 'string' ? { type: input } : (input ?? {});
+  const type = format.type ?? 'auto';
+  return {
+    type,
+    ...(format.fractionDigits === undefined ? {} : { fractionDigits: format.fractionDigits }),
+    notation:
+      format.notation ??
+      (type === 'compact' ? 'compact' : type === 'scientific' ? 'scientific' : 'standard'),
+    useGrouping: format.useGrouping ?? true,
+    ...(format.currency === undefined && type !== 'currency'
+      ? {}
+      : { currency: format.currency ?? 'USD' }),
+    currencyDisplay: format.currencyDisplay ?? 'symbol',
+    dateStyle: format.dateStyle ?? 'medium',
+    timeStyle: format.timeStyle ?? 'short',
+    timeZone: format.timeZone ?? 'UTC',
+    prefix: format.prefix ?? '',
+    suffix: format.suffix ?? '',
+  };
+}
+
+function mergeBooleanObject<T extends object>(
+  base: boolean | T | undefined,
+  override: boolean | T | undefined,
+): boolean | T | undefined {
+  if (override === undefined) return base;
+  if (typeof override === 'boolean') return override;
+  const baseObject = typeof base === 'object' ? base : base === undefined ? {} : { visible: base };
+  return { ...baseObject, ...override } as T;
+}
+
+function mergeFont(
+  base: AxisFontSpec | undefined,
+  override: AxisFontSpec | undefined,
+): AxisFontSpec | undefined {
+  if (override === undefined) return base;
+  return { ...base, ...override };
+}
+
+function mergeLabels(
+  base: boolean | AxisLabelSpec | undefined,
+  override: boolean | AxisLabelSpec | undefined,
+): boolean | AxisLabelSpec | undefined {
+  const merged = mergeBooleanObject(base, override);
+  if (typeof merged !== 'object' || typeof override !== 'object') return merged;
+  const baseFont = typeof base === 'object' ? base.font : undefined;
+  const font = mergeFont(baseFont, override.font);
+  return { ...merged, ...(font === undefined ? {} : { font }) };
+}
+
+function mergeTitle(base: AxisSpec['title'], override: AxisSpec['title']): AxisSpec['title'] {
+  if (override === undefined) return base;
+  if (typeof override !== 'object') return override;
+  const baseObject: AxisTitleSpec =
+    typeof base === 'object'
+      ? base
+      : typeof base === 'string'
+        ? { text: base }
+        : base === false
+          ? { visible: false }
+          : {};
+  const font = mergeFont(baseObject.font, override.font);
+  return { ...baseObject, ...override, ...(font === undefined ? {} : { font }) };
+}
+
+function mergeFormat(
+  base: AxisFormatInput | undefined,
+  override: AxisFormatInput | undefined,
+): AxisFormatInput | undefined {
+  if (override === undefined) return base;
+  if (typeof override === 'string') return override;
+  const baseObject = typeof base === 'string' ? { type: base } : base;
+  return { ...baseObject, ...override };
+}
+
+function mergeAxis(
+  base: AxisSpec | false | undefined,
+  override: AxisSpec | false | undefined,
+): AxisSpec | false | undefined {
+  if (override === undefined) return base;
+  if (override === false) return false;
+  if (base === false || base === undefined) return override;
+
+  const line = mergeBooleanObject(base.line, override.line);
+  const grid = mergeBooleanObject(base.grid, override.grid);
+  const ticks = mergeBooleanObject(base.ticks, override.ticks);
+  const labels = mergeLabels(base.labels, override.labels);
+  const title = mergeTitle(base.title, override.title);
+  const format = mergeFormat(base.format, override.format);
+  return {
+    ...base,
+    ...override,
+    ...(line === undefined ? {} : { line }),
+    ...(grid === undefined ? {} : { grid }),
+    ...(ticks === undefined ? {} : { ticks }),
+    ...(labels === undefined ? {} : { labels }),
+    ...(title === undefined ? {} : { title }),
+    ...(format === undefined ? {} : { format }),
+  };
+}
+
 function normalizeAxis(
   input: AxisSpec | false | undefined,
-  defaultGrid: boolean,
-): AxisSpec | false {
+  id: AxisId,
+): NormalizedAxisSpec | false {
   if (input === false) return false;
+  const defaults = axisDefaults[id];
   return {
     visible: input?.visible ?? true,
-    grid: input?.grid ?? defaultGrid,
-    ...(input?.title === undefined ? {} : { title: input.title }),
-    ...(input?.tickCount === undefined ? {} : { tickCount: input.tickCount }),
-    ...(input?.format === undefined ? {} : { format: input.format }),
-    ...(input?.labelAngle === undefined ? {} : { labelAngle: input.labelAngle }),
+    position: input?.position ?? defaults.position,
+    offset: input?.offset ?? 0,
+    line: normalizeAxisStroke(input?.line, true),
+    grid: normalizeAxisStroke(input?.grid, defaults.grid, 0.82),
+    ticks: normalizeAxisTicks(input?.ticks, input?.tickCount),
+    labels: normalizeAxisLabels(input?.labels, input?.labelAngle),
+    title: normalizeAxisTitle(input?.title, defaults.titlePadding),
+    format: normalizeAxisFormat(input?.format),
   };
 }
 
 function normalizeEncoding(
   input: EncodingInput,
-  fallbackAxis: AxisSpec | false,
+  channel: 'x' | 'y',
+  chartAxes: NonNullable<ChartSpec['axes']>,
 ): NormalizedEncodingSpec {
   const encoding = typeof input === 'string' ? { field: input } : input;
+  const axisId = encoding.axisId ?? channel;
+  const axis = mergeAxis(chartAxes[axisId], encoding.axis);
   return {
     field: encoding.field,
     ...(encoding.type === undefined ? {} : { type: encoding.type }),
     title: encoding.title ?? encoding.field,
     scale: { ...encoding.scale },
-    axis:
-      encoding.axis === undefined
-        ? fallbackAxis
-        : normalizeAxis(
-            encoding.axis,
-            fallbackAxis === false ? false : fallbackAxis.grid !== false,
-          ),
+    axisId,
+    axis: normalizeAxis(axis, axisId),
   };
 }
 
@@ -142,7 +353,7 @@ function normalizeLayer(
   layer: LayerSpec,
   index: number,
   parentData: DataInput | undefined,
-  chartAxes: { readonly x: AxisSpec | false; readonly y: AxisSpec | false },
+  chartAxes: NonNullable<ChartSpec['axes']>,
 ): NormalizedLayerSpec {
   const data = layer.data ?? parentData;
   if (data === undefined) {
@@ -152,8 +363,8 @@ function normalizeLayer(
     id: layer.id ?? `layer-${index}`,
     data,
     mark: normalizeMark(layer.mark),
-    x: normalizeEncoding(layer.x, chartAxes.x),
-    y: normalizeEncoding(layer.y, chartAxes.y),
+    x: normalizeEncoding(layer.x, 'x', chartAxes),
+    y: normalizeEncoding(layer.y, 'y', chartAxes),
     visible: layer.visible ?? true,
     zIndex: layer.zIndex ?? index,
   };
@@ -162,9 +373,12 @@ function normalizeLayer(
 export function normalizeSpec(input: ChartSpec): NormalizedChartSpec {
   assertValidSpec(input);
 
+  const chartAxes = input.axes ?? {};
   const axes = {
-    x: normalizeAxis(input.axes?.x, false),
-    y: normalizeAxis(input.axes?.y, true),
+    x: normalizeAxis(chartAxes.x, 'x'),
+    x2: normalizeAxis(chartAxes.x2, 'x2'),
+    y: normalizeAxis(chartAxes.y, 'y'),
+    y2: normalizeAxis(chartAxes.y2, 'y2'),
   } as const;
 
   const shorthandLayer: LayerSpec | undefined =
@@ -178,7 +392,9 @@ export function normalizeSpec(input: ChartSpec): NormalizedChartSpec {
         };
 
   const sourceLayers = input.layers ?? (shorthandLayer === undefined ? [] : [shorthandLayer]);
-  const layers = sourceLayers.map((layer, index) => normalizeLayer(layer, index, input.data, axes));
+  const layers = sourceLayers.map((layer, index) =>
+    normalizeLayer(layer, index, input.data, chartAxes),
+  );
 
   const title = normalizeTitle(input.title);
 

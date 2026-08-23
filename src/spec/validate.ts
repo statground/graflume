@@ -18,8 +18,544 @@ const TOOLTIP_FIELD_KEYS = new Set([
   'prefix',
   'suffix',
 ]);
+const ENCODING_KEYS = new Set(['field', 'type', 'title', 'scale', 'axis', 'axisId']);
+const FIELD_TYPES = new Set(['quantitative', 'temporal', 'ordinal', 'nominal']);
+const SCALE_KEYS = new Set([
+  'type',
+  'domain',
+  'zero',
+  'nice',
+  'clamp',
+  'reverse',
+  'paddingInner',
+  'paddingOuter',
+]);
+const SCALE_TYPES = new Set(['linear', 'band', 'time']);
+const AXIS_IDS = new Set(['x', 'x2', 'y', 'y2']);
+const AXIS_KEYS = new Set([
+  'title',
+  'visible',
+  'position',
+  'offset',
+  'line',
+  'grid',
+  'ticks',
+  'labels',
+  'tickCount',
+  'format',
+  'labelAngle',
+]);
+const AXIS_STROKE_KEYS = new Set(['visible', 'color', 'width', 'opacity', 'dash']);
+const AXIS_TICK_KEYS = new Set([...AXIS_STROKE_KEYS, 'count', 'spacing', 'size', 'values']);
+const AXIS_LABEL_KEYS = new Set([
+  'visible',
+  'orientation',
+  'angle',
+  'align',
+  'padding',
+  'maxLength',
+  'color',
+  'font',
+]);
+const AXIS_TITLE_KEYS = new Set(['text', 'visible', 'align', 'angle', 'padding', 'color', 'font']);
+const AXIS_FONT_KEYS = new Set(['family', 'size', 'weight', 'style']);
+const AXIS_FORMAT_KEYS = new Set([
+  'type',
+  'fractionDigits',
+  'notation',
+  'useGrouping',
+  'currency',
+  'currencyDisplay',
+  'dateStyle',
+  'timeStyle',
+  'timeZone',
+  'prefix',
+  'suffix',
+]);
+const AXIS_FORMAT_TYPES = new Set([
+  'auto',
+  'number',
+  'integer',
+  'percent',
+  'compact',
+  'scientific',
+  'currency',
+  'date',
+  'time',
+  'datetime',
+]);
+const AXIS_POSITIONS = new Set(['top', 'bottom', 'left', 'right']);
+const AXIS_LABEL_ORIENTATIONS = new Set(['auto', 'horizontal', 'vertical-up', 'vertical-down']);
+const AXIS_TEXT_ALIGNS = new Set(['auto', 'start', 'center', 'end']);
+const AXIS_TITLE_ALIGNS = new Set(['start', 'center', 'end']);
+const AXIS_FONT_WEIGHTS = new Set(['normal', 'medium', 'semibold', 'bold']);
+const AXIS_FONT_STYLES = new Set(['normal', 'italic']);
+const AXIS_NOTATIONS = new Set(['standard', 'compact', 'scientific', 'engineering']);
+const AXIS_CURRENCY_DISPLAYS = new Set(['symbol', 'narrowSymbol', 'code', 'name']);
+const AXIS_DATE_STYLES = new Set(['short', 'medium', 'long', 'full']);
+const AXIS_TIME_STYLES = new Set(['short', 'medium', 'long']);
 
-function validateEncoding(value: unknown, path: string, issues: SpecIssue[]): void {
+function validateUnknownKeys(
+  value: Record<string, unknown>,
+  allowed: ReadonlySet<string>,
+  path: string,
+  kind: string,
+  issues: SpecIssue[],
+): void {
+  for (const key of Object.keys(value)) {
+    if (!allowed.has(key)) {
+      issues.push({ path: `${path}.${key}`, message: `Unknown ${kind} property "${key}".` });
+    }
+  }
+}
+
+function validateFiniteNumber(
+  value: unknown,
+  path: string,
+  label: string,
+  issues: SpecIssue[],
+  options: { readonly min?: number; readonly max?: number; readonly integer?: boolean } = {},
+): void {
+  if (
+    typeof value !== 'number' ||
+    !Number.isFinite(value) ||
+    (options.integer === true && !Number.isInteger(value)) ||
+    (options.min !== undefined && value < options.min) ||
+    (options.max !== undefined && value > options.max)
+  ) {
+    const integer = options.integer === true ? ' integer' : '';
+    const range =
+      options.min === undefined && options.max === undefined
+        ? ''
+        : ` from ${options.min ?? '-infinity'} to ${options.max ?? 'infinity'}`;
+    issues.push({ path, message: `${label} must be a finite${integer} number${range}.` });
+  }
+}
+
+function validateOptionalBoolean(
+  value: unknown,
+  path: string,
+  label: string,
+  issues: SpecIssue[],
+): void {
+  if (value !== undefined && typeof value !== 'boolean') {
+    issues.push({ path, message: `${label} must be a boolean.` });
+  }
+}
+
+function validateOptionalString(
+  value: unknown,
+  path: string,
+  label: string,
+  issues: SpecIssue[],
+  allowEmpty = true,
+): void {
+  if (value !== undefined && (typeof value !== 'string' || (!allowEmpty && value.trim() === ''))) {
+    issues.push({ path, message: `${label} must be a${allowEmpty ? '' : ' non-empty'} string.` });
+  }
+}
+
+function validateScale(value: unknown, path: string, issues: SpecIssue[]): void {
+  if (value === undefined) return;
+  if (!isPlainObject(value)) {
+    issues.push({ path, message: 'Scale must be an object.' });
+    return;
+  }
+  validateUnknownKeys(value, SCALE_KEYS, path, 'scale', issues);
+  if (
+    value.type !== undefined &&
+    (typeof value.type !== 'string' || !SCALE_TYPES.has(value.type))
+  ) {
+    issues.push({ path: `${path}.type`, message: 'Scale type is not supported.' });
+  }
+  if (value.domain !== undefined) {
+    if (!Array.isArray(value.domain) || value.domain.length < 2) {
+      issues.push({
+        path: `${path}.domain`,
+        message: 'Scale domain must contain at least 2 values.',
+      });
+    } else {
+      value.domain.forEach((entry, index) => {
+        if (
+          (typeof entry !== 'number' && typeof entry !== 'string') ||
+          (typeof entry === 'number' && !Number.isFinite(entry))
+        ) {
+          issues.push({
+            path: `${path}.domain[${index}]`,
+            message: 'Scale domain values must be finite numbers or strings.',
+          });
+        }
+      });
+    }
+  }
+  for (const key of ['zero', 'nice', 'clamp', 'reverse'] as const) {
+    validateOptionalBoolean(value[key], `${path}.${key}`, `Scale ${key}`, issues);
+  }
+  if (value.paddingInner !== undefined) {
+    validateFiniteNumber(value.paddingInner, `${path}.paddingInner`, 'Scale paddingInner', issues, {
+      min: 0,
+      max: 1,
+    });
+  }
+  if (value.paddingOuter !== undefined) {
+    validateFiniteNumber(value.paddingOuter, `${path}.paddingOuter`, 'Scale paddingOuter', issues, {
+      min: 0,
+    });
+  }
+}
+
+function validateAxisFont(value: unknown, path: string, issues: SpecIssue[]): void {
+  if (value === undefined) return;
+  if (!isPlainObject(value)) {
+    issues.push({ path, message: 'Axis font must be an object.' });
+    return;
+  }
+  validateUnknownKeys(value, AXIS_FONT_KEYS, path, 'axis font', issues);
+  validateOptionalString(value.family, `${path}.family`, 'Axis font family', issues, false);
+  if (value.size !== undefined) {
+    validateFiniteNumber(value.size, `${path}.size`, 'Axis font size', issues, {
+      min: 1,
+      max: 256,
+    });
+  }
+  if (
+    value.weight !== undefined &&
+    !(
+      (typeof value.weight === 'number' &&
+        Number.isInteger(value.weight) &&
+        value.weight >= 100 &&
+        value.weight <= 900) ||
+      (typeof value.weight === 'string' && AXIS_FONT_WEIGHTS.has(value.weight))
+    )
+  ) {
+    issues.push({
+      path: `${path}.weight`,
+      message: 'Axis font weight must be 100..900 or a supported named weight.',
+    });
+  }
+  if (
+    value.style !== undefined &&
+    (typeof value.style !== 'string' || !AXIS_FONT_STYLES.has(value.style))
+  ) {
+    issues.push({ path: `${path}.style`, message: 'Axis font style is not supported.' });
+  }
+}
+
+function validateAxisStroke(
+  value: unknown,
+  path: string,
+  issues: SpecIssue[],
+  allowedKeys: ReadonlySet<string> = AXIS_STROKE_KEYS,
+): value is Record<string, unknown> {
+  if (typeof value === 'boolean') return false;
+  if (!isPlainObject(value)) {
+    issues.push({ path, message: 'Axis stroke must be a boolean or an object.' });
+    return false;
+  }
+  validateUnknownKeys(value, allowedKeys, path, 'axis stroke', issues);
+  validateOptionalBoolean(value.visible, `${path}.visible`, 'Axis stroke visibility', issues);
+  validateOptionalString(value.color, `${path}.color`, 'Axis stroke color', issues, false);
+  if (value.width !== undefined) {
+    validateFiniteNumber(value.width, `${path}.width`, 'Axis stroke width', issues, {
+      min: 0,
+      max: 32,
+    });
+  }
+  if (value.opacity !== undefined) {
+    validateFiniteNumber(value.opacity, `${path}.opacity`, 'Axis stroke opacity', issues, {
+      min: 0,
+      max: 1,
+    });
+  }
+  if (value.dash !== undefined) {
+    if (!Array.isArray(value.dash) || value.dash.length > 16) {
+      issues.push({
+        path: `${path}.dash`,
+        message: 'Axis stroke dash must be an array of at most 16 numbers.',
+      });
+    } else {
+      value.dash.forEach((entry, index) =>
+        validateFiniteNumber(entry, `${path}.dash[${index}]`, 'Axis stroke dash value', issues, {
+          min: 0,
+          max: 256,
+        }),
+      );
+    }
+  }
+  return true;
+}
+
+function validateAxisTicks(value: unknown, path: string, issues: SpecIssue[]): void {
+  if (typeof value === 'boolean') return;
+  if (!validateAxisStroke(value, path, issues, AXIS_TICK_KEYS)) return;
+  if (value.count !== undefined) {
+    validateFiniteNumber(value.count, `${path}.count`, 'Axis tick count', issues, {
+      integer: true,
+      min: 1,
+      max: 200,
+    });
+  }
+  for (const key of ['spacing', 'size'] as const) {
+    if (value[key] !== undefined) {
+      validateFiniteNumber(value[key], `${path}.${key}`, `Axis tick ${key}`, issues, {
+        min: 0,
+        max: 256,
+      });
+    }
+  }
+  if (value.values !== undefined) {
+    if (!Array.isArray(value.values) || value.values.length === 0 || value.values.length > 200) {
+      issues.push({
+        path: `${path}.values`,
+        message: 'Axis tick values must contain between 1 and 200 entries.',
+      });
+    } else {
+      value.values.forEach((entry, index) => {
+        if (
+          (typeof entry !== 'number' && typeof entry !== 'string') ||
+          (typeof entry === 'number' && !Number.isFinite(entry))
+        ) {
+          issues.push({
+            path: `${path}.values[${index}]`,
+            message: 'Axis tick values must be finite numbers or strings.',
+          });
+        }
+      });
+    }
+  }
+}
+
+function validateAxisLabels(value: unknown, path: string, issues: SpecIssue[]): void {
+  if (typeof value === 'boolean') return;
+  if (!isPlainObject(value)) {
+    issues.push({ path, message: 'Axis labels must be a boolean or an object.' });
+    return;
+  }
+  validateUnknownKeys(value, AXIS_LABEL_KEYS, path, 'axis label', issues);
+  validateOptionalBoolean(value.visible, `${path}.visible`, 'Axis label visibility', issues);
+  if (
+    value.orientation !== undefined &&
+    (typeof value.orientation !== 'string' || !AXIS_LABEL_ORIENTATIONS.has(value.orientation))
+  ) {
+    issues.push({
+      path: `${path}.orientation`,
+      message: 'Axis label orientation is not supported.',
+    });
+  }
+  if (value.angle !== undefined) {
+    validateFiniteNumber(value.angle, `${path}.angle`, 'Axis label angle', issues, {
+      min: -360,
+      max: 360,
+    });
+  }
+  if (
+    value.align !== undefined &&
+    (typeof value.align !== 'string' || !AXIS_TEXT_ALIGNS.has(value.align))
+  ) {
+    issues.push({ path: `${path}.align`, message: 'Axis label alignment is not supported.' });
+  }
+  if (value.padding !== undefined) {
+    validateFiniteNumber(value.padding, `${path}.padding`, 'Axis label padding', issues, {
+      min: 0,
+      max: 256,
+    });
+  }
+  if (value.maxLength !== undefined) {
+    validateFiniteNumber(value.maxLength, `${path}.maxLength`, 'Axis label maxLength', issues, {
+      integer: true,
+      min: 1,
+      max: 1000,
+    });
+  }
+  validateOptionalString(value.color, `${path}.color`, 'Axis label color', issues, false);
+  validateAxisFont(value.font, `${path}.font`, issues);
+}
+
+function validateAxisTitle(value: unknown, path: string, issues: SpecIssue[]): void {
+  if (value === undefined) return;
+  if (typeof value === 'string' || value === false) return;
+  if (!isPlainObject(value)) {
+    issues.push({ path, message: 'Axis title must be a string, false, or an object.' });
+    return;
+  }
+  validateUnknownKeys(value, AXIS_TITLE_KEYS, path, 'axis title', issues);
+  validateOptionalString(value.text, `${path}.text`, 'Axis title text', issues);
+  validateOptionalBoolean(value.visible, `${path}.visible`, 'Axis title visibility', issues);
+  if (
+    value.align !== undefined &&
+    (typeof value.align !== 'string' || !AXIS_TITLE_ALIGNS.has(value.align))
+  ) {
+    issues.push({ path: `${path}.align`, message: 'Axis title alignment is not supported.' });
+  }
+  if (value.angle !== undefined) {
+    validateFiniteNumber(value.angle, `${path}.angle`, 'Axis title angle', issues, {
+      min: -360,
+      max: 360,
+    });
+  }
+  if (value.padding !== undefined) {
+    validateFiniteNumber(value.padding, `${path}.padding`, 'Axis title padding', issues, {
+      min: 0,
+      max: 256,
+    });
+  }
+  validateOptionalString(value.color, `${path}.color`, 'Axis title color', issues, false);
+  validateAxisFont(value.font, `${path}.font`, issues);
+}
+
+function validateAxisFormat(value: unknown, path: string, issues: SpecIssue[]): void {
+  if (typeof value === 'string') {
+    if (!AXIS_FORMAT_TYPES.has(value)) {
+      issues.push({ path, message: 'Axis format is not supported.' });
+    }
+    return;
+  }
+  if (!isPlainObject(value)) {
+    issues.push({ path, message: 'Axis format must be a supported name or an object.' });
+    return;
+  }
+  validateUnknownKeys(value, AXIS_FORMAT_KEYS, path, 'axis format', issues);
+  if (
+    value.type !== undefined &&
+    (typeof value.type !== 'string' || !AXIS_FORMAT_TYPES.has(value.type))
+  ) {
+    issues.push({ path: `${path}.type`, message: 'Axis format type is not supported.' });
+  }
+  if (value.fractionDigits !== undefined) {
+    validateFiniteNumber(
+      value.fractionDigits,
+      `${path}.fractionDigits`,
+      'Axis format fractionDigits',
+      issues,
+      { integer: true, min: 0, max: 20 },
+    );
+  }
+  if (
+    value.notation !== undefined &&
+    (typeof value.notation !== 'string' || !AXIS_NOTATIONS.has(value.notation))
+  ) {
+    issues.push({ path: `${path}.notation`, message: 'Axis number notation is not supported.' });
+  }
+  validateOptionalBoolean(
+    value.useGrouping,
+    `${path}.useGrouping`,
+    'Axis format useGrouping',
+    issues,
+  );
+  if (value.currency !== undefined) {
+    if (typeof value.currency !== 'string' || !/^[A-Z]{3}$/.test(value.currency)) {
+      issues.push({
+        path: `${path}.currency`,
+        message: 'Axis currency must be an uppercase three-letter code.',
+      });
+    }
+    if (value.type !== undefined && value.type !== 'currency') {
+      issues.push({
+        path: `${path}.currency`,
+        message: 'Axis currency is only valid for the currency format.',
+      });
+    }
+  }
+  if (
+    value.currencyDisplay !== undefined &&
+    (typeof value.currencyDisplay !== 'string' ||
+      !AXIS_CURRENCY_DISPLAYS.has(value.currencyDisplay))
+  ) {
+    issues.push({
+      path: `${path}.currencyDisplay`,
+      message: 'Axis currency display is not supported.',
+    });
+  }
+  if (
+    value.dateStyle !== undefined &&
+    (typeof value.dateStyle !== 'string' || !AXIS_DATE_STYLES.has(value.dateStyle))
+  ) {
+    issues.push({ path: `${path}.dateStyle`, message: 'Axis date style is not supported.' });
+  }
+  if (
+    value.timeStyle !== undefined &&
+    (typeof value.timeStyle !== 'string' || !AXIS_TIME_STYLES.has(value.timeStyle))
+  ) {
+    issues.push({ path: `${path}.timeStyle`, message: 'Axis time style is not supported.' });
+  }
+  validateOptionalString(value.timeZone, `${path}.timeZone`, 'Axis timeZone', issues, false);
+  validateOptionalString(value.prefix, `${path}.prefix`, 'Axis format prefix', issues);
+  validateOptionalString(value.suffix, `${path}.suffix`, 'Axis format suffix', issues);
+}
+
+function validateAxis(
+  value: unknown,
+  path: string,
+  axisId: 'x' | 'x2' | 'y' | 'y2',
+  issues: SpecIssue[],
+): void {
+  if (value === false) return;
+  if (!isPlainObject(value)) {
+    issues.push({ path, message: 'Axis must be an object or false.' });
+    return;
+  }
+  validateUnknownKeys(value, AXIS_KEYS, path, 'axis', issues);
+  validateAxisTitle(value.title, `${path}.title`, issues);
+  validateOptionalBoolean(value.visible, `${path}.visible`, 'Axis visibility', issues);
+  if (value.position !== undefined) {
+    if (typeof value.position !== 'string' || !AXIS_POSITIONS.has(value.position)) {
+      issues.push({ path: `${path}.position`, message: 'Axis position is not supported.' });
+    } else if (
+      ((axisId === 'x' || axisId === 'x2') && !['top', 'bottom'].includes(value.position)) ||
+      ((axisId === 'y' || axisId === 'y2') && !['left', 'right'].includes(value.position))
+    ) {
+      issues.push({
+        path: `${path}.position`,
+        message: `${axisId}-axis position is incompatible with its channel.`,
+      });
+    }
+  }
+  if (value.offset !== undefined) {
+    validateFiniteNumber(value.offset, `${path}.offset`, 'Axis offset', issues, {
+      min: 0,
+      max: 256,
+    });
+  }
+  for (const key of ['line', 'grid'] as const) {
+    if (value[key] !== undefined) validateAxisStroke(value[key], `${path}.${key}`, issues);
+  }
+  if (value.ticks !== undefined) validateAxisTicks(value.ticks, `${path}.ticks`, issues);
+  if (value.labels !== undefined) validateAxisLabels(value.labels, `${path}.labels`, issues);
+  if (value.tickCount !== undefined) {
+    validateFiniteNumber(value.tickCount, `${path}.tickCount`, 'Axis tickCount', issues, {
+      integer: true,
+      min: 1,
+      max: 200,
+    });
+  }
+  if (value.format !== undefined) validateAxisFormat(value.format, `${path}.format`, issues);
+  if (value.labelAngle !== undefined) {
+    validateFiniteNumber(value.labelAngle, `${path}.labelAngle`, 'Axis labelAngle', issues, {
+      min: -360,
+      max: 360,
+    });
+  }
+}
+
+function validateAxes(value: unknown, path: string, issues: SpecIssue[]): void {
+  if (value === undefined) return;
+  if (!isPlainObject(value)) {
+    issues.push({ path, message: 'Axes must be an object.' });
+    return;
+  }
+  validateUnknownKeys(value, AXIS_IDS, path, 'axes', issues);
+  for (const axisId of ['x', 'x2', 'y', 'y2'] as const) {
+    if (value[axisId] !== undefined)
+      validateAxis(value[axisId], `${path}.${axisId}`, axisId, issues);
+  }
+}
+
+function validateEncoding(
+  value: unknown,
+  path: string,
+  channel: 'x' | 'y',
+  issues: SpecIssue[],
+): void {
   if (typeof value === 'string') {
     if (value.trim() === '') issues.push({ path, message: 'Field name must not be empty.' });
     if (UNSAFE_FIELDS.has(value))
@@ -32,10 +568,36 @@ function validateEncoding(value: unknown, path: string, issues: SpecIssue[]): vo
     return;
   }
 
+  validateUnknownKeys(value, ENCODING_KEYS, path, 'encoding', issues);
+
   if (value.field.trim() === '')
     issues.push({ path: `${path}.field`, message: 'Field must not be empty.' });
   if (UNSAFE_FIELDS.has(value.field)) {
     issues.push({ path: `${path}.field`, message: `Unsafe field "${value.field}" is forbidden.` });
+  }
+  if (
+    value.type !== undefined &&
+    (typeof value.type !== 'string' || !FIELD_TYPES.has(value.type))
+  ) {
+    issues.push({ path: `${path}.type`, message: 'Encoding type is not supported.' });
+  }
+  validateOptionalString(value.title, `${path}.title`, 'Encoding title', issues);
+  validateScale(value.scale, `${path}.scale`, issues);
+
+  const allowedAxisIds = channel === 'x' ? new Set(['x', 'x2']) : new Set(['y', 'y2']);
+  const axisId =
+    typeof value.axisId === 'string' && allowedAxisIds.has(value.axisId) ? value.axisId : channel;
+  if (
+    value.axisId !== undefined &&
+    (typeof value.axisId !== 'string' || !allowedAxisIds.has(value.axisId))
+  ) {
+    issues.push({
+      path: `${path}.axisId`,
+      message: `${channel}-encoding axisId must be "${channel}" or "${channel}2".`,
+    });
+  }
+  if (value.axis !== undefined) {
+    validateAxis(value.axis, `${path}.axis`, axisId as 'x' | 'x2' | 'y' | 'y2', issues);
   }
 }
 
@@ -164,11 +726,11 @@ function validateInteraction(value: unknown, path: string, issues: SpecIssue[]):
   }
   if (
     tooltip.axis !== undefined &&
-    (typeof tooltip.axis !== 'string' || !['x', 'y'].includes(tooltip.axis))
+    (typeof tooltip.axis !== 'string' || !AXIS_IDS.has(tooltip.axis))
   ) {
     issues.push({
       path: `${path}.tooltip.axis`,
-      message: 'Tooltip axis must be "x" or "y".',
+      message: 'Tooltip axis must be "x", "x2", "y", or "y2".',
     });
   }
   const trigger = tooltip.trigger ?? 'mark';
@@ -217,8 +779,8 @@ function validateLayer(
   }
 
   validateMark(layer.mark as MarkInput, `${path}.mark`, issues);
-  validateEncoding(layer.x as EncodingInput, `${path}.x`, issues);
-  validateEncoding(layer.y as EncodingInput, `${path}.y`, issues);
+  validateEncoding(layer.x as EncodingInput, `${path}.x`, 'x', issues);
+  validateEncoding(layer.y as EncodingInput, `${path}.y`, 'y', issues);
 
   if (!hasParentData && layer.data === undefined) {
     issues.push({
@@ -286,8 +848,8 @@ export function validateSpec(input: unknown): readonly SpecIssue[] {
 
   if (hasShorthand) {
     validateMark(input.mark as MarkInput, '$.mark', issues);
-    validateEncoding(input.x as EncodingInput, '$.x', issues);
-    validateEncoding(input.y as EncodingInput, '$.y', issues);
+    validateEncoding(input.x as EncodingInput, '$.x', 'x', issues);
+    validateEncoding(input.y as EncodingInput, '$.y', 'y', issues);
     if (input.data === undefined) {
       issues.push({
         path: '$.data',
@@ -296,6 +858,7 @@ export function validateSpec(input: unknown): readonly SpecIssue[] {
     }
   }
 
+  validateAxes(input.axes, '$.axes', issues);
   validateInteraction(input.interaction, '$.interaction', issues);
 
   findFunctions(input, '$', issues, new WeakSet());
