@@ -66,10 +66,10 @@ var Graflume = (function (exports) {
     const indexByScene = new WeakMap();
     const coordinateEpsilon = 1e-6;
     function primary(target, axis) {
-        return axis === 'x' ? target.x : target.y;
+        return axis === 'x' || axis === 'x2' ? target.x : target.y;
     }
     function perpendicular(target, axis) {
-        return axis === 'x' ? target.y : target.x;
+        return axis === 'x' || axis === 'x2' ? target.y : target.x;
     }
     function registerAxisTooltipIndex(scene, registration) {
         const targets = registration.targets
@@ -88,12 +88,19 @@ var Graflume = (function (exports) {
         const { plot, axis, axisVisible, axisStripSize } = index;
         const right = plot.x + plot.width;
         const bottom = plot.y + plot.height;
-        if (axis === 'x') {
-            const stripBottom = bottom + (axisVisible ? axisStripSize : 0);
-            return x >= plot.x && x <= right && y >= plot.y && y <= stripBottom;
+        const horizontal = axis === 'x' || axis === 'x2';
+        const position = index.position ??
+            (horizontal ? (axis === 'x2' ? 'top' : 'bottom') : axis === 'y2' ? 'right' : 'left');
+        if (horizontal) {
+            const strip = axisVisible ? axisStripSize : 0;
+            const top = position === 'top' ? plot.y - strip : plot.y;
+            const stripBottom = position === 'bottom' ? bottom + strip : bottom;
+            return x >= plot.x && x <= right && y >= top && y <= stripBottom;
         }
-        const stripLeft = plot.x - (axisVisible ? axisStripSize : 0);
-        return x >= stripLeft && x <= right && y >= plot.y && y <= bottom;
+        const strip = axisVisible ? axisStripSize : 0;
+        const left = position === 'left' ? plot.x - strip : plot.x;
+        const stripRight = position === 'right' ? right + strip : right;
+        return x >= left && x <= stripRight && y >= plot.y && y <= bottom;
     }
     function lowerBound(targets, axis, value) {
         let low = 0;
@@ -132,8 +139,9 @@ var Graflume = (function (exports) {
             !insideActivationRegion(index, x, y)) {
             return null;
         }
-        const pointerPrimary = index.axis === 'x' ? x : y;
-        const pointerPerpendicular = index.axis === 'x' ? y : x;
+        const horizontal = index.axis === 'x' || index.axis === 'x2';
+        const pointerPrimary = horizontal ? x : y;
+        const pointerPerpendicular = horizontal ? y : x;
         const coordinate = nearestCoordinate(index, pointerPrimary);
         if (coordinate === null)
             return null;
@@ -272,7 +280,464 @@ var Graflume = (function (exports) {
         'prefix',
         'suffix',
     ]);
-    function validateEncoding(value, path, issues) {
+    const ENCODING_KEYS = new Set(['field', 'type', 'title', 'scale', 'axis', 'axisId']);
+    const FIELD_TYPES = new Set(['quantitative', 'temporal', 'ordinal', 'nominal']);
+    const SCALE_KEYS = new Set([
+        'type',
+        'domain',
+        'zero',
+        'nice',
+        'clamp',
+        'reverse',
+        'paddingInner',
+        'paddingOuter',
+    ]);
+    const SCALE_TYPES = new Set(['linear', 'band', 'time']);
+    const AXIS_IDS = new Set(['x', 'x2', 'y', 'y2']);
+    const AXIS_KEYS = new Set([
+        'title',
+        'visible',
+        'position',
+        'offset',
+        'line',
+        'grid',
+        'ticks',
+        'labels',
+        'tickCount',
+        'format',
+        'labelAngle',
+    ]);
+    const AXIS_STROKE_KEYS = new Set(['visible', 'color', 'width', 'opacity', 'dash']);
+    const AXIS_TICK_KEYS = new Set([...AXIS_STROKE_KEYS, 'count', 'spacing', 'size', 'values']);
+    const AXIS_LABEL_KEYS = new Set([
+        'visible',
+        'orientation',
+        'angle',
+        'align',
+        'padding',
+        'maxLength',
+        'color',
+        'font',
+    ]);
+    const AXIS_TITLE_KEYS = new Set(['text', 'visible', 'align', 'angle', 'padding', 'color', 'font']);
+    const AXIS_FONT_KEYS = new Set(['family', 'size', 'weight', 'style']);
+    const AXIS_FORMAT_KEYS = new Set([
+        'type',
+        'fractionDigits',
+        'notation',
+        'useGrouping',
+        'currency',
+        'currencyDisplay',
+        'dateStyle',
+        'timeStyle',
+        'timeZone',
+        'prefix',
+        'suffix',
+    ]);
+    const AXIS_FORMAT_TYPES = new Set([
+        'auto',
+        'number',
+        'integer',
+        'percent',
+        'compact',
+        'scientific',
+        'currency',
+        'date',
+        'time',
+        'datetime',
+    ]);
+    const AXIS_POSITIONS = new Set(['top', 'bottom', 'left', 'right']);
+    const AXIS_LABEL_ORIENTATIONS = new Set(['auto', 'horizontal', 'vertical-up', 'vertical-down']);
+    const AXIS_TEXT_ALIGNS = new Set(['auto', 'start', 'center', 'end']);
+    const AXIS_TITLE_ALIGNS = new Set(['start', 'center', 'end']);
+    const AXIS_FONT_WEIGHTS = new Set(['normal', 'medium', 'semibold', 'bold']);
+    const AXIS_FONT_STYLES = new Set(['normal', 'italic']);
+    const AXIS_NOTATIONS = new Set(['standard', 'compact', 'scientific', 'engineering']);
+    const AXIS_CURRENCY_DISPLAYS = new Set(['symbol', 'narrowSymbol', 'code', 'name']);
+    const AXIS_DATE_STYLES = new Set(['short', 'medium', 'long', 'full']);
+    const AXIS_TIME_STYLES = new Set(['short', 'medium', 'long']);
+    function validateUnknownKeys(value, allowed, path, kind, issues) {
+        for (const key of Object.keys(value)) {
+            if (!allowed.has(key)) {
+                issues.push({ path: `${path}.${key}`, message: `Unknown ${kind} property "${key}".` });
+            }
+        }
+    }
+    function validateFiniteNumber(value, path, label, issues, options = {}) {
+        if (typeof value !== 'number' ||
+            !Number.isFinite(value) ||
+            (options.integer === true && !Number.isInteger(value)) ||
+            (options.min !== undefined && value < options.min) ||
+            (options.max !== undefined && value > options.max)) {
+            const integer = options.integer === true ? ' integer' : '';
+            const range = options.min === undefined && options.max === undefined
+                ? ''
+                : ` from ${options.min ?? '-infinity'} to ${options.max ?? 'infinity'}`;
+            issues.push({ path, message: `${label} must be a finite${integer} number${range}.` });
+        }
+    }
+    function validateOptionalBoolean(value, path, label, issues) {
+        if (value !== undefined && typeof value !== 'boolean') {
+            issues.push({ path, message: `${label} must be a boolean.` });
+        }
+    }
+    function validateOptionalString(value, path, label, issues, allowEmpty = true) {
+        if (value !== undefined && (typeof value !== 'string' || (!allowEmpty && value.trim() === ''))) {
+            issues.push({ path, message: `${label} must be a${allowEmpty ? '' : ' non-empty'} string.` });
+        }
+    }
+    function validateScale(value, path, issues) {
+        if (value === undefined)
+            return;
+        if (!isPlainObject(value)) {
+            issues.push({ path, message: 'Scale must be an object.' });
+            return;
+        }
+        validateUnknownKeys(value, SCALE_KEYS, path, 'scale', issues);
+        if (value.type !== undefined &&
+            (typeof value.type !== 'string' || !SCALE_TYPES.has(value.type))) {
+            issues.push({ path: `${path}.type`, message: 'Scale type is not supported.' });
+        }
+        if (value.domain !== undefined) {
+            if (!Array.isArray(value.domain) || value.domain.length < 2) {
+                issues.push({
+                    path: `${path}.domain`,
+                    message: 'Scale domain must contain at least 2 values.',
+                });
+            }
+            else {
+                value.domain.forEach((entry, index) => {
+                    if ((typeof entry !== 'number' && typeof entry !== 'string') ||
+                        (typeof entry === 'number' && !Number.isFinite(entry))) {
+                        issues.push({
+                            path: `${path}.domain[${index}]`,
+                            message: 'Scale domain values must be finite numbers or strings.',
+                        });
+                    }
+                });
+            }
+        }
+        for (const key of ['zero', 'nice', 'clamp', 'reverse']) {
+            validateOptionalBoolean(value[key], `${path}.${key}`, `Scale ${key}`, issues);
+        }
+        if (value.paddingInner !== undefined) {
+            validateFiniteNumber(value.paddingInner, `${path}.paddingInner`, 'Scale paddingInner', issues, {
+                min: 0,
+                max: 1,
+            });
+        }
+        if (value.paddingOuter !== undefined) {
+            validateFiniteNumber(value.paddingOuter, `${path}.paddingOuter`, 'Scale paddingOuter', issues, {
+                min: 0,
+            });
+        }
+    }
+    function validateAxisFont(value, path, issues) {
+        if (value === undefined)
+            return;
+        if (!isPlainObject(value)) {
+            issues.push({ path, message: 'Axis font must be an object.' });
+            return;
+        }
+        validateUnknownKeys(value, AXIS_FONT_KEYS, path, 'axis font', issues);
+        validateOptionalString(value.family, `${path}.family`, 'Axis font family', issues, false);
+        if (value.size !== undefined) {
+            validateFiniteNumber(value.size, `${path}.size`, 'Axis font size', issues, {
+                min: 1,
+                max: 256,
+            });
+        }
+        if (value.weight !== undefined &&
+            !((typeof value.weight === 'number' &&
+                Number.isInteger(value.weight) &&
+                value.weight >= 100 &&
+                value.weight <= 900) ||
+                (typeof value.weight === 'string' && AXIS_FONT_WEIGHTS.has(value.weight)))) {
+            issues.push({
+                path: `${path}.weight`,
+                message: 'Axis font weight must be 100..900 or a supported named weight.',
+            });
+        }
+        if (value.style !== undefined &&
+            (typeof value.style !== 'string' || !AXIS_FONT_STYLES.has(value.style))) {
+            issues.push({ path: `${path}.style`, message: 'Axis font style is not supported.' });
+        }
+    }
+    function validateAxisStroke(value, path, issues, allowedKeys = AXIS_STROKE_KEYS) {
+        if (typeof value === 'boolean')
+            return false;
+        if (!isPlainObject(value)) {
+            issues.push({ path, message: 'Axis stroke must be a boolean or an object.' });
+            return false;
+        }
+        validateUnknownKeys(value, allowedKeys, path, 'axis stroke', issues);
+        validateOptionalBoolean(value.visible, `${path}.visible`, 'Axis stroke visibility', issues);
+        validateOptionalString(value.color, `${path}.color`, 'Axis stroke color', issues, false);
+        if (value.width !== undefined) {
+            validateFiniteNumber(value.width, `${path}.width`, 'Axis stroke width', issues, {
+                min: 0,
+                max: 32,
+            });
+        }
+        if (value.opacity !== undefined) {
+            validateFiniteNumber(value.opacity, `${path}.opacity`, 'Axis stroke opacity', issues, {
+                min: 0,
+                max: 1,
+            });
+        }
+        if (value.dash !== undefined) {
+            if (!Array.isArray(value.dash) || value.dash.length > 16) {
+                issues.push({
+                    path: `${path}.dash`,
+                    message: 'Axis stroke dash must be an array of at most 16 numbers.',
+                });
+            }
+            else {
+                value.dash.forEach((entry, index) => validateFiniteNumber(entry, `${path}.dash[${index}]`, 'Axis stroke dash value', issues, {
+                    min: 0,
+                    max: 256,
+                }));
+            }
+        }
+        return true;
+    }
+    function validateAxisTicks(value, path, issues) {
+        if (typeof value === 'boolean')
+            return;
+        if (!validateAxisStroke(value, path, issues, AXIS_TICK_KEYS))
+            return;
+        if (value.count !== undefined) {
+            validateFiniteNumber(value.count, `${path}.count`, 'Axis tick count', issues, {
+                integer: true,
+                min: 1,
+                max: 200,
+            });
+        }
+        for (const key of ['spacing', 'size']) {
+            if (value[key] !== undefined) {
+                validateFiniteNumber(value[key], `${path}.${key}`, `Axis tick ${key}`, issues, {
+                    min: 0,
+                    max: 256,
+                });
+            }
+        }
+        if (value.values !== undefined) {
+            if (!Array.isArray(value.values) || value.values.length === 0 || value.values.length > 200) {
+                issues.push({
+                    path: `${path}.values`,
+                    message: 'Axis tick values must contain between 1 and 200 entries.',
+                });
+            }
+            else {
+                value.values.forEach((entry, index) => {
+                    if ((typeof entry !== 'number' && typeof entry !== 'string') ||
+                        (typeof entry === 'number' && !Number.isFinite(entry))) {
+                        issues.push({
+                            path: `${path}.values[${index}]`,
+                            message: 'Axis tick values must be finite numbers or strings.',
+                        });
+                    }
+                });
+            }
+        }
+    }
+    function validateAxisLabels(value, path, issues) {
+        if (typeof value === 'boolean')
+            return;
+        if (!isPlainObject(value)) {
+            issues.push({ path, message: 'Axis labels must be a boolean or an object.' });
+            return;
+        }
+        validateUnknownKeys(value, AXIS_LABEL_KEYS, path, 'axis label', issues);
+        validateOptionalBoolean(value.visible, `${path}.visible`, 'Axis label visibility', issues);
+        if (value.orientation !== undefined &&
+            (typeof value.orientation !== 'string' || !AXIS_LABEL_ORIENTATIONS.has(value.orientation))) {
+            issues.push({
+                path: `${path}.orientation`,
+                message: 'Axis label orientation is not supported.',
+            });
+        }
+        if (value.angle !== undefined) {
+            validateFiniteNumber(value.angle, `${path}.angle`, 'Axis label angle', issues, {
+                min: -360,
+                max: 360,
+            });
+        }
+        if (value.align !== undefined &&
+            (typeof value.align !== 'string' || !AXIS_TEXT_ALIGNS.has(value.align))) {
+            issues.push({ path: `${path}.align`, message: 'Axis label alignment is not supported.' });
+        }
+        if (value.padding !== undefined) {
+            validateFiniteNumber(value.padding, `${path}.padding`, 'Axis label padding', issues, {
+                min: 0,
+                max: 256,
+            });
+        }
+        if (value.maxLength !== undefined) {
+            validateFiniteNumber(value.maxLength, `${path}.maxLength`, 'Axis label maxLength', issues, {
+                integer: true,
+                min: 1,
+                max: 1000,
+            });
+        }
+        validateOptionalString(value.color, `${path}.color`, 'Axis label color', issues, false);
+        validateAxisFont(value.font, `${path}.font`, issues);
+    }
+    function validateAxisTitle(value, path, issues) {
+        if (value === undefined)
+            return;
+        if (typeof value === 'string' || value === false)
+            return;
+        if (!isPlainObject(value)) {
+            issues.push({ path, message: 'Axis title must be a string, false, or an object.' });
+            return;
+        }
+        validateUnknownKeys(value, AXIS_TITLE_KEYS, path, 'axis title', issues);
+        validateOptionalString(value.text, `${path}.text`, 'Axis title text', issues);
+        validateOptionalBoolean(value.visible, `${path}.visible`, 'Axis title visibility', issues);
+        if (value.align !== undefined &&
+            (typeof value.align !== 'string' || !AXIS_TITLE_ALIGNS.has(value.align))) {
+            issues.push({ path: `${path}.align`, message: 'Axis title alignment is not supported.' });
+        }
+        if (value.angle !== undefined) {
+            validateFiniteNumber(value.angle, `${path}.angle`, 'Axis title angle', issues, {
+                min: -360,
+                max: 360,
+            });
+        }
+        if (value.padding !== undefined) {
+            validateFiniteNumber(value.padding, `${path}.padding`, 'Axis title padding', issues, {
+                min: 0,
+                max: 256,
+            });
+        }
+        validateOptionalString(value.color, `${path}.color`, 'Axis title color', issues, false);
+        validateAxisFont(value.font, `${path}.font`, issues);
+    }
+    function validateAxisFormat(value, path, issues) {
+        if (typeof value === 'string') {
+            if (!AXIS_FORMAT_TYPES.has(value)) {
+                issues.push({ path, message: 'Axis format is not supported.' });
+            }
+            return;
+        }
+        if (!isPlainObject(value)) {
+            issues.push({ path, message: 'Axis format must be a supported name or an object.' });
+            return;
+        }
+        validateUnknownKeys(value, AXIS_FORMAT_KEYS, path, 'axis format', issues);
+        if (value.type !== undefined &&
+            (typeof value.type !== 'string' || !AXIS_FORMAT_TYPES.has(value.type))) {
+            issues.push({ path: `${path}.type`, message: 'Axis format type is not supported.' });
+        }
+        if (value.fractionDigits !== undefined) {
+            validateFiniteNumber(value.fractionDigits, `${path}.fractionDigits`, 'Axis format fractionDigits', issues, { integer: true, min: 0, max: 20 });
+        }
+        if (value.notation !== undefined &&
+            (typeof value.notation !== 'string' || !AXIS_NOTATIONS.has(value.notation))) {
+            issues.push({ path: `${path}.notation`, message: 'Axis number notation is not supported.' });
+        }
+        validateOptionalBoolean(value.useGrouping, `${path}.useGrouping`, 'Axis format useGrouping', issues);
+        if (value.currency !== undefined) {
+            if (typeof value.currency !== 'string' || !/^[A-Z]{3}$/.test(value.currency)) {
+                issues.push({
+                    path: `${path}.currency`,
+                    message: 'Axis currency must be an uppercase three-letter code.',
+                });
+            }
+            if (value.type !== undefined && value.type !== 'currency') {
+                issues.push({
+                    path: `${path}.currency`,
+                    message: 'Axis currency is only valid for the currency format.',
+                });
+            }
+        }
+        if (value.currencyDisplay !== undefined &&
+            (typeof value.currencyDisplay !== 'string' ||
+                !AXIS_CURRENCY_DISPLAYS.has(value.currencyDisplay))) {
+            issues.push({
+                path: `${path}.currencyDisplay`,
+                message: 'Axis currency display is not supported.',
+            });
+        }
+        if (value.dateStyle !== undefined &&
+            (typeof value.dateStyle !== 'string' || !AXIS_DATE_STYLES.has(value.dateStyle))) {
+            issues.push({ path: `${path}.dateStyle`, message: 'Axis date style is not supported.' });
+        }
+        if (value.timeStyle !== undefined &&
+            (typeof value.timeStyle !== 'string' || !AXIS_TIME_STYLES.has(value.timeStyle))) {
+            issues.push({ path: `${path}.timeStyle`, message: 'Axis time style is not supported.' });
+        }
+        validateOptionalString(value.timeZone, `${path}.timeZone`, 'Axis timeZone', issues, false);
+        validateOptionalString(value.prefix, `${path}.prefix`, 'Axis format prefix', issues);
+        validateOptionalString(value.suffix, `${path}.suffix`, 'Axis format suffix', issues);
+    }
+    function validateAxis(value, path, axisId, issues) {
+        if (value === false)
+            return;
+        if (!isPlainObject(value)) {
+            issues.push({ path, message: 'Axis must be an object or false.' });
+            return;
+        }
+        validateUnknownKeys(value, AXIS_KEYS, path, 'axis', issues);
+        validateAxisTitle(value.title, `${path}.title`, issues);
+        validateOptionalBoolean(value.visible, `${path}.visible`, 'Axis visibility', issues);
+        if (value.position !== undefined) {
+            if (typeof value.position !== 'string' || !AXIS_POSITIONS.has(value.position)) {
+                issues.push({ path: `${path}.position`, message: 'Axis position is not supported.' });
+            }
+            else if (((axisId === 'x' || axisId === 'x2') && !['top', 'bottom'].includes(value.position)) ||
+                ((axisId === 'y' || axisId === 'y2') && !['left', 'right'].includes(value.position))) {
+                issues.push({
+                    path: `${path}.position`,
+                    message: `${axisId}-axis position is incompatible with its channel.`,
+                });
+            }
+        }
+        if (value.offset !== undefined) {
+            validateFiniteNumber(value.offset, `${path}.offset`, 'Axis offset', issues, {
+                min: 0,
+                max: 256,
+            });
+        }
+        for (const key of ['line', 'grid']) {
+            if (value[key] !== undefined)
+                validateAxisStroke(value[key], `${path}.${key}`, issues);
+        }
+        if (value.ticks !== undefined)
+            validateAxisTicks(value.ticks, `${path}.ticks`, issues);
+        if (value.labels !== undefined)
+            validateAxisLabels(value.labels, `${path}.labels`, issues);
+        if (value.tickCount !== undefined) {
+            validateFiniteNumber(value.tickCount, `${path}.tickCount`, 'Axis tickCount', issues, {
+                integer: true,
+                min: 1,
+                max: 200,
+            });
+        }
+        if (value.format !== undefined)
+            validateAxisFormat(value.format, `${path}.format`, issues);
+        if (value.labelAngle !== undefined) {
+            validateFiniteNumber(value.labelAngle, `${path}.labelAngle`, 'Axis labelAngle', issues, {
+                min: -360,
+                max: 360,
+            });
+        }
+    }
+    function validateAxes(value, path, issues) {
+        if (value === undefined)
+            return;
+        if (!isPlainObject(value)) {
+            issues.push({ path, message: 'Axes must be an object.' });
+            return;
+        }
+        validateUnknownKeys(value, AXIS_IDS, path, 'axes', issues);
+        for (const axisId of ['x', 'x2', 'y', 'y2']) {
+            if (value[axisId] !== undefined)
+                validateAxis(value[axisId], `${path}.${axisId}`, axisId, issues);
+        }
+    }
+    function validateEncoding(value, path, channel, issues) {
         if (typeof value === 'string') {
             if (value.trim() === '')
                 issues.push({ path, message: 'Field name must not be empty.' });
@@ -284,10 +749,29 @@ var Graflume = (function (exports) {
             issues.push({ path, message: 'Encoding must be a field name or an object with a field.' });
             return;
         }
+        validateUnknownKeys(value, ENCODING_KEYS, path, 'encoding', issues);
         if (value.field.trim() === '')
             issues.push({ path: `${path}.field`, message: 'Field must not be empty.' });
         if (UNSAFE_FIELDS.has(value.field)) {
             issues.push({ path: `${path}.field`, message: `Unsafe field "${value.field}" is forbidden.` });
+        }
+        if (value.type !== undefined &&
+            (typeof value.type !== 'string' || !FIELD_TYPES.has(value.type))) {
+            issues.push({ path: `${path}.type`, message: 'Encoding type is not supported.' });
+        }
+        validateOptionalString(value.title, `${path}.title`, 'Encoding title', issues);
+        validateScale(value.scale, `${path}.scale`, issues);
+        const allowedAxisIds = channel === 'x' ? new Set(['x', 'x2']) : new Set(['y', 'y2']);
+        const axisId = typeof value.axisId === 'string' && allowedAxisIds.has(value.axisId) ? value.axisId : channel;
+        if (value.axisId !== undefined &&
+            (typeof value.axisId !== 'string' || !allowedAxisIds.has(value.axisId))) {
+            issues.push({
+                path: `${path}.axisId`,
+                message: `${channel}-encoding axisId must be "${channel}" or "${channel}2".`,
+            });
+        }
+        if (value.axis !== undefined) {
+            validateAxis(value.axis, `${path}.axis`, axisId, issues);
         }
     }
     function validateMark(value, path, issues) {
@@ -410,10 +894,10 @@ var Graflume = (function (exports) {
             });
         }
         if (tooltip.axis !== undefined &&
-            (typeof tooltip.axis !== 'string' || !['x', 'y'].includes(tooltip.axis))) {
+            (typeof tooltip.axis !== 'string' || !AXIS_IDS.has(tooltip.axis))) {
             issues.push({
                 path: `${path}.tooltip.axis`,
-                message: 'Tooltip axis must be "x" or "y".',
+                message: 'Tooltip axis must be "x", "x2", "y", or "y2".',
             });
         }
         const trigger = tooltip.trigger ?? 'mark';
@@ -452,8 +936,8 @@ var Graflume = (function (exports) {
             return;
         }
         validateMark(layer.mark, `${path}.mark`, issues);
-        validateEncoding(layer.x, `${path}.x`, issues);
-        validateEncoding(layer.y, `${path}.y`, issues);
+        validateEncoding(layer.x, `${path}.x`, 'x', issues);
+        validateEncoding(layer.y, `${path}.y`, 'y', issues);
         if (!hasParentData && layer.data === undefined) {
             issues.push({
                 path: `${path}.data`,
@@ -508,8 +992,8 @@ var Graflume = (function (exports) {
         }
         if (hasShorthand) {
             validateMark(input.mark, '$.mark', issues);
-            validateEncoding(input.x, '$.x', issues);
-            validateEncoding(input.y, '$.y', issues);
+            validateEncoding(input.x, '$.x', 'x', issues);
+            validateEncoding(input.y, '$.y', 'y', issues);
             if (input.data === undefined) {
                 issues.push({
                     path: '$.data',
@@ -517,6 +1001,7 @@ var Graflume = (function (exports) {
                 });
             }
         }
+        validateAxes(input.axes, '$.axes', issues);
         validateInteraction(input.interaction, '$.interaction', issues);
         findFunctions(input, '$', issues, new WeakSet());
         return issues;
@@ -592,28 +1077,186 @@ var Graflume = (function (exports) {
             tooltip,
         };
     }
-    function normalizeAxis(input, defaultGrid) {
-        if (input === false)
-            return false;
+    const axisDefaults = {
+        x: { position: 'bottom', grid: false, titlePadding: 32 },
+        x2: { position: 'top', grid: false, titlePadding: 32 },
+        y: { position: 'left', grid: true, titlePadding: 46 },
+        y2: { position: 'right', grid: false, titlePadding: 46 },
+    };
+    function normalizeAxisFont(input) {
         return {
-            visible: input?.visible ?? true,
-            grid: input?.grid ?? defaultGrid,
-            ...(input?.title === undefined ? {} : { title: input.title }),
-            ...(input?.tickCount === undefined ? {} : { tickCount: input.tickCount }),
-            ...(input?.format === undefined ? {} : { format: input.format }),
-            ...(input?.labelAngle === undefined ? {} : { labelAngle: input.labelAngle }),
+            ...(input?.family === undefined ? {} : { family: input.family }),
+            ...(input?.size === undefined ? {} : { size: input.size }),
+            ...(input?.weight === undefined ? {} : { weight: input.weight }),
+            style: input?.style ?? 'normal',
         };
     }
-    function normalizeEncoding(input, fallbackAxis) {
+    function normalizeAxisStroke(input, defaultVisible, defaultOpacity = 1) {
+        const stroke = typeof input === 'object' ? input : undefined;
+        return {
+            visible: typeof input === 'boolean' ? input : (stroke?.visible ?? defaultVisible),
+            ...(stroke?.color === undefined ? {} : { color: stroke.color }),
+            ...(stroke?.width === undefined ? {} : { width: stroke.width }),
+            opacity: stroke?.opacity ?? defaultOpacity,
+            dash: [...(stroke?.dash ?? [])],
+        };
+    }
+    function normalizeAxisTicks(input, legacyCount) {
+        const ticks = typeof input === 'object' ? input : undefined;
+        const count = ticks?.count ?? legacyCount;
+        return {
+            ...normalizeAxisStroke(input, true),
+            ...(count === undefined ? {} : { count }),
+            spacing: ticks?.spacing ?? 0,
+            ...(ticks?.size === undefined ? {} : { size: ticks.size }),
+            ...(ticks?.values === undefined ? {} : { values: [...ticks.values] }),
+        };
+    }
+    function normalizeAxisLabels(input, legacyAngle) {
+        const labels = typeof input === 'object' ? input : undefined;
+        const angle = labels?.angle ?? legacyAngle;
+        return {
+            visible: typeof input === 'boolean' ? input : (labels?.visible ?? true),
+            orientation: labels?.orientation ?? 'auto',
+            ...(angle === undefined ? {} : { angle }),
+            align: labels?.align ?? 'auto',
+            ...(labels?.padding === undefined ? {} : { padding: labels.padding }),
+            ...(labels?.maxLength === undefined ? {} : { maxLength: labels.maxLength }),
+            ...(labels?.color === undefined ? {} : { color: labels.color }),
+            font: normalizeAxisFont(labels?.font),
+        };
+    }
+    function normalizeAxisTitle(input, defaultPadding) {
+        const title = typeof input === 'object' ? input : undefined;
+        return {
+            ...(typeof input === 'string'
+                ? { text: input }
+                : title?.text === undefined
+                    ? {}
+                    : { text: title.text }),
+            visible: input === false ? false : (title?.visible ?? true),
+            align: title?.align ?? 'center',
+            ...(title?.angle === undefined ? {} : { angle: title.angle }),
+            padding: title?.padding ?? defaultPadding,
+            ...(title?.color === undefined ? {} : { color: title.color }),
+            font: normalizeAxisFont(title?.font),
+        };
+    }
+    function normalizeAxisFormat(input) {
+        const format = typeof input === 'string' ? { type: input } : (input ?? {});
+        const type = format.type ?? 'auto';
+        return {
+            type,
+            ...(format.fractionDigits === undefined ? {} : { fractionDigits: format.fractionDigits }),
+            notation: format.notation ??
+                (type === 'compact' ? 'compact' : type === 'scientific' ? 'scientific' : 'standard'),
+            useGrouping: format.useGrouping ?? true,
+            ...(format.currency === undefined && type !== 'currency'
+                ? {}
+                : { currency: format.currency ?? 'USD' }),
+            currencyDisplay: format.currencyDisplay ?? 'symbol',
+            dateStyle: format.dateStyle ?? 'medium',
+            timeStyle: format.timeStyle ?? 'short',
+            timeZone: format.timeZone ?? 'UTC',
+            prefix: format.prefix ?? '',
+            suffix: format.suffix ?? '',
+        };
+    }
+    function mergeBooleanObject(base, override) {
+        if (override === undefined)
+            return base;
+        if (typeof override === 'boolean')
+            return override;
+        const baseObject = typeof base === 'object' ? base : base === undefined ? {} : { visible: base };
+        return { ...baseObject, ...override };
+    }
+    function mergeFont(base, override) {
+        if (override === undefined)
+            return base;
+        return { ...base, ...override };
+    }
+    function mergeLabels(base, override) {
+        const merged = mergeBooleanObject(base, override);
+        if (typeof merged !== 'object' || typeof override !== 'object')
+            return merged;
+        const baseFont = typeof base === 'object' ? base.font : undefined;
+        const font = mergeFont(baseFont, override.font);
+        return { ...merged, ...(font === undefined ? {} : { font }) };
+    }
+    function mergeTitle(base, override) {
+        if (override === undefined)
+            return base;
+        if (typeof override !== 'object')
+            return override;
+        const baseObject = typeof base === 'object'
+            ? base
+            : typeof base === 'string'
+                ? { text: base }
+                : base === false
+                    ? { visible: false }
+                    : {};
+        const font = mergeFont(baseObject.font, override.font);
+        return { ...baseObject, ...override, ...(font === undefined ? {} : { font }) };
+    }
+    function mergeFormat(base, override) {
+        if (override === undefined)
+            return base;
+        if (typeof override === 'string')
+            return override;
+        const baseObject = typeof base === 'string' ? { type: base } : base;
+        return { ...baseObject, ...override };
+    }
+    function mergeAxis(base, override) {
+        if (override === undefined)
+            return base;
+        if (override === false)
+            return false;
+        if (base === false || base === undefined)
+            return override;
+        const line = mergeBooleanObject(base.line, override.line);
+        const grid = mergeBooleanObject(base.grid, override.grid);
+        const ticks = mergeBooleanObject(base.ticks, override.ticks);
+        const labels = mergeLabels(base.labels, override.labels);
+        const title = mergeTitle(base.title, override.title);
+        const format = mergeFormat(base.format, override.format);
+        return {
+            ...base,
+            ...override,
+            ...(line === undefined ? {} : { line }),
+            ...(grid === undefined ? {} : { grid }),
+            ...(ticks === undefined ? {} : { ticks }),
+            ...(labels === undefined ? {} : { labels }),
+            ...(title === undefined ? {} : { title }),
+            ...(format === undefined ? {} : { format }),
+        };
+    }
+    function normalizeAxis(input, id) {
+        if (input === false)
+            return false;
+        const defaults = axisDefaults[id];
+        return {
+            visible: input?.visible ?? true,
+            position: input?.position ?? defaults.position,
+            offset: input?.offset ?? 0,
+            line: normalizeAxisStroke(input?.line, true),
+            grid: normalizeAxisStroke(input?.grid, defaults.grid, 0.82),
+            ticks: normalizeAxisTicks(input?.ticks, input?.tickCount),
+            labels: normalizeAxisLabels(input?.labels, input?.labelAngle),
+            title: normalizeAxisTitle(input?.title, defaults.titlePadding),
+            format: normalizeAxisFormat(input?.format),
+        };
+    }
+    function normalizeEncoding(input, channel, chartAxes) {
         const encoding = typeof input === 'string' ? { field: input } : input;
+        const axisId = encoding.axisId ?? channel;
+        const axis = mergeAxis(chartAxes[axisId], encoding.axis);
         return {
             field: encoding.field,
             ...(encoding.type === undefined ? {} : { type: encoding.type }),
             title: encoding.title ?? encoding.field,
             scale: { ...encoding.scale },
-            axis: encoding.axis === undefined
-                ? fallbackAxis
-                : normalizeAxis(encoding.axis, fallbackAxis === false ? false : fallbackAxis.grid !== false),
+            axisId,
+            axis: normalizeAxis(axis, axisId),
         };
     }
     function normalizeMark(input) {
@@ -642,17 +1285,20 @@ var Graflume = (function (exports) {
             id: layer.id ?? `layer-${index}`,
             data,
             mark: normalizeMark(layer.mark),
-            x: normalizeEncoding(layer.x, chartAxes.x),
-            y: normalizeEncoding(layer.y, chartAxes.y),
+            x: normalizeEncoding(layer.x, 'x', chartAxes),
+            y: normalizeEncoding(layer.y, 'y', chartAxes),
             visible: layer.visible ?? true,
             zIndex: layer.zIndex ?? index,
         };
     }
     function normalizeSpec(input) {
         assertValidSpec(input);
+        const chartAxes = input.axes ?? {};
         const axes = {
-            x: normalizeAxis(input.axes?.x, false),
-            y: normalizeAxis(input.axes?.y, true),
+            x: normalizeAxis(chartAxes.x, 'x'),
+            x2: normalizeAxis(chartAxes.x2, 'x2'),
+            y: normalizeAxis(chartAxes.y, 'y'),
+            y2: normalizeAxis(chartAxes.y2, 'y2'),
         };
         const shorthandLayer = input.mark === undefined || input.x === undefined || input.y === undefined
             ? undefined
@@ -663,7 +1309,7 @@ var Graflume = (function (exports) {
                 y: input.y,
             };
         const sourceLayers = input.layers ?? (shorthandLayer === undefined ? [] : [shorthandLayer]);
-        const layers = sourceLayers.map((layer, index) => normalizeLayer(layer, index, input.data, axes));
+        const layers = sourceLayers.map((layer, index) => normalizeLayer(layer, index, input.data, chartAxes));
         const title = normalizeTitle(input.title);
         const normalized = {
             specVersion,
@@ -689,7 +1335,196 @@ var Graflume = (function (exports) {
         return normalized;
     }
 
-    function line$1(id, x1, y1, x2, y2, stroke, lineWidth, zIndex, opacity = 1) {
+    function numberFormatter$1(locale, options) {
+        try {
+            return new Intl.NumberFormat(locale, options);
+        }
+        catch {
+            return new Intl.NumberFormat(undefined, options);
+        }
+    }
+    function dateFormatter$1(locale, options) {
+        try {
+            return new Intl.DateTimeFormat(locale, options);
+        }
+        catch {
+            try {
+                return new Intl.DateTimeFormat(undefined, options);
+            }
+            catch {
+                const utcOptions = { ...options, timeZone: 'UTC' };
+                try {
+                    return new Intl.DateTimeFormat(locale, utcOptions);
+                }
+                catch {
+                    try {
+                        return new Intl.DateTimeFormat(undefined, utcOptions);
+                    }
+                    catch {
+                        return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeZone: 'UTC' });
+                    }
+                }
+            }
+        }
+    }
+    function finiteFractionDigits$1(value) {
+        return value === undefined ? undefined : Math.max(0, Math.min(20, Math.trunc(value)));
+    }
+    function numericValue(value) {
+        if (typeof value === 'number')
+            return Number.isFinite(value) ? value : null;
+        const parsed = Number(value);
+        return value.trim() !== '' && Number.isFinite(parsed) ? parsed : null;
+    }
+    function dateValue(value) {
+        if (typeof value === 'number') {
+            const date = new Date(value);
+            return Number.isFinite(date.getTime()) ? { value: date, dateOnly: false } : null;
+        }
+        const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+        if (dateOnly !== null) {
+            const year = Number(dateOnly[1]);
+            const month = Number(dateOnly[2]);
+            const day = Number(dateOnly[3]);
+            const date = new Date(Date.UTC(year, month - 1, day));
+            if (date.getUTCFullYear() === year &&
+                date.getUTCMonth() === month - 1 &&
+                date.getUTCDate() === day) {
+                return { value: date, dateOnly: true };
+            }
+            return null;
+        }
+        const date = new Date(value);
+        return Number.isFinite(date.getTime()) ? { value: date, dateOnly: false } : null;
+    }
+    function formatNumber(value, format, locale) {
+        const fractionDigits = finiteFractionDigits$1(format.fractionDigits);
+        const notation = format.type === 'compact'
+            ? 'compact'
+            : format.type === 'scientific'
+                ? 'scientific'
+                : format.notation;
+        const options = {
+            notation,
+            useGrouping: format.useGrouping,
+            ...(fractionDigits === undefined
+                ? format.type === 'integer'
+                    ? { maximumFractionDigits: 0 }
+                    : format.type === 'percent'
+                        ? { maximumFractionDigits: 1 }
+                        : { maximumFractionDigits: 6 }
+                : { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits }),
+        };
+        if (format.type === 'percent')
+            options.style = 'percent';
+        if (format.type === 'currency') {
+            options.style = 'currency';
+            options.currency = format.currency ?? 'USD';
+            options.currencyDisplay = format.currencyDisplay;
+        }
+        try {
+            return numberFormatter$1(locale, options).format(value);
+        }
+        catch {
+            return numberFormatter$1(locale, {
+                useGrouping: format.useGrouping,
+                maximumFractionDigits: fractionDigits ?? 6,
+            }).format(value);
+        }
+    }
+    function formatDate(parsed, format, locale) {
+        const options = {
+            timeZone: parsed.dateOnly && format.type === 'date' ? 'UTC' : format.timeZone || 'UTC',
+        };
+        if (format.type === 'time') {
+            options.timeStyle = format.timeStyle;
+        }
+        else if (format.type === 'datetime') {
+            options.dateStyle = format.dateStyle;
+            options.timeStyle = format.timeStyle;
+        }
+        else {
+            options.dateStyle = format.dateStyle;
+        }
+        return dateFormatter$1(locale, options).format(parsed.value);
+    }
+    /** Format a scale tick without accepting callbacks or executable formatter expressions. */
+    function formatAxisTick(tick, format, locale) {
+        let value = tick.label;
+        if (format.type === 'date' || format.type === 'time' || format.type === 'datetime') {
+            const date = dateValue(tick.value);
+            if (date !== null)
+                value = formatDate(date, format, locale);
+        }
+        else if (format.type !== 'auto') {
+            const numeric = numericValue(tick.value);
+            if (numeric !== null)
+                value = formatNumber(numeric, format, locale);
+        }
+        return `${format.prefix}${value}${format.suffix}`;
+    }
+    /** Truncate by Unicode code point so surrogate pairs are never split. */
+    function truncateAxisLabel(value, maxLength) {
+        if (maxLength === undefined)
+            return value;
+        const characters = Array.from(value);
+        if (characters.length <= maxLength)
+            return value;
+        if (maxLength <= 1)
+            return '…';
+        return `${characters.slice(0, maxLength - 1).join('')}…`;
+    }
+
+    function defaultPosition(id) {
+        switch (id) {
+            case 'x':
+                return 'bottom';
+            case 'x2':
+                return 'top';
+            case 'y':
+                return 'left';
+            case 'y2':
+                return 'right';
+        }
+    }
+    function channel$1(id) {
+        return id === 'x' || id === 'x2' ? 'x' : 'y';
+    }
+    function position(context) {
+        if (context.axis === false)
+            return defaultPosition(context.id);
+        const requested = context.axis.position;
+        if (channel$1(context.id) === 'x') {
+            return requested === 'top' || requested === 'bottom' ? requested : defaultPosition(context.id);
+        }
+        return requested === 'left' || requested === 'right' ? requested : defaultPosition(context.id);
+    }
+    function mappedFontWeight(weight, fallback) {
+        if (typeof weight === 'number')
+            return weight;
+        switch (weight) {
+            case 'normal':
+                return 400;
+            case 'medium':
+                return 500;
+            case 'semibold':
+                return 600;
+            case 'bold':
+                return 700;
+            default:
+                return fallback;
+        }
+    }
+    function resolveTextStyle(font, color, theme, fallbackWeight) {
+        return {
+            fill: color ?? theme.colors.mutedText,
+            fontFamily: font.family ?? theme.typography.fontFamily,
+            fontSize: font.size ?? theme.typography.fontSize,
+            fontWeight: mappedFontWeight(font.weight, fallbackWeight),
+            ...(font.style === 'italic' ? { fontStyle: 'italic' } : {}),
+        };
+    }
+    function line$1(id, x1, y1, x2, y2, stroke, lineWidth, zIndex, opacity, dash) {
         return {
             type: 'line',
             ...nodeBase(id, { zIndex, opacity }),
@@ -699,85 +1534,375 @@ var Graflume = (function (exports) {
             y2,
             stroke,
             lineWidth,
+            ...(dash.length === 0 ? {} : { dash }),
             lineCap: 'round',
         };
     }
-    function text(id, x, y, value, theme, options = {}) {
+    function text(id, x, y, value, style, options) {
         return {
             type: 'text',
             ...nodeBase(id, { zIndex: 110 }),
             x,
             y,
             text: value,
-            fill: theme.colors.mutedText,
-            fontFamily: theme.typography.fontFamily,
-            fontSize: options.fontSize ?? theme.typography.fontSize,
-            fontWeight: options.fontWeight ?? 400,
-            align: options.align ?? 'center',
-            baseline: options.baseline ?? 'top',
-            rotation: options.rotation ?? 0,
+            fill: style.fill,
+            fontFamily: style.fontFamily,
+            fontSize: style.fontSize,
+            fontWeight: style.fontWeight,
+            ...(style.fontStyle === undefined ? {} : { fontStyle: style.fontStyle }),
+            align: options.align,
+            baseline: options.baseline,
+            rotation: options.rotation,
         };
     }
-    function compileXAxis(context) {
-        const { axis, scale, plot, theme, locale, title } = context;
+    function explicitTickLabel(value, scale, locale) {
+        if (scale.kind === 'time') {
+            const date = new Date(typeof value === 'number' ? value : Date.parse(value));
+            if (Number.isFinite(date.getTime())) {
+                try {
+                    return new Intl.DateTimeFormat(locale, {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        timeZone: 'UTC',
+                    }).format(date);
+                }
+                catch {
+                    return new Intl.DateTimeFormat(undefined, {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        timeZone: 'UTC',
+                    }).format(date);
+                }
+            }
+        }
+        if (scale.kind === 'linear' && typeof value === 'number') {
+            try {
+                return new Intl.NumberFormat(locale, { maximumFractionDigits: 6 }).format(value);
+            }
+            catch {
+                return new Intl.NumberFormat(undefined, { maximumFractionDigits: 6 }).format(value);
+            }
+        }
+        return String(value);
+    }
+    function requestedTickCount(context) {
+        if (context.axis === false)
+            return 0;
+        const length = channel$1(context.id) === 'x' ? context.plot.width : context.plot.height;
+        const automatic = Math.max(2, Math.floor(length / (channel$1(context.id) === 'x' ? 96 : 58)));
+        const requested = context.axis.ticks.count ?? automatic;
+        if (context.axis.ticks.spacing <= 0)
+            return Math.max(1, requested);
+        return Math.max(1, Math.min(requested, Math.floor(length / context.axis.ticks.spacing)));
+    }
+    function pruneTicksBySpacing(ticks, spacing) {
+        if (spacing <= 0 || ticks.length <= 1)
+            return ticks;
+        const ordered = [...ticks].sort((left, right) => left.position - right.position);
+        const kept = [];
+        for (const tick of ordered) {
+            const previous = kept.at(-1);
+            if (previous === undefined || tick.position - previous.position >= spacing)
+                kept.push(tick);
+        }
+        return kept;
+    }
+    function resolveTicks(context) {
+        const axis = context.axis;
+        if (axis === false)
+            return [];
+        const configuredValues = axis.ticks.values;
+        const rawTicks = configuredValues === undefined
+            ? context.scale.ticks(requestedTickCount(context), context.locale)
+            : configuredValues.flatMap((value) => {
+                const mapped = context.scale.map(value);
+                const minimum = channel$1(context.id) === 'x' ? context.plot.x : context.plot.y;
+                const maximum = minimum + (channel$1(context.id) === 'x' ? context.plot.width : context.plot.height);
+                return Number.isFinite(mapped) && mapped >= minimum - 0.5 && mapped <= maximum + 0.5
+                    ? [
+                        {
+                            value,
+                            position: mapped,
+                            label: explicitTickLabel(value, context.scale, context.locale),
+                        },
+                    ]
+                    : [];
+            });
+        return pruneTicksBySpacing(rawTicks, axis.ticks.spacing).map((tick) => ({
+            ...tick,
+            formattedLabel: truncateAxisLabel(formatAxisTick(tick, axis.format, context.locale), axis.labels.maxLength),
+        }));
+    }
+    function labelAngle(context, ticks) {
+        if (context.axis === false)
+            return 0;
+        if (context.axis.labels.angle !== undefined)
+            return context.axis.labels.angle;
+        switch (context.axis.labels.orientation) {
+            case 'horizontal':
+                return 0;
+            case 'vertical-up':
+                return -90;
+            case 'vertical-down':
+                return 90;
+            case 'auto':
+                return channel$1(context.id) === 'x' && context.scale.kind === 'band' && ticks.length > 10
+                    ? -35
+                    : 0;
+        }
+    }
+    function explicitAlign(align) {
+        return align === 'auto' ? null : align;
+    }
+    function labelAlign(context, axisPosition, angle) {
+        if (context.axis === false)
+            return 'center';
+        const configured = explicitAlign(context.axis.labels.align);
+        if (configured !== null)
+            return configured;
+        if (channel$1(context.id) === 'x') {
+            if (angle === 0)
+                return 'center';
+            const startsOutward = (axisPosition === 'bottom' && angle > 0) || (axisPosition === 'top' && angle < 0);
+            return startsOutward ? 'left' : 'right';
+        }
+        if (angle !== 0)
+            return 'center';
+        return axisPosition === 'left' ? 'right' : 'left';
+    }
+    function titleAlign(context, angle) {
+        if (context.axis === false)
+            return 'center';
+        const align = context.axis.title.align;
+        if (channel$1(context.id) !== 'y' || angle >= 0 || align === 'center')
+            return align;
+        return align === 'start' ? 'end' : 'start';
+    }
+    function coordinateAlongAxis(plot, axisChannel, align) {
+        if (axisChannel === 'x') {
+            if (align === 'start')
+                return plot.x;
+            if (align === 'end')
+                return plot.x + plot.width;
+            return plot.x + plot.width / 2;
+        }
+        if (align === 'start')
+            return plot.y;
+        if (align === 'end')
+            return plot.y + plot.height;
+        return plot.y + plot.height / 2;
+    }
+    function axisCoordinate(plot, axisPosition, offset) {
+        switch (axisPosition) {
+            case 'top':
+                return plot.y - offset;
+            case 'bottom':
+                return plot.y + plot.height + offset;
+            case 'left':
+                return plot.x - offset;
+            case 'right':
+                return plot.x + plot.width + offset;
+        }
+    }
+    function outwardSign(axisPosition) {
+        return axisPosition === 'top' || axisPosition === 'left' ? -1 : 1;
+    }
+    function gridIsBoundary(tick, plot, axisChannel) {
+        const boundary = axisChannel === 'x' ? plot.x : plot.y + plot.height;
+        return Math.abs(tick.position - boundary) <= 0.5;
+    }
+    function titleText(context) {
+        if (context.axis === false || context.axis.title.visible === false)
+            return '';
+        return context.axis.title.text ?? context.title;
+    }
+    /** Compile any primary or secondary Cartesian axis into renderer-neutral Scene primitives. */
+    function compileAxis(context) {
+        const { axis, plot, theme } = context;
         if (axis === false || axis.visible === false)
             return [];
         const nodes = [];
-        const axisY = plot.y + plot.height;
-        const ticks = scale.ticks(axis.tickCount ?? Math.max(2, Math.floor(plot.width / 96)), locale);
-        const angle = axis.labelAngle ?? (scale.kind === 'band' && ticks.length > 10 ? -35 : 0);
-        nodes.push(line$1('axis-x:line', plot.x, axisY, plot.x + plot.width, axisY, theme.colors.axis, theme.axis.lineWidth, 100));
+        const axisChannel = channel$1(context.id);
+        const axisPosition = position(context);
+        const coordinate = axisCoordinate(plot, axisPosition, axis.offset);
+        const sign = outwardSign(axisPosition);
+        const prefix = `axis-${context.id}`;
+        const ticks = resolveTicks(context);
+        const angle = labelAngle(context, ticks);
+        const tickSize = axis.ticks.visible ? (axis.ticks.size ?? theme.axis.tickLength) : 0;
+        const labelPadding = axis.labels.padding ?? theme.axis.labelPadding;
+        if (axis.line.visible) {
+            const stroke = axis.line.color ?? theme.colors.axis;
+            const width = axis.line.width ?? theme.axis.lineWidth;
+            nodes.push(axisChannel === 'x'
+                ? line$1(`${prefix}:line`, plot.x, coordinate, plot.x + plot.width, coordinate, stroke, width, 100, axis.line.opacity, axis.line.dash)
+                : line$1(`${prefix}:line`, coordinate, plot.y, coordinate, plot.y + plot.height, stroke, width, 100, axis.line.opacity, axis.line.dash));
+        }
+        const labelStyle = resolveTextStyle(axis.labels.font, axis.labels.color, theme, 500);
         ticks.forEach((tick, index) => {
-            if (axis.grid !== false && Math.abs(tick.position - plot.x) > 0.5) {
-                const isZero = typeof tick.value === 'number' && Math.abs(tick.value) < Number.EPSILON;
-                nodes.push(line$1(`axis-x:grid:${index}`, tick.position, plot.y, tick.position, axisY, isZero ? theme.colors.axis : theme.colors.grid, isZero ? Math.max(1, theme.axis.gridLineWidth) : theme.axis.gridLineWidth, -20, isZero ? 0.9 : 0.82));
+            const isZero = typeof tick.value === 'number' && Math.abs(tick.value) < Number.EPSILON;
+            if (axis.grid.visible && !gridIsBoundary(tick, plot, axisChannel)) {
+                const defaultZeroStyle = axis.grid.color === undefined;
+                const gridStroke = axis.grid.color ?? (isZero ? theme.colors.axis : theme.colors.grid);
+                const gridWidth = axis.grid.width ?? theme.axis.gridLineWidth;
+                nodes.push(axisChannel === 'x'
+                    ? line$1(`${prefix}:grid:${index}`, tick.position, plot.y, tick.position, plot.y + plot.height, gridStroke, isZero && defaultZeroStyle ? Math.max(1, gridWidth) : gridWidth, -20, isZero && defaultZeroStyle ? Math.max(0.9, axis.grid.opacity) : axis.grid.opacity, axis.grid.dash)
+                    : line$1(`${prefix}:grid:${index}`, plot.x, tick.position, plot.x + plot.width, tick.position, gridStroke, isZero && defaultZeroStyle ? Math.max(1, gridWidth) : gridWidth, -20, isZero && defaultZeroStyle ? Math.max(0.9, axis.grid.opacity) : axis.grid.opacity, axis.grid.dash));
             }
-            if (theme.axis.tickLength > 0) {
-                nodes.push(line$1(`axis-x:tick:${index}`, tick.position, axisY, tick.position, axisY + theme.axis.tickLength, theme.colors.axis, theme.axis.lineWidth, 100));
+            if (axis.ticks.visible && tickSize > 0) {
+                const stroke = axis.ticks.color ?? theme.colors.axis;
+                const width = axis.ticks.width ?? theme.axis.lineWidth;
+                nodes.push(axisChannel === 'x'
+                    ? line$1(`${prefix}:tick:${index}`, tick.position, coordinate, tick.position, coordinate + sign * tickSize, stroke, width, 100, axis.ticks.opacity, axis.ticks.dash)
+                    : line$1(`${prefix}:tick:${index}`, coordinate, tick.position, coordinate + sign * tickSize, tick.position, stroke, width, 100, axis.ticks.opacity, axis.ticks.dash));
             }
-            nodes.push(text(`axis-x:label:${index}`, tick.position, axisY + theme.axis.tickLength + theme.axis.labelPadding, tick.label, theme, {
-                align: angle === 0 ? 'center' : 'right',
-                baseline: 'top',
-                rotation: angle,
-                fontWeight: 500,
-            }));
+            if (!axis.labels.visible)
+                return;
+            if (axisChannel === 'x') {
+                nodes.push(text(`${prefix}:label:${index}`, tick.position, coordinate + sign * (tickSize + labelPadding), tick.formattedLabel, labelStyle, {
+                    align: labelAlign(context, axisPosition, angle),
+                    baseline: axisPosition === 'top' ? 'bottom' : 'top',
+                    rotation: angle,
+                }));
+            }
+            else {
+                nodes.push(text(`${prefix}:label:${index}`, coordinate + sign * (tickSize + labelPadding), tick.position, tick.formattedLabel, labelStyle, {
+                    align: labelAlign(context, axisPosition, angle),
+                    baseline: 'middle',
+                    rotation: angle,
+                }));
+            }
         });
-        if (axis.title !== '' && title !== '') {
-            nodes.push(text('axis-x:title', plot.x + plot.width / 2, axisY + 32, axis.title ?? title, theme, {
-                align: 'center',
-                baseline: 'top',
-                fontWeight: 600,
-            }));
+        const resolvedTitle = titleText(context);
+        if (resolvedTitle !== '') {
+            const titleStyle = resolveTextStyle(axis.title.font, axis.title.color, theme, 600);
+            const titlePosition = coordinateAlongAxis(plot, axisChannel, axis.title.align);
+            const titleAngle = axis.title.angle ?? (axisChannel === 'x' ? 0 : axisPosition === 'left' ? -90 : 90);
+            const titleCoordinate = coordinate + sign * axis.title.padding;
+            if (axisChannel === 'x') {
+                nodes.push(text(`${prefix}:title`, titlePosition, titleCoordinate, resolvedTitle, titleStyle, {
+                    align: titleAlign(context, titleAngle),
+                    baseline: axisPosition === 'top' ? 'bottom' : 'top',
+                    rotation: titleAngle,
+                }));
+            }
+            else {
+                nodes.push(text(`${prefix}:title`, axisPosition === 'left' ? Math.max(12, titleCoordinate) : titleCoordinate, titlePosition, resolvedTitle, titleStyle, { align: titleAlign(context, titleAngle), baseline: 'middle', rotation: titleAngle }));
+            }
         }
         return nodes;
     }
-    function compileYAxis(context) {
-        const { axis, scale, plot, theme, locale, title } = context;
-        if (axis === false || axis.visible === false)
-            return [];
-        const nodes = [];
-        const axisX = plot.x;
-        const ticks = scale.ticks(axis.tickCount ?? Math.max(2, Math.floor(plot.height / 58)), locale);
-        nodes.push(line$1('axis-y:line', axisX, plot.y, axisX, plot.y + plot.height, theme.colors.axis, theme.axis.lineWidth, 100));
-        ticks.forEach((tick, index) => {
-            if (axis.grid !== false && Math.abs(tick.position - (plot.y + plot.height)) > 0.5) {
-                const isZero = typeof tick.value === 'number' && Math.abs(tick.value) < Number.EPSILON;
-                nodes.push(line$1(`axis-y:grid:${index}`, axisX, tick.position, plot.x + plot.width, tick.position, isZero ? theme.colors.axis : theme.colors.grid, isZero ? Math.max(1, theme.axis.gridLineWidth) : theme.axis.gridLineWidth, -20, isZero ? 0.9 : 0.82));
-            }
-            if (theme.axis.tickLength > 0) {
-                nodes.push(line$1(`axis-y:tick:${index}`, axisX - theme.axis.tickLength, tick.position, axisX, tick.position, theme.colors.axis, theme.axis.lineWidth, 100));
-            }
-            nodes.push(text(`axis-y:label:${index}`, axisX - theme.axis.tickLength - theme.axis.labelPadding, tick.position, tick.label, theme, { align: 'right', baseline: 'middle', fontWeight: 500 }));
-        });
-        if (axis.title !== '' && title !== '') {
-            nodes.push(text('axis-y:title', Math.max(12, axisX - 46), plot.y + plot.height / 2, axis.title ?? title, theme, {
-                align: 'center',
-                baseline: 'middle',
-                rotation: -90,
-                fontWeight: 600,
-            }));
+    function estimatedTextWidth(value, fontSize) {
+        let units = 0;
+        for (const character of Array.from(value)) {
+            if (/\s/u.test(character))
+                units += 0.33;
+            else if (/[^\u0000-\u024f]/u.test(character))
+                units += 1;
+            else
+                units += 0.6;
         }
-        return nodes;
+        return Math.max(fontSize * 0.6, units * fontSize);
+    }
+    function projectedSize(width, height, angle) {
+        const radians = (angle * Math.PI) / 180;
+        const cosine = Math.abs(Math.cos(radians));
+        const sine = Math.abs(Math.sin(radians));
+        return {
+            width: width * cosine + height * sine,
+            height: width * sine + height * cosine,
+        };
+    }
+    function usesLegacyPrimaryGutter(context) {
+        const axis = context.axis;
+        if (axis === false || (context.id !== 'x' && context.id !== 'y'))
+            return false;
+        const expectedPosition = context.id === 'x' ? 'bottom' : 'left';
+        const expectedTitlePadding = context.id === 'x' ? 32 : 46;
+        return (axis.position === expectedPosition &&
+            axis.offset === 0 &&
+            axis.line.width === undefined &&
+            axis.ticks.spacing === 0 &&
+            axis.ticks.size === undefined &&
+            axis.ticks.values === undefined &&
+            axis.labels.orientation === 'auto' &&
+            axis.labels.angle === undefined &&
+            axis.labels.align === 'auto' &&
+            axis.labels.padding === undefined &&
+            axis.labels.maxLength === undefined &&
+            axis.labels.font.family === undefined &&
+            axis.labels.font.size === undefined &&
+            axis.labels.font.weight === undefined &&
+            axis.labels.font.style === 'normal' &&
+            axis.title.angle === undefined &&
+            axis.title.padding === expectedTitlePadding &&
+            axis.title.font.family === undefined &&
+            axis.title.font.size === undefined &&
+            axis.title.font.weight === undefined &&
+            axis.title.font.style === 'normal' &&
+            axis.format.type === 'auto' &&
+            axis.format.fractionDigits === undefined &&
+            axis.format.notation === 'standard' &&
+            axis.format.useGrouping &&
+            axis.format.currency === undefined &&
+            axis.format.prefix === '' &&
+            axis.format.suffix === '');
+    }
+    /**
+     * Deterministically estimate the outward axis gutter from the same ticks, formatting,
+     * truncation, fonts and rotations used by compileAxis().
+     */
+    function measureAxisGutter(context) {
+        const { axis, theme } = context;
+        if (axis === false || axis.visible === false)
+            return 0;
+        const axisChannel = channel$1(context.id);
+        let required = measureAxisLabelGutter(context);
+        const resolvedTitle = titleText(context);
+        if (resolvedTitle !== '') {
+            const style = resolveTextStyle(axis.title.font, axis.title.color, theme, 600);
+            const axisPosition = position(context);
+            const titleAngle = axis.title.angle ?? (axisChannel === 'x' ? 0 : axisPosition === 'left' ? -90 : 90);
+            const projected = projectedSize(estimatedTextWidth(resolvedTitle, style.fontSize), style.fontSize, titleAngle);
+            const outwardTextExtent = axisChannel === 'x'
+                ? projected.height
+                : axis.title.align === 'center'
+                    ? projected.width / 2
+                    : projected.width;
+            required = Math.max(required, axis.offset + axis.title.padding + outwardTextExtent);
+        }
+        const measured = Math.ceil(required);
+        if (!usesLegacyPrimaryGutter(context))
+            return measured;
+        return Math.min(measured, context.id === 'x' ? 44 : 56);
+    }
+    /** Measure the interactive tick/label strip without extending it through the axis title. */
+    function measureAxisLabelGutter(context) {
+        const { axis, theme } = context;
+        if (axis === false || axis.visible === false)
+            return 0;
+        const axisChannel = channel$1(context.id);
+        const ticks = resolveTicks(context);
+        const angle = labelAngle(context, ticks);
+        const tickSize = axis.ticks.visible ? (axis.ticks.size ?? theme.axis.tickLength) : 0;
+        const labelPadding = axis.labels.padding ?? theme.axis.labelPadding;
+        const lineWidth = axis.line.visible ? (axis.line.width ?? theme.axis.lineWidth) : 0;
+        let required = axis.offset + lineWidth / 2;
+        if (axis.labels.visible && ticks.length > 0) {
+            const style = resolveTextStyle(axis.labels.font, axis.labels.color, theme, 500);
+            let labelExtent = 0;
+            for (const tick of ticks) {
+                const projected = projectedSize(estimatedTextWidth(tick.formattedLabel, style.fontSize), style.fontSize, angle);
+                labelExtent = Math.max(labelExtent, axisChannel === 'x' ? projected.height : projected.width);
+            }
+            required = Math.max(required, axis.offset + tickSize + labelPadding + labelExtent);
+        }
+        else if (axis.ticks.visible) {
+            required = Math.max(required, axis.offset + tickSize);
+        }
+        return Math.ceil(required);
     }
 
     function strideSampleIndices(length, target) {
@@ -919,6 +2044,7 @@ var Graflume = (function (exports) {
         if (!context.performance.enableHitTesting)
             return [];
         const { axis, scales, plot } = context;
+        const channel = axis === 'x' || axis === 'x2' ? 'x' : 'y';
         const layerDataById = new Map(scales.layers.map((layerData) => [layerData.layer.id, layerData]));
         const targets = [];
         const representedRows = new Set();
@@ -940,14 +2066,18 @@ var Graflume = (function (exports) {
                 return;
             const clippedGeometry = clampToPlot(plot, geometry.x, geometry.y);
             const layerData = layerDataById.get(node.datum.layerId);
+            if (layerData !== undefined &&
+                (channel === 'x' ? layerData.xAxisId : layerData.yAxisId) !== axis) {
+                return;
+            }
             let x = clippedGeometry.x;
             let y = clippedGeometry.y;
             if (node.datum.tooltip === undefined && layerData !== undefined) {
-                const encoding = axis === 'x' ? layerData.layer.x : layerData.layer.y;
-                const scale = axis === 'x' ? scales.xScale : scales.yScale;
+                const encoding = layerData.layer[channel];
+                const scale = channel === 'x' ? layerData.xScale : layerData.yScale;
                 const encoded = scaleValue(scale, node.datum.datum[encoding.field]);
                 if (encoded !== null) {
-                    if (axis === 'x')
+                    if (channel === 'x')
                         x = encoded;
                     else
                         y = encoded;
@@ -968,13 +2098,15 @@ var Graflume = (function (exports) {
         for (const layerData of scales.layers) {
             if (!ROW_TARGET_MARKS.has(layerData.layer.mark.type))
                 continue;
+            if ((channel === 'x' ? layerData.xAxisId : layerData.yAxisId) !== axis)
+                continue;
             const indices = strideSampleIndices(layerData.table.length, context.performance.maxPointMarks);
             for (const rowIndex of indices) {
                 if (representedRows.has(`${layerData.layer.id}\u0000${rowIndex}`))
                     continue;
                 const datum = layerData.table.row(rowIndex);
-                const x = scaleValue(scales.xScale, datum[layerData.layer.x.field]);
-                const y = scaleValue(scales.yScale, datum[layerData.layer.y.field]);
+                const x = scaleValue(layerData.xScale, datum[layerData.layer.x.field]);
+                const y = scaleValue(layerData.yScale, datum[layerData.layer.y.field]);
                 if (x === null || y === null)
                     continue;
                 const position = clampToPlot(plot, x, y);
@@ -1490,8 +2622,70 @@ var Graflume = (function (exports) {
         }
         return domain;
     }
+    function xAxisId(layer) {
+        if (layer.x.axisId === 'x' || layer.x.axisId === 'x2')
+            return layer.x.axisId;
+        throw new GraflumeError('INVALID_SPEC', 'The x encoding axisId must be "x" or "x2".', {
+            path: `$.layers[${layer.id}].x.axisId`,
+        });
+    }
+    function yAxisId(layer) {
+        if (layer.y.axisId === 'y' || layer.y.axisId === 'y2')
+            return layer.y.axisId;
+        throw new GraflumeError('INVALID_SPEC', 'The y encoding axisId must be "y" or "y2".', {
+            path: `$.layers[${layer.id}].y.axisId`,
+        });
+    }
+    function resolveAxisScale(id, layers, plot) {
+        const channel = id === 'x' || id === 'x2' ? 'x' : 'y';
+        const fieldType = resolveCommonType(layers.map((layer) => (channel === 'x' ? layer.xType : layer.yType)), channel);
+        const firstEncoding = layers[0]?.layer[channel];
+        const requestedScaleTypes = new Set(layers
+            .map((layer) => layer.layer[channel].scale.type)
+            .filter((type) => type !== undefined));
+        if (requestedScaleTypes.size > 1) {
+            throw new GraflumeError('INCOMPATIBLE_SCALE', `Layers bound to ${id} request incompatible scale types: ${[...requestedScaleTypes].join(', ')}.`, { path: `$.layers[].${channel}.scale.type` });
+        }
+        const requestedScaleType = [...requestedScaleTypes][0];
+        const family = typeFamily(fieldType);
+        if ((requestedScaleType === 'band' && family !== 'categorical') ||
+            (requestedScaleType === 'linear' && family !== 'numeric') ||
+            (requestedScaleType === 'time' && family !== 'temporal')) {
+            throw new GraflumeError('INCOMPATIBLE_SCALE', `Scale type "${requestedScaleType}" is incompatible with the ${id} field type "${fieldType}".`, { path: `$.layers[].${channel}.scale.type` });
+        }
+        const reverse = firstEncoding?.scale.reverse === true;
+        const categorical = requestedScaleType === 'band' || family === 'categorical';
+        let scale;
+        if (categorical) {
+            const domain = categoricalDomain(layers, channel);
+            scale = new BandScale({
+                domain: reverse ? [...domain].reverse() : domain,
+                range: channel === 'x' ? [plot.x, plot.x + plot.width] : [plot.y, plot.y + plot.height],
+                ...(firstEncoding?.scale.paddingInner === undefined
+                    ? {}
+                    : { paddingInner: firstEncoding.scale.paddingInner }),
+                ...(firstEncoding?.scale.paddingOuter === undefined
+                    ? {}
+                    : { paddingOuter: firstEncoding.scale.paddingOuter }),
+            });
+        }
+        else {
+            const normalRange = channel === 'x' ? [plot.x, plot.x + plot.width] : [plot.y + plot.height, plot.y];
+            const range = reverse
+                ? [normalRange[1], normalRange[0]]
+                : normalRange;
+            scale = new LinearScale({
+                domain: numericDomain(layers, channel, fieldType),
+                range,
+                kind: requestedScaleType === 'time' || fieldType === 'temporal' ? 'time' : 'linear',
+                ...(firstEncoding?.scale.nice === undefined ? {} : { nice: firstEncoding.scale.nice }),
+                ...(firstEncoding?.scale.clamp === undefined ? {} : { clamp: firstEncoding.scale.clamp }),
+            });
+        }
+        return { id, channel, fieldType, scale };
+    }
     function resolveScales(spec, plot) {
-        const layers = spec.layers
+        const preparedLayers = spec.layers
             .filter((layer) => layer.visible)
             .map((layer) => {
             const table = DataTable.from(layer.data);
@@ -1500,101 +2694,159 @@ var Graflume = (function (exports) {
                 table,
                 xType: layer.x.type ?? inferFieldType(table, layer.x.field),
                 yType: layer.y.type ?? inferFieldType(table, layer.y.field),
+                xAxisId: xAxisId(layer),
+                yAxisId: yAxisId(layer),
             };
         });
-        if (layers.length === 0) {
+        if (preparedLayers.length === 0) {
             throw new GraflumeError('INVALID_SPEC', 'At least one visible layer is required.', {
                 path: '$.layers',
             });
         }
-        const xType = resolveCommonType(layers.map((layer) => layer.xType), 'x');
-        const yType = resolveCommonType(layers.map((layer) => layer.yType), 'y');
-        const xScale = typeFamily(xType) === 'categorical'
-            ? new BandScale({
-                domain: categoricalDomain(layers, 'x'),
-                range: [plot.x, plot.x + plot.width],
-                ...(layers[0]?.layer.x.scale.paddingInner === undefined
-                    ? {}
-                    : { paddingInner: layers[0].layer.x.scale.paddingInner }),
-                ...(layers[0]?.layer.x.scale.paddingOuter === undefined
-                    ? {}
-                    : { paddingOuter: layers[0].layer.x.scale.paddingOuter }),
-            })
-            : new LinearScale({
-                domain: numericDomain(layers, 'x', xType),
-                range: [plot.x, plot.x + plot.width],
-                kind: xType === 'temporal' ? 'time' : 'linear',
-                ...(layers[0]?.layer.x.scale.nice === undefined
-                    ? {}
-                    : { nice: layers[0].layer.x.scale.nice }),
-                ...(layers[0]?.layer.x.scale.clamp === undefined
-                    ? {}
-                    : { clamp: layers[0].layer.x.scale.clamp }),
+        const grouped = new Map();
+        for (const layer of preparedLayers) {
+            for (const id of [layer.xAxisId, layer.yAxisId]) {
+                const entries = grouped.get(id) ?? [];
+                entries.push(layer);
+                grouped.set(id, entries);
+            }
+        }
+        const partialAxes = {};
+        for (const id of ['x', 'x2', 'y', 'y2']) {
+            const entries = grouped.get(id);
+            if (entries === undefined || entries.length === 0)
+                continue;
+            partialAxes[id] = resolveAxisScale(id, entries, plot);
+        }
+        const layers = preparedLayers.map((layer) => {
+            const xResolved = partialAxes[layer.xAxisId];
+            const yResolved = partialAxes[layer.yAxisId];
+            if (xResolved === undefined || yResolved === undefined) {
+                throw new GraflumeError('INVALID_SPEC', 'Unable to resolve layer axis scales.', {
+                    path: `$.layers[${layer.layer.id}]`,
+                });
+            }
+            return {
+                ...layer,
+                xScale: xResolved.scale,
+                yScale: yResolved.scale,
+            };
+        });
+        const axes = {};
+        for (const id of ['x', 'x2', 'y', 'y2']) {
+            const resolved = partialAxes[id];
+            if (resolved === undefined)
+                continue;
+            axes[id] = {
+                ...resolved,
+                layers: layers.filter((layer) => resolved.channel === 'x' ? layer.xAxisId === id : layer.yAxisId === id),
+            };
+        }
+        const resolvedX = axes.x ?? axes.x2;
+        const resolvedY = axes.y ?? axes.y2;
+        if (resolvedX === undefined || resolvedY === undefined) {
+            throw new GraflumeError('INVALID_SPEC', 'Both x and y scales are required.', {
+                path: '$.layers',
             });
-        const yScale = typeFamily(yType) === 'categorical'
-            ? new BandScale({
-                domain: categoricalDomain(layers, 'y'),
-                range: [plot.y, plot.y + plot.height],
-                ...(layers[0]?.layer.y.scale.paddingInner === undefined
-                    ? {}
-                    : { paddingInner: layers[0].layer.y.scale.paddingInner }),
-                ...(layers[0]?.layer.y.scale.paddingOuter === undefined
-                    ? {}
-                    : { paddingOuter: layers[0].layer.y.scale.paddingOuter }),
-            })
-            : new LinearScale({
-                domain: numericDomain(layers, 'y', yType),
-                range: [plot.y + plot.height, plot.y],
-                kind: yType === 'temporal' ? 'time' : 'linear',
-                ...(layers[0]?.layer.y.scale.nice === undefined
-                    ? {}
-                    : { nice: layers[0].layer.y.scale.nice }),
-                ...(layers[0]?.layer.y.scale.clamp === undefined
-                    ? {}
-                    : { clamp: layers[0].layer.y.scale.clamp }),
-            });
-        return { layers, xType, yType, xScale, yScale };
+        }
+        return {
+            layers,
+            axes,
+            xType: resolvedX.fieldType,
+            yType: resolvedY.fieldType,
+            xScale: resolvedX.scale,
+            yScale: resolvedY.scale,
+        };
     }
 
-    function createLayout(spec, width, height, theme) {
+    function createLayout(spec, width, height, theme, minimumInsets = {}) {
         const titleBlock = spec.title === undefined
             ? 0
             : theme.typography.titleSize +
                 (spec.title.subtitle === undefined
                     ? theme.spacing.lg
                     : theme.typography.subtitleSize + theme.spacing.lg + theme.spacing.xs);
-        const plotX = spec.padding.left;
-        const plotY = spec.padding.top + titleBlock;
-        const plotWidth = Math.max(1, width - spec.padding.left - spec.padding.right);
-        const plotHeight = Math.max(1, height - plotY - spec.padding.bottom);
+        const insets = {
+            // A top axis shares the space between the chart heading and the plot. Keep
+            // the caller's outer top padding for the heading, then reserve the measured
+            // axis gutter inside it. The other sides retain the legacy contract where
+            // the normalized padding already includes the primary-axis gutter.
+            top: spec.padding.top + Math.max(0, minimumInsets.top ?? 0),
+            right: Math.max(spec.padding.right, minimumInsets.right ?? 0),
+            bottom: Math.max(spec.padding.bottom, minimumInsets.bottom ?? 0),
+            left: Math.max(spec.padding.left, minimumInsets.left ?? 0),
+        };
+        const plotX = insets.left;
+        const plotY = insets.top + titleBlock;
+        const plotWidth = Math.max(1, width - insets.left - insets.right);
+        const plotHeight = Math.max(1, height - plotY - insets.bottom);
         return {
             width,
             height,
             plot: { x: plotX, y: plotY, width: plotWidth, height: plotHeight },
+            insets,
             titleY: spec.padding.top,
             subtitleY: spec.padding.top + theme.typography.titleSize + theme.spacing.xs,
         };
     }
 
     const AXISLESS_MARKS = new Set([
+        'arc-diagram',
         'calendar',
         'chord',
         'funnel',
         'gauge',
+        'geo-flow',
+        'geo-heatmap',
+        'geo-line',
         'graph',
         'geo',
+        'item',
         'map',
         'org',
+        'packed-bubble',
         'parallel',
         'pie',
         'radar',
         'sankey',
+        'solid-gauge',
         'sunburst',
         'table',
+        'tiled-map',
+        'tilemap',
         'tree',
         'treemap',
+        'venn',
+        'word-cloud',
         'word-tree',
     ]);
+    const AXIS_ORDER = ['x', 'x2', 'y', 'y2'];
+    function activeAxes(scales) {
+        return AXIS_ORDER.flatMap((id) => {
+            const resolved = scales.axes[id];
+            if (resolved === undefined)
+                return [];
+            const layerData = resolved.layers.find(({ layer }) => !AXISLESS_MARKS.has(layer.mark.type));
+            if (layerData === undefined)
+                return [];
+            const encoding = resolved.channel === 'x' ? layerData.layer.x : layerData.layer.y;
+            return [{ id, axis: encoding.axis, scale: resolved.scale, title: encoding.title }];
+        });
+    }
+    function axisContext(axis, plot, theme, locale) {
+        return {
+            ...axis,
+            plot,
+            theme,
+            ...(locale === undefined ? {} : { locale }),
+        };
+    }
+    function samePlot(left, right) {
+        return (left.x === right.x &&
+            left.y === right.y &&
+            left.width === right.width &&
+            left.height === right.height);
+    }
     function titleNodes(spec, theme, width, titleY, subtitleY) {
         if (spec.title === undefined)
             return [];
@@ -1652,40 +2904,46 @@ var Graflume = (function (exports) {
         const width = Math.max(1, spec.width === 'container' ? (options.width ?? 640) : spec.width);
         const height = Math.max(1, spec.height === 'container' ? (options.height ?? 400) : spec.height);
         const theme = registry.themes.resolve(spec.theme);
-        const layout = createLayout(spec, width, height, theme);
-        const scales = resolveScales(spec, layout.plot);
+        let layout = createLayout(spec, width, height, theme);
+        let scales = resolveScales(spec, layout.plot);
+        let axes = activeAxes(scales);
+        const minimumInsets = { top: 0, right: 0, bottom: 0, left: 0 };
+        for (const axis of axes) {
+            if (axis.axis === false || axis.axis.visible === false)
+                continue;
+            const required = measureAxisGutter(axisContext(axis, layout.plot, theme, spec.locale));
+            minimumInsets[axis.axis.position] = Math.max(minimumInsets[axis.axis.position], required);
+        }
+        const measuredLayout = createLayout(spec, width, height, theme, minimumInsets);
+        if (!samePlot(layout.plot, measuredLayout.plot)) {
+            layout = measuredLayout;
+            scales = resolveScales(spec, layout.plot);
+            axes = activeAxes(scales);
+        }
         const totalRows = scales.layers.reduce((sum, layer) => sum + layer.table.length, 0);
         const performance = resolvePerformanceSettings(spec.performance, totalRows, layout.plot.width);
-        const showAxes = spec.layers.some((layer) => !AXISLESS_MARKS.has(layer.mark.type));
-        const axisNodes = showAxes
-            ? [
-                ...compileXAxis({
-                    axis: scales.layers[0]?.layer.x.axis ?? spec.axes.x,
-                    scale: scales.xScale,
-                    plot: layout.plot,
-                    theme,
-                    title: scales.layers[0]?.layer.x.title ?? '',
-                    ...(spec.locale === undefined ? {} : { locale: spec.locale }),
-                }),
-                ...compileYAxis({
-                    axis: scales.layers[0]?.layer.y.axis ?? spec.axes.y,
-                    scale: scales.yScale,
-                    plot: layout.plot,
-                    theme,
-                    title: scales.layers[0]?.layer.y.title ?? '',
-                    ...(spec.locale === undefined ? {} : { locale: spec.locale }),
-                }),
-            ]
-            : [];
-        const barLayers = scales.layers.filter(({ layer }) => layer.mark.type === 'bar' && layer.mark.position === 'group');
+        const axisNodes = axes.flatMap((axis) => compileAxis(axisContext(axis, layout.plot, theme, spec.locale)));
+        const groupedBarLayers = new Map();
+        for (const layerData of scales.layers) {
+            if (layerData.layer.mark.type !== 'bar' || layerData.layer.mark.position !== 'group')
+                continue;
+            const key = `${layerData.layer.mark.orientation}:${layerData.xAxisId}:${layerData.yAxisId}`;
+            groupedBarLayers.set(key, scales.layers.filter((candidate) => candidate.layer.mark.type === 'bar' &&
+                candidate.layer.mark.position === 'group' &&
+                candidate.layer.mark.orientation === layerData.layer.mark.orientation &&
+                candidate.xAxisId === layerData.xAxisId &&
+                candidate.yAxisId === layerData.yAxisId));
+        }
         const layerGroups = scales.layers.map((layerData, layerIndex) => {
             const color = theme.colors.palette[layerIndex % theme.colors.palette.length] ?? theme.colors.focus;
+            const barGroupKey = `${layerData.layer.mark.orientation}:${layerData.xAxisId}:${layerData.yAxisId}`;
+            const barLayers = groupedBarLayers.get(barGroupKey) ?? [];
             const barGroupIndex = barLayers.findIndex(({ layer }) => layer.id === layerData.layer.id);
             const compiler = registry.mark(layerData.layer.mark.type);
             const children = compiler({
                 ...layerData,
-                xScale: scales.xScale,
-                yScale: scales.yScale,
+                xScale: layerData.xScale,
+                yScale: layerData.yScale,
                 plot: layout.plot,
                 theme,
                 color,
@@ -1729,13 +2987,31 @@ var Graflume = (function (exports) {
         const tooltip = spec.interaction.tooltip;
         if (tooltip !== false && tooltip.trigger === 'axis' && tooltip.axis !== undefined) {
             const axis = tooltip.axis;
-            const axisSpec = scales.layers[0]?.layer[axis].axis ?? spec.axes[axis];
-            const axisVisible = showAxes && axisSpec !== false && axisSpec.visible !== false;
-            const axisStripSize = axis === 'x'
-                ? Math.min(spec.padding.bottom, theme.axis.tickLength + theme.axis.labelPadding + theme.typography.fontSize * 1.5)
-                : Math.min(spec.padding.left, theme.axis.tickLength + theme.axis.labelPadding + theme.typography.fontSize * 4);
+            const activeAxis = axes.find((candidate) => candidate.id === axis);
+            const axisVisible = activeAxis !== undefined && activeAxis.axis !== false && activeAxis.axis.visible;
+            const context = activeAxis === undefined
+                ? undefined
+                : axisContext(activeAxis, layout.plot, theme, spec.locale);
+            let axisStripSize = context === undefined ? 0 : measureAxisLabelGutter(context);
+            if (context !== undefined &&
+                context.axis !== false &&
+                (context.axis.labels.angle ?? 0) === 0 &&
+                (context.axis.labels.orientation === 'auto' ||
+                    context.axis.labels.orientation === 'horizontal')) {
+                const horizontal = axis === 'x' || axis === 'x2';
+                const tickSize = context.axis.ticks.visible
+                    ? (context.axis.ticks.size ?? theme.axis.tickLength)
+                    : 0;
+                const labelPadding = context.axis.labels.padding ?? theme.axis.labelPadding;
+                const fontSize = context.axis.labels.font.size ?? theme.typography.fontSize;
+                const readableStrip = context.axis.offset + tickSize + labelPadding + fontSize * (horizontal ? 1.5 : 4);
+                axisStripSize = Math.min(axisStripSize, readableStrip);
+            }
             registerAxisTooltipIndex(scene, {
                 axis,
+                ...(activeAxis === undefined || activeAxis.axis === false
+                    ? {}
+                    : { position: activeAxis.axis.position }),
                 plot: layout.plot,
                 axisVisible,
                 axisStripSize: Math.max(0, axisStripSize),
@@ -4714,7 +5990,7 @@ var Graflume = (function (exports) {
             context.strokeStyle = node.stroke;
             context.lineWidth = node.lineWidth;
             context.lineCap = node.lineCap ?? 'butt';
-            context.setLineDash(node.dash ?? []);
+            context.setLineDash(node.dash === undefined ? [] : [...node.dash]);
             context.stroke();
         }
         #drawPath(context, node) {
@@ -4730,7 +6006,7 @@ var Graflume = (function (exports) {
             }
             if (node.closed)
                 context.closePath();
-            context.setLineDash(node.dash ?? []);
+            context.setLineDash(node.dash === undefined ? [] : [...node.dash]);
             context.lineCap = node.lineCap ?? 'round';
             context.lineJoin = node.lineJoin ?? 'round';
             if (node.fill !== undefined) {
@@ -4774,7 +6050,8 @@ var Graflume = (function (exports) {
             context.translate(node.x, node.y);
             context.rotate((node.rotation * Math.PI) / 180);
             context.fillStyle = node.fill;
-            context.font = `${node.fontWeight} ${node.fontSize}px ${node.fontFamily}`;
+            const fontStyle = node.fontStyle === undefined ? '' : `${node.fontStyle} `;
+            context.font = `${fontStyle}${node.fontWeight} ${node.fontSize}px ${node.fontFamily}`;
             context.textAlign = node.align;
             context.textBaseline = node.baseline;
             context.fillText(node.text, 0, 0);
