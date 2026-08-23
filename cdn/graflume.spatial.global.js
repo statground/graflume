@@ -1641,6 +1641,8 @@ var GraflumeSpatial = (function (exports) {
     ]);
     const TOOLTIP_KEYS = new Set(['title', 'fields']);
     const CONTROL_LABEL_KEYS = new Set([
+        'chart',
+        'toolbar',
         'orbit',
         'pan',
         'zoomIn',
@@ -1650,6 +1652,7 @@ var GraflumeSpatial = (function (exports) {
         'fullscreen',
         'exportPng',
         'instructions',
+        'contextLost',
         'unavailable',
     ]);
     const ACCESSIBILITY_KEYS = new Set(['description', 'table', 'maxRows']);
@@ -3695,6 +3698,8 @@ void main() {
                 this.#callbacks.contextRestored();
             }
             catch (error) {
+                this.#lost = true;
+                this.#callbacks.unavailable(error instanceof Error ? error.message : String(error));
                 this.#callbacks.error(error);
             }
         };
@@ -4118,6 +4123,8 @@ void main() {
     }
 
     const defaultLabels = {
+        chart: 'Interactive three-dimensional chart',
+        toolbar: 'Three-dimensional chart controls',
         orbit: 'Orbit camera',
         pan: 'Pan camera',
         zoomIn: 'Zoom in',
@@ -4127,6 +4134,7 @@ void main() {
         fullscreen: 'Toggle fullscreen',
         exportPng: 'Download PNG',
         instructions: 'Drag to orbit. Use Pan mode, Shift-drag, or the secondary pointer button to pan. Use Control or Command with the wheel, pinch, or plus and minus keys to zoom. Arrow keys move the camera; zero resets it.',
+        contextLost: 'The 3D rendering context was lost. Restoring…',
         unavailable: 'Hardware-accelerated 3D rendering is unavailable. The data table remains available.',
     };
     const svgNamespace = 'http://www.w3.org/2000/svg';
@@ -4222,7 +4230,7 @@ void main() {
         #instructions = null;
         #controls = null;
         #destroyed = false;
-        #available = false;
+        #availability = { status: 'initializing', available: false };
         #width = 1;
         #height = 1;
         #gestureActive = false;
@@ -4249,25 +4257,29 @@ void main() {
             this.#target.append(this.#wrapper);
             this.#renderer = new SpatialWebGLRenderer({
                 contextLost: () => {
-                    this.#showFallback('The 3D rendering context was lost. Restoring…');
+                    this.#showFallback('context-lost');
                     this.#events.emit('contextloss', { chart: this });
                 },
                 contextRestored: () => {
                     this.#hideFallback();
+                    this.#setAvailability('ready');
                     this.#events.emit('contextrestore', { chart: this });
                     this.render();
                 },
-                unavailable: (message) => this.#showFallback(message),
+                unavailable: () => this.#showFallback('unavailable'),
                 error: (error) => this.#events.emit('error', { chart: this, error }),
             });
             const labels = { ...defaultLabels, ...spec.interaction?.labels };
             const accessibleDescription = spatialAccessibleDescription(spec.accessibility?.description, labels.instructions);
-            this.#available = this.#renderer.mount(this.#wrapper, spec.ariaLabel ?? spec.title ?? 'Interactive three-dimensional chart', accessibleDescription);
+            const mounted = this.#renderer.mount(this.#wrapper, this.#chartLabel(labels), accessibleDescription);
+            if (mounted)
+                this.#setAvailability('ready');
             this.#renderer.setScene(this.#scene);
             this.#renderer.setCamera(this.#camera);
             this.#syncAccessibilityDom();
             this.#renderAccessibilityTable();
             this.#syncControlStructure();
+            this.#syncAvailabilityCopy();
             this.#attachInteraction();
             this.#configureResize();
             this.resize(options.width, options.height);
@@ -4291,11 +4303,15 @@ void main() {
             this.#syncAccessibilityDom();
             this.#renderAccessibilityTable();
             this.#syncControlStructure();
+            this.#syncAvailabilityCopy();
             this.#emitCamera('spec');
             this.render();
         }
         getCamera() {
             return { ...this.#camera, target: [...this.#camera.target] };
+        }
+        getAvailability() {
+            return { ...this.#availability };
         }
         setCamera(camera) {
             this.#assertAlive();
@@ -4407,10 +4423,10 @@ void main() {
             context.fillRect(0, 0, fallback.width, fallback.height);
             context.fillStyle = '#0f172a';
             context.font = '600 18px sans-serif';
-            context.fillText(this.#spec.title ?? 'Three-dimensional chart', 24, 38);
+            context.fillText(this.#spec.title ?? this.#chartLabel(), 24, 38);
             context.fillStyle = '#64748b';
             context.font = '14px sans-serif';
-            context.fillText(defaultLabels.unavailable, 24, 68, Math.max(20, fallback.width - 48));
+            context.fillText(this.#labels().unavailable, 24, 68, Math.max(20, fallback.width - 48));
             return fallback.toDataURL('image/png');
         }
         async toggleFullscreen() {
@@ -4434,6 +4450,7 @@ void main() {
             if (this.#destroyed)
                 return;
             this.#destroyed = true;
+            this.#setAvailability('destroyed');
             this.#resizeObserver?.disconnect();
             if (this.#windowResizeListener !== null)
                 window.removeEventListener('resize', this.#windowResizeListener);
@@ -4660,9 +4677,9 @@ void main() {
             });
         }
         #syncAccessibilityDom() {
-            const labels = { ...defaultLabels, ...this.#spec.interaction?.labels };
+            const labels = this.#labels();
             const surface = this.#renderer.surface();
-            surface.setAttribute('aria-label', this.#spec.ariaLabel ?? this.#spec.title ?? 'Interactive three-dimensional chart');
+            surface.setAttribute('aria-label', this.#chartLabel(labels));
             surface.setAttribute('aria-description', spatialAccessibleDescription(this.#spec.accessibility?.description, labels.instructions));
             if (this.#instructions === null) {
                 this.#instructions = document.createElement('p');
@@ -4700,11 +4717,11 @@ void main() {
             this.#wrapper.append(style);
         }
         #createControls() {
-            const labels = { ...defaultLabels, ...this.#spec.interaction?.labels };
+            const labels = this.#labels();
             const toolbar = document.createElement('div');
             toolbar.dataset.graflumeSpatialControls = 'true';
             toolbar.setAttribute('role', 'toolbar');
-            toolbar.setAttribute('aria-label', 'Three-dimensional chart controls');
+            toolbar.setAttribute('aria-label', labels.toolbar);
             toolbar.style.position = 'absolute';
             toolbar.style.insetBlockStart = '6px';
             toolbar.style.insetInlineEnd = '6px';
@@ -4777,7 +4794,8 @@ void main() {
             }
             if (this.#controls === null)
                 this.#createControls();
-            const labels = { ...defaultLabels, ...this.#spec.interaction?.labels };
+            const labels = this.#labels();
+            this.#controls?.setAttribute('aria-label', labels.toolbar);
             const byId = {
                 orbit: labels.orbit,
                 pan: labels.pan,
@@ -4884,7 +4902,7 @@ void main() {
             if (this.#tooltip !== null)
                 this.#tooltip.hidden = true;
         }
-        #showFallback(message) {
+        #showFallback(status) {
             if (this.#fallback === null) {
                 this.#fallback = document.createElement('div');
                 this.#fallback.dataset.graflumeSpatialFallback = 'true';
@@ -4900,10 +4918,12 @@ void main() {
                 this.#fallback.style.font = '14px/1.5 ui-sans-serif, system-ui, sans-serif';
                 this.#wrapper.append(this.#fallback);
             }
-            this.#fallback.textContent =
-                message || this.#spec.interaction?.labels?.unavailable || defaultLabels.unavailable;
+            const labels = this.#labels();
+            const message = status === 'context-lost' ? labels.contextLost : labels.unavailable;
+            this.#fallback.textContent = message;
             this.#fallback.style.display = 'grid';
             this.#fallback.hidden = false;
+            this.#setAvailability(status, message);
         }
         #hideFallback() {
             if (this.#fallback !== null) {
@@ -4925,7 +4945,7 @@ void main() {
             const table = document.createElement('table');
             const caption = document.createElement('caption');
             caption.textContent =
-                this.#spec.accessibility?.description ?? this.#spec.title ?? 'Three-dimensional chart data';
+                this.#spec.accessibility?.description ?? this.#spec.title ?? this.#chartLabel(this.#labels());
             table.append(caption);
             const picks = collectAccessibleSpatialPicks(this.#scene.geometries, this.#spec.accessibility?.maxRows ?? 100);
             const fields = [
@@ -4960,6 +4980,36 @@ void main() {
         }
         #emitCamera(reason) {
             this.#events.emit('camerachange', { chart: this, camera: this.getCamera(), reason });
+        }
+        #labels() {
+            return { ...defaultLabels, ...this.#spec.interaction?.labels };
+        }
+        #chartLabel(labels = this.#labels()) {
+            return this.#spec.ariaLabel ?? this.#spec.title ?? labels.chart;
+        }
+        #syncAvailabilityCopy() {
+            if (this.#availability.status === 'context-lost')
+                this.#showFallback('context-lost');
+            else if (this.#availability.status === 'unavailable')
+                this.#showFallback('unavailable');
+        }
+        #setAvailability(status, message) {
+            const previous = this.#availability;
+            const next = {
+                status,
+                available: status === 'ready',
+                ...(message === undefined ? {} : { message }),
+            };
+            if (previous.status === next.status &&
+                previous.available === next.available &&
+                previous.message === next.message)
+                return;
+            this.#availability = next;
+            this.#events.emit('availabilitychange', {
+                chart: this,
+                state: this.getAvailability(),
+                previous: { ...previous },
+            });
         }
         #assertAlive() {
             if (this.#destroyed)
