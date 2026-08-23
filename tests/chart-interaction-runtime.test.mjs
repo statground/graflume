@@ -58,6 +58,8 @@ class FakeElement extends TrackedEventTarget {
     this.rect = { left: 0, top: 0, width: 240, height: 160 };
     this.fullscreenRect = { left: 0, top: 0, width: 800, height: 600 };
     this.textContent = '';
+    this.className = '';
+    this.id = '';
     this.title = '';
     this.type = '';
     this.value = '';
@@ -127,6 +129,10 @@ class FakeElement extends TrackedEventTarget {
     this.dispatchEvent(new Event('click', { cancelable: true }));
   }
 
+  focus() {
+    this.ownerDocument.activeElement = this;
+  }
+
   get options() {
     return this.children.filter(({ tagName }) => tagName === 'OPTION');
   }
@@ -137,10 +143,18 @@ class FakeDocument extends TrackedEventTarget {
     super();
     this.hidden = false;
     this.fullscreenElement = null;
+    this.activeElement = null;
+    this.documentElement = new FakeElement('html', this);
+    this.head = new FakeElement('head', this);
     this.body = new FakeElement('body', this);
+    this.documentElement.append(this.head, this.body);
   }
 
   createElement(tagName) {
+    return new FakeElement(tagName, this);
+  }
+
+  createElementNS(_namespace, tagName) {
     return new FakeElement(tagName, this);
   }
 
@@ -334,6 +348,10 @@ function walk(element) {
 
 function byAria(root, label) {
   return walk(root).find((element) => element.getAttribute('aria-label') === label);
+}
+
+function byControl(root, control) {
+  return walk(root).find((element) => element.dataset.graflumeControl === control);
 }
 
 function findAxisOnlyPoint(scene) {
@@ -575,6 +593,93 @@ test('drag and two-touch pinch transition, cancel, reset stale click suppression
   }
 });
 
+test('compact controls stay top-right and keep technical LTR order inside an RTL host', () => {
+  const environment = installEnvironment();
+  const { registry, target, renderers } = createHarness(environment.document);
+  target.setAttribute('dir', 'rtl');
+  const chart = new Chart(
+    target,
+    {
+      data: [
+        { category: 'A', value: 10 },
+        { category: 'B', value: 14 },
+      ],
+      mark: 'point',
+      x: 'category',
+      y: 'value',
+      interaction: {
+        navigation: true,
+        controls: { zoom: true, reset: true, fullscreen: true, export: true },
+      },
+    },
+    registry,
+    { width: 240, height: 160, autoResize: false },
+  );
+
+  try {
+    const toolbar = walk(renderers[0].host).find(
+      (element) => element.dataset.graflumeControls === 'true',
+    );
+    assert.notEqual(toolbar, undefined);
+    assert.equal(toolbar.dataset.graflumeControlsPlacement, 'top-right');
+    assert.equal(toolbar.getAttribute('dir'), 'ltr');
+    const strip = walk(toolbar).find((element) => element.dataset.graflumeControlsStrip === 'true');
+    assert.deepEqual(
+      strip.children
+        .filter((element) => element.dataset.graflumeControl !== undefined)
+        .map((element) => element.dataset.graflumeControl),
+      ['zoom-out', 'zoom-in', 'reset', 'fullscreen', 'export-png'],
+    );
+  } finally {
+    chart.destroy();
+    assert.equal(environment.document.listenerCount(), 0);
+    environment.restore();
+  }
+});
+
+test('compact controls share one document stylesheet until the final chart is destroyed', () => {
+  const environment = installEnvironment();
+  const first = createHarness(environment.document);
+  const second = createHarness(environment.document);
+  const spec = {
+    data: [
+      { category: 'A', value: 10 },
+      { category: 'B', value: 14 },
+    ],
+    mark: 'point',
+    x: 'category',
+    y: 'value',
+    interaction: { navigation: true, controls: { zoom: true, reset: true } },
+  };
+  const firstChart = new Chart(first.target, spec, first.registry, {
+    width: 240,
+    height: 160,
+    autoResize: false,
+  });
+  const secondChart = new Chart(second.target, spec, second.registry, {
+    width: 240,
+    height: 160,
+    autoResize: false,
+  });
+  const styles = () =>
+    walk(environment.document.documentElement).filter(
+      (element) => element.dataset.graflumeControlStyles === 'compact',
+    );
+
+  try {
+    assert.equal(styles().length, 1);
+    firstChart.destroy();
+    assert.equal(styles().length, 1);
+    secondChart.destroy();
+    assert.equal(styles().length, 0);
+    assert.equal(environment.document.listenerCount(), 0);
+  } finally {
+    firstChart.destroy();
+    secondChart.destroy();
+    environment.restore();
+  }
+});
+
 test('playback keeps its base spec, advances on the core clock, and controls stay accessible', async () => {
   const environment = installEnvironment();
   const { registry, target, renderers } = createHarness(environment.document);
@@ -631,13 +736,80 @@ test('playback keeps its base spec, advances on the core clock, and controls sta
     );
     assert.notEqual(toolbar, undefined);
     assert.equal(toolbar.getAttribute('aria-label'), '차트 제어');
+    assert.equal(toolbar.dataset.graflumeControlsDensity, 'compact');
+    assert.equal(toolbar.dataset.graflumeControlsPlacement, 'top-right');
+    assert.equal(toolbar.dataset.graflumeControlsOpen, 'false');
+    assert.equal(toolbar.getAttribute('dir'), 'ltr');
+    const strip = walk(toolbar).find((element) => element.dataset.graflumeControlsStrip === 'true');
+    assert.notEqual(strip, undefined);
+    const styles = walk(environment.document.documentElement).find(
+      (element) => element.dataset.graflumeControlStyles === 'compact',
+    );
+    assert.match(styles.textContent, /height:30px/);
+    assert.match(styles.textContent, /width:28px/);
+    assert.match(styles.textContent, /pointer:coarse/);
+    assert.match(styles.textContent, /width:44px/);
+    assert.match(styles.textContent, /top:2px;right:2px/);
+    for (const control of [
+      'zoom-out',
+      'zoom-in',
+      'reset',
+      'fullscreen',
+      'export-png',
+      'previous-frame',
+      'playback',
+      'next-frame',
+      'playback-options',
+    ]) {
+      const element = byControl(strip, control);
+      assert.notEqual(element, undefined, `expected compact ${control} control`);
+      assert.equal(element.children.length, 1);
+      assert.equal(element.children[0].tagName, 'SVG');
+      assert.equal(element.children[0].getAttribute('aria-hidden'), 'true');
+      assert.notEqual(element.title, '');
+      assert.notEqual(element.getAttribute('aria-label'), null);
+    }
     const loop = byAria(renderer.host, '<img src=x onerror=alert(1)>');
     assert.notEqual(loop, undefined);
-    assert.equal(loop.textContent, '↻');
-    assert.equal(loop.children.length, 0);
+    assert.equal(loop.children.length, 1);
+    assert.equal(loop.children[0].tagName, 'SVG');
+    assert.equal(
+      walk(loop).some(({ tagName }) => tagName === 'IMG'),
+      false,
+    );
     assert.equal(loop.getAttribute('aria-pressed'), 'false');
     const status = walk(toolbar).find((element) => element.getAttribute('aria-live') === 'polite');
     assert.notEqual(status, undefined);
+
+    const playbackOptions = byControl(toolbar, 'playback-options');
+    const playbackPanel = walk(toolbar).find(
+      (element) => element.dataset.graflumePlaybackPanel === 'true',
+    );
+    assert.equal(playbackOptions.getAttribute('aria-expanded'), 'false');
+    assert.equal(playbackOptions.getAttribute('aria-haspopup'), 'dialog');
+    assert.equal(
+      playbackOptions.getAttribute('aria-label'),
+      'Playback position · Playback speed · <img src=x onerror=alert(1)>',
+    );
+    assert.equal(playbackPanel.hidden, true);
+    assert.equal(playbackPanel.getAttribute('role'), 'dialog');
+    const listenersBeforePanel = environment.document.listenerCount();
+    playbackOptions.click();
+    assert.equal(playbackOptions.getAttribute('aria-expanded'), 'true');
+    assert.equal(playbackPanel.hidden, false);
+    assert.equal(toolbar.dataset.graflumeControlsOpen, 'true');
+    assert.equal(environment.document.listenerCount(), listenersBeforePanel + 2);
+    environment.document.dispatchEvent(new FakePointerEvent('pointerdown'));
+    assert.equal(playbackOptions.getAttribute('aria-expanded'), 'false');
+    assert.equal(playbackPanel.hidden, true);
+    assert.equal(toolbar.dataset.graflumeControlsOpen, 'false');
+    assert.equal(environment.document.listenerCount(), listenersBeforePanel);
+
+    playbackOptions.click();
+    environment.document.dispatchEvent(new FakeKeyboardEvent('keydown', { key: 'Escape' }));
+    assert.equal(playbackPanel.hidden, true);
+    assert.equal(environment.document.activeElement, playbackOptions);
+    assert.equal(environment.document.listenerCount(), listenersBeforePanel);
 
     const reset = byAria(renderer.host, 'Reset view');
     assert.equal(reset.disabled, true);
@@ -667,8 +839,10 @@ test('playback keeps its base spec, advances on the core clock, and controls sta
     assert.equal(environment.pendingFrames(), 0);
     assert.deepEqual(reasons, ['loop', 'loop', 'seek', 'play', 'step', 'rate', 'step', 'pause']);
 
-    const seek = byAria(renderer.host, 'Playback position');
+    const seek = byControl(renderer.host, 'playback-seek');
     assert.equal(seek.getAttribute('aria-valuetext'), 'Q3');
+    assert.equal(seek.value, '2');
+    assert.equal(byControl(renderer.host, 'playback-rate').value, '2');
 
     byAria(renderer.host, 'Download PNG').click();
     assert.equal(renderer.exportCalls, 1);

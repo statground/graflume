@@ -59,7 +59,7 @@ The renderer advertises inspection support separately. The built-in Canvas rende
 
 ## Controls, fullscreen, and export
 
-`interaction.controls` adds compact browser controls around the chart. A boolean `true` requests every control group. When an object is used, every omitted group defaults to `false`, which makes an explicit object the safer choice for production interfaces.
+`interaction.controls` adds a compact floating control strip at the chart's top-right corner. The closed desktop strip is icon-only: each 28 px control keeps its localized `title` tooltip and accessible name, while the single translucent surface becomes fully opaque on hover or keyboard focus. A boolean `true` requests every control group. When an object is used, every omitted group defaults to `false`, which makes an explicit object the safer choice for production interfaces.
 
 | Option       | Effect                                                           |
 | ------------ | ---------------------------------------------------------------- |
@@ -71,6 +71,10 @@ The renderer advertises inspection support separately. The built-in Canvas rende
 | `labels`     | Override control tooltips and accessible names without callbacks |
 
 The label keys are `controls` for the toolbar name plus `zoomIn`, `zoomOut`, `reset`, `enterFullscreen`, `exitFullscreen`, `exportPng`, `previousFrame`, `play`, `pause`, `nextFrame`, `seek`, `speed`, and `loop`. Values must be non-empty strings. This keeps localization declarative and avoids executable formatters in the portable spec.
+
+Previous, play/pause, and next remain in the closed strip. Seek, current frame, playback rate, and loop live in a secondary panel opened from the adjacent playback-options button, so temporal controls do not force a long permanent bar over the plot. The disclosure name combines the localized seek, speed, and loop labels; it declares the associated dialog, closes on an outside pointer press or Escape, and returns Escape focus to its trigger. The panel is the only user-triggered expanded surface.
+
+The desktop strip is 30 CSS pixels high and sits 6 pixels from the chart's top and right edges. Coarse-pointer or narrow layouts use real 44 px button targets in a 44 px strip positioned 2 pixels from those edges; the SVG remains visually small, and the strip scrolls horizontally only if the host is narrower than the enabled control set. Hosts whose title or marks occupy the top-right corner should reserve at least 50 CSS pixels of top padding. Both LTR and RTL pages keep this technical control sequence LTR and anchored top-right. The diagnostic `data-graflume-controls`, `data-graflume-controls-density`, `data-graflume-controls-placement`, `data-graflume-control`, and playback-panel attributes support behavior tests; applications should prefer the portable options and labels instead of replacing internal control styles.
 
 A control does not enable the underlying capability. Pair zoom/reset controls with `navigation`, and pair playback controls with a valid `playback` object. Controls whose renderer, browser, or playback prerequisite is unavailable remain disabled.
 
