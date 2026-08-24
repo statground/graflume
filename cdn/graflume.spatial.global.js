@@ -1400,53 +1400,6 @@ var GraflumeSpatial = (function (exports) {
         return Array.from({ length: count }, (_, index) => Math.round((index * (safeLength - 1)) / (count - 1)));
     }
 
-    class GraflumeError extends Error {
-        code;
-        path;
-        details;
-        constructor(code, message, options = {}) {
-            super(message, options.cause === undefined ? undefined : { cause: options.cause });
-            this.name = 'GraflumeError';
-            this.code = code;
-            if (options.path !== undefined)
-                this.path = options.path;
-            if (options.details !== undefined)
-                this.details = options.details;
-        }
-    }
-
-    const UNSAFE_KEYS$1 = new Set(['__proto__', 'prototype', 'constructor']);
-    function assertSafeKey(key, path = key) {
-        if (UNSAFE_KEYS$1.has(key)) {
-            throw new GraflumeError('UNSAFE_KEY', `Unsafe key "${key}" is not allowed.`, { path });
-        }
-    }
-    function isPlainObject(value) {
-        if (value === null || typeof value !== 'object')
-            return false;
-        const prototype = Object.getPrototypeOf(value);
-        return prototype === Object.prototype || prototype === null;
-    }
-    function deepMerge(base, override) {
-        const output = { ...base };
-        for (const [key, overrideValue] of Object.entries(override)) {
-            assertSafeKey(key);
-            if (overrideValue === undefined)
-                continue;
-            const baseValue = output[key];
-            if (isPlainObject(baseValue) && isPlainObject(overrideValue)) {
-                output[key] = deepMerge(baseValue, overrideValue);
-            }
-            else if (Array.isArray(overrideValue)) {
-                output[key] = [...overrideValue];
-            }
-            else {
-                output[key] = overrideValue;
-            }
-        }
-        return output;
-    }
-
     const palette = [
         '#4f46e5',
         '#0f9f8a',
@@ -1629,13 +1582,197 @@ var GraflumeSpatial = (function (exports) {
         },
         motion: { duration: 280, easing: 'ease-out' },
     };
+    /**
+     * R 4.6.1 base graphics defaults mapped to the browser reference density of
+     * 96 dpi. Device-specific font discovery and rasterisation remain outside the
+     * portable theme contract.
+     */
+    const graflumeRBase = {
+        name: 'r-base',
+        mode: 'light',
+        colors: {
+            background: '#FFFFFF',
+            surface: '#FFFFFF',
+            panel: '#FFFFFF',
+            text: '#000000',
+            mutedText: '#000000',
+            subtitle: '#000000',
+            axisTitle: '#000000',
+            axis: '#000000',
+            grid: '#D9D9D9',
+            focus: '#2297E6',
+            palette: [
+                '#000000',
+                '#DF536B',
+                '#61D04F',
+                '#2297E6',
+                '#28E2E5',
+                '#CD0BBC',
+                '#F5C710',
+                '#9E9E9E',
+            ],
+            sequential: ['#FFFFCC', '#FED976', '#FD8D3C', '#E31A1C', '#800026'],
+            diverging: ['#2166AC', '#67A9CF', '#F7F7F7', '#EF8A62', '#B2182B'],
+        },
+        typography: {
+            fontFamily: 'Helvetica, Arial, sans-serif',
+            fontSize: 12 * pointToCssPixel,
+            fontWeight: 400,
+            titleSize: 14.4 * pointToCssPixel,
+            titleWeight: 700,
+            subtitleSize: 12 * pointToCssPixel,
+            subtitleWeight: 400,
+            axisLabelSize: 12 * pointToCssPixel,
+            axisLabelWeight: 400,
+            axisTitleSize: 12 * pointToCssPixel,
+            axisTitleWeight: 400,
+            legendLabelSize: 12 * pointToCssPixel,
+            legendLabelWeight: 400,
+            legendTitleSize: 12 * pointToCssPixel,
+            legendTitleWeight: 400,
+            titlePosition: 'panel',
+            titleAlign: 'center',
+            lineHeight: 1.2,
+        },
+        spacing: {
+            xs: 4,
+            sm: 8,
+            md: 12,
+            lg: 16,
+            xl: 24,
+            plotPadding: { top: 24, right: 30, bottom: 73, left: 59 },
+        },
+        axis: {
+            lineWidth: 1,
+            boxVisible: true,
+            boxLineWidth: 1,
+            boxExcludedMarks: ['bar', 'pie'],
+            tickLength: 6,
+            labelPadding: 5,
+            gridLineWidth: 1,
+            lineVisible: true,
+            ticksVisible: true,
+            gridX: false,
+            gridX2: false,
+            gridY: false,
+            gridY2: false,
+            gridOpacity: 1,
+            minorGridVisible: false,
+            emphasizeZero: false,
+            lineCap: 'butt',
+            titleGap: 8,
+        },
+        mark: {
+            lineWidth: 1,
+            pointRadius: 3.75,
+            barRadius: 0,
+            opacity: 1,
+            defaultColor: '#000000',
+            lineColor: '#000000',
+            pointFill: 'transparent',
+            pointStroke: '#000000',
+            pointStrokeWidth: 1,
+            barFill: '#BEBEBE',
+            barStroke: '#000000',
+            barStrokeWidth: 1,
+            barWidthRatio: 0.8,
+            histogramFill: '#D3D3D3',
+            boxplotFill: '#D3D3D3',
+            boxplotLineWidth: 1,
+            boxplotRadius: 0,
+            piePalette: ['#FFFFFF', '#ADD8E6', '#FFE4E1', '#E0FFFF', '#E6E6FA', '#FFF8DC'],
+            pieStroke: '#000000',
+            pieStrokeWidth: 1,
+            areaFill: '#BEBEBE',
+            areaStroke: '#000000',
+            areaStrokeVisible: true,
+            lineCap: 'round',
+            lineJoin: 'round',
+        },
+        legend: {
+            surfaceOpacity: 1,
+            borderWidth: 1,
+            cornerRadius: 0,
+            swatchRadius: 0,
+            swatchSize: 12 * pointToCssPixel,
+            lineWidth: 1,
+            pointRadius: 3.75,
+            pointStrokeWidth: 1,
+            lineCap: 'round',
+        },
+        motion: { duration: 0, easing: 'linear' },
+    };
+    const defaultThemeId = graflumeLight.name;
+    /** Ordered source of truth for every built-in theme and generated preview. */
+    const builtInThemeCatalog = [
+        { id: graflumeLight.name, tokens: graflumeLight, snapshot: false },
+        { id: graflumeDark.name, tokens: graflumeDark, snapshot: true },
+        {
+            id: graflumeGgplot.name,
+            tokens: graflumeGgplot,
+            snapshot: true,
+            sourceBaseline: 'ggplot2 4.0.3',
+        },
+        {
+            id: graflumeRBase.name,
+            tokens: graflumeRBase,
+            snapshot: true,
+            sourceBaseline: 'R 4.6.1',
+        },
+    ];
+
+    class GraflumeError extends Error {
+        code;
+        path;
+        details;
+        constructor(code, message, options = {}) {
+            super(message, options.cause === undefined ? undefined : { cause: options.cause });
+            this.name = 'GraflumeError';
+            this.code = code;
+            if (options.path !== undefined)
+                this.path = options.path;
+            if (options.details !== undefined)
+                this.details = options.details;
+        }
+    }
+
+    const UNSAFE_KEYS$1 = new Set(['__proto__', 'prototype', 'constructor']);
+    function assertSafeKey(key, path = key) {
+        if (UNSAFE_KEYS$1.has(key)) {
+            throw new GraflumeError('UNSAFE_KEY', `Unsafe key "${key}" is not allowed.`, { path });
+        }
+    }
+    function isPlainObject(value) {
+        if (value === null || typeof value !== 'object')
+            return false;
+        const prototype = Object.getPrototypeOf(value);
+        return prototype === Object.prototype || prototype === null;
+    }
+    function deepMerge(base, override) {
+        const output = { ...base };
+        for (const [key, overrideValue] of Object.entries(override)) {
+            assertSafeKey(key);
+            if (overrideValue === undefined)
+                continue;
+            const baseValue = output[key];
+            if (isPlainObject(baseValue) && isPlainObject(overrideValue)) {
+                output[key] = deepMerge(baseValue, overrideValue);
+            }
+            else if (Array.isArray(overrideValue)) {
+                output[key] = [...overrideValue];
+            }
+            else {
+                output[key] = overrideValue;
+            }
+        }
+        return output;
+    }
 
     class ThemeRegistry {
         #themes = new Map();
         constructor() {
-            this.register(graflumeLight);
-            this.register(graflumeDark);
-            this.register(graflumeGgplot);
+            for (const entry of builtInThemeCatalog)
+                this.register(entry.tokens);
         }
         register(theme) {
             if (theme.name.trim() === '') {
@@ -1664,7 +1801,7 @@ var GraflumeSpatial = (function (exports) {
         resolve(input) {
             if (typeof input === 'string')
                 return this.get(input);
-            const baseName = input.extends ?? 'graflume-light';
+            const baseName = input.extends ?? defaultThemeId;
             const { extends: _extends, ...overrides } = input;
             const merged = deepMerge(this.get(baseName), overrides);
             return {
@@ -2079,15 +2216,20 @@ var GraflumeSpatial = (function (exports) {
         'legendTitleSize',
         'legendTitleWeight',
         'titlePosition',
+        'titleAlign',
         'lineHeight',
     ]);
-    const THEME_SPACING_KEYS = new Set(['xs', 'sm', 'md', 'lg', 'xl', 'plotMargin']);
+    const THEME_SPACING_KEYS = new Set(['xs', 'sm', 'md', 'lg', 'xl', 'plotMargin', 'plotPadding']);
+    const THEME_PLOT_PADDING_KEYS = new Set(['top', 'right', 'bottom', 'left']);
     const THEME_AXIS_KEYS = new Set([
         'lineWidth',
         'tickLength',
         'labelPadding',
         'gridLineWidth',
         'lineVisible',
+        'boxVisible',
+        'boxLineWidth',
+        'boxExcludedMarks',
         'ticksVisible',
         'gridX',
         'gridX2',
@@ -2112,7 +2254,16 @@ var GraflumeSpatial = (function (exports) {
         'pointStroke',
         'pointStrokeWidth',
         'barFill',
+        'barStroke',
+        'barStrokeWidth',
         'barWidthRatio',
+        'histogramFill',
+        'boxplotFill',
+        'boxplotLineWidth',
+        'boxplotRadius',
+        'piePalette',
+        'pieStroke',
+        'pieStrokeWidth',
         'areaFill',
         'areaStroke',
         'areaStrokeVisible',
@@ -2421,6 +2572,15 @@ var GraflumeSpatial = (function (exports) {
         }
         value.forEach((entry, index) => optionalNonEmptyString(entry, `${path}[${index}]`, issues, 128));
     }
+    function validateThemeNameArray(value, path, issues) {
+        if (value === undefined)
+            return;
+        if (!Array.isArray(value) || value.length > 256) {
+            issue(issues, path, 'Must be an array with at most 256 non-empty names.');
+            return;
+        }
+        value.forEach((entry, index) => optionalNonEmptyString(entry, `${path}[${index}]`, issues, 128));
+    }
     function validateTheme(value, path, issues) {
         if (value === undefined)
             return;
@@ -2481,13 +2641,21 @@ var GraflumeSpatial = (function (exports) {
                 ])
                     optionalThemeNumber(typography[key], `${path}.typography.${key}`, issues, 0, 2_000);
                 optionalEnum(typography.titlePosition, `${path}.typography.titlePosition`, new Set(['plot', 'panel']), issues);
+                optionalEnum(typography.titleAlign, `${path}.typography.titleAlign`, new Set(['left', 'center', 'right']), issues);
             }
         }
         if (theme.spacing !== undefined) {
             const spacing = closedObject(theme.spacing, `${path}.spacing`, THEME_SPACING_KEYS, issues);
-            if (spacing !== undefined)
-                for (const key of THEME_SPACING_KEYS)
+            if (spacing !== undefined) {
+                for (const key of ['xs', 'sm', 'md', 'lg', 'xl', 'plotMargin'])
                     optionalThemeNumber(spacing[key], `${path}.spacing.${key}`, issues);
+                if (spacing.plotPadding !== undefined) {
+                    const plotPadding = closedObject(spacing.plotPadding, `${path}.spacing.plotPadding`, THEME_PLOT_PADDING_KEYS, issues);
+                    if (plotPadding !== undefined)
+                        for (const key of THEME_PLOT_PADDING_KEYS)
+                            optionalThemeNumber(plotPadding[key], `${path}.spacing.plotPadding.${key}`, issues);
+                }
+            }
         }
         if (theme.axis !== undefined) {
             const axis = closedObject(theme.axis, `${path}.axis`, THEME_AXIS_KEYS, issues);
@@ -2497,14 +2665,17 @@ var GraflumeSpatial = (function (exports) {
                     'tickLength',
                     'labelPadding',
                     'gridLineWidth',
+                    'boxLineWidth',
                     'minorGridLineWidth',
                     'titleGap',
                 ])
                     optionalThemeNumber(axis[key], `${path}.axis.${key}`, issues, 0, 256);
                 for (const key of ['gridOpacity', 'minorGridOpacity'])
                     optionalThemeNumber(axis[key], `${path}.axis.${key}`, issues, 0, 1);
+                validateThemeNameArray(axis.boxExcludedMarks, `${path}.axis.boxExcludedMarks`, issues);
                 for (const key of [
                     'lineVisible',
+                    'boxVisible',
                     'ticksVisible',
                     'gridX',
                     'gridX2',
@@ -2520,7 +2691,16 @@ var GraflumeSpatial = (function (exports) {
         if (theme.mark !== undefined) {
             const mark = closedObject(theme.mark, `${path}.mark`, THEME_MARK_KEYS, issues);
             if (mark !== undefined) {
-                for (const key of ['lineWidth', 'pointRadius', 'pointStrokeWidth', 'barRadius'])
+                for (const key of [
+                    'lineWidth',
+                    'pointRadius',
+                    'pointStrokeWidth',
+                    'barRadius',
+                    'barStrokeWidth',
+                    'boxplotLineWidth',
+                    'boxplotRadius',
+                    'pieStrokeWidth',
+                ])
                     optionalThemeNumber(mark[key], `${path}.mark.${key}`, issues);
                 optionalThemeNumber(mark.opacity, `${path}.mark.opacity`, issues, 0, 1);
                 optionalThemeNumber(mark.barWidthRatio, `${path}.mark.barWidthRatio`, issues, 0, 1);
@@ -2531,10 +2711,15 @@ var GraflumeSpatial = (function (exports) {
                     'pointFill',
                     'pointStroke',
                     'barFill',
+                    'barStroke',
+                    'histogramFill',
+                    'boxplotFill',
+                    'pieStroke',
                     'areaFill',
                     'areaStroke',
                 ])
                     optionalNonEmptyString(mark[key], `${path}.mark.${key}`, issues, 128);
+                validateThemeStringArray(mark.piePalette, `${path}.mark.piePalette`, issues);
                 optionalEnum(mark.lineCap, `${path}.mark.lineCap`, new Set(['butt', 'round', 'square']), issues);
                 optionalEnum(mark.lineJoin, `${path}.mark.lineJoin`, new Set(['bevel', 'round', 'miter']), issues);
             }
@@ -3473,7 +3658,7 @@ var GraflumeSpatial = (function (exports) {
         return categoricalColor(theme, layerIndex, layerCount);
     }
     function usesLegacySpatialDefaults(theme) {
-        return theme.name === 'graflume-light';
+        return theme.name === defaultThemeId;
     }
     function triangleNormals(positions, indices) {
         const normals = new Float32Array(positions.length);
@@ -4496,7 +4681,7 @@ var GraflumeSpatial = (function (exports) {
     };
     function compileSpatial(spec) {
         assertValidSpatialSpec(spec);
-        const theme = new ThemeRegistry().resolve(spec.theme ?? 'graflume-light');
+        const theme = new ThemeRegistry().resolve(spec.theme ?? defaultThemeId);
         const geometries = [];
         for (const [layerIndex, layer] of spec.layers.entries()) {
             const type = layer.mark.type.trim().toLowerCase();
@@ -7883,9 +8068,15 @@ void main() {
 
     exports.SpatialChart = SpatialChart;
     exports.assertValidSpatialSpec = assertValidSpatialSpec;
+    exports.builtInThemeCatalog = builtInThemeCatalog;
     exports.compileSpatial = compileSpatial;
     exports.createSpatial = createSpatial;
+    exports.defaultThemeId = defaultThemeId;
     exports.globe = globe;
+    exports.graflumeDark = graflumeDark;
+    exports.graflumeGgplot = graflumeGgplot;
+    exports.graflumeLight = graflumeLight;
+    exports.graflumeRBase = graflumeRBase;
     exports.isosurface = isosurface;
     exports.mesh = mesh;
     exports.scatter = scatter;
