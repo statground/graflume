@@ -3,9 +3,17 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 
 import { compileSpatial } from '../dist/graflume.spatial.js';
 import { spatialSampleSpecs } from './spatial-samples.mjs';
+import {
+  applySnapshotTheme,
+  assertAllRequestedSnapshotsRendered,
+  checkOnly,
+  includeSnapshot,
+  snapshotOutputDirectory,
+  snapshotTheme,
+  snapshotThemeLabel,
+} from './snapshot-theme-options.mjs';
 
-const outputDirectory = new URL('../docs/assets/spatial/', import.meta.url);
-const checkOnly = process.argv.includes('--check');
+const outputDirectory = snapshotOutputDirectory(import.meta.url, 'spatial');
 const width = 720;
 const height = 420;
 const padding = 36;
@@ -149,18 +157,43 @@ function renderScene(scene) {
     }
   }
   shapes.sort((left, right) => left.layer - right.layer || left.depth - right.depth);
-  const background = typeof scene.spec.background === 'string' ? scene.spec.background : '#f8fafc';
+  const background =
+    typeof scene.spec.background === 'string'
+      ? scene.spec.background
+      : snapshotTheme === null
+        ? '#f8fafc'
+        : (scene.theme.colors.panel ?? scene.theme.colors.surface);
+  const backgroundRgb = background.match(/^#([\da-f]{2})([\da-f]{2})([\da-f]{2})$/iu);
+  const backgroundLuminance =
+    backgroundRgb === null
+      ? 1
+      : (0.2126 * Number.parseInt(backgroundRgb[1], 16) +
+          0.7152 * Number.parseInt(backgroundRgb[2], 16) +
+          0.0722 * Number.parseInt(backgroundRgb[3], 16)) /
+        255;
+  const titleFill =
+    snapshotTheme === null
+      ? background === '#07111f'
+        ? '#f8fafc'
+        : '#0f172a'
+      : backgroundLuminance < 0.48
+        ? '#f8fafc'
+        : '#0f172a';
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeXml(scene.spec.title ?? 'Spatial chart')} compiled preview">
   <rect width="${width}" height="${height}" rx="18" fill="${escapeXml(background)}"/>
   <g>${shapes.map(({ markup }) => markup).join('')}</g>
-  <text x="20" y="28" fill="${background === '#07111f' ? '#f8fafc' : '#0f172a'}" font-family="system-ui,sans-serif" font-size="15" font-weight="700">${escapeXml(scene.spec.title ?? 'Spatial chart')}</text>
+  <text x="20" y="28" fill="${titleFill}" font-family="system-ui,sans-serif" font-size="15" font-weight="700">${escapeXml(scene.spec.title ?? 'Spatial chart')}</text>
 </svg>
 `;
 }
 
 await mkdir(outputDirectory, { recursive: true });
-for (const [id, spec] of Object.entries(spatialSampleSpecs)) {
-  const output = renderScene(compileSpatial(spec));
+const selectedSnapshots = Object.entries(spatialSampleSpecs).filter(([id]) =>
+  includeSnapshot(`${id}.svg`),
+);
+assertAllRequestedSnapshotsRendered(selectedSnapshots.map(([id]) => `${id}.svg`));
+for (const [id, spec] of selectedSnapshots) {
+  const output = renderScene(compileSpatial(applySnapshotTheme(spec)));
   const url = new URL(`${id}.svg`, outputDirectory);
   if (checkOnly) {
     assert.equal(
@@ -174,5 +207,5 @@ for (const [id, spec] of Object.entries(spatialSampleSpecs)) {
 }
 
 console.log(
-  `${checkOnly ? 'Verified' : 'Rendered'} ${Object.keys(spatialSampleSpecs).length} compiled spatial snapshots.`,
+  `${checkOnly ? 'Verified' : 'Rendered'} ${selectedSnapshots.length} compiled spatial snapshots${snapshotThemeLabel()}.`,
 );

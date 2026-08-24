@@ -7,9 +7,16 @@ import {
   seriesChartVariantCatalog,
 } from '../dist/graflume.complete.js';
 import { seriesSampleSpec } from './series-samples.mjs';
+import {
+  applySnapshotTheme,
+  assertAllRequestedSnapshotsRendered,
+  checkOnly,
+  includeSnapshot,
+  snapshotOutputDirectory,
+  snapshotThemeLabel,
+} from './snapshot-theme-options.mjs';
 
-const outputDirectory = new URL('../docs/assets/charts/', import.meta.url);
-const checkOnly = process.argv.includes('--check');
+const outputDirectory = snapshotOutputDirectory(import.meta.url, 'charts');
 
 function escapeXml(value) {
   return String(value)
@@ -190,9 +197,16 @@ const snapshotEntries = [
     [...seriesChartVariantCatalog, ...seriesChartTypeCatalog].map((entry) => [entry.id, entry]),
   ).values(),
 ];
+const selectedSnapshotEntries = snapshotEntries.filter((entry) =>
+  includeSnapshot(`${entry.id}.svg`),
+);
+assertAllRequestedSnapshotsRendered(selectedSnapshotEntries.map((entry) => `${entry.id}.svg`));
 
-for (const entry of snapshotEntries) {
-  const { scene } = compile(seriesSampleSpec(entry), { width: 760, height: 440 });
+for (const entry of selectedSnapshotEntries) {
+  const { scene } = compile(applySnapshotTheme(seriesSampleSpec(entry)), {
+    width: 760,
+    height: 440,
+  });
   assert.ok(scene.metadata.renderedNodeCount > 3, `${entry.id} produced a non-empty Scene`);
   const output = renderScene(scene);
   const url = new URL(`${entry.id}.svg`, outputDirectory);
@@ -205,5 +219,5 @@ for (const entry of snapshotEntries) {
 }
 
 console.log(
-  `${checkOnly ? 'Verified' : 'Rendered'} ${snapshotEntries.length} family and preset series snapshots.`,
+  `${checkOnly ? 'Verified' : 'Rendered'} ${selectedSnapshotEntries.length} family and preset series snapshots${snapshotThemeLabel()}.`,
 );

@@ -3,6 +3,14 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 
 import { fullVariantCatalog } from '../dist/graflume.complete.js';
 import { seriesSampleSpec } from './series-samples.mjs';
+import {
+  applySnapshotTheme,
+  assertAllRequestedSnapshotsRendered,
+  checkOnly,
+  includeSnapshot,
+  snapshotOutputDirectory,
+  snapshotThemeLabel,
+} from './snapshot-theme-options.mjs';
 
 const compile = await loadCompile();
 
@@ -21,8 +29,7 @@ async function loadCompile() {
   );
 }
 
-const outputDirectory = new URL('../docs/assets/charts/', import.meta.url);
-const checkOnly = process.argv.includes('--check');
+const outputDirectory = snapshotOutputDirectory(import.meta.url, 'charts');
 
 function escapeXml(value) {
   return String(value)
@@ -523,10 +530,12 @@ for (const entry of fullVariantCatalog) {
 }
 
 await mkdir(outputDirectory, { recursive: true });
-for (const snapshot of snapshots) {
+const selectedSnapshots = snapshots.filter((snapshot) => includeSnapshot(snapshot.filename));
+assertAllRequestedSnapshotsRendered(selectedSnapshots.map((snapshot) => snapshot.filename));
+for (const snapshot of selectedSnapshots) {
   let scene;
   try {
-    ({ scene } = compile(snapshot.spec, { width: 680, height: 400 }));
+    ({ scene } = compile(applySnapshotTheme(snapshot.spec), { width: 680, height: 400 }));
   } catch (error) {
     throw new Error(`${snapshot.filename}: ${error instanceof Error ? error.message : error}`, {
       cause: error,
@@ -555,5 +564,5 @@ for (const snapshot of snapshots) {
 }
 
 console.log(
-  `${checkOnly ? 'Verified' : 'Rendered'} ${snapshots.length} additional chart guide snapshots from Graflume Scenes.`,
+  `${checkOnly ? 'Verified' : 'Rendered'} ${selectedSnapshots.length} additional chart guide snapshots${snapshotThemeLabel()} from Graflume Scenes.`,
 );

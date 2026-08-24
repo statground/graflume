@@ -2,9 +2,17 @@ import assert from 'node:assert/strict';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 
 import { compile } from '../dist/graflume.js';
+import {
+  applySnapshotTheme,
+  assertAllRequestedSnapshotsRendered,
+  checkOnly,
+  includeSnapshot,
+  snapshotOutputDirectory,
+  snapshotTheme,
+  snapshotThemeLabel,
+} from './snapshot-theme-options.mjs';
 
-const outputDirectory = new URL('../docs/assets/charts/', import.meta.url);
-const checkOnly = process.argv.includes('--check');
+const outputDirectory = snapshotOutputDirectory(import.meta.url, 'charts');
 
 function escapeXml(value) {
   return String(value)
@@ -961,11 +969,27 @@ for (const [source, filename] of [
 }
 
 await mkdir(outputDirectory, { recursive: true });
-for (const snapshot of snapshots) {
-  const { scene } = compile(snapshot.spec, { width: snapshot.width, height: 400 });
+const selectedSnapshots = snapshots.filter((snapshot) => includeSnapshot(snapshot.filename));
+assertAllRequestedSnapshotsRendered(selectedSnapshots.map((snapshot) => snapshot.filename));
+for (const snapshot of selectedSnapshots) {
+  const { scene } = compile(applySnapshotTheme(snapshot.spec), {
+    width: snapshot.width,
+    height: 400,
+  });
   const counts = countSceneTypes(scene.root);
   for (const [type, expectedCount] of Object.entries(snapshot.expected)) {
-    assert.equal(counts.get(type), expectedCount, `${snapshot.filename}: unexpected ${type} count`);
+    if (snapshotTheme === null) {
+      assert.equal(
+        counts.get(type),
+        expectedCount,
+        `${snapshot.filename}: unexpected ${type} count`,
+      );
+    } else {
+      assert.ok(
+        (counts.get(type) ?? 0) >= expectedCount,
+        `${snapshot.filename}: expected at least ${expectedCount} ${type} nodes`,
+      );
+    }
   }
   const markup = renderScene(scene);
   assert.doesNotMatch(markup, /(?:NaN|undefined)/, `${snapshot.filename}: invalid SVG value`);
@@ -983,5 +1007,5 @@ for (const snapshot of snapshots) {
 }
 
 console.log(
-  `${checkOnly ? 'Verified' : 'Rendered'} ${snapshots.length} chart guide snapshots from Graflume Scenes.`,
+  `${checkOnly ? 'Verified' : 'Rendered'} ${selectedSnapshots.length} chart guide snapshots${snapshotThemeLabel()} from Graflume Scenes.`,
 );
