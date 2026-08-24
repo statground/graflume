@@ -131,7 +131,7 @@ var GraflumeSpatial = (function (exports) {
             b: startLab.b + (endLab.b - startLab.b) * bounded,
         });
     }
-    /** Resolve a continuous colour; ggplot uses Lab interpolation, legacy themes keep fixed stops. */
+    /** Resolve a continuous colour; an explicit interpolation token wins over palette defaults. */
     function continuousColor(theme, ratio) {
         const palette = theme.colors.sequential;
         if (palette.length === 0)
@@ -139,8 +139,24 @@ var GraflumeSpatial = (function (exports) {
         if (palette.length === 1)
             return palette[0] ?? theme.colors.focus;
         const bounded = Number.isFinite(ratio) ? Math.max(0, Math.min(1, ratio)) : 0;
-        if (theme.colors.paletteMode === 'ggplot2-hue') {
+        if (theme.colors.paletteMode === 'ggplot2-hue' &&
+            theme.colors.continuousInterpolation === undefined) {
             return mixLabColor(palette[0] ?? theme.colors.focus, palette[palette.length - 1] ?? theme.colors.focus, bounded);
+        }
+        if (theme.colors.continuousInterpolation === 'rgb' ||
+            theme.colors.continuousInterpolation === 'lab') {
+            const scaled = bounded * (palette.length - 1);
+            const startIndex = Math.min(palette.length - 2, Math.floor(scaled));
+            const start = palette[startIndex] ?? theme.colors.focus;
+            const end = palette[startIndex + 1] ?? start;
+            const localRatio = scaled - startIndex;
+            return theme.colors.continuousInterpolation === 'lab'
+                ? mixLabColor(start, end, localRatio)
+                : mixColor(start, end, localRatio);
+        }
+        if (theme.colors.continuousInterpolation === 'step') {
+            const index = Math.min(palette.length - 1, Math.floor(bounded * palette.length));
+            return palette[index] ?? theme.colors.focus;
         }
         return palette[Math.round(bounded * (palette.length - 1))] ?? theme.colors.focus;
     }
@@ -1414,6 +1430,19 @@ var GraflumeSpatial = (function (exports) {
     ];
     const pointToCssPixel = 96 / 72;
     const millimeterToCssPixel = 96 / 25.4;
+    const matplotlibPointToCssPixel = 100 / 72;
+    const matplotlibPalette = [
+        '#1F77B4',
+        '#FF7F0E',
+        '#2CA02C',
+        '#D62728',
+        '#9467BD',
+        '#8C564B',
+        '#E377C2',
+        '#7F7F7F',
+        '#BCBD22',
+        '#17BECF',
+    ];
     const graflumeLight = {
         name: 'graflume-light',
         mode: 'light',
@@ -1702,6 +1731,391 @@ var GraflumeSpatial = (function (exports) {
         },
         motion: { duration: 0, easing: 'linear' },
     };
+    /**
+     * Matplotlib 3.11.1's default rcParams mapped to a 640 x 480 browser canvas
+     * at Matplotlib's default 100 dpi. Graflume retains its own chart semantics
+     * while matching the reference typography, axes, marks, colour cycle, and
+     * viridis/coolwarm scale surfaces.
+     */
+    const graflumeMatplotlib = {
+        name: 'matplotlib',
+        mode: 'light',
+        colors: {
+            background: '#FFFFFF',
+            surface: '#FFFFFF',
+            panel: '#FFFFFF',
+            text: '#000000',
+            mutedText: '#000000',
+            subtitle: '#000000',
+            axisTitle: '#000000',
+            axis: '#000000',
+            grid: '#B0B0B0',
+            minorGrid: '#B0B0B0',
+            focus: '#1F77B4',
+            palette: matplotlibPalette,
+            continuousInterpolation: 'step',
+            sequential: [
+                '#440154',
+                '#440256',
+                '#450457',
+                '#450559',
+                '#46075A',
+                '#46085C',
+                '#460A5D',
+                '#460B5E',
+                '#470D60',
+                '#470E61',
+                '#471063',
+                '#471164',
+                '#471365',
+                '#481467',
+                '#481668',
+                '#481769',
+                '#48186A',
+                '#481A6C',
+                '#481B6D',
+                '#481C6E',
+                '#481D6F',
+                '#481F70',
+                '#482071',
+                '#482173',
+                '#482374',
+                '#482475',
+                '#482576',
+                '#482677',
+                '#482878',
+                '#482979',
+                '#472A7A',
+                '#472C7A',
+                '#472D7B',
+                '#472E7C',
+                '#472F7D',
+                '#46307E',
+                '#46327E',
+                '#46337F',
+                '#463480',
+                '#453581',
+                '#453781',
+                '#453882',
+                '#443983',
+                '#443A83',
+                '#443B84',
+                '#433D84',
+                '#433E85',
+                '#423F85',
+                '#424086',
+                '#424186',
+                '#414287',
+                '#414487',
+                '#404588',
+                '#404688',
+                '#3F4788',
+                '#3F4889',
+                '#3E4989',
+                '#3E4A89',
+                '#3E4C8A',
+                '#3D4D8A',
+                '#3D4E8A',
+                '#3C4F8A',
+                '#3C508B',
+                '#3B518B',
+                '#3B528B',
+                '#3A538B',
+                '#3A548C',
+                '#39558C',
+                '#39568C',
+                '#38588C',
+                '#38598C',
+                '#375A8C',
+                '#375B8D',
+                '#365C8D',
+                '#365D8D',
+                '#355E8D',
+                '#355F8D',
+                '#34608D',
+                '#34618D',
+                '#33628D',
+                '#33638D',
+                '#32648E',
+                '#32658E',
+                '#31668E',
+                '#31678E',
+                '#31688E',
+                '#30698E',
+                '#306A8E',
+                '#2F6B8E',
+                '#2F6C8E',
+                '#2E6D8E',
+                '#2E6E8E',
+                '#2E6F8E',
+                '#2D708E',
+                '#2D718E',
+                '#2C718E',
+                '#2C728E',
+                '#2C738E',
+                '#2B748E',
+                '#2B758E',
+                '#2A768E',
+                '#2A778E',
+                '#2A788E',
+                '#29798E',
+                '#297A8E',
+                '#297B8E',
+                '#287C8E',
+                '#287D8E',
+                '#277E8E',
+                '#277F8E',
+                '#27808E',
+                '#26818E',
+                '#26828E',
+                '#26828E',
+                '#25838E',
+                '#25848E',
+                '#25858E',
+                '#24868E',
+                '#24878E',
+                '#23888E',
+                '#23898E',
+                '#238A8D',
+                '#228B8D',
+                '#228C8D',
+                '#228D8D',
+                '#218E8D',
+                '#218F8D',
+                '#21908D',
+                '#21918C',
+                '#20928C',
+                '#20928C',
+                '#20938C',
+                '#1F948C',
+                '#1F958B',
+                '#1F968B',
+                '#1F978B',
+                '#1F988B',
+                '#1F998A',
+                '#1F9A8A',
+                '#1E9B8A',
+                '#1E9C89',
+                '#1E9D89',
+                '#1F9E89',
+                '#1F9F88',
+                '#1FA088',
+                '#1FA188',
+                '#1FA187',
+                '#1FA287',
+                '#20A386',
+                '#20A486',
+                '#21A585',
+                '#21A685',
+                '#22A785',
+                '#22A884',
+                '#23A983',
+                '#24AA83',
+                '#25AB82',
+                '#25AC82',
+                '#26AD81',
+                '#27AD81',
+                '#28AE80',
+                '#29AF7F',
+                '#2AB07F',
+                '#2CB17E',
+                '#2DB27D',
+                '#2EB37C',
+                '#2FB47C',
+                '#31B57B',
+                '#32B67A',
+                '#34B679',
+                '#35B779',
+                '#37B878',
+                '#38B977',
+                '#3ABA76',
+                '#3BBB75',
+                '#3DBC74',
+                '#3FBC73',
+                '#40BD72',
+                '#42BE71',
+                '#44BF70',
+                '#46C06F',
+                '#48C16E',
+                '#4AC16D',
+                '#4CC26C',
+                '#4EC36B',
+                '#50C46A',
+                '#52C569',
+                '#54C568',
+                '#56C667',
+                '#58C765',
+                '#5AC864',
+                '#5CC863',
+                '#5EC962',
+                '#60CA60',
+                '#63CB5F',
+                '#65CB5E',
+                '#67CC5C',
+                '#69CD5B',
+                '#6CCD5A',
+                '#6ECE58',
+                '#70CF57',
+                '#73D056',
+                '#75D054',
+                '#77D153',
+                '#7AD151',
+                '#7CD250',
+                '#7FD34E',
+                '#81D34D',
+                '#84D44B',
+                '#86D549',
+                '#89D548',
+                '#8BD646',
+                '#8ED645',
+                '#90D743',
+                '#93D741',
+                '#95D840',
+                '#98D83E',
+                '#9BD93C',
+                '#9DD93B',
+                '#A0DA39',
+                '#A2DA37',
+                '#A5DB36',
+                '#A8DB34',
+                '#AADC32',
+                '#ADDC30',
+                '#B0DD2F',
+                '#B2DD2D',
+                '#B5DE2B',
+                '#B8DE29',
+                '#BADE28',
+                '#BDDF26',
+                '#C0DF25',
+                '#C2DF23',
+                '#C5E021',
+                '#C8E020',
+                '#CAE11F',
+                '#CDE11D',
+                '#D0E11C',
+                '#D2E21B',
+                '#D5E21A',
+                '#D8E219',
+                '#DAE319',
+                '#DDE318',
+                '#DFE318',
+                '#E2E418',
+                '#E5E419',
+                '#E7E419',
+                '#EAE51A',
+                '#ECE51B',
+                '#EFE51C',
+                '#F1E51D',
+                '#F4E61E',
+                '#F6E620',
+                '#F8E621',
+                '#FBE723',
+                '#FDE725',
+            ],
+            diverging: [
+                '#3B4CC0',
+                '#5977E3',
+                '#7B9FF9',
+                '#9EBEFF',
+                '#C0D4F5',
+                '#DDDCDC',
+                '#F2CBB7',
+                '#F7AC8E',
+                '#EE8468',
+                '#D65244',
+                '#B40426',
+            ],
+        },
+        typography: {
+            fontFamily: '"DejaVu Sans", "Bitstream Vera Sans", "Computer Modern Sans Serif", Arial, Helvetica, sans-serif',
+            fontSize: 10 * matplotlibPointToCssPixel,
+            fontWeight: 400,
+            titleSize: 12 * matplotlibPointToCssPixel,
+            titleWeight: 400,
+            subtitleSize: 10 * matplotlibPointToCssPixel,
+            subtitleWeight: 400,
+            axisLabelSize: 10 * matplotlibPointToCssPixel,
+            axisLabelWeight: 400,
+            axisTitleSize: 10 * matplotlibPointToCssPixel,
+            axisTitleWeight: 400,
+            legendLabelSize: 10 * matplotlibPointToCssPixel,
+            legendLabelWeight: 400,
+            legendTitleSize: 10 * matplotlibPointToCssPixel,
+            legendTitleWeight: 400,
+            titlePosition: 'panel',
+            titleAlign: 'center',
+            lineHeight: 1.2,
+        },
+        spacing: {
+            xs: 4 * matplotlibPointToCssPixel,
+            sm: 8 * matplotlibPointToCssPixel,
+            md: 12 * matplotlibPointToCssPixel,
+            lg: 16 * matplotlibPointToCssPixel,
+            xl: 24 * matplotlibPointToCssPixel,
+            plotPadding: { top: 19, right: 64, bottom: 53, left: 80 },
+            minimumTitleBlock: 12 * matplotlibPointToCssPixel + 16 * matplotlibPointToCssPixel,
+        },
+        axis: {
+            lineWidth: 0.8 * matplotlibPointToCssPixel,
+            boxVisible: true,
+            boxLineWidth: 0.8 * matplotlibPointToCssPixel,
+            boxExcludedMarks: ['pie'],
+            tickLength: 3.5 * matplotlibPointToCssPixel,
+            labelPadding: 3.5 * matplotlibPointToCssPixel,
+            gridLineWidth: 0.8 * matplotlibPointToCssPixel,
+            lineVisible: true,
+            ticksVisible: true,
+            gridX: false,
+            gridX2: false,
+            gridY: false,
+            gridY2: false,
+            gridOpacity: 1,
+            minorGridVisible: false,
+            emphasizeZero: false,
+            lineCap: 'butt',
+            titleGap: 4 * matplotlibPointToCssPixel,
+        },
+        mark: {
+            lineWidth: 1.5 * matplotlibPointToCssPixel,
+            pointRadius: 3 * matplotlibPointToCssPixel,
+            pointStrokeWidth: 1 * matplotlibPointToCssPixel,
+            pointColorMode: 'series',
+            barRadius: 0,
+            barStroke: 'transparent',
+            barStrokeWidth: 0,
+            barWidthRatio: 0.8,
+            histogramGap: 0,
+            boxplotFill: 'transparent',
+            boxplotLineWidth: 1 * matplotlibPointToCssPixel,
+            boxplotRadius: 0,
+            boxplotMedianStroke: '#FF7F0E',
+            piePalette: matplotlibPalette,
+            pieStroke: 'transparent',
+            pieStrokeWidth: 0,
+            pieStartAngle: 0,
+            pieDirection: 'counterclockwise',
+            areaStroke: '#000000',
+            areaStrokeVisible: false,
+            areaColorMode: 'series',
+            opacity: 1,
+            lineCap: 'square',
+            lineJoin: 'round',
+        },
+        legend: {
+            surfaceOpacity: 0.8,
+            borderWidth: 1 * matplotlibPointToCssPixel,
+            borderColor: '#CCCCCC',
+            cornerRadius: 4,
+            swatchRadius: 0,
+            swatchSize: 10 * matplotlibPointToCssPixel,
+            lineWidth: 1.5 * matplotlibPointToCssPixel,
+            pointRadius: 3 * matplotlibPointToCssPixel,
+            pointStrokeWidth: 1 * matplotlibPointToCssPixel,
+            lineCap: 'square',
+            continuousSamples: 256,
+        },
+        motion: { duration: 0, easing: 'linear' },
+    };
     const defaultThemeId = graflumeLight.name;
     /** Ordered source of truth for every built-in theme and generated preview. */
     const builtInThemeCatalog = [
@@ -1718,6 +2132,12 @@ var GraflumeSpatial = (function (exports) {
             tokens: graflumeRBase,
             snapshot: true,
             sourceBaseline: 'R 4.6.1',
+        },
+        {
+            id: graflumeMatplotlib.name,
+            tokens: graflumeMatplotlib,
+            snapshot: true,
+            sourceBaseline: 'Matplotlib 3.11.1',
         },
     ];
 
@@ -2196,6 +2616,7 @@ var GraflumeSpatial = (function (exports) {
         'focus',
         'palette',
         'paletteMode',
+        'continuousInterpolation',
         'sequential',
         'diverging',
     ]);
@@ -2219,7 +2640,16 @@ var GraflumeSpatial = (function (exports) {
         'titleAlign',
         'lineHeight',
     ]);
-    const THEME_SPACING_KEYS = new Set(['xs', 'sm', 'md', 'lg', 'xl', 'plotMargin', 'plotPadding']);
+    const THEME_SPACING_KEYS = new Set([
+        'xs',
+        'sm',
+        'md',
+        'lg',
+        'xl',
+        'plotMargin',
+        'plotPadding',
+        'minimumTitleBlock',
+    ]);
     const THEME_PLOT_PADDING_KEYS = new Set(['top', 'right', 'bottom', 'left']);
     const THEME_AXIS_KEYS = new Set([
         'lineWidth',
@@ -2253,26 +2683,33 @@ var GraflumeSpatial = (function (exports) {
         'pointFill',
         'pointStroke',
         'pointStrokeWidth',
+        'pointColorMode',
         'barFill',
         'barStroke',
         'barStrokeWidth',
         'barWidthRatio',
         'histogramFill',
+        'histogramGap',
         'boxplotFill',
         'boxplotLineWidth',
         'boxplotRadius',
+        'boxplotMedianStroke',
         'piePalette',
         'pieStroke',
         'pieStrokeWidth',
+        'pieStartAngle',
+        'pieDirection',
         'areaFill',
         'areaStroke',
         'areaStrokeVisible',
+        'areaColorMode',
         'lineCap',
         'lineJoin',
     ]);
     const THEME_LEGEND_KEYS = new Set([
         'surfaceOpacity',
         'borderWidth',
+        'borderColor',
         'cornerRadius',
         'swatchRadius',
         'swatchSize',
@@ -2280,6 +2717,7 @@ var GraflumeSpatial = (function (exports) {
         'pointRadius',
         'pointStrokeWidth',
         'lineCap',
+        'continuousSamples',
     ]);
     const THEME_MOTION_KEYS = new Set(['duration', 'easing']);
     const CAMERA_KEYS = new Set([
@@ -2614,6 +3052,7 @@ var GraflumeSpatial = (function (exports) {
                 ])
                     optionalNonEmptyString(colors[key], `${path}.colors.${key}`, issues, 128);
                 optionalEnum(colors.paletteMode, `${path}.colors.paletteMode`, new Set(['fixed', 'ggplot2-hue']), issues);
+                optionalEnum(colors.continuousInterpolation, `${path}.colors.continuousInterpolation`, new Set(['step', 'rgb', 'lab']), issues);
                 for (const key of ['palette', 'sequential', 'diverging'])
                     validateThemeStringArray(colors[key], `${path}.colors.${key}`, issues);
             }
@@ -2647,7 +3086,7 @@ var GraflumeSpatial = (function (exports) {
         if (theme.spacing !== undefined) {
             const spacing = closedObject(theme.spacing, `${path}.spacing`, THEME_SPACING_KEYS, issues);
             if (spacing !== undefined) {
-                for (const key of ['xs', 'sm', 'md', 'lg', 'xl', 'plotMargin'])
+                for (const key of ['xs', 'sm', 'md', 'lg', 'xl', 'plotMargin', 'minimumTitleBlock'])
                     optionalThemeNumber(spacing[key], `${path}.spacing.${key}`, issues);
                 if (spacing.plotPadding !== undefined) {
                     const plotPadding = closedObject(spacing.plotPadding, `${path}.spacing.plotPadding`, THEME_PLOT_PADDING_KEYS, issues);
@@ -2697,6 +3136,7 @@ var GraflumeSpatial = (function (exports) {
                     'pointStrokeWidth',
                     'barRadius',
                     'barStrokeWidth',
+                    'histogramGap',
                     'boxplotLineWidth',
                     'boxplotRadius',
                     'pieStrokeWidth',
@@ -2704,6 +3144,7 @@ var GraflumeSpatial = (function (exports) {
                     optionalThemeNumber(mark[key], `${path}.mark.${key}`, issues);
                 optionalThemeNumber(mark.opacity, `${path}.mark.opacity`, issues, 0, 1);
                 optionalThemeNumber(mark.barWidthRatio, `${path}.mark.barWidthRatio`, issues, 0, 1);
+                optionalThemeNumber(mark.pieStartAngle, `${path}.mark.pieStartAngle`, issues, -1e6, 1_000_000);
                 optionalBoolean(mark.areaStrokeVisible, `${path}.mark.areaStrokeVisible`, issues);
                 for (const key of [
                     'defaultColor',
@@ -2714,12 +3155,16 @@ var GraflumeSpatial = (function (exports) {
                     'barStroke',
                     'histogramFill',
                     'boxplotFill',
+                    'boxplotMedianStroke',
                     'pieStroke',
                     'areaFill',
                     'areaStroke',
                 ])
                     optionalNonEmptyString(mark[key], `${path}.mark.${key}`, issues, 128);
                 validateThemeStringArray(mark.piePalette, `${path}.mark.piePalette`, issues);
+                for (const key of ['pointColorMode', 'areaColorMode'])
+                    optionalEnum(mark[key], `${path}.mark.${key}`, new Set(['theme', 'series']), issues);
+                optionalEnum(mark.pieDirection, `${path}.mark.pieDirection`, new Set(['clockwise', 'counterclockwise']), issues);
                 optionalEnum(mark.lineCap, `${path}.mark.lineCap`, new Set(['butt', 'round', 'square']), issues);
                 optionalEnum(mark.lineJoin, `${path}.mark.lineJoin`, new Set(['bevel', 'round', 'miter']), issues);
             }
@@ -2728,6 +3173,7 @@ var GraflumeSpatial = (function (exports) {
             const legend = closedObject(theme.legend, `${path}.legend`, THEME_LEGEND_KEYS, issues);
             if (legend !== undefined) {
                 optionalThemeNumber(legend.surfaceOpacity, `${path}.legend.surfaceOpacity`, issues, 0, 1);
+                optionalNonEmptyString(legend.borderColor, `${path}.legend.borderColor`, issues, 128);
                 for (const key of [
                     'borderWidth',
                     'cornerRadius',
@@ -2738,6 +3184,12 @@ var GraflumeSpatial = (function (exports) {
                     'pointStrokeWidth',
                 ])
                     optionalThemeNumber(legend[key], `${path}.legend.${key}`, issues, 0, 256);
+                optionalThemeNumber(legend.continuousSamples, `${path}.legend.continuousSamples`, issues, 1, 256);
+                if (legend.continuousSamples !== undefined &&
+                    typeof legend.continuousSamples === 'number' &&
+                    !Number.isInteger(legend.continuousSamples)) {
+                    issue(issues, `${path}.legend.continuousSamples`, 'Must be an integer.');
+                }
                 optionalEnum(legend.lineCap, `${path}.legend.lineCap`, new Set(['butt', 'round', 'square']), issues);
             }
         }
@@ -3642,6 +4094,9 @@ var GraflumeSpatial = (function (exports) {
             low[3] + (high[3] - low[3]) * t,
         ];
     }
+    function usesThemeContinuousScale(theme) {
+        return (theme.colors.paletteMode === 'ggplot2-hue' || theme.colors.continuousInterpolation !== undefined);
+    }
     function pushVec3(output, value) {
         output.push(value[0], value[1], value[2]);
     }
@@ -3715,6 +4170,7 @@ var GraflumeSpatial = (function (exports) {
         const legacyDefaults = usesLegacySpatialDefaults(theme);
         const low = spatialColor(legacyDefaults ? '#0ea5e9' : continuousColor(theme, 0), layer.mark.opacity);
         const high = spatialColor(layer.mark.color ?? (legacyDefaults ? '#7c3aed' : continuousColor(theme, 1)), layer.mark.opacity);
+        const useThemeScale = !legacyDefaults && layer.mark.color === undefined && usesThemeContinuousScale(theme);
         const picks = [];
         const id = layerId(layer, layerIndex);
         for (let row = 0; row < rows; row += 1) {
@@ -3725,7 +4181,9 @@ var GraflumeSpatial = (function (exports) {
                 const height = finite(data.z[index], `surface z ${index}`);
                 positions.set([x, height, depth], index * 3);
                 const amount = maximum === minimum ? 0.5 : (values[index] - minimum) / (maximum - minimum);
-                colors.set(interpolateColor(low, high, amount), index * 4);
+                colors.set(useThemeScale
+                    ? spatialColor(continuousColor(theme, amount), layer.mark.opacity)
+                    : interpolateColor(low, high, amount), index * 4);
                 picks.push({
                     layerId: id,
                     layerIndex,
@@ -3869,6 +4327,10 @@ var GraflumeSpatial = (function (exports) {
         const legacyDefaults = usesLegacySpatialDefaults(theme);
         const low = spatialColor(layer.mark.colorLow ?? (legacyDefaults ? '#0ea5e9' : continuousColor(theme, 0)), layer.mark.opacity ?? 0.18);
         const high = spatialColor(layer.mark.colorHigh ?? (legacyDefaults ? '#f43f5e' : continuousColor(theme, 1)), layer.mark.opacity ?? 0.72);
+        const useThemeScale = !legacyDefaults &&
+            layer.mark.colorLow === undefined &&
+            layer.mark.colorHigh === undefined &&
+            usesThemeContinuousScale(theme);
         const id = layerId(layer, layerIndex);
         const plane = dimensions[0] * dimensions[1];
         for (const datumIndex of exactStrideSampleIndices(values.length, maximumSamples)) {
@@ -3879,8 +4341,9 @@ var GraflumeSpatial = (function (exports) {
             const value = values[datumIndex];
             const amount = maximum === minimum ? 0.5 : (value - minimum) / (maximum - minimum);
             const position = volumePosition(x, y, z, origin, spacing);
+            const interpolated = interpolateColor(low, high, amount);
             pushVec3(positions, position);
-            pushColor(colors, interpolateColor(low, high, amount));
+            pushColor(colors, useThemeScale ? spatialColor(continuousColor(theme, amount), interpolated[3]) : interpolated);
             sizes.push(Math.max(1, (layer.mark.pointSize ?? 5) * (0.45 + amount * 0.75)));
             picks.push({
                 layerId: id,
@@ -4249,6 +4712,7 @@ var GraflumeSpatial = (function (exports) {
         const legacyDefaults = usesLegacySpatialDefaults(theme);
         const low = spatialColor(legacyDefaults ? '#06b6d4' : continuousColor(theme, 0), layer.mark.opacity);
         const high = spatialColor(layer.mark.color ?? (legacyDefaults ? '#7c3aed' : continuousColor(theme, 1)), layer.mark.opacity);
+        const useThemeScale = !legacyDefaults && layer.mark.color === undefined && usesThemeContinuousScale(theme);
         const category = legacyDefaults && layer.mark.color === undefined
             ? interpolateColor(low, high, 0.5)
             : spatialColor(layer.mark.color ?? layerThemeColor(theme, layerIndex, layerCount), layer.mark.opacity);
@@ -4261,7 +4725,9 @@ var GraflumeSpatial = (function (exports) {
                 ? spatialColor(data.colors[datumIndex], layer.mark.opacity)
                 : value === undefined
                     ? category
-                    : interpolateColor(low, high, amount));
+                    : useThemeScale
+                        ? spatialColor(continuousColor(theme, amount), layer.mark.opacity)
+                        : interpolateColor(low, high, amount));
             sizes.push(Math.max(1, data.sizes?.[datumIndex] ?? layer.mark.pointSize ?? 7));
             picks.push({
                 layerId: id,
@@ -5206,7 +5672,7 @@ var GraflumeSpatial = (function (exports) {
         element.style.overflow = 'auto';
         element.style.padding = '8px 10px';
         element.style.boxSizing = 'border-box';
-        element.style.border = `${state.scene.theme.legend?.borderWidth ?? 1}px solid ${state.scene.theme.colors.axis}`;
+        element.style.border = `${state.scene.theme.legend?.borderWidth ?? 1}px solid ${state.scene.theme.legend?.borderColor ?? state.scene.theme.colors.axis}`;
         element.style.borderRadius = `${state.scene.theme.legend?.cornerRadius ?? 8}px`;
         const surfaceOpacity = state.scene.theme.legend?.surfaceOpacity ?? 0.9;
         element.style.background =
@@ -5235,8 +5701,9 @@ var GraflumeSpatial = (function (exports) {
             gradient.style.gridColumn = '1 / -1';
             gradient.style.height = '10px';
             gradient.style.borderRadius = '3px';
-            gradient.style.background = `linear-gradient(90deg, ${legend.items
-            .map((item, index) => `${item.color} ${(index / Math.max(1, legend.items.length - 1)) * 100}%`)
+            const colors = legend.continuousColors ?? legend.items.map(({ color }) => color);
+            gradient.style.background = `linear-gradient(90deg, ${colors
+            .map((color, index) => `${color} ${(index / Math.max(1, colors.length - 1)) * 100}%`)
             .join(', ')})`;
             scale.append(gradient);
             [legend.items[0], legend.items[legend.items.length - 1]].forEach((item, index) => {
@@ -6961,6 +7428,7 @@ void main() {
                 : 'layers';
             const mode = legend.mode === undefined || legend.mode === 'auto' ? autoMode : legend.mode;
             let items;
+            let continuousColors;
             if (legend.items !== undefined && legend.items.length > 0) {
                 const configuredItems = legend.items.slice(0, legend.maxItems ?? 24);
                 items = configuredItems.map((item, index) => {
@@ -7041,6 +7509,16 @@ void main() {
                 const highColor = maximumIndex >= 0 && configuredColors?.[maximumIndex] !== undefined
                     ? colorCss(configuredColors[maximumIndex])
                     : layerColor(selectedLayer, this.#scene.theme, this.#spec.layers.indexOf(selectedLayer), this.#spec.layers.length, 'high');
+                const authoredContinuousColor = configuredColors !== undefined ||
+                    (selectedLayer.mark.type === 'volume' &&
+                        (selectedLayer.mark.colorLow !== undefined ||
+                            selectedLayer.mark.colorHigh !== undefined)) ||
+                    (selectedLayer.mark.type === 'surface' && selectedLayer.mark.color !== undefined) ||
+                    (selectedLayer.mark.type === 'scatter' && selectedLayer.mark.color !== undefined);
+                const continuousSamples = this.#scene.theme.legend?.continuousSamples;
+                if (!authoredContinuousColor && continuousSamples !== undefined) {
+                    continuousColors = Array.from({ length: continuousSamples }, (_value, index) => continuousColor(this.#scene.theme, index / Math.max(1, continuousSamples - 1)));
+                }
                 let formatter;
                 try {
                     formatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 6 });
@@ -7100,6 +7578,7 @@ void main() {
                 showLabel: legend.labels?.show ?? 'Show',
                 hideLabel: legend.labels?.hide ?? 'Hide',
                 items,
+                ...(continuousColors === undefined ? {} : { continuousColors }),
             };
         }
         #hiddenLayerIds() {
@@ -8076,6 +8555,7 @@ void main() {
     exports.graflumeDark = graflumeDark;
     exports.graflumeGgplot = graflumeGgplot;
     exports.graflumeLight = graflumeLight;
+    exports.graflumeMatplotlib = graflumeMatplotlib;
     exports.graflumeRBase = graflumeRBase;
     exports.isosurface = isosurface;
     exports.mesh = mesh;

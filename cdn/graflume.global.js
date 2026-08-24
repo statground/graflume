@@ -220,6 +220,19 @@ var Graflume = (function (exports) {
     ];
     const pointToCssPixel = 96 / 72;
     const millimeterToCssPixel = 96 / 25.4;
+    const matplotlibPointToCssPixel = 100 / 72;
+    const matplotlibPalette = [
+        '#1F77B4',
+        '#FF7F0E',
+        '#2CA02C',
+        '#D62728',
+        '#9467BD',
+        '#8C564B',
+        '#E377C2',
+        '#7F7F7F',
+        '#BCBD22',
+        '#17BECF',
+    ];
     const graflumeLight = {
         name: 'graflume-light',
         mode: 'light',
@@ -508,6 +521,391 @@ var Graflume = (function (exports) {
         },
         motion: { duration: 0, easing: 'linear' },
     };
+    /**
+     * Matplotlib 3.11.1's default rcParams mapped to a 640 x 480 browser canvas
+     * at Matplotlib's default 100 dpi. Graflume retains its own chart semantics
+     * while matching the reference typography, axes, marks, colour cycle, and
+     * viridis/coolwarm scale surfaces.
+     */
+    const graflumeMatplotlib = {
+        name: 'matplotlib',
+        mode: 'light',
+        colors: {
+            background: '#FFFFFF',
+            surface: '#FFFFFF',
+            panel: '#FFFFFF',
+            text: '#000000',
+            mutedText: '#000000',
+            subtitle: '#000000',
+            axisTitle: '#000000',
+            axis: '#000000',
+            grid: '#B0B0B0',
+            minorGrid: '#B0B0B0',
+            focus: '#1F77B4',
+            palette: matplotlibPalette,
+            continuousInterpolation: 'step',
+            sequential: [
+                '#440154',
+                '#440256',
+                '#450457',
+                '#450559',
+                '#46075A',
+                '#46085C',
+                '#460A5D',
+                '#460B5E',
+                '#470D60',
+                '#470E61',
+                '#471063',
+                '#471164',
+                '#471365',
+                '#481467',
+                '#481668',
+                '#481769',
+                '#48186A',
+                '#481A6C',
+                '#481B6D',
+                '#481C6E',
+                '#481D6F',
+                '#481F70',
+                '#482071',
+                '#482173',
+                '#482374',
+                '#482475',
+                '#482576',
+                '#482677',
+                '#482878',
+                '#482979',
+                '#472A7A',
+                '#472C7A',
+                '#472D7B',
+                '#472E7C',
+                '#472F7D',
+                '#46307E',
+                '#46327E',
+                '#46337F',
+                '#463480',
+                '#453581',
+                '#453781',
+                '#453882',
+                '#443983',
+                '#443A83',
+                '#443B84',
+                '#433D84',
+                '#433E85',
+                '#423F85',
+                '#424086',
+                '#424186',
+                '#414287',
+                '#414487',
+                '#404588',
+                '#404688',
+                '#3F4788',
+                '#3F4889',
+                '#3E4989',
+                '#3E4A89',
+                '#3E4C8A',
+                '#3D4D8A',
+                '#3D4E8A',
+                '#3C4F8A',
+                '#3C508B',
+                '#3B518B',
+                '#3B528B',
+                '#3A538B',
+                '#3A548C',
+                '#39558C',
+                '#39568C',
+                '#38588C',
+                '#38598C',
+                '#375A8C',
+                '#375B8D',
+                '#365C8D',
+                '#365D8D',
+                '#355E8D',
+                '#355F8D',
+                '#34608D',
+                '#34618D',
+                '#33628D',
+                '#33638D',
+                '#32648E',
+                '#32658E',
+                '#31668E',
+                '#31678E',
+                '#31688E',
+                '#30698E',
+                '#306A8E',
+                '#2F6B8E',
+                '#2F6C8E',
+                '#2E6D8E',
+                '#2E6E8E',
+                '#2E6F8E',
+                '#2D708E',
+                '#2D718E',
+                '#2C718E',
+                '#2C728E',
+                '#2C738E',
+                '#2B748E',
+                '#2B758E',
+                '#2A768E',
+                '#2A778E',
+                '#2A788E',
+                '#29798E',
+                '#297A8E',
+                '#297B8E',
+                '#287C8E',
+                '#287D8E',
+                '#277E8E',
+                '#277F8E',
+                '#27808E',
+                '#26818E',
+                '#26828E',
+                '#26828E',
+                '#25838E',
+                '#25848E',
+                '#25858E',
+                '#24868E',
+                '#24878E',
+                '#23888E',
+                '#23898E',
+                '#238A8D',
+                '#228B8D',
+                '#228C8D',
+                '#228D8D',
+                '#218E8D',
+                '#218F8D',
+                '#21908D',
+                '#21918C',
+                '#20928C',
+                '#20928C',
+                '#20938C',
+                '#1F948C',
+                '#1F958B',
+                '#1F968B',
+                '#1F978B',
+                '#1F988B',
+                '#1F998A',
+                '#1F9A8A',
+                '#1E9B8A',
+                '#1E9C89',
+                '#1E9D89',
+                '#1F9E89',
+                '#1F9F88',
+                '#1FA088',
+                '#1FA188',
+                '#1FA187',
+                '#1FA287',
+                '#20A386',
+                '#20A486',
+                '#21A585',
+                '#21A685',
+                '#22A785',
+                '#22A884',
+                '#23A983',
+                '#24AA83',
+                '#25AB82',
+                '#25AC82',
+                '#26AD81',
+                '#27AD81',
+                '#28AE80',
+                '#29AF7F',
+                '#2AB07F',
+                '#2CB17E',
+                '#2DB27D',
+                '#2EB37C',
+                '#2FB47C',
+                '#31B57B',
+                '#32B67A',
+                '#34B679',
+                '#35B779',
+                '#37B878',
+                '#38B977',
+                '#3ABA76',
+                '#3BBB75',
+                '#3DBC74',
+                '#3FBC73',
+                '#40BD72',
+                '#42BE71',
+                '#44BF70',
+                '#46C06F',
+                '#48C16E',
+                '#4AC16D',
+                '#4CC26C',
+                '#4EC36B',
+                '#50C46A',
+                '#52C569',
+                '#54C568',
+                '#56C667',
+                '#58C765',
+                '#5AC864',
+                '#5CC863',
+                '#5EC962',
+                '#60CA60',
+                '#63CB5F',
+                '#65CB5E',
+                '#67CC5C',
+                '#69CD5B',
+                '#6CCD5A',
+                '#6ECE58',
+                '#70CF57',
+                '#73D056',
+                '#75D054',
+                '#77D153',
+                '#7AD151',
+                '#7CD250',
+                '#7FD34E',
+                '#81D34D',
+                '#84D44B',
+                '#86D549',
+                '#89D548',
+                '#8BD646',
+                '#8ED645',
+                '#90D743',
+                '#93D741',
+                '#95D840',
+                '#98D83E',
+                '#9BD93C',
+                '#9DD93B',
+                '#A0DA39',
+                '#A2DA37',
+                '#A5DB36',
+                '#A8DB34',
+                '#AADC32',
+                '#ADDC30',
+                '#B0DD2F',
+                '#B2DD2D',
+                '#B5DE2B',
+                '#B8DE29',
+                '#BADE28',
+                '#BDDF26',
+                '#C0DF25',
+                '#C2DF23',
+                '#C5E021',
+                '#C8E020',
+                '#CAE11F',
+                '#CDE11D',
+                '#D0E11C',
+                '#D2E21B',
+                '#D5E21A',
+                '#D8E219',
+                '#DAE319',
+                '#DDE318',
+                '#DFE318',
+                '#E2E418',
+                '#E5E419',
+                '#E7E419',
+                '#EAE51A',
+                '#ECE51B',
+                '#EFE51C',
+                '#F1E51D',
+                '#F4E61E',
+                '#F6E620',
+                '#F8E621',
+                '#FBE723',
+                '#FDE725',
+            ],
+            diverging: [
+                '#3B4CC0',
+                '#5977E3',
+                '#7B9FF9',
+                '#9EBEFF',
+                '#C0D4F5',
+                '#DDDCDC',
+                '#F2CBB7',
+                '#F7AC8E',
+                '#EE8468',
+                '#D65244',
+                '#B40426',
+            ],
+        },
+        typography: {
+            fontFamily: '"DejaVu Sans", "Bitstream Vera Sans", "Computer Modern Sans Serif", Arial, Helvetica, sans-serif',
+            fontSize: 10 * matplotlibPointToCssPixel,
+            fontWeight: 400,
+            titleSize: 12 * matplotlibPointToCssPixel,
+            titleWeight: 400,
+            subtitleSize: 10 * matplotlibPointToCssPixel,
+            subtitleWeight: 400,
+            axisLabelSize: 10 * matplotlibPointToCssPixel,
+            axisLabelWeight: 400,
+            axisTitleSize: 10 * matplotlibPointToCssPixel,
+            axisTitleWeight: 400,
+            legendLabelSize: 10 * matplotlibPointToCssPixel,
+            legendLabelWeight: 400,
+            legendTitleSize: 10 * matplotlibPointToCssPixel,
+            legendTitleWeight: 400,
+            titlePosition: 'panel',
+            titleAlign: 'center',
+            lineHeight: 1.2,
+        },
+        spacing: {
+            xs: 4 * matplotlibPointToCssPixel,
+            sm: 8 * matplotlibPointToCssPixel,
+            md: 12 * matplotlibPointToCssPixel,
+            lg: 16 * matplotlibPointToCssPixel,
+            xl: 24 * matplotlibPointToCssPixel,
+            plotPadding: { top: 19, right: 64, bottom: 53, left: 80 },
+            minimumTitleBlock: 12 * matplotlibPointToCssPixel + 16 * matplotlibPointToCssPixel,
+        },
+        axis: {
+            lineWidth: 0.8 * matplotlibPointToCssPixel,
+            boxVisible: true,
+            boxLineWidth: 0.8 * matplotlibPointToCssPixel,
+            boxExcludedMarks: ['pie'],
+            tickLength: 3.5 * matplotlibPointToCssPixel,
+            labelPadding: 3.5 * matplotlibPointToCssPixel,
+            gridLineWidth: 0.8 * matplotlibPointToCssPixel,
+            lineVisible: true,
+            ticksVisible: true,
+            gridX: false,
+            gridX2: false,
+            gridY: false,
+            gridY2: false,
+            gridOpacity: 1,
+            minorGridVisible: false,
+            emphasizeZero: false,
+            lineCap: 'butt',
+            titleGap: 4 * matplotlibPointToCssPixel,
+        },
+        mark: {
+            lineWidth: 1.5 * matplotlibPointToCssPixel,
+            pointRadius: 3 * matplotlibPointToCssPixel,
+            pointStrokeWidth: 1 * matplotlibPointToCssPixel,
+            pointColorMode: 'series',
+            barRadius: 0,
+            barStroke: 'transparent',
+            barStrokeWidth: 0,
+            barWidthRatio: 0.8,
+            histogramGap: 0,
+            boxplotFill: 'transparent',
+            boxplotLineWidth: 1 * matplotlibPointToCssPixel,
+            boxplotRadius: 0,
+            boxplotMedianStroke: '#FF7F0E',
+            piePalette: matplotlibPalette,
+            pieStroke: 'transparent',
+            pieStrokeWidth: 0,
+            pieStartAngle: 0,
+            pieDirection: 'counterclockwise',
+            areaStroke: '#000000',
+            areaStrokeVisible: false,
+            areaColorMode: 'series',
+            opacity: 1,
+            lineCap: 'square',
+            lineJoin: 'round',
+        },
+        legend: {
+            surfaceOpacity: 0.8,
+            borderWidth: 1 * matplotlibPointToCssPixel,
+            borderColor: '#CCCCCC',
+            cornerRadius: 4,
+            swatchRadius: 0,
+            swatchSize: 10 * matplotlibPointToCssPixel,
+            lineWidth: 1.5 * matplotlibPointToCssPixel,
+            pointRadius: 3 * matplotlibPointToCssPixel,
+            pointStrokeWidth: 1 * matplotlibPointToCssPixel,
+            lineCap: 'square',
+            continuousSamples: 256,
+        },
+        motion: { duration: 0, easing: 'linear' },
+    };
     const defaultThemeId = graflumeLight.name;
     /** Ordered source of truth for every built-in theme and generated preview. */
     const builtInThemeCatalog = [
@@ -524,6 +922,12 @@ var Graflume = (function (exports) {
             tokens: graflumeRBase,
             snapshot: true,
             sourceBaseline: 'R 4.6.1',
+        },
+        {
+            id: graflumeMatplotlib.name,
+            tokens: graflumeMatplotlib,
+            snapshot: true,
+            sourceBaseline: 'Matplotlib 3.11.1',
         },
     ];
     function builtInTheme(name) {
@@ -820,6 +1224,9 @@ var Graflume = (function (exports) {
     const AXIS_CURRENCY_DISPLAYS = new Set(['symbol', 'narrowSymbol', 'code', 'name']);
     const AXIS_DATE_STYLES = new Set(['short', 'medium', 'long', 'full']);
     const AXIS_TIME_STYLES = new Set(['short', 'medium', 'long']);
+    const THEME_CONTINUOUS_INTERPOLATIONS = new Set(['step', 'rgb', 'lab']);
+    const THEME_SERIES_COLOR_MODES = new Set(['theme', 'series']);
+    const THEME_PIE_DIRECTIONS = new Set(['clockwise', 'counterclockwise']);
     function validateUnknownKeys(value, allowed, path, kind, issues) {
         for (const key of Object.keys(value)) {
             if (!allowed.has(key)) {
@@ -848,6 +1255,83 @@ var Graflume = (function (exports) {
     function validateOptionalString(value, path, label, issues, allowEmpty = true) {
         if (value !== undefined && (typeof value !== 'string' || (!allowEmpty && value.trim() === ''))) {
             issues.push({ path, message: `${label} must be a${allowEmpty ? '' : ' non-empty'} string.` });
+        }
+    }
+    function validateTheme(value, path, issues) {
+        if (value === undefined)
+            return;
+        if (typeof value === 'string') {
+            if (value.trim() === '')
+                issues.push({ path, message: 'Theme name must be non-empty.' });
+            return;
+        }
+        if (!isPlainObject(value)) {
+            issues.push({ path, message: 'Theme must be a name or an object.' });
+            return;
+        }
+        validateOptionalString(value.extends, `${path}.extends`, 'Theme base name', issues, false);
+        if (value.colors !== undefined) {
+            if (!isPlainObject(value.colors)) {
+                issues.push({ path: `${path}.colors`, message: 'Theme colors must be an object.' });
+            }
+            else if (value.colors.continuousInterpolation !== undefined &&
+                (typeof value.colors.continuousInterpolation !== 'string' ||
+                    !THEME_CONTINUOUS_INTERPOLATIONS.has(value.colors.continuousInterpolation))) {
+                issues.push({
+                    path: `${path}.colors.continuousInterpolation`,
+                    message: 'Theme continuous interpolation is not supported.',
+                });
+            }
+        }
+        if (value.spacing !== undefined) {
+            if (!isPlainObject(value.spacing)) {
+                issues.push({ path: `${path}.spacing`, message: 'Theme spacing must be an object.' });
+            }
+            else if (value.spacing.minimumTitleBlock !== undefined) {
+                validateFiniteNumber(value.spacing.minimumTitleBlock, `${path}.spacing.minimumTitleBlock`, 'Theme minimum title block', issues, { min: 0, max: 2_000 });
+            }
+        }
+        if (value.mark !== undefined) {
+            if (!isPlainObject(value.mark)) {
+                issues.push({ path: `${path}.mark`, message: 'Theme mark must be an object.' });
+            }
+            else {
+                for (const key of ['pointColorMode', 'areaColorMode']) {
+                    if (value.mark[key] !== undefined &&
+                        (typeof value.mark[key] !== 'string' || !THEME_SERIES_COLOR_MODES.has(value.mark[key]))) {
+                        issues.push({
+                            path: `${path}.mark.${key}`,
+                            message: 'Theme series color mode is not supported.',
+                        });
+                    }
+                }
+                if (value.mark.pieDirection !== undefined &&
+                    (typeof value.mark.pieDirection !== 'string' ||
+                        !THEME_PIE_DIRECTIONS.has(value.mark.pieDirection))) {
+                    issues.push({
+                        path: `${path}.mark.pieDirection`,
+                        message: 'Theme pie direction is not supported.',
+                    });
+                }
+                if (value.mark.pieStartAngle !== undefined) {
+                    validateFiniteNumber(value.mark.pieStartAngle, `${path}.mark.pieStartAngle`, 'Theme pie start angle', issues, { min: -1e6, max: 1_000_000 });
+                }
+                if (value.mark.histogramGap !== undefined) {
+                    validateFiniteNumber(value.mark.histogramGap, `${path}.mark.histogramGap`, 'Theme histogram gap', issues, { min: 0, max: 2_000 });
+                }
+                validateOptionalString(value.mark.boxplotMedianStroke, `${path}.mark.boxplotMedianStroke`, 'Theme boxplot median stroke', issues, false);
+            }
+        }
+        if (value.legend !== undefined) {
+            if (!isPlainObject(value.legend)) {
+                issues.push({ path: `${path}.legend`, message: 'Theme legend must be an object.' });
+            }
+            else {
+                validateOptionalString(value.legend.borderColor, `${path}.legend.borderColor`, 'Theme legend border color', issues, false);
+                if (value.legend.continuousSamples !== undefined) {
+                    validateFiniteNumber(value.legend.continuousSamples, `${path}.legend.continuousSamples`, 'Theme continuous legend samples', issues, { min: 1, max: 256, integer: true });
+                }
+            }
         }
     }
     function validateScale(value, path, issues) {
@@ -2087,6 +2571,7 @@ var Graflume = (function (exports) {
             }
         }
         validateAxes(input.axes, '$.axes', issues);
+        validateTheme(input.theme, '$.theme', issues);
         validateLegend(input.legend, '$.legend', issues);
         validateHighlights(input.highlights, '$.highlights', issues);
         validateAnnotations(input.annotations, '$.annotations', issues);
@@ -2721,7 +3206,7 @@ var Graflume = (function (exports) {
             b: startLab.b + (endLab.b - startLab.b) * bounded,
         });
     }
-    /** Resolve a continuous colour; ggplot uses Lab interpolation, legacy themes keep fixed stops. */
+    /** Resolve a continuous colour; an explicit interpolation token wins over palette defaults. */
     function continuousColor(theme, ratio) {
         const palette = theme.colors.sequential;
         if (palette.length === 0)
@@ -2729,8 +3214,24 @@ var Graflume = (function (exports) {
         if (palette.length === 1)
             return palette[0] ?? theme.colors.focus;
         const bounded = Number.isFinite(ratio) ? Math.max(0, Math.min(1, ratio)) : 0;
-        if (theme.colors.paletteMode === 'ggplot2-hue') {
+        if (theme.colors.paletteMode === 'ggplot2-hue' &&
+            theme.colors.continuousInterpolation === undefined) {
             return mixLabColor(palette[0] ?? theme.colors.focus, palette[palette.length - 1] ?? theme.colors.focus, bounded);
+        }
+        if (theme.colors.continuousInterpolation === 'rgb' ||
+            theme.colors.continuousInterpolation === 'lab') {
+            const scaled = bounded * (palette.length - 1);
+            const startIndex = Math.min(palette.length - 2, Math.floor(scaled));
+            const start = palette[startIndex] ?? theme.colors.focus;
+            const end = palette[startIndex + 1] ?? start;
+            const localRatio = scaled - startIndex;
+            return theme.colors.continuousInterpolation === 'lab'
+                ? mixLabColor(start, end, localRatio)
+                : mixColor$1(start, end, localRatio);
+        }
+        if (theme.colors.continuousInterpolation === 'step') {
+            const index = Math.min(palette.length - 1, Math.floor(bounded * palette.length));
+            return palette[index] ?? theme.colors.focus;
         }
         return palette[Math.round(bounded * (palette.length - 1))] ?? theme.colors.focus;
     }
@@ -4380,12 +4881,13 @@ var Graflume = (function (exports) {
 
     function createLayout(spec, width, height, theme, minimumInsets = {}, additionalInsets = {}) {
         const separatePlotMargin = theme.spacing.plotMargin !== undefined;
-        const titleBlock = spec.title === undefined
+        const measuredTitleBlock = spec.title === undefined
             ? 0
             : theme.typography.titleSize +
                 (spec.title.subtitle === undefined
                     ? theme.spacing.lg
                     : theme.typography.subtitleSize + theme.spacing.lg + theme.spacing.xs);
+        const titleBlock = Math.max(measuredTitleBlock, theme.spacing.minimumTitleBlock ?? 0);
         const insets = {
             // A top axis shares the space between the chart heading and the plot. Keep
             // the caller's outer top padding for the heading, then reserve the measured
@@ -5663,7 +6165,7 @@ var Graflume = (function (exports) {
             width: model.width,
             height: model.height,
             fill: theme.colors.surface,
-            stroke: theme.colors.axis,
+            stroke: theme.legend?.borderColor ?? theme.colors.axis,
             lineWidth: theme.legend?.borderWidth ?? 1,
             cornerRadius: theme.legend?.cornerRadius ?? 8,
         };
@@ -5693,7 +6195,11 @@ var Graflume = (function (exports) {
         if (model.mode === 'continuous' && model.items.length >= 2) {
             const scaleX = origin.x + inset;
             const scaleWidth = Math.max(1, model.width - inset * 2);
-            const paletteSize = Math.max(1, theme.colors.paletteMode === 'ggplot2-hue' ? 16 : theme.colors.sequential.length);
+            const paletteSize = Math.max(1, Math.floor(theme.legend?.continuousSamples ??
+                (theme.colors.paletteMode === 'ggplot2-hue' ||
+                    theme.colors.continuousInterpolation !== undefined
+                    ? 16
+                    : theme.colors.sequential.length)));
             const palette = model.spec.items.length > 0
                 ? model.items.map((item, index) => {
                     return (item.color ?? continuousColor(theme, index / Math.max(1, model.items.length - 1)));
@@ -9329,14 +9835,30 @@ var Graflume = (function (exports) {
         }
         return null;
     }
+    function themedPointFill(theme, seriesColor, fallback) {
+        return theme.mark.pointColorMode === 'series' ? seriesColor : (theme.mark.pointFill ?? fallback);
+    }
+    function themedPointStroke(theme, seriesColor, fallback) {
+        return theme.mark.pointColorMode === 'series'
+            ? seriesColor
+            : (theme.mark.pointStroke ?? fallback);
+    }
+    function themedAreaFill(theme, seriesColor, fallback) {
+        return theme.mark.areaColorMode === 'series' ? seriesColor : (theme.mark.areaFill ?? fallback);
+    }
+    function themedAreaStroke(theme, seriesColor, fallback) {
+        return theme.mark.areaColorMode === 'series' ? seriesColor : (theme.mark.areaStroke ?? fallback);
+    }
     /**
-     * Use ggplot2's Lab gradient for the ggplot theme while retaining the exact
+     * Use a theme's declared continuous interpolation while retaining the exact
      * legacy sequential-stop behaviour of Graflume's light and dark themes.
      */
     function mappedContinuousColor(theme, ratio, legacyMode = 'stepped') {
         const bounded = Math.max(0, Math.min(1, ratio));
-        if (theme.colors.paletteMode === 'ggplot2-hue')
+        if (theme.colors.paletteMode === 'ggplot2-hue' ||
+            theme.colors.continuousInterpolation !== undefined) {
             return continuousColor(theme, bounded);
+        }
         const palette = theme.colors.sequential;
         if (palette.length === 0)
             return theme.colors.focus;
@@ -9381,8 +9903,7 @@ var Graflume = (function (exports) {
             points,
             closed: true,
             fill: layer.mark.fill ??
-                theme.mark.areaFill ??
-                colorWithOpacity(color, theme.mode === 'dark' ? 0.28 : 0.2),
+                themedAreaFill(theme, color, colorWithOpacity(color, theme.mode === 'dark' ? 0.28 : 0.2)),
             lineWidth: 0,
         };
         const stroke = {
@@ -9394,10 +9915,7 @@ var Graflume = (function (exports) {
             points: top,
             closed: false,
             stroke: layer.mark.stroke ??
-                theme.mark.areaStroke ??
-                theme.mark.lineColor ??
-                theme.mark.defaultColor ??
-                color,
+                themedAreaStroke(theme, color, theme.mark.lineColor ?? theme.mark.defaultColor ?? color),
             lineWidth: layer.mark.lineWidth ?? theme.mark.lineWidth,
             lineCap: theme.mark.lineCap ?? 'round',
             lineJoin: theme.mark.lineJoin ?? 'round',
@@ -9423,12 +9941,9 @@ var Graflume = (function (exports) {
                     cx: point.x,
                     cy: point.y,
                     radius: layer.mark.radius ?? theme.mark.pointRadius,
-                    fill: layer.mark.fill ?? theme.mark.pointFill ?? theme.colors.background,
+                    fill: layer.mark.fill ?? themedPointFill(theme, color, theme.colors.background),
                     stroke: layer.mark.stroke ??
-                        theme.mark.pointStroke ??
-                        theme.mark.areaStroke ??
-                        theme.mark.lineColor ??
-                        color,
+                        themedPointStroke(theme, color, themedAreaStroke(theme, color, theme.mark.lineColor ?? color)),
                     lineWidth: layer.mark.lineWidth === undefined
                         ? (theme.mark.pointStrokeWidth ?? Math.max(1.5, theme.mark.lineWidth * 0.68))
                         : Math.max(1.5, layer.mark.lineWidth * 0.68),
@@ -9527,7 +10042,9 @@ var Graflume = (function (exports) {
                 y1: yMedian,
                 x2: x + boxWidth / 2,
                 y2: yMedian,
-                stroke: mixColor$1(stroke, theme.colors.text, 0.22),
+                stroke: layer.mark.stroke ??
+                    theme.mark.boxplotMedianStroke ??
+                    mixColor$1(stroke, theme.colors.text, 0.22),
                 lineWidth: layer.mark.lineWidth ?? theme.mark.boxplotLineWidth ?? 2.2,
                 lineCap: theme.mark.lineCap ?? 'round',
             });
@@ -9699,8 +10216,8 @@ var Graflume = (function (exports) {
                         cx: point.x,
                         cy: point.y,
                         radius: layer.mark.radius ?? theme.mark.pointRadius,
-                        fill: layer.mark.fill ?? theme.mark.pointFill ?? theme.colors.background,
-                        stroke: layer.mark.stroke ?? theme.mark.pointStroke ?? stroke,
+                        fill: layer.mark.fill ?? themedPointFill(theme, stroke, theme.colors.background),
+                        stroke: layer.mark.stroke ?? themedPointStroke(theme, stroke, stroke),
                         lineWidth: layer.mark.lineWidth === undefined
                             ? (theme.mark.pointStrokeWidth ?? Math.max(1.5, lineWidth * 0.68))
                             : Math.max(1.5, lineWidth * 0.68),
@@ -9736,8 +10253,8 @@ var Graflume = (function (exports) {
                 cx,
                 cy,
                 radius: layer.mark.radius ?? theme.mark.pointRadius,
-                fill: layer.mark.fill ?? theme.mark.pointFill ?? theme.mark.defaultColor ?? color,
-                stroke: layer.mark.stroke ?? theme.mark.pointStroke ?? theme.colors.background,
+                fill: layer.mark.fill ?? themedPointFill(theme, color, theme.mark.defaultColor ?? color),
+                stroke: layer.mark.stroke ?? themedPointStroke(theme, color, theme.colors.background),
                 lineWidth: layer.mark.lineWidth ?? theme.mark.pointStrokeWidth ?? 1.75,
             });
         }
@@ -9799,8 +10316,7 @@ var Graflume = (function (exports) {
             points: [...top, { x: last.x, y: baseline }, { x: first.x, y: baseline }],
             closed: true,
             fill: layer.mark.fill ??
-                theme.mark.areaFill ??
-                colorWithOpacity(color, theme.mode === 'dark' ? 0.28 : 0.2),
+                themedAreaFill(theme, color, colorWithOpacity(color, theme.mode === 'dark' ? 0.28 : 0.2)),
             lineWidth: 0,
         };
         const outline = {
@@ -9812,10 +10328,7 @@ var Graflume = (function (exports) {
             points: top,
             closed: false,
             stroke: layer.mark.stroke ??
-                theme.mark.areaStroke ??
-                theme.mark.lineColor ??
-                theme.mark.defaultColor ??
-                color,
+                themedAreaStroke(theme, color, theme.mark.lineColor ?? theme.mark.defaultColor ?? color),
             lineWidth: layer.mark.lineWidth ?? theme.mark.lineWidth,
             lineCap: theme.mark.lineCap ?? 'round',
             lineJoin: theme.mark.lineJoin ?? 'round',
@@ -9871,7 +10384,7 @@ var Graflume = (function (exports) {
             const ratio = size === null || maximum === minimum
                 ? 0.5
                 : Math.max(0, Math.min(1, (size - minimum) / (maximum - minimum)));
-            let fill = layer.mark.fill ?? theme.mark.pointFill ?? theme.mark.defaultColor ?? color;
+            let fill = layer.mark.fill ?? themedPointFill(theme, color, theme.mark.defaultColor ?? color);
             if (layer.mark.fill === undefined && colorField !== undefined) {
                 const category = String(table.value(rowIndex, colorField) ?? '');
                 let categoryColor = categoryColors.get(category);
@@ -9893,7 +10406,7 @@ var Graflume = (function (exports) {
                 cy,
                 radius: minimumRadius + Math.sqrt(ratio) * (maximumRadius - minimumRadius),
                 fill,
-                stroke: layer.mark.stroke ?? theme.mark.pointStroke ?? theme.colors.background,
+                stroke: layer.mark.stroke ?? themedPointStroke(theme, fill, theme.colors.background),
                 lineWidth: layer.mark.lineWidth ?? theme.mark.pointStrokeWidth ?? 2,
             });
         }
@@ -9984,6 +10497,7 @@ var Graflume = (function (exports) {
         const baseline = yScale.map(0);
         const nodes = [];
         const totalCount = bins.reduce((sum, count) => sum + count, 0);
+        const histogramGap = Math.max(0, theme.mark.histogramGap ?? 2);
         bins.forEach((count, index) => {
             const start = extent[0] + (span * index) / binCount;
             const end = extent[0] + (span * (index + 1)) / binCount;
@@ -10018,9 +10532,9 @@ var Graflume = (function (exports) {
                             },
                         }),
                 }),
-                x: Math.min(x1, x2) + 2,
+                x: Math.min(x1, x2) + histogramGap,
                 y: Math.min(y, baseline),
-                width: Math.max(1, Math.abs(x2 - x1) - 4),
+                width: Math.max(1, Math.abs(x2 - x1) - histogramGap * 2),
                 height: Math.max(0.5, Math.abs(baseline - y)),
                 fill: layer.mark.fill ?? theme.mark.histogramFill ?? theme.mark.barFill ?? color,
                 ...(stroke === undefined ? {} : { stroke }),
@@ -10098,8 +10612,8 @@ var Graflume = (function (exports) {
                 cx: x,
                 cy: y,
                 radius: layer.mark.radius ?? theme.mark.pointRadius + 1,
-                fill: layer.mark.fill ?? theme.mark.pointFill ?? theme.colors.background,
-                stroke: layer.mark.stroke ?? theme.mark.pointStroke ?? stroke,
+                fill: layer.mark.fill ?? themedPointFill(theme, stroke, theme.colors.background),
+                stroke: layer.mark.stroke ?? themedPointStroke(theme, stroke, stroke),
                 lineWidth: layer.mark.lineWidth ?? theme.mark.pointStrokeWidth ?? lineWidth,
             });
         }
@@ -11829,7 +12343,7 @@ var Graflume = (function (exports) {
                 ...datumBase$1(context, `${layer.id}:distribution-area`, 0, 0, tooltip),
                 points: [{ x: points[0].x, y: baseline }, ...points, { x: points.at(-1).x, y: baseline }],
                 closed: true,
-                fill: layer.mark.fill ?? theme.mark.areaFill ?? colorWithOpacity(stroke, 0.2),
+                fill: layer.mark.fill ?? themedAreaFill(theme, context.color, colorWithOpacity(stroke, 0.2)),
                 lineWidth: 0,
             },
             {
@@ -12323,12 +12837,14 @@ var Graflume = (function (exports) {
         const radius = Math.max(8, Math.min(plot.width, plot.height) * 0.36);
         const innerRatio = Math.max(0, Math.min(0.9, optionNumber$1(layer.mark.options, 'innerRadius', 0)));
         const innerRadius = radius * innerRatio;
-        const startOffset = optionNumber$1(layer.mark.options, 'startAngle', -Math.PI / 2);
+        const startOffset = optionNumber$1(layer.mark.options, 'startAngle', theme.mark.pieStartAngle ?? -Math.PI / 2);
+        const direction = optionString$1(layer.mark.options, 'direction') ?? theme.mark.pieDirection ?? 'clockwise';
+        const directionSign = direction === 'counterclockwise' ? -1 : 1;
         const labelLimit = Math.max(0, Math.floor(optionNumber$1(layer.mark.options, 'labelLimit', 8)));
         const nodes = [];
         let angle = startOffset;
         values.forEach((item, index) => {
-            const next = angle + (item.value / total) * Math.PI * 2;
+            const next = angle + directionSign * (item.value / total) * Math.PI * 2;
             const mid = (angle + next) / 2;
             const piePalette = theme.mark.piePalette;
             const fill = layer.mark.fill ??
@@ -12351,7 +12867,7 @@ var Graflume = (function (exports) {
             };
             nodes.push(wedge);
             const share = item.value / total;
-            const span = next - angle;
+            const span = Math.abs(next - angle);
             if (index < labelLimit && span >= 0.16) {
                 const percentage = `${Math.round(share * 100)}%`;
                 const inside = innerRadius > 0 || span >= 0.48;
@@ -12760,7 +13276,8 @@ var Graflume = (function (exports) {
         const mode = optionString(layer.mark.options, 'mode') ?? 'bubble';
         for (const { rowIndex, value, country } of rows) {
             const ratio = maximum === minimum ? 0.6 : (value - minimum) / (maximum - minimum);
-            const fill = layer.mark.fill ?? theme.mark.pointFill ?? theme.mark.defaultColor ?? theme.colors.focus;
+            const fill = layer.mark.fill ??
+                themedPointFill(theme, context.color, theme.mark.defaultColor ?? theme.colors.focus);
             if (mode === 'choropleth') {
                 nodes.push(...worldCountryOverlayNodes(context, country, rowIndex, layer.mark.fill ?? mappedContinuousColor(theme, ratio, 'endpoints')));
                 continue;
@@ -14270,6 +14787,7 @@ var Graflume = (function (exports) {
     exports.graflumeDark = graflumeDark;
     exports.graflumeGgplot = graflumeGgplot;
     exports.graflumeLight = graflumeLight;
+    exports.graflumeMatplotlib = graflumeMatplotlib;
     exports.graflumeRBase = graflumeRBase;
     exports.histogram = histogram;
     exports.histogram2d = histogram2d;
