@@ -29,6 +29,143 @@ var GraflumeSpatial = (function (exports) {
         }
     }
 
+    function normalizedHex(color) {
+        const value = color.trim().replace(/^#/, '');
+        if (/^[0-9a-f]{3}$/i.test(value)) {
+            return value
+                .split('')
+                .map((channel) => `${channel}${channel}`)
+                .join('');
+        }
+        return /^[0-9a-f]{6}$/i.test(value) ? value : null;
+    }
+    function hexColor(channels, uppercase = false) {
+        const value = `#${channels
+        .map((channelValue) => Math.round(Math.max(0, Math.min(255, channelValue)))
+        .toString(16)
+        .padStart(2, '0'))
+        .join('')}`;
+        return uppercase ? value.toUpperCase() : value;
+    }
+    function linearToSrgb(value) {
+        return value <= 0.0031308 ? 12.92 * value : 1.055 * value ** (1 / 2.4) - 0.055;
+    }
+    function srgbToLinear(value) {
+        return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+    }
+    /** Convert the polar CIELUV scale used by grDevices::hcl() into clipped sRGB. */
+    function hclColor(hue, chroma, luminance) {
+        const radians = (hue * Math.PI) / 180;
+        const u = Math.cos(radians) * chroma;
+        const v = Math.sin(radians) * chroma;
+        const referenceU = 0.19783000664283;
+        const referenceV = 0.46831999493879;
+        const y = ((luminance + 16) / 116) ** 3 ;
+        const uPrime = u / (13 * luminance) + referenceU;
+        const vPrime = v / (13 * luminance) + referenceV;
+        const x = (9 * y * uPrime) / (4 * vPrime);
+        const z = (y * (12 - 3 * uPrime - 20 * vPrime)) / (4 * vPrime);
+        const red = linearToSrgb(3.2404542 * x - 1.5371385 * y - 0.4985314 * z);
+        const green = linearToSrgb(-0.969266 * x + 1.8760108 * y + 0.041556 * z);
+        const blue = linearToSrgb(0.0556434 * x - 0.2040259 * y + 1.0572252 * z);
+        return hexColor([red * 255, green * 255, blue * 255], true);
+    }
+    /** Resolve a category colour while preserving fixed-palette behaviour for existing themes. */
+    function categoricalColor(theme, index, count) {
+        const paletteSize = Number.isFinite(count) ? Math.max(1, Math.floor(count)) : 1;
+        const paletteIndex = Number.isFinite(index) ? Math.floor(index) : 0;
+        const normalizedIndex = ((paletteIndex % paletteSize) + paletteSize) % paletteSize;
+        if (theme.colors.paletteMode === 'ggplot2-hue') {
+            return hclColor(15 + (360 * normalizedIndex) / paletteSize, 100, 65);
+        }
+        const palette = theme.colors.palette;
+        if (palette.length === 0)
+            return theme.colors.focus;
+        const fixedIndex = ((paletteIndex % palette.length) + palette.length) % palette.length;
+        return palette[fixedIndex] ?? theme.colors.focus;
+    }
+    function labFunction(value) {
+        const delta = 6 / 29;
+        return value > delta ** 3 ? Math.cbrt(value) : value / (3 * delta ** 2) + 4 / 29;
+    }
+    function inverseLabFunction(value) {
+        const delta = 6 / 29;
+        return value > delta ? value ** 3 : 3 * delta ** 2 * (value - 4 / 29);
+    }
+    function hexToLab(color) {
+        const hex = normalizedHex(color);
+        if (hex === null)
+            return null;
+        const red = srgbToLinear(channel(hex, 0) / 255);
+        const green = srgbToLinear(channel(hex, 1) / 255);
+        const blue = srgbToLinear(channel(hex, 2) / 255);
+        const x = (0.4124564 * red + 0.3575761 * green + 0.1804375 * blue) / 0.95047;
+        const y = 0.2126729 * red + 0.7151522 * green + 0.072175 * blue;
+        const z = (0.0193339 * red + 0.119192 * green + 0.9503041 * blue) / 1.08883;
+        const fx = labFunction(x);
+        const fy = labFunction(y);
+        const fz = labFunction(z);
+        return { l: 116 * fy - 16, a: 500 * (fx - fy), b: 200 * (fy - fz) };
+    }
+    function labToHex(color) {
+        const fy = (color.l + 16) / 116;
+        const fx = fy + color.a / 500;
+        const fz = fy - color.b / 200;
+        const x = 0.95047 * inverseLabFunction(fx);
+        const y = inverseLabFunction(fy);
+        const z = 1.08883 * inverseLabFunction(fz);
+        const red = linearToSrgb(3.2404542 * x - 1.5371385 * y - 0.4985314 * z);
+        const green = linearToSrgb(-0.969266 * x + 1.8760108 * y + 0.041556 * z);
+        const blue = linearToSrgb(0.0556434 * x - 0.2040259 * y + 1.0572252 * z);
+        return hexColor([red * 255, green * 255, blue * 255], true);
+    }
+    function mixLabColor(start, end, ratio) {
+        const startLab = hexToLab(start);
+        const endLab = hexToLab(end);
+        if (startLab === null || endLab === null)
+            return mixColor(start, end, ratio);
+        const bounded = Number.isFinite(ratio) ? Math.max(0, Math.min(1, ratio)) : 0;
+        return labToHex({
+            l: startLab.l + (endLab.l - startLab.l) * bounded,
+            a: startLab.a + (endLab.a - startLab.a) * bounded,
+            b: startLab.b + (endLab.b - startLab.b) * bounded,
+        });
+    }
+    /** Resolve a continuous colour; ggplot uses Lab interpolation, legacy themes keep fixed stops. */
+    function continuousColor(theme, ratio) {
+        const palette = theme.colors.sequential;
+        if (palette.length === 0)
+            return theme.colors.focus;
+        if (palette.length === 1)
+            return palette[0] ?? theme.colors.focus;
+        const bounded = Number.isFinite(ratio) ? Math.max(0, Math.min(1, ratio)) : 0;
+        if (theme.colors.paletteMode === 'ggplot2-hue') {
+            return mixLabColor(palette[0] ?? theme.colors.focus, palette[palette.length - 1] ?? theme.colors.focus, bounded);
+        }
+        return palette[Math.round(bounded * (palette.length - 1))] ?? theme.colors.focus;
+    }
+    function channel(color, index) {
+        return Number.parseInt(color.slice(index * 2, index * 2 + 2), 16);
+    }
+    function mixColor(start, end, ratio) {
+        const startHex = normalizedHex(start);
+        const endHex = normalizedHex(end);
+        if (startHex === null || endHex === null)
+            return ratio < 0.5 ? start : end;
+        const bounded = Math.max(0, Math.min(1, ratio));
+        const channels = [0, 1, 2].map((index) => Math.round(channel(startHex, index) + (channel(endHex, index) - channel(startHex, index)) * bounded));
+        return `#${channels.map((value) => value.toString(16).padStart(2, '0')).join('')}`;
+    }
+    function colorWithOpacity(color, opacity) {
+        const hex = normalizedHex(color);
+        if (hex === null)
+            return color;
+        const alpha = Math.round(Math.max(0, Math.min(1, opacity)) * 255)
+            .toString(16)
+            .padStart(2, '0');
+        return `#${hex}${alpha}`;
+    }
+
     function spatialAccessibleDescription(description, instructions) {
         const custom = description?.trim();
         const guidance = instructions.trim();
@@ -1263,6 +1400,280 @@ var GraflumeSpatial = (function (exports) {
         return Array.from({ length: count }, (_, index) => Math.round((index * (safeLength - 1)) / (count - 1)));
     }
 
+    class GraflumeError extends Error {
+        code;
+        path;
+        details;
+        constructor(code, message, options = {}) {
+            super(message, options.cause === undefined ? undefined : { cause: options.cause });
+            this.name = 'GraflumeError';
+            this.code = code;
+            if (options.path !== undefined)
+                this.path = options.path;
+            if (options.details !== undefined)
+                this.details = options.details;
+        }
+    }
+
+    const UNSAFE_KEYS$1 = new Set(['__proto__', 'prototype', 'constructor']);
+    function assertSafeKey(key, path = key) {
+        if (UNSAFE_KEYS$1.has(key)) {
+            throw new GraflumeError('UNSAFE_KEY', `Unsafe key "${key}" is not allowed.`, { path });
+        }
+    }
+    function isPlainObject(value) {
+        if (value === null || typeof value !== 'object')
+            return false;
+        const prototype = Object.getPrototypeOf(value);
+        return prototype === Object.prototype || prototype === null;
+    }
+    function deepMerge(base, override) {
+        const output = { ...base };
+        for (const [key, overrideValue] of Object.entries(override)) {
+            assertSafeKey(key);
+            if (overrideValue === undefined)
+                continue;
+            const baseValue = output[key];
+            if (isPlainObject(baseValue) && isPlainObject(overrideValue)) {
+                output[key] = deepMerge(baseValue, overrideValue);
+            }
+            else if (Array.isArray(overrideValue)) {
+                output[key] = [...overrideValue];
+            }
+            else {
+                output[key] = overrideValue;
+            }
+        }
+        return output;
+    }
+
+    const palette = [
+        '#4f46e5',
+        '#0f9f8a',
+        '#f59e0b',
+        '#e05260',
+        '#7c3aed',
+        '#0e7490',
+        '#db2777',
+        '#65a30d',
+        '#475569',
+        '#ea580c',
+    ];
+    const pointToCssPixel = 96 / 72;
+    const millimeterToCssPixel = 96 / 25.4;
+    const graflumeLight = {
+        name: 'graflume-light',
+        mode: 'light',
+        colors: {
+            background: '#ffffff',
+            surface: '#f8fafc',
+            text: '#0f172a',
+            mutedText: '#64748b',
+            axis: '#cbd5e1',
+            grid: '#e8eef6',
+            focus: '#4f46e5',
+            palette,
+            sequential: ['#eef2ff', '#c7d2fe', '#818cf8', '#4f46e5', '#312e81'],
+            diverging: ['#b42318', '#f79084', '#f8fafc', '#84adff', '#3448c5'],
+        },
+        typography: {
+            fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+            fontSize: 12,
+            titleSize: 20,
+            subtitleSize: 12,
+            lineHeight: 1.45,
+        },
+        spacing: { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 },
+        axis: { lineWidth: 1, tickLength: 0, labelPadding: 9, gridLineWidth: 1 },
+        mark: { lineWidth: 2.5, pointRadius: 4.5, barRadius: 5, opacity: 1 },
+        motion: { duration: 280, easing: 'ease-out' },
+    };
+    const graflumeDark = {
+        ...graflumeLight,
+        name: 'graflume-dark',
+        mode: 'dark',
+        colors: {
+            ...graflumeLight.colors,
+            background: '#0b1020',
+            surface: '#111827',
+            text: '#f8fafc',
+            mutedText: '#a7b2c5',
+            axis: '#475569',
+            grid: '#25314a',
+            focus: '#818cf8',
+            palette: [
+                '#818cf8',
+                '#2dd4bf',
+                '#fbbf24',
+                '#fb7185',
+                '#a78bfa',
+                '#22d3ee',
+                '#f472b6',
+                '#a3e635',
+                '#94a3b8',
+                '#fb923c',
+            ],
+            sequential: ['#1e293b', '#3730a3', '#6366f1', '#a5b4fc', '#eef2ff'],
+            diverging: ['#fb7185', '#be123c', '#334155', '#4f46e5', '#a5b4fc'],
+        },
+    };
+    /**
+     * ggplot2 v4.0.3 theme_gray() rendered in CSS pixels at the browser reference
+     * density of 96 dpi. Data-scale colours follow ggplot2's default hue and
+     * two-colour continuous scales rather than a fixed categorical array.
+     */
+    const graflumeGgplot = {
+        name: 'ggplot',
+        mode: 'light',
+        colors: {
+            background: '#FFFFFF',
+            surface: '#FFFFFF',
+            panel: '#EBEBEB',
+            text: '#000000',
+            mutedText: '#4D4D4D',
+            subtitle: '#000000',
+            axisTitle: '#000000',
+            axis: '#333333',
+            grid: '#FFFFFF',
+            minorGrid: '#FFFFFF',
+            focus: '#3366FF',
+            palette: [
+                '#F8766D',
+                '#D89000',
+                '#A3A500',
+                '#39B600',
+                '#00BF7D',
+                '#00BFC4',
+                '#00B0F6',
+                '#9590FF',
+                '#E76BF3',
+                '#FF62BC',
+            ],
+            paletteMode: 'ggplot2-hue',
+            sequential: ['#132B43', '#56B1F7'],
+            diverging: ['#832424', '#FFFFFF', '#3A3A98'],
+        },
+        typography: {
+            fontFamily: 'sans-serif',
+            fontSize: 11 * pointToCssPixel,
+            fontWeight: 400,
+            titleSize: 13.2 * pointToCssPixel,
+            titleWeight: 400,
+            subtitleSize: 11 * pointToCssPixel,
+            subtitleWeight: 400,
+            axisLabelSize: 8.8 * pointToCssPixel,
+            axisLabelWeight: 400,
+            axisTitleSize: 11 * pointToCssPixel,
+            axisTitleWeight: 400,
+            legendLabelSize: 8.8 * pointToCssPixel,
+            legendLabelWeight: 400,
+            legendTitleSize: 11 * pointToCssPixel,
+            legendTitleWeight: 400,
+            titlePosition: 'panel',
+            lineHeight: 0.9,
+        },
+        spacing: {
+            xs: 5.5 * pointToCssPixel,
+            sm: 5.5 * pointToCssPixel,
+            md: 11 * pointToCssPixel,
+            lg: 5.5 * pointToCssPixel,
+            xl: 22 * pointToCssPixel,
+            plotMargin: 5.5 * pointToCssPixel,
+        },
+        axis: {
+            lineWidth: 0.5 * millimeterToCssPixel,
+            tickLength: 2.75 * pointToCssPixel,
+            labelPadding: 2.2 * pointToCssPixel,
+            gridLineWidth: 0.5 * millimeterToCssPixel,
+            lineVisible: false,
+            ticksVisible: true,
+            gridX: true,
+            gridX2: false,
+            gridY: true,
+            gridY2: false,
+            gridOpacity: 1,
+            minorGridVisible: true,
+            minorGridLineWidth: 0.25 * millimeterToCssPixel,
+            minorGridOpacity: 1,
+            emphasizeZero: false,
+            lineCap: 'butt',
+            titleGap: 2.75 * pointToCssPixel,
+        },
+        mark: {
+            lineWidth: 0.5 * millimeterToCssPixel,
+            pointRadius: 0.75 * millimeterToCssPixel,
+            barRadius: 0,
+            opacity: 1,
+            defaultColor: '#000000',
+            lineColor: '#000000',
+            pointFill: '#000000',
+            pointStroke: '#000000',
+            pointStrokeWidth: 0.5 * millimeterToCssPixel,
+            barFill: '#595959',
+            barWidthRatio: 0.9,
+            areaFill: '#333333',
+            areaStrokeVisible: false,
+            lineCap: 'butt',
+            lineJoin: 'round',
+        },
+        legend: {
+            surfaceOpacity: 1,
+            borderWidth: 0,
+            cornerRadius: 0,
+            swatchRadius: 0,
+            swatchSize: 1.2 * 11 * pointToCssPixel,
+            lineWidth: 0.5 * millimeterToCssPixel,
+            pointRadius: 0.75 * millimeterToCssPixel,
+            pointStrokeWidth: 0.5 * millimeterToCssPixel,
+            lineCap: 'butt',
+        },
+        motion: { duration: 280, easing: 'ease-out' },
+    };
+
+    class ThemeRegistry {
+        #themes = new Map();
+        constructor() {
+            this.register(graflumeLight);
+            this.register(graflumeDark);
+            this.register(graflumeGgplot);
+        }
+        register(theme) {
+            if (theme.name.trim() === '') {
+                throw new GraflumeError('INVALID_SPEC', 'Theme name must not be empty.', {
+                    path: '$.theme.name',
+                });
+            }
+            this.#themes.set(theme.name, theme);
+        }
+        has(name) {
+            return this.#themes.has(name);
+        }
+        get(name) {
+            const theme = this.#themes.get(name);
+            if (theme === undefined) {
+                throw new GraflumeError('INVALID_SPEC', `Unknown theme "${name}".`, {
+                    path: '$.theme',
+                    details: { availableThemes: this.names() },
+                });
+            }
+            return theme;
+        }
+        names() {
+            return [...this.#themes.keys()].sort();
+        }
+        resolve(input) {
+            if (typeof input === 'string')
+                return this.get(input);
+            const baseName = input.extends ?? 'graflume-light';
+            const { extends: _extends, ...overrides } = input;
+            const merged = deepMerge(this.get(baseName), overrides);
+            return {
+                ...merged,
+                name: merged.name || `custom:${baseName}`,
+            };
+        }
+    }
+
     const epsilon = 1e-8;
     function clamp(value, minimum, maximum) {
         return Math.min(maximum, Math.max(minimum, value));
@@ -1610,6 +2021,7 @@ var GraflumeSpatial = (function (exports) {
     const ROOT_KEYS = new Set([
         'specVersion',
         'title',
+        'theme',
         'background',
         'ariaLabel',
         'camera',
@@ -1621,6 +2033,104 @@ var GraflumeSpatial = (function (exports) {
         'annotations',
         'layers',
     ]);
+    const THEME_KEYS = new Set([
+        'extends',
+        'name',
+        'mode',
+        'colors',
+        'typography',
+        'spacing',
+        'axis',
+        'mark',
+        'legend',
+        'motion',
+    ]);
+    const THEME_COLOR_KEYS = new Set([
+        'background',
+        'surface',
+        'panel',
+        'text',
+        'mutedText',
+        'subtitle',
+        'axisTitle',
+        'axis',
+        'grid',
+        'minorGrid',
+        'focus',
+        'palette',
+        'paletteMode',
+        'sequential',
+        'diverging',
+    ]);
+    const THEME_TYPOGRAPHY_KEYS = new Set([
+        'fontFamily',
+        'fontSize',
+        'fontWeight',
+        'titleSize',
+        'titleWeight',
+        'subtitleSize',
+        'subtitleWeight',
+        'axisLabelSize',
+        'axisLabelWeight',
+        'axisTitleSize',
+        'axisTitleWeight',
+        'legendLabelSize',
+        'legendLabelWeight',
+        'legendTitleSize',
+        'legendTitleWeight',
+        'titlePosition',
+        'lineHeight',
+    ]);
+    const THEME_SPACING_KEYS = new Set(['xs', 'sm', 'md', 'lg', 'xl', 'plotMargin']);
+    const THEME_AXIS_KEYS = new Set([
+        'lineWidth',
+        'tickLength',
+        'labelPadding',
+        'gridLineWidth',
+        'lineVisible',
+        'ticksVisible',
+        'gridX',
+        'gridX2',
+        'gridY',
+        'gridY2',
+        'gridOpacity',
+        'minorGridVisible',
+        'minorGridLineWidth',
+        'minorGridOpacity',
+        'emphasizeZero',
+        'lineCap',
+        'titleGap',
+    ]);
+    const THEME_MARK_KEYS = new Set([
+        'lineWidth',
+        'pointRadius',
+        'barRadius',
+        'opacity',
+        'defaultColor',
+        'lineColor',
+        'pointFill',
+        'pointStroke',
+        'pointStrokeWidth',
+        'barFill',
+        'barWidthRatio',
+        'areaFill',
+        'areaStroke',
+        'areaStrokeVisible',
+        'lineCap',
+        'lineJoin',
+    ]);
+    const THEME_LEGEND_KEYS = new Set([
+        'surfaceOpacity',
+        'borderWidth',
+        'cornerRadius',
+        'swatchRadius',
+        'swatchSize',
+        'lineWidth',
+        'pointRadius',
+        'pointStrokeWidth',
+        'lineCap',
+    ]);
+    const THEME_MOTION_KEYS = new Set(['duration', 'easing']);
     const CAMERA_KEYS = new Set([
         'projection',
         'target',
@@ -1897,6 +2407,162 @@ var GraflumeSpatial = (function (exports) {
     function optionalColor(value, path, issues) {
         if (value !== undefined)
             color(value, path, issues);
+    }
+    function optionalThemeNumber(value, path, issues, minimum = 0, maximum = 2_000) {
+        if (value !== undefined)
+            finiteNumber(value, path, issues, minimum, maximum);
+    }
+    function validateThemeStringArray(value, path, issues) {
+        if (value === undefined)
+            return;
+        if (!Array.isArray(value) || value.length === 0 || value.length > 256) {
+            issue(issues, path, 'Must be an array with 1 to 256 color strings.');
+            return;
+        }
+        value.forEach((entry, index) => optionalNonEmptyString(entry, `${path}[${index}]`, issues, 128));
+    }
+    function validateTheme(value, path, issues) {
+        if (value === undefined)
+            return;
+        if (typeof value === 'string') {
+            optionalNonEmptyString(value, path, issues, 128);
+            return;
+        }
+        const theme = closedObject(value, path, THEME_KEYS, issues);
+        if (theme === undefined) {
+            issue(issues, path, 'Theme must be a registered theme name or an override object.');
+            return;
+        }
+        optionalNonEmptyString(theme.extends, `${path}.extends`, issues, 128);
+        optionalString(theme.name, `${path}.name`, issues, 128);
+        optionalEnum(theme.mode, `${path}.mode`, new Set(['light', 'dark']), issues);
+        if (theme.colors !== undefined) {
+            const colors = closedObject(theme.colors, `${path}.colors`, THEME_COLOR_KEYS, issues);
+            if (colors !== undefined) {
+                for (const key of [
+                    'background',
+                    'surface',
+                    'panel',
+                    'text',
+                    'mutedText',
+                    'subtitle',
+                    'axisTitle',
+                    'axis',
+                    'grid',
+                    'minorGrid',
+                    'focus',
+                ])
+                    optionalNonEmptyString(colors[key], `${path}.colors.${key}`, issues, 128);
+                optionalEnum(colors.paletteMode, `${path}.colors.paletteMode`, new Set(['fixed', 'ggplot2-hue']), issues);
+                for (const key of ['palette', 'sequential', 'diverging'])
+                    validateThemeStringArray(colors[key], `${path}.colors.${key}`, issues);
+            }
+        }
+        if (theme.typography !== undefined) {
+            const typography = closedObject(theme.typography, `${path}.typography`, THEME_TYPOGRAPHY_KEYS, issues);
+            if (typography !== undefined) {
+                optionalNonEmptyString(typography.fontFamily, `${path}.typography.fontFamily`, issues, 512);
+                for (const key of [
+                    'fontSize',
+                    'fontWeight',
+                    'titleSize',
+                    'titleWeight',
+                    'subtitleSize',
+                    'subtitleWeight',
+                    'axisLabelSize',
+                    'axisLabelWeight',
+                    'axisTitleSize',
+                    'axisTitleWeight',
+                    'legendLabelSize',
+                    'legendLabelWeight',
+                    'legendTitleSize',
+                    'legendTitleWeight',
+                    'lineHeight',
+                ])
+                    optionalThemeNumber(typography[key], `${path}.typography.${key}`, issues, 0, 2_000);
+                optionalEnum(typography.titlePosition, `${path}.typography.titlePosition`, new Set(['plot', 'panel']), issues);
+            }
+        }
+        if (theme.spacing !== undefined) {
+            const spacing = closedObject(theme.spacing, `${path}.spacing`, THEME_SPACING_KEYS, issues);
+            if (spacing !== undefined)
+                for (const key of THEME_SPACING_KEYS)
+                    optionalThemeNumber(spacing[key], `${path}.spacing.${key}`, issues);
+        }
+        if (theme.axis !== undefined) {
+            const axis = closedObject(theme.axis, `${path}.axis`, THEME_AXIS_KEYS, issues);
+            if (axis !== undefined) {
+                for (const key of [
+                    'lineWidth',
+                    'tickLength',
+                    'labelPadding',
+                    'gridLineWidth',
+                    'minorGridLineWidth',
+                    'titleGap',
+                ])
+                    optionalThemeNumber(axis[key], `${path}.axis.${key}`, issues, 0, 256);
+                for (const key of ['gridOpacity', 'minorGridOpacity'])
+                    optionalThemeNumber(axis[key], `${path}.axis.${key}`, issues, 0, 1);
+                for (const key of [
+                    'lineVisible',
+                    'ticksVisible',
+                    'gridX',
+                    'gridX2',
+                    'gridY',
+                    'gridY2',
+                    'minorGridVisible',
+                    'emphasizeZero',
+                ])
+                    optionalBoolean(axis[key], `${path}.axis.${key}`, issues);
+                optionalEnum(axis.lineCap, `${path}.axis.lineCap`, new Set(['butt', 'round', 'square']), issues);
+            }
+        }
+        if (theme.mark !== undefined) {
+            const mark = closedObject(theme.mark, `${path}.mark`, THEME_MARK_KEYS, issues);
+            if (mark !== undefined) {
+                for (const key of ['lineWidth', 'pointRadius', 'pointStrokeWidth', 'barRadius'])
+                    optionalThemeNumber(mark[key], `${path}.mark.${key}`, issues);
+                optionalThemeNumber(mark.opacity, `${path}.mark.opacity`, issues, 0, 1);
+                optionalThemeNumber(mark.barWidthRatio, `${path}.mark.barWidthRatio`, issues, 0, 1);
+                optionalBoolean(mark.areaStrokeVisible, `${path}.mark.areaStrokeVisible`, issues);
+                for (const key of [
+                    'defaultColor',
+                    'lineColor',
+                    'pointFill',
+                    'pointStroke',
+                    'barFill',
+                    'areaFill',
+                    'areaStroke',
+                ])
+                    optionalNonEmptyString(mark[key], `${path}.mark.${key}`, issues, 128);
+                optionalEnum(mark.lineCap, `${path}.mark.lineCap`, new Set(['butt', 'round', 'square']), issues);
+                optionalEnum(mark.lineJoin, `${path}.mark.lineJoin`, new Set(['bevel', 'round', 'miter']), issues);
+            }
+        }
+        if (theme.legend !== undefined) {
+            const legend = closedObject(theme.legend, `${path}.legend`, THEME_LEGEND_KEYS, issues);
+            if (legend !== undefined) {
+                optionalThemeNumber(legend.surfaceOpacity, `${path}.legend.surfaceOpacity`, issues, 0, 1);
+                for (const key of [
+                    'borderWidth',
+                    'cornerRadius',
+                    'swatchRadius',
+                    'swatchSize',
+                    'lineWidth',
+                    'pointRadius',
+                    'pointStrokeWidth',
+                ])
+                    optionalThemeNumber(legend[key], `${path}.legend.${key}`, issues, 0, 256);
+                optionalEnum(legend.lineCap, `${path}.legend.lineCap`, new Set(['butt', 'round', 'square']), issues);
+            }
+        }
+        if (theme.motion !== undefined) {
+            const motion = closedObject(theme.motion, `${path}.motion`, THEME_MOTION_KEYS, issues);
+            if (motion !== undefined) {
+                optionalThemeNumber(motion.duration, `${path}.motion.duration`, issues, 0, 1_000_000);
+                optionalEnum(motion.easing, `${path}.motion.easing`, new Set(['linear', 'ease', 'ease-in', 'ease-out', 'ease-in-out']), issues);
+            }
+        }
     }
     function jsonScalar(value) {
         return (value === null ||
@@ -2660,6 +3326,7 @@ var GraflumeSpatial = (function (exports) {
         if (spec.specVersion !== undefined && spec.specVersion !== '0.1')
             issue(issues, '$.specVersion', 'Only SpatialSpec version "0.1" is supported.');
         optionalString(spec.title, '$.title', issues, 512);
+        validateTheme(spec.theme, '$.theme', issues);
         optionalString(spec.ariaLabel, '$.ariaLabel', issues, 1_024);
         optionalColor(spec.background, '$.background', issues);
         validateCamera(spec.camera, '$.camera', issues);
@@ -2802,6 +3469,12 @@ var GraflumeSpatial = (function (exports) {
             output.set(value, index * value.length);
         return output;
     }
+    function layerThemeColor(theme, layerIndex, layerCount) {
+        return categoricalColor(theme, layerIndex, layerCount);
+    }
+    function usesLegacySpatialDefaults(theme) {
+        return theme.name === 'graflume-light';
+    }
     function triangleNormals(positions, indices) {
         const normals = new Float32Array(positions.length);
         const triangleCount = indices === undefined ? positions.length / 9 : indices.length / 3;
@@ -2831,7 +3504,7 @@ var GraflumeSpatial = (function (exports) {
     function isMeshData(data) {
         return 'positions' in data;
     }
-    function compileSurfaceGrid(layer, layerIndex, data) {
+    function compileSurfaceGrid(layer, layerIndex, data, theme) {
         const rows = positiveInteger(data.rows, 'surface.data.rows');
         const columns = positiveInteger(data.columns, 'surface.data.columns');
         if (rows < 2 || columns < 2)
@@ -2854,8 +3527,9 @@ var GraflumeSpatial = (function (exports) {
         }
         const colors = new Float32Array(rows * columns * 4);
         const sizes = new Float32Array(rows * columns).fill(1);
-        const low = spatialColor('#0ea5e9', layer.mark.opacity);
-        const high = spatialColor(layer.mark.color ?? '#7c3aed', layer.mark.opacity);
+        const legacyDefaults = usesLegacySpatialDefaults(theme);
+        const low = spatialColor(legacyDefaults ? '#0ea5e9' : continuousColor(theme, 0), layer.mark.opacity);
+        const high = spatialColor(layer.mark.color ?? (legacyDefaults ? '#7c3aed' : continuousColor(theme, 1)), layer.mark.opacity);
         const picks = [];
         const id = layerId(layer, layerIndex);
         for (let row = 0; row < rows; row += 1) {
@@ -2907,7 +3581,7 @@ var GraflumeSpatial = (function (exports) {
             },
         ];
     }
-    function compileSurfaceMesh(layer, layerIndex, data) {
+    function compileSurfaceMesh(layer, layerIndex, data, theme, layerCount) {
         if (data.positions.length === 0)
             fail('surface mesh needs at least one position.');
         const positionValues = [];
@@ -2926,8 +3600,10 @@ var GraflumeSpatial = (function (exports) {
         const wireframeIndices = new Uint32Array(data.triangles.flatMap(([a, b, c]) => [a, b, b, c, c, a]));
         const opacity = layer.mark.opacity ?? 1;
         const colors = new Float32Array(data.positions.length * 4);
+        const defaultColor = layer.mark.color ??
+            (usesLegacySpatialDefaults(theme) ? undefined : layerThemeColor(theme, layerIndex, layerCount));
         for (let index = 0; index < data.positions.length; index += 1)
-            colors.set(spatialColor(data.colors?.[index] ?? layer.mark.color, opacity), index * 4);
+            colors.set(spatialColor(data.colors?.[index] ?? defaultColor, opacity), index * 4);
         const suppliedNormals = data.normals;
         let normals;
         if (suppliedNormals !== undefined) {
@@ -2963,16 +3639,16 @@ var GraflumeSpatial = (function (exports) {
             },
         ];
     }
-    function compileSurface(layer, layerIndex) {
+    function compileSurface(layer, layerIndex, theme, layerCount) {
         const mode = layer.mark.mode ?? (isMeshData(layer.data) ? 'mesh' : 'surface');
         if (mode === 'mesh') {
             if (!isMeshData(layer.data))
                 fail('surface mesh mode requires positions and triangles.');
-            return compileSurfaceMesh(layer, layerIndex, layer.data);
+            return compileSurfaceMesh(layer, layerIndex, layer.data, theme, layerCount);
         }
         if (isMeshData(layer.data))
             fail('surface mode requires rows, columns, and z values.');
-        return compileSurfaceGrid(layer, layerIndex, layer.data);
+        return compileSurfaceGrid(layer, layerIndex, layer.data, theme);
     }
     function volumeDimensions(layer) {
         const dimensions = layer.data.dimensions;
@@ -2989,7 +3665,7 @@ var GraflumeSpatial = (function (exports) {
     function volumeIndex(x, y, z, dimensions) {
         return z * dimensions[0] * dimensions[1] + y * dimensions[0] + x;
     }
-    function compileVolumePoints(layer, layerIndex) {
+    function compileVolumePoints(layer, layerIndex, theme) {
         const dimensions = volumeDimensions(layer);
         const origin = validVec3(layer.data.origin ?? [0, 0, 0], 'volume origin');
         const spacing = validVec3(layer.data.spacing ?? [1, 1, 1], 'volume spacing');
@@ -3005,8 +3681,9 @@ var GraflumeSpatial = (function (exports) {
         const colors = [];
         const sizes = [];
         const picks = [];
-        const low = spatialColor(layer.mark.colorLow ?? '#0ea5e9', layer.mark.opacity ?? 0.18);
-        const high = spatialColor(layer.mark.colorHigh ?? '#f43f5e', layer.mark.opacity ?? 0.72);
+        const legacyDefaults = usesLegacySpatialDefaults(theme);
+        const low = spatialColor(layer.mark.colorLow ?? (legacyDefaults ? '#0ea5e9' : continuousColor(theme, 0)), layer.mark.opacity ?? 0.18);
+        const high = spatialColor(layer.mark.colorHigh ?? (legacyDefaults ? '#f43f5e' : continuousColor(theme, 1)), layer.mark.opacity ?? 0.72);
         const id = layerId(layer, layerIndex);
         const plane = dimensions[0] * dimensions[1];
         for (const datumIndex of exactStrideSampleIndices(values.length, maximumSamples)) {
@@ -3107,7 +3784,7 @@ var GraflumeSpatial = (function (exports) {
             sorted.reverse();
         return sorted;
     }
-    function compileIsosurface(layer, layerIndex) {
+    function compileIsosurface(layer, layerIndex, theme) {
         const dimensions = volumeDimensions(layer);
         if (dimensions.some((dimension) => dimension < 2))
             fail('isosurface mode needs dimensions of at least 2.');
@@ -3171,7 +3848,8 @@ var GraflumeSpatial = (function (exports) {
             }
         }
         const positions = new Float32Array(vertices);
-        const color = spatialColor(layer.mark.colorHigh ?? '#7c3aed', layer.mark.opacity ?? 0.82);
+        const color = spatialColor(layer.mark.colorHigh ??
+            (usesLegacySpatialDefaults(theme) ? '#7c3aed' : continuousColor(theme, 1)), layer.mark.opacity ?? 0.82);
         return [
             {
                 id,
@@ -3184,10 +3862,10 @@ var GraflumeSpatial = (function (exports) {
             },
         ];
     }
-    function compileVolume(layer, layerIndex) {
+    function compileVolume(layer, layerIndex, theme) {
         return (layer.mark.mode ?? 'volume') === 'isosurface'
-            ? compileIsosurface(layer, layerIndex)
-            : compileVolumePoints(layer, layerIndex);
+            ? compileIsosurface(layer, layerIndex, theme)
+            : compileVolumePoints(layer, layerIndex, theme);
     }
     function isStreamtubeData(data) {
         return 'paths' in data;
@@ -3198,7 +3876,7 @@ var GraflumeSpatial = (function (exports) {
         const first = normalize3(cross3(normalized, reference), [1, 0, 0]);
         return [first, normalize3(cross3(normalized, first), [0, 0, 1])];
     }
-    function compileCones(layer, layerIndex, data) {
+    function compileCones(layer, layerIndex, data, theme, layerCount) {
         if (data.origins.length !== data.vectors.length)
             fail('vector origins and vectors must have the same length.');
         const segments = Math.max(5, Math.min(48, Math.trunc(layer.mark.segments ?? 12)));
@@ -3220,7 +3898,11 @@ var GraflumeSpatial = (function (exports) {
             const [first, second] = vectorBasis(direction);
             const radius = Math.max(0.004, magnitude * scale * radiusFactor);
             const baseCenter = add3(origin, scale3(subtract3(tip, origin), 0.72));
-            const color = spatialColor(data.colors?.[datumIndex] ?? layer.mark.color ?? '#0f9f8a', layer.mark.opacity);
+            const color = spatialColor(data.colors?.[datumIndex] ??
+                layer.mark.color ??
+                (usesLegacySpatialDefaults(theme)
+                    ? '#0f9f8a'
+                    : layerThemeColor(theme, layerIndex, layerCount)), layer.mark.opacity);
             const offset = positions.length / 3;
             pushVec3(positions, origin);
             pushColor(colors, color);
@@ -3275,7 +3957,7 @@ var GraflumeSpatial = (function (exports) {
         const next = path[Math.min(path.length - 1, index + 1)];
         return vectorBasis(subtract3(next, previous));
     }
-    function compileStreamtubes(layer, layerIndex, data) {
+    function compileStreamtubes(layer, layerIndex, data, theme, layerCount) {
         const segments = Math.max(5, Math.min(48, Math.trunc(layer.mark.segments ?? 10)));
         const radius = Math.max(0.0001, layer.mark.radius ?? 0.035);
         const positions = [];
@@ -3288,7 +3970,11 @@ var GraflumeSpatial = (function (exports) {
             if (path.length < 2)
                 continue;
             const offset = positions.length / 3;
-            const color = spatialColor(data.colors?.[datumIndex] ?? layer.mark.color ?? '#0284c7', layer.mark.opacity);
+            const color = spatialColor(data.colors?.[datumIndex] ??
+                layer.mark.color ??
+                (usesLegacySpatialDefaults(theme)
+                    ? '#0284c7'
+                    : layerThemeColor(theme, layerIndex, layerCount)), layer.mark.opacity);
             for (let pointIndex = 0; pointIndex < path.length; pointIndex += 1) {
                 const [first, second] = tubePointBasis(path, pointIndex);
                 for (let segment = 0; segment < segments; segment += 1) {
@@ -3341,18 +4027,18 @@ var GraflumeSpatial = (function (exports) {
             },
         ];
     }
-    function compileVector(layer, layerIndex) {
+    function compileVector(layer, layerIndex, theme, layerCount) {
         const mode = layer.mark.mode ?? (isStreamtubeData(layer.data) ? 'streamtube' : 'cone');
         if (mode === 'streamtube') {
             if (!isStreamtubeData(layer.data))
                 fail('streamtube mode requires paths.');
-            return compileStreamtubes(layer, layerIndex, layer.data);
+            return compileStreamtubes(layer, layerIndex, layer.data, theme, layerCount);
         }
         if (isStreamtubeData(layer.data))
             fail('cone mode requires origins and vectors.');
-        return compileCones(layer, layerIndex, layer.data);
+        return compileCones(layer, layerIndex, layer.data, theme, layerCount);
     }
-    function compileScatter(layer, layerIndex) {
+    function compileScatter(layer, layerIndex, theme, layerCount) {
         const data = layer.data;
         const count = data.positions.length;
         for (const [name, values] of [
@@ -3375,16 +4061,22 @@ var GraflumeSpatial = (function (exports) {
             minimum = Math.min(minimum, finite(value, 'scatter value'));
             maximum = Math.max(maximum, value);
         }
-        const low = spatialColor('#06b6d4', layer.mark.opacity);
-        const high = spatialColor(layer.mark.color ?? '#7c3aed', layer.mark.opacity);
+        const legacyDefaults = usesLegacySpatialDefaults(theme);
+        const low = spatialColor(legacyDefaults ? '#06b6d4' : continuousColor(theme, 0), layer.mark.opacity);
+        const high = spatialColor(layer.mark.color ?? (legacyDefaults ? '#7c3aed' : continuousColor(theme, 1)), layer.mark.opacity);
+        const category = legacyDefaults && layer.mark.color === undefined
+            ? interpolateColor(low, high, 0.5)
+            : spatialColor(layer.mark.color ?? layerThemeColor(theme, layerIndex, layerCount), layer.mark.opacity);
         for (let datumIndex = 0; datumIndex < count; datumIndex += 1) {
             const position = validVec3(data.positions[datumIndex], `scatter position ${datumIndex}`);
             const value = data.values?.[datumIndex];
             const amount = value === undefined || maximum === minimum ? 0.5 : (value - minimum) / (maximum - minimum);
             pushVec3(positions, position);
-            pushColor(colors, data.colors?.[datumIndex] === undefined
-                ? interpolateColor(low, high, amount)
-                : spatialColor(data.colors[datumIndex], layer.mark.opacity));
+            pushColor(colors, data.colors?.[datumIndex] !== undefined
+                ? spatialColor(data.colors[datumIndex], layer.mark.opacity)
+                : value === undefined
+                    ? category
+                    : interpolateColor(low, high, amount));
             sizes.push(Math.max(1, data.sizes?.[datumIndex] ?? layer.mark.pointSize ?? 7));
             picks.push({
                 layerId: id,
@@ -3632,18 +4324,20 @@ var GraflumeSpatial = (function (exports) {
             pushSphericalTriangle(positions, colors, color, midpoint, middle, last, radius, depth + 1);
         }
     }
-    function compileGlobe(layer, layerIndex) {
+    function compileGlobe(layer, layerIndex, theme) {
         const id = layerId(layer, layerIndex);
         const radius = Math.max(0.001, layer.mark.radius ?? 1);
         const opacity = layer.mark.opacity ?? 1;
-        const ocean = sphereGeometry(`${id}:ocean`, radius, spatialColor(layer.mark.oceanColor ?? '#bfdbfe', opacity));
+        const ocean = sphereGeometry(`${id}:ocean`, radius, spatialColor(layer.mark.oceanColor ??
+            (usesLegacySpatialDefaults(theme) ? '#bfdbfe' : continuousColor(theme, 0.12)), opacity));
         const landPositions = [];
         const landColors = [];
         const borderPositions = [];
         const borderColors = [];
         const countryPicks = [];
-        const landColor = spatialColor(layer.mark.landColor ?? '#dce7d5', opacity);
-        const borderColor = spatialColor(layer.mark.borderColor ?? '#64748b', opacity);
+        const legacyDefaults = usesLegacySpatialDefaults(theme);
+        const landColor = spatialColor(layer.mark.landColor ?? (legacyDefaults ? '#dce7d5' : continuousColor(theme, 0.72)), opacity);
+        const borderColor = spatialColor(layer.mark.borderColor ?? (legacyDefaults ? '#64748b' : theme.colors.mutedText), opacity);
         const landRadius = radius * 1.003;
         const countries = naturalEarthCountries110m();
         for (const [countryIndex, country] of countries.entries()) {
@@ -3711,11 +4405,15 @@ var GraflumeSpatial = (function (exports) {
         const pointColors = [];
         const pointSizes = [];
         const pointPicks = [];
-        const defaultPointColor = layer.mark.pointColor ?? '#dc2626';
-        for (const [datumIndex, point] of (layer.data?.points ?? []).entries()) {
+        const globePoints = layer.data?.points ?? [];
+        for (const [datumIndex, point] of globePoints.entries()) {
             const position = longitudeLatitudeToSphere(finite(point.longitude, `globe point ${datumIndex} longitude`), finite(point.latitude, `globe point ${datumIndex} latitude`), radius * 1.025);
             pushVec3(pointPositions, position);
-            pushColor(pointColors, spatialColor(point.color ?? defaultPointColor, opacity));
+            pushColor(pointColors, spatialColor(point.color ??
+                layer.mark.pointColor ??
+                (legacyDefaults
+                    ? '#dc2626'
+                    : categoricalColor(theme, datumIndex, Math.max(1, globePoints.length))), opacity));
             pointSizes.push(Math.max(2, point.size ?? 8));
             pointPicks.push({
                 layerId: id,
@@ -3746,9 +4444,14 @@ var GraflumeSpatial = (function (exports) {
         const routeColors = [];
         const routePicks = [];
         const routeSegments = Math.max(8, Math.min(128, Math.trunc(layer.mark.routeSegments ?? 32)));
-        for (const [datumIndex, route] of (layer.data?.routes ?? []).entries()) {
+        const globeRoutes = layer.data?.routes ?? [];
+        for (const [datumIndex, route] of globeRoutes.entries()) {
             const path = greatCirclePoints(route.from, route.to, radius * 1.025, routeSegments);
-            const color = spatialColor(route.color ?? layer.mark.routeColor ?? '#f97316', opacity);
+            const color = spatialColor(route.color ??
+                layer.mark.routeColor ??
+                (legacyDefaults
+                    ? '#f97316'
+                    : categoricalColor(theme, datumIndex + Math.max(1, globePoints.length), Math.max(2, globePoints.length + globeRoutes.length))), opacity);
             for (let index = 0; index < path.length - 1; index += 1) {
                 pushVec3(routePositions, path[index]);
                 pushVec3(routePositions, path[index + 1]);
@@ -3785,27 +4488,29 @@ var GraflumeSpatial = (function (exports) {
         return [ocean, land, borders, points, routes].filter((geometry) => geometry.positions.length > 0);
     }
     const builtInCompilers = {
-        globe: (layer, layerIndex) => compileGlobe(layer, layerIndex),
-        scatter: (layer, layerIndex) => compileScatter(layer, layerIndex),
-        surface: (layer, layerIndex) => compileSurface(layer, layerIndex),
-        vector: (layer, layerIndex) => compileVector(layer, layerIndex),
-        volume: (layer, layerIndex) => compileVolume(layer, layerIndex),
+        globe: (layer, layerIndex, theme) => compileGlobe(layer, layerIndex, theme),
+        scatter: (layer, layerIndex, theme, layerCount) => compileScatter(layer, layerIndex, theme, layerCount),
+        surface: (layer, layerIndex, theme, layerCount) => compileSurface(layer, layerIndex, theme, layerCount),
+        vector: (layer, layerIndex, theme, layerCount) => compileVector(layer, layerIndex, theme, layerCount),
+        volume: (layer, layerIndex, theme) => compileVolume(layer, layerIndex, theme),
     };
     function compileSpatial(spec) {
         assertValidSpatialSpec(spec);
+        const theme = new ThemeRegistry().resolve(spec.theme ?? 'graflume-light');
         const geometries = [];
         for (const [layerIndex, layer] of spec.layers.entries()) {
             const type = layer.mark.type.trim().toLowerCase();
             const compiler = builtInCompilers[type];
             if (compiler === undefined)
                 fail(`unsupported spatial mark type "${type}".`);
-            geometries.push(...compiler(layer, layerIndex));
+            geometries.push(...compiler(layer, layerIndex, theme, spec.layers.length));
             assertCompiledSpatialOutputBudget(geometries);
         }
         return {
             geometries,
             bounds: boundsFromPositions(geometries.map(({ positions }) => positions)),
             spec,
+            theme,
         };
     }
 
@@ -4060,7 +4765,7 @@ var GraflumeSpatial = (function (exports) {
         }
         return [...buckets.values()];
     }
-    function applyHighlightStyle(element, highlight, bounds) {
+    function applyHighlightStyle(element, highlight, bounds, theme) {
         const padding = highlight.padding ?? 5;
         const point = bounds.width <= 2 && bounds.height <= 2;
         const radius = point ? (highlight.radius ?? Math.max(7, padding + 3)) : 0;
@@ -4070,12 +4775,12 @@ var GraflumeSpatial = (function (exports) {
         element.style.width = `${Math.max(1, point ? radius * 2 : bounds.width + padding * 2)}px`;
         element.style.height = `${Math.max(1, point ? radius * 2 : bounds.height + padding * 2)}px`;
         element.style.boxSizing = 'border-box';
-        element.style.border = `${highlight.lineWidth ?? 2}px ${highlight.dash?.length ? 'dashed' : 'solid'} ${highlight.stroke ?? '#4f46e5'}`;
+        element.style.border = `${highlight.lineWidth ?? 2}px ${highlight.dash?.length ? 'dashed' : 'solid'} ${highlight.stroke ?? theme.colors.focus}`;
         element.style.borderRadius = point ? '999px' : `${highlight.radius ?? 7}px`;
-        element.style.background = highlight.fill ?? 'rgba(79,70,229,.12)';
+        element.style.background = highlight.fill ?? colorWithOpacity(theme.colors.focus, 0.12);
         element.style.opacity = String(highlight.opacity ?? 1);
     }
-    function connector(from, to, annotation) {
+    function connector(from, to, annotation, theme) {
         const configured = typeof annotation.connector === 'object' ? annotation.connector : {};
         const visible = typeof annotation.connector === 'boolean' ? annotation.connector : (configured.visible ?? true);
         if (!visible)
@@ -4088,7 +4793,7 @@ var GraflumeSpatial = (function (exports) {
         line.style.top = `${from.y}px`;
         line.style.width = `${length}px`;
         line.style.height = '0';
-        line.style.borderTop = `${configured.width ?? 1.5}px ${configured.dash?.length ? 'dashed' : 'solid'} ${configured.color ?? annotation.style?.border ?? '#4f46e5'}`;
+        line.style.borderTop = `${configured.width ?? 1.5}px ${configured.dash?.length ? 'dashed' : 'solid'} ${configured.color ?? annotation.style?.border ?? theme.colors.focus}`;
         line.style.transformOrigin = '0 0';
         line.style.transform = `rotate(${Math.atan2(to.y - from.y, to.x - from.x)}rad)`;
         return line;
@@ -4099,7 +4804,7 @@ var GraflumeSpatial = (function (exports) {
         const availableHeight = Math.max(1, state.plotBounds.height - 8);
         const maxWidth = Math.min(style.maxWidth ?? 220, availableWidth);
         const padding = Math.min(style.padding ?? 10, Math.max(0, Math.min(maxWidth / 5, availableHeight / 6)));
-        const fontSize = Math.min(style.fontSize ?? 12, Math.max(1, Math.min(maxWidth / 3, availableHeight / 3)));
+        const fontSize = Math.min(style.fontSize ?? state.scene.theme.typography.fontSize, Math.max(1, Math.min(maxWidth / 3, availableHeight / 3)));
         const bubble = document.createElement('div');
         bubble.dataset.graflumeSpatialAnnotation = annotation.id ?? 'true';
         bubble.setAttribute('role', 'note');
@@ -4111,12 +4816,12 @@ var GraflumeSpatial = (function (exports) {
         bubble.style.maxHeight = `${availableHeight}px`;
         bubble.style.padding = `${padding}px`;
         bubble.style.boxSizing = 'border-box';
-        bubble.style.border = `1.25px solid ${style.border ?? '#4f46e5'}`;
+        bubble.style.border = `1.25px solid ${style.border ?? state.scene.theme.colors.focus}`;
         bubble.style.borderRadius = '9px';
-        bubble.style.background = style.background ?? 'rgba(255,255,255,.97)';
-        bubble.style.color = style.color ?? '#0f172a';
+        bubble.style.background = style.background ?? state.scene.theme.colors.background;
+        bubble.style.color = style.color ?? state.scene.theme.colors.text;
         bubble.style.opacity = String(style.opacity ?? 0.97);
-        bubble.style.font = `700 ${fontSize}px/1.35 ui-sans-serif, system-ui, sans-serif`;
+        bubble.style.font = `700 ${fontSize}px/1.35 ${state.scene.theme.typography.fontFamily}`;
         bubble.style.textAlign = style.align ?? 'start';
         bubble.style.overflowWrap = 'anywhere';
         bubble.style.wordBreak = 'break-word';
@@ -4133,7 +4838,7 @@ var GraflumeSpatial = (function (exports) {
             detail.textContent = annotation.detail;
             detail.style.marginBlockStart = '4px';
             detail.style.fontWeight = '400';
-            detail.style.color = style.color ?? '#475569';
+            detail.style.color = style.color ?? state.scene.theme.colors.mutedText;
             detail.style.overflowWrap = 'anywhere';
             detail.style.wordBreak = 'break-word';
             bubble.append(detail);
@@ -4224,7 +4929,7 @@ var GraflumeSpatial = (function (exports) {
         const { x, y } = placed;
         bubble.style.left = `${x}px`;
         bubble.style.top = `${y}px`;
-        const line = connector(anchor, { x: x + estimatedWidth / 2, y: y + estimatedHeight / 2 }, annotation);
+        const line = connector(anchor, { x: x + estimatedWidth / 2, y: y + estimatedHeight / 2 }, annotation, state.scene.theme);
         return {
             elements: line === null ? [bubble] : [line, bubble],
             bounds: placed.bounds,
@@ -4316,9 +5021,15 @@ var GraflumeSpatial = (function (exports) {
         element.style.overflow = 'auto';
         element.style.padding = '8px 10px';
         element.style.boxSizing = 'border-box';
-        element.style.border = '1px solid rgba(148,163,184,.55)';
-        element.style.borderRadius = '8px';
-        element.style.background = 'rgba(255,255,255,.9)';
+        element.style.border = `${state.scene.theme.legend?.borderWidth ?? 1}px solid ${state.scene.theme.colors.axis}`;
+        element.style.borderRadius = `${state.scene.theme.legend?.cornerRadius ?? 8}px`;
+        const surfaceOpacity = state.scene.theme.legend?.surfaceOpacity ?? 0.9;
+        element.style.background =
+            surfaceOpacity >= 1
+                ? state.scene.theme.colors.background
+                : colorWithOpacity(state.scene.theme.colors.background, surfaceOpacity);
+        element.style.color = state.scene.theme.colors.text;
+        element.style.fontFamily = state.scene.theme.typography.fontFamily;
         element.style.backdropFilter = 'blur(5px)';
         element.style.pointerEvents = 'auto';
         legendPosition(element, legend, state);
@@ -4326,6 +5037,8 @@ var GraflumeSpatial = (function (exports) {
             const title = document.createElement('strong');
             title.textContent = legend.title;
             title.style.inlineSize = legend.orientation === 'horizontal' ? '100%' : 'auto';
+            title.style.fontSize = `${state.scene.theme.typography.legendTitleSize ?? state.scene.theme.typography.fontSize}px`;
+            title.style.fontWeight = String(state.scene.theme.typography.legendTitleWeight ?? 600);
             element.append(title);
         }
         if (legend.mode === 'continuous' && legend.items.length >= 2) {
@@ -4344,7 +5057,7 @@ var GraflumeSpatial = (function (exports) {
             [legend.items[0], legend.items[legend.items.length - 1]].forEach((item, index) => {
                 const label = document.createElement('span');
                 label.textContent = item.label;
-                label.style.font = '500 11px/1.4 ui-sans-serif, system-ui, sans-serif';
+                label.style.font = `${state.scene.theme.typography.legendLabelWeight ?? 500} ${state.scene.theme.typography.legendLabelSize ?? state.scene.theme.typography.fontSize}px/1.4 ${state.scene.theme.typography.fontFamily}`;
                 label.style.textAlign = index === 0 ? 'start' : 'end';
                 scale.append(label);
             });
@@ -4370,15 +5083,20 @@ var GraflumeSpatial = (function (exports) {
             row.style.padding = '2px';
             row.style.border = '0';
             row.style.background = 'transparent';
-            row.style.color = '#0f172a';
-            row.style.font = '500 12px/1.35 ui-sans-serif, system-ui, sans-serif';
+            row.style.color = state.scene.theme.colors.text;
+            row.style.font = `${state.scene.theme.typography.legendLabelWeight ?? 500} ${state.scene.theme.typography.legendLabelSize ?? state.scene.theme.typography.fontSize}px/1.35 ${state.scene.theme.typography.fontFamily}`;
             row.style.cursor = item.toggleable ? 'pointer' : 'default';
             row.style.opacity = item.visible ? '1' : '.42';
             const swatch = document.createElement('span');
             swatch.setAttribute('aria-hidden', 'true');
             swatch.style.width = item.symbol === 'line' ? '14px' : '10px';
             swatch.style.height = item.symbol === 'line' ? '2px' : '10px';
-            swatch.style.borderRadius = item.symbol === 'point' ? '999px' : '3px';
+            swatch.style.borderRadius =
+                item.symbol === 'point'
+                    ? '999px'
+                    : item.symbol === 'line' && state.scene.theme.legend?.lineCap === 'butt'
+                        ? '0'
+                        : `${state.scene.theme.legend?.swatchRadius ?? 3}px`;
             swatch.style.background = item.color;
             const label = document.createElement('span');
             label.textContent = item.label;
@@ -4443,7 +5161,7 @@ var GraflumeSpatial = (function (exports) {
                     continue;
                 const element = document.createElement('div');
                 element.dataset.graflumeSpatialHighlight = highlight.id ?? `highlight-${index}`;
-                applyHighlightStyle(element, highlight, bounds);
+                applyHighlightStyle(element, highlight, bounds, state.scene.theme);
                 content.append(element);
             }
             for (const [index, target] of state.selection.entries()) {
@@ -4453,8 +5171,8 @@ var GraflumeSpatial = (function (exports) {
                 const element = document.createElement('div');
                 element.dataset.graflumeSpatialSelection = String(index);
                 applyHighlightStyle(element, {
-                    fill: state.selectionHighlight.fill ?? 'rgba(37,99,235,.16)',
-                    stroke: state.selectionHighlight.stroke ?? '#2563eb',
+                    fill: state.selectionHighlight.fill ?? colorWithOpacity(state.scene.theme.colors.focus, 0.16),
+                    stroke: state.selectionHighlight.stroke ?? state.scene.theme.colors.focus,
                     lineWidth: state.selectionHighlight.lineWidth ?? 2.5,
                     padding: state.selectionHighlight.padding ?? 5,
                     radius: state.selectionHighlight.radius ?? 8,
@@ -4464,7 +5182,7 @@ var GraflumeSpatial = (function (exports) {
                     ...(state.selectionHighlight.dash === undefined
                         ? {}
                         : { dash: state.selectionHighlight.dash }),
-                }, bounds);
+                }, bounds, state.scene.theme);
                 content.append(element);
             }
             const preparedAnnotations = [];
@@ -4882,7 +5600,7 @@ void main() {
             if (gl === null || program === null || scene === null || camera === null || this.#lost)
                 return;
             gl.viewport(0, 0, this.#canvas.width, this.#canvas.height);
-            const background = spatialColor(scene.spec.background ?? '#ffffff');
+            const background = spatialColor(scene.spec.background ?? scene.theme.colors.panel ?? scene.theme.colors.surface);
             gl.clearColor(background[0], background[1], background[2], background[3]);
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
             gl.enable(gl.DEPTH_TEST);
@@ -5363,18 +6081,39 @@ void main() {
         const color = spatialColor(value);
         return `rgba(${Math.round(color[0] * 255)},${Math.round(color[1] * 255)},${Math.round(color[2] * 255)},${color[3]})`;
     }
-    function layerColor(layer, endpoint = 'low') {
+    function layerColor(layer, theme, layerIndex, layerCount, endpoint) {
         if (layer.mark.type === 'volume')
-            return colorCss(endpoint === 'low' ? (layer.mark.colorLow ?? '#0ea5e9') : (layer.mark.colorHigh ?? '#7c3aed'));
-        if (layer.mark.type === 'surface')
-            return colorCss(endpoint === 'low' ? '#0ea5e9' : (layer.mark.color ?? '#7c3aed'));
-        if (layer.mark.type === 'scatter')
-            return colorCss(endpoint === 'low' ? '#06b6d4' : (layer.mark.color ?? '#7c3aed'));
-        if (layer.mark.type === 'vector')
-            return colorCss(endpoint === 'low' ? '#99f6e4' : (layer.mark.color ?? '#0f9f8a'));
-        if (layer.mark.type === 'globe')
-            return colorCss(layer.mark.pointColor ?? layer.mark.landColor);
-        return '#4f46e5';
+            return colorCss(endpoint === 'high'
+                ? (layer.mark.colorHigh ?? continuousColor(theme, 1))
+                : (layer.mark.colorLow ?? continuousColor(theme, 0)));
+        if (layer.mark.type === 'surface') {
+            const data = layer.data;
+            if (endpoint === undefined && 'positions' in data)
+                return colorCss(data.colors?.[0] ?? layer.mark.color ?? categoricalColor(theme, layerIndex, layerCount));
+            return colorCss(endpoint === 'high'
+                ? (layer.mark.color ?? continuousColor(theme, 1))
+                : continuousColor(theme, 0));
+        }
+        if (layer.mark.type === 'scatter') {
+            const data = layer.data;
+            if (endpoint === undefined && (data.values === undefined || data.values.length === 0))
+                return colorCss(data.colors?.[0] ?? layer.mark.color ?? categoricalColor(theme, layerIndex, layerCount));
+            return colorCss(endpoint === 'high'
+                ? (layer.mark.color ?? continuousColor(theme, 1))
+                : continuousColor(theme, 0));
+        }
+        if (layer.mark.type === 'vector') {
+            const data = layer.data;
+            return colorCss(data.colors?.[0] ?? layer.mark.color ?? categoricalColor(theme, layerIndex, layerCount));
+        }
+        if (layer.mark.type === 'globe') {
+            const data = layer.data;
+            return colorCss(data?.points?.[0]?.color ??
+                layer.mark.pointColor ??
+                layer.mark.landColor ??
+                categoricalColor(theme, layerIndex, layerCount));
+        }
+        return categoricalColor(theme, layerIndex, layerCount);
     }
     function layerLegendSymbol(layer) {
         if (layer?.mark.type === 'scatter')
@@ -5447,6 +6186,7 @@ void main() {
         #tooltip = null;
         #fallback = null;
         #accessibility = null;
+        #scopedStyle = null;
         #instructions = null;
         #controls = null;
         #destroyed = false;
@@ -5481,8 +6221,7 @@ void main() {
             this.#wrapper.style.height =
                 options.height === undefined ? '100%' : `${Math.max(1, options.height)}px`;
             this.#wrapper.style.minHeight = options.height === undefined ? '280px' : '0';
-            this.#wrapper.style.background =
-                typeof spec.background === 'string' ? spec.background : '#ffffff';
+            this.#applyThemeChrome();
             this.#renderer = new SpatialWebGLRenderer({
                 contextLost: () => {
                     this.#showFallback('context-lost');
@@ -5545,8 +6284,7 @@ void main() {
             this.#initialCamera = this.#camera;
             this.#renderer.setScene(scene);
             this.#renderer.setCamera(this.#camera);
-            this.#wrapper.style.background =
-                typeof spec.background === 'string' ? spec.background : '#ffffff';
+            this.#applyThemeChrome();
             this.#hideTooltip();
             this.#syncAccessibilityDom();
             this.#renderAccessibilityTable();
@@ -5813,13 +6551,13 @@ void main() {
             const context = fallback.getContext('2d');
             if (context === null)
                 return 'data:image/png;base64,';
-            context.fillStyle = '#ffffff';
+            context.fillStyle = colorCss(this.#spec.background ?? this.#scene.theme.colors.background);
             context.fillRect(0, 0, fallback.width, fallback.height);
-            context.fillStyle = '#0f172a';
-            context.font = '600 18px sans-serif';
+            context.fillStyle = this.#scene.theme.colors.text;
+            context.font = `600 18px ${this.#scene.theme.typography.fontFamily}`;
             context.fillText(this.#spec.title ?? this.#chartLabel(), 24, 38);
-            context.fillStyle = '#64748b';
-            context.font = '14px sans-serif';
+            context.fillStyle = this.#scene.theme.colors.mutedText;
+            context.font = `14px ${this.#scene.theme.typography.fontFamily}`;
             context.fillText(this.#labels().unavailable, 24, 68, Math.max(20, fallback.width - 48));
             return fallback.toDataURL('image/png');
         }
@@ -6043,10 +6781,14 @@ void main() {
                 items = configuredItems.map((item, index) => {
                     const id = item.id ?? `item-${index}`;
                     const owner = this.#spec.layers.find((layer) => layer.id === item.layerId);
+                    const ownerIndex = owner === undefined ? index : this.#spec.layers.indexOf(owner);
                     return {
                         id,
                         label: item.label,
-                        color: item.color ?? (owner === undefined ? '#4f46e5' : layerColor(owner)),
+                        color: item.color ??
+                            (owner === undefined
+                                ? categoricalColor(this.#scene.theme, index, configuredItems.length)
+                                : layerColor(owner, this.#scene.theme, ownerIndex, this.#spec.layers.length)),
                         visible: !this.#hiddenLegendItems.has(id),
                         toggleable: (legend.interactive ?? false) && mode === 'layers' && item.layerId !== undefined,
                         symbol: item.symbol === undefined || item.symbol === 'auto'
@@ -6110,10 +6852,10 @@ void main() {
                 const maximumIndex = values.findIndex((value) => value === maximum);
                 const lowColor = minimumIndex >= 0 && configuredColors?.[minimumIndex] !== undefined
                     ? colorCss(configuredColors[minimumIndex])
-                    : layerColor(selectedLayer, 'low');
+                    : layerColor(selectedLayer, this.#scene.theme, this.#spec.layers.indexOf(selectedLayer), this.#spec.layers.length, 'low');
                 const highColor = maximumIndex >= 0 && configuredColors?.[maximumIndex] !== undefined
                     ? colorCss(configuredColors[maximumIndex])
-                    : layerColor(selectedLayer, 'high');
+                    : layerColor(selectedLayer, this.#scene.theme, this.#spec.layers.indexOf(selectedLayer), this.#spec.layers.length, 'high');
                 let formatter;
                 try {
                     formatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 6 });
@@ -6151,7 +6893,7 @@ void main() {
                     return {
                         id,
                         label: layer.name ?? layer.id ?? `Series ${index + 1}`,
-                        color: layerColor(layer),
+                        color: layerColor(layer, this.#scene.theme, index, this.#spec.layers.length),
                         visible: !this.#hiddenLegendItems.has(id),
                         toggleable: (legend.interactive ?? false) && mode === 'layers',
                         symbol: layerLegendSymbol(layer),
@@ -6463,7 +7205,7 @@ void main() {
             style.textContent = `
 [data-graflume-spatial="true"] canvas:focus-visible,
 [data-graflume-spatial="true"] [data-graflume-spatial-control]:focus-visible {
-  outline: 2px solid #2563eb;
+  outline: 2px solid ${this.#scene.theme.colors.focus};
   outline-offset: 2px;
 }
 [data-graflume-spatial="true"] [data-graflume-spatial-controls="true"] {
@@ -6478,7 +7220,27 @@ void main() {
     min-inline-size: 44px;
   }
 }`;
+            this.#scopedStyle = style;
             this.#wrapper.append(style);
+        }
+        #applyThemeChrome() {
+            const { colors, typography } = this.#scene.theme;
+            this.#wrapper.style.background = colorCss(this.#spec.background ?? colors.background);
+            this.#wrapper.style.color = colors.text;
+            this.#wrapper.style.fontFamily = typography.fontFamily;
+            if (this.#tooltip !== null) {
+                this.#tooltip.style.borderColor = colors.axis;
+                this.#tooltip.style.background = colors.background;
+                this.#tooltip.style.color = colors.text;
+                this.#tooltip.style.font = `${typography.fontSize}px/${typography.lineHeight} ${typography.fontFamily}`;
+            }
+            if (this.#fallback !== null) {
+                this.#fallback.style.color = colors.mutedText;
+                this.#fallback.style.background = colors.background;
+                this.#fallback.style.font = `${typography.fontSize}px/${typography.lineHeight} ${typography.fontFamily}`;
+            }
+            if (this.#scopedStyle !== null)
+                this.#scopedStyle.textContent = this.#scopedStyle.textContent.replace(/outline: 2px solid [^;]+;/, `outline: 2px solid ${colors.focus};`);
         }
         #createControls() {
             const labels = this.#labels();
@@ -6493,9 +7255,9 @@ void main() {
             toolbar.style.display = 'flex';
             toolbar.style.gap = '1px';
             toolbar.style.padding = '1px';
-            toolbar.style.border = '1px solid rgba(148, 163, 184, 0.55)';
+            toolbar.style.border = `1px solid ${this.#scene.theme.colors.axis}`;
             toolbar.style.borderRadius = '6px';
-            toolbar.style.background = 'rgba(255, 255, 255, 0.82)';
+            toolbar.style.background = this.#scene.theme.colors.background;
             toolbar.style.backdropFilter = 'blur(5px)';
             toolbar.style.direction = 'ltr';
             const definitions = [
@@ -6538,7 +7300,7 @@ void main() {
                 button.style.padding = '0';
                 button.style.border = '0';
                 button.style.borderRadius = '4px';
-                button.style.color = '#1e293b';
+                button.style.color = this.#scene.theme.colors.text;
                 button.style.background = 'transparent';
                 button.style.cursor = 'pointer';
                 button.append(graphic);
@@ -6636,11 +7398,19 @@ void main() {
             this.#syncControls();
         }
         #syncControls() {
+            if (this.#controls !== null) {
+                this.#controls.style.borderColor = this.#scene.theme.colors.axis;
+                this.#controls.style.background = this.#scene.theme.colors.background;
+            }
+            const active = this.#scene.theme.colors.panel ?? this.#scene.theme.colors.surface;
+            for (const button of this.#controlButtons.values())
+                button.style.color = this.#scene.theme.colors.text;
             for (const mode of ['orbit', 'pan']) {
                 const button = this.#controlButtons.get(mode);
                 button?.setAttribute('aria-pressed', String(this.#mode === mode));
-                if (button !== undefined)
-                    button.style.background = this.#mode === mode ? '#e0e7ff' : 'transparent';
+                if (button !== undefined) {
+                    button.style.background = this.#mode === mode ? active : 'transparent';
+                }
             }
             this.#controlButtons
                 .get('projection')
@@ -6653,7 +7423,8 @@ void main() {
                 annotations.setAttribute('aria-label', label);
                 annotations.setAttribute('aria-pressed', String(this.#annotationsVisible));
                 annotations.disabled = this.#annotations.length === 0;
-                annotations.style.background = this.#annotationsVisible ? '#e0e7ff' : 'transparent';
+                annotations.style.color = this.#scene.theme.colors.text;
+                annotations.style.background = this.#annotationsVisible ? active : 'transparent';
                 if (annotations.dataset.graflumeAnnotationVisibility !== String(this.#annotationsVisible)) {
                     annotations.replaceChildren(annotationIcon(this.#annotationsVisible));
                     annotations.dataset.graflumeAnnotationVisibility = String(this.#annotationsVisible);
@@ -6687,13 +7458,17 @@ void main() {
                 this.#tooltip.style.pointerEvents = 'none';
                 this.#tooltip.style.maxWidth = '260px';
                 this.#tooltip.style.padding = '8px 10px';
-                this.#tooltip.style.border = '1px solid rgba(148, 163, 184, 0.6)';
+                this.#tooltip.style.border = `1px solid ${this.#scene.theme.colors.axis}`;
                 this.#tooltip.style.borderRadius = '7px';
-                this.#tooltip.style.background = 'rgba(15, 23, 42, 0.94)';
-                this.#tooltip.style.color = '#f8fafc';
-                this.#tooltip.style.font = '12px/1.45 ui-sans-serif, system-ui, sans-serif';
+                this.#tooltip.style.background = this.#scene.theme.colors.background;
+                this.#tooltip.style.color = this.#scene.theme.colors.text;
+                this.#tooltip.style.font = `${this.#scene.theme.typography.fontSize}px/${this.#scene.theme.typography.lineHeight} ${this.#scene.theme.typography.fontFamily}`;
                 this.#wrapper.append(this.#tooltip);
             }
+            this.#tooltip.style.borderColor = this.#scene.theme.colors.axis;
+            this.#tooltip.style.background = this.#scene.theme.colors.background;
+            this.#tooltip.style.color = this.#scene.theme.colors.text;
+            this.#tooltip.style.font = `${this.#scene.theme.typography.fontSize}px/${this.#scene.theme.typography.lineHeight} ${this.#scene.theme.typography.fontFamily}`;
             this.#tooltip.replaceChildren();
             const configured = typeof this.#spec.interaction?.tooltip === 'object' ? this.#spec.interaction.tooltip : {};
             const heading = document.createElement('strong');
@@ -6729,11 +7504,14 @@ void main() {
                 this.#fallback.style.placeItems = 'center';
                 this.#fallback.style.padding = '24px';
                 this.#fallback.style.textAlign = 'center';
-                this.#fallback.style.color = '#475569';
-                this.#fallback.style.background = '#f8fafc';
-                this.#fallback.style.font = '14px/1.5 ui-sans-serif, system-ui, sans-serif';
+                this.#fallback.style.color = this.#scene.theme.colors.mutedText;
+                this.#fallback.style.background = this.#scene.theme.colors.background;
+                this.#fallback.style.font = `${this.#scene.theme.typography.fontSize}px/${this.#scene.theme.typography.lineHeight} ${this.#scene.theme.typography.fontFamily}`;
                 this.#wrapper.append(this.#fallback);
             }
+            this.#fallback.style.color = this.#scene.theme.colors.mutedText;
+            this.#fallback.style.background = this.#scene.theme.colors.background;
+            this.#fallback.style.font = `${this.#scene.theme.typography.fontSize}px/${this.#scene.theme.typography.lineHeight} ${this.#scene.theme.typography.fontFamily}`;
             const labels = this.#labels();
             const message = status === 'context-lost' ? labels.contextLost : labels.unavailable;
             this.#fallback.textContent = message;
@@ -6936,6 +7714,7 @@ void main() {
         return {
             specVersion: spatialSpecVersion,
             ...(options.title === undefined ? {} : { title: options.title }),
+            ...(options.theme === undefined ? {} : { theme: options.theme }),
             ...(options.background === undefined ? {} : { background: options.background }),
             ...(options.ariaLabel === undefined ? {} : { ariaLabel: options.ariaLabel }),
             ...(options.camera === undefined ? {} : { camera: options.camera }),

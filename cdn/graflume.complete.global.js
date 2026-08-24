@@ -672,6 +672,189 @@ var Graflume = (function (exports) {
     const version = '0.1.0-alpha.0';
     const specVersion = '0.1';
 
+    const palette = [
+        '#4f46e5',
+        '#0f9f8a',
+        '#f59e0b',
+        '#e05260',
+        '#7c3aed',
+        '#0e7490',
+        '#db2777',
+        '#65a30d',
+        '#475569',
+        '#ea580c',
+    ];
+    const pointToCssPixel = 96 / 72;
+    const millimeterToCssPixel = 96 / 25.4;
+    const graflumeLight = {
+        name: 'graflume-light',
+        mode: 'light',
+        colors: {
+            background: '#ffffff',
+            surface: '#f8fafc',
+            text: '#0f172a',
+            mutedText: '#64748b',
+            axis: '#cbd5e1',
+            grid: '#e8eef6',
+            focus: '#4f46e5',
+            palette,
+            sequential: ['#eef2ff', '#c7d2fe', '#818cf8', '#4f46e5', '#312e81'],
+            diverging: ['#b42318', '#f79084', '#f8fafc', '#84adff', '#3448c5'],
+        },
+        typography: {
+            fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+            fontSize: 12,
+            titleSize: 20,
+            subtitleSize: 12,
+            lineHeight: 1.45,
+        },
+        spacing: { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 },
+        axis: { lineWidth: 1, tickLength: 0, labelPadding: 9, gridLineWidth: 1 },
+        mark: { lineWidth: 2.5, pointRadius: 4.5, barRadius: 5, opacity: 1 },
+        motion: { duration: 280, easing: 'ease-out' },
+    };
+    const graflumeDark = {
+        ...graflumeLight,
+        name: 'graflume-dark',
+        mode: 'dark',
+        colors: {
+            ...graflumeLight.colors,
+            background: '#0b1020',
+            surface: '#111827',
+            text: '#f8fafc',
+            mutedText: '#a7b2c5',
+            axis: '#475569',
+            grid: '#25314a',
+            focus: '#818cf8',
+            palette: [
+                '#818cf8',
+                '#2dd4bf',
+                '#fbbf24',
+                '#fb7185',
+                '#a78bfa',
+                '#22d3ee',
+                '#f472b6',
+                '#a3e635',
+                '#94a3b8',
+                '#fb923c',
+            ],
+            sequential: ['#1e293b', '#3730a3', '#6366f1', '#a5b4fc', '#eef2ff'],
+            diverging: ['#fb7185', '#be123c', '#334155', '#4f46e5', '#a5b4fc'],
+        },
+    };
+    /**
+     * ggplot2 v4.0.3 theme_gray() rendered in CSS pixels at the browser reference
+     * density of 96 dpi. Data-scale colours follow ggplot2's default hue and
+     * two-colour continuous scales rather than a fixed categorical array.
+     */
+    const graflumeGgplot = {
+        name: 'ggplot',
+        mode: 'light',
+        colors: {
+            background: '#FFFFFF',
+            surface: '#FFFFFF',
+            panel: '#EBEBEB',
+            text: '#000000',
+            mutedText: '#4D4D4D',
+            subtitle: '#000000',
+            axisTitle: '#000000',
+            axis: '#333333',
+            grid: '#FFFFFF',
+            minorGrid: '#FFFFFF',
+            focus: '#3366FF',
+            palette: [
+                '#F8766D',
+                '#D89000',
+                '#A3A500',
+                '#39B600',
+                '#00BF7D',
+                '#00BFC4',
+                '#00B0F6',
+                '#9590FF',
+                '#E76BF3',
+                '#FF62BC',
+            ],
+            paletteMode: 'ggplot2-hue',
+            sequential: ['#132B43', '#56B1F7'],
+            diverging: ['#832424', '#FFFFFF', '#3A3A98'],
+        },
+        typography: {
+            fontFamily: 'sans-serif',
+            fontSize: 11 * pointToCssPixel,
+            fontWeight: 400,
+            titleSize: 13.2 * pointToCssPixel,
+            titleWeight: 400,
+            subtitleSize: 11 * pointToCssPixel,
+            subtitleWeight: 400,
+            axisLabelSize: 8.8 * pointToCssPixel,
+            axisLabelWeight: 400,
+            axisTitleSize: 11 * pointToCssPixel,
+            axisTitleWeight: 400,
+            legendLabelSize: 8.8 * pointToCssPixel,
+            legendLabelWeight: 400,
+            legendTitleSize: 11 * pointToCssPixel,
+            legendTitleWeight: 400,
+            titlePosition: 'panel',
+            lineHeight: 0.9,
+        },
+        spacing: {
+            xs: 5.5 * pointToCssPixel,
+            sm: 5.5 * pointToCssPixel,
+            md: 11 * pointToCssPixel,
+            lg: 5.5 * pointToCssPixel,
+            xl: 22 * pointToCssPixel,
+            plotMargin: 5.5 * pointToCssPixel,
+        },
+        axis: {
+            lineWidth: 0.5 * millimeterToCssPixel,
+            tickLength: 2.75 * pointToCssPixel,
+            labelPadding: 2.2 * pointToCssPixel,
+            gridLineWidth: 0.5 * millimeterToCssPixel,
+            lineVisible: false,
+            ticksVisible: true,
+            gridX: true,
+            gridX2: false,
+            gridY: true,
+            gridY2: false,
+            gridOpacity: 1,
+            minorGridVisible: true,
+            minorGridLineWidth: 0.25 * millimeterToCssPixel,
+            minorGridOpacity: 1,
+            emphasizeZero: false,
+            lineCap: 'butt',
+            titleGap: 2.75 * pointToCssPixel,
+        },
+        mark: {
+            lineWidth: 0.5 * millimeterToCssPixel,
+            pointRadius: 0.75 * millimeterToCssPixel,
+            barRadius: 0,
+            opacity: 1,
+            defaultColor: '#000000',
+            lineColor: '#000000',
+            pointFill: '#000000',
+            pointStroke: '#000000',
+            pointStrokeWidth: 0.5 * millimeterToCssPixel,
+            barFill: '#595959',
+            barWidthRatio: 0.9,
+            areaFill: '#333333',
+            areaStrokeVisible: false,
+            lineCap: 'butt',
+            lineJoin: 'round',
+        },
+        legend: {
+            surfaceOpacity: 1,
+            borderWidth: 0,
+            cornerRadius: 0,
+            swatchRadius: 0,
+            swatchSize: 1.2 * 11 * pointToCssPixel,
+            lineWidth: 0.5 * millimeterToCssPixel,
+            pointRadius: 0.75 * millimeterToCssPixel,
+            pointStrokeWidth: 0.5 * millimeterToCssPixel,
+            lineCap: 'butt',
+        },
+        motion: { duration: 280, easing: 'ease-out' },
+    };
+
     class GraflumeError extends Error {
         code;
         path;
@@ -2270,15 +2453,16 @@ var Graflume = (function (exports) {
         show: 'Show',
         hide: 'Hide',
     };
-    function normalizePadding(input) {
+    function normalizePadding(input, theme) {
         if (typeof input === 'number') {
             return { top: input, right: input, bottom: input, left: input };
         }
+        const themedMargin = theme?.spacing.plotMargin;
         return {
-            top: input?.top ?? 24,
-            right: input?.right ?? 24,
-            bottom: input?.bottom ?? 44,
-            left: input?.left ?? 56,
+            top: input?.top ?? themedMargin ?? 24,
+            right: input?.right ?? themedMargin ?? 24,
+            bottom: input?.bottom ?? themedMargin ?? 44,
+            left: input?.left ?? themedMargin ?? 56,
         };
     }
     function normalizeTitle(input) {
@@ -2484,6 +2668,16 @@ var Graflume = (function (exports) {
         y: { position: 'left', grid: true, titlePadding: 46 },
         y2: { position: 'right', grid: false, titlePadding: 46 },
     };
+    function axisGridDefault(id, theme) {
+        const themed = id === 'x'
+            ? theme?.axis.gridX
+            : id === 'x2'
+                ? theme?.axis.gridX2
+                : id === 'y'
+                    ? theme?.axis.gridY
+                    : theme?.axis.gridY2;
+        return themed ?? axisDefaults[id].grid;
+    }
     function normalizeAxisFont(input) {
         return {
             ...(input?.family === undefined ? {} : { family: input.family }),
@@ -2502,11 +2696,11 @@ var Graflume = (function (exports) {
             dash: [...(stroke?.dash ?? [])],
         };
     }
-    function normalizeAxisTicks(input, legacyCount) {
+    function normalizeAxisTicks(input, legacyCount, defaultVisible = true) {
         const ticks = typeof input === 'object' ? input : undefined;
         const count = ticks?.count ?? legacyCount;
         return {
-            ...normalizeAxisStroke(input, true),
+            ...normalizeAxisStroke(input, defaultVisible),
             ...(count === undefined ? {} : { count }),
             spacing: ticks?.spacing ?? 0,
             ...(ticks?.size === undefined ? {} : { size: ticks.size }),
@@ -2527,7 +2721,7 @@ var Graflume = (function (exports) {
             font: normalizeAxisFont(labels?.font),
         };
     }
-    function normalizeAxisTitle(input, defaultPadding) {
+    function normalizeAxisTitle(input, defaultPadding, themeGap) {
         const title = typeof input === 'object' ? input : undefined;
         return {
             ...(typeof input === 'string'
@@ -2539,6 +2733,7 @@ var Graflume = (function (exports) {
             align: title?.align ?? 'center',
             ...(title?.angle === undefined ? {} : { angle: title.angle }),
             padding: title?.padding ?? defaultPadding,
+            ...(title?.padding === undefined && themeGap !== undefined ? { themeGap } : {}),
             ...(title?.color === undefined ? {} : { color: title.color }),
             font: normalizeAxisFont(title?.font),
         };
@@ -2631,7 +2826,7 @@ var Graflume = (function (exports) {
             ...(format === undefined ? {} : { format }),
         };
     }
-    function normalizeAxis(input, id) {
+    function normalizeAxis(input, id, theme) {
         if (input === false)
             return false;
         const defaults = axisDefaults[id];
@@ -2639,15 +2834,15 @@ var Graflume = (function (exports) {
             visible: input?.visible ?? true,
             position: input?.position ?? defaults.position,
             offset: input?.offset ?? 0,
-            line: normalizeAxisStroke(input?.line, true),
-            grid: normalizeAxisStroke(input?.grid, defaults.grid, 0.82),
-            ticks: normalizeAxisTicks(input?.ticks, input?.tickCount),
+            line: normalizeAxisStroke(input?.line, theme?.axis.lineVisible ?? true),
+            grid: normalizeAxisStroke(input?.grid, axisGridDefault(id, theme), theme?.axis.gridOpacity ?? 0.82),
+            ticks: normalizeAxisTicks(input?.ticks, input?.tickCount, theme?.axis.ticksVisible ?? true),
             labels: normalizeAxisLabels(input?.labels, input?.labelAngle),
-            title: normalizeAxisTitle(input?.title, defaults.titlePadding),
+            title: normalizeAxisTitle(input?.title, defaults.titlePadding, theme?.axis.titleGap),
             format: normalizeAxisFormat(input?.format),
         };
     }
-    function normalizeEncoding(input, channel, chartAxes) {
+    function normalizeEncoding(input, channel, chartAxes, theme) {
         const encoding = typeof input === 'string' ? { field: input } : input;
         const axisId = encoding.axisId ?? channel;
         const axis = mergeAxis(chartAxes[axisId], encoding.axis);
@@ -2657,7 +2852,7 @@ var Graflume = (function (exports) {
             title: encoding.title ?? encoding.field,
             scale: { ...encoding.scale },
             axisId,
-            axis: normalizeAxis(axis, axisId),
+            axis: normalizeAxis(axis, axisId, theme),
         };
     }
     function normalizeMark(input) {
@@ -2677,7 +2872,7 @@ var Graflume = (function (exports) {
             options: { ...mark.options },
         };
     }
-    function normalizeLayer(layer, index, parentData, chartAxes) {
+    function normalizeLayer(layer, index, parentData, chartAxes, theme) {
         const data = layer.data ?? parentData;
         if (data === undefined) {
             throw new Error('Spec validation should guarantee layer data.');
@@ -2687,20 +2882,23 @@ var Graflume = (function (exports) {
             name: layer.name ?? layer.id ?? `Series ${index + 1}`,
             data,
             mark: normalizeMark(layer.mark),
-            x: normalizeEncoding(layer.x, 'x', chartAxes),
-            y: normalizeEncoding(layer.y, 'y', chartAxes),
+            x: normalizeEncoding(layer.x, 'x', chartAxes, theme),
+            y: normalizeEncoding(layer.y, 'y', chartAxes, theme),
             visible: layer.visible ?? true,
             zIndex: layer.zIndex ?? index,
         };
     }
-    function normalizeSpec(input) {
+    function normalizeSpec(input, resolvedTheme) {
         assertValidSpec(input);
+        // Keep the one-argument public normalizer backward compatible while allowing
+        // the built-in ggplot contract to be inspected without constructing a runtime.
+        const theme = resolvedTheme ?? (input.theme === 'ggplot' ? graflumeGgplot : undefined);
         const chartAxes = input.axes ?? {};
         const axes = {
-            x: normalizeAxis(chartAxes.x, 'x'),
-            x2: normalizeAxis(chartAxes.x2, 'x2'),
-            y: normalizeAxis(chartAxes.y, 'y'),
-            y2: normalizeAxis(chartAxes.y2, 'y2'),
+            x: normalizeAxis(chartAxes.x, 'x', theme),
+            x2: normalizeAxis(chartAxes.x2, 'x2', theme),
+            y: normalizeAxis(chartAxes.y, 'y', theme),
+            y2: normalizeAxis(chartAxes.y2, 'y2', theme),
         };
         const shorthandLayer = input.mark === undefined || input.x === undefined || input.y === undefined
             ? undefined
@@ -2711,14 +2909,14 @@ var Graflume = (function (exports) {
                 y: input.y,
             };
         const sourceLayers = input.layers ?? (shorthandLayer === undefined ? [] : [shorthandLayer]);
-        const layers = sourceLayers.map((layer, index) => normalizeLayer(layer, index, input.data, chartAxes));
+        const layers = sourceLayers.map((layer, index) => normalizeLayer(layer, index, input.data, chartAxes, theme));
         const title = normalizeTitle(input.title);
         const normalized = {
             specVersion,
             layers,
             width: input.width ?? 'container',
             height: input.height ?? 400,
-            padding: normalizePadding(input.padding),
+            padding: normalizePadding(input.padding, theme),
             renderer: input.renderer ?? 'auto',
             performance: input.performance ?? 'auto',
             theme: input.theme ?? 'graflume-light',
@@ -2742,6 +2940,154 @@ var Graflume = (function (exports) {
             ...(input.locale === undefined ? {} : { locale: input.locale }),
         };
         return normalized;
+    }
+
+    function normalizedHex(color) {
+        const value = color.trim().replace(/^#/, '');
+        if (/^[0-9a-f]{3}$/i.test(value)) {
+            return value
+                .split('')
+                .map((channel) => `${channel}${channel}`)
+                .join('');
+        }
+        return /^[0-9a-f]{6}$/i.test(value) ? value : null;
+    }
+    function hexColor(channels, uppercase = false) {
+        const value = `#${channels
+        .map((channelValue) => Math.round(Math.max(0, Math.min(255, channelValue)))
+        .toString(16)
+        .padStart(2, '0'))
+        .join('')}`;
+        return uppercase ? value.toUpperCase() : value;
+    }
+    function linearToSrgb(value) {
+        return value <= 0.0031308 ? 12.92 * value : 1.055 * value ** (1 / 2.4) - 0.055;
+    }
+    function srgbToLinear(value) {
+        return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+    }
+    /** Convert the polar CIELUV scale used by grDevices::hcl() into clipped sRGB. */
+    function hclColor(hue, chroma, luminance) {
+        const radians = (hue * Math.PI) / 180;
+        const u = Math.cos(radians) * chroma;
+        const v = Math.sin(radians) * chroma;
+        const referenceU = 0.19783000664283;
+        const referenceV = 0.46831999493879;
+        const y = ((luminance + 16) / 116) ** 3 ;
+        const uPrime = u / (13 * luminance) + referenceU;
+        const vPrime = v / (13 * luminance) + referenceV;
+        const x = (9 * y * uPrime) / (4 * vPrime);
+        const z = (y * (12 - 3 * uPrime - 20 * vPrime)) / (4 * vPrime);
+        const red = linearToSrgb(3.2404542 * x - 1.5371385 * y - 0.4985314 * z);
+        const green = linearToSrgb(-0.969266 * x + 1.8760108 * y + 0.041556 * z);
+        const blue = linearToSrgb(0.0556434 * x - 0.2040259 * y + 1.0572252 * z);
+        return hexColor([red * 255, green * 255, blue * 255], true);
+    }
+    /** Resolve a category colour while preserving fixed-palette behaviour for existing themes. */
+    function categoricalColor(theme, index, count) {
+        const paletteSize = Number.isFinite(count) ? Math.max(1, Math.floor(count)) : 1;
+        const paletteIndex = Number.isFinite(index) ? Math.floor(index) : 0;
+        const normalizedIndex = ((paletteIndex % paletteSize) + paletteSize) % paletteSize;
+        if (theme.colors.paletteMode === 'ggplot2-hue') {
+            return hclColor(15 + (360 * normalizedIndex) / paletteSize, 100, 65);
+        }
+        const palette = theme.colors.palette;
+        if (palette.length === 0)
+            return theme.colors.focus;
+        const fixedIndex = ((paletteIndex % palette.length) + palette.length) % palette.length;
+        return palette[fixedIndex] ?? theme.colors.focus;
+    }
+    function labFunction(value) {
+        const delta = 6 / 29;
+        return value > delta ** 3 ? Math.cbrt(value) : value / (3 * delta ** 2) + 4 / 29;
+    }
+    function inverseLabFunction(value) {
+        const delta = 6 / 29;
+        return value > delta ? value ** 3 : 3 * delta ** 2 * (value - 4 / 29);
+    }
+    function hexToLab(color) {
+        const hex = normalizedHex(color);
+        if (hex === null)
+            return null;
+        const red = srgbToLinear(channel$1(hex, 0) / 255);
+        const green = srgbToLinear(channel$1(hex, 1) / 255);
+        const blue = srgbToLinear(channel$1(hex, 2) / 255);
+        const x = (0.4124564 * red + 0.3575761 * green + 0.1804375 * blue) / 0.95047;
+        const y = 0.2126729 * red + 0.7151522 * green + 0.072175 * blue;
+        const z = (0.0193339 * red + 0.119192 * green + 0.9503041 * blue) / 1.08883;
+        const fx = labFunction(x);
+        const fy = labFunction(y);
+        const fz = labFunction(z);
+        return { l: 116 * fy - 16, a: 500 * (fx - fy), b: 200 * (fy - fz) };
+    }
+    function labToHex(color) {
+        const fy = (color.l + 16) / 116;
+        const fx = fy + color.a / 500;
+        const fz = fy - color.b / 200;
+        const x = 0.95047 * inverseLabFunction(fx);
+        const y = inverseLabFunction(fy);
+        const z = 1.08883 * inverseLabFunction(fz);
+        const red = linearToSrgb(3.2404542 * x - 1.5371385 * y - 0.4985314 * z);
+        const green = linearToSrgb(-0.969266 * x + 1.8760108 * y + 0.041556 * z);
+        const blue = linearToSrgb(0.0556434 * x - 0.2040259 * y + 1.0572252 * z);
+        return hexColor([red * 255, green * 255, blue * 255], true);
+    }
+    function mixLabColor(start, end, ratio) {
+        const startLab = hexToLab(start);
+        const endLab = hexToLab(end);
+        if (startLab === null || endLab === null)
+            return mixColor$1(start, end, ratio);
+        const bounded = Number.isFinite(ratio) ? Math.max(0, Math.min(1, ratio)) : 0;
+        return labToHex({
+            l: startLab.l + (endLab.l - startLab.l) * bounded,
+            a: startLab.a + (endLab.a - startLab.a) * bounded,
+            b: startLab.b + (endLab.b - startLab.b) * bounded,
+        });
+    }
+    /** Resolve a continuous colour; ggplot uses Lab interpolation, legacy themes keep fixed stops. */
+    function continuousColor(theme, ratio) {
+        const palette = theme.colors.sequential;
+        if (palette.length === 0)
+            return theme.colors.focus;
+        if (palette.length === 1)
+            return palette[0] ?? theme.colors.focus;
+        const bounded = Number.isFinite(ratio) ? Math.max(0, Math.min(1, ratio)) : 0;
+        if (theme.colors.paletteMode === 'ggplot2-hue') {
+            return mixLabColor(palette[0] ?? theme.colors.focus, palette[palette.length - 1] ?? theme.colors.focus, bounded);
+        }
+        return palette[Math.round(bounded * (palette.length - 1))] ?? theme.colors.focus;
+    }
+    function channel$1(color, index) {
+        return Number.parseInt(color.slice(index * 2, index * 2 + 2), 16);
+    }
+    function mixColor$1(start, end, ratio) {
+        const startHex = normalizedHex(start);
+        const endHex = normalizedHex(end);
+        if (startHex === null || endHex === null)
+            return ratio < 0.5 ? start : end;
+        const bounded = Math.max(0, Math.min(1, ratio));
+        const channels = [0, 1, 2].map((index) => Math.round(channel$1(startHex, index) + (channel$1(endHex, index) - channel$1(startHex, index)) * bounded));
+        return `#${channels.map((value) => value.toString(16).padStart(2, '0')).join('')}`;
+    }
+    function colorWithOpacity(color, opacity) {
+        const hex = normalizedHex(color);
+        if (hex === null)
+            return color;
+        const alpha = Math.round(Math.max(0, Math.min(1, opacity)) * 255)
+            .toString(16)
+            .padStart(2, '0');
+        return `#${hex}${alpha}`;
+    }
+    function readableTextColor(color, light, dark) {
+        const hex = normalizedHex(color);
+        if (hex === null)
+            return light;
+        const linear = [0, 1, 2].map((index) => {
+            const value = channel$1(hex, index) / 255;
+            return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+        });
+        const luminance = 0.2126 * (linear[0] ?? 0) + 0.7152 * (linear[1] ?? 0) + 0.0722 * (linear[2] ?? 0);
+        return luminance > 0.42 ? dark : light;
     }
 
     function numberFormatter$1(locale, options) {
@@ -2896,14 +3242,14 @@ var Graflume = (function (exports) {
                 return 'right';
         }
     }
-    function channel$1(id) {
+    function channel(id) {
         return id === 'x' || id === 'x2' ? 'x' : 'y';
     }
     function position(context) {
         if (context.axis === false)
             return defaultPosition(context.id);
         const requested = context.axis.position;
-        if (channel$1(context.id) === 'x') {
+        if (channel(context.id) === 'x') {
             return requested === 'top' || requested === 'bottom' ? requested : defaultPosition(context.id);
         }
         return requested === 'left' || requested === 'right' ? requested : defaultPosition(context.id);
@@ -2924,16 +3270,16 @@ var Graflume = (function (exports) {
                 return fallback;
         }
     }
-    function resolveTextStyle(font, color, theme, fallbackWeight) {
+    function resolveTextStyle(font, color, theme, defaultColor, defaultSize, fallbackWeight) {
         return {
-            fill: color ?? theme.colors.mutedText,
+            fill: color ?? defaultColor,
             fontFamily: font.family ?? theme.typography.fontFamily,
-            fontSize: font.size ?? theme.typography.fontSize,
+            fontSize: font.size ?? defaultSize,
             fontWeight: mappedFontWeight(font.weight, fallbackWeight),
             ...(font.style === 'italic' ? { fontStyle: 'italic' } : {}),
         };
     }
-    function line$1(id, x1, y1, x2, y2, stroke, lineWidth, zIndex, opacity, dash) {
+    function line$1(id, x1, y1, x2, y2, stroke, lineWidth, zIndex, opacity, dash, lineCap = 'round') {
         return {
             type: 'line',
             ...nodeBase(id, { zIndex, opacity }),
@@ -2944,7 +3290,7 @@ var Graflume = (function (exports) {
             stroke,
             lineWidth,
             ...(dash.length === 0 ? {} : { dash }),
-            lineCap: 'round',
+            lineCap,
         };
     }
     function text(id, x, y, value, style, options) {
@@ -2999,8 +3345,8 @@ var Graflume = (function (exports) {
     function requestedTickCount(context) {
         if (context.axis === false)
             return 0;
-        const length = channel$1(context.id) === 'x' ? context.plot.width : context.plot.height;
-        const automatic = Math.max(2, Math.floor(length / (channel$1(context.id) === 'x' ? 96 : 58)));
+        const length = channel(context.id) === 'x' ? context.plot.width : context.plot.height;
+        const automatic = Math.max(2, Math.floor(length / (channel(context.id) === 'x' ? 96 : 58)));
         const requested = context.axis.ticks.count ?? automatic;
         if (context.axis.ticks.spacing <= 0)
             return Math.max(1, requested);
@@ -3027,8 +3373,8 @@ var Graflume = (function (exports) {
             ? context.scale.ticks(requestedTickCount(context), context.locale)
             : configuredValues.flatMap((value) => {
                 const mapped = context.scale.map(value);
-                const minimum = channel$1(context.id) === 'x' ? context.plot.x : context.plot.y;
-                const maximum = minimum + (channel$1(context.id) === 'x' ? context.plot.width : context.plot.height);
+                const minimum = channel(context.id) === 'x' ? context.plot.x : context.plot.y;
+                const maximum = minimum + (channel(context.id) === 'x' ? context.plot.width : context.plot.height);
                 return Number.isFinite(mapped) && mapped >= minimum - 0.5 && mapped <= maximum + 0.5
                     ? [
                         {
@@ -3057,7 +3403,7 @@ var Graflume = (function (exports) {
             case 'vertical-down':
                 return 90;
             case 'auto':
-                return channel$1(context.id) === 'x' && context.scale.kind === 'band' && ticks.length > 10
+                return channel(context.id) === 'x' && context.scale.kind === 'band' && ticks.length > 10
                     ? -35
                     : 0;
         }
@@ -3071,7 +3417,7 @@ var Graflume = (function (exports) {
         const configured = explicitAlign(context.axis.labels.align);
         if (configured !== null)
             return configured;
-        if (channel$1(context.id) === 'x') {
+        if (channel(context.id) === 'x') {
             if (angle === 0)
                 return 'center';
             const startsOutward = (axisPosition === 'bottom' && angle > 0) || (axisPosition === 'top' && angle < 0);
@@ -3085,7 +3431,7 @@ var Graflume = (function (exports) {
         if (context.axis === false)
             return 'center';
         const align = context.axis.title.align;
-        if (channel$1(context.id) !== 'y' || angle >= 0 || align === 'center')
+        if (channel(context.id) !== 'y' || angle >= 0 || align === 'center')
             return align;
         return align === 'start' ? 'end' : 'start';
     }
@@ -3127,13 +3473,52 @@ var Graflume = (function (exports) {
             return '';
         return context.axis.title.text ?? context.title;
     }
+    function minorGridPositions(context, ticks) {
+        if (context.axis === false ||
+            !context.axis.grid.visible ||
+            context.theme.axis.minorGridVisible !== true ||
+            (context.id !== 'x' && context.id !== 'y') ||
+            (context.scale.kind !== 'linear' && context.scale.kind !== 'time')) {
+            return [];
+        }
+        const positions = [...new Set(ticks.map((tick) => tick.position))].sort((left, right) => left - right);
+        return positions.slice(0, -1).flatMap((tickPosition, index) => {
+            const next = positions[index + 1];
+            if (next === undefined || next <= tickPosition)
+                return [];
+            const midpoint = tickPosition + (next - tickPosition) / 2;
+            const minimum = channel(context.id) === 'x' ? context.plot.x : context.plot.y;
+            const maximum = minimum + (channel(context.id) === 'x' ? context.plot.width : context.plot.height);
+            return midpoint > minimum && midpoint < maximum ? [midpoint] : [];
+        });
+    }
+    function resolvedTitlePadding(context, ticks, titleStyle) {
+        const axis = context.axis;
+        if (axis === false || axis.title.themeGap === undefined)
+            return axis === false ? 0 : axis.title.padding;
+        const axisChannel = channel(context.id);
+        const tickSize = axis.ticks.visible ? (axis.ticks.size ?? context.theme.axis.tickLength) : 0;
+        let labelExtent = 0;
+        if (axis.labels.visible && ticks.length > 0) {
+            const style = resolveTextStyle(axis.labels.font, axis.labels.color, context.theme, context.theme.colors.mutedText, context.theme.typography.axisLabelSize ?? context.theme.typography.fontSize, context.theme.typography.axisLabelWeight ?? 500);
+            const angle = labelAngle(context, ticks);
+            for (const tick of ticks) {
+                const projected = projectedSize(estimatedTextWidth(tick.formattedLabel, style.fontSize), style.fontSize, angle);
+                labelExtent = Math.max(labelExtent, axisChannel === 'x' ? projected.height : projected.width);
+            }
+        }
+        const labelStrip = labelExtent === 0
+            ? tickSize
+            : tickSize + (axis.labels.padding ?? context.theme.axis.labelPadding) + labelExtent;
+        return labelStrip + axis.title.themeGap + (axisChannel === 'y' ? titleStyle.fontSize / 2 : 0);
+    }
     /** Compile any primary or secondary Cartesian axis into renderer-neutral Scene primitives. */
     function compileAxis(context) {
         const { axis, plot, theme } = context;
         if (axis === false || axis.visible === false)
             return [];
         const nodes = [];
-        const axisChannel = channel$1(context.id);
+        const axisChannel = channel(context.id);
         const axisPosition = position(context);
         const coordinate = axisCoordinate(plot, axisPosition, axis.offset);
         const sign = outwardSign(axisPosition);
@@ -3142,30 +3527,39 @@ var Graflume = (function (exports) {
         const angle = labelAngle(context, ticks);
         const tickSize = axis.ticks.visible ? (axis.ticks.size ?? theme.axis.tickLength) : 0;
         const labelPadding = axis.labels.padding ?? theme.axis.labelPadding;
+        const axisLineCap = theme.axis.lineCap ?? 'round';
         if (axis.line.visible) {
             const stroke = axis.line.color ?? theme.colors.axis;
             const width = axis.line.width ?? theme.axis.lineWidth;
             nodes.push(axisChannel === 'x'
-                ? line$1(`${prefix}:line`, plot.x, coordinate, plot.x + plot.width, coordinate, stroke, width, 100, axis.line.opacity, axis.line.dash)
-                : line$1(`${prefix}:line`, coordinate, plot.y, coordinate, plot.y + plot.height, stroke, width, 100, axis.line.opacity, axis.line.dash));
+                ? line$1(`${prefix}:line`, plot.x, coordinate, plot.x + plot.width, coordinate, stroke, width, 100, axis.line.opacity, axis.line.dash, axisLineCap)
+                : line$1(`${prefix}:line`, coordinate, plot.y, coordinate, plot.y + plot.height, stroke, width, 100, axis.line.opacity, axis.line.dash, axisLineCap));
         }
-        const labelStyle = resolveTextStyle(axis.labels.font, axis.labels.color, theme, 500);
+        const labelStyle = resolveTextStyle(axis.labels.font, axis.labels.color, theme, theme.colors.mutedText, theme.typography.axisLabelSize ?? theme.typography.fontSize, theme.typography.axisLabelWeight ?? 500);
+        const minorGridStroke = axis.grid.color ?? theme.colors.minorGrid ?? theme.colors.grid;
+        const minorGridWidth = axis.grid.width ?? theme.axis.minorGridLineWidth ?? theme.axis.gridLineWidth / 2;
+        const minorGridOpacity = Math.min(axis.grid.opacity, theme.axis.minorGridOpacity ?? axis.grid.opacity);
+        minorGridPositions(context, ticks).forEach((gridPosition, index) => {
+            nodes.push(axisChannel === 'x'
+                ? line$1(`${prefix}:grid-minor:${index}`, gridPosition, plot.y, gridPosition, plot.y + plot.height, minorGridStroke, minorGridWidth, -21, minorGridOpacity, axis.grid.dash, axisLineCap)
+                : line$1(`${prefix}:grid-minor:${index}`, plot.x, gridPosition, plot.x + plot.width, gridPosition, minorGridStroke, minorGridWidth, -21, minorGridOpacity, axis.grid.dash, axisLineCap));
+        });
         ticks.forEach((tick, index) => {
             const isZero = typeof tick.value === 'number' && Math.abs(tick.value) < Number.EPSILON;
             if (axis.grid.visible && !gridIsBoundary(tick, plot, axisChannel)) {
-                const defaultZeroStyle = axis.grid.color === undefined;
-                const gridStroke = axis.grid.color ?? (isZero ? theme.colors.axis : theme.colors.grid);
+                const defaultZeroStyle = axis.grid.color === undefined && (theme.axis.emphasizeZero ?? true);
+                const gridStroke = axis.grid.color ?? (isZero && defaultZeroStyle ? theme.colors.axis : theme.colors.grid);
                 const gridWidth = axis.grid.width ?? theme.axis.gridLineWidth;
                 nodes.push(axisChannel === 'x'
-                    ? line$1(`${prefix}:grid:${index}`, tick.position, plot.y, tick.position, plot.y + plot.height, gridStroke, isZero && defaultZeroStyle ? Math.max(1, gridWidth) : gridWidth, -20, isZero && defaultZeroStyle ? Math.max(0.9, axis.grid.opacity) : axis.grid.opacity, axis.grid.dash)
-                    : line$1(`${prefix}:grid:${index}`, plot.x, tick.position, plot.x + plot.width, tick.position, gridStroke, isZero && defaultZeroStyle ? Math.max(1, gridWidth) : gridWidth, -20, isZero && defaultZeroStyle ? Math.max(0.9, axis.grid.opacity) : axis.grid.opacity, axis.grid.dash));
+                    ? line$1(`${prefix}:grid:${index}`, tick.position, plot.y, tick.position, plot.y + plot.height, gridStroke, isZero && defaultZeroStyle ? Math.max(1, gridWidth) : gridWidth, -20, isZero && defaultZeroStyle ? Math.max(0.9, axis.grid.opacity) : axis.grid.opacity, axis.grid.dash, axisLineCap)
+                    : line$1(`${prefix}:grid:${index}`, plot.x, tick.position, plot.x + plot.width, tick.position, gridStroke, isZero && defaultZeroStyle ? Math.max(1, gridWidth) : gridWidth, -20, isZero && defaultZeroStyle ? Math.max(0.9, axis.grid.opacity) : axis.grid.opacity, axis.grid.dash, axisLineCap));
             }
             if (axis.ticks.visible && tickSize > 0) {
                 const stroke = axis.ticks.color ?? theme.colors.axis;
                 const width = axis.ticks.width ?? theme.axis.lineWidth;
                 nodes.push(axisChannel === 'x'
-                    ? line$1(`${prefix}:tick:${index}`, tick.position, coordinate, tick.position, coordinate + sign * tickSize, stroke, width, 100, axis.ticks.opacity, axis.ticks.dash)
-                    : line$1(`${prefix}:tick:${index}`, coordinate, tick.position, coordinate + sign * tickSize, tick.position, stroke, width, 100, axis.ticks.opacity, axis.ticks.dash));
+                    ? line$1(`${prefix}:tick:${index}`, tick.position, coordinate, tick.position, coordinate + sign * tickSize, stroke, width, 100, axis.ticks.opacity, axis.ticks.dash, axisLineCap)
+                    : line$1(`${prefix}:tick:${index}`, coordinate, tick.position, coordinate + sign * tickSize, tick.position, stroke, width, 100, axis.ticks.opacity, axis.ticks.dash, axisLineCap));
             }
             if (!axis.labels.visible)
                 return;
@@ -3186,10 +3580,10 @@ var Graflume = (function (exports) {
         });
         const resolvedTitle = titleText(context);
         if (resolvedTitle !== '') {
-            const titleStyle = resolveTextStyle(axis.title.font, axis.title.color, theme, 600);
+            const titleStyle = resolveTextStyle(axis.title.font, axis.title.color, theme, theme.colors.axisTitle ?? theme.colors.mutedText, theme.typography.axisTitleSize ?? theme.typography.fontSize, theme.typography.axisTitleWeight ?? 600);
             const titlePosition = coordinateAlongAxis(plot, axisChannel, axis.title.align);
             const titleAngle = axis.title.angle ?? (axisChannel === 'x' ? 0 : axisPosition === 'left' ? -90 : 90);
-            const titleCoordinate = coordinate + sign * axis.title.padding;
+            const titleCoordinate = coordinate + sign * resolvedTitlePadding(context, ticks, titleStyle);
             if (axisChannel === 'x') {
                 nodes.push(text(`${prefix}:title`, titlePosition, titleCoordinate, resolvedTitle, titleStyle, {
                     align: titleAlign(context, titleAngle),
@@ -3246,6 +3640,7 @@ var Graflume = (function (exports) {
             axis.labels.font.weight === undefined &&
             axis.labels.font.style === 'normal' &&
             axis.title.angle === undefined &&
+            axis.title.themeGap === undefined &&
             axis.title.padding === expectedTitlePadding &&
             axis.title.font.family === undefined &&
             axis.title.font.size === undefined &&
@@ -3267,11 +3662,11 @@ var Graflume = (function (exports) {
         const { axis, theme } = context;
         if (axis === false || axis.visible === false)
             return 0;
-        const axisChannel = channel$1(context.id);
+        const axisChannel = channel(context.id);
         let required = measureAxisLabelGutter(context);
         const resolvedTitle = titleText(context);
         if (resolvedTitle !== '') {
-            const style = resolveTextStyle(axis.title.font, axis.title.color, theme, 600);
+            const style = resolveTextStyle(axis.title.font, axis.title.color, theme, theme.colors.axisTitle ?? theme.colors.mutedText, theme.typography.axisTitleSize ?? theme.typography.fontSize, theme.typography.axisTitleWeight ?? 600);
             const axisPosition = position(context);
             const titleAngle = axis.title.angle ?? (axisChannel === 'x' ? 0 : axisPosition === 'left' ? -90 : 90);
             const projected = projectedSize(estimatedTextWidth(resolvedTitle, style.fontSize), style.fontSize, titleAngle);
@@ -3280,7 +3675,7 @@ var Graflume = (function (exports) {
                 : axis.title.align === 'center'
                     ? projected.width / 2
                     : projected.width;
-            required = Math.max(required, axis.offset + axis.title.padding + outwardTextExtent);
+            required = Math.max(required, axis.offset + resolvedTitlePadding(context, resolveTicks(context), style) + outwardTextExtent);
         }
         const measured = Math.ceil(required);
         if (!usesLegacyPrimaryGutter(context))
@@ -3292,7 +3687,7 @@ var Graflume = (function (exports) {
         const { axis, theme } = context;
         if (axis === false || axis.visible === false)
             return 0;
-        const axisChannel = channel$1(context.id);
+        const axisChannel = channel(context.id);
         const ticks = resolveTicks(context);
         const angle = labelAngle(context, ticks);
         const tickSize = axis.ticks.visible ? (axis.ticks.size ?? theme.axis.tickLength) : 0;
@@ -3300,7 +3695,7 @@ var Graflume = (function (exports) {
         const lineWidth = axis.line.visible ? (axis.line.width ?? theme.axis.lineWidth) : 0;
         let required = axis.offset + lineWidth / 2;
         if (axis.labels.visible && ticks.length > 0) {
-            const style = resolveTextStyle(axis.labels.font, axis.labels.color, theme, 500);
+            const style = resolveTextStyle(axis.labels.font, axis.labels.color, theme, theme.colors.mutedText, theme.typography.axisLabelSize ?? theme.typography.fontSize, theme.typography.axisLabelWeight ?? 500);
             let labelExtent = 0;
             for (const tick of ticks) {
                 const projected = projectedSize(estimatedTextWidth(tick.formattedLabel, style.fontSize), style.fontSize, angle);
@@ -3807,6 +4202,7 @@ var Graflume = (function (exports) {
         kind = 'band';
         #domain;
         #positions = new Map();
+        step;
         bandwidth;
         constructor(options) {
             this.#domain = [...options.domain];
@@ -3817,6 +4213,7 @@ var Graflume = (function (exports) {
             const span = Math.abs(end - start);
             const denominator = Math.max(1, this.#domain.length - paddingInner + paddingOuter * 2);
             const step = span / denominator;
+            this.step = step;
             this.bandwidth = step * (1 - paddingInner);
             this.#domain.forEach((value, index) => {
                 const position = start + direction * step * (paddingOuter + index);
@@ -4305,6 +4702,7 @@ var Graflume = (function (exports) {
     }
 
     function createLayout(spec, width, height, theme, minimumInsets = {}, additionalInsets = {}) {
+        const separatePlotMargin = theme.spacing.plotMargin !== undefined;
         const titleBlock = spec.title === undefined
             ? 0
             : theme.typography.titleSize +
@@ -4319,11 +4717,17 @@ var Graflume = (function (exports) {
             top: spec.padding.top +
                 Math.max(0, minimumInsets.top ?? 0) +
                 Math.max(0, additionalInsets.top ?? 0),
-            right: Math.max(spec.padding.right, minimumInsets.right ?? 0) +
+            right: (separatePlotMargin
+                ? spec.padding.right + Math.max(0, minimumInsets.right ?? 0)
+                : Math.max(spec.padding.right, minimumInsets.right ?? 0)) +
                 Math.max(0, additionalInsets.right ?? 0),
-            bottom: Math.max(spec.padding.bottom, minimumInsets.bottom ?? 0) +
+            bottom: (separatePlotMargin
+                ? spec.padding.bottom + Math.max(0, minimumInsets.bottom ?? 0)
+                : Math.max(spec.padding.bottom, minimumInsets.bottom ?? 0)) +
                 Math.max(0, additionalInsets.bottom ?? 0),
-            left: Math.max(spec.padding.left, minimumInsets.left ?? 0) +
+            left: (separatePlotMargin
+                ? spec.padding.left + Math.max(0, minimumInsets.left ?? 0)
+                : Math.max(spec.padding.left, minimumInsets.left ?? 0)) +
                 Math.max(0, additionalInsets.left ?? 0),
         };
         const plotX = insets.left;
@@ -5403,9 +5807,13 @@ var Graflume = (function (exports) {
         });
         if (items.length === 0)
             return null;
-        const titleHeight = legend.title === undefined ? 0 : theme.typography.fontSize + 8;
+        const titleHeight = legend.title === undefined
+            ? 0
+            : (theme.typography.legendTitleSize ?? theme.typography.fontSize) + 8;
         const maxWidth = Math.max(1, availableWidth - 8);
         const maxHeight = Math.max(1, availableHeight - 8);
+        const swatchSize = theme.legend?.swatchSize ?? 12;
+        const horizontalItemPadding = swatchSize + 22;
         const direction = spec.locale !== undefined && /^(ar|fa|he|ur)(?:-|$)/i.test(spec.locale) ? 'rtl' : 'ltr';
         const categoryToggleableLayerIds = new Set(spec.layers
             .filter((layer) => CATEGORY_LEGEND_TOGGLE_MARKS.has(layer.mark.type))
@@ -5423,13 +5831,13 @@ var Graflume = (function (exports) {
             };
         }
         if (legend.orientation === 'horizontal') {
-            const totalWidth = items.reduce((sum, item) => sum + Math.max(64, item.label.length * 7 + 34), 0);
+            const totalWidth = items.reduce((sum, item) => sum + Math.max(64, item.label.length * 7 + horizontalItemPadding), 0);
             const modelWidth = Math.min(maxWidth, Math.max(96, totalWidth + 20));
             const usableWidth = Math.max(48, modelWidth - 20);
             let rowWidth = 0;
             let rows = 1;
             for (const item of items) {
-                const itemWidth = Math.max(64, item.label.length * 7 + 34);
+                const itemWidth = Math.max(64, item.label.length * 7 + horizontalItemPadding);
                 if (rowWidth > 0 && rowWidth + itemWidth > usableWidth) {
                     rows += 1;
                     rowWidth = 0;
@@ -5441,7 +5849,7 @@ var Graflume = (function (exports) {
                 let usedRows = 1;
                 rowWidth = 0;
                 items = items.filter((item) => {
-                    const itemWidth = Math.max(64, item.label.length * 7 + 34);
+                    const itemWidth = Math.max(64, item.label.length * 7 + horizontalItemPadding);
                     if (rowWidth > 0 && rowWidth + itemWidth > usableWidth) {
                         usedRows += 1;
                         rowWidth = 0;
@@ -5471,7 +5879,7 @@ var Graflume = (function (exports) {
             mode,
             items,
             ...(field === undefined ? {} : { field }),
-            width: Math.min(maxWidth, Math.min(220, Math.max(72, legend.title === undefined ? 0 : legend.title.length * 7 + 20, ...items.map((item) => item.label.length * 7 + 42)))),
+            width: Math.min(maxWidth, Math.min(220, Math.max(72, legend.title === undefined ? 0 : legend.title.length * 7 + 20, ...items.map((item) => item.label.length * 7 + swatchSize + 30)))),
             height: Math.min(maxHeight, titleHeight + items.length * 24 + 12),
             direction,
             categoryToggleableLayerIds,
@@ -5512,12 +5920,11 @@ var Graflume = (function (exports) {
             return [node];
         return node.children.flatMap(descendants);
     }
-    function itemPaint(item, index, mode, layerGroups, field, theme) {
+    function itemPaint(item, index, mode, layerGroups, field, theme, itemCount) {
         if (item.color !== undefined)
             return item.color;
         if (mode === 'continuous') {
-            const palette = theme.colors.sequential;
-            return palette[index === 0 ? 0 : palette.length - 1] ?? theme.colors.focus;
+            return continuousColor(theme, index === 0 ? 0 : 1);
         }
         const group = layerGroups.find((candidate) => candidate.id === `${item.layerId}:group`);
         if (group !== undefined) {
@@ -5531,7 +5938,7 @@ var Graflume = (function (exports) {
             if (paint !== undefined)
                 return paint;
         }
-        return theme.colors.palette[index % theme.colors.palette.length] ?? theme.colors.focus;
+        return categoricalColor(theme, index, Math.max(1, itemCount));
     }
     function legendOrigin(model, plot, width, height) {
         const gap = 8;
@@ -5570,15 +5977,18 @@ var Graflume = (function (exports) {
         const origin = legendOrigin(model, plot, width, height);
         const background = {
             type: 'rect',
-            ...nodeBase('legend:surface', { zIndex: 500, opacity: 0.94 }),
+            ...nodeBase('legend:surface', {
+                zIndex: 500,
+                opacity: theme.legend?.surfaceOpacity ?? 0.94,
+            }),
             x: origin.x,
             y: origin.y,
             width: model.width,
             height: model.height,
             fill: theme.colors.surface,
             stroke: theme.colors.axis,
-            lineWidth: 1,
-            cornerRadius: 8,
+            lineWidth: theme.legend?.borderWidth ?? 1,
+            cornerRadius: theme.legend?.cornerRadius ?? 8,
         };
         const nodes = [background];
         const inset = Math.min(10, Math.max(0, model.width / 4));
@@ -5593,26 +6003,25 @@ var Graflume = (function (exports) {
                 text: truncateText(model.spec.title, model.width - inset * 2, theme.typography.fontSize),
                 fill: theme.colors.text,
                 fontFamily: theme.typography.fontFamily,
-                fontSize: theme.typography.fontSize,
-                fontWeight: 700,
+                fontSize: theme.typography.legendTitleSize ?? theme.typography.fontSize,
+                fontWeight: theme.typography.legendTitleWeight ?? 700,
                 align: model.direction === 'rtl' ? 'right' : 'left',
                 baseline: 'top',
                 rotation: 0,
             });
-            cursorY += theme.typography.fontSize + 8;
+            cursorY += (theme.typography.legendTitleSize ?? theme.typography.fontSize) + 8;
         }
         const entries = [];
         const field = model.field;
         if (model.mode === 'continuous' && model.items.length >= 2) {
             const scaleX = origin.x + inset;
             const scaleWidth = Math.max(1, model.width - inset * 2);
+            const paletteSize = Math.max(1, theme.colors.paletteMode === 'ggplot2-hue' ? 16 : theme.colors.sequential.length);
             const palette = model.spec.items.length > 0
                 ? model.items.map((item, index) => {
-                    const paletteIndex = Math.round((index / Math.max(1, model.items.length - 1)) *
-                        Math.max(0, theme.colors.sequential.length - 1));
-                    return item.color ?? theme.colors.sequential[paletteIndex] ?? theme.colors.focus;
+                    return (item.color ?? continuousColor(theme, index / Math.max(1, model.items.length - 1)));
                 })
-                : theme.colors.sequential;
+                : Array.from({ length: paletteSize }, (_value, index) => continuousColor(theme, index / Math.max(1, paletteSize - 1)));
             palette.forEach((paint, paletteIndex) => {
                 nodes.push({
                     type: 'rect',
@@ -5628,7 +6037,7 @@ var Graflume = (function (exports) {
             });
             const endpoints = [model.items[0], model.items[model.items.length - 1]];
             endpoints.forEach((item, index) => {
-                const color = itemPaint(item, index, model.mode, layerGroups, field, theme);
+                const color = itemPaint(item, index, model.mode, layerGroups, field, theme, model.items.length);
                 const left = index === 0;
                 nodes.push({
                     type: 'text',
@@ -5641,11 +6050,11 @@ var Graflume = (function (exports) {
                             ? scaleX
                             : scaleX + scaleWidth,
                     y: cursorY + 14,
-                    text: truncateText(item.label, scaleWidth / 2 - 4, theme.typography.fontSize),
+                    text: truncateText(item.label, scaleWidth / 2 - 4, theme.typography.legendLabelSize ?? theme.typography.fontSize),
                     fill: theme.colors.mutedText,
                     fontFamily: theme.typography.fontFamily,
-                    fontSize: theme.typography.fontSize,
-                    fontWeight: 500,
+                    fontSize: theme.typography.legendLabelSize ?? theme.typography.fontSize,
+                    fontWeight: theme.typography.legendLabelWeight ?? 500,
                     align: model.direction === 'rtl' ? (left ? 'right' : 'left') : left ? 'left' : 'right',
                     baseline: 'top',
                     rotation: 0,
@@ -5677,8 +6086,14 @@ var Graflume = (function (exports) {
                 },
             };
         }
+        const swatchSize = theme.legend?.swatchSize ?? 12;
+        const lineSwatchLength = theme.legend?.swatchSize ?? 13;
+        const rtlSwatchInset = theme.legend?.swatchSize ?? 16;
+        const swatchLineWidth = theme.legend?.lineWidth ?? 2.5;
+        const swatchPointRadius = theme.legend?.pointRadius ?? 5;
+        const swatchPointStrokeWidth = theme.legend?.pointStrokeWidth ?? 0;
         for (const [index, item] of model.items.entries()) {
-            const itemWidth = Math.max(64, item.label.length * 7 + 34);
+            const itemWidth = Math.max(64, item.label.length * 7 + swatchSize + 22);
             if (model.spec.orientation === 'horizontal' &&
                 cursorX > origin.x + 10 &&
                 cursorX + itemWidth > origin.x + model.width - 10) {
@@ -5694,8 +6109,8 @@ var Graflume = (function (exports) {
                 height: 22,
             };
             const visible = !hiddenItems.has(item.id);
-            const color = itemPaint(item, index, model.mode, layerGroups, field, theme);
-            const swatchX = model.direction === 'rtl' ? bounds.x + bounds.width - 16 : cursorX;
+            const color = itemPaint(item, index, model.mode, layerGroups, field, theme, model.items.length);
+            const swatchX = model.direction === 'rtl' ? bounds.x + bounds.width - rtlSwatchInset : cursorX;
             if (item.symbol === 'line') {
                 nodes.push({
                     type: 'line',
@@ -5704,12 +6119,12 @@ var Graflume = (function (exports) {
                         opacity: visible ? 1 : 0.28,
                     }),
                     x1: swatchX,
-                    y1: cursorY + 6,
-                    x2: swatchX + 13,
-                    y2: cursorY + 6,
+                    y1: cursorY + swatchSize / 2,
+                    x2: swatchX + lineSwatchLength,
+                    y2: cursorY + swatchSize / 2,
                     stroke: color,
-                    lineWidth: 2.5,
-                    lineCap: 'round',
+                    lineWidth: swatchLineWidth,
+                    lineCap: theme.legend?.lineCap ?? 'round',
                 });
             }
             else if (item.symbol === 'point') {
@@ -5719,11 +6134,12 @@ var Graflume = (function (exports) {
                         zIndex: 501,
                         opacity: visible ? 1 : 0.28,
                     }),
-                    cx: swatchX + 6,
-                    cy: cursorY + 6,
-                    radius: 5,
+                    cx: swatchX + swatchSize / 2,
+                    cy: cursorY + swatchSize / 2,
+                    radius: swatchPointRadius,
                     fill: color,
-                    lineWidth: 0,
+                    ...(swatchPointStrokeWidth === 0 ? {} : { stroke: color }),
+                    lineWidth: swatchPointStrokeWidth,
                 });
             }
             else {
@@ -5735,23 +6151,23 @@ var Graflume = (function (exports) {
                     }),
                     x: swatchX,
                     y: cursorY,
-                    width: 12,
-                    height: 12,
+                    width: swatchSize,
+                    height: swatchSize,
                     fill: color,
                     lineWidth: 0,
-                    cornerRadius: 3,
+                    cornerRadius: theme.legend?.swatchRadius ?? 3,
                 });
             }
             nodes.push({
                 type: 'text',
                 ...nodeBase(`legend:item:${item.id}:label`, { zIndex: 502, opacity: visible ? 1 : 0.45 }),
-                x: model.direction === 'rtl' ? swatchX - 7 : cursorX + 19,
-                y: cursorY + 6,
-                text: truncateText(item.label, Math.max(8, bounds.width - 26), theme.typography.fontSize),
+                x: model.direction === 'rtl' ? swatchX - 7 : cursorX + swatchSize + 7,
+                y: cursorY + swatchSize / 2,
+                text: truncateText(item.label, Math.max(8, bounds.width - swatchSize - 14), theme.typography.legendLabelSize ?? theme.typography.fontSize),
                 fill: theme.colors.text,
                 fontFamily: theme.typography.fontFamily,
-                fontSize: theme.typography.fontSize,
-                fontWeight: 500,
+                fontSize: theme.typography.legendLabelSize ?? theme.typography.fontSize,
+                fontWeight: theme.typography.legendLabelWeight ?? 500,
                 align: model.direction === 'rtl' ? 'right' : 'left',
                 baseline: 'middle',
                 rotation: 0,
@@ -5812,15 +6228,13 @@ var Graflume = (function (exports) {
             left.width === right.width &&
             left.height === right.height);
     }
-    function titleNodes(spec, theme, width, titleY, subtitleY) {
+    function titleNodes(spec, theme, width, plot, titleY, subtitleY) {
         if (spec.title === undefined)
             return [];
         const align = spec.title.align ?? 'left';
-        const x = align === 'left'
-            ? spec.padding.left
-            : align === 'right'
-                ? width - spec.padding.right
-                : width / 2;
+        const titleLeft = theme.typography.titlePosition === 'panel' ? plot.x : spec.padding.left;
+        const titleRight = theme.typography.titlePosition === 'panel' ? plot.x + plot.width : width - spec.padding.right;
+        const x = align === 'left' ? titleLeft : align === 'right' ? titleRight : (titleLeft + titleRight) / 2;
         const canvasAlign = align;
         const nodes = [
             {
@@ -5832,7 +6246,7 @@ var Graflume = (function (exports) {
                 fill: theme.colors.text,
                 fontFamily: theme.typography.fontFamily,
                 fontSize: theme.typography.titleSize,
-                fontWeight: 700,
+                fontWeight: theme.typography.titleWeight ?? 700,
                 align: canvasAlign,
                 baseline: 'top',
                 rotation: 0,
@@ -5845,10 +6259,10 @@ var Graflume = (function (exports) {
                 x,
                 y: subtitleY,
                 text: spec.title.subtitle,
-                fill: theme.colors.mutedText,
+                fill: theme.colors.subtitle ?? theme.colors.mutedText,
                 fontFamily: theme.typography.fontFamily,
                 fontSize: theme.typography.subtitleSize,
-                fontWeight: 400,
+                fontWeight: theme.typography.subtitleWeight ?? 400,
                 align: canvasAlign,
                 baseline: 'top',
                 rotation: 0,
@@ -5865,10 +6279,10 @@ var Graflume = (function (exports) {
         return `${title}. ${layerSummary}, ${rowSummary}.`;
     }
     function compileWithRegistry(input, registry, options = {}, runtime = {}) {
-        const spec = normalizeSpec(input);
+        const theme = registry.themes.resolve(input.theme ?? 'graflume-light');
+        const spec = normalizeSpec(input, theme);
         const width = Math.max(1, spec.width === 'container' ? (options.width ?? 640) : spec.width);
         const height = Math.max(1, spec.height === 'container' ? (options.height ?? 400) : spec.height);
-        const theme = registry.themes.resolve(spec.theme);
         const legendModel = resolveLegendModel(spec, theme, width, height);
         const legendInsets = legendExternalInsets(legendModel);
         let layout = createLayout(spec, width, height, theme, {}, legendInsets);
@@ -5941,7 +6355,7 @@ var Graflume = (function (exports) {
             });
         };
         const layerGroups = scales.layers.map((layerData, layerIndex) => {
-            const color = theme.colors.palette[layerIndex % theme.colors.palette.length] ?? theme.colors.focus;
+            const color = categoricalColor(theme, layerIndex, scales.layers.length);
             const barGroupKey = `${layerData.layer.mark.orientation}:${layerData.xAxisId}:${layerData.yAxisId}`;
             const barLayers = groupedBarLayers.get(barGroupKey) ?? [];
             const barGroupIndex = barLayers.findIndex(({ layer }) => layer.id === layerData.layer.id);
@@ -5998,13 +6412,29 @@ var Graflume = (function (exports) {
             runtime,
             datumVisible,
         });
+        const panelNode = theme.colors.panel === undefined
+            ? []
+            : [
+                {
+                    type: 'rect',
+                    ...nodeBase('chart:panel', { zIndex: -1e3 }),
+                    x: layout.plot.x,
+                    y: layout.plot.y,
+                    width: layout.plot.width,
+                    height: layout.plot.height,
+                    fill: theme.colors.panel,
+                    lineWidth: 0,
+                    cornerRadius: 0,
+                },
+            ];
         const children = [
+            ...panelNode,
             ...decorations.underlay,
             ...axisNodes,
             ...layerGroups,
             ...decorations.overlay,
             ...legend.nodes,
-            ...titleNodes(spec, theme, width, layout.titleY, layout.subtitleY),
+            ...titleNodes(spec, theme, width, layout.plot, layout.titleY, layout.subtitleY),
         ];
         const root = group('scene:root', children);
         const scene = {
@@ -6059,7 +6489,9 @@ var Graflume = (function (exports) {
                     ? (context.axis.ticks.size ?? theme.axis.tickLength)
                     : 0;
                 const labelPadding = context.axis.labels.padding ?? theme.axis.labelPadding;
-                const fontSize = context.axis.labels.font.size ?? theme.typography.fontSize;
+                const fontSize = context.axis.labels.font.size ??
+                    theme.typography.axisLabelSize ??
+                    theme.typography.fontSize;
                 const readableStrip = context.axis.offset + tickSize + labelPadding + fontSize * (horizontal ? 1.5 : 4);
                 axisStripSize = Math.min(axisStripSize, readableStrip);
             }
@@ -6084,49 +6516,6 @@ var Graflume = (function (exports) {
         return { scene, spec, theme };
     }
 
-    function normalizedHex(color) {
-        const value = color.trim().replace(/^#/, '');
-        if (/^[0-9a-f]{3}$/i.test(value)) {
-            return value
-                .split('')
-                .map((channel) => `${channel}${channel}`)
-                .join('');
-        }
-        return /^[0-9a-f]{6}$/i.test(value) ? value : null;
-    }
-    function channel(color, index) {
-        return Number.parseInt(color.slice(index * 2, index * 2 + 2), 16);
-    }
-    function mixColor$1(start, end, ratio) {
-        const startHex = normalizedHex(start);
-        const endHex = normalizedHex(end);
-        if (startHex === null || endHex === null)
-            return ratio < 0.5 ? start : end;
-        const bounded = Math.max(0, Math.min(1, ratio));
-        const channels = [0, 1, 2].map((index) => Math.round(channel(startHex, index) + (channel(endHex, index) - channel(startHex, index)) * bounded));
-        return `#${channels.map((value) => value.toString(16).padStart(2, '0')).join('')}`;
-    }
-    function colorWithOpacity(color, opacity) {
-        const hex = normalizedHex(color);
-        if (hex === null)
-            return color;
-        const alpha = Math.round(Math.max(0, Math.min(1, opacity)) * 255)
-            .toString(16)
-            .padStart(2, '0');
-        return `#${hex}${alpha}`;
-    }
-    function readableTextColor(color, light, dark) {
-        const hex = normalizedHex(color);
-        if (hex === null)
-            return light;
-        const linear = [0, 1, 2].map((index) => {
-            const value = channel(hex, index) / 255;
-            return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
-        });
-        const luminance = 0.2126 * (linear[0] ?? 0) + 0.7152 * (linear[1] ?? 0) + 0.0722 * (linear[2] ?? 0);
-        return luminance > 0.42 ? dark : light;
-    }
-
     function scaleInput(value) {
         if (value === null || value === undefined || typeof value === 'boolean')
             return null;
@@ -6144,6 +6533,22 @@ var Graflume = (function (exports) {
             return Number.isFinite(timestamp) ? timestamp : null;
         }
         return null;
+    }
+    /**
+     * Use ggplot2's Lab gradient for the ggplot theme while retaining the exact
+     * legacy sequential-stop behaviour of Graflume's light and dark themes.
+     */
+    function mappedContinuousColor(theme, ratio, legacyMode = 'stepped') {
+        const bounded = Math.max(0, Math.min(1, ratio));
+        if (theme.colors.paletteMode === 'ggplot2-hue')
+            return continuousColor(theme, bounded);
+        const palette = theme.colors.sequential;
+        if (palette.length === 0)
+            return theme.colors.focus;
+        if (legacyMode === 'endpoints') {
+            return mixColor$1(palette[0] ?? theme.colors.focus, palette[palette.length - 1] ?? theme.colors.focus, bounded);
+        }
+        return palette[Math.round(bounded * (palette.length - 1))] ?? theme.colors.focus;
     }
 
     const TAU$2 = Math.PI * 2;
@@ -6193,9 +6598,8 @@ var Graflume = (function (exports) {
             };
         });
     }
-    function themeColor(context, index) {
-        return (context.theme.colors.palette[index % context.theme.colors.palette.length] ??
-            context.theme.colors.focus);
+    function themeColor(context, index, count) {
+        return categoricalColor(context.theme, index, count);
     }
     function textNode$4(id, x, y, text, context, options = {}) {
         return {
@@ -6314,7 +6718,7 @@ var Graflume = (function (exports) {
             const rows = seriesRows.get(seriesName);
             if (rows === undefined)
                 return;
-            const color = themeColor(context, seriesIndex);
+            const color = themeColor(context, seriesIndex, retainedSeries.length);
             const points = categories.map((category, index) => {
                 const ratio = clamp$3((rows.get(category)?.value ?? 0) / maximum, 0, 1);
                 return pointOnCircle$1(cx, cy, radius * ratio, -Math.PI / 2 + (index * TAU$2) / categories.length);
@@ -6452,7 +6856,7 @@ var Graflume = (function (exports) {
             const position = positions.get(item.id);
             if (position === undefined)
                 return;
-            const color = themeColor(context, depths.get(item.id) ?? index);
+            const color = themeColor(context, depths.get(item.id) ?? index, maxDepth + 1);
             nodes.push({
                 type: 'rect',
                 ...datumBase$2(context, `${layer.id}:tree-node:${item.id}`, item.rowIndex, 1),
@@ -6563,7 +6967,7 @@ var Graflume = (function (exports) {
             if (position === undefined)
                 return;
             const nodeRadius = (layer.mark.radius ?? 8) + (node.degree / maxDegree) * 6;
-            const color = themeColor(context, index);
+            const color = themeColor(context, index, graphNodes.length);
             nodes.push({
                 type: 'circle',
                 ...datumBase$2(context, `${layer.id}:graph-node:${node.id}`, node.rowIndex, 1, {
@@ -6632,7 +7036,7 @@ var Graflume = (function (exports) {
                 }),
                 points: quadraticPoints$1(source, control, target, 24),
                 closed: false,
-                stroke: colorWithOpacity(themeColor(context, index), 0.42),
+                stroke: colorWithOpacity(themeColor(context, index, edges.length), 0.42),
                 lineWidth: 2 + (edge.value / maxEdge) * 9,
                 lineCap: 'round',
                 lineJoin: 'round',
@@ -6642,7 +7046,7 @@ var Graflume = (function (exports) {
             const span = spans.get(node.id);
             if (span === undefined)
                 return;
-            const color = themeColor(context, index);
+            const color = themeColor(context, index, graphNodes.length);
             nodes.push({
                 type: 'path',
                 ...datumBase$2(context, `${layer.id}:chord-segment:${node.id}`, node.rowIndex, 1, {
@@ -6699,7 +7103,7 @@ var Graflume = (function (exports) {
                 const cy = plot.y + stageHeight * (index + 0.5);
                 const topWidth = width;
                 const bottomWidth = width * 0.82;
-                const fill = layer.mark.fill ?? themeColor(context, index);
+                const fill = layer.mark.fill ?? themeColor(context, index, retainedItems.length);
                 nodes.push({
                     type: 'path',
                     ...datumBase$2(context, `${layer.id}:funnel-area:${index}`, item.rowIndex, 0, {
@@ -6738,7 +7142,7 @@ var Graflume = (function (exports) {
             const y1 = plot.y + index * stageHeight + 2;
             const y2 = plot.y + (index + 1) * stageHeight - 2;
             const cx = plot.x + plot.width / 2;
-            const fill = layer.mark.fill ?? themeColor(context, index);
+            const fill = layer.mark.fill ?? themeColor(context, index, retainedItems.length);
             nodes.push({
                 type: 'path',
                 ...datumBase$2(context, `${layer.id}:funnel:${index}`, item.rowIndex),
@@ -6859,7 +7263,8 @@ var Graflume = (function (exports) {
                 ...bands.map(({ x, top }) => ({ x, y: top })),
                 ...[...bands].reverse().map(({ x, bottom }) => ({ x, y: bottom })),
             ];
-            const fill = layer.mark.fill ?? colorWithOpacity(themeColor(context, combinationIndex), 0.34);
+            const combinationColor = themeColor(context, combinationIndex, retainedCombinations.length);
+            const fill = layer.mark.fill ?? colorWithOpacity(combinationColor, 0.34);
             nodes.push({
                 type: 'path',
                 ...datumBase$2(context, `${layer.id}:parallel-ribbon:${combinationIndex}`, combination.rowIndex, 0, {
@@ -6869,7 +7274,7 @@ var Graflume = (function (exports) {
                 points: polygon,
                 closed: true,
                 fill,
-                stroke: colorWithOpacity(themeColor(context, combinationIndex), 0.72),
+                stroke: layer.mark.stroke ?? colorWithOpacity(combinationColor, 0.72),
                 lineWidth: layer.mark.lineWidth ?? 1,
                 lineJoin: 'round',
             });
@@ -6980,7 +7385,8 @@ var Graflume = (function (exports) {
                 ...datumBase$2(context, `${layer.id}:parallel-row:${rowIndex}`, rowIndex, 1),
                 points,
                 closed: false,
-                stroke: layer.mark.stroke ?? themeColor(context, colorIndex),
+                stroke: layer.mark.stroke ??
+                    themeColor(context, colorIndex, colorKeys.length > 0 ? colorKeys.length : table.length),
                 lineWidth: layer.mark.lineWidth ?? 1.8,
                 lineCap: 'round',
                 lineJoin: 'round',
@@ -7013,8 +7419,8 @@ var Graflume = (function (exports) {
             const yMax = yScale.map(max);
             if (![x, yMin, yQ1, yMedian, yQ3, yMax].every(Number.isFinite))
                 continue;
-            const fill = layer.mark.fill ?? colorWithOpacity(context.color, 0.22);
-            const stroke = layer.mark.stroke ?? context.color;
+            const fill = layer.mark.fill ?? theme.mark.areaFill ?? colorWithOpacity(context.color, 0.22);
+            const stroke = layer.mark.stroke ?? theme.mark.areaStroke ?? theme.mark.lineColor ?? context.color;
             nodes.push({
                 type: 'line',
                 ...nodeBase(`${layer.id}:boxplot-whisker:${rowIndex}`, { zIndex: layer.zIndex }),
@@ -7024,7 +7430,7 @@ var Graflume = (function (exports) {
                 y2: yMax,
                 stroke,
                 lineWidth: layer.mark.lineWidth ?? 1.5,
-                lineCap: 'round',
+                lineCap: theme.mark.lineCap ?? 'round',
             });
             [yMin, yMax].forEach((y, capIndex) => {
                 nodes.push({
@@ -7038,7 +7444,7 @@ var Graflume = (function (exports) {
                     y2: y,
                     stroke,
                     lineWidth: layer.mark.lineWidth ?? 1.5,
-                    lineCap: 'round',
+                    lineCap: theme.mark.lineCap ?? 'round',
                 });
             });
             nodes.push({
@@ -7062,7 +7468,7 @@ var Graflume = (function (exports) {
                 y2: yMedian,
                 stroke: mixColor$1(stroke, theme.colors.text, 0.22),
                 lineWidth: 2.2,
-                lineCap: 'round',
+                lineCap: theme.mark.lineCap ?? 'round',
             });
         }
         return nodes;
@@ -7090,7 +7496,7 @@ var Graflume = (function (exports) {
                 ? 1
                 : (numericDataValue(table.value(rowIndex, sizeField)) ?? 1) / maxSize;
             const radius = (layer.mark.radius ?? 5.5) * (0.7 + Math.sqrt(Math.max(0, size)) * 0.8);
-            const color = layer.mark.fill ?? context.color;
+            const color = layer.mark.fill ?? theme.mark.pointFill ?? theme.mark.defaultColor ?? context.color;
             for (let ring = ringCount; ring >= 1; ring -= 1) {
                 nodes.push({
                     type: 'circle',
@@ -7113,7 +7519,7 @@ var Graflume = (function (exports) {
                 cy: y,
                 radius,
                 fill: color,
-                stroke: layer.mark.stroke ?? theme.colors.background,
+                stroke: layer.mark.stroke ?? theme.mark.pointStroke ?? theme.colors.background,
                 lineWidth: layer.mark.lineWidth ?? 2,
             });
         }
@@ -7153,7 +7559,7 @@ var Graflume = (function (exports) {
             const value = valueField === undefined || !table.has(valueField)
                 ? 1
                 : (numericDataValue(table.value(rowIndex, valueField)) ?? 1);
-            const stroke = layer.mark.stroke ?? context.color;
+            const stroke = layer.mark.stroke ?? theme.mark.lineColor ?? theme.mark.defaultColor ?? context.color;
             nodes.push({
                 type: 'path',
                 ...datumBase$2(context, `${layer.id}:lines-path:${rowIndex}`, rowIndex),
@@ -7161,8 +7567,8 @@ var Graflume = (function (exports) {
                 closed: false,
                 stroke,
                 lineWidth: (layer.mark.lineWidth ?? 1.8) + (value / maxValue) * 3,
-                lineCap: 'round',
-                lineJoin: 'round',
+                lineCap: theme.mark.lineCap ?? 'round',
+                lineJoin: theme.mark.lineJoin ?? 'round',
             });
             const previous = points.at(-2) ?? start;
             const angle = Math.atan2(end.y - previous.y, end.x - previous.x);
@@ -7230,8 +7636,7 @@ var Graflume = (function (exports) {
             if (!Number.isFinite(x) || !Number.isFinite(y))
                 continue;
             const ratio = max === min ? 0.5 : clamp$3((value - min) / (max - min), 0, 1);
-            const palette = theme.colors.sequential;
-            const color = layer.mark.fill ?? palette[Math.round(ratio * (palette.length - 1))] ?? theme.colors.focus;
+            const color = layer.mark.fill ?? mappedContinuousColor(theme, ratio);
             nodes.push({
                 type: 'rect',
                 ...datumBase$2(context, `${layer.id}:heatmap:${rowIndex}`, rowIndex),
@@ -7281,7 +7686,7 @@ var Graflume = (function (exports) {
             const size = Number.isFinite(requestedSize)
                 ? clamp$3(Math.abs(requestedSize), 3, Math.max(3, band * 0.9))
                 : Math.max(3, Math.min(band * 0.62, step * 0.72, 18));
-            const color = layer.mark.fill ?? themeColor(context, rowIndex);
+            const color = layer.mark.fill ?? themeColor(context, rowIndex, table.length);
             for (let index = 0; index < count; index += 1) {
                 const y = zero + Math.sign(end - zero || -1) * step * (index + 0.5);
                 const id = `${layer.id}:pictorial:${rowIndex}:${index}`;
@@ -7386,7 +7791,7 @@ var Graflume = (function (exports) {
                 .reverse();
             if (![...top, ...bottom].every((point) => Number.isFinite(point.x) && Number.isFinite(point.y)))
                 return;
-            const color = themeColor(context, seriesIndex);
+            const color = themeColor(context, seriesIndex, seriesNames.length);
             const datum = points.find((point) => point.series === series);
             nodes.push({
                 type: 'path',
@@ -7441,10 +7846,11 @@ var Graflume = (function (exports) {
     }
     const compileSunburstMark = (context) => {
         const { layer, plot, theme } = context;
-        const roots = sunburstTree(hierarchyItems(context));
+        const items = hierarchyItems(context);
+        const roots = sunburstTree(items);
         if (roots.length === 0)
             return [];
-        const depths = hierarchyDepths(hierarchyItems(context));
+        const depths = hierarchyDepths(items);
         const maxDepth = Math.max(0, ...depths.values());
         const cx = plot.x + plot.width / 2;
         const cy = plot.y + plot.height / 2;
@@ -7456,7 +7862,7 @@ var Graflume = (function (exports) {
         const drawNode = (node, start, end, depth) => {
             const inner = innerHole + depth * ringWidth + 1;
             const outer = innerHole + (depth + 1) * ringWidth - 1;
-            const color = themeColor(context, colorIndex);
+            const color = themeColor(context, colorIndex, items.length);
             colorIndex += 1;
             nodes.push({
                 type: 'path',
@@ -7524,7 +7930,7 @@ var Graflume = (function (exports) {
             const size = sizeField !== undefined && table.has(sizeField)
                 ? Math.abs(numericDataValue(table.value(rowIndex, sizeField)) ?? 12)
                 : Math.abs(finiteOption(layer.mark.options.size, 12));
-            const fill = layer.mark.fill ?? themeColor(context, rowIndex);
+            const fill = layer.mark.fill ?? themeColor(context, rowIndex, table.length);
             if (primitive === 'line' &&
                 x2Field !== undefined &&
                 y2Field !== undefined &&
@@ -7671,7 +8077,9 @@ var Graflume = (function (exports) {
             }),
             points,
             closed: true,
-            fill: layer.mark.fill ?? colorWithOpacity(color, theme.mode === 'dark' ? 0.28 : 0.2),
+            fill: layer.mark.fill ??
+                theme.mark.areaFill ??
+                colorWithOpacity(color, theme.mode === 'dark' ? 0.28 : 0.2),
             lineWidth: 0,
         };
         const stroke = {
@@ -7682,12 +8090,19 @@ var Graflume = (function (exports) {
             }),
             points: top,
             closed: false,
-            stroke: layer.mark.stroke ?? color,
+            stroke: layer.mark.stroke ??
+                theme.mark.areaStroke ??
+                theme.mark.lineColor ??
+                theme.mark.defaultColor ??
+                color,
             lineWidth: layer.mark.lineWidth ?? theme.mark.lineWidth,
-            lineCap: 'round',
-            lineJoin: 'round',
+            lineCap: theme.mark.lineCap ?? 'round',
+            lineJoin: theme.mark.lineJoin ?? 'round',
         };
-        const nodes = [fill, stroke];
+        const nodes = [
+            fill,
+            ...(layer.mark.stroke === undefined && theme.mark.areaStrokeVisible === false ? [] : [stroke]),
+        ];
         if (layer.mark.point) {
             const pointIndices = new Set(strideSampleIndices(top.length, performance.maxPointMarks).filter((index) => index !== undefined));
             top.forEach((point, pointIndex) => {
@@ -7705,9 +8120,15 @@ var Graflume = (function (exports) {
                     cx: point.x,
                     cy: point.y,
                     radius: layer.mark.radius ?? theme.mark.pointRadius,
-                    fill: theme.colors.background,
-                    stroke: layer.mark.stroke ?? color,
-                    lineWidth: Math.max(1.5, (layer.mark.lineWidth ?? theme.mark.lineWidth) * 0.68),
+                    fill: layer.mark.fill ?? theme.mark.pointFill ?? theme.colors.background,
+                    stroke: layer.mark.stroke ??
+                        theme.mark.pointStroke ??
+                        theme.mark.areaStroke ??
+                        theme.mark.lineColor ??
+                        color,
+                    lineWidth: layer.mark.lineWidth === undefined
+                        ? (theme.mark.pointStrokeWidth ?? Math.max(1.5, theme.mark.lineWidth * 0.68))
+                        : Math.max(1.5, layer.mark.lineWidth * 0.68),
                 };
                 nodes.push(circle);
             });
@@ -7717,12 +8138,16 @@ var Graflume = (function (exports) {
 
     const compileBarMark = (context) => {
         const { table, layer, xScale, yScale, color, theme, barGroup, performance, plot } = context;
+        const themedWidthRatio = theme.mark.barWidthRatio;
         if (layer.mark.orientation === 'horizontal') {
             const baseline = xScale.map(0);
             const slotHeight = yScale instanceof BandScale
-                ? yScale.bandwidth / Math.max(1, barGroup.count)
-                : Math.max(1, ((plot.height / Math.max(1, table.length)) * 0.8) / Math.max(1, barGroup.count));
-            const barHeight = Math.max(1, slotHeight * 0.74);
+                ? (themedWidthRatio === undefined ? yScale.bandwidth : yScale.step) /
+                    Math.max(1, barGroup.count)
+                : Math.max(1, ((plot.height / Math.max(1, table.length)) *
+                    (themedWidthRatio === undefined ? 0.8 : 1)) /
+                    Math.max(1, barGroup.count));
+            const barHeight = Math.max(1, slotHeight * (themedWidthRatio ?? 0.74));
             const nodes = [];
             const indices = strideSampleIndices(table.length, performance.maxBarMarks);
             for (const rowIndex of indices) {
@@ -7749,7 +8174,7 @@ var Graflume = (function (exports) {
                     y: yCenter + groupOffset - barHeight / 2,
                     width: Math.max(0.5, Math.abs(baseline - xValue)),
                     height: barHeight,
-                    fill: layer.mark.fill ?? color,
+                    fill: layer.mark.fill ?? theme.mark.barFill ?? color,
                     ...(layer.mark.stroke === undefined ? {} : { stroke: layer.mark.stroke }),
                     lineWidth: layer.mark.lineWidth ?? 0,
                     cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
@@ -7760,9 +8185,11 @@ var Graflume = (function (exports) {
         const baseline = yScale.map(0);
         const nodes = [];
         const slotWidth = xScale instanceof BandScale
-            ? xScale.bandwidth / Math.max(1, barGroup.count)
-            : Math.max(1, ((plot.width / Math.max(1, table.length)) * 0.8) / Math.max(1, barGroup.count));
-        const barWidth = Math.max(1, slotWidth * 0.74);
+            ? (themedWidthRatio === undefined ? xScale.bandwidth : xScale.step) /
+                Math.max(1, barGroup.count)
+            : Math.max(1, ((plot.width / Math.max(1, table.length)) * (themedWidthRatio === undefined ? 0.8 : 1)) /
+                Math.max(1, barGroup.count));
+        const barWidth = Math.max(1, slotWidth * (themedWidthRatio ?? 0.74));
         const indices = strideSampleIndices(table.length, performance.maxBarMarks);
         for (const rowIndex of indices) {
             const xInput = scaleInput(table.value(rowIndex, layer.x.field));
@@ -7789,7 +8216,7 @@ var Graflume = (function (exports) {
                 y,
                 width: barWidth,
                 height,
-                fill: layer.mark.fill ?? color,
+                fill: layer.mark.fill ?? theme.mark.barFill ?? color,
                 ...(layer.mark.stroke === undefined ? {} : { stroke: layer.mark.stroke }),
                 lineWidth: layer.mark.lineWidth ?? 0,
                 cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
@@ -7830,7 +8257,7 @@ var Graflume = (function (exports) {
             current.rowIndices.push(rowIndex);
         }
         flush();
-        const stroke = layer.mark.stroke ?? color;
+        const stroke = layer.mark.stroke ?? theme.mark.lineColor ?? theme.mark.defaultColor ?? color;
         const lineWidth = layer.mark.lineWidth ?? theme.mark.lineWidth;
         segments.forEach((segment, segmentIndex) => {
             const path = {
@@ -7843,8 +8270,8 @@ var Graflume = (function (exports) {
                 closed: false,
                 stroke,
                 lineWidth,
-                lineCap: 'round',
-                lineJoin: 'round',
+                lineCap: theme.mark.lineCap ?? 'round',
+                lineJoin: theme.mark.lineJoin ?? 'round',
             };
             nodes.push(path);
             if (layer.mark.point) {
@@ -7863,9 +8290,11 @@ var Graflume = (function (exports) {
                         cx: point.x,
                         cy: point.y,
                         radius: layer.mark.radius ?? theme.mark.pointRadius,
-                        fill: layer.mark.fill ?? theme.colors.background,
-                        stroke,
-                        lineWidth: Math.max(1.5, lineWidth * 0.68),
+                        fill: layer.mark.fill ?? theme.mark.pointFill ?? theme.colors.background,
+                        stroke: layer.mark.stroke ?? theme.mark.pointStroke ?? stroke,
+                        lineWidth: layer.mark.lineWidth === undefined
+                            ? (theme.mark.pointStrokeWidth ?? Math.max(1.5, lineWidth * 0.68))
+                            : Math.max(1.5, lineWidth * 0.68),
                     };
                     nodes.push(circle);
                 });
@@ -7898,9 +8327,9 @@ var Graflume = (function (exports) {
                 cx,
                 cy,
                 radius: layer.mark.radius ?? theme.mark.pointRadius,
-                fill: layer.mark.fill ?? color,
-                stroke: layer.mark.stroke ?? theme.colors.background,
-                lineWidth: layer.mark.lineWidth ?? 1.75,
+                fill: layer.mark.fill ?? theme.mark.pointFill ?? theme.mark.defaultColor ?? color,
+                stroke: layer.mark.stroke ?? theme.mark.pointStroke ?? theme.colors.background,
+                lineWidth: layer.mark.lineWidth ?? theme.mark.pointStrokeWidth ?? 1.75,
             });
         }
         return nodes;
@@ -7960,7 +8389,9 @@ var Graflume = (function (exports) {
             }),
             points: [...top, { x: last.x, y: baseline }, { x: first.x, y: baseline }],
             closed: true,
-            fill: layer.mark.fill ?? colorWithOpacity(color, theme.mode === 'dark' ? 0.28 : 0.2),
+            fill: layer.mark.fill ??
+                theme.mark.areaFill ??
+                colorWithOpacity(color, theme.mode === 'dark' ? 0.28 : 0.2),
             lineWidth: 0,
         };
         const outline = {
@@ -7971,10 +8402,14 @@ var Graflume = (function (exports) {
             }),
             points: top,
             closed: false,
-            stroke: layer.mark.stroke ?? color,
+            stroke: layer.mark.stroke ??
+                theme.mark.areaStroke ??
+                theme.mark.lineColor ??
+                theme.mark.defaultColor ??
+                color,
             lineWidth: layer.mark.lineWidth ?? theme.mark.lineWidth,
-            lineCap: 'round',
-            lineJoin: 'round',
+            lineCap: theme.mark.lineCap ?? 'round',
+            lineJoin: theme.mark.lineJoin ?? 'round',
         };
         return [area, outline];
     };
@@ -7996,6 +8431,16 @@ var Graflume = (function (exports) {
             maximum = 1;
         }
         const categoryColors = new Map();
+        const categoryCount = colorField === undefined
+            ? 0
+            : new Set(Array.from({ length: table.length }, (_, rowIndex) => {
+                if (timeField !== undefined &&
+                    frame !== undefined &&
+                    String(table.value(rowIndex, timeField)) !== String(frame)) {
+                    return null;
+                }
+                return String(table.value(rowIndex, colorField) ?? '');
+            }).filter((value) => value !== null)).size;
         const nodes = [];
         const minimumRadius = optionNumber$5(layer.mark.options, 'minRadius', layer.mark.radius ?? 5);
         const maximumRadius = optionNumber$5(layer.mark.options, 'maxRadius', 24);
@@ -8017,14 +8462,12 @@ var Graflume = (function (exports) {
             const ratio = size === null || maximum === minimum
                 ? 0.5
                 : Math.max(0, Math.min(1, (size - minimum) / (maximum - minimum)));
-            let fill = layer.mark.fill ?? color;
-            if (colorField !== undefined) {
+            let fill = layer.mark.fill ?? theme.mark.pointFill ?? theme.mark.defaultColor ?? color;
+            if (layer.mark.fill === undefined && colorField !== undefined) {
                 const category = String(table.value(rowIndex, colorField) ?? '');
                 let categoryColor = categoryColors.get(category);
                 if (categoryColor === undefined) {
-                    categoryColor =
-                        theme.colors.palette[categoryColors.size % theme.colors.palette.length] ??
-                            theme.colors.focus;
+                    categoryColor = categoricalColor(theme, categoryColors.size, categoryCount);
                     categoryColors.set(category, categoryColor);
                 }
                 fill = categoryColor;
@@ -8041,8 +8484,8 @@ var Graflume = (function (exports) {
                 cy,
                 radius: minimumRadius + Math.sqrt(ratio) * (maximumRadius - minimumRadius),
                 fill,
-                stroke: layer.mark.stroke ?? theme.colors.background,
-                lineWidth: layer.mark.lineWidth ?? 2,
+                stroke: layer.mark.stroke ?? theme.mark.pointStroke ?? theme.colors.background,
+                lineWidth: layer.mark.lineWidth ?? theme.mark.pointStrokeWidth ?? 2,
             });
         }
         return nodes;
@@ -8073,9 +8516,10 @@ var Graflume = (function (exports) {
             if (![x, yOpen, yHigh, yLow, yClose].every(Number.isFinite))
                 continue;
             const rising = close >= open;
-            const fill = rising
-                ? (optionString$5(layer.mark.options, 'risingColor') ?? theme.colors.palette[1] ?? '#0f9f8a')
-                : (optionString$5(layer.mark.options, 'fallingColor') ?? theme.colors.palette[3] ?? '#ef4444');
+            const fill = layer.mark.fill ??
+                (rising
+                    ? (optionString$5(layer.mark.options, 'risingColor') ?? categoricalColor(theme, 1, 4))
+                    : (optionString$5(layer.mark.options, 'fallingColor') ?? categoricalColor(theme, 3, 4)));
             const datum = { layerId: layer.id, rowIndex, datum: table.row(rowIndex) };
             nodes.push({
                 type: 'line',
@@ -8089,7 +8533,7 @@ var Graflume = (function (exports) {
                 y2: yLow,
                 stroke: layer.mark.stroke ?? mixColor$1(fill, theme.colors.text, 0.28),
                 lineWidth: layer.mark.lineWidth ?? 1.5,
-                lineCap: 'round',
+                lineCap: theme.mark.lineCap ?? 'round',
             });
             nodes.push({
                 type: 'rect',
@@ -8166,9 +8610,12 @@ var Graflume = (function (exports) {
                 y: Math.min(y, baseline),
                 width: Math.max(1, Math.abs(x2 - x1) - 4),
                 height: Math.max(0.5, Math.abs(baseline - y)),
-                fill: layer.mark.fill ?? color,
-                stroke: layer.mark.stroke ?? theme.colors.background,
-                lineWidth: layer.mark.lineWidth ?? 1,
+                fill: layer.mark.fill ?? theme.mark.barFill ?? color,
+                ...(layer.mark.stroke === undefined && theme.mark.barFill !== undefined
+                    ? {}
+                    : { stroke: layer.mark.stroke ?? theme.colors.background }),
+                lineWidth: layer.mark.lineWidth ??
+                    (layer.mark.stroke === undefined && theme.mark.barFill !== undefined ? 0 : 1),
                 cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
             });
         });
@@ -8192,7 +8639,7 @@ var Graflume = (function (exports) {
             const yHigh = yScale.map(high);
             if (![x, y, yLow, yHigh].every(Number.isFinite))
                 continue;
-            const stroke = layer.mark.stroke ?? color;
+            const stroke = layer.mark.stroke ?? theme.mark.lineColor ?? theme.mark.defaultColor ?? color;
             const cap = Math.max(4, (xScale instanceof BandScale ? xScale.bandwidth : 14) * 0.25);
             const base = `${layer.id}:interval:${rowIndex}`;
             const lineWidth = layer.mark.lineWidth ?? 2;
@@ -8206,7 +8653,7 @@ var Graflume = (function (exports) {
                     y2: yLow,
                     stroke,
                     lineWidth,
-                    lineCap: 'round',
+                    lineCap: theme.mark.lineCap ?? 'round',
                 },
                 {
                     type: 'line',
@@ -8217,7 +8664,7 @@ var Graflume = (function (exports) {
                     y2: yHigh,
                     stroke,
                     lineWidth,
-                    lineCap: 'round',
+                    lineCap: theme.mark.lineCap ?? 'round',
                 },
                 {
                     type: 'line',
@@ -8228,7 +8675,7 @@ var Graflume = (function (exports) {
                     y2: yLow,
                     stroke,
                     lineWidth,
-                    lineCap: 'round',
+                    lineCap: theme.mark.lineCap ?? 'round',
                 },
             ];
             nodes.push(...lines);
@@ -8242,9 +8689,9 @@ var Graflume = (function (exports) {
                 cx: x,
                 cy: y,
                 radius: layer.mark.radius ?? theme.mark.pointRadius + 1,
-                fill: layer.mark.fill ?? theme.colors.background,
-                stroke,
-                lineWidth,
+                fill: layer.mark.fill ?? theme.mark.pointFill ?? theme.colors.background,
+                stroke: layer.mark.stroke ?? theme.mark.pointStroke ?? stroke,
+                lineWidth: layer.mark.lineWidth ?? theme.mark.pointStrokeWidth ?? lineWidth,
             });
         }
         return nodes;
@@ -8280,11 +8727,11 @@ var Graflume = (function (exports) {
                 { x: xScale.map(maximum), y: yScale.map(intercept + slope * maximum) },
             ],
             closed: false,
-            stroke: layer.mark.stroke ?? color,
+            stroke: layer.mark.stroke ?? theme.mark.lineColor ?? theme.mark.defaultColor ?? color,
             lineWidth: layer.mark.lineWidth ?? theme.mark.lineWidth + 0.5,
             dash: [7, 4],
-            lineCap: 'round',
-            lineJoin: 'round',
+            lineCap: theme.mark.lineCap ?? 'round',
+            lineJoin: theme.mark.lineJoin ?? 'round',
         };
         return [...points, line];
     };
@@ -8307,13 +8754,10 @@ var Graflume = (function (exports) {
             const y2 = yScale.map(total);
             if (![x, y1, y2].every(Number.isFinite))
                 continue;
-            const fill = delta >= 0
-                ? (optionString$5(layer.mark.options, 'positiveColor') ??
-                    theme.colors.palette[1] ??
-                    '#0f9f8a')
-                : (optionString$5(layer.mark.options, 'negativeColor') ??
-                    theme.colors.palette[3] ??
-                    '#ef4444');
+            const fill = layer.mark.fill ??
+                (delta >= 0
+                    ? (optionString$5(layer.mark.options, 'positiveColor') ?? categoricalColor(theme, 1, 4))
+                    : (optionString$5(layer.mark.options, 'negativeColor') ?? categoricalColor(theme, 3, 4)));
             nodes.push({
                 type: 'rect',
                 ...nodeBase(`${layer.id}:waterfall:${rowIndex}`, {
@@ -8343,7 +8787,7 @@ var Graflume = (function (exports) {
                     stroke: theme.colors.axis,
                     lineWidth: 1,
                     dash: [3, 3],
-                    lineCap: 'round',
+                    lineCap: theme.mark.lineCap ?? 'round',
                 });
             }
         }
@@ -8405,7 +8849,7 @@ var Graflume = (function (exports) {
                 y2: newY,
                 stroke: theme.colors.text,
                 lineWidth: 1.5,
-                lineCap: 'round',
+                lineCap: theme.mark.lineCap ?? 'round',
             });
         }
         return nodes;
@@ -9803,7 +10247,7 @@ var Graflume = (function (exports) {
         if (optionString$4(context, 'basemap', DEFAULT_BASEMAP) === 'none')
             return [];
         const viewport = geographicViewport(plot);
-        const oceanFill = optionString$4(context, 'oceanFill', mixColor$1(theme.colors.background, theme.colors.sequential[0] ?? theme.colors.surface, 0.2));
+        const oceanFill = optionString$4(context, 'oceanFill', mixColor$1(theme.colors.background, mappedContinuousColor(theme, 0), 0.2));
         const landFill = optionString$4(context, 'landFill', mixColor$1(theme.colors.surface, theme.colors.grid, theme.mode === 'dark' ? 0.3 : 0.48));
         const countryStroke = optionString$4(context, 'countryStroke', colorWithOpacity(theme.colors.axis, theme.mode === 'dark' ? 0.62 : 0.48));
         const countryLineWidth = Math.max(0, optionNumber$4(context, 'countryLineWidth', 0.55));
@@ -9917,9 +10361,8 @@ var Graflume = (function (exports) {
             return null;
         return value instanceof Date ? value.toISOString() : String(value);
     }
-    function paletteColor$1(context, index) {
-        return (context.theme.colors.palette[index % context.theme.colors.palette.length] ??
-            context.theme.colors.focus);
+    function paletteColor$1(context, index, count) {
+        return categoricalColor(context.theme, index, count);
     }
     function datumBase$1(context, id, rowIndex, offset = 0, tooltip) {
         return nodeBase(id, {
@@ -10023,7 +10466,7 @@ var Graflume = (function (exports) {
         if (rows.length === 0)
             return [];
         const { layer, yScale, theme } = context;
-        const stroke = layer.mark.stroke ?? context.color;
+        const stroke = layer.mark.stroke ?? theme.mark.lineColor ?? theme.mark.defaultColor ?? context.color;
         const points = smoothPoints(rows.map(({ x, y }) => ({ x, y })));
         const nodes = [];
         if (layer.mark.options.area === true) {
@@ -10036,7 +10479,7 @@ var Graflume = (function (exports) {
                 }),
                 points: [{ x: points[0].x, y: baseline }, ...points, { x: points.at(-1).x, y: baseline }],
                 closed: true,
-                fill: layer.mark.fill ?? colorWithOpacity(stroke, 0.24),
+                fill: layer.mark.fill ?? theme.mark.areaFill ?? colorWithOpacity(stroke, 0.24),
                 lineWidth: 0,
             });
         }
@@ -10050,8 +10493,8 @@ var Graflume = (function (exports) {
             closed: false,
             stroke,
             lineWidth: layer.mark.lineWidth ?? theme.mark.lineWidth,
-            lineCap: 'round',
-            lineJoin: 'round',
+            lineCap: theme.mark.lineCap ?? 'round',
+            lineJoin: theme.mark.lineJoin ?? 'round',
         });
         if (layer.mark.point) {
             for (const row of rows) {
@@ -10061,8 +10504,8 @@ var Graflume = (function (exports) {
                     cx: row.x,
                     cy: row.y,
                     radius: layer.mark.radius ?? theme.mark.pointRadius,
-                    fill: theme.colors.background,
-                    stroke,
+                    fill: layer.mark.fill ?? theme.mark.pointFill ?? theme.colors.background,
+                    stroke: layer.mark.stroke ?? theme.mark.pointStroke ?? stroke,
                     lineWidth: 2,
                 });
             }
@@ -10075,8 +10518,8 @@ var Graflume = (function (exports) {
                     cx: row.x,
                     cy: row.y,
                     radius: Math.max(2.5, layer.mark.radius ?? 3),
-                    fill: stroke,
-                    stroke: theme.colors.background,
+                    fill: layer.mark.fill ?? theme.mark.pointFill ?? stroke,
+                    stroke: layer.mark.stroke ?? theme.mark.pointStroke ?? theme.colors.background,
                     lineWidth: 1,
                 });
             });
@@ -10104,7 +10547,7 @@ var Graflume = (function (exports) {
         }
         if (rows.length === 0)
             return [];
-        const stroke = layer.mark.stroke ?? context.color;
+        const stroke = layer.mark.stroke ?? theme.mark.areaStroke ?? theme.mark.lineColor ?? context.color;
         const nodes = [];
         if (mode === 'area') {
             const highPoints = rows.map((row) => ({ x: row.x, y: row.high }));
@@ -10121,10 +10564,10 @@ var Graflume = (function (exports) {
                     ...(smooth ? smoothPoints(lowPoints) : lowPoints),
                 ],
                 closed: true,
-                fill: layer.mark.fill ?? colorWithOpacity(stroke, 0.24),
+                fill: layer.mark.fill ?? theme.mark.areaFill ?? colorWithOpacity(stroke, 0.24),
                 stroke,
                 lineWidth: layer.mark.lineWidth ?? 1.5,
-                lineJoin: 'round',
+                lineJoin: theme.mark.lineJoin ?? 'round',
             });
             for (const row of rows) {
                 nodes.push({
@@ -10133,8 +10576,8 @@ var Graflume = (function (exports) {
                     cx: row.x,
                     cy: (row.low + row.high) / 2,
                     radius: Math.max(3, layer.mark.radius ?? 3.5),
-                    fill: stroke,
-                    stroke: theme.colors.background,
+                    fill: layer.mark.fill ?? theme.mark.pointFill ?? stroke,
+                    stroke: layer.mark.stroke ?? theme.mark.pointStroke ?? theme.colors.background,
                     lineWidth: 1,
                 });
             }
@@ -10168,12 +10611,12 @@ var Graflume = (function (exports) {
                 y2: row.high,
                 stroke,
                 lineWidth: layer.mark.lineWidth ?? 2,
-                lineCap: 'round',
+                lineCap: theme.mark.lineCap ?? 'round',
             });
             const radius = Math.max(3, layer.mark.radius ?? 5);
             for (const [suffix, y, fill] of [
-                ['low', row.low, theme.colors.background],
-                ['high', row.high, layer.mark.fill ?? stroke],
+                ['low', row.low, layer.mark.fill ?? theme.mark.pointFill ?? theme.colors.background],
+                ['high', row.high, layer.mark.fill ?? theme.mark.pointFill ?? stroke],
             ]) {
                 nodes.push({
                     type: 'circle',
@@ -10182,7 +10625,7 @@ var Graflume = (function (exports) {
                     cy: y,
                     radius,
                     fill,
-                    stroke,
+                    stroke: layer.mark.stroke ?? theme.mark.pointStroke ?? stroke,
                     lineWidth: 2,
                 });
             }
@@ -10213,7 +10656,7 @@ var Graflume = (function (exports) {
             y: yScale.map(density),
         }));
         const baseline = yScale.map(0);
-        const stroke = layer.mark.stroke ?? context.color;
+        const stroke = layer.mark.stroke ?? theme.mark.lineColor ?? theme.mark.defaultColor ?? context.color;
         const tooltip = {
             kind: 'normal-density',
             mean,
@@ -10228,7 +10671,7 @@ var Graflume = (function (exports) {
                 ...datumBase$1(context, `${layer.id}:distribution-area`, 0, 0, tooltip),
                 points: [{ x: points[0].x, y: baseline }, ...points, { x: points.at(-1).x, y: baseline }],
                 closed: true,
-                fill: layer.mark.fill ?? colorWithOpacity(stroke, 0.2),
+                fill: layer.mark.fill ?? theme.mark.areaFill ?? colorWithOpacity(stroke, 0.2),
                 lineWidth: 0,
             },
             {
@@ -10238,8 +10681,8 @@ var Graflume = (function (exports) {
                 closed: false,
                 stroke,
                 lineWidth: layer.mark.lineWidth ?? theme.mark.lineWidth + 0.5,
-                lineCap: 'round',
-                lineJoin: 'round',
+                lineCap: theme.mark.lineCap ?? 'round',
+                lineJoin: theme.mark.lineJoin ?? 'round',
             },
             textNode$2(context, `${layer.id}:distribution-mean`, xScale.map(mean), plot.y + 14, `μ ${mean.toFixed(2)} · σ ${sigma.toFixed(2)}`, {
                 fill: theme.colors.mutedText,
@@ -10307,7 +10750,7 @@ var Graflume = (function (exports) {
                 y2: targetY,
                 stroke: layer.mark.stroke ?? theme.colors.text,
                 lineWidth: layer.mark.lineWidth ?? 2.5,
-                lineCap: 'round',
+                lineCap: theme.mark.lineCap ?? 'round',
             });
         }
         return nodes;
@@ -10337,7 +10780,6 @@ var Graflume = (function (exports) {
         const cellHeight = Math.max(5, ((yValues[1] ?? yValues[0] + 18) - yValues[0]) * 0.92);
         const nodes = rows.map((row) => {
             const ratio = maximum === minimum ? 0.5 : (row.value - minimum) / (maximum - minimum);
-            const index = Math.round(ratio * (theme.colors.sequential.length - 1));
             return {
                 type: 'rect',
                 ...datumBase$1(context, `${layer.id}:contour-cell:${row.rowIndex}`, row.rowIndex),
@@ -10345,7 +10787,7 @@ var Graflume = (function (exports) {
                 y: row.y - cellHeight / 2,
                 width: cellWidth,
                 height: cellHeight,
-                fill: layer.mark.fill ?? theme.colors.sequential[index] ?? context.color,
+                fill: layer.mark.fill ?? mappedContinuousColor(theme, ratio),
                 lineWidth: 0,
                 cornerRadius: layer.mark.cornerRadius ?? 2,
             };
@@ -10375,7 +10817,7 @@ var Graflume = (function (exports) {
                 closed: true,
                 stroke: layer.mark.stroke ?? colorWithOpacity(theme.colors.text, 0.72),
                 lineWidth: layer.mark.lineWidth ?? 1.2,
-                lineJoin: 'round',
+                lineJoin: theme.mark.lineJoin ?? 'round',
             });
         }
         return nodes;
@@ -10399,7 +10841,7 @@ var Graflume = (function (exports) {
                 continue;
             const top = Math.min(y, baseline);
             const bottom = Math.max(y, baseline);
-            const color = layer.mark.fill ?? paletteColor$1(context, rowIndex);
+            const color = layer.mark.fill ?? paletteColor$1(context, rowIndex, table.length);
             nodes.push({
                 type: 'rect',
                 ...datumBase$1(context, `${layer.id}:cylinder-body:${rowIndex}`, rowIndex),
@@ -10478,9 +10920,9 @@ var Graflume = (function (exports) {
                 ...datumBase$1(context, `${layer.id}:arc-link:${link.rowIndex}`, link.rowIndex),
                 points: quadraticPoints({ x: startX, y: baseline }, { x: (startX + endX) / 2, y: baseline - height }, { x: endX, y: baseline }, 32),
                 closed: false,
-                stroke: layer.mark.stroke ?? paletteColor$1(context, names.indexOf(link.source)),
+                stroke: layer.mark.stroke ?? paletteColor$1(context, names.indexOf(link.source), names.length),
                 lineWidth: (layer.mark.lineWidth ?? 1.6) + (link.value / maximum) * 5,
-                lineCap: 'round',
+                lineCap: theme.mark.lineCap ?? 'round',
                 lineJoin: 'round',
             });
         }
@@ -10492,7 +10934,7 @@ var Graflume = (function (exports) {
                 cx: x,
                 cy: baseline,
                 radius: layer.mark.radius ?? 6,
-                fill: paletteColor$1(context, index),
+                fill: layer.mark.fill ?? paletteColor$1(context, index, names.length),
                 stroke: theme.colors.background,
                 lineWidth: 2,
             });
@@ -10540,7 +10982,7 @@ var Graflume = (function (exports) {
                 cx: plot.x + column * (size + gap) + size / 2,
                 cy: plot.y + plot.height - row * (size + gap) - size / 2,
                 radius: size / 2,
-                fill: layer.mark.fill ?? paletteColor$1(context, assignment.colorIndex),
+                fill: layer.mark.fill ?? paletteColor$1(context, assignment.colorIndex, values.length),
                 stroke: theme.colors.background,
                 lineWidth: 0.8,
             };
@@ -10559,7 +11001,7 @@ var Graflume = (function (exports) {
             const y = yScale.map(yValue);
             if (![x, y, baseline].every(Number.isFinite))
                 continue;
-            const color = layer.mark.fill ?? paletteColor$1(context, rowIndex);
+            const color = layer.mark.fill ?? paletteColor$1(context, rowIndex, table.length);
             nodes.push({
                 type: 'line',
                 ...nodeBase(`${layer.id}:lollipop-stem:${rowIndex}`, { zIndex: layer.zIndex }),
@@ -10569,7 +11011,7 @@ var Graflume = (function (exports) {
                 y2: y,
                 stroke: layer.mark.stroke ?? mixColor$1(color, theme.colors.background, 0.18),
                 lineWidth: layer.mark.lineWidth ?? 2,
-                lineCap: 'round',
+                lineCap: theme.mark.lineCap ?? 'round',
             });
             nodes.push({
                 type: 'circle',
@@ -10620,7 +11062,7 @@ var Graflume = (function (exports) {
                 }
             }
             placed.push({ ...position, radius });
-            const color = layer.mark.fill ?? paletteColor$1(context, index);
+            const color = layer.mark.fill ?? paletteColor$1(context, index, values.length);
             nodes.push({
                 type: 'circle',
                 ...datumBase$1(context, `${layer.id}:packed:${item.rowIndex}`, item.rowIndex),
@@ -10684,10 +11126,10 @@ var Graflume = (function (exports) {
             ...nodeBase(`${layer.id}:pareto-line`, { zIndex: layer.zIndex + 2 }),
             points: cumulative,
             closed: false,
-            stroke: layer.mark.stroke ?? theme.colors.palette[3] ?? theme.colors.focus,
+            stroke: layer.mark.stroke ?? paletteColor$1(context, 3, 4),
             lineWidth: layer.mark.lineWidth ?? 2.5,
-            lineCap: 'round',
-            lineJoin: 'round',
+            lineCap: theme.mark.lineCap ?? 'round',
+            lineJoin: theme.mark.lineJoin ?? 'round',
         });
         cumulative.forEach((point, index) => {
             const row = rows[index];
@@ -10698,7 +11140,7 @@ var Graflume = (function (exports) {
                 cy: point.y,
                 radius: 3.5,
                 fill: theme.colors.background,
-                stroke: layer.mark.stroke ?? theme.colors.palette[3] ?? theme.colors.focus,
+                stroke: layer.mark.stroke ?? paletteColor$1(context, 3, 4),
                 lineWidth: 2,
             });
         });
@@ -10727,7 +11169,7 @@ var Graflume = (function (exports) {
         [...groups.entries()].forEach(([key, rows], groupIndex) => {
             if (rows.length < 3)
                 return;
-            const color = layer.mark.fill ?? paletteColor$1(context, groupIndex);
+            const color = layer.mark.fill ?? paletteColor$1(context, groupIndex, groups.size);
             nodes.push({
                 type: 'path',
                 ...datumBase$1(context, `${layer.id}:polygon:${groupIndex}`, rows[0].rowIndex),
@@ -10736,7 +11178,7 @@ var Graflume = (function (exports) {
                 fill: colorWithOpacity(color, 0.24),
                 stroke: layer.mark.stroke ?? color,
                 lineWidth: layer.mark.lineWidth ?? 2,
-                lineJoin: 'round',
+                lineJoin: theme.mark.lineJoin ?? 'round',
             });
             rows.forEach(({ rowIndex, point }) => {
                 nodes.push({
@@ -10789,7 +11231,7 @@ var Graflume = (function (exports) {
             const bottomRatio = reverse ? nextRatio : currentRatio;
             const y1 = plot.y + index * height + 1;
             const y2 = plot.y + (index + 1) * height - 1;
-            const color = layer.mark.fill ?? paletteColor$1(context, index);
+            const color = layer.mark.fill ?? paletteColor$1(context, index, sorted.length);
             const front = [
                 { x: centerX - (maxWidth * topRatio) / 2, y: y1 },
                 { x: centerX + (maxWidth * topRatio) / 2, y: y1 },
@@ -10846,7 +11288,7 @@ var Graflume = (function (exports) {
             const x = xScale.map(xValue) + perspective;
             const y = yScale.map(yValue) - perspective * 0.55;
             const radius = (layer.mark.radius ?? 5) * (0.72 + ratio * 0.9);
-            const color = layer.mark.fill ?? paletteColor$1(context, rowIndex);
+            const color = layer.mark.fill ?? paletteColor$1(context, rowIndex, table.length);
             nodes.push({
                 type: 'circle',
                 ...nodeBase(`${layer.id}:scatter-shadow:${rowIndex}`, {
@@ -10900,7 +11342,7 @@ var Graflume = (function (exports) {
             const ratio = clamp$2((value - minimum) / Math.max(1e-9, maximum - minimum), 0, 1);
             const ringOuter = outer - rowIndex * (thickness + 5);
             const ringInner = Math.max(4, ringOuter - thickness);
-            const color = layer.mark.fill ?? paletteColor$1(context, rowIndex);
+            const color = layer.mark.fill ?? paletteColor$1(context, rowIndex, table.length);
             nodes.push({
                 type: 'path',
                 ...datumBase$1(context, `${layer.id}:solid-value:${rowIndex}`, rowIndex, 1),
@@ -10956,9 +11398,7 @@ var Graflume = (function (exports) {
             const ratio = values === null || values[1] === values[0]
                 ? 0.5
                 : (value - values[0]) / (values[1] - values[0]);
-            const color = layer.mark.fill ??
-                theme.colors.sequential[Math.round(ratio * (theme.colors.sequential.length - 1))] ??
-                context.color;
+            const color = layer.mark.fill ?? mappedContinuousColor(theme, ratio);
             if (shape === 'circle') {
                 nodes.push({
                     type: 'circle',
@@ -11026,7 +11466,7 @@ var Graflume = (function (exports) {
         rows.forEach((row, index) => {
             const next = angle + (row.value / total) * TAU$1;
             const outer = minRadius + Math.sqrt(row.radius / radiusMaximum) * (maxRadius - minRadius);
-            const color = layer.mark.fill ?? paletteColor$1(context, index);
+            const color = layer.mark.fill ?? paletteColor$1(context, index, rows.length);
             nodes.push({
                 type: 'path',
                 ...datumBase$1(context, `${layer.id}:variable-pie:${row.rowIndex}`, row.rowIndex),
@@ -11069,7 +11509,7 @@ var Graflume = (function (exports) {
         rows.forEach((row, index) => {
             const width = (row.width / widthTotal) * plot.width;
             const y = yScale.map(row.value);
-            const color = layer.mark.fill ?? paletteColor$1(context, index);
+            const color = layer.mark.fill ?? paletteColor$1(context, index, rows.length);
             nodes.push({
                 type: 'rect',
                 ...datumBase$1(context, `${layer.id}:variwide:${row.rowIndex}`, row.rowIndex),
@@ -11122,7 +11562,7 @@ var Graflume = (function (exports) {
                 y2: end.y,
                 stroke: color,
                 lineWidth: (layer.mark.lineWidth ?? 1.5) + ratio * 2,
-                lineCap: 'round',
+                lineCap: theme.mark.lineCap ?? 'round',
             });
             nodes.push({
                 type: 'path',
@@ -11161,7 +11601,7 @@ var Graflume = (function (exports) {
             const angle = -Math.PI / 2 + (index * TAU$1) / Math.max(1, visibleRows.length);
             const center = pointOnCircle(cx, cy, visibleRows.length === 1 ? 0 : orbit, angle);
             const radius = Math.max(24, Math.sqrt(row.value / maximum) * maxRadius);
-            const color = layer.mark.fill ?? paletteColor$1(context, index);
+            const color = layer.mark.fill ?? paletteColor$1(context, index, visibleRows.length);
             nodes.push({
                 type: 'circle',
                 ...datumBase$1(context, `${layer.id}:venn:${row.rowIndex}`, row.rowIndex, index * 0.01),
@@ -11263,10 +11703,11 @@ var Graflume = (function (exports) {
         const cy = plot.y + plot.height / 2;
         const nodes = [];
         const placed = [];
+        const visibleCount = Math.min(rows.length, 160, context.performance.maxPointMarks);
         rows
             .slice()
             .sort((left, right) => right.weight - left.weight)
-            .slice(0, Math.min(160, context.performance.maxPointMarks))
+            .slice(0, visibleCount)
             .forEach((row, index) => {
             const ratio = maximum === minimum ? 0.5 : (row.weight - minimum) / (maximum - minimum);
             const size = 10 + ratio * 24;
@@ -11308,7 +11749,7 @@ var Graflume = (function (exports) {
             }
             if (!found)
                 return;
-            const color = layer.mark.fill ?? paletteColor$1(context, index);
+            const color = layer.mark.fill ?? paletteColor$1(context, index, visibleCount);
             const node = textNode$2(context, `${layer.id}:word-cloud:${row.rowIndex}`, x, y, row.word, {
                 fill: color,
                 size,
@@ -11462,7 +11903,7 @@ var Graflume = (function (exports) {
                     fill: layer.mark.fill ?? colorWithOpacity(context.color, 0.28),
                     stroke: layer.mark.stroke ?? context.color,
                     lineWidth: 1,
-                    lineJoin: 'round',
+                    lineJoin: theme.mark.lineJoin ?? 'round',
                 });
             }
         }
@@ -11484,7 +11925,7 @@ var Graflume = (function (exports) {
             }
             const color = fieldIndex === 0
                 ? (layer.mark.stroke ?? context.color)
-                : paletteColor$1(context, fieldIndex + 1);
+                : paletteColor$1(context, fieldIndex + 1, fields.length + 1);
             if (columnKinds.has(kind)) {
                 const baseline = yScale.map(0);
                 const width = Math.max(2, plot.width / Math.max(8, table.length * 1.6));
@@ -11496,7 +11937,7 @@ var Graflume = (function (exports) {
                         y: Math.min(point.y, baseline),
                         width,
                         height: Math.max(1, Math.abs(baseline - point.y)),
-                        fill: value >= 0 ? color : (theme.colors.palette[3] ?? '#ef4444'),
+                        fill: layer.mark.fill ?? (value >= 0 ? color : paletteColor$1(context, 3, 4)),
                         lineWidth: 0,
                         cornerRadius: 1,
                     });
@@ -11515,8 +11956,8 @@ var Graflume = (function (exports) {
                     stroke: color,
                     lineWidth: layer.mark.lineWidth ?? (fieldIndex === 0 ? 2.2 : 1.5),
                     ...(fieldIndex > 0 ? { dash: [5, 3] } : {}),
-                    lineCap: 'round',
-                    lineJoin: 'round',
+                    lineCap: theme.mark.lineCap ?? 'round',
+                    lineJoin: theme.mark.lineJoin ?? 'round',
                 });
                 points.forEach(({ rowIndex, point }, index) => {
                     if (kind !== 'psar' && index % Math.max(1, Math.ceil(points.length / 24)) !== 0)
@@ -11560,7 +12001,7 @@ var Graflume = (function (exports) {
                 y2: y - 24,
                 stroke: layer.mark.stroke ?? color,
                 lineWidth: 1.5,
-                lineCap: 'round',
+                lineCap: theme.mark.lineCap ?? 'round',
             });
             nodes.push({
                 type: 'path',
@@ -11639,9 +12080,7 @@ var Graflume = (function (exports) {
             const open = yScale.map(row.open);
             const close = yScale.map(row.close);
             const rising = row.close >= row.open;
-            const color = rising
-                ? (theme.colors.palette[1] ?? '#0f9f8a')
-                : (theme.colors.palette[3] ?? '#ef4444');
+            const color = rising ? paletteColor$1(context, 1, 4) : paletteColor$1(context, 3, 4);
             nodes.push({
                 type: 'line',
                 ...nodeBase(`${layer.id}:financial-wick:${row.rowIndex}`, { zIndex: layer.zIndex }),
@@ -11651,7 +12090,7 @@ var Graflume = (function (exports) {
                 y2: low,
                 stroke: layer.mark.stroke ?? color,
                 lineWidth: layer.mark.lineWidth ?? 1.5,
-                lineCap: 'round',
+                lineCap: theme.mark.lineCap ?? 'round',
             });
             if (kind === 'ohlc' || kind === 'hlc') {
                 if (kind === 'ohlc')
@@ -11713,9 +12152,7 @@ var Graflume = (function (exports) {
             const previous = values[Math.max(0, index - 1)]?.value ?? row.value;
             const rising = row.value >= previous;
             const count = Math.max(1, Math.round(Math.abs(row.value - previous) / box));
-            const color = rising
-                ? (theme.colors.palette[1] ?? '#0f9f8a')
-                : (theme.colors.palette[3] ?? '#ef4444');
+            const color = rising ? paletteColor$1(context, 1, 4) : paletteColor$1(context, 3, 4);
             for (let level = 0; level < count; level += 1) {
                 const x = plot.x + cellWidth * (index + 0.5);
                 const baseLevel = Math.round((Math.min(row.value, previous) - minimum) / box);
@@ -11763,9 +12200,7 @@ var Graflume = (function (exports) {
         const mapY = (value) => plot.y + plot.height - ((value - low) / Math.max(1e-9, high - low)) * plot.height;
         return bricks.map((brick, index) => {
             const rising = brick.end >= brick.start;
-            const color = rising
-                ? (theme.colors.palette[1] ?? '#0f9f8a')
-                : (theme.colors.palette[3] ?? '#ef4444');
+            const color = rising ? paletteColor$1(context, 1, 4) : paletteColor$1(context, 3, 4);
             const start = mapY(brick.start);
             const end = mapY(brick.end);
             return {
@@ -11874,7 +12309,7 @@ var Graflume = (function (exports) {
                 ? 0.5
                 : (value - valueExtent[0]) / (valueExtent[1] - valueExtent[0]);
             const points = quadraticPoints(start, control, end, 28);
-            const color = layer.mark.stroke ?? paletteColor$1(context, rowIndex);
+            const color = layer.mark.stroke ?? paletteColor$1(context, rowIndex, table.length);
             nodes.push({
                 type: 'path',
                 ...datumBase$1(context, `${layer.id}:geo-line:${rowIndex}`, rowIndex),
@@ -11925,9 +12360,7 @@ var Graflume = (function (exports) {
             const ratio = extent === null || extent[1] === extent[0]
                 ? 0.5
                 : (value - extent[0]) / (extent[1] - extent[0]);
-            const color = layer.mark.fill ??
-                theme.colors.sequential[Math.round(ratio * (theme.colors.sequential.length - 1))] ??
-                context.color;
+            const color = layer.mark.fill ?? mappedContinuousColor(theme, ratio);
             nodes.push({
                 type: 'circle',
                 ...nodeBase(`${layer.id}:geo-heat-halo:${rowIndex}`, {
@@ -11962,7 +12395,7 @@ var Graflume = (function (exports) {
             if (longitude === null || latitude === null || !isGeographicPosition(longitude, latitude))
                 continue;
             const point = projectGeographicPosition(plot, longitude, latitude);
-            const color = layer.mark.fill ?? paletteColor$1(context, rowIndex);
+            const color = layer.mark.fill ?? paletteColor$1(context, rowIndex, table.length);
             nodes.push({
                 type: 'circle',
                 ...datumBase$1(context, `${layer.id}:tiled-point:${rowIndex}`, rowIndex),
@@ -12029,9 +12462,8 @@ var Graflume = (function (exports) {
             return null;
         return value instanceof Date ? value.toISOString() : String(value);
     }
-    function paletteColor(context, index) {
-        return (context.theme.colors.palette[index % context.theme.colors.palette.length] ??
-            context.theme.colors.focus);
+    function paletteColor(context, index, count) {
+        return categoricalColor(context.theme, index, count);
     }
     function textNode$1(context, id, x, y, text, options = {}) {
         return {
@@ -12345,8 +12777,9 @@ var Graflume = (function (exports) {
                 x: center - (amount / maxDensity) * width * 0.5,
                 y: yScale.map(value),
             }));
-            const fill = layer.mark.fill ?? colorWithOpacity(paletteColor(context, groupIndex), 0.28);
-            const stroke = layer.mark.stroke ?? paletteColor(context, groupIndex);
+            const color = paletteColor(context, groupIndex, violins.length);
+            const fill = layer.mark.fill ?? colorWithOpacity(color, 0.28);
+            const stroke = layer.mark.stroke ?? color;
             const representative = violin.rows[0] ?? 0;
             const median = exactMedianInPlace(violin.values);
             nodes.push({
@@ -12365,7 +12798,7 @@ var Graflume = (function (exports) {
                 fill,
                 stroke,
                 lineWidth: layer.mark.lineWidth ?? 1.8,
-                lineJoin: 'round',
+                lineJoin: theme.mark.lineJoin ?? 'round',
             });
             nodes.push({
                 type: 'line',
@@ -12376,7 +12809,7 @@ var Graflume = (function (exports) {
                 y2: yScale.map(median),
                 stroke: mixColor$1(stroke, theme.colors.text, 0.25),
                 lineWidth: 2.2,
-                lineCap: 'round',
+                lineCap: theme.mark.lineCap ?? 'round',
             });
         });
         return nodes;
@@ -12442,8 +12875,7 @@ var Graflume = (function (exports) {
                 const top = yScale.map(yEnd);
                 const bottom = yScale.map(yStart);
                 const ratio = count / maximum;
-                const palette = theme.colors.sequential;
-                const fill = layer.mark.fill ?? palette[Math.round(ratio * (palette.length - 1))] ?? theme.colors.focus;
+                const fill = layer.mark.fill ?? mappedContinuousColor(theme, ratio);
                 const rowIndex = Math.max(0, rows[yBin]?.[xBin] ?? 0);
                 const centerRow = centerPoints[yBin];
                 if (centerRow !== undefined) {
@@ -12478,10 +12910,7 @@ var Graflume = (function (exports) {
             const levels = Array.from({ length: levelCount }, (_, index) => ((index + 1) / (levelCount + 1)) * maximum);
             contourSegments(counts, centerPoints, levels, Math.floor(context.performance.maxLinePoints / 2)).forEach((segment, index) => {
                 const ratio = segment.levelIndex / Math.max(1, levelCount - 1);
-                const palette = theme.colors.sequential;
-                const stroke = layer.mark.stroke ??
-                    palette[Math.round(ratio * (palette.length - 1))] ??
-                    theme.colors.focus;
+                const stroke = layer.mark.stroke ?? mappedContinuousColor(theme, ratio);
                 nodes.push({
                     type: 'path',
                     ...datumBase(context, `${layer.id}:histogram-2d-contour:${segment.levelIndex}:${index}`, 0, 1, {
@@ -12496,8 +12925,8 @@ var Graflume = (function (exports) {
                     closed: false,
                     stroke,
                     lineWidth: layer.mark.lineWidth ?? 1.8,
-                    lineCap: 'round',
-                    lineJoin: 'round',
+                    lineCap: theme.mark.lineCap ?? 'round',
+                    lineJoin: theme.mark.lineJoin ?? 'round',
                 });
             });
         }
@@ -12634,7 +13063,7 @@ var Graflume = (function (exports) {
             const rows = mode === 'line' || mode === 'area'
                 ? sampledLineItems(availableRows, seriesBudget, ({ value }) => value)
                 : sampledItems(availableRows, seriesBudget);
-            const color = layer.mark.stroke ?? paletteColor(context, seriesIndex);
+            const color = layer.mark.stroke ?? paletteColor(context, seriesIndex, series.length);
             if (mode === 'bar') {
                 const barSpan = optionNumber$2(layer.mark.options, 'barAngle', TAU / Math.max(16, rows.length * 2));
                 const boundedBarSpan = clamp$1(barSpan, 0.000001, TAU);
@@ -12665,8 +13094,8 @@ var Graflume = (function (exports) {
                     ...(mode === 'area' ? { fill: layer.mark.fill ?? colorWithOpacity(color, 0.18) } : {}),
                     stroke: color,
                     lineWidth: layer.mark.lineWidth ?? 2,
-                    lineCap: 'round',
-                    lineJoin: 'round',
+                    lineCap: theme.mark.lineCap ?? 'round',
+                    lineJoin: theme.mark.lineJoin ?? 'round',
                 });
             }
             rows.forEach((row) => {
@@ -12779,7 +13208,7 @@ var Graflume = (function (exports) {
             const points = mode === 'line'
                 ? sampledLineItems(available, seriesBudget, ({ component }) => component)
                 : sampledItems(available, seriesBudget);
-            const color = layer.mark.stroke ?? paletteColor(context, seriesIndex);
+            const color = layer.mark.stroke ?? paletteColor(context, seriesIndex, seriesValues.length);
             if (mode === 'line' && points.length > 1)
                 nodes.push({
                     type: 'path',
@@ -12788,8 +13217,8 @@ var Graflume = (function (exports) {
                     closed: layer.mark.options.closed === true,
                     stroke: color,
                     lineWidth: layer.mark.lineWidth ?? 2,
-                    lineCap: 'round',
-                    lineJoin: 'round',
+                    lineCap: theme.mark.lineCap ?? 'round',
+                    lineJoin: theme.mark.lineJoin ?? 'round',
                 });
             points.forEach(({ point, rowIndex }) => nodes.push({
                 type: 'circle',
@@ -12900,7 +13329,7 @@ var Graflume = (function (exports) {
             const points = mode === 'scatter'
                 ? sampledItems(available, seriesBudget)
                 : sampledLineItems(available, seriesBudget, ({ magnitude }) => magnitude);
-            const color = layer.mark.stroke ?? paletteColor(context, seriesIndex);
+            const color = layer.mark.stroke ?? paletteColor(context, seriesIndex, series.length);
             if (mode !== 'scatter' && points.length > 1)
                 nodes.push({
                     type: 'path',
@@ -12909,8 +13338,8 @@ var Graflume = (function (exports) {
                     closed: false,
                     stroke: color,
                     lineWidth: layer.mark.lineWidth ?? 2,
-                    lineCap: 'round',
-                    lineJoin: 'round',
+                    lineCap: theme.mark.lineCap ?? 'round',
+                    lineJoin: theme.mark.lineJoin ?? 'round',
                 });
             points.forEach(({ point, rowIndex }) => nodes.push({
                 type: 'circle',
@@ -13035,7 +13464,8 @@ var Graflume = (function (exports) {
                         cx: mapCell(xValue, xDimension, x + 3, width - 6),
                         cy: y + height - 3 - mapCell(yValue, yDimension, 0, height - 6),
                         radius: clamp$1(layer.mark.radius ?? 2.2, 1, 6),
-                        fill: layer.mark.fill ?? colorWithOpacity(paletteColor(context, colorIndex), 0.72),
+                        fill: layer.mark.fill ??
+                            colorWithOpacity(paletteColor(context, colorIndex, Math.max(1, colorKeys.length)), 0.72),
                         stroke: theme.colors.background,
                         lineWidth: 0.5,
                     });
@@ -13179,10 +13609,7 @@ var Graflume = (function (exports) {
                 const levels = Array.from({ length: levelCount }, (_, index) => valueMinimum + ((index + 1) / (levelCount + 1)) * (valueMaximum - valueMinimum || 1));
                 contourSegments(gridValues, gridPoints, levels, maximumSegments).forEach((segment, index) => {
                     const ratio = segment.levelIndex / Math.max(1, levelCount - 1);
-                    const palette = theme.colors.sequential;
-                    const stroke = layer.mark.stroke ??
-                        palette[Math.round(ratio * (palette.length - 1))] ??
-                        theme.colors.focus;
+                    const stroke = layer.mark.stroke ?? mappedContinuousColor(theme, ratio);
                     nodes.push({
                         type: 'path',
                         ...datumBase(context, `${layer.id}:carpet-contour:${segment.levelIndex}:${index}`, data[0]?.rowIndex ?? 0, 2, {
@@ -13196,8 +13623,8 @@ var Graflume = (function (exports) {
                         closed: false,
                         stroke,
                         lineWidth: layer.mark.lineWidth ?? 1.8,
-                        lineCap: 'round',
-                        lineJoin: 'round',
+                        lineCap: theme.mark.lineCap ?? 'round',
+                        lineJoin: theme.mark.lineJoin ?? 'round',
                     });
                 });
             }
@@ -16380,7 +16807,7 @@ var Graflume = (function (exports) {
         values.forEach((item, index) => {
             const next = angle + (item.value / total) * Math.PI * 2;
             const mid = (angle + next) / 2;
-            const fill = theme.colors.palette[index % theme.colors.palette.length] ?? theme.colors.focus;
+            const fill = layer.mark.fill ?? categoricalColor(theme, index, values.length);
             const wedge = {
                 type: 'path',
                 ...nodeBase(`${layer.id}:slice:${item.rowIndex}`, {
@@ -16535,9 +16962,7 @@ var Graflume = (function (exports) {
             const trackWidth = Math.max(24, plot.x + plot.width - trackX - 12);
             const cy = plot.y + slotHeight * (outputIndex + 0.5);
             const trackHeight = Math.max(12, Math.min(28, slotHeight * 0.48));
-            const fill = layer.mark.fill ??
-                theme.colors.palette[rowIndex % theme.colors.palette.length] ??
-                theme.colors.focus;
+            const fill = layer.mark.fill ?? categoricalColor(theme, rowIndex, table.length);
             nodes.push({
                 type: 'rect',
                 ...nodeBase(`${layer.id}:gauge-bullet-track:${rowIndex}`, { zIndex: layer.zIndex }),
@@ -16621,9 +17046,7 @@ var Graflume = (function (exports) {
             const cx = plot.x + slotWidth * (rowIndex + 0.5);
             const cy = plot.y + plot.height * 0.62;
             const inner = radius * 0.7;
-            const fill = layer.mark.fill ??
-                theme.colors.palette[rowIndex % theme.colors.palette.length] ??
-                theme.colors.focus;
+            const fill = layer.mark.fill ?? categoricalColor(theme, rowIndex, table.length);
             nodes.push({
                 type: 'path',
                 ...nodeBase(`${layer.id}:gauge-background:${rowIndex}`, { zIndex: layer.zIndex }),
@@ -16783,7 +17206,7 @@ var Graflume = (function (exports) {
                 y: originY + weekday * (cell + gap),
                 width: cell,
                 height: cell,
-                fill: mixColor$1(theme.colors.sequential[0] ?? '#eff6ff', theme.colors.sequential.at(-1) ?? '#1e3a8a', ratio),
+                fill: layer.mark.fill ?? mappedContinuousColor(theme, ratio, 'endpoints'),
                 stroke: theme.colors.background,
                 lineWidth: 0.5,
                 cornerRadius: Math.min(2, cell * 0.15),
@@ -16810,11 +17233,9 @@ var Graflume = (function (exports) {
         const mode = optionString(layer.mark.options, 'mode') ?? 'bubble';
         for (const { rowIndex, value, country } of rows) {
             const ratio = maximum === minimum ? 0.6 : (value - minimum) / (maximum - minimum);
-            const fill = layer.mark.fill ?? theme.colors.focus;
+            const fill = layer.mark.fill ?? theme.mark.pointFill ?? theme.mark.defaultColor ?? theme.colors.focus;
             if (mode === 'choropleth') {
-                const start = theme.colors.sequential[0] ?? colorWithOpacity(fill, 0.18);
-                const end = theme.colors.sequential.at(-1) ?? fill;
-                nodes.push(...worldCountryOverlayNodes(context, country, rowIndex, mixColor$1(start, end, ratio)));
+                nodes.push(...worldCountryOverlayNodes(context, country, rowIndex, layer.mark.fill ?? mappedContinuousColor(theme, ratio, 'endpoints')));
                 continue;
             }
             const point = projectGeographicPosition(plot, country[5], country[6]);
@@ -17013,7 +17434,7 @@ var Graflume = (function (exports) {
                 y: position.y - nodeHeight / 2 + 1,
                 width: nodeWidth - 2,
                 height: 4,
-                fill: theme.colors.palette[depth % theme.colors.palette.length] ?? theme.colors.focus,
+                fill: categoricalColor(theme, depth, maxDepth + 1),
                 lineWidth: 0,
                 cornerRadius: 4,
             });
@@ -17113,7 +17534,7 @@ var Graflume = (function (exports) {
                 }),
                 points: sankeyBandPoints(plot.x + nodeWidth, sy, sourceHeight, plot.x + plot.width - nodeWidth, ty, targetHeight),
                 closed: true,
-                fill: theme.colors.palette[index % theme.colors.palette.length] ?? theme.colors.focus,
+                fill: layer.mark.fill ?? categoricalColor(theme, index, edges.length),
                 lineWidth: 0,
                 lineJoin: 'round',
             });
@@ -17129,7 +17550,7 @@ var Graflume = (function (exports) {
                 y: item.y,
                 width: nodeWidth,
                 height: item.height,
-                fill: theme.colors.palette[index % theme.colors.palette.length] ?? theme.colors.focus,
+                fill: layer.mark.fill ?? categoricalColor(theme, index, sources.length + targets.length),
                 lineWidth: 0,
                 cornerRadius: 4,
             });
@@ -17146,8 +17567,8 @@ var Graflume = (function (exports) {
                 y: item.y,
                 width: nodeWidth,
                 height: item.height,
-                fill: theme.colors.palette[(sources.length + index) % theme.colors.palette.length] ??
-                    theme.colors.focus,
+                fill: layer.mark.fill ??
+                    categoricalColor(theme, sources.length + index, sources.length + targets.length),
                 lineWidth: 0,
                 cornerRadius: 4,
             });
@@ -17225,7 +17646,7 @@ var Graflume = (function (exports) {
             const y = yScale.map(row);
             if (![x1, x2, y].every(Number.isFinite))
                 continue;
-            const fill = theme.colors.palette[rowIndex % theme.colors.palette.length] ?? theme.colors.focus;
+            const fill = categoricalColor(theme, rowIndex, table.length);
             nodes.push({
                 type: 'rect',
                 ...nodeBase(`${layer.id}:${gantt ? 'task' : 'interval'}:${rowIndex}`, {
@@ -17426,7 +17847,7 @@ var Graflume = (function (exports) {
             const gap = Math.min(1.5, levelHeight * 0.12, width * 0.02);
             const y = plot.y + level * levelHeight;
             const fill = layer.mark.fill ??
-                mixColor$1(theme.colors.palette[colorIndex % theme.colors.palette.length] ?? theme.colors.focus, theme.colors.background, Math.min(0.5, level * 0.1));
+                mixColor$1(categoricalColor(theme, colorIndex, items.length), theme.colors.background, Math.min(0.5, level * 0.1));
             nodes.push({
                 type: 'rect',
                 ...nodeBase(`${layer.id}:icicle:${node.rowIndex}`, {
@@ -17548,7 +17969,7 @@ var Graflume = (function (exports) {
         const nodes = [];
         const tiles = layoutTreemap(items, plot);
         tiles.forEach((item, index) => {
-            const base = theme.colors.palette[index % theme.colors.palette.length] ?? theme.colors.focus;
+            const base = categoricalColor(theme, index, tiles.length);
             const fill = mixColor$1(base, theme.colors.background, theme.mode === 'dark' ? 0.06 : 0.02);
             const gap = 2;
             const x = item.x + gap;
@@ -17639,8 +18060,7 @@ var Graflume = (function (exports) {
             const label = textNode(`${layer.id}:word:${item.rowIndex}`, position.x, position.y, item.id, context, {
                 size: fontSize,
                 weight: 650,
-                fill: theme.colors.palette[(depths.get(item.id) ?? 0) % theme.colors.palette.length] ??
-                    theme.colors.focus,
+                fill: categoricalColor(theme, depths.get(item.id) ?? 0, maxDepth + 1),
             });
             Object.assign(label, {
                 interactive: performance.enableHitTesting,
@@ -17885,80 +18305,12 @@ var Graflume = (function (exports) {
 
     const pluginApiVersion = '0.1';
 
-    const palette = [
-        '#4f46e5',
-        '#0f9f8a',
-        '#f59e0b',
-        '#e05260',
-        '#7c3aed',
-        '#0e7490',
-        '#db2777',
-        '#65a30d',
-        '#475569',
-        '#ea580c',
-    ];
-    const graflumeLight = {
-        name: 'graflume-light',
-        mode: 'light',
-        colors: {
-            background: '#ffffff',
-            surface: '#f8fafc',
-            text: '#0f172a',
-            mutedText: '#64748b',
-            axis: '#cbd5e1',
-            grid: '#e8eef6',
-            focus: '#4f46e5',
-            palette,
-            sequential: ['#eef2ff', '#c7d2fe', '#818cf8', '#4f46e5', '#312e81'],
-            diverging: ['#b42318', '#f79084', '#f8fafc', '#84adff', '#3448c5'],
-        },
-        typography: {
-            fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-            fontSize: 12,
-            titleSize: 20,
-            subtitleSize: 12,
-            lineHeight: 1.45,
-        },
-        spacing: { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 },
-        axis: { lineWidth: 1, tickLength: 0, labelPadding: 9, gridLineWidth: 1 },
-        mark: { lineWidth: 2.5, pointRadius: 4.5, barRadius: 5, opacity: 1 },
-        motion: { duration: 280, easing: 'ease-out' },
-    };
-    const graflumeDark = {
-        ...graflumeLight,
-        name: 'graflume-dark',
-        mode: 'dark',
-        colors: {
-            ...graflumeLight.colors,
-            background: '#0b1020',
-            surface: '#111827',
-            text: '#f8fafc',
-            mutedText: '#a7b2c5',
-            axis: '#475569',
-            grid: '#25314a',
-            focus: '#818cf8',
-            palette: [
-                '#818cf8',
-                '#2dd4bf',
-                '#fbbf24',
-                '#fb7185',
-                '#a78bfa',
-                '#22d3ee',
-                '#f472b6',
-                '#a3e635',
-                '#94a3b8',
-                '#fb923c',
-            ],
-            sequential: ['#1e293b', '#3730a3', '#6366f1', '#a5b4fc', '#eef2ff'],
-            diverging: ['#fb7185', '#be123c', '#334155', '#4f46e5', '#a5b4fc'],
-        },
-    };
-
     class ThemeRegistry {
         #themes = new Map();
         constructor() {
             this.register(graflumeLight);
             this.register(graflumeDark);
+            this.register(graflumeGgplot);
         }
         register(theme) {
             if (theme.name.trim() === '') {
@@ -18727,6 +19079,7 @@ var Graflume = (function (exports) {
     exports.geo = geo;
     exports.geoHeatmap = geoHeatmap;
     exports.graflumeDark = graflumeDark;
+    exports.graflumeGgplot = graflumeGgplot;
     exports.graflumeLight = graflumeLight;
     exports.graph = graph;
     exports.heatmap = heatmap;
