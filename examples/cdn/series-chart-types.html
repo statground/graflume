@@ -181,7 +181,7 @@
           <select id="category" aria-label="카테고리 필터">
             <option value="all">전체 카테고리</option>
           </select>
-          <button id="theme" type="button">다음 테마</button>
+          <select id="theme" aria-label="차트 테마"></select>
         </div>
       </header>
       <p id="status" role="status">전문 시리즈를 렌더링하고 있습니다…</p>
@@ -1256,17 +1256,18 @@
       }
       const gallery = document.querySelector('#gallery');
       const status = document.querySelector('#status');
-      const themeButton = document.querySelector('#theme');
+      const themeSelect = document.querySelector('#theme');
       const categorySelect = document.querySelector('#category');
       let charts = [];
-      let themeCycle = [];
-      let themeIndex = 0;
-      const updateThemeControl = () => {
-        const current = themeCycle[themeIndex];
-        const next = themeCycle[(themeIndex + 1) % themeCycle.length];
+      let themeCatalog = [];
+      let currentThemeId = '';
+
+      const applyThemeShell = () => {
+        const current = themeCatalog.find(({ id }) => id === currentThemeId) ?? themeCatalog[0];
+        if (!current) throw new Error('Graflume did not expose a built-in theme.');
+        currentThemeId = current.id;
         document.documentElement.dataset.theme = current.tokens.mode;
-        themeButton.textContent = `${next.id} 테마`;
-        themeButton.setAttribute('aria-label', `${next.id} 테마로 전환`);
+        themeSelect.value = currentThemeId;
       };
 
       [...new Set(definitions.map(({ category }) => category))].sort().forEach((category) => {
@@ -1308,7 +1309,7 @@
             Graflume.create('#chart-' + definition.id, {
               ...spec,
               height: 300,
-              theme: themeCycle[themeIndex].id,
+              theme: currentThemeId,
             }),
           );
           if (index % 8 === 7) await new Promise((resolve) => requestAnimationFrame(resolve));
@@ -1318,11 +1319,24 @@
 
       try {
         if (!window.Graflume) throw new Error('Graflume complete browser bundle was not loaded.');
-        themeCycle = Array.from(Graflume.builtInThemeCatalog);
-        updateThemeControl();
-        themeButton.addEventListener('click', () => {
-          themeIndex = (themeIndex + 1) % themeCycle.length;
-          updateThemeControl();
+        themeCatalog = Array.from(Graflume.builtInThemeCatalog);
+        if (themeCatalog.length === 0) throw new Error('Graflume did not expose a built-in theme.');
+        const runtimeDefaultThemeId = Graflume.defaultThemeId;
+        currentThemeId = themeCatalog.some(({ id }) => id === runtimeDefaultThemeId)
+          ? runtimeDefaultThemeId
+          : themeCatalog[0].id;
+        themeSelect.replaceChildren(
+          ...themeCatalog.map(({ id }) => {
+            const option = document.createElement('option');
+            option.value = id;
+            option.textContent = id;
+            return option;
+          }),
+        );
+        applyThemeShell();
+        themeSelect.addEventListener('change', () => {
+          currentThemeId = themeSelect.value;
+          applyThemeShell();
           render();
         });
         categorySelect.addEventListener('change', render);

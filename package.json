@@ -75,6 +75,7 @@
     "build:size": "node ./scripts/check-bundle-size.mjs",
     "build": "npm run clean && npm run build:types && npm run build:bundle && npm run build:minify && npm run build:static && npm run build:size && npm run build:verify",
     "docs:guides": "npm run build:bundle && node ./scripts/generate-consolidated-family-guides.mjs && node ./scripts/generate-series-gallery.mjs",
+    "docs:series-gallery:check": "node ./scripts/generate-series-gallery.mjs --check",
     "docs:snapshots": "npm run build:bundle && node ./scripts/render-chart-guide-snapshots.mjs && node ./scripts/render-additional-chart-snapshots.mjs && node ./scripts/render-series-chart-snapshots.mjs",
     "docs:spatial:snapshots": "npm run build:bundle && node ./scripts/render-spatial-snapshots.mjs",
     "docs:snapshots:check": "npm run build:bundle && node ./scripts/render-chart-guide-snapshots.mjs --check && node ./scripts/render-additional-chart-snapshots.mjs --check && node ./scripts/render-series-chart-snapshots.mjs --check && node ./scripts/render-spatial-snapshots.mjs --check",
@@ -82,7 +83,7 @@
     "docs:theme-snapshots:check": "node ./scripts/render-toolbox-theme-snapshots.mjs --check",
     "docs:links": "node ./scripts/check-doc-links.mjs",
     "geography:update": "node ./scripts/generate-natural-earth-world.mjs",
-    "check": "npm run naming:check && npm run typecheck && npm test && npm run build && npm run docs:snapshots:check && npm run docs:theme-snapshots:check && npm run docs:links && npm run format:check && npm run package:check",
+    "check": "npm run naming:check && npm run typecheck && npm test && npm run build && npm run docs:series-gallery:check && npm run docs:snapshots:check && npm run docs:theme-snapshots:check && npm run docs:links && npm run format:check && npm run package:check",
     "build:verify": "node ./scripts/check-built-bundles.mjs",
     "naming:check": "node ./scripts/check-neutral-naming.mjs",
     "package:check": "npm pack --dry-run"

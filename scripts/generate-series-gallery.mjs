@@ -2,8 +2,18 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { format, resolveConfig } from 'prettier';
 
-import { seriesChartTypeCatalog, seriesChartVariantCatalog } from '../dist/graflume.complete.js';
+import {
+  builtInThemeCatalog,
+  defaultThemeId,
+  seriesChartTypeCatalog,
+  seriesChartVariantCatalog,
+} from '../dist/graflume.complete.js';
 import { seriesSampleRuntimeSource } from './series-samples.mjs';
+
+const defaultTheme = builtInThemeCatalog.find(({ id }) => id === defaultThemeId);
+if (builtInThemeCatalog.length === 0 || defaultTheme === undefined) {
+  throw new Error('The built-in theme catalog must contain its declared default theme.');
+}
 
 const definitions = seriesChartTypeCatalog.map((entry) => ({
   ...entry,
@@ -24,9 +34,10 @@ const cdnSource =
   currentSource ??
   'https://cdn.jsdelivr.net/gh/statground/graflume@__GRAFLUME_CDN_COMMIT__/cdn/graflume.complete.global.js';
 const cdnIntegrity = currentIntegrity ?? '__GRAFLUME_COMPLETE_CDN_SRI__';
+const checkOnly = process.argv.includes('--check');
 
 const html = `<!doctype html>
-<html lang="ko" data-theme="light">
+<html lang="ko" data-theme="${defaultTheme.tokens.mode}">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -73,7 +84,7 @@ const html = `<!doctype html>
         </div>
         <div class="controls">
           <select id="category" aria-label="카테고리 필터"><option value="all">전체 카테고리</option></select>
-          <button id="theme" type="button">어두운 테마</button>
+          <select id="theme" aria-label="차트 테마"></select>
         </div>
       </header>
       <p id="status" role="status">전문 시리즈를 렌더링하고 있습니다…</p>
@@ -91,10 +102,20 @@ const html = `<!doctype html>
       ${seriesSampleRuntimeSource()}
       const gallery = document.querySelector('#gallery');
       const status = document.querySelector('#status');
-      const themeButton = document.querySelector('#theme');
+      const themeSelect = document.querySelector('#theme');
       const categorySelect = document.querySelector('#category');
       let charts = [];
-      let dark = false;
+      let themeCatalog = [];
+      let currentThemeId = '';
+
+      const applyThemeShell = () => {
+        const current =
+          themeCatalog.find(({ id }) => id === currentThemeId) ?? themeCatalog[0];
+        if (!current) throw new Error('Graflume did not expose a built-in theme.');
+        currentThemeId = current.id;
+        document.documentElement.dataset.theme = current.tokens.mode;
+        themeSelect.value = currentThemeId;
+      };
 
       [...new Set(definitions.map(({ category }) => category))].sort().forEach((category) => {
         const option = document.createElement('option');
@@ -121,23 +142,36 @@ const html = `<!doctype html>
           charts.push(Graflume.create('#chart-' + definition.id, {
             ...spec,
             height: 300,
-            theme: dark ? 'graflume-dark' : 'graflume-light',
+            theme: currentThemeId,
           }));
           if (index % 8 === 7) await new Promise((resolve) => requestAnimationFrame(resolve));
         }
         status.textContent = visible.length + '개 차트 렌더링이 완료되었습니다.';
       };
 
-      themeButton.addEventListener('click', () => {
-        dark = !dark;
-        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
-        themeButton.textContent = dark ? '밝은 테마' : '어두운 테마';
-        render();
-      });
-      categorySelect.addEventListener('change', render);
-
       try {
         if (!window.Graflume) throw new Error('Graflume complete browser bundle was not loaded.');
+        themeCatalog = Array.from(Graflume.builtInThemeCatalog);
+        if (themeCatalog.length === 0) throw new Error('Graflume did not expose a built-in theme.');
+        const runtimeDefaultThemeId = Graflume.defaultThemeId;
+        currentThemeId = themeCatalog.some(({ id }) => id === runtimeDefaultThemeId)
+          ? runtimeDefaultThemeId
+          : themeCatalog[0].id;
+        themeSelect.replaceChildren(
+          ...themeCatalog.map(({ id }) => {
+            const option = document.createElement('option');
+            option.value = id;
+            option.textContent = id;
+            return option;
+          }),
+        );
+        applyThemeShell();
+        themeSelect.addEventListener('change', () => {
+          currentThemeId = themeSelect.value;
+          applyThemeShell();
+          render();
+        });
+        categorySelect.addEventListener('change', render);
         render();
       } catch (error) {
         status.classList.add('error');
@@ -149,5 +183,14 @@ const html = `<!doctype html>
 </html>
 `;
 
-await writeFile(outputUrl, await format(html, { ...prettierConfig, parser: 'html' }), 'utf8');
-console.log(`Generated live gallery for ${definitions.length} consolidated specialized families.`);
+const formattedHtml = await format(html, { ...prettierConfig, parser: 'html' });
+if (checkOnly) {
+  if (currentOutput !== formattedHtml) {
+    throw new Error('Series gallery is stale; run npm run docs:guides and commit the result.');
+  }
+} else {
+  await writeFile(outputUrl, formattedHtml, 'utf8');
+}
+console.log(
+  `${checkOnly ? 'Verified' : 'Generated'} live gallery for ${definitions.length} consolidated specialized families from ${builtInThemeCatalog.length} built-in themes.`,
+);
