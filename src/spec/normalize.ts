@@ -1,5 +1,5 @@
 import { specVersion } from '../version.js';
-import { graflumeGgplot } from '../theme/defaults.js';
+import { builtInTheme, defaultThemeId } from '../theme/defaults.js';
 import type { ThemeTokens } from '../theme/types.js';
 import { assertValidSpec } from './validate.js';
 import type {
@@ -69,18 +69,23 @@ function normalizePadding(input: PaddingInput | undefined, theme?: ThemeTokens):
     return { top: input, right: input, bottom: input, left: input };
   }
   const themedMargin = theme?.spacing.plotMargin;
+  const themedPadding = theme?.spacing.plotPadding;
   return {
-    top: input?.top ?? themedMargin ?? 24,
-    right: input?.right ?? themedMargin ?? 24,
-    bottom: input?.bottom ?? themedMargin ?? 44,
-    left: input?.left ?? themedMargin ?? 56,
+    top: input?.top ?? themedPadding?.top ?? themedMargin ?? 24,
+    right: input?.right ?? themedPadding?.right ?? themedMargin ?? 24,
+    bottom: input?.bottom ?? themedPadding?.bottom ?? themedMargin ?? 44,
+    left: input?.left ?? themedPadding?.left ?? themedMargin ?? 56,
   };
 }
 
-function normalizeTitle(input: ChartSpec['title']): TitleSpec | undefined {
+function normalizeTitle(
+  input: ChartSpec['title'],
+  theme: ThemeTokens | undefined,
+): TitleSpec | undefined {
   if (input === undefined) return undefined;
-  if (typeof input === 'string') return { text: input, align: 'left' };
-  return { ...input, align: input.align ?? 'left' };
+  const align = theme?.typography.titleAlign ?? 'left';
+  if (typeof input === 'string') return { text: input, align };
+  return { ...input, align: input.align ?? align };
 }
 
 function humanizeField(field: string): string {
@@ -598,9 +603,10 @@ function normalizeLayer(
 export function normalizeSpec(input: ChartSpec, resolvedTheme?: ThemeTokens): NormalizedChartSpec {
   assertValidSpec(input);
 
-  // Keep the one-argument public normalizer backward compatible while allowing
-  // the built-in ggplot contract to be inspected without constructing a runtime.
-  const theme = resolvedTheme ?? (input.theme === 'ggplot' ? graflumeGgplot : undefined);
+  // Keep the one-argument public normalizer registry-driven so every built-in
+  // theme receives its structural defaults without constructing a runtime.
+  const theme =
+    resolvedTheme ?? (typeof input.theme === 'string' ? builtInTheme(input.theme) : undefined);
 
   const chartAxes = input.axes ?? {};
   const axes = {
@@ -625,7 +631,7 @@ export function normalizeSpec(input: ChartSpec, resolvedTheme?: ThemeTokens): No
     normalizeLayer(layer, index, input.data, chartAxes, theme),
   );
 
-  const title = normalizeTitle(input.title);
+  const title = normalizeTitle(input.title, theme);
 
   const normalized: NormalizedChartSpec = {
     specVersion,
@@ -635,7 +641,7 @@ export function normalizeSpec(input: ChartSpec, resolvedTheme?: ThemeTokens): No
     padding: normalizePadding(input.padding, theme),
     renderer: input.renderer ?? 'auto',
     performance: input.performance ?? 'auto',
-    theme: input.theme ?? 'graflume-light',
+    theme: input.theme ?? defaultThemeId,
     axes,
     legend: normalizeLegend(input.legend),
     highlights: (input.highlights ?? []).map((highlight) => ({

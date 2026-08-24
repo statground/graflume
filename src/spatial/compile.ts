@@ -4,6 +4,7 @@ import {
 } from '../geography/natural-earth-world-110m.generated.js';
 import { exactStrideSampleIndices } from '../data/sample.js';
 import { categoricalColor, continuousColor } from '../theme/color.js';
+import { defaultThemeId } from '../theme/defaults.js';
 import { ThemeRegistry } from '../theme/registry.js';
 import type { ThemeTokens } from '../theme/types.js';
 import {
@@ -161,7 +162,7 @@ function layerThemeColor(theme: ThemeTokens, layerIndex: number, layerCount: num
 }
 
 function usesLegacySpatialDefaults(theme: ThemeTokens): boolean {
-  return theme.name === 'graflume-light';
+  return theme.name === defaultThemeId;
 }
 
 function triangleNormals(positions: Float32Array, indices?: Uint32Array): Float32Array {
@@ -1431,7 +1432,7 @@ const builtInCompilers: Readonly<Record<string, SpatialMarkCompiler>> = {
 
 export function compileSpatial(spec: SpatialChartSpec): CompiledSpatialScene {
   assertValidSpatialSpec(spec);
-  const theme = new ThemeRegistry().resolve(spec.theme ?? 'graflume-light');
+  const theme = new ThemeRegistry().resolve(spec.theme ?? defaultThemeId);
   const geometries: CompiledSpatialGeometry[] = [];
   for (const [layerIndex, layer] of spec.layers.entries()) {
     const type = layer.mark.type.trim().toLowerCase();

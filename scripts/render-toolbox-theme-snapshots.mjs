@@ -1,7 +1,9 @@
 import { spawnSync } from 'node:child_process';
 
+import { builtInThemeCatalog } from '../dist/graflume.js';
+
 const checkOnly = process.argv.includes('--check');
-const themes = ['graflume-dark', 'ggplot'];
+const themes = builtInThemeCatalog.filter(({ snapshot }) => snapshot).map(({ id }) => id);
 const groups = [
   {
     script: 'render-chart-guide-snapshots.mjs',
@@ -79,4 +81,5 @@ for (const theme of themes) {
   }
 }
 
-console.log(`${checkOnly ? 'Verified' : 'Rendered'} 88 Toolbox theme snapshots.`);
+const snapshotCount = themes.length * groups.reduce((total, group) => total + group.only.length, 0);
+console.log(`${checkOnly ? 'Verified' : 'Rendered'} ${snapshotCount} Toolbox theme snapshots.`);

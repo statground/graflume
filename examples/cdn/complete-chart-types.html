@@ -182,7 +182,7 @@
             ChartSpec과 renderer-neutral Scene으로 실제 렌더링합니다.
           </p>
         </div>
-        <button id="theme" type="button">어두운 테마</button>
+        <button id="theme" type="button">다음 테마</button>
       </header>
       <p id="status" role="status">22개 차트를 렌더링하고 있습니다…</p>
       <section id="gallery" class="gallery" aria-label="Graflume 전체 차트 유형 갤러리"></section>
@@ -700,13 +700,9 @@
       const status = document.querySelector('#status');
       const themeButton = document.querySelector('#theme');
       const charts = [];
-      const themeCycle = [
-        { theme: 'graflume-light', page: 'light', nextLabel: '어두운 테마' },
-        { theme: 'graflume-dark', page: 'dark', nextLabel: 'ggplot 테마' },
-        { theme: 'ggplot', page: 'light', nextLabel: '밝은 테마' },
-      ];
+      let themeCycle = [];
       let themeIndex = 0;
-      let currentTheme = themeCycle[themeIndex].theme;
+      let currentTheme;
 
       for (const [id, title, api, summary] of visibleDefinitions) {
         const article = document.createElement('article');
@@ -725,6 +721,16 @@
           'Graflume CDN 파일을 불러오지 못했습니다. 인터넷 연결 또는 CSP를 확인하세요.';
         themeButton.disabled = true;
       } else {
+        themeCycle = Array.from(Graflume.builtInThemeCatalog);
+        currentTheme = themeCycle[themeIndex].id;
+        const updateThemeControl = () => {
+          const current = themeCycle[themeIndex];
+          const next = themeCycle[(themeIndex + 1) % themeCycle.length];
+          document.documentElement.dataset.theme = current.tokens.mode;
+          themeButton.textContent = `${next.id} 테마`;
+          themeButton.setAttribute('aria-label', `${next.id} 테마로 전환`);
+        };
+        updateThemeControl();
         try {
           visibleDefinitions.forEach(([id, title, , , spec]) => {
             const chart = Graflume.create(`#chart-${id}`, { ...spec, theme: currentTheme, title });
@@ -735,15 +741,13 @@
           status.className = 'error';
           status.textContent = `렌더링 오류: ${error instanceof Error ? error.message : String(error)}`;
         }
+        themeButton.addEventListener('click', () => {
+          themeIndex = (themeIndex + 1) % themeCycle.length;
+          currentTheme = themeCycle[themeIndex].id;
+          updateThemeControl();
+          charts.forEach((chart) => chart.setSpec({ ...chart.getSpec(), theme: currentTheme }));
+        });
       }
-
-      themeButton.addEventListener('click', () => {
-        themeIndex = (themeIndex + 1) % themeCycle.length;
-        currentTheme = themeCycle[themeIndex].theme;
-        document.documentElement.dataset.theme = themeCycle[themeIndex].page;
-        themeButton.textContent = themeCycle[themeIndex].nextLabel;
-        charts.forEach((chart) => chart.setSpec({ ...chart.getSpec(), theme: currentTheme }));
-      });
 
       window.addEventListener('beforeunload', () => charts.forEach((chart) => chart.destroy()), {
         once: true,

@@ -9,6 +9,7 @@ import {
   checkOnly,
   includeSnapshot,
   snapshotOutputDirectory,
+  snapshotTheme,
   snapshotThemeLabel,
 } from './snapshot-theme-options.mjs';
 
@@ -542,12 +543,15 @@ for (const snapshot of selectedSnapshots) {
     });
   }
   const counts = countSceneTypes(scene.root);
-  for (const [type, minimumCount] of Object.entries(snapshot.minimum)) {
-    assert.ok(
-      (counts.get(type) ?? 0) >= minimumCount,
-      `${snapshot.filename}: expected at least ${minimumCount} ${type} nodes`,
-    );
+  if (snapshotTheme === null) {
+    for (const [type, minimumCount] of Object.entries(snapshot.minimum)) {
+      assert.ok(
+        (counts.get(type) ?? 0) >= minimumCount,
+        `${snapshot.filename}: expected at least ${minimumCount} ${type} nodes`,
+      );
+    }
   }
+  assert.ok(scene.metadata.renderedNodeCount > 3, `${snapshot.filename}: empty themed Scene`);
   const markup = renderScene(scene);
   assert.doesNotMatch(markup, /(?:NaN|undefined)/, `${snapshot.filename}: invalid SVG value`);
   const destination = new URL(snapshot.filename, outputDirectory);

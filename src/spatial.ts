@@ -24,6 +24,14 @@ import type {
 import type { ChartSpec } from './spec/types.js';
 export { assertValidSpatialSpec, validateSpatialSpec } from './spatial/validate.js';
 export type { SpatialSpecIssue } from './spatial/validate.js';
+export {
+  builtInThemeCatalog,
+  defaultThemeId,
+  graflumeDark,
+  graflumeGgplot,
+  graflumeLight,
+  graflumeRBase,
+} from './theme/defaults.js';
 export { spatialOutputLimits } from './spatial/budget.js';
 export {
   spatialCatalogBoundary,

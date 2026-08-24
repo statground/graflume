@@ -98,7 +98,12 @@ export const compilePieMark: MarkCompiler = (context) => {
   values.forEach((item, index) => {
     const next = angle + (item.value / total) * Math.PI * 2;
     const mid = (angle + next) / 2;
-    const fill = layer.mark.fill ?? categoricalColor(theme, index, values.length);
+    const piePalette = theme.mark.piePalette;
+    const fill =
+      layer.mark.fill ??
+      (piePalette === undefined || piePalette.length === 0
+        ? categoricalColor(theme, index, values.length)
+        : (piePalette[index % piePalette.length] ?? categoricalColor(theme, index, values.length)));
     const wedge: PathNode = {
       type: 'path',
       ...nodeBase(`${layer.id}:slice:${item.rowIndex}`, {
@@ -110,8 +115,8 @@ export const compilePieMark: MarkCompiler = (context) => {
       points: arcPoints(cx, cy, radius, angle, next, innerRadius),
       closed: true,
       fill,
-      stroke: layer.mark.stroke ?? theme.colors.background,
-      lineWidth: layer.mark.lineWidth ?? 2,
+      stroke: layer.mark.stroke ?? theme.mark.pieStroke ?? theme.colors.background,
+      lineWidth: layer.mark.lineWidth ?? theme.mark.pieStrokeWidth ?? 2,
     };
     nodes.push(wedge);
     const share = item.value / total;

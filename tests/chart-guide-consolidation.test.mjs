@@ -2,7 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { access, readdir, readFile } from 'node:fs/promises';
 
-import { compile, fullCatalog, fullVariantCatalog } from '../.tmp/src/complete.js';
+import {
+  builtInThemeCatalog,
+  compile,
+  fullCatalog,
+  fullVariantCatalog,
+} from '../.tmp/src/complete.js';
 import { seriesSampleSpec } from '../scripts/series-samples.mjs';
 
 const chartDirectory = new URL('../docs/charts/', import.meta.url);
@@ -231,18 +236,20 @@ test('every documented type example compiles through the shared Scene pipeline',
   }
 });
 
-test('the ggplot theme compiles every documented Canvas preset', () => {
-  for (const variant of fullVariantCatalog) {
-    const { scene, theme } = compile(
-      { ...seriesSampleSpec(variant), theme: 'ggplot' },
-      { width: 640, height: 400 },
-    );
-    assert.equal(theme.name, 'ggplot', `${variant.id} resolves the built-in theme`);
-    assert.ok(scene.metadata.renderedNodeCount > 3, `${variant.id} renders themed Scene nodes`);
-    assert.equal(
-      scene.background.toLowerCase(),
-      '#ffffff',
-      `${variant.id} keeps the ggplot plot background`,
-    );
+test('every built-in theme compiles every documented Canvas preset', () => {
+  for (const { id } of builtInThemeCatalog) {
+    for (const variant of fullVariantCatalog) {
+      const { scene, theme } = compile(
+        { ...seriesSampleSpec(variant), theme: id },
+        { width: 640, height: 400 },
+      );
+      assert.equal(theme.name, id, `${variant.id} resolves ${id}`);
+      assert.ok(scene.metadata.renderedNodeCount > 3, `${variant.id} renders ${id} Scene nodes`);
+      assert.equal(
+        scene.background.toLowerCase(),
+        theme.colors.background.toLowerCase(),
+        `${variant.id} keeps the ${id} plot background`,
+      );
+    }
   }
 });

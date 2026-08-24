@@ -187,3 +187,155 @@ export const graflumeGgplot: ThemeTokens = {
   },
   motion: { duration: 280, easing: 'ease-out' },
 };
+
+/**
+ * R 4.6.1 base graphics defaults mapped to the browser reference density of
+ * 96 dpi. Device-specific font discovery and rasterisation remain outside the
+ * portable theme contract.
+ */
+export const graflumeRBase: ThemeTokens = {
+  name: 'r-base',
+  mode: 'light',
+  colors: {
+    background: '#FFFFFF',
+    surface: '#FFFFFF',
+    panel: '#FFFFFF',
+    text: '#000000',
+    mutedText: '#000000',
+    subtitle: '#000000',
+    axisTitle: '#000000',
+    axis: '#000000',
+    grid: '#D9D9D9',
+    focus: '#2297E6',
+    palette: [
+      '#000000',
+      '#DF536B',
+      '#61D04F',
+      '#2297E6',
+      '#28E2E5',
+      '#CD0BBC',
+      '#F5C710',
+      '#9E9E9E',
+    ],
+    sequential: ['#FFFFCC', '#FED976', '#FD8D3C', '#E31A1C', '#800026'],
+    diverging: ['#2166AC', '#67A9CF', '#F7F7F7', '#EF8A62', '#B2182B'],
+  },
+  typography: {
+    fontFamily: 'Helvetica, Arial, sans-serif',
+    fontSize: 12 * pointToCssPixel,
+    fontWeight: 400,
+    titleSize: 14.4 * pointToCssPixel,
+    titleWeight: 700,
+    subtitleSize: 12 * pointToCssPixel,
+    subtitleWeight: 400,
+    axisLabelSize: 12 * pointToCssPixel,
+    axisLabelWeight: 400,
+    axisTitleSize: 12 * pointToCssPixel,
+    axisTitleWeight: 400,
+    legendLabelSize: 12 * pointToCssPixel,
+    legendLabelWeight: 400,
+    legendTitleSize: 12 * pointToCssPixel,
+    legendTitleWeight: 400,
+    titlePosition: 'panel',
+    titleAlign: 'center',
+    lineHeight: 1.2,
+  },
+  spacing: {
+    xs: 4,
+    sm: 8,
+    md: 12,
+    lg: 16,
+    xl: 24,
+    plotPadding: { top: 24, right: 30, bottom: 73, left: 59 },
+  },
+  axis: {
+    lineWidth: 1,
+    boxVisible: true,
+    boxLineWidth: 1,
+    boxExcludedMarks: ['bar', 'pie'],
+    tickLength: 6,
+    labelPadding: 5,
+    gridLineWidth: 1,
+    lineVisible: true,
+    ticksVisible: true,
+    gridX: false,
+    gridX2: false,
+    gridY: false,
+    gridY2: false,
+    gridOpacity: 1,
+    minorGridVisible: false,
+    emphasizeZero: false,
+    lineCap: 'butt',
+    titleGap: 8,
+  },
+  mark: {
+    lineWidth: 1,
+    pointRadius: 3.75,
+    barRadius: 0,
+    opacity: 1,
+    defaultColor: '#000000',
+    lineColor: '#000000',
+    pointFill: 'transparent',
+    pointStroke: '#000000',
+    pointStrokeWidth: 1,
+    barFill: '#BEBEBE',
+    barStroke: '#000000',
+    barStrokeWidth: 1,
+    barWidthRatio: 0.8,
+    histogramFill: '#D3D3D3',
+    boxplotFill: '#D3D3D3',
+    boxplotLineWidth: 1,
+    boxplotRadius: 0,
+    piePalette: ['#FFFFFF', '#ADD8E6', '#FFE4E1', '#E0FFFF', '#E6E6FA', '#FFF8DC'],
+    pieStroke: '#000000',
+    pieStrokeWidth: 1,
+    areaFill: '#BEBEBE',
+    areaStroke: '#000000',
+    areaStrokeVisible: true,
+    lineCap: 'round',
+    lineJoin: 'round',
+  },
+  legend: {
+    surfaceOpacity: 1,
+    borderWidth: 1,
+    cornerRadius: 0,
+    swatchRadius: 0,
+    swatchSize: 12 * pointToCssPixel,
+    lineWidth: 1,
+    pointRadius: 3.75,
+    pointStrokeWidth: 1,
+    lineCap: 'round',
+  },
+  motion: { duration: 0, easing: 'linear' },
+};
+
+export interface BuiltInThemeCatalogEntry {
+  readonly id: string;
+  readonly tokens: ThemeTokens;
+  readonly snapshot: boolean;
+  readonly sourceBaseline?: string;
+}
+
+export const defaultThemeId = graflumeLight.name;
+
+/** Ordered source of truth for every built-in theme and generated preview. */
+export const builtInThemeCatalog: readonly BuiltInThemeCatalogEntry[] = [
+  { id: graflumeLight.name, tokens: graflumeLight, snapshot: false },
+  { id: graflumeDark.name, tokens: graflumeDark, snapshot: true },
+  {
+    id: graflumeGgplot.name,
+    tokens: graflumeGgplot,
+    snapshot: true,
+    sourceBaseline: 'ggplot2 4.0.3',
+  },
+  {
+    id: graflumeRBase.name,
+    tokens: graflumeRBase,
+    snapshot: true,
+    sourceBaseline: 'R 4.6.1',
+  },
+];
+
+export function builtInTheme(name: string): ThemeTokens | undefined {
+  return builtInThemeCatalog.find((entry) => entry.id === name)?.tokens;
+}

@@ -219,7 +219,7 @@
           </p>
         </div>
         <div class="toolbar" aria-label="차트 도구">
-          <button id="theme-toggle" type="button">어두운 테마</button>
+          <button id="theme-toggle" type="button">다음 테마</button>
           <button id="export-png" type="button">PNG 저장</button>
         </div>
       </header>
@@ -374,14 +374,18 @@
           },
         };
 
-        const themeCycle = [
-          { theme: 'graflume-light', page: 'light', nextLabel: '어두운 테마' },
-          { theme: 'graflume-dark', page: 'dark', nextLabel: 'ggplot 테마' },
-          { theme: 'ggplot', page: 'light', nextLabel: '밝은 테마' },
-        ];
+        const themeCycle = Array.from(Graflume.builtInThemeCatalog);
         let themeIndex = 0;
-        let currentTheme = themeCycle[themeIndex].theme;
+        let currentTheme = themeCycle[themeIndex].id;
         const chart = Graflume.create('#chart', { ...baseSpec, theme: currentTheme });
+        const updateThemeControl = () => {
+          const current = themeCycle[themeIndex];
+          const next = themeCycle[(themeIndex + 1) % themeCycle.length];
+          root.dataset.theme = current.tokens.mode;
+          themeButton.textContent = `${next.id} 테마`;
+          themeButton.setAttribute('aria-label', `${next.id} 테마로 전환`);
+        };
+        updateThemeControl();
 
         function showDatum(row) {
           if (!row) {
@@ -401,9 +405,8 @@
 
         themeButton.addEventListener('click', () => {
           themeIndex = (themeIndex + 1) % themeCycle.length;
-          currentTheme = themeCycle[themeIndex].theme;
-          root.dataset.theme = themeCycle[themeIndex].page;
-          themeButton.textContent = themeCycle[themeIndex].nextLabel;
+          currentTheme = themeCycle[themeIndex].id;
+          updateThemeControl();
           chart.setSpec({ ...baseSpec, theme: currentTheme });
         });
 

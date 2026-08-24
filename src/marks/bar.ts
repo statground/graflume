@@ -49,8 +49,14 @@ export const compileBarMark: MarkCompiler = (context) => {
         width: Math.max(0.5, Math.abs(baseline - xValue)),
         height: barHeight,
         fill: layer.mark.fill ?? theme.mark.barFill ?? color,
-        ...(layer.mark.stroke === undefined ? {} : { stroke: layer.mark.stroke }),
-        lineWidth: layer.mark.lineWidth ?? 0,
+        ...(layer.mark.stroke === undefined && theme.mark.barStroke === undefined
+          ? {}
+          : { stroke: layer.mark.stroke ?? theme.mark.barStroke }),
+        lineWidth:
+          layer.mark.lineWidth ??
+          (layer.mark.stroke === undefined && theme.mark.barStroke === undefined
+            ? 0
+            : (theme.mark.barStrokeWidth ?? theme.mark.lineWidth)),
         cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
       });
     }
@@ -100,8 +106,14 @@ export const compileBarMark: MarkCompiler = (context) => {
       width: barWidth,
       height,
       fill: layer.mark.fill ?? theme.mark.barFill ?? color,
-      ...(layer.mark.stroke === undefined ? {} : { stroke: layer.mark.stroke }),
-      lineWidth: layer.mark.lineWidth ?? 0,
+      ...(layer.mark.stroke === undefined && theme.mark.barStroke === undefined
+        ? {}
+        : { stroke: layer.mark.stroke ?? theme.mark.barStroke }),
+      lineWidth:
+        layer.mark.lineWidth ??
+        (layer.mark.stroke === undefined && theme.mark.barStroke === undefined
+          ? 0
+          : (theme.mark.barStrokeWidth ?? theme.mark.lineWidth)),
       cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
     });
   }

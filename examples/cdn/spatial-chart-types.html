@@ -124,7 +124,7 @@
         그립니다. 차트의 타이트한 도구막대, 드래그, Control/Command+wheel, 키보드, tooltip,
         fullscreen과 PNG를 직접 시험할 수 있습니다.
       </p>
-      <button id="theme" class="theme-control" type="button">어두운 테마</button>
+      <button id="theme" class="theme-control" type="button">다음 테마</button>
       <p id="status" role="status">8개 공간 차트를 렌더링하고 있습니다…</p>
       <section id="gallery" class="gallery" aria-label="Graflume 공간 차트 갤러리"></section>
     </main>
@@ -142,11 +142,6 @@
         const gallery = document.querySelector('#gallery');
         const themeButton = document.querySelector('#theme');
         const instances = [];
-        const themeCycle = [
-          { theme: 'graflume-light', nextLabel: '어두운 테마' },
-          { theme: 'graflume-dark', nextLabel: 'ggplot 테마' },
-          { theme: 'ggplot', nextLabel: '밝은 테마' },
-        ];
         let themeIndex = 0;
 
         const coolToWarm = [
@@ -368,8 +363,8 @@
         };
         const common = (title, background, camera, lighting) => ({
           title,
-          theme: themeCycle[themeIndex].theme,
-          ...(themeCycle[themeIndex].theme === 'ggplot' ? {} : { background }),
+          theme: themeCycle[themeIndex].id,
+          ...(themeCycle[themeIndex].tokens.colors.panel === undefined ? { background } : {}),
           camera,
           lighting,
           interaction: { controls: true, picking: true, tooltip: true, wheel: 'modifier' },
@@ -558,6 +553,13 @@
           themeButton.disabled = true;
           return;
         }
+        const themeCycle = Array.from(api.builtInThemeCatalog);
+        const updateThemeControl = () => {
+          const next = themeCycle[(themeIndex + 1) % themeCycle.length];
+          themeButton.textContent = `${next.id} 테마`;
+          themeButton.setAttribute('aria-label', `${next.id} 테마로 전환`);
+        };
+        updateThemeControl();
         const render = () => {
           instances.splice(0).forEach((instance) => instance.destroy());
           gallery.replaceChildren();
@@ -569,7 +571,7 @@
               instances.push(definition.render(`#${definition.id}`));
             }
             status.className = '';
-            status.textContent = `${instances.length}개 실제 GPU 공간 차트를 ${themeCycle[themeIndex].theme} 테마로 렌더링했습니다.`;
+            status.textContent = `${instances.length}개 실제 GPU 공간 차트를 ${themeCycle[themeIndex].id} 테마로 렌더링했습니다.`;
           } catch (error) {
             status.className = 'error';
             status.textContent = error instanceof Error ? error.message : String(error);
@@ -577,7 +579,7 @@
         };
         themeButton.addEventListener('click', () => {
           themeIndex = (themeIndex + 1) % themeCycle.length;
-          themeButton.textContent = themeCycle[themeIndex].nextLabel;
+          updateThemeControl();
           render();
         });
         render();

@@ -5,6 +5,7 @@ import test from 'node:test';
 import { compileSpatial, validateSpatialSpec } from '../.tmp/src/spatial.js';
 import { spatialColor } from '../.tmp/src/spatial/compile.js';
 import { continuousColor } from '../.tmp/src/theme/color.js';
+import { builtInThemeCatalog } from '../.tmp/src/theme/defaults.js';
 
 const volumeData = {
   dimensions: [2, 2, 2],
@@ -123,6 +124,18 @@ test('ggplot theme covers all eight spatial modes without changing geometry or p
       assert.deepEqual(geometry.indices, prior.indices, `${mode} indices ${index}`);
       assert.deepEqual(geometry.picks, prior.picks, `${mode} picks ${index}`);
     });
+  }
+});
+
+test('every registered built-in theme compiles all eight spatial modes', () => {
+  for (const { id, tokens } of builtInThemeCatalog) {
+    for (const [mode, spec] of Object.entries(modeSpecs)) {
+      const scene = compileSpatial({ ...spec, theme: id });
+      assert.equal(scene.theme.name, id, `${mode} resolves ${id}`);
+      assert.equal(scene.theme.colors.background, tokens.colors.background, `${mode} background`);
+      assert.ok(scene.geometries.length > 0, `${mode} compiles with ${id}`);
+      assert.ok(scene.geometries.every(({ positions }) => positions.length > 0));
+    }
   }
 });
 

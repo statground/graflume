@@ -49,10 +49,26 @@ assert.equal(completeModule.seriesCompatibilityIds.length, 117);
 assert.equal(completeModule.resolveSeriesType('area-spline-range').familyId, 'interval');
 assert.equal(completeModule.resolveSeriesType('area-spline-range').variantId, 'area-spline-range');
 assert.equal(completeModule.capabilities().marks.length, 79);
+const builtInThemeIds = defaultModule.builtInThemeCatalog.map(({ id }) => id);
+assert.equal(builtInThemeIds[0], defaultModule.defaultThemeId);
+assert.equal(new Set(builtInThemeIds).size, builtInThemeIds.length);
+assert.ok(builtInThemeIds.includes('r-base'));
+assert.deepEqual(
+  completeModule.builtInThemeCatalog.map(({ id }) => id),
+  builtInThemeIds,
+);
+assert.deepEqual(
+  spatialModule.builtInThemeCatalog.map(({ id }) => id),
+  builtInThemeIds,
+);
 assert.equal(defaultModule.graflumeGgplot.name, 'ggplot');
 assert.ok(defaultModule.capabilities().themes.includes('ggplot'));
 assert.equal(completeModule.graflumeGgplot.name, 'ggplot');
 assert.ok(completeModule.capabilities().themes.includes('ggplot'));
+assert.equal(defaultModule.graflumeRBase.name, 'r-base');
+assert.ok(defaultModule.capabilities().themes.includes('r-base'));
+assert.equal(completeModule.graflumeRBase.name, 'r-base');
+assert.ok(completeModule.capabilities().themes.includes('r-base'));
 const bundledGgplotScene = completeModule.compile(
   {
     data: [
@@ -92,6 +108,17 @@ const bundledSpatialGgplotScene = spatialModule.compileSpatial({
 });
 assert.equal(bundledSpatialGgplotScene.theme.name, 'ggplot');
 assert.equal(bundledSpatialGgplotScene.theme.colors.panel, '#EBEBEB');
+const bundledSpatialRBaseScene = spatialModule.compileSpatial({
+  theme: 'r-base',
+  layers: [
+    {
+      mark: { type: 'surface', mode: 'surface' },
+      data: { rows: 2, columns: 2, z: [0, 1, 1, 0] },
+    },
+  ],
+});
+assert.equal(bundledSpatialRBaseScene.theme.name, 'r-base');
+assert.equal(bundledSpatialRBaseScene.theme.colors.panel, '#FFFFFF');
 for (const api of [
   'createSpatial',
   'surface',
@@ -134,10 +161,26 @@ assert.equal(completeGlobal.seriesCompatibilityCatalog.length, 117);
 assert.equal(completeGlobal.seriesCompatibilityIds.length, 117);
 assert.equal(completeGlobal.resolveSeriesType('area-spline-range').familyId, 'interval');
 assert.equal(completeGlobal.resolveSeriesType('area-spline-range').variantId, 'area-spline-range');
+assert.deepEqual(
+  Array.from(defaultGlobal.builtInThemeCatalog, ({ id }) => id),
+  builtInThemeIds,
+);
+assert.deepEqual(
+  Array.from(completeGlobal.builtInThemeCatalog, ({ id }) => id),
+  builtInThemeIds,
+);
+assert.deepEqual(
+  Array.from(spatialGlobal.builtInThemeCatalog, ({ id }) => id),
+  builtInThemeIds,
+);
 assert.equal(defaultGlobal.graflumeGgplot.name, 'ggplot');
 assert.ok(defaultGlobal.capabilities().themes.includes('ggplot'));
 assert.equal(completeGlobal.graflumeGgplot.name, 'ggplot');
 assert.ok(completeGlobal.capabilities().themes.includes('ggplot'));
+assert.equal(defaultGlobal.graflumeRBase.name, 'r-base');
+assert.ok(defaultGlobal.capabilities().themes.includes('r-base'));
+assert.equal(completeGlobal.graflumeRBase.name, 'r-base');
+assert.ok(completeGlobal.capabilities().themes.includes('r-base'));
 for (const api of additionalApis) assert.equal(typeof completeGlobal[api], 'function', api);
 for (const entry of completeGlobal.seriesChartTypeCatalog) {
   assert.equal(typeof completeGlobal[entry.quickApi], 'function', entry.quickApi);

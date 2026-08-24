@@ -19,7 +19,7 @@ The boundary is 41 default/complete canonical families plus 3 spatial canonical 
 
 ## Serialization boundary
 
-`SpatialSpec 0.1` is separate from `ChartSpec 0.1`; neither format silently accepts the other. A valid spatial specification is a plain JSON object with `layers`, optionally includes `specVersion: "0.1"` and a portable `theme`, and has no functions, class instances, typed arrays, cycles, non-finite numbers, unknown properties, or unsafe object keys. Built-in theme names are `graflume-light`, `graflume-dark`, and `ggplot`; custom theme overrides use the same function-free token structure as `ChartSpec`.
+`SpatialSpec 0.1` is separate from `ChartSpec 0.1`; neither format silently accepts the other. A valid spatial specification is a plain JSON object with `layers`, optionally includes `specVersion: "0.1"` and a portable `theme`, and has no functions, class instances, typed arrays, cycles, non-finite numbers, unknown properties, or unsafe object keys. Built-in theme names come from the spatial entry's ordered `builtInThemeCatalog` export; custom theme overrides use the same function-free token structure as `ChartSpec`. The current catalog includes `graflume-light`, `graflume-dark`, `ggplot`, and `r-base`, but consumers should not treat that snapshot as a closed future allowlist.
 
 Use `validateSpatialSpec(value)` to collect `{ path, message }` issues and `assertValidSpatialSpec(value)` to throw on the first invalid contract. `compileSpatial()` and every Quick API validate before compiling. The JSON schema is exported as `graflume/spatial-schema` and copied to `dist/graflume.spatial.schema.json` during the build.
 

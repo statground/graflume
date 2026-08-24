@@ -68,15 +68,20 @@ const THEME_TYPOGRAPHY_KEYS = new Set([
   'legendTitleSize',
   'legendTitleWeight',
   'titlePosition',
+  'titleAlign',
   'lineHeight',
 ]);
-const THEME_SPACING_KEYS = new Set(['xs', 'sm', 'md', 'lg', 'xl', 'plotMargin']);
+const THEME_SPACING_KEYS = new Set(['xs', 'sm', 'md', 'lg', 'xl', 'plotMargin', 'plotPadding']);
+const THEME_PLOT_PADDING_KEYS = new Set(['top', 'right', 'bottom', 'left']);
 const THEME_AXIS_KEYS = new Set([
   'lineWidth',
   'tickLength',
   'labelPadding',
   'gridLineWidth',
   'lineVisible',
+  'boxVisible',
+  'boxLineWidth',
+  'boxExcludedMarks',
   'ticksVisible',
   'gridX',
   'gridX2',
@@ -101,7 +106,16 @@ const THEME_MARK_KEYS = new Set([
   'pointStroke',
   'pointStrokeWidth',
   'barFill',
+  'barStroke',
+  'barStrokeWidth',
   'barWidthRatio',
+  'histogramFill',
+  'boxplotFill',
+  'boxplotLineWidth',
+  'boxplotRadius',
+  'piePalette',
+  'pieStroke',
+  'pieStrokeWidth',
   'areaFill',
   'areaStroke',
   'areaStrokeVisible',
@@ -478,6 +492,15 @@ function validateThemeStringArray(value: unknown, path: string, issues: SpatialS
   value.forEach((entry, index) => optionalNonEmptyString(entry, `${path}[${index}]`, issues, 128));
 }
 
+function validateThemeNameArray(value: unknown, path: string, issues: SpatialSpecIssue[]): void {
+  if (value === undefined) return;
+  if (!Array.isArray(value) || value.length > 256) {
+    issue(issues, path, 'Must be an array with at most 256 non-empty names.');
+    return;
+  }
+  value.forEach((entry, index) => optionalNonEmptyString(entry, `${path}[${index}]`, issues, 128));
+}
+
 function validateTheme(value: unknown, path: string, issues: SpatialSpecIssue[]): void {
   if (value === undefined) return;
   if (typeof value === 'string') {
@@ -554,14 +577,32 @@ function validateTheme(value: unknown, path: string, issues: SpatialSpecIssue[])
         new Set(['plot', 'panel']),
         issues,
       );
+      optionalEnum(
+        typography.titleAlign,
+        `${path}.typography.titleAlign`,
+        new Set(['left', 'center', 'right']),
+        issues,
+      );
     }
   }
 
   if (theme.spacing !== undefined) {
     const spacing = closedObject(theme.spacing, `${path}.spacing`, THEME_SPACING_KEYS, issues);
-    if (spacing !== undefined)
-      for (const key of THEME_SPACING_KEYS)
+    if (spacing !== undefined) {
+      for (const key of ['xs', 'sm', 'md', 'lg', 'xl', 'plotMargin'] as const)
         optionalThemeNumber(spacing[key], `${path}.spacing.${key}`, issues);
+      if (spacing.plotPadding !== undefined) {
+        const plotPadding = closedObject(
+          spacing.plotPadding,
+          `${path}.spacing.plotPadding`,
+          THEME_PLOT_PADDING_KEYS,
+          issues,
+        );
+        if (plotPadding !== undefined)
+          for (const key of THEME_PLOT_PADDING_KEYS)
+            optionalThemeNumber(plotPadding[key], `${path}.spacing.plotPadding.${key}`, issues);
+      }
+    }
   }
 
   if (theme.axis !== undefined) {
@@ -572,14 +613,17 @@ function validateTheme(value: unknown, path: string, issues: SpatialSpecIssue[])
         'tickLength',
         'labelPadding',
         'gridLineWidth',
+        'boxLineWidth',
         'minorGridLineWidth',
         'titleGap',
       ] as const)
         optionalThemeNumber(axis[key], `${path}.axis.${key}`, issues, 0, 256);
       for (const key of ['gridOpacity', 'minorGridOpacity'] as const)
         optionalThemeNumber(axis[key], `${path}.axis.${key}`, issues, 0, 1);
+      validateThemeNameArray(axis.boxExcludedMarks, `${path}.axis.boxExcludedMarks`, issues);
       for (const key of [
         'lineVisible',
+        'boxVisible',
         'ticksVisible',
         'gridX',
         'gridX2',
@@ -601,7 +645,16 @@ function validateTheme(value: unknown, path: string, issues: SpatialSpecIssue[])
   if (theme.mark !== undefined) {
     const mark = closedObject(theme.mark, `${path}.mark`, THEME_MARK_KEYS, issues);
     if (mark !== undefined) {
-      for (const key of ['lineWidth', 'pointRadius', 'pointStrokeWidth', 'barRadius'] as const)
+      for (const key of [
+        'lineWidth',
+        'pointRadius',
+        'pointStrokeWidth',
+        'barRadius',
+        'barStrokeWidth',
+        'boxplotLineWidth',
+        'boxplotRadius',
+        'pieStrokeWidth',
+      ] as const)
         optionalThemeNumber(mark[key], `${path}.mark.${key}`, issues);
       optionalThemeNumber(mark.opacity, `${path}.mark.opacity`, issues, 0, 1);
       optionalThemeNumber(mark.barWidthRatio, `${path}.mark.barWidthRatio`, issues, 0, 1);
@@ -612,10 +665,15 @@ function validateTheme(value: unknown, path: string, issues: SpatialSpecIssue[])
         'pointFill',
         'pointStroke',
         'barFill',
+        'barStroke',
+        'histogramFill',
+        'boxplotFill',
+        'pieStroke',
         'areaFill',
         'areaStroke',
       ] as const)
         optionalNonEmptyString(mark[key], `${path}.mark.${key}`, issues, 128);
+      validateThemeStringArray(mark.piePalette, `${path}.mark.piePalette`, issues);
       optionalEnum(
         mark.lineCap,
         `${path}.mark.lineCap`,

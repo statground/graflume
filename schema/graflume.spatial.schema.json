@@ -109,6 +109,7 @@
         "legendTitleSize": { "type": "number", "minimum": 0, "maximum": 2000 },
         "legendTitleWeight": { "type": "number", "minimum": 0, "maximum": 2000 },
         "titlePosition": { "enum": ["plot", "panel"] },
+        "titleAlign": { "enum": ["left", "center", "right"] },
         "lineHeight": { "type": "number", "exclusiveMinimum": 0, "maximum": 20 }
       }
     },
@@ -121,7 +122,18 @@
         "md": { "type": "number", "minimum": 0, "maximum": 2000 },
         "lg": { "type": "number", "minimum": 0, "maximum": 2000 },
         "xl": { "type": "number", "minimum": 0, "maximum": 2000 },
-        "plotMargin": { "type": "number", "minimum": 0, "maximum": 2000 }
+        "plotMargin": { "type": "number", "minimum": 0, "maximum": 2000 },
+        "plotPadding": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["top", "right", "bottom", "left"],
+          "properties": {
+            "top": { "type": "number", "minimum": 0, "maximum": 2000 },
+            "right": { "type": "number", "minimum": 0, "maximum": 2000 },
+            "bottom": { "type": "number", "minimum": 0, "maximum": 2000 },
+            "left": { "type": "number", "minimum": 0, "maximum": 2000 }
+          }
+        }
       }
     },
     "themeAxis": {
@@ -133,6 +145,13 @@
         "labelPadding": { "type": "number", "minimum": 0, "maximum": 256 },
         "gridLineWidth": { "type": "number", "minimum": 0, "maximum": 64 },
         "lineVisible": { "type": "boolean" },
+        "boxVisible": { "type": "boolean" },
+        "boxLineWidth": { "type": "number", "minimum": 0, "maximum": 64 },
+        "boxExcludedMarks": {
+          "type": "array",
+          "maxItems": 256,
+          "items": { "type": "string", "minLength": 1, "maxLength": 128 }
+        },
         "ticksVisible": { "type": "boolean" },
         "gridX": { "type": "boolean" },
         "gridX2": { "type": "boolean" },
@@ -161,7 +180,16 @@
         "pointStroke": { "type": "string", "minLength": 1, "maxLength": 128 },
         "pointStrokeWidth": { "type": "number", "minimum": 0, "maximum": 2000 },
         "barFill": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "barStroke": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "barStrokeWidth": { "type": "number", "minimum": 0, "maximum": 2000 },
         "barWidthRatio": { "type": "number", "minimum": 0, "maximum": 1 },
+        "histogramFill": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "boxplotFill": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "boxplotLineWidth": { "type": "number", "minimum": 0, "maximum": 2000 },
+        "boxplotRadius": { "type": "number", "minimum": 0, "maximum": 2000 },
+        "piePalette": { "$ref": "#/$defs/themeColorArray" },
+        "pieStroke": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "pieStrokeWidth": { "type": "number", "minimum": 0, "maximum": 2000 },
         "areaFill": { "type": "string", "minLength": 1, "maxLength": 128 },
         "areaStroke": { "type": "string", "minLength": 1, "maxLength": 128 },
         "areaStrokeVisible": { "type": "boolean" },

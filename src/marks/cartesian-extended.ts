@@ -306,6 +306,10 @@ export const compileHistogramMark: MarkCompiler = (context) => {
     const y = yScale.map(count);
     const rowIndex = rows[index]?.[0];
     if (![x1, x2, y, baseline].every(Number.isFinite)) return;
+    const stroke =
+      layer.mark.stroke ??
+      theme.mark.barStroke ??
+      (theme.mark.barFill === undefined ? theme.colors.background : undefined);
     nodes.push({
       type: 'rect',
       ...nodeBase(`${layer.id}:bin:${index}`, {
@@ -332,13 +336,10 @@ export const compileHistogramMark: MarkCompiler = (context) => {
       y: Math.min(y, baseline),
       width: Math.max(1, Math.abs(x2 - x1) - 4),
       height: Math.max(0.5, Math.abs(baseline - y)),
-      fill: layer.mark.fill ?? theme.mark.barFill ?? color,
-      ...(layer.mark.stroke === undefined && theme.mark.barFill !== undefined
-        ? {}
-        : { stroke: layer.mark.stroke ?? theme.colors.background }),
+      fill: layer.mark.fill ?? theme.mark.histogramFill ?? theme.mark.barFill ?? color,
+      ...(stroke === undefined ? {} : { stroke }),
       lineWidth:
-        layer.mark.lineWidth ??
-        (layer.mark.stroke === undefined && theme.mark.barFill !== undefined ? 0 : 1),
+        layer.mark.lineWidth ?? (stroke === undefined ? 0 : (theme.mark.barStrokeWidth ?? 1)),
       cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
     });
   });

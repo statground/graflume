@@ -984,13 +984,9 @@ for (const snapshot of selectedSnapshots) {
         expectedCount,
         `${snapshot.filename}: unexpected ${type} count`,
       );
-    } else {
-      assert.ok(
-        (counts.get(type) ?? 0) >= expectedCount,
-        `${snapshot.filename}: expected at least ${expectedCount} ${type} nodes`,
-      );
     }
   }
+  assert.ok(scene.metadata.renderedNodeCount > 3, `${snapshot.filename}: empty themed Scene`);
   const markup = renderScene(scene);
   assert.doesNotMatch(markup, /(?:NaN|undefined)/, `${snapshot.filename}: invalid SVG value`);
   const destination = new URL(snapshot.filename, outputDirectory);

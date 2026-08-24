@@ -1085,7 +1085,11 @@ export const compileBoxplotMark: MarkCompiler = (context) => {
     const yQ3 = yScale.map(q3);
     const yMax = yScale.map(max);
     if (![x, yMin, yQ1, yMedian, yQ3, yMax].every(Number.isFinite)) continue;
-    const fill = layer.mark.fill ?? theme.mark.areaFill ?? colorWithOpacity(context.color, 0.22);
+    const fill =
+      layer.mark.fill ??
+      theme.mark.boxplotFill ??
+      theme.mark.areaFill ??
+      colorWithOpacity(context.color, 0.22);
     const stroke =
       layer.mark.stroke ?? theme.mark.areaStroke ?? theme.mark.lineColor ?? context.color;
     nodes.push({
@@ -1096,7 +1100,7 @@ export const compileBoxplotMark: MarkCompiler = (context) => {
       x2: x,
       y2: yMax,
       stroke,
-      lineWidth: layer.mark.lineWidth ?? 1.5,
+      lineWidth: layer.mark.lineWidth ?? theme.mark.boxplotLineWidth ?? 1.5,
       lineCap: theme.mark.lineCap ?? 'round',
     });
     [yMin, yMax].forEach((y, capIndex) => {
@@ -1110,7 +1114,7 @@ export const compileBoxplotMark: MarkCompiler = (context) => {
         x2: x + boxWidth * 0.3,
         y2: y,
         stroke,
-        lineWidth: layer.mark.lineWidth ?? 1.5,
+        lineWidth: layer.mark.lineWidth ?? theme.mark.boxplotLineWidth ?? 1.5,
         lineCap: theme.mark.lineCap ?? 'round',
       });
     });
@@ -1123,8 +1127,8 @@ export const compileBoxplotMark: MarkCompiler = (context) => {
       height: Math.max(1, Math.abs(yQ3 - yQ1)),
       fill,
       stroke,
-      lineWidth: layer.mark.lineWidth ?? 1.8,
-      cornerRadius: layer.mark.cornerRadius ?? 3,
+      lineWidth: layer.mark.lineWidth ?? theme.mark.boxplotLineWidth ?? 1.8,
+      cornerRadius: layer.mark.cornerRadius ?? theme.mark.boxplotRadius ?? 3,
     });
     nodes.push({
       type: 'line',
@@ -1134,7 +1138,7 @@ export const compileBoxplotMark: MarkCompiler = (context) => {
       x2: x + boxWidth / 2,
       y2: yMedian,
       stroke: mixColor(stroke, theme.colors.text, 0.22),
-      lineWidth: 2.2,
+      lineWidth: layer.mark.lineWidth ?? theme.mark.boxplotLineWidth ?? 2.2,
       lineCap: theme.mark.lineCap ?? 'round',
     });
   }

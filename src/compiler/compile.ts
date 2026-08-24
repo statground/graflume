@@ -6,6 +6,7 @@ import type { Scene, SceneNode, TextNode } from '../scene/types.js';
 import type { AxisId, ChartSpec, NormalizedAxisSpec, NormalizedChartSpec } from '../spec/types.js';
 import { normalizeSpec } from '../spec/normalize.js';
 import { categoricalColor } from '../theme/color.js';
+import { defaultThemeId } from '../theme/defaults.js';
 import type { ThemeTokens } from '../theme/types.js';
 import type { RuntimeRegistry } from '../runtime/registry.js';
 import {
@@ -150,7 +151,7 @@ export function compileWithRegistry(
   options: CompileOptions = {},
   runtime: CompileRuntimeState = {},
 ): CompileResult {
-  const theme = registry.themes.resolve(input.theme ?? 'graflume-light');
+  const theme = registry.themes.resolve(input.theme ?? defaultThemeId);
   const spec = normalizeSpec(input, theme);
   const width = Math.max(1, spec.width === 'container' ? (options.width ?? 640) : spec.width);
   const height = Math.max(1, spec.height === 'container' ? (options.height ?? 400) : spec.height);
@@ -332,11 +333,34 @@ export function compileWithRegistry(
             cornerRadius: 0,
           },
         ];
+  const boxExcludedMarks = new Set(theme.axis.boxExcludedMarks ?? []);
+  const visibleMarkTypes = spec.layers
+    .filter(({ visible }) => visible)
+    .map(({ mark }) => mark.type);
+  const plotBoxVisible =
+    theme.axis.boxVisible === true &&
+    (visibleMarkTypes.length === 0 || visibleMarkTypes.some((type) => !boxExcludedMarks.has(type)));
+  const plotBoxNode: SceneNode[] = plotBoxVisible
+    ? [
+        {
+          type: 'rect',
+          ...nodeBase('chart:plot-box', { zIndex: 100 }),
+          x: layout.plot.x,
+          y: layout.plot.y,
+          width: layout.plot.width,
+          height: layout.plot.height,
+          stroke: theme.colors.axis,
+          lineWidth: theme.axis.boxLineWidth ?? theme.axis.lineWidth,
+          cornerRadius: 0,
+        },
+      ]
+    : [];
   const children: SceneNode[] = [
     ...panelNode,
     ...decorations.underlay,
     ...axisNodes,
     ...layerGroups,
+    ...plotBoxNode,
     ...decorations.overlay,
     ...legend.nodes,
     ...titleNodes(spec, theme, width, layout.plot, layout.titleY, layout.subtitleY),

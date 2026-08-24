@@ -37,6 +37,7 @@ export interface ThemeTokens {
     readonly legendTitleSize?: number;
     readonly legendTitleWeight?: number;
     readonly titlePosition?: 'plot' | 'panel';
+    readonly titleAlign?: 'left' | 'center' | 'right';
     readonly lineHeight: number;
   };
   readonly spacing: {
@@ -46,6 +47,12 @@ export interface ThemeTokens {
     readonly lg: number;
     readonly xl: number;
     readonly plotMargin?: number;
+    readonly plotPadding?: {
+      readonly top: number;
+      readonly right: number;
+      readonly bottom: number;
+      readonly left: number;
+    };
   };
   readonly axis: {
     readonly lineWidth: number;
@@ -53,6 +60,11 @@ export interface ThemeTokens {
     readonly labelPadding: number;
     readonly gridLineWidth: number;
     readonly lineVisible?: boolean;
+    /** Draw a complete plot-region box behind the primary axes. */
+    readonly boxVisible?: boolean;
+    readonly boxLineWidth?: number;
+    /** Mark types whose native visual grammar omits the enclosing plot box. */
+    readonly boxExcludedMarks?: readonly string[];
     readonly ticksVisible?: boolean;
     readonly gridX?: boolean;
     readonly gridX2?: boolean;
@@ -78,7 +90,16 @@ export interface ThemeTokens {
     readonly pointStroke?: string;
     readonly pointStrokeWidth?: number;
     readonly barFill?: string;
+    readonly barStroke?: string;
+    readonly barStrokeWidth?: number;
     readonly barWidthRatio?: number;
+    readonly histogramFill?: string;
+    readonly boxplotFill?: string;
+    readonly boxplotLineWidth?: number;
+    readonly boxplotRadius?: number;
+    readonly piePalette?: readonly string[];
+    readonly pieStroke?: string;
+    readonly pieStrokeWidth?: number;
     readonly areaFill?: string;
     readonly areaStroke?: string;
     /** Whether an area gets its theme-default outline when no explicit stroke is authored. */

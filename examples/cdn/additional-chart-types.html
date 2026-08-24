@@ -174,7 +174,7 @@
             같은 portable ChartSpec, renderer-neutral Scene, Canvas renderer를 사용합니다.
           </p>
         </div>
-        <button id="theme" type="button">어두운 테마</button>
+        <button id="theme" type="button">다음 테마</button>
       </header>
       <p id="status" role="status">11개 차트를 렌더링하고 있습니다…</p>
       <section id="gallery" class="gallery" aria-label="Graflume 추가 차트 유형 갤러리"></section>
@@ -585,12 +585,15 @@
       const status = document.querySelector('#status');
       const themeButton = document.querySelector('#theme');
       let charts = [];
-      const themeCycle = [
-        { theme: 'graflume-light', page: 'light', nextLabel: '어두운 테마' },
-        { theme: 'graflume-dark', page: 'dark', nextLabel: 'ggplot 테마' },
-        { theme: 'ggplot', page: 'light', nextLabel: '밝은 테마' },
-      ];
+      let themeCycle = [];
       let themeIndex = 0;
+      const updateThemeControl = () => {
+        const current = themeCycle[themeIndex];
+        const next = themeCycle[(themeIndex + 1) % themeCycle.length];
+        document.documentElement.dataset.theme = current.tokens.mode;
+        themeButton.textContent = `${next.id} 테마`;
+        themeButton.setAttribute('aria-label', `${next.id} 테마로 전환`);
+      };
 
       const render = () => {
         charts.forEach((chart) => chart.destroy());
@@ -614,7 +617,7 @@
             Graflume.create(`#chart-${definition.id}`, {
               ...definition.spec,
               height: 320,
-              theme: themeCycle[themeIndex].theme,
+              theme: themeCycle[themeIndex].id,
               accessibility: { label: `${definition.title} example` },
             }),
           );
@@ -622,15 +625,15 @@
         status.textContent = `${visibleDefinitions.length}개 차트 렌더링이 완료되었습니다.`;
       };
 
-      themeButton.addEventListener('click', () => {
-        themeIndex = (themeIndex + 1) % themeCycle.length;
-        document.documentElement.dataset.theme = themeCycle[themeIndex].page;
-        themeButton.textContent = themeCycle[themeIndex].nextLabel;
-        render();
-      });
-
       try {
         if (!window.Graflume) throw new Error('Graflume complete browser bundle was not loaded.');
+        themeCycle = Array.from(Graflume.builtInThemeCatalog);
+        updateThemeControl();
+        themeButton.addEventListener('click', () => {
+          themeIndex = (themeIndex + 1) % themeCycle.length;
+          updateThemeControl();
+          render();
+        });
         render();
       } catch (error) {
         status.classList.add('error');
