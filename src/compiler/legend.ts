@@ -448,7 +448,7 @@ function legendOrigin(
       case 'right':
         return { x: plot.x + plot.width + gap, y: plot.y };
       case 'bottom':
-        return { x: plot.x, y: Math.min(height - model.height - gap, plot.y + plot.height + gap) };
+        return { x: plot.x, y: height - model.height - gap / 2 };
       case 'left':
         return { x: Math.max(gap, plot.x - model.width - gap), y: plot.y };
       case 'inside-top-left':

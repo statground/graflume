@@ -2,7 +2,12 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-import { compile, fullCatalog, fullVariantCatalog } from '../.tmp/src/complete.js';
+import {
+  builtInThemeCatalog,
+  compile,
+  fullCatalog,
+  fullVariantCatalog,
+} from '../.tmp/src/complete.js';
 import { sceneLegendLayout } from '../.tmp/src/compiler/legend.js';
 import { compileWithRegistry } from '../.tmp/src/compiler/compile.js';
 import { AXISLESS_MARKS, isAxislessLayer } from '../.tmp/src/compiler/coordinate.js';
@@ -433,6 +438,52 @@ test('horizontal legends preserve fitting labels and ellipsize only constrained 
   assert.match(scene.accessibility.description, new RegExp(longLabel));
   const legend = sceneLegendLayout(scene);
   assert.ok(legend.bounds.x >= 0 && legend.bounds.x + legend.bounds.width <= scene.width);
+});
+
+test('external bottom legends stay in their reserved rail in every built-in theme', () => {
+  for (const { id: theme } of builtInThemeCatalog) {
+    const { scene } = compile(
+      {
+        data: [
+          { category: 'Customer Success Operations', value: 10 },
+          { category: 'Research Operations', value: 14 },
+          { category: 'Quality Assurance', value: 12 },
+        ],
+        mark: 'bar',
+        x: {
+          field: 'category',
+          type: 'nominal',
+          axis: {
+            title: { text: 'Long category axis title' },
+            labels: { orientation: 'vertical-up' },
+          },
+        },
+        y: {
+          field: 'value',
+          type: 'quantitative',
+          axis: { title: { text: 'Long value axis title' } },
+        },
+        width: 800,
+        height: 620,
+        theme,
+        title: { text: 'External legend rail', subtitle: 'Axis collision regression' },
+        legend: { mode: 'layers', position: 'bottom', title: 'Bar' },
+      },
+      { width: 800, height: 620 },
+    );
+    const legend = sceneLegendLayout(scene);
+    assert.notEqual(legend, null, `${theme} legend`);
+    assert.equal(legend.bounds.y + legend.bounds.height, scene.height - 4, `${theme} rail`);
+    const axisNodes = nodes(scene.root).filter(
+      ({ id: nodeId }) => nodeId.startsWith('axis-x:label:') || nodeId === 'axis-x:title',
+    );
+    assert.ok(axisNodes.length > 0, `${theme} axis nodes`);
+    for (const node of axisNodes) {
+      const bounds = sceneNodeBounds(node);
+      assert.notEqual(bounds, null, `${theme} ${node.id} bounds`);
+      assert.equal(overlapArea(bounds, legend.bounds), 0, `${theme} ${node.id}`);
+    }
+  }
 });
 
 test('reversed band ranges expand to the same bounds and Arabic callouts align logically', () => {
