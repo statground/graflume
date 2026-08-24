@@ -10,7 +10,15 @@ import {
   projectGeographicPosition,
   worldBasemapNodes,
 } from './geographic.js';
-import { mappedContinuousColor, numericDataValue, scaleInput } from './utils.js';
+import {
+  mappedContinuousColor,
+  numericDataValue,
+  scaleInput,
+  themedAreaFill,
+  themedAreaStroke,
+  themedPointFill,
+  themedPointStroke,
+} from './utils.js';
 
 const TAU = Math.PI * 2;
 
@@ -197,7 +205,7 @@ export const compileSmoothMark: MarkCompiler = (context) => {
       }),
       points: [{ x: points[0]!.x, y: baseline }, ...points, { x: points.at(-1)!.x, y: baseline }],
       closed: true,
-      fill: layer.mark.fill ?? theme.mark.areaFill ?? colorWithOpacity(stroke, 0.24),
+      fill: layer.mark.fill ?? themedAreaFill(theme, context.color, colorWithOpacity(stroke, 0.24)),
       lineWidth: 0,
     });
   }
@@ -222,8 +230,8 @@ export const compileSmoothMark: MarkCompiler = (context) => {
         cx: row.x,
         cy: row.y,
         radius: layer.mark.radius ?? theme.mark.pointRadius,
-        fill: layer.mark.fill ?? theme.mark.pointFill ?? theme.colors.background,
-        stroke: layer.mark.stroke ?? theme.mark.pointStroke ?? stroke,
+        fill: layer.mark.fill ?? themedPointFill(theme, stroke, theme.colors.background),
+        stroke: layer.mark.stroke ?? themedPointStroke(theme, stroke, stroke),
         lineWidth: 2,
       });
     }
@@ -235,8 +243,8 @@ export const compileSmoothMark: MarkCompiler = (context) => {
         cx: row.x,
         cy: row.y,
         radius: Math.max(2.5, layer.mark.radius ?? 3),
-        fill: layer.mark.fill ?? theme.mark.pointFill ?? stroke,
-        stroke: layer.mark.stroke ?? theme.mark.pointStroke ?? theme.colors.background,
+        fill: layer.mark.fill ?? themedPointFill(theme, stroke, stroke),
+        stroke: layer.mark.stroke ?? themedPointStroke(theme, stroke, theme.colors.background),
         lineWidth: 1,
       });
     });
@@ -269,7 +277,8 @@ export const compileRangeMark: MarkCompiler = (context) => {
   }
   if (rows.length === 0) return [];
   const stroke =
-    layer.mark.stroke ?? theme.mark.areaStroke ?? theme.mark.lineColor ?? context.color;
+    layer.mark.stroke ??
+    themedAreaStroke(theme, context.color, theme.mark.lineColor ?? context.color);
   const nodes: SceneNode[] = [];
   if (mode === 'area') {
     const highPoints = rows.map((row) => ({ x: row.x, y: row.high }));
@@ -286,7 +295,7 @@ export const compileRangeMark: MarkCompiler = (context) => {
         ...(smooth ? smoothPoints(lowPoints) : lowPoints),
       ],
       closed: true,
-      fill: layer.mark.fill ?? theme.mark.areaFill ?? colorWithOpacity(stroke, 0.24),
+      fill: layer.mark.fill ?? themedAreaFill(theme, context.color, colorWithOpacity(stroke, 0.24)),
       stroke,
       lineWidth: layer.mark.lineWidth ?? 1.5,
       lineJoin: theme.mark.lineJoin ?? 'round',
@@ -298,8 +307,8 @@ export const compileRangeMark: MarkCompiler = (context) => {
         cx: row.x,
         cy: (row.low + row.high) / 2,
         radius: Math.max(3, layer.mark.radius ?? 3.5),
-        fill: layer.mark.fill ?? theme.mark.pointFill ?? stroke,
-        stroke: layer.mark.stroke ?? theme.mark.pointStroke ?? theme.colors.background,
+        fill: layer.mark.fill ?? themedPointFill(theme, stroke, stroke),
+        stroke: layer.mark.stroke ?? themedPointStroke(theme, stroke, theme.colors.background),
         lineWidth: 1,
       });
     }
@@ -341,8 +350,8 @@ export const compileRangeMark: MarkCompiler = (context) => {
     });
     const radius = Math.max(3, layer.mark.radius ?? 5);
     for (const [suffix, y, fill] of [
-      ['low', row.low, layer.mark.fill ?? theme.mark.pointFill ?? theme.colors.background],
-      ['high', row.high, layer.mark.fill ?? theme.mark.pointFill ?? stroke],
+      ['low', row.low, layer.mark.fill ?? themedPointFill(theme, stroke, theme.colors.background)],
+      ['high', row.high, layer.mark.fill ?? themedPointFill(theme, stroke, stroke)],
     ] as const) {
       nodes.push({
         type: 'circle',
@@ -351,7 +360,7 @@ export const compileRangeMark: MarkCompiler = (context) => {
         cy: y,
         radius,
         fill,
-        stroke: layer.mark.stroke ?? theme.mark.pointStroke ?? stroke,
+        stroke: layer.mark.stroke ?? themedPointStroke(theme, stroke, stroke),
         lineWidth: 2,
       });
     }
@@ -398,7 +407,7 @@ export const compileDistributionMark: MarkCompiler = (context) => {
       ...datumBase(context, `${layer.id}:distribution-area`, 0, 0, tooltip),
       points: [{ x: points[0]!.x, y: baseline }, ...points, { x: points.at(-1)!.x, y: baseline }],
       closed: true,
-      fill: layer.mark.fill ?? theme.mark.areaFill ?? colorWithOpacity(stroke, 0.2),
+      fill: layer.mark.fill ?? themedAreaFill(theme, context.color, colorWithOpacity(stroke, 0.2)),
       lineWidth: 0,
     },
     {

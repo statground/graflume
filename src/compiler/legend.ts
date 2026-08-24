@@ -493,7 +493,7 @@ export function compileLegend(
     width: model.width,
     height: model.height,
     fill: theme.colors.surface,
-    stroke: theme.colors.axis,
+    stroke: theme.legend?.borderColor ?? theme.colors.axis,
     lineWidth: theme.legend?.borderWidth ?? 1,
     cornerRadius: theme.legend?.cornerRadius ?? 8,
   };
@@ -525,7 +525,13 @@ export function compileLegend(
     const scaleWidth = Math.max(1, model.width - inset * 2);
     const paletteSize = Math.max(
       1,
-      theme.colors.paletteMode === 'ggplot2-hue' ? 16 : theme.colors.sequential.length,
+      Math.floor(
+        theme.legend?.continuousSamples ??
+          (theme.colors.paletteMode === 'ggplot2-hue' ||
+          theme.colors.continuousInterpolation !== undefined
+            ? 16
+            : theme.colors.sequential.length),
+      ),
     );
     const palette: readonly string[] =
       model.spec.items.length > 0

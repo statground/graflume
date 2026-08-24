@@ -90,13 +90,20 @@ export const compilePieMark: MarkCompiler = (context) => {
   const radius = Math.max(8, Math.min(plot.width, plot.height) * 0.36);
   const innerRatio = Math.max(0, Math.min(0.9, optionNumber(layer.mark.options, 'innerRadius', 0)));
   const innerRadius = radius * innerRatio;
-  const startOffset = optionNumber(layer.mark.options, 'startAngle', -Math.PI / 2);
+  const startOffset = optionNumber(
+    layer.mark.options,
+    'startAngle',
+    theme.mark.pieStartAngle ?? -Math.PI / 2,
+  );
+  const direction =
+    optionString(layer.mark.options, 'direction') ?? theme.mark.pieDirection ?? 'clockwise';
+  const directionSign = direction === 'counterclockwise' ? -1 : 1;
   const labelLimit = Math.max(0, Math.floor(optionNumber(layer.mark.options, 'labelLimit', 8)));
   const nodes: SceneNode[] = [];
   let angle = startOffset;
 
   values.forEach((item, index) => {
-    const next = angle + (item.value / total) * Math.PI * 2;
+    const next = angle + directionSign * (item.value / total) * Math.PI * 2;
     const mid = (angle + next) / 2;
     const piePalette = theme.mark.piePalette;
     const fill =
@@ -120,7 +127,7 @@ export const compilePieMark: MarkCompiler = (context) => {
     };
     nodes.push(wedge);
     const share = item.value / total;
-    const span = next - angle;
+    const span = Math.abs(next - angle);
     if (index < labelLimit && span >= 0.16) {
       const percentage = `${Math.round(share * 100)}%`;
       const inside = innerRadius > 0 || span >= 0.48;

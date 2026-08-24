@@ -128,18 +128,38 @@ function mixLabColor(start: string, end: string, ratio: number): string {
   });
 }
 
-/** Resolve a continuous colour; ggplot uses Lab interpolation, legacy themes keep fixed stops. */
+/** Resolve a continuous colour; an explicit interpolation token wins over palette defaults. */
 export function continuousColor(theme: ThemeTokens, ratio: number): string {
   const palette = theme.colors.sequential;
   if (palette.length === 0) return theme.colors.focus;
   if (palette.length === 1) return palette[0] ?? theme.colors.focus;
   const bounded = Number.isFinite(ratio) ? Math.max(0, Math.min(1, ratio)) : 0;
-  if (theme.colors.paletteMode === 'ggplot2-hue') {
+  if (
+    theme.colors.paletteMode === 'ggplot2-hue' &&
+    theme.colors.continuousInterpolation === undefined
+  ) {
     return mixLabColor(
       palette[0] ?? theme.colors.focus,
       palette[palette.length - 1] ?? theme.colors.focus,
       bounded,
     );
+  }
+  if (
+    theme.colors.continuousInterpolation === 'rgb' ||
+    theme.colors.continuousInterpolation === 'lab'
+  ) {
+    const scaled = bounded * (palette.length - 1);
+    const startIndex = Math.min(palette.length - 2, Math.floor(scaled));
+    const start = palette[startIndex] ?? theme.colors.focus;
+    const end = palette[startIndex + 1] ?? start;
+    const localRatio = scaled - startIndex;
+    return theme.colors.continuousInterpolation === 'lab'
+      ? mixLabColor(start, end, localRatio)
+      : mixColor(start, end, localRatio);
+  }
+  if (theme.colors.continuousInterpolation === 'step') {
+    const index = Math.min(palette.length - 1, Math.floor(bounded * palette.length));
+    return palette[index] ?? theme.colors.focus;
   }
   return palette[Math.round(bounded * (palette.length - 1))] ?? theme.colors.focus;
 }

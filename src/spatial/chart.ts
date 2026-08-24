@@ -1108,6 +1108,7 @@ export class SpatialChart {
         : 'layers';
     const mode = legend.mode === undefined || legend.mode === 'auto' ? autoMode : legend.mode;
     let items: SpatialLegendOverlayState['items'];
+    let continuousColors: readonly string[] | undefined;
     if (legend.items !== undefined && legend.items.length > 0) {
       const configuredItems = legend.items.slice(0, legend.maxItems ?? 24);
       items = configuredItems.map((item, index) => {
@@ -1203,6 +1204,19 @@ export class SpatialChart {
               this.#spec.layers.length,
               'high',
             );
+      const authoredContinuousColor =
+        configuredColors !== undefined ||
+        (selectedLayer.mark.type === 'volume' &&
+          (selectedLayer.mark.colorLow !== undefined ||
+            selectedLayer.mark.colorHigh !== undefined)) ||
+        (selectedLayer.mark.type === 'surface' && selectedLayer.mark.color !== undefined) ||
+        (selectedLayer.mark.type === 'scatter' && selectedLayer.mark.color !== undefined);
+      const continuousSamples = this.#scene.theme.legend?.continuousSamples;
+      if (!authoredContinuousColor && continuousSamples !== undefined) {
+        continuousColors = Array.from({ length: continuousSamples }, (_value, index) =>
+          continuousColor(this.#scene.theme, index / Math.max(1, continuousSamples - 1)),
+        );
+      }
       let formatter: Intl.NumberFormat;
       try {
         formatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 6 });
@@ -1261,6 +1275,7 @@ export class SpatialChart {
       showLabel: legend.labels?.show ?? 'Show',
       hideLabel: legend.labels?.hide ?? 'Hide',
       items,
+      ...(continuousColors === undefined ? {} : { continuousColors }),
     };
   }
 

@@ -30,6 +30,7 @@ export {
   graflumeDark,
   graflumeGgplot,
   graflumeLight,
+  graflumeMatplotlib,
   graflumeRBase,
 } from './theme/defaults.js';
 export { spatialOutputLimits } from './spatial/budget.js';

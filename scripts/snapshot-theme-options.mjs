@@ -78,8 +78,16 @@ function neutralEncoding(value) {
 
 function neutralLayer(value) {
   if (value === null || typeof value !== 'object') return value;
+  const data =
+    value.data === null ||
+    value.data === undefined ||
+    typeof value.data !== 'object' ||
+    Array.isArray(value.data)
+      ? value.data
+      : withoutKeys(value.data, new Set(['colors']));
   return {
     ...value,
+    ...(value.data === undefined ? {} : { data }),
     ...(value.mark === undefined ? {} : { mark: withoutKeys(value.mark, markVisualKeys) }),
     ...(value.x === undefined ? {} : { x: neutralEncoding(value.x) }),
     ...(value.y === undefined ? {} : { y: neutralEncoding(value.y) }),

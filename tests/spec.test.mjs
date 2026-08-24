@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 
 import { normalizeSpec } from '../.tmp/src/spec/normalize.js';
 import { validateSpec } from '../.tmp/src/spec/validate.js';
@@ -72,4 +73,56 @@ test('rejects unsafe named mark fields and non-object options', () => {
 
   assert.ok(issues.some((issue) => issue.path === '$.mark.fields.label'));
   assert.ok(issues.some((issue) => issue.path === '$.mark.options'));
+});
+
+test('validates portable theme extension tokens in Canvas specs and schema', async () => {
+  const base = { data, mark: 'line', x: 'month', y: 'value' };
+  assert.equal(
+    validateSpec({
+      ...base,
+      theme: {
+        colors: { continuousInterpolation: 'step' },
+        spacing: { minimumTitleBlock: 20 },
+        mark: {
+          pointColorMode: 'series',
+          histogramGap: 0,
+          boxplotMedianStroke: '#FF7F0E',
+          pieStartAngle: 0,
+          pieDirection: 'counterclockwise',
+          areaColorMode: 'series',
+        },
+        legend: { borderColor: '#CCCCCC', continuousSamples: 256 },
+      },
+    }).length,
+    0,
+  );
+
+  const issues = validateSpec({
+    ...base,
+    theme: {
+      colors: { continuousInterpolation: 'cmyk' },
+      mark: { pointColorMode: 'fixed', pieDirection: 'up' },
+      legend: { continuousSamples: 2.5 },
+    },
+  });
+  for (const path of [
+    '$.theme.colors.continuousInterpolation',
+    '$.theme.mark.pointColorMode',
+    '$.theme.mark.pieDirection',
+    '$.theme.legend.continuousSamples',
+  ]) {
+    assert.ok(
+      issues.some((issue) => issue.path === path),
+      path,
+    );
+  }
+
+  const schema = JSON.parse(
+    await readFile(new URL('../schema/graflume.schema.json', import.meta.url), 'utf8'),
+  );
+  const theme = schema.properties.theme.oneOf[1].properties;
+  assert.deepEqual(theme.colors.properties.continuousInterpolation.enum, ['step', 'rgb', 'lab']);
+  assert.deepEqual(theme.mark.properties.pointColorMode.enum, ['theme', 'series']);
+  assert.deepEqual(theme.mark.properties.pieDirection.enum, ['clockwise', 'counterclockwise']);
+  assert.equal(theme.legend.properties.continuousSamples.maximum, 256);
 });

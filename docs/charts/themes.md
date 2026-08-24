@@ -8,6 +8,7 @@ Graflume ships an ordered built-in theme catalog. The current catalog is:
 | `graflume-dark`  | Graflume's presentation-oriented dark design         |
 | `ggplot`         | The visual contract of ggplot2 `theme_gray()`        |
 | `r-base`         | The common visual contract of R base graphics output |
+| `matplotlib`     | Matplotlib 3.11.1's default visual contract          |
 
 Do not copy that table into a closed application-side allowlist. `builtInThemeCatalog` is the ordered source of truth, and `defaultThemeId` identifies its default. A theme picker can therefore follow future built-ins without another hard-coded cycle:
 
@@ -32,7 +33,7 @@ line('#chart', rows, {
 });
 ```
 
-The named reference token objects are also exported as `graflumeGgplot` and `graflumeRBase`. Explicit chart, axis, legend, and mark styles continue to override the selected theme. A custom theme can extend any catalog entry without executable callbacks:
+The named reference token objects are also exported as `graflumeGgplot`, `graflumeRBase`, and `graflumeMatplotlib`. Explicit chart, axis, legend, and mark styles continue to override the selected theme. A custom theme can extend any catalog entry without executable callbacks:
 
 ```ts
 const spec = {
@@ -92,6 +93,28 @@ const spec = {
 
 R high-level functions and S3 methods can choose their own domains, pretty breaks, labels, mark types, and colours. Selecting `r-base` does not run R or change Graflume data, scale, or chart-family semantics; it applies the shared visual defaults after Graflume has compiled those semantics.
 
+## `matplotlib` reference contract
+
+The built-in profile is pinned to Matplotlib 3.11.1's tagged [default `matplotlibrc`](https://github.com/matplotlib/matplotlib/blob/v3.11.1/lib/matplotlib/mpl-data/matplotlibrc), [tab10 colour data](https://github.com/matplotlib/matplotlib/blob/v3.11.1/lib/matplotlib/_color_data.py), and [viridis lookup table](https://github.com/matplotlib/matplotlib/blob/v3.11.1/lib/matplotlib/_cm_listed.py). It models `style.use('default')`, not the separate `classic` style, and does not silently track a future Matplotlib release.
+
+The browser reference is Matplotlib's default 6.4 × 4.8 inch figure at 100 dpi, or 640 × 480 pixels. Its point-valued rcParams use `px = pt × 100 / 72`, so 10 pt text is 13.8889 px, a 12 pt axes title is 16.6667 px, a 1.5 pt line is 2.0833 px, a 0.8 pt spine is 1.1111 px, and a 3.5 pt tick is 4.8611 px.
+
+For Canvas charts the profile applies the corresponding defaults:
+
+- white figure, axes, and legend surfaces; black text; all four black 0.8 pt spines;
+- primary grid lines disabled by default, with `#B0B0B0` 0.8 pt lines available when a chart enables them;
+- outward primary ticks, centered normal-weight axes titles, and DejaVu Sans-first 10/12 pt typography;
+- the exact ten-colour tab10 cycle beginning `#1F77B4`, `#FF7F0E`, and `#2CA02C`;
+- solid 1.5 pt lines, filled 6 pt-diameter circle markers, and area fills that advance through tab10 by series, plus square 0.8-width bars, touching histogram bins, and transparent patch edges;
+- unfilled black boxplots with a tab10 C1 orange median, and tab10 pie slices without visible borders;
+- Matplotlib's default pie origin at zero radians and counterclockwise slice order unless the mark explicitly supplies a different start or direction;
+- a white 0.8-opacity rounded legend with a `#CCCCCC` border;
+- Matplotlib's complete 256-entry viridis lookup table for image, heatmap, contour, other continuous mappings, and generated continuous-legend stops. The Graflume diverging slot uses the corresponding sampled `coolwarm` reference.
+
+These behaviours use portable generic tokens such as `colors.continuousInterpolation`, `spacing.minimumTitleBlock`, `mark.pointColorMode`, `mark.areaColorMode`, `mark.pieStartAngle`, `mark.pieDirection`, and `legend.continuousSamples`; no compiler branch checks the `matplotlib` theme id. Canvas and Spatial validation both check the new token values, so another catalog theme can reuse the same capabilities.
+
+Matplotlib plotting functions can choose domains, locators, formatters, aspect ratios, interpolation filters, and function-specific geometry. Selecting `matplotlib` does not run Python or change Graflume data and chart-family semantics. Graflume uses responsive measured layout rather than copying fixed `figure.subplot.*` fractions at every container size; the 640 × 480 normalization reserves the same top subplot space with or without an authored title. Browser font discovery, Canvas antialiasing, WebGL lighting, and rasterisation can still differ from Matplotlib's Agg, SVG, PDF, or GUI backends.
+
 ## Coverage and limits
 
 Every built-in theme is accepted by every one of the 41 Canvas families and all 162 Canvas presets. It also flows through all seven `graflume/spatial` variants and the Map globe mode, covering the full 44-family catalog.
@@ -100,7 +123,9 @@ For marks with a direct ggplot2 core counterpart, such as points, lines, bars, a
 
 The same boundary applies to `r-base`. Scatter, line, bar, histogram, box, pie, area, interval, contour, image, and flat-map families use the closest base-R appearance. Base graphics has no single canonical Sankey, gauge, financial terminal, hierarchy, WebGL volume, surface, cone, streamtube, or orbit-camera design. Those families keep Graflume geometry while inheriting the white plot, black typography and box, R palette, and mark chrome.
 
-Canvas and R graphics devices use different font discovery, text metrics, antialiasing, and rasterisation. The structural tokens and scale outputs are deterministic, but a browser bitmap is not promised to be byte-identical to every R graphics device. Pin the same font, dimensions, pixel ratio, and locale when making visual reference comparisons.
+The `matplotlib` profile follows the same rule. Direct counterparts adopt the default axes, typography, tab10, patch, boxplot, pie, legend, and viridis semantics. Specialist financial, relationship, hierarchy, and WebGL families retain Graflume geometry, camera, and lighting while inheriting those surfaces, colours, and chrome.
+
+Canvas, R graphics devices, and Matplotlib backends use different font discovery, text metrics, antialiasing, and rasterisation. The structural tokens and scale outputs are deterministic, but a browser bitmap is not promised to be byte-identical to every R or Matplotlib backend. Pin the same font, dimensions, pixel ratio, and locale when making visual reference comparisons.
 
 Spatial WebGL has no Cartesian plot box, axes, or grid. Its viewport receives the selected panel/background, its surrounding surface and overlays receive the plot/legend colours and typography, and its mapped colours use the same theme resolvers. Camera, lighting, depth, and geometry remain Spatial concerns. Explicit `background`, layer colours, and datum colours remain authoritative.
 

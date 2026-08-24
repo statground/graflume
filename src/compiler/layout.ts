@@ -27,13 +27,14 @@ export function createLayout(
   additionalInsets: Partial<LayoutInsets> = {},
 ): ChartLayout {
   const separatePlotMargin = theme.spacing.plotMargin !== undefined;
-  const titleBlock =
+  const measuredTitleBlock =
     spec.title === undefined
       ? 0
       : theme.typography.titleSize +
         (spec.title.subtitle === undefined
           ? theme.spacing.lg
           : theme.typography.subtitleSize + theme.spacing.lg + theme.spacing.xs);
+  const titleBlock = Math.max(measuredTitleBlock, theme.spacing.minimumTitleBlock ?? 0);
   const insets: LayoutInsets = {
     // A top axis shares the space between the chart heading and the plot. Keep
     // the caller's outer top padding for the heading, then reserve the measured

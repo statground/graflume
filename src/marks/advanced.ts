@@ -5,7 +5,13 @@ import { nodeBase } from '../scene/factory.js';
 import type { Point, SceneNode, TextNode } from '../scene/types.js';
 import { BandScale } from '../scale/band.js';
 import { categoricalColor, colorWithOpacity, mixColor, readableTextColor } from '../theme/color.js';
-import { mappedContinuousColor, numericDataValue, scaleInput } from './utils.js';
+import {
+  mappedContinuousColor,
+  numericDataValue,
+  scaleInput,
+  themedPointFill,
+  themedPointStroke,
+} from './utils.js';
 
 const TAU = Math.PI * 2;
 
@@ -1137,7 +1143,10 @@ export const compileBoxplotMark: MarkCompiler = (context) => {
       y1: yMedian,
       x2: x + boxWidth / 2,
       y2: yMedian,
-      stroke: mixColor(stroke, theme.colors.text, 0.22),
+      stroke:
+        layer.mark.stroke ??
+        theme.mark.boxplotMedianStroke ??
+        mixColor(stroke, theme.colors.text, 0.22),
       lineWidth: layer.mark.lineWidth ?? theme.mark.boxplotLineWidth ?? 2.2,
       lineCap: theme.mark.lineCap ?? 'round',
     });
@@ -1168,7 +1177,8 @@ export const compileEffectScatterMark: MarkCompiler = (context) => {
         : (numericDataValue(table.value(rowIndex, sizeField)) ?? 1) / maxSize;
     const radius = (layer.mark.radius ?? 5.5) * (0.7 + Math.sqrt(Math.max(0, size)) * 0.8);
     const color =
-      layer.mark.fill ?? theme.mark.pointFill ?? theme.mark.defaultColor ?? context.color;
+      layer.mark.fill ??
+      themedPointFill(theme, context.color, theme.mark.defaultColor ?? context.color);
     for (let ring = ringCount; ring >= 1; ring -= 1) {
       nodes.push({
         type: 'circle',
@@ -1191,7 +1201,7 @@ export const compileEffectScatterMark: MarkCompiler = (context) => {
       cy: y,
       radius,
       fill: color,
-      stroke: layer.mark.stroke ?? theme.mark.pointStroke ?? theme.colors.background,
+      stroke: layer.mark.stroke ?? themedPointStroke(theme, color, theme.colors.background),
       lineWidth: layer.mark.lineWidth ?? 2,
     });
   }

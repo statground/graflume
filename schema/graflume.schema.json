@@ -240,7 +240,44 @@
           "type": "string"
         },
         {
-          "type": "object"
+          "type": "object",
+          "properties": {
+            "extends": { "type": "string", "minLength": 1 },
+            "colors": {
+              "type": "object",
+              "properties": {
+                "continuousInterpolation": { "enum": ["step", "rgb", "lab"] }
+              }
+            },
+            "spacing": {
+              "type": "object",
+              "properties": {
+                "minimumTitleBlock": { "type": "number", "minimum": 0, "maximum": 2000 }
+              }
+            },
+            "mark": {
+              "type": "object",
+              "properties": {
+                "pointColorMode": { "enum": ["theme", "series"] },
+                "histogramGap": { "type": "number", "minimum": 0, "maximum": 2000 },
+                "boxplotMedianStroke": { "type": "string", "minLength": 1 },
+                "pieStartAngle": {
+                  "type": "number",
+                  "minimum": -1000000,
+                  "maximum": 1000000
+                },
+                "pieDirection": { "enum": ["clockwise", "counterclockwise"] },
+                "areaColorMode": { "enum": ["theme", "series"] }
+              }
+            },
+            "legend": {
+              "type": "object",
+              "properties": {
+                "borderColor": { "type": "string", "minLength": 1 },
+                "continuousSamples": { "type": "integer", "minimum": 1, "maximum": 256 }
+              }
+            }
+          }
         }
       ]
     },

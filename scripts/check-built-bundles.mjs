@@ -69,6 +69,10 @@ assert.equal(defaultModule.graflumeRBase.name, 'r-base');
 assert.ok(defaultModule.capabilities().themes.includes('r-base'));
 assert.equal(completeModule.graflumeRBase.name, 'r-base');
 assert.ok(completeModule.capabilities().themes.includes('r-base'));
+assert.equal(defaultModule.graflumeMatplotlib.name, 'matplotlib');
+assert.ok(defaultModule.capabilities().themes.includes('matplotlib'));
+assert.equal(completeModule.graflumeMatplotlib.name, 'matplotlib');
+assert.ok(completeModule.capabilities().themes.includes('matplotlib'));
 const bundledGgplotScene = completeModule.compile(
   {
     data: [
@@ -119,6 +123,17 @@ const bundledSpatialRBaseScene = spatialModule.compileSpatial({
 });
 assert.equal(bundledSpatialRBaseScene.theme.name, 'r-base');
 assert.equal(bundledSpatialRBaseScene.theme.colors.panel, '#FFFFFF');
+const bundledSpatialMatplotlibScene = spatialModule.compileSpatial({
+  theme: 'matplotlib',
+  layers: [
+    {
+      mark: { type: 'surface', mode: 'surface' },
+      data: { rows: 2, columns: 2, z: [0, 1, 1, 0] },
+    },
+  ],
+});
+assert.equal(bundledSpatialMatplotlibScene.theme.name, 'matplotlib');
+assert.equal(bundledSpatialMatplotlibScene.theme.colors.panel, '#FFFFFF');
 for (const api of [
   'createSpatial',
   'surface',
@@ -181,6 +196,10 @@ assert.equal(defaultGlobal.graflumeRBase.name, 'r-base');
 assert.ok(defaultGlobal.capabilities().themes.includes('r-base'));
 assert.equal(completeGlobal.graflumeRBase.name, 'r-base');
 assert.ok(completeGlobal.capabilities().themes.includes('r-base'));
+assert.equal(defaultGlobal.graflumeMatplotlib.name, 'matplotlib');
+assert.ok(defaultGlobal.capabilities().themes.includes('matplotlib'));
+assert.equal(completeGlobal.graflumeMatplotlib.name, 'matplotlib');
+assert.ok(completeGlobal.capabilities().themes.includes('matplotlib'));
 for (const api of additionalApis) assert.equal(typeof completeGlobal[api], 'function', api);
 for (const entry of completeGlobal.seriesChartTypeCatalog) {
   assert.equal(typeof completeGlobal[entry.quickApi], 'function', entry.quickApi);

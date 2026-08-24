@@ -2,7 +2,7 @@ import type { MarkCompiler } from '../compiler/types.js';
 import { strideSampleIndices } from '../data/sample.js';
 import { nodeBase } from '../scene/factory.js';
 import type { CircleNode } from '../scene/types.js';
-import { scaleInput } from './utils.js';
+import { scaleInput, themedPointFill, themedPointStroke } from './utils.js';
 
 export const compilePointMark: MarkCompiler = (context) => {
   const { table, layer, xScale, yScale, color, theme, performance } = context;
@@ -27,8 +27,8 @@ export const compilePointMark: MarkCompiler = (context) => {
       cx,
       cy,
       radius: layer.mark.radius ?? theme.mark.pointRadius,
-      fill: layer.mark.fill ?? theme.mark.pointFill ?? theme.mark.defaultColor ?? color,
-      stroke: layer.mark.stroke ?? theme.mark.pointStroke ?? theme.colors.background,
+      fill: layer.mark.fill ?? themedPointFill(theme, color, theme.mark.defaultColor ?? color),
+      stroke: layer.mark.stroke ?? themedPointStroke(theme, color, theme.colors.background),
       lineWidth: layer.mark.lineWidth ?? theme.mark.pointStrokeWidth ?? 1.75,
     });
   }

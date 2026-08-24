@@ -309,6 +309,7 @@ export {
   graflumeDark,
   graflumeGgplot,
   graflumeLight,
+  graflumeMatplotlib,
   graflumeRBase,
 } from './theme/defaults.js';
 export { pluginApiVersion } from './core/plugin.js';

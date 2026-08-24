@@ -2,7 +2,7 @@ import { minMaxSampleIndices, strideSampleIndices } from '../data/sample.js';
 import { nodeBase } from '../scene/factory.js';
 import type { CircleNode, PathNode, Point, SceneNode } from '../scene/types.js';
 import type { MarkCompiler } from '../compiler/types.js';
-import { numericDataValue, scaleInput } from './utils.js';
+import { numericDataValue, scaleInput, themedPointFill, themedPointStroke } from './utils.js';
 
 export const compileLineMark: MarkCompiler = (context) => {
   const { table, layer, xScale, yScale, color, theme, performance } = context;
@@ -76,8 +76,8 @@ export const compileLineMark: MarkCompiler = (context) => {
           cx: point.x,
           cy: point.y,
           radius: layer.mark.radius ?? theme.mark.pointRadius,
-          fill: layer.mark.fill ?? theme.mark.pointFill ?? theme.colors.background,
-          stroke: layer.mark.stroke ?? theme.mark.pointStroke ?? stroke,
+          fill: layer.mark.fill ?? themedPointFill(theme, stroke, theme.colors.background),
+          stroke: layer.mark.stroke ?? themedPointStroke(theme, stroke, stroke),
           lineWidth:
             layer.mark.lineWidth === undefined
               ? (theme.mark.pointStrokeWidth ?? Math.max(1.5, lineWidth * 0.68))

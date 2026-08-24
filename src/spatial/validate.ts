@@ -48,6 +48,7 @@ const THEME_COLOR_KEYS = new Set([
   'focus',
   'palette',
   'paletteMode',
+  'continuousInterpolation',
   'sequential',
   'diverging',
 ]);
@@ -71,7 +72,16 @@ const THEME_TYPOGRAPHY_KEYS = new Set([
   'titleAlign',
   'lineHeight',
 ]);
-const THEME_SPACING_KEYS = new Set(['xs', 'sm', 'md', 'lg', 'xl', 'plotMargin', 'plotPadding']);
+const THEME_SPACING_KEYS = new Set([
+  'xs',
+  'sm',
+  'md',
+  'lg',
+  'xl',
+  'plotMargin',
+  'plotPadding',
+  'minimumTitleBlock',
+]);
 const THEME_PLOT_PADDING_KEYS = new Set(['top', 'right', 'bottom', 'left']);
 const THEME_AXIS_KEYS = new Set([
   'lineWidth',
@@ -105,26 +115,33 @@ const THEME_MARK_KEYS = new Set([
   'pointFill',
   'pointStroke',
   'pointStrokeWidth',
+  'pointColorMode',
   'barFill',
   'barStroke',
   'barStrokeWidth',
   'barWidthRatio',
   'histogramFill',
+  'histogramGap',
   'boxplotFill',
   'boxplotLineWidth',
   'boxplotRadius',
+  'boxplotMedianStroke',
   'piePalette',
   'pieStroke',
   'pieStrokeWidth',
+  'pieStartAngle',
+  'pieDirection',
   'areaFill',
   'areaStroke',
   'areaStrokeVisible',
+  'areaColorMode',
   'lineCap',
   'lineJoin',
 ]);
 const THEME_LEGEND_KEYS = new Set([
   'surfaceOpacity',
   'borderWidth',
+  'borderColor',
   'cornerRadius',
   'swatchRadius',
   'swatchSize',
@@ -132,6 +149,7 @@ const THEME_LEGEND_KEYS = new Set([
   'pointRadius',
   'pointStrokeWidth',
   'lineCap',
+  'continuousSamples',
 ]);
 const THEME_MOTION_KEYS = new Set(['duration', 'easing']);
 const CAMERA_KEYS = new Set([
@@ -539,6 +557,12 @@ function validateTheme(value: unknown, path: string, issues: SpatialSpecIssue[])
         new Set(['fixed', 'ggplot2-hue']),
         issues,
       );
+      optionalEnum(
+        colors.continuousInterpolation,
+        `${path}.colors.continuousInterpolation`,
+        new Set(['step', 'rgb', 'lab']),
+        issues,
+      );
       for (const key of ['palette', 'sequential', 'diverging'] as const)
         validateThemeStringArray(colors[key], `${path}.colors.${key}`, issues);
     }
@@ -589,7 +613,7 @@ function validateTheme(value: unknown, path: string, issues: SpatialSpecIssue[])
   if (theme.spacing !== undefined) {
     const spacing = closedObject(theme.spacing, `${path}.spacing`, THEME_SPACING_KEYS, issues);
     if (spacing !== undefined) {
-      for (const key of ['xs', 'sm', 'md', 'lg', 'xl', 'plotMargin'] as const)
+      for (const key of ['xs', 'sm', 'md', 'lg', 'xl', 'plotMargin', 'minimumTitleBlock'] as const)
         optionalThemeNumber(spacing[key], `${path}.spacing.${key}`, issues);
       if (spacing.plotPadding !== undefined) {
         const plotPadding = closedObject(
@@ -651,6 +675,7 @@ function validateTheme(value: unknown, path: string, issues: SpatialSpecIssue[])
         'pointStrokeWidth',
         'barRadius',
         'barStrokeWidth',
+        'histogramGap',
         'boxplotLineWidth',
         'boxplotRadius',
         'pieStrokeWidth',
@@ -658,6 +683,13 @@ function validateTheme(value: unknown, path: string, issues: SpatialSpecIssue[])
         optionalThemeNumber(mark[key], `${path}.mark.${key}`, issues);
       optionalThemeNumber(mark.opacity, `${path}.mark.opacity`, issues, 0, 1);
       optionalThemeNumber(mark.barWidthRatio, `${path}.mark.barWidthRatio`, issues, 0, 1);
+      optionalThemeNumber(
+        mark.pieStartAngle,
+        `${path}.mark.pieStartAngle`,
+        issues,
+        -1_000_000,
+        1_000_000,
+      );
       optionalBoolean(mark.areaStrokeVisible, `${path}.mark.areaStrokeVisible`, issues);
       for (const key of [
         'defaultColor',
@@ -668,12 +700,21 @@ function validateTheme(value: unknown, path: string, issues: SpatialSpecIssue[])
         'barStroke',
         'histogramFill',
         'boxplotFill',
+        'boxplotMedianStroke',
         'pieStroke',
         'areaFill',
         'areaStroke',
       ] as const)
         optionalNonEmptyString(mark[key], `${path}.mark.${key}`, issues, 128);
       validateThemeStringArray(mark.piePalette, `${path}.mark.piePalette`, issues);
+      for (const key of ['pointColorMode', 'areaColorMode'] as const)
+        optionalEnum(mark[key], `${path}.mark.${key}`, new Set(['theme', 'series']), issues);
+      optionalEnum(
+        mark.pieDirection,
+        `${path}.mark.pieDirection`,
+        new Set(['clockwise', 'counterclockwise']),
+        issues,
+      );
       optionalEnum(
         mark.lineCap,
         `${path}.mark.lineCap`,
@@ -693,6 +734,7 @@ function validateTheme(value: unknown, path: string, issues: SpatialSpecIssue[])
     const legend = closedObject(theme.legend, `${path}.legend`, THEME_LEGEND_KEYS, issues);
     if (legend !== undefined) {
       optionalThemeNumber(legend.surfaceOpacity, `${path}.legend.surfaceOpacity`, issues, 0, 1);
+      optionalNonEmptyString(legend.borderColor, `${path}.legend.borderColor`, issues, 128);
       for (const key of [
         'borderWidth',
         'cornerRadius',
@@ -703,6 +745,20 @@ function validateTheme(value: unknown, path: string, issues: SpatialSpecIssue[])
         'pointStrokeWidth',
       ] as const)
         optionalThemeNumber(legend[key], `${path}.legend.${key}`, issues, 0, 256);
+      optionalThemeNumber(
+        legend.continuousSamples,
+        `${path}.legend.continuousSamples`,
+        issues,
+        1,
+        256,
+      );
+      if (
+        legend.continuousSamples !== undefined &&
+        typeof legend.continuousSamples === 'number' &&
+        !Number.isInteger(legend.continuousSamples)
+      ) {
+        issue(issues, `${path}.legend.continuousSamples`, 'Must be an integer.');
+      }
       optionalEnum(
         legend.lineCap,
         `${path}.legend.lineCap`,

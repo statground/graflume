@@ -15,7 +15,14 @@ import { compileAreaMark } from './area.js';
 import { compileBarMark } from './bar.js';
 import { compileLineMark } from './line.js';
 import { compilePointMark } from './point.js';
-import { numericDataValue, scaleInput } from './utils.js';
+import {
+  numericDataValue,
+  scaleInput,
+  themedAreaFill,
+  themedAreaStroke,
+  themedPointFill,
+  themedPointStroke,
+} from './utils.js';
 
 function optionNumber(
   options: Readonly<Record<string, unknown>>,
@@ -91,8 +98,7 @@ export const compileSteppedAreaMark: MarkCompiler = (context) => {
     closed: true,
     fill:
       layer.mark.fill ??
-      theme.mark.areaFill ??
-      colorWithOpacity(color, theme.mode === 'dark' ? 0.28 : 0.2),
+      themedAreaFill(theme, color, colorWithOpacity(color, theme.mode === 'dark' ? 0.28 : 0.2)),
     lineWidth: 0,
   };
   const outline: PathNode = {
@@ -105,10 +111,7 @@ export const compileSteppedAreaMark: MarkCompiler = (context) => {
     closed: false,
     stroke:
       layer.mark.stroke ??
-      theme.mark.areaStroke ??
-      theme.mark.lineColor ??
-      theme.mark.defaultColor ??
-      color,
+      themedAreaStroke(theme, color, theme.mark.lineColor ?? theme.mark.defaultColor ?? color),
     lineWidth: layer.mark.lineWidth ?? theme.mark.lineWidth,
     lineCap: theme.mark.lineCap ?? 'round',
     lineJoin: theme.mark.lineJoin ?? 'round',
@@ -172,7 +175,7 @@ export const compileBubbleMark: MarkCompiler = (context) => {
       size === null || maximum === minimum
         ? 0.5
         : Math.max(0, Math.min(1, (size - minimum) / (maximum - minimum)));
-    let fill = layer.mark.fill ?? theme.mark.pointFill ?? theme.mark.defaultColor ?? color;
+    let fill = layer.mark.fill ?? themedPointFill(theme, color, theme.mark.defaultColor ?? color);
     if (layer.mark.fill === undefined && colorField !== undefined) {
       const category = String(table.value(rowIndex, colorField) ?? '');
       let categoryColor = categoryColors.get(category);
@@ -194,7 +197,7 @@ export const compileBubbleMark: MarkCompiler = (context) => {
       cy,
       radius: minimumRadius + Math.sqrt(ratio) * (maximumRadius - minimumRadius),
       fill,
-      stroke: layer.mark.stroke ?? theme.mark.pointStroke ?? theme.colors.background,
+      stroke: layer.mark.stroke ?? themedPointStroke(theme, fill, theme.colors.background),
       lineWidth: layer.mark.lineWidth ?? theme.mark.pointStrokeWidth ?? 2,
     });
   }
@@ -298,6 +301,7 @@ export const compileHistogramMark: MarkCompiler = (context) => {
   const baseline = yScale.map(0);
   const nodes: RectNode[] = [];
   const totalCount = bins.reduce((sum, count) => sum + count, 0);
+  const histogramGap = Math.max(0, theme.mark.histogramGap ?? 2);
   bins.forEach((count, index) => {
     const start = extent[0] + (span * index) / binCount;
     const end = extent[0] + (span * (index + 1)) / binCount;
@@ -332,9 +336,9 @@ export const compileHistogramMark: MarkCompiler = (context) => {
               },
             }),
       }),
-      x: Math.min(x1, x2) + 2,
+      x: Math.min(x1, x2) + histogramGap,
       y: Math.min(y, baseline),
-      width: Math.max(1, Math.abs(x2 - x1) - 4),
+      width: Math.max(1, Math.abs(x2 - x1) - histogramGap * 2),
       height: Math.max(0.5, Math.abs(baseline - y)),
       fill: layer.mark.fill ?? theme.mark.histogramFill ?? theme.mark.barFill ?? color,
       ...(stroke === undefined ? {} : { stroke }),
@@ -412,8 +416,8 @@ export const compileIntervalMark: MarkCompiler = (context) => {
       cx: x,
       cy: y,
       radius: layer.mark.radius ?? theme.mark.pointRadius + 1,
-      fill: layer.mark.fill ?? theme.mark.pointFill ?? theme.colors.background,
-      stroke: layer.mark.stroke ?? theme.mark.pointStroke ?? stroke,
+      fill: layer.mark.fill ?? themedPointFill(theme, stroke, theme.colors.background),
+      stroke: layer.mark.stroke ?? themedPointStroke(theme, stroke, stroke),
       lineWidth: layer.mark.lineWidth ?? theme.mark.pointStrokeWidth ?? lineWidth,
     });
   }

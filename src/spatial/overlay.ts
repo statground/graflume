@@ -39,6 +39,7 @@ export interface SpatialLegendOverlayState {
   readonly showLabel: string;
   readonly hideLabel: string;
   readonly items: readonly SpatialLegendOverlayItem[];
+  readonly continuousColors?: readonly string[];
 }
 
 export interface SpatialOverlayState {
@@ -550,7 +551,7 @@ function createLegend(
   element.style.overflow = 'auto';
   element.style.padding = '8px 10px';
   element.style.boxSizing = 'border-box';
-  element.style.border = `${state.scene.theme.legend?.borderWidth ?? 1}px solid ${state.scene.theme.colors.axis}`;
+  element.style.border = `${state.scene.theme.legend?.borderWidth ?? 1}px solid ${state.scene.theme.legend?.borderColor ?? state.scene.theme.colors.axis}`;
   element.style.borderRadius = `${state.scene.theme.legend?.cornerRadius ?? 8}px`;
   const surfaceOpacity = state.scene.theme.legend?.surfaceOpacity ?? 0.9;
   element.style.background =
@@ -579,10 +580,9 @@ function createLegend(
     gradient.style.gridColumn = '1 / -1';
     gradient.style.height = '10px';
     gradient.style.borderRadius = '3px';
-    gradient.style.background = `linear-gradient(90deg, ${legend.items
-      .map(
-        (item, index) => `${item.color} ${(index / Math.max(1, legend.items.length - 1)) * 100}%`,
-      )
+    const colors = legend.continuousColors ?? legend.items.map(({ color }) => color);
+    gradient.style.background = `linear-gradient(90deg, ${colors
+      .map((color, index) => `${color} ${(index / Math.max(1, colors.length - 1)) * 100}%`)
       .join(', ')})`;
     scale.append(gradient);
     [legend.items[0]!, legend.items[legend.items.length - 1]!].forEach((item, index) => {

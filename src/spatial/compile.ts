@@ -143,6 +143,12 @@ function interpolateColor(low: Rgba, high: Rgba, amount: number): Rgba {
   ];
 }
 
+function usesThemeContinuousScale(theme: ThemeTokens): boolean {
+  return (
+    theme.colors.paletteMode === 'ggplot2-hue' || theme.colors.continuousInterpolation !== undefined
+  );
+}
+
 function pushVec3(output: number[], value: SpatialVec3): void {
   output.push(value[0], value[1], value[2]);
 }
@@ -233,6 +239,8 @@ function compileSurfaceGrid(
     layer.mark.color ?? (legacyDefaults ? '#7c3aed' : continuousColor(theme, 1)),
     layer.mark.opacity,
   );
+  const useThemeScale =
+    !legacyDefaults && layer.mark.color === undefined && usesThemeContinuousScale(theme);
   const picks: SpatialPickTarget[] = [];
   const id = layerId(layer, layerIndex);
   for (let row = 0; row < rows; row += 1) {
@@ -243,7 +251,12 @@ function compileSurfaceGrid(
       const height = finite(data.z[index], `surface z ${index}`);
       positions.set([x, height, depth], index * 3);
       const amount = maximum === minimum ? 0.5 : (values[index]! - minimum) / (maximum - minimum);
-      colors.set(interpolateColor(low, high, amount), index * 4);
+      colors.set(
+        useThemeScale
+          ? spatialColor(continuousColor(theme, amount), layer.mark.opacity)
+          : interpolateColor(low, high, amount),
+        index * 4,
+      );
       picks.push({
         layerId: id,
         layerIndex,
@@ -417,6 +430,11 @@ function compileVolumePoints(
     layer.mark.colorHigh ?? (legacyDefaults ? '#f43f5e' : continuousColor(theme, 1)),
     layer.mark.opacity ?? 0.72,
   );
+  const useThemeScale =
+    !legacyDefaults &&
+    layer.mark.colorLow === undefined &&
+    layer.mark.colorHigh === undefined &&
+    usesThemeContinuousScale(theme);
   const id = layerId(layer, layerIndex);
   const plane = dimensions[0] * dimensions[1];
   for (const datumIndex of exactStrideSampleIndices(values.length, maximumSamples)) {
@@ -427,8 +445,12 @@ function compileVolumePoints(
     const value = values[datumIndex]!;
     const amount = maximum === minimum ? 0.5 : (value - minimum) / (maximum - minimum);
     const position = volumePosition(x, y, z, origin, spacing);
+    const interpolated = interpolateColor(low, high, amount);
     pushVec3(positions, position);
-    pushColor(colors, interpolateColor(low, high, amount));
+    pushColor(
+      colors,
+      useThemeScale ? spatialColor(continuousColor(theme, amount), interpolated[3]) : interpolated,
+    );
     sizes.push(Math.max(1, (layer.mark.pointSize ?? 5) * (0.45 + amount * 0.75)));
     picks.push({
       layerId: id,
@@ -885,6 +907,8 @@ function compileScatter(
     layer.mark.color ?? (legacyDefaults ? '#7c3aed' : continuousColor(theme, 1)),
     layer.mark.opacity,
   );
+  const useThemeScale =
+    !legacyDefaults && layer.mark.color === undefined && usesThemeContinuousScale(theme);
   const category =
     legacyDefaults && layer.mark.color === undefined
       ? interpolateColor(low, high, 0.5)
@@ -904,7 +928,9 @@ function compileScatter(
         ? spatialColor(data.colors[datumIndex], layer.mark.opacity)
         : value === undefined
           ? category
-          : interpolateColor(low, high, amount),
+          : useThemeScale
+            ? spatialColor(continuousColor(theme, amount), layer.mark.opacity)
+            : interpolateColor(low, high, amount),
     );
     sizes.push(Math.max(1, data.sizes?.[datumIndex] ?? layer.mark.pointSize ?? 7));
     picks.push({

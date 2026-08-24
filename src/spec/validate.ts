@@ -234,6 +234,9 @@ const AXIS_NOTATIONS = new Set(['standard', 'compact', 'scientific', 'engineerin
 const AXIS_CURRENCY_DISPLAYS = new Set(['symbol', 'narrowSymbol', 'code', 'name']);
 const AXIS_DATE_STYLES = new Set(['short', 'medium', 'long', 'full']);
 const AXIS_TIME_STYLES = new Set(['short', 'medium', 'long']);
+const THEME_CONTINUOUS_INTERPOLATIONS = new Set(['step', 'rgb', 'lab']);
+const THEME_SERIES_COLOR_MODES = new Set(['theme', 'series']);
+const THEME_PIE_DIRECTIONS = new Set(['clockwise', 'counterclockwise']);
 
 function validateUnknownKeys(
   value: Record<string, unknown>,
@@ -292,6 +295,124 @@ function validateOptionalString(
 ): void {
   if (value !== undefined && (typeof value !== 'string' || (!allowEmpty && value.trim() === ''))) {
     issues.push({ path, message: `${label} must be a${allowEmpty ? '' : ' non-empty'} string.` });
+  }
+}
+
+function validateTheme(value: unknown, path: string, issues: SpecIssue[]): void {
+  if (value === undefined) return;
+  if (typeof value === 'string') {
+    if (value.trim() === '') issues.push({ path, message: 'Theme name must be non-empty.' });
+    return;
+  }
+  if (!isPlainObject(value)) {
+    issues.push({ path, message: 'Theme must be a name or an object.' });
+    return;
+  }
+  validateOptionalString(value.extends, `${path}.extends`, 'Theme base name', issues, false);
+
+  if (value.colors !== undefined) {
+    if (!isPlainObject(value.colors)) {
+      issues.push({ path: `${path}.colors`, message: 'Theme colors must be an object.' });
+    } else if (
+      value.colors.continuousInterpolation !== undefined &&
+      (typeof value.colors.continuousInterpolation !== 'string' ||
+        !THEME_CONTINUOUS_INTERPOLATIONS.has(value.colors.continuousInterpolation))
+    ) {
+      issues.push({
+        path: `${path}.colors.continuousInterpolation`,
+        message: 'Theme continuous interpolation is not supported.',
+      });
+    }
+  }
+
+  if (value.spacing !== undefined) {
+    if (!isPlainObject(value.spacing)) {
+      issues.push({ path: `${path}.spacing`, message: 'Theme spacing must be an object.' });
+    } else if (value.spacing.minimumTitleBlock !== undefined) {
+      validateFiniteNumber(
+        value.spacing.minimumTitleBlock,
+        `${path}.spacing.minimumTitleBlock`,
+        'Theme minimum title block',
+        issues,
+        { min: 0, max: 2_000 },
+      );
+    }
+  }
+
+  if (value.mark !== undefined) {
+    if (!isPlainObject(value.mark)) {
+      issues.push({ path: `${path}.mark`, message: 'Theme mark must be an object.' });
+    } else {
+      for (const key of ['pointColorMode', 'areaColorMode'] as const) {
+        if (
+          value.mark[key] !== undefined &&
+          (typeof value.mark[key] !== 'string' || !THEME_SERIES_COLOR_MODES.has(value.mark[key]))
+        ) {
+          issues.push({
+            path: `${path}.mark.${key}`,
+            message: 'Theme series color mode is not supported.',
+          });
+        }
+      }
+      if (
+        value.mark.pieDirection !== undefined &&
+        (typeof value.mark.pieDirection !== 'string' ||
+          !THEME_PIE_DIRECTIONS.has(value.mark.pieDirection))
+      ) {
+        issues.push({
+          path: `${path}.mark.pieDirection`,
+          message: 'Theme pie direction is not supported.',
+        });
+      }
+      if (value.mark.pieStartAngle !== undefined) {
+        validateFiniteNumber(
+          value.mark.pieStartAngle,
+          `${path}.mark.pieStartAngle`,
+          'Theme pie start angle',
+          issues,
+          { min: -1_000_000, max: 1_000_000 },
+        );
+      }
+      if (value.mark.histogramGap !== undefined) {
+        validateFiniteNumber(
+          value.mark.histogramGap,
+          `${path}.mark.histogramGap`,
+          'Theme histogram gap',
+          issues,
+          { min: 0, max: 2_000 },
+        );
+      }
+      validateOptionalString(
+        value.mark.boxplotMedianStroke,
+        `${path}.mark.boxplotMedianStroke`,
+        'Theme boxplot median stroke',
+        issues,
+        false,
+      );
+    }
+  }
+
+  if (value.legend !== undefined) {
+    if (!isPlainObject(value.legend)) {
+      issues.push({ path: `${path}.legend`, message: 'Theme legend must be an object.' });
+    } else {
+      validateOptionalString(
+        value.legend.borderColor,
+        `${path}.legend.borderColor`,
+        'Theme legend border color',
+        issues,
+        false,
+      );
+      if (value.legend.continuousSamples !== undefined) {
+        validateFiniteNumber(
+          value.legend.continuousSamples,
+          `${path}.legend.continuousSamples`,
+          'Theme continuous legend samples',
+          issues,
+          { min: 1, max: 256, integer: true },
+        );
+      }
+    }
   }
 }
 
@@ -1769,6 +1890,7 @@ export function validateSpec(input: unknown): readonly SpecIssue[] {
   }
 
   validateAxes(input.axes, '$.axes', issues);
+  validateTheme(input.theme, '$.theme', issues);
   validateLegend(input.legend, '$.legend', issues);
   validateHighlights(input.highlights, '$.highlights', issues);
   validateAnnotations(input.annotations, '$.annotations', issues);

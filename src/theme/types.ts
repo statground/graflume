@@ -17,6 +17,8 @@ export interface ThemeTokens {
     readonly palette: readonly string[];
     /** Dynamic categorical scale used by ggplot2-compatible themes. */
     readonly paletteMode?: 'fixed' | 'ggplot2-hue';
+    /** Interpolation used between authored continuous colour stops. */
+    readonly continuousInterpolation?: 'step' | 'rgb' | 'lab';
     readonly sequential: readonly string[];
     readonly diverging: readonly string[];
   };
@@ -53,6 +55,8 @@ export interface ThemeTokens {
       readonly bottom: number;
       readonly left: number;
     };
+    /** Minimum vertical space reserved above the plot, even without a title. */
+    readonly minimumTitleBlock?: number;
   };
   readonly axis: {
     readonly lineWidth: number;
@@ -89,27 +93,38 @@ export interface ThemeTokens {
     readonly pointFill?: string;
     readonly pointStroke?: string;
     readonly pointStrokeWidth?: number;
+    /** Whether point faces and edges follow the resolved per-series colour. */
+    readonly pointColorMode?: 'theme' | 'series';
     readonly barFill?: string;
     readonly barStroke?: string;
     readonly barStrokeWidth?: number;
     readonly barWidthRatio?: number;
     readonly histogramFill?: string;
+    /** Inset from each side of a generated histogram bin. */
+    readonly histogramGap?: number;
     readonly boxplotFill?: string;
     readonly boxplotLineWidth?: number;
     readonly boxplotRadius?: number;
+    readonly boxplotMedianStroke?: string;
     readonly piePalette?: readonly string[];
     readonly pieStroke?: string;
     readonly pieStrokeWidth?: number;
+    /** Default pie start angle in Canvas radians when the mark does not override it. */
+    readonly pieStartAngle?: number;
+    readonly pieDirection?: 'clockwise' | 'counterclockwise';
     readonly areaFill?: string;
     readonly areaStroke?: string;
     /** Whether an area gets its theme-default outline when no explicit stroke is authored. */
     readonly areaStrokeVisible?: boolean;
+    /** Whether area faces and outlines follow the resolved per-series colour. */
+    readonly areaColorMode?: 'theme' | 'series';
     readonly lineCap?: 'butt' | 'round' | 'square';
     readonly lineJoin?: 'bevel' | 'round' | 'miter';
   };
   readonly legend?: {
     readonly surfaceOpacity?: number;
     readonly borderWidth?: number;
+    readonly borderColor?: string;
     readonly cornerRadius?: number;
     readonly swatchRadius?: number;
     readonly swatchSize?: number;
@@ -117,6 +132,8 @@ export interface ThemeTokens {
     readonly pointRadius?: number;
     readonly pointStrokeWidth?: number;
     readonly lineCap?: 'butt' | 'round' | 'square';
+    /** Number of samples used to draw a continuous legend scale. */
+    readonly continuousSamples?: number;
   };
   readonly motion: {
     readonly duration: number;

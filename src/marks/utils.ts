@@ -20,8 +20,34 @@ export function numericDataValue(value: DataValue, temporal = false): number | n
   return null;
 }
 
+export function themedPointFill(theme: ThemeTokens, seriesColor: string, fallback: string): string {
+  return theme.mark.pointColorMode === 'series' ? seriesColor : (theme.mark.pointFill ?? fallback);
+}
+
+export function themedPointStroke(
+  theme: ThemeTokens,
+  seriesColor: string,
+  fallback: string,
+): string {
+  return theme.mark.pointColorMode === 'series'
+    ? seriesColor
+    : (theme.mark.pointStroke ?? fallback);
+}
+
+export function themedAreaFill(theme: ThemeTokens, seriesColor: string, fallback: string): string {
+  return theme.mark.areaColorMode === 'series' ? seriesColor : (theme.mark.areaFill ?? fallback);
+}
+
+export function themedAreaStroke(
+  theme: ThemeTokens,
+  seriesColor: string,
+  fallback: string,
+): string {
+  return theme.mark.areaColorMode === 'series' ? seriesColor : (theme.mark.areaStroke ?? fallback);
+}
+
 /**
- * Use ggplot2's Lab gradient for the ggplot theme while retaining the exact
+ * Use a theme's declared continuous interpolation while retaining the exact
  * legacy sequential-stop behaviour of Graflume's light and dark themes.
  */
 export function mappedContinuousColor(
@@ -30,7 +56,12 @@ export function mappedContinuousColor(
   legacyMode: 'stepped' | 'endpoints' = 'stepped',
 ): string {
   const bounded = Math.max(0, Math.min(1, ratio));
-  if (theme.colors.paletteMode === 'ggplot2-hue') return continuousColor(theme, bounded);
+  if (
+    theme.colors.paletteMode === 'ggplot2-hue' ||
+    theme.colors.continuousInterpolation !== undefined
+  ) {
+    return continuousColor(theme, bounded);
+  }
   const palette = theme.colors.sequential;
   if (palette.length === 0) return theme.colors.focus;
   if (legacyMode === 'endpoints') {

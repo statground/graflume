@@ -148,8 +148,8 @@ test('ggplot spatial defaults use its continuous and categorical scales in every
   assertColor(rgbaAt(mesh), '#F8766D', 'mesh category');
 
   const volume = compileSpatial({ ...modeSpecs.volume, theme: 'ggplot' }).geometries[0];
-  assertColor(rgbaAt(volume, 0).slice(0, 3), spatialColor('#132B43').slice(0, 3), 'volume low');
-  assertColor(rgbaAt(volume, 1).slice(0, 3), spatialColor('#56B1F7').slice(0, 3), 'volume high');
+  assertColor(rgbaAt(volume, 0), spatialColor('#132B43', 0.18), 'volume low');
+  assertColor(rgbaAt(volume, 1), spatialColor('#56B1F7', 0.72), 'volume high');
 
   const isosurface = compileSpatial({ ...modeSpecs.isosurface, theme: 'ggplot' }).geometries[0];
   assertColor(rgbaAt(isosurface).slice(0, 3), spatialColor('#56B1F7').slice(0, 3), 'isosurface');
@@ -303,18 +303,34 @@ test('spatial theme validation and schema accept registered names and closed cus
       ...modeSpecs.mesh,
       theme: {
         extends: 'ggplot',
-        colors: { panel: '#E0E0E0', paletteMode: 'ggplot2-hue' },
+        colors: {
+          panel: '#E0E0E0',
+          paletteMode: 'ggplot2-hue',
+          continuousInterpolation: 'rgb',
+        },
         typography: { axisLabelSize: 12 },
-        spacing: { plotMargin: 8 },
+        spacing: { plotMargin: 8, minimumTitleBlock: 24 },
         axis: { lineVisible: false, titleGap: 6 },
-        mark: { pointStrokeWidth: 1, barWidthRatio: 0.9, areaStrokeVisible: false },
+        mark: {
+          pointStrokeWidth: 1,
+          pointColorMode: 'series',
+          barWidthRatio: 0.9,
+          histogramGap: 0,
+          boxplotMedianStroke: '#FF7F0E',
+          pieStartAngle: 0,
+          pieDirection: 'counterclockwise',
+          areaColorMode: 'series',
+          areaStrokeVisible: false,
+        },
         legend: {
           borderWidth: 0,
+          borderColor: '#CCCCCC',
           swatchSize: 18,
           lineWidth: 2,
           pointRadius: 3,
           pointStrokeWidth: 1,
           lineCap: 'butt',
+          continuousSamples: 256,
         },
       },
     }),
@@ -331,6 +347,37 @@ test('spatial theme validation and schema accept registered names and closed cus
       ({ path }) => path === '$.theme.mystery',
     ),
   );
+  assert.ok(
+    validateSpatialSpec({
+      ...modeSpecs.mesh,
+      theme: { colors: { continuousInterpolation: 'cmyk' } },
+    }).some(({ path }) => path === '$.theme.colors.continuousInterpolation'),
+  );
+  assert.ok(
+    validateSpatialSpec({ ...modeSpecs.mesh, theme: { mark: { histogramGap: -1 } } }).some(
+      ({ path }) => path === '$.theme.mark.histogramGap',
+    ),
+  );
+  assert.ok(
+    validateSpatialSpec({ ...modeSpecs.mesh, theme: { legend: { borderColor: '' } } }).some(
+      ({ path }) => path === '$.theme.legend.borderColor',
+    ),
+  );
+  assert.ok(
+    validateSpatialSpec({ ...modeSpecs.mesh, theme: { mark: { pointColorMode: 'fixed' } } }).some(
+      ({ path }) => path === '$.theme.mark.pointColorMode',
+    ),
+  );
+  assert.ok(
+    validateSpatialSpec({ ...modeSpecs.mesh, theme: { mark: { pieDirection: 'up' } } }).some(
+      ({ path }) => path === '$.theme.mark.pieDirection',
+    ),
+  );
+  assert.ok(
+    validateSpatialSpec({ ...modeSpecs.mesh, theme: { legend: { continuousSamples: 2.5 } } }).some(
+      ({ path }) => path === '$.theme.legend.continuousSamples',
+    ),
+  );
   assert.throws(
     () => compileSpatial({ ...modeSpecs.mesh, theme: 'missing-theme' }),
     /Unknown theme/,
@@ -343,4 +390,20 @@ test('spatial theme validation and schema accept registered names and closed cus
   assert.equal(schema.$defs.theme.additionalProperties, false);
   assert.equal(schema.$defs.themeColors.properties.panel.type, 'string');
   assert.deepEqual(schema.$defs.themeColors.properties.paletteMode.enum, ['fixed', 'ggplot2-hue']);
+  assert.deepEqual(schema.$defs.themeColors.properties.continuousInterpolation.enum, [
+    'step',
+    'rgb',
+    'lab',
+  ]);
+  assert.equal(schema.$defs.themeMark.properties.histogramGap.minimum, 0);
+  assert.equal(schema.$defs.themeMark.properties.boxplotMedianStroke.type, 'string');
+  assert.deepEqual(schema.$defs.themeMark.properties.pointColorMode.enum, ['theme', 'series']);
+  assert.deepEqual(schema.$defs.themeMark.properties.areaColorMode.enum, ['theme', 'series']);
+  assert.deepEqual(schema.$defs.themeMark.properties.pieDirection.enum, [
+    'clockwise',
+    'counterclockwise',
+  ]);
+  assert.equal(schema.$defs.themeLegend.properties.borderColor.type, 'string');
+  assert.equal(schema.$defs.themeLegend.properties.continuousSamples.maximum, 256);
+  assert.equal(schema.$defs.themeSpacing.properties.minimumTitleBlock.minimum, 0);
 });

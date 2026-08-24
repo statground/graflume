@@ -78,6 +78,7 @@
         "minorGrid": { "type": "string", "minLength": 1, "maxLength": 128 },
         "focus": { "type": "string", "minLength": 1, "maxLength": 128 },
         "paletteMode": { "enum": ["fixed", "ggplot2-hue"] },
+        "continuousInterpolation": { "enum": ["step", "rgb", "lab"] },
         "palette": { "$ref": "#/$defs/themeColorArray" },
         "sequential": { "$ref": "#/$defs/themeColorArray" },
         "diverging": { "$ref": "#/$defs/themeColorArray" }
@@ -123,6 +124,7 @@
         "lg": { "type": "number", "minimum": 0, "maximum": 2000 },
         "xl": { "type": "number", "minimum": 0, "maximum": 2000 },
         "plotMargin": { "type": "number", "minimum": 0, "maximum": 2000 },
+        "minimumTitleBlock": { "type": "number", "minimum": 0, "maximum": 2000 },
         "plotPadding": {
           "type": "object",
           "additionalProperties": false,
@@ -179,20 +181,26 @@
         "pointFill": { "type": "string", "minLength": 1, "maxLength": 128 },
         "pointStroke": { "type": "string", "minLength": 1, "maxLength": 128 },
         "pointStrokeWidth": { "type": "number", "minimum": 0, "maximum": 2000 },
+        "pointColorMode": { "enum": ["theme", "series"] },
         "barFill": { "type": "string", "minLength": 1, "maxLength": 128 },
         "barStroke": { "type": "string", "minLength": 1, "maxLength": 128 },
         "barStrokeWidth": { "type": "number", "minimum": 0, "maximum": 2000 },
         "barWidthRatio": { "type": "number", "minimum": 0, "maximum": 1 },
         "histogramFill": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "histogramGap": { "type": "number", "minimum": 0, "maximum": 2000 },
         "boxplotFill": { "type": "string", "minLength": 1, "maxLength": 128 },
         "boxplotLineWidth": { "type": "number", "minimum": 0, "maximum": 2000 },
         "boxplotRadius": { "type": "number", "minimum": 0, "maximum": 2000 },
+        "boxplotMedianStroke": { "type": "string", "minLength": 1, "maxLength": 128 },
         "piePalette": { "$ref": "#/$defs/themeColorArray" },
         "pieStroke": { "type": "string", "minLength": 1, "maxLength": 128 },
         "pieStrokeWidth": { "type": "number", "minimum": 0, "maximum": 2000 },
+        "pieStartAngle": { "type": "number", "minimum": -1000000, "maximum": 1000000 },
+        "pieDirection": { "enum": ["clockwise", "counterclockwise"] },
         "areaFill": { "type": "string", "minLength": 1, "maxLength": 128 },
         "areaStroke": { "type": "string", "minLength": 1, "maxLength": 128 },
         "areaStrokeVisible": { "type": "boolean" },
+        "areaColorMode": { "enum": ["theme", "series"] },
         "lineCap": { "enum": ["butt", "round", "square"] },
         "lineJoin": { "enum": ["bevel", "round", "miter"] }
       }
@@ -203,13 +211,15 @@
       "properties": {
         "surfaceOpacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "borderWidth": { "type": "number", "minimum": 0, "maximum": 256 },
+        "borderColor": { "type": "string", "minLength": 1, "maxLength": 128 },
         "cornerRadius": { "type": "number", "minimum": 0, "maximum": 256 },
         "swatchRadius": { "type": "number", "minimum": 0, "maximum": 256 },
         "swatchSize": { "type": "number", "minimum": 0, "maximum": 256 },
         "lineWidth": { "type": "number", "minimum": 0, "maximum": 256 },
         "pointRadius": { "type": "number", "minimum": 0, "maximum": 256 },
         "pointStrokeWidth": { "type": "number", "minimum": 0, "maximum": 256 },
-        "lineCap": { "enum": ["butt", "round", "square"] }
+        "lineCap": { "enum": ["butt", "round", "square"] },
+        "continuousSamples": { "type": "integer", "minimum": 1, "maximum": 256 }
       }
     },
     "themeMotion": {

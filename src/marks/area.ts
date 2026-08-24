@@ -3,7 +3,14 @@ import { minMaxSampleIndices, strideSampleIndices } from '../data/sample.js';
 import { nodeBase } from '../scene/factory.js';
 import type { CircleNode, PathNode, Point, SceneNode } from '../scene/types.js';
 import { colorWithOpacity } from '../theme/color.js';
-import { numericDataValue, scaleInput } from './utils.js';
+import {
+  numericDataValue,
+  scaleInput,
+  themedAreaFill,
+  themedAreaStroke,
+  themedPointFill,
+  themedPointStroke,
+} from './utils.js';
 
 export const compileAreaMark: MarkCompiler = (context) => {
   const { table, layer, xScale, yScale, color, theme, performance } = context;
@@ -42,8 +49,7 @@ export const compileAreaMark: MarkCompiler = (context) => {
     closed: true,
     fill:
       layer.mark.fill ??
-      theme.mark.areaFill ??
-      colorWithOpacity(color, theme.mode === 'dark' ? 0.28 : 0.2),
+      themedAreaFill(theme, color, colorWithOpacity(color, theme.mode === 'dark' ? 0.28 : 0.2)),
     lineWidth: 0,
   };
   const stroke: PathNode = {
@@ -56,10 +62,7 @@ export const compileAreaMark: MarkCompiler = (context) => {
     closed: false,
     stroke:
       layer.mark.stroke ??
-      theme.mark.areaStroke ??
-      theme.mark.lineColor ??
-      theme.mark.defaultColor ??
-      color,
+      themedAreaStroke(theme, color, theme.mark.lineColor ?? theme.mark.defaultColor ?? color),
     lineWidth: layer.mark.lineWidth ?? theme.mark.lineWidth,
     lineCap: theme.mark.lineCap ?? 'round',
     lineJoin: theme.mark.lineJoin ?? 'round',
@@ -88,13 +91,14 @@ export const compileAreaMark: MarkCompiler = (context) => {
         cx: point.x,
         cy: point.y,
         radius: layer.mark.radius ?? theme.mark.pointRadius,
-        fill: layer.mark.fill ?? theme.mark.pointFill ?? theme.colors.background,
+        fill: layer.mark.fill ?? themedPointFill(theme, color, theme.colors.background),
         stroke:
           layer.mark.stroke ??
-          theme.mark.pointStroke ??
-          theme.mark.areaStroke ??
-          theme.mark.lineColor ??
-          color,
+          themedPointStroke(
+            theme,
+            color,
+            themedAreaStroke(theme, color, theme.mark.lineColor ?? color),
+          ),
         lineWidth:
           layer.mark.lineWidth === undefined
             ? (theme.mark.pointStrokeWidth ?? Math.max(1.5, theme.mark.lineWidth * 0.68))

@@ -10,7 +10,7 @@ import {
   worldBasemapNodes,
   worldCountryOverlayNodes,
 } from './geographic.js';
-import { mappedContinuousColor, numericDataValue, scaleInput } from './utils.js';
+import { mappedContinuousColor, numericDataValue, scaleInput, themedPointFill } from './utils.js';
 
 function optionNumber(
   options: Readonly<Record<string, unknown>>,
@@ -182,7 +182,8 @@ export const compileGeoMark: MarkCompiler = (context) => {
   for (const { rowIndex, value, country } of rows) {
     const ratio = maximum === minimum ? 0.6 : (value - minimum) / (maximum - minimum);
     const fill =
-      layer.mark.fill ?? theme.mark.pointFill ?? theme.mark.defaultColor ?? theme.colors.focus;
+      layer.mark.fill ??
+      themedPointFill(theme, context.color, theme.mark.defaultColor ?? theme.colors.focus);
     if (mode === 'choropleth') {
       nodes.push(
         ...worldCountryOverlayNodes(
