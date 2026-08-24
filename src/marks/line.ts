@@ -42,7 +42,7 @@ export const compileLineMark: MarkCompiler = (context) => {
   }
   flush();
 
-  const stroke = layer.mark.stroke ?? color;
+  const stroke = layer.mark.stroke ?? theme.mark.lineColor ?? theme.mark.defaultColor ?? color;
   const lineWidth = layer.mark.lineWidth ?? theme.mark.lineWidth;
 
   segments.forEach((segment, segmentIndex) => {
@@ -56,8 +56,8 @@ export const compileLineMark: MarkCompiler = (context) => {
       closed: false,
       stroke,
       lineWidth,
-      lineCap: 'round',
-      lineJoin: 'round',
+      lineCap: theme.mark.lineCap ?? 'round',
+      lineJoin: theme.mark.lineJoin ?? 'round',
     };
     nodes.push(path);
 
@@ -76,9 +76,12 @@ export const compileLineMark: MarkCompiler = (context) => {
           cx: point.x,
           cy: point.y,
           radius: layer.mark.radius ?? theme.mark.pointRadius,
-          fill: layer.mark.fill ?? theme.colors.background,
-          stroke,
-          lineWidth: Math.max(1.5, lineWidth * 0.68),
+          fill: layer.mark.fill ?? theme.mark.pointFill ?? theme.colors.background,
+          stroke: layer.mark.stroke ?? theme.mark.pointStroke ?? stroke,
+          lineWidth:
+            layer.mark.lineWidth === undefined
+              ? (theme.mark.pointStrokeWidth ?? Math.max(1.5, lineWidth * 0.68))
+              : Math.max(1.5, lineWidth * 0.68),
         };
         nodes.push(circle);
       });

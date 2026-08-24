@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createSpatial } from '../.tmp/src/spatial.js';
+import { createSpatial, spatialScatter } from '../.tmp/src/spatial.js';
 
 class FakeElement extends EventTarget {
   constructor(tagName, ownerDocument, webgl = null) {
@@ -112,6 +112,7 @@ function fakeWebGL() {
   const value = {
     failInitialization: false,
     shaderSources: [],
+    clearColors: [],
     VERTEX_SHADER: 1,
     FRAGMENT_SHADER: 2,
     COMPILE_STATUS: 3,
@@ -153,7 +154,9 @@ function fakeWebGL() {
     bindBuffer() {},
     bufferData() {},
     viewport() {},
-    clearColor() {},
+    clearColor(...channels) {
+      value.clearColors.push(channels);
+    },
     clear() {},
     enable() {},
     disable() {},
@@ -214,6 +217,67 @@ function spatialSpec(labels = {}) {
     ],
   };
 }
+
+test('ggplot themes the spatial viewport and browser chrome independently', () => {
+  const webgl = fakeWebGL();
+  const environment = installDom(webgl);
+  try {
+    const target = environment.document.createElement('div');
+    const chart = createSpatial(target, {
+      theme: 'ggplot',
+      legend: true,
+      interaction: { controls: true },
+      annotations: [{ target: { type: 'datum', datumIndex: 0 }, text: 'ggplot callout' }],
+      layers: [
+        {
+          id: 'observations',
+          mark: { type: 'scatter' },
+          data: { positions: [[0, 0, 0]], labels: ['point'] },
+        },
+      ],
+    });
+    const wrapper = target.children[0];
+    assert.equal(wrapper.style.background, 'rgba(255,255,255,1)');
+    assert.equal(wrapper.style.color, '#000000');
+    assert.ok(
+      webgl.clearColors.some(
+        ([red, green, blue, alpha]) =>
+          Math.abs(red - 235 / 255) < 1e-6 &&
+          Math.abs(green - 235 / 255) < 1e-6 &&
+          Math.abs(blue - 235 / 255) < 1e-6 &&
+          alpha === 1,
+      ),
+    );
+    const descendants = walk(wrapper);
+    const toolbar = descendants.find(({ dataset }) => dataset.graflumeSpatialControls === 'true');
+    const legend = descendants.find(({ dataset }) => dataset.graflumeSpatialLegend === 'true');
+    const callout = descendants.find(
+      ({ dataset }) => dataset.graflumeSpatialAnnotation !== undefined,
+    );
+    assert.equal(toolbar.style.background, '#FFFFFF');
+    assert.equal(legend.style.background, '#FFFFFF');
+    assert.equal(legend.style.color, '#000000');
+    assert.ok(walk(legend).some(({ style }) => style.background === 'rgba(248,118,109,1)'));
+    assert.equal(callout.style.background, '#FFFFFF');
+    assert.equal(callout.style.color, '#000000');
+    assert.equal(callout.style.border, '1.25px solid #3366FF');
+    chart.destroy();
+  } finally {
+    environment.restore();
+  }
+});
+
+test('spatial quick options forward ggplot through the shared spec base', () => {
+  const environment = installDom(null);
+  try {
+    const target = environment.document.createElement('div');
+    const chart = spatialScatter(target, { positions: [[0, 0, 0]] }, { theme: 'ggplot' });
+    assert.equal(chart.getSpec().theme, 'ggplot');
+    chart.destroy();
+  } finally {
+    environment.restore();
+  }
+});
 
 test('localized labels keep the canvas name specific and replace renderer error copy', () => {
   const environment = installDom(null);

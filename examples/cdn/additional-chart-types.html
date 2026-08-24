@@ -585,7 +585,12 @@
       const status = document.querySelector('#status');
       const themeButton = document.querySelector('#theme');
       let charts = [];
-      let dark = false;
+      const themeCycle = [
+        { theme: 'graflume-light', page: 'light', nextLabel: '어두운 테마' },
+        { theme: 'graflume-dark', page: 'dark', nextLabel: 'ggplot 테마' },
+        { theme: 'ggplot', page: 'light', nextLabel: '밝은 테마' },
+      ];
+      let themeIndex = 0;
 
       const render = () => {
         charts.forEach((chart) => chart.destroy());
@@ -609,7 +614,7 @@
             Graflume.create(`#chart-${definition.id}`, {
               ...definition.spec,
               height: 320,
-              theme: dark ? 'graflume-dark' : 'graflume-light',
+              theme: themeCycle[themeIndex].theme,
               accessibility: { label: `${definition.title} example` },
             }),
           );
@@ -618,9 +623,9 @@
       };
 
       themeButton.addEventListener('click', () => {
-        dark = !dark;
-        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
-        themeButton.textContent = dark ? '밝은 테마' : '어두운 테마';
+        themeIndex = (themeIndex + 1) % themeCycle.length;
+        document.documentElement.dataset.theme = themeCycle[themeIndex].page;
+        themeButton.textContent = themeCycle[themeIndex].nextLabel;
         render();
       });
 

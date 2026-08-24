@@ -285,6 +285,7 @@ export type SpatialLayerSpec =
 export interface SpatialChartSpec {
   readonly specVersion?: '0.1';
   readonly title?: string;
+  readonly theme?: ChartSpec['theme'];
   readonly background?: SpatialColor;
   readonly ariaLabel?: string;
   readonly camera?: SpatialCameraSpec;
@@ -350,6 +351,7 @@ export interface CompiledSpatialScene {
   readonly geometries: readonly CompiledSpatialGeometry[];
   readonly bounds: SpatialBounds;
   readonly spec: SpatialChartSpec;
+  readonly theme: ThemeTokens;
 }
 
 export interface SpatialHitResult extends SpatialPickTarget {
@@ -366,7 +368,9 @@ export interface SpatialCapabilities {
 import type {
   AnnotationConnectorSpec,
   AnnotationStyleSpec,
+  ChartSpec,
   HighlightStyleSpec,
   JsonPrimitive,
   LegendSpec,
 } from '../spec/types.js';
+import type { ThemeTokens } from '../theme/types.js';

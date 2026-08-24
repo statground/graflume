@@ -2,7 +2,7 @@ import type { MarkCompiler } from '../compiler/types.js';
 import { BandScale } from '../scale/band.js';
 import { nodeBase } from '../scene/factory.js';
 import type { LineNode, PathNode, Point, RectNode, SceneNode, TextNode } from '../scene/types.js';
-import { colorWithOpacity, mixColor, readableTextColor } from '../theme/color.js';
+import { categoricalColor, colorWithOpacity, mixColor, readableTextColor } from '../theme/color.js';
 import {
   isGeographicPosition,
   naturalEarthCountry,
@@ -10,7 +10,7 @@ import {
   worldBasemapNodes,
   worldCountryOverlayNodes,
 } from './geographic.js';
-import { numericDataValue, scaleInput } from './utils.js';
+import { mappedContinuousColor, numericDataValue, scaleInput } from './utils.js';
 
 function optionNumber(
   options: Readonly<Record<string, unknown>>,
@@ -151,11 +151,7 @@ export const compileCalendarMark: MarkCompiler = (context) => {
       y: originY + weekday * (cell + gap),
       width: cell,
       height: cell,
-      fill: mixColor(
-        theme.colors.sequential[0] ?? '#eff6ff',
-        theme.colors.sequential.at(-1) ?? '#1e3a8a',
-        ratio,
-      ),
+      fill: layer.mark.fill ?? mappedContinuousColor(theme, ratio, 'endpoints'),
       stroke: theme.colors.background,
       lineWidth: 0.5,
       cornerRadius: Math.min(2, cell * 0.15),
@@ -185,12 +181,16 @@ export const compileGeoMark: MarkCompiler = (context) => {
   const mode = optionString(layer.mark.options, 'mode') ?? 'bubble';
   for (const { rowIndex, value, country } of rows) {
     const ratio = maximum === minimum ? 0.6 : (value - minimum) / (maximum - minimum);
-    const fill = layer.mark.fill ?? theme.colors.focus;
+    const fill =
+      layer.mark.fill ?? theme.mark.pointFill ?? theme.mark.defaultColor ?? theme.colors.focus;
     if (mode === 'choropleth') {
-      const start = theme.colors.sequential[0] ?? colorWithOpacity(fill, 0.18);
-      const end = theme.colors.sequential.at(-1) ?? fill;
       nodes.push(
-        ...worldCountryOverlayNodes(context, country, rowIndex, mixColor(start, end, ratio)),
+        ...worldCountryOverlayNodes(
+          context,
+          country,
+          rowIndex,
+          layer.mark.fill ?? mappedContinuousColor(theme, ratio, 'endpoints'),
+        ),
       );
       continue;
     }
@@ -406,7 +406,7 @@ export const compileOrgMark: MarkCompiler = (context) => {
       y: position.y - nodeHeight / 2 + 1,
       width: nodeWidth - 2,
       height: 4,
-      fill: theme.colors.palette[depth % theme.colors.palette.length] ?? theme.colors.focus,
+      fill: categoricalColor(theme, depth, maxDepth + 1),
       lineWidth: 0,
       cornerRadius: 4,
     });
@@ -562,7 +562,7 @@ export const compileSankeyMark: MarkCompiler = (context) => {
         targetHeight,
       ),
       closed: true,
-      fill: theme.colors.palette[index % theme.colors.palette.length] ?? theme.colors.focus,
+      fill: layer.mark.fill ?? categoricalColor(theme, index, edges.length),
       lineWidth: 0,
       lineJoin: 'round',
     });
@@ -577,7 +577,7 @@ export const compileSankeyMark: MarkCompiler = (context) => {
       y: item.y,
       width: nodeWidth,
       height: item.height,
-      fill: theme.colors.palette[index % theme.colors.palette.length] ?? theme.colors.focus,
+      fill: layer.mark.fill ?? categoricalColor(theme, index, sources.length + targets.length),
       lineWidth: 0,
       cornerRadius: 4,
     });
@@ -603,8 +603,8 @@ export const compileSankeyMark: MarkCompiler = (context) => {
       width: nodeWidth,
       height: item.height,
       fill:
-        theme.colors.palette[(sources.length + index) % theme.colors.palette.length] ??
-        theme.colors.focus,
+        layer.mark.fill ??
+        categoricalColor(theme, sources.length + index, sources.length + targets.length),
       lineWidth: 0,
       cornerRadius: 4,
     });
@@ -718,7 +718,7 @@ function compileTimeline(
     const x2 = xScale.map(end);
     const y = yScale.map(row);
     if (![x1, x2, y].every(Number.isFinite)) continue;
-    const fill = theme.colors.palette[rowIndex % theme.colors.palette.length] ?? theme.colors.focus;
+    const fill = categoricalColor(theme, rowIndex, table.length);
     nodes.push({
       type: 'rect',
       ...nodeBase(`${layer.id}:${gantt ? 'task' : 'interval'}:${rowIndex}`, {
@@ -948,7 +948,7 @@ function compileIcicleMark(context: Parameters<MarkCompiler>[0]): readonly Scene
     const fill =
       layer.mark.fill ??
       mixColor(
-        theme.colors.palette[colorIndex % theme.colors.palette.length] ?? theme.colors.focus,
+        categoricalColor(theme, colorIndex, items.length),
         theme.colors.background,
         Math.min(0.5, level * 0.1),
       );
@@ -1086,7 +1086,7 @@ export const compileTreemapMark: MarkCompiler = (context) => {
   const nodes: SceneNode[] = [];
   const tiles = layoutTreemap(items, plot);
   tiles.forEach((item, index) => {
-    const base = theme.colors.palette[index % theme.colors.palette.length] ?? theme.colors.focus;
+    const base = categoricalColor(theme, index, tiles.length);
     const fill = mixColor(base, theme.colors.background, theme.mode === 'dark' ? 0.06 : 0.02);
     const gap = 2;
     const x = item.x + gap;
@@ -1201,9 +1201,7 @@ export const compileWordTreeMark: MarkCompiler = (context) => {
       {
         size: fontSize,
         weight: 650,
-        fill:
-          theme.colors.palette[(depths.get(item.id) ?? 0) % theme.colors.palette.length] ??
-          theme.colors.focus,
+        fill: categoricalColor(theme, depths.get(item.id) ?? 0, maxDepth + 1),
       },
     );
     Object.assign(label, {

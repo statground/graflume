@@ -303,7 +303,7 @@ export { normalizeSpec } from './spec/normalize.js';
 export { DataTable } from './data/table.js';
 export { RuntimeRegistry } from './runtime/registry.js';
 export { CanvasRenderer, canvasRendererFactory } from './renderer/canvas.js';
-export { graflumeDark, graflumeLight } from './theme/defaults.js';
+export { graflumeDark, graflumeGgplot, graflumeLight } from './theme/defaults.js';
 export { pluginApiVersion } from './core/plugin.js';
 export { GraflumeError } from './core/errors.js';
 export { hitTestScene } from './interaction/hit-test.js';

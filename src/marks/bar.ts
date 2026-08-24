@@ -7,16 +7,20 @@ import { scaleInput } from './utils.js';
 
 export const compileBarMark: MarkCompiler = (context) => {
   const { table, layer, xScale, yScale, color, theme, barGroup, performance, plot } = context;
+  const themedWidthRatio = theme.mark.barWidthRatio;
   if (layer.mark.orientation === 'horizontal') {
     const baseline = xScale.map(0);
     const slotHeight =
       yScale instanceof BandScale
-        ? yScale.bandwidth / Math.max(1, barGroup.count)
+        ? (themedWidthRatio === undefined ? yScale.bandwidth : yScale.step) /
+          Math.max(1, barGroup.count)
         : Math.max(
             1,
-            ((plot.height / Math.max(1, table.length)) * 0.8) / Math.max(1, barGroup.count),
+            ((plot.height / Math.max(1, table.length)) *
+              (themedWidthRatio === undefined ? 0.8 : 1)) /
+              Math.max(1, barGroup.count),
           );
-    const barHeight = Math.max(1, slotHeight * 0.74);
+    const barHeight = Math.max(1, slotHeight * (themedWidthRatio ?? 0.74));
     const nodes: RectNode[] = [];
     const indices = strideSampleIndices(table.length, performance.maxBarMarks);
 
@@ -44,7 +48,7 @@ export const compileBarMark: MarkCompiler = (context) => {
         y: yCenter + groupOffset - barHeight / 2,
         width: Math.max(0.5, Math.abs(baseline - xValue)),
         height: barHeight,
-        fill: layer.mark.fill ?? color,
+        fill: layer.mark.fill ?? theme.mark.barFill ?? color,
         ...(layer.mark.stroke === undefined ? {} : { stroke: layer.mark.stroke }),
         lineWidth: layer.mark.lineWidth ?? 0,
         cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
@@ -57,9 +61,14 @@ export const compileBarMark: MarkCompiler = (context) => {
   const nodes: RectNode[] = [];
   const slotWidth =
     xScale instanceof BandScale
-      ? xScale.bandwidth / Math.max(1, barGroup.count)
-      : Math.max(1, ((plot.width / Math.max(1, table.length)) * 0.8) / Math.max(1, barGroup.count));
-  const barWidth = Math.max(1, slotWidth * 0.74);
+      ? (themedWidthRatio === undefined ? xScale.bandwidth : xScale.step) /
+        Math.max(1, barGroup.count)
+      : Math.max(
+          1,
+          ((plot.width / Math.max(1, table.length)) * (themedWidthRatio === undefined ? 0.8 : 1)) /
+            Math.max(1, barGroup.count),
+        );
+  const barWidth = Math.max(1, slotWidth * (themedWidthRatio ?? 0.74));
 
   const indices = strideSampleIndices(table.length, performance.maxBarMarks);
 
@@ -90,7 +99,7 @@ export const compileBarMark: MarkCompiler = (context) => {
       y,
       width: barWidth,
       height,
-      fill: layer.mark.fill ?? color,
+      fill: layer.mark.fill ?? theme.mark.barFill ?? color,
       ...(layer.mark.stroke === undefined ? {} : { stroke: layer.mark.stroke }),
       lineWidth: layer.mark.lineWidth ?? 0,
       cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,

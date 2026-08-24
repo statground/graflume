@@ -21,6 +21,7 @@ import type {
   SpatialVec3,
   SpatialVolumeData,
 } from './spatial/types.js';
+import type { ChartSpec } from './spec/types.js';
 export { assertValidSpatialSpec, validateSpatialSpec } from './spatial/validate.js';
 export type { SpatialSpecIssue } from './spatial/validate.js';
 export { spatialOutputLimits } from './spatial/budget.js';
@@ -40,6 +41,7 @@ export const spatialSpecVersion = '0.1' as const;
 export interface SpatialQuickOptions {
   readonly id?: string;
   readonly title?: string;
+  readonly theme?: ChartSpec['theme'];
   readonly background?: SpatialColor;
   readonly ariaLabel?: string;
   readonly camera?: SpatialCameraSpec;
@@ -96,6 +98,7 @@ function specBase(options: SpatialQuickOptions): Omit<SpatialChartSpec, 'layers'
   return {
     specVersion: spatialSpecVersion,
     ...(options.title === undefined ? {} : { title: options.title }),
+    ...(options.theme === undefined ? {} : { theme: options.theme }),
     ...(options.background === undefined ? {} : { background: options.background }),
     ...(options.ariaLabel === undefined ? {} : { ariaLabel: options.ariaLabel }),
     ...(options.camera === undefined ? {} : { camera: options.camera }),

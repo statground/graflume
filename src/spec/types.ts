@@ -607,6 +607,8 @@ export interface NormalizedAxisTitleSpec {
   readonly align: 'start' | 'center' | 'end';
   readonly angle?: number;
   readonly padding: number;
+  /** Theme-owned margin resolved against measured tick labels by the compiler. */
+  readonly themeGap?: number;
   readonly color?: string;
   readonly font: NormalizedAxisFontSpec;
 }

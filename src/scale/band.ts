@@ -5,6 +5,7 @@ export class BandScale implements Scale {
   readonly kind = 'band' as const;
   readonly #domain: readonly string[];
   readonly #positions = new Map<string, number>();
+  readonly step: number;
   readonly bandwidth: number;
 
   constructor(options: {
@@ -21,6 +22,7 @@ export class BandScale implements Scale {
     const span = Math.abs(end - start);
     const denominator = Math.max(1, this.#domain.length - paddingInner + paddingOuter * 2);
     const step = span / denominator;
+    this.step = step;
     this.bandwidth = step * (1 - paddingInner);
 
     this.#domain.forEach((value, index) => {

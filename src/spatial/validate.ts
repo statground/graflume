@@ -10,6 +10,7 @@ const UNSAFE_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
 const ROOT_KEYS = new Set([
   'specVersion',
   'title',
+  'theme',
   'background',
   'ariaLabel',
   'camera',
@@ -21,6 +22,104 @@ const ROOT_KEYS = new Set([
   'annotations',
   'layers',
 ]);
+const THEME_KEYS = new Set([
+  'extends',
+  'name',
+  'mode',
+  'colors',
+  'typography',
+  'spacing',
+  'axis',
+  'mark',
+  'legend',
+  'motion',
+]);
+const THEME_COLOR_KEYS = new Set([
+  'background',
+  'surface',
+  'panel',
+  'text',
+  'mutedText',
+  'subtitle',
+  'axisTitle',
+  'axis',
+  'grid',
+  'minorGrid',
+  'focus',
+  'palette',
+  'paletteMode',
+  'sequential',
+  'diverging',
+]);
+const THEME_TYPOGRAPHY_KEYS = new Set([
+  'fontFamily',
+  'fontSize',
+  'fontWeight',
+  'titleSize',
+  'titleWeight',
+  'subtitleSize',
+  'subtitleWeight',
+  'axisLabelSize',
+  'axisLabelWeight',
+  'axisTitleSize',
+  'axisTitleWeight',
+  'legendLabelSize',
+  'legendLabelWeight',
+  'legendTitleSize',
+  'legendTitleWeight',
+  'titlePosition',
+  'lineHeight',
+]);
+const THEME_SPACING_KEYS = new Set(['xs', 'sm', 'md', 'lg', 'xl', 'plotMargin']);
+const THEME_AXIS_KEYS = new Set([
+  'lineWidth',
+  'tickLength',
+  'labelPadding',
+  'gridLineWidth',
+  'lineVisible',
+  'ticksVisible',
+  'gridX',
+  'gridX2',
+  'gridY',
+  'gridY2',
+  'gridOpacity',
+  'minorGridVisible',
+  'minorGridLineWidth',
+  'minorGridOpacity',
+  'emphasizeZero',
+  'lineCap',
+  'titleGap',
+]);
+const THEME_MARK_KEYS = new Set([
+  'lineWidth',
+  'pointRadius',
+  'barRadius',
+  'opacity',
+  'defaultColor',
+  'lineColor',
+  'pointFill',
+  'pointStroke',
+  'pointStrokeWidth',
+  'barFill',
+  'barWidthRatio',
+  'areaFill',
+  'areaStroke',
+  'areaStrokeVisible',
+  'lineCap',
+  'lineJoin',
+]);
+const THEME_LEGEND_KEYS = new Set([
+  'surfaceOpacity',
+  'borderWidth',
+  'cornerRadius',
+  'swatchRadius',
+  'swatchSize',
+  'lineWidth',
+  'pointRadius',
+  'pointStrokeWidth',
+  'lineCap',
+]);
+const THEME_MOTION_KEYS = new Set(['duration', 'easing']);
 const CAMERA_KEYS = new Set([
   'projection',
   'target',
@@ -358,6 +457,215 @@ function color(value: unknown, path: string, issues: SpatialSpecIssue[]): value 
 
 function optionalColor(value: unknown, path: string, issues: SpatialSpecIssue[]): void {
   if (value !== undefined) color(value, path, issues);
+}
+
+function optionalThemeNumber(
+  value: unknown,
+  path: string,
+  issues: SpatialSpecIssue[],
+  minimum = 0,
+  maximum = 2_000,
+): void {
+  if (value !== undefined) finiteNumber(value, path, issues, minimum, maximum);
+}
+
+function validateThemeStringArray(value: unknown, path: string, issues: SpatialSpecIssue[]): void {
+  if (value === undefined) return;
+  if (!Array.isArray(value) || value.length === 0 || value.length > 256) {
+    issue(issues, path, 'Must be an array with 1 to 256 color strings.');
+    return;
+  }
+  value.forEach((entry, index) => optionalNonEmptyString(entry, `${path}[${index}]`, issues, 128));
+}
+
+function validateTheme(value: unknown, path: string, issues: SpatialSpecIssue[]): void {
+  if (value === undefined) return;
+  if (typeof value === 'string') {
+    optionalNonEmptyString(value, path, issues, 128);
+    return;
+  }
+  const theme = closedObject(value, path, THEME_KEYS, issues);
+  if (theme === undefined) {
+    issue(issues, path, 'Theme must be a registered theme name or an override object.');
+    return;
+  }
+  optionalNonEmptyString(theme.extends, `${path}.extends`, issues, 128);
+  optionalString(theme.name, `${path}.name`, issues, 128);
+  optionalEnum(theme.mode, `${path}.mode`, new Set(['light', 'dark']), issues);
+
+  if (theme.colors !== undefined) {
+    const colors = closedObject(theme.colors, `${path}.colors`, THEME_COLOR_KEYS, issues);
+    if (colors !== undefined) {
+      for (const key of [
+        'background',
+        'surface',
+        'panel',
+        'text',
+        'mutedText',
+        'subtitle',
+        'axisTitle',
+        'axis',
+        'grid',
+        'minorGrid',
+        'focus',
+      ] as const)
+        optionalNonEmptyString(colors[key], `${path}.colors.${key}`, issues, 128);
+      optionalEnum(
+        colors.paletteMode,
+        `${path}.colors.paletteMode`,
+        new Set(['fixed', 'ggplot2-hue']),
+        issues,
+      );
+      for (const key of ['palette', 'sequential', 'diverging'] as const)
+        validateThemeStringArray(colors[key], `${path}.colors.${key}`, issues);
+    }
+  }
+
+  if (theme.typography !== undefined) {
+    const typography = closedObject(
+      theme.typography,
+      `${path}.typography`,
+      THEME_TYPOGRAPHY_KEYS,
+      issues,
+    );
+    if (typography !== undefined) {
+      optionalNonEmptyString(typography.fontFamily, `${path}.typography.fontFamily`, issues, 512);
+      for (const key of [
+        'fontSize',
+        'fontWeight',
+        'titleSize',
+        'titleWeight',
+        'subtitleSize',
+        'subtitleWeight',
+        'axisLabelSize',
+        'axisLabelWeight',
+        'axisTitleSize',
+        'axisTitleWeight',
+        'legendLabelSize',
+        'legendLabelWeight',
+        'legendTitleSize',
+        'legendTitleWeight',
+        'lineHeight',
+      ] as const)
+        optionalThemeNumber(typography[key], `${path}.typography.${key}`, issues, 0, 2_000);
+      optionalEnum(
+        typography.titlePosition,
+        `${path}.typography.titlePosition`,
+        new Set(['plot', 'panel']),
+        issues,
+      );
+    }
+  }
+
+  if (theme.spacing !== undefined) {
+    const spacing = closedObject(theme.spacing, `${path}.spacing`, THEME_SPACING_KEYS, issues);
+    if (spacing !== undefined)
+      for (const key of THEME_SPACING_KEYS)
+        optionalThemeNumber(spacing[key], `${path}.spacing.${key}`, issues);
+  }
+
+  if (theme.axis !== undefined) {
+    const axis = closedObject(theme.axis, `${path}.axis`, THEME_AXIS_KEYS, issues);
+    if (axis !== undefined) {
+      for (const key of [
+        'lineWidth',
+        'tickLength',
+        'labelPadding',
+        'gridLineWidth',
+        'minorGridLineWidth',
+        'titleGap',
+      ] as const)
+        optionalThemeNumber(axis[key], `${path}.axis.${key}`, issues, 0, 256);
+      for (const key of ['gridOpacity', 'minorGridOpacity'] as const)
+        optionalThemeNumber(axis[key], `${path}.axis.${key}`, issues, 0, 1);
+      for (const key of [
+        'lineVisible',
+        'ticksVisible',
+        'gridX',
+        'gridX2',
+        'gridY',
+        'gridY2',
+        'minorGridVisible',
+        'emphasizeZero',
+      ] as const)
+        optionalBoolean(axis[key], `${path}.axis.${key}`, issues);
+      optionalEnum(
+        axis.lineCap,
+        `${path}.axis.lineCap`,
+        new Set(['butt', 'round', 'square']),
+        issues,
+      );
+    }
+  }
+
+  if (theme.mark !== undefined) {
+    const mark = closedObject(theme.mark, `${path}.mark`, THEME_MARK_KEYS, issues);
+    if (mark !== undefined) {
+      for (const key of ['lineWidth', 'pointRadius', 'pointStrokeWidth', 'barRadius'] as const)
+        optionalThemeNumber(mark[key], `${path}.mark.${key}`, issues);
+      optionalThemeNumber(mark.opacity, `${path}.mark.opacity`, issues, 0, 1);
+      optionalThemeNumber(mark.barWidthRatio, `${path}.mark.barWidthRatio`, issues, 0, 1);
+      optionalBoolean(mark.areaStrokeVisible, `${path}.mark.areaStrokeVisible`, issues);
+      for (const key of [
+        'defaultColor',
+        'lineColor',
+        'pointFill',
+        'pointStroke',
+        'barFill',
+        'areaFill',
+        'areaStroke',
+      ] as const)
+        optionalNonEmptyString(mark[key], `${path}.mark.${key}`, issues, 128);
+      optionalEnum(
+        mark.lineCap,
+        `${path}.mark.lineCap`,
+        new Set(['butt', 'round', 'square']),
+        issues,
+      );
+      optionalEnum(
+        mark.lineJoin,
+        `${path}.mark.lineJoin`,
+        new Set(['bevel', 'round', 'miter']),
+        issues,
+      );
+    }
+  }
+
+  if (theme.legend !== undefined) {
+    const legend = closedObject(theme.legend, `${path}.legend`, THEME_LEGEND_KEYS, issues);
+    if (legend !== undefined) {
+      optionalThemeNumber(legend.surfaceOpacity, `${path}.legend.surfaceOpacity`, issues, 0, 1);
+      for (const key of [
+        'borderWidth',
+        'cornerRadius',
+        'swatchRadius',
+        'swatchSize',
+        'lineWidth',
+        'pointRadius',
+        'pointStrokeWidth',
+      ] as const)
+        optionalThemeNumber(legend[key], `${path}.legend.${key}`, issues, 0, 256);
+      optionalEnum(
+        legend.lineCap,
+        `${path}.legend.lineCap`,
+        new Set(['butt', 'round', 'square']),
+        issues,
+      );
+    }
+  }
+
+  if (theme.motion !== undefined) {
+    const motion = closedObject(theme.motion, `${path}.motion`, THEME_MOTION_KEYS, issues);
+    if (motion !== undefined) {
+      optionalThemeNumber(motion.duration, `${path}.motion.duration`, issues, 0, 1_000_000);
+      optionalEnum(
+        motion.easing,
+        `${path}.motion.easing`,
+        new Set(['linear', 'ease', 'ease-in', 'ease-out', 'ease-in-out']),
+        issues,
+      );
+    }
+  }
 }
 
 function jsonScalar(value: unknown): boolean {
@@ -1246,6 +1554,7 @@ export function validateSpatialSpec(input: unknown): readonly SpatialSpecIssue[]
   if (spec.specVersion !== undefined && spec.specVersion !== '0.1')
     issue(issues, '$.specVersion', 'Only SpatialSpec version "0.1" is supported.');
   optionalString(spec.title, '$.title', issues, 512);
+  validateTheme(spec.theme, '$.theme', issues);
   optionalString(spec.ariaLabel, '$.ariaLabel', issues, 1_024);
   optionalColor(spec.background, '$.background', issues);
   validateCamera(spec.camera, '$.camera', issues);

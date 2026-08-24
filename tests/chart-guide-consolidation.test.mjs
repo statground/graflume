@@ -46,6 +46,7 @@ test('chart documentation contains one manual per representative family', async 
     'axes.md',
     'compatibility-presets.md',
     'interactions.md',
+    'themes.md',
     ...Object.keys(compatibilityGuideStubs),
     ...fullCatalog.map(({ id }) => `${id}.md`),
   ].sort();
@@ -227,5 +228,21 @@ test('every documented type example compiles through the shared Scene pipeline',
   for (const variant of fullVariantCatalog) {
     const { scene } = compile(seriesSampleSpec(variant), { width: 640, height: 400 });
     assert.ok(scene.metadata.renderedNodeCount > 3, `${variant.id} example renders Scene nodes`);
+  }
+});
+
+test('the ggplot theme compiles every documented Canvas preset', () => {
+  for (const variant of fullVariantCatalog) {
+    const { scene, theme } = compile(
+      { ...seriesSampleSpec(variant), theme: 'ggplot' },
+      { width: 640, height: 400 },
+    );
+    assert.equal(theme.name, 'ggplot', `${variant.id} resolves the built-in theme`);
+    assert.ok(scene.metadata.renderedNodeCount > 3, `${variant.id} renders themed Scene nodes`);
+    assert.equal(
+      scene.background.toLowerCase(),
+      '#ffffff',
+      `${variant.id} keeps the ggplot plot background`,
+    );
   }
 });

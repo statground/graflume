@@ -26,6 +26,7 @@ export function createLayout(
   minimumInsets: Partial<LayoutInsets> = {},
   additionalInsets: Partial<LayoutInsets> = {},
 ): ChartLayout {
+  const separatePlotMargin = theme.spacing.plotMargin !== undefined;
   const titleBlock =
     spec.title === undefined
       ? 0
@@ -43,13 +44,19 @@ export function createLayout(
       Math.max(0, minimumInsets.top ?? 0) +
       Math.max(0, additionalInsets.top ?? 0),
     right:
-      Math.max(spec.padding.right, minimumInsets.right ?? 0) +
+      (separatePlotMargin
+        ? spec.padding.right + Math.max(0, minimumInsets.right ?? 0)
+        : Math.max(spec.padding.right, minimumInsets.right ?? 0)) +
       Math.max(0, additionalInsets.right ?? 0),
     bottom:
-      Math.max(spec.padding.bottom, minimumInsets.bottom ?? 0) +
+      (separatePlotMargin
+        ? spec.padding.bottom + Math.max(0, minimumInsets.bottom ?? 0)
+        : Math.max(spec.padding.bottom, minimumInsets.bottom ?? 0)) +
       Math.max(0, additionalInsets.bottom ?? 0),
     left:
-      Math.max(spec.padding.left, minimumInsets.left ?? 0) +
+      (separatePlotMargin
+        ? spec.padding.left + Math.max(0, minimumInsets.left ?? 0)
+        : Math.max(spec.padding.left, minimumInsets.left ?? 0)) +
       Math.max(0, additionalInsets.left ?? 0),
   };
   const plotX = insets.left;

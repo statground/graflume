@@ -3,6 +3,9 @@ import {
   type NaturalEarthRing,
 } from '../geography/natural-earth-world-110m.generated.js';
 import { exactStrideSampleIndices } from '../data/sample.js';
+import { categoricalColor, continuousColor } from '../theme/color.js';
+import { ThemeRegistry } from '../theme/registry.js';
+import type { ThemeTokens } from '../theme/types.js';
 import {
   add3,
   boundsFromPositions,
@@ -40,6 +43,8 @@ type Rgba = readonly [number, number, number, number];
 export type SpatialMarkCompiler = (
   layer: SpatialLayerSpec,
   layerIndex: number,
+  theme: ThemeTokens,
+  layerCount: number,
 ) => readonly CompiledSpatialGeometry[];
 
 const namedColors: Readonly<Record<string, Rgba>> = {
@@ -151,6 +156,14 @@ function repeatedValues(count: number, value: readonly number[]): Float32Array {
   return output;
 }
 
+function layerThemeColor(theme: ThemeTokens, layerIndex: number, layerCount: number): string {
+  return categoricalColor(theme, layerIndex, layerCount);
+}
+
+function usesLegacySpatialDefaults(theme: ThemeTokens): boolean {
+  return theme.name === 'graflume-light';
+}
+
 function triangleNormals(positions: Float32Array, indices?: Uint32Array): Float32Array {
   const normals = new Float32Array(positions.length);
   const triangleCount = indices === undefined ? positions.length / 9 : indices.length / 3;
@@ -187,6 +200,7 @@ function compileSurfaceGrid(
   layer: SpatialSurfaceLayer,
   layerIndex: number,
   data: SpatialSurfaceGridData,
+  theme: ThemeTokens,
 ): readonly CompiledSpatialGeometry[] {
   const rows = positiveInteger(data.rows, 'surface.data.rows');
   const columns = positiveInteger(data.columns, 'surface.data.columns');
@@ -209,8 +223,15 @@ function compileSurfaceGrid(
   }
   const colors = new Float32Array(rows * columns * 4);
   const sizes = new Float32Array(rows * columns).fill(1);
-  const low = spatialColor('#0ea5e9', layer.mark.opacity);
-  const high = spatialColor(layer.mark.color ?? '#7c3aed', layer.mark.opacity);
+  const legacyDefaults = usesLegacySpatialDefaults(theme);
+  const low = spatialColor(
+    legacyDefaults ? '#0ea5e9' : continuousColor(theme, 0),
+    layer.mark.opacity,
+  );
+  const high = spatialColor(
+    layer.mark.color ?? (legacyDefaults ? '#7c3aed' : continuousColor(theme, 1)),
+    layer.mark.opacity,
+  );
   const picks: SpatialPickTarget[] = [];
   const id = layerId(layer, layerIndex);
   for (let row = 0; row < rows; row += 1) {
@@ -265,6 +286,8 @@ function compileSurfaceMesh(
   layer: SpatialSurfaceLayer,
   layerIndex: number,
   data: SpatialMeshData,
+  theme: ThemeTokens,
+  layerCount: number,
 ): readonly CompiledSpatialGeometry[] {
   if (data.positions.length === 0) fail('surface mesh needs at least one position.');
   const positionValues: number[] = [];
@@ -285,8 +308,11 @@ function compileSurfaceMesh(
   );
   const opacity = layer.mark.opacity ?? 1;
   const colors = new Float32Array(data.positions.length * 4);
+  const defaultColor =
+    layer.mark.color ??
+    (usesLegacySpatialDefaults(theme) ? undefined : layerThemeColor(theme, layerIndex, layerCount));
   for (let index = 0; index < data.positions.length; index += 1)
-    colors.set(spatialColor(data.colors?.[index] ?? layer.mark.color, opacity), index * 4);
+    colors.set(spatialColor(data.colors?.[index] ?? defaultColor, opacity), index * 4);
   const suppliedNormals = data.normals;
   let normals: Float32Array;
   if (suppliedNormals !== undefined) {
@@ -325,14 +351,16 @@ function compileSurfaceMesh(
 function compileSurface(
   layer: SpatialSurfaceLayer,
   layerIndex: number,
+  theme: ThemeTokens,
+  layerCount: number,
 ): readonly CompiledSpatialGeometry[] {
   const mode = layer.mark.mode ?? (isMeshData(layer.data) ? 'mesh' : 'surface');
   if (mode === 'mesh') {
     if (!isMeshData(layer.data)) fail('surface mesh mode requires positions and triangles.');
-    return compileSurfaceMesh(layer, layerIndex, layer.data);
+    return compileSurfaceMesh(layer, layerIndex, layer.data, theme, layerCount);
   }
   if (isMeshData(layer.data)) fail('surface mode requires rows, columns, and z values.');
-  return compileSurfaceGrid(layer, layerIndex, layer.data);
+  return compileSurfaceGrid(layer, layerIndex, layer.data, theme);
 }
 
 function volumeDimensions(layer: SpatialVolumeLayer): readonly [number, number, number] {
@@ -362,6 +390,7 @@ function volumeIndex(x: number, y: number, z: number, dimensions: readonly numbe
 function compileVolumePoints(
   layer: SpatialVolumeLayer,
   layerIndex: number,
+  theme: ThemeTokens,
 ): readonly CompiledSpatialGeometry[] {
   const dimensions = volumeDimensions(layer);
   const origin = validVec3(layer.data.origin ?? [0, 0, 0], 'volume origin');
@@ -378,8 +407,15 @@ function compileVolumePoints(
   const colors: number[] = [];
   const sizes: number[] = [];
   const picks: SpatialPickTarget[] = [];
-  const low = spatialColor(layer.mark.colorLow ?? '#0ea5e9', layer.mark.opacity ?? 0.18);
-  const high = spatialColor(layer.mark.colorHigh ?? '#f43f5e', layer.mark.opacity ?? 0.72);
+  const legacyDefaults = usesLegacySpatialDefaults(theme);
+  const low = spatialColor(
+    layer.mark.colorLow ?? (legacyDefaults ? '#0ea5e9' : continuousColor(theme, 0)),
+    layer.mark.opacity ?? 0.18,
+  );
+  const high = spatialColor(
+    layer.mark.colorHigh ?? (legacyDefaults ? '#f43f5e' : continuousColor(theme, 1)),
+    layer.mark.opacity ?? 0.72,
+  );
   const id = layerId(layer, layerIndex);
   const plane = dimensions[0] * dimensions[1];
   for (const datumIndex of exactStrideSampleIndices(values.length, maximumSamples)) {
@@ -499,6 +535,7 @@ function orderedIsoPolygon(
 function compileIsosurface(
   layer: SpatialVolumeLayer,
   layerIndex: number,
+  theme: ThemeTokens,
 ): readonly CompiledSpatialGeometry[] {
   const dimensions = volumeDimensions(layer);
   if (dimensions.some((dimension) => dimension < 2))
@@ -575,7 +612,11 @@ function compileIsosurface(
     }
   }
   const positions = new Float32Array(vertices);
-  const color = spatialColor(layer.mark.colorHigh ?? '#7c3aed', layer.mark.opacity ?? 0.82);
+  const color = spatialColor(
+    layer.mark.colorHigh ??
+      (usesLegacySpatialDefaults(theme) ? '#7c3aed' : continuousColor(theme, 1)),
+    layer.mark.opacity ?? 0.82,
+  );
   return [
     {
       id,
@@ -592,10 +633,11 @@ function compileIsosurface(
 function compileVolume(
   layer: SpatialVolumeLayer,
   layerIndex: number,
+  theme: ThemeTokens,
 ): readonly CompiledSpatialGeometry[] {
   return (layer.mark.mode ?? 'volume') === 'isosurface'
-    ? compileIsosurface(layer, layerIndex)
-    : compileVolumePoints(layer, layerIndex);
+    ? compileIsosurface(layer, layerIndex, theme)
+    : compileVolumePoints(layer, layerIndex, theme);
 }
 
 function isStreamtubeData(data: SpatialVectorLayer['data']): data is SpatialStreamtubeData {
@@ -613,6 +655,8 @@ function compileCones(
   layer: SpatialVectorLayer,
   layerIndex: number,
   data: SpatialConeVectorData,
+  theme: ThemeTokens,
+  layerCount: number,
 ): readonly CompiledSpatialGeometry[] {
   if (data.origins.length !== data.vectors.length)
     fail('vector origins and vectors must have the same length.');
@@ -635,7 +679,11 @@ function compileCones(
     const radius = Math.max(0.004, magnitude * scale * radiusFactor);
     const baseCenter = add3(origin, scale3(subtract3(tip, origin), 0.72));
     const color = spatialColor(
-      data.colors?.[datumIndex] ?? layer.mark.color ?? '#0f9f8a',
+      data.colors?.[datumIndex] ??
+        layer.mark.color ??
+        (usesLegacySpatialDefaults(theme)
+          ? '#0f9f8a'
+          : layerThemeColor(theme, layerIndex, layerCount)),
       layer.mark.opacity,
     );
     const offset = positions.length / 3;
@@ -704,6 +752,8 @@ function compileStreamtubes(
   layer: SpatialVectorLayer,
   layerIndex: number,
   data: SpatialStreamtubeData,
+  theme: ThemeTokens,
+  layerCount: number,
 ): readonly CompiledSpatialGeometry[] {
   const segments = Math.max(5, Math.min(48, Math.trunc(layer.mark.segments ?? 10)));
   const radius = Math.max(0.0001, layer.mark.radius ?? 0.035);
@@ -719,7 +769,11 @@ function compileStreamtubes(
     if (path.length < 2) continue;
     const offset = positions.length / 3;
     const color = spatialColor(
-      data.colors?.[datumIndex] ?? layer.mark.color ?? '#0284c7',
+      data.colors?.[datumIndex] ??
+        layer.mark.color ??
+        (usesLegacySpatialDefaults(theme)
+          ? '#0284c7'
+          : layerThemeColor(theme, layerIndex, layerCount)),
       layer.mark.opacity,
     );
     for (let pointIndex = 0; pointIndex < path.length; pointIndex += 1) {
@@ -781,19 +835,23 @@ function compileStreamtubes(
 function compileVector(
   layer: SpatialVectorLayer,
   layerIndex: number,
+  theme: ThemeTokens,
+  layerCount: number,
 ): readonly CompiledSpatialGeometry[] {
   const mode = layer.mark.mode ?? (isStreamtubeData(layer.data) ? 'streamtube' : 'cone');
   if (mode === 'streamtube') {
     if (!isStreamtubeData(layer.data)) fail('streamtube mode requires paths.');
-    return compileStreamtubes(layer, layerIndex, layer.data);
+    return compileStreamtubes(layer, layerIndex, layer.data, theme, layerCount);
   }
   if (isStreamtubeData(layer.data)) fail('cone mode requires origins and vectors.');
-  return compileCones(layer, layerIndex, layer.data);
+  return compileCones(layer, layerIndex, layer.data, theme, layerCount);
 }
 
 function compileScatter(
   layer: SpatialScatterLayer,
   layerIndex: number,
+  theme: ThemeTokens,
+  layerCount: number,
 ): readonly CompiledSpatialGeometry[] {
   const data = layer.data;
   const count = data.positions.length;
@@ -817,8 +875,22 @@ function compileScatter(
     minimum = Math.min(minimum, finite(value, 'scatter value'));
     maximum = Math.max(maximum, value);
   }
-  const low = spatialColor('#06b6d4', layer.mark.opacity);
-  const high = spatialColor(layer.mark.color ?? '#7c3aed', layer.mark.opacity);
+  const legacyDefaults = usesLegacySpatialDefaults(theme);
+  const low = spatialColor(
+    legacyDefaults ? '#06b6d4' : continuousColor(theme, 0),
+    layer.mark.opacity,
+  );
+  const high = spatialColor(
+    layer.mark.color ?? (legacyDefaults ? '#7c3aed' : continuousColor(theme, 1)),
+    layer.mark.opacity,
+  );
+  const category =
+    legacyDefaults && layer.mark.color === undefined
+      ? interpolateColor(low, high, 0.5)
+      : spatialColor(
+          layer.mark.color ?? layerThemeColor(theme, layerIndex, layerCount),
+          layer.mark.opacity,
+        );
   for (let datumIndex = 0; datumIndex < count; datumIndex += 1) {
     const position = validVec3(data.positions[datumIndex]!, `scatter position ${datumIndex}`);
     const value = data.values?.[datumIndex];
@@ -827,9 +899,11 @@ function compileScatter(
     pushVec3(positions, position);
     pushColor(
       colors,
-      data.colors?.[datumIndex] === undefined
-        ? interpolateColor(low, high, amount)
-        : spatialColor(data.colors[datumIndex], layer.mark.opacity),
+      data.colors?.[datumIndex] !== undefined
+        ? spatialColor(data.colors[datumIndex], layer.mark.opacity)
+        : value === undefined
+          ? category
+          : interpolateColor(low, high, amount),
     );
     sizes.push(Math.max(1, data.sizes?.[datumIndex] ?? layer.mark.pointSize ?? 7));
     picks.push({
@@ -1135,6 +1209,7 @@ function pushSphericalTriangle(
 function compileGlobe(
   layer: SpatialGlobeLayer,
   layerIndex: number,
+  theme: ThemeTokens,
 ): readonly CompiledSpatialGeometry[] {
   const id = layerId(layer, layerIndex);
   const radius = Math.max(0.001, layer.mark.radius ?? 1);
@@ -1142,15 +1217,26 @@ function compileGlobe(
   const ocean = sphereGeometry(
     `${id}:ocean`,
     radius,
-    spatialColor(layer.mark.oceanColor ?? '#bfdbfe', opacity),
+    spatialColor(
+      layer.mark.oceanColor ??
+        (usesLegacySpatialDefaults(theme) ? '#bfdbfe' : continuousColor(theme, 0.12)),
+      opacity,
+    ),
   );
   const landPositions: number[] = [];
   const landColors: number[] = [];
   const borderPositions: number[] = [];
   const borderColors: number[] = [];
   const countryPicks: SpatialPickTarget[] = [];
-  const landColor = spatialColor(layer.mark.landColor ?? '#dce7d5', opacity);
-  const borderColor = spatialColor(layer.mark.borderColor ?? '#64748b', opacity);
+  const legacyDefaults = usesLegacySpatialDefaults(theme);
+  const landColor = spatialColor(
+    layer.mark.landColor ?? (legacyDefaults ? '#dce7d5' : continuousColor(theme, 0.72)),
+    opacity,
+  );
+  const borderColor = spatialColor(
+    layer.mark.borderColor ?? (legacyDefaults ? '#64748b' : theme.colors.mutedText),
+    opacity,
+  );
   const landRadius = radius * 1.003;
   const countries = naturalEarthCountries110m();
   for (const [countryIndex, country] of countries.entries()) {
@@ -1231,15 +1317,25 @@ function compileGlobe(
   const pointColors: number[] = [];
   const pointSizes: number[] = [];
   const pointPicks: SpatialPickTarget[] = [];
-  const defaultPointColor = layer.mark.pointColor ?? '#dc2626';
-  for (const [datumIndex, point] of (layer.data?.points ?? []).entries()) {
+  const globePoints = layer.data?.points ?? [];
+  for (const [datumIndex, point] of globePoints.entries()) {
     const position = longitudeLatitudeToSphere(
       finite(point.longitude, `globe point ${datumIndex} longitude`),
       finite(point.latitude, `globe point ${datumIndex} latitude`),
       radius * 1.025,
     );
     pushVec3(pointPositions, position);
-    pushColor(pointColors, spatialColor(point.color ?? defaultPointColor, opacity));
+    pushColor(
+      pointColors,
+      spatialColor(
+        point.color ??
+          layer.mark.pointColor ??
+          (legacyDefaults
+            ? '#dc2626'
+            : categoricalColor(theme, datumIndex, Math.max(1, globePoints.length))),
+        opacity,
+      ),
+    );
     pointSizes.push(Math.max(2, point.size ?? 8));
     pointPicks.push({
       layerId: id,
@@ -1270,9 +1366,21 @@ function compileGlobe(
   const routeColors: number[] = [];
   const routePicks: SpatialPickTarget[] = [];
   const routeSegments = Math.max(8, Math.min(128, Math.trunc(layer.mark.routeSegments ?? 32)));
-  for (const [datumIndex, route] of (layer.data?.routes ?? []).entries()) {
+  const globeRoutes = layer.data?.routes ?? [];
+  for (const [datumIndex, route] of globeRoutes.entries()) {
     const path = greatCirclePoints(route.from, route.to, radius * 1.025, routeSegments);
-    const color = spatialColor(route.color ?? layer.mark.routeColor ?? '#f97316', opacity);
+    const color = spatialColor(
+      route.color ??
+        layer.mark.routeColor ??
+        (legacyDefaults
+          ? '#f97316'
+          : categoricalColor(
+              theme,
+              datumIndex + Math.max(1, globePoints.length),
+              Math.max(2, globePoints.length + globeRoutes.length),
+            )),
+      opacity,
+    );
     for (let index = 0; index < path.length - 1; index += 1) {
       pushVec3(routePositions, path[index]!);
       pushVec3(routePositions, path[index + 1]!);
@@ -1310,26 +1418,32 @@ function compileGlobe(
 }
 
 const builtInCompilers: Readonly<Record<string, SpatialMarkCompiler>> = {
-  globe: (layer, layerIndex) => compileGlobe(layer as SpatialGlobeLayer, layerIndex),
-  scatter: (layer, layerIndex) => compileScatter(layer as SpatialScatterLayer, layerIndex),
-  surface: (layer, layerIndex) => compileSurface(layer as SpatialSurfaceLayer, layerIndex),
-  vector: (layer, layerIndex) => compileVector(layer as SpatialVectorLayer, layerIndex),
-  volume: (layer, layerIndex) => compileVolume(layer as SpatialVolumeLayer, layerIndex),
+  globe: (layer, layerIndex, theme) => compileGlobe(layer as SpatialGlobeLayer, layerIndex, theme),
+  scatter: (layer, layerIndex, theme, layerCount) =>
+    compileScatter(layer as SpatialScatterLayer, layerIndex, theme, layerCount),
+  surface: (layer, layerIndex, theme, layerCount) =>
+    compileSurface(layer as SpatialSurfaceLayer, layerIndex, theme, layerCount),
+  vector: (layer, layerIndex, theme, layerCount) =>
+    compileVector(layer as SpatialVectorLayer, layerIndex, theme, layerCount),
+  volume: (layer, layerIndex, theme) =>
+    compileVolume(layer as SpatialVolumeLayer, layerIndex, theme),
 };
 
 export function compileSpatial(spec: SpatialChartSpec): CompiledSpatialScene {
   assertValidSpatialSpec(spec);
+  const theme = new ThemeRegistry().resolve(spec.theme ?? 'graflume-light');
   const geometries: CompiledSpatialGeometry[] = [];
   for (const [layerIndex, layer] of spec.layers.entries()) {
     const type = layer.mark.type.trim().toLowerCase();
     const compiler = builtInCompilers[type];
     if (compiler === undefined) fail(`unsupported spatial mark type "${type}".`);
-    geometries.push(...compiler(layer, layerIndex));
+    geometries.push(...compiler(layer, layerIndex, theme, spec.layers.length));
     assertCompiledSpatialOutputBudget(geometries);
   }
   return {
     geometries,
     bounds: boundsFromPositions(geometries.map(({ positions }) => positions)),
     spec,
+    theme,
   };
 }

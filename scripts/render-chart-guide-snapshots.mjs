@@ -228,6 +228,28 @@ const study = [
 
 const snapshots = [
   {
+    filename: 'ggplot-theme.svg',
+    width: 680,
+    expected: { path: 1, circle: 6 },
+    spec: {
+      data: monthly,
+      title: { text: 'Monthly sales trend', subtitle: 'Graflume ggplot theme' },
+      theme: 'ggplot',
+      mark: { type: 'line', point: true },
+      x: { field: 'month', type: 'ordinal', title: 'Month' },
+      y: {
+        field: 'actual',
+        type: 'quantitative',
+        title: 'Sales',
+        scale: { zero: false, nice: true },
+      },
+      accessibility: {
+        label: 'Monthly sales rendered with the Graflume ggplot theme',
+        description: 'A line and points appear on the ggplot2 grey panel with white grid lines.',
+      },
+    },
+  },
+  {
     filename: 'bar.svg',
     width: 680,
     expected: { rect: 6 },

@@ -85,12 +85,14 @@ function resolveTextStyle(
   font: NormalizedAxisFontSpec,
   color: string | undefined,
   theme: ThemeTokens,
+  defaultColor: string,
+  defaultSize: number,
   fallbackWeight: number,
 ): ResolvedTextStyle {
   return {
-    fill: color ?? theme.colors.mutedText,
+    fill: color ?? defaultColor,
     fontFamily: font.family ?? theme.typography.fontFamily,
-    fontSize: font.size ?? theme.typography.fontSize,
+    fontSize: font.size ?? defaultSize,
     fontWeight: mappedFontWeight(font.weight, fallbackWeight),
     ...(font.style === 'italic' ? { fontStyle: 'italic' as const } : {}),
   };
@@ -107,6 +109,7 @@ function line(
   zIndex: number,
   opacity: number,
   dash: readonly number[],
+  lineCap: CanvasLineCap = 'round',
 ): LineNode {
   return {
     type: 'line',
@@ -118,7 +121,7 @@ function line(
     stroke,
     lineWidth,
     ...(dash.length === 0 ? {} : { dash }),
-    lineCap: 'round',
+    lineCap,
   };
 }
 
@@ -317,6 +320,70 @@ function titleText(context: AxisCompileContext): string {
   return context.axis.title.text ?? context.title;
 }
 
+function minorGridPositions(
+  context: AxisCompileContext,
+  ticks: readonly ResolvedTick[],
+): readonly number[] {
+  if (
+    context.axis === false ||
+    !context.axis.grid.visible ||
+    context.theme.axis.minorGridVisible !== true ||
+    (context.id !== 'x' && context.id !== 'y') ||
+    (context.scale.kind !== 'linear' && context.scale.kind !== 'time')
+  ) {
+    return [];
+  }
+  const positions = [...new Set(ticks.map((tick) => tick.position))].sort(
+    (left, right) => left - right,
+  );
+  return positions.slice(0, -1).flatMap((tickPosition, index) => {
+    const next = positions[index + 1];
+    if (next === undefined || next <= tickPosition) return [];
+    const midpoint = tickPosition + (next - tickPosition) / 2;
+    const minimum = channel(context.id) === 'x' ? context.plot.x : context.plot.y;
+    const maximum =
+      minimum + (channel(context.id) === 'x' ? context.plot.width : context.plot.height);
+    return midpoint > minimum && midpoint < maximum ? [midpoint] : [];
+  });
+}
+
+function resolvedTitlePadding(
+  context: AxisCompileContext,
+  ticks: readonly ResolvedTick[],
+  titleStyle: ResolvedTextStyle,
+): number {
+  const axis = context.axis;
+  if (axis === false || axis.title.themeGap === undefined)
+    return axis === false ? 0 : axis.title.padding;
+  const axisChannel = channel(context.id);
+  const tickSize = axis.ticks.visible ? (axis.ticks.size ?? context.theme.axis.tickLength) : 0;
+  let labelExtent = 0;
+  if (axis.labels.visible && ticks.length > 0) {
+    const style = resolveTextStyle(
+      axis.labels.font,
+      axis.labels.color,
+      context.theme,
+      context.theme.colors.mutedText,
+      context.theme.typography.axisLabelSize ?? context.theme.typography.fontSize,
+      context.theme.typography.axisLabelWeight ?? 500,
+    );
+    const angle = labelAngle(context, ticks);
+    for (const tick of ticks) {
+      const projected = projectedSize(
+        estimatedTextWidth(tick.formattedLabel, style.fontSize),
+        style.fontSize,
+        angle,
+      );
+      labelExtent = Math.max(labelExtent, axisChannel === 'x' ? projected.height : projected.width);
+    }
+  }
+  const labelStrip =
+    labelExtent === 0
+      ? tickSize
+      : tickSize + (axis.labels.padding ?? context.theme.axis.labelPadding) + labelExtent;
+  return labelStrip + axis.title.themeGap + (axisChannel === 'y' ? titleStyle.fontSize / 2 : 0);
+}
+
 /** Compile any primary or secondary Cartesian axis into renderer-neutral Scene primitives. */
 export function compileAxis(context: AxisCompileContext): readonly SceneNode[] {
   const { axis, plot, theme } = context;
@@ -332,6 +399,7 @@ export function compileAxis(context: AxisCompileContext): readonly SceneNode[] {
   const angle = labelAngle(context, ticks);
   const tickSize = axis.ticks.visible ? (axis.ticks.size ?? theme.axis.tickLength) : 0;
   const labelPadding = axis.labels.padding ?? theme.axis.labelPadding;
+  const axisLineCap = theme.axis.lineCap ?? 'round';
 
   if (axis.line.visible) {
     const stroke = axis.line.color ?? theme.colors.axis;
@@ -349,6 +417,7 @@ export function compileAxis(context: AxisCompileContext): readonly SceneNode[] {
             100,
             axis.line.opacity,
             axis.line.dash,
+            axisLineCap,
           )
         : line(
             `${prefix}:line`,
@@ -361,16 +430,63 @@ export function compileAxis(context: AxisCompileContext): readonly SceneNode[] {
             100,
             axis.line.opacity,
             axis.line.dash,
+            axisLineCap,
           ),
     );
   }
 
-  const labelStyle = resolveTextStyle(axis.labels.font, axis.labels.color, theme, 500);
+  const labelStyle = resolveTextStyle(
+    axis.labels.font,
+    axis.labels.color,
+    theme,
+    theme.colors.mutedText,
+    theme.typography.axisLabelSize ?? theme.typography.fontSize,
+    theme.typography.axisLabelWeight ?? 500,
+  );
+  const minorGridStroke = axis.grid.color ?? theme.colors.minorGrid ?? theme.colors.grid;
+  const minorGridWidth =
+    axis.grid.width ?? theme.axis.minorGridLineWidth ?? theme.axis.gridLineWidth / 2;
+  const minorGridOpacity = Math.min(
+    axis.grid.opacity,
+    theme.axis.minorGridOpacity ?? axis.grid.opacity,
+  );
+  minorGridPositions(context, ticks).forEach((gridPosition, index) => {
+    nodes.push(
+      axisChannel === 'x'
+        ? line(
+            `${prefix}:grid-minor:${index}`,
+            gridPosition,
+            plot.y,
+            gridPosition,
+            plot.y + plot.height,
+            minorGridStroke,
+            minorGridWidth,
+            -21,
+            minorGridOpacity,
+            axis.grid.dash,
+            axisLineCap,
+          )
+        : line(
+            `${prefix}:grid-minor:${index}`,
+            plot.x,
+            gridPosition,
+            plot.x + plot.width,
+            gridPosition,
+            minorGridStroke,
+            minorGridWidth,
+            -21,
+            minorGridOpacity,
+            axis.grid.dash,
+            axisLineCap,
+          ),
+    );
+  });
   ticks.forEach((tick, index) => {
     const isZero = typeof tick.value === 'number' && Math.abs(tick.value) < Number.EPSILON;
     if (axis.grid.visible && !gridIsBoundary(tick, plot, axisChannel)) {
-      const defaultZeroStyle = axis.grid.color === undefined;
-      const gridStroke = axis.grid.color ?? (isZero ? theme.colors.axis : theme.colors.grid);
+      const defaultZeroStyle = axis.grid.color === undefined && (theme.axis.emphasizeZero ?? true);
+      const gridStroke =
+        axis.grid.color ?? (isZero && defaultZeroStyle ? theme.colors.axis : theme.colors.grid);
       const gridWidth = axis.grid.width ?? theme.axis.gridLineWidth;
       nodes.push(
         axisChannel === 'x'
@@ -385,6 +501,7 @@ export function compileAxis(context: AxisCompileContext): readonly SceneNode[] {
               -20,
               isZero && defaultZeroStyle ? Math.max(0.9, axis.grid.opacity) : axis.grid.opacity,
               axis.grid.dash,
+              axisLineCap,
             )
           : line(
               `${prefix}:grid:${index}`,
@@ -397,6 +514,7 @@ export function compileAxis(context: AxisCompileContext): readonly SceneNode[] {
               -20,
               isZero && defaultZeroStyle ? Math.max(0.9, axis.grid.opacity) : axis.grid.opacity,
               axis.grid.dash,
+              axisLineCap,
             ),
       );
     }
@@ -417,6 +535,7 @@ export function compileAxis(context: AxisCompileContext): readonly SceneNode[] {
               100,
               axis.ticks.opacity,
               axis.ticks.dash,
+              axisLineCap,
             )
           : line(
               `${prefix}:tick:${index}`,
@@ -429,6 +548,7 @@ export function compileAxis(context: AxisCompileContext): readonly SceneNode[] {
               100,
               axis.ticks.opacity,
               axis.ticks.dash,
+              axisLineCap,
             ),
       );
     }
@@ -469,11 +589,18 @@ export function compileAxis(context: AxisCompileContext): readonly SceneNode[] {
 
   const resolvedTitle = titleText(context);
   if (resolvedTitle !== '') {
-    const titleStyle = resolveTextStyle(axis.title.font, axis.title.color, theme, 600);
+    const titleStyle = resolveTextStyle(
+      axis.title.font,
+      axis.title.color,
+      theme,
+      theme.colors.axisTitle ?? theme.colors.mutedText,
+      theme.typography.axisTitleSize ?? theme.typography.fontSize,
+      theme.typography.axisTitleWeight ?? 600,
+    );
     const titlePosition = coordinateAlongAxis(plot, axisChannel, axis.title.align);
     const titleAngle =
       axis.title.angle ?? (axisChannel === 'x' ? 0 : axisPosition === 'left' ? -90 : 90);
-    const titleCoordinate = coordinate + sign * axis.title.padding;
+    const titleCoordinate = coordinate + sign * resolvedTitlePadding(context, ticks, titleStyle);
     if (axisChannel === 'x') {
       nodes.push(
         text(`${prefix}:title`, titlePosition, titleCoordinate, resolvedTitle, titleStyle, {
@@ -548,6 +675,7 @@ function usesLegacyPrimaryGutter(context: AxisCompileContext): boolean {
     axis.labels.font.weight === undefined &&
     axis.labels.font.style === 'normal' &&
     axis.title.angle === undefined &&
+    axis.title.themeGap === undefined &&
     axis.title.padding === expectedTitlePadding &&
     axis.title.font.family === undefined &&
     axis.title.font.size === undefined &&
@@ -575,7 +703,14 @@ export function measureAxisGutter(context: AxisCompileContext): number {
 
   const resolvedTitle = titleText(context);
   if (resolvedTitle !== '') {
-    const style = resolveTextStyle(axis.title.font, axis.title.color, theme, 600);
+    const style = resolveTextStyle(
+      axis.title.font,
+      axis.title.color,
+      theme,
+      theme.colors.axisTitle ?? theme.colors.mutedText,
+      theme.typography.axisTitleSize ?? theme.typography.fontSize,
+      theme.typography.axisTitleWeight ?? 600,
+    );
     const axisPosition = position(context);
     const titleAngle =
       axis.title.angle ?? (axisChannel === 'x' ? 0 : axisPosition === 'left' ? -90 : 90);
@@ -590,7 +725,10 @@ export function measureAxisGutter(context: AxisCompileContext): number {
         : axis.title.align === 'center'
           ? projected.width / 2
           : projected.width;
-    required = Math.max(required, axis.offset + axis.title.padding + outwardTextExtent);
+    required = Math.max(
+      required,
+      axis.offset + resolvedTitlePadding(context, resolveTicks(context), style) + outwardTextExtent,
+    );
   }
   const measured = Math.ceil(required);
   if (!usesLegacyPrimaryGutter(context)) return measured;
@@ -610,7 +748,14 @@ export function measureAxisLabelGutter(context: AxisCompileContext): number {
   let required = axis.offset + lineWidth / 2;
 
   if (axis.labels.visible && ticks.length > 0) {
-    const style = resolveTextStyle(axis.labels.font, axis.labels.color, theme, 500);
+    const style = resolveTextStyle(
+      axis.labels.font,
+      axis.labels.color,
+      theme,
+      theme.colors.mutedText,
+      theme.typography.axisLabelSize ?? theme.typography.fontSize,
+      theme.typography.axisLabelWeight ?? 500,
+    );
     let labelExtent = 0;
     for (const tick of ticks) {
       const projected = projectedSize(

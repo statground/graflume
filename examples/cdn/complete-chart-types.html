@@ -700,7 +700,13 @@
       const status = document.querySelector('#status');
       const themeButton = document.querySelector('#theme');
       const charts = [];
-      let currentTheme = 'graflume-light';
+      const themeCycle = [
+        { theme: 'graflume-light', page: 'light', nextLabel: '어두운 테마' },
+        { theme: 'graflume-dark', page: 'dark', nextLabel: 'ggplot 테마' },
+        { theme: 'ggplot', page: 'light', nextLabel: '밝은 테마' },
+      ];
+      let themeIndex = 0;
+      let currentTheme = themeCycle[themeIndex].theme;
 
       for (const [id, title, api, summary] of visibleDefinitions) {
         const article = document.createElement('article');
@@ -732,10 +738,10 @@
       }
 
       themeButton.addEventListener('click', () => {
-        const dark = currentTheme === 'graflume-light';
-        currentTheme = dark ? 'graflume-dark' : 'graflume-light';
-        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
-        themeButton.textContent = dark ? '밝은 테마' : '어두운 테마';
+        themeIndex = (themeIndex + 1) % themeCycle.length;
+        currentTheme = themeCycle[themeIndex].theme;
+        document.documentElement.dataset.theme = themeCycle[themeIndex].page;
+        themeButton.textContent = themeCycle[themeIndex].nextLabel;
         charts.forEach((chart) => chart.setSpec({ ...chart.getSpec(), theme: currentTheme }));
       });
 

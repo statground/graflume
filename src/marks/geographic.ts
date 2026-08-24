@@ -8,6 +8,7 @@ import { nodeBase } from '../scene/factory.js';
 import type { PathNode, Point, Rect, SceneNode, TextNode } from '../scene/types.js';
 import type { DataRow } from '../spec/types.js';
 import { colorWithOpacity, mixColor } from '../theme/color.js';
+import { mappedContinuousColor } from './utils.js';
 
 const WORLD_ASPECT_RATIO = 2;
 const DEFAULT_BASEMAP = 'natural-earth';
@@ -184,7 +185,7 @@ export function worldBasemapNodes(context: MarkCompileContext): SceneNode[] {
   const oceanFill = optionString(
     context,
     'oceanFill',
-    mixColor(theme.colors.background, theme.colors.sequential[0] ?? theme.colors.surface, 0.2),
+    mixColor(theme.colors.background, mappedContinuousColor(theme, 0), 0.2),
   );
   const landFill = optionString(
     context,

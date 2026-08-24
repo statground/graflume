@@ -1,4 +1,6 @@
 import { EventEmitter } from '../core/events.js';
+import { categoricalColor, continuousColor } from '../theme/color.js';
+import type { ThemeTokens } from '../theme/types.js';
 import { collectAccessibleSpatialPicks, spatialAccessibleDescription } from './accessibility.js';
 import { compileSpatial, spatialColor } from './compile.js';
 import { resolveSpatialSize } from './layout.js';
@@ -16,17 +18,21 @@ import type {
   SpatialAnnotationSpec,
   SpatialCameraState,
   SpatialChartSpec,
+  SpatialConeVectorData,
   SpatialControlLabels,
   SpatialCreateOptions,
   SpatialHitResult,
   SpatialDatumTargetSpec,
   SpatialDecorationTargetSpec,
+  SpatialGlobeData,
   SpatialLayerSpec,
+  SpatialMeshData,
   SpatialProjection,
+  SpatialScatterData,
+  SpatialStreamtubeData,
+  SpatialSurfaceGridData,
   SpatialVec3,
   SpatialVolumeData,
-  SpatialSurfaceGridData,
-  SpatialScatterData,
 } from './types.js';
 import { isGlobePickFrontFacing, SpatialWebGLRenderer } from './webgl-renderer.js';
 
@@ -324,19 +330,59 @@ function colorCss(value: Parameters<typeof spatialColor>[0]): string {
   return `rgba(${Math.round(color[0] * 255)},${Math.round(color[1] * 255)},${Math.round(color[2] * 255)},${color[3]})`;
 }
 
-function layerColor(layer: SpatialLayerSpec, endpoint: 'low' | 'high' = 'low'): string {
+function layerColor(
+  layer: SpatialLayerSpec,
+  theme: ThemeTokens,
+  layerIndex: number,
+  layerCount: number,
+  endpoint?: 'low' | 'high',
+): string {
   if (layer.mark.type === 'volume')
     return colorCss(
-      endpoint === 'low' ? (layer.mark.colorLow ?? '#0ea5e9') : (layer.mark.colorHigh ?? '#7c3aed'),
+      endpoint === 'high'
+        ? (layer.mark.colorHigh ?? continuousColor(theme, 1))
+        : (layer.mark.colorLow ?? continuousColor(theme, 0)),
     );
-  if (layer.mark.type === 'surface')
-    return colorCss(endpoint === 'low' ? '#0ea5e9' : (layer.mark.color ?? '#7c3aed'));
-  if (layer.mark.type === 'scatter')
-    return colorCss(endpoint === 'low' ? '#06b6d4' : (layer.mark.color ?? '#7c3aed'));
-  if (layer.mark.type === 'vector')
-    return colorCss(endpoint === 'low' ? '#99f6e4' : (layer.mark.color ?? '#0f9f8a'));
-  if (layer.mark.type === 'globe') return colorCss(layer.mark.pointColor ?? layer.mark.landColor);
-  return '#4f46e5';
+  if (layer.mark.type === 'surface') {
+    const data = layer.data as SpatialSurfaceGridData | SpatialMeshData;
+    if (endpoint === undefined && 'positions' in data)
+      return colorCss(
+        data.colors?.[0] ?? layer.mark.color ?? categoricalColor(theme, layerIndex, layerCount),
+      );
+    return colorCss(
+      endpoint === 'high'
+        ? (layer.mark.color ?? continuousColor(theme, 1))
+        : continuousColor(theme, 0),
+    );
+  }
+  if (layer.mark.type === 'scatter') {
+    const data = layer.data as SpatialScatterData;
+    if (endpoint === undefined && (data.values === undefined || data.values.length === 0))
+      return colorCss(
+        data.colors?.[0] ?? layer.mark.color ?? categoricalColor(theme, layerIndex, layerCount),
+      );
+    return colorCss(
+      endpoint === 'high'
+        ? (layer.mark.color ?? continuousColor(theme, 1))
+        : continuousColor(theme, 0),
+    );
+  }
+  if (layer.mark.type === 'vector') {
+    const data = layer.data as SpatialConeVectorData | SpatialStreamtubeData;
+    return colorCss(
+      data.colors?.[0] ?? layer.mark.color ?? categoricalColor(theme, layerIndex, layerCount),
+    );
+  }
+  if (layer.mark.type === 'globe') {
+    const data = layer.data as SpatialGlobeData | undefined;
+    return colorCss(
+      data?.points?.[0]?.color ??
+        layer.mark.pointColor ??
+        layer.mark.landColor ??
+        categoricalColor(theme, layerIndex, layerCount),
+    );
+  }
+  return categoricalColor(theme, layerIndex, layerCount);
 }
 
 function layerLegendSymbol(layer: SpatialLayerSpec | undefined): 'line' | 'point' | 'rect' {
@@ -418,6 +464,7 @@ export class SpatialChart {
   #tooltip: HTMLDivElement | null = null;
   #fallback: HTMLDivElement | null = null;
   #accessibility: HTMLDivElement | null = null;
+  #scopedStyle: HTMLStyleElement | null = null;
   #instructions: HTMLParagraphElement | null = null;
   #controls: HTMLDivElement | null = null;
   #destroyed = false;
@@ -457,8 +504,7 @@ export class SpatialChart {
     this.#wrapper.style.height =
       options.height === undefined ? '100%' : `${Math.max(1, options.height)}px`;
     this.#wrapper.style.minHeight = options.height === undefined ? '280px' : '0';
-    this.#wrapper.style.background =
-      typeof spec.background === 'string' ? spec.background : '#ffffff';
+    this.#applyThemeChrome();
     this.#renderer = new SpatialWebGLRenderer({
       contextLost: () => {
         this.#showFallback('context-lost');
@@ -527,8 +573,7 @@ export class SpatialChart {
     this.#initialCamera = this.#camera;
     this.#renderer.setScene(scene);
     this.#renderer.setCamera(this.#camera);
-    this.#wrapper.style.background =
-      typeof spec.background === 'string' ? spec.background : '#ffffff';
+    this.#applyThemeChrome();
     this.#hideTooltip();
     this.#syncAccessibilityDom();
     this.#renderAccessibilityTable();
@@ -822,13 +867,13 @@ export class SpatialChart {
     fallback.height = Math.max(1, Math.round(this.#height));
     const context = fallback.getContext('2d');
     if (context === null) return 'data:image/png;base64,';
-    context.fillStyle = '#ffffff';
+    context.fillStyle = colorCss(this.#spec.background ?? this.#scene.theme.colors.background);
     context.fillRect(0, 0, fallback.width, fallback.height);
-    context.fillStyle = '#0f172a';
-    context.font = '600 18px sans-serif';
+    context.fillStyle = this.#scene.theme.colors.text;
+    context.font = `600 18px ${this.#scene.theme.typography.fontFamily}`;
     context.fillText(this.#spec.title ?? this.#chartLabel(), 24, 38);
-    context.fillStyle = '#64748b';
-    context.font = '14px sans-serif';
+    context.fillStyle = this.#scene.theme.colors.mutedText;
+    context.font = `14px ${this.#scene.theme.typography.fontFamily}`;
     context.fillText(this.#labels().unavailable, 24, 68, Math.max(20, fallback.width - 48));
     return fallback.toDataURL('image/png');
   }
@@ -1068,10 +1113,15 @@ export class SpatialChart {
       items = configuredItems.map((item, index) => {
         const id = item.id ?? `item-${index}`;
         const owner = this.#spec.layers.find((layer) => layer.id === item.layerId);
+        const ownerIndex = owner === undefined ? index : this.#spec.layers.indexOf(owner);
         return {
           id,
           label: item.label,
-          color: item.color ?? (owner === undefined ? '#4f46e5' : layerColor(owner)),
+          color:
+            item.color ??
+            (owner === undefined
+              ? categoricalColor(this.#scene.theme, index, configuredItems.length)
+              : layerColor(owner, this.#scene.theme, ownerIndex, this.#spec.layers.length)),
           visible: !this.#hiddenLegendItems.has(id),
           toggleable:
             (legend.interactive ?? false) && mode === 'layers' && item.layerId !== undefined,
@@ -1136,11 +1186,23 @@ export class SpatialChart {
       const lowColor =
         minimumIndex >= 0 && configuredColors?.[minimumIndex] !== undefined
           ? colorCss(configuredColors[minimumIndex])
-          : layerColor(selectedLayer, 'low');
+          : layerColor(
+              selectedLayer,
+              this.#scene.theme,
+              this.#spec.layers.indexOf(selectedLayer),
+              this.#spec.layers.length,
+              'low',
+            );
       const highColor =
         maximumIndex >= 0 && configuredColors?.[maximumIndex] !== undefined
           ? colorCss(configuredColors[maximumIndex])
-          : layerColor(selectedLayer, 'high');
+          : layerColor(
+              selectedLayer,
+              this.#scene.theme,
+              this.#spec.layers.indexOf(selectedLayer),
+              this.#spec.layers.length,
+              'high',
+            );
       let formatter: Intl.NumberFormat;
       try {
         formatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 6 });
@@ -1176,7 +1238,7 @@ export class SpatialChart {
         return {
           id,
           label: layer.name ?? layer.id ?? `Series ${index + 1}`,
-          color: layerColor(layer),
+          color: layerColor(layer, this.#scene.theme, index, this.#spec.layers.length),
           visible: !this.#hiddenLegendItems.has(id),
           toggleable: (legend.interactive ?? false) && mode === 'layers',
           symbol: layerLegendSymbol(layer),
@@ -1517,7 +1579,7 @@ export class SpatialChart {
     style.textContent = `
 [data-graflume-spatial="true"] canvas:focus-visible,
 [data-graflume-spatial="true"] [data-graflume-spatial-control]:focus-visible {
-  outline: 2px solid #2563eb;
+  outline: 2px solid ${this.#scene.theme.colors.focus};
   outline-offset: 2px;
 }
 [data-graflume-spatial="true"] [data-graflume-spatial-controls="true"] {
@@ -1532,7 +1594,31 @@ export class SpatialChart {
     min-inline-size: 44px;
   }
 }`;
+    this.#scopedStyle = style;
     this.#wrapper.append(style);
+  }
+
+  #applyThemeChrome(): void {
+    const { colors, typography } = this.#scene.theme;
+    this.#wrapper.style.background = colorCss(this.#spec.background ?? colors.background);
+    this.#wrapper.style.color = colors.text;
+    this.#wrapper.style.fontFamily = typography.fontFamily;
+    if (this.#tooltip !== null) {
+      this.#tooltip.style.borderColor = colors.axis;
+      this.#tooltip.style.background = colors.background;
+      this.#tooltip.style.color = colors.text;
+      this.#tooltip.style.font = `${typography.fontSize}px/${typography.lineHeight} ${typography.fontFamily}`;
+    }
+    if (this.#fallback !== null) {
+      this.#fallback.style.color = colors.mutedText;
+      this.#fallback.style.background = colors.background;
+      this.#fallback.style.font = `${typography.fontSize}px/${typography.lineHeight} ${typography.fontFamily}`;
+    }
+    if (this.#scopedStyle !== null)
+      this.#scopedStyle.textContent = this.#scopedStyle.textContent.replace(
+        /outline: 2px solid [^;]+;/,
+        `outline: 2px solid ${colors.focus};`,
+      );
   }
 
   #createControls(): void {
@@ -1548,9 +1634,9 @@ export class SpatialChart {
     toolbar.style.display = 'flex';
     toolbar.style.gap = '1px';
     toolbar.style.padding = '1px';
-    toolbar.style.border = '1px solid rgba(148, 163, 184, 0.55)';
+    toolbar.style.border = `1px solid ${this.#scene.theme.colors.axis}`;
     toolbar.style.borderRadius = '6px';
-    toolbar.style.background = 'rgba(255, 255, 255, 0.82)';
+    toolbar.style.background = this.#scene.theme.colors.background;
     toolbar.style.backdropFilter = 'blur(5px)';
     toolbar.style.direction = 'ltr';
     const definitions: [string, string, SVGSVGElement][] = [
@@ -1593,7 +1679,7 @@ export class SpatialChart {
       button.style.padding = '0';
       button.style.border = '0';
       button.style.borderRadius = '4px';
-      button.style.color = '#1e293b';
+      button.style.color = this.#scene.theme.colors.text;
       button.style.background = 'transparent';
       button.style.cursor = 'pointer';
       button.append(graphic);
@@ -1692,11 +1778,19 @@ export class SpatialChart {
   }
 
   #syncControls(): void {
+    if (this.#controls !== null) {
+      this.#controls.style.borderColor = this.#scene.theme.colors.axis;
+      this.#controls.style.background = this.#scene.theme.colors.background;
+    }
+    const active = this.#scene.theme.colors.panel ?? this.#scene.theme.colors.surface;
+    for (const button of this.#controlButtons.values())
+      button.style.color = this.#scene.theme.colors.text;
     for (const mode of ['orbit', 'pan'] as const) {
       const button = this.#controlButtons.get(mode);
       button?.setAttribute('aria-pressed', String(this.#mode === mode));
-      if (button !== undefined)
-        button.style.background = this.#mode === mode ? '#e0e7ff' : 'transparent';
+      if (button !== undefined) {
+        button.style.background = this.#mode === mode ? active : 'transparent';
+      }
     }
     this.#controlButtons
       .get('projection')
@@ -1709,7 +1803,8 @@ export class SpatialChart {
       annotations.setAttribute('aria-label', label);
       annotations.setAttribute('aria-pressed', String(this.#annotationsVisible));
       annotations.disabled = this.#annotations.length === 0;
-      annotations.style.background = this.#annotationsVisible ? '#e0e7ff' : 'transparent';
+      annotations.style.color = this.#scene.theme.colors.text;
+      annotations.style.background = this.#annotationsVisible ? active : 'transparent';
       if (annotations.dataset.graflumeAnnotationVisibility !== String(this.#annotationsVisible)) {
         annotations.replaceChildren(annotationIcon(this.#annotationsVisible));
         annotations.dataset.graflumeAnnotationVisibility = String(this.#annotationsVisible);
@@ -1747,13 +1842,17 @@ export class SpatialChart {
       this.#tooltip.style.pointerEvents = 'none';
       this.#tooltip.style.maxWidth = '260px';
       this.#tooltip.style.padding = '8px 10px';
-      this.#tooltip.style.border = '1px solid rgba(148, 163, 184, 0.6)';
+      this.#tooltip.style.border = `1px solid ${this.#scene.theme.colors.axis}`;
       this.#tooltip.style.borderRadius = '7px';
-      this.#tooltip.style.background = 'rgba(15, 23, 42, 0.94)';
-      this.#tooltip.style.color = '#f8fafc';
-      this.#tooltip.style.font = '12px/1.45 ui-sans-serif, system-ui, sans-serif';
+      this.#tooltip.style.background = this.#scene.theme.colors.background;
+      this.#tooltip.style.color = this.#scene.theme.colors.text;
+      this.#tooltip.style.font = `${this.#scene.theme.typography.fontSize}px/${this.#scene.theme.typography.lineHeight} ${this.#scene.theme.typography.fontFamily}`;
       this.#wrapper.append(this.#tooltip);
     }
+    this.#tooltip.style.borderColor = this.#scene.theme.colors.axis;
+    this.#tooltip.style.background = this.#scene.theme.colors.background;
+    this.#tooltip.style.color = this.#scene.theme.colors.text;
+    this.#tooltip.style.font = `${this.#scene.theme.typography.fontSize}px/${this.#scene.theme.typography.lineHeight} ${this.#scene.theme.typography.fontFamily}`;
     this.#tooltip.replaceChildren();
     const configured =
       typeof this.#spec.interaction?.tooltip === 'object' ? this.#spec.interaction.tooltip : {};
@@ -1791,11 +1890,14 @@ export class SpatialChart {
       this.#fallback.style.placeItems = 'center';
       this.#fallback.style.padding = '24px';
       this.#fallback.style.textAlign = 'center';
-      this.#fallback.style.color = '#475569';
-      this.#fallback.style.background = '#f8fafc';
-      this.#fallback.style.font = '14px/1.5 ui-sans-serif, system-ui, sans-serif';
+      this.#fallback.style.color = this.#scene.theme.colors.mutedText;
+      this.#fallback.style.background = this.#scene.theme.colors.background;
+      this.#fallback.style.font = `${this.#scene.theme.typography.fontSize}px/${this.#scene.theme.typography.lineHeight} ${this.#scene.theme.typography.fontFamily}`;
       this.#wrapper.append(this.#fallback);
     }
+    this.#fallback.style.color = this.#scene.theme.colors.mutedText;
+    this.#fallback.style.background = this.#scene.theme.colors.background;
+    this.#fallback.style.font = `${this.#scene.theme.typography.fontSize}px/${this.#scene.theme.typography.lineHeight} ${this.#scene.theme.typography.fontFamily}`;
     const labels = this.#labels();
     const message = status === 'context-lost' ? labels.contextLost : labels.unavailable;
     this.#fallback.textContent = message;

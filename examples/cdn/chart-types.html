@@ -548,12 +548,18 @@
         };
         observe(Graflume.create('#combo-chart', comboSpec), '복합 차트');
 
-        let currentTheme = 'graflume-light';
+        const themeCycle = [
+          { theme: 'graflume-light', page: 'light', nextLabel: '어두운 테마' },
+          { theme: 'graflume-dark', page: 'dark', nextLabel: 'ggplot 테마' },
+          { theme: 'ggplot', page: 'light', nextLabel: '밝은 테마' },
+        ];
+        let themeIndex = 0;
+        let currentTheme = themeCycle[themeIndex].theme;
         themeButton.addEventListener('click', () => {
-          const dark = currentTheme === 'graflume-light';
-          currentTheme = dark ? 'graflume-dark' : 'graflume-light';
-          root.dataset.theme = dark ? 'dark' : 'light';
-          themeButton.textContent = dark ? '밝은 테마' : '어두운 테마';
+          themeIndex = (themeIndex + 1) % themeCycle.length;
+          currentTheme = themeCycle[themeIndex].theme;
+          root.dataset.theme = themeCycle[themeIndex].page;
+          themeButton.textContent = themeCycle[themeIndex].nextLabel;
           for (const chart of charts) {
             chart.setSpec({ ...chart.getSpec(), theme: currentTheme });
           }

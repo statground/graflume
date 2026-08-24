@@ -40,7 +40,10 @@ export const compileAreaMark: MarkCompiler = (context) => {
     }),
     points,
     closed: true,
-    fill: layer.mark.fill ?? colorWithOpacity(color, theme.mode === 'dark' ? 0.28 : 0.2),
+    fill:
+      layer.mark.fill ??
+      theme.mark.areaFill ??
+      colorWithOpacity(color, theme.mode === 'dark' ? 0.28 : 0.2),
     lineWidth: 0,
   };
   const stroke: PathNode = {
@@ -51,12 +54,20 @@ export const compileAreaMark: MarkCompiler = (context) => {
     }),
     points: top,
     closed: false,
-    stroke: layer.mark.stroke ?? color,
+    stroke:
+      layer.mark.stroke ??
+      theme.mark.areaStroke ??
+      theme.mark.lineColor ??
+      theme.mark.defaultColor ??
+      color,
     lineWidth: layer.mark.lineWidth ?? theme.mark.lineWidth,
-    lineCap: 'round',
-    lineJoin: 'round',
+    lineCap: theme.mark.lineCap ?? 'round',
+    lineJoin: theme.mark.lineJoin ?? 'round',
   };
-  const nodes: SceneNode[] = [fill, stroke];
+  const nodes: SceneNode[] = [
+    fill,
+    ...(layer.mark.stroke === undefined && theme.mark.areaStrokeVisible === false ? [] : [stroke]),
+  ];
   if (layer.mark.point) {
     const pointIndices = new Set(
       strideSampleIndices(top.length, performance.maxPointMarks).filter(
@@ -77,9 +88,17 @@ export const compileAreaMark: MarkCompiler = (context) => {
         cx: point.x,
         cy: point.y,
         radius: layer.mark.radius ?? theme.mark.pointRadius,
-        fill: theme.colors.background,
-        stroke: layer.mark.stroke ?? color,
-        lineWidth: Math.max(1.5, (layer.mark.lineWidth ?? theme.mark.lineWidth) * 0.68),
+        fill: layer.mark.fill ?? theme.mark.pointFill ?? theme.colors.background,
+        stroke:
+          layer.mark.stroke ??
+          theme.mark.pointStroke ??
+          theme.mark.areaStroke ??
+          theme.mark.lineColor ??
+          color,
+        lineWidth:
+          layer.mark.lineWidth === undefined
+            ? (theme.mark.pointStrokeWidth ?? Math.max(1.5, theme.mark.lineWidth * 0.68))
+            : Math.max(1.5, layer.mark.lineWidth * 0.68),
       };
       nodes.push(circle);
     });

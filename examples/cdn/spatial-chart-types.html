@@ -33,6 +33,21 @@
         color: #64748b;
         line-height: 1.7;
       }
+      .theme-control {
+        margin: 0 0 16px;
+        padding: 9px 13px;
+        color: #3730a3;
+        background: #fff;
+        border: 1px solid #c7d2fe;
+        border-radius: 10px;
+        font: inherit;
+        font-weight: 750;
+        cursor: pointer;
+      }
+      .theme-control:focus-visible {
+        outline: 3px solid #818cf8;
+        outline-offset: 2px;
+      }
       #status {
         margin: 0 0 18px;
         padding: 12px 15px;
@@ -109,6 +124,7 @@
         그립니다. 차트의 타이트한 도구막대, 드래그, Control/Command+wheel, 키보드, tooltip,
         fullscreen과 PNG를 직접 시험할 수 있습니다.
       </p>
+      <button id="theme" class="theme-control" type="button">어두운 테마</button>
       <p id="status" role="status">8개 공간 차트를 렌더링하고 있습니다…</p>
       <section id="gallery" class="gallery" aria-label="Graflume 공간 차트 갤러리"></section>
     </main>
@@ -124,7 +140,14 @@
         const api = window.GraflumeSpatial;
         const status = document.querySelector('#status');
         const gallery = document.querySelector('#gallery');
+        const themeButton = document.querySelector('#theme');
         const instances = [];
+        const themeCycle = [
+          { theme: 'graflume-light', nextLabel: '어두운 테마' },
+          { theme: 'graflume-dark', nextLabel: 'ggplot 테마' },
+          { theme: 'ggplot', nextLabel: '밝은 테마' },
+        ];
+        let themeIndex = 0;
 
         const coolToWarm = [
           '#075985',
@@ -345,7 +368,8 @@
         };
         const common = (title, background, camera, lighting) => ({
           title,
-          background,
+          theme: themeCycle[themeIndex].theme,
+          ...(themeCycle[themeIndex].theme === 'ggplot' ? {} : { background }),
           camera,
           lighting,
           interaction: { controls: true, picking: true, tooltip: true, wheel: 'modifier' },
@@ -531,20 +555,32 @@
         if (!api) {
           status.className = 'error';
           status.textContent = '공간 bundle을 불러오지 못했습니다.';
+          themeButton.disabled = true;
           return;
         }
-        try {
-          for (const definition of definitions) {
-            const article = document.createElement('article');
-            article.innerHTML = `<div class="head"><div><h2>${definition.title}</h2><p class="copy">${definition.copy}</p><code>GraflumeSpatial.${definition.api}</code></div><span class="badge">${definition.family}</span></div><div id="${definition.id}" class="chart"></div>`;
-            gallery.append(article);
-            instances.push(definition.render(`#${definition.id}`));
+        const render = () => {
+          instances.splice(0).forEach((instance) => instance.destroy());
+          gallery.replaceChildren();
+          try {
+            for (const definition of definitions) {
+              const article = document.createElement('article');
+              article.innerHTML = `<div class="head"><div><h2>${definition.title}</h2><p class="copy">${definition.copy}</p><code>GraflumeSpatial.${definition.api}</code></div><span class="badge">${definition.family}</span></div><div id="${definition.id}" class="chart"></div>`;
+              gallery.append(article);
+              instances.push(definition.render(`#${definition.id}`));
+            }
+            status.className = '';
+            status.textContent = `${instances.length}개 실제 GPU 공간 차트를 ${themeCycle[themeIndex].theme} 테마로 렌더링했습니다.`;
+          } catch (error) {
+            status.className = 'error';
+            status.textContent = error instanceof Error ? error.message : String(error);
           }
-          status.textContent = `${instances.length}개 실제 GPU 공간 차트를 렌더링했습니다.`;
-        } catch (error) {
-          status.className = 'error';
-          status.textContent = error instanceof Error ? error.message : String(error);
-        }
+        };
+        themeButton.addEventListener('click', () => {
+          themeIndex = (themeIndex + 1) % themeCycle.length;
+          themeButton.textContent = themeCycle[themeIndex].nextLabel;
+          render();
+        });
+        render();
         window.addEventListener('pagehide', (event) => {
           if (!event.persisted) instances.forEach((instance) => instance.destroy());
         });

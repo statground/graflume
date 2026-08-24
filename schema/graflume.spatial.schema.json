@@ -16,6 +16,9 @@
   "properties": {
     "specVersion": { "const": "0.1" },
     "title": { "type": "string", "maxLength": 512 },
+    "theme": {
+      "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 128 }, { "$ref": "#/$defs/theme" }]
+    },
     "background": { "$ref": "#/$defs/color" },
     "ariaLabel": { "type": "string", "maxLength": 1024 },
     "camera": { "$ref": "#/$defs/camera" },
@@ -43,6 +46,152 @@
     }
   },
   "$defs": {
+    "theme": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "extends": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 128 },
+        "mode": { "enum": ["light", "dark"] },
+        "colors": { "$ref": "#/$defs/themeColors" },
+        "typography": { "$ref": "#/$defs/themeTypography" },
+        "spacing": { "$ref": "#/$defs/themeSpacing" },
+        "axis": { "$ref": "#/$defs/themeAxis" },
+        "mark": { "$ref": "#/$defs/themeMark" },
+        "legend": { "$ref": "#/$defs/themeLegend" },
+        "motion": { "$ref": "#/$defs/themeMotion" }
+      }
+    },
+    "themeColors": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "background": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "panel": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "surface": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "text": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "mutedText": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "subtitle": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "axisTitle": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "axis": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "grid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "minorGrid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "focus": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "paletteMode": { "enum": ["fixed", "ggplot2-hue"] },
+        "palette": { "$ref": "#/$defs/themeColorArray" },
+        "sequential": { "$ref": "#/$defs/themeColorArray" },
+        "diverging": { "$ref": "#/$defs/themeColorArray" }
+      }
+    },
+    "themeColorArray": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": { "type": "string", "minLength": 1, "maxLength": 128 }
+    },
+    "themeTypography": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "fontFamily": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "fontSize": { "type": "number", "exclusiveMinimum": 0, "maximum": 2000 },
+        "fontWeight": { "type": "number", "minimum": 0, "maximum": 2000 },
+        "titleSize": { "type": "number", "exclusiveMinimum": 0, "maximum": 2000 },
+        "titleWeight": { "type": "number", "minimum": 0, "maximum": 2000 },
+        "subtitleSize": { "type": "number", "exclusiveMinimum": 0, "maximum": 2000 },
+        "subtitleWeight": { "type": "number", "minimum": 0, "maximum": 2000 },
+        "axisLabelSize": { "type": "number", "minimum": 0, "maximum": 2000 },
+        "axisLabelWeight": { "type": "number", "minimum": 0, "maximum": 2000 },
+        "axisTitleSize": { "type": "number", "minimum": 0, "maximum": 2000 },
+        "axisTitleWeight": { "type": "number", "minimum": 0, "maximum": 2000 },
+        "legendLabelSize": { "type": "number", "minimum": 0, "maximum": 2000 },
+        "legendLabelWeight": { "type": "number", "minimum": 0, "maximum": 2000 },
+        "legendTitleSize": { "type": "number", "minimum": 0, "maximum": 2000 },
+        "legendTitleWeight": { "type": "number", "minimum": 0, "maximum": 2000 },
+        "titlePosition": { "enum": ["plot", "panel"] },
+        "lineHeight": { "type": "number", "exclusiveMinimum": 0, "maximum": 20 }
+      }
+    },
+    "themeSpacing": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "xs": { "type": "number", "minimum": 0, "maximum": 2000 },
+        "sm": { "type": "number", "minimum": 0, "maximum": 2000 },
+        "md": { "type": "number", "minimum": 0, "maximum": 2000 },
+        "lg": { "type": "number", "minimum": 0, "maximum": 2000 },
+        "xl": { "type": "number", "minimum": 0, "maximum": 2000 },
+        "plotMargin": { "type": "number", "minimum": 0, "maximum": 2000 }
+      }
+    },
+    "themeAxis": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "lineWidth": { "type": "number", "minimum": 0, "maximum": 64 },
+        "tickLength": { "type": "number", "minimum": 0, "maximum": 256 },
+        "labelPadding": { "type": "number", "minimum": 0, "maximum": 256 },
+        "gridLineWidth": { "type": "number", "minimum": 0, "maximum": 64 },
+        "lineVisible": { "type": "boolean" },
+        "ticksVisible": { "type": "boolean" },
+        "gridX": { "type": "boolean" },
+        "gridX2": { "type": "boolean" },
+        "gridY": { "type": "boolean" },
+        "gridY2": { "type": "boolean" },
+        "gridOpacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "minorGridVisible": { "type": "boolean" },
+        "minorGridLineWidth": { "type": "number", "minimum": 0, "maximum": 64 },
+        "minorGridOpacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "emphasizeZero": { "type": "boolean" },
+        "lineCap": { "enum": ["butt", "round", "square"] },
+        "titleGap": { "type": "number", "minimum": 0, "maximum": 256 }
+      }
+    },
+    "themeMark": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "lineWidth": { "type": "number", "minimum": 0, "maximum": 64 },
+        "pointRadius": { "type": "number", "minimum": 0, "maximum": 2000 },
+        "barRadius": { "type": "number", "minimum": 0, "maximum": 2000 },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "defaultColor": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "lineColor": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "pointFill": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "pointStroke": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "pointStrokeWidth": { "type": "number", "minimum": 0, "maximum": 2000 },
+        "barFill": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "barWidthRatio": { "type": "number", "minimum": 0, "maximum": 1 },
+        "areaFill": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "areaStroke": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "areaStrokeVisible": { "type": "boolean" },
+        "lineCap": { "enum": ["butt", "round", "square"] },
+        "lineJoin": { "enum": ["bevel", "round", "miter"] }
+      }
+    },
+    "themeLegend": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "surfaceOpacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "borderWidth": { "type": "number", "minimum": 0, "maximum": 256 },
+        "cornerRadius": { "type": "number", "minimum": 0, "maximum": 256 },
+        "swatchRadius": { "type": "number", "minimum": 0, "maximum": 256 },
+        "swatchSize": { "type": "number", "minimum": 0, "maximum": 256 },
+        "lineWidth": { "type": "number", "minimum": 0, "maximum": 256 },
+        "pointRadius": { "type": "number", "minimum": 0, "maximum": 256 },
+        "pointStrokeWidth": { "type": "number", "minimum": 0, "maximum": 256 },
+        "lineCap": { "enum": ["butt", "round", "square"] }
+      }
+    },
+    "themeMotion": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "duration": { "type": "number", "minimum": 0, "maximum": 1000000 },
+        "easing": { "enum": ["linear", "ease", "ease-in", "ease-out", "ease-in-out"] }
+      }
+    },
     "finiteNumber": { "type": "number" },
     "positiveNumber": { "type": "number", "exclusiveMinimum": 0, "maximum": 1000000000 },
     "vec3": {

@@ -8,6 +8,7 @@ import type {
   NormalizedLegendItemSpec,
   NormalizedLegendSpec,
 } from '../spec/types.js';
+import { categoricalColor, continuousColor } from '../theme/color.js';
 import type { ThemeTokens } from '../theme/types.js';
 import type { LayoutInsets } from './layout.js';
 
@@ -266,9 +267,14 @@ export function resolveLegendModel(
     return { ...item, symbol: markSymbol(layer?.mark.type) };
   });
   if (items.length === 0) return null;
-  const titleHeight = legend.title === undefined ? 0 : theme.typography.fontSize + 8;
+  const titleHeight =
+    legend.title === undefined
+      ? 0
+      : (theme.typography.legendTitleSize ?? theme.typography.fontSize) + 8;
   const maxWidth = Math.max(1, availableWidth - 8);
   const maxHeight = Math.max(1, availableHeight - 8);
+  const swatchSize = theme.legend?.swatchSize ?? 12;
+  const horizontalItemPadding = swatchSize + 22;
   const direction =
     spec.locale !== undefined && /^(ar|fa|he|ur)(?:-|$)/i.test(spec.locale) ? 'rtl' : 'ltr';
   const categoryToggleableLayerIds = new Set(
@@ -293,7 +299,7 @@ export function resolveLegendModel(
   }
   if (legend.orientation === 'horizontal') {
     const totalWidth = items.reduce(
-      (sum, item) => sum + Math.max(64, item.label.length * 7 + 34),
+      (sum, item) => sum + Math.max(64, item.label.length * 7 + horizontalItemPadding),
       0,
     );
     const modelWidth = Math.min(maxWidth, Math.max(96, totalWidth + 20));
@@ -301,7 +307,7 @@ export function resolveLegendModel(
     let rowWidth = 0;
     let rows = 1;
     for (const item of items) {
-      const itemWidth = Math.max(64, item.label.length * 7 + 34);
+      const itemWidth = Math.max(64, item.label.length * 7 + horizontalItemPadding);
       if (rowWidth > 0 && rowWidth + itemWidth > usableWidth) {
         rows += 1;
         rowWidth = 0;
@@ -313,7 +319,7 @@ export function resolveLegendModel(
       let usedRows = 1;
       rowWidth = 0;
       items = items.filter((item) => {
-        const itemWidth = Math.max(64, item.label.length * 7 + 34);
+        const itemWidth = Math.max(64, item.label.length * 7 + horizontalItemPadding);
         if (rowWidth > 0 && rowWidth + itemWidth > usableWidth) {
           usedRows += 1;
           rowWidth = 0;
@@ -349,7 +355,7 @@ export function resolveLegendModel(
         Math.max(
           72,
           legend.title === undefined ? 0 : legend.title.length * 7 + 20,
-          ...items.map((item) => item.label.length * 7 + 42),
+          ...items.map((item) => item.label.length * 7 + swatchSize + 30),
         ),
       ),
     ),
@@ -402,11 +408,11 @@ function itemPaint(
   layerGroups: readonly SceneNode[],
   field: string | undefined,
   theme: ThemeTokens,
+  itemCount: number,
 ): string {
   if (item.color !== undefined) return item.color;
   if (mode === 'continuous') {
-    const palette = theme.colors.sequential;
-    return palette[index === 0 ? 0 : palette.length - 1] ?? theme.colors.focus;
+    return continuousColor(theme, index === 0 ? 0 : 1);
   }
   const group = layerGroups.find((candidate) => candidate.id === `${item.layerId}:group`);
   if (group !== undefined) {
@@ -425,7 +431,7 @@ function itemPaint(
     const paint = matching === undefined ? undefined : nodePaint(matching);
     if (paint !== undefined) return paint;
   }
-  return theme.colors.palette[index % theme.colors.palette.length] ?? theme.colors.focus;
+  return categoricalColor(theme, index, Math.max(1, itemCount));
 }
 
 function legendOrigin(
@@ -478,15 +484,18 @@ export function compileLegend(
   const origin = legendOrigin(model, plot, width, height);
   const background: RectNode = {
     type: 'rect',
-    ...nodeBase('legend:surface', { zIndex: 500, opacity: 0.94 }),
+    ...nodeBase('legend:surface', {
+      zIndex: 500,
+      opacity: theme.legend?.surfaceOpacity ?? 0.94,
+    }),
     x: origin.x,
     y: origin.y,
     width: model.width,
     height: model.height,
     fill: theme.colors.surface,
     stroke: theme.colors.axis,
-    lineWidth: 1,
-    cornerRadius: 8,
+    lineWidth: theme.legend?.borderWidth ?? 1,
+    cornerRadius: theme.legend?.cornerRadius ?? 8,
   };
   const nodes: SceneNode[] = [background];
   const inset = Math.min(10, Math.max(0, model.width / 4));
@@ -501,29 +510,33 @@ export function compileLegend(
       text: truncateText(model.spec.title, model.width - inset * 2, theme.typography.fontSize),
       fill: theme.colors.text,
       fontFamily: theme.typography.fontFamily,
-      fontSize: theme.typography.fontSize,
-      fontWeight: 700,
+      fontSize: theme.typography.legendTitleSize ?? theme.typography.fontSize,
+      fontWeight: theme.typography.legendTitleWeight ?? 700,
       align: model.direction === 'rtl' ? 'right' : 'left',
       baseline: 'top',
       rotation: 0,
     });
-    cursorY += theme.typography.fontSize + 8;
+    cursorY += (theme.typography.legendTitleSize ?? theme.typography.fontSize) + 8;
   }
   const entries: LegendEntryLayout[] = [];
   const field = model.field;
   if (model.mode === 'continuous' && model.items.length >= 2) {
     const scaleX = origin.x + inset;
     const scaleWidth = Math.max(1, model.width - inset * 2);
-    const palette =
+    const paletteSize = Math.max(
+      1,
+      theme.colors.paletteMode === 'ggplot2-hue' ? 16 : theme.colors.sequential.length,
+    );
+    const palette: readonly string[] =
       model.spec.items.length > 0
         ? model.items.map((item, index) => {
-            const paletteIndex = Math.round(
-              (index / Math.max(1, model.items.length - 1)) *
-                Math.max(0, theme.colors.sequential.length - 1),
+            return (
+              item.color ?? continuousColor(theme, index / Math.max(1, model.items.length - 1))
             );
-            return item.color ?? theme.colors.sequential[paletteIndex] ?? theme.colors.focus;
           })
-        : theme.colors.sequential;
+        : Array.from({ length: paletteSize }, (_value, index) =>
+            continuousColor(theme, index / Math.max(1, paletteSize - 1)),
+          );
     palette.forEach((paint, paletteIndex) => {
       nodes.push({
         type: 'rect',
@@ -539,7 +552,15 @@ export function compileLegend(
     });
     const endpoints = [model.items[0]!, model.items[model.items.length - 1]!] as const;
     endpoints.forEach((item, index) => {
-      const color = itemPaint(item, index, model.mode, layerGroups, field, theme);
+      const color = itemPaint(
+        item,
+        index,
+        model.mode,
+        layerGroups,
+        field,
+        theme,
+        model.items.length,
+      );
       const left = index === 0;
       nodes.push({
         type: 'text',
@@ -553,11 +574,15 @@ export function compileLegend(
               ? scaleX
               : scaleX + scaleWidth,
         y: cursorY + 14,
-        text: truncateText(item.label, scaleWidth / 2 - 4, theme.typography.fontSize),
+        text: truncateText(
+          item.label,
+          scaleWidth / 2 - 4,
+          theme.typography.legendLabelSize ?? theme.typography.fontSize,
+        ),
         fill: theme.colors.mutedText,
         fontFamily: theme.typography.fontFamily,
-        fontSize: theme.typography.fontSize,
-        fontWeight: 500,
+        fontSize: theme.typography.legendLabelSize ?? theme.typography.fontSize,
+        fontWeight: theme.typography.legendLabelWeight ?? 500,
         align: model.direction === 'rtl' ? (left ? 'right' : 'left') : left ? 'left' : 'right',
         baseline: 'top',
         rotation: 0,
@@ -589,8 +614,14 @@ export function compileLegend(
       },
     };
   }
+  const swatchSize = theme.legend?.swatchSize ?? 12;
+  const lineSwatchLength = theme.legend?.swatchSize ?? 13;
+  const rtlSwatchInset = theme.legend?.swatchSize ?? 16;
+  const swatchLineWidth = theme.legend?.lineWidth ?? 2.5;
+  const swatchPointRadius = theme.legend?.pointRadius ?? 5;
+  const swatchPointStrokeWidth = theme.legend?.pointStrokeWidth ?? 0;
   for (const [index, item] of model.items.entries()) {
-    const itemWidth = Math.max(64, item.label.length * 7 + 34);
+    const itemWidth = Math.max(64, item.label.length * 7 + swatchSize + 22);
     if (
       model.spec.orientation === 'horizontal' &&
       cursorX > origin.x + 10 &&
@@ -609,8 +640,8 @@ export function compileLegend(
       height: 22,
     };
     const visible = !hiddenItems.has(item.id);
-    const color = itemPaint(item, index, model.mode, layerGroups, field, theme);
-    const swatchX = model.direction === 'rtl' ? bounds.x + bounds.width - 16 : cursorX;
+    const color = itemPaint(item, index, model.mode, layerGroups, field, theme, model.items.length);
+    const swatchX = model.direction === 'rtl' ? bounds.x + bounds.width - rtlSwatchInset : cursorX;
     if (item.symbol === 'line') {
       nodes.push({
         type: 'line',
@@ -619,12 +650,12 @@ export function compileLegend(
           opacity: visible ? 1 : 0.28,
         }),
         x1: swatchX,
-        y1: cursorY + 6,
-        x2: swatchX + 13,
-        y2: cursorY + 6,
+        y1: cursorY + swatchSize / 2,
+        x2: swatchX + lineSwatchLength,
+        y2: cursorY + swatchSize / 2,
         stroke: color,
-        lineWidth: 2.5,
-        lineCap: 'round',
+        lineWidth: swatchLineWidth,
+        lineCap: theme.legend?.lineCap ?? 'round',
       });
     } else if (item.symbol === 'point') {
       nodes.push({
@@ -633,11 +664,12 @@ export function compileLegend(
           zIndex: 501,
           opacity: visible ? 1 : 0.28,
         }),
-        cx: swatchX + 6,
-        cy: cursorY + 6,
-        radius: 5,
+        cx: swatchX + swatchSize / 2,
+        cy: cursorY + swatchSize / 2,
+        radius: swatchPointRadius,
         fill: color,
-        lineWidth: 0,
+        ...(swatchPointStrokeWidth === 0 ? {} : { stroke: color }),
+        lineWidth: swatchPointStrokeWidth,
       });
     } else {
       nodes.push({
@@ -648,23 +680,27 @@ export function compileLegend(
         }),
         x: swatchX,
         y: cursorY,
-        width: 12,
-        height: 12,
+        width: swatchSize,
+        height: swatchSize,
         fill: color,
         lineWidth: 0,
-        cornerRadius: 3,
+        cornerRadius: theme.legend?.swatchRadius ?? 3,
       });
     }
     nodes.push({
       type: 'text',
       ...nodeBase(`legend:item:${item.id}:label`, { zIndex: 502, opacity: visible ? 1 : 0.45 }),
-      x: model.direction === 'rtl' ? swatchX - 7 : cursorX + 19,
-      y: cursorY + 6,
-      text: truncateText(item.label, Math.max(8, bounds.width - 26), theme.typography.fontSize),
+      x: model.direction === 'rtl' ? swatchX - 7 : cursorX + swatchSize + 7,
+      y: cursorY + swatchSize / 2,
+      text: truncateText(
+        item.label,
+        Math.max(8, bounds.width - swatchSize - 14),
+        theme.typography.legendLabelSize ?? theme.typography.fontSize,
+      ),
       fill: theme.colors.text,
       fontFamily: theme.typography.fontFamily,
-      fontSize: theme.typography.fontSize,
-      fontWeight: 500,
+      fontSize: theme.typography.legendLabelSize ?? theme.typography.fontSize,
+      fontWeight: theme.typography.legendLabelWeight ?? 500,
       align: model.direction === 'rtl' ? 'right' : 'left',
       baseline: 'middle',
       rotation: 0,

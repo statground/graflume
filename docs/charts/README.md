@@ -105,7 +105,7 @@ The default, advanced, and specialized galleries render 41 distinct families. Th
 
 Every family guide includes a current visual snapshot for every integrated preset, generated from the actual Graflume `compile()` Scene, followed by its runnable Quick API example. Run `npm run docs:snapshots` after a rendering or guide-example data change to rebuild and verify the assets deterministically.
 
-## Default visual system
+## Visual themes
 
 The built-in light and dark themes share one presentation-ready visual language:
 
@@ -114,6 +114,8 @@ The built-in light and dark themes share one presentation-ready visual language:
 - rounded line/path joins, outlined points, airier bars, and a clear title/subtitle rhythm;
 - theme-aware surfaces and labels across radial, table, hierarchy, flow, and map charts;
 - explicit `mark`, `axis`, and custom-theme values continuing to take precedence.
+
+The third built-in theme, `ggplot`, reproduces ggplot2 4.0.3 `theme_gray()` structure and visual defaults: a white plot, grey panel, white major/minor grid, blank axis baselines, plain typography, count-aware HCL categorical colours, and the default continuous colour ramp. It applies to all 41 Canvas families; chart types without a ggplot2 core counterpart keep their Graflume geometry under the same visual semantics. See [Chart themes](./themes.md) for exact tokens, precedence, Spatial coverage, and device-level limits.
 
 Area marks use separate fill and top-line Scene paths, pie and donut labels include percentages when space permits, donut charts add a center total, and the structured layouts use curved Sankey bands plus two-dimensional treemap tiles. These are compiled Scene primitives rather than CSS or renderer-specific decorations, so the committed snapshots and Canvas renderer follow the same geometry.
 
@@ -237,7 +239,7 @@ All active axes can be categorical, quantitative, or temporal. Layers sharing an
 | `padding`       | One number or per-side values                                 |
 | `title`         | String or `{ text, subtitle, align }`                         |
 | `description`   | Fallback accessible description                               |
-| `theme`         | `graflume-light`, `graflume-dark`, or a theme override        |
+| `theme`         | `graflume-light`, `graflume-dark`, `ggplot`, or an override   |
 | `locale`        | Number/date formatting locale for axes                        |
 | `renderer`      | `auto` or a registered renderer name; Canvas 2D is built in   |
 | `performance`   | `auto`, `standard`, `large`, or `ultra`                       |
@@ -245,7 +247,7 @@ All active axes can be categorical, quantitative, or temporal. Layers sharing an
 | `accessibility` | Canvas ARIA label and description                             |
 | `axes`          | Chart-level `x`/`x2`/`y`/`y2` axis defaults                   |
 
-The defaults are x at the bottom, x2 at the top, y at the left, and y2 at the right. Only the primary y grid is enabled by default. Chart-level settings are deeply merged with an encoding's `axis` override. See [Cartesian axes](./axes.md) for the complete function-free contract and runnable examples.
+The Graflume light/dark defaults are x at the bottom, x2 at the top, y at the left, and y2 at the right, with only the primary y grid enabled. The `ggplot` profile enables primary x/y major and minor grids and hides their axis baselines. Chart-level settings are deeply merged with an encoding's `axis` override. See [Cartesian axes](./axes.md) for the complete function-free contract and runnable examples.
 
 Quick APIs also accept `create` options for `autoResize`, manual width/height, and pixel ratio.
 

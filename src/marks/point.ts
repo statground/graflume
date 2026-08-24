@@ -27,9 +27,9 @@ export const compilePointMark: MarkCompiler = (context) => {
       cx,
       cy,
       radius: layer.mark.radius ?? theme.mark.pointRadius,
-      fill: layer.mark.fill ?? color,
-      stroke: layer.mark.stroke ?? theme.colors.background,
-      lineWidth: layer.mark.lineWidth ?? 1.75,
+      fill: layer.mark.fill ?? theme.mark.pointFill ?? theme.mark.defaultColor ?? color,
+      stroke: layer.mark.stroke ?? theme.mark.pointStroke ?? theme.colors.background,
+      lineWidth: layer.mark.lineWidth ?? theme.mark.pointStrokeWidth ?? 1.75,
     });
   }
   return nodes;

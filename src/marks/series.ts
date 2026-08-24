@@ -4,13 +4,13 @@ import { BandScale } from '../scale/band.js';
 import { nodeBase } from '../scene/factory.js';
 import type { Point, SceneNode, TextNode } from '../scene/types.js';
 import type { DataRow, DataValue, JsonValue } from '../spec/types.js';
-import { colorWithOpacity, mixColor, readableTextColor } from '../theme/color.js';
+import { categoricalColor, colorWithOpacity, mixColor, readableTextColor } from '../theme/color.js';
 import {
   isGeographicPosition,
   projectGeographicPosition,
   worldBasemapNodes,
 } from './geographic.js';
-import { numericDataValue, scaleInput } from './utils.js';
+import { mappedContinuousColor, numericDataValue, scaleInput } from './utils.js';
 
 const TAU = Math.PI * 2;
 
@@ -31,11 +31,8 @@ function stringValue(value: DataValue): string | null {
   return value instanceof Date ? value.toISOString() : String(value);
 }
 
-function paletteColor(context: MarkCompileContext, index: number): string {
-  return (
-    context.theme.colors.palette[index % context.theme.colors.palette.length] ??
-    context.theme.colors.focus
-  );
+function paletteColor(context: MarkCompileContext, index: number, count: number): string {
+  return categoricalColor(context.theme, index, count);
 }
 
 function datumBase(
@@ -186,7 +183,8 @@ export const compileSmoothMark: MarkCompiler = (context) => {
   const rows = validCartesianRows(context);
   if (rows.length === 0) return [];
   const { layer, yScale, theme } = context;
-  const stroke = layer.mark.stroke ?? context.color;
+  const stroke =
+    layer.mark.stroke ?? theme.mark.lineColor ?? theme.mark.defaultColor ?? context.color;
   const points = smoothPoints(rows.map(({ x, y }) => ({ x, y })));
   const nodes: SceneNode[] = [];
   if (layer.mark.options.area === true) {
@@ -199,7 +197,7 @@ export const compileSmoothMark: MarkCompiler = (context) => {
       }),
       points: [{ x: points[0]!.x, y: baseline }, ...points, { x: points.at(-1)!.x, y: baseline }],
       closed: true,
-      fill: layer.mark.fill ?? colorWithOpacity(stroke, 0.24),
+      fill: layer.mark.fill ?? theme.mark.areaFill ?? colorWithOpacity(stroke, 0.24),
       lineWidth: 0,
     });
   }
@@ -213,8 +211,8 @@ export const compileSmoothMark: MarkCompiler = (context) => {
     closed: false,
     stroke,
     lineWidth: layer.mark.lineWidth ?? theme.mark.lineWidth,
-    lineCap: 'round',
-    lineJoin: 'round',
+    lineCap: theme.mark.lineCap ?? 'round',
+    lineJoin: theme.mark.lineJoin ?? 'round',
   });
   if (layer.mark.point) {
     for (const row of rows) {
@@ -224,8 +222,8 @@ export const compileSmoothMark: MarkCompiler = (context) => {
         cx: row.x,
         cy: row.y,
         radius: layer.mark.radius ?? theme.mark.pointRadius,
-        fill: theme.colors.background,
-        stroke,
+        fill: layer.mark.fill ?? theme.mark.pointFill ?? theme.colors.background,
+        stroke: layer.mark.stroke ?? theme.mark.pointStroke ?? stroke,
         lineWidth: 2,
       });
     }
@@ -237,8 +235,8 @@ export const compileSmoothMark: MarkCompiler = (context) => {
         cx: row.x,
         cy: row.y,
         radius: Math.max(2.5, layer.mark.radius ?? 3),
-        fill: stroke,
-        stroke: theme.colors.background,
+        fill: layer.mark.fill ?? theme.mark.pointFill ?? stroke,
+        stroke: layer.mark.stroke ?? theme.mark.pointStroke ?? theme.colors.background,
         lineWidth: 1,
       });
     });
@@ -270,7 +268,8 @@ export const compileRangeMark: MarkCompiler = (context) => {
     }
   }
   if (rows.length === 0) return [];
-  const stroke = layer.mark.stroke ?? context.color;
+  const stroke =
+    layer.mark.stroke ?? theme.mark.areaStroke ?? theme.mark.lineColor ?? context.color;
   const nodes: SceneNode[] = [];
   if (mode === 'area') {
     const highPoints = rows.map((row) => ({ x: row.x, y: row.high }));
@@ -287,10 +286,10 @@ export const compileRangeMark: MarkCompiler = (context) => {
         ...(smooth ? smoothPoints(lowPoints) : lowPoints),
       ],
       closed: true,
-      fill: layer.mark.fill ?? colorWithOpacity(stroke, 0.24),
+      fill: layer.mark.fill ?? theme.mark.areaFill ?? colorWithOpacity(stroke, 0.24),
       stroke,
       lineWidth: layer.mark.lineWidth ?? 1.5,
-      lineJoin: 'round',
+      lineJoin: theme.mark.lineJoin ?? 'round',
     });
     for (const row of rows) {
       nodes.push({
@@ -299,8 +298,8 @@ export const compileRangeMark: MarkCompiler = (context) => {
         cx: row.x,
         cy: (row.low + row.high) / 2,
         radius: Math.max(3, layer.mark.radius ?? 3.5),
-        fill: stroke,
-        stroke: theme.colors.background,
+        fill: layer.mark.fill ?? theme.mark.pointFill ?? stroke,
+        stroke: layer.mark.stroke ?? theme.mark.pointStroke ?? theme.colors.background,
         lineWidth: 1,
       });
     }
@@ -338,12 +337,12 @@ export const compileRangeMark: MarkCompiler = (context) => {
       y2: row.high,
       stroke,
       lineWidth: layer.mark.lineWidth ?? 2,
-      lineCap: 'round',
+      lineCap: theme.mark.lineCap ?? 'round',
     });
     const radius = Math.max(3, layer.mark.radius ?? 5);
     for (const [suffix, y, fill] of [
-      ['low', row.low, theme.colors.background],
-      ['high', row.high, layer.mark.fill ?? stroke],
+      ['low', row.low, layer.mark.fill ?? theme.mark.pointFill ?? theme.colors.background],
+      ['high', row.high, layer.mark.fill ?? theme.mark.pointFill ?? stroke],
     ] as const) {
       nodes.push({
         type: 'circle',
@@ -352,7 +351,7 @@ export const compileRangeMark: MarkCompiler = (context) => {
         cy: y,
         radius,
         fill,
-        stroke,
+        stroke: layer.mark.stroke ?? theme.mark.pointStroke ?? stroke,
         lineWidth: 2,
       });
     }
@@ -383,7 +382,8 @@ export const compileDistributionMark: MarkCompiler = (context) => {
     y: yScale.map(density),
   }));
   const baseline = yScale.map(0);
-  const stroke = layer.mark.stroke ?? context.color;
+  const stroke =
+    layer.mark.stroke ?? theme.mark.lineColor ?? theme.mark.defaultColor ?? context.color;
   const tooltip = {
     kind: 'normal-density',
     mean,
@@ -398,7 +398,7 @@ export const compileDistributionMark: MarkCompiler = (context) => {
       ...datumBase(context, `${layer.id}:distribution-area`, 0, 0, tooltip),
       points: [{ x: points[0]!.x, y: baseline }, ...points, { x: points.at(-1)!.x, y: baseline }],
       closed: true,
-      fill: layer.mark.fill ?? colorWithOpacity(stroke, 0.2),
+      fill: layer.mark.fill ?? theme.mark.areaFill ?? colorWithOpacity(stroke, 0.2),
       lineWidth: 0,
     },
     {
@@ -408,8 +408,8 @@ export const compileDistributionMark: MarkCompiler = (context) => {
       closed: false,
       stroke,
       lineWidth: layer.mark.lineWidth ?? theme.mark.lineWidth + 0.5,
-      lineCap: 'round',
-      lineJoin: 'round',
+      lineCap: theme.mark.lineCap ?? 'round',
+      lineJoin: theme.mark.lineJoin ?? 'round',
     },
     textNode(
       context,
@@ -488,7 +488,7 @@ export const compileBulletMark: MarkCompiler = (context) => {
       y2: targetY,
       stroke: layer.mark.stroke ?? theme.colors.text,
       lineWidth: layer.mark.lineWidth ?? 2.5,
-      lineCap: 'round',
+      lineCap: theme.mark.lineCap ?? 'round',
     });
   }
   return nodes;
@@ -516,7 +516,6 @@ export const compileContourMark: MarkCompiler = (context) => {
   const cellHeight = Math.max(5, ((yValues[1] ?? yValues[0]! + 18) - yValues[0]!) * 0.92);
   const nodes: SceneNode[] = rows.map((row) => {
     const ratio = maximum === minimum ? 0.5 : (row.value - minimum) / (maximum - minimum);
-    const index = Math.round(ratio * (theme.colors.sequential.length - 1));
     return {
       type: 'rect',
       ...datumBase(context, `${layer.id}:contour-cell:${row.rowIndex}`, row.rowIndex),
@@ -524,7 +523,7 @@ export const compileContourMark: MarkCompiler = (context) => {
       y: row.y - cellHeight / 2,
       width: cellWidth,
       height: cellHeight,
-      fill: layer.mark.fill ?? theme.colors.sequential[index] ?? context.color,
+      fill: layer.mark.fill ?? mappedContinuousColor(theme, ratio),
       lineWidth: 0,
       cornerRadius: layer.mark.cornerRadius ?? 2,
     };
@@ -555,7 +554,7 @@ export const compileContourMark: MarkCompiler = (context) => {
       closed: true,
       stroke: layer.mark.stroke ?? colorWithOpacity(theme.colors.text, 0.72),
       lineWidth: layer.mark.lineWidth ?? 1.2,
-      lineJoin: 'round',
+      lineJoin: theme.mark.lineJoin ?? 'round',
     });
   }
   return nodes;
@@ -581,7 +580,7 @@ export const compileCylinderMark: MarkCompiler = (context) => {
     if (![x, y, baseline].every(Number.isFinite)) continue;
     const top = Math.min(y, baseline);
     const bottom = Math.max(y, baseline);
-    const color = layer.mark.fill ?? paletteColor(context, rowIndex);
+    const color = layer.mark.fill ?? paletteColor(context, rowIndex, table.length);
     nodes.push({
       type: 'rect',
       ...datumBase(context, `${layer.id}:cylinder-body:${rowIndex}`, rowIndex),
@@ -665,9 +664,9 @@ export const compileArcDiagramMark: MarkCompiler = (context) => {
         32,
       ),
       closed: false,
-      stroke: layer.mark.stroke ?? paletteColor(context, names.indexOf(link.source)),
+      stroke: layer.mark.stroke ?? paletteColor(context, names.indexOf(link.source), names.length),
       lineWidth: (layer.mark.lineWidth ?? 1.6) + (link.value / maximum) * 5,
-      lineCap: 'round',
+      lineCap: theme.mark.lineCap ?? 'round',
       lineJoin: 'round',
     });
   }
@@ -679,7 +678,7 @@ export const compileArcDiagramMark: MarkCompiler = (context) => {
       cx: x,
       cy: baseline,
       radius: layer.mark.radius ?? 6,
-      fill: paletteColor(context, index),
+      fill: layer.mark.fill ?? paletteColor(context, index, names.length),
       stroke: theme.colors.background,
       lineWidth: 2,
     });
@@ -728,7 +727,7 @@ export const compileItemMark: MarkCompiler = (context) => {
       cx: plot.x + column * (size + gap) + size / 2,
       cy: plot.y + plot.height - row * (size + gap) - size / 2,
       radius: size / 2,
-      fill: layer.mark.fill ?? paletteColor(context, assignment.colorIndex),
+      fill: layer.mark.fill ?? paletteColor(context, assignment.colorIndex, values.length),
       stroke: theme.colors.background,
       lineWidth: 0.8,
     };
@@ -746,7 +745,7 @@ export const compileLollipopMark: MarkCompiler = (context) => {
     const x = xScale.map(xValue);
     const y = yScale.map(yValue);
     if (![x, y, baseline].every(Number.isFinite)) continue;
-    const color = layer.mark.fill ?? paletteColor(context, rowIndex);
+    const color = layer.mark.fill ?? paletteColor(context, rowIndex, table.length);
     nodes.push({
       type: 'line',
       ...nodeBase(`${layer.id}:lollipop-stem:${rowIndex}`, { zIndex: layer.zIndex }),
@@ -756,7 +755,7 @@ export const compileLollipopMark: MarkCompiler = (context) => {
       y2: y,
       stroke: layer.mark.stroke ?? mixColor(color, theme.colors.background, 0.18),
       lineWidth: layer.mark.lineWidth ?? 2,
-      lineCap: 'round',
+      lineCap: theme.mark.lineCap ?? 'round',
     });
     nodes.push({
       type: 'circle',
@@ -809,7 +808,7 @@ export const compilePackedBubbleMark: MarkCompiler = (context) => {
         }
       }
       placed.push({ ...position, radius });
-      const color = layer.mark.fill ?? paletteColor(context, index);
+      const color = layer.mark.fill ?? paletteColor(context, index, values.length);
       nodes.push({
         type: 'circle',
         ...datumBase(context, `${layer.id}:packed:${item.rowIndex}`, item.rowIndex),
@@ -883,10 +882,10 @@ export const compileParetoMark: MarkCompiler = (context) => {
     ...nodeBase(`${layer.id}:pareto-line`, { zIndex: layer.zIndex + 2 }),
     points: cumulative,
     closed: false,
-    stroke: layer.mark.stroke ?? theme.colors.palette[3] ?? theme.colors.focus,
+    stroke: layer.mark.stroke ?? paletteColor(context, 3, 4),
     lineWidth: layer.mark.lineWidth ?? 2.5,
-    lineCap: 'round',
-    lineJoin: 'round',
+    lineCap: theme.mark.lineCap ?? 'round',
+    lineJoin: theme.mark.lineJoin ?? 'round',
   });
   cumulative.forEach((point, index) => {
     const row = rows[index]!;
@@ -897,7 +896,7 @@ export const compileParetoMark: MarkCompiler = (context) => {
       cy: point.y,
       radius: 3.5,
       fill: theme.colors.background,
-      stroke: layer.mark.stroke ?? theme.colors.palette[3] ?? theme.colors.focus,
+      stroke: layer.mark.stroke ?? paletteColor(context, 3, 4),
       lineWidth: 2,
     });
   });
@@ -925,7 +924,7 @@ export const compilePolygonMark: MarkCompiler = (context) => {
   const nodes: SceneNode[] = [];
   [...groups.entries()].forEach(([key, rows], groupIndex) => {
     if (rows.length < 3) return;
-    const color = layer.mark.fill ?? paletteColor(context, groupIndex);
+    const color = layer.mark.fill ?? paletteColor(context, groupIndex, groups.size);
     nodes.push({
       type: 'path',
       ...datumBase(context, `${layer.id}:polygon:${groupIndex}`, rows[0]!.rowIndex),
@@ -934,7 +933,7 @@ export const compilePolygonMark: MarkCompiler = (context) => {
       fill: colorWithOpacity(color, 0.24),
       stroke: layer.mark.stroke ?? color,
       lineWidth: layer.mark.lineWidth ?? 2,
-      lineJoin: 'round',
+      lineJoin: theme.mark.lineJoin ?? 'round',
     });
     rows.forEach(({ rowIndex, point }) => {
       nodes.push({
@@ -992,7 +991,7 @@ export const compilePyramidMark: MarkCompiler = (context) => {
     const bottomRatio = reverse ? nextRatio : currentRatio;
     const y1 = plot.y + index * height + 1;
     const y2 = plot.y + (index + 1) * height - 1;
-    const color = layer.mark.fill ?? paletteColor(context, index);
+    const color = layer.mark.fill ?? paletteColor(context, index, sorted.length);
     const front = [
       { x: centerX - (maxWidth * topRatio) / 2, y: y1 },
       { x: centerX + (maxWidth * topRatio) / 2, y: y1 },
@@ -1060,7 +1059,7 @@ export const compileScatter3dMark: MarkCompiler = (context) => {
     const x = xScale.map(xValue) + perspective;
     const y = yScale.map(yValue) - perspective * 0.55;
     const radius = (layer.mark.radius ?? 5) * (0.72 + ratio * 0.9);
-    const color = layer.mark.fill ?? paletteColor(context, rowIndex);
+    const color = layer.mark.fill ?? paletteColor(context, rowIndex, table.length);
     nodes.push({
       type: 'circle',
       ...nodeBase(`${layer.id}:scatter-shadow:${rowIndex}`, {
@@ -1118,7 +1117,7 @@ export const compileSolidGaugeMark: MarkCompiler = (context) => {
     const ratio = clamp((value - minimum) / Math.max(1e-9, maximum - minimum), 0, 1);
     const ringOuter = outer - rowIndex * (thickness + 5);
     const ringInner = Math.max(4, ringOuter - thickness);
-    const color = layer.mark.fill ?? paletteColor(context, rowIndex);
+    const color = layer.mark.fill ?? paletteColor(context, rowIndex, table.length);
     nodes.push({
       type: 'path',
       ...datumBase(context, `${layer.id}:solid-value:${rowIndex}`, rowIndex, 1),
@@ -1178,10 +1177,7 @@ export const compileTilemapMark: MarkCompiler = (context) => {
       values === null || values[1] === values[0]
         ? 0.5
         : (value - values[0]) / (values[1] - values[0]);
-    const color =
-      layer.mark.fill ??
-      theme.colors.sequential[Math.round(ratio * (theme.colors.sequential.length - 1))] ??
-      context.color;
+    const color = layer.mark.fill ?? mappedContinuousColor(theme, ratio);
     if (shape === 'circle') {
       nodes.push({
         type: 'circle',
@@ -1247,7 +1243,7 @@ export const compileVariablePieMark: MarkCompiler = (context) => {
   rows.forEach((row, index) => {
     const next = angle + (row.value / total) * TAU;
     const outer = minRadius + Math.sqrt(row.radius / radiusMaximum) * (maxRadius - minRadius);
-    const color = layer.mark.fill ?? paletteColor(context, index);
+    const color = layer.mark.fill ?? paletteColor(context, index, rows.length);
     nodes.push({
       type: 'path',
       ...datumBase(context, `${layer.id}:variable-pie:${row.rowIndex}`, row.rowIndex),
@@ -1306,7 +1302,7 @@ export const compileVariwideMark: MarkCompiler = (context) => {
   rows.forEach((row, index) => {
     const width = (row.width / widthTotal) * plot.width;
     const y = yScale.map(row.value);
-    const color = layer.mark.fill ?? paletteColor(context, index);
+    const color = layer.mark.fill ?? paletteColor(context, index, rows.length);
     nodes.push({
       type: 'rect',
       ...datumBase(context, `${layer.id}:variwide:${row.rowIndex}`, row.rowIndex),
@@ -1369,7 +1365,7 @@ export const compileVectorMark: MarkCompiler = (context) => {
       y2: end.y,
       stroke: color,
       lineWidth: (layer.mark.lineWidth ?? 1.5) + ratio * 2,
-      lineCap: 'round',
+      lineCap: theme.mark.lineCap ?? 'round',
     });
     nodes.push({
       type: 'path',
@@ -1407,7 +1403,7 @@ export const compileVennMark: MarkCompiler = (context) => {
     const angle = -Math.PI / 2 + (index * TAU) / Math.max(1, visibleRows.length);
     const center = pointOnCircle(cx, cy, visibleRows.length === 1 ? 0 : orbit, angle);
     const radius = Math.max(24, Math.sqrt(row.value / maximum) * maxRadius);
-    const color = layer.mark.fill ?? paletteColor(context, index);
+    const color = layer.mark.fill ?? paletteColor(context, index, visibleRows.length);
     nodes.push({
       type: 'circle',
       ...datumBase(context, `${layer.id}:venn:${row.rowIndex}`, row.rowIndex, index * 0.01),
@@ -1511,10 +1507,11 @@ export const compileWordCloudMark: MarkCompiler = (context) => {
   const cy = plot.y + plot.height / 2;
   const nodes: SceneNode[] = [];
   const placed: Array<{ left: number; right: number; top: number; bottom: number }> = [];
+  const visibleCount = Math.min(rows.length, 160, context.performance.maxPointMarks);
   rows
     .slice()
     .sort((left, right) => right.weight - left.weight)
-    .slice(0, Math.min(160, context.performance.maxPointMarks))
+    .slice(0, visibleCount)
     .forEach((row, index) => {
       const ratio = maximum === minimum ? 0.5 : (row.weight - minimum) / (maximum - minimum);
       const size = 10 + ratio * 24;
@@ -1559,7 +1556,7 @@ export const compileWordCloudMark: MarkCompiler = (context) => {
         }
       }
       if (!found) return;
-      const color = layer.mark.fill ?? paletteColor(context, index);
+      const color = layer.mark.fill ?? paletteColor(context, index, visibleCount);
       const node = textNode(context, `${layer.id}:word-cloud:${row.rowIndex}`, x, y, row.word, {
         fill: color,
         size,
@@ -1730,7 +1727,7 @@ export const compileIndicatorMark: MarkCompiler = (context) => {
         fill: layer.mark.fill ?? colorWithOpacity(context.color, 0.28),
         stroke: layer.mark.stroke ?? context.color,
         lineWidth: 1,
-        lineJoin: 'round',
+        lineJoin: theme.mark.lineJoin ?? 'round',
       });
     }
   }
@@ -1753,7 +1750,7 @@ export const compileIndicatorMark: MarkCompiler = (context) => {
     const color =
       fieldIndex === 0
         ? (layer.mark.stroke ?? context.color)
-        : paletteColor(context, fieldIndex + 1);
+        : paletteColor(context, fieldIndex + 1, fields.length + 1);
     if (columnKinds.has(kind)) {
       const baseline = yScale.map(0);
       const width = Math.max(2, plot.width / Math.max(8, table.length * 1.6));
@@ -1770,7 +1767,7 @@ export const compileIndicatorMark: MarkCompiler = (context) => {
           y: Math.min(point.y, baseline),
           width,
           height: Math.max(1, Math.abs(baseline - point.y)),
-          fill: value >= 0 ? color : (theme.colors.palette[3] ?? '#ef4444'),
+          fill: layer.mark.fill ?? (value >= 0 ? color : paletteColor(context, 3, 4)),
           lineWidth: 0,
           cornerRadius: 1,
         });
@@ -1792,8 +1789,8 @@ export const compileIndicatorMark: MarkCompiler = (context) => {
         stroke: color,
         lineWidth: layer.mark.lineWidth ?? (fieldIndex === 0 ? 2.2 : 1.5),
         ...(fieldIndex > 0 ? { dash: [5, 3] } : {}),
-        lineCap: 'round',
-        lineJoin: 'round',
+        lineCap: theme.mark.lineCap ?? 'round',
+        lineJoin: theme.mark.lineJoin ?? 'round',
       });
       points.forEach(({ rowIndex, point }, index) => {
         if (kind !== 'psar' && index % Math.max(1, Math.ceil(points.length / 24)) !== 0) return;
@@ -1841,7 +1838,7 @@ export const compileFlagsMark: MarkCompiler = (context) => {
       y2: y - 24,
       stroke: layer.mark.stroke ?? color,
       lineWidth: 1.5,
-      lineCap: 'round',
+      lineCap: theme.mark.lineCap ?? 'round',
     });
     nodes.push({
       type: 'path',
@@ -1937,9 +1934,7 @@ export const compileFinancialMark: MarkCompiler = (context) => {
     const open = yScale.map(row.open);
     const close = yScale.map(row.close);
     const rising = row.close >= row.open;
-    const color = rising
-      ? (theme.colors.palette[1] ?? '#0f9f8a')
-      : (theme.colors.palette[3] ?? '#ef4444');
+    const color = rising ? paletteColor(context, 1, 4) : paletteColor(context, 3, 4);
     nodes.push({
       type: 'line',
       ...nodeBase(`${layer.id}:financial-wick:${row.rowIndex}`, { zIndex: layer.zIndex }),
@@ -1949,7 +1944,7 @@ export const compileFinancialMark: MarkCompiler = (context) => {
       y2: low,
       stroke: layer.mark.stroke ?? color,
       lineWidth: layer.mark.lineWidth ?? 1.5,
-      lineCap: 'round',
+      lineCap: theme.mark.lineCap ?? 'round',
     });
     if (kind === 'ohlc' || kind === 'hlc') {
       if (kind === 'ohlc')
@@ -2013,9 +2008,7 @@ export const compilePointFigureMark: MarkCompiler = (context) => {
     const previous = values[Math.max(0, index - 1)]?.value ?? row.value;
     const rising = row.value >= previous;
     const count = Math.max(1, Math.round(Math.abs(row.value - previous) / box));
-    const color = rising
-      ? (theme.colors.palette[1] ?? '#0f9f8a')
-      : (theme.colors.palette[3] ?? '#ef4444');
+    const color = rising ? paletteColor(context, 1, 4) : paletteColor(context, 3, 4);
     for (let level = 0; level < count; level += 1) {
       const x = plot.x + cellWidth * (index + 0.5);
       const baseLevel = Math.round((Math.min(row.value, previous) - minimum) / box);
@@ -2072,9 +2065,7 @@ export const compileRenkoMark: MarkCompiler = (context) => {
     plot.y + plot.height - ((value - low) / Math.max(1e-9, high - low)) * plot.height;
   return bricks.map((brick, index) => {
     const rising = brick.end >= brick.start;
-    const color = rising
-      ? (theme.colors.palette[1] ?? '#0f9f8a')
-      : (theme.colors.palette[3] ?? '#ef4444');
+    const color = rising ? paletteColor(context, 1, 4) : paletteColor(context, 3, 4);
     const start = mapY(brick.start);
     const end = mapY(brick.end);
     return {
@@ -2189,7 +2180,7 @@ export const compileGeoLineMark: MarkCompiler = (context) => {
         ? 0.5
         : (value - valueExtent[0]) / (valueExtent[1] - valueExtent[0]);
     const points = quadraticPoints(start, control, end, 28);
-    const color = layer.mark.stroke ?? paletteColor(context, rowIndex);
+    const color = layer.mark.stroke ?? paletteColor(context, rowIndex, table.length);
     nodes.push({
       type: 'path',
       ...datumBase(context, `${layer.id}:geo-line:${rowIndex}`, rowIndex),
@@ -2244,10 +2235,7 @@ export const compileGeoHeatmapMark: MarkCompiler = (context) => {
       extent === null || extent[1] === extent[0]
         ? 0.5
         : (value - extent[0]) / (extent[1] - extent[0]);
-    const color =
-      layer.mark.fill ??
-      theme.colors.sequential[Math.round(ratio * (theme.colors.sequential.length - 1))] ??
-      context.color;
+    const color = layer.mark.fill ?? mappedContinuousColor(theme, ratio);
     nodes.push({
       type: 'circle',
       ...nodeBase(`${layer.id}:geo-heat-halo:${rowIndex}`, {
@@ -2283,7 +2271,7 @@ export const compileTiledMapMark: MarkCompiler = (context) => {
     if (longitude === null || latitude === null || !isGeographicPosition(longitude, latitude))
       continue;
     const point = projectGeographicPosition(plot, longitude, latitude);
-    const color = layer.mark.fill ?? paletteColor(context, rowIndex);
+    const color = layer.mark.fill ?? paletteColor(context, rowIndex, table.length);
     nodes.push({
       type: 'circle',
       ...datumBase(context, `${layer.id}:tiled-point:${rowIndex}`, rowIndex),

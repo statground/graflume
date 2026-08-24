@@ -8,6 +8,8 @@ import type {
 } from './types.js';
 import type { HighlightStyleSpec } from '../spec/types.js';
 import { placeCallout, type CalloutRect } from '../interaction/callout-placement.js';
+import { colorWithOpacity } from '../theme/color.js';
+import type { ThemeTokens } from '../theme/types.js';
 
 export interface SpatialLegendOverlayItem {
   readonly id: string;
@@ -209,6 +211,7 @@ function applyHighlightStyle(
   element: HTMLDivElement,
   highlight: SpatialHighlightSpec,
   bounds: ScreenBounds,
+  theme: ThemeTokens,
 ): void {
   const padding = highlight.padding ?? 5;
   const point = bounds.width <= 2 && bounds.height <= 2;
@@ -219,9 +222,9 @@ function applyHighlightStyle(
   element.style.width = `${Math.max(1, point ? radius * 2 : bounds.width + padding * 2)}px`;
   element.style.height = `${Math.max(1, point ? radius * 2 : bounds.height + padding * 2)}px`;
   element.style.boxSizing = 'border-box';
-  element.style.border = `${highlight.lineWidth ?? 2}px ${highlight.dash?.length ? 'dashed' : 'solid'} ${highlight.stroke ?? '#4f46e5'}`;
+  element.style.border = `${highlight.lineWidth ?? 2}px ${highlight.dash?.length ? 'dashed' : 'solid'} ${highlight.stroke ?? theme.colors.focus}`;
   element.style.borderRadius = point ? '999px' : `${highlight.radius ?? 7}px`;
-  element.style.background = highlight.fill ?? 'rgba(79,70,229,.12)';
+  element.style.background = highlight.fill ?? colorWithOpacity(theme.colors.focus, 0.12);
   element.style.opacity = String(highlight.opacity ?? 1);
 }
 
@@ -229,6 +232,7 @@ function connector(
   from: Readonly<{ x: number; y: number }>,
   to: Readonly<{ x: number; y: number }>,
   annotation: SpatialAnnotationSpec,
+  theme: ThemeTokens,
 ): HTMLDivElement | null {
   const configured = typeof annotation.connector === 'object' ? annotation.connector : {};
   const visible =
@@ -242,7 +246,7 @@ function connector(
   line.style.top = `${from.y}px`;
   line.style.width = `${length}px`;
   line.style.height = '0';
-  line.style.borderTop = `${configured.width ?? 1.5}px ${configured.dash?.length ? 'dashed' : 'solid'} ${configured.color ?? annotation.style?.border ?? '#4f46e5'}`;
+  line.style.borderTop = `${configured.width ?? 1.5}px ${configured.dash?.length ? 'dashed' : 'solid'} ${configured.color ?? annotation.style?.border ?? theme.colors.focus}`;
   line.style.transformOrigin = '0 0';
   line.style.transform = `rotate(${Math.atan2(to.y - from.y, to.x - from.x)}rad)`;
   return line;
@@ -277,7 +281,7 @@ function prepareAnnotation(
     Math.max(0, Math.min(maxWidth / 5, availableHeight / 6)),
   );
   const fontSize = Math.min(
-    style.fontSize ?? 12,
+    style.fontSize ?? state.scene.theme.typography.fontSize,
     Math.max(1, Math.min(maxWidth / 3, availableHeight / 3)),
   );
   const bubble = document.createElement('div');
@@ -294,12 +298,12 @@ function prepareAnnotation(
   bubble.style.maxHeight = `${availableHeight}px`;
   bubble.style.padding = `${padding}px`;
   bubble.style.boxSizing = 'border-box';
-  bubble.style.border = `1.25px solid ${style.border ?? '#4f46e5'}`;
+  bubble.style.border = `1.25px solid ${style.border ?? state.scene.theme.colors.focus}`;
   bubble.style.borderRadius = '9px';
-  bubble.style.background = style.background ?? 'rgba(255,255,255,.97)';
-  bubble.style.color = style.color ?? '#0f172a';
+  bubble.style.background = style.background ?? state.scene.theme.colors.background;
+  bubble.style.color = style.color ?? state.scene.theme.colors.text;
   bubble.style.opacity = String(style.opacity ?? 0.97);
-  bubble.style.font = `700 ${fontSize}px/1.35 ui-sans-serif, system-ui, sans-serif`;
+  bubble.style.font = `700 ${fontSize}px/1.35 ${state.scene.theme.typography.fontFamily}`;
   bubble.style.textAlign = style.align ?? 'start';
   bubble.style.overflowWrap = 'anywhere';
   bubble.style.wordBreak = 'break-word';
@@ -316,7 +320,7 @@ function prepareAnnotation(
     detail.textContent = annotation.detail;
     detail.style.marginBlockStart = '4px';
     detail.style.fontWeight = '400';
-    detail.style.color = style.color ?? '#475569';
+    detail.style.color = style.color ?? state.scene.theme.colors.mutedText;
     detail.style.overflowWrap = 'anywhere';
     detail.style.wordBreak = 'break-word';
     bubble.append(detail);
@@ -436,6 +440,7 @@ function placeAnnotation(
     anchor,
     { x: x + estimatedWidth / 2, y: y + estimatedHeight / 2 },
     annotation,
+    state.scene.theme,
   );
   return {
     elements: line === null ? [bubble] : [line, bubble],
@@ -545,9 +550,15 @@ function createLegend(
   element.style.overflow = 'auto';
   element.style.padding = '8px 10px';
   element.style.boxSizing = 'border-box';
-  element.style.border = '1px solid rgba(148,163,184,.55)';
-  element.style.borderRadius = '8px';
-  element.style.background = 'rgba(255,255,255,.9)';
+  element.style.border = `${state.scene.theme.legend?.borderWidth ?? 1}px solid ${state.scene.theme.colors.axis}`;
+  element.style.borderRadius = `${state.scene.theme.legend?.cornerRadius ?? 8}px`;
+  const surfaceOpacity = state.scene.theme.legend?.surfaceOpacity ?? 0.9;
+  element.style.background =
+    surfaceOpacity >= 1
+      ? state.scene.theme.colors.background
+      : colorWithOpacity(state.scene.theme.colors.background, surfaceOpacity);
+  element.style.color = state.scene.theme.colors.text;
+  element.style.fontFamily = state.scene.theme.typography.fontFamily;
   element.style.backdropFilter = 'blur(5px)';
   element.style.pointerEvents = 'auto';
   legendPosition(element, legend, state);
@@ -555,6 +566,8 @@ function createLegend(
     const title = document.createElement('strong');
     title.textContent = legend.title;
     title.style.inlineSize = legend.orientation === 'horizontal' ? '100%' : 'auto';
+    title.style.fontSize = `${state.scene.theme.typography.legendTitleSize ?? state.scene.theme.typography.fontSize}px`;
+    title.style.fontWeight = String(state.scene.theme.typography.legendTitleWeight ?? 600);
     element.append(title);
   }
   if (legend.mode === 'continuous' && legend.items.length >= 2) {
@@ -575,7 +588,7 @@ function createLegend(
     [legend.items[0]!, legend.items[legend.items.length - 1]!].forEach((item, index) => {
       const label = document.createElement('span');
       label.textContent = item.label;
-      label.style.font = '500 11px/1.4 ui-sans-serif, system-ui, sans-serif';
+      label.style.font = `${state.scene.theme.typography.legendLabelWeight ?? 500} ${state.scene.theme.typography.legendLabelSize ?? state.scene.theme.typography.fontSize}px/1.4 ${state.scene.theme.typography.fontFamily}`;
       label.style.textAlign = index === 0 ? 'start' : 'end';
       scale.append(label);
     });
@@ -600,15 +613,20 @@ function createLegend(
     row.style.padding = '2px';
     row.style.border = '0';
     row.style.background = 'transparent';
-    row.style.color = '#0f172a';
-    row.style.font = '500 12px/1.35 ui-sans-serif, system-ui, sans-serif';
+    row.style.color = state.scene.theme.colors.text;
+    row.style.font = `${state.scene.theme.typography.legendLabelWeight ?? 500} ${state.scene.theme.typography.legendLabelSize ?? state.scene.theme.typography.fontSize}px/1.35 ${state.scene.theme.typography.fontFamily}`;
     row.style.cursor = item.toggleable ? 'pointer' : 'default';
     row.style.opacity = item.visible ? '1' : '.42';
     const swatch = document.createElement('span');
     swatch.setAttribute('aria-hidden', 'true');
     swatch.style.width = item.symbol === 'line' ? '14px' : '10px';
     swatch.style.height = item.symbol === 'line' ? '2px' : '10px';
-    swatch.style.borderRadius = item.symbol === 'point' ? '999px' : '3px';
+    swatch.style.borderRadius =
+      item.symbol === 'point'
+        ? '999px'
+        : item.symbol === 'line' && state.scene.theme.legend?.lineCap === 'butt'
+          ? '0'
+          : `${state.scene.theme.legend?.swatchRadius ?? 3}px`;
     swatch.style.background = item.color;
     const label = document.createElement('span');
     label.textContent = item.label;
@@ -672,7 +690,7 @@ export class SpatialOverlayController {
       if (bounds === null) continue;
       const element = document.createElement('div');
       element.dataset.graflumeSpatialHighlight = highlight.id ?? `highlight-${index}`;
-      applyHighlightStyle(element, highlight, bounds);
+      applyHighlightStyle(element, highlight, bounds, state.scene.theme);
       content.append(element);
     }
     for (const [index, target] of state.selection.entries()) {
@@ -685,8 +703,9 @@ export class SpatialOverlayController {
         {
           id: `selection-${index}`,
           target,
-          fill: state.selectionHighlight.fill ?? 'rgba(37,99,235,.16)',
-          stroke: state.selectionHighlight.stroke ?? '#2563eb',
+          fill:
+            state.selectionHighlight.fill ?? colorWithOpacity(state.scene.theme.colors.focus, 0.16),
+          stroke: state.selectionHighlight.stroke ?? state.scene.theme.colors.focus,
           lineWidth: state.selectionHighlight.lineWidth ?? 2.5,
           padding: state.selectionHighlight.padding ?? 5,
           radius: state.selectionHighlight.radius ?? 8,
@@ -698,6 +717,7 @@ export class SpatialOverlayController {
             : { dash: state.selectionHighlight.dash }),
         },
         bounds,
+        state.scene.theme,
       );
       content.append(element);
     }

@@ -456,7 +456,9 @@ export class SpatialWebGLRenderer {
     const camera = this.#camera;
     if (gl === null || program === null || scene === null || camera === null || this.#lost) return;
     gl.viewport(0, 0, this.#canvas.width, this.#canvas.height);
-    const background = spatialColor(scene.spec.background ?? '#ffffff');
+    const background = spatialColor(
+      scene.spec.background ?? scene.theme.colors.panel ?? scene.theme.colors.surface,
+    );
     gl.clearColor(background[0], background[1], background[2], background[3]);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);

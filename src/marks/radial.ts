@@ -2,7 +2,7 @@ import type { MarkCompiler } from '../compiler/types.js';
 import { exactStrideSampleIndices } from '../data/sample.js';
 import { nodeBase } from '../scene/factory.js';
 import type { CircleNode, LineNode, PathNode, Point, SceneNode, TextNode } from '../scene/types.js';
-import { mixColor, readableTextColor } from '../theme/color.js';
+import { categoricalColor, mixColor, readableTextColor } from '../theme/color.js';
 import { numericDataValue } from './utils.js';
 
 function optionNumber(
@@ -98,7 +98,7 @@ export const compilePieMark: MarkCompiler = (context) => {
   values.forEach((item, index) => {
     const next = angle + (item.value / total) * Math.PI * 2;
     const mid = (angle + next) / 2;
-    const fill = theme.colors.palette[index % theme.colors.palette.length] ?? theme.colors.focus;
+    const fill = layer.mark.fill ?? categoricalColor(theme, index, values.length);
     const wedge: PathNode = {
       type: 'path',
       ...nodeBase(`${layer.id}:slice:${item.rowIndex}`, {
@@ -314,10 +314,7 @@ function compileBulletGauge(context: Parameters<MarkCompiler>[0]): SceneNode[] {
     const trackWidth = Math.max(24, plot.x + plot.width - trackX - 12);
     const cy = plot.y + slotHeight * (outputIndex + 0.5);
     const trackHeight = Math.max(12, Math.min(28, slotHeight * 0.48));
-    const fill =
-      layer.mark.fill ??
-      theme.colors.palette[rowIndex % theme.colors.palette.length] ??
-      theme.colors.focus;
+    const fill = layer.mark.fill ?? categoricalColor(theme, rowIndex, table.length);
     nodes.push({
       type: 'rect',
       ...nodeBase(`${layer.id}:gauge-bullet-track:${rowIndex}`, { zIndex: layer.zIndex }),
@@ -409,10 +406,7 @@ export const compileGaugeMark: MarkCompiler = (context) => {
     const cx = plot.x + slotWidth * (rowIndex + 0.5);
     const cy = plot.y + plot.height * 0.62;
     const inner = radius * 0.7;
-    const fill =
-      layer.mark.fill ??
-      theme.colors.palette[rowIndex % theme.colors.palette.length] ??
-      theme.colors.focus;
+    const fill = layer.mark.fill ?? categoricalColor(theme, rowIndex, table.length);
     nodes.push({
       type: 'path',
       ...nodeBase(`${layer.id}:gauge-background:${rowIndex}`, { zIndex: layer.zIndex }),

@@ -1,4 +1,6 @@
 import { specVersion } from '../version.js';
+import { graflumeGgplot } from '../theme/defaults.js';
+import type { ThemeTokens } from '../theme/types.js';
 import { assertValidSpec } from './validate.js';
 import type {
   AxisFormatInput,
@@ -62,15 +64,16 @@ const defaultLegendLabels = {
   hide: 'Hide',
 } as const;
 
-function normalizePadding(input: PaddingInput | undefined): PaddingSpec {
+function normalizePadding(input: PaddingInput | undefined, theme?: ThemeTokens): PaddingSpec {
   if (typeof input === 'number') {
     return { top: input, right: input, bottom: input, left: input };
   }
+  const themedMargin = theme?.spacing.plotMargin;
   return {
-    top: input?.top ?? 24,
-    right: input?.right ?? 24,
-    bottom: input?.bottom ?? 44,
-    left: input?.left ?? 56,
+    top: input?.top ?? themedMargin ?? 24,
+    right: input?.right ?? themedMargin ?? 24,
+    bottom: input?.bottom ?? themedMargin ?? 44,
+    left: input?.left ?? themedMargin ?? 56,
   };
 }
 
@@ -314,6 +317,18 @@ const axisDefaults: Readonly<
   y2: { position: 'right', grid: false, titlePadding: 46 },
 };
 
+function axisGridDefault(id: AxisId, theme: ThemeTokens | undefined): boolean {
+  const themed =
+    id === 'x'
+      ? theme?.axis.gridX
+      : id === 'x2'
+        ? theme?.axis.gridX2
+        : id === 'y'
+          ? theme?.axis.gridY
+          : theme?.axis.gridY2;
+  return themed ?? axisDefaults[id].grid;
+}
+
 function normalizeAxisFont(input: AxisFontSpec | undefined): NormalizedAxisFontSpec {
   return {
     ...(input?.family === undefined ? {} : { family: input.family }),
@@ -341,11 +356,12 @@ function normalizeAxisStroke(
 function normalizeAxisTicks(
   input: boolean | AxisTickSpec | undefined,
   legacyCount: number | undefined,
+  defaultVisible = true,
 ): NormalizedAxisTickSpec {
   const ticks = typeof input === 'object' ? input : undefined;
   const count = ticks?.count ?? legacyCount;
   return {
-    ...normalizeAxisStroke(input, true),
+    ...normalizeAxisStroke(input, defaultVisible),
     ...(count === undefined ? {} : { count }),
     spacing: ticks?.spacing ?? 0,
     ...(ticks?.size === undefined ? {} : { size: ticks.size }),
@@ -374,6 +390,7 @@ function normalizeAxisLabels(
 function normalizeAxisTitle(
   input: AxisSpec['title'],
   defaultPadding: number,
+  themeGap: number | undefined,
 ): NormalizedAxisTitleSpec {
   const title = typeof input === 'object' ? input : undefined;
   return {
@@ -386,6 +403,7 @@ function normalizeAxisTitle(
     align: title?.align ?? 'center',
     ...(title?.angle === undefined ? {} : { angle: title.angle }),
     padding: title?.padding ?? defaultPadding,
+    ...(title?.padding === undefined && themeGap !== undefined ? { themeGap } : {}),
     ...(title?.color === undefined ? {} : { color: title.color }),
     font: normalizeAxisFont(title?.font),
   };
@@ -496,6 +514,7 @@ function mergeAxis(
 function normalizeAxis(
   input: AxisSpec | false | undefined,
   id: AxisId,
+  theme: ThemeTokens | undefined,
 ): NormalizedAxisSpec | false {
   if (input === false) return false;
   const defaults = axisDefaults[id];
@@ -503,11 +522,15 @@ function normalizeAxis(
     visible: input?.visible ?? true,
     position: input?.position ?? defaults.position,
     offset: input?.offset ?? 0,
-    line: normalizeAxisStroke(input?.line, true),
-    grid: normalizeAxisStroke(input?.grid, defaults.grid, 0.82),
-    ticks: normalizeAxisTicks(input?.ticks, input?.tickCount),
+    line: normalizeAxisStroke(input?.line, theme?.axis.lineVisible ?? true),
+    grid: normalizeAxisStroke(
+      input?.grid,
+      axisGridDefault(id, theme),
+      theme?.axis.gridOpacity ?? 0.82,
+    ),
+    ticks: normalizeAxisTicks(input?.ticks, input?.tickCount, theme?.axis.ticksVisible ?? true),
     labels: normalizeAxisLabels(input?.labels, input?.labelAngle),
-    title: normalizeAxisTitle(input?.title, defaults.titlePadding),
+    title: normalizeAxisTitle(input?.title, defaults.titlePadding, theme?.axis.titleGap),
     format: normalizeAxisFormat(input?.format),
   };
 }
@@ -516,6 +539,7 @@ function normalizeEncoding(
   input: EncodingInput,
   channel: 'x' | 'y',
   chartAxes: NonNullable<ChartSpec['axes']>,
+  theme: ThemeTokens | undefined,
 ): NormalizedEncodingSpec {
   const encoding = typeof input === 'string' ? { field: input } : input;
   const axisId = encoding.axisId ?? channel;
@@ -526,7 +550,7 @@ function normalizeEncoding(
     title: encoding.title ?? encoding.field,
     scale: { ...encoding.scale },
     axisId,
-    axis: normalizeAxis(axis, axisId),
+    axis: normalizeAxis(axis, axisId, theme),
   };
 }
 
@@ -553,6 +577,7 @@ function normalizeLayer(
   index: number,
   parentData: DataInput | undefined,
   chartAxes: NonNullable<ChartSpec['axes']>,
+  theme: ThemeTokens | undefined,
 ): NormalizedLayerSpec {
   const data = layer.data ?? parentData;
   if (data === undefined) {
@@ -563,22 +588,26 @@ function normalizeLayer(
     name: layer.name ?? layer.id ?? `Series ${index + 1}`,
     data,
     mark: normalizeMark(layer.mark),
-    x: normalizeEncoding(layer.x, 'x', chartAxes),
-    y: normalizeEncoding(layer.y, 'y', chartAxes),
+    x: normalizeEncoding(layer.x, 'x', chartAxes, theme),
+    y: normalizeEncoding(layer.y, 'y', chartAxes, theme),
     visible: layer.visible ?? true,
     zIndex: layer.zIndex ?? index,
   };
 }
 
-export function normalizeSpec(input: ChartSpec): NormalizedChartSpec {
+export function normalizeSpec(input: ChartSpec, resolvedTheme?: ThemeTokens): NormalizedChartSpec {
   assertValidSpec(input);
+
+  // Keep the one-argument public normalizer backward compatible while allowing
+  // the built-in ggplot contract to be inspected without constructing a runtime.
+  const theme = resolvedTheme ?? (input.theme === 'ggplot' ? graflumeGgplot : undefined);
 
   const chartAxes = input.axes ?? {};
   const axes = {
-    x: normalizeAxis(chartAxes.x, 'x'),
-    x2: normalizeAxis(chartAxes.x2, 'x2'),
-    y: normalizeAxis(chartAxes.y, 'y'),
-    y2: normalizeAxis(chartAxes.y2, 'y2'),
+    x: normalizeAxis(chartAxes.x, 'x', theme),
+    x2: normalizeAxis(chartAxes.x2, 'x2', theme),
+    y: normalizeAxis(chartAxes.y, 'y', theme),
+    y2: normalizeAxis(chartAxes.y2, 'y2', theme),
   } as const;
 
   const shorthandLayer: LayerSpec | undefined =
@@ -593,7 +622,7 @@ export function normalizeSpec(input: ChartSpec): NormalizedChartSpec {
 
   const sourceLayers = input.layers ?? (shorthandLayer === undefined ? [] : [shorthandLayer]);
   const layers = sourceLayers.map((layer, index) =>
-    normalizeLayer(layer, index, input.data, chartAxes),
+    normalizeLayer(layer, index, input.data, chartAxes, theme),
   );
 
   const title = normalizeTitle(input.title);
@@ -603,7 +632,7 @@ export function normalizeSpec(input: ChartSpec): NormalizedChartSpec {
     layers,
     width: input.width ?? 'container',
     height: input.height ?? 400,
-    padding: normalizePadding(input.padding),
+    padding: normalizePadding(input.padding, theme),
     renderer: input.renderer ?? 'auto',
     performance: input.performance ?? 'auto',
     theme: input.theme ?? 'graflume-light',

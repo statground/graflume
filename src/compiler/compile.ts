@@ -5,6 +5,7 @@ import { countSceneNodes } from '../scene/walk.js';
 import type { Scene, SceneNode, TextNode } from '../scene/types.js';
 import type { AxisId, ChartSpec, NormalizedAxisSpec, NormalizedChartSpec } from '../spec/types.js';
 import { normalizeSpec } from '../spec/normalize.js';
+import { categoricalColor } from '../theme/color.js';
 import type { ThemeTokens } from '../theme/types.js';
 import type { RuntimeRegistry } from '../runtime/registry.js';
 import {
@@ -88,17 +89,17 @@ function titleNodes(
   spec: NormalizedChartSpec,
   theme: ThemeTokens,
   width: number,
+  plot: AxisCompileContext['plot'],
   titleY: number,
   subtitleY: number,
 ): readonly SceneNode[] {
   if (spec.title === undefined) return [];
   const align = spec.title.align ?? 'left';
+  const titleLeft = theme.typography.titlePosition === 'panel' ? plot.x : spec.padding.left;
+  const titleRight =
+    theme.typography.titlePosition === 'panel' ? plot.x + plot.width : width - spec.padding.right;
   const x =
-    align === 'left'
-      ? spec.padding.left
-      : align === 'right'
-        ? width - spec.padding.right
-        : width / 2;
+    align === 'left' ? titleLeft : align === 'right' ? titleRight : (titleLeft + titleRight) / 2;
   const canvasAlign: CanvasTextAlign = align;
   const nodes: TextNode[] = [
     {
@@ -110,7 +111,7 @@ function titleNodes(
       fill: theme.colors.text,
       fontFamily: theme.typography.fontFamily,
       fontSize: theme.typography.titleSize,
-      fontWeight: 700,
+      fontWeight: theme.typography.titleWeight ?? 700,
       align: canvasAlign,
       baseline: 'top',
       rotation: 0,
@@ -123,10 +124,10 @@ function titleNodes(
       x,
       y: subtitleY,
       text: spec.title.subtitle,
-      fill: theme.colors.mutedText,
+      fill: theme.colors.subtitle ?? theme.colors.mutedText,
       fontFamily: theme.typography.fontFamily,
       fontSize: theme.typography.subtitleSize,
-      fontWeight: 400,
+      fontWeight: theme.typography.subtitleWeight ?? 400,
       align: canvasAlign,
       baseline: 'top',
       rotation: 0,
@@ -149,10 +150,10 @@ export function compileWithRegistry(
   options: CompileOptions = {},
   runtime: CompileRuntimeState = {},
 ): CompileResult {
-  const spec = normalizeSpec(input);
+  const theme = registry.themes.resolve(input.theme ?? 'graflume-light');
+  const spec = normalizeSpec(input, theme);
   const width = Math.max(1, spec.width === 'container' ? (options.width ?? 640) : spec.width);
   const height = Math.max(1, spec.height === 'container' ? (options.height ?? 400) : spec.height);
-  const theme = registry.themes.resolve(spec.theme);
   const legendModel = resolveLegendModel(spec, theme, width, height);
   const legendInsets = legendExternalInsets(legendModel);
   let layout = createLayout(spec, width, height, theme, {}, legendInsets);
@@ -247,8 +248,7 @@ export function compileWithRegistry(
     });
   };
   const layerGroups: SceneNode[] = scales.layers.map((layerData, layerIndex) => {
-    const color =
-      theme.colors.palette[layerIndex % theme.colors.palette.length] ?? theme.colors.focus;
+    const color = categoricalColor(theme, layerIndex, scales.layers.length);
     const barGroupKey = `${layerData.layer.mark.orientation}:${layerData.xAxisId}:${layerData.yAxisId}`;
     const barLayers = groupedBarLayers.get(barGroupKey) ?? [];
     const barGroupIndex = barLayers.findIndex(({ layer }) => layer.id === layerData.layer.id);
@@ -316,13 +316,30 @@ export function compileWithRegistry(
     datumVisible,
   });
 
+  const panelNode: SceneNode[] =
+    theme.colors.panel === undefined
+      ? []
+      : [
+          {
+            type: 'rect',
+            ...nodeBase('chart:panel', { zIndex: -1000 }),
+            x: layout.plot.x,
+            y: layout.plot.y,
+            width: layout.plot.width,
+            height: layout.plot.height,
+            fill: theme.colors.panel,
+            lineWidth: 0,
+            cornerRadius: 0,
+          },
+        ];
   const children: SceneNode[] = [
+    ...panelNode,
     ...decorations.underlay,
     ...axisNodes,
     ...layerGroups,
     ...decorations.overlay,
     ...legend.nodes,
-    ...titleNodes(spec, theme, width, layout.titleY, layout.subtitleY),
+    ...titleNodes(spec, theme, width, layout.plot, layout.titleY, layout.subtitleY),
   ];
   const root = group('scene:root', children);
   const scene: Scene = {
@@ -385,7 +402,10 @@ export function compileWithRegistry(
         ? (context.axis.ticks.size ?? theme.axis.tickLength)
         : 0;
       const labelPadding = context.axis.labels.padding ?? theme.axis.labelPadding;
-      const fontSize = context.axis.labels.font.size ?? theme.typography.fontSize;
+      const fontSize =
+        context.axis.labels.font.size ??
+        theme.typography.axisLabelSize ??
+        theme.typography.fontSize;
       const readableStrip =
         context.axis.offset + tickSize + labelPadding + fontSize * (horizontal ? 1.5 : 4);
       axisStripSize = Math.min(axisStripSize, readableStrip);

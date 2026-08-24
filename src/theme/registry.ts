@@ -1,7 +1,7 @@
 import { GraflumeError } from '../core/errors.js';
 import type { ChartSpec } from '../spec/types.js';
 import { deepMerge, type DeepPartial } from '../utils/object.js';
-import { graflumeDark, graflumeLight } from './defaults.js';
+import { graflumeDark, graflumeGgplot, graflumeLight } from './defaults.js';
 import type { ThemeTokens } from './types.js';
 
 export class ThemeRegistry {
@@ -10,6 +10,7 @@ export class ThemeRegistry {
   constructor() {
     this.register(graflumeLight);
     this.register(graflumeDark);
+    this.register(graflumeGgplot);
   }
 
   register(theme: ThemeTokens): void {
