@@ -262,10 +262,17 @@ test('ChartSpec schema exposes function-free stack and indicator calculation opt
     'insideOut',
   ]);
   assert.equal(options.calculate.type, 'boolean');
-  for (const parameter of ['period', 'fastPeriod', 'slowPeriod', 'signalPeriod']) {
+  for (const parameter of ['period', 'fastPeriod', 'slowPeriod']) {
     assert.equal(options[parameter].minimum, 2);
     assert.equal(options[parameter].maximum, 200);
   }
+  assert.equal(options.signalPeriod.minimum, 1);
+  assert.equal(options.atrPeriod.minimum, 2);
+  assert.equal(options.spanPeriod.maximum, 400);
+  assert.equal(options.deviation.minimum, 0.01);
+  assert.equal(options.session.additionalProperties, false);
+  assert.deepEqual(options.session.properties.mode.enum, ['none', 'field', 'utc-day', 'gap']);
+  assert.deepEqual(options.session.properties.reset.enum, ['hard', 'carry']);
 });
 
 test('Area and Theme river converge on shared silhouette/wiggle series geometry', () => {
@@ -351,7 +358,7 @@ test('stacked Area interpolation stays inside the resolved line-point budget', (
   );
 });
 
-test('indicator registry audits all 47 public entry points without overstating calculation', () => {
+test('indicator registry audits all 47 public entry points with built-in calculation coverage', () => {
   assert.equal(technicalIndicatorPresetIds.length, 45);
   assert.equal(technicalIndicatorCapabilities.length, 45);
   assert.deepEqual(technicalIndicatorPublicEntryPointCount, {
@@ -366,11 +373,11 @@ test('indicator registry audits all 47 public entry points without overstating c
   );
   assert.equal(
     technicalIndicatorCapabilities.find(({ kind }) => kind === 'atr').support,
-    'precomputed-required',
+    'computed',
   );
   assert.match(
     technicalIndicatorCapabilities.find(({ kind }) => kind === 'atr').provenance,
-    /supplied indicator columns/,
+    /true range/i,
   );
   assert.deepEqual(tiledMapCapability, {
     id: 'tiled-map',
@@ -451,9 +458,13 @@ test('calculated indicators enforce formulas, parameters, DAGs, and null warm-up
   assert.equal(macd.outputs.histogram[3], 0);
   assert.equal(macd.warmUpRows, 3);
   assert.ok(macd.capability.dependencyDag.some(({ id }) => id === 'signal'));
-  assert.throws(
-    () => calculateTechnicalIndicator('atr', values, { period: 3 }),
-    /precomputed-required/,
+  assert.deepEqual(
+    calculateTechnicalIndicator(
+      'atr',
+      { high: [2, 3, 4, 5], low: [0, 1, 2, 3], close: [1, 2, 3, 4] },
+      { period: 3 },
+    ).outputs.value,
+    [null, null, 2, 2],
   );
 });
 
@@ -477,14 +488,15 @@ test('calculated indicator values are materialized before domains and expose pro
   assert.equal(lineage.transforms.at(-1).parameters.warmUpPolicy, 'null');
   assert.match(lineage.summary, /dependency DAG/);
 
-  assert.throws(
-    () =>
-      compile({
-        data,
-        mark: { type: 'indicator', options: { kind: 'atr', calculate: true } },
-        x: { field: 'x', type: 'quantitative' },
-        y: { field: 'value', type: 'quantitative' },
-      }),
-    /precomputed-required/,
-  );
+  const atr = compile({
+    data: data.map((row) => ({ ...row, high: row.value + 1, low: row.value - 1 })),
+    mark: { type: 'indicator', options: { kind: 'atr', calculate: true, period: 3 } },
+    encoding: {
+      x: { field: 'x', type: 'quantitative' },
+      y: { field: 'value', type: 'quantitative' },
+      high: { field: 'high', type: 'quantitative' },
+      low: { field: 'low', type: 'quantitative' },
+    },
+  });
+  assert.equal(atr.dataLineage['layer-0'].transforms.at(-1).parameters.kind, 'atr');
 });

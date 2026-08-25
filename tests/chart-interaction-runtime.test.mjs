@@ -3,6 +3,10 @@ import assert from 'node:assert/strict';
 
 import { hitTestAxisTooltip } from '../.tmp/src/interaction/axis-hit-test.js';
 import { hitTestScene } from '../.tmp/src/interaction/hit-test.js';
+import { createCompleteRegistry } from '../.tmp/src/complete.js';
+import { LinkedViewStateStore } from '../.tmp/src/interaction/linked-view-store.js';
+import { createSemanticFocusStore } from '../.tmp/src/interaction/semantic-focus-store.js';
+import { compileAdvancedGraphMark } from '../.tmp/src/marks/relationship-advanced.js';
 import { Chart } from '../.tmp/src/runtime/chart.js';
 import { createDefaultRegistry } from '../.tmp/src/runtime/default-registry.js';
 
@@ -186,6 +190,9 @@ class FakePointerEvent extends Event {
     this.clientY = init.clientY ?? 0;
     this.ctrlKey = init.ctrlKey ?? false;
     this.metaKey = init.metaKey ?? false;
+    this.altKey = init.altKey ?? false;
+    this.shiftKey = init.shiftKey ?? false;
+    this.detail = init.detail ?? 1;
   }
 }
 
@@ -204,6 +211,10 @@ class FakeKeyboardEvent extends Event {
   constructor(type, init = {}) {
     super(type, { cancelable: true });
     this.key = init.key ?? '';
+    this.altKey = init.altKey ?? false;
+    this.ctrlKey = init.ctrlKey ?? false;
+    this.metaKey = init.metaKey ?? false;
+    this.shiftKey = init.shiftKey ?? false;
   }
 }
 
@@ -259,6 +270,7 @@ function installEnvironment({ reducedMotion = false } = {}) {
 
 class FakeRenderer {
   name = 'canvas';
+  surfaceTag = 'canvas';
   capabilities = {
     vector: false,
     gpu: false,
@@ -276,7 +288,7 @@ class FakeRenderer {
 
   mount(target, options) {
     this.host = target.ownerDocument.createElement('div');
-    this.chartSurface = target.ownerDocument.createElement('canvas');
+    this.chartSurface = target.ownerDocument.createElement(this.surfaceTag);
     this.host.append(this.chartSurface);
     target.append(this.host);
     this.resize(options.width, options.height, options.pixelRatio);
@@ -318,8 +330,7 @@ class FakeRenderer {
   }
 }
 
-function createHarness(document) {
-  const registry = createDefaultRegistry();
+function createHarness(document, registry = createDefaultRegistry()) {
   const renderers = [];
   registry.registerRenderer({
     name: 'canvas',
@@ -880,6 +891,156 @@ test('playback keeps its base spec, advances on the core clock, and controls sta
     assert.equal(environment.document.fullscreenElement, null);
     assert.equal(environment.document.listenerCount(), 0);
     assert.equal(environment.media.listenerCount(), 0);
+    environment.restore();
+  }
+});
+
+test('reverse playback composes named seeks with inclusive loop ranges on SVG surfaces', () => {
+  const environment = installEnvironment();
+  const { registry, target, renderers } = createHarness(environment.document);
+  registry.registerRenderer({
+    name: 'svg',
+    capabilities: {
+      vector: true,
+      gpu: false,
+      worker: false,
+      exportFormats: ['image/svg+xml'],
+    },
+    create() {
+      const renderer = new FakeRenderer();
+      renderer.name = 'svg';
+      renderer.surfaceTag = 'svg';
+      renderer.capabilities = {
+        vector: true,
+        gpu: false,
+        worker: false,
+        exportFormats: ['image/svg+xml'],
+      };
+      renderers.push(renderer);
+      return renderer;
+    },
+  });
+  const chart = new Chart(
+    target,
+    {
+      renderer: 'svg',
+      width: 240,
+      height: 160,
+      data: [
+        { period: 'Q1', category: 'A', value: 8 },
+        { period: 'Q2', category: 'A', value: 10 },
+        { period: 'Q3', category: 'A', value: 12 },
+        { period: 'Q4', category: 'A', value: 14 },
+      ],
+      mark: 'point',
+      x: 'category',
+      y: 'value',
+      interaction: {
+        playback: {
+          field: 'period',
+          mode: 'cumulative',
+          interval: 100,
+          filter: true,
+          direction: 'reverse',
+          loop: true,
+          namedFrames: [
+            { name: 'Prelude', value: 'Q1' },
+            { name: 'Opening', value: 'Q2' },
+            { name: 'Focus', value: 'Q3' },
+            { name: 'Closing', value: 'Q4' },
+          ],
+          range: { start: 'Opening', end: 'Closing' },
+        },
+        controls: { playback: true },
+      },
+    },
+    registry,
+    { width: 240, height: 160, autoResize: false },
+  );
+  const renderer = renderers.at(-1);
+  const frameEvents = [];
+  chart.on('playbackframechange', ({ reason, previousIndex, state, label }) =>
+    frameEvents.push({ reason, previousIndex, index: state.index, label }),
+  );
+
+  try {
+    assert.equal(renderer.chartSurface.tagName, 'SVG');
+    assert.equal(chart.getScene().metadata.rowCount, 3);
+    assert.deepEqual(chart.getPlaybackState(), {
+      enabled: true,
+      frames: ['Q1', 'Q2', 'Q3', 'Q4'],
+      index: 3,
+      frame: 'Q4',
+      playing: false,
+      rate: 1,
+      loop: true,
+      mode: 'cumulative',
+      direction: 'reverse',
+      range: { start: 1, end: 3, startFrame: 'Q2', endFrame: 'Q4' },
+      namedFrames: [
+        { name: 'Prelude', value: 'Q1', index: 0 },
+        { name: 'Opening', value: 'Q2', index: 1 },
+        { name: 'Focus', value: 'Q3', index: 2 },
+        { name: 'Closing', value: 'Q4', index: 3 },
+      ],
+      name: 'Closing',
+      label: 'Closing',
+    });
+    const seek = byControl(renderer.host, 'playback-seek');
+    assert.equal(seek.min, '1');
+    assert.equal(seek.max, '3');
+    assert.equal(seek.getAttribute('aria-valuetext'), 'Closing');
+
+    chart.play('Focus');
+    assert.equal(chart.getPlaybackState().index, 2);
+    assert.equal(chart.getScene().metadata.rowCount, 2);
+    environment.tick(0);
+    environment.tick(100);
+    assert.equal(chart.getPlaybackState().name, 'Opening');
+    environment.tick(200);
+    assert.equal(chart.getPlaybackState().name, 'Closing');
+    assert.equal(chart.getPlaybackState().playing, true);
+    chart.pause();
+
+    chart.setPlaybackLoop(false);
+    chart.setPlaybackDirection('forward');
+    chart.setPlaybackRange({ start: 'Focus', end: 'Closing' });
+    assert.deepEqual(chart.getPlaybackState().range, {
+      start: 2,
+      end: 3,
+      startFrame: 'Q3',
+      endFrame: 'Q4',
+    });
+    assert.throws(() => chart.seek('Opening'), /outside the active range/);
+    assert.throws(() => chart.play('Missing'), /Unknown playback frame name/);
+    assert.throws(() => chart.setPlaybackDirection('sideways'), TypeError);
+    assert.throws(() => chart.setPlaybackRange({ start: 5 }), /available frame indices/);
+    chart.seek(-100);
+    assert.equal(chart.getPlaybackState().name, 'Focus');
+    chart.play('Focus');
+    environment.tick(300);
+    environment.tick(400);
+    assert.equal(chart.getPlaybackState().name, 'Closing');
+    assert.equal(chart.getPlaybackState().playing, false);
+    assert.equal(environment.pendingFrames(), 0);
+
+    assert.deepEqual(
+      frameEvents.map(({ reason, index, label }) => ({ reason, index, label })),
+      [
+        { reason: 'seek', index: 2, label: 'Focus' },
+        { reason: 'step', index: 1, label: 'Opening' },
+        { reason: 'step', index: 3, label: 'Closing' },
+        { reason: 'seek', index: 2, label: 'Focus' },
+        { reason: 'step', index: 3, label: 'Closing' },
+      ],
+    );
+    const status = walk(renderer.host).find(
+      (element) => element.getAttribute('aria-live') === 'polite',
+    );
+    assert.match(status.textContent, /Closing/);
+  } finally {
+    chart.destroy();
+    assert.equal(environment.pendingFrames(), 0);
     environment.restore();
   }
 });
@@ -1496,6 +1657,177 @@ test('Canvas native semantic table supports roving keys, focus ring, tooltip, an
   }
 });
 
+test('Canvas semantic data explorer virtualizes large mirrors without truncating roving traversal', () => {
+  const environment = installEnvironment();
+  const { registry, target, renderers } = createHarness(environment.document);
+  const chart = new Chart(
+    target,
+    {
+      data: Array.from({ length: 80 }, (_, index) => ({ category: `row-${index}`, value: index })),
+      mark: 'bar',
+      x: 'category',
+      y: 'value',
+      accessibility: { table: 'visible', navigation: true, maxRows: 100 },
+    },
+    registry,
+    { width: 640, height: 360, autoResize: false },
+  );
+  try {
+    const host = renderers[0].host;
+    const mirror = walk(target).find(
+      ({ dataset }) => dataset.graflumeAccessibilityMirror === 'visible',
+    );
+    assert.notEqual(mirror, undefined);
+    assert.equal(mirror.dataset.graflumeVirtualRows, '80');
+    let rows = walk(mirror).filter(({ dataset }) => dataset.graflumeSemanticId !== undefined);
+    assert.ok(rows.length < 40, 'only the first viewport and overscan are materialized');
+    rows[0].dispatchEvent(new FakeKeyboardEvent('keydown', { key: 'End' }));
+    rows = walk(mirror).filter(({ dataset }) => dataset.graflumeSemanticId !== undefined);
+    assert.ok(rows.length < 40, 'the final viewport remains bounded');
+    assert.equal(environment.document.activeElement.dataset.graflumeSemanticIndex, '79');
+    assert.equal(
+      environment.document.activeElement.dataset.graflumeSemanticId,
+      'layer-0:observation:79',
+    );
+    assert.equal(
+      walk(host).filter(({ dataset }) => dataset.graflumeSemanticFocus === 'true').length,
+      1,
+    );
+  } finally {
+    chart.destroy();
+    environment.restore();
+  }
+});
+
+test('Canvas views synchronize linked focus through an injected stable-key store', () => {
+  const environment = installEnvironment();
+  const leftHarness = createHarness(environment.document);
+  const rightHarness = createHarness(environment.document);
+  const focusStore = createSemanticFocusStore();
+  const common = {
+    mark: 'bar',
+    x: 'category',
+    y: 'value',
+    accessibility: {
+      table: true,
+      navigation: true,
+      linkedFocus: { group: 'linked-sales', key: 'id' },
+    },
+  };
+  const left = new Chart(
+    leftHarness.target,
+    {
+      ...common,
+      data: [
+        { id: 'a', category: 'A', value: 1 },
+        { id: 'b', category: 'B', value: 2 },
+      ],
+    },
+    leftHarness.registry,
+    { width: 240, height: 160, autoResize: false, focusStore },
+  );
+  const right = new Chart(
+    rightHarness.target,
+    {
+      ...common,
+      data: [
+        { id: 'b', category: 'B mirror', value: 20 },
+        { id: 'c', category: 'C', value: 30 },
+      ],
+    },
+    rightHarness.registry,
+    { width: 240, height: 160, autoResize: false, focusStore },
+  );
+  try {
+    const leftRows = walk(leftHarness.renderers[0].host).filter(
+      ({ dataset }) => dataset.graflumeSemanticId !== undefined,
+    );
+    leftRows[1].focus();
+    leftRows[1].dispatchEvent(new Event('focus'));
+    assert.equal(focusStore.state().matches.length, 2);
+    assert.match(environment.document.activeElement.getAttribute('aria-label'), /B mirror/);
+    assert.equal(right.getAccessibilityState().enabled, true);
+  } finally {
+    left.destroy();
+    right.destroy();
+    environment.restore();
+  }
+});
+
+test('Chart streaming runtime coalesces frames and applies follow-live snapshots', async () => {
+  const environment = installEnvironment();
+  const { registry, target } = createHarness(environment.document);
+  const callbacks = [];
+  const cancelled = new Set();
+  let sequence = 0;
+  const scheduler = {
+    request(callback) {
+      sequence += 1;
+      callbacks.push({ id: sequence, callback });
+      return sequence;
+    },
+    cancel(id) {
+      cancelled.add(id);
+    },
+    flush() {
+      const entry = callbacks.shift();
+      assert.notEqual(entry, undefined);
+      if (!cancelled.has(entry.id)) entry.callback(entry.id * 16.7);
+    },
+  };
+  const chart = new Chart(
+    target,
+    {
+      data: [{ id: 'a', x: 1, value: 1 }],
+      mark: 'line',
+      x: 'x',
+      y: 'value',
+      streaming: {
+        key: 'id',
+        mode: 'upsert',
+        retention: { maxRows: 20 },
+        queue: { maxBatches: 4, maxRows: 20, overflow: 'coalesce' },
+        runtime: {
+          schedule: 'animation-frame',
+          maxBatchesPerFrame: 4,
+          overflow: 'coalesce',
+          followLive: false,
+          history: { maxBatches: 8, pageRows: 2 },
+        },
+      },
+    },
+    registry,
+    { width: 240, height: 160, autoResize: false, streamScheduler: scheduler },
+  );
+  try {
+    const first = chart.enqueueData({ rows: [{ id: 'a', value: 2 }] });
+    const second = chart.enqueueData({ rows: [{ id: 'b', x: 2, value: 3 }] });
+    assert.equal(callbacks.length, 1);
+    scheduler.flush();
+    await Promise.all([first, second]);
+    assert.equal(
+      chart.getSemanticIndex().length,
+      1,
+      'follow-live=false holds the rendered snapshot',
+    );
+    assert.equal(chart.getStreamRuntimeState().appliedBatches, 2);
+    chart.setStreamingFollowLive(true);
+    assert.equal(chart.getSemanticIndex().length, 2);
+    assert.equal(chart.getStreamingHistoryPage().entries.length, 2);
+
+    chart.pauseStreaming();
+    const paused = chart.enqueueData({ rows: [{ id: 'c', x: 3, value: 4 }] });
+    assert.equal(callbacks.length, 0);
+    chart.resumeStreaming();
+    scheduler.flush();
+    await paused;
+    assert.equal(chart.getSemanticIndex().length, 3);
+  } finally {
+    chart.destroy();
+    environment.restore();
+  }
+});
+
 test('semantic mirror and selection live region follow the target owner document', () => {
   const environment = installEnvironment();
   const secondaryDocument = new FakeDocument();
@@ -1716,6 +2048,1277 @@ test('rectangle, lasso, and axis pointer selections use bounded serializable dom
   }
 });
 
+test('keyboard authors analytic geometry with a visible draft and accessible shortcuts', () => {
+  const environment = installEnvironment();
+  const { registry, target, renderers } = createHarness(environment.document);
+  const chart = new Chart(
+    target,
+    {
+      data: [
+        { x: 0, y: 0 },
+        { x: 10, y: 10 },
+      ],
+      mark: 'point',
+      encoding: {
+        x: { field: 'x', type: 'quantitative', scale: { domain: [0, 10], nice: false } },
+        y: { field: 'y', type: 'quantitative', scale: { domain: [0, 10], nice: false } },
+      },
+      interaction: {
+        selection: { kind: 'rectangle', keyboard: true, keyboardStep: 12, minPixelSpan: 1 },
+      },
+    },
+    registry,
+    { width: 320, height: 220, autoResize: false },
+  );
+  try {
+    const surface = renderers[0].chartSurface;
+    const reasons = [];
+    chart.on('analyticselectionchange', ({ reason }) => reasons.push(reason));
+    assert.match(surface.getAttribute('aria-keyshortcuts'), /\bS\b/);
+    assert.match(surface.getAttribute('aria-keyshortcuts'), /\bSpace\b/);
+    assert.match(chart.getScene().accessibility.description, /Press S to start/);
+
+    const start = new FakeKeyboardEvent('keydown', { key: 's' });
+    surface.dispatchEvent(start);
+    assert.equal(start.defaultPrevented, true);
+    assert.ok(
+      sceneNodes(chart.getScene().root).some(({ id }) => id === 'analytic-selection:draft:0'),
+    );
+    const move = new FakeKeyboardEvent('keydown', { key: 'ArrowRight' });
+    surface.dispatchEvent(move);
+    assert.equal(move.defaultPrevented, true);
+    const apply = new FakeKeyboardEvent('keydown', { key: 'Enter' });
+    surface.dispatchEvent(apply);
+    assert.equal(apply.defaultPrevented, true);
+    assert.equal(chart.getAnalyticSelection().selections[0].type, 'rectangle');
+    assert.ok(
+      sceneNodes(chart.getScene().root).every(({ id }) => id !== 'analytic-selection:draft:0'),
+    );
+    assert.ok(sceneNodes(chart.getScene().root).some(({ id }) => id === 'analytic-selection:0'));
+    assert.deepEqual(reasons, ['keyboard']);
+  } finally {
+    chart.destroy();
+    environment.restore();
+  }
+});
+
+test('composed Chart routes pointer geometry and domain zoom through addressable leaf coordinates', () => {
+  const environment = installEnvironment();
+  const { registry, target, renderers } = createHarness(environment.document);
+  const unit = (offset) => ({
+    data: [
+      { x: 0, y: offset },
+      { x: 10, y: offset + 10 },
+    ],
+    mark: 'point',
+    encoding: {
+      x: { field: 'x', type: 'quantitative', scale: { domain: [0, 10], nice: false } },
+      y: { field: 'y', type: 'quantitative', scale: { domain: [0, 20], nice: false } },
+    },
+  });
+  const chart = new Chart(
+    target,
+    {
+      hconcat: [unit(0), unit(5)],
+      interaction: {
+        selection: { kind: 'rectangle', minPixelSpan: 1 },
+        domainNavigation: {
+          axes: ['x'],
+          wheel: 'always',
+          drag: false,
+          keyboard: true,
+        },
+      },
+      width: 640,
+      height: 280,
+    },
+    registry,
+    { width: 640, height: 280, autoResize: false },
+  );
+  try {
+    const ids = chart.getCoordinateViewIds();
+    assert.deepEqual(ids, ['hconcat-0', 'hconcat-1']);
+    const firstFive = chart.domainToPixel('x', 5, ids[0]);
+    const secondFive = chart.domainToPixel('x', 5, ids[1]);
+    assert.ok(secondFive > firstFive);
+    closeEnough(chart.pixelToDomain('x', secondFive, ids[1]), 5);
+
+    const surface = renderers[0].chartSurface;
+    const start = {
+      x: chart.domainToPixel('x', 2, ids[1]),
+      y: chart.domainToPixel('y', 3, ids[1]),
+    };
+    const end = {
+      x: chart.domainToPixel('x', 8, ids[1]),
+      y: chart.domainToPixel('y', 9, ids[1]),
+    };
+    surface.dispatchEvent(
+      new FakePointerEvent('pointerdown', {
+        pointerId: 21,
+        clientX: start.x,
+        clientY: start.y,
+      }),
+    );
+    surface.dispatchEvent(
+      new FakePointerEvent('pointermove', {
+        pointerId: 21,
+        clientX: end.x,
+        clientY: end.y,
+      }),
+    );
+    surface.dispatchEvent(
+      new FakePointerEvent('pointerup', {
+        pointerId: 21,
+        clientX: end.x,
+        clientY: end.y,
+      }),
+    );
+    const selection = chart.getAnalyticSelection().selections[0];
+    assert.equal(selection.type, 'rectangle');
+    closeEnough(selection.x[0], 2);
+    closeEnough(selection.x[1], 8);
+    closeEnough(selection.y[0], 3);
+    closeEnough(selection.y[1], 9);
+
+    const wheel = new FakeWheelEvent('wheel', {
+      clientX: secondFive,
+      clientY: chart.domainToPixel('y', 10, ids[1]),
+      deltaY: -120,
+    });
+    surface.dispatchEvent(wheel);
+    assert.equal(wheel.defaultPrevented, true);
+    assert.ok(chart.getDomainViewState().axes.x.end - chart.getDomainViewState().axes.x.start < 1);
+  } finally {
+    chart.destroy();
+    environment.restore();
+  }
+});
+
+test('categorical Canvas brush and domain navigation use stable band identities', () => {
+  const environment = installEnvironment();
+  const { registry, target, renderers } = createHarness(environment.document);
+  const chart = new Chart(
+    target,
+    {
+      data: [
+        { category: 'A', value: 2 },
+        { category: 'B', value: 5 },
+        { category: 'C', value: 8 },
+      ],
+      mark: 'bar',
+      encoding: {
+        x: { field: 'category', type: 'nominal' },
+        y: { field: 'value', type: 'quantitative', scale: { domain: [0, 10], nice: false } },
+      },
+      interaction: {
+        selection: { kind: 'rectangle', minPixelSpan: 1 },
+        domainNavigation: { axes: ['x'], wheel: 'always', drag: false },
+      },
+    },
+    registry,
+    { width: 360, height: 240, autoResize: false },
+  );
+  try {
+    const surface = renderers[0].chartSurface;
+    const start = {
+      x: chart.domainToPixel('x', 'A'),
+      y: chart.domainToPixel('y', 2),
+    };
+    const end = {
+      x: chart.domainToPixel('x', 'B'),
+      y: chart.domainToPixel('y', 8),
+    };
+    assert.equal(chart.pixelToDomain('x', end.x), 'B');
+    surface.dispatchEvent(
+      new FakePointerEvent('pointerdown', {
+        pointerId: 31,
+        clientX: start.x,
+        clientY: start.y,
+      }),
+    );
+    surface.dispatchEvent(
+      new FakePointerEvent('pointerup', {
+        pointerId: 31,
+        clientX: end.x,
+        clientY: end.y,
+      }),
+    );
+    const selection = chart.getAnalyticSelection().selections[0];
+    assert.equal(selection.type, 'rectangle');
+    assert.deepEqual(selection.x, { values: ['A', 'B'] });
+
+    const wheel = new FakeWheelEvent('wheel', {
+      clientX: end.x,
+      clientY: end.y,
+      deltaY: -180,
+    });
+    surface.dispatchEvent(wheel);
+    assert.equal(wheel.defaultPrevented, true);
+    assert.ok(chart.getDomainViewState().axes.x.end - chart.getDomainViewState().axes.x.start < 1);
+  } finally {
+    chart.destroy();
+    environment.restore();
+  }
+});
+
+test('injected linked view store synchronizes analytic selection and domain state without loops', () => {
+  const environment = installEnvironment();
+  const first = createHarness(environment.document);
+  const second = createHarness(environment.document);
+  const store = new LinkedViewStateStore();
+  const spec = {
+    data: [
+      { x: 0, y: 0 },
+      { x: 10, y: 10 },
+    ],
+    mark: 'point',
+    encoding: {
+      x: { field: 'x', type: 'quantitative', scale: { domain: [0, 10], nice: false } },
+      y: { field: 'y', type: 'quantitative', scale: { domain: [0, 10], nice: false } },
+    },
+    interaction: {
+      selection: { kind: 'rectangle' },
+      domainNavigation: { axes: ['x'], drag: false },
+    },
+  };
+  const left = new Chart(first.target, spec, first.registry, {
+    width: 320,
+    height: 220,
+    autoResize: false,
+    linkedViewStore: store,
+  });
+  const right = new Chart(second.target, spec, second.registry, {
+    width: 320,
+    height: 220,
+    autoResize: false,
+    linkedViewStore: store,
+  });
+  try {
+    const selectionReasons = [];
+    const domainReasons = [];
+    right.on('analyticselectionchange', ({ reason }) => selectionReasons.push(reason));
+    right.on('domainviewchange', ({ reason }) => domainReasons.push(reason));
+    const state = {
+      version: 1,
+      combine: 'union',
+      selections: [{ type: 'rectangle', xAxis: 'x', yAxis: 'y', x: [2, 8], y: [1, 9] }],
+    };
+    left.setAnalyticSelection(state);
+    assert.deepEqual(right.getAnalyticSelection(), state);
+    assert.deepEqual(selectionReasons, ['linked']);
+
+    left.zoomDomainBy(2);
+    assert.deepEqual(right.getDomainViewState(), left.getDomainViewState());
+    assert.deepEqual(domainReasons, ['linked']);
+    assert.deepEqual(store.get().domainView, left.getDomainViewState());
+  } finally {
+    right.destroy();
+    left.destroy();
+    environment.restore();
+  }
+});
+
 function closeEnough(actual, expected, tolerance = 1e-7) {
   assert.ok(Math.abs(actual - expected) <= tolerance, `${actual} ~= ${expected}`);
 }
+
+test('pie and table family keyboard controls update focus, selection, transforms, and events', () => {
+  const environment = installEnvironment();
+  const pieHarness = createHarness(environment.document);
+  const pie = new Chart(
+    pieHarness.target,
+    {
+      data: [
+        { id: 'A', value: 4 },
+        { id: 'B', value: 3 },
+        { id: 'C', value: 2 },
+      ],
+      mark: { type: 'pie', fields: { id: 'id', label: 'id' } },
+      x: { field: 'id', type: 'nominal' },
+      y: { field: 'value', type: 'quantitative' },
+      interaction: { selection: { kind: 'point', key: 'id' } },
+    },
+    pieHarness.registry,
+    { width: 360, height: 260, autoResize: false },
+  );
+  const tableHarness = createHarness(environment.document);
+  const table = new Chart(
+    tableHarness.target,
+    {
+      data: [
+        { region: 'East', quarter: 'Q1', amount: 10 },
+        { region: 'West', quarter: 'Q1', amount: 30 },
+        { region: 'East', quarter: 'Q2', amount: 20 },
+      ],
+      mark: { type: 'table', options: { windowLimit: 2 } },
+      x: { field: 'region', type: 'nominal' },
+      y: { field: 'amount', type: 'quantitative' },
+      interaction: { selection: { kind: 'point' } },
+    },
+    tableHarness.registry,
+    { width: 420, height: 280, autoResize: false },
+  );
+  try {
+    const pieSurface = pieHarness.renderers[0].chartSurface;
+    const focusReasons = [];
+    pie.on('familyfocuschange', ({ reason }) => focusReasons.push(reason));
+    pieSurface.dispatchEvent(new FakeKeyboardEvent('keydown', { key: 'ArrowRight' }));
+    assert.deepEqual(pie.getFamilyFocus(), { kind: 'pie-slice', layerId: 'layer-0', id: 'A' });
+    pieSurface.dispatchEvent(new FakeKeyboardEvent('keydown', { key: 'ArrowRight' }));
+    assert.equal(pie.getFamilyFocus().id, 'B');
+    const focusedSlice = findSceneNode(
+      pie.getScene(),
+      ({ datum }) =>
+        datum?.familyInteraction?.kind === 'pie-slice' && datum.familyInteraction.id === 'B',
+    );
+    assert.ok(focusedSlice.lineWidth >= 3);
+    pieSurface.dispatchEvent(new FakeKeyboardEvent('keydown', { key: 'Enter' }));
+    assert.deepEqual(pie.getSelection().items, [
+      { type: 'datum', layerId: 'layer-0', field: 'id', value: 'B' },
+    ]);
+    assert.deepEqual(focusReasons, ['keyboard', 'keyboard']);
+
+    const tableReasons = [];
+    table.on('tablechange', ({ reason }) => tableReasons.push(reason));
+    table.setTableSort('layer-0', [{ field: 'amount', direction: 'descending' }]);
+    let amountCells = sceneNodes(table.getScene().root).filter(
+      ({ datum }) =>
+        datum?.familyInteraction?.kind === 'table-cell' && datum.tooltip.column === 'amount',
+    );
+    assert.equal(amountCells[0].datum.tooltip.value, 30);
+    table.setTableFilters('layer-0', [
+      { field: 'amount', operator: 'greater-or-equal', value: 20 },
+    ]);
+    assert.equal(table.getTableRuntimeState('layer-0').filters.length, 1);
+    table.setTableFilters('layer-0', [{ field: 'amount', operator: 'equals', value: 999 }]);
+    assert.ok(sceneNodes(table.getScene().root).some(({ id }) => id.endsWith(':table-empty')));
+    assert.equal(
+      sceneNodes(table.getScene().root).filter(({ id }) => id.includes(':table-header:')).length,
+      3,
+    );
+    table.setTableFilters('layer-0', []);
+    assert.ok(
+      sceneNodes(table.getScene().root).some(
+        ({ datum }) =>
+          datum?.familyInteraction?.kind === 'table-cell' && datum.tooltip.column === 'amount',
+      ),
+    );
+    table.setTableFilters('layer-0', [
+      { field: 'amount', operator: 'greater-or-equal', value: 20 },
+    ]);
+    table.setTableGroup('layer-0', {
+      fields: ['region'],
+      aggregates: [{ field: 'amount', op: 'sum', as: 'total' }],
+    });
+    assert.ok(
+      sceneNodes(table.getScene().root).some(
+        ({ datum }) =>
+          datum?.familyInteraction?.kind === 'table-cell' && datum.tooltip.column === 'total',
+      ),
+    );
+    table.setTablePivot('layer-0', {
+      row: 'region',
+      column: 'quarter',
+      value: 'amount',
+      op: 'sum',
+    });
+    assert.equal(table.getTableRuntimeState('layer-0').group, null);
+    assert.notEqual(table.getTableRuntimeState('layer-0').pivot, null);
+    assert.doesNotThrow(() => JSON.stringify(table.getTableRuntimeState('layer-0')));
+    assert.throws(
+      () =>
+        table.setTableFilters(
+          'layer-0',
+          Array.from({ length: 17 }, (_, index) => ({
+            field: `field-${index}`,
+            operator: 'equals',
+            value: index,
+          })),
+        ),
+      /limited to 16/u,
+    );
+    table.resetTableRuntime('layer-0');
+    const tableSurface = tableHarness.renderers[0].chartSurface;
+    const amountHeader = findSceneNode(
+      table.getScene(),
+      ({ datum }) =>
+        datum?.familyInteraction?.kind === 'table-header' &&
+        datum.familyInteraction.field === 'amount',
+    );
+    tableSurface.dispatchEvent(
+      new FakePointerEvent('click', {
+        clientX: amountHeader.x + amountHeader.width / 2,
+        clientY: amountHeader.y + amountHeader.height / 2,
+      }),
+    );
+    assert.deepEqual(table.getTableRuntimeState('layer-0').sort, [
+      { field: 'amount', direction: 'ascending' },
+    ]);
+    table.resetTableRuntime('layer-0');
+    table.focusTableCell('layer-0', 0, 0);
+    tableSurface.dispatchEvent(new FakeKeyboardEvent('keydown', { key: 'ArrowRight' }));
+    assert.equal(table.getFamilyFocus().column, 1);
+    const focusedCell = findSceneNode(
+      table.getScene(),
+      ({ datum }) =>
+        datum?.familyInteraction?.kind === 'table-cell' &&
+        datum.familyInteraction.row === 0 &&
+        datum.familyInteraction.column === 1,
+    );
+    assert.equal(focusedCell.lineWidth, 2.5);
+    assert.deepEqual(tableReasons, [
+      'programmatic',
+      'programmatic',
+      'programmatic',
+      'programmatic',
+      'programmatic',
+      'programmatic',
+      'programmatic',
+      'reset',
+      'pointer',
+      'reset',
+    ]);
+  } finally {
+    table.destroy();
+    pie.destroy();
+    environment.restore();
+  }
+});
+
+test('table runtime preserves frozen regions while API and keyboard move the virtual window', () => {
+  const environment = installEnvironment();
+  const { registry, target, renderers } = createHarness(environment.document);
+  const chart = new Chart(
+    target,
+    {
+      width: 480,
+      height: 320,
+      data: Array.from({ length: 7 }, (_, index) => ({
+        id: `row-${index}`,
+        amount: index * 10,
+        note: `note-${index}`,
+      })),
+      mark: {
+        type: 'table',
+        options: { windowLimit: 2, frozenRows: 1, frozenColumns: 1 },
+      },
+      x: { field: 'id', type: 'nominal' },
+      y: { field: 'amount', type: 'quantitative' },
+    },
+    registry,
+    { width: 480, height: 320, autoResize: false },
+  );
+  const tableCells = () =>
+    sceneNodes(chart.getScene().root).filter(
+      ({ datum }) => datum?.familyInteraction?.kind === 'table-cell',
+    );
+  const visibleRows = () => [
+    ...new Set(tableCells().map(({ datum }) => datum.familyInteraction.row)),
+  ];
+  const reasons = [];
+  chart.on('tablechange', ({ reason }) => reasons.push(reason));
+  try {
+    chart.setTableRuntimeState('layer-0', { windowOffset: 3 });
+    assert.deepEqual(visibleRows(), [0, 3, 4]);
+    assert.ok(
+      tableCells()
+        .filter(({ datum }) => datum.familyInteraction.row === 0)
+        .every(({ datum }) => datum.tooltip.frozenRow === true),
+    );
+    assert.ok(
+      tableCells()
+        .filter(({ datum }) => datum.familyInteraction.column === 0)
+        .every(({ datum }) => datum.tooltip.frozenColumn === true),
+    );
+    assert.equal(
+      tableCells().find(
+        ({ datum }) => datum.familyInteraction.row === 3 && datum.familyInteraction.column === 1,
+      ).datum.tooltip.frozen,
+      false,
+    );
+
+    const surface = renderers[0].chartSurface;
+    surface.dispatchEvent(new FakeKeyboardEvent('keydown', { key: 'ArrowRight' }));
+    assert.deepEqual(chart.getFamilyFocus(), {
+      kind: 'table-cell',
+      layerId: 'layer-0',
+      row: 0,
+      column: 0,
+      field: 'id',
+    });
+    assert.equal(chart.getTableRuntimeState('layer-0').windowOffset, 3);
+    chart.clearFamilyFocus();
+
+    chart.focusTableCell('layer-0', 0, 1);
+    assert.equal(chart.getTableRuntimeState('layer-0').windowOffset, 3);
+    surface.dispatchEvent(new FakeKeyboardEvent('keydown', { key: 'ArrowRight' }));
+    assert.deepEqual(chart.getFamilyFocus(), {
+      kind: 'table-cell',
+      layerId: 'layer-0',
+      row: 0,
+      column: 2,
+      field: 'note',
+    });
+    assert.equal(chart.getTableRuntimeState('layer-0').windowOffset, 3);
+
+    surface.dispatchEvent(new FakeKeyboardEvent('keydown', { key: 'ArrowDown' }));
+    assert.equal(chart.getFamilyFocus().row, 1);
+    assert.equal(chart.getTableRuntimeState('layer-0').windowOffset, 1);
+    assert.deepEqual(visibleRows(), [0, 1, 2]);
+    surface.dispatchEvent(new FakeKeyboardEvent('keydown', { key: 'ArrowUp' }));
+    assert.equal(chart.getFamilyFocus().row, 0);
+    assert.equal(
+      chart.getTableRuntimeState('layer-0').windowOffset,
+      1,
+      'returning to a frozen row must not reset the scroll window',
+    );
+    const focused = tableCells().find(
+      ({ datum }) => datum.familyInteraction.row === 0 && datum.familyInteraction.column === 2,
+    );
+    assert.equal(focused.lineWidth, 2.5);
+    assert.deepEqual(reasons, ['programmatic', 'keyboard']);
+  } finally {
+    chart.destroy();
+    environment.restore();
+  }
+});
+
+test('table runtime moves a horizontal virtual window without displacing frozen columns', () => {
+  const environment = installEnvironment();
+  const { registry, target, renderers } = createHarness(environment.document);
+  const chart = new Chart(
+    target,
+    {
+      width: 560,
+      height: 300,
+      data: [
+        {
+          identity: 'row-0',
+          metricA: 1,
+          metricB: 2,
+          metricC: 3,
+          metricD: 4,
+          metricE: 5,
+        },
+      ],
+      mark: {
+        type: 'table',
+        options: { columnLimit: 2, frozenColumns: 1 },
+      },
+      x: { field: 'identity', type: 'nominal' },
+      y: { field: 'metricA', type: 'quantitative' },
+    },
+    registry,
+    { width: 560, height: 300, autoResize: false },
+  );
+  const visibleColumns = () =>
+    sceneNodes(chart.getScene().root)
+      .filter(({ datum }) => datum?.familyInteraction?.kind === 'table-cell')
+      .map(({ datum }) => datum.familyInteraction.column);
+  try {
+    chart.setTableRuntimeState('layer-0', { columnOffset: 3 });
+    assert.deepEqual(visibleColumns(), [0, 3, 4]);
+    chart.focusTableCell('layer-0', 0, 0);
+    assert.equal(chart.getTableRuntimeState('layer-0').columnOffset, 3);
+
+    chart.focusTableCell('layer-0', 0, 5);
+    assert.equal(chart.getTableRuntimeState('layer-0').columnOffset, 4);
+    assert.deepEqual(visibleColumns(), [0, 4, 5]);
+    assert.equal(chart.getFamilyFocus().field, 'metricE');
+
+    const surface = renderers[0].chartSurface;
+    surface.dispatchEvent(new FakeKeyboardEvent('keydown', { key: 'ArrowLeft' }));
+    assert.equal(chart.getFamilyFocus().column, 4);
+    assert.equal(chart.getTableRuntimeState('layer-0').columnOffset, 4);
+    surface.dispatchEvent(new FakeKeyboardEvent('keydown', { key: 'ArrowLeft' }));
+    assert.equal(chart.getFamilyFocus().column, 3);
+    assert.equal(chart.getTableRuntimeState('layer-0').columnOffset, 3);
+    assert.deepEqual(visibleColumns(), [0, 3, 4]);
+  } finally {
+    chart.destroy();
+    environment.restore();
+  }
+});
+
+test('network pointer controls drag, pin, collapse, and lasso through transient runtime state', () => {
+  const environment = installEnvironment();
+  const { registry, target, renderers } = createHarness(environment.document);
+  registry.registerMark('graph', compileAdvancedGraphMark);
+  const data = [
+    { node: 'group', source: 'a', target: 'b', edge: 'ab-1', weight: 2 },
+    { node: 'a', parent: 'group', source: 'a', target: 'b', edge: 'ab-2', weight: 1 },
+    { node: 'b', parent: 'group', source: 'b', target: 'c', edge: 'bc', weight: 1 },
+    { node: 'c', source: 'c', target: 'a', edge: 'ca', weight: 1 },
+  ];
+  const chart = new Chart(
+    target,
+    {
+      width: 440,
+      height: 320,
+      data,
+      mark: {
+        type: 'graph',
+        fields: {
+          node: 'node',
+          parent: 'parent',
+          source: 'source',
+          target: 'target',
+          edgeId: 'edge',
+          weight: 'weight',
+        },
+        options: { layout: 'grid', iterations: 8 },
+      },
+      x: { field: 'source', type: 'nominal' },
+      y: { field: 'target', type: 'nominal' },
+    },
+    registry,
+    { width: 440, height: 320, autoResize: false },
+  );
+  try {
+    const surface = renderers[0].chartSurface;
+    const changes = [];
+    chart.on('networkchange', ({ reason }) => changes.push(reason));
+    let node = findSceneNode(
+      chart.getScene(),
+      ({ datum }) =>
+        datum?.familyInteraction?.kind === 'network-node' && datum.familyInteraction.id === 'a',
+    );
+    const before = { x: node.cx, y: node.cy };
+    assert.equal(
+      hitTestScene(chart.getScene(), before.x, before.y)?.familyInteraction?.kind,
+      'network-node',
+    );
+    surface.dispatchEvent(
+      new FakePointerEvent('pointerdown', { pointerId: 71, clientX: before.x, clientY: before.y }),
+    );
+    assert.equal(surface.hasPointerCapture(71), true);
+    surface.dispatchEvent(
+      new FakePointerEvent('pointermove', {
+        pointerId: 71,
+        clientX: before.x + 42,
+        clientY: before.y + 28,
+      }),
+    );
+    assert.equal(surface.hasPointerCapture(71), true);
+    surface.dispatchEvent(
+      new FakePointerEvent('pointerup', {
+        pointerId: 71,
+        clientX: before.x + 42,
+        clientY: before.y + 28,
+      }),
+    );
+    surface.dispatchEvent(
+      new FakePointerEvent('click', { clientX: before.x + 42, clientY: before.y + 28 }),
+    );
+    assert.equal(chart.getNetworkRuntimeState('layer-0').positions.a.pinned, true);
+    node = findSceneNode(
+      chart.getScene(),
+      ({ datum }) =>
+        datum?.familyInteraction?.kind === 'network-node' && datum.familyInteraction.id === 'a',
+    );
+    assert.ok(Math.hypot(node.cx - before.x, node.cy - before.y) > 20);
+    surface.dispatchEvent(
+      new FakePointerEvent('click', { clientX: node.cx, clientY: node.cy, ctrlKey: true }),
+    );
+    assert.equal(chart.getNetworkRuntimeState('layer-0').positions.a.pinned, false);
+
+    const group = findSceneNode(
+      chart.getScene(),
+      ({ datum }) =>
+        datum?.familyInteraction?.kind === 'network-node' && datum.familyInteraction.id === 'group',
+    );
+    surface.dispatchEvent(
+      new FakePointerEvent('click', { clientX: group.cx, clientY: group.cy, altKey: true }),
+    );
+    assert.deepEqual(chart.getNetworkRuntimeState('layer-0').collapsed, ['group']);
+    assert.ok(
+      sceneNodes(chart.getScene().root).filter(
+        ({ datum }) => datum?.familyInteraction?.kind === 'network-node',
+      ).length < 4,
+    );
+
+    chart.resetNetworkRuntime('layer-0');
+    chart.moveNetworkNode('layer-0', 'a', { x: 0.5, y: 0.5 });
+    node = findSceneNode(
+      chart.getScene(),
+      ({ datum }) =>
+        datum?.familyInteraction?.kind === 'network-node' && datum.familyInteraction.id === 'a',
+    );
+    const plot = node.datum.familyInteraction.plot;
+    const corners = [
+      { x: plot.x + plot.width * 0.35, y: plot.y + plot.height * 0.35 },
+      { x: plot.x + plot.width * 0.65, y: plot.y + plot.height * 0.35 },
+      { x: plot.x + plot.width * 0.65, y: plot.y + plot.height * 0.65 },
+      { x: plot.x + plot.width * 0.35, y: plot.y + plot.height * 0.65 },
+    ];
+    surface.dispatchEvent(
+      new FakePointerEvent('pointerdown', {
+        pointerId: 72,
+        shiftKey: true,
+        clientX: corners[0].x,
+        clientY: corners[0].y,
+      }),
+    );
+    corners.slice(1).forEach((point) =>
+      surface.dispatchEvent(
+        new FakePointerEvent('pointermove', {
+          pointerId: 72,
+          shiftKey: true,
+          clientX: point.x,
+          clientY: point.y,
+        }),
+      ),
+    );
+    surface.dispatchEvent(
+      new FakePointerEvent('pointerup', {
+        pointerId: 72,
+        shiftKey: true,
+        clientX: corners[0].x,
+        clientY: corners[0].y,
+      }),
+    );
+    assert.ok(chart.getNetworkRuntimeState('layer-0').lasso.length >= 3);
+    assert.ok(
+      sceneNodes(chart.getScene().root)
+        .filter(({ datum }) => datum?.familyInteraction?.kind === 'network-node')
+        .some(({ datum }) => datum.tooltip.selected === true),
+    );
+    assert.deepEqual(changes, [
+      'pointer',
+      'pointer',
+      'pointer',
+      'reset',
+      'programmatic',
+      'pointer',
+    ]);
+    assert.throws(
+      () => chart.moveNetworkNode('layer-0', 'a', { x: 2, y: 0.5 }),
+      /normalized x\/y/u,
+    );
+    assert.throws(
+      () =>
+        chart.setNetworkLasso('layer-0', [
+          { x: 0, y: 0 },
+          { x: 1, y: 1 },
+        ]),
+      /at least three/u,
+    );
+  } finally {
+    chart.destroy();
+    environment.restore();
+  }
+});
+
+test('flow node pointer drag recompiles authored positions and emits a bounded runtime event', () => {
+  const environment = installEnvironment();
+  const { registry, target, renderers } = createHarness(environment.document);
+  const chart = new Chart(
+    target,
+    {
+      width: 440,
+      height: 300,
+      data: [
+        { edge: 'ab', source: 'A', target: 'B', value: 8 },
+        { edge: 'bc', source: 'B', target: 'C', value: 6 },
+        { edge: 'bd', source: 'B', target: 'D', value: 2 },
+      ],
+      mark: {
+        type: 'sankey',
+        fields: { id: 'edge', source: 'source', target: 'target', value: 'value' },
+        options: { alignment: 'justify', iterations: 4 },
+      },
+      x: { field: 'source', type: 'nominal' },
+      y: { field: 'value', type: 'quantitative' },
+    },
+    registry,
+    { width: 440, height: 300, autoResize: false },
+  );
+  try {
+    const surface = renderers[0].chartSurface;
+    const reasons = [];
+    chart.on('flowchange', ({ reason }) => reasons.push(reason));
+    let node = findSceneNode(
+      chart.getScene(),
+      ({ datum }) =>
+        datum?.familyInteraction?.kind === 'flow-node' && datum.familyInteraction.id === 'B',
+    );
+    const before = { x: node.x + node.width / 2, y: node.y + node.height / 2 };
+    surface.dispatchEvent(
+      new FakePointerEvent('pointerdown', { pointerId: 81, clientX: before.x, clientY: before.y }),
+    );
+    surface.dispatchEvent(
+      new FakePointerEvent('pointermove', {
+        pointerId: 81,
+        clientX: before.x + 35,
+        clientY: before.y - 24,
+      }),
+    );
+    surface.dispatchEvent(
+      new FakePointerEvent('pointerup', {
+        pointerId: 81,
+        clientX: before.x + 35,
+        clientY: before.y - 24,
+      }),
+    );
+    const state = chart.getFlowRuntimeState('layer-0');
+    assert.ok(state.positions.B.x >= 0 && state.positions.B.x <= 1);
+    assert.ok(state.positions.B.y >= 0 && state.positions.B.y <= 1);
+    assert.doesNotThrow(() => JSON.stringify(state));
+    node = findSceneNode(
+      chart.getScene(),
+      ({ datum }) =>
+        datum?.familyInteraction?.kind === 'flow-node' && datum.familyInteraction.id === 'B',
+    );
+    assert.ok(
+      Math.hypot(node.x + node.width / 2 - before.x, node.y + node.height / 2 - before.y) > 20,
+    );
+    assert.deepEqual(reasons, ['pointer']);
+    assert.throws(
+      () => chart.moveFlowNode('layer-0', 'B', { x: -0.1, y: 0.5 }),
+      /normalized x\/y/u,
+    );
+  } finally {
+    chart.destroy();
+    environment.restore();
+  }
+});
+
+test('advanced family pointer gestures recompile navigator, hierarchy, and parallel scenes', () => {
+  const environment = installEnvironment();
+  const navigatorHarness = createHarness(environment.document, createCompleteRegistry());
+  const navigator = new Chart(
+    navigatorHarness.target,
+    {
+      width: 480,
+      height: 320,
+      data: Array.from({ length: 8 }, (_, time) => ({
+        time,
+        open: 10 + time,
+        high: 13 + time,
+        low: 9 + time,
+        close: 12 + time,
+      })),
+      mark: {
+        type: 'candlestick',
+        fields: { open: 'open', high: 'high', low: 'low', close: 'close' },
+        options: { navigator: true, navigatorStart: 0, navigatorEnd: 3 },
+      },
+      x: { field: 'time', type: 'quantitative' },
+      y: { field: 'close', type: 'quantitative' },
+    },
+    navigatorHarness.registry,
+    { width: 480, height: 320, autoResize: false },
+  );
+  const hierarchyHarness = createHarness(environment.document, createCompleteRegistry());
+  const hierarchy = new Chart(
+    hierarchyHarness.target,
+    {
+      width: 440,
+      height: 320,
+      data: [
+        { id: 'root', parent: null, value: 5 },
+        { id: 'a', parent: 'root', value: 3 },
+        { id: 'a1', parent: 'a', value: 1 },
+        { id: 'b', parent: 'root', value: 2 },
+      ],
+      mark: {
+        type: 'tree',
+        fields: { id: 'id', parent: 'parent', value: 'value' },
+        options: { layout: 'circle-pack' },
+      },
+      x: { field: 'id', type: 'nominal' },
+      y: { field: 'value', type: 'quantitative' },
+    },
+    hierarchyHarness.registry,
+    { width: 440, height: 320, autoResize: false },
+  );
+  const parallelHarness = createHarness(environment.document, createCompleteRegistry());
+  const parallel = new Chart(
+    parallelHarness.target,
+    {
+      width: 460,
+      height: 320,
+      data: [
+        { a: 1, b: 10, c: 100 },
+        { a: 5, b: 50, c: 500 },
+        { a: 9, b: 90, c: 900 },
+      ],
+      mark: {
+        type: 'parallel',
+        options: {
+          axes: [
+            { field: 'a', domain: [0, 10] },
+            { field: 'b', domain: [0, 100] },
+            { field: 'c', domain: [0, 1000] },
+          ],
+        },
+      },
+      x: { field: 'a', type: 'quantitative' },
+      y: { field: 'b', type: 'quantitative' },
+    },
+    parallelHarness.registry,
+    { width: 460, height: 320, autoResize: false },
+  );
+  try {
+    const navigatorReasons = [];
+    navigator.on('navigatorchange', ({ reason }) => navigatorReasons.push(reason));
+    const navigatorSurface = navigatorHarness.renderers[0].chartSurface;
+    const windowBefore = findSceneNode(
+      navigator.getScene(),
+      ({ datum }) => datum?.familyInteraction?.kind === 'navigator-window',
+    );
+    const windowCenter = {
+      x: windowBefore.x + windowBefore.width / 2,
+      y: windowBefore.y + windowBefore.height / 2,
+    };
+    navigatorSurface.dispatchEvent(
+      new FakePointerEvent('pointerdown', {
+        pointerId: 91,
+        clientX: windowCenter.x,
+        clientY: windowCenter.y,
+      }),
+    );
+    navigatorSurface.dispatchEvent(
+      new FakePointerEvent('pointermove', {
+        pointerId: 91,
+        clientX: windowCenter.x + 80,
+        clientY: windowCenter.y,
+      }),
+    );
+    navigatorSurface.dispatchEvent(
+      new FakePointerEvent('pointerup', {
+        pointerId: 91,
+        clientX: windowCenter.x + 80,
+        clientY: windowCenter.y,
+      }),
+    );
+    assert.ok(navigator.getNavigatorWindow('layer-0').start > 0);
+    assert.notEqual(
+      findSceneNode(
+        navigator.getScene(),
+        ({ datum }) => datum?.familyInteraction?.kind === 'navigator-window',
+      ).x,
+      windowBefore.x,
+    );
+    assert.deepEqual(navigatorReasons, ['pointer']);
+
+    const hierarchyReasons = [];
+    hierarchy.on('hierarchychange', ({ reason }) => hierarchyReasons.push(reason));
+    const hierarchySurface = hierarchyHarness.renderers[0].chartSurface;
+    const hierarchyNode = (id) =>
+      findSceneNode(
+        hierarchy.getScene(),
+        ({ datum }) =>
+          datum?.familyInteraction?.kind === 'hierarchy-node' && datum.familyInteraction.id === id,
+      );
+    let nodeA = hierarchyNode('a');
+    hierarchySurface.dispatchEvent(
+      new FakePointerEvent('click', { clientX: nodeA.cx, clientY: nodeA.cy }),
+    );
+    assert.deepEqual(hierarchy.getHierarchyRuntimeState('layer-0').collapsed, ['a']);
+    nodeA = hierarchyNode('a');
+    hierarchySurface.dispatchEvent(
+      new FakePointerEvent('click', { clientX: nodeA.cx, clientY: nodeA.cy }),
+    );
+    nodeA = hierarchyNode('a');
+    hierarchySurface.dispatchEvent(
+      new FakePointerEvent('click', { clientX: nodeA.cx, clientY: nodeA.cy, shiftKey: true }),
+    );
+    assert.equal(hierarchy.getHierarchyRuntimeState('layer-0').root, 'a');
+    const nodeA1 = hierarchyNode('a1');
+    hierarchySurface.dispatchEvent(
+      new FakePointerEvent('click', { clientX: nodeA1.cx, clientY: nodeA1.cy, altKey: true }),
+    );
+    assert.equal(hierarchy.getHierarchyRuntimeState('layer-0').zoomTo, 'a1');
+    assert.deepEqual(hierarchyReasons, ['pointer', 'pointer', 'pointer', 'pointer']);
+
+    const parallelReasons = [];
+    parallel.on('parallelchange', ({ reason }) => parallelReasons.push(reason));
+    const parallelSurface = parallelHarness.renderers[0].chartSurface;
+    let axis = findSceneNode(
+      parallel.getScene(),
+      ({ datum }) =>
+        datum?.familyInteraction?.kind === 'parallel-axis' && datum.familyInteraction.field === 'a',
+    );
+    parallelSurface.dispatchEvent(
+      new FakePointerEvent('pointerdown', {
+        pointerId: 92,
+        shiftKey: true,
+        clientX: axis.x + axis.width / 2,
+        clientY: axis.y + axis.height * 0.2,
+      }),
+    );
+    parallelSurface.dispatchEvent(
+      new FakePointerEvent('pointermove', {
+        pointerId: 92,
+        shiftKey: true,
+        clientX: axis.x + axis.width / 2,
+        clientY: axis.y + axis.height * 0.7,
+      }),
+    );
+    parallelSurface.dispatchEvent(
+      new FakePointerEvent('pointerup', {
+        pointerId: 92,
+        shiftKey: true,
+        clientX: axis.x + axis.width / 2,
+        clientY: axis.y + axis.height * 0.7,
+      }),
+    );
+    parallelSurface.dispatchEvent(
+      new FakePointerEvent('click', {
+        shiftKey: true,
+        clientX: axis.x + axis.width / 2,
+        clientY: axis.y + axis.height * 0.7,
+      }),
+    );
+    assert.equal(parallel.getParallelRuntimeState('layer-0').brushes.length, 1);
+    assert.ok(
+      sceneNodes(parallel.getScene().root).some(({ id }) => id.includes(':parallel-brush:a:')),
+    );
+    axis = findSceneNode(
+      parallel.getScene(),
+      ({ datum }) =>
+        datum?.familyInteraction?.kind === 'parallel-axis' && datum.familyInteraction.field === 'a',
+    );
+    parallelSurface.dispatchEvent(
+      new FakePointerEvent('click', {
+        altKey: true,
+        clientX: axis.x + axis.width / 2,
+        clientY: axis.y + axis.height / 2,
+      }),
+    );
+    assert.equal(parallel.getParallelRuntimeState('layer-0').axes[0].invert, true);
+    assert.deepEqual(parallelReasons, ['pointer', 'pointer']);
+  } finally {
+    parallel.destroy();
+    hierarchy.destroy();
+    navigator.destroy();
+    environment.restore();
+  }
+});
+
+test('heatmap and scatter-matrix pointer brushes update linked runtime scenes', () => {
+  const environment = installEnvironment();
+  const heatmapHarness = createHarness(environment.document, createCompleteRegistry());
+  const heatmap = new Chart(
+    heatmapHarness.target,
+    {
+      width: 420,
+      height: 300,
+      data: [
+        { column: 'A', row: 'North', value: 1 },
+        { column: 'B', row: 'North', value: 2 },
+        { column: 'A', row: 'South', value: 3 },
+        { column: 'B', row: 'South', value: 4 },
+      ],
+      mark: { type: 'heatmap', fields: { value: 'value' }, options: { colorMode: 'quantile' } },
+      x: { field: 'column', type: 'nominal' },
+      y: { field: 'row', type: 'nominal' },
+    },
+    heatmapHarness.registry,
+    { width: 420, height: 300, autoResize: false },
+  );
+  const matrixHarness = createHarness(environment.document, createCompleteRegistry());
+  const matrix = new Chart(
+    matrixHarness.target,
+    {
+      width: 450,
+      height: 340,
+      data: [
+        { a: 1, b: 10, c: 100 },
+        { a: 2, b: 20, c: 200 },
+        { a: 3, b: 30, c: 300 },
+        { a: 4, b: 40, c: 400 },
+      ],
+      mark: {
+        type: 'scatter-matrix',
+        options: {
+          variables: ['a', 'b', 'c'],
+          diagonal: 'kde',
+          upper: 'scatter',
+          lower: 'scatter',
+        },
+      },
+      x: { field: 'a', type: 'quantitative' },
+      y: { field: 'b', type: 'quantitative' },
+    },
+    matrixHarness.registry,
+    { width: 450, height: 340, autoResize: false },
+  );
+  try {
+    const heatmapReasons = [];
+    heatmap.on('heatmapchange', ({ reason }) => heatmapReasons.push(reason));
+    const heatmapSurface = heatmapHarness.renderers[0].chartSurface;
+    const cell = (row, column) =>
+      findSceneNode(
+        heatmap.getScene(),
+        ({ datum }) =>
+          datum?.familyInteraction?.kind === 'heatmap-cell' &&
+          datum.familyInteraction.row === row &&
+          datum.familyInteraction.column === column,
+      );
+    const first = cell('North', 'A');
+    const last = cell('South', 'B');
+    heatmapSurface.dispatchEvent(
+      new FakePointerEvent('pointerdown', {
+        pointerId: 93,
+        clientX: first.x + first.width / 2,
+        clientY: first.y + first.height / 2,
+      }),
+    );
+    heatmapSurface.dispatchEvent(
+      new FakePointerEvent('pointermove', {
+        pointerId: 93,
+        clientX: last.x + last.width / 2,
+        clientY: last.y + last.height / 2,
+      }),
+    );
+    heatmapSurface.dispatchEvent(
+      new FakePointerEvent('pointerup', {
+        pointerId: 93,
+        clientX: last.x + last.width / 2,
+        clientY: last.y + last.height / 2,
+      }),
+    );
+    assert.deepEqual(heatmap.getHeatmapBrush('layer-0'), {
+      rows: ['North', 'South'],
+      columns: ['A', 'B'],
+    });
+    assert.equal(
+      sceneNodes(heatmap.getScene().root).filter(
+        ({ datum }) => datum?.familyInteraction?.kind === 'heatmap-cell' && datum.tooltip.brushed,
+      ).length,
+      4,
+    );
+    assert.deepEqual(heatmapReasons, ['pointer']);
+
+    const matrixReasons = [];
+    matrix.on('scattermatrixchange', ({ reason }) => matrixReasons.push(reason));
+    const matrixSurface = matrixHarness.renderers[0].chartSurface;
+    const matrixCell = findSceneNode(
+      matrix.getScene(),
+      ({ datum }) =>
+        datum?.familyInteraction?.kind === 'scatter-matrix-cell' &&
+        datum.familyInteraction.xField === 'a' &&
+        datum.familyInteraction.yField === 'b',
+    );
+    const matrixPoint = (rowIndex) =>
+      findSceneNode(
+        matrix.getScene(),
+        ({ id, datum }) =>
+          id.includes(':analytic-scatter-matrix-point:') &&
+          datum?.tooltip?.matrixX === 'a' &&
+          datum.tooltip.matrixY === 'b' &&
+          datum.rowIndex === rowIndex,
+      );
+    const firstPoint = matrixPoint(0);
+    const thirdPoint = matrixPoint(2);
+    const start = { x: firstPoint.cx, y: firstPoint.cy };
+    const end = { x: thirdPoint.cx, y: thirdPoint.cy };
+    assert.equal(
+      hitTestScene(matrix.getScene(), start.x, start.y)?.familyInteraction?.kind,
+      undefined,
+      'a higher-z point proves the cell-containment fallback is exercised',
+    );
+    matrixSurface.dispatchEvent(
+      new FakePointerEvent('pointerdown', { pointerId: 94, clientX: start.x, clientY: start.y }),
+    );
+    matrixSurface.dispatchEvent(
+      new FakePointerEvent('pointermove', { pointerId: 94, clientX: end.x, clientY: end.y }),
+    );
+    matrixSurface.dispatchEvent(
+      new FakePointerEvent('pointerup', { pointerId: 94, clientX: end.x, clientY: end.y }),
+    );
+    const brush = matrix.getScatterMatrixBrush('layer-0');
+    assert.ok(brush.x[1] > brush.x[0]);
+    assert.ok(brush.y[1] > brush.y[0]);
+    assert.ok(brush.selectedRows.length > 0);
+    assert.equal(
+      sceneNodes(matrix.getScene().root).filter(({ id }) =>
+        id.endsWith(':analytic-scatter-matrix-linked-brush'),
+      ).length,
+      1,
+    );
+    assert.deepEqual(matrixReasons, ['pointer']);
+  } finally {
+    matrix.destroy();
+    heatmap.destroy();
+    environment.restore();
+  }
+});
+
+test('technical indicator pointer crosshair synchronizes every pane and clears on leave', () => {
+  const environment = installEnvironment();
+  const { registry, target, renderers } = createHarness(
+    environment.document,
+    createCompleteRegistry(),
+  );
+  const rows = Array.from({ length: 36 }, (_, index) => ({
+    x: index,
+    open: 100 + index * 0.4,
+    high: 102 + index * 0.4,
+    low: 98 + index * 0.4,
+    close: 101 + index * 0.4,
+  }));
+  const chart = new Chart(
+    target,
+    {
+      width: 720,
+      height: 620,
+      data: rows,
+      layers: [
+        {
+          id: 'price',
+          mark: {
+            type: 'candlestick',
+            fields: { open: 'open', high: 'high', low: 'low', close: 'close' },
+          },
+          x: { field: 'x', type: 'quantitative' },
+          y: { field: 'close', type: 'quantitative' },
+        },
+        {
+          id: 'atr',
+          data: rows,
+          mark: {
+            type: 'indicator',
+            fields: { high: 'high', low: 'low', close: 'close' },
+            options: { kind: 'atr', calculate: true, period: 5 },
+          },
+          x: { field: 'x', type: 'quantitative' },
+          y: { field: 'close', type: 'quantitative' },
+        },
+      ],
+    },
+    registry,
+    { width: 720, height: 620, autoResize: false },
+  );
+  try {
+    const surface = renderers[0].chartSurface;
+    const panels = chart.getScene().metadata.technicalIndicatorPanels;
+    assert.equal(panels.length, 2);
+    const price = panels[0].bounds;
+    surface.dispatchEvent(
+      new FakePointerEvent('pointermove', {
+        pointerId: 95,
+        clientX: price.x + price.width * 0.55,
+        clientY: price.y + price.height * 0.5,
+      }),
+    );
+    assert.equal(chart.getScene().metadata.technicalIndicatorCrosshair.positions.length, 2);
+    assert.equal(
+      sceneNodes(chart.getScene().root).filter(({ id }) => id.startsWith('technical-crosshair:'))
+        .length,
+      2,
+    );
+    surface.dispatchEvent(new FakePointerEvent('pointerleave', { pointerId: 95 }));
+    assert.equal(chart.getScene().metadata.technicalIndicatorCrosshair, undefined);
+    assert.equal(
+      sceneNodes(chart.getScene().root).filter(({ id }) => id.startsWith('technical-crosshair:'))
+        .length,
+      0,
+    );
+  } finally {
+    chart.destroy();
+    environment.restore();
+  }
+});

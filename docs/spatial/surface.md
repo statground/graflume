@@ -38,7 +38,35 @@ Required invariants:
 - `z` and `values` have exactly `rows × columns` finite values.
 - `x` has exactly `columns` values and `y` exactly `rows` when provided.
 
-`wireframe: true` switches the compiled primitive to the grid edge set without changing the data contract.
+`normalMode: "smooth"` (the default) averages adjacent unit-face normals at shared vertices. `normalMode: "flat"` deterministically expands the indexed surface into a triangle soup so each face owns one exact normal. `wireframe: true` keeps the legacy wire-only primitive. Use `wireOverlay` to draw the filled triangles and their GPU line edges together:
+
+```js
+GraflumeSpatial.surface('#terrain', data, {
+  normalMode: 'flat',
+  wireOverlay: { color: '#111827', opacity: 0.75 },
+});
+```
+
+The renderer offsets the filled surface before drawing the coplanar line overlay, avoiding a hidden or flickering diagnostic grid while preserving depth testing against other layers.
+
+## Contour projection
+
+`contours` runs a bounded triangle-isoline extractor on either grid or indexed mesh input. Explicit `levels` and derived `count` are mutually exclusive. `projection: "surface"` keeps interpolated 3D positions, `"base"` projects them to `baseHeight` (or the minimum surface height), and `"both"` emits both line geometries.
+
+```js
+GraflumeSpatial.surface('#terrain', data, {
+  wireOverlay: true,
+  contours: {
+    count: 8,
+    projection: 'both',
+    baseHeight: -1.5,
+    color: '#0f172a',
+    maxSegments: 50000,
+  },
+});
+```
+
+`maxSegments` is a deterministic total budget across levels and projections. Contour picks expose `level`, `projection`, and `sourceTriangle`; the compiled geometry records `triangle-contour-projection` provenance.
 
 ## Indexed mesh
 
@@ -74,6 +102,10 @@ The code above is the minimum data shape; the generated preview is the richer sh
 
 ## Interaction, accessibility, and limits
 
-Grid tooltips expose `row`, `column`, `x`, `y`, `z`, and `value`. Mesh tooltips expose `x`, `y`, `z`, and `label`. The same fields populate the accessible table. A surface does not add Cartesian axes; camera orbit, projection, lighting, and the geometry itself define the spatial view.
+Grid tooltips expose `row`, `column`, `x`, `y`, `z`, and `value`. Mesh tooltips expose `x`, `y`, `z`, and `label`. Contours add their level and projection. The same semantic picks populate the accessible table and GPU roving traversal. Every compiled surface geometry includes bounded source/derived counts and its normal, overlay, or contour operation as provenance. `computeSurfaceNormalGeometry()` and `extractSurfaceContourSegments()` expose the same deterministic CPU reference used before WebGL upload. A surface does not add Cartesian axes; camera orbit, projection, lighting, and the geometry itself define the spatial view.
 
 Missing grid cells are not inferred. Split discontinuous surfaces into separate layers rather than inserting non-finite values. For very large meshes, reduce labels and accessible table rows, use stable indices, and prefer precomputed normals when their exact smoothing is important.
+
+## Current limitations
+
+None remain in the audited P0/current-limitations boundary as of 2026-08-26. The completion release moved flat/smooth normal modes, filled-plus-wire overlays, and contour projection into executable support. Separately cataloged P1/P2 work such as materials, clipping, animation, and progressive LOD remains future roadmap rather than current runtime support. Exact source and test paths are recorded in [the completion evidence](../../catalog/graflume.current-limitations.evidence.json).

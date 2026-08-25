@@ -217,7 +217,7 @@ Use a heatmap to show intensity across two categorical dimensions.
 
 ### Portable options
 
-`labels: false` hides in-cell values. `cellGap` controls the clear space between neighboring cells and defaults to `1` pixel, so the matrix reads as one continuous surface while the background-colored stroke keeps each boundary identifiable. Sequential colors are interpolated from the active theme and text contrast is chosen automatically.
+`labels: false` hides in-cell values. `cellGap` controls the clear space between neighboring cells and defaults to `1` pixel for the regular categorical matrix. Sequential colors are interpolated from the active theme and text contrast is chosen automatically. The analytical matrix contract accepts `colorMode` (`sequential`, `diverging`, `log`, `symlog`, or `quantile`), optional `midpoint`, authored `rowOrder`/`columnOrder`, and `missing: { color, pattern }`. `fields.x0`, `x1`, `y0`, and `y1` opt into irregular numeric cell extents. A function-free `brush` can filter rows, columns, and a two-value range; matching cells expose `brushed: true` and stable linked selection keys.
 
 ## Quick API
 
@@ -237,7 +237,7 @@ The same chart can be represented as a function-free portable specification with
 
 ## Rendering behavior
 
-The compiler creates a band cell for each valid row, normalizes values across the observed extent, and emits interactive rectangles with a one-pixel default gap, a subtle one-pixel corner radius, and optional labels. Explicit `cellGap`, `stroke`, `lineWidth`, and `cornerRadius` values remain available when a denser or more separated matrix is required.
+The regular compiler creates a band cell for each valid row. When analytical matrix options are authored, long-form rows are pivoted through one row/column matrix, missing combinations are retained explicitly, irregular extents are mapped into the plot, and each rendered rectangle reports its data extent, color position, missing pattern, brush state, and selection key.
 
 All output is compiled into the same renderer-neutral Scene used by Canvas and the checked SVG documentation snapshots. No second rendering engine is embedded.
 
@@ -251,4 +251,12 @@ Scene cost is linear in populated cells. Very dense matrices should use tiled ag
 
 ## Current limitations
 
-Missing-cell patterns, continuous axes, clustered ordering, dendrograms, and tile-level LOD are not implemented yet. The shared continuous legend follows the compiled heatmap value palette and locale-formats its endpoints.
+None remain in the audited P0/current-limitations boundary as of 2026-08-26. The `current-limitations-2026-08-26` implementation moved these former limitations into executable support:
+
+- pivot/matrix input
+- irregular extents
+- explicit missing-value pattern
+- diverging/log/symlog/quantile color
+- brush
+
+The separately cataloged P1/P2 research roadmap remains future work and is not presented as current runtime support. Exact implementation and test paths are recorded in [the completion evidence](../../catalog/graflume.current-limitations.evidence.json).

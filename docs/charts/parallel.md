@@ -299,8 +299,11 @@ that are only present in combinations beyond that budget are omitted from the re
 
 ## Current limitations
 
-Axis brushing, drag reordering, inversion, bundled coordinate polylines, and density mode are not
-implemented yet. The shared layer legend and explicit portable category items are available.
-Categorical dimensions and proportional stacked ribbons are implemented through
-`mode: 'categories'`; they are an aggregated view rather than a lossless replacement for an
-unbounded high-cardinality table.
+None remain in the audited P0/current-limitations boundary as of 2026-08-26. The `current-limitations-2026-08-26` implementation moved these former limitations into executable support:
+
+- log scale
+- missing routing
+- axis reorder/invert
+- per-axis brush and linked filter
+
+The separately cataloged P1/P2 research roadmap remains future work and is not presented as current runtime support. Exact implementation and test paths are recorded in [the completion evidence](../../catalog/graflume.current-limitations.evidence.json).

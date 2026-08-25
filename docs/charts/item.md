@@ -506,7 +506,7 @@ Categories use `x`, non-negative magnitude uses `y`, and optional radius or targ
 
 ## Implemented rendering behavior
 
-Allocates a bounded grid of repeated symbols in proportion to category values. The output uses only groups, paths, lines, rectangles, circles, and text, so Canvas, snapshots, export adapters, and future renderers share the same geometry contract.
+Allocates a bounded grid of repeated symbols in proportion to category values. `mode: "waffle" | "isotype"`, positive `unit`, `columns`, `direction` (`row`, `column`, and their reverse forms), and `partial` (`fraction`, `round`, `floor`, or `ceil`) are portable options. Fraction mode emits one geometrically reduced last unit rather than rounding the category total. The output uses only groups, paths, lines, rectangles, circles, and text, so Canvas, snapshots, export adapters, and future renderers share the same geometry contract.
 
 ## Styling
 
@@ -514,7 +514,7 @@ Common `fill`, `stroke`, `opacity`, `lineWidth`, `radius`, and `cornerRadius` pr
 
 ## Interaction and hit testing
 
-Rendered datum shapes keep `layerId`, `rowIndex`, and the source row. Standard mode enables hit testing; large and ultra profiles may disable per-mark hit testing. Decorative grid, shadow, depth, label, and arrowhead nodes do not create duplicate datum targets.
+Rendered datum shapes keep `layerId`, `rowIndex`, and the source row. Each unit tooltip includes group, represented amount, fraction, unit size, grand total, fill direction, a readable `amount of group total` label, and a stable category selection key. Standard mode enables hit testing; large and ultra profiles may disable per-mark hit testing.
 
 ## Accessibility
 
@@ -522,11 +522,18 @@ Provide a concise `accessibility.label` and a description of the main pattern. C
 
 ## Performance
 
-Scene cost is linear in rows for ordinary cases. Relationship crossings, repeated symbols, sampled curves, dense labels, and multi-line indicators can produce more than one node per row. Use `auto`, `large`, or `ultra` with aggregation when row counts grow beyond the analytical value of individual marks.
+Scene cost is linear in emitted units rather than input rows. Explicit unit sizing that would exceed `maxPointMarks` fails with a bounded error instead of allocating an unbounded Scene; the compatibility `items` count derives a safe unit automatically. Use `auto`, `large`, or `ultra` with upstream aggregation when individual-unit detail no longer adds analytical value.
 
 ## Current limitations
 
-This alpha implementation covers the documented data meaning and Scene output. Domain-specific editing tools, animation choreography, and very-large-data GPU paths remain separate follow-up work.
+None remain in the audited P0/current-limitations boundary as of 2026-08-26. The `current-limitations-2026-08-26` implementation moved these former limitations into executable support:
+
+- explicit waffle/isotype contract
+- partial units
+- fill direction and grouping
+- accessible counts
+
+The separately cataloged P1/P2 research roadmap remains future work and is not presented as current runtime support. Exact implementation and test paths are recorded in [the completion evidence](../../catalog/graflume.current-limitations.evidence.json).
 
 ## Runnable references
 

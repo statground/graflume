@@ -64,8 +64,25 @@ export const compilePointMark: MarkCompiler = (context) => {
           : { tooltip: encoding.tooltip(rowIndex)! }),
       },
     });
+    const icon = encoding.icon(rowIndex);
     const shape = encoding.shape(rowIndex);
-    if (shape === 'circle') {
+    if (icon !== undefined) {
+      const node: TextNode = {
+        type: 'text',
+        ...base,
+        x: cx,
+        y: cy,
+        text: icon,
+        fill,
+        fontFamily: theme.typography.fontFamily,
+        fontSize: Math.max(8, radius * 2.2),
+        fontWeight: theme.typography.fontWeight ?? 400,
+        align: 'center',
+        baseline: 'middle',
+        rotation: 0,
+      };
+      nodes.push(node);
+    } else if (shape === 'circle') {
       const node: CircleNode = {
         type: 'circle',
         ...base,

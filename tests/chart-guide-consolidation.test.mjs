@@ -58,7 +58,7 @@ test('chart documentation contains one manual per representative family', async 
   const actual = (await readdir(chartDirectory)).filter((name) => name.endsWith('.md')).sort();
 
   assert.equal(fullCatalog.length, 41);
-  assert.equal(fullVariantCatalog.length, 165);
+  assert.equal(fullVariantCatalog.length, 168);
   assert.deepEqual(actual, expected);
 });
 

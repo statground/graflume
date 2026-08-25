@@ -772,3 +772,85 @@ test('spatial multiple selection is independent of authored highlight limits and
     environment.restore();
   }
 });
+
+test('spatial GPU semantic focus projects a ring and links stable keys across live views', () => {
+  const environment = installDom(fakeWebGL());
+  try {
+    const leftTarget = environment.document.createElement('div');
+    const rightTarget = environment.document.createElement('div');
+    const accessibility = {
+      table: true,
+      maxRows: 10,
+      navigation: { pageRows: 2, wrap: false },
+      linkedFocus: { group: 'linked-spatial-test', key: 'label' },
+    };
+    const left = createSpatial(
+      leftTarget,
+      {
+        accessibility,
+        interaction: { controls: false, tooltip: true },
+        layers: [
+          {
+            id: 'left',
+            mark: { type: 'scatter' },
+            data: {
+              positions: [
+                [-1, 0, 0],
+                [1, 0, 0],
+              ],
+              labels: ['A', 'B'],
+            },
+          },
+        ],
+      },
+      { width: 480, height: 320, autoResize: false },
+    );
+    const right = createSpatial(
+      rightTarget,
+      {
+        accessibility,
+        interaction: { controls: false, tooltip: true },
+        layers: [
+          {
+            id: 'right',
+            mark: { type: 'scatter' },
+            data: {
+              positions: [
+                [0, 1, 0],
+                [0, -1, 0],
+              ],
+              labels: ['B', 'A'],
+            },
+          },
+        ],
+      },
+      { width: 480, height: 320, autoResize: false },
+    );
+    left.focusSemanticNode('left:point:1');
+    assert.equal(left.getSemanticNavigationState().activeNodeId, 'left:point:1');
+    assert.equal(right.getSemanticNavigationState().activeNodeId, 'right:point:0');
+    const leftRing = walk(leftTarget).find(
+      ({ dataset }) => dataset.graflumeSpatialSemanticFocus === 'true',
+    );
+    const rightRing = walk(rightTarget).find(
+      ({ dataset }) => dataset.graflumeSpatialSemanticFocus === 'true',
+    );
+    assert.equal(leftRing.hidden, false);
+    assert.equal(rightRing.hidden, false);
+    const rightSurface = walk(rightTarget).find(
+      ({ dataset }) => dataset.graflumeSpatialSurface === 'true',
+    );
+    assert.match(rightSurface.getAttribute('aria-activedescendant'), /spatial-row.*-0-0$/);
+    const semanticRows = walk(rightTarget).filter(
+      ({ dataset }) => dataset.graflumeSpatialSemanticId !== undefined,
+    );
+    assert.equal(semanticRows.length, 2);
+    assert.ok(
+      semanticRows.some(({ id }) => id === rightSurface.getAttribute('aria-activedescendant')),
+    );
+    left.destroy();
+    right.destroy();
+  } finally {
+    environment.restore();
+  }
+});

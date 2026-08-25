@@ -282,7 +282,13 @@ Grid coordinates are deterministically thinned to `maxBarMarks` before canonical
 
 ## Current limitations
 
-Only line isolines are implemented. Filled or banded polygons—especially nested hole topology—triangulation of irregular samples, contour smoothing/labels, general density-to-contour calculation, GPU extraction, and 3D contour projection remain planned. They are not exposed as supported runtime options.
+None remain in the audited P0/current-limitations boundary as of 2026-08-26. The `current-limitations-2026-08-26` implementation moved these former limitations into executable support:
+
+- filled and banded contours with polygon-hole topology
+- triangulated irregular samples
+- smoothing
+
+The separately cataloged P1/P2 research roadmap remains future work and is not presented as current runtime support. Exact implementation and test paths are recorded in [the completion evidence](../../catalog/graflume.current-limitations.evidence.json).
 
 ## Runnable references
 

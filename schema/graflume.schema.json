@@ -10,9 +10,9 @@
     "fullFamilyCount": 41,
     "defaultVariantCount": 42,
     "additionalVariantCount": 27,
-    "seriesVariantCount": 96,
+    "seriesVariantCount": 99,
     "fullVariantCount": 165,
-    "compatibilitySeriesCount": 117,
+    "compatibilitySeriesCount": 120,
     "additionalMarks": [
       "radar",
       "polar",
@@ -164,6 +164,8 @@
     "data": {
       "$ref": "#/$defs/data"
     },
+    "source": { "$ref": "#/$defs/fieldName" },
+    "dataflow": { "$ref": "#/$defs/dataflow" },
     "transform": {
       "$ref": "#/$defs/transformList"
     },
@@ -323,7 +325,8 @@
     },
     "axes": {
       "type": "object",
-      "additionalProperties": false,
+      "propertyNames": { "$ref": "#/$defs/axisId" },
+      "additionalProperties": { "$ref": "#/$defs/namedAxis" },
       "properties": {
         "x": {
           "$ref": "#/$defs/xAxisOrFalse"
@@ -351,6 +354,9 @@
       "type": "array",
       "maxItems": 256,
       "items": { "$ref": "#/$defs/annotation" }
+    },
+    "markLabels": {
+      "oneOf": [{ "type": "boolean" }, { "$ref": "#/$defs/markLabels" }]
     },
     "interaction": {
       "type": "object",
@@ -431,6 +437,46 @@
         "navigation": {
           "type": "boolean"
         },
+        "explorer": {
+          "oneOf": [
+            { "type": "boolean" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "windowRows": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 5000
+                },
+                "overscanRows": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "rowHeight": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 256
+                }
+              }
+            }
+          ]
+        },
+        "linkedFocus": {
+          "type": "object",
+          "required": ["group", "key"],
+          "additionalProperties": false,
+          "properties": {
+            "group": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$"
+            },
+            "key": {
+              "allOf": [{ "$ref": "#/$defs/fieldName" }, { "maxLength": 128 }]
+            }
+          }
+        },
         "summary": {
           "type": "string"
         },
@@ -465,6 +511,12 @@
       "required": ["data", "mark", "encoding"]
     },
     {
+      "required": ["source", "dataflow", "mark", "encoding"]
+    },
+    {
+      "required": ["source", "dataflow", "mark", "x", "y"]
+    },
+    {
       "required": ["layers"]
     },
     {
@@ -472,6 +524,9 @@
     },
     {
       "required": ["data", "facet", "spec"]
+    },
+    {
+      "required": ["source", "dataflow", "facet", "spec"]
     },
     {
       "required": ["repeat", "spec"]
@@ -523,6 +578,11 @@
   "$defs": {
     "primitive": {
       "type": ["string", "number", "boolean", "null"]
+    },
+    "axisId": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$",
+      "not": { "enum": ["__proto__", "prototype", "constructor"] }
     },
     "row": {
       "type": "object",
@@ -576,6 +636,35 @@
         }
       ]
     },
+    "dataflowNode": {
+      "type": "object",
+      "required": ["id", "source", "transform"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/fieldName" },
+        "source": { "$ref": "#/$defs/fieldName" },
+        "transform": { "$ref": "#/$defs/transformList" }
+      }
+    },
+    "dataflow": {
+      "type": "object",
+      "required": ["sources"],
+      "additionalProperties": false,
+      "properties": {
+        "sources": {
+          "type": "object",
+          "minProperties": 1,
+          "maxProperties": 128,
+          "propertyNames": { "$ref": "#/$defs/fieldName" },
+          "additionalProperties": { "$ref": "#/$defs/data" }
+        },
+        "nodes": {
+          "type": "array",
+          "maxItems": 256,
+          "items": { "$ref": "#/$defs/dataflowNode" }
+        }
+      }
+    },
     "streaming": {
       "type": "object",
       "required": ["key"],
@@ -624,7 +713,7 @@
           "properties": {
             "maxBatches": { "type": "integer", "minimum": 1, "maximum": 1024 },
             "maxRows": { "type": "integer", "minimum": 1, "maximum": 1000000 },
-            "overflow": { "const": "reject" }
+            "overflow": { "enum": ["reject", "drop-oldest", "coalesce"] }
           }
         },
         "replay": {
@@ -633,6 +722,101 @@
           "properties": {
             "maxBatches": { "type": "integer", "minimum": 1, "maximum": 4096 },
             "maxRows": { "type": "integer", "minimum": 1, "maximum": 1000000 }
+          }
+        },
+        "runtime": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "schedule": { "enum": ["animation-frame", "microtask"] },
+            "maxBatchesPerFrame": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1024
+            },
+            "overflow": { "enum": ["reject", "drop-oldest", "coalesce"] },
+            "paused": { "type": "boolean" },
+            "followLive": { "type": "boolean" },
+            "history": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "maxBatches": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 4096
+                },
+                "pageRows": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 100000
+                }
+              }
+            }
+          }
+        },
+        "worker": {
+          "type": "object",
+          "required": ["moduleURL"],
+          "additionalProperties": false,
+          "properties": {
+            "moduleURL": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            },
+            "name": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$"
+            },
+            "maxQueueBatches": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1024
+            },
+            "maxQueueRows": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000
+            },
+            "maxInputRows": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000
+            },
+            "maxBinaryBytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 268435456
+            },
+            "maxTransforms": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 128
+            },
+            "overflow": { "enum": ["reject", "drop-oldest", "coalesce"] },
+            "engine": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "required": ["type"],
+                  "additionalProperties": false,
+                  "properties": { "type": { "const": "javascript" } }
+                },
+                {
+                  "type": "object",
+                  "required": ["type", "adapter"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "type": { "const": "wasm" },
+                    "adapter": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$"
+                    }
+                  }
+                }
+              ]
+            }
           }
         }
       },
@@ -1694,6 +1878,7 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "channel": { "enum": ["x", "y"] },
         "title": {
           "oneOf": [
             {
@@ -1755,6 +1940,17 @@
         }
       ]
     },
+    "namedAxis": {
+      "allOf": [
+        { "$ref": "#/$defs/axis" },
+        { "required": ["channel", "position"] },
+        {
+          "if": { "properties": { "channel": { "const": "x" } }, "required": ["channel"] },
+          "then": { "properties": { "position": { "enum": ["top", "bottom"] } } },
+          "else": { "properties": { "position": { "enum": ["left", "right"] } } }
+        }
+      ]
+    },
     "xAxisOrFalse": {
       "oneOf": [
         {
@@ -1764,6 +1960,7 @@
             },
             {
               "properties": {
+                "channel": { "const": "x" },
                 "position": {
                   "enum": ["top", "bottom"]
                 }
@@ -1785,6 +1982,7 @@
             },
             {
               "properties": {
+                "channel": { "const": "y" },
                 "position": {
                   "enum": ["left", "right"]
                 }
@@ -1875,7 +2073,7 @@
           "enum": ["mark", "axis"]
         },
         "axis": {
-          "enum": ["x", "x2", "y", "y2"]
+          "$ref": "#/$defs/axisId"
         },
         "title": {
           "type": "string"
@@ -1925,9 +2123,9 @@
         "axes": {
           "type": "array",
           "minItems": 1,
-          "maxItems": 4,
+          "maxItems": 64,
           "uniqueItems": true,
-          "items": { "enum": ["x", "x2", "y", "y2"] }
+          "items": { "$ref": "#/$defs/axisId" }
         },
         "maxZoom": { "type": "number", "minimum": 1, "maximum": 64 },
         "wheel": { "enum": ["off", "modifier", "always"] },
@@ -1974,6 +2172,17 @@
         "loop": {
           "type": "boolean"
         },
+        "direction": {
+          "enum": ["forward", "reverse"]
+        },
+        "range": {
+          "$ref": "#/$defs/playbackRange"
+        },
+        "namedFrames": {
+          "type": "array",
+          "maxItems": 10000,
+          "items": { "$ref": "#/$defs/playbackNamedFrame" }
+        },
         "windowSize": {
           "type": "integer",
           "minimum": 1,
@@ -1987,6 +2196,31 @@
         },
         "filter": {
           "type": "boolean"
+        }
+      }
+    },
+    "playbackFrameReference": {
+      "oneOf": [
+        { "type": "integer", "minimum": 0 },
+        { "type": "string", "minLength": 1 }
+      ]
+    },
+    "playbackRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "start": { "$ref": "#/$defs/playbackFrameReference" },
+        "end": { "$ref": "#/$defs/playbackFrameReference" }
+      }
+    },
+    "playbackNamedFrame": {
+      "type": "object",
+      "required": ["name", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "value": {
+          "oneOf": [{ "type": "string" }, { "type": "number" }, { "type": "boolean" }]
         }
       }
     },
@@ -2086,6 +2320,20 @@
         {
           "if": { "required": ["maxLassoPoints"] },
           "then": { "properties": { "kind": { "const": "lasso" } }, "required": ["kind"] }
+        },
+        {
+          "if": {
+            "required": ["filter"],
+            "properties": { "filter": { "const": true }, "kind": { "const": "point" } }
+          },
+          "then": { "required": ["key"] }
+        },
+        {
+          "if": {
+            "required": ["linked"],
+            "properties": { "linked": { "const": true }, "kind": { "const": "point" } }
+          },
+          "then": { "required": ["key"] }
         }
       ],
       "properties": {
@@ -2102,19 +2350,46 @@
         "clearOnEscape": { "type": "boolean" },
         "ariaLabel": { "type": "string", "minLength": 1, "pattern": "\\S" },
         "highlight": { "$ref": "#/$defs/highlightStyle" },
-        "axis": { "enum": ["x", "x2", "y", "y2"] },
-        "xAxis": { "enum": ["x", "x2"] },
-        "yAxis": { "enum": ["y", "y2"] },
+        "axis": { "$ref": "#/$defs/axisId" },
+        "xAxis": { "$ref": "#/$defs/axisId" },
+        "yAxis": { "$ref": "#/$defs/axisId" },
         "maxSelections": { "type": "integer", "minimum": 1, "maximum": 64 },
         "maxLassoPoints": { "type": "integer", "minimum": 3, "maximum": 512 },
-        "minPixelSpan": { "type": "number", "minimum": 0, "maximum": 64 }
+        "minPixelSpan": { "type": "number", "minimum": 0, "maximum": 64 },
+        "keyboard": { "type": "boolean" },
+        "keyboardStep": { "type": "number", "minimum": 1, "maximum": 64 },
+        "filter": { "type": "boolean" },
+        "linked": { "type": "boolean" }
       }
     },
     "analyticExtent": {
-      "type": "array",
-      "minItems": 2,
-      "maxItems": 2,
-      "items": { "type": "number" }
+      "oneOf": [
+        {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "type": "number" }
+        },
+        {
+          "type": "object",
+          "required": ["values"],
+          "additionalProperties": false,
+          "properties": {
+            "values": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 512,
+              "uniqueItems": true,
+              "items": {
+                "oneOf": [
+                  { "type": "number" },
+                  { "type": "string", "minLength": 1, "maxLength": 4096 }
+                ]
+              }
+            }
+          }
+        }
+      ]
     },
     "analyticSelection": {
       "oneOf": [
@@ -2125,8 +2400,8 @@
           "anyOf": [{ "required": ["x"] }, { "required": ["y"] }, { "required": ["target"] }],
           "properties": {
             "type": { "const": "point" },
-            "xAxis": { "enum": ["x", "x2"] },
-            "yAxis": { "enum": ["y", "y2"] },
+            "xAxis": { "$ref": "#/$defs/axisId" },
+            "yAxis": { "$ref": "#/$defs/axisId" },
             "x": {
               "oneOf": [
                 { "type": "number" },
@@ -2148,8 +2423,8 @@
           "additionalProperties": false,
           "properties": {
             "type": { "enum": ["interval", "rectangle"] },
-            "xAxis": { "enum": ["x", "x2"] },
-            "yAxis": { "enum": ["y", "y2"] },
+            "xAxis": { "$ref": "#/$defs/axisId" },
+            "yAxis": { "$ref": "#/$defs/axisId" },
             "x": { "$ref": "#/$defs/analyticExtent" },
             "y": { "$ref": "#/$defs/analyticExtent" }
           }
@@ -2160,7 +2435,7 @@
           "additionalProperties": false,
           "properties": {
             "type": { "const": "axis" },
-            "axis": { "enum": ["x", "x2", "y", "y2"] },
+            "axis": { "$ref": "#/$defs/axisId" },
             "extent": { "$ref": "#/$defs/analyticExtent" }
           }
         },
@@ -2170,8 +2445,8 @@
           "additionalProperties": false,
           "properties": {
             "type": { "const": "lasso" },
-            "xAxis": { "enum": ["x", "x2"] },
-            "yAxis": { "enum": ["y", "y2"] },
+            "xAxis": { "$ref": "#/$defs/axisId" },
+            "yAxis": { "$ref": "#/$defs/axisId" },
             "points": {
               "type": "array",
               "minItems": 3,
@@ -2213,14 +2488,19 @@
         "version": { "const": 1 },
         "axes": {
           "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "x": { "$ref": "#/$defs/domainAxisWindow" },
-            "x2": { "$ref": "#/$defs/domainAxisWindow" },
-            "y": { "$ref": "#/$defs/domainAxisWindow" },
-            "y2": { "$ref": "#/$defs/domainAxisWindow" }
-          }
+          "propertyNames": { "$ref": "#/$defs/axisId" },
+          "additionalProperties": { "$ref": "#/$defs/domainAxisWindow" }
         }
+      }
+    },
+    "linkedViewState": {
+      "type": "object",
+      "required": ["version", "analyticSelection", "domainView"],
+      "additionalProperties": false,
+      "properties": {
+        "version": { "const": 1 },
+        "analyticSelection": { "$ref": "#/$defs/analyticSelectionState" },
+        "domainView": { "$ref": "#/$defs/domainViewState" }
       }
     },
     "domainAxisWindow": {
@@ -2380,7 +2660,7 @@
       "required": ["from", "to"],
       "additionalProperties": false,
       "properties": {
-        "axis": { "enum": ["x", "x2"] },
+        "axis": { "$ref": "#/$defs/axisId" },
         "from": { "type": ["number", "string"] },
         "to": { "type": ["number", "string"] }
       }
@@ -2390,7 +2670,7 @@
       "required": ["from", "to"],
       "additionalProperties": false,
       "properties": {
-        "axis": { "enum": ["y", "y2"] },
+        "axis": { "$ref": "#/$defs/axisId" },
         "from": { "type": ["number", "string"] },
         "to": { "type": ["number", "string"] }
       }
@@ -2401,6 +2681,7 @@
       "additionalProperties": false,
       "properties": {
         "id": { "type": "string", "minLength": 1 },
+        "primitive": { "enum": ["callout", "label", "point", "rule", "band"] },
         "target": { "$ref": "#/$defs/decorationTarget" },
         "fill": { "type": "string", "minLength": 1 },
         "stroke": { "type": "string", "minLength": 1 },
@@ -2462,6 +2743,104 @@
         }
       }
     },
+    "markLabels": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "visible": { "type": "boolean" },
+        "field": { "$ref": "#/$defs/fieldName" },
+        "key": { "$ref": "#/$defs/fieldName" },
+        "layerIds": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "placement": { "enum": ["auto", "top", "right", "bottom", "left", "center"] },
+        "offset": { "type": "number", "minimum": 0, "maximum": 256 },
+        "collision": { "enum": ["avoid", "hide", "none"] },
+        "connector": {
+          "oneOf": [
+            { "type": "boolean" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "visible": { "type": "boolean" },
+                "color": { "type": "string", "minLength": 1 },
+                "width": { "type": "number", "minimum": 0, "maximum": 64 },
+                "dash": {
+                  "type": "array",
+                  "maxItems": 16,
+                  "items": { "type": "number", "minimum": 0, "maximum": 256 }
+                }
+              }
+            }
+          ]
+        },
+        "maxLabels": { "type": "integer", "minimum": 1, "maximum": 1000 },
+        "positions": {
+          "type": "array",
+          "maxItems": 1000,
+          "items": { "$ref": "#/$defs/markLabelPosition" }
+        },
+        "style": { "$ref": "#/$defs/markLabelStyle" },
+        "authoring": {
+          "oneOf": [{ "type": "boolean" }, { "$ref": "#/$defs/markLabelAuthoring" }]
+        }
+      }
+    },
+    "markLabelPosition": {
+      "type": "object",
+      "required": ["target"],
+      "additionalProperties": false,
+      "properties": {
+        "target": { "$ref": "#/$defs/datumTarget" },
+        "offsetX": { "type": "number", "minimum": -10000, "maximum": 10000 },
+        "offsetY": { "type": "number", "minimum": -10000, "maximum": 10000 },
+        "hidden": { "type": "boolean" }
+      }
+    },
+    "markLabelStyle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "color": { "type": "string", "minLength": 1 },
+        "background": { "type": "string", "minLength": 1 },
+        "border": { "type": "string", "minLength": 1 },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "fontSize": { "type": "number", "minimum": 1, "maximum": 256 },
+        "fontWeight": { "type": "number", "minimum": 1, "maximum": 1000 },
+        "maxWidth": { "type": "number", "minimum": 8, "maximum": 2000 },
+        "padding": { "type": "number", "minimum": 0, "maximum": 256 },
+        "radius": { "type": "number", "minimum": 0, "maximum": 256 }
+      }
+    },
+    "markLabelAuthoring": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "pointer": { "type": "boolean" },
+        "keyboard": { "type": "boolean" },
+        "step": { "type": "number", "minimum": 0.1, "maximum": 256 },
+        "historyLimit": { "type": "integer", "minimum": 1, "maximum": 500 },
+        "snap": {
+          "oneOf": [{ "const": false }, { "$ref": "#/$defs/markLabelSnap" }]
+        }
+      }
+    },
+    "markLabelSnap": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "grid": {
+          "oneOf": [{ "const": false }, { "type": "number", "minimum": 1, "maximum": 256 }]
+        },
+        "marks": { "type": "boolean" },
+        "plot": { "type": "boolean" },
+        "distance": { "type": "number", "minimum": 0, "maximum": 128 }
+      }
+    },
     "encodingObject": {
       "type": "object",
       "required": ["field"],
@@ -2486,9 +2865,7 @@
         "axis": {
           "$ref": "#/$defs/axisOrFalse"
         },
-        "axisId": {
-          "enum": ["x", "x2", "y", "y2"]
-        },
+        "axisId": { "$ref": "#/$defs/axisId" },
         "condition": {
           "oneOf": [
             { "$ref": "#/$defs/encodingCondition" },
@@ -2550,7 +2927,7 @@
         "title": { "type": "string" },
         "scale": { "$ref": "#/$defs/scale" },
         "axis": { "$ref": "#/$defs/axisOrFalse" },
-        "axisId": { "enum": ["x", "x2", "y", "y2"] },
+        "axisId": { "$ref": "#/$defs/axisId" },
         "condition": {
           "oneOf": [
             { "$ref": "#/$defs/encodingCondition" },
@@ -2580,7 +2957,6 @@
     },
     "encodingMap": {
       "type": "object",
-      "required": ["x", "y"],
       "additionalProperties": false,
       "properties": {
         "x": { "$ref": "#/$defs/xEncoding" },
@@ -2593,10 +2969,21 @@
         "size": { "$ref": "#/$defs/channelEncoding" },
         "radius": { "$ref": "#/$defs/channelEncoding" },
         "shape": { "$ref": "#/$defs/channelEncoding" },
+        "symbol": { "$ref": "#/$defs/channelEncoding" },
+        "icon": { "$ref": "#/$defs/channelEncoding" },
         "opacity": { "$ref": "#/$defs/channelEncoding" },
         "strokeWidth": { "$ref": "#/$defs/channelEncoding" },
         "strokeDash": { "$ref": "#/$defs/channelEncoding" },
         "text": { "$ref": "#/$defs/channelEncoding" },
+        "angle": { "$ref": "#/$defs/channelEncoding" },
+        "theta": { "$ref": "#/$defs/channelEncoding" },
+        "longitude": { "$ref": "#/$defs/channelEncoding" },
+        "latitude": { "$ref": "#/$defs/channelEncoding" },
+        "open": { "$ref": "#/$defs/channelEncoding" },
+        "high": { "$ref": "#/$defs/channelEncoding" },
+        "low": { "$ref": "#/$defs/channelEncoding" },
+        "close": { "$ref": "#/$defs/channelEncoding" },
+        "volume": { "$ref": "#/$defs/channelEncoding" },
         "order": { "$ref": "#/$defs/channelEncoding" },
         "detail": { "$ref": "#/$defs/channelEncoding" },
         "tooltip": { "$ref": "#/$defs/channelEncoding" }
@@ -2628,7 +3015,7 @@
           "then": {
             "properties": {
               "axisId": {
-                "enum": ["x", "x2"]
+                "$ref": "#/$defs/axisId"
               },
               "axis": {
                 "$ref": "#/$defs/xAxisOrFalse"
@@ -2650,7 +3037,7 @@
           "then": {
             "properties": {
               "axisId": {
-                "enum": ["y", "y2"]
+                "$ref": "#/$defs/axisId"
               },
               "axis": {
                 "$ref": "#/$defs/yAxisOrFalse"
@@ -2805,7 +3192,7 @@
             },
             "calculate": {
               "type": "boolean",
-              "description": "Calculate only registry entries whose support is computed; precomputed-required kinds fail validation."
+              "description": "Materialize the selected registry indicator before domain resolution. All built-in named presets are computed; omit this flag to render supplied columns."
             },
             "period": {
               "type": "integer",
@@ -2824,8 +3211,112 @@
             },
             "signalPeriod": {
               "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            },
+            "multiplier": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 20
+            },
+            "standardDeviations": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10
+            },
+            "atrPeriod": {
+              "type": "integer",
               "minimum": 2,
               "maximum": 200
+            },
+            "conversionPeriod": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 200
+            },
+            "basePeriod": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 200
+            },
+            "spanPeriod": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 400
+            },
+            "displacement": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 200
+            },
+            "smoothK": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            },
+            "smoothD": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            },
+            "envelopePercent": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "acceleration": {
+              "type": "number",
+              "minimum": 0.001,
+              "maximum": 1
+            },
+            "maximumAcceleration": {
+              "type": "number",
+              "minimum": 0.001,
+              "maximum": 1
+            },
+            "deviation": {
+              "type": "number",
+              "minimum": 0.01,
+              "maximum": 100
+            },
+            "session": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "Portable technical-indicator session boundary and state-reset policy.",
+              "properties": {
+                "mode": {
+                  "enum": ["none", "field", "utc-day", "gap"]
+                },
+                "field": {
+                  "$ref": "#/$defs/fieldName"
+                },
+                "timeField": {
+                  "$ref": "#/$defs/fieldName"
+                },
+                "gapMs": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "reset": {
+                  "enum": ["hard", "carry"]
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "required": ["mode"],
+                    "properties": { "mode": { "const": "field" } }
+                  },
+                  "then": { "required": ["field"] }
+                },
+                {
+                  "if": {
+                    "required": ["mode"],
+                    "properties": { "mode": { "const": "gap" } }
+                  },
+                  "then": { "required": ["gapMs"] }
+                }
+              ]
             }
           },
           "additionalProperties": {
@@ -2869,6 +3360,34 @@
         }
       ]
     },
+    "layerClip": {
+      "oneOf": [
+        { "type": "boolean" },
+        {
+          "type": "object",
+          "required": ["type", "x", "y", "width", "height"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "plot" },
+            "x": { "type": "number", "minimum": 0, "maximum": 1 },
+            "y": { "type": "number", "minimum": 0, "maximum": 1 },
+            "width": { "type": "number", "minimum": 0, "maximum": 1 },
+            "height": { "type": "number", "minimum": 0, "maximum": 1 }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "domain" },
+            "x": { "$ref": "#/$defs/xRange" },
+            "y": { "$ref": "#/$defs/yRange" }
+          },
+          "anyOf": [{ "required": ["x"] }, { "required": ["y"] }]
+        }
+      ]
+    },
     "layer": {
       "type": "object",
       "required": ["mark"],
@@ -2885,6 +3404,7 @@
         "data": {
           "$ref": "#/$defs/data"
         },
+        "source": { "$ref": "#/$defs/fieldName" },
         "transform": {
           "$ref": "#/$defs/transformList"
         },
@@ -2900,6 +3420,7 @@
         "encoding": {
           "$ref": "#/$defs/encodingMap"
         },
+        "clip": { "$ref": "#/$defs/layerClip" },
         "visible": {
           "type": "boolean"
         },
@@ -2921,7 +3442,8 @@
       "properties": {
         "scale": { "enum": ["shared", "independent"] },
         "axis": { "enum": ["shared", "independent"] },
-        "legend": { "enum": ["shared", "independent"] }
+        "legend": { "enum": ["shared", "independent"] },
+        "colorbar": { "enum": ["shared", "independent"] }
       }
     },
     "compositionChoice": {
@@ -3017,6 +3539,8 @@
         "$schema": { "$ref": "#/properties/$schema" },
         "specVersion": { "$ref": "#/properties/specVersion" },
         "data": { "$ref": "#/properties/data" },
+        "source": { "$ref": "#/properties/source" },
+        "dataflow": { "$ref": "#/properties/dataflow" },
         "transform": { "$ref": "#/properties/transform" },
         "mark": { "$ref": "#/properties/mark" },
         "x": { "$ref": "#/properties/x" },
@@ -3055,6 +3579,8 @@
         "$schema": { "$ref": "#/properties/$schema" },
         "specVersion": { "$ref": "#/properties/specVersion" },
         "data": { "$ref": "#/properties/data" },
+        "source": { "$ref": "#/properties/source" },
+        "dataflow": { "$ref": "#/properties/dataflow" },
         "transform": { "$ref": "#/properties/transform" },
         "mark": { "$ref": "#/properties/mark" },
         "x": { "$ref": "#/properties/x" },
@@ -3083,6 +3609,7 @@
         "legend": { "$ref": "#/properties/legend" },
         "highlights": { "$ref": "#/properties/highlights" },
         "annotations": { "$ref": "#/properties/annotations" },
+        "markLabels": { "$ref": "#/properties/markLabels" },
         "accessibility": { "$ref": "#/properties/accessibility" }
       },
       "anyOf": [

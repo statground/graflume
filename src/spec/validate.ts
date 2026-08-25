@@ -1,7 +1,11 @@
 import { GraflumeError } from '../core/errors.js';
 import { curveNames } from '../curve/registry.js';
 import { seriesStackModes } from '../data/series-stack.js';
-import { resolveTechnicalIndicatorCapability } from '../data/technical-indicators.js';
+import {
+  resolveTechnicalIndicatorCapability,
+  technicalIndicatorCapabilities,
+} from '../data/technical-indicators.js';
+import { materializeSpecDataflow } from '../data/dataflow.js';
 import { isPlainObject } from '../utils/object.js';
 import {
   maximumCompositionDepth,
@@ -19,6 +23,7 @@ import type {
   LayerSpec,
   MarkInput,
 } from './types.js';
+import { axisChannel, axisPositionChannel, builtInAxisChannel, isSafeAxisId } from './axes.js';
 import { validateTransformExpression, validateTransforms } from './transform-validation.js';
 
 export interface SpecIssue {
@@ -58,12 +63,18 @@ const PLAYBACK_KEYS = new Set([
   'interval',
   'rate',
   'loop',
+  'direction',
+  'range',
+  'namedFrames',
   'windowSize',
   'autoplay',
   'transition',
   'filter',
 ]);
 const PLAYBACK_MODES = new Set(['frame', 'cumulative', 'window']);
+const PLAYBACK_DIRECTIONS = new Set(['forward', 'reverse']);
+const PLAYBACK_RANGE_KEYS = new Set(['start', 'end']);
+const PLAYBACK_NAMED_FRAME_KEYS = new Set(['name', 'value']);
 const PLAYBACK_TRANSITION_KEYS = new Set(['duration', 'easing']);
 const PLAYBACK_TRANSITION_EASINGS = new Set(['linear', 'ease-in-out']);
 const CONTROLS_KEYS = new Set([
@@ -109,6 +120,10 @@ const SELECTION_KEYS = new Set([
   'maxSelections',
   'maxLassoPoints',
   'minPixelSpan',
+  'keyboard',
+  'keyboardStep',
+  'filter',
+  'linked',
 ]);
 const SELECTION_MODES = new Set(['single', 'multiple']);
 const SELECTION_KINDS = new Set(['point', 'interval', 'rectangle', 'axis', 'lasso']);
@@ -119,10 +134,14 @@ const ACCESSIBILITY_KEYS = new Set([
   'table',
   'maxRows',
   'navigation',
+  'explorer',
+  'linkedFocus',
   'summary',
   'live',
 ]);
 const ACCESSIBILITY_LIVE_KEYS = new Set(['enabled', 'throttleMs']);
+const ACCESSIBILITY_EXPLORER_KEYS = new Set(['windowRows', 'overscanRows', 'rowHeight']);
+const ACCESSIBILITY_LINKED_FOCUS_KEYS = new Set(['group', 'key']);
 const ACCESSIBILITY_TABLE_MODES = new Set(['hidden', 'visible']);
 const LEGEND_KEYS = new Set([
   'visible',
@@ -178,6 +197,7 @@ const HIGHLIGHT_KEYS = new Set([
 ]);
 const ANNOTATION_KEYS = new Set([
   'id',
+  'primitive',
   'target',
   'text',
   'detail',
@@ -187,6 +207,7 @@ const ANNOTATION_KEYS = new Set([
   'connector',
   'style',
 ]);
+const ANNOTATION_PRIMITIVES = new Set(['callout', 'label', 'point', 'rule', 'band']);
 const ANNOTATION_PLACEMENTS = new Set(['auto', 'top', 'right', 'bottom', 'left']);
 const CONNECTOR_KEYS = new Set(['visible', 'color', 'width', 'dash']);
 const ANNOTATION_STYLE_KEYS = new Set([
@@ -200,6 +221,36 @@ const ANNOTATION_STYLE_KEYS = new Set([
   'align',
 ]);
 const ANNOTATION_TEXT_ALIGNS = new Set(['start', 'center', 'end']);
+const MARK_LABEL_KEYS = new Set([
+  'visible',
+  'field',
+  'key',
+  'layerIds',
+  'placement',
+  'offset',
+  'collision',
+  'connector',
+  'maxLabels',
+  'positions',
+  'style',
+  'authoring',
+]);
+const MARK_LABEL_PLACEMENTS = new Set(['auto', 'top', 'right', 'bottom', 'left', 'center']);
+const MARK_LABEL_COLLISIONS = new Set(['avoid', 'hide', 'none']);
+const MARK_LABEL_POSITION_KEYS = new Set(['target', 'offsetX', 'offsetY', 'hidden']);
+const MARK_LABEL_STYLE_KEYS = new Set([
+  'color',
+  'background',
+  'border',
+  'opacity',
+  'fontSize',
+  'fontWeight',
+  'maxWidth',
+  'padding',
+  'radius',
+]);
+const MARK_LABEL_AUTHORING_KEYS = new Set(['pointer', 'keyboard', 'step', 'historyLimit', 'snap']);
+const MARK_LABEL_SNAP_KEYS = new Set(['grid', 'marks', 'plot', 'distance']);
 const ENCODING_KEYS = new Set([
   'field',
   'value',
@@ -222,10 +273,21 @@ const ENCODING_CHANNELS = new Set<EncodingChannel>([
   'size',
   'radius',
   'shape',
+  'symbol',
+  'icon',
   'opacity',
   'strokeWidth',
   'strokeDash',
   'text',
+  'angle',
+  'theta',
+  'longitude',
+  'latitude',
+  'open',
+  'high',
+  'low',
+  'close',
+  'volume',
   'order',
   'detail',
   'tooltip',
@@ -272,14 +334,45 @@ const SCALE_OUT_OF_BOUNDS = new Set(['extrapolate', 'clamp', 'error', 'unknown']
 const POINT_SHAPES = new Set(['circle', 'square', 'diamond', 'triangle', 'cross']);
 const RAW_ONLY_ENCODING_CHANNELS = new Set([
   'shape',
+  'symbol',
+  'icon',
   'strokeDash',
   'text',
+  'angle',
+  'theta',
+  'longitude',
+  'latitude',
+  'open',
+  'high',
+  'low',
+  'close',
+  'volume',
   'order',
   'detail',
   'tooltip',
 ]);
-const AXIS_IDS = new Set(['x', 'x2', 'y', 'y2']);
+const FIELD_ONLY_SEMANTIC_CHANNELS = new Set<EncodingChannel>([
+  'angle',
+  'theta',
+  'longitude',
+  'latitude',
+  'open',
+  'high',
+  'low',
+  'close',
+  'volume',
+]);
+const GEOGRAPHIC_POSITION_MARKS = new Set([
+  'map',
+  'geo-flow',
+  'geo-line',
+  'geo-heatmap',
+  'tiled-map',
+  'tilemap',
+]);
+const TRADING_CHANNEL_MARKS = new Set(['candlestick', 'financial']);
 const AXIS_KEYS = new Set([
+  'channel',
   'title',
   'visible',
   'position',
@@ -348,15 +441,17 @@ const LAYER_KEYS = new Set([
   'id',
   'name',
   'data',
+  'source',
   'transform',
   'mark',
   'x',
   'y',
   'encoding',
+  'clip',
   'visible',
   'zIndex',
 ]);
-const COMPOSITION_RESOLVE_KEYS = new Set(['scale', 'axis', 'legend']);
+const COMPOSITION_RESOLVE_KEYS = new Set(['scale', 'axis', 'legend', 'colorbar']);
 const FACET_KEYS = new Set(['row', 'column', 'wrap', 'columns']);
 const FACET_FIELD_KEYS = new Set(['field', 'title', 'sort']);
 const FACET_SORTS = new Set(['input', 'ascending', 'descending']);
@@ -367,17 +462,22 @@ const LAYER_COMPOSITION_CHILD_KEYS = new Set([
   '$schema',
   'specVersion',
   'data',
+  'source',
+  'dataflow',
   'transform',
   'mark',
   'x',
   'y',
   'encoding',
   'layers',
+  'markLabels',
 ]);
 const COMPOSITION_KEYS = new Set([
   '$schema',
   'specVersion',
   'data',
+  'source',
+  'dataflow',
   'transform',
   'mark',
   'x',
@@ -440,12 +540,36 @@ const STREAMING_KEYS = new Set([
   'eventTime',
   'queue',
   'replay',
+  'runtime',
+  'worker',
 ]);
 const STREAMING_RETENTION_KEYS = new Set(['maxRows', 'time']);
 const STREAMING_TIME_KEYS = new Set(['field', 'durationMs']);
 const STREAMING_EVENT_TIME_KEYS = new Set(['field', 'allowedLatenessMs', 'lateData']);
 const STREAMING_QUEUE_KEYS = new Set(['maxBatches', 'maxRows', 'overflow']);
 const STREAMING_REPLAY_KEYS = new Set(['maxBatches', 'maxRows']);
+const STREAMING_RUNTIME_KEYS = new Set([
+  'schedule',
+  'maxBatchesPerFrame',
+  'overflow',
+  'paused',
+  'followLive',
+  'history',
+]);
+const STREAMING_HISTORY_KEYS = new Set(['maxBatches', 'pageRows']);
+const STREAMING_WORKER_KEYS = new Set([
+  'moduleURL',
+  'name',
+  'maxQueueBatches',
+  'maxQueueRows',
+  'maxInputRows',
+  'maxBinaryBytes',
+  'maxTransforms',
+  'overflow',
+  'engine',
+]);
+const STREAMING_WORKER_ENGINE_KEYS = new Set(['type', 'adapter']);
+const STREAMING_OVERFLOW_POLICIES = new Set(['reject', 'drop-oldest', 'coalesce']);
 
 function validateUnknownKeys(
   value: Record<string, unknown>,
@@ -1302,7 +1426,8 @@ function validateAxisFormat(value: unknown, path: string, issues: SpecIssue[]): 
 function validateAxis(
   value: unknown,
   path: string,
-  axisId: 'x' | 'x2' | 'y' | 'y2',
+  axisId: string,
+  expectedChannel: 'x' | 'y' | undefined,
   issues: SpecIssue[],
 ): void {
   if (value === false) return;
@@ -1311,14 +1436,34 @@ function validateAxis(
     return;
   }
   validateUnknownKeys(value, AXIS_KEYS, path, 'axis', issues);
+  if (
+    value.channel !== undefined &&
+    (typeof value.channel !== 'string' || !['x', 'y'].includes(value.channel))
+  ) {
+    issues.push({ path: `${path}.channel`, message: 'Axis channel must be x or y.' });
+  }
+  const channel =
+    expectedChannel ??
+    builtInAxisChannel(axisId) ??
+    (value.channel === 'x' || value.channel === 'y' ? value.channel : undefined);
+  if (
+    expectedChannel !== undefined &&
+    value.channel !== undefined &&
+    value.channel !== expectedChannel
+  ) {
+    issues.push({
+      path: `${path}.channel`,
+      message: `Axis channel must be "${expectedChannel}" in this context.`,
+    });
+  }
   validateAxisTitle(value.title, `${path}.title`, issues);
   validateOptionalBoolean(value.visible, `${path}.visible`, 'Axis visibility', issues);
   if (value.position !== undefined) {
     if (typeof value.position !== 'string' || !AXIS_POSITIONS.has(value.position)) {
       issues.push({ path: `${path}.position`, message: 'Axis position is not supported.' });
     } else if (
-      ((axisId === 'x' || axisId === 'x2') && !['top', 'bottom'].includes(value.position)) ||
-      ((axisId === 'y' || axisId === 'y2') && !['left', 'right'].includes(value.position))
+      channel !== undefined &&
+      axisPositionChannel(value.position as import('./types.js').AxisPosition) !== channel
     ) {
       issues.push({
         path: `${path}.position`,
@@ -1359,10 +1504,38 @@ function validateAxes(value: unknown, path: string, issues: SpecIssue[]): void {
     issues.push({ path, message: 'Axes must be an object.' });
     return;
   }
-  validateUnknownKeys(value, AXIS_IDS, path, 'axes', issues);
-  for (const axisId of ['x', 'x2', 'y', 'y2'] as const) {
-    if (value[axisId] !== undefined)
-      validateAxis(value[axisId], `${path}.${axisId}`, axisId, issues);
+  for (const [axisId, axis] of Object.entries(value)) {
+    if (!isSafeAxisId(axisId)) {
+      issues.push({
+        path: `${path}.${axisId}`,
+        message:
+          'Axis id must start with an ASCII letter and contain at most 64 letters, digits, underscores, or hyphens.',
+      });
+      continue;
+    }
+    const builtInChannel = builtInAxisChannel(axisId);
+    if (builtInChannel === undefined) {
+      if (!isPlainObject(axis)) {
+        issues.push({
+          path: `${path}.${axisId}`,
+          message: 'Named axis must be an object with explicit channel and position.',
+        });
+        continue;
+      }
+      if (axis.channel !== 'x' && axis.channel !== 'y') {
+        issues.push({
+          path: `${path}.${axisId}.channel`,
+          message: 'Named axis requires an explicit x or y channel.',
+        });
+      }
+      if (axis.position === undefined) {
+        issues.push({
+          path: `${path}.${axisId}.position`,
+          message: 'Named axis requires an explicit top, bottom, left, or right position.',
+        });
+      }
+    }
+    validateAxis(axis, `${path}.${axisId}`, axisId, builtInChannel, issues);
   }
 }
 
@@ -1436,10 +1609,25 @@ function validateChannelValue(
   if (channel === 'opacity' && (typeof value !== 'number' || value < 0 || value > 1)) {
     issues.push({ path, message: 'Opacity value must be a number between 0 and 1.' });
   }
-  if (channel === 'shape' && (typeof value !== 'string' || !POINT_SHAPES.has(value))) {
+  if (
+    (channel === 'shape' || channel === 'symbol') &&
+    (typeof value !== 'string' || !POINT_SHAPES.has(value))
+  ) {
     issues.push({
       path,
-      message: 'Shape value must be circle, square, diamond, triangle, or cross.',
+      message: `${channel} value must be circle, square, diamond, triangle, or cross.`,
+    });
+  }
+  if (
+    channel === 'icon' &&
+    (typeof value !== 'string' ||
+      value.trim() === '' ||
+      value.length > 32 ||
+      /[\u0000-\u001f\u007f]/u.test(value))
+  ) {
+    issues.push({
+      path,
+      message: 'Icon value must be a safe non-empty string up to 32 characters.',
     });
   }
 }
@@ -1468,6 +1656,9 @@ function validateEncoding(
   const hasValue = value.value !== undefined;
   if (hasField === hasValue) {
     issues.push({ path, message: 'Encoding requires exactly one of field or value.' });
+  }
+  if (FIELD_ONLY_SEMANTIC_CHANNELS.has(channel) && !hasField) {
+    issues.push({ path: `${path}.field`, message: `${channel} requires a field encoding.` });
   }
   if ((channel === 'x' || channel === 'y') && !hasField) {
     issues.push({ path: `${path}.field`, message: `${channel} encoding requires a field.` });
@@ -1691,9 +1882,8 @@ function validateEncoding(
     });
   }
 
-  const allowedAxisIds = channel === 'x' ? new Set(['x', 'x2']) : new Set(['y', 'y2']);
   const axisId =
-    typeof value.axisId === 'string' && allowedAxisIds.has(value.axisId)
+    typeof value.axisId === 'string' && isSafeAxisId(value.axisId)
       ? value.axisId
       : channel === 'x' || channel === 'y'
         ? channel
@@ -1702,19 +1892,19 @@ function validateEncoding(
     value.axisId !== undefined &&
     ((channel !== 'x' && channel !== 'y') ||
       typeof value.axisId !== 'string' ||
-      !allowedAxisIds.has(value.axisId))
+      !isSafeAxisId(value.axisId))
   ) {
     issues.push({
       path: `${path}.axisId`,
       message:
         channel === 'x' || channel === 'y'
-          ? `${channel}-encoding axisId must be "${channel}" or "${channel}2".`
+          ? `${channel}-encoding axisId must use the safe named-axis grammar.`
           : `axisId is not valid for the ${channel} channel.`,
     });
   }
   if (value.axis !== undefined) {
     if ((channel === 'x' || channel === 'y') && axisId !== undefined) {
-      validateAxis(value.axis, `${path}.axis`, axisId as 'x' | 'x2' | 'y' | 'y2', issues);
+      validateAxis(value.axis, `${path}.axis`, axisId, channel, issues);
     } else {
       issues.push({
         path: `${path}.axis`,
@@ -1770,6 +1960,8 @@ function validateMarkEncodingCompatibility(
       'size',
       'radius',
       'shape',
+      'symbol',
+      'icon',
       'opacity',
       'strokeWidth',
       'strokeDash',
@@ -1837,6 +2029,67 @@ function validateMarkEncodingCompatibility(
       'tooltip',
     ])
       allowed.add(channel);
+  } else if (type !== undefined && GEOGRAPHIC_POSITION_MARKS.has(type)) {
+    allowed.add('longitude');
+    allowed.add('latitude');
+  } else if (type !== undefined && TRADING_CHANNEL_MARKS.has(type)) {
+    for (const channel of ['open', 'high', 'low', 'close', 'volume']) allowed.add(channel);
+  } else if (type === 'polar') {
+    for (const channel of ['angle', 'theta', 'radius']) allowed.add(channel);
+  } else if (type === 'pie' || type === 'variable-pie') {
+    for (const channel of ['angle', 'theta']) allowed.add(channel);
+  } else if (type === 'indicator') {
+    for (const channel of ['open', 'high', 'low', 'close', 'volume']) allowed.add(channel);
+  } else if (type === 'renko' || type === 'point-figure') {
+    allowed.add('close');
+  } else if (type === 'volume-profile') {
+    allowed.add('volume');
+  }
+
+  const aliases: readonly (readonly [string, string])[] = [
+    ...(type !== undefined && GEOGRAPHIC_POSITION_MARKS.has(type)
+      ? ([
+          ['x', 'longitude'],
+          ['y', 'latitude'],
+        ] as const)
+      : []),
+    ...(type === 'polar'
+      ? ([
+          ['x', 'theta'],
+          ['x', 'angle'],
+          ['y', 'radius'],
+        ] as const)
+      : []),
+    ...(type === 'pie' || type === 'variable-pie'
+      ? ([
+          ['y', 'theta'],
+          ['y', 'angle'],
+        ] as const)
+      : []),
+    ...(type !== undefined &&
+    (TRADING_CHANNEL_MARKS.has(type) || ['renko', 'point-figure', 'indicator'].includes(type))
+      ? ([['y', 'close']] as const)
+      : []),
+  ];
+  for (const [position, semantic] of aliases) {
+    if (encoding[position] !== undefined && encoding[semantic] !== undefined) {
+      issues.push({
+        path: `${path}.${semantic}`,
+        message: `Use either ${position} or its ${semantic} semantic alias, not both.`,
+      });
+    }
+  }
+  if (encoding.theta !== undefined && encoding.angle !== undefined) {
+    issues.push({ path: `${path}.angle`, message: 'Use either theta or angle, not both.' });
+  }
+  if (type === 'point' || type === 'circle') {
+    const glyphs = ['shape', 'symbol', 'icon'].filter((channel) => encoding[channel] !== undefined);
+    if (glyphs.length > 1) {
+      issues.push({
+        path,
+        message: `Use one point glyph channel; received ${glyphs.join(', ')}.`,
+      });
+    }
   }
   for (const channel of Object.keys(encoding)) {
     if (
@@ -1859,15 +2112,39 @@ function validateMarkEncodingCompatibility(
   }
 }
 
-function validateEncodingMap(value: unknown, path: string, issues: SpecIssue[]): void {
+function validateEncodingMap(
+  value: unknown,
+  path: string,
+  issues: SpecIssue[],
+  mark?: unknown,
+): void {
   if (!isPlainObject(value)) {
     issues.push({ path, message: 'Encoding map must be an object.' });
     return;
   }
   validateUnknownKeys(value, ENCODING_CHANNELS, path, 'encoding channel', issues);
-  if (value.x === undefined)
+  const type = markType(mark);
+  const derivedX =
+    type !== undefined && GEOGRAPHIC_POSITION_MARKS.has(type)
+      ? value.longitude
+      : type === 'polar'
+        ? (value.theta ?? value.angle)
+        : undefined;
+  const derivedY =
+    type !== undefined && GEOGRAPHIC_POSITION_MARKS.has(type)
+      ? value.latitude
+      : type === 'polar'
+        ? value.radius
+        : type === 'pie' || type === 'variable-pie'
+          ? (value.theta ?? value.angle)
+          : type !== undefined &&
+              (TRADING_CHANNEL_MARKS.has(type) ||
+                ['renko', 'point-figure', 'indicator'].includes(type))
+            ? value.close
+            : undefined;
+  if (value.x === undefined && derivedX === undefined)
     issues.push({ path: `${path}.x`, message: 'Encoding map requires x.' });
-  if (value.y === undefined)
+  if (value.y === undefined && derivedY === undefined)
     issues.push({ path: `${path}.y`, message: 'Encoding map requires y.' });
   for (const channel of ENCODING_CHANNELS) {
     if (value[channel] !== undefined) {
@@ -1879,6 +2156,91 @@ function validateEncodingMap(value: unknown, path: string, issues: SpecIssue[]):
       );
     }
   }
+}
+
+function validateLayerClip(value: unknown, path: string, issues: SpecIssue[]): void {
+  if (value === undefined || typeof value === 'boolean') return;
+  if (!isPlainObject(value)) {
+    issues.push({ path, message: 'Layer clip must be a boolean or clip object.' });
+    return;
+  }
+  if (value.type === 'plot') {
+    validateUnknownKeys(
+      value,
+      new Set(['type', 'x', 'y', 'width', 'height']),
+      path,
+      'plot clip',
+      issues,
+    );
+    for (const key of ['x', 'y', 'width', 'height'] as const) {
+      if (value[key] === undefined) {
+        issues.push({ path: `${path}.${key}`, message: `Plot clip requires ${key}.` });
+      } else {
+        validateFiniteNumber(value[key], `${path}.${key}`, `Plot clip ${key}`, issues, {
+          min: 0,
+          max: 1,
+        });
+      }
+    }
+    if (
+      typeof value.x === 'number' &&
+      typeof value.width === 'number' &&
+      value.x + value.width > 1
+    ) {
+      issues.push({ path, message: 'Plot clip x + width must not exceed 1.' });
+    }
+    if (
+      typeof value.y === 'number' &&
+      typeof value.height === 'number' &&
+      value.y + value.height > 1
+    ) {
+      issues.push({ path, message: 'Plot clip y + height must not exceed 1.' });
+    }
+    return;
+  }
+  if (value.type === 'domain') {
+    validateUnknownKeys(value, new Set(['type', 'x', 'y']), path, 'domain clip', issues);
+    if (value.x === undefined && value.y === undefined) {
+      issues.push({ path, message: 'Domain clip requires x, y, or both ranges.' });
+    }
+    for (const channel of ['x', 'y'] as const) {
+      const range = value[channel];
+      if (range === undefined) continue;
+      if (!isPlainObject(range)) {
+        issues.push({
+          path: `${path}.${channel}`,
+          message: 'Domain clip range must be an object.',
+        });
+        continue;
+      }
+      validateUnknownKeys(
+        range,
+        new Set(['axis', 'from', 'to']),
+        `${path}.${channel}`,
+        'domain clip range',
+        issues,
+      );
+      if (range.axis !== undefined && !isSafeAxisId(range.axis)) {
+        issues.push({
+          path: `${path}.${channel}.axis`,
+          message: 'Domain clip axis must use the safe named-axis grammar.',
+        });
+      }
+      for (const key of ['from', 'to'] as const) {
+        if (
+          (typeof range[key] !== 'number' || !Number.isFinite(range[key])) &&
+          typeof range[key] !== 'string'
+        ) {
+          issues.push({
+            path: `${path}.${channel}.${key}`,
+            message: `Domain clip ${key} must be a finite number or string.`,
+          });
+        }
+      }
+    }
+    return;
+  }
+  issues.push({ path: `${path}.type`, message: 'Layer clip type must be plot or domain.' });
 }
 
 function validateSeriesStack(
@@ -2024,34 +2386,145 @@ function validateIndicatorCalculation(
   ) {
     issues.push({ path: `${path}.kind`, message: 'Indicator kind must be a non-empty string.' });
   }
-  for (const name of ['period', 'fastPeriod', 'slowPeriod', 'signalPeriod'] as const) {
-    if (options[name] === undefined) continue;
-    validateFiniteNumber(options[name], `${path}.${name}`, `Indicator ${name}`, issues, {
-      integer: true,
-      min: 2,
-      max: 200,
-    });
+  const kind = typeof options.kind === 'string' ? options.kind : 'sma';
+  const capability = resolveTechnicalIndicatorCapability(kind);
+  if (options.calculate === true && capability === null) {
+    issues.push({ path: `${path}.kind`, message: `Unknown calculated indicator "${kind}".` });
   }
-  if (
-    typeof options.fastPeriod === 'number' &&
-    typeof options.slowPeriod === 'number' &&
-    options.fastPeriod >= options.slowPeriod
-  ) {
-    issues.push({
-      path: `${path}.fastPeriod`,
-      message: 'Indicator fastPeriod must be smaller than slowPeriod.',
-    });
-  }
-  if (options.calculate === true) {
-    const kind = typeof options.kind === 'string' ? options.kind : 'sma';
-    const capability = resolveTechnicalIndicatorCapability(kind);
-    if (capability === null) {
-      issues.push({ path: `${path}.kind`, message: `Unknown calculated indicator "${kind}".` });
-    } else if (capability.support !== 'computed') {
-      issues.push({
-        path: `${path}.calculate`,
-        message: `${capability.id} is precomputed-required; supply indicator columns instead.`,
+  if (capability !== null && options.calculate === true) {
+    const allParameters = new Set(
+      technicalIndicatorCapabilities.flatMap(({ parameters }) =>
+        parameters.map(({ name }) => name),
+      ),
+    );
+    for (const name of allParameters) {
+      if (options[name] === undefined) continue;
+      const parameter = capability.parameters.find((candidate) => candidate.name === name);
+      if (parameter === undefined) {
+        issues.push({
+          path: `${path}.${name}`,
+          message: `${name} is not a parameter of ${capability.id}.`,
+        });
+        continue;
+      }
+      validateFiniteNumber(options[name], `${path}.${name}`, `Indicator ${name}`, issues, {
+        integer: parameter.type === 'integer',
+        min: parameter.minimum,
+        max: parameter.maximum,
       });
+    }
+    const numeric = (name: string): number | undefined => {
+      if (typeof options[name] === 'number') return options[name];
+      return capability.parameters.find((parameter) => parameter.name === name)?.default;
+    };
+    if (
+      numeric('fastPeriod') !== undefined &&
+      numeric('slowPeriod') !== undefined &&
+      numeric('fastPeriod')! >= numeric('slowPeriod')!
+    ) {
+      issues.push({
+        path: `${path}.fastPeriod`,
+        message: 'Indicator fastPeriod must be smaller than slowPeriod.',
+      });
+    }
+    if (
+      numeric('conversionPeriod') !== undefined &&
+      numeric('basePeriod') !== undefined &&
+      numeric('spanPeriod') !== undefined &&
+      (numeric('conversionPeriod')! > numeric('basePeriod')! ||
+        numeric('basePeriod')! > numeric('spanPeriod')!)
+    ) {
+      issues.push({
+        path: `${path}.conversionPeriod`,
+        message: 'Ichimoku periods must satisfy conversionPeriod <= basePeriod <= spanPeriod.',
+      });
+    }
+    if (
+      numeric('acceleration') !== undefined &&
+      numeric('maximumAcceleration') !== undefined &&
+      numeric('acceleration')! > numeric('maximumAcceleration')!
+    ) {
+      issues.push({
+        path: `${path}.acceleration`,
+        message: 'Indicator acceleration must be no greater than maximumAcceleration.',
+      });
+    }
+  }
+  if (options.session !== undefined) {
+    if (!isPlainObject(options.session)) {
+      issues.push({ path: `${path}.session`, message: 'Indicator session must be an object.' });
+    } else {
+      validateUnknownKeys(
+        options.session,
+        new Set(['mode', 'field', 'timeField', 'gapMs', 'reset']),
+        `${path}.session`,
+        'indicator session',
+        issues,
+      );
+      const mode = options.session.mode ?? 'none';
+      if (!['none', 'field', 'utc-day', 'gap'].includes(String(mode))) {
+        issues.push({
+          path: `${path}.session.mode`,
+          message: 'Indicator session mode must be none, field, utc-day, or gap.',
+        });
+      }
+      if (
+        options.session.reset !== undefined &&
+        !['hard', 'carry'].includes(String(options.session.reset))
+      ) {
+        issues.push({
+          path: `${path}.session.reset`,
+          message: 'Indicator session reset must be hard or carry.',
+        });
+      }
+      if (mode === 'field') {
+        validateOptionalString(
+          options.session.field,
+          `${path}.session.field`,
+          'Indicator session field',
+          issues,
+          false,
+        );
+        if (options.session.field === undefined) {
+          issues.push({
+            path: `${path}.session.field`,
+            message: 'Indicator field session mode requires field.',
+          });
+        }
+        if (typeof options.session.field === 'string' && UNSAFE_FIELDS.has(options.session.field)) {
+          issues.push({
+            path: `${path}.session.field`,
+            message: 'Indicator session field is unsafe.',
+          });
+        }
+      }
+      if (options.session.timeField !== undefined) {
+        validateOptionalString(
+          options.session.timeField,
+          `${path}.session.timeField`,
+          'Indicator session time field',
+          issues,
+          false,
+        );
+        if (
+          typeof options.session.timeField === 'string' &&
+          UNSAFE_FIELDS.has(options.session.timeField)
+        ) {
+          issues.push({
+            path: `${path}.session.timeField`,
+            message: 'Indicator session time field is unsafe.',
+          });
+        }
+      }
+      if (mode === 'gap') {
+        validateFiniteNumber(
+          options.session.gapMs,
+          `${path}.session.gapMs`,
+          'Indicator session gap',
+          issues,
+          { min: Number.MIN_VALUE },
+        );
+      }
     }
   }
 }
@@ -2231,13 +2704,10 @@ function validateInteraction(value: unknown, path: string, issues: SpecIssue[]):
           message: 'Tooltip trigger must be "mark" or "axis".',
         });
       }
-      if (
-        tooltip.axis !== undefined &&
-        (typeof tooltip.axis !== 'string' || !AXIS_IDS.has(tooltip.axis))
-      ) {
+      if (tooltip.axis !== undefined && !isSafeAxisId(tooltip.axis)) {
         issues.push({
           path: `${path}.tooltip.axis`,
-          message: 'Tooltip axis must be "x", "x2", "y", or "y2".',
+          message: 'Tooltip axis must use the safe named-axis grammar.',
         });
       }
       const trigger = tooltip.trigger ?? 'mark';
@@ -2330,6 +2800,111 @@ function validateAccessibility(value: unknown, path: string, issues: SpecIssue[]
     'Accessibility navigation',
     issues,
   );
+  if (value.explorer !== undefined && typeof value.explorer !== 'boolean') {
+    if (!isPlainObject(value.explorer)) {
+      issues.push({
+        path: `${path}.explorer`,
+        message: 'Accessibility explorer must be a boolean or object.',
+      });
+    } else {
+      validateUnknownKeys(
+        value.explorer,
+        ACCESSIBILITY_EXPLORER_KEYS,
+        `${path}.explorer`,
+        'accessibility explorer',
+        issues,
+      );
+      if (value.explorer.windowRows !== undefined) {
+        validateFiniteNumber(
+          value.explorer.windowRows,
+          `${path}.explorer.windowRows`,
+          'Explorer windowRows',
+          issues,
+          { integer: true, min: 1, max: 5_000 },
+        );
+      }
+      if (value.explorer.overscanRows !== undefined) {
+        validateFiniteNumber(
+          value.explorer.overscanRows,
+          `${path}.explorer.overscanRows`,
+          'Explorer overscanRows',
+          issues,
+          { integer: true, min: 0, max: 100 },
+        );
+      }
+      if (value.explorer.rowHeight !== undefined) {
+        validateFiniteNumber(
+          value.explorer.rowHeight,
+          `${path}.explorer.rowHeight`,
+          'Explorer rowHeight',
+          issues,
+          { integer: true, min: 1, max: 256 },
+        );
+      }
+    }
+  }
+  if (value.linkedFocus !== undefined) {
+    if (!isPlainObject(value.linkedFocus)) {
+      issues.push({
+        path: `${path}.linkedFocus`,
+        message: 'Accessibility linkedFocus must be an object.',
+      });
+    } else {
+      validateUnknownKeys(
+        value.linkedFocus,
+        ACCESSIBILITY_LINKED_FOCUS_KEYS,
+        `${path}.linkedFocus`,
+        'accessibility linkedFocus',
+        issues,
+      );
+      if (value.linkedFocus.group === undefined) {
+        issues.push({
+          path: `${path}.linkedFocus.group`,
+          message: 'Linked focus group is required.',
+        });
+      } else {
+        validateOptionalString(
+          value.linkedFocus.group,
+          `${path}.linkedFocus.group`,
+          'Linked focus group',
+          issues,
+          false,
+        );
+        if (
+          typeof value.linkedFocus.group === 'string' &&
+          !/^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$/.test(value.linkedFocus.group)
+        ) {
+          issues.push({
+            path: `${path}.linkedFocus.group`,
+            message: 'Linked focus group must contain 1 to 96 portable identity characters.',
+          });
+        }
+      }
+      if (value.linkedFocus.key === undefined) {
+        issues.push({
+          path: `${path}.linkedFocus.key`,
+          message: 'Linked focus key is required.',
+        });
+      } else {
+        validateOptionalString(
+          value.linkedFocus.key,
+          `${path}.linkedFocus.key`,
+          'Linked focus key',
+          issues,
+          false,
+        );
+        if (
+          typeof value.linkedFocus.key === 'string' &&
+          (value.linkedFocus.key.length > 128 || UNSAFE_FIELDS.has(value.linkedFocus.key))
+        ) {
+          issues.push({
+            path: `${path}.linkedFocus.key`,
+            message: 'Linked focus key must be safe and no longer than 128 characters.',
+          });
+        }
+      }
+    }
+  }
   if (
     value.table !== undefined &&
     typeof value.table !== 'boolean' &&
@@ -2481,10 +3056,10 @@ function validateSelection(value: unknown, path: string, issues: SpecIssue[]): v
     issues,
     false,
   );
-  if (value.axis !== undefined && (typeof value.axis !== 'string' || !AXIS_IDS.has(value.axis))) {
+  if (value.axis !== undefined && !isSafeAxisId(value.axis)) {
     issues.push({
       path: `${path}.axis`,
-      message: 'Selection axis must be "x", "x2", "y", or "y2".',
+      message: 'Selection axis must use the safe named-axis grammar.',
     });
   }
   if (kind === 'axis' && value.axis === undefined) {
@@ -2493,11 +3068,17 @@ function validateSelection(value: unknown, path: string, issues: SpecIssue[]): v
   if (kind !== 'axis' && value.axis !== undefined) {
     issues.push({ path: `${path}.axis`, message: 'Selection axis is only valid for kind "axis".' });
   }
-  if (value.xAxis !== undefined && value.xAxis !== 'x' && value.xAxis !== 'x2') {
-    issues.push({ path: `${path}.xAxis`, message: 'Selection xAxis must be "x" or "x2".' });
+  if (value.xAxis !== undefined && !isSafeAxisId(value.xAxis)) {
+    issues.push({
+      path: `${path}.xAxis`,
+      message: 'Selection xAxis must use the safe named-axis grammar.',
+    });
   }
-  if (value.yAxis !== undefined && value.yAxis !== 'y' && value.yAxis !== 'y2') {
-    issues.push({ path: `${path}.yAxis`, message: 'Selection yAxis must be "y" or "y2".' });
+  if (value.yAxis !== undefined && !isSafeAxisId(value.yAxis)) {
+    issues.push({
+      path: `${path}.yAxis`,
+      message: 'Selection yAxis must use the safe named-axis grammar.',
+    });
   }
   if (kind === 'axis' && (value.xAxis !== undefined || value.yAxis !== undefined)) {
     issues.push({
@@ -2541,6 +3122,29 @@ function validateSelection(value: unknown, path: string, issues: SpecIssue[]): v
       issues,
       { min: 0, max: 64 },
     );
+  validateOptionalBoolean(value.keyboard, `${path}.keyboard`, 'Selection keyboard', issues);
+  if (value.keyboardStep !== undefined)
+    validateFiniteNumber(
+      value.keyboardStep,
+      `${path}.keyboardStep`,
+      'Selection keyboardStep',
+      issues,
+      { min: 1, max: 64 },
+    );
+  validateOptionalBoolean(value.filter, `${path}.filter`, 'Selection filter', issues);
+  validateOptionalBoolean(value.linked, `${path}.linked`, 'Selection linked', issues);
+  if (kind === 'point' && value.filter === true && value.key === undefined) {
+    issues.push({
+      path: `${path}.key`,
+      message: 'Selection-driven point filtering requires a stable selection key.',
+    });
+  }
+  if (kind === 'point' && value.linked === true && value.key === undefined) {
+    issues.push({
+      path: `${path}.key`,
+      message: 'Linked point selection requires a stable selection key.',
+    });
+  }
   if (value.highlight !== undefined) {
     if (!isPlainObject(value.highlight)) {
       issues.push({ path: `${path}.highlight`, message: 'Selection highlight must be an object.' });
@@ -2603,18 +3207,18 @@ function validateDomainNavigation(value: unknown, path: string, issues: SpecIssu
   }
   validateUnknownKeys(value, DOMAIN_NAVIGATION_KEYS, path, 'domain navigation', issues);
   if (value.axes !== undefined) {
-    if (!Array.isArray(value.axes) || value.axes.length === 0 || value.axes.length > 4) {
+    if (!Array.isArray(value.axes) || value.axes.length === 0 || value.axes.length > 64) {
       issues.push({
         path: `${path}.axes`,
-        message: 'Domain navigation axes must contain 1 to 4 axis IDs.',
+        message: 'Domain navigation axes must contain 1 to 64 axis IDs.',
       });
     } else {
       const axes = value.axes.filter((axis): axis is string => typeof axis === 'string');
       value.axes.forEach((axis, index) => {
-        if (typeof axis !== 'string' || !AXIS_IDS.has(axis)) {
+        if (!isSafeAxisId(axis)) {
           issues.push({
             path: `${path}.axes[${index}]`,
-            message: 'Domain navigation axis must be "x", "x2", "y", or "y2".',
+            message: 'Domain navigation axis must use the safe named-axis grammar.',
           });
         }
       });
@@ -2686,6 +3290,117 @@ function validatePlayback(value: unknown, path: string, issues: SpecIssue[]): vo
       integer: true,
     });
   validateOptionalBoolean(value.loop, `${path}.loop`, 'Playback loop', issues);
+  if (
+    value.direction !== undefined &&
+    (typeof value.direction !== 'string' || !PLAYBACK_DIRECTIONS.has(value.direction))
+  ) {
+    issues.push({
+      path: `${path}.direction`,
+      message: 'Playback direction must be "forward" or "reverse".',
+    });
+  }
+  const namedFrameNames = new Set<string>();
+  if (value.namedFrames !== undefined) {
+    if (!Array.isArray(value.namedFrames) || value.namedFrames.length > 10_000) {
+      issues.push({
+        path: `${path}.namedFrames`,
+        message: 'Playback namedFrames must be an array with at most 10000 entries.',
+      });
+    } else {
+      value.namedFrames.forEach((frame, index) => {
+        const framePath = `${path}.namedFrames[${index}]`;
+        if (!isPlainObject(frame)) {
+          issues.push({ path: framePath, message: 'Playback named frame must be an object.' });
+          return;
+        }
+        validateUnknownKeys(
+          frame,
+          PLAYBACK_NAMED_FRAME_KEYS,
+          framePath,
+          'playback named frame',
+          issues,
+        );
+        validateOptionalString(
+          frame.name,
+          `${framePath}.name`,
+          'Playback frame name',
+          issues,
+          false,
+        );
+        if (frame.name === undefined) {
+          issues.push({ path: `${framePath}.name`, message: 'Playback frame name is required.' });
+        } else if (typeof frame.name === 'string') {
+          if (namedFrameNames.has(frame.name)) {
+            issues.push({
+              path: `${framePath}.name`,
+              message: 'Playback frame names must be unique.',
+            });
+          }
+          namedFrameNames.add(frame.name);
+        }
+        if (frame.value === undefined) {
+          issues.push({ path: `${framePath}.value`, message: 'Playback frame value is required.' });
+        } else if (
+          typeof frame.value !== 'string' &&
+          typeof frame.value !== 'boolean' &&
+          (typeof frame.value !== 'number' || !Number.isFinite(frame.value))
+        ) {
+          issues.push({
+            path: `${framePath}.value`,
+            message: 'Playback frame value must be a finite number, string, or boolean.',
+          });
+        }
+      });
+    }
+  }
+  if (value.range !== undefined) {
+    if (!isPlainObject(value.range)) {
+      issues.push({ path: `${path}.range`, message: 'Playback range must be an object.' });
+    } else {
+      validateUnknownKeys(
+        value.range,
+        PLAYBACK_RANGE_KEYS,
+        `${path}.range`,
+        'playback range',
+        issues,
+      );
+      for (const bound of ['start', 'end'] as const) {
+        const reference = value.range[bound];
+        if (reference === undefined) continue;
+        if (typeof reference === 'number') {
+          validateFiniteNumber(
+            reference,
+            `${path}.range.${bound}`,
+            `Playback range ${bound}`,
+            issues,
+            { min: 0, integer: true },
+          );
+        } else if (typeof reference !== 'string' || reference.length === 0) {
+          issues.push({
+            path: `${path}.range.${bound}`,
+            message: 'Playback range bound must be a zero-based index or non-empty frame name.',
+          });
+        } else if (!namedFrameNames.has(reference)) {
+          issues.push({
+            path: `${path}.range.${bound}`,
+            message: `Playback range references undeclared named frame "${reference}".`,
+          });
+        }
+      }
+      if (
+        typeof value.range.start === 'number' &&
+        Number.isInteger(value.range.start) &&
+        typeof value.range.end === 'number' &&
+        Number.isInteger(value.range.end) &&
+        value.range.start > value.range.end
+      ) {
+        issues.push({
+          path: `${path}.range`,
+          message: 'Playback range start must not be greater than its end.',
+        });
+      }
+    }
+  }
   validateOptionalBoolean(value.autoplay, `${path}.autoplay`, 'Playback autoplay', issues);
   if (value.transition !== undefined && value.transition !== false) {
     if (!isPlainObject(value.transition)) {
@@ -2768,8 +3483,16 @@ function validateLayer(
 
   validateOptionalString(layer.name, `${path}.name`, 'Layer name', issues, false);
   validateTransforms(layer.transform, `${path}.transform`, issues);
+  if (layer.source !== undefined) {
+    validateOptionalString(layer.source, `${path}.source`, 'Named data source', issues, false);
+    issues.push({
+      path: `${path}.source`,
+      message: 'Named layer sources require an enclosing dataflow.',
+    });
+  }
 
   validateMark(layer.mark as MarkInput, `${path}.mark`, issues);
+  validateLayerClip(layer.clip, `${path}.clip`, issues);
   if (layer.encoding !== undefined && (layer.x !== undefined || layer.y !== undefined)) {
     issues.push({
       path,
@@ -2777,14 +3500,14 @@ function validateLayer(
     });
   }
   if (layer.encoding !== undefined) {
-    validateEncodingMap(layer.encoding, `${path}.encoding`, issues);
+    validateEncodingMap(layer.encoding, `${path}.encoding`, issues, layer.mark);
     validateMarkEncodingCompatibility(layer.mark, layer.encoding, `${path}.encoding`, issues);
   } else {
     validateEncoding(layer.x as EncodingInput, `${path}.x`, 'x', issues);
     validateEncoding(layer.y as EncodingInput, `${path}.y`, 'y', issues);
   }
 
-  if (!hasParentData && layer.data === undefined) {
+  if (!hasParentData && layer.data === undefined && layer.source === undefined) {
     issues.push({
       path: `${path}.data`,
       message: 'Layer data is required when chart-level data is absent.',
@@ -2924,12 +3647,7 @@ function validateAxisRange(
   ) {
     issues.push({ path: `${path}.to`, message: 'Axis range to must be a number or string.' });
   }
-  if (
-    value.axis !== undefined &&
-    (typeof value.axis !== 'string' ||
-      !AXIS_IDS.has(value.axis) ||
-      (channel === 'x' ? !['x', 'x2'].includes(value.axis) : !['y', 'y2'].includes(value.axis)))
-  ) {
+  if (value.axis !== undefined && !isSafeAxisId(value.axis)) {
     issues.push({ path: `${path}.axis`, message: `Range ${channel} axis is not compatible.` });
   }
 }
@@ -3102,11 +3820,39 @@ function validateAnnotations(value: unknown, path: string, issues: SpecIssue[]):
     }
     validateUnknownKeys(annotation, ANNOTATION_KEYS, itemPath, 'annotation', issues);
     validateOptionalString(annotation.id, `${itemPath}.id`, 'Annotation id', issues, false);
+    if (
+      annotation.primitive !== undefined &&
+      (typeof annotation.primitive !== 'string' || !ANNOTATION_PRIMITIVES.has(annotation.primitive))
+    ) {
+      issues.push({
+        path: `${itemPath}.primitive`,
+        message: 'Annotation primitive is not supported.',
+      });
+    }
     validateOptionalString(annotation.text, `${itemPath}.text`, 'Annotation text', issues, false);
     if (annotation.text === undefined)
       issues.push({ path: `${itemPath}.text`, message: 'Annotation text is required.' });
     validateOptionalString(annotation.detail, `${itemPath}.detail`, 'Annotation detail', issues);
     validateDecorationTarget(annotation.target, `${itemPath}.target`, issues);
+    if (isPlainObject(annotation.target) && typeof annotation.target.type === 'string') {
+      const targetType = annotation.target.type;
+      const primitive = annotation.primitive ?? 'callout';
+      const supported =
+        primitive === 'point'
+          ? targetType === 'datum' || targetType === 'plot'
+          : primitive === 'band'
+            ? targetType === 'layer' || targetType === 'range' || targetType === 'plot'
+            : targetType === 'datum' ||
+              targetType === 'layer' ||
+              targetType === 'range' ||
+              targetType === 'plot';
+      if (!supported) {
+        issues.push({
+          path: `${itemPath}.target`,
+          message: `Annotation primitive "${String(primitive)}" does not support a "${targetType}" target.`,
+        });
+      }
+    }
     if (
       annotation.placement !== undefined &&
       (typeof annotation.placement !== 'string' || !ANNOTATION_PLACEMENTS.has(annotation.placement))
@@ -3210,6 +3956,311 @@ function validateAnnotations(value: unknown, path: string, issues: SpecIssue[]):
   });
 }
 
+function validateMarkLabels(value: unknown, path: string, issues: SpecIssue[]): void {
+  if (value === undefined || typeof value === 'boolean') return;
+  if (!isPlainObject(value)) {
+    issues.push({ path, message: 'Mark labels must be a boolean or an object.' });
+    return;
+  }
+  validateUnknownKeys(value, MARK_LABEL_KEYS, path, 'mark label', issues);
+  validateOptionalBoolean(value.visible, `${path}.visible`, 'Mark label visibility', issues);
+  for (const field of ['field', 'key'] as const) {
+    validateOptionalString(value[field], `${path}.${field}`, `Mark label ${field}`, issues, false);
+    if (typeof value[field] === 'string' && UNSAFE_FIELDS.has(value[field])) {
+      issues.push({
+        path: `${path}.${field}`,
+        message: `Unsafe field "${value[field]}" is forbidden.`,
+      });
+    }
+  }
+  if (value.layerIds !== undefined) {
+    if (!Array.isArray(value.layerIds) || value.layerIds.length > 64) {
+      issues.push({
+        path: `${path}.layerIds`,
+        message: 'Mark label layerIds must contain at most 64 entries.',
+      });
+    } else {
+      value.layerIds.forEach((layerId, index) =>
+        validateOptionalString(
+          layerId,
+          `${path}.layerIds[${index}]`,
+          'Mark label layerId',
+          issues,
+          false,
+        ),
+      );
+      if (new Set(value.layerIds).size !== value.layerIds.length) {
+        issues.push({ path: `${path}.layerIds`, message: 'Mark label layerIds must be unique.' });
+      }
+    }
+  }
+  if (
+    value.placement !== undefined &&
+    (typeof value.placement !== 'string' || !MARK_LABEL_PLACEMENTS.has(value.placement))
+  ) {
+    issues.push({ path: `${path}.placement`, message: 'Mark label placement is not supported.' });
+  }
+  if (
+    value.collision !== undefined &&
+    (typeof value.collision !== 'string' || !MARK_LABEL_COLLISIONS.has(value.collision))
+  ) {
+    issues.push({
+      path: `${path}.collision`,
+      message: 'Mark label collision policy is not supported.',
+    });
+  }
+  if (value.offset !== undefined) {
+    validateFiniteNumber(value.offset, `${path}.offset`, 'Mark label offset', issues, {
+      min: 0,
+      max: 256,
+    });
+  }
+  if (value.maxLabels !== undefined) {
+    validateFiniteNumber(value.maxLabels, `${path}.maxLabels`, 'Mark label limit', issues, {
+      min: 1,
+      max: 1000,
+      integer: true,
+    });
+  }
+  if (value.connector !== undefined && typeof value.connector !== 'boolean') {
+    if (!isPlainObject(value.connector)) {
+      issues.push({ path: `${path}.connector`, message: 'Mark label connector is invalid.' });
+    } else {
+      validateUnknownKeys(
+        value.connector,
+        CONNECTOR_KEYS,
+        `${path}.connector`,
+        'mark label connector',
+        issues,
+      );
+      validateOptionalBoolean(
+        value.connector.visible,
+        `${path}.connector.visible`,
+        'Mark label connector visibility',
+        issues,
+      );
+      validateOptionalString(
+        value.connector.color,
+        `${path}.connector.color`,
+        'Mark label connector color',
+        issues,
+        false,
+      );
+      validateHighlightStyle(
+        { lineWidth: value.connector.width, dash: value.connector.dash },
+        `${path}.connector`,
+        issues,
+      );
+    }
+  }
+  if (value.positions !== undefined) {
+    if (!Array.isArray(value.positions) || value.positions.length > 1000) {
+      issues.push({
+        path: `${path}.positions`,
+        message: 'Mark label positions must be an array of at most 1000 entries.',
+      });
+    } else {
+      const targets = new Set<string>();
+      value.positions.forEach((position, index) => {
+        const itemPath = `${path}.positions[${index}]`;
+        if (!isPlainObject(position)) {
+          issues.push({ path: itemPath, message: 'Mark label position must be an object.' });
+          return;
+        }
+        validateUnknownKeys(
+          position,
+          MARK_LABEL_POSITION_KEYS,
+          itemPath,
+          'mark label position',
+          issues,
+        );
+        validateDecorationTarget(position.target, `${itemPath}.target`, issues);
+        if (isPlainObject(position.target) && position.target.type !== 'datum') {
+          issues.push({
+            path: `${itemPath}.target.type`,
+            message: 'Mark label positions require datum targets.',
+          });
+        }
+        for (const offset of ['offsetX', 'offsetY'] as const) {
+          if (position[offset] !== undefined) {
+            validateFiniteNumber(
+              position[offset],
+              `${itemPath}.${offset}`,
+              `Mark label ${offset}`,
+              issues,
+              {
+                min: -10_000,
+                max: 10_000,
+              },
+            );
+          }
+        }
+        validateOptionalBoolean(
+          position.hidden,
+          `${itemPath}.hidden`,
+          'Mark label hidden state',
+          issues,
+        );
+        if (isPlainObject(position.target)) {
+          const key = JSON.stringify(position.target);
+          if (targets.has(key)) {
+            issues.push({
+              path: `${itemPath}.target`,
+              message: 'Mark label position targets must be unique.',
+            });
+          }
+          targets.add(key);
+        }
+      });
+    }
+  }
+  if (value.style !== undefined) {
+    if (!isPlainObject(value.style)) {
+      issues.push({ path: `${path}.style`, message: 'Mark label style must be an object.' });
+    } else {
+      validateUnknownKeys(
+        value.style,
+        MARK_LABEL_STYLE_KEYS,
+        `${path}.style`,
+        'mark label style',
+        issues,
+      );
+      for (const key of ['color', 'background', 'border'] as const) {
+        validateOptionalString(
+          value.style[key],
+          `${path}.style.${key}`,
+          `Mark label style ${key}`,
+          issues,
+          false,
+        );
+      }
+      if (value.style.opacity !== undefined) {
+        validateFiniteNumber(
+          value.style.opacity,
+          `${path}.style.opacity`,
+          'Mark label opacity',
+          issues,
+          { min: 0, max: 1 },
+        );
+      }
+      for (const [key, minimum, maximum] of [
+        ['fontSize', 1, 256],
+        ['fontWeight', 1, 1000],
+        ['maxWidth', 8, 2000],
+        ['padding', 0, 256],
+        ['radius', 0, 256],
+      ] as const) {
+        if (value.style[key] !== undefined) {
+          validateFiniteNumber(
+            value.style[key],
+            `${path}.style.${key}`,
+            `Mark label style ${key}`,
+            issues,
+            {
+              min: minimum,
+              max: maximum,
+            },
+          );
+        }
+      }
+    }
+  }
+  if (value.authoring !== undefined && typeof value.authoring !== 'boolean') {
+    if (!isPlainObject(value.authoring)) {
+      issues.push({
+        path: `${path}.authoring`,
+        message: 'Mark label authoring must be a boolean or an object.',
+      });
+    } else {
+      validateUnknownKeys(
+        value.authoring,
+        MARK_LABEL_AUTHORING_KEYS,
+        `${path}.authoring`,
+        'mark label authoring',
+        issues,
+      );
+      for (const key of ['pointer', 'keyboard'] as const) {
+        validateOptionalBoolean(
+          value.authoring[key],
+          `${path}.authoring.${key}`,
+          `Mark label authoring ${key}`,
+          issues,
+        );
+      }
+      if (value.authoring.step !== undefined) {
+        validateFiniteNumber(
+          value.authoring.step,
+          `${path}.authoring.step`,
+          'Mark label keyboard step',
+          issues,
+          {
+            min: 0.1,
+            max: 256,
+          },
+        );
+      }
+      if (value.authoring.historyLimit !== undefined) {
+        validateFiniteNumber(
+          value.authoring.historyLimit,
+          `${path}.authoring.historyLimit`,
+          'Mark label history limit',
+          issues,
+          { min: 1, max: 500, integer: true },
+        );
+      }
+      const snap = value.authoring.snap;
+      if (snap !== undefined && snap !== false) {
+        if (!isPlainObject(snap)) {
+          issues.push({
+            path: `${path}.authoring.snap`,
+            message: 'Mark label snapping must be false or an object.',
+          });
+        } else {
+          validateUnknownKeys(
+            snap,
+            MARK_LABEL_SNAP_KEYS,
+            `${path}.authoring.snap`,
+            'mark label snapping',
+            issues,
+          );
+          if (snap.grid !== undefined && snap.grid !== false) {
+            validateFiniteNumber(
+              snap.grid,
+              `${path}.authoring.snap.grid`,
+              'Mark label snap grid',
+              issues,
+              {
+                min: 1,
+                max: 256,
+              },
+            );
+          }
+          for (const key of ['marks', 'plot'] as const) {
+            validateOptionalBoolean(
+              snap[key],
+              `${path}.authoring.snap.${key}`,
+              `Mark label snap ${key}`,
+              issues,
+            );
+          }
+          if (snap.distance !== undefined) {
+            validateFiniteNumber(
+              snap.distance,
+              `${path}.authoring.snap.distance`,
+              'Mark label snap distance',
+              issues,
+              {
+                min: 0,
+                max: 128,
+              },
+            );
+          }
+        }
+      }
+    }
+  }
+}
+
 function validateLayerReferences(input: Record<string, unknown>, issues: SpecIssue[]): void {
   const sourceLayers = Array.isArray(input.layers)
     ? input.layers
@@ -3304,6 +4355,19 @@ function validateLayerReferences(input: Record<string, unknown>, issues: SpecIss
     input.annotations.forEach((annotation, index) => {
       if (isPlainObject(annotation)) check(annotation.target, `$.annotations[${index}].target`);
     });
+  }
+  if (isPlainObject(input.markLabels)) {
+    if (Array.isArray(input.markLabels.layerIds)) {
+      input.markLabels.layerIds.forEach((layerId, index) =>
+        check({ layerId }, `$.markLabels.layerIds[${index}]`),
+      );
+    }
+    if (Array.isArray(input.markLabels.positions)) {
+      input.markLabels.positions.forEach((position, index) => {
+        if (isPlainObject(position))
+          check(position.target, `$.markLabels.positions[${index}].target`);
+      });
+    }
   }
   checkUniqueIds(input.highlights, '$.highlights', 'Highlight', 'highlight');
   checkUniqueIds(input.annotations, '$.annotations', 'Annotation', 'annotation');
@@ -3488,11 +4552,199 @@ function validateStreaming(value: unknown, path: string, issues: SpecIssue[]): v
         );
       }
     }
-    if (name === 'queue' && object.overflow !== undefined && object.overflow !== 'reject') {
+    if (
+      name === 'queue' &&
+      object.overflow !== undefined &&
+      !STREAMING_OVERFLOW_POLICIES.has(String(object.overflow))
+    ) {
       issues.push({
         path: `${path}.queue.overflow`,
-        message: 'Only reject backpressure is supported.',
+        message: 'Streaming queue overflow policy is unsupported.',
       });
+    }
+  }
+  if (value.runtime !== undefined) {
+    if (!isPlainObject(value.runtime)) {
+      issues.push({ path: `${path}.runtime`, message: 'Streaming runtime must be an object.' });
+    } else {
+      validateUnknownKeys(
+        value.runtime,
+        STREAMING_RUNTIME_KEYS,
+        `${path}.runtime`,
+        'streaming runtime',
+        issues,
+      );
+      if (
+        value.runtime.schedule !== undefined &&
+        !['animation-frame', 'microtask'].includes(String(value.runtime.schedule))
+      ) {
+        issues.push({
+          path: `${path}.runtime.schedule`,
+          message: 'Streaming runtime schedule is unsupported.',
+        });
+      }
+      if (value.runtime.maxBatchesPerFrame !== undefined) {
+        validateFiniteNumber(
+          value.runtime.maxBatchesPerFrame,
+          `${path}.runtime.maxBatchesPerFrame`,
+          'Streaming frame batch limit',
+          issues,
+          { integer: true, min: 1, max: 1_024 },
+        );
+      }
+      if (
+        value.runtime.overflow !== undefined &&
+        !STREAMING_OVERFLOW_POLICIES.has(String(value.runtime.overflow))
+      ) {
+        issues.push({
+          path: `${path}.runtime.overflow`,
+          message: 'Streaming runtime overflow policy is unsupported.',
+        });
+      }
+      validateOptionalBoolean(
+        value.runtime.paused,
+        `${path}.runtime.paused`,
+        'Streaming paused state',
+        issues,
+      );
+      validateOptionalBoolean(
+        value.runtime.followLive,
+        `${path}.runtime.followLive`,
+        'Streaming follow-live state',
+        issues,
+      );
+      if (value.runtime.history !== undefined) {
+        if (!isPlainObject(value.runtime.history)) {
+          issues.push({
+            path: `${path}.runtime.history`,
+            message: 'Streaming runtime history must be an object.',
+          });
+        } else {
+          validateUnknownKeys(
+            value.runtime.history,
+            STREAMING_HISTORY_KEYS,
+            `${path}.runtime.history`,
+            'streaming history',
+            issues,
+          );
+          if (value.runtime.history.maxBatches !== undefined) {
+            validateFiniteNumber(
+              value.runtime.history.maxBatches,
+              `${path}.runtime.history.maxBatches`,
+              'Streaming history batch limit',
+              issues,
+              { integer: true, min: 1, max: 4_096 },
+            );
+          }
+          if (value.runtime.history.pageRows !== undefined) {
+            validateFiniteNumber(
+              value.runtime.history.pageRows,
+              `${path}.runtime.history.pageRows`,
+              'Streaming history page size',
+              issues,
+              { integer: true, min: 1, max: 100_000 },
+            );
+          }
+        }
+      }
+    }
+  }
+  if (value.worker !== undefined) {
+    if (!isPlainObject(value.worker)) {
+      issues.push({ path: `${path}.worker`, message: 'Streaming Worker must be an object.' });
+    } else {
+      validateUnknownKeys(
+        value.worker,
+        STREAMING_WORKER_KEYS,
+        `${path}.worker`,
+        'streaming Worker',
+        issues,
+      );
+      if (
+        typeof value.worker.moduleURL !== 'string' ||
+        value.worker.moduleURL.trim() === '' ||
+        value.worker.moduleURL.length > 2_048
+      ) {
+        issues.push({
+          path: `${path}.worker.moduleURL`,
+          message:
+            'Streaming Worker moduleURL must be a non-empty string of at most 2048 characters.',
+        });
+      }
+      if (
+        value.worker.name !== undefined &&
+        (typeof value.worker.name !== 'string' ||
+          !/^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$/.test(value.worker.name))
+      ) {
+        issues.push({
+          path: `${path}.worker.name`,
+          message: 'Streaming Worker name must contain 1 to 96 portable identity characters.',
+        });
+      }
+      for (const [field, maximum] of [
+        ['maxQueueBatches', 1_024],
+        ['maxQueueRows', 1_000_000],
+        ['maxInputRows', 1_000_000],
+        ['maxBinaryBytes', 256 * 1024 * 1024],
+        ['maxTransforms', 128],
+      ] as const) {
+        if (value.worker[field] !== undefined) {
+          validateFiniteNumber(
+            value.worker[field],
+            `${path}.worker.${field}`,
+            `Streaming Worker ${field}`,
+            issues,
+            { integer: true, min: 1, max: maximum },
+          );
+        }
+      }
+      if (
+        value.worker.overflow !== undefined &&
+        !STREAMING_OVERFLOW_POLICIES.has(String(value.worker.overflow))
+      ) {
+        issues.push({
+          path: `${path}.worker.overflow`,
+          message: 'Streaming Worker overflow policy is unsupported.',
+        });
+      }
+      if (value.worker.engine !== undefined) {
+        if (!isPlainObject(value.worker.engine)) {
+          issues.push({
+            path: `${path}.worker.engine`,
+            message: 'Streaming Worker engine must be an object.',
+          });
+        } else {
+          validateUnknownKeys(
+            value.worker.engine,
+            STREAMING_WORKER_ENGINE_KEYS,
+            `${path}.worker.engine`,
+            'streaming Worker engine',
+            issues,
+          );
+          if (!['javascript', 'wasm'].includes(String(value.worker.engine.type))) {
+            issues.push({
+              path: `${path}.worker.engine.type`,
+              message: 'Streaming Worker engine type must be "javascript" or "wasm".',
+            });
+          }
+          if (value.worker.engine.type === 'wasm') {
+            if (
+              typeof value.worker.engine.adapter !== 'string' ||
+              !/^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$/.test(value.worker.engine.adapter)
+            ) {
+              issues.push({
+                path: `${path}.worker.engine.adapter`,
+                message: 'WASM engine requires a portable adapter identifier.',
+              });
+            }
+          } else if (value.worker.engine.adapter !== undefined) {
+            issues.push({
+              path: `${path}.worker.engine.adapter`,
+              message: 'JavaScript engine does not accept an adapter.',
+            });
+          }
+        }
+      }
     }
   }
 }
@@ -3523,6 +4775,97 @@ function findFunctions(
       continue;
     }
     findFunctions(child, `${path}.${key}`, issues, seen);
+  }
+}
+
+function validateAxisBindings(input: Record<string, unknown>, issues: SpecIssue[]): void {
+  const axes = isPlainObject(input.axes)
+    ? (input.axes as Readonly<Record<string, import('./types.js').AxisSpec | false | undefined>>)
+    : {};
+  const declared = (id: string): boolean =>
+    builtInAxisChannel(id) !== undefined || Object.prototype.hasOwnProperty.call(axes, id);
+  const reference = (id: unknown, channel: 'x' | 'y' | undefined, path: string): void => {
+    if (!isSafeAxisId(id)) return;
+    if (!declared(id)) {
+      issues.push({
+        path,
+        message: `Named axis "${id}" must be declared in $.axes with channel and position.`,
+      });
+      return;
+    }
+    const resolvedChannel = axisChannel(id, axes);
+    if (channel !== undefined && resolvedChannel !== undefined && resolvedChannel !== channel) {
+      issues.push({
+        path,
+        message: `Axis "${id}" belongs to the ${resolvedChannel} channel, not ${channel}.`,
+      });
+    }
+  };
+  const encoding = (value: unknown, channel: 'x' | 'y', path: string): void => {
+    const id = isPlainObject(value) && value.axisId !== undefined ? value.axisId : channel;
+    reference(id, channel, `${path}.axisId`);
+  };
+  const layer = (value: unknown, path: string): void => {
+    if (!isPlainObject(value)) return;
+    if (isPlainObject(value.encoding)) {
+      encoding(value.encoding.x, 'x', `${path}.encoding.x`);
+      encoding(value.encoding.y, 'y', `${path}.encoding.y`);
+    } else {
+      encoding(value.x, 'x', `${path}.x`);
+      encoding(value.y, 'y', `${path}.y`);
+    }
+    if (isPlainObject(value.clip) && value.clip.type === 'domain') {
+      for (const channel of ['x', 'y'] as const) {
+        const range = value.clip[channel];
+        if (isPlainObject(range) && range.axis !== undefined) {
+          reference(range.axis, channel, `${path}.clip.${channel}.axis`);
+        }
+      }
+    }
+  };
+
+  if (Array.isArray(input.layers))
+    input.layers.forEach((value, index) => layer(value, `$.layers[${index}]`));
+  if (
+    input.mark !== undefined ||
+    input.x !== undefined ||
+    input.y !== undefined ||
+    input.encoding !== undefined
+  ) {
+    layer(input, '$');
+  }
+  const interaction = isPlainObject(input.interaction) ? input.interaction : undefined;
+  const tooltip = isPlainObject(interaction?.tooltip) ? interaction.tooltip : undefined;
+  if (tooltip?.axis !== undefined) reference(tooltip.axis, undefined, '$.interaction.tooltip.axis');
+  const navigation = isPlainObject(interaction?.domainNavigation)
+    ? interaction.domainNavigation
+    : undefined;
+  if (Array.isArray(navigation?.axes)) {
+    navigation.axes.forEach((id, index) =>
+      reference(id, undefined, `$.interaction.domainNavigation.axes[${index}]`),
+    );
+  }
+  const selection = isPlainObject(interaction?.selection) ? interaction.selection : undefined;
+  if (selection?.axis !== undefined)
+    reference(selection.axis, undefined, '$.interaction.selection.axis');
+  if (selection?.xAxis !== undefined)
+    reference(selection.xAxis, 'x', '$.interaction.selection.xAxis');
+  if (selection?.yAxis !== undefined)
+    reference(selection.yAxis, 'y', '$.interaction.selection.yAxis');
+
+  for (const collection of ['highlights', 'annotations'] as const) {
+    const values = input[collection];
+    if (!Array.isArray(values)) continue;
+    values.forEach((entry, index) => {
+      if (!isPlainObject(entry) || !isPlainObject(entry.target) || entry.target.type !== 'range')
+        return;
+      for (const channel of ['x', 'y'] as const) {
+        const range = entry.target[channel];
+        if (isPlainObject(range) && range.axis !== undefined) {
+          reference(range.axis, channel, `$.${collection}[${index}].target.${channel}.axis`);
+        }
+      }
+    });
   }
 }
 
@@ -3566,13 +4909,20 @@ function validateUnitSpec(input: unknown): readonly SpecIssue[] {
       });
     }
     if (input.encoding !== undefined) {
-      validateEncodingMap(input.encoding, '$.encoding', issues);
+      validateEncodingMap(input.encoding, '$.encoding', issues, input.mark);
       validateMarkEncodingCompatibility(input.mark, input.encoding, '$.encoding', issues);
     } else {
       validateEncoding(input.x as EncodingInput, '$.x', 'x', issues);
       validateEncoding(input.y as EncodingInput, '$.y', 'y', issues);
     }
-    if (input.data === undefined) {
+    if (input.source !== undefined) {
+      validateOptionalString(input.source, '$.source', 'Named data source', issues, false);
+      issues.push({
+        path: '$.source',
+        message: 'Named chart sources require an enclosing dataflow.',
+      });
+    }
+    if (input.data === undefined && input.source === undefined) {
       issues.push({
         path: '$.data',
         message: 'Chart-level data is required for shorthand charts.',
@@ -3581,10 +4931,12 @@ function validateUnitSpec(input: unknown): readonly SpecIssue[] {
   }
 
   validateAxes(input.axes, '$.axes', issues);
+  validateAxisBindings(input, issues);
   validateTheme(input.theme, '$.theme', issues);
   validateLegend(input.legend, '$.legend', issues);
   validateHighlights(input.highlights, '$.highlights', issues);
   validateAnnotations(input.annotations, '$.annotations', issues);
+  validateMarkLabels(input.markLabels, '$.markLabels', issues);
   validateInteraction(input.interaction, '$.interaction', issues);
   validateAccessibility(input.accessibility, '$.accessibility', issues);
   validateStreaming(input.streaming, '$.streaming', issues);
@@ -3660,28 +5012,14 @@ function validateCompositionResolve(
   if (kind === 'layer' && Object.values(resolved).some((mode) => mode !== 'shared')) {
     issues.push({
       path,
-      message: 'Layer composition currently requires shared scale, axis, and legend resolve.',
+      message: 'Layer composition requires shared scale, axis, legend, and colorbar resolve.',
     });
   }
   if (kind === 'inset' && Object.values(resolved).some((mode) => mode !== 'independent')) {
     issues.push({
       path,
-      message: 'Inset composition currently requires independent scale, axis, and legend resolve.',
+      message: 'Inset composition requires independent scale, axis, legend, and colorbar resolve.',
     });
-  }
-  if (kind !== 'layer' && kind !== 'inset') {
-    if (resolved.axis === 'shared') {
-      issues.push({
-        path: `${path}.axis`,
-        message: 'Shared multi-view axes are not yet supported; use independent axes.',
-      });
-    }
-    if (resolved.legend === 'shared') {
-      issues.push({
-        path: `${path}.legend`,
-        message: 'Shared multi-view legends are not yet supported; use independent legends.',
-      });
-    }
   }
   if (resolved.axis === 'shared' && resolved.scale !== 'shared') {
     issues.push({
@@ -3709,28 +5047,6 @@ function validateCompositionInteraction(
     issues.push({
       path: `${path}.tooltip`,
       message: 'Axis-nearest tooltip is not supported across independent composition views.',
-    });
-  }
-  if (
-    kind !== 'layer' &&
-    value.domainNavigation !== undefined &&
-    value.domainNavigation !== false
-  ) {
-    issues.push({
-      path: `${path}.domainNavigation`,
-      message:
-        'Data-domain navigation is not supported across composition views; use whole-scene navigation.',
-    });
-  }
-  if (
-    kind !== 'layer' &&
-    isPlainObject(value.selection) &&
-    value.selection.kind !== undefined &&
-    value.selection.kind !== 'point'
-  ) {
-    issues.push({
-      path: `${path}.selection.kind`,
-      message: 'Composition currently supports point selection only.',
     });
   }
   if (kind !== 'layer' && isPlainObject(value.controls)) {
@@ -3892,13 +5208,27 @@ function validateCompositionNode(
   validateCompositionResolve(input.resolve, `${path}.resolve`, kind, issues);
 
   if (kind !== 'layer') {
-    if (input.axes !== undefined)
-      issues.push({ path: `${path}.axes`, message: 'Axes belong to independent child views.' });
-    if (input.legend !== undefined)
+    if (
+      input.axes !== undefined &&
+      resolveComposition(input.resolve as ChartSpec['resolve'], kind).axis !== 'shared'
+    ) {
+      issues.push({ path: `${path}.axes`, message: 'Container axes require shared axis resolve.' });
+    } else {
+      validateAxes(input.axes, `${path}.axes`, issues);
+    }
+    const guideResolve = resolveComposition(input.resolve as ChartSpec['resolve'], kind);
+    if (
+      input.legend !== undefined &&
+      guideResolve.legend !== 'shared' &&
+      guideResolve.colorbar !== 'shared'
+    ) {
       issues.push({
         path: `${path}.legend`,
-        message: 'Legends belong to independent child views.',
+        message: 'A container legend requires shared legend or colorbar resolve.',
       });
+    } else {
+      validateLegend(input.legend, `${path}.legend`, issues);
+    }
     if (Array.isArray(input.highlights) && input.highlights.length > 0)
       issues.push({
         path: `${path}.highlights`,
@@ -4163,14 +5493,25 @@ function validateCompositionNode(
 }
 
 export function validateSpec(input: unknown): readonly SpecIssue[] {
-  if (!isPlainObject(input)) return validateUnitSpec(input);
-  if (presentCompositionOperators(input).length === 0) return validateUnitSpec(input);
+  let materialized = input;
+  if (isPlainObject(input)) {
+    try {
+      materialized = materializeSpecDataflow(input as unknown as ChartSpec);
+    } catch (error) {
+      if (error instanceof GraflumeError) {
+        return [{ path: error.path ?? '$.dataflow', message: error.message }];
+      }
+      throw error;
+    }
+  }
+  if (!isPlainObject(materialized)) return validateUnitSpec(materialized);
+  if (presentCompositionOperators(materialized).length === 0) return validateUnitSpec(materialized);
   const issues: SpecIssue[] = [];
-  validateCompositionNode(input, '$', 0, false, issues, {
+  validateCompositionNode(materialized, '$', 0, false, issues, {
     ancestors: new WeakSet(),
     views: 0,
   });
-  findFunctions(input, '$', issues, new WeakSet());
+  findFunctions(materialized, '$', issues, new WeakSet());
   return issues;
 }
 

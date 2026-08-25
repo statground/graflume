@@ -43,6 +43,7 @@ const variantFamilyOverrides: Readonly<Record<string, string>> = {
   'heikin-ashi': 'candlestick',
   'high-low-close': 'candlestick',
   'hollow-candlestick': 'candlestick',
+  kagi: 'price-blocks',
   lollipop: 'bar',
   'network-graph': 'network',
   'open-high-low-close': 'candlestick',
@@ -54,6 +55,7 @@ const variantFamilyOverrides: Readonly<Record<string, string>> = {
   pyramid: 'funnel',
   'pyramid-3d': 'funnel',
   'scatter-3d': 'scatter',
+  'three-line-break': 'price-blocks',
   'solid-gauge': 'gauge',
   spline: 'line',
   streamgraph: 'area',
@@ -61,6 +63,7 @@ const variantFamilyOverrides: Readonly<Record<string, string>> = {
   'tree-graph': 'hierarchy',
   'variable-pie': 'pie',
   'variable-width': 'bar',
+  'range-bars': 'price-blocks',
   vector: 'vector-field',
   'volume-by-price': 'volume-profile',
   'wind-barb': 'vector-field',
@@ -96,6 +99,12 @@ const entry = (
     canonicalFamily: familyId,
   };
 };
+
+const currentLimitationsRelease = 'current-limitations-2026-08-26';
+const currentReleaseEntry = (...args: Parameters<typeof entry>): SeriesChartVariantEntry => ({
+  ...entry(...args),
+  introducedIn: currentLimitationsRelease,
+});
 
 /**
  * Specialized series that extend the established and advanced catalogs.
@@ -303,6 +312,15 @@ export const seriesChartVariantCatalog = [
     'indicator',
   ),
   entry('renko', 'Renko chart', 'renko', 'renko', 'financial'),
+  currentReleaseEntry('kagi', 'Kagi chart', 'kagi', 'renko', 'financial'),
+  currentReleaseEntry(
+    'three-line-break',
+    'Three line break chart',
+    'threeLineBreak',
+    'renko',
+    'financial',
+  ),
+  currentReleaseEntry('range-bars', 'Range bars chart', 'rangeBars', 'renko', 'financial'),
   entry('rate-of-change', 'Rate of change', 'rateOfChange', 'indicator', 'indicator'),
   entry(
     'relative-strength-index',
@@ -488,6 +506,7 @@ export const seriesCompatibilityCatalog = [
   compatibility('ikh', 'ichimoku-cloud'),
   compatibility('item', 'item'),
   compatibility('keltnerchannels', 'keltner-channels'),
+  compatibility('kagi', 'kagi'),
   compatibility('klinger', 'klinger-oscillator'),
   compatibility('line', 'line'),
   compatibility('linearregression', 'linear-regression'),
@@ -521,6 +540,7 @@ export const seriesCompatibilityCatalog = [
   compatibility('pyramid', 'pyramid'),
   compatibility('pyramid3d', 'pyramid-3d'),
   compatibility('renko', 'renko'),
+  compatibility('rangebars', 'range-bars'),
   compatibility('roc', 'rate-of-change'),
   compatibility('rsi', 'relative-strength-index'),
   compatibility('sankey', 'sankey'),
@@ -538,6 +558,7 @@ export const seriesCompatibilityCatalog = [
   compatibility('tiledwebmap', 'tiled-map'),
   compatibility('tilemap', 'tile-map'),
   compatibility('timeline', 'timeline'),
+  compatibility('threelinebreak', 'three-line-break'),
   compatibility('treegraph', 'tree-graph'),
   compatibility('treemap', 'treemap'),
   compatibility('trendline', 'trendline'),

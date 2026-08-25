@@ -12,17 +12,19 @@
       "spatial": "cdn/graflume.spatial.global.js"
     }
   },
-  "verifiedAt": "2026-08-25",
+  "verifiedAt": "2026-08-26",
   "totals": {
     "canonicalFamilies": 44,
     "canvasFamilies": 41,
     "spatialFamilies": 3,
-    "presetsAndModes": 173,
-    "canvasPresets": 165,
+    "presetsAndModes": 176,
+    "canvasPresets": 168,
     "spatialVariants": 7,
     "integratedSpatialModes": 1,
-    "compatibilityIdentifiers": 117,
+    "compatibilityIdentifiers": 120,
     "themes": 17,
+    "completedCurrentLimitations": 161,
+    "currentLimitations": 0,
     "marks": 84
   },
   "groups": [
@@ -99,6 +101,12 @@
       "familyIds": ["surface", "volume", "spatial-vector"]
     }
   ],
+  "currentLimitations": {
+    "release": "current-limitations-2026-08-26",
+    "completed": 161,
+    "remaining": 0,
+    "evidence": "catalog/graflume.current-limitations.evidence.json"
+  },
   "families": [
     {
       "id": "annotation",
@@ -110,7 +118,7 @@
       "quickApi": "annotation",
       "mark": "annotation",
       "coordinate": "overlay",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/annotation.md",
       "representativeSnapshot": "docs/assets/charts/annotation.svg",
       "supportedFeatures": [
@@ -118,14 +126,20 @@
         "callout connectors",
         "collision-aware placement",
         "runtime CRUD",
-        "visibility and serialization"
-      ],
-      "currentLimitations": [
+        "visibility and serialization",
         "data-coordinate primitive registry",
         "keyboard authoring",
         "drag and resize handles",
         "undo and redo"
       ],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "data-coordinate primitive registry",
+        "keyboard authoring",
+        "drag and resize handles",
+        "undo and redo"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": [
         "label-layout-authoring",
         "analytic-interaction",
@@ -142,7 +156,7 @@
       "quickApi": "area",
       "mark": "area",
       "coordinate": "cartesian",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/area.md",
       "representativeSnapshot": "docs/assets/charts/area.svg",
       "supportedFeatures": [
@@ -151,14 +165,20 @@
         "polygon",
         "grouped, stacked, 100 percent and diverging long-form series",
         "zero, normalize, silhouette and wiggle offsets with explicit series order",
-        "per-observation semantic and datum hit targets"
-      ],
-      "currentLimitations": [
+        "per-observation semantic and datum hit targets",
         "named and branched transform DAG reuse",
         "worker-bounded incremental stack updates",
         "automatic series labels",
         "data-domain navigation"
       ],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "named and branched transform DAG reuse",
+        "worker-bounded incremental stack updates",
+        "automatic series labels",
+        "data-domain navigation"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": [
         "transform-dataflow",
         "encoding-scale-registry",
@@ -175,7 +195,7 @@
       "quickApi": "bar",
       "mark": "bar",
       "coordinate": "cartesian",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/bar.md",
       "representativeSnapshot": "docs/assets/charts/bar.svg",
       "supportedFeatures": [
@@ -185,14 +205,20 @@
         "single-layer grouped, stacked, 100 percent and diverging series",
         "signed stack totals, percentages, source lineage and datum hits",
         "stack ordering and zero/normalize offsets",
-        "bullet/lollipop/pictorial/cylinder/pyramid/variable-width modes"
-      ],
-      "currentLimitations": [
+        "bullet/lollipop/pictorial/cylinder/pyramid/variable-width modes",
         "weighted count",
         "interactive sort and rank",
         "automatic total and segment labels",
         "worker-bounded virtualization"
       ],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "weighted count",
+        "interactive sort and rank",
+        "automatic total and segment labels",
+        "worker-bounded virtualization"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": [
         "transform-dataflow",
         "encoding-scale-registry",
@@ -210,7 +236,7 @@
       "quickApi": "bubble",
       "mark": "bubble",
       "coordinate": "cartesian",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/bubble.md",
       "representativeSnapshot": "docs/assets/charts/bubble.svg",
       "supportedFeatures": [
@@ -218,13 +244,18 @@
         "bounded radius",
         "color field",
         "frame filtering",
-        "packed collision layout and labels"
-      ],
-      "currentLimitations": [
+        "packed collision layout and labels",
         "absolute-area scale contract",
         "zero and negative policy",
         "explicit size guide"
       ],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "absolute-area scale contract",
+        "zero and negative policy",
+        "explicit size guide"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": ["label-layout-authoring", "incremental-worker-binary"]
     },
     {
@@ -237,21 +268,27 @@
       "quickApi": "calendar",
       "mark": "calendar",
       "coordinate": "calendar",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/calendar.md",
       "representativeSnapshot": "docs/assets/charts/calendar.svg",
       "supportedFeatures": [
         "UTC year grid",
         "week by weekday cells",
         "month headers",
-        "day hit targets"
-      ],
-      "currentLimitations": [
+        "day hit targets",
         "year/month/week/day modes",
         "locale week start and timezone",
         "leap/no-data/zero policy",
         "month boundaries"
       ],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "year/month/week/day modes",
+        "locale week start and timezone",
+        "leap/no-data/zero policy",
+        "month boundaries"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": [
         "transform-dataflow",
         "analytic-interaction",
@@ -269,17 +306,29 @@
       "quickApi": "candlestick",
       "mark": "candlestick",
       "coordinate": "financial",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/candlestick.md",
       "representativeSnapshot": "docs/assets/charts/candlestick.svg",
-      "supportedFeatures": ["candlestick", "OHLC and HLC", "hollow candle", "Heikin-Ashi"],
-      "currentLimitations": [
+      "supportedFeatures": [
+        "candlestick",
+        "OHLC and HLC",
+        "hollow candle",
+        "Heikin-Ashi",
         "OHLC aggregation",
         "session and timezone calendar",
         "gapless trading axis",
         "extended-hours policy",
         "navigator"
       ],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "OHLC aggregation",
+        "session and timezone calendar",
+        "gapless trading axis",
+        "extended-hours policy",
+        "navigator"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": [
         "transform-dataflow",
         "composition-resolve",
@@ -296,7 +345,7 @@
       "quickApi": "combo",
       "mark": "multiple",
       "coordinate": "composite",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/combination.md",
       "representativeSnapshot": "docs/assets/charts/combination.svg",
       "supportedFeatures": [
@@ -306,15 +355,22 @@
         "closed Canvas layer/facet/repeat/concat/inset composition",
         "compatible shared primary x/y domains and independent child axes/legends",
         "scoped multi-view semantics and lineage",
-        "Pareto preset"
-      ],
-      "currentLimitations": [
+        "Pareto preset",
         "named axes",
         "shared multi-view axes/legends/colorbars",
         "linked view state",
         "layer transforms",
         "layer clipping"
       ],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "named axes",
+        "shared multi-view axes/legends/colorbars",
+        "linked view state",
+        "layer transforms",
+        "layer clipping"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": [
         "composition-resolve",
         "transform-dataflow",
@@ -332,16 +388,25 @@
       "quickApi": "diff",
       "mark": "diff",
       "coordinate": "cartesian",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/difference.md",
       "representativeSnapshot": "docs/assets/charts/difference.svg",
-      "supportedFeatures": ["row old/new bars", "delta connector"],
-      "currentLimitations": [
+      "supportedFeatures": [
+        "row old/new bars",
+        "delta connector",
         "series alignment",
         "baseline comparison",
         "absolute/relative/percent policy",
         "crossing interpolation"
       ],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "series alignment",
+        "baseline comparison",
+        "absolute/relative/percent policy",
+        "crossing interpolation"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": ["transform-dataflow"]
     },
     {
@@ -354,7 +419,7 @@
       "quickApi": "pie",
       "mark": "pie",
       "coordinate": "radial",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/pie.md",
       "representativeSnapshot": "docs/assets/charts/pie.svg",
       "supportedFeatures": [
@@ -363,14 +428,20 @@
         "inner radius",
         "center label/value",
         "leader labels",
-        "variable-radius pie"
-      ],
-      "currentLimitations": [
+        "variable-radius pie",
         "dense label solver",
         "zero and negative policy",
         "minimum slice, sorting and padding",
         "keyboard slice traversal"
       ],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "dense label solver",
+        "zero and negative policy",
+        "minimum slice, sorting and padding",
+        "keyboard slice traversal"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": [
         "label-layout-authoring",
         "semantic-index-accessibility",
@@ -387,16 +458,27 @@
       "quickApi": "timeline",
       "mark": "timeline",
       "coordinate": "time-range",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/timeline.md",
       "representativeSnapshot": "docs/assets/charts/timeline.svg",
-      "supportedFeatures": ["interval and x-range", "Gantt", "progress bars", "basic dependencies"],
-      "currentLimitations": [
+      "supportedFeatures": [
+        "interval and x-range",
+        "Gantt",
+        "progress bars",
+        "basic dependencies",
         "lane packing and grouping",
         "milestones",
         "clipping and duration",
         "navigator"
       ],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "lane packing and grouping",
+        "milestones",
+        "clipping and duration",
+        "navigator"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": [
         "transform-dataflow",
         "analytic-interaction",
@@ -414,7 +496,7 @@
       "quickApi": "gauge",
       "mark": "gauge",
       "coordinate": "radial-or-linear",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/gauge.md",
       "representativeSnapshot": "docs/assets/charts/gauge.svg",
       "supportedFeatures": [
@@ -423,9 +505,18 @@
         "number and delta",
         "linear bullet target",
         "solid gauge",
-        "multiple rows"
+        "multiple rows",
+        "threshold bands",
+        "custom ticks",
+        "exact accessible value summary"
       ],
-      "currentLimitations": ["threshold bands", "custom ticks", "exact accessible value summary"],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "threshold bands",
+        "custom ticks",
+        "exact accessible value summary"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": ["label-layout-authoring", "semantic-index-accessibility"]
     },
     {
@@ -438,7 +529,7 @@
       "quickApi": "map",
       "mark": "map",
       "coordinate": "geographic-and-globe",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/map.md",
       "representativeSnapshot": "docs/assets/charts/map.svg",
       "supportedFeatures": [
@@ -448,15 +539,22 @@
         "bounded equirectangular viewport and coordinate validation",
         "embedded Natural Earth attribution toggle",
         "globe great-circle routes",
-        "back-face occlusion and orbit"
-      ],
-      "currentLimitations": [
+        "back-face occlusion and orbit",
         "source/layer/projection lifecycle",
         "GeoJSON and TopoJSON",
         "general fit and clip policy",
         "flat geodesics",
         "provider-backed tile lifecycle, cache and attribution"
       ],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "source/layer/projection lifecycle",
+        "GeoJSON and TopoJSON",
+        "general fit and clip policy",
+        "flat geodesics",
+        "provider-backed tile lifecycle, cache and attribution"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": [
         "analytic-interaction",
         "incremental-worker-binary",
@@ -473,7 +571,7 @@
       "quickApi": "distribution",
       "mark": "distribution",
       "coordinate": "statistical",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/distribution.md",
       "representativeSnapshot": "docs/assets/charts/distribution.svg",
       "supportedFeatures": [
@@ -485,9 +583,18 @@
         "precomputed box",
         "normal density curve",
         "2D histogram",
-        "grid contour"
+        "grid contour",
+        "shared bins",
+        "notched and weighted box summaries",
+        "rug and strip"
       ],
-      "currentLimitations": ["shared bins", "notched and weighted box summaries", "rug and strip"],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "shared bins",
+        "notched and weighted box summaries",
+        "rug and strip"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": [
         "transform-dataflow",
         "composition-resolve",
@@ -504,21 +611,27 @@
       "quickApi": "intervals",
       "mark": "interval",
       "coordinate": "cartesian",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/interval.md",
       "representativeSnapshot": "docs/assets/charts/interval.svg",
       "supportedFeatures": [
         "precomputed vertical interval",
         "area and spline range",
         "column range",
-        "dumbbell"
-      ],
-      "currentLimitations": [
+        "dumbbell",
         "raw estimator",
         "CI/PI/SE/SD/IQR/HDI",
         "horizontal errors",
         "provenance"
       ],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "raw estimator",
+        "CI/PI/SE/SD/IQR/HDI",
+        "horizontal errors",
+        "provenance"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": ["transform-dataflow", "composition-resolve"]
     },
     {
@@ -531,7 +644,7 @@
       "quickApi": "line",
       "mark": "line",
       "coordinate": "cartesian",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/line.md",
       "representativeSnapshot": "docs/assets/charts/line.svg",
       "supportedFeatures": [
@@ -540,14 +653,20 @@
         "linear trendline",
         "min-max sampling",
         "appendData",
-        "per-observation semantic and datum hit targets"
-      ],
-      "currentLimitations": [
+        "per-observation semantic and datum hit targets",
         "duplicate and implicit sort policy",
         "data-domain navigation",
         "named transform DAG reuse",
         "worker-bounded streaming retention"
       ],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "duplicate and implicit sort policy",
+        "data-domain navigation",
+        "named transform DAG reuse",
+        "worker-bounded streaming retention"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": [
         "transform-dataflow",
         "encoding-scale-registry",
@@ -566,7 +685,7 @@
       "quickApi": "motion",
       "mark": "motion",
       "coordinate": "animated",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/motion.md",
       "representativeSnapshot": "docs/assets/charts/motion.svg",
       "supportedFeatures": [
@@ -575,9 +694,14 @@
         "enter/update/exit transitions",
         "geometry and color tween",
         "seek/scrubber/step/rate/loop",
-        "reduced motion"
+        "reduced motion",
+        "reverse playback",
+        "loop subranges",
+        "named frames"
       ],
-      "currentLimitations": ["reverse playback", "loop subranges", "named frames"],
+      "currentLimitations": [],
+      "completedCurrentLimitations": ["reverse playback", "loop subranges", "named frames"],
+      "implementationEvidence": {},
       "developmentDependencies": ["incremental-worker-binary", "composition-resolve"]
     },
     {
@@ -590,16 +714,27 @@
       "quickApi": "treemap",
       "mark": "treemap",
       "coordinate": "hierarchical",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/hierarchy.md",
       "representativeSnapshot": "docs/assets/charts/hierarchy.svg",
-      "supportedFeatures": ["treemap", "nested icicle", "tree and organization", "sunburst"],
-      "currentLimitations": [
+      "supportedFeatures": [
+        "treemap",
+        "nested icicle",
+        "tree and organization",
+        "sunburst",
         "circle pack",
         "dendrogram and radial tree",
         "collapse/re-root/zoom",
         "breadcrumbs and search"
       ],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "circle pack",
+        "dendrogram and radial tree",
+        "collapse/re-root/zoom",
+        "breadcrumbs and search"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": [
         "analytic-interaction",
         "label-layout-authoring",
@@ -616,16 +751,25 @@
       "quickApi": "sankey",
       "mark": "sankey",
       "coordinate": "flow",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/flow.md",
       "representativeSnapshot": "docs/assets/charts/flow.svg",
-      "supportedFeatures": ["two-column weighted Sankey", "interactive links"],
-      "currentLimitations": [
+      "supportedFeatures": [
+        "two-column weighted Sankey",
+        "interactive links",
         "multi-stage graph model",
         "alignment/order/sort/iterations",
         "cycles and balance validation",
         "node drag and path traversal"
       ],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "multi-stage graph model",
+        "alignment/order/sort/iterations",
+        "cycles and balance validation",
+        "node drag and path traversal"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": [
         "transform-dataflow",
         "label-layout-authoring",
@@ -642,21 +786,27 @@
       "quickApi": "scatter",
       "mark": "point",
       "coordinate": "cartesian",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/scatter.md",
       "representativeSnapshot": "docs/assets/charts/scatter.svg",
       "supportedFeatures": [
         "point mark",
         "effect scatter",
         "portable 2D depth-cue scatter3d",
-        "performance sampling"
-      ],
-      "currentLimitations": [
+        "performance sampling",
         "color/radius/shape/opacity encodings",
         "brush/lasso/polygon selection",
         "data-domain navigation",
         "spatial index and WebGL dispatch"
       ],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "color/radius/shape/opacity encodings",
+        "brush/lasso/polygon selection",
+        "data-domain navigation",
+        "spatial index and WebGL dispatch"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": [
         "encoding-scale-registry",
         "analytic-interaction",
@@ -674,7 +824,7 @@
       "quickApi": "table",
       "mark": "table",
       "coordinate": "tabular",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/table.md",
       "representativeSnapshot": "docs/assets/charts/table.svg",
       "supportedFeatures": [
@@ -682,14 +832,20 @@
         "column and row height options",
         "exact cell hit",
         "bounded native semantic HTML mirror",
-        "roving keyboard navigation with focus, tooltip and selection synchronization"
-      ],
-      "currentLimitations": [
+        "roving keyboard navigation with focus, tooltip and selection synchronization",
         "interactive sort/filter/group/pivot controls",
         "virtualization and frozen regions",
         "cell-level keyboard grid navigation",
         "formatter registry"
       ],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "interactive sort/filter/group/pivot controls",
+        "virtualization and frozen regions",
+        "cell-level keyboard grid navigation",
+        "formatter registry"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": [
         "semantic-index-accessibility",
         "analytic-interaction",
@@ -706,11 +862,18 @@
       "quickApi": "waterfall",
       "mark": "waterfall",
       "coordinate": "cartesian",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/waterfall.md",
       "representativeSnapshot": "docs/assets/charts/waterfall.svg",
-      "supportedFeatures": ["running sum", "connectors", "positive and negative styling"],
-      "currentLimitations": ["explicit relative/absolute/subtotal/total semantics"],
+      "supportedFeatures": [
+        "running sum",
+        "connectors",
+        "positive and negative styling",
+        "explicit relative/absolute/subtotal/total semantics"
+      ],
+      "currentLimitations": [],
+      "completedCurrentLimitations": ["explicit relative/absolute/subtotal/total semantics"],
+      "implementationEvidence": {},
       "developmentDependencies": ["transform-dataflow", "encoding-scale-registry"]
     },
     {
@@ -723,15 +886,23 @@
       "quickApi": "wordTree",
       "mark": "word-tree",
       "coordinate": "hierarchical-text",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/word-tree.md",
       "representativeSnapshot": "docs/assets/charts/word-tree.svg",
-      "supportedFeatures": ["prestructured phrase hierarchy", "weighted labels and links"],
-      "currentLimitations": [
+      "supportedFeatures": [
+        "prestructured phrase hierarchy",
+        "weighted labels and links",
         "tokenization/case/stopword/stemming",
         "prefix/suffix/reverse",
         "phrase aggregation and pruning"
       ],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "tokenization/case/stopword/stemming",
+        "prefix/suffix/reverse",
+        "phrase aggregation and pruning"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": [
         "transform-dataflow",
         "label-layout-authoring",
@@ -748,21 +919,27 @@
       "quickApi": "polar",
       "mark": "polar",
       "coordinate": "polar",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/polar.md",
       "representativeSnapshot": "docs/assets/charts/polar.svg",
       "supportedFeatures": [
         "radar",
         "line/scatter/bar and area",
         "degrees or radians",
-        "categorical spokes"
-      ],
-      "currentLimitations": [
+        "categorical spokes",
         "configurable zero/direction/wrap",
         "log/sqrt radius",
         "angular bins",
         "stacked and normalized radial bars"
       ],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "configurable zero/direction/wrap",
+        "log/sqrt radius",
+        "angular bins",
+        "stacked and normalized radial bars"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": [
         "transform-dataflow",
         "encoding-scale-registry",
@@ -780,7 +957,7 @@
       "quickApi": "network",
       "mark": "graph",
       "coordinate": "graph",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/network.md",
       "representativeSnapshot": "docs/assets/charts/network.svg",
       "supportedFeatures": [
@@ -788,14 +965,20 @@
         "circular node-link",
         "arc diagram",
         "connection arrows",
-        "tree preset"
-      ],
-      "currentLimitations": [
+        "tree preset",
         "directed/multiedge/self-loop/compound/port model",
         "force/radial/grid/DAG layouts",
         "drag/pin/collapse/lasso",
         "edge routing"
       ],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "directed/multiedge/self-loop/compound/port model",
+        "force/radial/grid/DAG layouts",
+        "drag/pin/collapse/lasso",
+        "edge routing"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": [
         "analytic-interaction",
         "incremental-worker-binary",
@@ -812,20 +995,26 @@
       "quickApi": "chord",
       "mark": "chord",
       "coordinate": "radial-graph",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/chord.md",
       "representativeSnapshot": "docs/assets/charts/chord.svg",
       "supportedFeatures": [
         "weighted group arcs",
         "ribbon-like center links",
-        "dependency-wheel alias"
-      ],
-      "currentLimitations": [
+        "dependency-wheel alias",
         "matrix transform",
         "subgroups and sorting",
         "padding",
         "directed asymmetry and self-loop semantics"
       ],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "matrix transform",
+        "subgroups and sorting",
+        "padding",
+        "directed asymmetry and self-loop semantics"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": [
         "transform-dataflow",
         "label-layout-authoring",
@@ -842,20 +1031,25 @@
       "quickApi": "funnel",
       "mark": "funnel",
       "coordinate": "stage",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/funnel.md",
       "representativeSnapshot": "docs/assets/charts/funnel.svg",
       "supportedFeatures": [
         "length funnel",
         "area-proportional funnel",
         "pyramid and depth-styled variants",
-        "sorting and value labels"
-      ],
-      "currentLimitations": [
+        "sorting and value labels",
         "conversion/dropoff/cumulative semantics",
         "neck configuration",
         "outside label solver"
       ],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "conversion/dropoff/cumulative semantics",
+        "neck configuration",
+        "outside label solver"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": [
         "transform-dataflow",
         "label-layout-authoring",
@@ -872,20 +1066,26 @@
       "quickApi": "parallel",
       "mark": "parallel",
       "coordinate": "parallel",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/parallel.md",
       "representativeSnapshot": "docs/assets/charts/parallel.svg",
       "supportedFeatures": [
         "numeric and ordinal normalization",
         "category/group color",
-        "aggregated categorical ribbons"
-      ],
-      "currentLimitations": [
+        "aggregated categorical ribbons",
         "log scale",
         "missing routing",
         "axis reorder/invert",
         "per-axis brush and linked filter"
       ],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "log scale",
+        "missing routing",
+        "axis reorder/invert",
+        "per-axis brush and linked filter"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": [
         "encoding-scale-registry",
         "analytic-interaction",
@@ -902,7 +1102,7 @@
       "quickApi": "heatmap",
       "mark": "heatmap",
       "coordinate": "matrix",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/heatmap.md",
       "representativeSnapshot": "docs/assets/charts/heatmap.svg",
       "supportedFeatures": [
@@ -910,15 +1110,22 @@
         "band and numeric positions",
         "continuous palette and legend",
         "automatic value labels",
-        "tile-map shapes"
-      ],
-      "currentLimitations": [
+        "tile-map shapes",
         "pivot/matrix input",
         "irregular extents",
         "explicit missing-value pattern",
         "diverging/log/symlog/quantile color",
         "brush"
       ],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "pivot/matrix input",
+        "irregular extents",
+        "explicit missing-value pattern",
+        "diverging/log/symlog/quantile color",
+        "brush"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": [
         "transform-dataflow",
         "encoding-scale-registry",
@@ -936,16 +1143,25 @@
       "quickApi": "image",
       "mark": "image",
       "coordinate": "raster",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/image.md",
       "representativeSnapshot": "docs/assets/charts/image.svg",
       "supportedFeatures": [
         "row RGB/RGBA or explicit color pixels",
         "numeric and band coordinates",
         "exact pixel hit",
-        "RGBA channel composition"
+        "RGBA channel composition",
+        "extent and origin",
+        "resampling",
+        "colormap and window mapping"
       ],
-      "currentLimitations": ["extent and origin", "resampling", "colormap and window mapping"],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "extent and origin",
+        "resampling",
+        "colormap and window mapping"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": [
         "encoding-scale-registry",
         "analytic-interaction",
@@ -963,20 +1179,25 @@
       "quickApi": "ternary",
       "mark": "ternary",
       "coordinate": "ternary",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/ternary.md",
       "representativeSnapshot": "docs/assets/charts/ternary.svg",
       "supportedFeatures": [
         "nonnegative component normalization",
         "barycentric mapping",
         "grid and labels",
-        "scatter and line/closed path"
-      ],
-      "currentLimitations": [
+        "scatter and line/closed path",
         "constant-sum validation policy",
         "raw and normalized tooltip",
         "component ticks and formatting"
       ],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "constant-sum validation policy",
+        "raw and normalized tooltip",
+        "component ticks and formatting"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": [
         "transform-dataflow",
         "encoding-scale-registry",
@@ -994,21 +1215,27 @@
       "quickApi": "smith",
       "mark": "smith",
       "coordinate": "smith",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/smith.md",
       "representativeSnapshot": "docs/assets/charts/smith.svg",
       "supportedFeatures": [
         "normalized impedance to reflection transform",
         "resistance/reactance grid",
         "line and scatter",
-        "multiple series"
-      ],
-      "currentLimitations": [
+        "multiple series",
         "impedance/admittance/combined modes",
         "reference impedance",
         "S/Z/Y/reflection inputs",
         "specialized labels and tooltip"
       ],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "impedance/admittance/combined modes",
+        "reference impedance",
+        "S/Z/Y/reflection inputs",
+        "specialized labels and tooltip"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": [
         "encoding-scale-registry",
         "composition-resolve",
@@ -1025,7 +1252,7 @@
       "quickApi": "scatterMatrix",
       "mark": "scatter-matrix",
       "coordinate": "matrix",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/scatter-matrix.md",
       "representativeSnapshot": "docs/assets/charts/scatter-matrix.svg",
       "supportedFeatures": [
@@ -1033,13 +1260,18 @@
         "explicit dimension order",
         "diagonal histogram",
         "off-diagonal scatter",
-        "shared category color"
-      ],
-      "currentLimitations": [
+        "shared category color",
         "selectable diagonal KDE/ECDF",
         "upper/lower mark selection",
         "linked brush"
       ],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "selectable diagonal KDE/ECDF",
+        "upper/lower mark selection",
+        "linked brush"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": [
         "composition-resolve",
         "analytic-interaction",
@@ -1058,19 +1290,24 @@
       "quickApi": "carpet",
       "mark": "carpet",
       "coordinate": "warped-grid",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/carpet.md",
       "representativeSnapshot": "docs/assets/charts/carpet.svg",
       "supportedFeatures": [
         "explicit logical and projected coordinates",
         "irregular/missing grids",
-        "base/scatter/contour modes"
-      ],
-      "currentLimitations": [
+        "base/scatter/contour modes",
         "logical axis ticks and labels",
         "mask policy",
         "dual projected tooltip"
       ],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "logical axis ticks and labels",
+        "mask policy",
+        "dual projected tooltip"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": [
         "encoding-scale-registry",
         "analytic-interaction",
@@ -1087,7 +1324,7 @@
       "quickApi": "contour",
       "mark": "contour",
       "coordinate": "field",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/contour.md",
       "representativeSnapshot": "docs/assets/charts/contour.svg",
       "supportedFeatures": [
@@ -1096,13 +1333,18 @@
         "threshold-relative asymptotic saddle decider with explicit high/low policies",
         "null-cell holes and bounded extraction",
         "shared canonical, bivariate and carpet extractor",
-        "optional threshold-colored cells"
-      ],
-      "currentLimitations": [
+        "optional threshold-colored cells",
         "filled and banded contours with polygon-hole topology",
         "triangulated irregular samples",
         "smoothing"
       ],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "filled and banded contours with polygon-hole topology",
+        "triangulated irregular samples",
+        "smoothing"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": ["transform-dataflow", "incremental-worker-binary"]
     },
     {
@@ -1115,20 +1357,26 @@
       "quickApi": "itemChart",
       "mark": "item",
       "coordinate": "unit-grid",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/item.md",
       "representativeSnapshot": "docs/assets/charts/item.svg",
       "supportedFeatures": [
         "fixed waffle-like grid",
         "proportional unit assignment",
-        "per-unit hit and selection"
-      ],
-      "currentLimitations": [
+        "per-unit hit and selection",
         "explicit waffle/isotype contract",
         "partial units",
         "fill direction and grouping",
         "accessible counts"
       ],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "explicit waffle/isotype contract",
+        "partial units",
+        "fill direction and grouping",
+        "accessible counts"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": [
         "semantic-index-accessibility",
         "analytic-interaction",
@@ -1145,19 +1393,24 @@
       "quickApi": "vectorField",
       "mark": "vector",
       "coordinate": "field",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/vector-field.md",
       "representativeSnapshot": "docs/assets/charts/vector-field.svg",
       "supportedFeatures": [
         "direction and magnitude arrows",
         "wind barbs",
-        "magnitude size and width"
-      ],
-      "currentLimitations": [
+        "magnitude size and width",
         "vector-to-magnitude transform",
         "normalization and sampled grid",
         "streamline seeding/integration"
       ],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "vector-to-magnitude transform",
+        "normalization and sampled grid",
+        "streamline seeding/integration"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": [
         "transform-dataflow",
         "analytic-interaction",
@@ -1174,20 +1427,26 @@
       "quickApi": "venn",
       "mark": "venn",
       "coordinate": "set",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/venn.md",
       "representativeSnapshot": "docs/assets/charts/venn.svg",
       "supportedFeatures": [
         "up to six deterministic circles",
         "size-derived radius",
-        "set hit targets"
-      ],
-      "currentLimitations": [
+        "set hit targets",
         "membership and intersection input",
         "proportional two/three-set solve",
         "quality metric and queries",
         "region hit"
       ],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "membership and intersection input",
+        "proportional two/three-set solve",
+        "quality metric and queries",
+        "region hit"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": [
         "transform-dataflow",
         "label-layout-authoring",
@@ -1205,7 +1464,7 @@
       "quickApi": "wordCloud",
       "mark": "word-cloud",
       "coordinate": "text-layout",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/word-cloud.md",
       "representativeSnapshot": "docs/assets/charts/word-cloud.svg",
       "supportedFeatures": [
@@ -1213,13 +1472,18 @@
         "bounded spiral",
         "iterative bounding-box collision search",
         "fixed rotation set",
-        "exact word hit"
-      ],
-      "currentLimitations": [
+        "exact word hit",
         "tokenizer/stopword/n-gram",
         "deterministic seed",
         "padding and allowed-rotation API"
       ],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "tokenizer/stopword/n-gram",
+        "deterministic seed",
+        "padding and allowed-rotation API"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": [
         "transform-dataflow",
         "label-layout-authoring",
@@ -1236,22 +1500,29 @@
       "quickApi": "priceBlocks",
       "mark": "renko",
       "coordinate": "financial",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/price-blocks.md",
       "representativeSnapshot": "docs/assets/charts/price-blocks.svg",
       "supportedFeatures": [
         "Renko",
         "Point and Figure",
         "fixed brick/box",
-        "partial provenance tooltip"
-      ],
-      "currentLimitations": [
+        "partial provenance tooltip",
         "Kagi",
         "three-line break",
         "range bars",
         "percent/ATR/log sizing",
         "OHLC-source provenance"
       ],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "Kagi",
+        "three-line break",
+        "range bars",
+        "percent/ATR/log sizing",
+        "OHLC-source provenance"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": ["transform-dataflow", "incremental-worker-binary"]
     },
     {
@@ -1264,20 +1535,26 @@
       "quickApi": "volumeProfile",
       "mark": "volume-profile",
       "coordinate": "financial",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/volume-profile.md",
       "representativeSnapshot": "docs/assets/charts/volume-profile.svg",
       "supportedFeatures": [
         "whole-input price-bin aggregation",
         "volume/proportion tooltip",
-        "right placement"
-      ],
-      "currentLimitations": [
+        "right placement",
         "fixed/visible/session/periodic scope",
         "row size",
         "POC/VAH/VAL",
         "left placement"
       ],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "fixed/visible/session/periodic scope",
+        "row size",
+        "POC/VAH/VAL",
+        "left placement"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": [
         "transform-dataflow",
         "analytic-interaction",
@@ -1294,22 +1571,28 @@
       "quickApi": "technicalIndicator",
       "mark": "indicator",
       "coordinate": "financial",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/charts/technical-indicator.md",
       "representativeSnapshot": "docs/assets/charts/technical-indicator.svg",
       "supportedFeatures": [
         "47 public indicator names",
-        "17 registry-audited calculated indicators and 28 explicit precomputed-only presets",
+        "45 registry-audited calculated indicators with closed OHLCV, parameter, DAG and provenance contracts",
         "parameter schemas, dependency DAGs, formula provenance and null warm-up rows for calculated indicators",
         "band/line/column rendering",
-        "supplied-column fallback"
-      ],
-      "currentLimitations": [
+        "supplied-column fallback",
         "calculation coverage for the 28 precomputed-only presets",
         "session-aware warm-up policy",
         "indicator panes and synchronized crosshair",
         "worker-bounded incremental calculation"
       ],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "calculation coverage for the 28 precomputed-only presets",
+        "session-aware warm-up policy",
+        "indicator panes and synchronized crosshair",
+        "worker-bounded incremental calculation"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": [
         "transform-dataflow",
         "composition-resolve",
@@ -1326,7 +1609,7 @@
       "quickApi": "surface",
       "mark": "surface",
       "coordinate": "spatial",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/spatial/surface.md",
       "representativeSnapshot": "docs/assets/spatial/surface.svg",
       "supportedFeatures": [
@@ -1334,13 +1617,18 @@
         "theme colormap",
         "generated or supplied normals",
         "filled or wireframe",
-        "lighting and vertex picking"
-      ],
-      "currentLimitations": [
+        "lighting and vertex picking",
         "flat/smooth normal mode",
         "filled plus wire overlay",
         "contour projection"
       ],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "flat/smooth normal mode",
+        "filled plus wire overlay",
+        "contour projection"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": ["incremental-worker-binary"]
     },
     {
@@ -1353,21 +1641,27 @@
       "quickApi": "volume",
       "mark": "volume",
       "coordinate": "spatial",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/spatial/volume.md",
       "representativeSnapshot": "docs/assets/spatial/volume.svg",
       "supportedFeatures": [
         "bounded voxel point sampling",
         "color ramp",
         "marching-tetrahedra isosurface",
-        "multiple isosurface layers"
-      ],
-      "currentLimitations": [
+        "multiple isosurface layers",
         "transfer functions",
         "raycast/MIP/minIP/average",
         "orthogonal and oblique slices",
         "caps and window-level"
       ],
+      "currentLimitations": [],
+      "completedCurrentLimitations": [
+        "transfer functions",
+        "raycast/MIP/minIP/average",
+        "orthogonal and oblique slices",
+        "caps and window-level"
+      ],
+      "implementationEvidence": {},
       "developmentDependencies": ["incremental-worker-binary"]
     },
     {
@@ -1380,7 +1674,7 @@
       "quickApi": "vectorCone",
       "mark": "vector",
       "coordinate": "spatial",
-      "implementationStatus": "partial",
+      "implementationStatus": "supported",
       "manual": "docs/spatial/spatial-vector.md",
       "representativeSnapshot": "docs/assets/spatial/vector-cone.svg",
       "supportedFeatures": [
@@ -1389,9 +1683,12 @@
         "spatial scatter",
         "magnitude-derived geometry/color",
         "radius/scale/segments",
-        "camera and depth picking"
+        "camera and depth picking",
+        "seeded adaptive field integration"
       ],
-      "currentLimitations": ["seeded adaptive field integration"],
+      "currentLimitations": [],
+      "completedCurrentLimitations": ["seeded adaptive field integration"],
+      "implementationEvidence": {},
       "developmentDependencies": ["incremental-worker-binary", "analytic-interaction"]
     }
   ],
@@ -3214,7 +3511,7 @@
       "quickApi": "accelerationBands",
       "mark": "indicator",
       "requiredCapabilities": ["canvas"],
-      "transformSemantics": ["indicator:precomputed-required"],
+      "transformSemantics": ["indicator:computed", "warm-up:null", "provenance:formula-registry"],
       "accessibilityFallback": "host-provided-semantic-table",
       "performanceProfile": "auto",
       "exampleRef": "docs/charts/technical-indicator.md#variant-acceleration-bands"
@@ -3231,7 +3528,7 @@
       "quickApi": "awesomeOscillator",
       "mark": "indicator",
       "requiredCapabilities": ["canvas"],
-      "transformSemantics": ["indicator:precomputed-required"],
+      "transformSemantics": ["indicator:computed", "warm-up:null", "provenance:formula-registry"],
       "accessibilityFallback": "host-provided-semantic-table",
       "performanceProfile": "auto",
       "exampleRef": "docs/charts/technical-indicator.md#variant-awesome-oscillator"
@@ -3265,7 +3562,7 @@
       "quickApi": "aroon",
       "mark": "indicator",
       "requiredCapabilities": ["canvas"],
-      "transformSemantics": ["indicator:precomputed-required"],
+      "transformSemantics": ["indicator:computed", "warm-up:null", "provenance:formula-registry"],
       "accessibilityFallback": "host-provided-semantic-table",
       "performanceProfile": "auto",
       "exampleRef": "docs/charts/technical-indicator.md#variant-aroon"
@@ -3282,7 +3579,7 @@
       "quickApi": "aroonOscillator",
       "mark": "indicator",
       "requiredCapabilities": ["canvas"],
-      "transformSemantics": ["indicator:precomputed-required"],
+      "transformSemantics": ["indicator:computed", "warm-up:null", "provenance:formula-registry"],
       "accessibilityFallback": "host-provided-semantic-table",
       "performanceProfile": "auto",
       "exampleRef": "docs/charts/technical-indicator.md#variant-aroon-oscillator"
@@ -3299,7 +3596,7 @@
       "quickApi": "averageTrueRange",
       "mark": "indicator",
       "requiredCapabilities": ["canvas"],
-      "transformSemantics": ["indicator:precomputed-required"],
+      "transformSemantics": ["indicator:computed", "warm-up:null", "provenance:formula-registry"],
       "accessibilityFallback": "host-provided-semantic-table",
       "performanceProfile": "auto",
       "exampleRef": "docs/charts/technical-indicator.md#variant-average-true-range"
@@ -3316,7 +3613,7 @@
       "quickApi": "volatilityBands",
       "mark": "indicator",
       "requiredCapabilities": ["canvas"],
-      "transformSemantics": ["indicator:precomputed-required"],
+      "transformSemantics": ["indicator:computed", "warm-up:null", "provenance:formula-registry"],
       "accessibilityFallback": "host-provided-semantic-table",
       "performanceProfile": "auto",
       "exampleRef": "docs/charts/technical-indicator.md#variant-volatility-bands"
@@ -3333,7 +3630,7 @@
       "quickApi": "commodityChannelIndex",
       "mark": "indicator",
       "requiredCapabilities": ["canvas"],
-      "transformSemantics": ["indicator:precomputed-required"],
+      "transformSemantics": ["indicator:computed", "warm-up:null", "provenance:formula-registry"],
       "accessibilityFallback": "host-provided-semantic-table",
       "performanceProfile": "auto",
       "exampleRef": "docs/charts/technical-indicator.md#variant-commodity-channel-index"
@@ -3350,7 +3647,7 @@
       "quickApi": "chaikinOscillator",
       "mark": "indicator",
       "requiredCapabilities": ["canvas"],
-      "transformSemantics": ["indicator:precomputed-required"],
+      "transformSemantics": ["indicator:computed", "warm-up:null", "provenance:formula-registry"],
       "accessibilityFallback": "host-provided-semantic-table",
       "performanceProfile": "auto",
       "exampleRef": "docs/charts/technical-indicator.md#variant-chaikin-oscillator"
@@ -3367,7 +3664,7 @@
       "quickApi": "chaikinMoneyFlow",
       "mark": "indicator",
       "requiredCapabilities": ["canvas"],
-      "transformSemantics": ["indicator:precomputed-required"],
+      "transformSemantics": ["indicator:computed", "warm-up:null", "provenance:formula-registry"],
       "accessibilityFallback": "host-provided-semantic-table",
       "performanceProfile": "auto",
       "exampleRef": "docs/charts/technical-indicator.md#variant-chaikin-money-flow"
@@ -3384,7 +3681,7 @@
       "quickApi": "chandeMomentumOscillator",
       "mark": "indicator",
       "requiredCapabilities": ["canvas"],
-      "transformSemantics": ["indicator:precomputed-required"],
+      "transformSemantics": ["indicator:computed", "warm-up:null", "provenance:formula-registry"],
       "accessibilityFallback": "host-provided-semantic-table",
       "performanceProfile": "auto",
       "exampleRef": "docs/charts/technical-indicator.md#variant-chande-momentum-oscillator"
@@ -3435,7 +3732,7 @@
       "quickApi": "directionalMovementIndex",
       "mark": "indicator",
       "requiredCapabilities": ["canvas"],
-      "transformSemantics": ["indicator:precomputed-required"],
+      "transformSemantics": ["indicator:computed", "warm-up:null", "provenance:formula-registry"],
       "accessibilityFallback": "host-provided-semantic-table",
       "performanceProfile": "auto",
       "exampleRef": "docs/charts/technical-indicator.md#variant-directional-movement-index"
@@ -3452,7 +3749,7 @@
       "quickApi": "detrendedPriceOscillator",
       "mark": "indicator",
       "requiredCapabilities": ["canvas"],
-      "transformSemantics": ["indicator:precomputed-required"],
+      "transformSemantics": ["indicator:computed", "warm-up:null", "provenance:formula-registry"],
       "accessibilityFallback": "host-provided-semantic-table",
       "performanceProfile": "auto",
       "exampleRef": "docs/charts/technical-indicator.md#variant-detrended-price-oscillator"
@@ -3554,7 +3851,7 @@
       "quickApi": "ichimokuCloud",
       "mark": "indicator",
       "requiredCapabilities": ["canvas"],
-      "transformSemantics": ["indicator:precomputed-required"],
+      "transformSemantics": ["indicator:computed", "warm-up:null", "provenance:formula-registry"],
       "accessibilityFallback": "host-provided-semantic-table",
       "performanceProfile": "auto",
       "exampleRef": "docs/charts/technical-indicator.md#variant-ichimoku-cloud"
@@ -3571,7 +3868,7 @@
       "quickApi": "keltnerChannels",
       "mark": "indicator",
       "requiredCapabilities": ["canvas"],
-      "transformSemantics": ["indicator:precomputed-required"],
+      "transformSemantics": ["indicator:computed", "warm-up:null", "provenance:formula-registry"],
       "accessibilityFallback": "host-provided-semantic-table",
       "performanceProfile": "auto",
       "exampleRef": "docs/charts/technical-indicator.md#variant-keltner-channels"
@@ -3588,7 +3885,7 @@
       "quickApi": "klingerOscillator",
       "mark": "indicator",
       "requiredCapabilities": ["canvas"],
-      "transformSemantics": ["indicator:precomputed-required"],
+      "transformSemantics": ["indicator:computed", "warm-up:null", "provenance:formula-registry"],
       "accessibilityFallback": "host-provided-semantic-table",
       "performanceProfile": "auto",
       "exampleRef": "docs/charts/technical-indicator.md#variant-klinger-oscillator"
@@ -3690,7 +3987,7 @@
       "quickApi": "moneyFlowIndex",
       "mark": "indicator",
       "requiredCapabilities": ["canvas"],
-      "transformSemantics": ["indicator:precomputed-required"],
+      "transformSemantics": ["indicator:computed", "warm-up:null", "provenance:formula-registry"],
       "accessibilityFallback": "host-provided-semantic-table",
       "performanceProfile": "auto",
       "exampleRef": "docs/charts/technical-indicator.md#variant-money-flow-index"
@@ -3724,7 +4021,7 @@
       "quickApi": "normalizedAverageTrueRange",
       "mark": "indicator",
       "requiredCapabilities": ["canvas"],
-      "transformSemantics": ["indicator:precomputed-required"],
+      "transformSemantics": ["indicator:computed", "warm-up:null", "provenance:formula-registry"],
       "accessibilityFallback": "host-provided-semantic-table",
       "performanceProfile": "auto",
       "exampleRef": "docs/charts/technical-indicator.md#variant-normalized-average-true-range"
@@ -3741,7 +4038,7 @@
       "quickApi": "onBalanceVolume",
       "mark": "indicator",
       "requiredCapabilities": ["canvas"],
-      "transformSemantics": ["indicator:precomputed-required"],
+      "transformSemantics": ["indicator:computed", "warm-up:null", "provenance:formula-registry"],
       "accessibilityFallback": "host-provided-semantic-table",
       "performanceProfile": "auto",
       "exampleRef": "docs/charts/technical-indicator.md#variant-on-balance-volume"
@@ -3775,7 +4072,7 @@
       "quickApi": "priceChannel",
       "mark": "indicator",
       "requiredCapabilities": ["canvas"],
-      "transformSemantics": ["indicator:precomputed-required"],
+      "transformSemantics": ["indicator:computed", "warm-up:null", "provenance:formula-registry"],
       "accessibilityFallback": "host-provided-semantic-table",
       "performanceProfile": "auto",
       "exampleRef": "docs/charts/technical-indicator.md#variant-price-channel"
@@ -3792,7 +4089,7 @@
       "quickApi": "pivotPoints",
       "mark": "indicator",
       "requiredCapabilities": ["canvas"],
-      "transformSemantics": ["indicator:precomputed-required"],
+      "transformSemantics": ["indicator:computed", "warm-up:null", "provenance:formula-registry"],
       "accessibilityFallback": "host-provided-semantic-table",
       "performanceProfile": "auto",
       "exampleRef": "docs/charts/technical-indicator.md#variant-pivot-points"
@@ -3843,7 +4140,7 @@
       "quickApi": "priceEnvelopes",
       "mark": "indicator",
       "requiredCapabilities": ["canvas"],
-      "transformSemantics": ["indicator:precomputed-required"],
+      "transformSemantics": ["indicator:computed", "warm-up:null", "provenance:formula-registry"],
       "accessibilityFallback": "host-provided-semantic-table",
       "performanceProfile": "auto",
       "exampleRef": "docs/charts/technical-indicator.md#variant-price-envelopes"
@@ -3860,7 +4157,7 @@
       "quickApi": "parabolicStopAndReverse",
       "mark": "indicator",
       "requiredCapabilities": ["canvas"],
-      "transformSemantics": ["indicator:precomputed-required"],
+      "transformSemantics": ["indicator:computed", "warm-up:null", "provenance:formula-registry"],
       "accessibilityFallback": "host-provided-semantic-table",
       "performanceProfile": "auto",
       "exampleRef": "docs/charts/technical-indicator.md#variant-parabolic-stop-and-reverse"
@@ -3883,9 +4180,63 @@
       "exampleRef": "docs/charts/price-blocks.md#variant-renko"
     },
     {
+      "id": "kagi",
+      "name": "Kagi chart",
+      "order": 146,
+      "familyId": "price-blocks",
+      "mode": "kagi",
+      "kind": "preset",
+      "entryPoint": "graflume/complete",
+      "renderer": "canvas",
+      "quickApi": "kagi",
+      "mark": "renko",
+      "requiredCapabilities": ["canvas"],
+      "transformSemantics": ["finance:kagi"],
+      "accessibilityFallback": "host-provided-semantic-table",
+      "performanceProfile": "auto",
+      "exampleRef": "docs/charts/price-blocks.md#variant-kagi",
+      "introducedIn": "current-limitations-2026-08-26"
+    },
+    {
+      "id": "three-line-break",
+      "name": "Three line break chart",
+      "order": 147,
+      "familyId": "price-blocks",
+      "mode": "three-line-break",
+      "kind": "preset",
+      "entryPoint": "graflume/complete",
+      "renderer": "canvas",
+      "quickApi": "threeLineBreak",
+      "mark": "renko",
+      "requiredCapabilities": ["canvas"],
+      "transformSemantics": ["finance:three-line-break"],
+      "accessibilityFallback": "host-provided-semantic-table",
+      "performanceProfile": "auto",
+      "exampleRef": "docs/charts/price-blocks.md#variant-three-line-break",
+      "introducedIn": "current-limitations-2026-08-26"
+    },
+    {
+      "id": "range-bars",
+      "name": "Range bars chart",
+      "order": 148,
+      "familyId": "price-blocks",
+      "mode": "range-bars",
+      "kind": "preset",
+      "entryPoint": "graflume/complete",
+      "renderer": "canvas",
+      "quickApi": "rangeBars",
+      "mark": "renko",
+      "requiredCapabilities": ["canvas"],
+      "transformSemantics": ["finance:range-bars"],
+      "accessibilityFallback": "host-provided-semantic-table",
+      "performanceProfile": "auto",
+      "exampleRef": "docs/charts/price-blocks.md#variant-range-bars",
+      "introducedIn": "current-limitations-2026-08-26"
+    },
+    {
       "id": "rate-of-change",
       "name": "Rate of change",
-      "order": 146,
+      "order": 149,
       "familyId": "technical-indicator",
       "mode": "rate-of-change",
       "kind": "preset",
@@ -3902,7 +4253,7 @@
     {
       "id": "relative-strength-index",
       "name": "Relative strength index",
-      "order": 147,
+      "order": 150,
       "familyId": "technical-indicator",
       "mode": "relative-strength-index",
       "kind": "preset",
@@ -3919,7 +4270,7 @@
     {
       "id": "slow-stochastic",
       "name": "Slow stochastic oscillator",
-      "order": 148,
+      "order": 151,
       "familyId": "technical-indicator",
       "mode": "slow-stochastic",
       "kind": "preset",
@@ -3928,7 +4279,7 @@
       "quickApi": "slowStochastic",
       "mark": "indicator",
       "requiredCapabilities": ["canvas"],
-      "transformSemantics": ["indicator:precomputed-required"],
+      "transformSemantics": ["indicator:computed", "warm-up:null", "provenance:formula-registry"],
       "accessibilityFallback": "host-provided-semantic-table",
       "performanceProfile": "auto",
       "exampleRef": "docs/charts/technical-indicator.md#variant-slow-stochastic"
@@ -3936,7 +4287,7 @@
     {
       "id": "simple-moving-average",
       "name": "Simple moving average",
-      "order": 149,
+      "order": 152,
       "familyId": "technical-indicator",
       "mode": "simple-moving-average",
       "kind": "preset",
@@ -3953,7 +4304,7 @@
     {
       "id": "stochastic",
       "name": "Stochastic oscillator",
-      "order": 150,
+      "order": 153,
       "familyId": "technical-indicator",
       "mode": "stochastic",
       "kind": "preset",
@@ -3962,7 +4313,7 @@
       "quickApi": "stochastic",
       "mark": "indicator",
       "requiredCapabilities": ["canvas"],
-      "transformSemantics": ["indicator:precomputed-required"],
+      "transformSemantics": ["indicator:computed", "warm-up:null", "provenance:formula-registry"],
       "accessibilityFallback": "host-provided-semantic-table",
       "performanceProfile": "auto",
       "exampleRef": "docs/charts/technical-indicator.md#variant-stochastic"
@@ -3970,7 +4321,7 @@
     {
       "id": "supertrend",
       "name": "Supertrend",
-      "order": 151,
+      "order": 154,
       "familyId": "technical-indicator",
       "mode": "supertrend",
       "kind": "preset",
@@ -3979,7 +4330,7 @@
       "quickApi": "supertrend",
       "mark": "indicator",
       "requiredCapabilities": ["canvas"],
-      "transformSemantics": ["indicator:precomputed-required"],
+      "transformSemantics": ["indicator:computed", "warm-up:null", "provenance:formula-registry"],
       "accessibilityFallback": "host-provided-semantic-table",
       "performanceProfile": "auto",
       "exampleRef": "docs/charts/technical-indicator.md#variant-supertrend"
@@ -3987,7 +4338,7 @@
     {
       "id": "triple-exponential-average",
       "name": "Triple exponential moving average",
-      "order": 152,
+      "order": 155,
       "familyId": "technical-indicator",
       "mode": "triple-exponential-average",
       "kind": "preset",
@@ -4004,7 +4355,7 @@
     {
       "id": "triple-exponential-oscillator",
       "name": "Triple exponential average oscillator",
-      "order": 153,
+      "order": 156,
       "familyId": "technical-indicator",
       "mode": "triple-exponential-oscillator",
       "kind": "preset",
@@ -4021,7 +4372,7 @@
     {
       "id": "volume-by-price",
       "name": "Volume by price",
-      "order": 154,
+      "order": 157,
       "familyId": "volume-profile",
       "mode": "volume-by-price",
       "kind": "preset",
@@ -4038,7 +4389,7 @@
     {
       "id": "volume-weighted-average-price",
       "name": "Volume weighted average price",
-      "order": 155,
+      "order": 158,
       "familyId": "technical-indicator",
       "mode": "volume-weighted-average-price",
       "kind": "preset",
@@ -4047,7 +4398,7 @@
       "quickApi": "volumeWeightedAveragePrice",
       "mark": "indicator",
       "requiredCapabilities": ["canvas"],
-      "transformSemantics": ["indicator:precomputed-required"],
+      "transformSemantics": ["indicator:computed", "warm-up:null", "provenance:formula-registry"],
       "accessibilityFallback": "host-provided-semantic-table",
       "performanceProfile": "auto",
       "exampleRef": "docs/charts/technical-indicator.md#variant-volume-weighted-average-price"
@@ -4055,7 +4406,7 @@
     {
       "id": "williams-range",
       "name": "Williams range",
-      "order": 156,
+      "order": 159,
       "familyId": "technical-indicator",
       "mode": "williams-range",
       "kind": "preset",
@@ -4064,7 +4415,7 @@
       "quickApi": "williamsRange",
       "mark": "indicator",
       "requiredCapabilities": ["canvas"],
-      "transformSemantics": ["indicator:precomputed-required"],
+      "transformSemantics": ["indicator:computed", "warm-up:null", "provenance:formula-registry"],
       "accessibilityFallback": "host-provided-semantic-table",
       "performanceProfile": "auto",
       "exampleRef": "docs/charts/technical-indicator.md#variant-williams-range"
@@ -4072,7 +4423,7 @@
     {
       "id": "weighted-moving-average",
       "name": "Weighted moving average",
-      "order": 157,
+      "order": 160,
       "familyId": "technical-indicator",
       "mode": "weighted-moving-average",
       "kind": "preset",
@@ -4089,7 +4440,7 @@
     {
       "id": "zigzag",
       "name": "Zigzag indicator",
-      "order": 158,
+      "order": 161,
       "familyId": "technical-indicator",
       "mode": "zigzag",
       "kind": "preset",
@@ -4098,7 +4449,7 @@
       "quickApi": "zigzag",
       "mark": "indicator",
       "requiredCapabilities": ["canvas"],
-      "transformSemantics": ["indicator:precomputed-required"],
+      "transformSemantics": ["indicator:computed", "warm-up:null", "provenance:formula-registry"],
       "accessibilityFallback": "host-provided-semantic-table",
       "performanceProfile": "auto",
       "exampleRef": "docs/charts/technical-indicator.md#variant-zigzag"
@@ -4106,7 +4457,7 @@
     {
       "id": "flow-map",
       "name": "Flow map",
-      "order": 159,
+      "order": 162,
       "familyId": "map",
       "mode": "flow-map",
       "kind": "preset",
@@ -4123,7 +4474,7 @@
     {
       "id": "geo-heatmap",
       "name": "Geographic heatmap",
-      "order": 160,
+      "order": 163,
       "familyId": "map",
       "mode": "geo-heatmap",
       "kind": "preset",
@@ -4140,7 +4491,7 @@
     {
       "id": "map-bubble",
       "name": "Map bubble chart",
-      "order": 161,
+      "order": 164,
       "familyId": "map",
       "mode": "map-bubble",
       "kind": "preset",
@@ -4157,7 +4508,7 @@
     {
       "id": "map-line",
       "name": "Map line chart",
-      "order": 162,
+      "order": 165,
       "familyId": "map",
       "mode": "map-line",
       "kind": "preset",
@@ -4174,7 +4525,7 @@
     {
       "id": "map-point",
       "name": "Map point chart",
-      "order": 163,
+      "order": 166,
       "familyId": "map",
       "mode": "map-point",
       "kind": "preset",
@@ -4191,7 +4542,7 @@
     {
       "id": "tiled-map",
       "name": "Tiled map",
-      "order": 164,
+      "order": 167,
       "familyId": "map",
       "mode": "tiled-map",
       "kind": "preset",
@@ -4211,7 +4562,7 @@
     {
       "id": "surface",
       "name": "Regular x/y grid rendered as a lit height surface.",
-      "order": 206,
+      "order": 209,
       "familyId": "surface",
       "mode": "surface",
       "kind": "spatial-variant",
@@ -4228,7 +4579,7 @@
     {
       "id": "mesh",
       "name": "Indexed arbitrary triangle mesh with optional normals and vertex colors.",
-      "order": 206,
+      "order": 209,
       "familyId": "surface",
       "mode": "mesh",
       "kind": "spatial-variant",
@@ -4245,7 +4596,7 @@
     {
       "id": "volume",
       "name": "Bounded scalar-volume sampling rendered as depth-aware points.",
-      "order": 207,
+      "order": 210,
       "familyId": "volume",
       "mode": "volume",
       "kind": "spatial-variant",
@@ -4262,7 +4613,7 @@
     {
       "id": "isosurface",
       "name": "Constant-value boundary extracted into lit triangle geometry.",
-      "order": 207,
+      "order": 210,
       "familyId": "volume",
       "mode": "isosurface",
       "kind": "spatial-variant",
@@ -4279,7 +4630,7 @@
     {
       "id": "vector-cone",
       "name": "Oriented cone glyphs for magnitude and direction vectors.",
-      "order": 208,
+      "order": 211,
       "familyId": "spatial-vector",
       "mode": "cone",
       "kind": "spatial-variant",
@@ -4296,7 +4647,7 @@
     {
       "id": "streamtube",
       "name": "Tube geometry following ordered three-dimensional paths.",
-      "order": 208,
+      "order": 211,
       "familyId": "spatial-vector",
       "mode": "streamtube",
       "kind": "spatial-variant",
@@ -4313,7 +4664,7 @@
     {
       "id": "spatial-scatter",
       "name": "Depth-tested point observations with sizes, colors, labels, and picking.",
-      "order": 208,
+      "order": 211,
       "familyId": "spatial-vector",
       "mode": "scatter",
       "kind": "spatial-variant",
@@ -4330,7 +4681,7 @@
     {
       "id": "globe",
       "name": "Natural Earth land and borders on a sphere with optional points and routes.",
-      "order": 172,
+      "order": 175,
       "familyId": "map",
       "mode": "globe",
       "kind": "existing-family-spatial-mode",
@@ -4597,6 +4948,11 @@
       "modeId": "keltner-channels"
     },
     {
+      "id": "kagi",
+      "familyId": "price-blocks",
+      "modeId": "kagi"
+    },
+    {
       "id": "klinger",
       "familyId": "technical-indicator",
       "modeId": "klinger-oscillator"
@@ -4762,6 +5118,11 @@
       "modeId": "renko"
     },
     {
+      "id": "rangebars",
+      "familyId": "price-blocks",
+      "modeId": "range-bars"
+    },
+    {
       "id": "roc",
       "familyId": "technical-indicator",
       "modeId": "rate-of-change"
@@ -4845,6 +5206,11 @@
       "id": "timeline",
       "familyId": "timeline",
       "modeId": "timeline"
+    },
+    {
+      "id": "threelinebreak",
+      "familyId": "price-blocks",
+      "modeId": "three-line-break"
     },
     {
       "id": "treegraph",
@@ -5488,7 +5854,7 @@
   "runtimeCapabilities": {
     "analyticInteraction": {
       "id": "analytic-interaction",
-      "status": "partial",
+      "status": "supported",
       "stateVersion": 1,
       "selections": ["point", "interval", "rectangle", "axis", "lasso"],
       "combine": ["union", "intersection"],
@@ -5496,13 +5862,14 @@
         "pointer": true,
         "touch": true,
         "keyboardEscapeClear": true,
-        "keyboardGeometryAuthoring": false
+        "keyboardGeometryAuthoring": true
       },
       "coordinates": {
         "domainPixelRoundTrip": true,
         "continuous": true,
         "pointNearest": true,
         "bandNearest": true,
+        "categoricalBrush": true,
         "nonInvertibleGeometry": false
       },
       "domainNavigation": {
@@ -5510,9 +5877,20 @@
         "wheel": true,
         "pointerDrag": true,
         "keyboard": true,
-        "categorical": false,
+        "categorical": true,
         "spatial": false,
-        "multiViewLinkedStore": false
+        "multiViewLinkedStore": true
+      },
+      "filtering": {
+        "selectionDriven": true,
+        "retainsScaleDomains": true,
+        "lineage": true
+      },
+      "composition": {
+        "coordinateViews": true,
+        "selectionShared": true,
+        "domainViewShared": true,
+        "viewAddressable": true
       }
     },
     "seriesStack": {
@@ -5559,7 +5937,7 @@
     },
     "technicalIndicators": {
       "id": "technical-indicator",
-      "status": "mixed",
+      "status": "supported",
       "publicEntryPoints": {
         "canonical": [
           {
@@ -5578,40 +5956,159 @@
         "total": 47
       },
       "calculations": {
-        "computed": 17,
-        "precomputedRequired": 28,
-        "warmUpPolicy": "null"
+        "computed": 45,
+        "precomputedRequired": 0,
+        "warmUpPolicy": "null",
+        "sessionReset": ["hard", "carry"],
+        "incremental": {
+          "bounded": true,
+          "workerProtocol": 2
+        },
+        "synchronizedCrosshair": {
+          "axis": "x",
+          "sharedDomain": true
+        }
       },
       "presets": [
         {
           "id": "acceleration-bands",
           "kind": "abands",
           "quickApi": "accelerationBands",
-          "support": "precomputed-required",
-          "requiredInputs": ["value"],
-          "outputs": ["value"],
-          "parameters": [],
-          "dependencyDag": [],
+          "support": "computed",
+          "requiredInputs": ["high", "low", "close"],
+          "outputs": ["value", "lower", "upper"],
+          "parameters": [
+            {
+              "name": "period",
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 200,
+              "default": 20
+            },
+            {
+              "name": "multiplier",
+              "type": "number",
+              "minimum": 0,
+              "maximum": 20,
+              "default": 4
+            }
+          ],
+          "dependencyDag": [
+            {
+              "id": "high",
+              "operation": "input:high",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "low",
+              "operation": "input:low",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "close",
+              "operation": "input:close",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "raw-bands",
+              "operation": "acceleration-envelope",
+              "inputs": ["high", "low"],
+              "parameters": ["multiplier"]
+            },
+            {
+              "id": "value",
+              "operation": "sma",
+              "inputs": ["close"],
+              "parameters": ["period"]
+            },
+            {
+              "id": "lower",
+              "operation": "sma",
+              "inputs": ["raw-bands"],
+              "parameters": ["period"]
+            },
+            {
+              "id": "upper",
+              "operation": "sma",
+              "inputs": ["raw-bands"],
+              "parameters": ["period"]
+            }
+          ],
           "warmUp": {
             "policy": "null",
-            "rows": "not applicable to supplied columns"
+            "rows": "period - 1"
           },
-          "provenance": "Graflume renders supplied indicator columns and does not calculate this named indicator."
+          "provenance": "Acceleration bands smooth high/low envelopes expanded by relative intrabar range; the middle line is the close SMA."
         },
         {
           "id": "awesome-oscillator",
           "kind": "ao",
           "quickApi": "awesomeOscillator",
-          "support": "precomputed-required",
-          "requiredInputs": ["value"],
+          "support": "computed",
+          "requiredInputs": ["high", "low"],
           "outputs": ["value"],
-          "parameters": [],
-          "dependencyDag": [],
+          "parameters": [
+            {
+              "name": "fastPeriod",
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 200,
+              "default": 5
+            },
+            {
+              "name": "slowPeriod",
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 200,
+              "default": 34
+            }
+          ],
+          "dependencyDag": [
+            {
+              "id": "high",
+              "operation": "input:high",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "low",
+              "operation": "input:low",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "median",
+              "operation": "median-price",
+              "inputs": ["high", "low"],
+              "parameters": []
+            },
+            {
+              "id": "fast",
+              "operation": "sma",
+              "inputs": ["median"],
+              "parameters": ["fastPeriod"]
+            },
+            {
+              "id": "slow",
+              "operation": "sma",
+              "inputs": ["median"],
+              "parameters": ["slowPeriod"]
+            },
+            {
+              "id": "value",
+              "operation": "difference",
+              "inputs": ["fast", "slow"],
+              "parameters": []
+            }
+          ],
           "warmUp": {
             "policy": "null",
-            "rows": "not applicable to supplied columns"
+            "rows": "slowPeriod - 1"
           },
-          "provenance": "Graflume renders supplied indicator columns and does not calculate this named indicator."
+          "provenance": "Awesome oscillator = fast SMA(median price) - slow SMA(median price)."
         },
         {
           "id": "absolute-price-oscillator",
@@ -5639,7 +6136,7 @@
           "dependencyDag": [
             {
               "id": "source",
-              "operation": "input",
+              "operation": "input:value",
               "inputs": [],
               "parameters": []
             },
@@ -5672,121 +6169,513 @@
           "id": "aroon",
           "kind": "aroon",
           "quickApi": "aroon",
-          "support": "precomputed-required",
-          "requiredInputs": ["value"],
-          "outputs": ["value"],
-          "parameters": [],
-          "dependencyDag": [],
+          "support": "computed",
+          "requiredInputs": ["high", "low"],
+          "outputs": ["value", "up", "down"],
+          "parameters": [
+            {
+              "name": "period",
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 200,
+              "default": 14
+            }
+          ],
+          "dependencyDag": [
+            {
+              "id": "high",
+              "operation": "input:high",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "low",
+              "operation": "input:low",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "extrema-age",
+              "operation": "rolling-extrema-age",
+              "inputs": ["high", "low"],
+              "parameters": ["period"]
+            },
+            {
+              "id": "up",
+              "operation": "aroon-up",
+              "inputs": ["extrema-age"],
+              "parameters": ["period"]
+            },
+            {
+              "id": "down",
+              "operation": "aroon-down",
+              "inputs": ["extrema-age"],
+              "parameters": ["period"]
+            },
+            {
+              "id": "value",
+              "operation": "alias-up",
+              "inputs": ["up"],
+              "parameters": []
+            }
+          ],
           "warmUp": {
             "policy": "null",
-            "rows": "not applicable to supplied columns"
+            "rows": "period"
           },
-          "provenance": "Graflume renders supplied indicator columns and does not calculate this named indicator."
+          "provenance": "Aroon up/down measure the age of the most recent high and low over period + 1 observations."
         },
         {
           "id": "aroon-oscillator",
           "kind": "aroonoscillator",
           "quickApi": "aroonOscillator",
-          "support": "precomputed-required",
-          "requiredInputs": ["value"],
+          "support": "computed",
+          "requiredInputs": ["high", "low"],
           "outputs": ["value"],
-          "parameters": [],
-          "dependencyDag": [],
+          "parameters": [
+            {
+              "name": "period",
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 200,
+              "default": 14
+            }
+          ],
+          "dependencyDag": [
+            {
+              "id": "high",
+              "operation": "input:high",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "low",
+              "operation": "input:low",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "extrema-age",
+              "operation": "rolling-extrema-age",
+              "inputs": ["high", "low"],
+              "parameters": ["period"]
+            },
+            {
+              "id": "up",
+              "operation": "aroon-up",
+              "inputs": ["extrema-age"],
+              "parameters": ["period"]
+            },
+            {
+              "id": "down",
+              "operation": "aroon-down",
+              "inputs": ["extrema-age"],
+              "parameters": ["period"]
+            },
+            {
+              "id": "value",
+              "operation": "difference",
+              "inputs": ["up", "down"],
+              "parameters": []
+            }
+          ],
           "warmUp": {
             "policy": "null",
-            "rows": "not applicable to supplied columns"
+            "rows": "period"
           },
-          "provenance": "Graflume renders supplied indicator columns and does not calculate this named indicator."
+          "provenance": "Aroon oscillator = Aroon up - Aroon down."
         },
         {
           "id": "average-true-range",
           "kind": "atr",
           "quickApi": "averageTrueRange",
-          "support": "precomputed-required",
-          "requiredInputs": ["value"],
+          "support": "computed",
+          "requiredInputs": ["high", "low", "close"],
           "outputs": ["value"],
-          "parameters": [],
-          "dependencyDag": [],
+          "parameters": [
+            {
+              "name": "period",
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 200,
+              "default": 14
+            }
+          ],
+          "dependencyDag": [
+            {
+              "id": "high",
+              "operation": "input:high",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "low",
+              "operation": "input:low",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "close",
+              "operation": "input:close",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "true-range",
+              "operation": "true-range",
+              "inputs": ["high", "low", "close"],
+              "parameters": []
+            },
+            {
+              "id": "atr",
+              "operation": "wilder-average",
+              "inputs": ["true-range"],
+              "parameters": ["period"]
+            },
+            {
+              "id": "value",
+              "operation": "alias",
+              "inputs": ["atr"],
+              "parameters": []
+            }
+          ],
           "warmUp": {
             "policy": "null",
-            "rows": "not applicable to supplied columns"
+            "rows": "period - 1"
           },
-          "provenance": "Graflume renders supplied indicator columns and does not calculate this named indicator."
+          "provenance": "Average true range uses Wilder smoothing of max(high-low, abs(high-prevClose), abs(low-prevClose))."
         },
         {
           "id": "volatility-bands",
           "kind": "bb",
           "quickApi": "volatilityBands",
-          "support": "precomputed-required",
+          "support": "computed",
           "requiredInputs": ["value"],
-          "outputs": ["value"],
-          "parameters": [],
-          "dependencyDag": [],
+          "outputs": ["value", "lower", "upper"],
+          "parameters": [
+            {
+              "name": "period",
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 200,
+              "default": 20
+            },
+            {
+              "name": "standardDeviations",
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10,
+              "default": 2
+            }
+          ],
+          "dependencyDag": [
+            {
+              "id": "source",
+              "operation": "input:value",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "value",
+              "operation": "sma",
+              "inputs": ["source"],
+              "parameters": ["period"]
+            },
+            {
+              "id": "deviation",
+              "operation": "population-standard-deviation",
+              "inputs": ["source", "value"],
+              "parameters": ["period"]
+            },
+            {
+              "id": "lower",
+              "operation": "subtract-scaled",
+              "inputs": ["value", "deviation"],
+              "parameters": ["standardDeviations"]
+            },
+            {
+              "id": "upper",
+              "operation": "add-scaled",
+              "inputs": ["value", "deviation"],
+              "parameters": ["standardDeviations"]
+            }
+          ],
           "warmUp": {
             "policy": "null",
-            "rows": "not applicable to supplied columns"
+            "rows": "period - 1"
           },
-          "provenance": "Graflume renders supplied indicator columns and does not calculate this named indicator."
+          "provenance": "Volatility bands are a rolling mean plus/minus a configurable population standard deviation multiple."
         },
         {
           "id": "commodity-channel-index",
           "kind": "cci",
           "quickApi": "commodityChannelIndex",
-          "support": "precomputed-required",
-          "requiredInputs": ["value"],
+          "support": "computed",
+          "requiredInputs": ["high", "low", "close"],
           "outputs": ["value"],
-          "parameters": [],
-          "dependencyDag": [],
+          "parameters": [
+            {
+              "name": "period",
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 200,
+              "default": 20
+            }
+          ],
+          "dependencyDag": [
+            {
+              "id": "high",
+              "operation": "input:high",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "low",
+              "operation": "input:low",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "close",
+              "operation": "input:close",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "typical",
+              "operation": "typical-price",
+              "inputs": ["high", "low", "close"],
+              "parameters": []
+            },
+            {
+              "id": "average",
+              "operation": "sma",
+              "inputs": ["typical"],
+              "parameters": ["period"]
+            },
+            {
+              "id": "deviation",
+              "operation": "mean-absolute-deviation",
+              "inputs": ["typical", "average"],
+              "parameters": ["period"]
+            },
+            {
+              "id": "value",
+              "operation": "commodity-channel-index",
+              "inputs": ["typical", "average", "deviation"],
+              "parameters": []
+            }
+          ],
           "warmUp": {
             "policy": "null",
-            "rows": "not applicable to supplied columns"
+            "rows": "period - 1"
           },
-          "provenance": "Graflume renders supplied indicator columns and does not calculate this named indicator."
+          "provenance": "CCI = (typical price - its SMA) / (0.015 * mean absolute deviation)."
         },
         {
           "id": "chaikin-oscillator",
           "kind": "chaikin",
           "quickApi": "chaikinOscillator",
-          "support": "precomputed-required",
-          "requiredInputs": ["value"],
+          "support": "computed",
+          "requiredInputs": ["high", "low", "close", "volume"],
           "outputs": ["value"],
-          "parameters": [],
-          "dependencyDag": [],
+          "parameters": [
+            {
+              "name": "fastPeriod",
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 200,
+              "default": 3
+            },
+            {
+              "name": "slowPeriod",
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 200,
+              "default": 10
+            }
+          ],
+          "dependencyDag": [
+            {
+              "id": "high",
+              "operation": "input:high",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "low",
+              "operation": "input:low",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "close",
+              "operation": "input:close",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "volume",
+              "operation": "input:volume",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "money-flow",
+              "operation": "money-flow-volume",
+              "inputs": ["high", "low", "close", "volume"],
+              "parameters": []
+            },
+            {
+              "id": "adl",
+              "operation": "cumulative-sum",
+              "inputs": ["money-flow"],
+              "parameters": []
+            },
+            {
+              "id": "fast",
+              "operation": "ema",
+              "inputs": ["adl"],
+              "parameters": ["fastPeriod"]
+            },
+            {
+              "id": "slow",
+              "operation": "ema",
+              "inputs": ["adl"],
+              "parameters": ["slowPeriod"]
+            },
+            {
+              "id": "value",
+              "operation": "difference",
+              "inputs": ["fast", "slow"],
+              "parameters": []
+            }
+          ],
           "warmUp": {
             "policy": "null",
-            "rows": "not applicable to supplied columns"
+            "rows": "slowPeriod - 1"
           },
-          "provenance": "Graflume renders supplied indicator columns and does not calculate this named indicator."
+          "provenance": "Chaikin oscillator = fast EMA(ADL) - slow EMA(ADL), using money-flow volume."
         },
         {
           "id": "chaikin-money-flow",
           "kind": "cmf",
           "quickApi": "chaikinMoneyFlow",
-          "support": "precomputed-required",
-          "requiredInputs": ["value"],
+          "support": "computed",
+          "requiredInputs": ["high", "low", "close", "volume"],
           "outputs": ["value"],
-          "parameters": [],
-          "dependencyDag": [],
+          "parameters": [
+            {
+              "name": "period",
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 200,
+              "default": 20
+            }
+          ],
+          "dependencyDag": [
+            {
+              "id": "high",
+              "operation": "input:high",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "low",
+              "operation": "input:low",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "close",
+              "operation": "input:close",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "volume",
+              "operation": "input:volume",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "money-flow",
+              "operation": "money-flow-volume",
+              "inputs": ["high", "low", "close", "volume"],
+              "parameters": []
+            },
+            {
+              "id": "flow-sum",
+              "operation": "rolling-sum",
+              "inputs": ["money-flow"],
+              "parameters": ["period"]
+            },
+            {
+              "id": "volume-sum",
+              "operation": "rolling-sum",
+              "inputs": ["volume"],
+              "parameters": ["period"]
+            },
+            {
+              "id": "value",
+              "operation": "ratio",
+              "inputs": ["flow-sum", "volume-sum"],
+              "parameters": []
+            }
+          ],
           "warmUp": {
             "policy": "null",
-            "rows": "not applicable to supplied columns"
+            "rows": "period - 1"
           },
-          "provenance": "Graflume renders supplied indicator columns and does not calculate this named indicator."
+          "provenance": "Chaikin money flow = rolling money-flow volume / rolling volume."
         },
         {
           "id": "chande-momentum-oscillator",
           "kind": "cmo",
           "quickApi": "chandeMomentumOscillator",
-          "support": "precomputed-required",
+          "support": "computed",
           "requiredInputs": ["value"],
           "outputs": ["value"],
-          "parameters": [],
-          "dependencyDag": [],
+          "parameters": [
+            {
+              "name": "period",
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 200,
+              "default": 14
+            }
+          ],
+          "dependencyDag": [
+            {
+              "id": "source",
+              "operation": "input:value",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "changes",
+              "operation": "signed-change",
+              "inputs": ["source"],
+              "parameters": []
+            },
+            {
+              "id": "gain-loss-sums",
+              "operation": "rolling-gain-loss",
+              "inputs": ["changes"],
+              "parameters": ["period"]
+            },
+            {
+              "id": "value",
+              "operation": "chande-ratio-percent",
+              "inputs": ["gain-loss-sums"],
+              "parameters": []
+            }
+          ],
           "warmUp": {
             "policy": "null",
-            "rows": "not applicable to supplied columns"
+            "rows": "period"
           },
-          "provenance": "Graflume renders supplied indicator columns and does not calculate this named indicator."
+          "provenance": "CMO = 100 * (rolling gains - rolling losses) / (rolling gains + rolling losses)."
         },
         {
           "id": "double-exponential-average",
@@ -5807,7 +6696,7 @@
           "dependencyDag": [
             {
               "id": "source",
-              "operation": "input",
+              "operation": "input:value",
               "inputs": [],
               "parameters": []
             },
@@ -5855,7 +6744,7 @@
           "dependencyDag": [
             {
               "id": "source",
-              "operation": "input",
+              "operation": "input:value",
               "inputs": [],
               "parameters": []
             },
@@ -5876,31 +6765,121 @@
           "id": "directional-movement-index",
           "kind": "dmi",
           "quickApi": "directionalMovementIndex",
-          "support": "precomputed-required",
-          "requiredInputs": ["value"],
-          "outputs": ["value"],
-          "parameters": [],
-          "dependencyDag": [],
+          "support": "computed",
+          "requiredInputs": ["high", "low", "close"],
+          "outputs": ["value", "plus", "minus"],
+          "parameters": [
+            {
+              "name": "period",
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 200,
+              "default": 14
+            }
+          ],
+          "dependencyDag": [
+            {
+              "id": "high",
+              "operation": "input:high",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "low",
+              "operation": "input:low",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "close",
+              "operation": "input:close",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "true-range",
+              "operation": "true-range",
+              "inputs": ["high", "low", "close"],
+              "parameters": []
+            },
+            {
+              "id": "movement",
+              "operation": "directional-movement",
+              "inputs": ["high", "low"],
+              "parameters": []
+            },
+            {
+              "id": "plus-minus",
+              "operation": "wilder-directional-index",
+              "inputs": ["true-range", "movement"],
+              "parameters": ["period"]
+            },
+            {
+              "id": "plus",
+              "operation": "positive-directional-index",
+              "inputs": ["plus-minus"],
+              "parameters": []
+            },
+            {
+              "id": "minus",
+              "operation": "negative-directional-index",
+              "inputs": ["plus-minus"],
+              "parameters": []
+            },
+            {
+              "id": "value",
+              "operation": "wilder-adx",
+              "inputs": ["plus", "minus"],
+              "parameters": ["period"]
+            }
+          ],
           "warmUp": {
             "policy": "null",
-            "rows": "not applicable to supplied columns"
+            "rows": "2 * period - 1"
           },
-          "provenance": "Graflume renders supplied indicator columns and does not calculate this named indicator."
+          "provenance": "Directional movement exposes +DI, -DI, and Wilder-smoothed ADX derived from true range."
         },
         {
           "id": "detrended-price-oscillator",
           "kind": "dpo",
           "quickApi": "detrendedPriceOscillator",
-          "support": "precomputed-required",
+          "support": "computed",
           "requiredInputs": ["value"],
           "outputs": ["value"],
-          "parameters": [],
-          "dependencyDag": [],
+          "parameters": [
+            {
+              "name": "period",
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 200,
+              "default": 20
+            }
+          ],
+          "dependencyDag": [
+            {
+              "id": "source",
+              "operation": "input:value",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "average",
+              "operation": "sma",
+              "inputs": ["source"],
+              "parameters": ["period"]
+            },
+            {
+              "id": "value",
+              "operation": "detrended-shift-difference",
+              "inputs": ["source", "average"],
+              "parameters": ["period"]
+            }
+          ],
           "warmUp": {
             "policy": "null",
-            "rows": "not applicable to supplied columns"
+            "rows": "period - 1"
           },
-          "provenance": "Graflume renders supplied indicator columns and does not calculate this named indicator."
+          "provenance": "DPO subtracts the current period SMA from the source shifted back floor(period / 2) + 1 rows."
         },
         {
           "id": "exponential-moving-average",
@@ -5921,7 +6900,7 @@
           "dependencyDag": [
             {
               "id": "source",
-              "operation": "input",
+              "operation": "input:value",
               "inputs": [],
               "parameters": []
             },
@@ -5942,46 +6921,278 @@
           "id": "ichimoku-cloud",
           "kind": "ikh",
           "quickApi": "ichimokuCloud",
-          "support": "precomputed-required",
-          "requiredInputs": ["value"],
-          "outputs": ["value"],
-          "parameters": [],
-          "dependencyDag": [],
+          "support": "computed",
+          "requiredInputs": ["high", "low"],
+          "outputs": ["value", "lower", "upper", "conversion", "base"],
+          "parameters": [
+            {
+              "name": "conversionPeriod",
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 200,
+              "default": 9
+            },
+            {
+              "name": "basePeriod",
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 200,
+              "default": 26
+            },
+            {
+              "name": "spanPeriod",
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 400,
+              "default": 52
+            },
+            {
+              "name": "displacement",
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 200,
+              "default": 26
+            }
+          ],
+          "dependencyDag": [
+            {
+              "id": "high",
+              "operation": "input:high",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "low",
+              "operation": "input:low",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "conversion",
+              "operation": "midprice",
+              "inputs": ["high", "low"],
+              "parameters": ["conversionPeriod"]
+            },
+            {
+              "id": "base",
+              "operation": "midprice",
+              "inputs": ["high", "low"],
+              "parameters": ["basePeriod"]
+            },
+            {
+              "id": "span-a",
+              "operation": "average",
+              "inputs": ["conversion", "base"],
+              "parameters": []
+            },
+            {
+              "id": "span-b",
+              "operation": "midprice",
+              "inputs": ["high", "low"],
+              "parameters": ["spanPeriod"]
+            },
+            {
+              "id": "value",
+              "operation": "forward-displacement",
+              "inputs": ["span-a"],
+              "parameters": ["displacement"]
+            },
+            {
+              "id": "lower",
+              "operation": "minimum",
+              "inputs": ["span-a", "span-b"],
+              "parameters": ["displacement"]
+            },
+            {
+              "id": "upper",
+              "operation": "maximum",
+              "inputs": ["span-a", "span-b"],
+              "parameters": ["displacement"]
+            }
+          ],
           "warmUp": {
             "policy": "null",
-            "rows": "not applicable to supplied columns"
+            "rows": "spanPeriod - 1 + displacement"
           },
-          "provenance": "Graflume renders supplied indicator columns and does not calculate this named indicator."
+          "provenance": "Ichimoku derives conversion/base midprices and forward-displaced span A/B cloud bounds."
         },
         {
           "id": "keltner-channels",
           "kind": "keltnerchannels",
           "quickApi": "keltnerChannels",
-          "support": "precomputed-required",
-          "requiredInputs": ["value"],
-          "outputs": ["value"],
-          "parameters": [],
-          "dependencyDag": [],
+          "support": "computed",
+          "requiredInputs": ["high", "low", "close"],
+          "outputs": ["value", "lower", "upper"],
+          "parameters": [
+            {
+              "name": "period",
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 200,
+              "default": 20
+            },
+            {
+              "name": "atrPeriod",
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 200,
+              "default": 10
+            },
+            {
+              "name": "multiplier",
+              "type": "number",
+              "minimum": 0,
+              "maximum": 20,
+              "default": 2
+            }
+          ],
+          "dependencyDag": [
+            {
+              "id": "high",
+              "operation": "input:high",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "low",
+              "operation": "input:low",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "close",
+              "operation": "input:close",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "value",
+              "operation": "ema",
+              "inputs": ["close"],
+              "parameters": ["period"]
+            },
+            {
+              "id": "true-range",
+              "operation": "true-range",
+              "inputs": ["high", "low", "close"],
+              "parameters": []
+            },
+            {
+              "id": "atr",
+              "operation": "wilder-average",
+              "inputs": ["true-range"],
+              "parameters": ["atrPeriod"]
+            },
+            {
+              "id": "lower",
+              "operation": "subtract-scaled",
+              "inputs": ["value", "atr"],
+              "parameters": ["multiplier"]
+            },
+            {
+              "id": "upper",
+              "operation": "add-scaled",
+              "inputs": ["value", "atr"],
+              "parameters": ["multiplier"]
+            }
+          ],
           "warmUp": {
             "policy": "null",
-            "rows": "not applicable to supplied columns"
+            "rows": "max(period, atrPeriod) - 1"
           },
-          "provenance": "Graflume renders supplied indicator columns and does not calculate this named indicator."
+          "provenance": "Keltner channels use an EMA center and Wilder ATR multiplied above and below it."
         },
         {
           "id": "klinger-oscillator",
           "kind": "klinger",
           "quickApi": "klingerOscillator",
-          "support": "precomputed-required",
-          "requiredInputs": ["value"],
-          "outputs": ["value"],
-          "parameters": [],
-          "dependencyDag": [],
+          "support": "computed",
+          "requiredInputs": ["high", "low", "close", "volume"],
+          "outputs": ["value", "signal"],
+          "parameters": [
+            {
+              "name": "fastPeriod",
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 200,
+              "default": 34
+            },
+            {
+              "name": "slowPeriod",
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 200,
+              "default": 55
+            },
+            {
+              "name": "signalPeriod",
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 200,
+              "default": 13
+            }
+          ],
+          "dependencyDag": [
+            {
+              "id": "high",
+              "operation": "input:high",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "low",
+              "operation": "input:low",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "close",
+              "operation": "input:close",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "volume",
+              "operation": "input:volume",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "force",
+              "operation": "klinger-volume-force",
+              "inputs": ["high", "low", "close", "volume"],
+              "parameters": []
+            },
+            {
+              "id": "fast",
+              "operation": "ema",
+              "inputs": ["force"],
+              "parameters": ["fastPeriod"]
+            },
+            {
+              "id": "slow",
+              "operation": "ema",
+              "inputs": ["force"],
+              "parameters": ["slowPeriod"]
+            },
+            {
+              "id": "value",
+              "operation": "difference",
+              "inputs": ["fast", "slow"],
+              "parameters": []
+            },
+            {
+              "id": "signal",
+              "operation": "ema",
+              "inputs": ["value"],
+              "parameters": ["signalPeriod"]
+            }
+          ],
           "warmUp": {
             "policy": "null",
-            "rows": "not applicable to supplied columns"
+            "rows": "slowPeriod + signalPeriod - 1"
           },
-          "provenance": "Graflume renders supplied indicator columns and does not calculate this named indicator."
+          "provenance": "Klinger oscillator is the fast/slow EMA difference of trend-sensitive volume force plus a signal EMA."
         },
         {
           "id": "linear-regression",
@@ -6002,7 +7213,7 @@
           "dependencyDag": [
             {
               "id": "source",
-              "operation": "input",
+              "operation": "input:value",
               "inputs": [],
               "parameters": []
             },
@@ -6038,7 +7249,7 @@
           "dependencyDag": [
             {
               "id": "source",
-              "operation": "input",
+              "operation": "input:value",
               "inputs": [],
               "parameters": []
             },
@@ -6074,7 +7285,7 @@
           "dependencyDag": [
             {
               "id": "source",
-              "operation": "input",
+              "operation": "input:value",
               "inputs": [],
               "parameters": []
             },
@@ -6110,7 +7321,7 @@
           "dependencyDag": [
             {
               "id": "source",
-              "operation": "input",
+              "operation": "input:value",
               "inputs": [],
               "parameters": []
             },
@@ -6160,7 +7371,7 @@
           "dependencyDag": [
             {
               "id": "source",
-              "operation": "input",
+              "operation": "input:value",
               "inputs": [],
               "parameters": []
             },
@@ -6205,16 +7416,73 @@
           "id": "money-flow-index",
           "kind": "mfi",
           "quickApi": "moneyFlowIndex",
-          "support": "precomputed-required",
-          "requiredInputs": ["value"],
+          "support": "computed",
+          "requiredInputs": ["high", "low", "close", "volume"],
           "outputs": ["value"],
-          "parameters": [],
-          "dependencyDag": [],
+          "parameters": [
+            {
+              "name": "period",
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 200,
+              "default": 14
+            }
+          ],
+          "dependencyDag": [
+            {
+              "id": "high",
+              "operation": "input:high",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "low",
+              "operation": "input:low",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "close",
+              "operation": "input:close",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "volume",
+              "operation": "input:volume",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "typical",
+              "operation": "typical-price",
+              "inputs": ["high", "low", "close"],
+              "parameters": []
+            },
+            {
+              "id": "raw-flow",
+              "operation": "multiply",
+              "inputs": ["typical", "volume"],
+              "parameters": []
+            },
+            {
+              "id": "signed-flow",
+              "operation": "price-direction-split",
+              "inputs": ["typical", "raw-flow"],
+              "parameters": []
+            },
+            {
+              "id": "value",
+              "operation": "rolling-money-flow-index",
+              "inputs": ["signed-flow"],
+              "parameters": ["period"]
+            }
+          ],
           "warmUp": {
             "policy": "null",
-            "rows": "not applicable to supplied columns"
+            "rows": "period"
           },
-          "provenance": "Graflume renders supplied indicator columns and does not calculate this named indicator."
+          "provenance": "Money flow index applies an RSI-style ratio to signed typical-price volume flows."
         },
         {
           "id": "momentum",
@@ -6235,7 +7503,7 @@
           "dependencyDag": [
             {
               "id": "source",
-              "operation": "input",
+              "operation": "input:value",
               "inputs": [],
               "parameters": []
             },
@@ -6256,61 +7524,207 @@
           "id": "normalized-average-true-range",
           "kind": "natr",
           "quickApi": "normalizedAverageTrueRange",
-          "support": "precomputed-required",
-          "requiredInputs": ["value"],
+          "support": "computed",
+          "requiredInputs": ["high", "low", "close"],
           "outputs": ["value"],
-          "parameters": [],
-          "dependencyDag": [],
+          "parameters": [
+            {
+              "name": "period",
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 200,
+              "default": 14
+            }
+          ],
+          "dependencyDag": [
+            {
+              "id": "high",
+              "operation": "input:high",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "low",
+              "operation": "input:low",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "close",
+              "operation": "input:close",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "true-range",
+              "operation": "true-range",
+              "inputs": ["high", "low", "close"],
+              "parameters": []
+            },
+            {
+              "id": "atr",
+              "operation": "wilder-average",
+              "inputs": ["true-range"],
+              "parameters": ["period"]
+            },
+            {
+              "id": "value",
+              "operation": "normalize-by-close-percent",
+              "inputs": ["atr", "close"],
+              "parameters": []
+            }
+          ],
           "warmUp": {
             "policy": "null",
-            "rows": "not applicable to supplied columns"
+            "rows": "period - 1"
           },
-          "provenance": "Graflume renders supplied indicator columns and does not calculate this named indicator."
+          "provenance": "Normalized ATR = 100 * Wilder ATR / close."
         },
         {
           "id": "on-balance-volume",
           "kind": "obv",
           "quickApi": "onBalanceVolume",
-          "support": "precomputed-required",
-          "requiredInputs": ["value"],
+          "support": "computed",
+          "requiredInputs": ["close", "volume"],
           "outputs": ["value"],
           "parameters": [],
-          "dependencyDag": [],
+          "dependencyDag": [
+            {
+              "id": "close",
+              "operation": "input:close",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "volume",
+              "operation": "input:volume",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "value",
+              "operation": "on-balance-volume",
+              "inputs": ["close", "volume"],
+              "parameters": []
+            }
+          ],
           "warmUp": {
             "policy": "null",
-            "rows": "not applicable to supplied columns"
+            "rows": "0"
           },
-          "provenance": "Graflume renders supplied indicator columns and does not calculate this named indicator."
+          "provenance": "On-balance volume cumulatively adds or subtracts volume according to close direction."
         },
         {
           "id": "price-channel",
           "kind": "pc",
           "quickApi": "priceChannel",
-          "support": "precomputed-required",
-          "requiredInputs": ["value"],
-          "outputs": ["value"],
-          "parameters": [],
-          "dependencyDag": [],
+          "support": "computed",
+          "requiredInputs": ["high", "low"],
+          "outputs": ["value", "lower", "upper"],
+          "parameters": [
+            {
+              "name": "period",
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 200,
+              "default": 20
+            }
+          ],
+          "dependencyDag": [
+            {
+              "id": "high",
+              "operation": "input:high",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "low",
+              "operation": "input:low",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "upper",
+              "operation": "rolling-maximum",
+              "inputs": ["high"],
+              "parameters": ["period"]
+            },
+            {
+              "id": "lower",
+              "operation": "rolling-minimum",
+              "inputs": ["low"],
+              "parameters": ["period"]
+            },
+            {
+              "id": "value",
+              "operation": "midpoint",
+              "inputs": ["upper", "lower"],
+              "parameters": []
+            }
+          ],
           "warmUp": {
             "policy": "null",
-            "rows": "not applicable to supplied columns"
+            "rows": "period - 1"
           },
-          "provenance": "Graflume renders supplied indicator columns and does not calculate this named indicator."
+          "provenance": "Price channel uses rolling high/low extrema and their midpoint."
         },
         {
           "id": "pivot-points",
           "kind": "pivotpoints",
           "quickApi": "pivotPoints",
-          "support": "precomputed-required",
-          "requiredInputs": ["value"],
-          "outputs": ["value"],
+          "support": "computed",
+          "requiredInputs": ["high", "low", "close"],
+          "outputs": ["value", "support", "resistance"],
           "parameters": [],
-          "dependencyDag": [],
+          "dependencyDag": [
+            {
+              "id": "high",
+              "operation": "input:high",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "low",
+              "operation": "input:low",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "close",
+              "operation": "input:close",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "previous-session",
+              "operation": "previous-session-hlc",
+              "inputs": ["high", "low", "close"],
+              "parameters": []
+            },
+            {
+              "id": "value",
+              "operation": "classic-pivot",
+              "inputs": ["previous-session"],
+              "parameters": []
+            },
+            {
+              "id": "support",
+              "operation": "classic-support-1",
+              "inputs": ["value", "previous-session"],
+              "parameters": []
+            },
+            {
+              "id": "resistance",
+              "operation": "classic-resistance-1",
+              "inputs": ["value", "previous-session"],
+              "parameters": []
+            }
+          ],
           "warmUp": {
             "policy": "null",
-            "rows": "not applicable to supplied columns"
+            "rows": "1 row, or one complete configured session"
           },
-          "provenance": "Graflume renders supplied indicator columns and does not calculate this named indicator."
+          "provenance": "Classic pivot, support 1, and resistance 1 derive from the previous row or previous configured session HLC."
         },
         {
           "id": "percentage-price-oscillator",
@@ -6338,7 +7752,7 @@
           "dependencyDag": [
             {
               "id": "source",
-              "operation": "input",
+              "operation": "input:value",
               "inputs": [],
               "parameters": []
             },
@@ -6371,31 +7785,105 @@
           "id": "price-envelopes",
           "kind": "priceenvelopes",
           "quickApi": "priceEnvelopes",
-          "support": "precomputed-required",
+          "support": "computed",
           "requiredInputs": ["value"],
-          "outputs": ["value"],
-          "parameters": [],
-          "dependencyDag": [],
+          "outputs": ["value", "lower", "upper"],
+          "parameters": [
+            {
+              "name": "period",
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 200,
+              "default": 20
+            },
+            {
+              "name": "envelopePercent",
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100,
+              "default": 2.5
+            }
+          ],
+          "dependencyDag": [
+            {
+              "id": "source",
+              "operation": "input:value",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "value",
+              "operation": "sma",
+              "inputs": ["source"],
+              "parameters": ["period"]
+            },
+            {
+              "id": "lower",
+              "operation": "percent-envelope-lower",
+              "inputs": ["value"],
+              "parameters": ["envelopePercent"]
+            },
+            {
+              "id": "upper",
+              "operation": "percent-envelope-upper",
+              "inputs": ["value"],
+              "parameters": ["envelopePercent"]
+            }
+          ],
           "warmUp": {
             "policy": "null",
-            "rows": "not applicable to supplied columns"
+            "rows": "period - 1"
           },
-          "provenance": "Graflume renders supplied indicator columns and does not calculate this named indicator."
+          "provenance": "Price envelopes are a rolling mean shifted by a configurable percentage."
         },
         {
           "id": "parabolic-stop-and-reverse",
           "kind": "psar",
           "quickApi": "parabolicStopAndReverse",
-          "support": "precomputed-required",
-          "requiredInputs": ["value"],
+          "support": "computed",
+          "requiredInputs": ["high", "low"],
           "outputs": ["value"],
-          "parameters": [],
-          "dependencyDag": [],
+          "parameters": [
+            {
+              "name": "acceleration",
+              "type": "number",
+              "minimum": 0.001,
+              "maximum": 1,
+              "default": 0.02
+            },
+            {
+              "name": "maximumAcceleration",
+              "type": "number",
+              "minimum": 0.001,
+              "maximum": 1,
+              "default": 0.2
+            }
+          ],
+          "dependencyDag": [
+            {
+              "id": "high",
+              "operation": "input:high",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "low",
+              "operation": "input:low",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "value",
+              "operation": "parabolic-sar-state-machine",
+              "inputs": ["high", "low"],
+              "parameters": ["acceleration", "maximumAcceleration"]
+            }
+          ],
           "warmUp": {
             "policy": "null",
-            "rows": "not applicable to supplied columns"
+            "rows": "1"
           },
-          "provenance": "Graflume renders supplied indicator columns and does not calculate this named indicator."
+          "provenance": "Parabolic SAR is a bounded acceleration-factor trend state machine over high and low."
         },
         {
           "id": "rate-of-change",
@@ -6416,7 +7904,7 @@
           "dependencyDag": [
             {
               "id": "source",
-              "operation": "input",
+              "operation": "input:value",
               "inputs": [],
               "parameters": []
             },
@@ -6452,7 +7940,7 @@
           "dependencyDag": [
             {
               "id": "source",
-              "operation": "input",
+              "operation": "input:value",
               "inputs": [],
               "parameters": []
             },
@@ -6473,16 +7961,75 @@
           "id": "slow-stochastic",
           "kind": "slowstochastic",
           "quickApi": "slowStochastic",
-          "support": "precomputed-required",
-          "requiredInputs": ["value"],
-          "outputs": ["value"],
-          "parameters": [],
-          "dependencyDag": [],
+          "support": "computed",
+          "requiredInputs": ["high", "low", "close"],
+          "outputs": ["value", "signal"],
+          "parameters": [
+            {
+              "name": "period",
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 200,
+              "default": 14
+            },
+            {
+              "name": "smoothK",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 3
+            },
+            {
+              "name": "smoothD",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 3
+            }
+          ],
+          "dependencyDag": [
+            {
+              "id": "high",
+              "operation": "input:high",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "low",
+              "operation": "input:low",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "close",
+              "operation": "input:close",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "fast-k",
+              "operation": "rolling-range-position",
+              "inputs": ["high", "low", "close"],
+              "parameters": ["period"]
+            },
+            {
+              "id": "value",
+              "operation": "sma",
+              "inputs": ["fast-k"],
+              "parameters": ["smoothK"]
+            },
+            {
+              "id": "signal",
+              "operation": "sma",
+              "inputs": ["value"],
+              "parameters": ["smoothD"]
+            }
+          ],
           "warmUp": {
             "policy": "null",
-            "rows": "not applicable to supplied columns"
+            "rows": "period + smoothK + smoothD - 3"
           },
-          "provenance": "Graflume renders supplied indicator columns and does not calculate this named indicator."
+          "provenance": "Slow stochastic smooths range-position %K and then smooths its %D signal."
         },
         {
           "id": "simple-moving-average",
@@ -6503,7 +8050,7 @@
           "dependencyDag": [
             {
               "id": "source",
-              "operation": "input",
+              "operation": "input:value",
               "inputs": [],
               "parameters": []
             },
@@ -6524,31 +8071,153 @@
           "id": "stochastic",
           "kind": "stochastic",
           "quickApi": "stochastic",
-          "support": "precomputed-required",
-          "requiredInputs": ["value"],
-          "outputs": ["value"],
-          "parameters": [],
-          "dependencyDag": [],
+          "support": "computed",
+          "requiredInputs": ["high", "low", "close"],
+          "outputs": ["value", "signal"],
+          "parameters": [
+            {
+              "name": "period",
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 200,
+              "default": 14
+            },
+            {
+              "name": "signalPeriod",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 3
+            }
+          ],
+          "dependencyDag": [
+            {
+              "id": "high",
+              "operation": "input:high",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "low",
+              "operation": "input:low",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "close",
+              "operation": "input:close",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "fast-k",
+              "operation": "rolling-range-position",
+              "inputs": ["high", "low", "close"],
+              "parameters": ["period"]
+            },
+            {
+              "id": "value",
+              "operation": "alias",
+              "inputs": ["fast-k"],
+              "parameters": []
+            },
+            {
+              "id": "signal",
+              "operation": "sma",
+              "inputs": ["value"],
+              "parameters": ["signalPeriod"]
+            }
+          ],
           "warmUp": {
             "policy": "null",
-            "rows": "not applicable to supplied columns"
+            "rows": "period + signalPeriod - 2"
           },
-          "provenance": "Graflume renders supplied indicator columns and does not calculate this named indicator."
+          "provenance": "Stochastic uses close position in the rolling high-low range and a signal SMA."
         },
         {
           "id": "supertrend",
           "kind": "supertrend",
           "quickApi": "supertrend",
-          "support": "precomputed-required",
-          "requiredInputs": ["value"],
-          "outputs": ["value"],
-          "parameters": [],
-          "dependencyDag": [],
+          "support": "computed",
+          "requiredInputs": ["high", "low", "close"],
+          "outputs": ["value", "direction"],
+          "parameters": [
+            {
+              "name": "atrPeriod",
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 200,
+              "default": 10
+            },
+            {
+              "name": "multiplier",
+              "type": "number",
+              "minimum": 0,
+              "maximum": 20,
+              "default": 3
+            }
+          ],
+          "dependencyDag": [
+            {
+              "id": "high",
+              "operation": "input:high",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "low",
+              "operation": "input:low",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "close",
+              "operation": "input:close",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "true-range",
+              "operation": "true-range",
+              "inputs": ["high", "low", "close"],
+              "parameters": []
+            },
+            {
+              "id": "atr",
+              "operation": "wilder-average",
+              "inputs": ["true-range"],
+              "parameters": ["atrPeriod"]
+            },
+            {
+              "id": "bands",
+              "operation": "recursive-final-bands",
+              "inputs": ["high", "low", "close", "atr"],
+              "parameters": ["multiplier"]
+            },
+            {
+              "id": "state",
+              "operation": "supertrend-state-machine",
+              "inputs": ["close", "bands"],
+              "parameters": []
+            },
+            {
+              "id": "value",
+              "operation": "supertrend-line",
+              "inputs": ["state"],
+              "parameters": []
+            },
+            {
+              "id": "direction",
+              "operation": "supertrend-direction",
+              "inputs": ["state"],
+              "parameters": []
+            }
+          ],
           "warmUp": {
             "policy": "null",
-            "rows": "not applicable to supplied columns"
+            "rows": "atrPeriod - 1"
           },
-          "provenance": "Graflume renders supplied indicator columns and does not calculate this named indicator."
+          "provenance": "Supertrend uses recursive ATR bands and close crossings to maintain trend direction."
         },
         {
           "id": "triple-exponential-average",
@@ -6569,7 +8238,7 @@
           "dependencyDag": [
             {
               "id": "source",
-              "operation": "input",
+              "operation": "input:value",
               "inputs": [],
               "parameters": []
             },
@@ -6623,7 +8292,7 @@
           "dependencyDag": [
             {
               "id": "source",
-              "operation": "input",
+              "operation": "input:value",
               "inputs": [],
               "parameters": []
             },
@@ -6662,31 +8331,107 @@
           "id": "volume-weighted-average-price",
           "kind": "vwap",
           "quickApi": "volumeWeightedAveragePrice",
-          "support": "precomputed-required",
-          "requiredInputs": ["value"],
+          "support": "computed",
+          "requiredInputs": ["high", "low", "close", "volume"],
           "outputs": ["value"],
           "parameters": [],
-          "dependencyDag": [],
+          "dependencyDag": [
+            {
+              "id": "high",
+              "operation": "input:high",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "low",
+              "operation": "input:low",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "close",
+              "operation": "input:close",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "volume",
+              "operation": "input:volume",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "typical",
+              "operation": "typical-price",
+              "inputs": ["high", "low", "close"],
+              "parameters": []
+            },
+            {
+              "id": "value",
+              "operation": "cumulative-volume-weighted-average",
+              "inputs": ["typical", "volume"],
+              "parameters": []
+            }
+          ],
           "warmUp": {
             "policy": "null",
-            "rows": "not applicable to supplied columns"
+            "rows": "0"
           },
-          "provenance": "Graflume renders supplied indicator columns and does not calculate this named indicator."
+          "provenance": "VWAP is cumulative typical-price times volume divided by cumulative volume within calculation state."
         },
         {
           "id": "williams-range",
           "kind": "williamsr",
           "quickApi": "williamsRange",
-          "support": "precomputed-required",
-          "requiredInputs": ["value"],
+          "support": "computed",
+          "requiredInputs": ["high", "low", "close"],
           "outputs": ["value"],
-          "parameters": [],
-          "dependencyDag": [],
+          "parameters": [
+            {
+              "name": "period",
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 200,
+              "default": 14
+            }
+          ],
+          "dependencyDag": [
+            {
+              "id": "high",
+              "operation": "input:high",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "low",
+              "operation": "input:low",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "close",
+              "operation": "input:close",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "range",
+              "operation": "rolling-high-low",
+              "inputs": ["high", "low"],
+              "parameters": ["period"]
+            },
+            {
+              "id": "value",
+              "operation": "williams-percent-range",
+              "inputs": ["range", "close"],
+              "parameters": []
+            }
+          ],
           "warmUp": {
             "policy": "null",
-            "rows": "not applicable to supplied columns"
+            "rows": "period - 1"
           },
-          "provenance": "Graflume renders supplied indicator columns and does not calculate this named indicator."
+          "provenance": "Williams %R = close position in the rolling high-low range minus 100."
         },
         {
           "id": "weighted-moving-average",
@@ -6707,7 +8452,7 @@
           "dependencyDag": [
             {
               "id": "source",
-              "operation": "input",
+              "operation": "input:value",
               "inputs": [],
               "parameters": []
             },
@@ -6728,16 +8473,37 @@
           "id": "zigzag",
           "kind": "zigzag",
           "quickApi": "zigzag",
-          "support": "precomputed-required",
+          "support": "computed",
           "requiredInputs": ["value"],
           "outputs": ["value"],
-          "parameters": [],
-          "dependencyDag": [],
+          "parameters": [
+            {
+              "name": "deviation",
+              "type": "number",
+              "minimum": 0.01,
+              "maximum": 100,
+              "default": 5
+            }
+          ],
+          "dependencyDag": [
+            {
+              "id": "source",
+              "operation": "input:value",
+              "inputs": [],
+              "parameters": []
+            },
+            {
+              "id": "value",
+              "operation": "confirmed-threshold-pivots",
+              "inputs": ["source"],
+              "parameters": ["deviation"]
+            }
+          ],
           "warmUp": {
             "policy": "null",
-            "rows": "not applicable to supplied columns"
+            "rows": "1"
           },
-          "provenance": "Graflume renders supplied indicator columns and does not calculate this named indicator."
+          "provenance": "Zigzag retains confirmed extrema after a configurable percentage reversal threshold."
         }
       ]
     },
@@ -6762,7 +8528,7 @@
   "crossCuttingContracts": [
     {
       "id": "encoding-channels",
-      "status": "partial",
+      "status": "supported",
       "items": [
         "x",
         "x2",
@@ -6792,7 +8558,7 @@
     },
     {
       "id": "scale-registry",
-      "status": "partial",
+      "status": "supported",
       "items": [
         "linear",
         "log",
@@ -6834,35 +8600,27 @@
         "supported: plot-relative independent inset",
         "supported: independent child scale/axis/legend",
         "supported: compatible primary x/y shared-domain resolve",
-        "planned: shared multi-view axes, legends and colorbars",
-        "planned: linked view state and per-view interaction",
+        "supported: shared multi-view axes, legends and colorbars",
+        "supported: linked view state and per-view interaction",
         "planned: facet pagination and virtualization",
         "planned: streaming and Spatial/WebGL composition"
       ]
     },
     {
       "id": "linked-interaction",
-      "status": "planned",
+      "status": "partial",
       "items": [
-        "point",
-        "nearest",
-        "interval",
-        "axis brush",
-        "rectangle",
-        "lasso",
-        "polygon",
-        "union",
-        "intersection",
-        "toggle",
-        "cross-highlight",
-        "cross-filter",
-        "synchronized domain",
-        "synchronized crosshair",
-        "shared selection store",
-        "drill down/up/through",
-        "history/undo/reset",
-        "legend filtering",
-        "state serialization/restoration"
+        "supported: point and nearest",
+        "supported: interval and axis brush",
+        "supported: rectangle, lasso and polygon geometry",
+        "supported: union, intersection and toggle",
+        "supported: cross-highlight and cross-filter",
+        "supported: synchronized domain and crosshair",
+        "supported: shared linked selection store",
+        "supported: legend filtering",
+        "supported: state serialization and restoration",
+        "planned: drill down/up/through",
+        "planned: general selection history and undo"
       ]
     },
     {
@@ -6902,35 +8660,40 @@
     },
     {
       "id": "streaming",
-      "status": "partial",
+      "status": "supported",
       "items": [
         "supported: whole-snapshot replace",
         "supported: copy-compatible append",
         "supported: stable-key upsert",
         "supported: stable-key replaceLast",
+        "supported: bounded ring-buffer storage",
         "supported: bounded count and event-time retention",
         "supported: monotonic event-time watermarks",
         "supported: reject/drop/accept late-data policy",
-        "supported: reject-only bounded backpressure",
+        "supported: reject/drop-oldest/coalesce bounded backpressure",
         "supported: bounded exact replay until truncation",
+        "supported: changed-key incremental transform recomputation with exact global fallback",
+        "supported: RAF/microtask coalescing and bounded batches per frame",
+        "supported: pause/follow-live and lazy paged history",
+        "supported: AbortSignal stream and Worker cancellation",
         "supported: stale worker response prevention by request id",
         "supported: typed columns",
-        "supported: opt-in transferable typed-column TransformSpec worker adapter",
-        "planned: explicit dropBefore",
-        "planned: ring-buffer storage",
-        "planned: RAF coalescing",
-        "planned: pause/follow-live",
-        "planned: lazy history and cancellable query",
-        "planned: worker-owned chart rendering and incremental transform recomputation",
-        "planned: Arrow/WASM binary ingestion and output"
+        "supported: automatic module Worker construction",
+        "supported: Arrow-compatible binary and injected WASM adapters",
+        "supported: worker-owned rendering",
+        "supported: opt-in transferable typed-column and binary ownership"
       ]
     },
     {
       "id": "accessibility",
-      "status": "partial",
+      "status": "supported",
       "items": [
-        "roving mark navigation",
+        "bounded semantic index",
+        "virtualized native Canvas data explorer",
+        "roving Canvas and GPU mark navigation",
         "Arrow/Home/End/Page",
+        "GPU projected focus and aria-activedescendant",
+        "stable-key linked Canvas/Spatial focus store",
         "series/x/y/value/index/selection announcement",
         "keyboard alternatives for brush/zoom/legend/drag",
         "visible focus ring",
@@ -6962,38 +8725,9 @@
     }
   ],
   "modeBacklog": {
-    "area": [
-      "grouped",
-      "stacked",
-      "100-percent",
-      "diverging",
-      "streamgraph",
-      "horizon",
-      "bump",
-      "area-bump",
-      "range",
-      "confidence-band",
-      "fan",
-      "step",
-      "radial"
-    ],
-    "bar": [
-      "grouped",
-      "stacked",
-      "100-percent",
-      "diverging",
-      "butterfly",
-      "population-pyramid",
-      "tornado",
-      "floating/range",
-      "nested-dodge",
-      "race",
-      "weighted-count",
-      "lollipop/stick"
-    ],
+    "area": ["horizon", "bump", "area-bump", "range", "confidence-band", "fan", "radial"],
+    "bar": ["butterfly", "population-pyramid", "tornado", "floating/range", "nested-dodge", "race"],
     "distribution": [
-      "rug",
-      "strip",
       "swarm/beeswarm",
       "raincloud",
       "ridgeline",
@@ -7005,20 +8739,8 @@
       "marginals",
       "hexbin"
     ],
-    "interval": [
-      "error-bars",
-      "error-band",
-      "forest",
-      "caterpillar",
-      "lineribbon",
-      "nested",
-      "prediction",
-      "floating-range",
-      "connected"
-    ],
+    "interval": ["forest", "caterpillar", "lineribbon", "nested", "prediction"],
     "line": [
-      "step-pre/mid/post",
-      "monotone/natural/basis/cardinal",
       "stem",
       "stairs",
       "event/raster",
@@ -7049,26 +8771,17 @@
       "adjacency-matrix",
       "sparse-spy",
       "oncoPrint",
-      "continuous-raster",
-      "irregular-cells",
-      "annotated",
       "time-distribution"
     ],
     "combination": [
-      "Pareto",
       "forecast-actual",
       "anomaly-band",
-      "small-multiples",
       "overview-detail",
-      "dual/multi-axis",
       "marginal",
-      "clustergram",
-      "linked-dashboard"
+      "clustergram"
     ],
     "timeline": [
-      "Gantt",
       "resource-Gantt",
-      "milestones/dependencies",
       "state",
       "status-history",
       "trace-waterfall",
@@ -7077,36 +8790,17 @@
       "active-at-time",
       "curved/serpentine/spiral"
     ],
-    "calendar": ["month", "week", "day", "multi-year", "rolling/fiscal"],
+    "calendar": ["multi-year", "rolling/fiscal"],
     "candlestick": [
       "volume-candle",
       "baseline/HiLo/HLC-compare",
       "session-shading",
       "linked-volume/indicator-panes"
     ],
-    "price-blocks": ["Kagi", "three-line-break", "range-bars", "ATR/percent/log"],
-    "volume-profile": [
-      "fixed",
-      "visible",
-      "session",
-      "periodic",
-      "delta-split",
-      "developing-POC/value-area",
-      "TPO",
-      "footprint"
-    ],
-    "technical-indicator": [
-      "overlays",
-      "oscillators",
-      "bands",
-      "signals",
-      "multi-panel",
-      "custom-registry"
-    ],
+    "price-blocks": [],
+    "volume-profile": ["delta-split", "developing-POC/value-area", "TPO", "footprint"],
+    "technical-indicator": ["signals", "custom-registry"],
     "hierarchy": [
-      "circle-pack",
-      "dendrogram/cluster",
-      "radial-tree",
       "indented-tree",
       "mindmap",
       "fishbone",
@@ -7116,18 +8810,12 @@
       "phylogenetic"
     ],
     "network": [
-      "force",
       "ForceAtlas-like",
       "CoSE-like",
-      "layered/DAG",
-      "circular",
       "concentric",
-      "radial",
-      "grid",
       "geographic",
       "bipartite",
       "3D-force",
-      "compound/combo",
       "editable"
     ],
     "flow": [
@@ -7138,38 +8826,18 @@
       "parallel-sets",
       "map-Sankey"
     ],
-    "chord": ["directed", "non-ribbon", "hierarchical", "edge-bundled", "self-loop"],
-    "venn": ["proportional-Venn", "Euler", "UpSet", "nested-set-summary", "linked-attribute-plots"],
-    "word-tree": ["prefix", "suffix", "reverse", "double", "context-window", "reroot"],
-    "polar": [
-      "rose/Nightingale",
-      "wind-rose",
-      "circular-histogram/density",
-      "stacked-radial-bars",
-      "radial-range",
-      "polar-heatmap",
-      "hodograph"
-    ],
-    "ternary": ["line", "area/regions", "contour", "density/heatmap", "tie-lines"],
-    "smith": ["impedance/admittance", "VSWR/Q/gain/stability/noise", "frequency-colored-sweeps"],
-    "carpet": ["scatter", "line", "vector", "contour", "heatmap", "cheater"],
-    "contour": ["filled/banded-with-holes", "density", "triangulated", "3D"],
-    "vector-field": ["quiver", "wind-barbs", "streamline", "LIC", "particles", "divergence/curl"],
-    "surface": [
-      "trisurface",
-      "wireframe+surface",
-      "texture",
-      "contour-projection",
-      "clipped-terrain"
-    ],
-    "volume": [
-      "raycast",
-      "MIP/minIP/average",
-      "orthogonal/oblique-slices",
-      "multi-isosurface",
-      "labeled-voxels"
-    ],
-    "spatial-vector": ["cone", "streamline", "streamtube", "3D-particles", "seeded-probes"],
+    "chord": ["non-ribbon", "hierarchical", "edge-bundled"],
+    "venn": ["UpSet", "nested-set-summary", "linked-attribute-plots"],
+    "word-tree": ["double", "context-window", "reroot"],
+    "polar": ["rose/Nightingale", "wind-rose", "radial-range", "polar-heatmap", "hodograph"],
+    "ternary": ["area/regions", "contour", "density/heatmap", "tie-lines"],
+    "smith": ["VSWR/Q/gain/stability/noise", "frequency-colored-sweeps"],
+    "carpet": ["line", "vector", "heatmap", "cheater"],
+    "contour": ["density", "3D"],
+    "vector-field": ["LIC", "particles", "divergence/curl"],
+    "surface": ["texture", "clipped-terrain"],
+    "volume": ["labeled-voxels"],
+    "spatial-vector": ["3D-particles"],
     "map": [
       "alternate-projections",
       "cartogram",
@@ -7183,33 +8851,11 @@
       "globe",
       "seat/floor-plan"
     ],
-    "gauge": [
-      "linear",
-      "radial",
-      "multi-target",
-      "needle/bar/both",
-      "segmented",
-      "thermometer",
-      "liquid/tank",
-      "LED",
-      "KPI/stat-card"
-    ],
-    "table": [
-      "matrix/pivot",
-      "tree-table",
-      "in-cell-chart",
-      "conditional-format",
-      "linked",
-      "virtualized"
-    ],
-    "item": ["waffle", "isotype/pictogram", "unit/dot-density", "partial-units"],
-    "word-cloud": ["masked/shape", "rotated", "n-gram", "interactive-search"],
-    "image": [
-      "scientific-window-level",
-      "multichannel-composite",
-      "tiled-large-image",
-      "ROI/pixel-profile"
-    ]
+    "gauge": ["segmented", "thermometer", "liquid/tank", "LED"],
+    "table": ["tree-table", "in-cell-chart", "conditional-format", "linked"],
+    "item": [],
+    "word-cloud": ["masked/shape", "interactive-search"],
+    "image": ["tiled-large-image", "ROI/pixel-profile"]
   },
   "ecosystemInputs": [
     {
@@ -7503,8 +9149,8 @@
   "commonFoundations": [
     {
       "id": "transform-dataflow",
-      "status": "partial",
-      "summary": "Ordered, function-free transforms, top-level and layer pipelines, deterministic row lineage, parameters, seed and aggregation counts are supported; named sources, branches and a reusable DAG remain planned.",
+      "status": "supported",
+      "summary": "Ordered function-free transforms, top-level and layer pipelines, deterministic row lineage, parameters, seeded operations, aggregation counts, named sources, reusable branches and a shared transform DAG are supported.",
       "unlocks": [
         "area",
         "bar",
@@ -7518,38 +9164,38 @@
     },
     {
       "id": "encoding-scale-registry",
-      "status": "partial",
-      "summary": "A closed portable encoding map, conditional mark channels, 17 positional/categorical/probability/temporal scale types, four color scale types and compatible primary x/y shared-domain resolve for Canvas unit views are supported; geographic/trading channels, shared multi-view axes and shared legends/colorbars remain planned.",
+      "status": "supported",
+      "summary": "A closed portable encoding map, conditional mark channels, geographic and trading channels, 17 positional/categorical/probability/temporal scale types, four color scale types, and shared or independent multi-view domains, axes, legends and colorbars are supported.",
       "unlocks": ["scatter", "heatmap", "parallel", "polar", "smith", "ternary"]
     },
     {
       "id": "analytic-interaction",
-      "status": "partial",
-      "summary": "A closed immutable v1 store, union/intersection semantics, point/interval/rectangle/axis/lasso state, Canvas pointer/touch gestures, scale-registry pixel/domain round-trip and continuous Cartesian domain zoom/pan are supported. Categorical geometry/navigation, spatial selection, keyboard-authored geometry, linked multi-view stores and selection-driven data transforms remain planned.",
+      "status": "supported",
+      "summary": "A closed immutable v1 store, union/intersection semantics, point/interval/rectangle/axis/lasso state, Canvas pointer/touch and keyboard-authored geometry, continuous and categorical pixel/domain navigation, linked multi-view state, and lineage-preserving selection-driven filtering are supported. Spatial analytic selection remains a separate later boundary.",
       "unlocks": ["scatter", "heatmap", "parallel", "scatter-matrix", "map", "combination"]
     },
     {
       "id": "composition-resolve",
-      "status": "partial",
-      "summary": "Legacy flat layers and the closed layer/facet/repeat/hconcat/vconcat/concat/inset Canvas composition grammar are supported with deterministic bounded layout, scoped semantic/lineage identities, independent child axes/legends and compatible primary x/y shared-domain resolve. Shared multi-view axes/legends/colorbars, linked view stores, facet pagination/virtualization, per-view interaction, streaming composition and Spatial/WebGL composition remain planned.",
+      "status": "supported",
+      "summary": "Legacy flat layers and the closed layer/facet/repeat/hconcat/vconcat/concat/inset Canvas composition grammar are supported with deterministic bounded layout, scoped semantic and lineage identities, named axes, shared or independent multi-view domains/axes/legends/colorbars, linked view state, per-layer transforms, z-order and clipping. Facet virtualization, renderer mixing and Spatial composition remain later roadmap work.",
       "unlocks": ["combination", "distribution", "interval", "timeline", "technical-indicator"]
     },
     {
       "id": "semantic-index-accessibility",
-      "status": "partial",
-      "summary": "All Canvas families compile a bounded semantic index with lineage, Canvas Chart exposes a native table mirror, roving keyboard traversal, focus, tooltip and selection synchronization, and composed Canvas views carry deterministic scoped semantic, hit-target and lineage identities; equivalent native GPU traversal and linked multi-view focus stores remain planned.",
+      "status": "supported",
+      "summary": "All Canvas families compile a bounded lineage-aware semantic index and expose a virtualized native explorer with full roving traversal, focus-ring, tooltip and selection synchronization. Spatial GPU views expose projected roving traversal and active-descendant synchronization, while a bounded stable-key focus store links Canvas and Spatial views through a portable authored contract.",
       "unlocks": ["table", "all-canvas", "all-spatial"]
     },
     {
       "id": "label-layout-authoring",
-      "status": "partial",
-      "summary": "Callout collision placement and connectors are supported; reusable mark labels, editing handles, snapping and undo/redo remain planned.",
-      "unlocks": ["pie", "bubble", "map", "chord", "funnel", "annotation", "network"]
+      "status": "supported",
+      "summary": "All 41 Canvas families support function-free reusable markLabels with stable-key portable positions, deterministic automatic collision placement, connectors, editing handles, pointer drag, keyboard selection and nudging, grid/mark/plot snapping, bounded undo/redo, runtime import/export events and accessible instructions/live status. Annotation adds a closed data-coordinate point/rule/band/label/callout registry with drag, resize and history.",
+      "unlocks": ["all-canvas", "pie", "bubble", "map", "chord", "funnel", "annotation", "network"]
     },
     {
       "id": "incremental-worker-binary",
-      "status": "partial",
-      "summary": "Typed column input, legacy copy-compatible appendData, deterministic stable-key append/upsert/replaceLast, bounded count/event-time retention, monotonic watermarks with explicit late-data policy, reject-only bounded queues/replay, and an opt-in transferable typed-column TransformSpec worker adapter are supported. Ring-buffer storage, incremental transform recomputation, worker-owned chart rendering, Arrow/WASM, RAF coalescing, pause/follow-live, lazy history and cancellation remain planned.",
+      "status": "supported",
+      "summary": "Stable-key append/upsert/replaceLast uses bounded ring storage, explicit reject/drop-oldest/coalesce queues, count/event-time retention and replay. Row-local transforms recompute changed keys with exact global fallback; the frame runtime adds RAF coalescing, cancellation, pause/follow-live and lazy bounded history. Automatic module Workers accept row, typed-column and Arrow-compatible binary envelopes, injected JavaScript/WASM adapters and worker-owned renderers with bounded work and cancellation.",
       "unlocks": ["line", "scatter", "candlestick", "map", "network", "combination"]
     }
   ],

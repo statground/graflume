@@ -1,6 +1,7 @@
 import type { InspectionViewTransform } from '../renderer/types.js';
 import type { SemanticMark } from '../scene/semantic.js';
 import type { NormalizedAccessibilitySpec } from '../spec/types.js';
+import { VirtualDataExplorer, type ExplorerNavigationKey } from './virtual-data-explorer.js';
 
 export interface AccessibilityMirrorActions {
   toggle(mark: SemanticMark): void;
@@ -41,14 +42,22 @@ function valueText(value: unknown): string {
 }
 
 export class AccessibilityMirrorController {
+  #explorer: VirtualDataExplorer | null = null;
+  #explorerSignature = '';
   #host: HTMLElement | null = null;
   #surface: HTMLElement | null = null;
   #mirror: HTMLDivElement | null = null;
   #ring: HTMLDivElement | null = null;
   #focusedId: string | null = null;
+  #focusById: ((id: string) => boolean) | null = null;
+  #scrollHandler: (() => void) | null = null;
 
   getFocusedId(): string | null {
     return this.#focusedId;
+  }
+
+  focusSemanticId(id: string): boolean {
+    return this.#focusById?.(id) ?? false;
   }
 
   sync(
@@ -61,7 +70,7 @@ export class AccessibilityMirrorController {
     selectedKeys: ReadonlySet<string>,
     actions: AccessibilityMirrorActions,
   ): void {
-    if (spec.table === false && !spec.navigation) {
+    if (spec.table === false && !spec.navigation && spec.linkedFocus === false) {
       this.destroy();
       return;
     }
@@ -94,6 +103,10 @@ export class AccessibilityMirrorController {
     }
     const mirror = this.#mirror;
     if (mirror === null) return;
+    if (this.#scrollHandler !== null) {
+      mirror.removeEventListener('scroll', this.#scrollHandler);
+      this.#scrollHandler = null;
+    }
     mirror.dataset.graflumeAccessibilityMirror = spec.table === 'visible' ? 'visible' : 'hidden';
     mirror.removeAttribute('style');
     if (spec.table !== 'visible') visuallyHidden(mirror);
@@ -136,108 +149,147 @@ export class AccessibilityMirrorController {
     head.append(headRow);
     table.append(head);
     const body = ownerDocument.createElement('tbody');
-    const navigable: HTMLTableRowElement[] = [];
-    const navigableMarks: SemanticMark[] = [];
-    index.forEach((mark) => {
+    table.setAttribute('role', 'grid');
+    const navigableMarks = index.filter(({ visible }) => visible);
+    table.setAttribute('aria-rowcount', String(navigableMarks.length + 1));
+    const explorerSpec =
+      spec.explorer === false
+        ? { windowRows: Math.max(1, navigableMarks.length), overscanRows: 0, rowHeight: 32 }
+        : spec.explorer;
+    const explorerSignature = JSON.stringify(explorerSpec);
+    if (this.#explorer === null || explorerSignature !== this.#explorerSignature) {
+      this.#explorer = new VirtualDataExplorer(explorerSpec);
+      this.#explorerSignature = explorerSignature;
+    }
+    const explorer = this.#explorer;
+    let dataWindow = explorer.setRows(navigableMarks, focusedId);
+    const navigationKeys = new Set<ExplorerNavigationKey>([
+      'ArrowLeft',
+      'ArrowRight',
+      'ArrowUp',
+      'ArrowDown',
+      'Home',
+      'End',
+      'PageUp',
+      'PageDown',
+    ]);
+    let renderedRows: HTMLTableRowElement[] = [];
+    const spacer = (pixels: number, position: 'before' | 'after'): HTMLTableRowElement => {
       const row = ownerDocument.createElement('tr');
-      row.dataset.graflumeSemanticId = mark.id;
-      row.setAttribute('aria-label', mark.label);
-      row.setAttribute('aria-selected', String(selected(mark, selectedKeys)));
-      row.setAttribute('aria-disabled', String(!mark.visible));
-      row.tabIndex = -1;
-      const layerCell = ownerDocument.createElement('th');
-      layerCell.scope = 'row';
-      layerCell.textContent = mark.layerId;
-      layerCell.style.textAlign = 'start';
-      layerCell.style.padding = spec.table === 'visible' ? '6px 8px' : '0';
-      row.append(layerCell);
-      for (const field of fields) {
-        const cell = ownerDocument.createElement('td');
-        cell.textContent = valueText(mark.datum[field]);
-        cell.style.padding = spec.table === 'visible' ? '6px 8px' : '0';
-        row.append(cell);
-      }
-      if (mark.visible) {
-        navigable.push(row);
-        navigableMarks.push(mark);
-      }
-      row.addEventListener('focus', () => {
-        this.#focusedId = mark.id;
-        for (const candidate of navigable) candidate.tabIndex = candidate === row ? 0 : -1;
-        this.#positionRing(mark, view);
-        actions.focus(mark);
-      });
-      row.addEventListener('blur', () => {
-        const activeId = (ownerDocument.activeElement as HTMLElement | null)?.dataset
-          ?.graflumeSemanticId;
-        if (activeId === undefined) {
-          if (this.#ring !== null) this.#ring.hidden = true;
-          actions.focus(null);
+      row.dataset.graflumeVirtualSpacer = position;
+      row.setAttribute('aria-hidden', 'true');
+      const cell = ownerDocument.createElement('td');
+      cell.colSpan = fields.length + 1;
+      cell.style.height = `${pixels}px`;
+      cell.style.padding = '0';
+      cell.style.border = '0';
+      row.append(cell);
+      return row;
+    };
+    const renderWindow = (focusActive: boolean): void => {
+      const rows: HTMLTableRowElement[] = [];
+      if (dataWindow.beforePixels > 0) rows.push(spacer(dataWindow.beforePixels, 'before'));
+      dataWindow.rows.forEach((mark, windowIndex) => {
+        const absoluteIndex = dataWindow.start + windowIndex;
+        const row = ownerDocument.createElement('tr');
+        row.dataset.graflumeSemanticId = mark.id;
+        row.dataset.graflumeSemanticIndex = String(absoluteIndex);
+        row.setAttribute('aria-rowindex', String(absoluteIndex + 2));
+        row.setAttribute('aria-label', mark.label);
+        row.setAttribute('aria-selected', String(selected(mark, selectedKeys)));
+        row.tabIndex = spec.navigation && dataWindow.activeIndex === absoluteIndex ? 0 : -1;
+        const layerCell = ownerDocument.createElement('th');
+        layerCell.scope = 'row';
+        layerCell.textContent = mark.layerId;
+        layerCell.style.textAlign = 'start';
+        layerCell.style.padding = spec.table === 'visible' ? '6px 8px' : '0';
+        row.append(layerCell);
+        for (const field of fields) {
+          const cell = ownerDocument.createElement('td');
+          cell.textContent = valueText(mark.datum[field]);
+          cell.style.padding = spec.table === 'visible' ? '6px 8px' : '0';
+          row.append(cell);
         }
-      });
-      row.addEventListener('keydown', (event) => {
-        if (!('key' in event)) return;
-        const current = navigable.indexOf(row);
-        let next = current;
-        switch (event.key) {
-          case 'ArrowLeft':
-          case 'ArrowUp':
-            next = Math.max(0, current - 1);
-            break;
-          case 'ArrowRight':
-          case 'ArrowDown':
-            next = Math.min(navigable.length - 1, current + 1);
-            break;
-          case 'Home':
-            next = 0;
-            break;
-          case 'End':
-            next = navigable.length - 1;
-            break;
-          case 'PageUp':
-            next = Math.max(0, current - 10);
-            break;
-          case 'PageDown':
-            next = Math.min(navigable.length - 1, current + 10);
-            break;
-          case 'Enter':
-          case ' ':
+        row.addEventListener('focus', () => {
+          this.#focusedId = mark.id;
+          dataWindow = explorer.focusIndex(absoluteIndex);
+          for (const candidate of renderedRows) {
+            candidate.tabIndex = spec.navigation && candidate === row ? 0 : -1;
+          }
+          this.#positionRing(mark, view);
+          actions.focus(mark);
+        });
+        row.addEventListener('blur', () => {
+          queueMicrotask(() => {
+            const activeId = (ownerDocument.activeElement as HTMLElement | null)?.dataset
+              ?.graflumeSemanticId;
+            if (activeId === undefined) {
+              if (this.#ring !== null) this.#ring.hidden = true;
+              actions.focus(null);
+            }
+          });
+        });
+        row.addEventListener('keydown', (event) => {
+          if (!spec.navigation) return;
+          if (!('key' in event)) return;
+          if (event.key === 'Enter' || event.key === ' ') {
             actions.toggle(mark);
             event.preventDefault();
             return;
-          case 'Escape':
+          }
+          if (event.key === 'Escape') {
             actions.clear();
             surface.focus();
             if (this.#ring !== null) this.#ring.hidden = true;
             actions.focus(null);
             event.preventDefault();
             return;
-          default:
-            return;
-        }
-        const target = navigable[next];
-        const targetMark = navigableMarks[next];
-        if (target !== undefined && targetMark !== undefined) {
-          row.tabIndex = -1;
-          target.tabIndex = 0;
-          target.focus();
-          this.#positionRing(targetMark, view);
-        }
-        event.preventDefault();
+          }
+          if (!navigationKeys.has(event.key as ExplorerNavigationKey)) return;
+          dataWindow = explorer.move(event.key as ExplorerNavigationKey);
+          renderWindow(true);
+          event.preventDefault();
+        });
+        rows.push(row);
       });
-      body.append(row);
-    });
+      if (dataWindow.afterPixels > 0) rows.push(spacer(dataWindow.afterPixels, 'after'));
+      body.replaceChildren(...rows);
+      renderedRows = rows.filter(({ dataset }) => dataset.graflumeSemanticId !== undefined);
+      if (focusActive && dataWindow.activeIndex !== null) {
+        const target = renderedRows.find(
+          ({ dataset }) => dataset.graflumeSemanticIndex === String(dataWindow.activeIndex),
+        );
+        target?.focus();
+      }
+    };
     table.append(body);
     mirror.replaceChildren(summary, table);
-    const first = navigable[0];
-    const restored = navigable.find(({ dataset }) => dataset.graflumeSemanticId === focusedId);
-    if (restored !== undefined) {
-      restored.tabIndex = 0;
-      restored.focus();
-    } else if (first !== undefined) first.tabIndex = 0;
+    mirror.dataset.graflumeVirtualRows = String(navigableMarks.length);
+    renderWindow(false);
+    this.#focusById = (id): boolean => {
+      if (!navigableMarks.some((mark) => mark.id === id)) return false;
+      dataWindow = explorer.focusId(id);
+      renderWindow(true);
+      return true;
+    };
+    if (focusedId !== null && focusedId !== undefined) {
+      const restored = renderedRows.find(({ dataset }) => dataset.graflumeSemanticId === focusedId);
+      restored?.focus();
+    }
+    if (spec.table === 'visible') {
+      this.#scrollHandler = () => {
+        dataWindow = explorer.setScrollOffset(mirror.scrollTop);
+        renderWindow(false);
+      };
+      mirror.addEventListener('scroll', this.#scrollHandler);
+    }
   }
 
   destroy(): void {
+    if (this.#scrollHandler !== null) {
+      this.#mirror?.removeEventListener('scroll', this.#scrollHandler);
+      this.#scrollHandler = null;
+    }
     this.#mirror?.remove();
     this.#ring?.remove();
     this.#mirror = null;
@@ -245,6 +297,9 @@ export class AccessibilityMirrorController {
     this.#host = null;
     this.#surface = null;
     this.#focusedId = null;
+    this.#focusById = null;
+    this.#explorer = null;
+    this.#explorerSignature = '';
   }
 
   #positionRing(mark: SemanticMark, view: InspectionViewTransform): void {

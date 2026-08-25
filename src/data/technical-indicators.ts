@@ -1,6 +1,11 @@
 import { GraflumeError } from '../core/errors.js';
 import type { DataLineage, TransformResult, TransformStepLineage } from './transforms.js';
 import type { DataRow, JsonValue, NormalizedLayerSpec } from '../spec/types.js';
+import {
+  calculateOhlcvTechnicalIndicator,
+  type IndicatorNumericSeries,
+  type ResolvedTechnicalIndicatorInputs,
+} from './technical-indicator-ohlcv.js';
 
 export const technicalIndicatorPresetIds = [
   'acceleration-bands',
@@ -52,10 +57,29 @@ export const technicalIndicatorPresetIds = [
 
 export type TechnicalIndicatorPresetId = (typeof technicalIndicatorPresetIds)[number];
 export type TechnicalIndicatorSupport = 'computed' | 'precomputed-required';
+export type TechnicalIndicatorInputName = 'value' | 'open' | 'high' | 'low' | 'close' | 'volume';
+export type TechnicalIndicatorPlacement = 'overlay' | 'panel';
 
 export interface IndicatorParameterCapability {
-  readonly name: 'period' | 'fastPeriod' | 'slowPeriod' | 'signalPeriod';
-  readonly type: 'integer';
+  readonly name:
+    | 'period'
+    | 'fastPeriod'
+    | 'slowPeriod'
+    | 'signalPeriod'
+    | 'multiplier'
+    | 'standardDeviations'
+    | 'atrPeriod'
+    | 'conversionPeriod'
+    | 'basePeriod'
+    | 'spanPeriod'
+    | 'displacement'
+    | 'smoothK'
+    | 'smoothD'
+    | 'envelopePercent'
+    | 'acceleration'
+    | 'maximumAcceleration'
+    | 'deviation';
+  readonly type: 'integer' | 'number';
   readonly minimum: number;
   readonly maximum: number;
   readonly default: number;
@@ -73,7 +97,7 @@ export interface TechnicalIndicatorCapability {
   readonly kind: string;
   readonly quickApi: string;
   readonly support: TechnicalIndicatorSupport;
-  readonly requiredInputs: readonly string[];
+  readonly requiredInputs: readonly TechnicalIndicatorInputName[];
   readonly outputs: readonly string[];
   readonly parameters: readonly IndicatorParameterCapability[];
   readonly dependencyDag: readonly IndicatorDependencyNode[];
@@ -90,6 +114,43 @@ export interface TechnicalIndicatorCalculation {
   readonly warmUpRows: number;
   readonly parameters: Readonly<Record<string, number>>;
   readonly provenance: string;
+  readonly session: TechnicalIndicatorSessionState;
+  readonly presentation: TechnicalIndicatorPresentation;
+}
+
+export interface TechnicalIndicatorInputSeries {
+  readonly value?: IndicatorNumericSeries;
+  readonly open?: IndicatorNumericSeries;
+  readonly high?: IndicatorNumericSeries;
+  readonly low?: IndicatorNumericSeries;
+  readonly close?: IndicatorNumericSeries;
+  readonly volume?: IndicatorNumericSeries;
+  readonly session?: readonly JsonValue[];
+  readonly time?: readonly (number | string | Date | null)[];
+}
+
+export interface TechnicalIndicatorSessionSpec {
+  readonly mode?: 'none' | 'field' | 'utc-day' | 'gap';
+  readonly field?: string;
+  readonly timeField?: string;
+  readonly gapMs?: number;
+  readonly reset?: 'hard' | 'carry';
+}
+
+export interface TechnicalIndicatorSessionState {
+  readonly mode: 'none' | 'field' | 'utc-day' | 'gap';
+  readonly reset: 'hard' | 'carry';
+  readonly boundaries: readonly number[];
+}
+
+export interface TechnicalIndicatorPresentation {
+  readonly placement: TechnicalIndicatorPlacement;
+  readonly panelId: string;
+  readonly synchronizedCrosshair: {
+    readonly axis: 'x';
+    readonly sharedDomain: true;
+    readonly fields: readonly string[];
+  };
 }
 
 interface IndicatorDefinition {
@@ -182,36 +243,23 @@ const definitions: readonly IndicatorDefinition[] = [
   { id: 'zigzag', kind: 'zigzag', quickApi: 'zigzag' },
 ] as const;
 
-const periodParameter: IndicatorParameterCapability = {
-  name: 'period',
-  type: 'integer',
-  minimum: 2,
-  maximum: 200,
-  default: 14,
-};
-const fastPeriodParameter: IndicatorParameterCapability = {
-  name: 'fastPeriod',
-  type: 'integer',
-  minimum: 2,
-  maximum: 200,
-  default: 12,
-};
-const slowPeriodParameter: IndicatorParameterCapability = {
-  name: 'slowPeriod',
-  type: 'integer',
-  minimum: 2,
-  maximum: 200,
-  default: 26,
-};
-const signalPeriodParameter: IndicatorParameterCapability = {
-  name: 'signalPeriod',
-  type: 'integer',
-  minimum: 2,
-  maximum: 200,
-  default: 9,
-};
+function indicatorParameter(
+  name: IndicatorParameterCapability['name'],
+  defaultValue: number,
+  minimum: number,
+  maximum: number,
+  type: IndicatorParameterCapability['type'] = 'integer',
+): IndicatorParameterCapability {
+  return { name, type, minimum, maximum, default: defaultValue };
+}
 
-const computedKinds = new Set([
+const period14 = indicatorParameter('period', 14, 2, 200);
+const period20 = indicatorParameter('period', 20, 2, 200);
+const fast12 = indicatorParameter('fastPeriod', 12, 2, 200);
+const slow26 = indicatorParameter('slowPeriod', 26, 2, 200);
+const signal9 = indicatorParameter('signalPeriod', 9, 2, 200);
+
+const legacyComputedKinds = new Set([
   'apo',
   'dema',
   'disparityindex',
@@ -231,27 +279,151 @@ const computedKinds = new Set([
   'wma',
 ]);
 
+const computedKinds = new Set(definitions.map(({ kind }) => kind));
+
 function capabilityParameters(kind: string): readonly IndicatorParameterCapability[] {
-  if (kind === 'apo' || kind === 'ppo') return [fastPeriodParameter, slowPeriodParameter];
-  if (kind === 'macd') return [fastPeriodParameter, slowPeriodParameter, signalPeriodParameter];
-  return computedKinds.has(kind) ? [periodParameter] : [];
+  switch (kind) {
+    case 'abands':
+      return [period20, indicatorParameter('multiplier', 4, 0, 20, 'number')];
+    case 'ao':
+      return [
+        indicatorParameter('fastPeriod', 5, 2, 200),
+        indicatorParameter('slowPeriod', 34, 2, 200),
+      ];
+    case 'apo':
+    case 'ppo':
+      return [fast12, slow26];
+    case 'macd':
+      return [fast12, slow26, signal9];
+    case 'bb':
+      return [period20, indicatorParameter('standardDeviations', 2, 0, 10, 'number')];
+    case 'chaikin':
+      return [
+        indicatorParameter('fastPeriod', 3, 2, 200),
+        indicatorParameter('slowPeriod', 10, 2, 200),
+      ];
+    case 'cmf':
+      return [period20];
+    case 'cci':
+    case 'dpo':
+    case 'pc':
+      return [period20];
+    case 'ikh':
+      return [
+        indicatorParameter('conversionPeriod', 9, 2, 200),
+        indicatorParameter('basePeriod', 26, 2, 200),
+        indicatorParameter('spanPeriod', 52, 2, 400),
+        indicatorParameter('displacement', 26, 0, 200),
+      ];
+    case 'keltnerchannels':
+      return [
+        period20,
+        indicatorParameter('atrPeriod', 10, 2, 200),
+        indicatorParameter('multiplier', 2, 0, 20, 'number'),
+      ];
+    case 'klinger':
+      return [
+        indicatorParameter('fastPeriod', 34, 2, 200),
+        indicatorParameter('slowPeriod', 55, 2, 200),
+        indicatorParameter('signalPeriod', 13, 2, 200),
+      ];
+    case 'pivotpoints':
+    case 'obv':
+    case 'vwap':
+      return [];
+    case 'priceenvelopes':
+      return [period20, indicatorParameter('envelopePercent', 2.5, 0, 100, 'number')];
+    case 'psar':
+      return [
+        indicatorParameter('acceleration', 0.02, 0.001, 1, 'number'),
+        indicatorParameter('maximumAcceleration', 0.2, 0.001, 1, 'number'),
+      ];
+    case 'slowstochastic':
+      return [
+        period14,
+        indicatorParameter('smoothK', 3, 1, 200),
+        indicatorParameter('smoothD', 3, 1, 200),
+      ];
+    case 'stochastic':
+      return [period14, indicatorParameter('signalPeriod', 3, 1, 200)];
+    case 'supertrend':
+      return [
+        indicatorParameter('atrPeriod', 10, 2, 200),
+        indicatorParameter('multiplier', 3, 0, 20, 'number'),
+      ];
+    case 'zigzag':
+      return [indicatorParameter('deviation', 5, 0.01, 100, 'number')];
+    default:
+      return computedKinds.has(kind) ? [period14] : [];
+  }
+}
+
+function capabilityInputs(kind: string): readonly TechnicalIndicatorInputName[] {
+  if (['abands', 'atr', 'cci', 'dmi', 'keltnerchannels', 'natr', 'supertrend'].includes(kind)) {
+    return ['high', 'low', 'close'];
+  }
+  if (['ao', 'aroon', 'aroonoscillator', 'ikh', 'pc', 'psar'].includes(kind)) {
+    return ['high', 'low'];
+  }
+  if (['chaikin', 'cmf', 'klinger', 'mfi', 'vwap'].includes(kind)) {
+    return ['high', 'low', 'close', 'volume'];
+  }
+  if (kind === 'obv') return ['close', 'volume'];
+  if (kind === 'pivotpoints') return ['high', 'low', 'close'];
+  if (['slowstochastic', 'stochastic', 'williamsr'].includes(kind)) {
+    return ['high', 'low', 'close'];
+  }
+  return ['value'];
 }
 
 function capabilityOutputs(kind: string): readonly string[] {
-  return kind === 'macd' ? ['value', 'signal', 'histogram'] : ['value'];
+  if (kind === 'macd') return ['value', 'signal', 'histogram'];
+  if (['abands', 'bb', 'keltnerchannels', 'pc', 'priceenvelopes'].includes(kind)) {
+    return ['value', 'lower', 'upper'];
+  }
+  if (kind === 'aroon') return ['value', 'up', 'down'];
+  if (kind === 'dmi') return ['value', 'plus', 'minus'];
+  if (kind === 'ikh') return ['value', 'lower', 'upper', 'conversion', 'base'];
+  if (['klinger', 'slowstochastic', 'stochastic'].includes(kind)) return ['value', 'signal'];
+  if (kind === 'pivotpoints') return ['value', 'support', 'resistance'];
+  if (kind === 'supertrend') return ['value', 'direction'];
+  return ['value'];
 }
 
 function warmUpDescription(kind: string): string {
   if (kind === 'dema') return '2 * (period - 1)';
   if (kind === 'tema' || kind === 'trix') return '3 * (period - 1)';
-  if (kind === 'apo' || kind === 'ppo') return 'slowPeriod - 1';
+  if (['apo', 'ppo', 'ao', 'chaikin'].includes(kind)) return 'slowPeriod - 1';
   if (kind === 'macd') return 'slowPeriod + signalPeriod - 2';
-  if (kind === 'momentum' || kind === 'roc' || kind === 'rsi') return 'period';
+  if (kind === 'klinger') return 'slowPeriod + signalPeriod - 1';
+  if (['momentum', 'roc', 'rsi', 'aroon', 'aroonoscillator', 'cmo', 'mfi'].includes(kind)) {
+    return 'period';
+  }
+  if (kind === 'dmi') return '2 * period - 1';
+  if (kind === 'ikh') return 'spanPeriod - 1 + displacement';
+  if (kind === 'keltnerchannels') return 'max(period, atrPeriod) - 1';
+  if (kind === 'slowstochastic') return 'period + smoothK + smoothD - 3';
+  if (kind === 'stochastic') return 'period + signalPeriod - 2';
+  if (kind === 'supertrend') return 'atrPeriod - 1';
+  if (['obv', 'vwap'].includes(kind)) return '0';
+  if (kind === 'pivotpoints') return '1 row, or one complete configured session';
+  if (['psar', 'zigzag'].includes(kind)) return '1';
   return 'period - 1';
 }
 
 function dependencyDag(kind: string): readonly IndicatorDependencyNode[] {
-  const input = { id: 'source', operation: 'input', inputs: [], parameters: [] } as const;
+  const inputs = capabilityInputs(kind).map((name): IndicatorDependencyNode => ({
+    id: name === 'value' ? 'source' : name,
+    operation: `input:${name}`,
+    inputs: [],
+    parameters: [],
+  }));
+  const input = inputs[0] ?? {
+    id: 'source',
+    operation: 'input:value',
+    inputs: [],
+    parameters: [],
+  };
   if (kind === 'dema') {
     return [
       input,
@@ -303,19 +475,462 @@ function dependencyDag(kind: string): readonly IndicatorDependencyNode[] {
         : []),
     ];
   }
+  const parameterNames = capabilityParameters(kind).map(({ name }) => name);
+  const nodes = (
+    ...entries: readonly IndicatorDependencyNode[]
+  ): readonly IndicatorDependencyNode[] => [...inputs, ...entries];
+  if (kind === 'abands') {
+    return nodes(
+      {
+        id: 'raw-bands',
+        operation: 'acceleration-envelope',
+        inputs: ['high', 'low'],
+        parameters: ['multiplier'],
+      },
+      { id: 'value', operation: 'sma', inputs: ['close'], parameters: ['period'] },
+      { id: 'lower', operation: 'sma', inputs: ['raw-bands'], parameters: ['period'] },
+      { id: 'upper', operation: 'sma', inputs: ['raw-bands'], parameters: ['period'] },
+    );
+  }
+  if (kind === 'ao') {
+    return nodes(
+      { id: 'median', operation: 'median-price', inputs: ['high', 'low'], parameters: [] },
+      { id: 'fast', operation: 'sma', inputs: ['median'], parameters: ['fastPeriod'] },
+      { id: 'slow', operation: 'sma', inputs: ['median'], parameters: ['slowPeriod'] },
+      { id: 'value', operation: 'difference', inputs: ['fast', 'slow'], parameters: [] },
+    );
+  }
+  if (kind === 'aroon' || kind === 'aroonoscillator') {
+    return nodes(
+      {
+        id: 'extrema-age',
+        operation: 'rolling-extrema-age',
+        inputs: ['high', 'low'],
+        parameters: ['period'],
+      },
+      { id: 'up', operation: 'aroon-up', inputs: ['extrema-age'], parameters: ['period'] },
+      { id: 'down', operation: 'aroon-down', inputs: ['extrema-age'], parameters: ['period'] },
+      {
+        id: 'value',
+        operation: kind === 'aroon' ? 'alias-up' : 'difference',
+        inputs: kind === 'aroon' ? ['up'] : ['up', 'down'],
+        parameters: [],
+      },
+    );
+  }
+  if (kind === 'atr' || kind === 'natr') {
+    return nodes(
+      {
+        id: 'true-range',
+        operation: 'true-range',
+        inputs: ['high', 'low', 'close'],
+        parameters: [],
+      },
+      { id: 'atr', operation: 'wilder-average', inputs: ['true-range'], parameters: ['period'] },
+      {
+        id: 'value',
+        operation: kind === 'natr' ? 'normalize-by-close-percent' : 'alias',
+        inputs: kind === 'natr' ? ['atr', 'close'] : ['atr'],
+        parameters: [],
+      },
+    );
+  }
+  if (kind === 'bb') {
+    return nodes(
+      { id: 'value', operation: 'sma', inputs: ['source'], parameters: ['period'] },
+      {
+        id: 'deviation',
+        operation: 'population-standard-deviation',
+        inputs: ['source', 'value'],
+        parameters: ['period'],
+      },
+      {
+        id: 'lower',
+        operation: 'subtract-scaled',
+        inputs: ['value', 'deviation'],
+        parameters: ['standardDeviations'],
+      },
+      {
+        id: 'upper',
+        operation: 'add-scaled',
+        inputs: ['value', 'deviation'],
+        parameters: ['standardDeviations'],
+      },
+    );
+  }
+  if (kind === 'cci') {
+    return nodes(
+      {
+        id: 'typical',
+        operation: 'typical-price',
+        inputs: ['high', 'low', 'close'],
+        parameters: [],
+      },
+      { id: 'average', operation: 'sma', inputs: ['typical'], parameters: ['period'] },
+      {
+        id: 'deviation',
+        operation: 'mean-absolute-deviation',
+        inputs: ['typical', 'average'],
+        parameters: ['period'],
+      },
+      {
+        id: 'value',
+        operation: 'commodity-channel-index',
+        inputs: ['typical', 'average', 'deviation'],
+        parameters: [],
+      },
+    );
+  }
+  if (kind === 'chaikin' || kind === 'cmf') {
+    return nodes(
+      {
+        id: 'money-flow',
+        operation: 'money-flow-volume',
+        inputs: ['high', 'low', 'close', 'volume'],
+        parameters: [],
+      },
+      ...(kind === 'chaikin'
+        ? [
+            { id: 'adl', operation: 'cumulative-sum', inputs: ['money-flow'], parameters: [] },
+            { id: 'fast', operation: 'ema', inputs: ['adl'], parameters: ['fastPeriod'] },
+            { id: 'slow', operation: 'ema', inputs: ['adl'], parameters: ['slowPeriod'] },
+            { id: 'value', operation: 'difference', inputs: ['fast', 'slow'], parameters: [] },
+          ]
+        : [
+            {
+              id: 'flow-sum',
+              operation: 'rolling-sum',
+              inputs: ['money-flow'],
+              parameters: ['period'],
+            },
+            {
+              id: 'volume-sum',
+              operation: 'rolling-sum',
+              inputs: ['volume'],
+              parameters: ['period'],
+            },
+            { id: 'value', operation: 'ratio', inputs: ['flow-sum', 'volume-sum'], parameters: [] },
+          ]),
+    );
+  }
+  if (kind === 'cmo') {
+    return nodes(
+      { id: 'changes', operation: 'signed-change', inputs: ['source'], parameters: [] },
+      {
+        id: 'gain-loss-sums',
+        operation: 'rolling-gain-loss',
+        inputs: ['changes'],
+        parameters: ['period'],
+      },
+      {
+        id: 'value',
+        operation: 'chande-ratio-percent',
+        inputs: ['gain-loss-sums'],
+        parameters: [],
+      },
+    );
+  }
+  if (kind === 'dmi') {
+    return nodes(
+      {
+        id: 'true-range',
+        operation: 'true-range',
+        inputs: ['high', 'low', 'close'],
+        parameters: [],
+      },
+      {
+        id: 'movement',
+        operation: 'directional-movement',
+        inputs: ['high', 'low'],
+        parameters: [],
+      },
+      {
+        id: 'plus-minus',
+        operation: 'wilder-directional-index',
+        inputs: ['true-range', 'movement'],
+        parameters: ['period'],
+      },
+      {
+        id: 'plus',
+        operation: 'positive-directional-index',
+        inputs: ['plus-minus'],
+        parameters: [],
+      },
+      {
+        id: 'minus',
+        operation: 'negative-directional-index',
+        inputs: ['plus-minus'],
+        parameters: [],
+      },
+      { id: 'value', operation: 'wilder-adx', inputs: ['plus', 'minus'], parameters: ['period'] },
+    );
+  }
+  if (kind === 'dpo') {
+    return nodes(
+      { id: 'average', operation: 'sma', inputs: ['source'], parameters: ['period'] },
+      {
+        id: 'value',
+        operation: 'detrended-shift-difference',
+        inputs: ['source', 'average'],
+        parameters: ['period'],
+      },
+    );
+  }
+  if (kind === 'ikh') {
+    return nodes(
+      {
+        id: 'conversion',
+        operation: 'midprice',
+        inputs: ['high', 'low'],
+        parameters: ['conversionPeriod'],
+      },
+      { id: 'base', operation: 'midprice', inputs: ['high', 'low'], parameters: ['basePeriod'] },
+      { id: 'span-a', operation: 'average', inputs: ['conversion', 'base'], parameters: [] },
+      { id: 'span-b', operation: 'midprice', inputs: ['high', 'low'], parameters: ['spanPeriod'] },
+      {
+        id: 'value',
+        operation: 'forward-displacement',
+        inputs: ['span-a'],
+        parameters: ['displacement'],
+      },
+      {
+        id: 'lower',
+        operation: 'minimum',
+        inputs: ['span-a', 'span-b'],
+        parameters: ['displacement'],
+      },
+      {
+        id: 'upper',
+        operation: 'maximum',
+        inputs: ['span-a', 'span-b'],
+        parameters: ['displacement'],
+      },
+    );
+  }
+  if (kind === 'keltnerchannels') {
+    return nodes(
+      { id: 'value', operation: 'ema', inputs: ['close'], parameters: ['period'] },
+      {
+        id: 'true-range',
+        operation: 'true-range',
+        inputs: ['high', 'low', 'close'],
+        parameters: [],
+      },
+      { id: 'atr', operation: 'wilder-average', inputs: ['true-range'], parameters: ['atrPeriod'] },
+      {
+        id: 'lower',
+        operation: 'subtract-scaled',
+        inputs: ['value', 'atr'],
+        parameters: ['multiplier'],
+      },
+      {
+        id: 'upper',
+        operation: 'add-scaled',
+        inputs: ['value', 'atr'],
+        parameters: ['multiplier'],
+      },
+    );
+  }
+  if (kind === 'klinger') {
+    return nodes(
+      {
+        id: 'force',
+        operation: 'klinger-volume-force',
+        inputs: ['high', 'low', 'close', 'volume'],
+        parameters: [],
+      },
+      { id: 'fast', operation: 'ema', inputs: ['force'], parameters: ['fastPeriod'] },
+      { id: 'slow', operation: 'ema', inputs: ['force'], parameters: ['slowPeriod'] },
+      { id: 'value', operation: 'difference', inputs: ['fast', 'slow'], parameters: [] },
+      { id: 'signal', operation: 'ema', inputs: ['value'], parameters: ['signalPeriod'] },
+    );
+  }
+  if (kind === 'mfi') {
+    return nodes(
+      {
+        id: 'typical',
+        operation: 'typical-price',
+        inputs: ['high', 'low', 'close'],
+        parameters: [],
+      },
+      { id: 'raw-flow', operation: 'multiply', inputs: ['typical', 'volume'], parameters: [] },
+      {
+        id: 'signed-flow',
+        operation: 'price-direction-split',
+        inputs: ['typical', 'raw-flow'],
+        parameters: [],
+      },
+      {
+        id: 'value',
+        operation: 'rolling-money-flow-index',
+        inputs: ['signed-flow'],
+        parameters: ['period'],
+      },
+    );
+  }
+  if (kind === 'obv') {
+    return nodes({
+      id: 'value',
+      operation: 'on-balance-volume',
+      inputs: ['close', 'volume'],
+      parameters: [],
+    });
+  }
+  if (kind === 'pc') {
+    return nodes(
+      { id: 'upper', operation: 'rolling-maximum', inputs: ['high'], parameters: ['period'] },
+      { id: 'lower', operation: 'rolling-minimum', inputs: ['low'], parameters: ['period'] },
+      { id: 'value', operation: 'midpoint', inputs: ['upper', 'lower'], parameters: [] },
+    );
+  }
+  if (kind === 'pivotpoints') {
+    return nodes(
+      {
+        id: 'previous-session',
+        operation: 'previous-session-hlc',
+        inputs: ['high', 'low', 'close'],
+        parameters: [],
+      },
+      { id: 'value', operation: 'classic-pivot', inputs: ['previous-session'], parameters: [] },
+      {
+        id: 'support',
+        operation: 'classic-support-1',
+        inputs: ['value', 'previous-session'],
+        parameters: [],
+      },
+      {
+        id: 'resistance',
+        operation: 'classic-resistance-1',
+        inputs: ['value', 'previous-session'],
+        parameters: [],
+      },
+    );
+  }
+  if (kind === 'priceenvelopes') {
+    return nodes(
+      { id: 'value', operation: 'sma', inputs: ['source'], parameters: ['period'] },
+      {
+        id: 'lower',
+        operation: 'percent-envelope-lower',
+        inputs: ['value'],
+        parameters: ['envelopePercent'],
+      },
+      {
+        id: 'upper',
+        operation: 'percent-envelope-upper',
+        inputs: ['value'],
+        parameters: ['envelopePercent'],
+      },
+    );
+  }
+  if (kind === 'psar') {
+    return nodes({
+      id: 'value',
+      operation: 'parabolic-sar-state-machine',
+      inputs: ['high', 'low'],
+      parameters: ['acceleration', 'maximumAcceleration'],
+    });
+  }
+  if (kind === 'stochastic' || kind === 'slowstochastic') {
+    return nodes(
+      {
+        id: 'fast-k',
+        operation: 'rolling-range-position',
+        inputs: ['high', 'low', 'close'],
+        parameters: ['period'],
+      },
+      ...(kind === 'slowstochastic'
+        ? [
+            { id: 'value', operation: 'sma', inputs: ['fast-k'], parameters: ['smoothK'] },
+            { id: 'signal', operation: 'sma', inputs: ['value'], parameters: ['smoothD'] },
+          ]
+        : [
+            { id: 'value', operation: 'alias', inputs: ['fast-k'], parameters: [] },
+            { id: 'signal', operation: 'sma', inputs: ['value'], parameters: ['signalPeriod'] },
+          ]),
+    );
+  }
+  if (kind === 'supertrend') {
+    return nodes(
+      {
+        id: 'true-range',
+        operation: 'true-range',
+        inputs: ['high', 'low', 'close'],
+        parameters: [],
+      },
+      { id: 'atr', operation: 'wilder-average', inputs: ['true-range'], parameters: ['atrPeriod'] },
+      {
+        id: 'bands',
+        operation: 'recursive-final-bands',
+        inputs: ['high', 'low', 'close', 'atr'],
+        parameters: ['multiplier'],
+      },
+      {
+        id: 'state',
+        operation: 'supertrend-state-machine',
+        inputs: ['close', 'bands'],
+        parameters: [],
+      },
+      { id: 'value', operation: 'supertrend-line', inputs: ['state'], parameters: [] },
+      { id: 'direction', operation: 'supertrend-direction', inputs: ['state'], parameters: [] },
+    );
+  }
+  if (kind === 'vwap') {
+    return nodes(
+      {
+        id: 'typical',
+        operation: 'typical-price',
+        inputs: ['high', 'low', 'close'],
+        parameters: [],
+      },
+      {
+        id: 'value',
+        operation: 'cumulative-volume-weighted-average',
+        inputs: ['typical', 'volume'],
+        parameters: [],
+      },
+    );
+  }
+  if (kind === 'williamsr') {
+    return nodes(
+      {
+        id: 'range',
+        operation: 'rolling-high-low',
+        inputs: ['high', 'low'],
+        parameters: ['period'],
+      },
+      {
+        id: 'value',
+        operation: 'williams-percent-range',
+        inputs: ['range', 'close'],
+        parameters: [],
+      },
+    );
+  }
+  if (kind === 'zigzag') {
+    return nodes({
+      id: 'value',
+      operation: 'confirmed-threshold-pivots',
+      inputs: ['source'],
+      parameters: ['deviation'],
+    });
+  }
   return [
-    input,
+    ...inputs,
     {
       id: 'value',
       operation: kind,
       inputs: ['source'],
-      parameters: capabilityParameters(kind).map(({ name }) => name),
+      parameters: parameterNames,
     },
   ];
 }
 
 function computedProvenance(kind: string): string {
   const descriptions: Readonly<Record<string, string>> = {
+    abands:
+      'Acceleration bands smooth high/low envelopes expanded by relative intrabar range; the middle line is the close SMA.',
+    ao: 'Awesome oscillator = fast SMA(median price) - slow SMA(median price).',
     sma: 'Arithmetic rolling mean over period values.',
     ema: 'EMA seeded by the first complete period mean, then alpha = 2 / (period + 1).',
     wma: 'Linearly weighted rolling mean with weights 1 through period.',
@@ -333,27 +948,55 @@ function computedProvenance(kind: string): string {
     linearregressionslope: 'Rolling least-squares slope over index 0 through period - 1.',
     linearregressionangle: 'Arctangent of the rolling least-squares slope, in degrees.',
     trix: 'One-period percentage rate of change of a triple EMA.',
+    aroon:
+      'Aroon up/down measure the age of the most recent high and low over period + 1 observations.',
+    aroonoscillator: 'Aroon oscillator = Aroon up - Aroon down.',
+    atr: 'Average true range uses Wilder smoothing of max(high-low, abs(high-prevClose), abs(low-prevClose)).',
+    bb: 'Volatility bands are a rolling mean plus/minus a configurable population standard deviation multiple.',
+    cci: 'CCI = (typical price - its SMA) / (0.015 * mean absolute deviation).',
+    chaikin: 'Chaikin oscillator = fast EMA(ADL) - slow EMA(ADL), using money-flow volume.',
+    cmf: 'Chaikin money flow = rolling money-flow volume / rolling volume.',
+    cmo: 'CMO = 100 * (rolling gains - rolling losses) / (rolling gains + rolling losses).',
+    dmi: 'Directional movement exposes +DI, -DI, and Wilder-smoothed ADX derived from true range.',
+    dpo: 'DPO subtracts the current period SMA from the source shifted back floor(period / 2) + 1 rows.',
+    ikh: 'Ichimoku derives conversion/base midprices and forward-displaced span A/B cloud bounds.',
+    keltnerchannels:
+      'Keltner channels use an EMA center and Wilder ATR multiplied above and below it.',
+    klinger:
+      'Klinger oscillator is the fast/slow EMA difference of trend-sensitive volume force plus a signal EMA.',
+    mfi: 'Money flow index applies an RSI-style ratio to signed typical-price volume flows.',
+    natr: 'Normalized ATR = 100 * Wilder ATR / close.',
+    obv: 'On-balance volume cumulatively adds or subtracts volume according to close direction.',
+    pc: 'Price channel uses rolling high/low extrema and their midpoint.',
+    pivotpoints:
+      'Classic pivot, support 1, and resistance 1 derive from the previous row or previous configured session HLC.',
+    priceenvelopes: 'Price envelopes are a rolling mean shifted by a configurable percentage.',
+    psar: 'Parabolic SAR is a bounded acceleration-factor trend state machine over high and low.',
+    slowstochastic: 'Slow stochastic smooths range-position %K and then smooths its %D signal.',
+    stochastic: 'Stochastic uses close position in the rolling high-low range and a signal SMA.',
+    supertrend:
+      'Supertrend uses recursive ATR bands and close crossings to maintain trend direction.',
+    vwap: 'VWAP is cumulative typical-price times volume divided by cumulative volume within calculation state.',
+    williamsr: 'Williams %R = close position in the rolling high-low range minus 100.',
+    zigzag: 'Zigzag retains confirmed extrema after a configurable percentage reversal threshold.',
   };
   return descriptions[kind] ?? 'Deterministic Graflume built-in calculation.';
 }
 
 export const technicalIndicatorCapabilities: readonly TechnicalIndicatorCapability[] =
   definitions.map((definition) => {
-    const computed = computedKinds.has(definition.kind);
     return {
       ...definition,
-      support: computed ? 'computed' : 'precomputed-required',
-      requiredInputs: ['value'],
+      support: 'computed',
+      requiredInputs: capabilityInputs(definition.kind),
       outputs: capabilityOutputs(definition.kind),
       parameters: capabilityParameters(definition.kind),
-      dependencyDag: computed ? dependencyDag(definition.kind) : [],
+      dependencyDag: dependencyDag(definition.kind),
       warmUp: {
         policy: 'null',
-        rows: computed ? warmUpDescription(definition.kind) : 'not applicable to supplied columns',
+        rows: warmUpDescription(definition.kind),
       },
-      provenance: computed
-        ? computedProvenance(definition.kind)
-        : 'Graflume renders supplied indicator columns and does not calculate this named indicator.',
+      provenance: computedProvenance(definition.kind),
     };
   });
 
@@ -364,21 +1007,14 @@ technicalIndicatorCapabilities.forEach((capability) => {
   }
 });
 
+const indicatorParameterNames = new Set(
+  technicalIndicatorCapabilities.flatMap(({ parameters }) => parameters.map(({ name }) => name)),
+);
+
 export function resolveTechnicalIndicatorCapability(
   identifier: string,
 ): TechnicalIndicatorCapability | null {
   return capabilityByIdentifier.get(identifier.trim().toLowerCase()) ?? null;
-}
-
-function parameter(
-  options: Readonly<Record<string, JsonValue>>,
-  name: IndicatorParameterCapability['name'],
-  fallback: number,
-): number {
-  const value = options[name];
-  return typeof value === 'number' && Number.isFinite(value)
-    ? Math.max(2, Math.min(200, Math.floor(value)))
-    : fallback;
 }
 
 function movingAverage(values: readonly (number | null)[], period: number): Array<number | null> {
@@ -543,35 +1179,18 @@ function warmUpRows(kind: string, period: number, slow: number, signal: number):
   return period - 1;
 }
 
-export function calculateTechnicalIndicator(
-  identifier: string,
+function calculateLegacyTechnicalIndicator(
+  capability: TechnicalIndicatorCapability,
   values: readonly (number | null)[],
-  options: Readonly<Record<string, JsonValue>> = {},
-): TechnicalIndicatorCalculation {
-  const capability = resolveTechnicalIndicatorCapability(identifier);
-  if (capability === null) {
-    throw new GraflumeError('INVALID_SPEC', `Unknown technical indicator "${identifier}".`, {
-      path: '$.mark.options.kind',
-    });
-  }
-  if (capability.support !== 'computed') {
-    throw new GraflumeError(
-      'INVALID_SPEC',
-      `${capability.id} is precomputed-required; remove calculate: true and supply its indicator columns.`,
-      { path: '$.mark.options.calculate' },
-    );
-  }
-  const period = parameter(options, 'period', 14);
-  const fastPeriod = parameter(options, 'fastPeriod', 12);
-  const slowPeriod = parameter(options, 'slowPeriod', 26);
-  const signalPeriod = parameter(options, 'signalPeriod', 9);
-  if (fastPeriod >= slowPeriod && ['apo', 'ppo', 'macd'].includes(capability.kind)) {
-    throw new GraflumeError(
-      'INVALID_SPEC',
-      'fastPeriod must be smaller than slowPeriod for APO, PPO, and MACD.',
-      { path: '$.mark.options.fastPeriod' },
-    );
-  }
+  parameters: Readonly<Record<string, number>>,
+): Omit<
+  TechnicalIndicatorCalculation,
+  'capability' | 'parameters' | 'provenance' | 'session' | 'presentation'
+> {
+  const period = parameters.period ?? 14;
+  const fastPeriod = parameters.fastPeriod ?? 12;
+  const slowPeriod = parameters.slowPeriod ?? 26;
+  const signalPeriod = parameters.signalPeriod ?? 9;
   let outputs: Readonly<Record<string, readonly (number | null)[]>>;
   switch (capability.kind) {
     case 'sma':
@@ -669,12 +1288,448 @@ export function calculateTechnicalIndicator(
         path: '$.mark.options.calculate',
       });
   }
+  return { outputs, warmUpRows: warmUpRows(capability.kind, period, slowPeriod, signalPeriod) };
+}
+
+const overlayIndicatorKinds = new Set([
+  'abands',
+  'bb',
+  'dema',
+  'ema',
+  'ikh',
+  'keltnerchannels',
+  'linearregression',
+  'pc',
+  'pivotpoints',
+  'priceenvelopes',
+  'psar',
+  'sma',
+  'supertrend',
+  'tema',
+  'vwap',
+  'wma',
+  'zigzag',
+]);
+
+export function resolveTechnicalIndicatorPresentation(
+  identifier: string,
+): TechnicalIndicatorPresentation | null {
+  const capability = resolveTechnicalIndicatorCapability(identifier);
+  if (capability === null) return null;
+  const placement: TechnicalIndicatorPlacement = overlayIndicatorKinds.has(capability.kind)
+    ? 'overlay'
+    : 'panel';
+  return {
+    placement,
+    panelId: placement === 'overlay' ? 'price' : `indicator:${capability.id}`,
+    synchronizedCrosshair: {
+      axis: 'x',
+      sharedDomain: true,
+      fields: capability.outputs,
+    },
+  };
+}
+
+function jsonRecord(value: JsonValue | undefined): Readonly<Record<string, JsonValue>> | null {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Readonly<Record<string, JsonValue>>)
+    : null;
+}
+
+function resolveIndicatorParameters(
+  capability: TechnicalIndicatorCapability,
+  options: Readonly<Record<string, JsonValue>>,
+): Readonly<Record<string, number>> {
+  const parameters: Record<string, number> = {};
+  const accepted = new Set(capability.parameters.map(({ name }) => name));
+  for (const name of indicatorParameterNames) {
+    if (options[name] !== undefined && !accepted.has(name)) {
+      throw new GraflumeError('INVALID_SPEC', `${name} is not a parameter of ${capability.id}.`, {
+        path: `$.mark.options.${name}`,
+      });
+    }
+  }
+  capability.parameters.forEach((parameterCapability) => {
+    const supplied = options[parameterCapability.name];
+    const value = supplied === undefined ? parameterCapability.default : supplied;
+    if (
+      typeof value !== 'number' ||
+      !Number.isFinite(value) ||
+      (parameterCapability.type === 'integer' && !Number.isInteger(value)) ||
+      value < parameterCapability.minimum ||
+      value > parameterCapability.maximum
+    ) {
+      throw new GraflumeError(
+        'INVALID_SPEC',
+        `${parameterCapability.name} for ${capability.id} must be a ${parameterCapability.type} between ${parameterCapability.minimum} and ${parameterCapability.maximum}.`,
+        { path: `$.mark.options.${parameterCapability.name}` },
+      );
+    }
+    parameters[parameterCapability.name] = value;
+  });
+  const fast = parameters.fastPeriod;
+  const slow = parameters.slowPeriod;
+  if (fast !== undefined && slow !== undefined && fast >= slow) {
+    throw new GraflumeError('INVALID_SPEC', 'fastPeriod must be smaller than slowPeriod.', {
+      path: '$.mark.options.fastPeriod',
+    });
+  }
+  const conversion = parameters.conversionPeriod;
+  const base = parameters.basePeriod;
+  const span = parameters.spanPeriod;
+  if (
+    conversion !== undefined &&
+    base !== undefined &&
+    span !== undefined &&
+    (conversion > base || base > span)
+  ) {
+    throw new GraflumeError(
+      'INVALID_SPEC',
+      'Ichimoku periods must satisfy conversionPeriod <= basePeriod <= spanPeriod.',
+      { path: '$.mark.options.conversionPeriod' },
+    );
+  }
+  if (
+    parameters.acceleration !== undefined &&
+    parameters.maximumAcceleration !== undefined &&
+    parameters.acceleration > parameters.maximumAcceleration
+  ) {
+    throw new GraflumeError(
+      'INVALID_SPEC',
+      'acceleration must be no greater than maximumAcceleration.',
+      { path: '$.mark.options.acceleration' },
+    );
+  }
+  return parameters;
+}
+
+function resolveSessionSpec(
+  options: Readonly<Record<string, JsonValue>>,
+): Required<Pick<TechnicalIndicatorSessionSpec, 'mode' | 'reset'>> &
+  Pick<TechnicalIndicatorSessionSpec, 'field' | 'timeField' | 'gapMs'> {
+  const supplied = options.session;
+  if (supplied === undefined) return { mode: 'none', reset: 'carry' };
+  const session = jsonRecord(supplied);
+  if (session === null) {
+    throw new GraflumeError('INVALID_SPEC', 'session must be an object.', {
+      path: '$.mark.options.session',
+    });
+  }
+  const allowed = new Set(['mode', 'field', 'timeField', 'gapMs', 'reset']);
+  const unknown = Object.keys(session).find((key) => !allowed.has(key));
+  if (unknown !== undefined) {
+    throw new GraflumeError('INVALID_SPEC', `Unknown indicator session property "${unknown}".`, {
+      path: `$.mark.options.session.${unknown}`,
+    });
+  }
+  const mode = session.mode ?? 'none';
+  if (!['none', 'field', 'utc-day', 'gap'].includes(String(mode))) {
+    throw new GraflumeError('INVALID_SPEC', 'session.mode must be none, field, utc-day, or gap.', {
+      path: '$.mark.options.session.mode',
+    });
+  }
+  const reset = session.reset ?? (mode === 'none' ? 'carry' : 'hard');
+  if (reset !== 'hard' && reset !== 'carry') {
+    throw new GraflumeError('INVALID_SPEC', 'session.reset must be hard or carry.', {
+      path: '$.mark.options.session.reset',
+    });
+  }
+  const field = session.field;
+  const timeField = session.timeField;
+  const gapMs = session.gapMs;
+  if (field !== undefined && typeof field !== 'string') {
+    throw new GraflumeError('INVALID_SPEC', 'session.field must be a field name.', {
+      path: '$.mark.options.session.field',
+    });
+  }
+  if (field === '__proto__' || field === 'prototype' || field === 'constructor') {
+    throw new GraflumeError('INVALID_SPEC', 'session.field is unsafe.', {
+      path: '$.mark.options.session.field',
+    });
+  }
+  if (timeField !== undefined && typeof timeField !== 'string') {
+    throw new GraflumeError('INVALID_SPEC', 'session.timeField must be a field name.', {
+      path: '$.mark.options.session.timeField',
+    });
+  }
+  if (timeField === '__proto__' || timeField === 'prototype' || timeField === 'constructor') {
+    throw new GraflumeError('INVALID_SPEC', 'session.timeField is unsafe.', {
+      path: '$.mark.options.session.timeField',
+    });
+  }
+  if (mode === 'gap' && (typeof gapMs !== 'number' || !Number.isFinite(gapMs) || gapMs <= 0)) {
+    throw new GraflumeError(
+      'INVALID_SPEC',
+      'session.gapMs must be a positive number in gap mode.',
+      {
+        path: '$.mark.options.session.gapMs',
+      },
+    );
+  }
+  return {
+    mode: mode as TechnicalIndicatorSessionState['mode'],
+    reset,
+    ...(typeof field === 'string' ? { field } : {}),
+    ...(typeof timeField === 'string' ? { timeField } : {}),
+    ...(typeof gapMs === 'number' ? { gapMs } : {}),
+  };
+}
+
+function timestamp(value: number | string | Date | null | undefined, index: number): number {
+  const resolved =
+    value instanceof Date
+      ? value.getTime()
+      : typeof value === 'number'
+        ? value
+        : Date.parse(value ?? '');
+  if (!Number.isFinite(resolved)) {
+    throw new GraflumeError('INVALID_SPEC', `Invalid session timestamp at row ${index}.`, {
+      path: '$.mark.options.session.timeField',
+    });
+  }
+  return resolved;
+}
+
+function sameSessionValue(left: JsonValue | undefined, right: JsonValue | undefined): boolean {
+  if (Object.is(left, right)) return true;
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function resolveSessionState(
+  spec: ReturnType<typeof resolveSessionSpec>,
+  input: TechnicalIndicatorInputSeries,
+  length: number,
+): TechnicalIndicatorSessionState {
+  if (spec.mode === 'none' || length === 0) {
+    return { mode: spec.mode, reset: spec.reset, boundaries: [] };
+  }
+  const boundaries = [0];
+  if (spec.mode === 'field') {
+    if (input.session === undefined || input.session.length !== length) {
+      throw new GraflumeError(
+        'INVALID_SPEC',
+        'field session mode requires one session value per input row.',
+        { path: '$.mark.options.session.field' },
+      );
+    }
+    for (let index = 1; index < length; index += 1) {
+      if (!sameSessionValue(input.session[index - 1], input.session[index])) boundaries.push(index);
+    }
+  } else {
+    if (input.time === undefined || input.time.length !== length) {
+      throw new GraflumeError(
+        'INVALID_SPEC',
+        `${spec.mode} session mode requires one timestamp per input row.`,
+        { path: '$.mark.options.session.timeField' },
+      );
+    }
+    let previous = timestamp(input.time[0], 0);
+    for (let index = 1; index < length; index += 1) {
+      const current = timestamp(input.time[index], index);
+      if (current < previous) {
+        throw new GraflumeError(
+          'INVALID_SPEC',
+          'Session timestamps must be ordered from earliest to latest.',
+          { path: '$.mark.options.session.timeField' },
+        );
+      }
+      const changed =
+        spec.mode === 'utc-day'
+          ? Math.floor(current / 86_400_000) !== Math.floor(previous / 86_400_000)
+          : current - previous > spec.gapMs!;
+      if (changed) boundaries.push(index);
+      previous = current;
+    }
+  }
+  return { mode: spec.mode, reset: spec.reset, boundaries };
+}
+
+function normalizeIndicatorInputs(
+  capability: TechnicalIndicatorCapability,
+  supplied: IndicatorNumericSeries | TechnicalIndicatorInputSeries,
+): {
+  readonly inputs: ResolvedTechnicalIndicatorInputs;
+  readonly raw: TechnicalIndicatorInputSeries;
+  readonly length: number;
+} {
+  const original: TechnicalIndicatorInputSeries = Array.isArray(supplied)
+    ? { value: supplied as IndicatorNumericSeries }
+    : (supplied as TechnicalIndicatorInputSeries);
+  const clean = (series: IndicatorNumericSeries | undefined): IndicatorNumericSeries | undefined =>
+    series?.map((value) => (typeof value === 'number' && Number.isFinite(value) ? value : null));
+  const cleanedValue = clean(original.value);
+  const cleanedOpen = clean(original.open);
+  const cleanedHigh = clean(original.high);
+  const cleanedLow = clean(original.low);
+  const cleanedClose = clean(original.close);
+  const cleanedVolume = clean(original.volume);
+  const raw: TechnicalIndicatorInputSeries = {
+    ...(cleanedValue === undefined ? {} : { value: cleanedValue }),
+    ...(cleanedOpen === undefined ? {} : { open: cleanedOpen }),
+    ...(cleanedHigh === undefined ? {} : { high: cleanedHigh }),
+    ...(cleanedLow === undefined ? {} : { low: cleanedLow }),
+    ...(cleanedClose === undefined ? {} : { close: cleanedClose }),
+    ...(cleanedVolume === undefined ? {} : { volume: cleanedVolume }),
+    ...(original.session === undefined ? {} : { session: original.session }),
+    ...(original.time === undefined ? {} : { time: original.time }),
+  };
+  const allSeries = [raw.value, raw.open, raw.high, raw.low, raw.close, raw.volume].filter(
+    (series): series is IndicatorNumericSeries => series !== undefined,
+  );
+  const length = allSeries[0]?.length ?? raw.session?.length ?? raw.time?.length ?? 0;
+  allSeries.forEach((series) => {
+    if (series.length !== length) {
+      throw new GraflumeError(
+        'INVALID_SPEC',
+        'Technical indicator input series must have equal lengths.',
+        {
+          path: '$.mark.fields',
+        },
+      );
+    }
+  });
+  capability.requiredInputs.forEach((role) => {
+    if (raw[role as TechnicalIndicatorInputName] === undefined) {
+      throw new GraflumeError(
+        'INVALID_SPEC',
+        `${capability.id} requires the ${role} input series.`,
+        {
+          path: `$.mark.fields.${role}`,
+        },
+      );
+    }
+  });
+  const blank = (): Array<number | null> => Array.from<number | null>({ length }).fill(null);
+  const value = raw.value ?? raw.close ?? blank();
+  return {
+    raw,
+    length,
+    inputs: {
+      value,
+      open: raw.open ?? blank(),
+      high: raw.high ?? blank(),
+      low: raw.low ?? blank(),
+      close: raw.close ?? raw.value ?? blank(),
+      volume: raw.volume ?? blank(),
+    },
+  };
+}
+
+function sliceInputs(
+  inputs: ResolvedTechnicalIndicatorInputs,
+  start: number,
+  end: number,
+): ResolvedTechnicalIndicatorInputs {
+  return {
+    value: inputs.value.slice(start, end),
+    open: inputs.open.slice(start, end),
+    high: inputs.high.slice(start, end),
+    low: inputs.low.slice(start, end),
+    close: inputs.close.slice(start, end),
+    volume: inputs.volume.slice(start, end),
+  };
+}
+
+function calculateIndicatorCore(
+  capability: TechnicalIndicatorCapability,
+  inputs: ResolvedTechnicalIndicatorInputs,
+  parameters: Readonly<Record<string, number>>,
+): {
+  readonly outputs: Readonly<Record<string, IndicatorNumericSeries>>;
+  readonly warmUpRows: number;
+} {
+  return legacyComputedKinds.has(capability.kind)
+    ? calculateLegacyTechnicalIndicator(capability, inputs.value, parameters)
+    : calculateOhlcvTechnicalIndicator(capability.kind, inputs, parameters);
+}
+
+function calculateSessionPivotPoints(
+  inputs: ResolvedTechnicalIndicatorInputs,
+  boundaries: readonly number[],
+): Readonly<Record<string, IndicatorNumericSeries>> {
+  const value = Array.from<number | null>({ length: inputs.close.length }).fill(null);
+  const support = [...value];
+  const resistance = [...value];
+  for (let sessionIndex = 1; sessionIndex < boundaries.length; sessionIndex += 1) {
+    const previousStart = boundaries[sessionIndex - 1]!;
+    const currentStart = boundaries[sessionIndex]!;
+    const currentEnd = boundaries[sessionIndex + 1] ?? inputs.close.length;
+    const highs = inputs.high
+      .slice(previousStart, currentStart)
+      .filter((item): item is number => item !== null);
+    const lows = inputs.low
+      .slice(previousStart, currentStart)
+      .filter((item): item is number => item !== null);
+    const previousClose = inputs.close[currentStart - 1];
+    if (
+      highs.length === 0 ||
+      lows.length === 0 ||
+      previousClose === null ||
+      previousClose === undefined
+    )
+      continue;
+    const high = Math.max(...highs);
+    const low = Math.min(...lows);
+    const pivot = (high + low + previousClose) / 3;
+    for (let index = currentStart; index < currentEnd; index += 1) {
+      value[index] = pivot;
+      support[index] = 2 * pivot - high;
+      resistance[index] = 2 * pivot - low;
+    }
+  }
+  return { value, support, resistance };
+}
+
+export function calculateTechnicalIndicator(
+  identifier: string,
+  supplied: IndicatorNumericSeries | TechnicalIndicatorInputSeries,
+  options: Readonly<Record<string, JsonValue>> = {},
+): TechnicalIndicatorCalculation {
+  const capability = resolveTechnicalIndicatorCapability(identifier);
+  if (capability === null) {
+    throw new GraflumeError('INVALID_SPEC', `Unknown technical indicator "${identifier}".`, {
+      path: '$.mark.options.kind',
+    });
+  }
+  const parameters = resolveIndicatorParameters(capability, options);
+  const { inputs, raw, length } = normalizeIndicatorInputs(capability, supplied);
+  const sessionSpec = resolveSessionSpec(options);
+  const session = resolveSessionState(sessionSpec, raw, length);
+  let calculated = calculateIndicatorCore(capability, inputs, parameters);
+  if (capability.kind === 'pivotpoints' && session.boundaries.length > 0) {
+    calculated = {
+      outputs: calculateSessionPivotPoints(inputs, session.boundaries),
+      warmUpRows: session.boundaries[1] ?? length,
+    };
+  } else if (session.reset === 'hard' && session.boundaries.length > 0) {
+    const output: Record<string, Array<number | null>> = Object.fromEntries(
+      capability.outputs.map((role) => [role, Array.from<number | null>({ length }).fill(null)]),
+    );
+    session.boundaries.forEach((start, boundaryIndex) => {
+      const end = session.boundaries[boundaryIndex + 1] ?? length;
+      const segment = calculateIndicatorCore(
+        capability,
+        sliceInputs(inputs, start, end),
+        parameters,
+      );
+      Object.entries(segment.outputs).forEach(([role, values]) => {
+        const target =
+          output[role] ?? (output[role] = Array.from<number | null>({ length }).fill(null));
+        values.forEach((value, index) => {
+          target[start + index] = value;
+        });
+      });
+    });
+    calculated = { outputs: output, warmUpRows: calculated.warmUpRows };
+  }
   return {
     capability,
-    outputs,
-    warmUpRows: warmUpRows(capability.kind, period, slowPeriod, signalPeriod),
-    parameters: { period, fastPeriod, slowPeriod, signalPeriod },
+    outputs: calculated.outputs,
+    warmUpRows: calculated.warmUpRows,
+    parameters,
     provenance: capability.provenance,
+    session,
+    presentation: resolveTechnicalIndicatorPresentation(identifier)!,
   };
 }
 
@@ -692,6 +1747,58 @@ function indicatorSourceField(layer: NormalizedLayerSpec): string {
   return `__graflume_indicator_source_${hash.toString(36)}`;
 }
 
+function numericFieldSeries(data: readonly DataRow[], field: string): Array<number | null> {
+  return data.map((row) => {
+    const value = row[field];
+    return typeof value === 'number' && Number.isFinite(value) ? value : null;
+  });
+}
+
+function indicatorInputFields(
+  layer: NormalizedLayerSpec,
+  capability: TechnicalIndicatorCapability,
+): Readonly<Partial<Record<TechnicalIndicatorInputName, string>>> {
+  const fields: Partial<Record<TechnicalIndicatorInputName, string>> = {
+    value: layer.y.field,
+    close: layer.mark.fields.close ?? layer.y.field,
+  };
+  for (const role of ['open', 'high', 'low', 'volume'] as const) {
+    const field = layer.mark.fields[role];
+    if (field !== undefined) fields[role] = field;
+  }
+  capability.requiredInputs.forEach((role) => {
+    if (fields[role as TechnicalIndicatorInputName] === undefined) {
+      throw new GraflumeError(
+        'INVALID_SPEC',
+        `${capability.id} requires an encoding or mark.fields mapping for ${role}.`,
+        { path: `$.mark.fields.${role}` },
+      );
+    }
+  });
+  return fields;
+}
+
+function sessionFieldValues(data: readonly DataRow[], field: string): readonly JsonValue[] {
+  return data.map((row) => {
+    const value = row[field];
+    if (value instanceof Date) return value.toISOString();
+    if (value === undefined) return null;
+    return value as JsonValue;
+  });
+}
+
+function sessionTimeValues(
+  data: readonly DataRow[],
+  field: string,
+): readonly (number | string | Date | null)[] {
+  return data.map((row) => {
+    const value = row[field];
+    return typeof value === 'number' || typeof value === 'string' || value instanceof Date
+      ? value
+      : null;
+  });
+}
+
 /** Materialize a supported calculation before scale-domain resolution and rendering. */
 export function prepareTechnicalIndicator(
   layer: NormalizedLayerSpec,
@@ -704,18 +1811,51 @@ export function prepareTechnicalIndicator(
     typeof layer.mark.options.kind === 'string' && layer.mark.options.kind.trim() !== ''
       ? layer.mark.options.kind
       : 'sma';
+  const capability = resolveTechnicalIndicatorCapability(kind);
+  if (capability === null) {
+    throw new GraflumeError('INVALID_SPEC', `Unknown technical indicator "${kind}".`, {
+      path: '$.mark.options.kind',
+    });
+  }
   const sourceField = indicatorSourceField(layer);
-  const values = transformed.data.map((row) => {
-    const value = row[layer.y.field];
-    return typeof value === 'number' && Number.isFinite(value) ? value : null;
+  const inputFields = indicatorInputFields(layer, capability);
+  const inputs: {
+    value?: IndicatorNumericSeries;
+    open?: IndicatorNumericSeries;
+    high?: IndicatorNumericSeries;
+    low?: IndicatorNumericSeries;
+    close?: IndicatorNumericSeries;
+    volume?: IndicatorNumericSeries;
+    session?: readonly JsonValue[];
+    time?: readonly (number | string | Date | null)[];
+  } = {};
+  Object.entries(inputFields).forEach(([role, field]) => {
+    inputs[role as TechnicalIndicatorInputName] = numericFieldSeries(transformed.data, field);
   });
-  const calculation = calculateTechnicalIndicator(kind, values, layer.mark.options);
+  const sessionSpec = resolveSessionSpec(layer.mark.options);
+  if (sessionSpec.mode === 'field') {
+    if (sessionSpec.field === undefined) {
+      throw new GraflumeError('INVALID_SPEC', 'field session mode requires session.field.', {
+        path: '$.mark.options.session.field',
+      });
+    }
+    inputs.session = sessionFieldValues(transformed.data, sessionSpec.field);
+  }
+  if (sessionSpec.mode === 'utc-day' || sessionSpec.mode === 'gap') {
+    const timeField = sessionSpec.timeField ?? layer.x.field;
+    inputs.time = sessionTimeValues(transformed.data, timeField);
+  }
+  const calculation = calculateTechnicalIndicator(kind, inputs, layer.mark.options);
   const data = transformed.data.map((row, index) => {
     const output: Record<string, DataRow[string]> = {
       ...row,
       [sourceField]: row[layer.y.field],
       [layer.y.field]: calculation.outputs.value?.[index] ?? null,
     };
+    Object.entries(calculation.outputs).forEach(([role, series]) => {
+      const field = role === 'value' ? layer.y.field : (layer.mark.fields[role] ?? role);
+      output[field] = series[index] ?? null;
+    });
     const fields = layer.mark.options.fields;
     if (Array.isArray(fields)) {
       fields.forEach((field) => {
@@ -724,7 +1864,7 @@ export function prepareTechnicalIndicator(
       });
     }
     for (const [role, field] of Object.entries(layer.mark.fields)) {
-      const series = calculation.outputs[role];
+      const series = calculation.outputs[role === 'middle' ? 'value' : role];
       if (series !== undefined) output[field] = series[index] ?? null;
     }
     return output;
@@ -742,6 +1882,30 @@ export function prepareTechnicalIndicator(
       warmUpPolicy: 'null',
       warmUpRows: calculation.warmUpRows,
       parameters: calculation.parameters,
+      requiredInputs: calculation.capability.requiredInputs.map((role) => ({
+        role,
+        field: inputFields[role as TechnicalIndicatorInputName]!,
+      })),
+      outputFields: calculation.capability.outputs.map((role) => ({
+        role,
+        field: role === 'value' ? layer.y.field : (layer.mark.fields[role] ?? role),
+      })),
+      session: {
+        mode: calculation.session.mode,
+        reset: calculation.session.reset,
+        boundaries: [...calculation.session.boundaries],
+      },
+      presentation: {
+        placement: calculation.presentation.placement,
+        panelId: calculation.presentation.panelId,
+        synchronizedCrosshair: {
+          axis: calculation.presentation.synchronizedCrosshair.axis,
+          sharedDomain: calculation.presentation.synchronizedCrosshair.sharedDomain,
+          fields: calculation.presentation.synchronizedCrosshair.fields.map((role) =>
+            role === 'value' ? layer.y.field : (layer.mark.fields[role] ?? role),
+          ),
+        },
+      },
       dependencyDag: calculation.capability.dependencyDag.map((node) => ({
         id: node.id,
         operation: node.operation,
@@ -750,7 +1914,7 @@ export function prepareTechnicalIndicator(
       })),
       provenance: calculation.provenance,
     },
-    detail: `${calculation.capability.id} uses a parameterized dependency DAG and null warm-up rows.`,
+    detail: `${calculation.capability.id} uses a parameterized dependency DAG, ${calculation.session.reset} session state, null warm-up rows, and ${calculation.presentation.placement} presentation.`,
   };
   const lineage: DataLineage = {
     ...transformed.lineage,

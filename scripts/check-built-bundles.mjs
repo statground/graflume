@@ -32,6 +32,41 @@ const additionalApis = [
   'custom',
 ];
 
+const sharedFoundationApis = [
+  'AutomaticWorkerRuntime',
+  'BarVirtualizationController',
+  'IncrementalStackPipeline',
+  'MapTileManager',
+  'ScatterWebGLRenderer',
+  'SemanticFocusStore',
+  'TransformDataflow',
+  'createMapTileManager',
+  'quickScatter',
+  'resolveScatterRendererDispatch',
+];
+
+const spatialOnlyApis = [
+  'compileSpatial',
+  'createSpatial',
+  'globe',
+  'isosurface',
+  'mesh',
+  'spatialScatter',
+  'streamtube',
+  'surface',
+  'volume',
+];
+
+function assertEntryDoesNotExpose(module, names, entry) {
+  for (const name of names) {
+    assert.equal(
+      Object.hasOwn(module, name),
+      false,
+      `${entry} must not expose the ${name} entry-specific implementation`,
+    );
+  }
+}
+
 const defaultModule = await import(new URL('../dist/graflume.js', import.meta.url));
 const completeModule = await import(new URL('../dist/graflume.complete.js', import.meta.url));
 const spatialModule = await import(new URL('../dist/graflume.spatial.js', import.meta.url));
@@ -39,16 +74,26 @@ const spatialModule = await import(new URL('../dist/graflume.spatial.js', import
 assert.equal(defaultModule.chartTypeCatalog.length, 22);
 assert.equal(defaultModule.chartVariantCatalog.length, 42);
 assert.equal(completeModule.fullCatalog.length, 41);
-assert.equal(completeModule.fullVariantCatalog.length, 165);
+assert.equal(completeModule.fullVariantCatalog.length, 168);
 assert.equal(completeModule.additionalChartTypeCatalog.length, 11);
 assert.equal(completeModule.additionalChartVariantCatalog.length, 27);
 assert.equal(completeModule.seriesChartTypeCatalog.length, 8);
-assert.equal(completeModule.seriesChartVariantCatalog.length, 96);
-assert.equal(completeModule.seriesCompatibilityCatalog.length, 117);
-assert.equal(completeModule.seriesCompatibilityIds.length, 117);
+assert.equal(completeModule.seriesChartVariantCatalog.length, 99);
+assert.equal(completeModule.seriesCompatibilityCatalog.length, 120);
+assert.equal(completeModule.seriesCompatibilityIds.length, 120);
 assert.equal(completeModule.resolveSeriesType('area-spline-range').familyId, 'interval');
 assert.equal(completeModule.resolveSeriesType('area-spline-range').variantId, 'area-spline-range');
 assert.equal(completeModule.capabilities().marks.length, 79);
+for (const api of sharedFoundationApis) {
+  assert.equal(typeof defaultModule[api], 'function', `default ${api}`);
+  assert.equal(typeof completeModule[api], 'function', `complete ${api}`);
+}
+assert.equal(defaultModule.automaticScatterWebGLThreshold, 5_000);
+assert.equal(completeModule.automaticScatterWebGLThreshold, 5_000);
+assertEntryDoesNotExpose(defaultModule, additionalApis, 'default');
+assertEntryDoesNotExpose(defaultModule, spatialOnlyApis, 'default');
+assertEntryDoesNotExpose(completeModule, spatialOnlyApis, 'complete');
+assertEntryDoesNotExpose(spatialModule, ['compile', 'create', ...additionalApis], 'spatial');
 const builtInThemeIds = defaultModule.builtInThemeCatalog.map(({ id }) => id);
 assert.equal(builtInThemeIds[0], defaultModule.defaultThemeId);
 assert.equal(new Set(builtInThemeIds).size, builtInThemeIds.length);
@@ -169,11 +214,11 @@ assert.ok(spatialGlobal);
 assert.equal(defaultGlobal.chartTypeCatalog.length, 22);
 assert.equal(defaultGlobal.chartVariantCatalog.length, 42);
 assert.equal(completeGlobal.fullCatalog.length, 41);
-assert.equal(completeGlobal.fullVariantCatalog.length, 165);
+assert.equal(completeGlobal.fullVariantCatalog.length, 168);
 assert.equal(completeGlobal.seriesChartTypeCatalog.length, 8);
-assert.equal(completeGlobal.seriesChartVariantCatalog.length, 96);
-assert.equal(completeGlobal.seriesCompatibilityCatalog.length, 117);
-assert.equal(completeGlobal.seriesCompatibilityIds.length, 117);
+assert.equal(completeGlobal.seriesChartVariantCatalog.length, 99);
+assert.equal(completeGlobal.seriesCompatibilityCatalog.length, 120);
+assert.equal(completeGlobal.seriesCompatibilityIds.length, 120);
 assert.equal(completeGlobal.resolveSeriesType('area-spline-range').familyId, 'interval');
 assert.equal(completeGlobal.resolveSeriesType('area-spline-range').variantId, 'area-spline-range');
 assert.deepEqual(
@@ -210,5 +255,15 @@ assert.equal(spatialGlobal.spatialCatalogBoundary.totalCanonicalFamilies, 44);
 assert.equal(spatialGlobal.spatialCompatibilityModes[0].canonicalFamilyId, 'map');
 assert.equal(typeof spatialGlobal.compileSpatial, 'function');
 assert.equal(typeof spatialGlobal.globe, 'function');
+for (const api of sharedFoundationApis) {
+  assert.equal(typeof defaultGlobal[api], 'function', `default global ${api}`);
+  assert.equal(typeof completeGlobal[api], 'function', `complete global ${api}`);
+}
+assert.equal(defaultGlobal.automaticScatterWebGLThreshold, 5_000);
+assert.equal(completeGlobal.automaticScatterWebGLThreshold, 5_000);
+assertEntryDoesNotExpose(defaultGlobal, additionalApis, 'default global');
+assertEntryDoesNotExpose(defaultGlobal, spatialOnlyApis, 'default global');
+assertEntryDoesNotExpose(completeGlobal, spatialOnlyApis, 'complete global');
+assertEntryDoesNotExpose(spatialGlobal, ['compile', 'create', ...additionalApis], 'spatial global');
 
-console.log('Verified default, complete, and spatial ESM/browser bundles.');
+console.log('Verified default, complete, and spatial ESM/browser bundles and API boundaries.');

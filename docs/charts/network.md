@@ -469,11 +469,29 @@ Every preset normalizes into the same ChartSpec, validation, scale, compiler, re
 
 Use theme tokens or common `fill`, `stroke`, `opacity`, `lineWidth`, `radius`, and `cornerRadius` properties where the selected geometry supports them. Interactive datum shapes retain their source row and layer metadata; decorative labels, grids, and depth faces do not create duplicate targets.
 
+Node interactions are runtime state, not tooltip-only claims. Drag a node to move and pin it, Ctrl/Command-click to toggle its pin, Alt-click (or double-click) a compound node to collapse it, and Shift-drag the plot to create a bounded lasso. Equivalent host APIs recompile the Scene while leaving `getSpec()` unchanged:
+
+```ts
+chart.moveNetworkNode('layer-0', 'server-a', { x: 0.35, y: 0.6 });
+chart.setNetworkNodePinned('layer-0', 'server-a', false);
+chart.setNetworkNodeCollapsed('layer-0', 'cluster-1', true);
+chart.setNetworkLasso('layer-0', [
+  { x: 0.1, y: 0.1 },
+  { x: 0.7, y: 0.1 },
+  { x: 0.7, y: 0.8 },
+]);
+chart.on('networkchange', ({ state, reason }) => console.log(state, reason));
+```
+
 ## Accessibility and performance
 
 Provide a concise `accessibility.label`, describe the principal comparison or structure, and pair Canvas output with the data-table fallback. Dense labels, relationship crossings, and multi-part interval geometry can produce several Scene nodes per row, so aggregate when individual marks stop adding analytical value.
 
 ## Verification
+
+Directed/multiedge/self-loop/compound/port modeling, four layouts,
+drag/pin/collapse/lasso, and edge routing are documented in the
+[structure and relationship analytics guide](../relationship-analytics.md#network-graph).
 
 - Snapshot: [`docs/assets/charts/network.svg`](../assets/charts/network.svg)
 - Runtime catalogs: [`src/catalog`](../../src/catalog)

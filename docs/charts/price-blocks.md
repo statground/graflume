@@ -6,10 +6,13 @@
 
 This is the single manual for the `price-blocks` family. Its canonical Quick API is `priceBlocks()` from `graflume/complete`, and its representative portable mark is `renko`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
 
-| Compatible name                                     | Quick API          | Mode               | Portable mark  | Functional difference                                               |
-| --------------------------------------------------- | ------------------ | ------------------ | -------------- | ------------------------------------------------------------------- |
-| [Point and figure chart](#variant-point-and-figure) | `pointAndFigure()` | `point-and-figure` | `point-figure` | Quantizes price changes into X and O columns.                       |
-| [Renko chart](#variant-renko)                       | `renko()`          | `renko`            | `renko`        | Quantizes price movement into fixed-size rising and falling bricks. |
+| Compatible name                                     | Quick API          | Mode               | Portable mark  | Functional difference                                                           |
+| --------------------------------------------------- | ------------------ | ------------------ | -------------- | ------------------------------------------------------------------------------- |
+| [Point and figure chart](#variant-point-and-figure) | `pointAndFigure()` | `point-and-figure` | `point-figure` | Quantizes price changes into X and O columns.                                   |
+| [Renko chart](#variant-renko)                       | `renko()`          | `renko`            | `renko`        | Quantizes price movement into fixed-size rising and falling bricks.             |
+| [Kagi chart](#variant-kagi)                         | `kagi()`           | `kagi`             | `renko`        | Selects the `kagi` presentation through the shared family pipeline.             |
+| [Three line break chart](#variant-three-line-break) | `threeLineBreak()` | `three-line-break` | `renko`        | Selects the `three-line-break` presentation through the shared family pipeline. |
+| [Range bars chart](#variant-range-bars)             | `rangeBars()`      | `range-bars`       | `renko`        | Selects the `range-bars` presentation through the shared family pipeline.       |
 
 All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining manually maintained sections describe the canonical/default presentation unless a preset row above states a different behavior.
 
@@ -17,9 +20,11 @@ All presets reuse the same validation, normalization, scale, compiler, renderer-
 
 Every image below is generated from the current compiled Scene rather than drawn by hand. Select a name to jump to its data fields and implementation.
 
-|                                                                                                                                                                                     |                                                                                                                              |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| **[Point and figure chart](#variant-point-and-figure)**<br>[![Current Point and figure chart output](../assets/charts/point-and-figure.svg)](../assets/charts/point-and-figure.svg) | **[Renko chart](#variant-renko)**<br>[![Current Renko chart output](../assets/charts/renko.svg)](../assets/charts/renko.svg) |
+|                                                                                                                                                                                     |                                                                                                                                                                                     |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **[Point and figure chart](#variant-point-and-figure)**<br>[![Current Point and figure chart output](../assets/charts/point-and-figure.svg)](../assets/charts/point-and-figure.svg) | **[Renko chart](#variant-renko)**<br>[![Current Renko chart output](../assets/charts/renko.svg)](../assets/charts/renko.svg)                                                        |
+| **[Kagi chart](#variant-kagi)**<br>[![Current Kagi chart output](../assets/charts/kagi.svg)](../assets/charts/kagi.svg)                                                             | **[Three line break chart](#variant-three-line-break)**<br>[![Current Three line break chart output](../assets/charts/three-line-break.svg)](../assets/charts/three-line-break.svg) |
+| **[Range bars chart](#variant-range-bars)**<br>[![Current Range bars chart output](../assets/charts/range-bars.svg)](../assets/charts/range-bars.svg)                               |                                                                                                                                                                                     |
 
 ## Type-by-type implementation
 
@@ -159,6 +164,273 @@ renko('#chart', data, {
   interaction: {
     tooltip: {
       title: 'Renko chart',
+      fields: [
+        {
+          field: 'brickStart',
+          label: 'Brick start',
+          format: 'number',
+        },
+        {
+          field: 'brickEnd',
+          label: 'Brick end',
+          format: 'number',
+        },
+        {
+          field: 'brickSize',
+          label: 'Brick size',
+          format: 'number',
+        },
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'close',
+          label: 'close',
+          format: 'number',
+        },
+      ],
+      trigger: 'mark',
+    },
+  },
+});
+```
+
+<a id="variant-kagi"></a>
+
+### Kagi chart
+
+Use this preset when price movement should be quantized rather than shown on a continuous time path. Selects the `kagi` presentation through the shared family pipeline.
+
+- **Quick API:** `kagi()`
+- **Mode:** `kagi`
+- **Portable mark:** `renko`
+- **Required example fields:** `date`, `close`
+
+```js
+import { kagi } from 'graflume/complete';
+
+const data = [
+  {
+    date: '2026-01-01',
+    close: 25,
+  },
+  {
+    date: '2026-02-01',
+    close: 22,
+  },
+  {
+    date: '2026-03-01',
+    close: 27,
+  },
+  {
+    date: '2026-04-01',
+    close: 24,
+  },
+];
+
+kagi('#chart', data, {
+  x: {
+    field: 'date',
+    type: 'temporal',
+    title: 'date',
+  },
+  y: {
+    field: 'close',
+    type: 'quantitative',
+    title: 'close',
+  },
+  title: {
+    text: 'Kagi chart',
+    subtitle: 'price-blocks family · kagi mode',
+  },
+  accessibility: {
+    label: 'Kagi chart example',
+    description: 'A compiled kagi chart example using the price-blocks family.',
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Kagi chart',
+      fields: [
+        {
+          field: 'brickStart',
+          label: 'Brick start',
+          format: 'number',
+        },
+        {
+          field: 'brickEnd',
+          label: 'Brick end',
+          format: 'number',
+        },
+        {
+          field: 'brickSize',
+          label: 'Brick size',
+          format: 'number',
+        },
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'close',
+          label: 'close',
+          format: 'number',
+        },
+      ],
+      trigger: 'mark',
+    },
+  },
+});
+```
+
+<a id="variant-three-line-break"></a>
+
+### Three line break chart
+
+Use this preset when price movement should be quantized rather than shown on a continuous time path. Selects the `three-line-break` presentation through the shared family pipeline.
+
+- **Quick API:** `threeLineBreak()`
+- **Mode:** `three-line-break`
+- **Portable mark:** `renko`
+- **Required example fields:** `date`, `close`
+
+```js
+import { threeLineBreak } from 'graflume/complete';
+
+const data = [
+  {
+    date: '2026-01-01',
+    close: 25,
+  },
+  {
+    date: '2026-02-01',
+    close: 22,
+  },
+  {
+    date: '2026-03-01',
+    close: 27,
+  },
+  {
+    date: '2026-04-01',
+    close: 24,
+  },
+];
+
+threeLineBreak('#chart', data, {
+  x: {
+    field: 'date',
+    type: 'temporal',
+    title: 'date',
+  },
+  y: {
+    field: 'close',
+    type: 'quantitative',
+    title: 'close',
+  },
+  title: {
+    text: 'Three line break chart',
+    subtitle: 'price-blocks family · three-line-break mode',
+  },
+  accessibility: {
+    label: 'Three line break chart example',
+    description: 'A compiled three line break chart example using the price-blocks family.',
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Three line break chart',
+      fields: [
+        {
+          field: 'brickStart',
+          label: 'Brick start',
+          format: 'number',
+        },
+        {
+          field: 'brickEnd',
+          label: 'Brick end',
+          format: 'number',
+        },
+        {
+          field: 'brickSize',
+          label: 'Brick size',
+          format: 'number',
+        },
+        {
+          field: 'date',
+          label: 'date',
+          format: 'date',
+        },
+        {
+          field: 'close',
+          label: 'close',
+          format: 'number',
+        },
+      ],
+      trigger: 'mark',
+    },
+  },
+});
+```
+
+<a id="variant-range-bars"></a>
+
+### Range bars chart
+
+Use this preset when price movement should be quantized rather than shown on a continuous time path. Selects the `range-bars` presentation through the shared family pipeline.
+
+- **Quick API:** `rangeBars()`
+- **Mode:** `range-bars`
+- **Portable mark:** `renko`
+- **Required example fields:** `date`, `close`
+
+```js
+import { rangeBars } from 'graflume/complete';
+
+const data = [
+  {
+    date: '2026-01-01',
+    close: 25,
+  },
+  {
+    date: '2026-02-01',
+    close: 22,
+  },
+  {
+    date: '2026-03-01',
+    close: 27,
+  },
+  {
+    date: '2026-04-01',
+    close: 24,
+  },
+];
+
+rangeBars('#chart', data, {
+  x: {
+    field: 'date',
+    type: 'temporal',
+    title: 'date',
+  },
+  y: {
+    field: 'close',
+    type: 'quantitative',
+    title: 'close',
+  },
+  title: {
+    text: 'Range bars chart',
+    subtitle: 'price-blocks family · range-bars mode',
+  },
+  accessibility: {
+    label: 'Range bars chart example',
+    description: 'A compiled range bars chart example using the price-blocks family.',
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Range bars chart',
       fields: [
         {
           field: 'brickStart',
@@ -610,7 +882,15 @@ Scene cost is linear in rows for ordinary cases. Relationship crossings, repeate
 
 ## Current limitations
 
-This alpha implementation covers the documented data meaning and Scene output. Domain-specific editing tools, path-aware playback, animation choreography, and very-large-data GPU paths remain separate follow-up work.
+None remain in the audited P0/current-limitations boundary as of 2026-08-26. The `current-limitations-2026-08-26` implementation moved these former limitations into executable support:
+
+- Kagi
+- three-line break
+- range bars
+- percent/ATR/log sizing
+- OHLC-source provenance
+
+The separately cataloged P1/P2 research roadmap remains future work and is not presented as current runtime support. Exact implementation and test paths are recorded in [the completion evidence](../../catalog/graflume.current-limitations.evidence.json).
 
 ## Runnable references
 

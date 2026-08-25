@@ -17,9 +17,17 @@ import type {
   SpatialMeshData,
   SpatialScatterData,
   SpatialStreamtubeData,
+  SpatialSurfaceContourSpec,
   SpatialSurfaceGridData,
+  SpatialSurfaceWireOverlaySpec,
   SpatialVec3,
   SpatialVolumeData,
+  SpatialVolumeRaycastSpec,
+  SpatialVolumeSliceSpec,
+  SpatialVolumeTransferFunctionSpec,
+  SpatialVolumeWindowLevelSpec,
+  SpatialVectorFieldData,
+  SpatialVectorIntegrationSpec,
 } from './spatial/types.js';
 import type { ChartSpec } from './spec/types.js';
 export { assertValidSpatialSpec, validateSpatialSpec } from './spatial/validate.js';
@@ -34,6 +42,19 @@ export {
   graflumeRBase,
 } from './theme/defaults.js';
 export { spatialOutputLimits } from './spatial/budget.js';
+export {
+  SpatialSemanticNavigator,
+  createSpatialSemanticNavigator,
+} from './spatial/semantic-navigation.js';
+export type {
+  SpatialFocusProjector,
+  SpatialNavigationKey,
+  SpatialScreenFocus,
+  SpatialSemanticFocus,
+  SpatialSemanticNavigationActions,
+  SpatialSemanticNavigationOptions,
+  SpatialSemanticNavigationState,
+} from './spatial/semantic-navigation.js';
 export {
   spatialCatalogBoundary,
   spatialChartFamilies,
@@ -66,7 +87,10 @@ export interface SpatialQuickOptions {
 export interface SurfaceQuickOptions extends SpatialQuickOptions {
   readonly color?: SpatialColor;
   readonly opacity?: number;
+  readonly normalMode?: 'flat' | 'smooth';
   readonly wireframe?: boolean;
+  readonly wireOverlay?: boolean | SpatialSurfaceWireOverlaySpec;
+  readonly contours?: SpatialSurfaceContourSpec;
 }
 
 export interface VolumeQuickOptions extends SpatialQuickOptions {
@@ -76,6 +100,10 @@ export interface VolumeQuickOptions extends SpatialQuickOptions {
   readonly maxSamples?: number;
   readonly colorLow?: SpatialColor;
   readonly colorHigh?: SpatialColor;
+  readonly transferFunction?: SpatialVolumeTransferFunctionSpec;
+  readonly windowLevel?: SpatialVolumeWindowLevelSpec;
+  readonly render?: SpatialVolumeRaycastSpec;
+  readonly slices?: readonly SpatialVolumeSliceSpec[];
 }
 
 export interface VectorQuickOptions extends SpatialQuickOptions {
@@ -84,6 +112,8 @@ export interface VectorQuickOptions extends SpatialQuickOptions {
   readonly radius?: number;
   readonly scale?: number;
   readonly segments?: number;
+  readonly integration?: SpatialVectorIntegrationSpec;
+  readonly magnitudeEncoding?: 'none' | 'color' | 'radius' | 'color-radius';
 }
 
 export interface ScatterQuickOptions extends SpatialQuickOptions {
@@ -145,7 +175,10 @@ export function surface(
             mode: 'surface',
             ...(options.color === undefined ? {} : { color: options.color }),
             ...(options.opacity === undefined ? {} : { opacity: options.opacity }),
+            ...(options.normalMode === undefined ? {} : { normalMode: options.normalMode }),
             ...(options.wireframe === undefined ? {} : { wireframe: options.wireframe }),
+            ...(options.wireOverlay === undefined ? {} : { wireOverlay: options.wireOverlay }),
+            ...(options.contours === undefined ? {} : { contours: options.contours }),
           },
           data,
         },
@@ -172,7 +205,10 @@ export function mesh(
             mode: 'mesh',
             ...(options.color === undefined ? {} : { color: options.color }),
             ...(options.opacity === undefined ? {} : { opacity: options.opacity }),
+            ...(options.normalMode === undefined ? {} : { normalMode: options.normalMode }),
             ...(options.wireframe === undefined ? {} : { wireframe: options.wireframe }),
+            ...(options.wireOverlay === undefined ? {} : { wireOverlay: options.wireOverlay }),
+            ...(options.contours === undefined ? {} : { contours: options.contours }),
           },
           data,
         },
@@ -204,6 +240,12 @@ function volumeQuick(
             ...(options.maxSamples === undefined ? {} : { maxSamples: options.maxSamples }),
             ...(options.colorLow === undefined ? {} : { colorLow: options.colorLow }),
             ...(options.colorHigh === undefined ? {} : { colorHigh: options.colorHigh }),
+            ...(options.transferFunction === undefined
+              ? {}
+              : { transferFunction: options.transferFunction }),
+            ...(options.windowLevel === undefined ? {} : { windowLevel: options.windowLevel }),
+            ...(options.render === undefined ? {} : { render: options.render }),
+            ...(options.slices === undefined ? {} : { slices: options.slices }),
           },
           data,
         },
@@ -231,7 +273,7 @@ export function isosurface(
 
 function vectorChart(
   target: SpatialChartTarget,
-  data: SpatialConeVectorData | SpatialStreamtubeData,
+  data: SpatialConeVectorData | SpatialStreamtubeData | SpatialVectorFieldData,
   mode: 'cone' | 'streamtube',
   options: VectorQuickOptions,
 ): SpatialChart {
@@ -250,6 +292,10 @@ function vectorChart(
             ...(options.radius === undefined ? {} : { radius: options.radius }),
             ...(options.scale === undefined ? {} : { scale: options.scale }),
             ...(options.segments === undefined ? {} : { segments: options.segments }),
+            ...(options.integration === undefined ? {} : { integration: options.integration }),
+            ...(options.magnitudeEncoding === undefined
+              ? {}
+              : { magnitudeEncoding: options.magnitudeEncoding }),
           },
           data,
         },
@@ -270,6 +316,15 @@ export function vectorCone(
 export function streamtube(
   target: SpatialChartTarget,
   data: SpatialStreamtubeData,
+  options: VectorQuickOptions = {},
+): SpatialChart {
+  return vectorChart(target, data, 'streamtube', options);
+}
+
+/** Integrates a portable raw 3D vector lattice and renders the derived paths as streamtubes. */
+export function vectorField(
+  target: SpatialChartTarget,
+  data: SpatialVectorFieldData,
   options: VectorQuickOptions = {},
 ): SpatialChart {
   return vectorChart(target, data, 'streamtube', options);
@@ -359,6 +414,38 @@ export const webglSpatialRenderer = Object.freeze({
 });
 
 export { SpatialChart, compileSpatial, type CompiledSpatialScene, type SpatialChartTarget };
+export {
+  computeSurfaceNormalGeometry,
+  extractSurfaceContourSegments,
+} from './spatial/surface-analysis.js';
+export {
+  evaluateVolumeTransfer,
+  normalizeVolumeValue,
+  projectVolumeRays,
+  sampleVolumeSlice,
+  sampleVolumeValue,
+  volumeValueExtent,
+  volumeWorldBounds,
+  volumeWorldPosition,
+} from './spatial/volume-rendering.js';
+export type {
+  ResolvedVolumeTransferStop,
+  VolumeProjectionOptions,
+  VolumeProjectionSample,
+  VolumeSamplingContext,
+  VolumeSliceSample,
+} from './spatial/volume-rendering.js';
+export {
+  generateVectorFieldSeeds,
+  integrateVectorField,
+  sampleVectorField,
+  vectorFieldWorldBounds,
+} from './spatial/vector-field-integration.js';
+export type {
+  IntegratedVectorField,
+  IntegratedVectorPath,
+  SpatialVectorFieldSample,
+} from './spatial/vector-field-integration.js';
 export * from './spatial/types.js';
 export type {
   SpatialAvailabilityChangeEvent,

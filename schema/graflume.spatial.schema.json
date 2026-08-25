@@ -367,7 +367,39 @@
       "properties": {
         "description": { "type": "string", "maxLength": 4096 },
         "table": { "type": "boolean" },
-        "maxRows": { "type": "integer", "minimum": 1, "maximum": 1000 }
+        "maxRows": { "type": "integer", "minimum": 1, "maximum": 1000 },
+        "navigation": {
+          "oneOf": [
+            { "type": "boolean" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "pageRows": { "type": "integer", "minimum": 1, "maximum": 1000 },
+                "wrap": { "type": "boolean" }
+              }
+            }
+          ]
+        },
+        "linkedFocus": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["group", "key"],
+          "properties": {
+            "group": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 96,
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$"
+            },
+            "key": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "not": { "enum": ["__proto__", "prototype", "constructor"] }
+            }
+          }
+        }
       }
     },
     "primitive": { "type": ["string", "number", "boolean", "null"] },
@@ -657,6 +689,33 @@
       "maxItems": 1000000,
       "items": { "type": "string", "maxLength": 1024 }
     },
+    "surfaceWireOverlay": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "color": { "$ref": "#/$defs/color" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "surfaceContours": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "levels": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": { "$ref": "#/$defs/finiteNumber" }
+        },
+        "count": { "type": "integer", "minimum": 1, "maximum": 64 },
+        "projection": { "enum": ["surface", "base", "both"] },
+        "baseHeight": { "$ref": "#/$defs/finiteNumber" },
+        "color": { "$ref": "#/$defs/color" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "maxSegments": { "type": "integer", "minimum": 1, "maximum": 250000 }
+      },
+      "not": { "required": ["levels", "count"] }
+    },
     "surfaceGridMark": {
       "type": "object",
       "additionalProperties": false,
@@ -666,7 +725,12 @@
         "mode": { "const": "surface" },
         "color": { "$ref": "#/$defs/color" },
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
-        "wireframe": { "type": "boolean" }
+        "normalMode": { "enum": ["flat", "smooth"] },
+        "wireframe": { "type": "boolean" },
+        "wireOverlay": {
+          "oneOf": [{ "type": "boolean" }, { "$ref": "#/$defs/surfaceWireOverlay" }]
+        },
+        "contours": { "$ref": "#/$defs/surfaceContours" }
       }
     },
     "meshMark": {
@@ -678,7 +742,12 @@
         "mode": { "const": "mesh" },
         "color": { "$ref": "#/$defs/color" },
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
-        "wireframe": { "type": "boolean" }
+        "normalMode": { "enum": ["flat", "smooth"] },
+        "wireframe": { "type": "boolean" },
+        "wireOverlay": {
+          "oneOf": [{ "type": "boolean" }, { "$ref": "#/$defs/surfaceWireOverlay" }]
+        },
+        "contours": { "$ref": "#/$defs/surfaceContours" }
       }
     },
     "surfaceGridData": {
@@ -738,6 +807,96 @@
         "data": { "$ref": "#/$defs/meshData" }
       }
     },
+    "volumeTransferStop": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["offset", "color"],
+      "properties": {
+        "offset": { "type": "number", "minimum": 0, "maximum": 1 },
+        "color": { "$ref": "#/$defs/color" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "volumeTransferFunction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stops"],
+      "properties": {
+        "stops": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 64,
+          "items": { "$ref": "#/$defs/volumeTransferStop" }
+        },
+        "interpolation": { "enum": ["linear", "step"] }
+      }
+    },
+    "volumeWindowLevel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["window", "level"],
+      "properties": {
+        "window": { "type": "number", "exclusiveMinimum": 0 },
+        "level": { "$ref": "#/$defs/finiteNumber" }
+      }
+    },
+    "volumeResolution": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": { "type": "integer", "minimum": 2, "maximum": 256 }
+    },
+    "volumeRender": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "method": { "enum": ["raycast", "mip", "minip", "average"] },
+        "axis": { "enum": ["x", "y", "z"] },
+        "resolution": { "$ref": "#/$defs/volumeResolution" },
+        "samples": { "type": "integer", "minimum": 2, "maximum": 1024 },
+        "interpolation": { "enum": ["nearest", "linear"] },
+        "caps": { "enum": ["none", "front", "back", "both"] }
+      }
+    },
+    "orthogonalVolumeSlice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "axis", "position"],
+      "properties": {
+        "type": { "const": "orthogonal" },
+        "axis": { "enum": ["x", "y", "z"] },
+        "position": { "type": "number", "minimum": 0, "maximum": 1 },
+        "resolution": { "$ref": "#/$defs/volumeResolution" },
+        "interpolation": { "enum": ["nearest", "linear"] },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "obliqueVolumeSlice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "origin", "normal"],
+      "properties": {
+        "type": { "const": "oblique" },
+        "origin": { "$ref": "#/$defs/vec3" },
+        "normal": { "$ref": "#/$defs/vec3" },
+        "up": { "$ref": "#/$defs/vec3" },
+        "size": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "$ref": "#/$defs/positiveNumber" }
+        },
+        "resolution": { "$ref": "#/$defs/volumeResolution" },
+        "interpolation": { "enum": ["nearest", "linear"] },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "volumeSlice": {
+      "oneOf": [
+        { "$ref": "#/$defs/orthogonalVolumeSlice" },
+        { "$ref": "#/$defs/obliqueVolumeSlice" }
+      ]
+    },
     "volumeMark": {
       "type": "object",
       "additionalProperties": false,
@@ -750,7 +909,16 @@
         "pointSize": { "type": "number", "minimum": 0.1, "maximum": 256 },
         "maxSamples": { "type": "integer", "minimum": 1, "maximum": 250000 },
         "colorLow": { "$ref": "#/$defs/color" },
-        "colorHigh": { "$ref": "#/$defs/color" }
+        "colorHigh": { "$ref": "#/$defs/color" },
+        "transferFunction": { "$ref": "#/$defs/volumeTransferFunction" },
+        "windowLevel": { "$ref": "#/$defs/volumeWindowLevel" },
+        "render": { "$ref": "#/$defs/volumeRender" },
+        "slices": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": { "$ref": "#/$defs/volumeSlice" }
+        }
       }
     },
     "volumeData": {
@@ -789,6 +957,20 @@
         "data": { "$ref": "#/$defs/volumeData" }
       }
     },
+    "vectorIntegration": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "direction": { "enum": ["forward", "backward", "both"] },
+        "initialStep": { "$ref": "#/$defs/positiveNumber" },
+        "minStep": { "$ref": "#/$defs/positiveNumber" },
+        "maxStep": { "$ref": "#/$defs/positiveNumber" },
+        "tolerance": { "$ref": "#/$defs/positiveNumber" },
+        "maxSteps": { "type": "integer", "minimum": 1, "maximum": 4096 },
+        "maxLength": { "$ref": "#/$defs/positiveNumber" },
+        "minMagnitude": { "type": "number", "minimum": 0 }
+      }
+    },
     "coneMark": {
       "type": "object",
       "additionalProperties": false,
@@ -800,7 +982,9 @@
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "radius": { "$ref": "#/$defs/positiveNumber" },
         "scale": { "$ref": "#/$defs/positiveNumber" },
-        "segments": { "type": "integer", "minimum": 5, "maximum": 48 }
+        "segments": { "type": "integer", "minimum": 5, "maximum": 48 },
+        "integration": { "$ref": "#/$defs/vectorIntegration" },
+        "magnitudeEncoding": { "enum": ["none", "color", "radius", "color-radius"] }
       }
     },
     "streamtubeMark": {
@@ -814,7 +998,9 @@
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "radius": { "$ref": "#/$defs/positiveNumber" },
         "scale": { "$ref": "#/$defs/positiveNumber" },
-        "segments": { "type": "integer", "minimum": 5, "maximum": 48 }
+        "segments": { "type": "integer", "minimum": 5, "maximum": 48 },
+        "integration": { "$ref": "#/$defs/vectorIntegration" },
+        "magnitudeEncoding": { "enum": ["none", "color", "radius", "color-radius"] }
       }
     },
     "coneData": {
@@ -848,6 +1034,68 @@
             "items": { "$ref": "#/$defs/vec3" }
           }
         },
+        "magnitudes": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 1000000,
+            "items": { "$ref": "#/$defs/finiteNumber" }
+          }
+        },
+        "labels": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": { "type": "string", "maxLength": 1024 }
+        },
+        "colors": { "type": "array", "maxItems": 4096, "items": { "$ref": "#/$defs/color" } }
+      }
+    },
+    "vectorSeedGrid": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dimensions"],
+      "properties": {
+        "dimensions": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": { "type": "integer", "minimum": 1, "maximum": 16 }
+        },
+        "jitter": { "type": "number", "minimum": 0, "maximum": 0.49 },
+        "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 }
+      }
+    },
+    "vectorFieldData": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dimensions", "vectors"],
+      "properties": {
+        "dimensions": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": { "type": "integer", "minimum": 2, "maximum": 128 }
+        },
+        "vectors": {
+          "type": "array",
+          "maxItems": 1000000,
+          "items": { "$ref": "#/$defs/vec3" }
+        },
+        "origin": { "$ref": "#/$defs/vec3" },
+        "spacing": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": { "$ref": "#/$defs/positiveNumber" }
+        },
+        "seeds": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": { "$ref": "#/$defs/vec3" }
+        },
+        "seedGrid": { "$ref": "#/$defs/vectorSeedGrid" },
         "labels": {
           "type": "array",
           "maxItems": 4096,
@@ -876,6 +1124,17 @@
         "name": { "type": "string", "minLength": 1, "maxLength": 256 },
         "mark": { "$ref": "#/$defs/streamtubeMark" },
         "data": { "$ref": "#/$defs/streamtubeData" }
+      }
+    },
+    "vectorFieldLayer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mark", "data"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^\\S(?:.*\\S)?$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "mark": { "$ref": "#/$defs/streamtubeMark" },
+        "data": { "$ref": "#/$defs/vectorFieldData" }
       }
     },
     "scatterMark": {
@@ -987,6 +1246,7 @@
         { "$ref": "#/$defs/volumeLayer" },
         { "$ref": "#/$defs/coneLayer" },
         { "$ref": "#/$defs/streamtubeLayer" },
+        { "$ref": "#/$defs/vectorFieldLayer" },
         { "$ref": "#/$defs/scatterLayer" },
         { "$ref": "#/$defs/globeLayer" }
       ]

@@ -1,3 +1,5 @@
+import type { SemanticFocusStore } from '../interaction/semantic-focus-store.js';
+
 export type SpatialVec3 = readonly [number, number, number];
 export type SpatialColor =
   string | readonly [number, number, number] | readonly [number, number, number, number];
@@ -25,6 +27,18 @@ export interface SpatialAccessibilitySpec {
   readonly description?: string;
   readonly table?: boolean;
   readonly maxRows?: number;
+  /** Roving keyboard traversal over GPU pick targets. */
+  readonly navigation?:
+    | boolean
+    | {
+        readonly pageRows?: number;
+        readonly wrap?: boolean;
+      };
+  /** Stable datum identity shared with other Canvas or spatial views. */
+  readonly linkedFocus?: {
+    readonly group: string;
+    readonly key: string;
+  };
 }
 
 export interface SpatialControlLabels {
@@ -147,7 +161,30 @@ export interface SpatialSurfaceMark {
   readonly mode?: 'surface' | 'mesh';
   readonly color?: SpatialColor;
   readonly opacity?: number;
+  /** Per-face normals duplicate triangle vertices; smooth normals average shared vertices. */
+  readonly normalMode?: 'flat' | 'smooth';
+  /** Legacy wire-only rendering. Use wireOverlay for a filled surface with visible edges. */
   readonly wireframe?: boolean;
+  readonly wireOverlay?: boolean | SpatialSurfaceWireOverlaySpec;
+  readonly contours?: SpatialSurfaceContourSpec;
+}
+
+export interface SpatialSurfaceWireOverlaySpec {
+  readonly color?: SpatialColor;
+  readonly opacity?: number;
+}
+
+export interface SpatialSurfaceContourSpec {
+  /** Explicit scalar levels. When omitted, count evenly spaced interior levels are derived. */
+  readonly levels?: readonly number[];
+  readonly count?: number;
+  readonly projection?: 'surface' | 'base' | 'both';
+  /** World-space height for base projection; defaults to the surface minimum height. */
+  readonly baseHeight?: number;
+  readonly color?: SpatialColor;
+  readonly opacity?: number;
+  /** Deterministic scene budget for emitted line segments across every level/projection. */
+  readonly maxSegments?: number;
 }
 
 export interface SpatialSurfaceLayer {
@@ -164,6 +201,60 @@ export interface SpatialVolumeData {
   readonly spacing?: SpatialVec3;
 }
 
+export interface SpatialVolumeTransferStop {
+  /** Normalized post-window scalar offset in the closed range 0..1. */
+  readonly offset: number;
+  readonly color: SpatialColor;
+  readonly opacity?: number;
+}
+
+export interface SpatialVolumeTransferFunctionSpec {
+  readonly stops: readonly SpatialVolumeTransferStop[];
+  readonly interpolation?: 'linear' | 'step';
+}
+
+export interface SpatialVolumeWindowLevelSpec {
+  /** Width of the visible raw-value interval. */
+  readonly window: number;
+  /** Center of the visible raw-value interval. */
+  readonly level: number;
+}
+
+export interface SpatialVolumeRaycastSpec {
+  readonly method?: 'raycast' | 'mip' | 'minip' | 'average';
+  /** Deterministic object-space ray direction used by the CPU reference and WebGL mesh. */
+  readonly axis?: 'x' | 'y' | 'z';
+  readonly resolution?: readonly [number, number];
+  readonly samples?: number;
+  readonly interpolation?: 'nearest' | 'linear';
+  readonly caps?: 'none' | 'front' | 'back' | 'both';
+}
+
+export interface SpatialVolumeOrthogonalSliceSpec {
+  readonly type: 'orthogonal';
+  readonly axis: 'x' | 'y' | 'z';
+  /** Normalized position along axis. */
+  readonly position: number;
+  readonly resolution?: readonly [number, number];
+  readonly interpolation?: 'nearest' | 'linear';
+  readonly opacity?: number;
+}
+
+export interface SpatialVolumeObliqueSliceSpec {
+  readonly type: 'oblique';
+  /** World-space center and normal of the slice plane. */
+  readonly origin: SpatialVec3;
+  readonly normal: SpatialVec3;
+  readonly up?: SpatialVec3;
+  readonly size?: readonly [number, number];
+  readonly resolution?: readonly [number, number];
+  readonly interpolation?: 'nearest' | 'linear';
+  readonly opacity?: number;
+}
+
+export type SpatialVolumeSliceSpec =
+  SpatialVolumeOrthogonalSliceSpec | SpatialVolumeObliqueSliceSpec;
+
 export interface SpatialVolumeMark {
   readonly type: 'volume';
   readonly mode?: 'volume' | 'isosurface';
@@ -173,6 +264,10 @@ export interface SpatialVolumeMark {
   readonly maxSamples?: number;
   readonly colorLow?: SpatialColor;
   readonly colorHigh?: SpatialColor;
+  readonly transferFunction?: SpatialVolumeTransferFunctionSpec;
+  readonly windowLevel?: SpatialVolumeWindowLevelSpec;
+  readonly render?: SpatialVolumeRaycastSpec;
+  readonly slices?: readonly SpatialVolumeSliceSpec[];
 }
 
 export interface SpatialVolumeLayer {
@@ -191,8 +286,39 @@ export interface SpatialConeVectorData {
 
 export interface SpatialStreamtubeData {
   readonly paths: readonly (readonly SpatialVec3[])[];
+  /** Optional per-point magnitudes for portable color/radius encoding. */
+  readonly magnitudes?: readonly (readonly number[])[];
   readonly labels?: readonly string[];
   readonly colors?: readonly SpatialColor[];
+}
+
+export interface SpatialVectorSeedGridSpec {
+  readonly dimensions: SpatialVec3;
+  /** Fraction of one seed-cell spacing; deterministic when seed is fixed. */
+  readonly jitter?: number;
+  readonly seed?: number;
+}
+
+export interface SpatialVectorFieldData {
+  readonly dimensions: SpatialVec3;
+  readonly vectors: readonly SpatialVec3[];
+  readonly origin?: SpatialVec3;
+  readonly spacing?: SpatialVec3;
+  readonly seeds?: readonly SpatialVec3[];
+  readonly seedGrid?: SpatialVectorSeedGridSpec;
+  readonly labels?: readonly string[];
+  readonly colors?: readonly SpatialColor[];
+}
+
+export interface SpatialVectorIntegrationSpec {
+  readonly direction?: 'forward' | 'backward' | 'both';
+  readonly initialStep?: number;
+  readonly minStep?: number;
+  readonly maxStep?: number;
+  readonly tolerance?: number;
+  readonly maxSteps?: number;
+  readonly maxLength?: number;
+  readonly minMagnitude?: number;
 }
 
 export interface SpatialVectorMark {
@@ -203,13 +329,16 @@ export interface SpatialVectorMark {
   readonly radius?: number;
   readonly scale?: number;
   readonly segments?: number;
+  /** Raw fields are integrated with deterministic adaptive RK4 before tube compilation. */
+  readonly integration?: SpatialVectorIntegrationSpec;
+  readonly magnitudeEncoding?: 'none' | 'color' | 'radius' | 'color-radius';
 }
 
 export interface SpatialVectorLayer {
   readonly id?: string;
   readonly name?: string;
   readonly mark: SpatialVectorMark;
-  readonly data: SpatialConeVectorData | SpatialStreamtubeData;
+  readonly data: SpatialConeVectorData | SpatialStreamtubeData | SpatialVectorFieldData;
 }
 
 export interface SpatialScatterData {
@@ -303,6 +432,8 @@ export interface SpatialCreateOptions {
   readonly width?: number;
   readonly height?: number;
   readonly pixelRatio?: number;
+  /** Runtime-only shared focus store; authored linkedFocus stays function-free. */
+  readonly focusStore?: SemanticFocusStore;
 }
 
 export interface SpatialCameraState {
@@ -338,6 +469,26 @@ export interface CompiledSpatialGeometry {
   readonly sizes: Float32Array;
   readonly indices?: Uint32Array;
   readonly picks: readonly SpatialPickTarget[];
+  readonly role?:
+    | 'primary'
+    | 'wire-overlay'
+    | 'contour'
+    | 'volume-projection'
+    | 'volume-slice'
+    | 'volume-cap'
+    | 'integrated-streamtube';
+  readonly provenance?: SpatialGeometryProvenance;
+}
+
+export interface SpatialGeometryProvenance {
+  readonly family: 'surface' | 'volume' | 'spatial-vector' | 'scatter' | 'globe';
+  readonly operation: string;
+  readonly sourceElements: number;
+  readonly derivedElements: number;
+  readonly bounded: true;
+  readonly parameters?: Readonly<
+    Record<string, string | number | boolean | null | readonly number[]>
+  >;
 }
 
 export interface SpatialBounds {

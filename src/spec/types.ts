@@ -15,7 +15,40 @@ export interface ColumnarData {
 
 export type DataInput = readonly DataRow[] | ColumnarData;
 
+/** A portable reference to a named source or transform node in the enclosing dataflow. */
+export interface NamedDataReference {
+  readonly source: string;
+}
+
 export type StreamingMode = 'append' | 'upsert' | 'replaceLast';
+export type StreamingOverflowPolicy = 'reject' | 'drop-oldest' | 'coalesce';
+
+export interface StreamingRuntimeSpec {
+  /** Coalesce queued rendering work through one animation frame by default. */
+  readonly schedule?: 'animation-frame' | 'microtask';
+  readonly maxBatchesPerFrame?: number;
+  readonly overflow?: StreamingOverflowPolicy;
+  readonly paused?: boolean;
+  readonly followLive?: boolean;
+  readonly history?: {
+    readonly maxBatches?: number;
+    readonly pageRows?: number;
+  };
+}
+
+export interface WorkerRuntimeSpec {
+  /** Module URL used for automatic Worker construction. */
+  readonly moduleURL: string;
+  readonly name?: string;
+  readonly maxQueueBatches?: number;
+  readonly maxQueueRows?: number;
+  readonly maxInputRows?: number;
+  readonly maxBinaryBytes?: number;
+  readonly maxTransforms?: number;
+  readonly overflow?: StreamingOverflowPolicy;
+  readonly engine?:
+    { readonly type: 'javascript' } | { readonly type: 'wasm'; readonly adapter: string };
+}
 
 export interface StreamingSpec {
   /** Stable scalar identity field used by every incremental mutation. */
@@ -39,13 +72,17 @@ export interface StreamingSpec {
   readonly queue?: {
     readonly maxBatches?: number;
     readonly maxRows?: number;
-    /** Silent queue loss is intentionally unsupported. */
-    readonly overflow?: 'reject';
+    /** Drop is explicit and rejects affected callers; coalesce resolves callers with the latest batch. */
+    readonly overflow?: StreamingOverflowPolicy;
   };
   readonly replay?: {
     readonly maxBatches?: number;
     readonly maxRows?: number;
   };
+  /** Browser scheduling, pause/follow-live, and lazy retained-history policy. */
+  readonly runtime?: StreamingRuntimeSpec;
+  /** Optional automatic Transform/Render Worker module. */
+  readonly worker?: WorkerRuntimeSpec;
 }
 
 /** Function-free expression tree used by calculate and filter transforms. */
@@ -249,6 +286,20 @@ export type TransformSpec =
       readonly as: string;
       readonly utc?: boolean;
     };
+
+/** One reusable branch in a closed, single-parent transform DAG. */
+export interface TransformDataflowNodeSpec {
+  readonly id: string;
+  readonly source: string;
+  readonly transform: readonly TransformSpec[];
+}
+
+/** Function-free named sources and reusable transform branches. */
+export interface TransformDataflowSpec {
+  readonly sources: Readonly<Record<string, DataInput>>;
+  readonly nodes?: readonly TransformDataflowNodeSpec[];
+}
+
 export type FieldType = 'quantitative' | 'temporal' | 'ordinal' | 'nominal';
 export type MarkType =
   | 'annotation'
@@ -375,7 +426,9 @@ export interface ScaleSpec {
   readonly paddingOuter?: number;
 }
 
-export type AxisId = 'x' | 'x2' | 'y' | 'y2';
+/** Portable, author-defined axis identifier. Runtime validation applies the safe axis-id grammar. */
+export type AxisId = string;
+export type AxisChannel = 'x' | 'y';
 export type AxisPosition = 'top' | 'bottom' | 'left' | 'right';
 export type AxisLabelOrientation = 'auto' | 'horizontal' | 'vertical-up' | 'vertical-down';
 export type AxisValueFormat =
@@ -450,6 +503,8 @@ export interface AxisTitleSpec {
 }
 
 export interface AxisSpec {
+  /** Required on named axes; built-in x/x2/y/y2 axes infer their Cartesian channel. */
+  readonly channel?: AxisChannel;
   readonly title?: string | false | AxisTitleSpec;
   readonly visible?: boolean;
   readonly position?: AxisPosition;
@@ -471,7 +526,7 @@ export interface EncodingSpec {
   readonly title?: string;
   readonly scale?: ScaleSpec;
   readonly axis?: AxisSpec | false;
-  /** Bind this encoding to the primary or secondary axis for its channel. */
+  /** Bind this encoding to a built-in or declared named axis for its channel. */
   readonly axisId?: AxisId;
 }
 
@@ -488,10 +543,21 @@ export type EncodingChannel =
   | 'size'
   | 'radius'
   | 'shape'
+  | 'symbol'
+  | 'icon'
   | 'opacity'
   | 'strokeWidth'
   | 'strokeDash'
   | 'text'
+  | 'angle'
+  | 'theta'
+  | 'longitude'
+  | 'latitude'
+  | 'open'
+  | 'high'
+  | 'low'
+  | 'close'
+  | 'volume'
   | 'order'
   | 'detail'
   | 'tooltip';
@@ -527,10 +593,21 @@ export interface EncodingMap {
   readonly size?: ChannelEncodingInput;
   readonly radius?: ChannelEncodingInput;
   readonly shape?: ChannelEncodingInput;
+  readonly symbol?: ChannelEncodingInput;
+  readonly icon?: ChannelEncodingInput;
   readonly opacity?: ChannelEncodingInput;
   readonly strokeWidth?: ChannelEncodingInput;
   readonly strokeDash?: ChannelEncodingInput;
   readonly text?: ChannelEncodingInput;
+  readonly angle?: ChannelEncodingInput;
+  readonly theta?: ChannelEncodingInput;
+  readonly longitude?: ChannelEncodingInput;
+  readonly latitude?: ChannelEncodingInput;
+  readonly open?: ChannelEncodingInput;
+  readonly high?: ChannelEncodingInput;
+  readonly low?: ChannelEncodingInput;
+  readonly close?: ChannelEncodingInput;
+  readonly volume?: ChannelEncodingInput;
   readonly order?: ChannelEncodingInput;
   readonly detail?: ChannelEncodingInput;
   readonly tooltip?: ChannelEncodingInput;
@@ -560,15 +637,36 @@ export interface LayerSpec {
   /** Human-readable series name used by automatic layer legends. */
   readonly name?: string;
   readonly data?: DataInput;
+  /** Named dataflow source or branch used when inline data is omitted. */
+  readonly source?: string;
   readonly transform?: readonly TransformSpec[];
   readonly mark: MarkInput;
   /** Legacy position facade. Use either x/y or encoding, not both. */
   readonly x?: EncodingInput;
   readonly y?: EncodingInput;
   readonly encoding?: EncodingMap;
+  /** Omitted/true preserves plot clipping; false disables it; objects author a bounded clip. */
+  readonly clip?: LayerClipSpec;
   readonly visible?: boolean;
   readonly zIndex?: number;
 }
+
+export interface LayerPlotClipSpec {
+  readonly type: 'plot';
+  /** Plot-relative coordinates in the closed 0..1 interval. */
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+export interface LayerDomainClipSpec {
+  readonly type: 'domain';
+  readonly x?: AxisRangeTargetSpec;
+  readonly y?: AxisRangeTargetSpec;
+}
+
+export type LayerClipSpec = boolean | LayerPlotClipSpec | LayerDomainClipSpec;
 
 export interface PaddingSpec {
   readonly top: number;
@@ -594,6 +692,19 @@ export interface AccessibilitySpec {
   readonly maxRows?: number;
   /** Enable roving keyboard traversal of the native mark mirror. */
   readonly navigation?: boolean;
+  /** Virtualized native data explorer; `true` uses bounded defaults. */
+  readonly explorer?:
+    | boolean
+    | {
+        readonly windowRows?: number;
+        readonly overscanRows?: number;
+        readonly rowHeight?: number;
+      };
+  /** Synchronize focus by one stable scalar datum field across live views. */
+  readonly linkedFocus?: {
+    readonly group: string;
+    readonly key: string;
+  };
   /** Optional text placed before the native table. */
   readonly summary?: string;
   /** Configure polite selection announcements, or disable them. */
@@ -724,6 +835,8 @@ export interface AnnotationStyleSpec {
 
 export interface AnnotationSpec {
   readonly id?: string;
+  /** Closed data-coordinate primitive compiled by the annotation registry. */
+  readonly primitive?: 'callout' | 'label' | 'point' | 'rule' | 'band';
   readonly target: DecorationTargetSpec;
   readonly text: string;
   readonly detail?: string;
@@ -732,6 +845,76 @@ export interface AnnotationSpec {
   readonly offsetY?: number;
   readonly connector?: boolean | AnnotationConnectorSpec;
   readonly style?: AnnotationStyleSpec;
+}
+
+export type MarkLabelPlacement = 'auto' | 'top' | 'right' | 'bottom' | 'left' | 'center';
+export type MarkLabelCollision = 'avoid' | 'hide' | 'none';
+
+/** Function-free visual styling for reusable labels attached to rendered marks. */
+export interface MarkLabelStyleSpec {
+  readonly color?: string;
+  readonly background?: string;
+  readonly border?: string;
+  readonly opacity?: number;
+  readonly fontSize?: number;
+  readonly fontWeight?: number;
+  readonly maxWidth?: number;
+  readonly padding?: number;
+  readonly radius?: number;
+}
+
+export interface MarkLabelConnectorSpec {
+  readonly visible?: boolean;
+  readonly color?: string;
+  readonly width?: number;
+  readonly dash?: readonly number[];
+}
+
+/** A portable authored displacement from a datum's automatically resolved label position. */
+export interface MarkLabelPositionSpec {
+  readonly target: DatumTargetSpec;
+  readonly offsetX?: number;
+  readonly offsetY?: number;
+  readonly hidden?: boolean;
+}
+
+export interface MarkLabelSnapSpec {
+  /** Pixel grid size, or false to disable grid snapping. */
+  readonly grid?: number | false;
+  /** Align the label center with nearby mark anchors. */
+  readonly marks?: boolean;
+  /** Keep labels inside and snap them to the plot boundary. */
+  readonly plot?: boolean;
+  readonly distance?: number;
+}
+
+export interface MarkLabelAuthoringSpec {
+  readonly pointer?: boolean;
+  readonly keyboard?: boolean;
+  readonly step?: number;
+  readonly historyLimit?: number;
+  readonly snap?: false | MarkLabelSnapSpec;
+}
+
+/**
+ * Reusable automatic mark labels. Every option and authored position remains
+ * JSON-serializable; executable formatters or layout callbacks are not accepted.
+ */
+export interface MarkLabelSpec {
+  readonly visible?: boolean;
+  /** Label value field. Defaults to encoding.text, then the layer y field. */
+  readonly field?: string;
+  /** Stable datum key used by exported positions across row reordering. */
+  readonly key?: string;
+  readonly layerIds?: readonly string[];
+  readonly placement?: MarkLabelPlacement;
+  readonly offset?: number;
+  readonly collision?: MarkLabelCollision;
+  readonly connector?: boolean | MarkLabelConnectorSpec;
+  readonly maxLabels?: number;
+  readonly positions?: readonly MarkLabelPositionSpec[];
+  readonly style?: MarkLabelStyleSpec;
+  readonly authoring?: boolean | MarkLabelAuthoringSpec;
 }
 
 export type TooltipValueFormat = 'auto' | 'number' | 'integer' | 'percent' | 'date' | 'datetime';
@@ -784,6 +967,23 @@ export interface DomainNavigationSpec {
 
 export type PlaybackMode = 'frame' | 'cumulative' | 'window';
 
+export type PlaybackDirection = 'forward' | 'reverse';
+
+/** A zero-based frame index or the name of one declared named frame. */
+export type PlaybackFrameReference = number | string;
+
+/** Portable label for one discovered scalar frame value. */
+export interface PlaybackNamedFrameSpec {
+  readonly name: string;
+  readonly value: string | number | boolean;
+}
+
+/** Inclusive playback bounds, resolved after frame values have been collected. */
+export interface PlaybackRangeSpec {
+  readonly start?: PlaybackFrameReference;
+  readonly end?: PlaybackFrameReference;
+}
+
 export type PlaybackTransitionEasing = 'linear' | 'ease-in-out';
 
 export interface PlaybackTransitionSpec {
@@ -801,6 +1001,12 @@ export interface PlaybackSpec {
   readonly interval?: number;
   readonly rate?: number;
   readonly loop?: boolean;
+  /** Automatic playback direction; manual signed steps retain their historical meaning. */
+  readonly direction?: PlaybackDirection;
+  /** Inclusive bounds for seeking, stepping, autoplay, and looping. */
+  readonly range?: PlaybackRangeSpec;
+  /** Stable portable names that resolve to discovered scalar frame values. */
+  readonly namedFrames?: readonly PlaybackNamedFrameSpec[];
   readonly windowSize?: number;
   readonly autoplay?: boolean;
   /** Smoothly interpolate compatible rendered geometry without changing source data. */
@@ -855,11 +1061,18 @@ export interface SelectionSpec {
   readonly highlight?: HighlightStyleSpec;
   /** Required only for axis selection. */
   readonly axis?: AxisId;
-  readonly xAxis?: 'x' | 'x2';
-  readonly yAxis?: 'y' | 'y2';
+  readonly xAxis?: AxisId;
+  readonly yAxis?: AxisId;
   readonly maxSelections?: number;
   readonly maxLassoPoints?: number;
   readonly minPixelSpan?: number;
+  /** Enable S/Arrow/Space/Enter geometry authoring on the focused chart surface. */
+  readonly keyboard?: boolean;
+  readonly keyboardStep?: number;
+  /** Recompile marks from rows matching the current analytic selection. */
+  readonly filter?: boolean;
+  /** Share stable-key point identity across composed views instead of scoping it to one layer. */
+  readonly linked?: boolean;
 }
 
 export interface InteractionSpec {
@@ -885,6 +1098,8 @@ export interface CompositionResolveSpec {
   readonly scale?: CompositionResolveMode;
   readonly axis?: CompositionResolveMode;
   readonly legend?: CompositionResolveMode;
+  /** Continuous-color guide ownership, independent from categorical/layer legends. */
+  readonly colorbar?: CompositionResolveMode;
 }
 
 export interface FacetFieldSpec {
@@ -931,6 +1146,10 @@ export interface ChartSpec {
   readonly $schema?: string;
   readonly specVersion?: '0.1';
   readonly data?: DataInput;
+  /** Named dataflow source or branch used when inline data is omitted. */
+  readonly source?: string;
+  /** Named sources and reusable transform branches available to this chart subtree. */
+  readonly dataflow?: TransformDataflowSpec;
   readonly transform?: readonly TransformSpec[];
   readonly mark?: MarkInput;
   readonly x?: EncodingInput;
@@ -960,15 +1179,11 @@ export interface ChartSpec {
   readonly performance?: PerformanceProfile;
   readonly theme?: string | (DeepPartial<ThemeTokens> & { readonly extends?: string });
   readonly locale?: string;
-  readonly axes?: {
-    readonly x?: AxisSpec | false;
-    readonly x2?: AxisSpec | false;
-    readonly y?: AxisSpec | false;
-    readonly y2?: AxisSpec | false;
-  };
+  readonly axes?: Readonly<Record<AxisId, AxisSpec | false | undefined>>;
   readonly legend?: boolean | LegendSpec;
   readonly highlights?: readonly HighlightSpec[];
   readonly annotations?: readonly AnnotationSpec[];
+  readonly markLabels?: boolean | MarkLabelSpec;
   readonly interaction?: InteractionSpec;
   readonly accessibility?: AccessibilitySpec;
   /** Optional bounded incremental data contract. */
@@ -1006,10 +1221,21 @@ export interface NormalizedEncodingMap {
   readonly size?: NormalizedChannelEncodingSpec;
   readonly radius?: NormalizedChannelEncodingSpec;
   readonly shape?: NormalizedChannelEncodingSpec;
+  readonly symbol?: NormalizedChannelEncodingSpec;
+  readonly icon?: NormalizedChannelEncodingSpec;
   readonly opacity?: NormalizedChannelEncodingSpec;
   readonly strokeWidth?: NormalizedChannelEncodingSpec;
   readonly strokeDash?: NormalizedChannelEncodingSpec;
   readonly text?: NormalizedChannelEncodingSpec;
+  readonly angle?: NormalizedChannelEncodingSpec;
+  readonly theta?: NormalizedChannelEncodingSpec;
+  readonly longitude?: NormalizedChannelEncodingSpec;
+  readonly latitude?: NormalizedChannelEncodingSpec;
+  readonly open?: NormalizedChannelEncodingSpec;
+  readonly high?: NormalizedChannelEncodingSpec;
+  readonly low?: NormalizedChannelEncodingSpec;
+  readonly close?: NormalizedChannelEncodingSpec;
+  readonly volume?: NormalizedChannelEncodingSpec;
   readonly order?: NormalizedChannelEncodingSpec;
   readonly detail?: NormalizedChannelEncodingSpec;
   readonly tooltip?: NormalizedChannelEncodingSpec;
@@ -1075,6 +1301,7 @@ export interface NormalizedAxisTitleSpec {
 }
 
 export interface NormalizedAxisSpec {
+  readonly channel: AxisChannel;
   readonly visible: boolean;
   readonly position: AxisPosition;
   readonly offset: number;
@@ -1110,6 +1337,7 @@ export interface NormalizedLayerSpec {
   readonly encoding: NormalizedEncodingMap;
   readonly x: NormalizedEncodingSpec;
   readonly y: NormalizedEncodingSpec;
+  readonly clip: LayerClipSpec;
   readonly visible: boolean;
   readonly zIndex: number;
 }
@@ -1178,6 +1406,9 @@ export interface NormalizedPlaybackSpec {
   readonly interval: number;
   readonly rate: number;
   readonly loop: boolean;
+  readonly direction: PlaybackDirection;
+  readonly range: false | PlaybackRangeSpec;
+  readonly namedFrames: readonly PlaybackNamedFrameSpec[];
   readonly windowSize: number;
   readonly autoplay: boolean;
   readonly transition:
@@ -1229,11 +1460,15 @@ export interface NormalizedSelectionSpec {
   readonly ariaLabel: string;
   readonly highlight: Required<HighlightStyleSpec>;
   readonly axis?: AxisId;
-  readonly xAxis: 'x' | 'x2';
-  readonly yAxis: 'y' | 'y2';
+  readonly xAxis: AxisId;
+  readonly yAxis: AxisId;
   readonly maxSelections: number;
   readonly maxLassoPoints: number;
   readonly minPixelSpan: number;
+  readonly keyboard: boolean;
+  readonly keyboardStep: number;
+  readonly filter: boolean;
+  readonly linked: boolean;
 }
 
 export interface NormalizedInteractionSpec {
@@ -1245,6 +1480,36 @@ export interface NormalizedInteractionSpec {
   readonly playback: false | NormalizedPlaybackSpec;
   readonly controls: false | NormalizedControlsSpec;
   readonly selection: false | NormalizedSelectionSpec;
+}
+
+export interface NormalizedMarkLabelSnapSpec {
+  readonly grid: number | false;
+  readonly marks: boolean;
+  readonly plot: boolean;
+  readonly distance: number;
+}
+
+export interface NormalizedMarkLabelAuthoringSpec {
+  readonly pointer: boolean;
+  readonly keyboard: boolean;
+  readonly step: number;
+  readonly historyLimit: number;
+  readonly snap: false | NormalizedMarkLabelSnapSpec;
+}
+
+export interface NormalizedMarkLabelSpec {
+  readonly visible: boolean;
+  readonly field?: string;
+  readonly key?: string;
+  readonly layerIds: readonly string[];
+  readonly placement: MarkLabelPlacement;
+  readonly offset: number;
+  readonly collision: MarkLabelCollision;
+  readonly connector: false | MarkLabelConnectorSpec;
+  readonly maxLabels: number;
+  readonly positions: readonly MarkLabelPositionSpec[];
+  readonly style: MarkLabelStyleSpec;
+  readonly authoring: false | NormalizedMarkLabelAuthoringSpec;
 }
 
 export interface NormalizedChartSpec {
@@ -1259,15 +1524,11 @@ export interface NormalizedChartSpec {
   readonly performance: PerformanceProfile;
   readonly theme: NonNullable<ChartSpec['theme']>;
   readonly locale?: string;
-  readonly axes: {
-    readonly x: NormalizedAxisSpec | false;
-    readonly x2: NormalizedAxisSpec | false;
-    readonly y: NormalizedAxisSpec | false;
-    readonly y2: NormalizedAxisSpec | false;
-  };
+  readonly axes: Readonly<Record<AxisId, NormalizedAxisSpec | false>>;
   readonly legend: false | NormalizedLegendSpec;
   readonly highlights: readonly HighlightSpec[];
   readonly annotations: readonly AnnotationSpec[];
+  readonly markLabels: false | NormalizedMarkLabelSpec;
   readonly interaction: NormalizedInteractionSpec;
   readonly accessibility: NormalizedAccessibilitySpec;
 }
@@ -1278,6 +1539,14 @@ export interface NormalizedAccessibilitySpec {
   readonly table: false | 'hidden' | 'visible';
   readonly maxRows: number;
   readonly navigation: boolean;
+  readonly explorer:
+    | false
+    | {
+        readonly windowRows: number;
+        readonly overscanRows: number;
+        readonly rowHeight: number;
+      };
+  readonly linkedFocus: false | { readonly group: string; readonly key: string };
   readonly summary?: string;
   readonly live: false | { readonly throttleMs: number };
 }

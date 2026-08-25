@@ -640,6 +640,44 @@ mark: {
 
 The canonical `area` mark defaults to `straight`. `steppedArea()` and the portable `stepped-area` mark now select `step-after` through the same registry, matching their previous horizontal-then-vertical geometry. `areaSpline()` and `spline()` retain the `smooth` compatibility mark and its previous Catmull-Rom-compatible presentation by selecting `cardinal` with zero tension. Explicit curve and missing-value options override those preset defaults without changing the portable mark name or serialization version.
 
+## Incremental stacked Area updates
+
+`createIncrementalStackPipeline()` keeps a stable-key Area stream and its stack provenance together. A value update recomputes only the affected `groupby` buckets when the offset is bucket-local and the observed series order remains stable. The output is exactly the same as the normal closed `stack` transform, including source-row lineage.
+
+```ts
+import { createIncrementalStackPipeline } from 'graflume';
+
+const stack = createIncrementalStackPipeline(
+  initialRows,
+  {
+    type: 'stack',
+    field: 'value',
+    groupby: ['month'],
+    series: ['region'],
+    as: ['y0', 'y1'],
+    offset: 'zero',
+    order: 'input',
+  },
+  {
+    streaming: {
+      key: 'id',
+      mode: 'upsert',
+      retention: { maxRows: 50_000 },
+    },
+    maxRows: 50_000,
+  },
+);
+
+const update = stack.apply({
+  rows: [{ id: 'jan-north', value: 42 }],
+});
+console.log(update.stackState.last.recomputedGroups);
+```
+
+The safe incremental offsets are `zero`, `normalize`/`expand`, `center`, and `silhouette`. `ascending`, `descending`, `sumAscending`, `sumDescending`, and `insideOut` order depend on totals or geometry outside one bucket; `wiggle` couples adjacent buckets through its baseline. Those cases use an explicit exact full fallback with `reason: 'global-order'` or `reason: 'global-wiggle'`. Introducing or removing a series that changes first-appearance order similarly reports `series-order-change` and performs a full recomputation.
+
+`snapshot()` returns bounded, structured-cloneable input, per-group cache, exact source identities, counters, and the last provenance step. The same payload is accepted by Worker protocol v2 through `worker.incrementalStack()`, so the synchronous and Worker paths do not have separate stack semantics.
+
 ## Interaction
 
 Single-series filled polygons do not expose exact per-row datum hit targets unless points are enabled. Series-layout areas add bounded transparent targets at each retained source position, while generated examples can still use an x-axis tooltip. For a single-series area, enable points or overlay a point layer:
@@ -666,12 +704,14 @@ Graflume.create('#chart', {
 
 ## Current limitations
 
-- zero baseline only;
-- no between-two-lines area in the canonical Area mark (use the interval/range family);
-- series layouts do not implicitly aggregate duplicate category-series rows or impute absent combinations;
-- one closed polygon per continuous area segment; `missing: 'gap'` may create several segments;
-- single-series polygons still use point targets or the explicit x-axis tooltip;
-- no SVG/WebGL renderer parity yet.
+None remain in the audited P0/current-limitations boundary as of 2026-08-26. The `current-limitations-2026-08-26` implementation moved these former limitations into executable support:
+
+- named and branched transform DAG reuse
+- worker-bounded incremental stack updates
+- automatic series labels
+- data-domain navigation
+
+The separately cataloged P1/P2 research roadmap remains future work and is not presented as current runtime support. Exact implementation and test paths are recorded in [the completion evidence](../../catalog/graflume.current-limitations.evidence.json).
 
 ## Runnable examples and tests
 

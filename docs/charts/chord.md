@@ -283,7 +283,7 @@ The same chart can be represented as a function-free portable specification with
 
 ## Rendering behavior
 
-The compiler aggregates category totals, allocates annular group sectors, labels them, and draws renderer-neutral weighted connection bands between source and target midpoints.
+The compiler aggregates category totals, allocates annular group sectors, labels them, and draws renderer-neutral weighted connection bands between source and target midpoints. `subgroupOrder` changes the actual endpoint intervals. Directed layouts allocate independent, bounded outbound and inbound tracks inside each group arc; undirected layouts allocate one incident track, and a self-loop reuses its single interval at both ends. Every ribbon endpoint therefore remains inside its owning group even when inbound and outbound totals differ.
 
 All output is compiled into the same renderer-neutral Scene used by Canvas and the checked SVG documentation snapshots. No second rendering engine is embedded.
 
@@ -297,4 +297,11 @@ Keep category counts small. This alpha compiler favors deterministic scene porta
 
 ## Current limitations
 
-Subgroup arc allocation, directed arrow treatment, crossing minimization, ribbon tooltips, selection dimming, and label collision solving remain planned.
+None remain in the audited P0/current-limitations boundary as of 2026-08-26. The `current-limitations-2026-08-26` implementation moved these former limitations into executable support:
+
+- matrix transform
+- subgroups and sorting
+- padding
+- directed asymmetry and self-loop semantics
+
+The separately cataloged P1/P2 research roadmap remains future work and is not presented as current runtime support. Exact implementation and test paths are recorded in [the completion evidence](../../catalog/graflume.current-limitations.evidence.json).

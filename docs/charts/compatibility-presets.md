@@ -1,6 +1,6 @@
 # Compatibility preset index
 
-Graflume exposes 41 representative chart families while preserving compatible names. This index maps the 163 family presets to the one manual that documents their data contract, functional differences, and current compiled output.
+Graflume exposes 41 representative chart families while preserving compatible names. This index maps the 166 family presets to the one manual that documents their data contract, functional differences, and current compiled output.
 
 Use `resolveSeriesType(identifier)` from `graflume/complete` when an integration receives names with mixed case, spaces, hyphens, or underscores. The returned `familyId` selects the representative manual and `variantId` preserves the requested preset.
 
@@ -317,6 +317,9 @@ The two function-free adapter names are documented separately in [Adapters](./ad
 | ------------------ | -------------------------------------------------------------------- | ------------------ | ------------------ | -------------- |
 | `point-and-figure` | [Point and figure chart](./price-blocks.md#variant-point-and-figure) | `pointAndFigure()` | `point-and-figure` | `point-figure` |
 | `renko`            | [Renko chart](./price-blocks.md#variant-renko)                       | `renko()`          | `renko`            | `renko`        |
+| `kagi`             | [Kagi chart](./price-blocks.md#variant-kagi)                         | `kagi()`           | `kagi`             | `renko`        |
+| `three-line-break` | [Three line break chart](./price-blocks.md#variant-three-line-break) | `threeLineBreak()` | `three-line-break` | `renko`        |
+| `range-bars`       | [Range bars chart](./price-blocks.md#variant-range-bars)             | `rangeBars()`      | `range-bars`       | `renko`        |
 
 ## [Volume profile chart](./volume-profile.md#integrated-presets)
 

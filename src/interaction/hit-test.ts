@@ -1,4 +1,6 @@
 import type { DatumReference, PathNode, Rect, Scene, SceneNode, TextNode } from '../scene/types.js';
+import { sceneNodeBounds } from '../scene/bounds.js';
+import { UniformSpatialIndex, type SpatialIndexStats } from './spatial-index.js';
 
 export interface HitResult extends DatumReference {
   readonly nodeId: string;
@@ -12,9 +14,71 @@ interface HitCandidate {
   readonly clips: readonly Rect[];
 }
 
-const hitCandidateCache = new WeakMap<Scene, readonly HitCandidate[]>();
+interface SceneHitCandidates {
+  readonly candidates: readonly HitCandidate[];
+  readonly index: UniformSpatialIndex<HitCandidate>;
+}
 
-function sceneHitCandidates(scene: Scene): readonly HitCandidate[] {
+function tooltipKind(candidate: HitCandidate): unknown {
+  return candidate.node.datum?.tooltip?.kind;
+}
+
+function tooltipStrings(value: unknown): readonly string[] | null {
+  if (!Array.isArray(value) || !value.every((entry) => typeof entry === 'string')) return null;
+  return value;
+}
+
+/**
+ * Resolve a Venn/Euler region from the actual overlapping set circles. Region
+ * labels are deliberately small and must not be the hit geometry: a pointer
+ * anywhere inside the exact visual membership combination resolves the
+ * corresponding membership datum.
+ */
+function hitTestVennRegion(
+  candidates: readonly HitCandidate[],
+  x: number,
+  y: number,
+): HitResult | null {
+  const setCircles = candidates.filter(
+    (candidate) =>
+      candidate.node.type === 'circle' &&
+      tooltipKind(candidate) === 'venn-set' &&
+      insideClips(candidate.clips, x, y),
+  );
+  if (setCircles.length < 2 || setCircles.length > 3) return null;
+  const included = setCircles
+    .flatMap((candidate) => {
+      const node = candidate.node;
+      if (node.type !== 'circle' || Math.hypot(x - node.cx, y - node.cy) > node.radius) return [];
+      const set = node.datum?.tooltip?.set;
+      return typeof set === 'string' ? [set] : [];
+    })
+    .sort();
+  if (included.length === 0) return null;
+  const region = candidates.find((candidate) => {
+    if (tooltipKind(candidate) !== 'venn-region' || candidate.node.datum === undefined)
+      return false;
+    const sets = tooltipStrings(candidate.node.datum.tooltip?.sets)?.slice().sort();
+    return (
+      sets !== undefined &&
+      sets !== null &&
+      sets.length === included.length &&
+      sets.every((set, index) => set === included[index])
+    );
+  });
+  if (region?.node.datum === undefined) return null;
+  return {
+    ...region.node.datum,
+    nodeId: region.node.id,
+    x,
+    y,
+    distance: 0,
+  };
+}
+
+const hitCandidateCache = new WeakMap<Scene, SceneHitCandidates>();
+
+function sceneHitCandidates(scene: Scene): SceneHitCandidates {
   const cached = hitCandidateCache.get(scene);
   if (cached !== undefined) return cached;
   const candidates: HitCandidate[] = [];
@@ -30,8 +94,19 @@ function sceneHitCandidates(scene: Scene): readonly HitCandidate[] {
     if (node.interactive === true && node.datum !== undefined) candidates.push({ node, clips });
   };
   visit(scene.root, 1, []);
-  hitCandidateCache.set(scene, candidates);
-  return candidates;
+  const index = new UniformSpatialIndex<HitCandidate>(64, 256);
+  for (const candidate of candidates) {
+    const bounds = sceneNodeBounds(candidate.node);
+    if (bounds !== null) index.insert(candidate, bounds);
+  }
+  const result = Object.freeze({ candidates: Object.freeze(candidates), index });
+  hitCandidateCache.set(scene, result);
+  return result;
+}
+
+/** Inspect the bounded screen-space index used by scatter and all other interactive marks. */
+export function hitTestSpatialIndexStats(scene: Scene): SpatialIndexStats {
+  return sceneHitCandidates(scene).index.stats();
 }
 
 function insideClips(clips: readonly Rect[], x: number, y: number): boolean {
@@ -152,7 +227,10 @@ function nodeDistance(node: SceneNode, x: number, y: number): number {
 }
 
 export function hitTestScene(scene: Scene, x: number, y: number, tolerance = 8): HitResult | null {
-  const candidates = sceneHitCandidates(scene);
+  const { candidates: allCandidates, index } = sceneHitCandidates(scene);
+  const vennRegion = hitTestVennRegion(allCandidates, x, y);
+  if (vennRegion !== null) return vennRegion;
+  const candidates = index.query(x, y, tolerance);
   let best: HitResult | null = null;
 
   for (let index = candidates.length - 1; index >= 0; index -= 1) {

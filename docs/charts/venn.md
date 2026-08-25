@@ -398,7 +398,14 @@ Scene cost is linear in rows for ordinary cases. Relationship crossings, repeate
 
 ## Current limitations
 
-The current deterministic layout supports up to six visible set circles and does not solve exact intersection areas from overlap equations.
+None remain in the audited P0/current-limitations boundary as of 2026-08-26. The `current-limitations-2026-08-26` implementation moved these former limitations into executable support:
+
+- membership and intersection input
+- proportional two/three-set solve
+- quality metric and queries
+- region hit
+
+The separately cataloged P1/P2 research roadmap remains future work and is not presented as current runtime support. Exact implementation and test paths are recorded in [the completion evidence](../../catalog/graflume.current-limitations.evidence.json).
 
 ## Runnable references
 

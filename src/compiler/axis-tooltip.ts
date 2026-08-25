@@ -10,6 +10,7 @@ const ROW_TARGET_MARKS = new Set(['area', 'line', 'smooth', 'stepped-area', 'tre
 
 interface AxisTooltipTargetContext {
   readonly axis: TooltipAxis;
+  readonly channel: 'x' | 'y';
   readonly layerGroups: readonly SceneNode[];
   readonly scales: ScaleResolution;
   readonly plot: Rect;
@@ -117,8 +118,7 @@ export function collectAxisTooltipTargets(
   context: AxisTooltipTargetContext,
 ): readonly AxisTooltipTarget[] {
   if (!context.performance.enableHitTesting) return [];
-  const { axis, scales, plot } = context;
-  const channel = axis === 'x' || axis === 'x2' ? 'x' : 'y';
+  const { axis, channel, scales, plot } = context;
   const layerDataById = new Map(scales.layers.map((layerData) => [layerData.layer.id, layerData]));
   const targets: AxisTooltipTarget[] = [];
   const representedRows = new Set<string>();

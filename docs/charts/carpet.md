@@ -438,11 +438,11 @@ The `carpet` family lays a curvilinear coordinate grid over supplied physical po
 
 ## Data contract
 
-Use `x` and `y` as the logical carpet coordinates. Map physical positions with `mark.fields.x` and `mark.fields.y`; contour mode additionally names a quantitative value field. A rectangular logical grid produces the clearest result.
+Use `x` and `y` as the logical carpet coordinates. Row-grid compatibility data maps physical positions with `mark.fields.x` and `mark.fields.y`; contour mode additionally names a quantitative value field. For reusable interpolation, author `mark.options.grid` with strictly ascending logical vectors `a` and `b`, physical `x` and `y` matrices shaped b-by-a, and an optional boolean `mask`. Input rows then use `fields.a` and `fields.b` and may provide `fields.id`.
 
 ## Styling and interaction
 
-Grid paths, scatter points, and contour isolines are compiled as distinct Scene geometry. Base grid paths expose the logical axis and key under the pointer. Contour mode uses the warped grid positions and marching-square density segments rather than recoloring points, and each isoline reports its derived level and observed value range before any representative source row.
+Grid paths, scatter points, mask polygons, and contour isolines are compiled as distinct Scene geometry. Authored-grid points are bilinearly projected inside the irregular physical grid and report both `[a, b]` logical and `[x, y]` projected coordinates. A point whose interpolation cell touches a false mask vertex is visibly muted and exposes `masked: true` rather than silently disappearing.
 
 ## Accessibility and limits
 

@@ -71,6 +71,7 @@ function tooltipRow(
   return {
     ...cleanRow(context.table.row(entry.rowIndex)),
     stackSeries: entry.series,
+    stackCategory: entry.category,
     stackValue: entry.source,
     stackStart: entry.start,
     stackEnd: entry.end,

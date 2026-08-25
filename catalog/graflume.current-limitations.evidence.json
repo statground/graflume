@@ -1,0 +1,2904 @@
+{
+  "$schema": "../schema/graflume.current-limitations.schema.json",
+  "schemaVersion": 2,
+  "release": "current-limitations-2026-08-26",
+  "verifiedAt": "2026-08-26",
+  "totalCompleted": 161,
+  "families": [
+    {
+      "id": "annotation",
+      "capabilities": [
+        "data-coordinate primitive registry",
+        "keyboard authoring",
+        "drag and resize handles",
+        "undo and redo"
+      ],
+      "traces": [
+        {
+          "capability": "data-coordinate primitive registry",
+          "sources": [
+            {
+              "path": "src/annotation/primitives.ts",
+              "token": "annotationPrimitiveRegistry"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/annotation-authoring.test.mjs",
+              "name": "annotation primitive registry is closed and target-aware"
+            }
+          ]
+        },
+        {
+          "capability": "keyboard authoring",
+          "sources": [
+            {
+              "path": "src/interaction/annotation-authoring.ts",
+              "token": "editAnnotationByKeyboard"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/annotation-authoring.test.mjs",
+              "name": "keyboard authoring and bounded undo/redo preserve portable state"
+            }
+          ]
+        },
+        {
+          "capability": "drag and resize handles",
+          "sources": [
+            {
+              "path": "src/interaction/annotation-authoring.ts",
+              "token": "editAnnotationByPointer"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/annotation-authoring.test.mjs",
+              "name": "pointer handles move and resize portable annotation state"
+            }
+          ]
+        },
+        {
+          "capability": "undo and redo",
+          "sources": [
+            {
+              "path": "src/interaction/annotation-authoring.ts",
+              "token": "AnnotationAuthoringHistory"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/annotation-authoring.test.mjs",
+              "name": "keyboard authoring and bounded undo/redo preserve portable state"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "area",
+      "capabilities": [
+        "named and branched transform DAG reuse",
+        "worker-bounded incremental stack updates",
+        "automatic series labels",
+        "data-domain navigation"
+      ],
+      "traces": [
+        {
+          "capability": "named and branched transform DAG reuse",
+          "sources": [
+            {
+              "path": "src/data/dataflow.ts",
+              "token": "TransformDataflow"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/foundation-dataflow-encoding.test.mjs",
+              "name": "named transform sources and branches reuse one memoized DAG ancestor"
+            }
+          ]
+        },
+        {
+          "capability": "worker-bounded incremental stack updates",
+          "sources": [
+            {
+              "path": "src/data/worker-runtime.ts",
+              "token": "WorkerIncrementalStackOperation"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/foundation-runtime.test.mjs",
+              "name": "Worker v2 runs portable affected-group stacks and bounded bar virtualization transitions"
+            }
+          ]
+        },
+        {
+          "capability": "automatic series labels",
+          "sources": [
+            {
+              "path": "src/compiler/mark-labels.ts",
+              "token": "seriesAutomaticGeometry"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/mark-label-authoring.test.mjs",
+              "name": "stacked Bar totals and segments and Area series endpoints use calculated semantics"
+            }
+          ]
+        },
+        {
+          "capability": "data-domain navigation",
+          "sources": [
+            {
+              "path": "src/interaction/domain-navigation.ts",
+              "token": "zoomDomainAtPixel"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/chart-interaction-runtime.test.mjs",
+              "name": "data-domain navigation supports wheel, pointer drag, keyboard reset, and coordinate round-trip"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bar",
+      "capabilities": [
+        "weighted count",
+        "interactive sort and rank",
+        "automatic total and segment labels",
+        "worker-bounded virtualization"
+      ],
+      "traces": [
+        {
+          "capability": "weighted count",
+          "sources": [
+            {
+              "path": "src/data/family-analytics.ts",
+              "token": "weightedCount"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/statistical-advanced.test.mjs",
+              "name": "bar compiler aggregates weighted counts and exposes deterministic rank changes"
+            }
+          ]
+        },
+        {
+          "capability": "interactive sort and rank",
+          "sources": [
+            {
+              "path": "src/data/family-layouts.ts",
+              "token": "rankBars"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/family-layouts.test.mjs",
+              "name": "bar ranking supports weighted count, stable sorting and rank-change metadata"
+            }
+          ]
+        },
+        {
+          "capability": "automatic total and segment labels",
+          "sources": [
+            {
+              "path": "src/compiler/mark-labels.ts",
+              "token": "compileMarkLabels"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/mark-label-authoring.test.mjs",
+              "name": "stacked Bar totals and segments and Area series endpoints use calculated semantics"
+            }
+          ]
+        },
+        {
+          "capability": "worker-bounded virtualization",
+          "sources": [
+            {
+              "path": "src/data/worker-runtime.ts",
+              "token": "WorkerBarVirtualizationOperation"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/foundation-runtime.test.mjs",
+              "name": "Worker v2 runs portable affected-group stacks and bounded bar virtualization transitions"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bubble",
+      "capabilities": [
+        "absolute-area scale contract",
+        "zero and negative policy",
+        "explicit size guide"
+      ],
+      "traces": [
+        {
+          "capability": "absolute-area scale contract",
+          "sources": [
+            {
+              "path": "src/data/family-analytics.ts",
+              "token": "areaRadius"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/family-analytics.test.mjs",
+              "name": "weighted count and absolute-area bubble sizing expose explicit policies and guide values"
+            }
+          ]
+        },
+        {
+          "capability": "zero and negative policy",
+          "sources": [
+            {
+              "path": "src/data/family-analytics.ts",
+              "token": "BubbleNegativePolicy"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/statistical-advanced.test.mjs",
+              "name": "bubble compiler uses proportional area, explicit negative/zero policies, and a truthful size guide"
+            }
+          ]
+        },
+        {
+          "capability": "explicit size guide",
+          "sources": [
+            {
+              "path": "src/data/family-analytics.ts",
+              "token": "areaSizeGuide"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/family-analytics.test.mjs",
+              "name": "weighted count and absolute-area bubble sizing expose explicit policies and guide values"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "calendar",
+      "capabilities": [
+        "year/month/week/day modes",
+        "locale week start and timezone",
+        "leap/no-data/zero policy",
+        "month boundaries"
+      ],
+      "traces": [
+        {
+          "capability": "year/month/week/day modes",
+          "sources": [
+            {
+              "path": "src/data/family-analytics.ts",
+              "token": "CalendarMode"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/statistical-advanced.test.mjs",
+              "name": "calendar compiler renders every range mode with week-start, timezone, leap, zero, missing, and month-boundary metadata"
+            }
+          ]
+        },
+        {
+          "capability": "locale week start and timezone",
+          "sources": [
+            {
+              "path": "src/data/family-analytics.ts",
+              "token": "calendarWeekStart"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/statistical-advanced.test.mjs",
+              "name": "calendar compiler renders locale and timezone semantics into weekday headers and civil-date cells"
+            }
+          ]
+        },
+        {
+          "capability": "leap/no-data/zero policy",
+          "sources": [
+            {
+              "path": "src/data/family-analytics.ts",
+              "token": "CalendarMissingPolicy"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/family-analytics.test.mjs",
+              "name": "calendar cells support mode, week start, time zone, leap, missing, zero, and month boundaries"
+            }
+          ]
+        },
+        {
+          "capability": "month boundaries",
+          "sources": [
+            {
+              "path": "src/data/family-analytics.ts",
+              "token": "monthBoundary"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/family-analytics.test.mjs",
+              "name": "calendar cells support mode, week start, time zone, leap, missing, zero, and month boundaries"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "candlestick",
+      "capabilities": [
+        "OHLC aggregation",
+        "session and timezone calendar",
+        "gapless trading axis",
+        "extended-hours policy",
+        "navigator"
+      ],
+      "traces": [
+        {
+          "capability": "OHLC aggregation",
+          "sources": [
+            {
+              "path": "src/data/family-analytics.ts",
+              "token": "aggregateOhlc"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/family-analytics.test.mjs",
+              "name": "OHLC aggregation applies session policy, produces a gapless axis, and exposes a navigator window"
+            }
+          ]
+        },
+        {
+          "capability": "session and timezone calendar",
+          "sources": [
+            {
+              "path": "src/data/family-analytics.ts",
+              "token": "localTradingTime"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/family-analytics.test.mjs",
+              "name": "OHLC aggregation applies session policy, produces a gapless axis, and exposes a navigator window"
+            }
+          ]
+        },
+        {
+          "capability": "gapless trading axis",
+          "sources": [
+            {
+              "path": "src/compiler/domain.ts",
+              "token": "tradingScale"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/statistical-advanced.test.mjs",
+              "name": "candlestick compiler aggregates OHLCV, separates sessions, uses a gapless trading axis, and renders a navigator"
+            }
+          ]
+        },
+        {
+          "capability": "extended-hours policy",
+          "sources": [
+            {
+              "path": "src/data/family-analytics.ts",
+              "token": "ExtendedHoursPolicy"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/statistical-advanced.test.mjs",
+              "name": "candlestick compiler aggregates OHLCV, separates sessions, uses a gapless trading axis, and renders a navigator"
+            }
+          ]
+        },
+        {
+          "capability": "navigator",
+          "sources": [
+            {
+              "path": "src/interaction/advanced-family-runtime.ts",
+              "token": "translateNavigatorWindow"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/chart-interaction-runtime.test.mjs",
+              "name": "advanced family pointer gestures recompile navigator, hierarchy, and parallel scenes"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "combination",
+      "capabilities": [
+        "named axes",
+        "shared multi-view axes/legends/colorbars",
+        "linked view state",
+        "layer transforms",
+        "layer clipping"
+      ],
+      "traces": [
+        {
+          "capability": "named axes",
+          "sources": [
+            {
+              "path": "src/compiler/domain.ts",
+              "token": "resolveScales"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/named-axes-layer-clip.test.mjs",
+              "name": "three named x and y axes resolve independent channels, render positions, and filter axis tooltips"
+            }
+          ]
+        },
+        {
+          "capability": "shared multi-view axes/legends/colorbars",
+          "sources": [
+            {
+              "path": "src/compiler/composition.ts",
+              "token": "harmonizeSharedScales"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/composition.test.mjs",
+              "name": "shared concat scales use a deterministic union domain in every child"
+            }
+          ]
+        },
+        {
+          "capability": "linked view state",
+          "sources": [
+            {
+              "path": "src/compiler/composition.ts",
+              "token": "runtimeForView"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/composition.test.mjs",
+              "name": "composition container owns analytic selection and data-domain navigation for every leaf"
+            }
+          ]
+        },
+        {
+          "capability": "layer transforms",
+          "sources": [
+            {
+              "path": "src/compiler/composition.ts",
+              "token": "flattenLayerComposition"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/composition.test.mjs",
+              "name": "new layer composition uses the flat shared compiler while legacy layers stay unchanged"
+            }
+          ]
+        },
+        {
+          "capability": "layer clipping",
+          "sources": [
+            {
+              "path": "src/compiler/compile.ts",
+              "token": "resolveLayerClip"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/named-axes-layer-clip.test.mjs",
+              "name": "layer clip supports default, opt-out, plot-relative, and data-domain scene contracts"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "difference",
+      "capabilities": [
+        "series alignment",
+        "baseline comparison",
+        "absolute/relative/percent policy",
+        "crossing interpolation"
+      ],
+      "traces": [
+        {
+          "capability": "series alignment",
+          "sources": [
+            {
+              "path": "src/data/family-analytics.ts",
+              "token": "differenceSeries"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/family-analytics.test.mjs",
+              "name": "difference policies align values and interpolate numeric crossings"
+            }
+          ]
+        },
+        {
+          "capability": "baseline comparison",
+          "sources": [
+            {
+              "path": "src/marks/statistical-advanced.ts",
+              "token": "compileAdvancedDifferenceMark"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/statistical-advanced.test.mjs",
+              "name": "difference compiler aligns baseline/comparison, applies percentage policy, and inserts exact crossings"
+            }
+          ]
+        },
+        {
+          "capability": "absolute/relative/percent policy",
+          "sources": [
+            {
+              "path": "src/data/family-analytics.ts",
+              "token": "DifferencePolicy"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/family-analytics.test.mjs",
+              "name": "difference policies align values and interpolate numeric crossings"
+            }
+          ]
+        },
+        {
+          "capability": "crossing interpolation",
+          "sources": [
+            {
+              "path": "src/data/family-analytics.ts",
+              "token": "DifferencePoint"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/statistical-advanced.test.mjs",
+              "name": "difference compiler aligns baseline/comparison, applies percentage policy, and inserts exact crossings"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pie",
+      "capabilities": [
+        "dense label solver",
+        "zero and negative policy",
+        "minimum slice, sorting and padding",
+        "keyboard slice traversal"
+      ],
+      "traces": [
+        {
+          "capability": "dense label solver",
+          "sources": [
+            {
+              "path": "src/marks/layout-advanced.ts",
+              "token": "compileAdvancedPieMark"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/layout-advanced.test.mjs",
+              "name": "pie compiler resolves negative/zero/minimum/sort/pad policy and dense roving labels"
+            }
+          ]
+        },
+        {
+          "capability": "zero and negative policy",
+          "sources": [
+            {
+              "path": "src/data/family-layouts.ts",
+              "token": "PieOptions"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/family-layouts.test.mjs",
+              "name": "pie semantics cover zero/negative policies, minimum slices, sorting, padding and roving traversal"
+            }
+          ]
+        },
+        {
+          "capability": "minimum slice, sorting and padding",
+          "sources": [
+            {
+              "path": "src/data/family-layouts.ts",
+              "token": "layoutPie"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/family-layouts.test.mjs",
+              "name": "pie semantics cover zero/negative policies, minimum slices, sorting, padding and roving traversal"
+            }
+          ]
+        },
+        {
+          "capability": "keyboard slice traversal",
+          "sources": [
+            {
+              "path": "src/data/family-layouts.ts",
+              "token": "nextPieSlice"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/chart-interaction-runtime.test.mjs",
+              "name": "pie and table family keyboard controls update focus, selection, transforms, and events"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "timeline",
+      "capabilities": [
+        "lane packing and grouping",
+        "milestones",
+        "clipping and duration",
+        "navigator"
+      ],
+      "traces": [
+        {
+          "capability": "lane packing and grouping",
+          "sources": [
+            {
+              "path": "src/data/family-layouts.ts",
+              "token": "layoutTimeline"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/family-layouts.test.mjs",
+              "name": "timeline packs grouped overlap lanes, milestones, dependencies, clipping, duration and navigator"
+            }
+          ]
+        },
+        {
+          "capability": "milestones",
+          "sources": [
+            {
+              "path": "src/data/family-layouts.ts",
+              "token": "TimelineDatum"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/layout-advanced.test.mjs",
+              "name": "timeline compiler packs groups/lanes, renders milestones/dependencies/clipping/duration and navigator"
+            }
+          ]
+        },
+        {
+          "capability": "clipping and duration",
+          "sources": [
+            {
+              "path": "src/data/family-layouts.ts",
+              "token": "TimelineItem"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/family-layouts.test.mjs",
+              "name": "timeline packs grouped overlap lanes, milestones, dependencies, clipping, duration and navigator"
+            }
+          ]
+        },
+        {
+          "capability": "navigator",
+          "sources": [
+            {
+              "path": "src/interaction/advanced-family-runtime.ts",
+              "token": "ChartNavigatorRuntimeState"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/advanced-family-runtime.test.mjs",
+              "name": "navigator state translates, clamps, and becomes family compiler options"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gauge",
+      "capabilities": ["threshold bands", "custom ticks", "exact accessible value summary"],
+      "traces": [
+        {
+          "capability": "threshold bands",
+          "sources": [
+            {
+              "path": "src/data/family-layouts.ts",
+              "token": "GaugeBand"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/family-layouts.test.mjs",
+              "name": "gauge model exposes radial/linear bands, thresholds, targets, custom ticks and exact accessible summary"
+            }
+          ]
+        },
+        {
+          "capability": "custom ticks",
+          "sources": [
+            {
+              "path": "src/data/family-layouts.ts",
+              "token": "GaugeOptions"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/layout-advanced.test.mjs",
+              "name": "radial and linear gauge render bands, custom ticks, targets, and exact accessible summaries"
+            }
+          ]
+        },
+        {
+          "capability": "exact accessible value summary",
+          "sources": [
+            {
+              "path": "src/data/family-layouts.ts",
+              "token": "accessibleSummary"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/family-layouts.test.mjs",
+              "name": "gauge model exposes radial/linear bands, thresholds, targets, custom ticks and exact accessible summary"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "map",
+      "capabilities": [
+        "source/layer/projection lifecycle",
+        "GeoJSON and TopoJSON",
+        "general fit and clip policy",
+        "flat geodesics",
+        "provider-backed tile lifecycle, cache and attribution"
+      ],
+      "traces": [
+        {
+          "capability": "source/layer/projection lifecycle",
+          "sources": [
+            {
+              "path": "src/geography/map-lifecycle.ts",
+              "token": "MapRuntime"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/map-lifecycle.test.mjs",
+              "name": "persistent map runtime owns a closed projection lifecycle and projects through current state"
+            }
+          ]
+        },
+        {
+          "capability": "GeoJSON and TopoJSON",
+          "sources": [
+            {
+              "path": "src/geography/map-lifecycle.ts",
+              "token": "normalizeGeoJson"
+            },
+            {
+              "path": "src/geography/map-lifecycle.ts",
+              "token": "topologyToGeoJson"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/map-lifecycle.test.mjs",
+              "name": "GeoJSON validation normalizes geometry, feature, and collection inputs"
+            },
+            {
+              "path": "tests/map-advanced-render.test.mjs",
+              "name": "map compiler decodes TopoJSON delta and reversed arcs into rendered features"
+            }
+          ]
+        },
+        {
+          "capability": "general fit and clip policy",
+          "sources": [
+            {
+              "path": "src/geography/map-lifecycle.ts",
+              "token": "fitMapBounds"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/map-advanced-render.test.mjs",
+              "name": "map scene performs rectangular point, line, multiline, polygon, and multipolygon clipping"
+            }
+          ]
+        },
+        {
+          "capability": "flat geodesics",
+          "sources": [
+            {
+              "path": "src/geography/map-lifecycle.ts",
+              "token": "geodesicPath"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/map-lifecycle.test.mjs",
+              "name": "geodesics follow a great circle and graticules are ordinary line features"
+            }
+          ]
+        },
+        {
+          "capability": "provider-backed tile lifecycle, cache and attribution",
+          "sources": [
+            {
+              "path": "src/geography/map-lifecycle.ts",
+              "token": "MapTileManager"
+            },
+            {
+              "path": "src/renderer/canvas.ts",
+              "token": "maximumProviderTileRequests"
+            },
+            {
+              "path": "src/renderer/canvas.ts",
+              "token": "maximumDecodedProviderTiles"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/map-lifecycle.test.mjs",
+              "name": "provider tile lifecycle wraps x, chooses subdomains, deduplicates, aborts and bounds an LRU cache"
+            },
+            {
+              "path": "tests/map-advanced-render.test.mjs",
+              "name": "Canvas provider scheduler bounds 129 visible tiles and aborts work that leaves the scene"
+            },
+            {
+              "path": "tests/map-advanced-render.test.mjs",
+              "name": "Canvas decoded provider tiles use a 128-entry LRU and close the least-recent image"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "distribution",
+      "capabilities": ["shared bins", "notched and weighted box summaries", "rug and strip"],
+      "traces": [
+        {
+          "capability": "shared bins",
+          "sources": [
+            {
+              "path": "src/data/family-analytics.ts",
+              "token": "sharedHistogramBins"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/family-analytics.test.mjs",
+              "name": "shared bins, weighted notches, and seeded rug or strip layouts are deterministic"
+            }
+          ]
+        },
+        {
+          "capability": "notched and weighted box summaries",
+          "sources": [
+            {
+              "path": "src/data/family-analytics.ts",
+              "token": "weightedBoxSummary"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/family-analytics.test.mjs",
+              "name": "shared bins, weighted notches, and seeded rug or strip layouts are deterministic"
+            }
+          ]
+        },
+        {
+          "capability": "rug and strip",
+          "sources": [
+            {
+              "path": "src/data/family-analytics.ts",
+              "token": "rugStrip"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/family-analytics.test.mjs",
+              "name": "shared bins, weighted notches, and seeded rug or strip layouts are deterministic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "interval",
+      "capabilities": ["raw estimator", "CI/PI/SE/SD/IQR/HDI", "horizontal errors", "provenance"],
+      "traces": [
+        {
+          "capability": "raw estimator",
+          "sources": [
+            {
+              "path": "src/data/family-analytics.ts",
+              "token": "estimateInterval"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/family-analytics.test.mjs",
+              "name": "raw interval estimation covers CI, PI, SE, SD, IQR, and HDI with orientation and provenance"
+            }
+          ]
+        },
+        {
+          "capability": "CI/PI/SE/SD/IQR/HDI",
+          "sources": [
+            {
+              "path": "src/data/family-analytics.ts",
+              "token": "IntervalKind"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/statistical-advanced.test.mjs",
+              "name": "interval compiler estimates all six interval kinds and horizontal provenance from raw rows"
+            }
+          ]
+        },
+        {
+          "capability": "horizontal errors",
+          "sources": [
+            {
+              "path": "src/marks/statistical-advanced.ts",
+              "token": "compileEstimatedIntervalMark"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/statistical-advanced.test.mjs",
+              "name": "interval compiler estimates all six interval kinds and horizontal provenance from raw rows"
+            }
+          ]
+        },
+        {
+          "capability": "provenance",
+          "sources": [
+            {
+              "path": "src/data/family-analytics.ts",
+              "token": "EstimatedInterval"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/family-analytics.test.mjs",
+              "name": "raw interval estimation covers CI, PI, SE, SD, IQR, and HDI with orientation and provenance"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "line",
+      "capabilities": [
+        "duplicate and implicit sort policy",
+        "data-domain navigation",
+        "named transform DAG reuse",
+        "worker-bounded streaming retention"
+      ],
+      "traces": [
+        {
+          "capability": "duplicate and implicit sort policy",
+          "sources": [
+            {
+              "path": "src/data/family-analytics.ts",
+              "token": "prepareOrderedSeries"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/statistical-advanced.test.mjs",
+              "name": "line compiler enforces duplicate and implicit sort policy while retaining source rows"
+            }
+          ]
+        },
+        {
+          "capability": "data-domain navigation",
+          "sources": [
+            {
+              "path": "src/interaction/domain-navigation.ts",
+              "token": "panDomainByPixels"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/chart-interaction-runtime.test.mjs",
+              "name": "data-domain navigation supports wheel, pointer drag, keyboard reset, and coordinate round-trip"
+            }
+          ]
+        },
+        {
+          "capability": "named transform DAG reuse",
+          "sources": [
+            {
+              "path": "src/data/dataflow.ts",
+              "token": "executeTransformDataflow"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/foundation-dataflow-encoding.test.mjs",
+              "name": "named dataflow compiles through reusable composition branches with source provenance"
+            }
+          ]
+        },
+        {
+          "capability": "worker-bounded streaming retention",
+          "sources": [
+            {
+              "path": "src/data/worker-runtime.ts",
+              "token": "WorkerStreamRetentionOperation"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/worker-stream-retention.test.mjs",
+              "name": "Worker-owned retention matches main-thread append/upsert/replaceLast and event-time policy"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "motion",
+      "capabilities": ["reverse playback", "loop subranges", "named frames"],
+      "traces": [
+        {
+          "capability": "reverse playback",
+          "sources": [
+            {
+              "path": "src/interaction/playback.ts",
+              "token": "playbackSpec"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/chart-interaction-runtime.test.mjs",
+              "name": "reverse playback composes named seeks with inclusive loop ranges on SVG surfaces"
+            }
+          ]
+        },
+        {
+          "capability": "loop subranges",
+          "sources": [
+            {
+              "path": "src/interaction/playback.ts",
+              "token": "resolvePlaybackTimeline"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/chart-interaction-runtime.test.mjs",
+              "name": "reverse playback composes named seeks with inclusive loop ranges on SVG surfaces"
+            }
+          ]
+        },
+        {
+          "capability": "named frames",
+          "sources": [
+            {
+              "path": "src/interaction/playback.ts",
+              "token": "ResolvedPlaybackNamedFrame"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/chart-interaction-runtime.test.mjs",
+              "name": "reduced motion blocks autoplay and an existing motion frame selects the initial index"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "hierarchy",
+      "capabilities": [
+        "circle pack",
+        "dendrogram and radial tree",
+        "collapse/re-root/zoom",
+        "breadcrumbs and search"
+      ],
+      "traces": [
+        {
+          "capability": "circle pack",
+          "sources": [
+            {
+              "path": "src/data/structured-analytics.ts",
+              "token": "layoutCirclePack"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/structured-analytics.test.mjs",
+              "name": "hierarchy layouts implement circle pack, dendrogram, radial tree, collapse, reroot, breadcrumbs, and search"
+            }
+          ]
+        },
+        {
+          "capability": "dendrogram and radial tree",
+          "sources": [
+            {
+              "path": "src/data/structured-analytics.ts",
+              "token": "layoutDendrogram"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/relationship-advanced.test.mjs",
+              "name": "hierarchy compiler renders circle-pack, dendrogram, and radial layouts with navigation state"
+            }
+          ]
+        },
+        {
+          "capability": "collapse/re-root/zoom",
+          "sources": [
+            {
+              "path": "src/interaction/advanced-family-runtime.ts",
+              "token": "hierarchyRuntimeOptions"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/chart-interaction-runtime.test.mjs",
+              "name": "advanced family pointer gestures recompile navigator, hierarchy, and parallel scenes"
+            }
+          ]
+        },
+        {
+          "capability": "breadcrumbs and search",
+          "sources": [
+            {
+              "path": "src/data/structured-analytics.ts",
+              "token": "hierarchyBreadcrumbs"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/structured-analytics.test.mjs",
+              "name": "hierarchy layouts implement circle pack, dendrogram, radial tree, collapse, reroot, breadcrumbs, and search"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "flow",
+      "capabilities": [
+        "multi-stage graph model",
+        "alignment/order/sort/iterations",
+        "cycles and balance validation",
+        "node drag and path traversal"
+      ],
+      "traces": [
+        {
+          "capability": "multi-stage graph model",
+          "sources": [
+            {
+              "path": "src/data/structured-analytics.ts",
+              "token": "layoutFlow"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/relationship-advanced.test.mjs",
+              "name": "flow compiler supports multi-stage layout, cycle/balance metadata, authored positions and path traversal"
+            }
+          ]
+        },
+        {
+          "capability": "alignment/order/sort/iterations",
+          "sources": [
+            {
+              "path": "src/data/structured-analytics.ts",
+              "token": "FlowLinkSort"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/structured-analytics.test.mjs",
+              "name": "flow link sorting deterministically changes per-node stacking and authored order"
+            }
+          ]
+        },
+        {
+          "capability": "cycles and balance validation",
+          "sources": [
+            {
+              "path": "src/data/structured-analytics.ts",
+              "token": "graphCycles"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/structured-analytics.test.mjs",
+              "name": "flow layout validates balance and cycles, supports order/alignment/iterations/drag, and traverses paths"
+            }
+          ]
+        },
+        {
+          "capability": "node drag and path traversal",
+          "sources": [
+            {
+              "path": "src/data/structured-analytics.ts",
+              "token": "traverseFlowPath"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/chart-interaction-runtime.test.mjs",
+              "name": "flow node pointer drag recompiles authored positions and emits a bounded runtime event"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "scatter",
+      "capabilities": [
+        "color/radius/shape/opacity encodings",
+        "brush/lasso/polygon selection",
+        "data-domain navigation",
+        "spatial index and WebGL dispatch"
+      ],
+      "traces": [
+        {
+          "capability": "color/radius/shape/opacity encodings",
+          "sources": [
+            {
+              "path": "src/encoding/resolve.ts",
+              "token": "EncodingResolver"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/scatter-p0.test.mjs",
+              "name": "scatter resolves portable color, radius, shape, and opacity encodings"
+            }
+          ]
+        },
+        {
+          "capability": "brush/lasso/polygon selection",
+          "sources": [
+            {
+              "path": "src/interaction/analytic-selection.ts",
+              "token": "AnalyticSelectionStore"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/chart-interaction-runtime.test.mjs",
+              "name": "rectangle, lasso, and axis pointer selections use bounded serializable domain state"
+            }
+          ]
+        },
+        {
+          "capability": "data-domain navigation",
+          "sources": [
+            {
+              "path": "src/interaction/domain-navigation.ts",
+              "token": "domainForAxisWindow"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/analytic-interaction.test.mjs",
+              "name": "domain windows zoom and pan within safe bounds and preserve transformed domains"
+            }
+          ]
+        },
+        {
+          "capability": "spatial index and WebGL dispatch",
+          "sources": [
+            {
+              "path": "src/interaction/spatial-index.ts",
+              "token": "UniformSpatialIndex"
+            },
+            {
+              "path": "src/api/scatter-dispatch.ts",
+              "token": "resolveScatterRendererDispatch"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/scatter-p0.test.mjs",
+              "name": "scatter hit testing uses a bounded screen-space spatial index"
+            },
+            {
+              "path": "tests/scatter-p0.test.mjs",
+              "name": "ordinary Chart scatter selects its registered WebGL renderer by threshold or explicit choice"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "table",
+      "capabilities": [
+        "interactive sort/filter/group/pivot controls",
+        "virtualization and frozen regions",
+        "cell-level keyboard grid navigation",
+        "formatter registry"
+      ],
+      "traces": [
+        {
+          "capability": "interactive sort/filter/group/pivot controls",
+          "sources": [
+            {
+              "path": "src/interaction/family-runtime.ts",
+              "token": "normalizeTableRuntimeState"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/layout-advanced.test.mjs",
+              "name": "table compiler applies filter/group/sort, virtual window, frozen cells, keyboard metadata, and formatters"
+            }
+          ]
+        },
+        {
+          "capability": "virtualization and frozen regions",
+          "sources": [
+            {
+              "path": "src/data/family-layouts.ts",
+              "token": "buildTableModel"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/chart-interaction-runtime.test.mjs",
+              "name": "table runtime preserves frozen regions while API and keyboard move the virtual window"
+            }
+          ]
+        },
+        {
+          "capability": "cell-level keyboard grid navigation",
+          "sources": [
+            {
+              "path": "src/data/family-layouts.ts",
+              "token": "moveTableCell"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/family-layouts.test.mjs",
+              "name": "table formatter registry and keyboard grid navigation are closed and bounded"
+            }
+          ]
+        },
+        {
+          "capability": "formatter registry",
+          "sources": [
+            {
+              "path": "src/data/family-layouts.ts",
+              "token": "TableFormatterRegistry"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/layout-advanced.test.mjs",
+              "name": "table compiler uses locale-aware built-ins, host formatters, and rejects unknown ids"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "waterfall",
+      "capabilities": ["explicit relative/absolute/subtotal/total semantics"],
+      "traces": [
+        {
+          "capability": "explicit relative/absolute/subtotal/total semantics",
+          "sources": [
+            {
+              "path": "src/data/family-analytics.ts",
+              "token": "waterfallSteps"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/statistical-advanced.test.mjs",
+              "name": "waterfall compiler honors explicit relative, absolute, subtotal, and total rows"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "word-tree",
+      "capabilities": [
+        "tokenization/case/stopword/stemming",
+        "prefix/suffix/reverse",
+        "phrase aggregation and pruning"
+      ],
+      "traces": [
+        {
+          "capability": "tokenization/case/stopword/stemming",
+          "sources": [
+            {
+              "path": "src/data/structured-analytics.ts",
+              "token": "tokenizeWords"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/structured-analytics.test.mjs",
+              "name": "shared text transform and word tree cover case, stopwords, stemming, n-grams, prefix/suffix/reverse and pruning"
+            }
+          ]
+        },
+        {
+          "capability": "prefix/suffix/reverse",
+          "sources": [
+            {
+              "path": "src/data/structured-analytics.ts",
+              "token": "buildWordTree"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/relationship-advanced.test.mjs",
+              "name": "word-tree compiler tokenizes and aggregates prefix/suffix/reverse trees with pruning"
+            }
+          ]
+        },
+        {
+          "capability": "phrase aggregation and pruning",
+          "sources": [
+            {
+              "path": "src/data/structured-analytics.ts",
+              "token": "WordTreeNode"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/structured-analytics.test.mjs",
+              "name": "shared text transform and word tree cover case, stopwords, stemming, n-grams, prefix/suffix/reverse and pruning"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "polar",
+      "capabilities": [
+        "configurable zero/direction/wrap",
+        "log/sqrt radius",
+        "angular bins",
+        "stacked and normalized radial bars"
+      ],
+      "traces": [
+        {
+          "capability": "configurable zero/direction/wrap",
+          "sources": [
+            {
+              "path": "src/data/family-layouts.ts",
+              "token": "layoutPolar"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/family-layouts.test.mjs",
+              "name": "polar layout implements zero/direction/wrap, log/sqrt radius, angular bins and stacked normalized radial bars"
+            }
+          ]
+        },
+        {
+          "capability": "log/sqrt radius",
+          "sources": [
+            {
+              "path": "src/data/family-layouts.ts",
+              "token": "radiusScale"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/layout-advanced.test.mjs",
+              "name": "polar compiler supports zero/direction/wrap, nonlinear radius, bins, stack, and normalization"
+            }
+          ]
+        },
+        {
+          "capability": "angular bins",
+          "sources": [
+            {
+              "path": "src/data/family-layouts.ts",
+              "token": "binWidth"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/family-layouts.test.mjs",
+              "name": "polar layout implements zero/direction/wrap, log/sqrt radius, angular bins and stacked normalized radial bars"
+            }
+          ]
+        },
+        {
+          "capability": "stacked and normalized radial bars",
+          "sources": [
+            {
+              "path": "src/data/family-layouts.ts",
+              "token": "segments"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/layout-advanced.test.mjs",
+              "name": "polar compiler supports zero/direction/wrap, nonlinear radius, bins, stack, and normalization"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "network",
+      "capabilities": [
+        "directed/multiedge/self-loop/compound/port model",
+        "force/radial/grid/DAG layouts",
+        "drag/pin/collapse/lasso",
+        "edge routing"
+      ],
+      "traces": [
+        {
+          "capability": "directed/multiedge/self-loop/compound/port model",
+          "sources": [
+            {
+              "path": "src/data/network-analytics.ts",
+              "token": "NetworkEdgeInput"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/network-analytics.test.mjs",
+              "name": "network model supports directed multiedges, self-loops, compound nodes and explicit ports"
+            }
+          ]
+        },
+        {
+          "capability": "force/radial/grid/DAG layouts",
+          "sources": [
+            {
+              "path": "src/data/network-analytics.ts",
+              "token": "layoutNetwork"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/network-analytics.test.mjs",
+              "name": "network layout registry covers deterministic force, radial, grid and DAG modes"
+            }
+          ]
+        },
+        {
+          "capability": "drag/pin/collapse/lasso",
+          "sources": [
+            {
+              "path": "src/data/network-analytics.ts",
+              "token": "selectNetworkNodes"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/chart-interaction-runtime.test.mjs",
+              "name": "network pointer controls drag, pin, collapse, and lasso through transient runtime state"
+            }
+          ]
+        },
+        {
+          "capability": "edge routing",
+          "sources": [
+            {
+              "path": "src/data/network-analytics.ts",
+              "token": "NetworkEdgeRouting"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/network-analytics.test.mjs",
+              "name": "network orthogonal routing, drag/pin and polygon lasso are serializable"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "chord",
+      "capabilities": [
+        "matrix transform",
+        "subgroups and sorting",
+        "padding",
+        "directed asymmetry and self-loop semantics"
+      ],
+      "traces": [
+        {
+          "capability": "matrix transform",
+          "sources": [
+            {
+              "path": "src/data/structured-analytics.ts",
+              "token": "layoutChord"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/structured-analytics.test.mjs",
+              "name": "chord transform exposes matrix, sorting, padding, directed asymmetry, subgroups and self-loop semantics"
+            }
+          ]
+        },
+        {
+          "capability": "subgroups and sorting",
+          "sources": [
+            {
+              "path": "src/data/structured-analytics.ts",
+              "token": "ChordGroup"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/relationship-advanced.test.mjs",
+              "name": "chord compiler exposes matrix/subgroup sorting and directed self-loop ribbons"
+            }
+          ]
+        },
+        {
+          "capability": "padding",
+          "sources": [
+            {
+              "path": "src/data/structured-analytics.ts",
+              "token": "ChordOptions"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/structured-analytics.test.mjs",
+              "name": "chord transform exposes matrix, sorting, padding, directed asymmetry, subgroups and self-loop semantics"
+            }
+          ]
+        },
+        {
+          "capability": "directed asymmetry and self-loop semantics",
+          "sources": [
+            {
+              "path": "src/data/structured-analytics.ts",
+              "token": "ChordRibbon"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/relationship-advanced.test.mjs",
+              "name": "chord compiler exposes matrix/subgroup sorting and directed self-loop ribbons"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "funnel",
+      "capabilities": [
+        "conversion/dropoff/cumulative semantics",
+        "neck configuration",
+        "outside label solver"
+      ],
+      "traces": [
+        {
+          "capability": "conversion/dropoff/cumulative semantics",
+          "sources": [
+            {
+              "path": "src/data/structured-analytics.ts",
+              "token": "funnelStages"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/structured-analytics.test.mjs",
+              "name": "funnel stages expose input/output/conversion/dropoff/cumulative meaning, neck geometry and non-overlapping outside labels"
+            }
+          ]
+        },
+        {
+          "capability": "neck configuration",
+          "sources": [
+            {
+              "path": "src/data/structured-analytics.ts",
+              "token": "FunnelOptions"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/relationship-advanced.test.mjs",
+              "name": "funnel compiler renders neck geometry, exact stage semantics and collision-safe outside labels"
+            }
+          ]
+        },
+        {
+          "capability": "outside label solver",
+          "sources": [
+            {
+              "path": "src/marks/relationship-advanced.ts",
+              "token": "compileAdvancedFunnelMark"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/relationship-advanced.test.mjs",
+              "name": "funnel compiler renders neck geometry, exact stage semantics and collision-safe outside labels"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "parallel",
+      "capabilities": [
+        "log scale",
+        "missing routing",
+        "axis reorder/invert",
+        "per-axis brush and linked filter"
+      ],
+      "traces": [
+        {
+          "capability": "log scale",
+          "sources": [
+            {
+              "path": "src/data/structured-analytics.ts",
+              "token": "ParallelScaleType"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/structured-analytics.test.mjs",
+              "name": "parallel projection implements linear/log/ordinal axes, missing routes, invert/reorder and linked multi-brush filters"
+            }
+          ]
+        },
+        {
+          "capability": "missing routing",
+          "sources": [
+            {
+              "path": "src/data/structured-analytics.ts",
+              "token": "projectParallelRows"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/relationship-advanced.test.mjs",
+              "name": "parallel compiler applies reordered log/inverted/missing axes and per-axis multi-brush selection"
+            }
+          ]
+        },
+        {
+          "capability": "axis reorder/invert",
+          "sources": [
+            {
+              "path": "src/interaction/advanced-family-runtime.ts",
+              "token": "reorderParallelAxis"
+            },
+            {
+              "path": "src/interaction/advanced-family-runtime.ts",
+              "token": "invertParallelAxis"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/advanced-family-runtime.test.mjs",
+              "name": "parallel runtime reorders, inverts and replaces a per-axis multi-brush"
+            }
+          ]
+        },
+        {
+          "capability": "per-axis brush and linked filter",
+          "sources": [
+            {
+              "path": "src/interaction/advanced-family-runtime.ts",
+              "token": "setParallelBrushExtents"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/chart-interaction-runtime.test.mjs",
+              "name": "advanced family pointer gestures recompile navigator, hierarchy, and parallel scenes"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "heatmap",
+      "capabilities": [
+        "pivot/matrix input",
+        "irregular extents",
+        "explicit missing-value pattern",
+        "diverging/log/symlog/quantile color",
+        "brush"
+      ],
+      "traces": [
+        {
+          "capability": "pivot/matrix input",
+          "sources": [
+            {
+              "path": "src/data/specialized-coordinate-analytics.ts",
+              "token": "buildHeatmapMatrix"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/specialized-coordinate-analytics.test.mjs",
+              "name": "heatmap pivots long form, retains irregular extents, patterns missing values and maps five color modes"
+            }
+          ]
+        },
+        {
+          "capability": "irregular extents",
+          "sources": [
+            {
+              "path": "src/data/specialized-coordinate-analytics.ts",
+              "token": "HeatmapCell"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/analytical-p0-compiler.test.mjs",
+              "name": "heatmap compiler pivots irregular cells, renders missing patterns, and exposes linked brush state"
+            }
+          ]
+        },
+        {
+          "capability": "explicit missing-value pattern",
+          "sources": [
+            {
+              "path": "src/marks/analytical-p0.ts",
+              "token": "heatmapPattern"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/analytical-p0-compiler.test.mjs",
+              "name": "heatmap compiler pivots irregular cells, renders missing patterns, and exposes linked brush state"
+            }
+          ]
+        },
+        {
+          "capability": "diverging/log/symlog/quantile color",
+          "sources": [
+            {
+              "path": "src/data/specialized-coordinate-analytics.ts",
+              "token": "heatmapColorPosition"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/specialized-coordinate-analytics.test.mjs",
+              "name": "heatmap pivots long form, retains irregular extents, patterns missing values and maps five color modes"
+            }
+          ]
+        },
+        {
+          "capability": "brush",
+          "sources": [
+            {
+              "path": "src/data/specialized-coordinate-analytics.ts",
+              "token": "brushHeatmap"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/chart-interaction-runtime.test.mjs",
+              "name": "heatmap and scatter-matrix pointer brushes update linked runtime scenes"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "image",
+      "capabilities": ["extent and origin", "resampling", "colormap and window mapping"],
+      "traces": [
+        {
+          "capability": "extent and origin",
+          "sources": [
+            {
+              "path": "src/data/specialized-coordinate-analytics.ts",
+              "token": "RasterImage"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/specialized-coordinate-analytics.test.mjs",
+              "name": "raster image supports extent/origin and nearest, bilinear, bicubic sampling"
+            }
+          ]
+        },
+        {
+          "capability": "resampling",
+          "sources": [
+            {
+              "path": "src/data/specialized-coordinate-analytics.ts",
+              "token": "sampleRaster"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/specialized-coordinate-analytics.test.mjs",
+              "name": "raster image supports extent/origin and nearest, bilinear, bicubic sampling"
+            }
+          ]
+        },
+        {
+          "capability": "colormap and window mapping",
+          "sources": [
+            {
+              "path": "src/data/specialized-coordinate-analytics.ts",
+              "token": "mapRasterColor"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/specialized-coordinate-analytics.test.mjs",
+              "name": "raster color mapping applies window, colormap, alpha and channel compositing"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ternary",
+      "capabilities": [
+        "constant-sum validation policy",
+        "raw and normalized tooltip",
+        "component ticks and formatting"
+      ],
+      "traces": [
+        {
+          "capability": "constant-sum validation policy",
+          "sources": [
+            {
+              "path": "src/data/specialized-coordinate-analytics.ts",
+              "token": "projectTernary"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/specialized-coordinate-analytics.test.mjs",
+              "name": "ternary projection validates constant sums, normalizes explicitly and exposes component ticks and dual tooltip"
+            }
+          ]
+        },
+        {
+          "capability": "raw and normalized tooltip",
+          "sources": [
+            {
+              "path": "src/data/specialized-coordinate-analytics.ts",
+              "token": "TernaryPoint"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/analytical-p0-compiler.test.mjs",
+              "name": "ternary and Smith compilers expose normalized and specialist projected coordinates"
+            }
+          ]
+        },
+        {
+          "capability": "component ticks and formatting",
+          "sources": [
+            {
+              "path": "src/marks/analytical-p0.ts",
+              "token": "ternaryTickFormatter"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/specialized-coordinate-analytics.test.mjs",
+              "name": "ternary projection validates constant sums, normalizes explicitly and exposes component ticks and dual tooltip"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "smith",
+      "capabilities": [
+        "impedance/admittance/combined modes",
+        "reference impedance",
+        "S/Z/Y/reflection inputs",
+        "specialized labels and tooltip"
+      ],
+      "traces": [
+        {
+          "capability": "impedance/admittance/combined modes",
+          "sources": [
+            {
+              "path": "src/data/specialized-coordinate-analytics.ts",
+              "token": "SmithInputMode"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/specialized-coordinate-analytics.test.mjs",
+              "name": "Smith projection supports reflection/S, Z, Y and combined specialist labels at an explicit reference impedance"
+            }
+          ]
+        },
+        {
+          "capability": "reference impedance",
+          "sources": [
+            {
+              "path": "src/data/specialized-coordinate-analytics.ts",
+              "token": "SmithOptions"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/specialized-coordinate-analytics.test.mjs",
+              "name": "Smith projection supports reflection/S, Z, Y and combined specialist labels at an explicit reference impedance"
+            }
+          ]
+        },
+        {
+          "capability": "S/Z/Y/reflection inputs",
+          "sources": [
+            {
+              "path": "src/data/specialized-coordinate-analytics.ts",
+              "token": "projectSmith"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/analytical-p0-compiler.test.mjs",
+              "name": "ternary and Smith compilers expose normalized and specialist projected coordinates"
+            }
+          ]
+        },
+        {
+          "capability": "specialized labels and tooltip",
+          "sources": [
+            {
+              "path": "src/marks/analytical-p0.ts",
+              "token": "compileAnalyticalSmithMark"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/specialized-coordinate-analytics.test.mjs",
+              "name": "Smith projection supports reflection/S, Z, Y and combined specialist labels at an explicit reference impedance"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "scatter-matrix",
+      "capabilities": [
+        "selectable diagonal KDE/ECDF",
+        "upper/lower mark selection",
+        "linked brush"
+      ],
+      "traces": [
+        {
+          "capability": "selectable diagonal KDE/ECDF",
+          "sources": [
+            {
+              "path": "src/data/specialized-coordinate-analytics.ts",
+              "token": "scatterMatrixPlan"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/specialized-coordinate-analytics.test.mjs",
+              "name": "scatter-matrix plan selects diagonal KDE/ECDF and independent upper/lower marks with one linked brush key"
+            }
+          ]
+        },
+        {
+          "capability": "upper/lower mark selection",
+          "sources": [
+            {
+              "path": "src/marks/analytical-p0.ts",
+              "token": "compileAnalyticalScatterMatrixMark"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/analytical-p0-compiler.test.mjs",
+              "name": "scatter-matrix compiler renders independent cell kinds with one linked selection contract"
+            }
+          ]
+        },
+        {
+          "capability": "linked brush",
+          "sources": [
+            {
+              "path": "src/interaction/advanced-family-runtime.ts",
+              "token": "scatterMatrixPointerBrush"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/scatter-matrix-runtime.test.mjs",
+              "name": "one scatter-matrix cell brush highlights the same source rows across every cell"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "carpet",
+      "capabilities": ["logical axis ticks and labels", "mask policy", "dual projected tooltip"],
+      "traces": [
+        {
+          "capability": "logical axis ticks and labels",
+          "sources": [
+            {
+              "path": "src/data/specialized-coordinate-analytics.ts",
+              "token": "projectCarpet"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/specialized-coordinate-analytics.test.mjs",
+              "name": "carpet projection handles irregular logical axes, masks, ticks and dual projected tooltips"
+            }
+          ]
+        },
+        {
+          "capability": "mask policy",
+          "sources": [
+            {
+              "path": "src/marks/analytical-p0.ts",
+              "token": "maskMatrix"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/analytical-p0-compiler.test.mjs",
+              "name": "carpet and item compilers surface masks, dual coordinates, partial units, and fill direction"
+            }
+          ]
+        },
+        {
+          "capability": "dual projected tooltip",
+          "sources": [
+            {
+              "path": "src/data/specialized-coordinate-analytics.ts",
+              "token": "CarpetPoint"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/specialized-coordinate-analytics.test.mjs",
+              "name": "carpet projection handles irregular logical axes, masks, ticks and dual projected tooltips"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "contour",
+      "capabilities": [
+        "filled and banded contours with polygon-hole topology",
+        "triangulated irregular samples",
+        "smoothing"
+      ],
+      "traces": [
+        {
+          "capability": "filled and banded contours with polygon-hole topology",
+          "sources": [
+            {
+              "path": "src/data/field-analytics.ts",
+              "token": "contourField"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/field-analytics.test.mjs",
+              "name": "regular contour fields support explicit and quantile thresholds, isolines, and filled bands"
+            }
+          ]
+        },
+        {
+          "capability": "triangulated irregular samples",
+          "sources": [
+            {
+              "path": "src/data/field-analytics.ts",
+              "token": "irregularTriangles"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/field-analytics.test.mjs",
+              "name": "triangulated irregular samples preserve topology, provenance, and deterministic smoothing"
+            }
+          ]
+        },
+        {
+          "capability": "smoothing",
+          "sources": [
+            {
+              "path": "src/data/field-analytics.ts",
+              "token": "smoothRing"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/field-analytics.test.mjs",
+              "name": "triangulated irregular samples preserve topology, provenance, and deterministic smoothing"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "item",
+      "capabilities": [
+        "explicit waffle/isotype contract",
+        "partial units",
+        "fill direction and grouping",
+        "accessible counts"
+      ],
+      "traces": [
+        {
+          "capability": "explicit waffle/isotype contract",
+          "sources": [
+            {
+              "path": "src/data/specialized-coordinate-analytics.ts",
+              "token": "layoutItems"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/specialized-coordinate-analytics.test.mjs",
+              "name": "item layout provides waffle/isotype units, partial amounts, direction, grouping and accessible counts"
+            }
+          ]
+        },
+        {
+          "capability": "partial units",
+          "sources": [
+            {
+              "path": "src/data/specialized-coordinate-analytics.ts",
+              "token": "ItemUnit"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/analytical-p0-compiler.test.mjs",
+              "name": "carpet and item compilers surface masks, dual coordinates, partial units, and fill direction"
+            }
+          ]
+        },
+        {
+          "capability": "fill direction and grouping",
+          "sources": [
+            {
+              "path": "src/data/specialized-coordinate-analytics.ts",
+              "token": "ItemLayoutOptions"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/specialized-coordinate-analytics.test.mjs",
+              "name": "item layout provides waffle/isotype units, partial amounts, direction, grouping and accessible counts"
+            }
+          ]
+        },
+        {
+          "capability": "accessible counts",
+          "sources": [
+            {
+              "path": "src/marks/analytical-p0.ts",
+              "token": "compileAnalyticalItemMark"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/specialized-coordinate-analytics.test.mjs",
+              "name": "item layout provides waffle/isotype units, partial amounts, direction, grouping and accessible counts"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "vector-field",
+      "capabilities": [
+        "vector-to-magnitude transform",
+        "normalization and sampled grid",
+        "streamline seeding/integration"
+      ],
+      "traces": [
+        {
+          "capability": "vector-to-magnitude transform",
+          "sources": [
+            {
+              "path": "src/data/field-analytics.ts",
+              "token": "analyzeVectorField"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/field-analytics.test.mjs",
+              "name": "vector fields expose magnitude, direction, normalization, and bounded grid sampling"
+            }
+          ]
+        },
+        {
+          "capability": "normalization and sampled grid",
+          "sources": [
+            {
+              "path": "src/data/field-analytics.ts",
+              "token": "Vector2FieldOptions"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/field-analytics.test.mjs",
+              "name": "complete compiler renders normalized sampled vectors and seeded adaptive streamlines"
+            }
+          ]
+        },
+        {
+          "capability": "streamline seeding/integration",
+          "sources": [
+            {
+              "path": "src/data/field-analytics.ts",
+              "token": "integrateVector"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/field-analytics.test.mjs",
+              "name": "adaptive vector integration is seeded, deterministic, directional, and step bounded"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "venn",
+      "capabilities": [
+        "membership and intersection input",
+        "proportional two/three-set solve",
+        "quality metric and queries",
+        "region hit"
+      ],
+      "traces": [
+        {
+          "capability": "membership and intersection input",
+          "sources": [
+            {
+              "path": "src/data/structured-analytics.ts",
+              "token": "analyzeSets"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/structured-analytics.test.mjs",
+              "name": "set analysis computes membership intersections, proportional circles, quality, queries and region hits"
+            }
+          ]
+        },
+        {
+          "capability": "proportional two/three-set solve",
+          "sources": [
+            {
+              "path": "src/data/structured-analytics.ts",
+              "token": "solveCircleDistance"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/structured-analytics.test.mjs",
+              "name": "set solver preserves proportional areas and reports exact versus constrained quality"
+            }
+          ]
+        },
+        {
+          "capability": "quality metric and queries",
+          "sources": [
+            {
+              "path": "src/data/structured-analytics.ts",
+              "token": "querySetRegion"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/relationship-advanced.test.mjs",
+              "name": "Venn compiler derives memberships, proportional quality, exact query and hit metadata"
+            }
+          ]
+        },
+        {
+          "capability": "region hit",
+          "sources": [
+            {
+              "path": "src/data/structured-analytics.ts",
+              "token": "hitSetRegion"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/venn-runtime-hit.test.mjs",
+              "name": "Venn hit testing resolves the actual overlap interior instead of its label marker"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "word-cloud",
+      "capabilities": [
+        "tokenizer/stopword/n-gram",
+        "deterministic seed",
+        "padding and allowed-rotation API"
+      ],
+      "traces": [
+        {
+          "capability": "tokenizer/stopword/n-gram",
+          "sources": [
+            {
+              "path": "src/data/structured-analytics.ts",
+              "token": "tokenizeWords"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/structured-analytics.test.mjs",
+              "name": "word cloud is seeded, padded, rotation-bounded and collision-free"
+            }
+          ]
+        },
+        {
+          "capability": "deterministic seed",
+          "sources": [
+            {
+              "path": "src/data/structured-analytics.ts",
+              "token": "layoutWordCloud"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/relationship-advanced.test.mjs",
+              "name": "word-cloud compiler has deterministic tokenizer/ngram/seed/padding/rotation Scene output"
+            }
+          ]
+        },
+        {
+          "capability": "padding and allowed-rotation API",
+          "sources": [
+            {
+              "path": "src/data/structured-analytics.ts",
+              "token": "WordCloudLayoutOptions"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/structured-analytics.test.mjs",
+              "name": "word cloud is seeded, padded, rotation-bounded and collision-free"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "price-blocks",
+      "capabilities": [
+        "Kagi",
+        "three-line break",
+        "range bars",
+        "percent/ATR/log sizing",
+        "OHLC-source provenance"
+      ],
+      "traces": [
+        {
+          "capability": "Kagi",
+          "sources": [
+            {
+              "path": "src/data/finance-analytics.ts",
+              "token": "buildKagi"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/finance-analytics.test.mjs",
+              "name": "Kagi applies reversal thresholds and yin-yang thickness changes"
+            }
+          ]
+        },
+        {
+          "capability": "three-line break",
+          "sources": [
+            {
+              "path": "src/data/finance-analytics.ts",
+              "token": "buildLineBreak"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/finance-analytics.test.mjs",
+              "name": "three-line break only emits closes outside the previous line envelope"
+            }
+          ]
+        },
+        {
+          "capability": "range bars",
+          "sources": [
+            {
+              "path": "src/data/finance-analytics.ts",
+              "token": "buildRangeBars"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/finance-analytics.test.mjs",
+              "name": "range bars consume deterministic intrabar paths and preserve exact range"
+            }
+          ]
+        },
+        {
+          "capability": "percent/ATR/log sizing",
+          "sources": [
+            {
+              "path": "src/data/finance-analytics.ts",
+              "token": "sizingResolver"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/finance-analytics.test.mjs",
+              "name": "price blocks support percent, logarithmic, and ATR sizing plus session resets"
+            }
+          ]
+        },
+        {
+          "capability": "OHLC-source provenance",
+          "sources": [
+            {
+              "path": "src/data/finance-analytics.ts",
+              "token": "provenance"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/finance-analytics.test.mjs",
+              "name": "complete compiler renders every advanced price-block mode with portable options and provenance tooltips"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "volume-profile",
+      "capabilities": [
+        "fixed/visible/session/periodic scope",
+        "row size",
+        "POC/VAH/VAL",
+        "left placement"
+      ],
+      "traces": [
+        {
+          "capability": "fixed/visible/session/periodic scope",
+          "sources": [
+            {
+              "path": "src/data/finance-analytics.ts",
+              "token": "VolumeProfileScope"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/finance-analytics.test.mjs",
+              "name": "session and periodic profiles produce one ordered profile per scope partition"
+            }
+          ]
+        },
+        {
+          "capability": "row size",
+          "sources": [
+            {
+              "path": "src/data/finance-analytics.ts",
+              "token": "resolveRowSize"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/finance-analytics.test.mjs",
+              "name": "fixed and visible volume profiles resolve row size, POC, VAH/VAL, placement, and provenance"
+            }
+          ]
+        },
+        {
+          "capability": "POC/VAH/VAL",
+          "sources": [
+            {
+              "path": "src/data/finance-analytics.ts",
+              "token": "valueArea"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/finance-analytics.test.mjs",
+              "name": "fixed and visible volume profiles resolve row size, POC, VAH/VAL, placement, and provenance"
+            }
+          ]
+        },
+        {
+          "capability": "left placement",
+          "sources": [
+            {
+              "path": "src/marks/finance-advanced.ts",
+              "token": "compileAdvancedVolumeProfileMark"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/finance-analytics.test.mjs",
+              "name": "complete compiler renders left-side session profiles and explicit POC/VAH/VAL guides"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "technical-indicator",
+      "capabilities": [
+        "calculation coverage for the 28 precomputed-only presets",
+        "session-aware warm-up policy",
+        "indicator panes and synchronized crosshair",
+        "worker-bounded incremental calculation"
+      ],
+      "traces": [
+        {
+          "capability": "calculation coverage for the 28 precomputed-only presets",
+          "sources": [
+            {
+              "path": "src/data/technical-indicators.ts",
+              "token": "technicalIndicatorCapabilities"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/technical-indicator-p0.test.mjs",
+              "name": "the 28 former supplied-column presets calculate every declared output deterministically"
+            }
+          ]
+        },
+        {
+          "capability": "session-aware warm-up policy",
+          "sources": [
+            {
+              "path": "src/data/technical-indicators.ts",
+              "token": "resolveSessionState"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/technical-indicator-p0.test.mjs",
+              "name": "hard sessions reset warm-up and cumulative state while carry sessions retain it"
+            }
+          ]
+        },
+        {
+          "capability": "indicator panes and synchronized crosshair",
+          "sources": [
+            {
+              "path": "src/compiler/technical-indicator-panels.ts",
+              "token": "materializeTechnicalIndicatorPanes"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/chart-interaction-runtime.test.mjs",
+              "name": "technical indicator pointer crosshair synchronizes every pane and clears on leave"
+            }
+          ]
+        },
+        {
+          "capability": "worker-bounded incremental calculation",
+          "sources": [
+            {
+              "path": "src/data/technical-indicator-incremental.ts",
+              "token": "calculateTechnicalIndicatorIncremental"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/technical-indicator-p0.test.mjs",
+              "name": "all 45 presets advance only the appended suffix and retain one-shot parity"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "surface",
+      "capabilities": ["flat/smooth normal mode", "filled plus wire overlay", "contour projection"],
+      "traces": [
+        {
+          "capability": "flat/smooth normal mode",
+          "sources": [
+            {
+              "path": "src/spatial/surface-analysis.ts",
+              "token": "computeSurfaceNormalGeometry"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/spatial-p0.test.mjs",
+              "name": "surface CPU references preserve smooth topology and exact flat face normals"
+            }
+          ]
+        },
+        {
+          "capability": "filled plus wire overlay",
+          "sources": [
+            {
+              "path": "src/spatial/compile.ts",
+              "token": "compileSurfaceGeometry"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/spatial-p0.test.mjs",
+              "name": "surface P0 compiles flat shading, filled wire overlay and bounded contour projections"
+            }
+          ]
+        },
+        {
+          "capability": "contour projection",
+          "sources": [
+            {
+              "path": "src/spatial/surface-analysis.ts",
+              "token": "extractSurfaceContourSegments"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/spatial-p0.test.mjs",
+              "name": "surface P0 compiles flat shading, filled wire overlay and bounded contour projections"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "volume",
+      "capabilities": [
+        "transfer functions",
+        "raycast/MIP/minIP/average",
+        "orthogonal and oblique slices",
+        "caps and window-level"
+      ],
+      "traces": [
+        {
+          "capability": "transfer functions",
+          "sources": [
+            {
+              "path": "src/spatial/volume-rendering.ts",
+              "token": "evaluateVolumeTransfer"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/spatial-p0.test.mjs",
+              "name": "volume CPU reference executes raycast, MIP, minIP, average, window-level and slices"
+            }
+          ]
+        },
+        {
+          "capability": "raycast/MIP/minIP/average",
+          "sources": [
+            {
+              "path": "src/spatial/volume-rendering.ts",
+              "token": "projectVolumeRays"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/spatial-p0.test.mjs",
+              "name": "volume CPU reference executes raycast, MIP, minIP, average, window-level and slices"
+            }
+          ]
+        },
+        {
+          "capability": "orthogonal and oblique slices",
+          "sources": [
+            {
+              "path": "src/spatial/volume-rendering.ts",
+              "token": "sampleVolumeSlice"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/spatial-p0.test.mjs",
+              "name": "volume P0 emits actual WebGL triangle geometry for projection, caps and arbitrary slices"
+            }
+          ]
+        },
+        {
+          "capability": "caps and window-level",
+          "sources": [
+            {
+              "path": "src/spatial/volume-rendering.ts",
+              "token": "normalizeVolumeValue"
+            },
+            {
+              "path": "src/spatial/compile.ts",
+              "token": "geometryFromVolumeSlice"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/spatial-p0.test.mjs",
+              "name": "volume CPU reference executes raycast, MIP, minIP, average, window-level and slices"
+            },
+            {
+              "path": "tests/spatial-p0.test.mjs",
+              "name": "volume P0 emits actual WebGL triangle geometry for projection, caps and arbitrary slices"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "spatial-vector",
+      "capabilities": ["seeded adaptive field integration"],
+      "traces": [
+        {
+          "capability": "seeded adaptive field integration",
+          "sources": [
+            {
+              "path": "src/spatial/vector-field-integration.ts",
+              "token": "integrateVectorField"
+            }
+          ],
+          "tests": [
+            {
+              "path": "tests/spatial-p0.test.mjs",
+              "name": "seeded adaptive 3D field integration is deterministic, bounded and provenance-rich"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

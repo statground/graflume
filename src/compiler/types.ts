@@ -1,4 +1,5 @@
 import type { DataTable } from '../data/table.js';
+import type { TableFormatterRegistry } from '../data/family-layouts.js';
 import type { PerformanceSettings } from '../data/performance.js';
 import type { Scale } from '../scale/types.js';
 import type { NormalizedLayerSpec, FieldType } from '../spec/types.js';
@@ -21,6 +22,8 @@ export interface MarkCompileContext {
   readonly yType: FieldType;
   readonly plot: PlotArea;
   readonly theme: ThemeTokens;
+  readonly locale?: string;
+  readonly tableFormatters: TableFormatterRegistry;
   readonly color: string;
   readonly performance: PerformanceSettings;
   readonly barGroup: BarGroupContext;

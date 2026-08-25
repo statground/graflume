@@ -361,13 +361,22 @@ export class EncodingResolver {
   }
 
   shape(rowIndex: number, fallback = 'circle'): string {
-    const prepared = this.#prepare('shape');
+    const channel: EncodingChannel = this.has('shape') ? 'shape' : 'symbol';
+    const prepared = this.#prepare(channel);
     if (prepared === undefined) return fallback;
     const resolved = resolvedFrom(prepared.spec, this.context.table.row(rowIndex));
     const value = resolved.value;
     if (resolved.literal && typeof value === 'string') return value;
     const index = prepared.categoryIndices.get(key(value));
     return index === undefined ? fallback : (shapeRange[index % shapeRange.length] ?? fallback);
+  }
+
+  icon(rowIndex: number): string | undefined {
+    const value = this.raw('icon', rowIndex);
+    if (typeof value !== 'string') return undefined;
+    const normalized = value.trim();
+    if (normalized === '' || /[\u0000-\u001f\u007f]/u.test(normalized)) return undefined;
+    return Array.from(normalized).slice(0, 8).join('');
   }
 
   text(rowIndex: number, fallback?: string): string | undefined {

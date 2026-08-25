@@ -13,21 +13,21 @@ The spatial entry accepts the closed, function-free `SpatialSpec 0.1` contract a
 
 The default plus complete catalog has 41 canonical 2D families. The optional spatial entry adds three canonical families, for a combined boundary of 44:
 
-| Canonical family | Modes                                          | Quick APIs                                         |
-| ---------------- | ---------------------------------------------- | -------------------------------------------------- |
-| `surface`        | `surface`, `mesh`                              | `surface()`, `mesh()`                              |
-| `volume`         | `volume`, `isosurface`                         | `volume()`, `isosurface()`                         |
-| `spatial-vector` | `vector-cone`, `streamtube`, `spatial-scatter` | `vectorCone()`, `streamtube()`, `spatialScatter()` |
+| Canonical family | Modes                                          | Quick APIs                                                          |
+| ---------------- | ---------------------------------------------- | ------------------------------------------------------------------- |
+| `surface`        | `surface`, `mesh`                              | `surface()`, `mesh()`                                               |
+| `volume`         | `volume`, `isosurface`                         | `volume()`, `isosurface()`                                          |
+| `spatial-vector` | `vector-cone`, `streamtube`, `spatial-scatter` | `vectorCone()`, `streamtube()`, `vectorField()`, `spatialScatter()` |
 
 `globe()` is a spatial mode of the existing canonical `map` family, not a 45th family. See [spatial compatibility](./compatibility.md).
 
-The machine catalog also exposes the presentation count: 165 default/complete presets + 7 spatial variants + 1 integrated globe mode = 173 presets and modes across 44 canonical families.
+The machine catalog also exposes the presentation count: 168 default/complete presets + 7 spatial variants + 1 integrated globe mode = 176 presets and modes across 44 canonical families.
 
 ## Guides and compiled previews
 
 - [Surface and mesh](./surface.md)
 - [Volume and isosurface](./volume.md)
-- [Vector cones, streamtubes, and spatial scatter](./spatial-vector.md)
+- [Vector cones, streamtubes, integrated fields, and spatial scatter](./spatial-vector.md)
 - [Map globe mode](./map-globe.md)
 - [Compatibility, serialization, and limits](./compatibility.md)
 - [Runnable browser gallery](../../examples/cdn/spatial-chart-types.html)
@@ -65,6 +65,8 @@ const chart = GraflumeSpatial.createSpatial('#chart', {
     description: 'Three-dimensional observation positions and values.',
     table: true,
     maxRows: 100,
+    navigation: { pageRows: 10, wrap: false },
+    linkedFocus: { group: 'observation-dashboard', key: 'label' },
   },
   legend: { mode: 'layers', interactive: true, title: 'Observation layers' },
   highlights: [{ id: 'focus-volume', target: { type: 'box', min: [-1, -1, -1], max: [1, 1, 1] } }],
@@ -94,7 +96,7 @@ const chart = GraflumeSpatial.createSpatial('#chart', {
 
 `SpatialSpec.theme` accepts any id in the exported `builtInThemeCatalog`, or the same custom theme override as `ChartSpec`. Consumers should build pickers from that catalog instead of copying a fixed list. The `ggplot` profile applies its grey panel, white outer surface, typography, HCL categorical colours, continuous ramp, legend, callout, tooltip, and control chrome. The `r-base` profile applies the R 4.6.1 white surface, black typography and chrome, and R 4 palette. The `matplotlib` profile applies the Matplotlib 3.11.1 white surface, DejaVu Sans-first typography, tab10 cycle, exact viridis mapping, and light legend chrome. Spatial geometry, camera, lighting, depth, and the absence of a Cartesian plot box remain spatial because the reference systems do not define Graflume's WebGL semantics. Explicit spatial `background`, mark colours, and datum colours take precedence. See [Chart themes](../charts/themes.md).
 
-Every Quick API and `createSpatial()` returns a `SpatialChart` with `getSpec()`, `setSpec()`, `getAvailability()`, `getCamera()`, `setCamera()`, `orbitBy()`, `panBy()`, `zoomBy()`, `resetCamera()`, `setProjection()`, `getLegendState()`, `setLegendItemVisible()`, `resetLegend()`, `getSelection()`, `setSelection()`, `clearSelection()`, `getAnnotations()`, `setAnnotations()`, `addAnnotation()`, `updateAnnotation()`, `removeAnnotation()`, `getAnnotationsVisible()`, `setAnnotationsVisible()`, `toggleAnnotations()`, `resize()`, `render()`, `toDataURL()`, `toggleFullscreen()`, `on()`, `off()`, and `destroy()`.
+Every Quick API and `createSpatial()` returns a `SpatialChart` with `getSpec()`, `setSpec()`, `getAvailability()`, `getCamera()`, `setCamera()`, `orbitBy()`, `panBy()`, `zoomBy()`, `resetCamera()`, `setProjection()`, `getSemanticNavigationState()`, `focusSemanticNode()`, `clearSemanticFocus()`, `getLegendState()`, `setLegendItemVisible()`, `resetLegend()`, `getSelection()`, `setSelection()`, `clearSelection()`, `getAnnotations()`, `setAnnotations()`, `addAnnotation()`, `updateAnnotation()`, `removeAnnotation()`, `getAnnotationsVisible()`, `setAnnotationsVisible()`, `toggleAnnotations()`, `resize()`, `render()`, `toDataURL()`, `toggleFullscreen()`, `on()`, `off()`, and `destroy()`.
 
 ## Spatial legends, highlights, selection, and callouts
 
@@ -125,7 +127,11 @@ Highlights, selection rings, callouts, and legends are safe DOM overlays over th
 
 ## Interaction and accessibility
 
-The compact toolbar stays at the upper-right edge and participates in automatic callout collision scoring. Its visual buttons are 28 px; coarse pointers and viewports up to 560 px receive 44 px targets. Keyboard focus uses a visible outline. `interaction.labels.showAnnotations` and `hideAnnotations` localize the annotation visibility button. Pointer drag orbits, Pan mode/Shift-drag/secondary-button drag pans, two pointers pinch, and keyboard arrows or `+`, `-`, `0` navigate.
+The compact toolbar stays at the upper-right edge and participates in automatic callout collision scoring. Its visual buttons are 28 px; coarse pointers and viewports up to 560 px receive 44 px targets. Keyboard focus uses a visible outline. `interaction.labels.showAnnotations` and `hideAnnotations` localize the annotation visibility button. Pointer drag orbits, Pan mode/Shift-drag/secondary-button drag pans, and two pointers pinch. Without semantic traversal, keyboard arrows plus `+`, `-`, `0` navigate the camera.
+
+With `accessibility.navigation`, Arrow keys traverse the bounded GPU pick index, Home/End move to its boundaries, Page Up/Page Down use the authored page size, and Enter/Space activates the existing selection contract. Shift+Arrow continues to navigate the camera. The active pick is projected into a visible focus ring, synchronized to the hidden semantic row through `aria-activedescendant`, and reprojected after orbit, pan, zoom, resize, projection, or scene changes. `focusSemanticNode()` and `getSemanticNavigationState()` expose the same deterministic path to host code.
+
+`accessibility.linkedFocus` matches one stable scalar datum field across Canvas and Spatial views in the same group. The shared store is bounded by views, rows, and listeners and emits JSON-safe state; callbacks remain runtime-only. Pass `SpatialCreateOptions.focusStore` to isolate a dashboard or deterministic test, or omit it to join the default shared focus store.
 
 Wheel zoom defaults to `wheel: "modifier"`, so it runs only with Control or Command and does not take normal page scrolling. `"always"` and `"off"` are explicit alternatives. The surface is `touch-action: pan-y` while idle and captures a horizontal or multi-pointer spatial gesture only while it is active.
 
@@ -148,7 +154,7 @@ Fullscreen always follows the fullscreen element's current box, even when embedd
 
 - This entry renders its own GPU scene and does not mix spatial layers into a normal 2D `ChartSpec` scene.
 - It uses WebGL2 when available and WebGL1 as a fallback. It does not require or expose an external rendering framework.
-- Volume mode is bounded point sampling; isosurface mode extracts triangles with marching tetrahedra. It is not a medical-volume segmentation toolkit.
+- Volume mode supports the legacy bounded scalar cloud, transfer/window mapped object-space raycast, MIP/minIP/average projections, orthogonal/oblique slices and caps; isosurface mode extracts triangles with marching tetrahedra. These are scientific visualization contracts, not a medical segmentation or diagnostic toolkit.
 - Transparency uses an opaque depth-writing pass followed by per-geometry back-to-front alpha blending without depth writes. It is not triangle-level order-independent transparency.
 - Picking uses semantic targets rendered into a cached depth-aware identifier pass. It is not a general triangle-inspection or arbitrary ray-query API.
 - Derived output is bounded across the entire scene before allocation: 2,000,000 vertices, 6,000,000 indices, 500,000 pick targets, and an estimated 256 MiB. The same limits are exported as `spatialOutputLimits` and recorded in the schema metadata.

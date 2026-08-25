@@ -160,13 +160,47 @@ Rendered datum shapes carry layer id, row index, and the original row for hover/
 
 The inspection viewport can magnify the rendered Scene table, but it is not sorting, paging, frozen-column navigation, or browser text zoom. Playback filtering is normally inappropriate for an exact-value reference because rows disappear by frame. Keep the adjacent semantic HTML table available to assistive technology and ordinary browser search; see [Common chart interactions](./interactions.md).
 
+Table headers are live sort controls (click cycles ascending, descending, and input order; Shift-click builds a bounded multi-column sort). Cells use WAI-ARIA-grid arrow, Home/End, and PageUp/PageDown traversal. Runtime filter/group/pivot state is function-free, bounded, JSON-serializable, and emits `tablechange` after the Scene is recompiled:
+
+`mark.options.frozenRows` and `frozenColumns` are anchored to the transformed table, not to either virtual slice. `windowOffset`/`windowLimit` move the row window and `columnOffset`/`columnLimit` move the column window while authored leading regions stay visible. Programmatic focus and keyboard traversal move only the necessary row or column window; entering a frozen cell does not reset either scroll position.
+
+```ts
+chart.setTableFilters('layer-0', [{ field: 'amount', operator: 'greater-or-equal', value: 10 }]);
+chart.setTableGroup('layer-0', {
+  fields: ['region'],
+  aggregates: [{ field: 'amount', op: 'sum', as: 'total' }],
+});
+chart.setTablePivot('layer-0', {
+  row: 'region',
+  column: 'quarter',
+  value: 'amount',
+  op: 'sum',
+});
+chart.setTableRuntimeState('layer-0', {
+  windowOffset: 1_000,
+  windowLimit: 100,
+  columnOffset: 40,
+  columnLimit: 12,
+});
+chart.on('tablechange', ({ state, reason }) => console.log(state, reason));
+```
+
+Built-in formatter ids (`string`, `number`, `integer`, `percent`, `date`, `datetime`, and `json`) honor the chart `locale`; date formatters are deterministic in UTC. An unknown id is rejected instead of silently becoming `string`. Hosts compiling with a `RuntimeRegistry` can add a formatter with `registry.registerTableFormatter(id, formatter)` and reference that id from `mark.options.formatters`.
+
 ## Performance profiles
 
 The same `standard`, `large`, `ultra`, and `auto` profiles apply. Complex layout marks currently favor deterministic bounded Scene output; aggregate or filter very large source data before rendering specialized diagrams.
 
 ## Current limitations
 
-Sorting UI, paging, frozen columns, cell formatters, text wrapping, and native HTML accessibility are not implemented. Provide an HTML table fallback for production accessibility.
+None remain in the audited P0/current-limitations boundary as of 2026-08-26. The `current-limitations-2026-08-26` implementation moved these former limitations into executable support:
+
+- interactive sort/filter/group/pivot controls
+- virtualization and frozen regions
+- cell-level keyboard grid navigation
+- formatter registry
+
+The separately cataloged P1/P2 research roadmap remains future work and is not presented as current runtime support. Exact implementation and test paths are recorded in [the completion evidence](../../catalog/graflume.current-limitations.evidence.json).
 
 ## Runnable example and regression coverage
 

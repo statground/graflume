@@ -564,7 +564,14 @@ Scene cost is linear in rows for ordinary cases. Relationship crossings, repeate
 
 ## Current limitations
 
-This alpha implementation covers the documented data meaning and Scene output. Fixed-band temporal aggregation, animation choreography, and very-large-data GPU paths remain separate follow-up work.
+None remain in the audited P0/current-limitations boundary as of 2026-08-26. The `current-limitations-2026-08-26` implementation moved these former limitations into executable support:
+
+- fixed/visible/session/periodic scope
+- row size
+- POC/VAH/VAL
+- left placement
+
+The separately cataloged P1/P2 research roadmap remains future work and is not presented as current runtime support. Exact implementation and test paths are recorded in [the completion evidence](../../catalog/graflume.current-limitations.evidence.json).
 
 ## Runnable references
 

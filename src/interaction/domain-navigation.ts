@@ -1,6 +1,7 @@
 import { GraflumeError } from '../core/errors.js';
 import type { Scale } from '../scale/types.js';
 import type { AxisId } from '../spec/types.js';
+import { isSafeAxisId } from '../spec/axes.js';
 import type { CartesianCoordinateContext } from './cartesian-coordinates.js';
 
 export const domainViewVersion = 1 as const;
@@ -60,7 +61,7 @@ export function normalizeDomainViewState(input: DomainViewState): DomainViewStat
   assertPlainObject(input.axes, 'Domain view axes');
   const axes: Partial<Record<AxisId, DomainAxisWindow>> = {};
   for (const [axis, window] of Object.entries(input.axes)) {
-    if (axis !== 'x' && axis !== 'x2' && axis !== 'y' && axis !== 'y2') {
+    if (!isSafeAxisId(axis)) {
       invalid(`Unknown domain view axis "${axis}".`);
     }
     if (window !== undefined) axes[axis] = normalizedWindow(window);
@@ -127,12 +128,10 @@ export function panDomainAxisWindow(
 function scaleFor(context: CartesianCoordinateContext, axis: AxisId): Scale {
   const scale = context.axes[axis];
   if (scale === undefined) invalid(`Axis "${axis}" is not resolved.`, `$.axes.${axis}`);
-  if (scale.invert === undefined) {
-    throw new GraflumeError(
-      'INCOMPATIBLE_SCALE',
-      `Data-domain navigation requires an invertible continuous scale; axis "${axis}" uses "${scale.kind}".`,
-      { path: `$.axes.${axis}` },
-    );
+  if (scale.invert === undefined && scale.kind !== 'band' && scale.kind !== 'point') {
+    throw new GraflumeError('INCOMPATIBLE_SCALE', `Axis "${axis}" cannot be navigated.`, {
+      path: `$.axes.${axis}`,
+    });
   }
   return scale;
 }
@@ -187,12 +186,21 @@ export function panDomainByPixels(
 export function domainForAxisWindow(
   scale: Scale,
   window: DomainAxisWindow,
-): readonly [number, number] {
+): readonly (number | string)[] {
   if (scale.invert === undefined) {
-    throw new GraflumeError(
-      'INCOMPATIBLE_SCALE',
-      `Data-domain navigation cannot invert the "${scale.kind}" scale.`,
-    );
+    if (scale.kind !== 'band' && scale.kind !== 'point') {
+      throw new GraflumeError(
+        'INCOMPATIBLE_SCALE',
+        `Data-domain navigation cannot resolve the "${scale.kind}" scale.`,
+      );
+    }
+    const domain = scale.domain();
+    if (domain.length === 0) {
+      throw new GraflumeError('INCOMPATIBLE_SCALE', 'Navigable categorical domains are non-empty.');
+    }
+    const start = Math.min(domain.length - 1, Math.floor(window.start * domain.length));
+    const end = Math.max(start + 1, Math.min(domain.length, Math.ceil(window.end * domain.length)));
+    return Object.freeze(domain.slice(start, end));
   }
   const range = scale.range();
   const start = range[0];

@@ -4,6 +4,7 @@ import {
   type QuickChartOptions,
   type QuickComboOptions,
 } from './api/quick.js';
+import { quickScatter } from './api/scatter-dispatch.js';
 import {
   additionalChartTypeCatalog,
   additionalChartVariantCatalog,
@@ -25,33 +26,42 @@ import type { MarkCompiler } from './compiler/types.js';
 import type { GraflumePlugin } from './core/plugin.js';
 import {
   compileBoxplotMark,
-  compileChordMark,
   compileCustomMark,
   compileEffectScatterMark,
-  compileFunnelMark,
-  compileGraphMark,
-  compileHeatmapMark,
   compileLinesMark,
-  compileParallelMark,
   compilePictorialBarMark,
   compileRadarMark,
   compileSunburstMark,
   compileThemeRiverMark,
-  compileTreeMark,
 } from './marks/advanced.js';
 import {
-  compileCarpetMark,
-  compileDistributionFamilyMark,
-  compileImageMark,
-  compilePolarMark,
-  compileScatterMatrixMark,
-  compileSmithMark,
-  compileTernaryMark,
-} from './marks/analytical-2d.js';
+  compileAnalyticalCarpetMark,
+  compileAnalyticalDistributionMark,
+  compileAnalyticalHeatmapMark,
+  compileAnalyticalImageMark,
+  compileAnalyticalItemMark,
+  compileAnalyticalScatterMatrixMark,
+  compileAnalyticalSmithMark,
+  compileAnalyticalTernaryMark,
+} from './marks/analytical-p0.js';
+import {
+  compileAdvancedVolumeProfileMark,
+  compilePriceBlocksMark,
+} from './marks/finance-advanced.js';
+import { compileAdvancedContourMark, compileAdvancedVectorMark } from './marks/field-advanced.js';
+import { compileAdvancedPolarMark } from './marks/layout-advanced.js';
+import {
+  compileAdvancedChordMark,
+  compileAdvancedFunnelMark,
+  compileAdvancedGraphMark,
+  compileAdvancedParallelMark,
+  compileAdvancedTreeMark,
+  compileAdvancedVennMark,
+  compileAdvancedWordCloudMark,
+} from './marks/relationship-advanced.js';
 import {
   compileArcDiagramMark,
   compileBulletMark,
-  compileContourMark,
   compileCylinderMark,
   compileFinancialMark,
   compileFlagsMark,
@@ -59,7 +69,6 @@ import {
   compileGeoHeatmapMark,
   compileGeoLineMark,
   compileIndicatorMark,
-  compileItemMark,
   compileLollipopMark,
   compilePackedBubbleMark,
   compileParetoMark,
@@ -67,7 +76,6 @@ import {
   compilePolygonMark,
   compilePyramidMark,
   compileRangeMark,
-  compileRenkoMark,
   compileScatter3dMark,
   compileSmoothMark,
   compileSolidGaugeMark,
@@ -75,11 +83,7 @@ import {
   compileTilemapMark,
   compileVariablePieMark,
   compileVariwideMark,
-  compileVectorMark,
-  compileVennMark,
-  compileVolumeProfileMark,
   compileWindBarbMark,
-  compileWordCloudMark,
 } from './marks/series.js';
 import type { RendererFactory } from './renderer/types.js';
 import { Chart, type ChartCreateOptions, type ChartTarget } from './runtime/chart.js';
@@ -90,21 +94,21 @@ import type { ThemeTokens } from './theme/types.js';
 
 const additionalMarkCompilers: readonly (readonly [MarkType, MarkCompiler])[] = [
   ['radar', compileRadarMark],
-  ['polar', compilePolarMark],
-  ['tree', compileTreeMark],
-  ['graph', compileGraphMark],
-  ['chord', compileChordMark],
-  ['funnel', compileFunnelMark],
-  ['parallel', compileParallelMark],
+  ['polar', compileAdvancedPolarMark],
+  ['tree', compileAdvancedTreeMark],
+  ['graph', compileAdvancedGraphMark],
+  ['chord', compileAdvancedChordMark],
+  ['funnel', compileAdvancedFunnelMark],
+  ['parallel', compileAdvancedParallelMark],
   ['boxplot', compileBoxplotMark],
-  ['image', compileImageMark],
-  ['ternary', compileTernaryMark],
-  ['smith', compileSmithMark],
-  ['scatter-matrix', compileScatterMatrixMark],
-  ['carpet', compileCarpetMark],
+  ['image', compileAnalyticalImageMark],
+  ['ternary', compileAnalyticalTernaryMark],
+  ['smith', compileAnalyticalSmithMark],
+  ['scatter-matrix', compileAnalyticalScatterMatrixMark],
+  ['carpet', compileAnalyticalCarpetMark],
   ['effect-scatter', compileEffectScatterMark],
   ['lines', compileLinesMark],
-  ['heatmap', compileHeatmapMark],
+  ['heatmap', compileAnalyticalHeatmapMark],
   ['pictorial-bar', compilePictorialBarMark],
   ['theme-river', compileThemeRiverMark],
   ['sunburst', compileSunburstMark],
@@ -112,11 +116,11 @@ const additionalMarkCompilers: readonly (readonly [MarkType, MarkCompiler])[] = 
   ['arc-diagram', compileArcDiagramMark],
   ['range', compileRangeMark],
   ['smooth', compileSmoothMark],
-  ['distribution', compileDistributionFamilyMark],
+  ['distribution', compileAnalyticalDistributionMark],
   ['bullet', compileBulletMark],
-  ['contour', compileContourMark],
+  ['contour', compileAdvancedContourMark],
   ['cylinder', compileCylinderMark],
-  ['item', compileItemMark],
+  ['item', compileAnalyticalItemMark],
   ['lollipop', compileLollipopMark],
   ['packed-bubble', compilePackedBubbleMark],
   ['pareto', compileParetoMark],
@@ -127,16 +131,16 @@ const additionalMarkCompilers: readonly (readonly [MarkType, MarkCompiler])[] = 
   ['tilemap', compileTilemapMark],
   ['variable-pie', compileVariablePieMark],
   ['variwide', compileVariwideMark],
-  ['vector', compileVectorMark],
-  ['venn', compileVennMark],
+  ['vector', compileAdvancedVectorMark],
+  ['venn', compileAdvancedVennMark],
   ['wind-barb', compileWindBarbMark],
-  ['word-cloud', compileWordCloudMark],
+  ['word-cloud', compileAdvancedWordCloudMark],
   ['indicator', compileIndicatorMark],
   ['flags', compileFlagsMark],
   ['financial', compileFinancialMark],
   ['point-figure', compilePointFigureMark],
-  ['renko', compileRenkoMark],
-  ['volume-profile', compileVolumeProfileMark],
+  ['renko', compilePriceBlocksMark],
+  ['volume-profile', compileAdvancedVolumeProfileMark],
   ['geo-flow', compileGeoFlowMark],
   ['geo-heatmap', compileGeoHeatmapMark],
   ['geo-line', compileGeoLineMark],
@@ -202,7 +206,7 @@ export function point(target: ChartTarget, data: DataInput, options: QuickChartO
 }
 
 export function scatter(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
-  return point(target, data, options);
+  return quickScatter(create, target, data, options);
 }
 
 export function area(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
@@ -802,6 +806,11 @@ export const priceEnvelopes = makeIndicatorQuick('priceenvelopes', {
 });
 export const parabolicStopAndReverse = makeIndicatorQuick('psar');
 export const renko = makeSeriesQuick('renko');
+export const kagi = makeSeriesQuick('renko', { options: { mode: 'kagi' } });
+export const threeLineBreak = makeSeriesQuick('renko', {
+  options: { mode: 'three-line-break' },
+});
+export const rangeBars = makeSeriesQuick('renko', { options: { mode: 'range-bars' } });
 export const rateOfChange = makeIndicatorQuick('roc');
 export const relativeStrengthIndex = makeIndicatorQuick('rsi');
 export const slowStochastic = makeIndicatorQuick('slowstochastic', {
@@ -877,6 +886,7 @@ export {
 export {
   calculateTechnicalIndicator,
   resolveTechnicalIndicatorCapability,
+  resolveTechnicalIndicatorPresentation,
   technicalIndicatorCapabilities,
   technicalIndicatorPresetIds,
 } from './data/technical-indicators.js';
@@ -885,9 +895,30 @@ export type {
   IndicatorParameterCapability,
   TechnicalIndicatorCalculation,
   TechnicalIndicatorCapability,
+  TechnicalIndicatorInputName,
+  TechnicalIndicatorInputSeries,
+  TechnicalIndicatorPlacement,
+  TechnicalIndicatorPresentation,
   TechnicalIndicatorPresetId,
+  TechnicalIndicatorSessionSpec,
+  TechnicalIndicatorSessionState,
   TechnicalIndicatorSupport,
 } from './data/technical-indicators.js';
+export {
+  DEFAULT_TECHNICAL_INDICATOR_MAX_ROWS,
+  MAX_TECHNICAL_INDICATOR_ROWS,
+  TechnicalIndicatorIncrementalCalculator,
+  calculateTechnicalIndicatorIncremental,
+} from './data/technical-indicator-incremental.js';
+export type {
+  PortableTechnicalIndicatorInput,
+  TechnicalIndicatorIncrementalDiagnostics,
+  TechnicalIndicatorIncrementalRequest,
+  TechnicalIndicatorIncrementalResult,
+  TechnicalIndicatorIncrementalRuntimeSnapshot,
+  TechnicalIndicatorIncrementalSnapshot,
+  TechnicalIndicatorIncrementalSpec,
+} from './data/technical-indicator-incremental.js';
 export {
   analyticInteractionCapability,
   runtimeCapabilities,

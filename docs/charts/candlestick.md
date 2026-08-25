@@ -644,7 +644,15 @@ The same `standard`, `large`, `ultra`, and `auto` profiles apply. Complex layout
 
 ## Current limitations
 
-Volume panels, trading-session gaps, hollow-candle conventions, and financial indicators are not implemented yet.
+None remain in the audited P0/current-limitations boundary as of 2026-08-26. The `current-limitations-2026-08-26` implementation moved these former limitations into executable support:
+
+- OHLC aggregation
+- session and timezone calendar
+- gapless trading axis
+- extended-hours policy
+- navigator
+
+The separately cataloged P1/P2 research roadmap remains future work and is not presented as current runtime support. Exact implementation and test paths are recorded in [the completion evidence](../../catalog/graflume.current-limitations.evidence.json).
 
 ## Runnable example and regression coverage
 

@@ -357,14 +357,15 @@ A reviewed cumulative playback can reveal a shared ordered source across all lay
 
 ## Current limitations
 
-- four axis ids (`x`, `x2`, `y`, `y2`) rather than an unbounded number of axes;
-- the closed Canvas facet, repeat, concat, nested-grid, and inset operators are available around
-  unit or flat-layer views, but only compatible primary x/y domains can be shared; multi-view axes,
-  legends, colorbars, streaming, and Spatial composition remain unsupported;
-- no linked brushing, cross-filtering, synchronized data-domain zoom, or rendered crosshair guide; whole-Canvas inspection is available;
-- synthesized per-layer shared tooltip aggregation is not built in;
-- annotation, interval, and trendline marks can participate when their scales are compatible; top-level range highlights provide reference bands, while forecast semantics remain host-defined;
-- no per-layer renderer selection.
+None remain in the audited P0/current-limitations boundary as of 2026-08-26. The `current-limitations-2026-08-26` implementation moved these former limitations into executable support:
+
+- named axes
+- shared multi-view axes/legends/colorbars
+- linked view state
+- layer transforms
+- layer clipping
+
+The separately cataloged P1/P2 research roadmap remains future work and is not presented as current runtime support. Exact implementation and test paths are recorded in [the completion evidence](../../catalog/graflume.current-limitations.evidence.json).
 
 ## Runnable examples and tests
 

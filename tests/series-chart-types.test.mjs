@@ -235,13 +235,13 @@ function fixture(entry) {
 }
 
 test('the unified series catalog covers every public series identifier', () => {
-  assert.equal(seriesCompatibilityIds.length, 117);
-  assert.equal(new Set(seriesCompatibilityIds).size, 117);
-  assert.equal(seriesCompatibilityCatalog.length, 117);
+  assert.equal(seriesCompatibilityIds.length, 120);
+  assert.equal(new Set(seriesCompatibilityIds).size, 120);
+  assert.equal(seriesCompatibilityCatalog.length, 120);
   assert.equal(seriesChartTypeCatalog.length, 8);
-  assert.equal(seriesChartVariantCatalog.length, 96);
+  assert.equal(seriesChartVariantCatalog.length, 99);
   assert.equal(fullCatalog.length, 41);
-  assert.equal(fullVariantCatalog.length, 165);
+  assert.equal(fullVariantCatalog.length, 168);
   assert.equal(new Set(fullCatalog.map((entry) => entry.id)).size, 41);
   const familyIds = new Set(fullCatalog.map((entry) => entry.id));
   const variantIds = new Set(fullVariantCatalog.map((entry) => entry.id));
@@ -252,6 +252,9 @@ test('the unified series catalog covers every public series identifier', () => {
   }
   assert.equal(resolveSeriesType('area-spline-range')?.familyId, 'interval');
   assert.equal(resolveSeriesType('area-spline-range')?.variantId, 'area-spline-range');
+  assert.equal(resolveSeriesType('kagi')?.variantId, 'kagi');
+  assert.equal(resolveSeriesType('rangebars')?.variantId, 'range-bars');
+  assert.equal(resolveSeriesType('threelinebreak')?.variantId, 'three-line-break');
   assert.equal(resolveSeriesType('unknown-series'), undefined);
 });
 
@@ -291,7 +294,7 @@ test('schema metadata matches the unified runtime catalog', async () => {
   const catalog = schema['x-graflume-catalog'];
   assert.equal(catalog.fullFamilyCount, 41);
   assert.equal(catalog.seriesFamilyCount, 8);
-  assert.equal(catalog.seriesVariantCount, 96);
-  assert.equal(catalog.compatibilitySeriesCount, 117);
+  assert.equal(catalog.seriesVariantCount, 99);
+  assert.equal(catalog.compatibilitySeriesCount, 120);
   for (const mark of capabilities().marks) assert.ok(catalog.builtInMarks.includes(mark), mark);
 });

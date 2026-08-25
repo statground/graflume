@@ -122,11 +122,11 @@ The `scatter-matrix` family compares several quantitative dimensions in a square
 
 ## Data contract
 
-List quantitative field names in `mark.options.dimensions`. The diagonal shows compact one-dimensional histograms; off-diagonal cells show pairwise scatter points. Rows missing either field are skipped only in the affected cell.
+List up to eight quantitative field names in `mark.options.variables`; `dimensions` remains the compatibility spelling. `diagonal` selects `histogram`, Gaussian `kde`, or `ecdf`. `upper` and `lower` independently select `scatter`, `hexbin`, `correlation`, or `none`. Rows missing either field are skipped only in the affected cell.
 
 ## Styling and interaction
 
-Cell frames, diagonal bins, labels, and points are compiled through the shared Scene pipeline. Off-diagonal points remain row-addressable for native hit testing and tooltips.
+Cell frames, diagonal summaries, labels, correlations, hexbins, and points are compiled through the shared Scene pipeline. Every interactive cell payload identifies `matrixX`, `matrixY`, its cell kind, source-row provenance, and the common `scatter-matrix` linked-selection key. Pairwise scatter cells therefore select the same source row across views.
 
 ## Performance and limits
 

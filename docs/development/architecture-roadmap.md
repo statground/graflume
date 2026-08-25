@@ -5,6 +5,23 @@ engineering contracts. It is not a claim that every accepted feature is
 already executable. Current support is always the intersection of the runtime
 registries, semantic tests, and `catalog/graflume.catalog.json`.
 
+## 2026-08-26 completion boundary
+
+The `current-limitations-2026-08-26` release completes all 161/161 capabilities that
+were previously listed as P0/current limitations across the 44 canonical
+families. All seven common foundations and all 44 family rows are now
+`supported`; their P0 arrays are empty. The exact 161 capability strings and
+their implementation and test paths are retained in
+`catalog/graflume.current-limitations.evidence.json` and checked against the
+feature catalog. The catalog still keeps P1/P2 evolution and all 16 candidate
+families/packages conservative—completion of the old current boundary is not a
+blanket claim for those separate research contracts.
+
+This boundary retains 44 family cards while adding `kagi()`,
+`threeLineBreak()`, and `rangeBars()` as three executable modes of Price blocks.
+It therefore exposes 168 Canvas presets and 176 total presets/modes, alongside
+120 compatibility identifiers and the existing 17 built-in themes.
+
 ## Three independent layers
 
 Graflume keeps these concerns orthogonal:
@@ -28,22 +45,22 @@ semantics.
 The implementation graph is deliberately ordered so that one foundation can
 unlock many families:
 
-1. complete the current ordered transform dataflow with named sources,
-   branches, reusable DAG execution and worker ownership;
-2. complete the current portable encoding and invertible scale registries with
-   the remaining geographic/trading channels and shared multi-view axis/legend
-   resolve;
+1. preserve the completed named-source, branched, memoized transform DAG and
+   extend its bounded worker ownership where a runtime profile requires it;
+2. preserve the completed geographic/trading/angular/icon channels and direct
+   Canvas multi-view axis/legend/colorbar resolution while extending renderer
+   and nested-composition parity;
 3. extend continuous data-domain navigation and analytic selection with
    categorical geometry and linked selection state;
-4. extend the current layer/facet/repeat/concat/inset Canvas composition foundation with shared
-   multi-view axes/legends, linked state, pagination/virtualization, streaming ownership, and Spatial
+4. extend the current layer/facet/repeat/concat/inset Canvas composition foundation with linked
+   state, pagination/virtualization, streaming ownership, nested shared-guide parity, and Spatial
    composition;
-5. extend the current Canvas-wide semantic index, native mirror, and scoped
-   composition identity to GPU and linked multi-view focus;
-6. shared label/collision/connector and authoring primitives;
-7. extend the current stable-key incremental store and transferable typed-column
-   transform adapter with ring-buffer storage, incremental recomputation,
-   worker-owned rendering, and Arrow/WASM binary ownership;
+5. preserve the completed Canvas virtual semantic explorer, GPU projected
+   traversal, and bounded stable-key linked Canvas/Spatial focus foundation;
+6. preserve the completed Canvas mark-label/collision/connector and authoring
+   foundation while routing future composed-view and renderer-specific ownership explicitly;
+7. preserve the completed ring-backed stable-key store, incremental transform
+   cache, frame runtime, and automatic Worker v2 adapter/rendering foundation;
 8. family-specific semantic completion;
 9. optional analytic and scientific packages.
 
@@ -73,9 +90,10 @@ deprecation with a compatibility window.
 Transforms are ordered, deterministic, function-free, and JSON serializable.
 Every result carries source identity and an ordered lineage containing method,
 parameters, seed when applicable, input/output counts, and aggregation count.
-Named sources and branches may extend the ordered pipeline without changing the
-meaning of an existing list. Unsafe string evaluation is never part of the
-portable spec.
+Named sources and branches extend the ordered pipeline without changing the
+meaning of an existing list. Dependencies are closed and acyclic, shared
+ancestors are memoized, and lineage remains attached across composition and
+facet boundaries. Unsafe string evaluation is never part of the portable spec.
 
 ### Encoding and scales
 
@@ -102,11 +120,29 @@ can address a facet or inset without parsing generated scene IDs.
 
 The current executable subset is a closed Canvas grammar for layer, observed
 row/column or wrap facet, explicit repeat, horizontal/vertical/wrapped concat,
-nested grids, and plot-relative inset. Compatible unit children can union their
-primary x/y domains while keeping independent axes and legends. Shared
-multi-view axes/legends/colorbars, linked stores, pagination/virtualization,
-streaming ownership, per-view interactions, and Spatial/WebGL composition remain
-open gates and fail explicitly.
+nested grids, and plot-relative inset. Compatible direct unit children can
+union all active x/x2/y/y2 domains, keep only labeled outer axes, and render one
+shared categorical/layer legend or continuous colorbar with optional root-level
+filtering. Bounded linked view/focus state and direct-view shared guides are
+current. Nested shared-guide ownership, generalized cross-filter routing,
+facet pagination/virtualization, streaming ownership, per-view interactions,
+and Spatial/WebGL composition remain later contracts and fail explicitly.
+
+### Mark-label layout and authoring
+
+All canonical Canvas families share one function-free `markLabels` contract.
+The compiler resolves bounded semantic datum geometry, stable-key portable
+targets, automatic collision placement and connectors; the Scene exposes
+selected editing handles without duplicating semantic data rows. Runtime state
+owns pointer drag, keyboard selection and nudging, grid/mark/plot snapping,
+bounded undo/redo, import/export of portable positions, lifecycle events, and
+accessible instructions/live status. Top-level annotation callouts keep their
+existing target, placement, CRUD, and visibility semantics.
+
+The supported boundary is the 41 Canvas families. Composed-view interaction
+routing and Spatial/WebGL label authoring require their own explicit ownership
+contracts; they are not silently inferred from this two-dimensional Scene
+foundation.
 
 ### Accessibility and export
 
@@ -120,30 +156,34 @@ Export preserves the normalized spec, current domain, selection/filter state,
 annotations, semantic summary, theme identity, locale, and deterministic font
 inputs. Raster or GPU fallback never discards this metadata.
 
-## Family completion sequence
+## Post-completion evolution sequence
 
-Name-to-function correctness is completed before adding aliases:
+The 161-item current boundary is complete. Further work preserves its
+name-to-function contracts and advances the separately listed P1/P2 and
+candidate scopes in this order:
 
-1. preserve the completed Area/Bar shared series stack and Line curve/missing
-   engines while adding named DAG reuse, bounded workers and data-domain
-   navigation;
-2. add a truthful Map source/layer/projection and provider-backed tile
-   lifecycle without weakening the current embedded-basemap attribution;
-3. extend the 17 calculated Technical Indicators to the 28 explicitly
-   precomputed-only presets, then add session warm-up, panes and crosshair;
+1. preserve the completed Area/Bar shared series stack, Line curve/missing
+   engines, named DAG reuse, bounded workers, and data-domain navigation;
+2. extend the completed Map source/layer/projection and provider-backed tile
+   lifecycle without weakening embedded-basemap or provider attribution;
+3. preserve all 45 built-in Technical Indicator calculations, their
+   session-aware warm-up/reset policy, panel metadata, synchronized crosshair,
+   and bounded incremental Worker execution;
 4. preserve Motion stable identity/tween/scrubber and the Canvas native
-   semantic mirror while adding Table virtualization, cell-grid navigation and
-   formatter controls;
-5. Distribution, Interval, Hierarchy, Network, Heatmap, Timeline, Map,
-   Finance, and vector/spatial high-impact features;
+   semantic mirror together with completed Table virtualization, cell-grid
+   navigation, and formatter controls;
+5. advance the documented P1/P2 scopes for Distribution, Interval, Hierarchy,
+   Network, Heatmap, Timeline, Map, Finance, and vector/spatial families;
 6. Set analysis evolution and bounded proximity/mosaic proofs;
 7. diagnostic, model-evaluation, survival, signal, control, genomic,
    atmospheric, and market packages only after their computation contracts are
    independently testable.
 
-The complete per-family P0/P1/P2 backlog and all accepted mode names live in
-`catalog/graflume.features.json`; this document intentionally does not duplicate
-that machine-readable source.
+The now-empty per-family P0 arrays, remaining P1/P2 roadmap, and all accepted
+mode names live in `catalog/graflume.features.json`. The historical 161-item
+closure and exact source/test mappings live in
+`catalog/graflume.current-limitations.evidence.json`; this document intentionally
+does not duplicate either machine-readable source.
 
 ## Release and downstream synchronization
 

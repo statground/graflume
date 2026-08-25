@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:graflume:current-limitations:2",
+  "title": "Graflume completed current limitation evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "release", "verifiedAt", "totalCompleted", "families"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "const": 2 },
+    "release": { "$ref": "#/$defs/nonEmpty" },
+    "verifiedAt": { "type": "string", "format": "date" },
+    "totalCompleted": { "const": 161 },
+    "families": {
+      "type": "array",
+      "minItems": 44,
+      "maxItems": 44,
+      "items": { "$ref": "#/$defs/family" }
+    }
+  },
+  "$defs": {
+    "nonEmpty": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/nonEmpty" }
+    },
+    "sourceEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "token"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^src/(?:[A-Za-z0-9._-]+/)*[A-Za-z0-9._-]+\\.ts$"
+        },
+        "token": {
+          "type": "string",
+          "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*$"
+        }
+      }
+    },
+    "testEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "name"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^tests/(?:[A-Za-z0-9._-]+/)*[A-Za-z0-9._-]+\\.test\\.mjs$"
+        },
+        "name": { "$ref": "#/$defs/nonEmpty" }
+      }
+    },
+    "trace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["capability", "sources", "tests"],
+      "properties": {
+        "capability": { "$ref": "#/$defs/nonEmpty" },
+        "sources": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/sourceEvidence" }
+        },
+        "tests": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/testEvidence" }
+        }
+      }
+    },
+    "family": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "capabilities", "traces"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmpty" },
+        "capabilities": { "$ref": "#/$defs/capabilities" },
+        "traces": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/trace" }
+        }
+      }
+    }
+  }
+}

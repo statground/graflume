@@ -19,6 +19,19 @@ import {
   subtract3,
 } from './math.js';
 import { assertCompiledSpatialOutputBudget } from './budget.js';
+import { computeSurfaceNormalGeometry, extractSurfaceContourSegments } from './surface-analysis.js';
+import {
+  evaluateVolumeTransfer,
+  normalizeVolumeValue,
+  projectVolumeRays,
+  sampleVolumeSlice,
+  volumeValueExtent,
+  type ResolvedVolumeTransferStop,
+  type VolumeProjectionSample,
+  type VolumeSamplingContext,
+  type VolumeSliceSample,
+} from './volume-rendering.js';
+import { integrateVectorField, type IntegratedVectorField } from './vector-field-integration.js';
 import { assertValidSpatialSpec } from './validate.js';
 import type {
   CompiledSpatialGeometry,
@@ -34,8 +47,11 @@ import type {
   SpatialStreamtubeData,
   SpatialSurfaceGridData,
   SpatialSurfaceLayer,
+  SpatialSurfaceContourSpec,
   SpatialVec3,
   SpatialVectorLayer,
+  SpatialVectorFieldData,
+  SpatialVolumeSliceSpec,
   SpatialVolumeLayer,
 } from './types.js';
 
@@ -203,6 +219,193 @@ function isMeshData(data: SpatialSurfaceLayer['data']): data is SpatialMeshData 
   return 'positions' in data;
 }
 
+function mappedVertexColors(colors: Float32Array, sourceIndices: Uint32Array): Float32Array {
+  const output = new Float32Array(sourceIndices.length * 4);
+  for (const [index, source] of sourceIndices.entries()) {
+    output.set(colors.subarray(source * 4, source * 4 + 4), index * 4);
+  }
+  return output;
+}
+
+function contourLevels(
+  values: readonly number[],
+  contours: SpatialSurfaceContourSpec,
+): readonly number[] {
+  if (contours.levels !== undefined)
+    return [...new Set(contours.levels)].sort((left, right) => left - right);
+  let minimum = Number.POSITIVE_INFINITY;
+  let maximum = Number.NEGATIVE_INFINITY;
+  for (const value of values) {
+    minimum = Math.min(minimum, value);
+    maximum = Math.max(maximum, value);
+  }
+  if (minimum === maximum) return [];
+  const count = Math.max(1, Math.min(64, Math.trunc(contours.count ?? 8)));
+  return Array.from(
+    { length: count },
+    (_, index) => minimum + ((index + 1) / (count + 1)) * (maximum - minimum),
+  );
+}
+
+function compileSurfaceContours(
+  id: string,
+  layerIndex: number,
+  positions: Float32Array,
+  triangleIndices: Uint32Array,
+  values: readonly number[],
+  contours: SpatialSurfaceContourSpec,
+  theme: ThemeTokens,
+): readonly CompiledSpatialGeometry[] {
+  const projection = contours.projection ?? 'base';
+  const projections = projection === 'both' ? (['surface', 'base'] as const) : [projection];
+  const maximum = Math.max(1, Math.trunc(contours.maxSegments ?? 100_000));
+  const sourceMaximum = Math.max(1, Math.floor(maximum / projections.length));
+  const segments = extractSurfaceContourSegments(positions, triangleIndices, values, {
+    levels: contourLevels(values, contours),
+    maxSegments: sourceMaximum,
+  });
+  if (segments.length === 0) return [];
+  let minimumHeight = Number.POSITIVE_INFINITY;
+  for (let index = 1; index < positions.length; index += 3)
+    minimumHeight = Math.min(minimumHeight, positions[index]!);
+  const color = spatialColor(
+    contours.color ?? (usesLegacySpatialDefaults(theme) ? '#111827' : theme.colors.text),
+    contours.opacity ?? 0.92,
+  );
+  return projections.map((target): CompiledSpatialGeometry => {
+    const linePositions: number[] = [];
+    const picks: SpatialPickTarget[] = [];
+    const baseHeight = contours.baseHeight ?? minimumHeight;
+    for (const [datumIndex, segment] of segments.entries()) {
+      const from: SpatialVec3 =
+        target === 'base' ? [segment.from[0], baseHeight, segment.from[2]] : segment.from;
+      const to: SpatialVec3 =
+        target === 'base' ? [segment.to[0], baseHeight, segment.to[2]] : segment.to;
+      pushVec3(linePositions, from);
+      pushVec3(linePositions, to);
+      picks.push({
+        layerId: id,
+        layerIndex,
+        datumIndex,
+        nodeId: `${id}:contour:${target}:${datumIndex}`,
+        position: scale3(add3(from, to), 0.5),
+        datum: {
+          level: segment.level,
+          projection: target,
+          sourceTriangle: segment.triangleIndex,
+        },
+      });
+    }
+    const outputPositions = new Float32Array(linePositions);
+    return {
+      id: `${id}:contour:${target}`,
+      primitive: 'lines',
+      positions: outputPositions,
+      normals: repeatedValues(outputPositions.length / 3, [0, 1, 0]),
+      colors: repeatedValues(outputPositions.length / 3, color),
+      sizes: new Float32Array(outputPositions.length / 3).fill(1),
+      picks,
+      role: 'contour',
+      provenance: {
+        family: 'surface',
+        operation: 'triangle-contour-projection',
+        sourceElements: triangleIndices.length / 3,
+        derivedElements: segments.length,
+        bounded: true,
+        parameters: { projection: target, levels: contourLevels(values, contours) },
+      },
+    };
+  });
+}
+
+function compileSurfaceGeometry(
+  id: string,
+  layerIndex: number,
+  positions: Float32Array,
+  colors: Float32Array,
+  triangleIndices: Uint32Array,
+  wireIndices: Uint32Array,
+  picks: readonly SpatialPickTarget[],
+  layer: SpatialSurfaceLayer,
+  theme: ThemeTokens,
+  suppliedNormals?: Float32Array,
+): readonly CompiledSpatialGeometry[] {
+  if (layer.mark.wireframe === true) {
+    return [
+      {
+        id,
+        primitive: 'lines',
+        positions,
+        normals: suppliedNormals ?? triangleNormals(positions, triangleIndices),
+        colors,
+        sizes: new Float32Array(positions.length / 3).fill(1),
+        indices: wireIndices,
+        picks,
+        role: 'primary',
+        provenance: {
+          family: 'surface',
+          operation: 'wireframe-only',
+          sourceElements: triangleIndices.length / 3,
+          derivedElements: wireIndices.length / 2,
+          bounded: true,
+        },
+      },
+    ];
+  }
+  const normalMode = layer.mark.normalMode ?? 'smooth';
+  const normalGeometry = computeSurfaceNormalGeometry(positions, triangleIndices, normalMode);
+  const fillColors = mappedVertexColors(colors, normalGeometry.sourceVertexIndices);
+  const fill: CompiledSpatialGeometry = {
+    id,
+    primitive: 'triangles',
+    positions: normalGeometry.positions,
+    normals:
+      normalMode === 'smooth' && suppliedNormals !== undefined
+        ? suppliedNormals
+        : normalGeometry.normals,
+    colors: fillColors,
+    sizes: new Float32Array(normalGeometry.positions.length / 3).fill(1),
+    ...(normalGeometry.indices === undefined ? {} : { indices: normalGeometry.indices }),
+    picks,
+    role: 'primary',
+    provenance: {
+      family: 'surface',
+      operation: `${normalMode}-normal-surface`,
+      sourceElements: triangleIndices.length / 3,
+      derivedElements: normalGeometry.positions.length / 3,
+      bounded: true,
+      parameters: { normalMode },
+    },
+  };
+  if (layer.mark.wireOverlay === undefined || layer.mark.wireOverlay === false) return [fill];
+  const overlay = layer.mark.wireOverlay === true ? {} : layer.mark.wireOverlay;
+  const wireColor = spatialColor(
+    overlay.color ?? (usesLegacySpatialDefaults(theme) ? '#111827' : theme.colors.text),
+    overlay.opacity ?? 0.72,
+  );
+  return [
+    fill,
+    {
+      id: `${id}:wire-overlay`,
+      primitive: 'lines',
+      positions,
+      normals: suppliedNormals ?? triangleNormals(positions, triangleIndices),
+      colors: repeatedValues(positions.length / 3, wireColor),
+      sizes: new Float32Array(positions.length / 3).fill(1),
+      indices: wireIndices,
+      picks: [],
+      role: 'wire-overlay',
+      provenance: {
+        family: 'surface',
+        operation: 'filled-wire-overlay',
+        sourceElements: triangleIndices.length / 3,
+        derivedElements: wireIndices.length / 2,
+        bounded: true,
+      },
+    },
+  ];
+}
+
 function compileSurfaceGrid(
   layer: SpatialSurfaceLayer,
   layerIndex: number,
@@ -281,19 +484,32 @@ function compileSurfaceGrid(
       if (column === columns - 2) lineIndices.push(b, d);
     }
   }
-  const indices = new Uint32Array(layer.mark.wireframe ? lineIndices : triangleIndices);
-  return [
-    {
-      id,
-      primitive: layer.mark.wireframe ? 'lines' : 'triangles',
-      positions,
-      normals: triangleNormals(positions, new Uint32Array(triangleIndices)),
-      colors,
-      sizes,
-      indices,
-      picks,
-    },
-  ];
+  const triangles = new Uint32Array(triangleIndices);
+  const output = compileSurfaceGeometry(
+    id,
+    layerIndex,
+    positions,
+    colors,
+    triangles,
+    new Uint32Array(lineIndices),
+    picks,
+    layer,
+    theme,
+  );
+  return layer.mark.contours === undefined
+    ? output
+    : [
+        ...output,
+        ...compileSurfaceContours(
+          id,
+          layerIndex,
+          positions,
+          triangles,
+          values,
+          layer.mark.contours,
+          theme,
+        ),
+      ];
 }
 
 function compileSurfaceMesh(
@@ -348,18 +564,32 @@ function compileSurfaceMesh(
     position,
     datum: { x: position[0], y: position[1], z: position[2], label: data.labels?.[datumIndex] },
   }));
-  return [
-    {
-      id,
-      primitive: layer.mark.wireframe ? 'lines' : 'triangles',
-      positions,
-      normals,
-      colors,
-      sizes: new Float32Array(data.positions.length).fill(1),
-      indices: layer.mark.wireframe ? wireframeIndices : indices,
-      picks,
-    },
-  ];
+  const output = compileSurfaceGeometry(
+    id,
+    layerIndex,
+    positions,
+    colors,
+    indices,
+    wireframeIndices,
+    picks,
+    layer,
+    theme,
+    normals,
+  );
+  return layer.mark.contours === undefined
+    ? output
+    : [
+        ...output,
+        ...compileSurfaceContours(
+          id,
+          layerIndex,
+          positions,
+          indices,
+          data.positions.map((position) => position[1]),
+          layer.mark.contours,
+          theme,
+        ),
+      ];
 }
 
 function compileSurface(
@@ -399,6 +629,271 @@ function volumePosition(
 
 function volumeIndex(x: number, y: number, z: number, dimensions: readonly number[]): number {
   return z * dimensions[0]! * dimensions[1]! + y * dimensions[0]! + x;
+}
+
+function resolvedVolumeTransfer(
+  layer: SpatialVolumeLayer,
+  theme: ThemeTokens,
+): readonly ResolvedVolumeTransferStop[] {
+  const opacity = layer.mark.opacity ?? 1;
+  const authored = layer.mark.transferFunction;
+  if (authored !== undefined) {
+    return [...authored.stops]
+      .sort((left, right) => left.offset - right.offset)
+      .map((stop) => ({
+        offset: stop.offset,
+        color: spatialColor(stop.color, opacity * (stop.opacity ?? 1)),
+      }));
+  }
+  const legacy = usesLegacySpatialDefaults(theme);
+  return [
+    {
+      offset: 0,
+      color: spatialColor(
+        layer.mark.colorLow ?? (legacy ? '#0ea5e9' : continuousColor(theme, 0)),
+        opacity * 0.06,
+      ),
+    },
+    {
+      offset: 1,
+      color: spatialColor(
+        layer.mark.colorHigh ?? (legacy ? '#f43f5e' : continuousColor(theme, 1)),
+        opacity * 0.88,
+      ),
+    },
+  ];
+}
+
+function volumeSamplingContext(
+  layer: SpatialVolumeLayer,
+  theme: ThemeTokens,
+): VolumeSamplingContext {
+  const [minimum, maximum] = volumeValueExtent(layer.data.values);
+  return {
+    data: layer.data,
+    minimum,
+    maximum,
+    ...(layer.mark.windowLevel === undefined ? {} : { windowLevel: layer.mark.windowLevel }),
+    transfer: resolvedVolumeTransfer(layer, theme),
+    transferInterpolation: layer.mark.transferFunction?.interpolation ?? 'linear',
+  };
+}
+
+function projectionResolution(
+  dimensions: readonly [number, number, number],
+  axis: 'x' | 'y' | 'z',
+  requested?: readonly [number, number],
+): readonly [number, number] {
+  if (requested !== undefined) return [Math.trunc(requested[0]), Math.trunc(requested[1])];
+  if (axis === 'x') return [Math.min(256, dimensions[2]), Math.min(256, dimensions[1])];
+  if (axis === 'y') return [Math.min(256, dimensions[0]), Math.min(256, dimensions[2])];
+  return [Math.min(256, dimensions[0]), Math.min(256, dimensions[1])];
+}
+
+function gridTriangleIndices(columns: number, rows: number): Uint32Array {
+  const indices: number[] = [];
+  for (let row = 0; row < rows - 1; row += 1) {
+    for (let column = 0; column < columns - 1; column += 1) {
+      const a = row * columns + column;
+      const b = a + 1;
+      const c = a + columns;
+      const d = c + 1;
+      indices.push(a, c, b, b, c, d);
+    }
+  }
+  return new Uint32Array(indices);
+}
+
+function geometryFromVolumeSamples(
+  id: string,
+  layerIndex: number,
+  samples: readonly VolumeProjectionSample[],
+  resolution: readonly [number, number],
+  method: 'raycast' | 'mip' | 'minip' | 'average',
+  axis: 'x' | 'y' | 'z',
+): CompiledSpatialGeometry {
+  const positions: number[] = [];
+  const colors: number[] = [];
+  const picks: SpatialPickTarget[] = [];
+  for (const [datumIndex, sample] of samples.entries()) {
+    pushVec3(positions, sample.position);
+    pushColor(colors, sample.color);
+    if (sample.color[3] <= 0) continue;
+    picks.push({
+      layerId: id,
+      layerIndex,
+      datumIndex,
+      nodeId: `${id}:ray:${method}:${datumIndex}`,
+      position: sample.position,
+      datum: {
+        row: sample.row,
+        column: sample.column,
+        value: sample.rawValue,
+        normalizedValue: sample.normalizedValue,
+        renderMethod: method,
+        rayAxis: axis,
+        rayDepth: sample.depth,
+        sampleCount: sample.sampleCount,
+      },
+    });
+  }
+  const outputPositions = new Float32Array(positions);
+  const normal: SpatialVec3 = axis === 'x' ? [1, 0, 0] : axis === 'y' ? [0, 1, 0] : [0, 0, 1];
+  return {
+    id: `${id}:volume-${method}`,
+    primitive: 'triangles',
+    positions: outputPositions,
+    normals: repeatedValues(outputPositions.length / 3, normal),
+    colors: new Float32Array(colors),
+    sizes: new Float32Array(outputPositions.length / 3).fill(1),
+    indices: gridTriangleIndices(resolution[0], resolution[1]),
+    picks,
+    role: 'volume-projection',
+    provenance: {
+      family: 'volume',
+      operation: `cpu-${method}-webgl-projection`,
+      sourceElements: samples.reduce((total, sample) => total + sample.sampleCount, 0),
+      derivedElements: samples.length,
+      bounded: true,
+      parameters: {
+        method,
+        axis,
+        resolution,
+      },
+    },
+  };
+}
+
+function sliceNormal(slice: SpatialVolumeSliceSpec): SpatialVec3 {
+  if (slice.type === 'oblique') return normalize3(slice.normal, [0, 0, 1]);
+  return slice.axis === 'x' ? [1, 0, 0] : slice.axis === 'y' ? [0, 1, 0] : [0, 0, 1];
+}
+
+function geometryFromVolumeSlice(
+  id: string,
+  layerIndex: number,
+  samples: readonly VolumeSliceSample[],
+  resolution: readonly [number, number],
+  slice: SpatialVolumeSliceSpec,
+  sliceIndex: number,
+  role: 'volume-slice' | 'volume-cap' = 'volume-slice',
+): CompiledSpatialGeometry {
+  const positions: number[] = [];
+  const colors: number[] = [];
+  const picks: SpatialPickTarget[] = [];
+  for (const [datumIndex, sample] of samples.entries()) {
+    pushVec3(positions, sample.position);
+    pushColor(colors, sample.color);
+    if (sample.rawValue === null || sample.color[3] <= 0) continue;
+    picks.push({
+      layerId: id,
+      layerIndex,
+      datumIndex,
+      nodeId: `${id}:${role}:${sliceIndex}:${datumIndex}`,
+      position: sample.position,
+      datum: {
+        slice: sliceIndex,
+        sliceType: slice.type,
+        row: sample.row,
+        column: sample.column,
+        value: sample.rawValue,
+        normalizedValue: sample.normalizedValue,
+      },
+    });
+  }
+  const outputPositions = new Float32Array(positions);
+  return {
+    id: `${id}:${role}:${sliceIndex}`,
+    primitive: 'triangles',
+    positions: outputPositions,
+    normals: repeatedValues(outputPositions.length / 3, sliceNormal(slice)),
+    colors: new Float32Array(colors),
+    sizes: new Float32Array(outputPositions.length / 3).fill(1),
+    indices: gridTriangleIndices(resolution[0], resolution[1]),
+    picks,
+    role,
+    provenance: {
+      family: 'volume',
+      operation: slice.type === 'orthogonal' ? 'orthogonal-slice' : 'oblique-slice',
+      sourceElements: samples.length,
+      derivedElements: samples.length,
+      bounded: true,
+      parameters: {
+        sliceIndex,
+        type: slice.type,
+        resolution,
+        ...(slice.type === 'orthogonal' ? { axis: slice.axis, position: slice.position } : {}),
+      },
+    },
+  };
+}
+
+function compileVolumeSlices(
+  layer: SpatialVolumeLayer,
+  layerIndex: number,
+  theme: ThemeTokens,
+  slices: readonly SpatialVolumeSliceSpec[],
+  role: 'volume-slice' | 'volume-cap' = 'volume-slice',
+): readonly CompiledSpatialGeometry[] {
+  const id = layerId(layer, layerIndex);
+  const context = volumeSamplingContext(layer, theme);
+  const size = volumeDimensions(layer);
+  return slices.map((slice, sliceIndex) => {
+    const resolution =
+      slice.resolution ??
+      (slice.type === 'orthogonal'
+        ? projectionResolution(size, slice.axis)
+        : ([Math.min(128, Math.max(size[0], size[2])), Math.min(128, size[1])] as const));
+    const samples = sampleVolumeSlice(context, slice, {
+      resolution,
+      interpolation: slice.interpolation ?? 'linear',
+      opacity: slice.opacity ?? 1,
+    });
+    return geometryFromVolumeSlice(id, layerIndex, samples, resolution, slice, sliceIndex, role);
+  });
+}
+
+function compileVolumeProjection(
+  layer: SpatialVolumeLayer,
+  layerIndex: number,
+  theme: ThemeTokens,
+): readonly CompiledSpatialGeometry[] {
+  const render = layer.mark.render;
+  if (render === undefined) return [];
+  const size = volumeDimensions(layer);
+  const axis = render.axis ?? 'z';
+  const resolution = projectionResolution(size, axis, render.resolution);
+  const samples = Math.max(
+    2,
+    Math.trunc(render.samples ?? (axis === 'x' ? size[0] : axis === 'y' ? size[1] : size[2])),
+  );
+  const method = render.method ?? 'raycast';
+  const projection = projectVolumeRays(volumeSamplingContext(layer, theme), {
+    method,
+    axis,
+    resolution,
+    samples,
+    interpolation: render.interpolation ?? 'linear',
+  });
+  const output: CompiledSpatialGeometry[] = [
+    geometryFromVolumeSamples(
+      layerId(layer, layerIndex),
+      layerIndex,
+      projection,
+      resolution,
+      method,
+      axis,
+    ),
+  ];
+  const caps = render.caps ?? 'none';
+  const capSlices: SpatialVolumeSliceSpec[] = [];
+  if (caps === 'front' || caps === 'both')
+    capSlices.push({ type: 'orthogonal', axis, position: 0, resolution });
+  if (caps === 'back' || caps === 'both')
+    capSlices.push({ type: 'orthogonal', axis, position: 1, resolution });
+  if (capSlices.length > 0)
+    output.push(...compileVolumeSlices(layer, layerIndex, theme, capSlices, 'volume-cap'));
+  return output;
 }
 
 function compileVolumePoints(
@@ -443,15 +938,23 @@ function compileVolumePoints(
     const y = Math.floor(withinPlane / dimensions[0]);
     const x = withinPlane - y * dimensions[0];
     const value = values[datumIndex]!;
-    const amount = maximum === minimum ? 0.5 : (value - minimum) / (maximum - minimum);
+    const amount = normalizeVolumeValue(value, minimum, maximum, layer.mark.windowLevel);
     const position = volumePosition(x, y, z, origin, spacing);
     const interpolated = interpolateColor(low, high, amount);
+    const color =
+      layer.mark.transferFunction !== undefined
+        ? evaluateVolumeTransfer(
+            resolvedVolumeTransfer(layer, theme),
+            amount,
+            layer.mark.transferFunction.interpolation ?? 'linear',
+          )
+        : useThemeScale
+          ? spatialColor(continuousColor(theme, amount), interpolated[3])
+          : interpolated;
     pushVec3(positions, position);
-    pushColor(
-      colors,
-      useThemeScale ? spatialColor(continuousColor(theme, amount), interpolated[3]) : interpolated,
-    );
+    pushColor(colors, color);
     sizes.push(Math.max(1, (layer.mark.pointSize ?? 5) * (0.45 + amount * 0.75)));
+    if (color[3] <= 0) continue;
     picks.push({
       layerId: id,
       layerIndex,
@@ -471,6 +974,19 @@ function compileVolumePoints(
       colors: new Float32Array(colors),
       sizes: new Float32Array(sizes),
       picks,
+      role: 'primary',
+      provenance: {
+        family: 'volume',
+        operation: 'bounded-voxel-sampling',
+        sourceElements: values.length,
+        derivedElements: positionArray.length / 3,
+        bounded: true,
+        parameters: {
+          maxSamples: maximumSamples,
+          transferFunction: layer.mark.transferFunction !== undefined,
+          windowLevel: layer.mark.windowLevel !== undefined,
+        },
+      },
     },
   ];
 }
@@ -635,11 +1151,18 @@ function compileIsosurface(
     }
   }
   const positions = new Float32Array(vertices);
-  const color = spatialColor(
-    layer.mark.colorHigh ??
-      (usesLegacySpatialDefaults(theme) ? '#7c3aed' : continuousColor(theme, 1)),
-    layer.mark.opacity ?? 0.82,
-  );
+  const color =
+    layer.mark.transferFunction === undefined
+      ? spatialColor(
+          layer.mark.colorHigh ??
+            (usesLegacySpatialDefaults(theme) ? '#7c3aed' : continuousColor(theme, 1)),
+          layer.mark.opacity ?? 0.82,
+        )
+      : evaluateVolumeTransfer(
+          resolvedVolumeTransfer(layer, theme),
+          normalizeVolumeValue(isoValue, minimum, maximum, layer.mark.windowLevel),
+          layer.mark.transferFunction.interpolation ?? 'linear',
+        );
   return [
     {
       id,
@@ -649,6 +1172,19 @@ function compileIsosurface(
       colors: repeatedValues(positions.length / 3, color),
       sizes: new Float32Array(positions.length / 3).fill(1),
       picks,
+      role: 'primary',
+      provenance: {
+        family: 'volume',
+        operation: 'marching-tetrahedra-isosurface',
+        sourceElements: values.length,
+        derivedElements: positions.length / 3,
+        bounded: true,
+        parameters: {
+          isoValue,
+          transferFunction: layer.mark.transferFunction !== undefined,
+          windowLevel: layer.mark.windowLevel !== undefined,
+        },
+      },
     },
   ];
 }
@@ -658,13 +1194,23 @@ function compileVolume(
   layerIndex: number,
   theme: ThemeTokens,
 ): readonly CompiledSpatialGeometry[] {
-  return (layer.mark.mode ?? 'volume') === 'isosurface'
-    ? compileIsosurface(layer, layerIndex, theme)
-    : compileVolumePoints(layer, layerIndex, theme);
+  if ((layer.mark.mode ?? 'volume') === 'isosurface')
+    return compileIsosurface(layer, layerIndex, theme);
+  const slices = layer.mark.slices ?? [];
+  if (layer.mark.render === undefined && slices.length === 0)
+    return compileVolumePoints(layer, layerIndex, theme);
+  return [
+    ...compileVolumeProjection(layer, layerIndex, theme),
+    ...compileVolumeSlices(layer, layerIndex, theme, slices),
+  ];
 }
 
 function isStreamtubeData(data: SpatialVectorLayer['data']): data is SpatialStreamtubeData {
   return 'paths' in data;
+}
+
+function isVectorFieldData(data: SpatialVectorLayer['data']): data is SpatialVectorFieldData {
+  return 'dimensions' in data;
 }
 
 function vectorBasis(direction: SpatialVec3): readonly [SpatialVec3, SpatialVec3] {
@@ -777,6 +1323,7 @@ function compileStreamtubes(
   data: SpatialStreamtubeData,
   theme: ThemeTokens,
   layerCount: number,
+  integration?: IntegratedVectorField,
 ): readonly CompiledSpatialGeometry[] {
   const segments = Math.max(5, Math.min(48, Math.trunc(layer.mark.segments ?? 10)));
   const radius = Math.max(0.0001, layer.mark.radius ?? 0.035);
@@ -785,13 +1332,33 @@ function compileStreamtubes(
   const indices: number[] = [];
   const picks: SpatialPickTarget[] = [];
   const id = layerId(layer, layerIndex);
+  let minimumMagnitude = Number.POSITIVE_INFINITY;
+  let maximumMagnitude = Number.NEGATIVE_INFINITY;
+  for (const path of data.magnitudes ?? []) {
+    for (const value of path) {
+      minimumMagnitude = Math.min(minimumMagnitude, value);
+      maximumMagnitude = Math.max(maximumMagnitude, value);
+    }
+  }
+  const magnitudeEncoding =
+    layer.mark.magnitudeEncoding ?? (integration === undefined ? 'none' : 'color-radius');
+  const encodeColor = magnitudeEncoding === 'color' || magnitudeEncoding === 'color-radius';
+  const encodeRadius = magnitudeEncoding === 'radius' || magnitudeEncoding === 'color-radius';
+  const lowMagnitudeColor = spatialColor(
+    usesLegacySpatialDefaults(theme) ? '#0ea5e9' : continuousColor(theme, 0),
+    layer.mark.opacity,
+  );
+  const highMagnitudeColor = spatialColor(
+    usesLegacySpatialDefaults(theme) ? '#7c3aed' : continuousColor(theme, 1),
+    layer.mark.opacity,
+  );
   for (let datumIndex = 0; datumIndex < data.paths.length; datumIndex += 1) {
     const path = data.paths[datumIndex]!.map((point, index) =>
       validVec3(point, `stream path ${datumIndex}:${index}`),
     );
     if (path.length < 2) continue;
     const offset = positions.length / 3;
-    const color = spatialColor(
+    const pathColor = spatialColor(
       data.colors?.[datumIndex] ??
         layer.mark.color ??
         (usesLegacySpatialDefaults(theme)
@@ -799,16 +1366,29 @@ function compileStreamtubes(
           : layerThemeColor(theme, layerIndex, layerCount)),
       layer.mark.opacity,
     );
+    const pathMagnitudes = data.magnitudes?.[datumIndex];
+    if (pathMagnitudes !== undefined && pathMagnitudes.length !== path.length)
+      fail(`stream magnitudes ${datumIndex} length must equal its path length.`);
     for (let pointIndex = 0; pointIndex < path.length; pointIndex += 1) {
       const [first, second] = tubePointBasis(path, pointIndex);
+      const magnitude = pathMagnitudes?.[pointIndex];
+      const amount =
+        magnitude === undefined || maximumMagnitude === minimumMagnitude
+          ? 0.5
+          : clamp((magnitude - minimumMagnitude) / (maximumMagnitude - minimumMagnitude), 0, 1);
+      const pointRadius = radius * (encodeRadius ? 0.45 + amount * 0.9 : 1);
+      const pointColor =
+        encodeColor && data.colors?.[datumIndex] === undefined && layer.mark.color === undefined
+          ? interpolateColor(lowMagnitudeColor, highMagnitudeColor, amount)
+          : pathColor;
       for (let segment = 0; segment < segments; segment += 1) {
         const angle = (segment / segments) * Math.PI * 2;
         const radial = add3(
-          scale3(first, Math.cos(angle) * radius),
-          scale3(second, Math.sin(angle) * radius),
+          scale3(first, Math.cos(angle) * pointRadius),
+          scale3(second, Math.sin(angle) * pointRadius),
         );
         pushVec3(positions, add3(path[pointIndex]!, radial));
-        pushColor(colors, color);
+        pushColor(colors, pointColor);
       }
     }
     for (let pointIndex = 0; pointIndex < path.length - 1; pointIndex += 1) {
@@ -834,6 +1414,12 @@ function compileStreamtubes(
           x: path[pointIndex]![0],
           y: path[pointIndex]![1],
           z: path[pointIndex]![2],
+          magnitude: data.magnitudes?.[datumIndex]?.[pointIndex],
+          seedIndex: integration?.paths[datumIndex]?.seedIndex,
+          seedSource: integration?.paths[datumIndex]?.seedSource,
+          acceptedSteps: integration?.paths[datumIndex]?.acceptedSteps,
+          rejectedSteps: integration?.paths[datumIndex]?.rejectedSteps,
+          termination: integration?.paths[datumIndex]?.termination,
           label: data.labels?.[datumIndex],
         },
       });
@@ -851,6 +1437,29 @@ function compileStreamtubes(
       sizes: new Float32Array(positionArray.length / 3).fill(1),
       indices: indexArray,
       picks,
+      role: integration === undefined ? 'primary' : 'integrated-streamtube',
+      provenance: {
+        family: 'spatial-vector',
+        operation: integration === undefined ? 'provided-path-streamtube' : integration.method,
+        sourceElements:
+          integration === undefined
+            ? data.paths.reduce((total, path) => total + path.length, 0)
+            : integration.sourceSeedCount,
+        derivedElements: positionArray.length / 3,
+        bounded: true,
+        parameters: {
+          segments,
+          magnitudeEncoding,
+          ...(integration === undefined
+            ? {}
+            : {
+                acceptedSteps: integration.acceptedSteps,
+                rejectedSteps: integration.rejectedSteps,
+                retainedSeeds: integration.seeds.length,
+                seedSourceIndices: integration.seedSourceIndices,
+              }),
+        },
+      },
     },
   ];
 }
@@ -861,11 +1470,33 @@ function compileVector(
   theme: ThemeTokens,
   layerCount: number,
 ): readonly CompiledSpatialGeometry[] {
-  const mode = layer.mark.mode ?? (isStreamtubeData(layer.data) ? 'streamtube' : 'cone');
+  const mode =
+    layer.mark.mode ??
+    (isStreamtubeData(layer.data) || isVectorFieldData(layer.data) ? 'streamtube' : 'cone');
   if (mode === 'streamtube') {
-    if (!isStreamtubeData(layer.data)) fail('streamtube mode requires paths.');
+    if (isVectorFieldData(layer.data)) {
+      const integration = integrateVectorField(layer.data, layer.mark.integration);
+      const data: SpatialStreamtubeData = {
+        paths: integration.paths.map((path) => path.points),
+        magnitudes: integration.paths.map((path) => path.magnitudes),
+        ...(layer.data.labels === undefined
+          ? {}
+          : {
+              labels: integration.paths.map(({ seedIndex }) => layer.data.labels![seedIndex]!),
+            }),
+        ...(layer.data.colors === undefined
+          ? {}
+          : {
+              colors: integration.paths.map(({ seedIndex }) => layer.data.colors![seedIndex]!),
+            }),
+      };
+      return compileStreamtubes(layer, layerIndex, data, theme, layerCount, integration);
+    }
+    if (!isStreamtubeData(layer.data)) fail('streamtube mode requires paths or a vector field.');
     return compileStreamtubes(layer, layerIndex, layer.data, theme, layerCount);
   }
+  if (isVectorFieldData(layer.data))
+    fail('vector field data requires streamtube mode and an integration contract.');
   if (isStreamtubeData(layer.data)) fail('cone mode requires origins and vectors.');
   return compileCones(layer, layerIndex, layer.data, theme, layerCount);
 }

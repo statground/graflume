@@ -196,8 +196,11 @@ export function legendItemToggleable(model: LegendModel, item: NormalizedLegendI
   return (
     model.spec.interactive &&
     model.mode !== 'continuous' &&
-    item.layerId !== undefined &&
-    (model.mode !== 'categories' || model.categoryToggleableLayerIds.has(item.layerId))
+    (model.mode === 'categories'
+      ? item.layerId === undefined
+        ? model.categoryToggleableLayerIds.size > 0
+        : model.categoryToggleableLayerIds.has(item.layerId)
+      : item.layerId !== undefined)
   );
 }
 
@@ -414,8 +417,11 @@ function itemPaint(
   if (mode === 'continuous') {
     return continuousColor(theme, index === 0 ? 0 : 1);
   }
-  const group = layerGroups.find((candidate) => candidate.id === `${item.layerId}:group`);
-  if (group !== undefined) {
+  const groups =
+    item.layerId === undefined
+      ? layerGroups
+      : layerGroups.filter((candidate) => candidate.id === `${item.layerId}:group`);
+  for (const group of groups) {
     const nodes = descendants(group);
     const matching =
       mode === 'categories' && field !== undefined && item.value !== undefined

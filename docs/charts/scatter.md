@@ -384,12 +384,14 @@ The standard profile renders at most 25,000 point marks. Its opt-in mark tooltip
 
 ## Current limitations
 
-- one shared radius and style per point layer;
-- no field encoding for color, radius, shape, or opacity;
-- no jitter, beeswarm, regression, density, hexbin, or brushing transform;
-- no spatial index or GPU picking;
-- no axis-nearest mode for the unordered two-dimensional cloud; use the shared layer legend or an explicit category legend when color/category meaning is supplied by the host;
-- no WebGL renderer yet.
+None remain in the audited P0/current-limitations boundary as of 2026-08-26. The `current-limitations-2026-08-26` implementation moved these former limitations into executable support:
+
+- color/radius/shape/opacity encodings
+- brush/lasso/polygon selection
+- data-domain navigation
+- spatial index and WebGL dispatch
+
+The separately cataloged P1/P2 research roadmap remains future work and is not presented as current runtime support. Exact implementation and test paths are recorded in [the completion evidence](../../catalog/graflume.current-limitations.evidence.json).
 
 ## Runnable examples and tests
 

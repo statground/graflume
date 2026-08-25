@@ -2,19 +2,29 @@ import { GraflumeError } from '../core/errors.js';
 import type { PlotArea } from '../compiler/types.js';
 import type { Scale } from '../scale/types.js';
 import type { AxisId } from '../spec/types.js';
+import { builtInAxisChannel } from '../spec/axes.js';
 import type {
   AnalyticAxisSelection,
+  AnalyticCategoricalExtent,
   AnalyticDomainPoint,
   AnalyticIntervalSelection,
   AnalyticLassoSelection,
   AnalyticPointSelection,
   AnalyticRectangleSelection,
   AnalyticSelection,
+  AnalyticSelectionExtent,
 } from './analytic-selection.js';
 
 export interface CartesianCoordinateContext {
   readonly plot: PlotArea;
   readonly axes: Readonly<Partial<Record<AxisId, Scale>>>;
+  readonly channels?: Readonly<Partial<Record<AxisId, 'x' | 'y'>>>;
+}
+
+export function cartesianAxisChannel(context: CartesianCoordinateContext, axis: AxisId): 'x' | 'y' {
+  const channel = context.channels?.[axis] ?? builtInAxisChannel(axis);
+  if (channel === undefined) fail(`Axis "${axis}" has no Cartesian channel.`, `$.axes.${axis}`);
+  return channel;
 }
 
 export interface PixelPoint {
@@ -46,7 +56,7 @@ function clampToRange(scale: Scale, pixel: number): number {
   return Math.max(minimum, Math.min(maximum, pixel));
 }
 
-function nearestCategorical(scale: Scale, pixel: number): string {
+function nearestCategorical(scale: Scale, pixel: number): number | string {
   if (scale.kind !== 'band' && scale.kind !== 'point') {
     fail(
       `Scale "${scale.kind}" has no single-valued inverse; analytic geometry supports invertible continuous, band, and point axes only.`,
@@ -54,7 +64,7 @@ function nearestCategorical(scale: Scale, pixel: number): string {
   }
   const candidates = scale.domain().map((value) => {
     const mapped = scale.map(value);
-    return { value: String(value), distance: Math.abs(mapped - pixel) };
+    return { value, distance: Math.abs(mapped - pixel) };
   });
   const nearest = candidates.reduce<(typeof candidates)[number] | undefined>(
     (best, candidate) =>
@@ -107,7 +117,7 @@ export function clampPixelToPlot(
 export function pixelPointToDomain(
   context: CartesianCoordinateContext,
   point: PixelPoint,
-  axes: { readonly x?: 'x' | 'x2'; readonly y?: 'y' | 'y2' } = {},
+  axes: { readonly x?: AxisId; readonly y?: AxisId } = {},
 ): AnalyticPointSelection {
   const bounded = clampPixelToPlot(context, point);
   const xAxis = axes.x ?? 'x';
@@ -157,14 +167,76 @@ function extent(start: number, end: number): readonly [number, number] {
   return Object.freeze(start <= end ? [start, end] : [end, start]);
 }
 
+function categoricalExtent(scale: Scale, start: number, end: number): AnalyticCategoricalExtent {
+  if (scale.kind !== 'band' && scale.kind !== 'point') {
+    fail(`Scale "${scale.kind}" cannot create a categorical brush extent.`);
+  }
+  const domain = scale.domain();
+  if (domain.length === 0) fail(`Scale "${scale.kind}" has an empty domain.`);
+  const nearestIndex = (pixel: number): number => {
+    let bestIndex = 0;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    domain.forEach((value, index) => {
+      const distance = Math.abs(scale.map(value) - pixel);
+      if (distance < bestDistance) {
+        bestIndex = index;
+        bestDistance = distance;
+      }
+    });
+    return bestIndex;
+  };
+  const first = nearestIndex(start);
+  const last = nearestIndex(end);
+  return Object.freeze({
+    values: Object.freeze(domain.slice(Math.min(first, last), Math.max(first, last) + 1)),
+  });
+}
+
+function selectionExtent(
+  context: CartesianCoordinateContext,
+  axis: AxisId,
+  start: number,
+  end: number,
+): AnalyticSelectionExtent {
+  const scale = scaleFor(context, axis);
+  return scale.invert === undefined
+    ? categoricalExtent(scale, start, end)
+    : extent(continuousDomain(context, axis, start), continuousDomain(context, axis, end));
+}
+
+function categoricalHalfSpan(scale: Scale): number {
+  if (scale.bandwidth > 0) return scale.bandwidth / 2;
+  const positions = scale
+    .domain()
+    .map((value) => scale.map(value))
+    .sort((left, right) => left - right);
+  let minimum = Number.POSITIVE_INFINITY;
+  for (let index = 1; index < positions.length; index += 1) {
+    minimum = Math.min(minimum, Math.abs(positions[index]! - positions[index - 1]!));
+  }
+  return Number.isFinite(minimum) ? minimum / 2 : 3;
+}
+
+function extentToPixels(scale: Scale, value: AnalyticSelectionExtent): readonly [number, number] {
+  if (Array.isArray(value)) {
+    return Object.freeze([scale.map(value[0]), scale.map(value[1])]);
+  }
+  const positions = (value as AnalyticCategoricalExtent).values.map((entry) => scale.map(entry));
+  if (positions.some((entry) => !Number.isFinite(entry))) {
+    fail('Categorical brush values must exist in the resolved scale domain.');
+  }
+  const halfSpan = categoricalHalfSpan(scale);
+  return Object.freeze([Math.min(...positions) - halfSpan, Math.max(...positions) + halfSpan]);
+}
+
 export function pixelRectangleToSelection(
   context: CartesianCoordinateContext,
   start: PixelPoint,
   end: PixelPoint,
   options: {
     readonly type?: 'interval' | 'rectangle';
-    readonly xAxis?: 'x' | 'x2';
-    readonly yAxis?: 'y' | 'y2';
+    readonly xAxis?: AxisId;
+    readonly yAxis?: AxisId;
   } = {},
 ): AnalyticIntervalSelection | AnalyticRectangleSelection {
   const first = clampPixelToPlot(context, start);
@@ -175,8 +247,8 @@ export function pixelRectangleToSelection(
     type: options.type ?? 'rectangle',
     xAxis,
     yAxis,
-    x: extent(continuousDomain(context, xAxis, first.x), continuousDomain(context, xAxis, last.x)),
-    y: extent(continuousDomain(context, yAxis, first.y), continuousDomain(context, yAxis, last.y)),
+    x: selectionExtent(context, xAxis, first.x, last.x),
+    y: selectionExtent(context, yAxis, first.y, last.y),
   });
 }
 
@@ -188,13 +260,15 @@ export function pixelAxisToSelection(
 ): AnalyticAxisSelection {
   const first = clampPixelToPlot(context, start);
   const last = clampPixelToPlot(context, end);
-  const horizontal = axis === 'x' || axis === 'x2';
+  const horizontal = cartesianAxisChannel(context, axis) === 'x';
   return Object.freeze({
     type: 'axis',
     axis,
-    extent: extent(
-      continuousDomain(context, axis, horizontal ? first.x : first.y),
-      continuousDomain(context, axis, horizontal ? last.x : last.y),
+    extent: selectionExtent(
+      context,
+      axis,
+      horizontal ? first.x : first.y,
+      horizontal ? last.x : last.y,
     ),
   });
 }
@@ -202,7 +276,7 @@ export function pixelAxisToSelection(
 export function pixelLassoToSelection(
   context: CartesianCoordinateContext,
   points: readonly PixelPoint[],
-  axes: { readonly x?: 'x' | 'x2'; readonly y?: 'y' | 'y2' } = {},
+  axes: { readonly x?: AxisId; readonly y?: AxisId } = {},
 ): AnalyticLassoSelection {
   if (points.length < 3) fail('A lasso gesture requires at least three points.');
   if (points.length > 512) fail('A lasso gesture exceeds the 512 point bound.');
@@ -232,21 +306,22 @@ export function selectionToPixels(
     return [domainPointToPixel(context, selection)];
   }
   if (selection.type === 'interval' || selection.type === 'rectangle') {
+    const x = extentToPixels(scaleFor(context, selection.xAxis), selection.x);
+    const y = extentToPixels(scaleFor(context, selection.yAxis), selection.y);
     return [
       Object.freeze({
-        x: domainToPixel(context, selection.xAxis, selection.x[0]),
-        y: domainToPixel(context, selection.yAxis, selection.y[0]),
+        x: x[0],
+        y: y[0],
       }),
       Object.freeze({
-        x: domainToPixel(context, selection.xAxis, selection.x[1]),
-        y: domainToPixel(context, selection.yAxis, selection.y[1]),
+        x: x[1],
+        y: y[1],
       }),
     ];
   }
   if (selection.type === 'axis') {
-    const horizontal = selection.axis === 'x' || selection.axis === 'x2';
-    const start = domainToPixel(context, selection.axis, selection.extent[0]);
-    const end = domainToPixel(context, selection.axis, selection.extent[1]);
+    const horizontal = cartesianAxisChannel(context, selection.axis) === 'x';
+    const [start, end] = extentToPixels(scaleFor(context, selection.axis), selection.extent);
     return horizontal
       ? [
           Object.freeze({ x: start, y: context.plot.y }),

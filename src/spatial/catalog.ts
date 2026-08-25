@@ -106,7 +106,7 @@ export const spatialCompatibilityModes = Object.freeze([
 
 export const spatialCatalogBoundary = Object.freeze({
   coreAndCompleteCanonicalFamilies: 41,
-  coreAndCompletePresets: 165,
+  coreAndCompletePresets: 168,
   spatialCanonicalFamilies: spatialChartFamilies.length,
   totalCanonicalFamilies: 44,
   spatialVariants: spatialChartFamilies.reduce(
@@ -114,5 +114,5 @@ export const spatialCatalogBoundary = Object.freeze({
     0,
   ),
   integratedExistingFamilyModes: spatialCompatibilityModes.length,
-  totalPresetsAndModes: 173,
+  totalPresetsAndModes: 176,
 });

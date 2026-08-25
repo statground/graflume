@@ -894,6 +894,33 @@ Graflume.create('#chart', {
 
 Without `position: 'group'`, multiple bar layers use overlay positioning.
 
+## Interactive ranking and bounded virtualization
+
+`createBarVirtualizationController()` owns the mutable retained-row window, deterministic aggregate ranking, keyboard/page navigation, and the much smaller materialized chart window. Raw retention never exceeds `maxRows`; rendered/controller output never exceeds `windowRows + 2 * overscanRows`.
+
+```ts
+import { createBarVirtualizationController } from 'graflume';
+
+const bars = createBarVirtualizationController(rows, {
+  key: 'id',
+  category: 'team',
+  value: 'sales',
+  aggregate: 'value',
+  direction: 'descending',
+  maxRows: 50_000,
+  windowRows: 100,
+  overscanRows: 20,
+});
+
+let visible = bars.navigate('PageDown').window;
+visible = bars.upsert([{ id: 'team-a', sales: 420 }]).window;
+const movement = bars.state().last.rankChanges;
+```
+
+`append()`, `upsert()`, and `replace()` mutate the bounded retained snapshot. `sort()` changes ascending/descending rank order. `navigate()` accepts `ArrowUp`, `ArrowDown`, `Home`, `End`, `PageUp`, and `PageDown`; `setWindowStart()` supports scroll-driven hosts. The active category survives reranking by stable identity whenever it is still present.
+
+Each transition reports accepted, updated, evicted, reused retained, recomputed rank, reused rank, reused window, and materialized row counts. Rank entries carry `previousRank` and signed `rankChange`; navigation does not recompute rank. `snapshot()` is structured-cloneable and Worker protocol v2 accepts the identical request through `worker.barVirtualization()`.
+
 ## Interaction
 
 Each rendered rectangle carries its layer id, row index, and original datum. Hover and click events work in the standard profile:
@@ -908,11 +935,14 @@ Large and ultra profiles reduce rendered bars and disable per-bar and axis-neare
 
 ## Current limitations
 
-- no range, floating, or funnel semantics; waterfall uses its own portable mark;
-- one-layer series layouts do not implicitly aggregate duplicate category-series rows or impute missing combinations;
-- no rendered crosshair guide or data-label layout; shared layer and explicit category legends are available;
-- keyboard traversal is available only through the bounded opt-in native accessibility mirror;
-- no SVG/WebGL renderer parity yet.
+None remain in the audited P0/current-limitations boundary as of 2026-08-26. The `current-limitations-2026-08-26` implementation moved these former limitations into executable support:
+
+- weighted count
+- interactive sort and rank
+- automatic total and segment labels
+- worker-bounded virtualization
+
+The separately cataloged P1/P2 research roadmap remains future work and is not presented as current runtime support. Exact implementation and test paths are recorded in [the completion evidence](../../catalog/graflume.current-limitations.evidence.json).
 
 ## Runnable examples and tests
 

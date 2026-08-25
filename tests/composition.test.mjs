@@ -57,7 +57,7 @@ test('new layer composition uses the flat shared compiler while legacy layers st
     kind: 'layer',
     viewCount: 1,
     viewIds: ['plot'],
-    resolve: { scale: 'shared', axis: 'shared', legend: 'shared' },
+    resolve: { scale: 'shared', axis: 'shared', legend: 'shared', colorbar: 'shared' },
   });
 });
 
@@ -78,7 +78,12 @@ test('concat layout scopes renderer, hit-target, semantic, and accessibility ide
     kind: 'hconcat',
     viewCount: 2,
     viewIds: ['hconcat-0', 'hconcat-1'],
-    resolve: { scale: 'independent', axis: 'independent', legend: 'independent' },
+    resolve: {
+      scale: 'independent',
+      axis: 'independent',
+      legend: 'independent',
+      colorbar: 'independent',
+    },
   });
   assert.equal(result.scene.accessibility.label, 'Two panels');
   assert.deepEqual(
@@ -263,21 +268,17 @@ test('nested composition is bounded, deterministic, and keeps scoped semantic vi
   );
 });
 
-test('unsupported composition mixes and interaction semantics fail closed', () => {
+test('unsupported composition mixes and child-owned interaction semantics fail closed', () => {
   const base = unit([{ x: 'A', y: 1 }]);
   const cases = [
     [{ hconcat: [base], vconcat: [base] }, 'exactly one composition operator'],
     [
       { layer: [base], resolve: { scale: 'independent' } },
-      'requires shared scale, axis, and legend',
+      'requires shared scale, axis, legend, and colorbar',
     ],
     [
       { hconcat: [base], resolve: { axis: 'shared' } },
-      'Shared multi-view axes are not yet supported',
-    ],
-    [
-      { hconcat: [base], resolve: { legend: 'shared' } },
-      'Shared multi-view legends are not yet supported',
+      'shared axis requires a shared position scale',
     ],
     [{ hconcat: [{ ...base, width: 200 }] }, 'child width/height are unsupported'],
     [{ hconcat: [{ ...base, legend: { interactive: true } }] }, 'legends are visual-only'],
@@ -286,12 +287,8 @@ test('unsupported composition mixes and interaction semantics fail closed', () =
       'Axis-nearest tooltip is not supported',
     ],
     [
-      { hconcat: [base], interaction: { domainNavigation: true } },
-      'Data-domain navigation is not supported',
-    ],
-    [
-      { hconcat: [base], interaction: { selection: { kind: 'lasso' } } },
-      'supports point selection only',
+      { hconcat: [{ ...base, interaction: { selection: { kind: 'rectangle' } } }] },
+      'Declare interaction once on the composition container',
     ],
     [{ hconcat: [base], streaming: { mode: 'append' } }, 'Streaming composition is not supported'],
     [
@@ -309,7 +306,7 @@ test('unsupported composition mixes and interaction semantics fail closed', () =
   }
   assert.throws(
     () => compile({ layer: [base], resolve: { scale: 'independent' } }),
-    /requires shared scale, axis, and legend/,
+    /requires shared scale, axis, legend, and colorbar/,
   );
 
   const functionIssues = validateSpec({
@@ -317,6 +314,37 @@ test('unsupported composition mixes and interaction semantics fail closed', () =
     resolve: { scale: () => 'shared' },
   });
   assert.ok(functionIssues.some(({ message }) => message.includes('Functions are not allowed')));
+});
+
+test('composition container owns analytic selection and data-domain navigation for every leaf', () => {
+  const numeric = (offset = 0) => ({
+    data: [
+      { x: 0, y: offset },
+      { x: 10, y: offset + 10 },
+    ],
+    mark: 'point',
+    encoding: {
+      x: { field: 'x', type: 'quantitative', scale: { domain: [0, 10], nice: false } },
+      y: { field: 'y', type: 'quantitative', scale: { domain: [0, 20], nice: false } },
+    },
+  });
+  const spec = {
+    hconcat: [numeric(), numeric(5)],
+    interaction: {
+      domainNavigation: { axes: ['x', 'y'], drag: false },
+      selection: { kind: 'rectangle', filter: true, linked: true },
+    },
+    width: 800,
+    height: 320,
+  };
+  assert.deepEqual(validateSpec(spec), []);
+  const result = compile(spec);
+  assert.deepEqual(
+    result.coordinateViews.map(({ id }) => id),
+    ['hconcat-0', 'hconcat-1'],
+  );
+  assert.ok(result.coordinateViews.every(({ coordinates }) => coordinates.axes.x !== undefined));
+  assert.deepEqual(result.coordinates.axes, {});
 });
 
 test('view, layer, and minimum cell limits raise explicit errors', () => {
@@ -423,7 +451,7 @@ test('portable schema exposes closed recursive composition contracts and bounds'
   const schema = JSON.parse(
     await readFile(new URL('../schema/graflume.schema.json', import.meta.url), 'utf8'),
   );
-  assert.equal(schema.anyOf.length, 10);
+  assert.ok(schema.anyOf.some(({ required }) => required?.includes('hconcat')));
   assert.equal(schema.$defs.compositionChoice.oneOf.length, 7);
   assert.equal(schema.properties.layer.maxItems, 16);
   assert.equal(schema.properties.hconcat.maxItems, 64);

@@ -34,7 +34,7 @@ Zero-length vectors do not emit geometry. A pick exposes `x`, `y`, `z`, `dx`, `d
 
 ![Compiled streamtube preview](../assets/spatial/streamtube.svg)
 
-`streamtube()` wraps a connected tube around each ordered path. It communicates the trajectory already present in the input; it does not numerically integrate a vector field.
+`streamtube()` wraps a connected tube around each ordered path. It communicates the trajectory already present in that input. Use `vectorField()` below when the trajectory must be computed from a raw vector lattice.
 
 The gallery renders nine phase-shifted helices with 58 points per path. Each path keeps a stable color and shares the same tube radius and eight-segment cross-section, demonstrating depth ordering and coherent multi-path flow without changing the portable path contract.
 
@@ -57,6 +57,49 @@ GraflumeSpatial.streamtube(
 ```
 
 Every path needs at least two points. A pick exposes `path`, `point`, `x`, `y`, `z`, and `label`.
+
+## Seeded adaptive vector field
+
+`vectorField()` accepts a regular 3D lattice of vectors plus explicit world-space seeds or a deterministic seed grid. The compiler trilinearly samples the raw field and integrates forward, backward, or both with adaptive RK4 step doubling. `initialStep`, `minStep`, `maxStep`, `tolerance`, `maxSteps`, `maxLength`, and `minMagnitude` are all finite portable bounds; no authored callback is executed.
+
+```js
+const vectors = [];
+for (let z = 0; z < 7; z += 1) {
+  for (let y = 0; y < 7; y += 1) {
+    for (let x = 0; x < 7; x += 1) {
+      const dx = x - 3;
+      const dz = z - 3;
+      vectors.push([-dz, 0.25, dx]);
+    }
+  }
+}
+
+GraflumeSpatial.vectorField(
+  '#field',
+  {
+    dimensions: [7, 7, 7],
+    vectors,
+    origin: [-3, -3, -3],
+    spacing: [1, 1, 1],
+    seedGrid: { dimensions: [3, 2, 3], jitter: 0.12, seed: 42 },
+  },
+  {
+    segments: 8,
+    magnitudeEncoding: 'color-radius',
+    integration: {
+      direction: 'both',
+      initialStep: 0.25,
+      minStep: 0.01,
+      maxStep: 0.6,
+      tolerance: 0.001,
+      maxSteps: 512,
+      maxLength: 30,
+    },
+  },
+);
+```
+
+The accepted and rejected adaptive steps, termination reason, seed index, local magnitude, and source/derived counts are retained in pick data and geometry provenance. `magnitudeEncoding` can be `none`, `color`, `radius`, or `color-radius`; explicit path/mark colors still win. `generateVectorFieldSeeds()`, `sampleVectorField()`, and `integrateVectorField()` expose the deterministic CPU path used before the derived tubes enter the ordinary WebGL renderer.
 
 ## Spatial scatter
 
@@ -87,4 +130,8 @@ A pick exposes `x`, `y`, `z`, `value`, `size`, and `label`. The code above is th
 
 ## Bounds and performance
 
-Cone mode accepts at most 250,000 origin/vector pairs. Streamtube mode accepts at most 4,096 paths and 1,000,000 total input points. Cone and tube cross-sections accept 5 through 48 segments. Scatter accepts at most 1,000,000 input points. Parallel arrays must have exact matching lengths, and all coordinates must be finite. Scene-wide derived geometry, index, pick-target, and estimated-memory budgets are checked after applying cone or tube segments, so these independent input maxima cannot all be reached at once. Reduce tube segments and accessible rows before increasing scene density.
+Cone mode accepts at most 250,000 origin/vector pairs. Provided streamtube mode accepts at most 4,096 paths and 1,000,000 total input points. A raw field accepts at most 1,000,000 vector cells, 4,096 explicit/generated seeds, 4,096 steps per direction, and a 16×16×16 seed-grid request; the stricter scene-wide derived-output estimate usually rejects an unsafe combination first. Cone and tube cross-sections accept 5 through 48 segments. Scatter accepts at most 1,000,000 input points. Parallel arrays must have exact matching lengths, and all coordinates must be finite. Scene-wide derived geometry, index, pick-target, and estimated-memory budgets are checked after integration and tube segmentation. Reduce seeds, adaptive steps, tube segments, and accessible rows before increasing field density.
+
+## Current limitations
+
+None remain in the audited P0/current-limitations boundary as of 2026-08-26. Seed generation and deterministic adaptive forward/backward vector-field integration now compile into the existing bounded WebGL path with provenance and picking. Separately cataloged P1/P2 work such as particles, scalar slices, GPU integration, and transparency research remains future roadmap rather than current runtime support. Exact source and test paths are recorded in [the completion evidence](../../catalog/graflume.current-limitations.evidence.json).

@@ -135,11 +135,11 @@ The `ternary` family compares three non-negative components whose relative share
 
 ## Data contract
 
-Map the first two components through `x` and `y`, and name the third with `mark.fields.c`. Values are normalized per row, so they may be proportions, percentages, or positive totals. Rows with a non-positive combined total are ignored.
+Map the first two components through `x` and `y`, and name the third with `mark.fields.c`. The compatibility compiler normalizes positive rows. The analytical contract makes this decision explicit: set positive `sum`, `policy: "reject" | "normalize"`, and optional non-negative `tolerance`. Reject mode fails a row whose authored total is outside tolerance; normalize mode retains both raw and unit-sum triples.
 
 ## Styling and interaction
 
-The triangle, grid, and axis labels are compiled Scene primitives. Scatter is the default; line mode joins rows in source order and may close the path. Points retain source rows for native tooltips.
+The triangle, component ticks, grid, and axis labels are compiled Scene primitives. Scatter is the default; `lines: false` hides the ordered series trace in the analytical contract. Every point retains its source row and reports raw components, normalized barycentric components, projected coordinates, target sum, and a stable selection key.
 
 ## Accessibility and limits
 

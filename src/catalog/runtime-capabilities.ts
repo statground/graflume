@@ -53,7 +53,7 @@ export const tiledMapCapability = {
 /** Executable Canvas boundary for serializable analytic interaction state. */
 export const analyticInteractionCapability = {
   id: 'analytic-interaction',
-  status: 'partial',
+  status: 'supported',
   stateVersion: 1,
   selections: ['point', 'interval', 'rectangle', 'axis', 'lasso'],
   combine: ['union', 'intersection'],
@@ -61,13 +61,14 @@ export const analyticInteractionCapability = {
     pointer: true,
     touch: true,
     keyboardEscapeClear: true,
-    keyboardGeometryAuthoring: false,
+    keyboardGeometryAuthoring: true,
   },
   coordinates: {
     domainPixelRoundTrip: true,
     continuous: true,
     pointNearest: true,
     bandNearest: true,
+    categoricalBrush: true,
     nonInvertibleGeometry: false,
   },
   domainNavigation: {
@@ -75,9 +76,20 @@ export const analyticInteractionCapability = {
     wheel: true,
     pointerDrag: true,
     keyboard: true,
-    categorical: false,
+    categorical: true,
     spatial: false,
-    multiViewLinkedStore: false,
+    multiViewLinkedStore: true,
+  },
+  filtering: {
+    selectionDriven: true,
+    retainsScaleDomains: true,
+    lineage: true,
+  },
+  composition: {
+    coordinateViews: true,
+    selectionShared: true,
+    domainViewShared: true,
+    viewAddressable: true,
   },
 } as const;
 
@@ -109,7 +121,7 @@ const computedTechnicalIndicatorCount = technicalIndicatorCapabilities.filter(
 /** Machine-readable calculation boundary; never infers support from a public name. */
 export const technicalIndicatorRuntimeCapability = {
   id: 'technical-indicator',
-  status: 'mixed',
+  status: 'supported',
   publicEntryPoints: {
     canonical: technicalIndicatorCanonicalSurfaces,
     ...technicalIndicatorPublicEntryPointCount,
@@ -118,6 +130,9 @@ export const technicalIndicatorRuntimeCapability = {
     computed: computedTechnicalIndicatorCount,
     precomputedRequired: technicalIndicatorCapabilities.length - computedTechnicalIndicatorCount,
     warmUpPolicy: 'null',
+    sessionReset: ['hard', 'carry'],
+    incremental: { bounded: true, workerProtocol: 2 },
+    synchronizedCrosshair: { axis: 'x', sharedDomain: true },
   },
   presets: technicalIndicatorCapabilities,
 } as const;

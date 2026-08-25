@@ -45,14 +45,66 @@ const spec = {
 
 `density2d` evaluates a bounded rectangular Gaussian kernel-density grid; it does not produce contour geometry. `regression` is linear only. `resample` supports fixed numeric intervals with `linear`, `previous`, or `next` fill; calendar-aware intervals are intentionally left to `timeUnit` plus authored data preparation. Local-time `timeUnit` is available with `utc: false`, but UTC is the deterministic default.
 
+## Named sources and reusable branches
+
+A chart can declare one closed `dataflow` graph and address its materialized outputs with `source`.
+Each node names exactly one source or earlier/later node and applies the same validated ordered
+`transform` list used by a chart or layer. Node declaration order is not execution order: dependencies
+are resolved topologically, cycles and unknown names fail before compilation, and a shared ancestor is
+computed once per graph instance.
+
+```js
+const spec = {
+  dataflow: {
+    sources: { observations: rawRows },
+    nodes: [
+      {
+        id: 'included',
+        source: 'observations',
+        transform: [
+          {
+            type: 'filter',
+            expr: {
+              op: 'greaterThan',
+              left: { op: 'field', field: 'amount' },
+              right: { op: 'literal', value: 0 },
+            },
+          },
+        ],
+      },
+      {
+        id: 'categoryTotals',
+        source: 'included',
+        transform: [
+          {
+            type: 'aggregate',
+            groupby: ['category'],
+            fields: [{ op: 'sum', field: 'amount', as: 'total' }],
+          },
+        ],
+      },
+    ],
+  },
+  hconcat: [
+    { source: 'included', mark: 'point', x: 'date', y: 'amount' },
+    { source: 'categoryTotals', mark: 'bar', x: 'category', y: 'total' },
+  ],
+};
+```
+
+`source` is available on chart nodes and flat layers and is mutually exclusive with inline `data` at
+that node. A composition child inherits its enclosing graph; a nested `dataflow` deliberately opens a
+new local scope. `createTransformDataflow()` exposes the same executor for hosts that need to resolve
+several outputs, inspect `executionOrder` and `cacheHits`, or clear and reuse the graph cache.
+
 ## Provenance
 
-`executeTransforms(data, transforms, { sourceId })` can run the dataflow independently. It returns derived rows and a lineage sidecar with per-step input/output counts, a JSON-safe snapshot of the declared transform parameters, the effective sample seed, aggregate/joinaggregate/stack group count, and the contributing source-row indices for each output row. Dates become ISO strings and typed arrays become ordinary arrays in the parameter snapshot. `compile()` exposes the same sidecars as `result.dataLineage`; each layer summary is also included in Scene metadata and the accessible description when transforms ran.
+`executeTransforms(data, transforms, { sourceId })` can run one ordered pipeline independently. `executeTransformDataflow()` runs named graph targets. Both return derived rows and a lineage sidecar with per-step input/output counts, a JSON-safe snapshot of the declared transform parameters, the effective sample seed, aggregate/joinaggregate/stack group count, and the contributing source-row indices for each output row. Dates become ISO strings and typed arrays become ordinary arrays in the parameter snapshot. Named branches remap their row contributors through every ancestor rather than resetting at a branch boundary. `compile()` exposes the same sidecars as `result.dataLineage`; composition and facet scoping retain the original named-source row identity, and each layer summary is also included in Scene metadata and the accessible description when transforms ran.
 
 Lineage is descriptive provenance, not an inverse transform or a security boundary. Empty `sources` on an imputed row means that the row was created by the dataflow rather than copied from one source record.
 
 ## Determinism and limits
 
-Ordered transforms are synchronous and run on the main thread. Stable sorting preserves source order for equal values. Sampling uses an explicit deterministic pseudo-random generator and defaults to seed `0`. Runtime validation limits a pipeline to 128 transforms, expression depth to 32, and field/output collections to bounded sizes.
+Named-DAG execution is synchronous. Stable sorting preserves source order for equal values. Sampling uses an explicit deterministic pseudo-random generator and defaults to seed `0`. Runtime validation limits a graph to 128 named sources and 256 nodes, a pipeline to 128 transforms, expression depth to 32, and field/output collections to bounded sizes. Names are non-empty, bounded, and reject prototype keys; the graph cache contains copied row outputs for one executor or chart materialization.
 
-For very large data, pre-aggregate upstream or use a future worker/streaming execution profile. This release does not claim named-node DAG caching, worker execution, binary interchange, geographic transforms, nonlinear regression, density contour extraction, or inverse lineage.
+For very large data, pre-aggregate upstream or use the bounded incremental/worker facilities described by the runtime guide. Named graphs do not imply distributed scheduling or cross-chart cache sharing. This release does not claim geographic transforms, nonlinear regression, density contour extraction, or inverse lineage.

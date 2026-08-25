@@ -129,6 +129,27 @@ Graflume.calendar('#chart', data, {
 
 The same result can be created with `Graflume.create()` and `mark: { type: 'calendar' }`. Named `mark.fields` and `mark.options` values are function-free and JSON-serializable, so they remain portable across JavaScript, future Python/R/Java builders, and stored specs.
 
+## Locale, week start, and timezone
+
+The top-level `locale` controls both the localized weekday header text and, when `mark.options.weekStart` is omitted, the first row of the week. For example, `en-US` and `ko-KR` start on Sunday while `en-GB` starts on Monday. Graflume uses the runtime's `Intl.Locale` week information when available and applies deterministic region rules on older runtimes.
+
+`mark.options.timeZone` assigns each input instant to its civil calendar date before aggregation and formats the weekday headers in that same IANA timezone. Set `weekStart` to an integer from `0` (Sunday) through `6` (Saturday) to override the locale explicitly:
+
+```ts
+Graflume.calendar('#chart', data, {
+  locale: 'en-GB',
+  x: { field: 'date', type: 'temporal' },
+  y: { field: 'activity', type: 'quantitative' },
+  mark: {
+    options: {
+      mode: 'month',
+      timeZone: 'Europe/London',
+      weekStart: 2, // Explicit Tuesday start wins over en-GB's Monday start.
+    },
+  },
+});
+```
+
 ## Data, ordering, and missing values
 
 The compiler places days in week columns and weekday rows, then maps values through the theme sequential palette. Invalid dates and missing values are skipped.
@@ -149,7 +170,14 @@ The same `standard`, `large`, `ultra`, and `auto` profiles apply. Complex layout
 
 ## Current limitations
 
-The current alpha view draws one continuous year grid; month boundaries, multiple-year rows, localized weekday labels, and patterned no-data cells remain planned.
+None remain in the audited P0/current-limitations boundary as of 2026-08-26. The `current-limitations-2026-08-26` implementation moved these former limitations into executable support:
+
+- year/month/week/day modes
+- locale week start and timezone
+- leap/no-data/zero policy
+- month boundaries
+
+The separately cataloged P1/P2 research roadmap remains future work and is not presented as current runtime support. Exact implementation and test paths are recorded in [the completion evidence](../../catalog/graflume.current-limitations.evidence.json).
 
 ## Runnable example and regression coverage
 

@@ -1,6 +1,7 @@
 import type { MarkCompiler } from '../compiler/types.js';
 import { GraflumeError } from '../core/errors.js';
 import { pluginApiVersion, type GraflumePlugin, type PluginContext } from '../core/plugin.js';
+import { createTableFormatterRegistry, type TableFormatter } from '../data/family-layouts.js';
 import type { RendererFactory } from '../renderer/types.js';
 import type { ChartSpec } from '../spec/types.js';
 import { ThemeRegistry } from '../theme/registry.js';
@@ -8,6 +9,8 @@ import type { ThemeTokens } from '../theme/types.js';
 
 export class RuntimeRegistry {
   readonly themes = new ThemeRegistry();
+  /** Built-in and host-registered formatter ids used by compiled table marks. */
+  readonly tableFormatters = createTableFormatterRegistry();
   readonly #marks = new Map<string, MarkCompiler>();
   readonly #renderers = new Map<string, RendererFactory>();
   readonly #plugins = new Map<string, string | undefined>();
@@ -61,6 +64,10 @@ export class RuntimeRegistry {
     this.themes.register(theme);
   }
 
+  registerTableFormatter(id: string, formatter: TableFormatter): void {
+    this.tableFormatters.register(id, formatter);
+  }
+
   use(plugin: GraflumePlugin): void {
     if (this.#plugins.has(plugin.name)) return;
     if (plugin.apiVersion !== undefined && plugin.apiVersion !== pluginApiVersion) {
@@ -84,12 +91,14 @@ export class RuntimeRegistry {
     readonly marks: readonly string[];
     readonly renderers: readonly string[];
     readonly themes: readonly string[];
+    readonly tableFormatters: readonly string[];
     readonly plugins: readonly string[];
   } {
     return {
       marks: this.markNames(),
       renderers: this.rendererNames(),
       themes: this.themes.names(),
+      tableFormatters: [...this.tableFormatters.ids()].sort(),
       plugins: [...this.#plugins.keys()].sort(),
     };
   }

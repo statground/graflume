@@ -372,7 +372,7 @@ test('streaming runtime validation and JSON Schema expose the same closed contra
     { key: 'id', mode: 'merge' },
     { key: 'id', retention: { time: { field: 't', durationMs: 100 } } },
     { key: 'id', eventTime: { field: 't', lateData: 'reorder' } },
-    { key: 'id', queue: { overflow: 'drop-oldest' } },
+    { key: 'id', queue: { overflow: 'silent-drop' } },
   ]) {
     assert.ok(
       validateSpec({ ...base, streaming }).some(({ path }) => path.startsWith('$.streaming')),
@@ -387,7 +387,11 @@ test('streaming runtime validation and JSON Schema expose the same closed contra
     'upsert',
     'replaceLast',
   ]);
-  assert.equal(schema.$defs.streaming.properties.queue.properties.overflow.const, 'reject');
+  assert.deepEqual(schema.$defs.streaming.properties.queue.properties.overflow.enum, [
+    'reject',
+    'drop-oldest',
+    'coalesce',
+  ]);
   assert.equal(schema.$defs.streaming.properties.queue.properties.maxBatches.maximum, 1_024);
   assert.equal(schema.$defs.streaming.properties.replay.properties.maxBatches.maximum, 4_096);
 });

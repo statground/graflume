@@ -7,12 +7,19 @@ import {
   chartVariantCatalog,
   fullCatalog,
   fullVariantCatalog,
+  technicalIndicatorCapabilities,
 } from '../dist/graflume.complete.js';
 import { seriesSampleSpec } from './series-samples.mjs';
 
 const chartDirectory = new URL('../docs/charts/', import.meta.url);
 const assetDirectory = new URL('../docs/assets/charts/', import.meta.url);
 const prettierConfig = (await resolveConfig(fileURLToPath(chartDirectory))) ?? {};
+const completionEvidence = JSON.parse(
+  await readFile(new URL('../catalog/graflume.current-limitations.evidence.json', import.meta.url)),
+);
+const completionEvidenceByFamily = new Map(
+  completionEvidence.families.map((family) => [family.id, family]),
+);
 const startMarker = '<!-- FAMILY_PRESETS_START -->';
 const endMarker = '<!-- FAMILY_PRESETS_END -->';
 const defaultFamilyIds = new Set(chartTypeCatalog.map(({ id }) => id));
@@ -34,25 +41,11 @@ const axisTooltipFamilies = new Map([
   ['waterfall', 'x'],
 ]);
 
-const calculatedIndicators = new Set([
-  'absolute-price-oscillator',
-  'simple-moving-average',
-  'exponential-moving-average',
-  'weighted-moving-average',
-  'double-exponential-average',
-  'triple-exponential-average',
-  'triple-exponential-oscillator',
-  'disparity-index',
-  'linear-regression',
-  'linear-regression-angle',
-  'linear-regression-intercept',
-  'linear-regression-slope',
-  'moving-average-convergence-divergence',
-  'momentum',
-  'percentage-price-oscillator',
-  'rate-of-change',
-  'relative-strength-index',
-]);
+const calculatedIndicators = new Set(
+  technicalIndicatorCapabilities
+    .filter(({ support }) => support === 'computed')
+    .map(({ id }) => id),
+);
 
 const presetDescriptions = {
   annotation: 'The canonical annotated trend presentation.',
@@ -247,6 +240,27 @@ function insertAfterTitle(source, block) {
     throw new Error('Canonical chart guide must start with one level-one heading.');
   }
   return `${source.slice(0, titleEnd + 1)}\n${block}\n${source.slice(titleEnd + 1).trimStart()}`;
+}
+
+function replaceCurrentLimitations(source, familyId) {
+  const heading = '\n## Current limitations\n';
+  const start = source.indexOf(heading);
+  if (start === -1) return source;
+  const end = source.indexOf('\n## ', start + heading.length);
+  const evidence = completionEvidenceByFamily.get(familyId);
+  if (evidence === undefined)
+    throw new Error(`Missing current-limitations completion evidence for ${familyId}.`);
+  const capabilities = evidence.capabilities.map((capability) => `- ${capability}`).join('\n');
+  const block = `
+## Current limitations
+
+None remain in the audited P0/current-limitations boundary as of ${completionEvidence.verifiedAt}. The \`${completionEvidence.release}\` implementation moved these former limitations into executable support:
+
+${capabilities}
+
+The separately cataloged P1/P2 research roadmap remains future work and is not presented as current runtime support. Exact implementation and test paths are recorded in [the completion evidence](../../catalog/graflume.current-limitations.evidence.json).
+`;
+  return `${source.slice(0, start)}${block}${end === -1 ? '' : source.slice(end)}`;
 }
 
 function assetIdFor(family, variant, assetNames) {
@@ -680,6 +694,7 @@ for (const family of fullCatalog) {
   source = source
     .replaceAll('[31-type standalone CDN gallery]', '[default-family CDN gallery]')
     .replaceAll('[31-type complete chart gallery]', '[default-family chart gallery]');
+  source = replaceCurrentLimitations(source, family.id);
   const variants = fullVariantCatalog.filter(({ familyId }) => family.id === familyId);
   source = insertAfterTitle(source, familyBlock(family, variants, assetNames));
   await writeFile(url, await format(source, { ...prettierConfig, parser: 'markdown' }), 'utf8');

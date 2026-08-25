@@ -4,8 +4,11 @@ import { readFile } from 'node:fs/promises';
 
 import {
   AnalyticSelectionStore,
+  LinkedViewStateStore,
+  addAnalyticKeyboardVertex,
   analyticSelectionMatches,
   compile,
+  completeAnalyticKeyboardSelection,
   createPositionScale,
   domainForAxisWindow,
   domainPointToPixel,
@@ -17,8 +20,11 @@ import {
   pixelPointToDomain,
   pixelRectangleToSelection,
   pixelToDomain,
+  selectionToPixels,
+  startAnalyticKeyboardGesture,
   zoomDomainAxisWindow,
 } from '../.tmp/src/index.js';
+import { analyticInteractionCapability } from '../.tmp/src/catalog/runtime-capabilities.js';
 import { compileWithRegistry } from '../.tmp/src/compiler/compile.js';
 import { defaultRegistry } from '../.tmp/src/runtime/default-registry.js';
 import { flattenScene } from '../.tmp/src/scene/walk.js';
@@ -131,10 +137,110 @@ test('pixel/domain coordinates round-trip continuous, reverse, log, and categori
   };
   const bCenter = categorical.axes.x.map('B');
   assert.equal(pixelToDomain(categorical, 'x', bCenter), 'B');
-  assert.throws(
-    () => pixelRectangleToSelection(categorical, { x: 0, y: 0 }, { x: 100, y: 100 }),
-    /invertible continuous scale/,
+  const brush = pixelRectangleToSelection(
+    categorical,
+    { x: categorical.axes.x.map('A'), y: 90 },
+    { x: categorical.axes.x.map('B'), y: 10 },
   );
+  assert.deepEqual(brush.x, { values: ['A', 'B'] });
+  assert.deepEqual(brush.y, [0.1, 0.9]);
+  const pixels = selectionToPixels(categorical, brush);
+  assert.ok(pixels[0].x < categorical.axes.x.map('A'));
+  assert.ok(pixels[1].x > categorical.axes.x.map('B'));
+  assert.equal(
+    analyticSelectionMatches(
+      { version: 1, combine: 'union', selections: [brush] },
+      { x: 'B', y: 0.5 },
+    ),
+    true,
+  );
+
+  assert.deepEqual(domainForAxisWindow(categorical.axes.x, { start: 1 / 3, end: 1 }), ['B', 'C']);
+
+  const ordinal = {
+    ...categorical,
+    axes: {
+      ...categorical.axes,
+      x: createPositionScale(
+        { type: 'ordinal' },
+        { type: 'ordinal', domain: ['A', 'B', 'C'], range: [0, 50, 100] },
+      ),
+    },
+  };
+  assert.throws(
+    () => pixelRectangleToSelection(ordinal, { x: 0, y: 0 }, { x: 100, y: 100 }),
+    /cannot create a categorical brush extent/,
+  );
+  assert.throws(
+    () => domainForAxisWindow(ordinal.axes.x, { start: 0.2, end: 0.8 }),
+    /cannot resolve the "ordinal" scale/,
+  );
+});
+
+test('keyboard geometry and linked view state remain bounded, portable, and deterministic', () => {
+  const context = numericContext();
+  const config = {
+    kind: 'lasso',
+    combine: 'union',
+    mode: 'single',
+    toggle: true,
+    clearOnBackground: true,
+    clearOnEscape: true,
+    ariaLabel: 'Chart selection',
+    highlight: {
+      fill: 'transparent',
+      stroke: '#000',
+      opacity: 1,
+      lineWidth: 1,
+      dash: [],
+      padding: 0,
+      radius: 0,
+    },
+    xAxis: 'x',
+    yAxis: 'y',
+    maxSelections: 64,
+    maxLassoPoints: 8,
+    minPixelSpan: 1,
+    keyboard: true,
+    keyboardStep: 8,
+    filter: false,
+    linked: false,
+  };
+  let gesture = startAnalyticKeyboardGesture(context, 'lasso', { x: 40, y: 90 });
+  gesture = { ...gesture, current: { x: 160, y: 90 } };
+  gesture = addAnalyticKeyboardVertex(gesture, 8);
+  gesture = { ...gesture, current: { x: 160, y: 30 } };
+  gesture = addAnalyticKeyboardVertex(gesture, 8);
+  const completed = completeAnalyticKeyboardSelection(context, gesture, config);
+  assert.equal(completed?.type, 'lasso');
+  assert.equal(completed?.points.length, 3);
+
+  const store = new LinkedViewStateStore();
+  const received = [];
+  const unregisterA = store.register('a', (change) => received.push(['a', change]));
+  const unregisterB = store.register('b', (change) => received.push(['b', change]));
+  const selected = normalizeAnalyticSelectionState({
+    version: 1,
+    combine: 'union',
+    selections: [{ type: 'axis', axis: 'x', extent: [2, 4] }],
+  });
+  store.setAnalyticSelection(selected, 'a');
+  assert.deepEqual(store.get().analyticSelection, selected);
+  assert.deepEqual(
+    received.map(([id]) => id),
+    ['b'],
+  );
+  assert.ok(Object.isFrozen(store.get()));
+  unregisterA();
+  unregisterB();
+
+  assert.equal(analyticInteractionCapability.status, 'supported');
+  assert.equal(analyticInteractionCapability.inputs.keyboardGeometryAuthoring, true);
+  assert.equal(analyticInteractionCapability.coordinates.categoricalBrush, true);
+  assert.equal(analyticInteractionCapability.domainNavigation.categorical, true);
+  assert.equal(analyticInteractionCapability.domainNavigation.multiViewLinkedStore, true);
+  assert.equal(analyticInteractionCapability.filtering.selectionDriven, true);
+  assert.equal(analyticInteractionCapability.composition.coordinateViews, true);
 });
 
 test('domain windows zoom and pan within safe bounds and preserve transformed domains', () => {
@@ -205,6 +311,103 @@ test('compiler exposes coordinate context and recompiles domains with an analyti
   );
 });
 
+test('selection filtering preserves full scale domains, lineage, and composed leaf state', () => {
+  const selectionState = {
+    version: 1,
+    combine: 'union',
+    selections: [
+      {
+        type: 'rectangle',
+        xAxis: 'x',
+        yAxis: 'y',
+        x: { values: ['B'] },
+        y: [0, 10],
+      },
+    ],
+  };
+  const unit = {
+    data: [
+      { category: 'A', value: 2 },
+      { category: 'B', value: 5 },
+      { category: 'C', value: 8 },
+    ],
+    mark: 'point',
+    encoding: {
+      x: { field: 'category', type: 'nominal' },
+      y: {
+        field: 'value',
+        type: 'quantitative',
+        scale: { domain: [0, 10], nice: false },
+      },
+    },
+  };
+  const filtered = compileWithRegistry(
+    {
+      ...unit,
+      interaction: { selection: { kind: 'rectangle', filter: true } },
+    },
+    defaultRegistry,
+    { width: 400, height: 260 },
+    { analyticSelection: selectionState },
+  );
+  assert.equal(filtered.scene.metadata.rowCount, 1);
+  assert.deepEqual(filtered.coordinates.axes.x.domain(), ['A', 'B', 'C']);
+  assert.deepEqual(
+    filtered.scene.semanticIndex.map(({ datum }) => datum.category),
+    ['B'],
+  );
+  assert.equal(filtered.dataLineage['layer-0'].outputRows, 1);
+  assert.match(
+    filtered.dataLineage['layer-0'].summary,
+    /Runtime analytic selection retained 1 of 3/,
+  );
+
+  const composed = compileWithRegistry(
+    {
+      hconcat: [
+        unit,
+        { ...unit, data: unit.data.map((row) => ({ ...row, value: row.value + 1 })) },
+      ],
+      interaction: {
+        selection: { kind: 'rectangle', filter: true, linked: true },
+        domainNavigation: { axes: ['y'], drag: false },
+      },
+      width: 800,
+      height: 320,
+    },
+    defaultRegistry,
+    { width: 800, height: 320 },
+    {
+      analyticSelection: selectionState,
+      domainView: { version: 1, axes: { y: { start: 0.25, end: 0.75 } } },
+    },
+  );
+  assert.deepEqual(
+    composed.coordinateViews.map(({ id }) => id),
+    ['hconcat-0', 'hconcat-1'],
+  );
+  assert.ok(
+    composed.coordinateViews.every(
+      ({ coordinates }) =>
+        coordinates.axes.y.domain()[0] === 2.5 && coordinates.axes.y.domain()[1] === 7.5,
+    ),
+  );
+  assert.deepEqual(
+    composed.scene.semanticIndex.map(({ viewId, datum }) => [viewId, datum.category]),
+    [
+      ['hconcat-0', 'B'],
+      ['hconcat-1', 'B'],
+    ],
+  );
+  const overlayIds = flattenScene(composed.scene.root)
+    .map(({ id }) => id)
+    .filter((id) => id.endsWith('/analytic-selection:0'));
+  assert.deepEqual(overlayIds, [
+    'hconcat-0/analytic-selection:0',
+    'hconcat-1/analytic-selection:0',
+  ]);
+});
+
 test('validation rejects ambiguous gestures and unsupported analytic configuration explicitly', async () => {
   const base = {
     data: [{ x: 1, y: 2 }],
@@ -245,4 +448,9 @@ test('validation rejects ambiguous gestures and unsupported analytic configurati
   assert.ok(schema.$defs.domainNavigation);
   assert.ok(schema.$defs.analyticSelectionState);
   assert.ok(schema.$defs.domainViewState);
+  assert.deepEqual(schema.$defs.linkedViewState.required, [
+    'version',
+    'analyticSelection',
+    'domainView',
+  ]);
 });

@@ -497,4 +497,10 @@ Funnel charts are cheap to render and intended for a small ordered sequence. Lon
 
 ## Current limitations
 
-Automatic conversion percentages, two-sided funnels, compare mode, label overflow handling, and editable stage order are not implemented yet.
+None remain in the audited P0/current-limitations boundary as of 2026-08-26. The `current-limitations-2026-08-26` implementation moved these former limitations into executable support:
+
+- conversion/dropoff/cumulative semantics
+- neck configuration
+- outside label solver
+
+The separately cataloged P1/P2 research roadmap remains future work and is not presented as current runtime support. Exact implementation and test paths are recorded in [the completion evidence](../../catalog/graflume.current-limitations.evidence.json).

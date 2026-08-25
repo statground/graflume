@@ -628,6 +628,20 @@ export class SpatialWebGLRenderer {
     geometries: readonly GpuGeometry[] = this.#geometries,
   ): void {
     for (const geometry of geometries) {
+      const offsetSurfaceFill =
+        geometry.source.primitive === 'triangles' &&
+        geometry.source.role === 'primary' &&
+        geometry.source.provenance?.family === 'surface' &&
+        this.#geometries.some(
+          (candidate) =>
+            candidate.source.role === 'wire-overlay' &&
+            candidate.source.id.startsWith(`${geometry.source.id}:`),
+        ) &&
+        typeof gl.polygonOffset === 'function';
+      if (offsetSurfaceFill) {
+        gl.enable(gl.POLYGON_OFFSET_FILL);
+        gl.polygonOffset(1, 1);
+      }
       bindAttribute(gl, program.position, geometry.position, 3);
       bindAttribute(gl, program.normal, geometry.normal, 3);
       bindAttribute(gl, program.color, geometry.color, 4);
@@ -644,6 +658,7 @@ export class SpatialWebGLRenderer {
       } else {
         gl.drawArrays(mode, 0, geometry.source.positions.length / 3);
       }
+      if (offsetSurfaceFill) gl.disable(gl.POLYGON_OFFSET_FILL);
     }
   }
 

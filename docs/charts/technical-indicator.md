@@ -8,51 +8,51 @@ This is the single manual for the `technical-indicator` family. Its canonical Qu
 
 | Compatible name                                                                         | Quick API                              | Mode                                    | Portable mark | Functional difference                                                                                                                                       |
 | --------------------------------------------------------------------------------------- | -------------------------------------- | --------------------------------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [Acceleration bands](#variant-acceleration-bands)                                       | `accelerationBands()`                  | `acceleration-bands`                    | `indicator`   | Selects acceleration bands semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.                                     |
-| [Awesome oscillator](#variant-awesome-oscillator)                                       | `awesomeOscillator()`                  | `awesome-oscillator`                    | `indicator`   | Selects awesome oscillator semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.                                     |
+| [Acceleration bands](#variant-acceleration-bands)                                       | `accelerationBands()`                  | `acceleration-bands`                    | `indicator`   | Selects acceleration bands semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.                    |
+| [Awesome oscillator](#variant-awesome-oscillator)                                       | `awesomeOscillator()`                  | `awesome-oscillator`                    | `indicator`   | Selects awesome oscillator semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.                    |
 | [Absolute price oscillator](#variant-absolute-price-oscillator)                         | `absolutePriceOscillator()`            | `absolute-price-oscillator`             | `indicator`   | Selects absolute price oscillator semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.             |
-| [Aroon indicator](#variant-aroon)                                                       | `aroon()`                              | `aroon`                                 | `indicator`   | Selects aroon indicator semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.                                        |
-| [Aroon oscillator](#variant-aroon-oscillator)                                           | `aroonOscillator()`                    | `aroon-oscillator`                      | `indicator`   | Selects aroon oscillator semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.                                       |
-| [Average true range](#variant-average-true-range)                                       | `averageTrueRange()`                   | `average-true-range`                    | `indicator`   | Selects average true range semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.                                     |
-| [Volatility bands](#variant-volatility-bands)                                           | `volatilityBands()`                    | `volatility-bands`                      | `indicator`   | Selects volatility bands semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.                                       |
-| [Commodity channel index](#variant-commodity-channel-index)                             | `commodityChannelIndex()`              | `commodity-channel-index`               | `indicator`   | Selects commodity channel index semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.                                |
-| [Chaikin oscillator](#variant-chaikin-oscillator)                                       | `chaikinOscillator()`                  | `chaikin-oscillator`                    | `indicator`   | Selects chaikin oscillator semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.                                     |
-| [Chaikin money flow](#variant-chaikin-money-flow)                                       | `chaikinMoneyFlow()`                   | `chaikin-money-flow`                    | `indicator`   | Selects chaikin money flow semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.                                     |
-| [Chande momentum oscillator](#variant-chande-momentum-oscillator)                       | `chandeMomentumOscillator()`           | `chande-momentum-oscillator`            | `indicator`   | Selects chande momentum oscillator semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.                             |
+| [Aroon indicator](#variant-aroon)                                                       | `aroon()`                              | `aroon`                                 | `indicator`   | Selects aroon indicator semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.                       |
+| [Aroon oscillator](#variant-aroon-oscillator)                                           | `aroonOscillator()`                    | `aroon-oscillator`                      | `indicator`   | Selects aroon oscillator semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.                      |
+| [Average true range](#variant-average-true-range)                                       | `averageTrueRange()`                   | `average-true-range`                    | `indicator`   | Selects average true range semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.                    |
+| [Volatility bands](#variant-volatility-bands)                                           | `volatilityBands()`                    | `volatility-bands`                      | `indicator`   | Selects volatility bands semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.                      |
+| [Commodity channel index](#variant-commodity-channel-index)                             | `commodityChannelIndex()`              | `commodity-channel-index`               | `indicator`   | Selects commodity channel index semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.               |
+| [Chaikin oscillator](#variant-chaikin-oscillator)                                       | `chaikinOscillator()`                  | `chaikin-oscillator`                    | `indicator`   | Selects chaikin oscillator semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.                    |
+| [Chaikin money flow](#variant-chaikin-money-flow)                                       | `chaikinMoneyFlow()`                   | `chaikin-money-flow`                    | `indicator`   | Selects chaikin money flow semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.                    |
+| [Chande momentum oscillator](#variant-chande-momentum-oscillator)                       | `chandeMomentumOscillator()`           | `chande-momentum-oscillator`            | `indicator`   | Selects chande momentum oscillator semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.            |
 | [Double exponential moving average](#variant-double-exponential-average)                | `doubleExponentialMovingAverage()`     | `double-exponential-average`            | `indicator`   | Selects double exponential moving average semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.     |
 | [Disparity index](#variant-disparity-index)                                             | `disparityIndex()`                     | `disparity-index`                       | `indicator`   | Selects disparity index semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.                       |
-| [Directional movement index](#variant-directional-movement-index)                       | `directionalMovementIndex()`           | `directional-movement-index`            | `indicator`   | Selects directional movement index semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.                             |
-| [Detrended price oscillator](#variant-detrended-price-oscillator)                       | `detrendedPriceOscillator()`           | `detrended-price-oscillator`            | `indicator`   | Selects detrended price oscillator semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.                             |
+| [Directional movement index](#variant-directional-movement-index)                       | `directionalMovementIndex()`           | `directional-movement-index`            | `indicator`   | Selects directional movement index semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.            |
+| [Detrended price oscillator](#variant-detrended-price-oscillator)                       | `detrendedPriceOscillator()`           | `detrended-price-oscillator`            | `indicator`   | Selects detrended price oscillator semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.            |
 | [Exponential moving average](#variant-exponential-moving-average)                       | `exponentialMovingAverage()`           | `exponential-moving-average`            | `indicator`   | Selects exponential moving average semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.            |
-| [Ichimoku cloud](#variant-ichimoku-cloud)                                               | `ichimokuCloud()`                      | `ichimoku-cloud`                        | `indicator`   | Selects ichimoku cloud semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.                                         |
-| [Keltner channels](#variant-keltner-channels)                                           | `keltnerChannels()`                    | `keltner-channels`                      | `indicator`   | Selects keltner channels semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.                                       |
-| [Klinger oscillator](#variant-klinger-oscillator)                                       | `klingerOscillator()`                  | `klinger-oscillator`                    | `indicator`   | Selects klinger oscillator semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.                                     |
+| [Ichimoku cloud](#variant-ichimoku-cloud)                                               | `ichimokuCloud()`                      | `ichimoku-cloud`                        | `indicator`   | Selects ichimoku cloud semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.                        |
+| [Keltner channels](#variant-keltner-channels)                                           | `keltnerChannels()`                    | `keltner-channels`                      | `indicator`   | Selects keltner channels semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.                      |
+| [Klinger oscillator](#variant-klinger-oscillator)                                       | `klingerOscillator()`                  | `klinger-oscillator`                    | `indicator`   | Selects klinger oscillator semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.                    |
 | [Linear regression](#variant-linear-regression)                                         | `linearRegression()`                   | `linear-regression`                     | `indicator`   | Selects linear regression semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.                     |
 | [Linear regression angle](#variant-linear-regression-angle)                             | `linearRegressionAngle()`              | `linear-regression-angle`               | `indicator`   | Selects linear regression angle semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.               |
 | [Linear regression intercept](#variant-linear-regression-intercept)                     | `linearRegressionIntercept()`          | `linear-regression-intercept`           | `indicator`   | Selects linear regression intercept semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.           |
 | [Linear regression slope](#variant-linear-regression-slope)                             | `linearRegressionSlope()`              | `linear-regression-slope`               | `indicator`   | Selects linear regression slope semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.               |
 | [Moving average convergence divergence](#variant-moving-average-convergence-divergence) | `movingAverageConvergenceDivergence()` | `moving-average-convergence-divergence` | `indicator`   | Selects moving average convergence divergence semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows. |
-| [Money flow index](#variant-money-flow-index)                                           | `moneyFlowIndex()`                     | `money-flow-index`                      | `indicator`   | Selects money flow index semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.                                       |
+| [Money flow index](#variant-money-flow-index)                                           | `moneyFlowIndex()`                     | `money-flow-index`                      | `indicator`   | Selects money flow index semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.                      |
 | [Momentum indicator](#variant-momentum)                                                 | `momentumIndicator()`                  | `momentum`                              | `indicator`   | Selects momentum indicator semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.                    |
-| [Normalized average true range](#variant-normalized-average-true-range)                 | `normalizedAverageTrueRange()`         | `normalized-average-true-range`         | `indicator`   | Selects normalized average true range semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.                          |
-| [On-balance volume](#variant-on-balance-volume)                                         | `onBalanceVolume()`                    | `on-balance-volume`                     | `indicator`   | Selects on-balance volume semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.                                      |
-| [Price channel](#variant-price-channel)                                                 | `priceChannel()`                       | `price-channel`                         | `indicator`   | Selects price channel semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.                                          |
-| [Pivot points](#variant-pivot-points)                                                   | `pivotPoints()`                        | `pivot-points`                          | `indicator`   | Selects pivot points semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.                                           |
+| [Normalized average true range](#variant-normalized-average-true-range)                 | `normalizedAverageTrueRange()`         | `normalized-average-true-range`         | `indicator`   | Selects normalized average true range semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.         |
+| [On-balance volume](#variant-on-balance-volume)                                         | `onBalanceVolume()`                    | `on-balance-volume`                     | `indicator`   | Selects on-balance volume semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.                     |
+| [Price channel](#variant-price-channel)                                                 | `priceChannel()`                       | `price-channel`                         | `indicator`   | Selects price channel semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.                         |
+| [Pivot points](#variant-pivot-points)                                                   | `pivotPoints()`                        | `pivot-points`                          | `indicator`   | Selects pivot points semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.                          |
 | [Percentage price oscillator](#variant-percentage-price-oscillator)                     | `percentagePriceOscillator()`          | `percentage-price-oscillator`           | `indicator`   | Selects percentage price oscillator semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.           |
-| [Price envelopes](#variant-price-envelopes)                                             | `priceEnvelopes()`                     | `price-envelopes`                       | `indicator`   | Selects price envelopes semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.                                        |
-| [Parabolic stop and reverse](#variant-parabolic-stop-and-reverse)                       | `parabolicStopAndReverse()`            | `parabolic-stop-and-reverse`            | `indicator`   | Selects parabolic stop and reverse semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.                             |
+| [Price envelopes](#variant-price-envelopes)                                             | `priceEnvelopes()`                     | `price-envelopes`                       | `indicator`   | Selects price envelopes semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.                       |
+| [Parabolic stop and reverse](#variant-parabolic-stop-and-reverse)                       | `parabolicStopAndReverse()`            | `parabolic-stop-and-reverse`            | `indicator`   | Selects parabolic stop and reverse semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.            |
 | [Rate of change](#variant-rate-of-change)                                               | `rateOfChange()`                       | `rate-of-change`                        | `indicator`   | Selects rate of change semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.                        |
 | [Relative strength index](#variant-relative-strength-index)                             | `relativeStrengthIndex()`              | `relative-strength-index`               | `indicator`   | Selects relative strength index semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.               |
-| [Slow stochastic oscillator](#variant-slow-stochastic)                                  | `slowStochastic()`                     | `slow-stochastic`                       | `indicator`   | Selects slow stochastic oscillator semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.                             |
+| [Slow stochastic oscillator](#variant-slow-stochastic)                                  | `slowStochastic()`                     | `slow-stochastic`                       | `indicator`   | Selects slow stochastic oscillator semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.            |
 | [Simple moving average](#variant-simple-moving-average)                                 | `simpleMovingAverage()`                | `simple-moving-average`                 | `indicator`   | Selects simple moving average semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.                 |
-| [Stochastic oscillator](#variant-stochastic)                                            | `stochastic()`                         | `stochastic`                            | `indicator`   | Selects stochastic oscillator semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.                                  |
-| [Supertrend](#variant-supertrend)                                                       | `supertrend()`                         | `supertrend`                            | `indicator`   | Selects supertrend semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.                                             |
+| [Stochastic oscillator](#variant-stochastic)                                            | `stochastic()`                         | `stochastic`                            | `indicator`   | Selects stochastic oscillator semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.                 |
+| [Supertrend](#variant-supertrend)                                                       | `supertrend()`                         | `supertrend`                            | `indicator`   | Selects supertrend semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.                            |
 | [Triple exponential moving average](#variant-triple-exponential-average)                | `tripleExponentialMovingAverage()`     | `triple-exponential-average`            | `indicator`   | Selects triple exponential moving average semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.     |
 | [Triple exponential average oscillator](#variant-triple-exponential-oscillator)         | `tripleExponentialAverageOscillator()` | `triple-exponential-oscillator`         | `indicator`   | Selects triple exponential average oscillator semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows. |
-| [Volume weighted average price](#variant-volume-weighted-average-price)                 | `volumeWeightedAveragePrice()`         | `volume-weighted-average-price`         | `indicator`   | Selects volume weighted average price semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.                          |
-| [Williams range](#variant-williams-range)                                               | `williamsRange()`                      | `williams-range`                        | `indicator`   | Selects williams range semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.                                         |
+| [Volume weighted average price](#variant-volume-weighted-average-price)                 | `volumeWeightedAveragePrice()`         | `volume-weighted-average-price`         | `indicator`   | Selects volume weighted average price semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.         |
+| [Williams range](#variant-williams-range)                                               | `williamsRange()`                      | `williams-range`                        | `indicator`   | Selects williams range semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.                        |
 | [Weighted moving average](#variant-weighted-moving-average)                             | `weightedMovingAverage()`              | `weighted-moving-average`               | `indicator`   | Selects weighted moving average semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.               |
-| [Zigzag indicator](#variant-zigzag)                                                     | `zigzag()`                             | `zigzag`                                | `indicator`   | Selects zigzag indicator semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.                                       |
+| [Zigzag indicator](#variant-zigzag)                                                     | `zigzag()`                             | `zigzag`                                | `indicator`   | Selects zigzag indicator semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.                      |
 
 All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining manually maintained sections describe the canonical/default presentation unless a preset row above states a different behavior.
 
@@ -98,7 +98,7 @@ Every family also accepts the shared portable [legend, highlight, selection, and
 
 ### Acceleration bands
 
-Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects acceleration bands semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.
+Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects acceleration bands semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.
 
 - **Quick API:** `accelerationBands()`
 - **Mode:** `acceleration-bands`
@@ -210,7 +210,7 @@ accelerationBands('#chart', data, {
 
 ### Awesome oscillator
 
-Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects awesome oscillator semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.
+Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects awesome oscillator semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.
 
 - **Quick API:** `awesomeOscillator()`
 - **Mode:** `awesome-oscillator`
@@ -435,7 +435,7 @@ absolutePriceOscillator('#chart', data, {
 
 ### Aroon indicator
 
-Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects aroon indicator semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.
+Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects aroon indicator semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.
 
 - **Quick API:** `aroon()`
 - **Mode:** `aroon`
@@ -547,7 +547,7 @@ aroon('#chart', data, {
 
 ### Aroon oscillator
 
-Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects aroon oscillator semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.
+Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects aroon oscillator semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.
 
 - **Quick API:** `aroonOscillator()`
 - **Mode:** `aroon-oscillator`
@@ -659,7 +659,7 @@ aroonOscillator('#chart', data, {
 
 ### Average true range
 
-Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects average true range semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.
+Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects average true range semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.
 
 - **Quick API:** `averageTrueRange()`
 - **Mode:** `average-true-range`
@@ -771,7 +771,7 @@ averageTrueRange('#chart', data, {
 
 ### Volatility bands
 
-Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects volatility bands semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.
+Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects volatility bands semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.
 
 - **Quick API:** `volatilityBands()`
 - **Mode:** `volatility-bands`
@@ -883,7 +883,7 @@ volatilityBands('#chart', data, {
 
 ### Commodity channel index
 
-Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects commodity channel index semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.
+Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects commodity channel index semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.
 
 - **Quick API:** `commodityChannelIndex()`
 - **Mode:** `commodity-channel-index`
@@ -995,7 +995,7 @@ commodityChannelIndex('#chart', data, {
 
 ### Chaikin oscillator
 
-Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects chaikin oscillator semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.
+Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects chaikin oscillator semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.
 
 - **Quick API:** `chaikinOscillator()`
 - **Mode:** `chaikin-oscillator`
@@ -1107,7 +1107,7 @@ chaikinOscillator('#chart', data, {
 
 ### Chaikin money flow
 
-Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects chaikin money flow semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.
+Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects chaikin money flow semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.
 
 - **Quick API:** `chaikinMoneyFlow()`
 - **Mode:** `chaikin-money-flow`
@@ -1219,7 +1219,7 @@ chaikinMoneyFlow('#chart', data, {
 
 ### Chande momentum oscillator
 
-Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects chande momentum oscillator semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.
+Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects chande momentum oscillator semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.
 
 - **Quick API:** `chandeMomentumOscillator()`
 - **Mode:** `chande-momentum-oscillator`
@@ -1557,7 +1557,7 @@ disparityIndex('#chart', data, {
 
 ### Directional movement index
 
-Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects directional movement index semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.
+Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects directional movement index semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.
 
 - **Quick API:** `directionalMovementIndex()`
 - **Mode:** `directional-movement-index`
@@ -1670,7 +1670,7 @@ directionalMovementIndex('#chart', data, {
 
 ### Detrended price oscillator
 
-Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects detrended price oscillator semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.
+Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects detrended price oscillator semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.
 
 - **Quick API:** `detrendedPriceOscillator()`
 - **Mode:** `detrended-price-oscillator`
@@ -1896,7 +1896,7 @@ exponentialMovingAverage('#chart', data, {
 
 ### Ichimoku cloud
 
-Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects ichimoku cloud semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.
+Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects ichimoku cloud semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.
 
 - **Quick API:** `ichimokuCloud()`
 - **Mode:** `ichimoku-cloud`
@@ -2008,7 +2008,7 @@ ichimokuCloud('#chart', data, {
 
 ### Keltner channels
 
-Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects keltner channels semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.
+Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects keltner channels semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.
 
 - **Quick API:** `keltnerChannels()`
 - **Mode:** `keltner-channels`
@@ -2120,7 +2120,7 @@ keltnerChannels('#chart', data, {
 
 ### Klinger oscillator
 
-Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects klinger oscillator semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.
+Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects klinger oscillator semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.
 
 - **Quick API:** `klingerOscillator()`
 - **Mode:** `klinger-oscillator`
@@ -2794,7 +2794,7 @@ movingAverageConvergenceDivergence('#chart', data, {
 
 ### Money flow index
 
-Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects money flow index semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.
+Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects money flow index semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.
 
 - **Quick API:** `moneyFlowIndex()`
 - **Mode:** `money-flow-index`
@@ -3018,7 +3018,7 @@ momentumIndicator('#chart', data, {
 
 ### Normalized average true range
 
-Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects normalized average true range semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.
+Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects normalized average true range semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.
 
 - **Quick API:** `normalizedAverageTrueRange()`
 - **Mode:** `normalized-average-true-range`
@@ -3131,7 +3131,7 @@ normalizedAverageTrueRange('#chart', data, {
 
 ### On-balance volume
 
-Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects on-balance volume semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.
+Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects on-balance volume semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.
 
 - **Quick API:** `onBalanceVolume()`
 - **Mode:** `on-balance-volume`
@@ -3243,7 +3243,7 @@ onBalanceVolume('#chart', data, {
 
 ### Price channel
 
-Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects price channel semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.
+Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects price channel semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.
 
 - **Quick API:** `priceChannel()`
 - **Mode:** `price-channel`
@@ -3355,7 +3355,7 @@ priceChannel('#chart', data, {
 
 ### Pivot points
 
-Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects pivot points semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.
+Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects pivot points semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.
 
 - **Quick API:** `pivotPoints()`
 - **Mode:** `pivot-points`
@@ -3580,7 +3580,7 @@ percentagePriceOscillator('#chart', data, {
 
 ### Price envelopes
 
-Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects price envelopes semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.
+Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects price envelopes semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.
 
 - **Quick API:** `priceEnvelopes()`
 - **Mode:** `price-envelopes`
@@ -3692,7 +3692,7 @@ priceEnvelopes('#chart', data, {
 
 ### Parabolic stop and reverse
 
-Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects parabolic stop and reverse semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.
+Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects parabolic stop and reverse semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.
 
 - **Quick API:** `parabolicStopAndReverse()`
 - **Mode:** `parabolic-stop-and-reverse`
@@ -4029,7 +4029,7 @@ relativeStrengthIndex('#chart', data, {
 
 ### Slow stochastic oscillator
 
-Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects slow stochastic oscillator semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.
+Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects slow stochastic oscillator semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.
 
 - **Quick API:** `slowStochastic()`
 - **Mode:** `slow-stochastic`
@@ -4254,7 +4254,7 @@ simpleMovingAverage('#chart', data, {
 
 ### Stochastic oscillator
 
-Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects stochastic oscillator semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.
+Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects stochastic oscillator semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.
 
 - **Quick API:** `stochastic()`
 - **Mode:** `stochastic`
@@ -4366,7 +4366,7 @@ stochastic('#chart', data, {
 
 ### Supertrend
 
-Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects supertrend semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.
+Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects supertrend semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.
 
 - **Quick API:** `supertrend()`
 - **Mode:** `supertrend`
@@ -4704,7 +4704,7 @@ tripleExponentialAverageOscillator('#chart', data, {
 
 ### Volume weighted average price
 
-Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects volume weighted average price semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.
+Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects volume weighted average price semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.
 
 - **Quick API:** `volumeWeightedAveragePrice()`
 - **Mode:** `volume-weighted-average-price`
@@ -4817,7 +4817,7 @@ volumeWeightedAveragePrice('#chart', data, {
 
 ### Williams range
 
-Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects williams range semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.
+Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects williams range semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.
 
 - **Quick API:** `williamsRange()`
 - **Mode:** `williams-range`
@@ -5041,7 +5041,7 @@ weightedMovingAverage('#chart', data, {
 
 ### Zigzag indicator
 
-Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects zigzag indicator semantics and is registry-marked `precomputed-required` and uses supplied indicator columns.
+Use this preset when a derived or supplied market indicator must be aligned to an ordered series. Selects zigzag indicator semantics and is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows.
 
 - **Quick API:** `zigzag()`
 - **Mode:** `zigzag`
@@ -5562,15 +5562,39 @@ The family API and every compatible preset enter the same normalize, validate, s
 
 ## Data, ordering, and missing values
 
-The portable chart renders precomputed indicator columns by default. The primary line uses `y`; optional lower, upper, signal, and secondary fields are declared in `mark.fields` or `mark.options.fields`. Input order is preserved unless the mark explicitly documents a deterministic sort. Missing required values skip only the affected row; invalid specs still fail validation before compilation.
+The portable chart can render supplied indicator columns, or it can materialize any named preset with `mark.options.calculate: true` before scale-domain resolution. The primary output uses `y`; optional lower, upper, signal, and secondary outputs are declared in `mark.fields` or `mark.options.fields`. Calculated presets read their registry-declared `value`, `open`, `high`, `low`, `close`, and `volume` roles from semantic encodings or `mark.fields`; `close` falls back to `y`. Input order is preserved. A missing required role fails with its exact field path, while missing values inside an otherwise valid series produce `null` output until the calculation can resume.
 
-The public capability registry audits 45 named presets plus two canonical surfaces, `technicalIndicator()` and the raw portable `indicator` mark: 47 public entry points in total. Import `technicalIndicatorCapabilities` or call `resolveTechnicalIndicatorCapability()` to distinguish `computed` from `precomputed-required`; a supplied-column preset is never reported as a built-in calculation. The generated public catalog repeats this exact split under `runtimeCapabilities.technicalIndicators`, including every preset's support, inputs, outputs, parameters, dependency DAG, warm-up policy, and provenance.
+The public capability registry audits 45 named presets plus two canonical surfaces, `technicalIndicator()` and the raw portable `indicator` mark: 47 public entry points in total. All 45 preset entries are `computed`; supplied columns remain a valid opt-out path when `calculate` is omitted. Import `technicalIndicatorCapabilities`, call `resolveTechnicalIndicatorCapability()`, or call `resolveTechnicalIndicatorPresentation()` to inspect exact required inputs, outputs, parameter schemas, dependency DAGs, warm-up policy, provenance, overlay/panel placement, and synchronized-x-crosshair fields. The registry is the sole source of truth for these contracts.
 
-`calculate: true` currently materializes 17 formula-tested registry kinds before scale-domain resolution: SMA, EMA, WMA, DEMA, TEMA, momentum, ROC, Wilder RSI, APO, PPO, MACD, disparity index, four rolling linear-regression outputs, and TRIX. Integer `period`, `fastPeriod`, `slowPeriod`, and `signalPeriod` parameters are bounded to 2..200; fast must be smaller than slow. Every definition exposes its parameterized dependency DAG, formula provenance, and `null` warm-up policy. Unsupported calculated names fail validation with `precomputed-required` instead of falling back to the source column.
+`calculate: true` materializes all 45 formula-tested registry kinds. The original 17 univariate calculations retain their established formulas; the other 28 cover OHLCV bands, volatility, range, volume-flow, trend-state, stochastic, session pivot, VWAP, and Zigzag families. Parameters are closed per preset and carry integer/number type, minimum, maximum, and default metadata; cross-parameter checks enforce fast-before-slow, ordered Ichimoku periods, and bounded Parabolic SAR acceleration. Unknown names, irrelevant parameters, missing channels, and invalid bounds fail validation instead of falling back to the source column.
+
+Session state is portable under `mark.options.session`. `mode: "field"` reads a session id field, `"utc-day"` groups an optional time field (defaulting to `x`) by UTC day, and `"gap"` starts a session when adjacent timestamps exceed `gapMs`. Configured sessions default to `reset: "hard"`, which restarts warm-up and cumulative/recursive state; `reset: "carry"` records boundaries while preserving continuous state. Classic pivots use the completed previous session's high, low, and close whenever a session mode is configured. The calculation result and Scene metadata expose resolved boundaries and reset policy.
+
+Overlay indicators advertise `panelId: "price"`; oscillators and other separate-scale indicators advertise a stable `indicator:<preset-id>` panel id. Both expose a renderer-neutral `synchronizedCrosshair` contract with the shared x domain and output fields. Graflume does not silently create a multi-pane layout: a host can compose panes and synchronize their x crosshair from this metadata.
+
+For bounded streams, `TechnicalIndicatorIncrementalCalculator` and `calculateTechnicalIndicatorIncremental()` keep an explicit structured-cloneable snapshot, reject growth beyond `maxRows`, and use the same formula/session engine as one-shot calculation. `AutomaticWorkerRuntime.technicalIndicator()` sends that request through Worker protocol v2; both client and worker enforce row budgets before returning the next snapshot and calculation.
+
+```js
+import { technicalIndicator } from 'graflume/complete';
+
+technicalIndicator('#chart', rows, {
+  x: { field: 'time', type: 'temporal' },
+  y: { field: 'close', type: 'quantitative' },
+  mark: {
+    fields: { high: 'high', low: 'low', close: 'close', volume: 'volume' },
+    options: {
+      kind: 'atr',
+      calculate: true,
+      period: 14,
+      session: { mode: 'utc-day', timeField: 'time', reset: 'hard' },
+    },
+  },
+});
+```
 
 ## Implemented rendering behavior
 
-Renders portable precomputed indicator lines, bands, points, and oscillator columns using one canonical compiler. The output uses only groups, paths, lines, rectangles, circles, and text, so Canvas, snapshots, export adapters, and future renderers share the same geometry contract.
+Renders supplied or built-in calculated indicator lines, bands, points, and oscillator columns using one canonical compiler. The output uses only groups, paths, lines, rectangles, circles, and text, so Canvas, snapshots, export adapters, and future renderers share the same geometry contract.
 
 ## Styling
 
@@ -5588,15 +5612,22 @@ Provide a concise `accessibility.label` and a description of the main pattern. C
 
 ## Performance
 
-Scene cost is linear in rows for ordinary cases. Relationship crossings, repeated symbols, sampled curves, dense labels, and multi-line indicators can produce more than one node per row. Use `auto`, `large`, or `ultra` with aggregation when row counts grow beyond the analytical value of individual marks.
+Calculation memory is bounded by input rows, and work is linear for cumulative/state-machine formulas or rows times the preset's bounded lookback for rolling-window formulas. Multi-line indicators can produce more than one Scene node per row. Use `auto`, `large`, or `ultra` when row counts grow beyond the analytical value of individual marks; use an incremental `maxRows` and Worker row budget for long-lived streams.
 
 ## Current limitations
 
-The remaining named indicators deliberately require supplied columns; their registry entries carry `precomputed-required` and no calculation DAG. Built-in calculations currently use one ordered numeric source and do not yet implement trading-session calendars, corporate-action adjustment, indicator-aware playback windows, linked panes, or shared crosshairs.
+None remain in the audited P0/current-limitations boundary as of 2026-08-26. The `current-limitations-2026-08-26` implementation moved these former limitations into executable support:
+
+- calculation coverage for the 28 precomputed-only presets
+- session-aware warm-up policy
+- indicator panes and synchronized crosshair
+- worker-bounded incremental calculation
+
+The separately cataloged P1/P2 research roadmap remains future work and is not presented as current runtime support. Exact implementation and test paths are recorded in [the completion evidence](../../catalog/graflume.current-limitations.evidence.json).
 
 ## Runnable references
 
 - Snapshot generator: [`scripts/render-series-chart-snapshots.mjs`](../../scripts/render-series-chart-snapshots.mjs)
 - Catalog test: [`tests/series-chart-types.test.mjs`](../../tests/series-chart-types.test.mjs)
 - Complete CDN gallery: [`examples/cdn/series-chart-types.html`](../../examples/cdn/series-chart-types.html)
-- Calculation, capability, and lineage tests: [`tests/series-stack-indicator.test.mjs`](../../tests/series-stack-indicator.test.mjs)
+- Calculation, capability, session, Worker, and lineage tests: [`tests/technical-indicator-p0.test.mjs`](../../tests/technical-indicator-p0.test.mjs) and [`tests/series-stack-indicator.test.mjs`](../../tests/series-stack-indicator.test.mjs)

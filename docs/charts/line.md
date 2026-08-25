@@ -386,12 +386,14 @@ Pre-aggregate or downsample when every source observation is not visually distin
 
 ## Current limitations
 
-- no automatic curve choice or sorting based on data semantics;
-- no range line, confidence band, or error bar in the canonical line mark;
-- no automatic sorting or time-window transform;
-- no rendered crosshair guide or path-level datum hit testing; shared layer/category/continuous legends are available;
-- no path-level datum hit testing;
-- no SVG/WebGL renderer parity yet.
+None remain in the audited P0/current-limitations boundary as of 2026-08-26. The `current-limitations-2026-08-26` implementation moved these former limitations into executable support:
+
+- duplicate and implicit sort policy
+- data-domain navigation
+- named transform DAG reuse
+- worker-bounded streaming retention
+
+The separately cataloged P1/P2 research roadmap remains future work and is not presented as current runtime support. Exact implementation and test paths are recorded in [the completion evidence](../../catalog/graflume.current-limitations.evidence.json).
 
 ## Runnable examples and tests
 

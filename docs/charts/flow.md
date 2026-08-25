@@ -150,11 +150,25 @@ Every preset normalizes into the same ChartSpec, validation, scale, compiler, re
 
 Use theme tokens or common `fill`, `stroke`, `opacity`, `lineWidth`, `radius`, and `cornerRadius` properties where the selected geometry supports them. Interactive datum shapes retain their source row and layer metadata; decorative labels, grids, and depth faces do not create duplicate targets.
 
+Advanced flow nodes expose real pointer authoring. Dragging stores a plot-normalized position in transient Chart state and recompiles every connected link; the caller's portable base spec remains unchanged. Hosts can drive and observe the same bounded state:
+
+```ts
+chart.moveFlowNode('layer-0', 'Review', { x: 0.58, y: 0.32 });
+chart.on('flowchange', ({ state, reason }) => console.log(state, reason));
+chart.resetFlowRuntime('layer-0');
+```
+
+`mark.options.linkSort` controls each node's actual inbound and outbound stack: `input`, `ascending`, and `descending` order links by input position or value. `authored` requires `linkOrder` to list every edge id exactly once. The selected order changes the link endpoint offsets and Scene paths, not only metadata; invalid or incomplete authored orders fail closed.
+
 ## Accessibility and performance
 
 Provide a concise `accessibility.label`, describe the principal comparison or structure, and pair Canvas output with the data-table fallback. Dense labels, relationship crossings, and multi-part interval geometry can produce several Scene nodes per row, so aggregate when individual marks stop adding analytical value.
 
 ## Verification
+
+Multi-stage alignment/node order/link sort/iteration, cycle-balance, authored drag positions,
+and complete path traversal are documented in the
+[structure and relationship analytics guide](../relationship-analytics.md#multi-stage-flow-sankey).
 
 - Snapshot: [`docs/assets/charts/flow.svg`](../assets/charts/flow.svg)
 - Runtime catalogs: [`src/catalog`](../../src/catalog)

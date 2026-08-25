@@ -48,16 +48,33 @@ unchanged.
 
 | Mark               | Implemented optional channels                                                                                                                  |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| Point / scatter    | `color`, `fill`, `stroke`, `size`, `radius`, `shape`, `opacity`, `strokeWidth`, `strokeDash`, `text`, `order`, `tooltip`                       |
+| Point / scatter    | `color`, `fill`, `stroke`, `size`, `radius`, `shape`, `symbol`, `icon`, `opacity`, `strokeWidth`, `strokeDash`, `text`, `order`, `tooltip`     |
 | Bar                | `x2`, `y2`, `color`, `fill`, `stroke`, `opacity`, `strokeWidth`, `strokeDash`, `order`, `tooltip`                                              |
 | Line               | `color`, `stroke`, `opacity`, `strokeWidth`, `strokeDash`, `order`, `detail`; point-only size/fill/tooltip channels require `mark.point: true` |
 | Area, stepped area | `y2`, `color`, `fill`, `stroke`, `opacity`, `strokeWidth`, `strokeDash`, `order`, `detail`; point-only channels require `mark.point: true`     |
 | Heatmap            | `x2`, `y2`, `color`, `fill`, `stroke`, `opacity`, `strokeWidth`, `strokeDash`, `text`, `order`, `tooltip`                                      |
+| Geographic marks   | `longitude`, `latitude`                                                                                                                        |
+| Financial marks    | `open`, `high`, `low`, `close`, `volume`                                                                                                       |
+| Polar              | `angle` or `theta`, plus `radius`                                                                                                              |
+| Pie / variable pie | `angle` or `theta`                                                                                                                             |
+| Price blocks       | `close`                                                                                                                                        |
+| Indicator          | `close`                                                                                                                                        |
+| Volume profile     | `volume`                                                                                                                                       |
 
 Runtime validation rejects a channel outside this matrix. It does not silently ignore shape, text,
-or range requests on another mark. `shape` currently has a closed Canvas registry: `circle`,
-`square`, `diamond`, `triangle`, and `cross`. `shape`, `strokeDash`, `text`, `order`, `detail`, and
-`tooltip` consume raw values or a closed registry and therefore reject authored `scale` objects.
+or range requests on another mark. `shape` and its `symbol` alias use the closed Canvas registry
+`circle`, `square`, `diamond`, `triangle`, and `cross`. A point `icon` is a bounded, safe text glyph
+rendered as a centered renderer-neutral Scene text node; it is not an image URL or an executable SVG
+path. `shape`, `symbol`, `icon`, `strokeDash`, `text`, `order`, `detail`, `tooltip`, and all semantic
+coordinate/trading channels consume raw values or a closed registry and therefore reject authored
+`scale` objects.
+
+Specialized position channels are semantic aliases, not parallel coordinates. `longitude` and
+`latitude` supply `x` and `y` to map-family marks; `theta` (or `angle`) and `radius` supply polar
+positions; `theta`/`angle` supplies a pie value; and `close` supplies the value axis for financial,
+Renko, Point-and-Figure, and indicator marks. Financial `open`, `high`, `low`, `close`, and `volume`
+fields are also copied into the normalized mark field contract. Supplying both a Cartesian position
+and its semantic alias is rejected so one serialized spec cannot have two competing meanings.
 
 In the encoding map, `x2` and `y2` are per-datum range endpoints that share the primary position
 scale. They are different from `axisId: 'x2'` and `axisId: 'y2'`, which bind a legacy `x` or `y`
@@ -167,13 +184,14 @@ mathematics. Windows are finite, ordered, clamped to `0..1`, and bounded by `max
 
 ## Current limits
 
-The portable map does not yet claim icon/image glyphs, angular `theta` channels, geographic
-longitude/latitude channels, nested facet channels, gradients, color-space selection, or
-selection-driven conditional predicates. These remain planned registry extensions. Scale and
-encoding resolution is synchronous and cached once per mark compilation; it does not yet share
-domain caches across charts or workers. Analytic state can be serialized and shared by a host, but
-Graflume does not yet link multiple chart instances or apply selection predicates as data transforms.
+The portable map does not treat an `icon` as an arbitrary image/path glyph and does not yet claim
+nested facet channels, gradients, color-space selection, or selection-driven conditional predicates.
+Scale and encoding resolution is synchronous and cached once per mark compilation. Compatible
+composition children can share position and visual-color domains, but separate chart instances do
+not share a cache. Analytic state can be serialized and shared by a host, but Graflume does not yet
+link multiple chart instances or apply selection predicates as data transforms.
 
-Regression coverage lives in `tests/scale-encoding.test.mjs` and
+Regression coverage lives in `tests/scale-encoding.test.mjs`,
+`tests/foundation-dataflow-encoding.test.mjs`, and
 `tests/analytic-interaction.test.mjs`, with legacy scale checks in
 `tests/scale.test.mjs` and family-specific rendering tests alongside each mark.

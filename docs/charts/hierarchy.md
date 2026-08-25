@@ -706,6 +706,10 @@ Provide a concise `accessibility.label`, describe the principal comparison or st
 
 ## Verification
 
+Advanced circle-pack, dendrogram, radial-tree, collapse, re-root/zoom,
+breadcrumb, and search options are documented in the
+[structure and relationship analytics guide](../relationship-analytics.md#hierarchy-tree).
+
 - Snapshot: [`docs/assets/charts/hierarchy.svg`](../assets/charts/hierarchy.svg)
 - Runtime catalogs: [`src/catalog`](../../src/catalog)
 - Catalog tests: [`tests`](../../tests)

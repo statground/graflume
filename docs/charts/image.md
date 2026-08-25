@@ -142,15 +142,15 @@ The `image` family renders a data-backed raster from discrete cell coordinates. 
 
 ## Data contract
 
-Use `x` and `y` for pixel or cell positions. Supply either a portable color field or numeric `red`, `green`, `blue`, and optional `alpha` fields. Duplicate coordinates follow input order.
+Use `x` and `y` for row-backed pixel or cell positions. Supply either a portable color field or numeric `red`, `green`, `blue`, and optional `alpha` fields. Duplicate coordinates follow input order. For a dense function-free raster, set `mark.options.raster` to `{ width, height, channels, values, extent?, origin? }`. Channels may be scalar, RGB, or RGBA; `origin` is `upper` or `lower`.
 
 ## Styling and interaction
 
-Cells use the declared color or RGBA channels and may opt into a small gap or stroke. Every rendered cell keeps its source row for text-only tooltips and hit testing.
+Cells use the declared color or RGBA channels and may opt into a small gap or stroke. Dense rasters accept `resampling: "nearest" | "bilinear" | "bicubic"`, scalar `window`, a hexadecimal `colormap`, and global `alpha`. Every materialized raster cell reports its data coordinate, sampled channels, RGBA result, extent, origin, and filter in the portable tooltip contract.
 
 ## Performance and limits
 
-This mode is intended for bounded matrices and raster previews. Valid rows are sampled deterministically against the active `maxBarMarks` budget before Scene rectangles are emitted, while every retained cell still points to its original row. Large photographic images should remain ordinary image assets; this compiler intentionally keeps row-level semantics and does not fetch remote pixels.
+This mode is intended for bounded matrices and raster previews. Valid rows are sampled deterministically against the active `maxBarMarks` budget. Dense raster output dimensions are reduced proportionally when their requested product exceeds that same budget, and sampling clamps safely at image edges. Large photographic images should remain ordinary image assets; this compiler intentionally does not fetch remote pixels.
 
 ## Verification
 

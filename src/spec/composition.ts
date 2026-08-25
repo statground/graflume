@@ -22,6 +22,7 @@ export interface ResolvedCompositionResolve {
   readonly scale: CompositionResolveMode;
   readonly axis: CompositionResolveMode;
   readonly legend: CompositionResolveMode;
+  readonly colorbar: CompositionResolveMode;
 }
 
 export function presentCompositionOperators(
@@ -48,5 +49,6 @@ export function resolveComposition(
     scale: input?.scale ?? defaultMode,
     axis: input?.axis ?? defaultMode,
     legend: input?.legend ?? defaultMode,
+    colorbar: input?.colorbar ?? defaultMode,
   };
 }

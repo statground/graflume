@@ -6,6 +6,8 @@ export type EffectiveDistributionMode =
   | 'kde'
   | 'ecdf'
   | 'ccdf'
+  | 'rug'
+  | 'strip'
   | 'histogram-2d'
   | 'histogram-2d-contour';
 
@@ -17,6 +19,8 @@ export function resolveDistributionMode(value: unknown): EffectiveDistributionMo
   if (value === 'kde' || value === 'density') return 'kde';
   if (value === 'ecdf') return 'ecdf';
   if (value === 'ccdf' || value === 'survival') return 'ccdf';
+  if (value === 'rug') return 'rug';
+  if (value === 'strip') return 'strip';
   if (value === 'histogram-2d' || value === 'bivariate') return 'histogram-2d';
   if (value === 'histogram-2d-contour' || value === 'bivariate-contour') {
     return 'histogram-2d-contour';

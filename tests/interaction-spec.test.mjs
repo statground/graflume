@@ -8,7 +8,11 @@ import {
   panInspectionView,
   zoomInspectionView,
 } from '../.tmp/src/interaction/inspection-view.js';
-import { collectPlaybackFrames, playbackSpec } from '../.tmp/src/interaction/playback.js';
+import {
+  collectPlaybackFrames,
+  playbackSpec,
+  resolvePlaybackTimeline,
+} from '../.tmp/src/interaction/playback.js';
 import { normalizeSpec } from '../.tmp/src/spec/normalize.js';
 import { validateSpec } from '../.tmp/src/spec/validate.js';
 
@@ -67,6 +71,9 @@ test('interaction features are default-off and normalize portable defaults', () 
     interval: 1000,
     rate: 1,
     loop: false,
+    direction: 'forward',
+    range: false,
+    namedFrames: [],
     windowSize: 1,
     autoplay: false,
     transition: false,
@@ -107,6 +114,12 @@ test('runtime validation closes and bounds the interaction contract', () => {
         mode: 'smooth',
         interval: 50,
         rate: 20,
+        direction: 'sideways',
+        range: { start: 'missing', end: -1, html: '<b>unsafe</b>' },
+        namedFrames: [
+          { name: 'same', value: '2026-Q1' },
+          { name: 'same', value: null, html: '<b>unsafe</b>' },
+        ],
         windowSize: 0,
         filter: 'yes',
         transition: { duration: 20, easing: 'spring', html: '<b>unsafe</b>' },
@@ -135,6 +148,13 @@ test('runtime validation closes and bounds the interaction contract', () => {
     '$.interaction.playback.mode',
     '$.interaction.playback.interval',
     '$.interaction.playback.rate',
+    '$.interaction.playback.direction',
+    '$.interaction.playback.range.start',
+    '$.interaction.playback.range.end',
+    '$.interaction.playback.range.html',
+    '$.interaction.playback.namedFrames[1].name',
+    '$.interaction.playback.namedFrames[1].value',
+    '$.interaction.playback.namedFrames[1].html',
     '$.interaction.playback.windowSize',
     '$.interaction.playback.filter',
     '$.interaction.playback.transition.duration',
@@ -165,6 +185,9 @@ test('JSON Schema matches navigation, required playback field, and localized con
   assert.deepEqual(schema.$defs.playback.required, ['field']);
   assert.equal(schema.$defs.playback.properties.interval.minimum, 100);
   assert.equal(schema.$defs.playback.properties.rate.maximum, 16);
+  assert.deepEqual(schema.$defs.playback.properties.direction.enum, ['forward', 'reverse']);
+  assert.equal(schema.$defs.playbackNamedFrame.required.length, 2);
+  assert.equal(schema.$defs.playbackRange.properties.start.$ref, '#/$defs/playbackFrameReference');
   assert.equal(schema.$defs.playbackTransition.properties.duration.minimum, 50);
   assert.deepEqual(schema.$defs.playbackTransition.properties.easing.enum, [
     'linear',
@@ -220,6 +243,55 @@ test('playback uses stable first-seen frames and only filters generic data when 
   assert.notEqual(unfiltered, false);
   const unchanged = playbackSpec(base, unfiltered, frames, 2);
   assert.equal(unchanged.data, base.data);
+});
+
+test('named playback frames resolve inclusive subranges and cumulative data starts at the range', () => {
+  const base = baseSpec();
+  const playback = normalizeSpec(
+    baseSpec({
+      playback: {
+        field: 'period',
+        mode: 'cumulative',
+        filter: true,
+        direction: 'reverse',
+        namedFrames: [
+          { name: 'opening', value: '2026-Q1' },
+          { name: 'focus', value: '2026-Q2' },
+          { name: 'closing', value: '2026-Q3' },
+        ],
+        range: { start: 'focus', end: 'closing' },
+      },
+    }),
+  ).interaction.playback;
+  assert.notEqual(playback, false);
+  const frames = collectPlaybackFrames(base, playback);
+  const timeline = resolvePlaybackTimeline(frames, playback);
+  assert.deepEqual(timeline.range, { start: 1, end: 2 });
+  assert.deepEqual(
+    timeline.namedFrames.map(({ name, index }) => ({ name, index })),
+    [
+      { name: 'opening', index: 0 },
+      { name: 'focus', index: 1 },
+      { name: 'closing', index: 2 },
+    ],
+  );
+  assert.deepEqual(
+    playbackSpec(base, playback, frames, timeline.range.end, timeline.range.start).data.map(
+      ({ period }) => period,
+    ),
+    ['2026-Q2', '2026-Q3'],
+  );
+
+  const unmatched = normalizeSpec(
+    baseSpec({
+      playback: {
+        field: 'period',
+        namedFrames: [{ name: 'missing', value: '2027-Q1' }],
+      },
+    }),
+  ).interaction.playback;
+  assert.notEqual(unmatched, false);
+  assert.throws(() => resolvePlaybackTimeline(frames, unmatched), /does not match/);
 });
 
 test('playback leaves field-less reference layers unchanged', () => {

@@ -117,12 +117,12 @@ test('spatial catalog adds three canonical families without duplicating map', ()
   assert.equal(spatialCompatibilityModes[0].canonicalFamilyId, 'map');
   assert.deepEqual(spatialCatalogBoundary, {
     coreAndCompleteCanonicalFamilies: 41,
-    coreAndCompletePresets: 165,
+    coreAndCompletePresets: 168,
     spatialCanonicalFamilies: 3,
     totalCanonicalFamilies: 44,
     spatialVariants: 7,
     integratedExistingFamilyModes: 1,
-    totalPresetsAndModes: 173,
+    totalPresetsAndModes: 176,
   });
   assert.deepEqual(spatialCapabilities().projections, ['perspective', 'orthographic']);
 });
@@ -711,7 +711,7 @@ test('spatial JSON schema is versioned and closes every object declaration', asy
   };
   visit(schema);
   assert.deepEqual(openObjects, []);
-  assert.equal(schema.$defs.layer.oneOf.length, 7);
+  assert.equal(schema.$defs.layer.oneOf.length, 8);
   assert.deepEqual(schema.$defs.meshMark.required, ['type']);
   assert.deepEqual(schema.$defs.streamtubeMark.required, ['type']);
   assert.equal(schema.$defs.coneMark.properties.segments.maximum, 48);

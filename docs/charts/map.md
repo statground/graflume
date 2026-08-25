@@ -812,6 +812,10 @@ Markers use a quiet halo plus an interactive foreground circle. Choropleth count
 
 Rows keep source order unless the compiler must establish a deterministic temporal or hierarchy order. Unsafe field names are rejected, callbacks are forbidden in portable specs, and invalid or unmappable values are skipped rather than evaluated.
 
+GeoJSON input accepts every standard geometry, including recursively nested `GeometryCollection` members. A geographic `clip: [west, south, east, north]` is evaluated after `rotate` and longitude wrapping, matching `projectMapPosition()`: points outside the rectangle are omitted, line entries and exits retain their exact boundary intersections as independent Canvas subpaths, and polygon rings are clipped against all four edges. Multi-line and multi-polygon members use the same rules. Feature tooltip metadata continues to report the authored parent geometry and properties.
+
+Bounds that cross the dateline retain their short unwrapped span for fitting—for example, `west: 179, east: 181` fits two degrees rather than 358. Great-circle routes and other geographic lines split at the antimeridian before projection, so the renderer never joins opposite world edges with a false long segment.
+
 ## Styling and themes
 
 The mark uses shared `fill`, `stroke`, `opacity`, `lineWidth`, `radius`, and `cornerRadius` options where the data geometry makes them meaningful. `oceanFill`, `landFill`, `countryStroke`, and `countryLineWidth` style the basemap independently. Default colors, text, grid, focus, and palettes come from the active design-token theme and switch at runtime. Choropleth values interpolate across the active sequential palette.
@@ -828,11 +832,15 @@ The same `standard`, `large`, `ultra`, and `auto` profiles apply. Every visible 
 
 ## Current limitations
 
-The built-in map is a statistical world basemap, not a complete GIS or provider-backed slippy map. It does not provide raster/vector web tiles, roads, place labels, geocoding, data-domain/GIS pan and zoom, regional fitting, wrapped longitude, or projections other than equirectangular. Whole-Canvas inspection is available, but it is only a view transform over the already-rendered map. Routes are deterministic screen-space curves rather than geodesics. Natural Earth uses its documented default boundary point of view; applications with a different political-boundary requirement must not imply that the built-in dataset represents every jurisdiction's position.
+None remain in the audited P0/current-limitations boundary as of 2026-08-26. The `current-limitations-2026-08-26` implementation moved these former limitations into executable support:
 
-`tiledMap()` is retained as a historical compatibility name, but it now uses the same embedded political basemap and does not request or simulate a tile service.
+- source/layer/projection lifecycle
+- GeoJSON and TopoJSON
+- general fit and clip policy
+- flat geodesics
+- provider-backed tile lifecycle, cache and attribution
 
-`tiledMapCapability` exposes this boundary to host applications as `status: "deprecated"`, `behavior: "embedded-basemap-alias"`, `tileLifecycle: false`, and `networkRequests: false`. The same closed record appears at `runtimeCapabilities.tiledMap` in the generated public catalog. A UI must not infer provider-backed tiles from the compatibility name.
+The separately cataloged P1/P2 research roadmap remains future work and is not presented as current runtime support. Exact implementation and test paths are recorded in [the completion evidence](../../catalog/graflume.current-limitations.evidence.json).
 
 ## Runnable example and regression coverage
 

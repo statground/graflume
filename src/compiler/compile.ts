@@ -1,12 +1,18 @@
 import { resolvePerformanceSettings } from '../data/performance.js';
+import { GraflumeError } from '../core/errors.js';
+import { materializeSpecDataflow } from '../data/dataflow.js';
 import { registerAxisTooltipIndex } from '../interaction/axis-hit-test.js';
 import { compileAnalyticSelectionOverlay } from '../interaction/analytic-overlay.js';
-import type { AnalyticSelectionState } from '../interaction/analytic-selection.js';
+import {
+  analyticSelectionVersion,
+  type AnalyticSelection,
+  type AnalyticSelectionState,
+} from '../interaction/analytic-selection.js';
 import type { CartesianCoordinateContext } from '../interaction/cartesian-coordinates.js';
 import type { DomainViewState } from '../interaction/domain-navigation.js';
 import { group, nodeBase } from '../scene/factory.js';
 import { countSceneNodes } from '../scene/walk.js';
-import type { Scene, SceneNode, TextNode } from '../scene/types.js';
+import type { Rect, Scene, SceneNode, TextNode } from '../scene/types.js';
 import type { AxisId, ChartSpec, NormalizedAxisSpec, NormalizedChartSpec } from '../spec/types.js';
 import { isCompositionSpec } from '../spec/composition.js';
 import { normalizeSpec } from '../spec/normalize.js';
@@ -16,6 +22,7 @@ import type { ThemeTokens } from '../theme/types.js';
 import type { RuntimeRegistry } from '../runtime/registry.js';
 import type { DataLineage } from '../data/transforms.js';
 import { buildSemanticIndex } from '../scene/semantic.js';
+import { resolveAnalyticalFamilySceneMetadata } from '../marks/analytical-p0.js';
 import {
   compileAxis,
   measureAxisGutter,
@@ -27,6 +34,7 @@ import { isAxislessLayer } from './coordinate.js';
 import { resolveScales, type ScaleResolution } from './domain.js';
 import { createLayout } from './layout.js';
 import { compileDecorations, type DecorationRuntimeState } from './decorations.js';
+import { compileMarkLabels, type MarkLabelRuntimeState } from './mark-labels.js';
 import {
   compileLegend,
   legendExternalInsets,
@@ -35,6 +43,8 @@ import {
   resolveLegendModel,
 } from './legend.js';
 import { compileCompositionWithRegistry } from './composition.js';
+import { filterScaleResolutionByAnalyticSelection } from './analytic-filter.js';
+import { materializeTechnicalIndicatorPanes } from './technical-indicator-panels.js';
 
 export interface CompileOptions {
   readonly width?: number;
@@ -48,32 +58,106 @@ export interface CompileResult {
   readonly dataLineage: Readonly<Record<string, DataLineage>>;
   /** Resolved Cartesian scales for deterministic pixel/domain interaction. */
   readonly coordinates: CartesianCoordinateContext;
+  /** Leaf coordinate systems in a composed scene, with scene-space offsets. */
+  readonly coordinateViews: readonly CompileCoordinateView[];
 }
 
-export interface CompileRuntimeState extends DecorationRuntimeState {
+export interface CompileCoordinateView {
+  readonly id: string;
+  readonly label: string;
+  readonly bounds: Rect;
+  readonly offsetX: number;
+  readonly offsetY: number;
+  readonly coordinates: CartesianCoordinateContext;
+}
+
+export interface CompileRuntimeState extends DecorationRuntimeState, MarkLabelRuntimeState {
   readonly hiddenLegendItemIds?: ReadonlySet<string>;
   readonly analyticSelection?: AnalyticSelectionState;
+  readonly analyticSelectionDraft?: AnalyticSelection;
   readonly domainView?: DomainViewState;
+  readonly technicalCrosshairValue?: number | string;
 }
-
-const AXIS_ORDER = ['x', 'x2', 'y', 'y2'] as const;
 
 interface ActiveAxis {
   readonly id: AxisId;
+  readonly channel: 'x' | 'y';
   readonly axis: NormalizedAxisSpec | false;
   readonly scale: NonNullable<ScaleResolution['axes'][AxisId]>['scale'];
   readonly title: string;
 }
 
 function activeAxes(scales: ScaleResolution): readonly ActiveAxis[] {
-  return AXIS_ORDER.flatMap((id) => {
-    const resolved = scales.axes[id];
+  return Object.values(scales.axes).flatMap((resolved) => {
     if (resolved === undefined) return [];
     const layerData = resolved.layers.find(({ layer }) => !isAxislessLayer(layer));
     if (layerData === undefined) return [];
     const encoding = resolved.channel === 'x' ? layerData.layer.x : layerData.layer.y;
-    return [{ id, axis: encoding.axis, scale: resolved.scale, title: encoding.title }];
+    return [
+      {
+        id: resolved.id,
+        channel: resolved.channel,
+        axis: encoding.axis,
+        scale: resolved.scale,
+        title: encoding.title,
+      },
+    ];
   });
+}
+
+function intersectRects(left: Rect, right: Rect): Rect {
+  const x = Math.max(left.x, right.x);
+  const y = Math.max(left.y, right.y);
+  const endX = Math.min(left.x + left.width, right.x + right.width);
+  const endY = Math.min(left.y + left.height, right.y + right.height);
+  return { x, y, width: Math.max(0, endX - x), height: Math.max(0, endY - y) };
+}
+
+function resolveLayerClip(
+  layerData: ScaleResolution['layers'][number],
+  scales: ScaleResolution,
+  plot: Rect,
+): Rect | undefined {
+  const authored = layerData.layer.clip;
+  if (authored === false) return undefined;
+  if (authored === true) return plot;
+  if (authored.type === 'plot') {
+    return intersectRects(plot, {
+      x: plot.x + authored.x * plot.width,
+      y: plot.y + authored.y * plot.height,
+      width: authored.width * plot.width,
+      height: authored.height * plot.height,
+    });
+  }
+  const mapped = (
+    channel: 'x' | 'y',
+    range: NonNullable<(typeof authored)['x']>,
+  ): readonly [number, number] => {
+    const id = range.axis ?? (channel === 'x' ? layerData.xAxisId : layerData.yAxisId);
+    const resolved = scales.axes[id];
+    if (resolved === undefined || resolved.channel !== channel) {
+      throw new GraflumeError(
+        'INVALID_SPEC',
+        `Layer "${layerData.layer.id}" clip references unresolved ${channel}-axis "${id}".`,
+        { path: `$.layers[${layerData.layer.id}].clip.${channel}.axis` },
+      );
+    }
+    const from = resolved.scale.map(range.from);
+    const to = resolved.scale.map(range.to);
+    if (!Number.isFinite(from) || !Number.isFinite(to)) {
+      throw new GraflumeError(
+        'INVALID_SPEC',
+        `Layer "${layerData.layer.id}" clip range cannot be mapped on axis "${id}".`,
+        { path: `$.layers[${layerData.layer.id}].clip.${channel}` },
+      );
+    }
+    return [Math.min(from, to), Math.max(from, to)];
+  };
+  const x =
+    authored.x === undefined ? ([plot.x, plot.x + plot.width] as const) : mapped('x', authored.x);
+  const y =
+    authored.y === undefined ? ([plot.y, plot.y + plot.height] as const) : mapped('y', authored.y);
+  return intersectRects(plot, { x: x[0], y: y[0], width: x[1] - x[0], height: y[1] - y[0] });
 }
 
 function axisContext(
@@ -185,6 +269,14 @@ function compileUnitWithRegistry(
     scales = resolveScales(spec, layout.plot, runtime.domainView?.axes);
     axes = activeAxes(scales);
   }
+  if (
+    spec.interaction.selection !== false &&
+    spec.interaction.selection.filter &&
+    runtime.analyticSelection !== undefined
+  ) {
+    scales = filterScaleResolutionByAnalyticSelection(scales, runtime.analyticSelection).scales;
+    axes = activeAxes(scales);
+  }
   const totalRows = scales.layers.reduce((sum, layer) => sum + layer.table.length, 0);
   const dataLineage = Object.fromEntries(
     scales.layers.map(({ layer, lineage }) => [layer.id, lineage]),
@@ -276,6 +368,8 @@ function compileUnitWithRegistry(
       yScale: layerData.yScale,
       plot: layout.plot,
       theme,
+      ...(spec.locale === undefined ? {} : { locale: spec.locale }),
+      tableFormatters: registry.tableFormatters,
       color,
       performance,
       barGroup: {
@@ -305,9 +399,10 @@ function compileUnitWithRegistry(
         children = children.map(hide);
       }
     }
+    const clip = resolveLayerClip(layerData, scales, layout.plot);
     return group(`${layerData.layer.id}:group`, children, {
       zIndex: layerData.layer.zIndex,
-      clip: layout.plot,
+      ...(clip === undefined ? {} : { clip }),
       visible: !hiddenLayerIds.has(layerData.layer.id),
     });
   });
@@ -332,14 +427,28 @@ function compileUnitWithRegistry(
     runtime,
     datumVisible,
   });
+  const markLabels = compileMarkLabels({
+    spec,
+    layerGroups,
+    scales,
+    plot: layout.plot,
+    theme,
+    runtime,
+  });
   const coordinates: CartesianCoordinateContext = Object.freeze({
     plot: Object.freeze({ ...layout.plot }),
     axes: Object.freeze(
       Object.fromEntries(
-        AXIS_ORDER.flatMap((id) => {
-          const resolved = scales.axes[id];
-          return resolved === undefined ? [] : [[id, resolved.scale] as const];
-        }),
+        Object.values(scales.axes).flatMap((resolved) =>
+          resolved === undefined ? [] : [[resolved.id, resolved.scale] as const],
+        ),
+      ),
+    ),
+    channels: Object.freeze(
+      Object.fromEntries(
+        Object.values(scales.axes).flatMap((resolved) =>
+          resolved === undefined ? [] : [[resolved.id, resolved.channel] as const],
+        ),
       ),
     ),
   });
@@ -350,6 +459,26 @@ function compileUnitWithRegistry(
           runtime.analyticSelection,
           coordinates,
           spec.interaction.selection.highlight,
+        );
+  const analyticSelectionDraftNodes =
+    runtime.analyticSelectionDraft === undefined || spec.interaction.selection === false
+      ? []
+      : compileAnalyticSelectionOverlay(
+          {
+            version: analyticSelectionVersion,
+            combine: 'union',
+            selections: [runtime.analyticSelectionDraft],
+          },
+          coordinates,
+          {
+            ...spec.interaction.selection.highlight,
+            opacity: Math.min(1, spec.interaction.selection.highlight.opacity * 0.72),
+            dash:
+              spec.interaction.selection.highlight.dash.length === 0
+                ? [5, 4]
+                : spec.interaction.selection.highlight.dash,
+          },
+          'analytic-selection:draft',
         );
 
   const panelNode: SceneNode[] =
@@ -390,14 +519,53 @@ function compileUnitWithRegistry(
         },
       ]
     : [];
+  const technicalIndicatorLayers = scales.layers.filter(
+    ({ technicalIndicator }) => technicalIndicator !== undefined,
+  );
+  const technicalPanelId =
+    technicalIndicatorLayers.find(
+      ({ technicalIndicator }) => technicalIndicator?.presentation.placement === 'panel',
+    )?.technicalIndicator?.presentation.panelId ?? 'price';
+  const technicalCrosshairX =
+    runtime.technicalCrosshairValue === undefined
+      ? undefined
+      : coordinates.axes[technicalIndicatorLayers[0]?.xAxisId ?? 'x']?.map(
+          runtime.technicalCrosshairValue,
+        );
+  const technicalCrosshairNodes: SceneNode[] =
+    technicalIndicatorLayers.length === 0 ||
+    technicalCrosshairX === undefined ||
+    !Number.isFinite(technicalCrosshairX) ||
+    technicalCrosshairX < layout.plot.x ||
+    technicalCrosshairX > layout.plot.x + layout.plot.width
+      ? []
+      : [
+          {
+            type: 'line',
+            ...nodeBase(`technical-crosshair:${technicalPanelId}`, {
+              zIndex: 850,
+              opacity: 0.72,
+            }),
+            x1: technicalCrosshairX,
+            y1: layout.plot.y,
+            x2: technicalCrosshairX,
+            y2: layout.plot.y + layout.plot.height,
+            stroke: theme.colors.text,
+            lineWidth: 1,
+            dash: [4, 3],
+          },
+        ];
   const children: SceneNode[] = [
     ...panelNode,
     ...decorations.underlay,
     ...axisNodes,
     ...layerGroups,
     ...plotBoxNode,
+    ...markLabels.nodes,
     ...decorations.overlay,
     ...analyticSelectionNodes,
+    ...analyticSelectionDraftNodes,
+    ...technicalCrosshairNodes,
     ...legend.nodes,
     ...titleNodes(spec, theme, width, layout.plot, layout.titleY, layout.subtitleY),
   ];
@@ -424,7 +592,35 @@ function compileUnitWithRegistry(
               : `${annotation.text}: ${annotation.detail}`,
           )
           .join('. ');
-        const description = [base, spec.accessibility.summary, annotationText]
+        const markLabelText =
+          markLabels.entries.length === 0
+            ? ''
+            : `Mark labels: ${markLabels.entries
+                .slice(0, 20)
+                .map((entry) => entry.text)
+                .join(', ')}${markLabels.entries.length > 20 ? ', and more' : ''}`;
+        const authoringText =
+          spec.markLabels !== false && spec.markLabels.authoring !== false
+            ? 'Label authoring is enabled. Press Enter to select a label, use arrow keys to move it, Escape to clear the handle, and Control or Command Z to undo.'
+            : '';
+        const selectionAuthoringText =
+          spec.interaction.selection !== false &&
+          spec.interaction.selection.kind !== 'point' &&
+          spec.interaction.selection.keyboard
+            ? `Keyboard ${spec.interaction.selection.kind} selection is enabled. Press S to start, use arrow keys to shape the selection${
+                spec.interaction.selection.kind === 'lasso'
+                  ? ', Space to add each lasso vertex'
+                  : ''
+              }, Enter to apply, and Escape to cancel.`
+            : '';
+        const description = [
+          base,
+          spec.accessibility.summary,
+          annotationText,
+          markLabelText,
+          authoringText,
+          selectionAuthoringText,
+        ]
           .filter(Boolean)
           .join('. ');
         const legendText =
@@ -451,6 +647,91 @@ function compileUnitWithRegistry(
       performanceProfile: performance.profile,
       hitTestingEnabled: performance.enableHitTesting,
       dataLineage: scales.layers.map(({ lineage }) => lineage.summary),
+      ...(decorations.annotations.length === 0
+        ? {}
+        : {
+            annotations: {
+              entries: decorations.annotations,
+              ...(runtime.activeAnnotationId === undefined
+                ? {}
+                : { activeId: runtime.activeAnnotationId }),
+            },
+          }),
+      ...(scales.layers.some(({ technicalIndicator }) => technicalIndicator !== undefined)
+        ? {
+            technicalIndicators: scales.layers.flatMap(({ layer, technicalIndicator }) =>
+              technicalIndicator === undefined
+                ? []
+                : [
+                    {
+                      layerId: layer.id,
+                      id: technicalIndicator.capability.id,
+                      kind: technicalIndicator.capability.kind,
+                      requiredInputs: [...technicalIndicator.capability.requiredInputs],
+                      outputFields: technicalIndicator.capability.outputs.map((role) =>
+                        role === 'value' ? layer.y.field : (layer.mark.fields[role] ?? role),
+                      ),
+                      warmUpRows: technicalIndicator.warmUpRows,
+                      parameters: { ...technicalIndicator.parameters },
+                      provenance: technicalIndicator.provenance,
+                      session: {
+                        mode: technicalIndicator.session.mode,
+                        reset: technicalIndicator.session.reset,
+                        boundaries: [...technicalIndicator.session.boundaries],
+                      },
+                      presentation: {
+                        placement: technicalIndicator.presentation.placement,
+                        panelId: technicalIndicator.presentation.panelId,
+                        synchronizedCrosshair: {
+                          axis: technicalIndicator.presentation.synchronizedCrosshair.axis,
+                          sharedDomain:
+                            technicalIndicator.presentation.synchronizedCrosshair.sharedDomain,
+                          fields: technicalIndicator.presentation.synchronizedCrosshair.fields.map(
+                            (role) =>
+                              role === 'value' ? layer.y.field : (layer.mark.fields[role] ?? role),
+                          ),
+                        },
+                      },
+                    },
+                  ],
+            ),
+            technicalIndicatorPanels: [
+              {
+                id: technicalPanelId,
+                bounds: { ...layout.plot },
+                layerIds: scales.layers.map(({ layer }) => layer.id),
+                placement: technicalPanelId === 'price' ? 'price' : 'indicator',
+              },
+            ],
+            ...(technicalCrosshairX === undefined || !Number.isFinite(technicalCrosshairX)
+              ? {}
+              : {
+                  technicalIndicatorCrosshair: {
+                    value: runtime.technicalCrosshairValue!,
+                    panelIds: [technicalPanelId],
+                    positions: [{ panelId: technicalPanelId, x: technicalCrosshairX }],
+                  },
+                }),
+          }
+        : {}),
+      ...(() => {
+        const analyticalFamilies = scales.layers.flatMap(({ layer }) => {
+          const metadata = resolveAnalyticalFamilySceneMetadata(layer);
+          return metadata === null ? [] : [metadata];
+        });
+        return analyticalFamilies.length === 0 ? {} : { analyticalFamilies };
+      })(),
+      ...(spec.markLabels === false
+        ? {}
+        : {
+            markLabels: {
+              entries: markLabels.entries,
+              plot: { ...layout.plot },
+              ...(runtime.activeMarkLabelId === undefined
+                ? {}
+                : { activeId: runtime.activeMarkLabelId }),
+            },
+          }),
     },
   };
   registerLegendLayout(scene, legend.layout);
@@ -473,7 +754,7 @@ function compileUnitWithRegistry(
       (context.axis.labels.orientation === 'auto' ||
         context.axis.labels.orientation === 'horizontal')
     ) {
-      const horizontal = axis === 'x' || axis === 'x2';
+      const horizontal = activeAxis?.channel === 'x';
       const tickSize = context.axis.ticks.visible
         ? (context.axis.ticks.size ?? theme.axis.tickLength)
         : 0;
@@ -488,6 +769,7 @@ function compileUnitWithRegistry(
     }
     registerAxisTooltipIndex(scene, {
       axis,
+      channel: activeAxis?.channel ?? 'x',
       ...(activeAxis === undefined || activeAxis.axis === false
         ? {}
         : { position: activeAxis.axis.position }),
@@ -496,6 +778,7 @@ function compileUnitWithRegistry(
       axisStripSize: Math.max(0, axisStripSize),
       targets: collectAxisTooltipTargets({
         axis,
+        channel: activeAxis?.channel ?? 'x',
         layerGroups,
         scales,
         plot: layout.plot,
@@ -505,7 +788,23 @@ function compileUnitWithRegistry(
     });
   }
 
-  return { scene, spec, theme, dataLineage, coordinates };
+  return {
+    scene,
+    spec,
+    theme,
+    dataLineage,
+    coordinates,
+    coordinateViews: [
+      {
+        id: 'plot',
+        label: '',
+        bounds: { ...coordinates.plot },
+        offsetX: 0,
+        offsetY: 0,
+        coordinates,
+      },
+    ],
+  };
 }
 
 export function compileWithRegistry(
@@ -514,6 +813,8 @@ export function compileWithRegistry(
   options: CompileOptions = {},
   runtime: CompileRuntimeState = {},
 ): CompileResult {
+  input = materializeSpecDataflow(input);
+  if (!isCompositionSpec(input)) input = materializeTechnicalIndicatorPanes(input);
   if (!isCompositionSpec(input)) return compileUnitWithRegistry(input, registry, options, runtime);
   return compileCompositionWithRegistry(input, registry, options, runtime, {
     compile: compileWithRegistry,

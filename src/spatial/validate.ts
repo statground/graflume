@@ -193,7 +193,15 @@ const CONTROL_LABEL_KEYS = new Set([
   'unavailable',
 ]);
 const CONTROLS_KEYS = new Set(['annotations']);
-const ACCESSIBILITY_KEYS = new Set(['description', 'table', 'maxRows']);
+const ACCESSIBILITY_KEYS = new Set([
+  'description',
+  'table',
+  'maxRows',
+  'navigation',
+  'linkedFocus',
+]);
+const ACCESSIBILITY_NAVIGATION_KEYS = new Set(['pageRows', 'wrap']);
+const LINKED_FOCUS_KEYS = new Set(['group', 'key']);
 const LAYER_KEYS = new Set(['id', 'name', 'mark', 'data']);
 const SELECTION_KEYS = new Set([
   'mode',
@@ -252,7 +260,26 @@ const ANNOTATION_STYLE_KEYS = new Set([
   'padding',
   'align',
 ]);
-const SURFACE_MARK_KEYS = new Set(['type', 'mode', 'color', 'opacity', 'wireframe']);
+const SURFACE_MARK_KEYS = new Set([
+  'type',
+  'mode',
+  'color',
+  'opacity',
+  'normalMode',
+  'wireframe',
+  'wireOverlay',
+  'contours',
+]);
+const SURFACE_WIRE_OVERLAY_KEYS = new Set(['color', 'opacity']);
+const SURFACE_CONTOUR_KEYS = new Set([
+  'levels',
+  'count',
+  'projection',
+  'baseHeight',
+  'color',
+  'opacity',
+  'maxSegments',
+]);
 const VOLUME_MARK_KEYS = new Set([
   'type',
   'mode',
@@ -262,6 +289,39 @@ const VOLUME_MARK_KEYS = new Set([
   'maxSamples',
   'colorLow',
   'colorHigh',
+  'transferFunction',
+  'windowLevel',
+  'render',
+  'slices',
+]);
+const VOLUME_TRANSFER_KEYS = new Set(['stops', 'interpolation']);
+const VOLUME_TRANSFER_STOP_KEYS = new Set(['offset', 'color', 'opacity']);
+const VOLUME_WINDOW_LEVEL_KEYS = new Set(['window', 'level']);
+const VOLUME_RENDER_KEYS = new Set([
+  'method',
+  'axis',
+  'resolution',
+  'samples',
+  'interpolation',
+  'caps',
+]);
+const VOLUME_ORTHOGONAL_SLICE_KEYS = new Set([
+  'type',
+  'axis',
+  'position',
+  'resolution',
+  'interpolation',
+  'opacity',
+]);
+const VOLUME_OBLIQUE_SLICE_KEYS = new Set([
+  'type',
+  'origin',
+  'normal',
+  'up',
+  'size',
+  'resolution',
+  'interpolation',
+  'opacity',
 ]);
 const VECTOR_MARK_KEYS = new Set([
   'type',
@@ -271,6 +331,18 @@ const VECTOR_MARK_KEYS = new Set([
   'radius',
   'scale',
   'segments',
+  'integration',
+  'magnitudeEncoding',
+]);
+const VECTOR_INTEGRATION_KEYS = new Set([
+  'direction',
+  'initialStep',
+  'minStep',
+  'maxStep',
+  'tolerance',
+  'maxSteps',
+  'maxLength',
+  'minMagnitude',
 ]);
 const SCATTER_MARK_KEYS = new Set(['type', 'color', 'opacity', 'pointSize']);
 const GLOBE_MARK_KEYS = new Set([
@@ -288,7 +360,18 @@ const SURFACE_GRID_KEYS = new Set(['rows', 'columns', 'z', 'x', 'y', 'values']);
 const MESH_KEYS = new Set(['positions', 'triangles', 'normals', 'colors', 'labels']);
 const VOLUME_DATA_KEYS = new Set(['dimensions', 'values', 'origin', 'spacing']);
 const CONE_DATA_KEYS = new Set(['origins', 'vectors', 'labels', 'colors']);
-const STREAM_DATA_KEYS = new Set(['paths', 'labels', 'colors']);
+const STREAM_DATA_KEYS = new Set(['paths', 'magnitudes', 'labels', 'colors']);
+const VECTOR_FIELD_DATA_KEYS = new Set([
+  'dimensions',
+  'vectors',
+  'origin',
+  'spacing',
+  'seeds',
+  'seedGrid',
+  'labels',
+  'colors',
+]);
+const VECTOR_SEED_GRID_KEYS = new Set(['dimensions', 'jitter', 'seed']);
 const SCATTER_DATA_KEYS = new Set(['positions', 'values', 'sizes', 'colors', 'labels']);
 const GLOBE_DATA_KEYS = new Set(['points', 'routes']);
 const GLOBE_POINT_KEYS = new Set(['longitude', 'latitude', 'value', 'label', 'color', 'size']);
@@ -461,6 +544,32 @@ function vec3(value: unknown, path: string, issues: SpatialSpecIssue[]): value i
   }
   return value.every(
     (entry, index) => finiteNumber(entry, `${path}[${index}]`, issues) !== undefined,
+  );
+}
+
+function integerVec2(
+  value: unknown,
+  path: string,
+  issues: SpatialSpecIssue[],
+  minimum: number,
+  maximum: number,
+): value is readonly [number, number] {
+  if (!Array.isArray(value) || value.length !== 2) {
+    issue(issues, path, 'Must be a two-integer tuple.');
+    return false;
+  }
+  return value.every(
+    (entry, index) => integer(entry, `${path}[${index}]`, issues, minimum, maximum) !== undefined,
+  );
+}
+
+function positiveVec2(value: unknown, path: string, issues: SpatialSpecIssue[]): void {
+  if (!Array.isArray(value) || value.length !== 2) {
+    issue(issues, path, 'Must be a two-number tuple.');
+    return;
+  }
+  value.forEach((entry, index) =>
+    finiteNumber(entry, `${path}[${index}]`, issues, 0.000001, 1_000_000_000),
   );
 }
 
@@ -1296,6 +1405,230 @@ function validateAccessibility(value: unknown, path: string, issues: SpatialSpec
   optionalBoolean(accessibility.table, `${path}.table`, issues);
   if (accessibility.maxRows !== undefined)
     integer(accessibility.maxRows, `${path}.maxRows`, issues, 1, 1_000);
+  if (accessibility.navigation !== undefined && typeof accessibility.navigation !== 'boolean') {
+    const navigation = closedObject(
+      accessibility.navigation,
+      `${path}.navigation`,
+      ACCESSIBILITY_NAVIGATION_KEYS,
+      issues,
+    );
+    if (navigation !== undefined) {
+      if (navigation.pageRows !== undefined)
+        integer(navigation.pageRows, `${path}.navigation.pageRows`, issues, 1, 1_000);
+      optionalBoolean(navigation.wrap, `${path}.navigation.wrap`, issues);
+    }
+  }
+  if (accessibility.linkedFocus !== undefined) {
+    const linked = closedObject(
+      accessibility.linkedFocus,
+      `${path}.linkedFocus`,
+      LINKED_FOCUS_KEYS,
+      issues,
+    );
+    if (linked !== undefined) {
+      optionalNonEmptyString(linked.group, `${path}.linkedFocus.group`, issues, 96);
+      optionalNonEmptyString(linked.key, `${path}.linkedFocus.key`, issues, 128);
+      if (linked.group === undefined)
+        issue(issues, `${path}.linkedFocus.group`, 'Linked focus group is required.');
+      else if (
+        typeof linked.group === 'string' &&
+        !/^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$/.test(linked.group)
+      )
+        issue(
+          issues,
+          `${path}.linkedFocus.group`,
+          'Linked focus group contains unsupported identity characters.',
+        );
+      if (linked.key === undefined)
+        issue(issues, `${path}.linkedFocus.key`, 'Linked focus key is required.');
+      if (typeof linked.key === 'string' && UNSAFE_KEYS.has(linked.key))
+        issue(issues, `${path}.linkedFocus.key`, 'Unsafe linked focus key is forbidden.');
+    }
+  }
+}
+
+function validateSurfaceAdvanced(
+  mark: RecordValue,
+  path: string,
+  issues: SpatialSpecIssue[],
+): void {
+  optionalEnum(mark.normalMode, `${path}.normalMode`, new Set(['flat', 'smooth']), issues);
+  if (mark.wireOverlay !== undefined && typeof mark.wireOverlay !== 'boolean') {
+    const overlay = closedObject(
+      mark.wireOverlay,
+      `${path}.wireOverlay`,
+      SURFACE_WIRE_OVERLAY_KEYS,
+      issues,
+    );
+    if (overlay !== undefined) {
+      optionalColor(overlay.color, `${path}.wireOverlay.color`, issues);
+      if (overlay.opacity !== undefined)
+        finiteNumber(overlay.opacity, `${path}.wireOverlay.opacity`, issues, 0, 1);
+    }
+  }
+  if (mark.wireframe === true && mark.wireOverlay !== undefined && mark.wireOverlay !== false)
+    issue(issues, `${path}.wireOverlay`, 'A wire-only surface cannot also request a wire overlay.');
+  if (mark.contours === undefined) return;
+  const contours = closedObject(mark.contours, `${path}.contours`, SURFACE_CONTOUR_KEYS, issues);
+  if (contours === undefined) return;
+  if (contours.levels !== undefined) {
+    const levels = numberArray(contours.levels, `${path}.contours.levels`, issues, 64);
+    if (levels !== undefined && levels.length === 0)
+      issue(issues, `${path}.contours.levels`, 'Must contain at least one level.');
+  }
+  if (contours.count !== undefined)
+    integer(contours.count, `${path}.contours.count`, issues, 1, 64);
+  if (contours.levels !== undefined && contours.count !== undefined)
+    issue(issues, `${path}.contours`, 'Use either explicit levels or count, not both.');
+  optionalEnum(
+    contours.projection,
+    `${path}.contours.projection`,
+    new Set(['surface', 'base', 'both']),
+    issues,
+  );
+  if (contours.baseHeight !== undefined)
+    finiteNumber(contours.baseHeight, `${path}.contours.baseHeight`, issues);
+  optionalColor(contours.color, `${path}.contours.color`, issues);
+  if (contours.opacity !== undefined)
+    finiteNumber(contours.opacity, `${path}.contours.opacity`, issues, 0, 1);
+  if (contours.maxSegments !== undefined)
+    integer(contours.maxSegments, `${path}.contours.maxSegments`, issues, 1, 250_000);
+}
+
+function validateTransferFunction(value: unknown, path: string, issues: SpatialSpecIssue[]): void {
+  if (value === undefined) return;
+  const transfer = closedObject(value, path, VOLUME_TRANSFER_KEYS, issues);
+  if (transfer === undefined) return;
+  optionalEnum(
+    transfer.interpolation,
+    `${path}.interpolation`,
+    new Set(['linear', 'step']),
+    issues,
+  );
+  if (!Array.isArray(transfer.stops) || transfer.stops.length < 2 || transfer.stops.length > 64) {
+    issue(issues, `${path}.stops`, 'Must contain 2 to 64 transfer stops.');
+    return;
+  }
+  let previous = -1;
+  transfer.stops.forEach((value, index) => {
+    const stop = closedObject(value, `${path}.stops[${index}]`, VOLUME_TRANSFER_STOP_KEYS, issues);
+    if (stop === undefined) return;
+    const offset = finiteNumber(stop.offset, `${path}.stops[${index}].offset`, issues, 0, 1);
+    if (offset !== undefined && offset <= previous)
+      issue(
+        issues,
+        `${path}.stops[${index}].offset`,
+        'Transfer offsets must be strictly increasing.',
+      );
+    if (offset !== undefined) previous = offset;
+    color(stop.color, `${path}.stops[${index}].color`, issues);
+    if (stop.opacity !== undefined)
+      finiteNumber(stop.opacity, `${path}.stops[${index}].opacity`, issues, 0, 1);
+  });
+}
+
+function validateVolumeAdvanced(mark: RecordValue, path: string, issues: SpatialSpecIssue[]): void {
+  validateTransferFunction(mark.transferFunction, `${path}.transferFunction`, issues);
+  if (mark.windowLevel !== undefined) {
+    const windowLevel = closedObject(
+      mark.windowLevel,
+      `${path}.windowLevel`,
+      VOLUME_WINDOW_LEVEL_KEYS,
+      issues,
+    );
+    if (windowLevel !== undefined) {
+      finiteNumber(windowLevel.window, `${path}.windowLevel.window`, issues, 0.000001);
+      finiteNumber(windowLevel.level, `${path}.windowLevel.level`, issues);
+    }
+  }
+  if (mark.render !== undefined) {
+    const render = closedObject(mark.render, `${path}.render`, VOLUME_RENDER_KEYS, issues);
+    if (render !== undefined) {
+      optionalEnum(
+        render.method,
+        `${path}.render.method`,
+        new Set(['raycast', 'mip', 'minip', 'average']),
+        issues,
+      );
+      optionalEnum(render.axis, `${path}.render.axis`, new Set(['x', 'y', 'z']), issues);
+      if (render.resolution !== undefined)
+        integerVec2(render.resolution, `${path}.render.resolution`, issues, 2, 256);
+      if (render.samples !== undefined)
+        integer(render.samples, `${path}.render.samples`, issues, 2, 1_024);
+      optionalEnum(
+        render.interpolation,
+        `${path}.render.interpolation`,
+        new Set(['nearest', 'linear']),
+        issues,
+      );
+      optionalEnum(
+        render.caps,
+        `${path}.render.caps`,
+        new Set(['none', 'front', 'back', 'both']),
+        issues,
+      );
+    }
+  }
+  if (mark.slices !== undefined) {
+    if (!Array.isArray(mark.slices) || mark.slices.length === 0 || mark.slices.length > 16) {
+      issue(issues, `${path}.slices`, 'Must contain 1 to 16 slice specifications.');
+    } else {
+      mark.slices.forEach((value, index) => {
+        const itemPath = `${path}.slices[${index}]`;
+        if (!isRecord(value)) {
+          issue(issues, itemPath, 'Must be an object.');
+          return;
+        }
+        if (value.type === 'orthogonal') {
+          const slice = closedObject(value, itemPath, VOLUME_ORTHOGONAL_SLICE_KEYS, issues);
+          if (slice === undefined) return;
+          optionalEnum(slice.axis, `${itemPath}.axis`, new Set(['x', 'y', 'z']), issues);
+          finiteNumber(slice.position, `${itemPath}.position`, issues, 0, 1);
+          if (slice.resolution !== undefined)
+            integerVec2(slice.resolution, `${itemPath}.resolution`, issues, 2, 256);
+          optionalEnum(
+            slice.interpolation,
+            `${itemPath}.interpolation`,
+            new Set(['nearest', 'linear']),
+            issues,
+          );
+          if (slice.opacity !== undefined)
+            finiteNumber(slice.opacity, `${itemPath}.opacity`, issues, 0, 1);
+          return;
+        }
+        if (value.type !== 'oblique') {
+          issue(issues, `${itemPath}.type`, 'Must be one of: orthogonal, oblique.');
+          return;
+        }
+        const slice = closedObject(value, itemPath, VOLUME_OBLIQUE_SLICE_KEYS, issues);
+        if (slice === undefined) return;
+        vec3(slice.origin, `${itemPath}.origin`, issues);
+        if (vec3(slice.normal, `${itemPath}.normal`, issues)) {
+          const normal = slice.normal;
+          if (Math.hypot(normal[0], normal[1], normal[2]) <= 1e-12)
+            issue(issues, `${itemPath}.normal`, 'Must have non-zero length.');
+        }
+        if (slice.up !== undefined && vec3(slice.up, `${itemPath}.up`, issues)) {
+          const up = slice.up;
+          if (Math.hypot(up[0], up[1], up[2]) <= 1e-12)
+            issue(issues, `${itemPath}.up`, 'Must have non-zero length.');
+        }
+        if (slice.size !== undefined) positiveVec2(slice.size, `${itemPath}.size`, issues);
+        if (slice.resolution !== undefined)
+          integerVec2(slice.resolution, `${itemPath}.resolution`, issues, 2, 256);
+        optionalEnum(
+          slice.interpolation,
+          `${itemPath}.interpolation`,
+          new Set(['nearest', 'linear']),
+          issues,
+        );
+        if (slice.opacity !== undefined)
+          finiteNumber(slice.opacity, `${itemPath}.opacity`, issues, 0, 1);
+      });
+    }
+  }
+  if (mark.mode === 'isosurface' && (mark.render !== undefined || mark.slices !== undefined))
+    issue(issues, path, 'Ray projection and slices require volume mode, not isosurface mode.');
 }
 
 function validateSurfaceData(
@@ -1401,6 +1734,82 @@ function validateVectorData(
 ): void {
   const candidate = objectValue(value, path, issues);
   if (candidate === undefined) return;
+  const fieldMode = 'dimensions' in candidate;
+  if (fieldMode) {
+    const data = closedObject(candidate, path, VECTOR_FIELD_DATA_KEYS, issues);
+    if (data === undefined) return;
+    let dimensions: readonly number[] | undefined;
+    if (vec3(data.dimensions, `${path}.dimensions`, issues)) {
+      dimensions = data.dimensions;
+      dimensions.forEach((entry, index) =>
+        integer(entry, `${path}.dimensions[${index}]`, issues, 2, 128),
+      );
+    }
+    const count = dimensions?.reduce((total, entry) => total * entry, 1);
+    if (count !== undefined && count > MAX_POINTS)
+      issue(issues, `${path}.dimensions`, `Vector field may contain at most ${MAX_POINTS} cells.`);
+    vec3Array(data.vectors, `${path}.vectors`, issues, MAX_POINTS);
+    if (Array.isArray(data.vectors) && count !== undefined && data.vectors.length !== count)
+      issue(issues, `${path}.vectors`, `Must contain exactly ${count} vectors.`);
+    if (data.origin !== undefined) vec3(data.origin, `${path}.origin`, issues);
+    if (data.spacing !== undefined && vec3(data.spacing, `${path}.spacing`, issues)) {
+      data.spacing.forEach((entry, index) =>
+        finiteNumber(entry, `${path}.spacing[${index}]`, issues, 0.000001, 1_000_000_000),
+      );
+    }
+    if (data.seeds !== undefined) vec3Array(data.seeds, `${path}.seeds`, issues, MAX_PATHS);
+    let generatedSeeds = 0;
+    if (data.seedGrid !== undefined) {
+      const grid = closedObject(data.seedGrid, `${path}.seedGrid`, VECTOR_SEED_GRID_KEYS, issues);
+      if (grid !== undefined && vec3(grid.dimensions, `${path}.seedGrid.dimensions`, issues)) {
+        const parsed = grid.dimensions.map((entry, index) =>
+          integer(entry, `${path}.seedGrid.dimensions[${index}]`, issues, 1, 16),
+        );
+        if (parsed.every((entry) => entry !== undefined)) {
+          generatedSeeds = parsed.reduce((total, entry) => total * entry!, 1);
+          if (generatedSeeds > MAX_PATHS)
+            issue(
+              issues,
+              `${path}.seedGrid.dimensions`,
+              `May generate at most ${MAX_PATHS} seeds.`,
+            );
+        }
+      }
+      if (grid?.jitter !== undefined)
+        finiteNumber(grid.jitter, `${path}.seedGrid.jitter`, issues, 0, 0.49);
+      if (grid?.seed !== undefined)
+        integer(grid.seed, `${path}.seedGrid.seed`, issues, 0, 4_294_967_295);
+    }
+    const seedCount = (Array.isArray(data.seeds) ? data.seeds.length : 0) + generatedSeeds;
+    for (const [key, validator] of [
+      [
+        'labels',
+        (entry: unknown, entryPath: string, target: SpatialSpecIssue[]) =>
+          optionalString(entry, entryPath, target, 1_024),
+      ],
+      [
+        'colors',
+        (entry: unknown, entryPath: string, target: SpatialSpecIssue[]) =>
+          color(entry, entryPath, target),
+      ],
+    ] as const) {
+      const entries = data[key];
+      if (entries === undefined) continue;
+      if (!Array.isArray(entries) || entries.length > MAX_PATHS)
+        issue(issues, `${path}.${key}`, `Must contain at most ${MAX_PATHS} entries.`);
+      else {
+        entries.forEach((entry, index) => validator(entry, `${path}.${key}[${index}]`, issues));
+        if (seedCount > 0 && entries.length !== seedCount)
+          issue(
+            issues,
+            `${path}.${key}`,
+            `Must contain exactly ${seedCount} entries for authored seeds.`,
+          );
+      }
+    }
+    if (mode === 'cone') issue(issues, path, 'Raw vector fields require streamtube mode.');
+    return;
+  }
   const streamMode = mode === 'streamtube' || (mode === undefined && 'paths' in candidate);
   const data = closedObject(
     candidate,
@@ -1414,10 +1823,11 @@ function validateVectorData(
       issue(issues, `${path}.paths`, 'Must be an array.');
       return;
     }
-    if (data.paths.length === 0 || data.paths.length > MAX_PATHS)
+    const paths = data.paths;
+    if (paths.length === 0 || paths.length > MAX_PATHS)
       issue(issues, `${path}.paths`, `Must contain 1 to ${MAX_PATHS} paths.`);
     let total = 0;
-    data.paths.slice(0, MAX_PATHS + 1).forEach((entry, index) => {
+    paths.slice(0, MAX_PATHS + 1).forEach((entry, index) => {
       const points = vec3Array(entry, `${path}.paths[${index}]`, issues, MAX_POINTS);
       total += points?.length ?? 0;
       if (points !== undefined && points.length < 2)
@@ -1429,17 +1839,24 @@ function validateVectorData(
         `${path}.paths`,
         `All paths together may contain at most ${MAX_POINTS} points.`,
       );
-    parallelArray(
-      data.labels,
-      `${path}.labels`,
-      data.paths.length,
-      issues,
-      (entry, entryPath, target) => optionalString(entry, entryPath, target, 1_024),
+    if (data.magnitudes !== undefined) {
+      if (!Array.isArray(data.magnitudes) || data.magnitudes.length !== paths.length) {
+        issue(issues, `${path}.magnitudes`, 'Must contain one magnitude array per path.');
+      } else {
+        data.magnitudes.forEach((entry, index) => {
+          const pathEntry = paths[index];
+          const expected = Array.isArray(pathEntry) ? pathEntry.length : undefined;
+          numberArray(entry, `${path}.magnitudes[${index}]`, issues, MAX_POINTS, expected);
+        });
+      }
+    }
+    parallelArray(data.labels, `${path}.labels`, paths.length, issues, (entry, entryPath, target) =>
+      optionalString(entry, entryPath, target, 1_024),
     );
     parallelArray(
       data.colors,
       `${path}.colors`,
-      data.paths.length,
+      paths.length,
       issues,
       (entry, entryPath, target) => {
         color(entry, entryPath, target);
@@ -1521,6 +1938,60 @@ function validateGlobeData(value: unknown, path: string, issues: SpatialSpecIssu
   }
 }
 
+function validateVectorAdvanced(mark: RecordValue, path: string, issues: SpatialSpecIssue[]): void {
+  optionalEnum(
+    mark.magnitudeEncoding,
+    `${path}.magnitudeEncoding`,
+    new Set(['none', 'color', 'radius', 'color-radius']),
+    issues,
+  );
+  if (mark.integration === undefined) return;
+  const integration = closedObject(
+    mark.integration,
+    `${path}.integration`,
+    VECTOR_INTEGRATION_KEYS,
+    issues,
+  );
+  if (integration === undefined) return;
+  optionalEnum(
+    integration.direction,
+    `${path}.integration.direction`,
+    new Set(['forward', 'backward', 'both']),
+    issues,
+  );
+  const minStep =
+    integration.minStep === undefined
+      ? undefined
+      : finiteNumber(integration.minStep, `${path}.integration.minStep`, issues, 0.000000001);
+  const initialStep =
+    integration.initialStep === undefined
+      ? undefined
+      : finiteNumber(
+          integration.initialStep,
+          `${path}.integration.initialStep`,
+          issues,
+          0.000000001,
+        );
+  const maxStep =
+    integration.maxStep === undefined
+      ? undefined
+      : finiteNumber(integration.maxStep, `${path}.integration.maxStep`, issues, 0.000000001);
+  if (minStep !== undefined && maxStep !== undefined && minStep > maxStep)
+    issue(issues, `${path}.integration.maxStep`, 'Must be greater than or equal to minStep.');
+  if (initialStep !== undefined && minStep !== undefined && initialStep < minStep)
+    issue(issues, `${path}.integration.initialStep`, 'Must be greater than or equal to minStep.');
+  if (initialStep !== undefined && maxStep !== undefined && initialStep > maxStep)
+    issue(issues, `${path}.integration.initialStep`, 'Must be less than or equal to maxStep.');
+  if (integration.tolerance !== undefined)
+    finiteNumber(integration.tolerance, `${path}.integration.tolerance`, issues, 1e-12, 1_000_000);
+  if (integration.maxSteps !== undefined)
+    integer(integration.maxSteps, `${path}.integration.maxSteps`, issues, 1, 4_096);
+  if (integration.maxLength !== undefined)
+    finiteNumber(integration.maxLength, `${path}.integration.maxLength`, issues, 0.000001);
+  if (integration.minMagnitude !== undefined)
+    finiteNumber(integration.minMagnitude, `${path}.integration.minMagnitude`, issues, 0);
+}
+
 function validateMarkAndData(
   value: unknown,
   data: unknown,
@@ -1552,6 +2023,7 @@ function validateMarkAndData(
     if (mark.opacity !== undefined)
       finiteNumber(mark.opacity, `${path}.mark.opacity`, issues, 0, 1);
     optionalBoolean(mark.wireframe, `${path}.mark.wireframe`, issues);
+    validateSurfaceAdvanced(mark, `${path}.mark`, issues);
     validateSurfaceData(data, `${path}.data`, mark.mode, issues);
   } else if (type === 'volume') {
     optionalEnum(mark.mode, `${path}.mark.mode`, new Set(['volume', 'isosurface']), issues);
@@ -1564,6 +2036,7 @@ function validateMarkAndData(
       integer(mark.maxSamples, `${path}.mark.maxSamples`, issues, 1, 250_000);
     optionalColor(mark.colorLow, `${path}.mark.colorLow`, issues);
     optionalColor(mark.colorHigh, `${path}.mark.colorHigh`, issues);
+    validateVolumeAdvanced(mark, `${path}.mark`, issues);
     validateVolumeData(data, `${path}.data`, issues);
   } else if (type === 'vector') {
     optionalEnum(mark.mode, `${path}.mark.mode`, new Set(['cone', 'streamtube']), issues);
@@ -1575,6 +2048,7 @@ function validateMarkAndData(
     if (mark.scale !== undefined)
       finiteNumber(mark.scale, `${path}.mark.scale`, issues, 0.000001, 1_000_000);
     if (mark.segments !== undefined) integer(mark.segments, `${path}.mark.segments`, issues, 5, 48);
+    validateVectorAdvanced(mark, `${path}.mark`, issues);
     validateVectorData(data, `${path}.data`, mark.mode, issues);
   } else if (type === 'scatter') {
     optionalColor(mark.color, `${path}.mark.color`, issues);

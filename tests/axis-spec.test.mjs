@@ -242,18 +242,19 @@ test('runtime validation closes the portable axis surface and enforces channel b
   }
 });
 
-test('JSON Schema exposes the same four-axis, binding, style, and format contract', async () => {
+test('JSON Schema exposes dynamic named-axis binding, style, and format contracts', async () => {
   const schema = JSON.parse(
     await readFile(new URL('../schema/graflume.schema.json', import.meta.url), 'utf8'),
   );
 
   assert.deepEqual(Object.keys(schema.properties.axes.properties), ['x', 'x2', 'y', 'y2']);
-  assert.deepEqual(schema.$defs.encodingObject.properties.axisId.enum, ['x', 'x2', 'y', 'y2']);
-  assert.deepEqual(schema.$defs.xEncoding.allOf[1].then.properties.axisId.enum, ['x', 'x2']);
-  assert.deepEqual(schema.$defs.yEncoding.allOf[1].then.properties.axisId.enum, ['y', 'y2']);
+  assert.equal(schema.properties.axes.additionalProperties.$ref, '#/$defs/namedAxis');
+  assert.equal(schema.$defs.encodingObject.properties.axisId.$ref, '#/$defs/axisId');
+  assert.equal(schema.$defs.xEncoding.allOf[1].then.properties.axisId.$ref, '#/$defs/axisId');
+  assert.equal(schema.$defs.yEncoding.allOf[1].then.properties.axisId.$ref, '#/$defs/axisId');
   assert.equal(schema.$defs.scale.properties.reverse.type, 'boolean');
   assert.equal(schema.$defs.axis.properties.format.$ref, '#/$defs/axisFormat');
   assert.equal(schema.$defs.axis.properties.labels.$ref, '#/$defs/axisLabelsOrBoolean');
   assert.equal(schema.$defs.axis.properties.ticks.$ref, '#/$defs/axisTicksOrBoolean');
-  assert.deepEqual(schema.$defs.tooltip.properties.axis.enum, ['x', 'x2', 'y', 'y2']);
+  assert.equal(schema.$defs.tooltip.properties.axis.$ref, '#/$defs/axisId');
 });

@@ -318,13 +318,29 @@ The mark uses shared `fill`, `stroke`, `opacity`, `lineWidth`, `radius`, and `co
 
 Rendered datum shapes carry layer id, row index, and the original row for hover/click hit testing in the standard profile. Supply a concise `accessibility.label`, a useful `description`, and an adjacent text or table fallback. Canvas ARIA metadata does not replace keyboard-readable page content.
 
+The Canvas surface implements circular slice traversal. Arrow keys move the runtime focus, `Home`/`End` jump to the first/last slice, and `Enter` or Space toggles the focused slice when point selection is enabled. Hosts can drive the same state without mutating the portable spec:
+
+```ts
+chart.focusPieSlice('layer-0', 'North');
+chart.on('familyfocuschange', ({ state, reason }) => {
+  console.log(state, reason);
+});
+```
+
 ## Performance profiles
 
 The same `standard`, `large`, `ultra`, and `auto` profiles apply. Complex layout marks currently favor deterministic bounded Scene output; aggregate or filter very large source data before rendering specialized diagrams.
 
 ## Current limitations
 
-Automatic collision solving for dense external labels, exploded slices, 3D, and hierarchical rings are not implemented yet. Use a small number of slices or lower `mark.options.labelLimit` for dense data.
+None remain in the audited P0/current-limitations boundary as of 2026-08-26. The `current-limitations-2026-08-26` implementation moved these former limitations into executable support:
+
+- dense label solver
+- zero and negative policy
+- minimum slice, sorting and padding
+- keyboard slice traversal
+
+The separately cataloged P1/P2 research roadmap remains future work and is not presented as current runtime support. Exact implementation and test paths are recorded in [the completion evidence](../../catalog/graflume.current-limitations.evidence.json).
 
 ## Runnable example and regression coverage
 

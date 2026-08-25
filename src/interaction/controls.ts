@@ -15,10 +15,13 @@ export interface ControlsState {
   readonly playbackEnabled: boolean;
   readonly playbackIndex: number;
   readonly playbackLength: number;
+  readonly playbackRangeStart: number;
+  readonly playbackRangeEnd: number;
   readonly playing: boolean;
   readonly playbackRate: number;
   readonly loop: boolean;
   readonly frameLabel: string;
+  readonly frameNamed: boolean;
 }
 
 export interface ControlsActions {
@@ -451,7 +454,8 @@ export class ControlsController {
       elements.annotations.setAttribute('aria-pressed', String(state.annotationsVisible));
     }
 
-    const playbackDisabled = !state.playbackEnabled || state.playbackLength <= 1;
+    const playbackDisabled =
+      !state.playbackEnabled || state.playbackRangeEnd - state.playbackRangeStart < 1;
     if (elements.previousFrame !== undefined) elements.previousFrame.disabled = playbackDisabled;
     if (elements.nextFrame !== undefined) elements.nextFrame.disabled = playbackDisabled;
     if (elements.play !== undefined) {
@@ -466,7 +470,8 @@ export class ControlsController {
     }
     if (elements.seek !== undefined) {
       elements.seek.disabled = !state.playbackEnabled || state.playbackLength === 0;
-      elements.seek.max = String(Math.max(0, state.playbackLength - 1));
+      elements.seek.min = String(state.playbackRangeStart);
+      elements.seek.max = String(Math.max(state.playbackRangeStart, state.playbackRangeEnd));
       elements.seek.value = String(Math.max(0, state.playbackIndex));
       elements.seek.setAttribute('aria-valuetext', state.frameLabel);
     }
@@ -488,7 +493,7 @@ export class ControlsController {
       elements.loop.disabled = !state.playbackEnabled;
       elements.loop.setAttribute('aria-pressed', String(state.loop));
     }
-    if (!state.playing) {
+    if (!state.playing || state.frameNamed) {
       elements.status.textContent = state.playbackEnabled
         ? `${Math.round(state.zoom * 100)}%. ${state.frameLabel}`
         : `${Math.round(state.zoom * 100)}%`;

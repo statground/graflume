@@ -113,11 +113,11 @@ The `smith` family maps normalized complex impedance into reflection-coefficient
 
 ## Data contract
 
-Use the quantitative `x` field for the real component and `y` for the imaginary component, or override them through `real` and `imaginary` mark fields. Source order defines the optional line path.
+Use the quantitative `x` field for the real component and `y` for the imaginary component, or override them through `real` and `imaginary` mark fields. Compatibility `line`/`scatter` modes treat the values as normalized reflection coordinates. Specialist modes `reflection`/`s`, `z`, and `y` are function-free transforms; impedance and admittance accept an explicit positive `referenceImpedance` (50 by default). `grid` selects `impedance`, `admittance`, or `combined` labels.
 
 ## Styling and interaction
 
-The frame, resistance circles, reactance curves, trace, and points are compiled as portable Scene geometry. Trace points retain their source rows for hit testing and tooltips.
+The frame, resistance circles, specialist labels, trace, and points are compiled as portable Scene geometry. Trace points retain their source rows and expose input, normalized complex value, reflection coefficient, magnitude, phase, reference impedance, and stable selection key for hit testing and tooltips.
 
 ## Accessibility and limits
 

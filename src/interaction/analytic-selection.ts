@@ -1,13 +1,26 @@
 import { GraflumeError } from '../core/errors.js';
 import type { AxisId, DatumTargetSpec, JsonPrimitive } from '../spec/types.js';
+import { isSafeAxisId } from '../spec/axes.js';
 
 export const analyticSelectionVersion = 1 as const;
 export const maximumAnalyticSelections = 64;
 export const maximumLassoPoints = 512;
+export const maximumCategoricalSelectionValues = 512;
 
 export type AnalyticSelectionCombine = 'union' | 'intersection';
 export type AnalyticSelectionUpdate = 'replace' | AnalyticSelectionCombine;
 export type AnalyticDomainValue = number | string;
+
+/**
+ * Numeric geometry keeps its ordered continuous extent. Categorical brush
+ * geometry snapshots the exact bounded domain identities traversed by the
+ * gesture so matching remains deterministic without an executable scale.
+ */
+export interface AnalyticCategoricalExtent {
+  readonly values: readonly AnalyticDomainValue[];
+}
+
+export type AnalyticSelectionExtent = readonly [number, number] | AnalyticCategoricalExtent;
 
 export interface AnalyticDomainPoint {
   readonly x: number;
@@ -16,8 +29,8 @@ export interface AnalyticDomainPoint {
 
 export interface AnalyticPointSelection {
   readonly type: 'point';
-  readonly xAxis?: 'x' | 'x2';
-  readonly yAxis?: 'y' | 'y2';
+  readonly xAxis?: AxisId;
+  readonly yAxis?: AxisId;
   readonly x?: AnalyticDomainValue;
   readonly y?: AnalyticDomainValue;
   /** Optional portable identity for mark-owned and axis-free point selections. */
@@ -26,31 +39,31 @@ export interface AnalyticPointSelection {
 
 export interface AnalyticIntervalSelection {
   readonly type: 'interval';
-  readonly xAxis: 'x' | 'x2';
-  readonly yAxis: 'y' | 'y2';
-  readonly x: readonly [number, number];
-  readonly y: readonly [number, number];
+  readonly xAxis: AxisId;
+  readonly yAxis: AxisId;
+  readonly x: AnalyticSelectionExtent;
+  readonly y: AnalyticSelectionExtent;
 }
 
 /** An explicit rectangle alias retained in serialized state. */
 export interface AnalyticRectangleSelection {
   readonly type: 'rectangle';
-  readonly xAxis: 'x' | 'x2';
-  readonly yAxis: 'y' | 'y2';
-  readonly x: readonly [number, number];
-  readonly y: readonly [number, number];
+  readonly xAxis: AxisId;
+  readonly yAxis: AxisId;
+  readonly x: AnalyticSelectionExtent;
+  readonly y: AnalyticSelectionExtent;
 }
 
 export interface AnalyticAxisSelection {
   readonly type: 'axis';
   readonly axis: AxisId;
-  readonly extent: readonly [number, number];
+  readonly extent: AnalyticSelectionExtent;
 }
 
 export interface AnalyticLassoSelection {
   readonly type: 'lasso';
-  readonly xAxis: 'x' | 'x2';
-  readonly yAxis: 'y' | 'y2';
+  readonly xAxis: AxisId;
+  readonly yAxis: AxisId;
   readonly points: readonly AnalyticDomainPoint[];
 }
 
@@ -68,6 +81,7 @@ export interface AnalyticSelectionState {
 }
 
 export interface AnalyticSelectionSample {
+  readonly [axisOrMetadata: string]: unknown;
   readonly x?: AnalyticDomainValue;
   readonly y?: AnalyticDomainValue;
   readonly x2?: AnalyticDomainValue;
@@ -114,20 +128,41 @@ function domainValue(value: unknown, label: string): asserts value is AnalyticDo
   }
 }
 
-function finiteExtent(value: unknown, label: string): asserts value is readonly [number, number] {
-  if (
-    !Array.isArray(value) ||
-    value.length !== 2 ||
-    value.some((entry) => typeof entry !== 'number' || !Number.isFinite(entry))
-  ) {
-    invalid(`${label} must contain exactly two finite numbers.`);
-  }
-}
-
 function orderedExtent(value: readonly [number, number]): readonly [number, number] {
   const start = canonicalNumber(value[0]);
   const end = canonicalNumber(value[1]);
   return Object.freeze(start <= end ? [start, end] : [end, start]);
+}
+
+function normalizeExtent(value: unknown, label: string): AnalyticSelectionExtent {
+  if (Array.isArray(value)) {
+    if (
+      value.length !== 2 ||
+      value.some((entry) => typeof entry !== 'number' || !Number.isFinite(entry))
+    ) {
+      invalid(`${label} must contain exactly two finite numbers.`);
+    }
+    return orderedExtent(value as unknown as readonly [number, number]);
+  }
+  assertPlainObject(value, label);
+  assertClosedKeys(value, ['values'], label);
+  if (
+    !Array.isArray(value.values) ||
+    value.values.length === 0 ||
+    value.values.length > maximumCategoricalSelectionValues
+  ) {
+    invalid(
+      `${label}.values must contain between 1 and ${maximumCategoricalSelectionValues} categorical identities.`,
+    );
+  }
+  const values = value.values.map((entry, index) => {
+    domainValue(entry, `${label}.values[${index}]`);
+    return typeof entry === 'number' ? canonicalNumber(entry) : entry;
+  });
+  if (new Set(values.map((entry) => `${typeof entry}:${String(entry)}`)).size !== values.length) {
+    invalid(`${label}.values must be unique.`);
+  }
+  return Object.freeze({ values: Object.freeze(values) });
 }
 
 function cloneTarget(target: DatumTargetSpec): DatumTargetSpec {
@@ -228,12 +263,8 @@ function validateTarget(target: unknown): asserts target is DatumTargetSpec {
   }
 }
 
-function axisId(value: unknown, orientation?: 'x' | 'y'): asserts value is AxisId {
-  const allowed =
-    orientation === 'x' ? ['x', 'x2'] : orientation === 'y' ? ['y', 'y2'] : ['x', 'x2', 'y', 'y2'];
-  if (typeof value !== 'string' || !allowed.includes(value)) {
-    invalid(`Selection axis must be one of ${allowed.join(', ')}.`);
-  }
+function axisId(value: unknown, _orientation?: 'x' | 'y'): asserts value is AxisId {
+  if (!isSafeAxisId(value)) invalid('Selection axis must use the safe named-axis grammar.');
 }
 
 function normalizeSelection(selection: AnalyticSelection): AnalyticSelection {
@@ -269,24 +300,21 @@ function normalizeSelection(selection: AnalyticSelection): AnalyticSelection {
     );
     axisId(selection.xAxis, 'x');
     axisId(selection.yAxis, 'y');
-    finiteExtent(selection.x, 'Selection x extent');
-    finiteExtent(selection.y, 'Selection y extent');
     return Object.freeze({
       type: selection.type,
       xAxis: selection.xAxis,
       yAxis: selection.yAxis,
-      x: orderedExtent(selection.x),
-      y: orderedExtent(selection.y),
+      x: normalizeExtent(selection.x, 'Selection x extent'),
+      y: normalizeExtent(selection.y, 'Selection y extent'),
     });
   }
   if (selection.type === 'axis') {
     assertClosedKeys(selection, ['type', 'axis', 'extent'], 'Axis selection');
     axisId(selection.axis);
-    finiteExtent(selection.extent, 'Axis selection extent');
     return Object.freeze({
       type: 'axis',
       axis: selection.axis,
-      extent: orderedExtent(selection.extent),
+      extent: normalizeExtent(selection.extent, 'Axis selection extent'),
     });
   }
   if (selection.type === 'lasso') {
@@ -424,9 +452,17 @@ function targetMatches(target: DatumTargetSpec, sample: AnalyticSelectionSample)
   return target.rowIndex !== undefined || target.field !== undefined;
 }
 
-function inExtent(value: unknown, extent: readonly [number, number]): boolean {
-  return (
-    typeof value === 'number' && Number.isFinite(value) && value >= extent[0] && value <= extent[1]
+function inExtent(value: unknown, extent: AnalyticSelectionExtent): boolean {
+  if (Array.isArray(extent)) {
+    return (
+      typeof value === 'number' &&
+      Number.isFinite(value) &&
+      value >= extent[0] &&
+      value <= extent[1]
+    );
+  }
+  return (extent as AnalyticCategoricalExtent).values.some((candidate) =>
+    Object.is(candidate, value),
   );
 }
 
@@ -449,11 +485,10 @@ function pointInPolygon(
   return inside;
 }
 
-export function analyticSelectionMatches(
-  state: AnalyticSelectionState,
+function normalizedSelectionMatches(
+  normalized: AnalyticSelectionState,
   sample: AnalyticSelectionSample,
 ): boolean {
-  const normalized = normalizeAnalyticSelectionState(state);
   if (normalized.selections.length === 0) return false;
   const matches = (selection: AnalyticSelection): boolean => {
     switch (selection.type) {
@@ -488,6 +523,20 @@ export function analyticSelectionMatches(
   return normalized.combine === 'union'
     ? normalized.selections.some(matches)
     : normalized.selections.every(matches);
+}
+
+export function analyticSelectionPredicate(
+  state: AnalyticSelectionState,
+): (sample: AnalyticSelectionSample) => boolean {
+  const normalized = normalizeAnalyticSelectionState(state);
+  return (sample) => normalizedSelectionMatches(normalized, sample);
+}
+
+export function analyticSelectionMatches(
+  state: AnalyticSelectionState,
+  sample: AnalyticSelectionSample,
+): boolean {
+  return normalizedSelectionMatches(normalizeAnalyticSelectionState(state), sample);
 }
 
 export class AnalyticSelectionStore {

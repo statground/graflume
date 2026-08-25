@@ -309,7 +309,7 @@ test('the opt-in catalog exposes distinct families and retains every preset', ()
   assert.equal(additionalChartTypeCatalog.length, 11);
   assert.equal(additionalChartVariantCatalog.length, 27);
   assert.equal(fullCatalog.length, 41);
-  assert.equal(fullVariantCatalog.length, 165);
+  assert.equal(fullVariantCatalog.length, 168);
   assert.deepEqual(
     fullVariantCatalog
       .filter(({ introducedIn }) => introducedIn !== undefined)
@@ -329,6 +329,21 @@ test('the opt-in catalog exposes distinct families and retains every preset', ()
         id: 'kde',
         familyId: 'distribution',
         introducedIn: 'research-foundations-2026-08-25',
+      },
+      {
+        id: 'kagi',
+        familyId: 'price-blocks',
+        introducedIn: 'current-limitations-2026-08-26',
+      },
+      {
+        id: 'three-line-break',
+        familyId: 'price-blocks',
+        introducedIn: 'current-limitations-2026-08-26',
+      },
+      {
+        id: 'range-bars',
+        familyId: 'price-blocks',
+        introducedIn: 'current-limitations-2026-08-26',
       },
     ],
   );

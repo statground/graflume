@@ -2,6 +2,7 @@ import { GraflumeError } from '../core/errors.js';
 import type { DataInput, DataRow, DataValue, StreamingMode, StreamingSpec } from '../spec/types.js';
 import { assertSafeKey, isPlainObject, ownValue } from '../utils/object.js';
 import { DataTable } from './table.js';
+import { BoundedRingBuffer } from './ring-buffer.js';
 
 export interface IncrementalUpdate {
   readonly mode?: StreamingMode;
@@ -34,6 +35,8 @@ export interface IncrementalDataState {
   readonly evictedRows: number;
   readonly queuedBatches: number;
   readonly queuedRows: number;
+  readonly queueDroppedBatches: number;
+  readonly queueCoalescedBatches: number;
   readonly replayBatches: number;
   readonly replayRows: number;
   readonly replayTruncated: boolean;
@@ -53,10 +56,14 @@ export interface IncrementalUpdateResult {
   readonly step: IncrementalProvenanceStep;
 }
 
-interface QueuedUpdate {
-  readonly update: IncrementalUpdate;
+interface QueuedSubscriber {
   readonly resolve: (result: IncrementalUpdateResult) => void;
   readonly reject: (error: unknown) => void;
+}
+
+interface QueuedUpdate {
+  update: IncrementalUpdate;
+  readonly subscribers: QueuedSubscriber[];
 }
 
 interface NormalizedStreamingOptions {
@@ -74,6 +81,7 @@ interface NormalizedStreamingOptions {
       };
   readonly maxQueueBatches: number;
   readonly maxQueueRows: number;
+  readonly overflow: 'reject' | 'drop-oldest' | 'coalesce';
   readonly maxReplayBatches: number;
   readonly maxReplayRows: number;
 }
@@ -91,12 +99,35 @@ const STREAMING_OPTION_KEYS = new Set([
   'eventTime',
   'queue',
   'replay',
+  'runtime',
+  'worker',
 ]);
 const RETENTION_KEYS = new Set(['maxRows', 'time']);
 const TIME_RETENTION_KEYS = new Set(['field', 'durationMs']);
 const EVENT_TIME_KEYS = new Set(['field', 'allowedLatenessMs', 'lateData']);
 const QUEUE_KEYS = new Set(['maxBatches', 'maxRows', 'overflow']);
 const REPLAY_KEYS = new Set(['maxBatches', 'maxRows']);
+const RUNTIME_KEYS = new Set([
+  'schedule',
+  'maxBatchesPerFrame',
+  'overflow',
+  'paused',
+  'followLive',
+  'history',
+]);
+const RUNTIME_HISTORY_KEYS = new Set(['maxBatches', 'pageRows']);
+const WORKER_KEYS = new Set([
+  'moduleURL',
+  'name',
+  'maxQueueBatches',
+  'maxQueueRows',
+  'maxInputRows',
+  'maxBinaryBytes',
+  'maxTransforms',
+  'overflow',
+  'engine',
+]);
+const WORKER_ENGINE_KEYS = new Set(['type', 'adapter']);
 const UPDATE_KEYS = new Set(['mode', 'rows', 'watermark']);
 const REPLAY_ENVELOPE_KEYS = new Set(['version', 'options', 'initial', 'updates']);
 
@@ -151,6 +182,18 @@ function validateOptionsShape(value: unknown): asserts value is StreamingSpec {
   if (options.replay !== undefined) {
     closedObject(options.replay, REPLAY_KEYS, '$.streaming.replay');
   }
+  if (options.runtime !== undefined) {
+    const runtime = closedObject(options.runtime, RUNTIME_KEYS, '$.streaming.runtime');
+    if (runtime.history !== undefined) {
+      closedObject(runtime.history, RUNTIME_HISTORY_KEYS, '$.streaming.runtime.history');
+    }
+  }
+  if (options.worker !== undefined) {
+    const worker = closedObject(options.worker, WORKER_KEYS, '$.streaming.worker');
+    if (worker.engine !== undefined) {
+      closedObject(worker.engine, WORKER_ENGINE_KEYS, '$.streaming.worker.engine');
+    }
+  }
 }
 
 function validateUpdateShape(value: unknown): asserts value is IncrementalUpdate {
@@ -194,10 +237,11 @@ function normalizeOptions(options: StreamingSpec): NormalizedStreamingOptions {
       path: '$.streaming.mode',
     });
   }
-  if (options.queue?.overflow !== undefined && options.queue.overflow !== 'reject') {
+  const overflow = (options.queue?.overflow ?? 'reject') as string;
+  if (!['reject', 'drop-oldest', 'coalesce'].includes(overflow)) {
     throw new GraflumeError(
       'INVALID_SPEC',
-      'Only explicit reject backpressure is supported; data is never silently discarded.',
+      'Streaming queue overflow must be "reject", "drop-oldest", or "coalesce".',
       { path: '$.streaming.queue.overflow' },
     );
   }
@@ -270,6 +314,7 @@ function normalizeOptions(options: StreamingSpec): NormalizedStreamingOptions {
       ABSOLUTE_MAX_ROWS,
       '$.streaming.queue.maxRows',
     ),
+    overflow: overflow as NormalizedStreamingOptions['overflow'],
     maxReplayBatches: boundedInteger(
       options.replay?.maxBatches,
       DEFAULT_MAX_REPLAY_BATCHES,
@@ -370,6 +415,26 @@ function cloneOptions(options: StreamingSpec): StreamingSpec {
     ...(options.eventTime === undefined ? {} : { eventTime: { ...options.eventTime } }),
     ...(options.queue === undefined ? {} : { queue: { ...options.queue } }),
     ...(options.replay === undefined ? {} : { replay: { ...options.replay } }),
+    ...(options.runtime === undefined
+      ? {}
+      : {
+          runtime: {
+            ...options.runtime,
+            ...(options.runtime.history === undefined
+              ? {}
+              : { history: { ...options.runtime.history } }),
+          },
+        }),
+    ...(options.worker === undefined
+      ? {}
+      : {
+          worker: {
+            ...options.worker,
+            ...(options.worker.engine === undefined
+              ? {}
+              : { engine: { ...options.worker.engine } }),
+          },
+        }),
   };
 }
 
@@ -382,7 +447,7 @@ export class IncrementalDataStore {
   readonly #options: StreamingSpec;
   readonly #normalized: NormalizedStreamingOptions;
   readonly #initial: readonly DataRow[];
-  #rows: DataRow[];
+  #rows: BoundedRingBuffer<DataRow>;
   #watermark: number | null = null;
   #sequence = 0;
   #acceptedRows = 0;
@@ -394,21 +459,21 @@ export class IncrementalDataStore {
   #replayTruncated = false;
   #queue: QueuedUpdate[] = [];
   #queuedRows = 0;
+  #queueDroppedBatches = 0;
+  #queueCoalescedBatches = 0;
   #draining = false;
 
   constructor(input: DataInput, options: StreamingSpec) {
     this.#normalized = normalizeOptions(options);
     this.#options = cloneOptions(options);
-    this.#rows = rowsFrom(input);
-    this.#assertUniqueKeys(this.#rows, '$.data');
-    if (this.#rows.length > this.#normalized.retentionRows) {
-      this.#rows = this.#rows.slice(-this.#normalized.retentionRows);
-    }
-    this.#initial = this.#rows.map(cloneRow);
+    const initial = rowsFrom(input);
+    this.#assertUniqueKeys(initial, '$.data');
+    this.#rows = new BoundedRingBuffer(this.#normalized.retentionRows, initial);
+    this.#initial = this.#rows.values().map(cloneRow);
   }
 
   rows(): readonly DataRow[] {
-    return this.#rows.map(cloneRow);
+    return this.#rows.values().map(cloneRow);
   }
 
   state(): IncrementalDataState {
@@ -423,6 +488,8 @@ export class IncrementalDataStore {
       evictedRows: this.#evictedRows,
       queuedBatches: this.#queue.length,
       queuedRows: this.#queuedRows,
+      queueDroppedBatches: this.#queueDroppedBatches,
+      queueCoalescedBatches: this.#queueCoalescedBatches,
       replayBatches: this.#replay.length,
       replayRows: this.#replayRows,
       replayTruncated: this.#replayTruncated,
@@ -498,7 +565,7 @@ export class IncrementalDataStore {
         );
       }
     });
-    const nextRows = this.#rows.map(cloneRow);
+    const nextRows = this.#rows.values().map(cloneRow);
     const indexByKey = this.#keyIndex(nextRows, '$.data');
     let insertedRows = 0;
     let updatedRows = 0;
@@ -557,7 +624,7 @@ export class IncrementalDataStore {
       retained = retained.slice(-this.#normalized.retentionRows);
     }
     const evictedRows = nextRows.length - retained.length;
-    this.#rows = retained;
+    this.#rows.replace(retained);
     this.#watermark = nextWatermark;
     this.#sequence += 1;
     this.#acceptedRows += accepted.length;
@@ -589,19 +656,40 @@ export class IncrementalDataStore {
     } catch (error) {
       return Promise.reject(error);
     }
-    if (
-      this.#queue.length >= this.#normalized.maxQueueBatches ||
-      this.#queuedRows + snapshot.rows.length > this.#normalized.maxQueueRows
-    ) {
-      return Promise.reject(
-        new GraflumeError(
-          'INVALID_DATA',
-          'Incremental queue backpressure limit reached; the batch was rejected without mutation.',
-        ),
-      );
-    }
     return new Promise((resolve, reject) => {
-      this.#queue.push({ update: snapshot, resolve, reject });
+      const over = (): boolean =>
+        this.#queue.length >= this.#normalized.maxQueueBatches ||
+        this.#queuedRows + snapshot.rows.length > this.#normalized.maxQueueRows;
+      if (over() && this.#normalized.overflow === 'coalesce') {
+        const target = this.#queue.at(-1);
+        if (target !== undefined && this.#coalesceQueued(target, snapshot)) {
+          target.subscribers.push({ resolve, reject });
+          this.#queueCoalescedBatches += 1;
+          return;
+        }
+      }
+      if (over() && this.#normalized.overflow === 'drop-oldest') {
+        while (over() && this.#queue.length > 0) {
+          const dropped = this.#queue.shift()!;
+          this.#queuedRows -= dropped.update.rows.length;
+          this.#queueDroppedBatches += 1;
+          const error = new GraflumeError(
+            'INVALID_DATA',
+            'Incremental batch was dropped by explicit overflow policy.',
+          );
+          for (const subscriber of dropped.subscribers) subscriber.reject(error);
+        }
+      }
+      if (over()) {
+        reject(
+          new GraflumeError(
+            'INVALID_DATA',
+            'Incremental queue backpressure limit reached; the batch was rejected without mutation.',
+          ),
+        );
+        return;
+      }
+      this.#queue.push({ update: snapshot, subscribers: [{ resolve, reject }] });
       this.#queuedRows += snapshot.rows.length;
       if (!this.#draining) queueMicrotask(() => this.#drain());
     });
@@ -688,13 +776,48 @@ export class IncrementalDataStore {
       }
       this.#queuedRows -= item.update.rows.length;
       try {
-        item.resolve(this.apply(item.update));
+        const result = this.apply(item.update);
+        for (const subscriber of item.subscribers) subscriber.resolve(result);
       } catch (error) {
-        item.reject(error);
+        for (const subscriber of item.subscribers) subscriber.reject(error);
       }
       queueMicrotask(next);
     };
     next();
+  }
+
+  #coalesceQueued(target: QueuedUpdate, incoming: IncrementalUpdate): boolean {
+    const targetMode = target.update.mode ?? this.#normalized.mode;
+    const incomingMode = incoming.mode ?? this.#normalized.mode;
+    if (targetMode !== incomingMode) return false;
+    let rows: readonly DataRow[];
+    if (targetMode === 'append') {
+      rows = [...target.update.rows, ...incoming.rows];
+    } else {
+      const byKey = new Map<string, DataRow>();
+      for (const [index, row] of [...target.update.rows, ...incoming.rows].entries()) {
+        byKey.set(
+          stableKey(
+            ownValue(row, this.#normalized.key) as DataValue,
+            `$.update.rows[${index}].${this.#normalized.key}`,
+          ),
+          row,
+        );
+      }
+      rows = [...byKey.values()];
+    }
+    if (rows.length > this.#normalized.maxQueueRows) return false;
+    this.#queuedRows += rows.length - target.update.rows.length;
+    const watermark = Math.max(
+      target.update.watermark ?? Number.NEGATIVE_INFINITY,
+      incoming.watermark ?? Number.NEGATIVE_INFINITY,
+    );
+    target.update = {
+      mode: targetMode,
+      rows: rows.map(cloneRow),
+      ...(Number.isFinite(watermark) ? { watermark } : {}),
+    };
+    return true;
   }
 }
 

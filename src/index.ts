@@ -4,6 +4,7 @@ import {
   type QuickChartOptions,
   type QuickComboOptions,
 } from './api/quick.js';
+import { quickScatter } from './api/scatter-dispatch.js';
 import {
   compileWithRegistry,
   type CompileOptions,
@@ -27,7 +28,151 @@ import {
   positionScaleTypes,
 } from './scale/registry.js';
 export { executeTransforms, evaluateTransformExpression } from './data/transforms.js';
+export {
+  automaticScatterWebGLThreshold,
+  dataInputRowCount,
+  quickScatter,
+  resolveScatterRendererDispatch,
+} from './api/scatter-dispatch.js';
+export type {
+  ScatterRendererDispatch,
+  ScatterRendererDispatchReason,
+} from './api/scatter-dispatch.js';
+export { ScatterWebGLRenderer, scatterWebGLRendererFactory } from './renderer/scatter-webgl.js';
+export type { ScatterWebGLDispatchState } from './renderer/scatter-webgl.js';
 export type { DataLineage, TransformResult, TransformStepLineage } from './data/transforms.js';
+export * from './data/family-analytics.js';
+export * from './data/family-layouts.js';
+export * from './data/specialized-coordinate-analytics.js';
+export {
+  analyzeSets,
+  buildWordTree,
+  chordEdgesToMatrix,
+  chordMatrixToEdges,
+  funnelStages,
+  hitSetRegion,
+  layoutChord,
+  layoutFlow,
+  layoutHierarchy,
+  layoutWordCloud,
+  projectParallelRows,
+  querySetRegion,
+  tokenizeWords,
+  traverseFlowPath,
+} from './data/structured-analytics.js';
+export type {
+  ChordEdge,
+  ChordGroup,
+  ChordMatrixInput,
+  ChordOptions,
+  ChordRibbon,
+  FlowAlignment,
+  FlowEdge,
+  FlowLayoutLink,
+  FlowLayoutNode,
+  FlowLayoutOptions,
+  FlowLayoutResult,
+  FlowLinkSort,
+  FlowOrder,
+  FunnelOptions,
+  FunnelStage,
+  FunnelStageInput,
+  HierarchyDatum,
+  HierarchyLayoutMode,
+  HierarchyLayoutNode,
+  HierarchyLayoutOptions,
+  HierarchyLayoutResult,
+  ParallelAxis,
+  ParallelBrush,
+  ParallelProjection,
+  ParallelScaleType,
+  SetAnalysisResult,
+  SetCircle,
+  SetIntersectionDatum,
+  SetMembershipDatum,
+  WordCloudLayoutOptions,
+  WordCloudPlacement,
+  WordTokenOptions,
+  WordTreeNode,
+} from './data/structured-analytics.js';
+export { layoutNetwork, moveNetworkNode, selectNetworkNodes } from './data/network-analytics.js';
+export type {
+  NetworkEdgeInput,
+  NetworkEdgeRouting,
+  NetworkLayoutEdge,
+  NetworkLayoutMode,
+  NetworkLayoutNode,
+  NetworkLayoutOptions,
+  NetworkLayoutResult,
+  NetworkNodeInput,
+  NetworkPort,
+} from './data/network-analytics.js';
+export {
+  MapLayerRegistry,
+  MapRuntime,
+  MapTileManager,
+  createMapRuntime,
+  createMapTileManager,
+  fetchMapTile,
+  fitMapBounds,
+  geodesicPath,
+  mapBounds,
+  mapGraticule,
+  normalizeGeoJson,
+  projectMapPosition,
+  tileUrl,
+  topologyToGeoJson,
+  wrapLongitude,
+} from './geography/map-lifecycle.js';
+export type {
+  GeoJsonCoordinateGeometry,
+  GeoJsonFeature,
+  GeoJsonFeatureCollection,
+  GeoJsonGeometry,
+  GeoJsonGeometryCollection,
+  GeographicPosition,
+  MapBounds,
+  MapFit,
+  MapLayerDefinition,
+  MapProjectionName,
+  MapProjectionOptions,
+  MapRuntimeOptions,
+  MapTileManagerOptions,
+  ProjectedPosition,
+  TileCoordinate,
+  TileFetcher,
+  TileResponse,
+  TileSourceDefinition,
+  Topology,
+  TopologyObject,
+  TopologyTransform,
+} from './geography/map-lifecycle.js';
+export {
+  DEFAULT_TECHNICAL_INDICATOR_MAX_ROWS,
+  MAX_TECHNICAL_INDICATOR_ROWS,
+  TechnicalIndicatorIncrementalCalculator,
+  calculateTechnicalIndicatorIncremental,
+} from './data/technical-indicator-incremental.js';
+export type {
+  PortableTechnicalIndicatorInput,
+  TechnicalIndicatorIncrementalDiagnostics,
+  TechnicalIndicatorIncrementalRequest,
+  TechnicalIndicatorIncrementalResult,
+  TechnicalIndicatorIncrementalRuntimeSnapshot,
+  TechnicalIndicatorIncrementalSnapshot,
+  TechnicalIndicatorIncrementalSpec,
+} from './data/technical-indicator-incremental.js';
+export {
+  TransformDataflow,
+  createTransformDataflow,
+  executeTransformBranch,
+  executeTransformDataflow,
+  executeTransformsWithNamedLineage,
+  isNamedDataReference,
+  materializeSpecDataflow,
+  namedDataLineage,
+} from './data/dataflow.js';
+export type { TransformDataflowExecution, TransformDataflowState } from './data/dataflow.js';
 export {
   IncrementalDataStore,
   createIncrementalDataStore,
@@ -40,6 +185,105 @@ export type {
   IncrementalUpdate,
   IncrementalUpdateResult,
 } from './data/incremental.js';
+export { BoundedRingBuffer, createBoundedRingBuffer } from './data/ring-buffer.js';
+export {
+  IncrementalTransformPipeline,
+  IncrementalStackPipeline,
+  createIncrementalTransformPipeline,
+  createIncrementalStackPipeline,
+  executePortableIncrementalStack,
+} from './data/incremental-transform.js';
+export type {
+  IncrementalStackGroupSnapshot,
+  IncrementalStackOptions,
+  IncrementalStackReason,
+  IncrementalStackSnapshot,
+  IncrementalStackState,
+  IncrementalStackStep,
+  IncrementalStackUpdateResult,
+  IncrementalTransformOptions,
+  IncrementalTransformState,
+  IncrementalTransformStep,
+  IncrementalTransformUpdateResult,
+  PortableIncrementalStackRequest,
+  PortableIncrementalStackResult,
+  StackTransformSpec,
+} from './data/incremental-transform.js';
+export {
+  BarVirtualizationController,
+  createBarVirtualizationController,
+  executePortableBarVirtualization,
+} from './data/bar-virtualization.js';
+export type {
+  BarAggregate,
+  BarRankChange,
+  BarSortDirection,
+  BarVirtualNavigation,
+  BarVirtualWindow,
+  BarVirtualizationAction,
+  BarVirtualizationOptions,
+  BarVirtualizationResult,
+  BarVirtualizationSnapshot,
+  BarVirtualizationState,
+  BarVirtualizationStep,
+  NormalizedBarVirtualizationOptions,
+  PortableBarVirtualizationRequest,
+  VirtualRankedBarRow,
+} from './data/bar-virtualization.js';
+export {
+  IncrementalStreamRuntime,
+  WorkerStreamRetentionRuntime,
+  createIncrementalStreamRuntime,
+  createWorkerStreamRetentionRuntime,
+  restoreWorkerStreamRetentionRuntime,
+} from './data/stream-runtime.js';
+export type {
+  IncrementalStreamRuntimeState,
+  StreamEnqueueOptions,
+  StreamFrameScheduler,
+  StreamHistoryEntry,
+  StreamHistoryPage,
+  StreamOverflowPolicy,
+  StreamRuntimeSpec,
+  WorkerStreamRetentionRuntimeOptions,
+} from './data/stream-runtime.js';
+export {
+  AutomaticWorkerRuntime,
+  createAutomaticWorkerRuntime,
+  installWorkerRuntime,
+  workerRuntimeProtocolVersion,
+} from './data/worker-runtime.js';
+export type {
+  PortableWorkerData,
+  WorkerBinaryAdapter,
+  WorkerOwnedRenderer,
+  WorkerRenderOperation,
+  WorkerRenderResult,
+  WorkerRuntimeCancelRequest,
+  WorkerRuntimeExecuteOptions,
+  WorkerRuntimeExecuteRequest,
+  WorkerRuntimeFactory,
+  WorkerRuntimeFailure,
+  WorkerRuntimeInstallOptions,
+  WorkerRuntimeOperation,
+  WorkerRuntimeOverflowPolicy,
+  WorkerRuntimePort,
+  WorkerRuntimeRequest,
+  WorkerRuntimeResponse,
+  WorkerRuntimeResult,
+  WorkerRuntimeScope,
+  WorkerRuntimeState,
+  WorkerRuntimeSuccess,
+  WorkerStreamRetentionAction,
+  WorkerStreamRetentionOperation,
+  WorkerStreamRetentionRequest,
+  WorkerStreamRetentionResult,
+  WorkerStreamRetentionSnapshot,
+  WorkerTransformEngine,
+  WorkerTransformOperation,
+  WorkerTechnicalIndicatorOperation,
+  WorkerWasmTransformAdapter,
+} from './data/worker-runtime.js';
 export {
   TransformWorkerAdapter,
   createTransformWorkerAdapter,
@@ -95,7 +339,7 @@ export function point(target: ChartTarget, data: DataInput, options: QuickChartO
  * both APIs compile to the portable `point` mark in ChartSpec 0.1.
  */
 export function scatter(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
-  return quickChart(create, 'point', target, data, options);
+  return quickScatter(create, target, data, options);
 }
 
 export function area(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
@@ -378,16 +622,66 @@ export { pluginApiVersion } from './core/plugin.js';
 export { GraflumeError } from './core/errors.js';
 export { hitTestScene } from './interaction/hit-test.js';
 export {
+  MarkLabelHistory,
+  cloneMarkLabelPosition,
+  cloneMarkLabelPositions,
+  hitTestMarkLabel,
+  setMarkLabelOffset,
+  snapMarkLabelOffset,
+} from './interaction/mark-label-authoring.js';
+export {
   AnalyticSelectionStore,
   analyticSelectionKey,
   analyticSelectionMatches,
+  analyticSelectionPredicate,
   analyticSelectionVersion,
   emptyAnalyticSelectionState,
   maximumAnalyticSelections,
+  maximumCategoricalSelectionValues,
   maximumLassoPoints,
   normalizeAnalyticSelectionState,
 } from './interaction/analytic-selection.js';
 export {
+  addAnalyticKeyboardVertex,
+  completeAnalyticKeyboardSelection,
+  moveAnalyticKeyboardGesture,
+  previewAnalyticKeyboardSelection,
+  startAnalyticKeyboardGesture,
+} from './interaction/analytic-keyboard.js';
+export {
+  LinkedViewStateStore,
+  emptyLinkedViewState,
+  linkedViewStateVersion,
+  maximumLinkedAnalyticViews,
+  normalizeLinkedViewState,
+} from './interaction/linked-view-store.js';
+export * from './interaction/advanced-family-runtime.js';
+export {
+  SemanticFocusStore,
+  createSemanticFocusStore,
+  defaultSemanticFocusStore,
+} from './interaction/semantic-focus-store.js';
+export type {
+  LinkedFocusSpec,
+  SemanticFocusChange,
+  SemanticFocusMatch,
+  SemanticFocusState,
+  SemanticFocusStoreOptions,
+  SemanticFocusTarget,
+} from './interaction/semantic-focus-store.js';
+export {
+  VirtualDataExplorer,
+  createVirtualDataExplorer,
+  normalizeVirtualDataExplorerSpec,
+} from './interaction/virtual-data-explorer.js';
+export type {
+  ExplorerNavigationKey,
+  NormalizedVirtualDataExplorerSpec,
+  VirtualDataExplorerSpec,
+  VirtualDataWindow,
+} from './interaction/virtual-data-explorer.js';
+export {
+  cartesianAxisChannel,
   clampPixelToPlot,
   domainPointToPixel,
   domainToPixel,
@@ -410,6 +704,14 @@ export {
   zoomDomainAtPixel,
   zoomDomainAxisWindow,
 } from './interaction/domain-navigation.js';
+export {
+  flowRuntimeOptions,
+  networkRuntimeOptions,
+  normalizeFlowRuntimeState,
+  normalizeNetworkRuntimeState,
+  normalizeTableRuntimeState,
+  tableRuntimeOptions,
+} from './interaction/family-runtime.js';
 
 export type { QuickChartOptions, QuickComboOptions } from './api/quick.js';
 export type {
@@ -423,6 +725,11 @@ export type {
   ChartCreateOptions,
   ChartErrorEvent,
   ChartEventMap,
+  ChartFamilyFocusChangeEvent,
+  ChartFamilyFocusState,
+  ChartFlowChangeEvent,
+  ChartHeatmapChangeEvent,
+  ChartHierarchyChangeEvent,
   ChartFullscreenChangeEvent,
   ChartLegendChangeEvent,
   ChartLegendChangeReason,
@@ -431,6 +738,8 @@ export type {
   ChartSelectionChangeEvent,
   ChartSelectionChangeReason,
   ChartSelectionState,
+  ChartScatterMatrixChangeEvent,
+  ChartTableChangeEvent,
   ChartAnalyticSelectionChangeEvent,
   ChartAnalyticSelectionChangeReason,
   ChartDomainViewChangeEvent,
@@ -439,8 +748,17 @@ export type {
   ChartAnnotationChangeReason,
   ChartAnnotationVisibilityChangeEvent,
   ChartAnnotationVisibilityChangeReason,
+  ChartMarkLabelChangeEvent,
+  ChartMarkLabelChangeReason,
+  ChartMarkLabelState,
+  ChartNetworkChangeEvent,
+  ChartNavigatorChangeEvent,
+  ChartParallelChangeEvent,
   ChartPlaybackChangeEvent,
   ChartPlaybackChangeReason,
+  ChartPlaybackFrameChangeEvent,
+  ChartPlaybackNamedFrameState,
+  ChartPlaybackRangeState,
   ChartPlaybackState,
   ChartPointerEvent,
   ChartRenderEvent,
@@ -451,16 +769,37 @@ export type {
   ChartViewPoint,
   ChartViewState,
 } from './runtime/chart.js';
+export type {
+  ChartFlowRuntimeState,
+  ChartNetworkRuntimeState,
+  ChartRuntimeNodePosition,
+  ChartTableFilter,
+  ChartTableGroup,
+  ChartTablePivot,
+  ChartTableRuntimeState,
+  ChartTableSort,
+} from './interaction/family-runtime.js';
 export type { GraflumePlugin, PluginContext } from './core/plugin.js';
 export type { MarkCompileContext, MarkCompiler, PlotArea } from './compiler/types.js';
-export type { CompileOptions, CompileResult } from './compiler/compile.js';
+export type { CompileCoordinateView, CompileOptions, CompileResult } from './compiler/compile.js';
 export type {
   InspectionViewTransform,
   Renderer,
   RendererCapabilities,
   RendererFactory,
 } from './renderer/types.js';
-export type { Scene, SceneNode, DatumReference } from './scene/types.js';
+export type {
+  Scene,
+  SceneNode,
+  AnalyticalFamilySceneMetadata,
+  DatumReference,
+  FamilyDatumInteraction,
+  MarkLabelSceneEntry,
+  MarkLabelSceneMetadata,
+  TechnicalIndicatorSceneMetadata,
+  TechnicalIndicatorPanelSceneMetadata,
+  TechnicalIndicatorCrosshairSceneMetadata,
+} from './scene/types.js';
 export { toAccessibleRows } from './scene/semantic.js';
 export type {
   AccessibleRow,
@@ -478,6 +817,7 @@ export type {
   AxisFontSpec,
   AxisFormatInput,
   AxisFormatSpec,
+  AxisChannel,
   AxisId,
   AxisLabelOrientation,
   AxisLabelSpec,
@@ -517,6 +857,9 @@ export type {
   JsonPrimitive,
   JsonValue,
   LayerSpec,
+  LayerClipSpec,
+  LayerDomainClipSpec,
+  LayerPlotClipSpec,
   LayerTargetSpec,
   LegendItemSpec,
   LegendLabelsSpec,
@@ -524,8 +867,17 @@ export type {
   LegendPosition,
   LegendSpec,
   MarkInput,
+  MarkLabelAuthoringSpec,
+  MarkLabelCollision,
+  MarkLabelConnectorSpec,
+  MarkLabelPlacement,
+  MarkLabelPositionSpec,
+  MarkLabelSnapSpec,
+  MarkLabelSpec,
+  MarkLabelStyleSpec,
   MarkSpec,
   MarkType,
+  NamedDataReference,
   NavigationSpec,
   NavigationWheelMode,
   NormalizedChartSpec,
@@ -534,11 +886,18 @@ export type {
   NormalizedDomainNavigationSpec,
   NormalizedLegendItemSpec,
   NormalizedLegendSpec,
+  NormalizedMarkLabelAuthoringSpec,
+  NormalizedMarkLabelSnapSpec,
+  NormalizedMarkLabelSpec,
   NormalizedNavigationSpec,
   NormalizedPlaybackSpec,
   NormalizedSelectionSpec,
   PerformanceProfile,
+  PlaybackDirection,
+  PlaybackFrameReference,
   PlaybackMode,
+  PlaybackNamedFrameSpec,
+  PlaybackRangeSpec,
   PlaybackSpec,
   PlaybackTransitionEasing,
   PlaybackTransitionSpec,
@@ -552,7 +911,10 @@ export type {
   ScaleType,
   SelectionSpec,
   StreamingMode,
+  StreamingOverflowPolicy,
+  StreamingRuntimeSpec,
   StreamingSpec,
+  WorkerRuntimeSpec,
   TitleSpec,
   TooltipFieldInput,
   TooltipFieldSpec,
@@ -563,12 +925,15 @@ export type {
   AggregateFieldSpec,
   AggregateOperation,
   TransformExpression,
+  TransformDataflowNodeSpec,
+  TransformDataflowSpec,
   TransformSortField,
   TransformSpec,
   WindowFieldSpec,
 } from './spec/types.js';
 export type {
   AnalyticAxisSelection,
+  AnalyticCategoricalExtent,
   AnalyticDomainPoint,
   AnalyticDomainValue,
   AnalyticIntervalSelection,
@@ -577,10 +942,17 @@ export type {
   AnalyticRectangleSelection,
   AnalyticSelection,
   AnalyticSelectionCombine,
+  AnalyticSelectionExtent,
   AnalyticSelectionSample,
   AnalyticSelectionState,
   AnalyticSelectionUpdate,
 } from './interaction/analytic-selection.js';
+export type { AnalyticKeyboardGesture } from './interaction/analytic-keyboard.js';
+export type {
+  LinkedViewState,
+  LinkedViewStateChange,
+  LinkedViewStateListener,
+} from './interaction/linked-view-store.js';
 export type {
   CartesianCoordinateContext,
   PixelPoint,

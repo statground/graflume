@@ -1,67 +1,77 @@
 import { compileAreaMark } from '../marks/area.js';
-import { compileDistributionFamilyMark } from '../marks/analytical-2d.js';
-import { compileBarMark } from '../marks/bar.js';
-import { compileLineMark } from '../marks/line.js';
+import { compileAnalyticalDistributionMark } from '../marks/analytical-p0.js';
 import { compilePointMark } from '../marks/point.js';
 import {
   compileAnnotationMark,
   compileBubbleMark,
-  compileCandlestickMark,
-  compileDiffMark,
   compileHistogramMark,
-  compileIntervalMark,
   compileSteppedAreaMark,
   compileTrendlineMark,
   compileVegaMark,
-  compileWaterfallMark,
 } from '../marks/cartesian-extended.js';
-import { compileGaugeMark, compilePieMark } from '../marks/radial.js';
 import {
-  compileCalendarMark,
+  compileAdvancedGaugeMark,
+  compileAdvancedPieMark,
+  compileAdvancedTableMark,
+  compileAdvancedTimelineMark,
+} from '../marks/layout-advanced.js';
+import { compileAdvancedMapMark } from '../marks/map-advanced.js';
+import {
+  compileAdvancedSankeyMark,
+  compileAdvancedWordTreeMark,
+} from '../marks/relationship-advanced.js';
+import {
+  compileAdvancedCalendarMark,
+  compileAdvancedCandlestickMark,
+  compileAdvancedDifferenceMark,
+  compileAreaBubbleMark,
+  compileEstimatedIntervalMark,
+  compileOrderedLineMark,
+  compileRankedBarMark,
+  compileSemanticWaterfallMark,
+} from '../marks/statistical-advanced.js';
+import {
   compileGanttMark,
   compileGeoMark,
-  compileMapMark,
   compileOrgMark,
-  compileSankeyMark,
-  compileTableMark,
-  compileTimelineMark,
   compileTreemapMark,
-  compileWordTreeMark,
 } from '../marks/structured.js';
 import { canvasRendererFactory } from '../renderer/canvas.js';
+import { scatterWebGLRendererFactory } from '../renderer/scatter-webgl.js';
 import { RuntimeRegistry } from './registry.js';
 
 export function createDefaultRegistry(): RuntimeRegistry {
   const registry = new RuntimeRegistry();
   registry.registerRenderer(canvasRendererFactory);
-  registry.registerMark('line', compileLineMark);
-  registry.registerMark('bar', compileBarMark);
+  registry.registerRenderer(scatterWebGLRendererFactory);
+  registry.registerMark('line', compileOrderedLineMark);
+  registry.registerMark('bar', compileRankedBarMark);
   registry.registerMark('point', compilePointMark);
   registry.registerMark('area', compileAreaMark);
   registry.registerMark('annotation', compileAnnotationMark);
-  registry.registerMark('bubble', compileBubbleMark);
-  registry.registerMark('calendar', compileCalendarMark);
-  registry.registerMark('candlestick', compileCandlestickMark);
-  registry.registerMark('diff', compileDiffMark);
+  registry.registerMark('bubble', compileAreaBubbleMark);
+  registry.registerMark('calendar', compileAdvancedCalendarMark);
+  registry.registerMark('candlestick', compileAdvancedCandlestickMark);
+  registry.registerMark('diff', compileAdvancedDifferenceMark);
   registry.registerMark('gantt', compileGanttMark);
-  registry.registerMark('gauge', compileGaugeMark);
+  registry.registerMark('gauge', compileAdvancedGaugeMark);
   registry.registerMark('geo', compileGeoMark);
   registry.registerMark('histogram', compileHistogramMark);
-  registry.registerMark('distribution', compileDistributionFamilyMark);
-  registry.registerMark('interval', compileIntervalMark);
-  registry.registerMark('map', compileMapMark);
+  registry.registerMark('distribution', compileAnalyticalDistributionMark);
+  registry.registerMark('interval', compileEstimatedIntervalMark);
+  registry.registerMark('map', compileAdvancedMapMark);
   registry.registerMark('motion', compileBubbleMark);
   registry.registerMark('org', compileOrgMark);
-  registry.registerMark('pie', compilePieMark);
-  registry.registerMark('sankey', compileSankeyMark);
+  registry.registerMark('pie', compileAdvancedPieMark);
+  registry.registerMark('sankey', compileAdvancedSankeyMark);
   registry.registerMark('stepped-area', compileSteppedAreaMark);
-  registry.registerMark('table', compileTableMark);
-  registry.registerMark('timeline', compileTimelineMark);
+  registry.registerMark('table', compileAdvancedTableMark);
+  registry.registerMark('timeline', compileAdvancedTimelineMark);
   registry.registerMark('treemap', compileTreemapMark);
   registry.registerMark('trendline', compileTrendlineMark);
   registry.registerMark('vega', compileVegaMark);
-  registry.registerMark('waterfall', compileWaterfallMark);
-  registry.registerMark('word-tree', compileWordTreeMark);
+  registry.registerMark('waterfall', compileSemanticWaterfallMark);
+  registry.registerMark('word-tree', compileAdvancedWordTreeMark);
   return registry;
 }
 

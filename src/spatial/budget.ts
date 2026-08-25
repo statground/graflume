@@ -9,6 +9,7 @@ import type {
   SpatialSurfaceGridData,
   SpatialSurfaceLayer,
   SpatialVectorLayer,
+  SpatialVectorFieldData,
   SpatialVolumeLayer,
 } from './types.js';
 
@@ -60,21 +61,43 @@ function boundedSegments(value: number | undefined, fallback: number): number {
 function estimateLayer(layer: SpatialLayerSpec): MutableOutputCounts {
   if (layer.mark.type === 'surface') {
     const surfaceLayer = layer as SpatialSurfaceLayer;
+    const contourSegments = surfaceLayer.mark.contours?.maxSegments ?? 100_000;
+    const contourMultiplier = surfaceLayer.mark.contours === undefined ? 0 : 1;
     if (inferredSurfaceMode(surfaceLayer) === 'mesh') {
       const data = surfaceLayer.data as SpatialMeshData;
+      const triangles = data.triangles.length;
+      const flat = surfaceLayer.mark.normalMode === 'flat' && surfaceLayer.mark.wireframe !== true;
+      const baseVertices = flat ? triangles * 3 : data.positions.length;
+      const baseIndices = surfaceLayer.mark.wireframe ? triangles * 6 : flat ? 0 : triangles * 3;
+      const overlay = surfaceLayer.mark.wireOverlay ? data.positions.length : 0;
+      const overlayIndices = surfaceLayer.mark.wireOverlay ? triangles * 6 : 0;
       return {
-        vertices: data.positions.length,
-        indices: data.triangles.length * (surfaceLayer.mark.wireframe ? 6 : 3),
-        pickTargets: data.positions.length,
+        vertices: baseVertices + overlay + contourSegments * 2 * contourMultiplier,
+        indices: baseIndices + overlayIndices,
+        pickTargets: data.positions.length + contourSegments * contourMultiplier,
       };
     }
     const data = surfaceLayer.data as SpatialSurfaceGridData;
     const vertices = data.rows * data.columns;
     const cells = (data.rows - 1) * (data.columns - 1);
+    const flat = surfaceLayer.mark.normalMode === 'flat' && surfaceLayer.mark.wireframe !== true;
+    const baseVertices = flat ? cells * 6 : vertices;
     const indices = surfaceLayer.mark.wireframe
       ? cells * 4 + (data.rows - 1) * 2 + (data.columns - 1) * 2
-      : cells * 6;
-    return { vertices, indices, pickTargets: vertices };
+      : flat
+        ? 0
+        : cells * 6;
+    const overlayIndices = surfaceLayer.mark.wireOverlay
+      ? cells * 4 + (data.rows - 1) * 2 + (data.columns - 1) * 2
+      : 0;
+    return {
+      vertices:
+        baseVertices +
+        (surfaceLayer.mark.wireOverlay ? vertices : 0) +
+        contourSegments * 2 * contourMultiplier,
+      indices: indices + overlayIndices,
+      pickTargets: vertices + contourSegments * contourMultiplier,
+    };
   }
   if (layer.mark.type === 'volume') {
     const volumeLayer = layer as SpatialVolumeLayer;
@@ -84,12 +107,77 @@ function estimateLayer(layer: SpatialLayerSpec): MutableOutputCounts {
       const triangles = cells * 12;
       return { vertices: triangles * 3, indices: 0, pickTargets: triangles };
     }
+    const render = volumeLayer.mark.render;
+    const slices = volumeLayer.mark.slices ?? [];
+    if (render !== undefined || slices.length > 0) {
+      const defaultResolution = (axis: 'x' | 'y' | 'z'): readonly [number, number] =>
+        axis === 'x'
+          ? [Math.min(256, z), Math.min(256, y)]
+          : axis === 'y'
+            ? [Math.min(256, x), Math.min(256, z)]
+            : [Math.min(256, x), Math.min(256, y)];
+      const plane = (resolution: readonly [number, number]): MutableOutputCounts => ({
+        vertices: resolution[0] * resolution[1],
+        indices: Math.max(0, resolution[0] - 1) * Math.max(0, resolution[1] - 1) * 6,
+        pickTargets: resolution[0] * resolution[1],
+      });
+      const total: MutableOutputCounts = { vertices: 0, indices: 0, pickTargets: 0 };
+      const add = (counts: MutableOutputCounts): void => {
+        total.vertices += counts.vertices;
+        total.indices += counts.indices;
+        total.pickTargets += counts.pickTargets;
+      };
+      if (render !== undefined) {
+        const resolution = render.resolution ?? defaultResolution(render.axis ?? 'z');
+        add(plane(resolution));
+        const caps = render.caps ?? 'none';
+        if (caps === 'front' || caps === 'back') add(plane(resolution));
+        else if (caps === 'both') {
+          add(plane(resolution));
+          add(plane(resolution));
+        }
+      }
+      for (const slice of slices) {
+        const resolution =
+          slice.resolution ??
+          (slice.type === 'orthogonal'
+            ? defaultResolution(slice.axis)
+            : [Math.min(128, Math.max(x, z)), Math.min(128, y)]);
+        add(plane(resolution));
+      }
+      return total;
+    }
     const maximumSamples = Math.max(1, Math.trunc(volumeLayer.mark.maxSamples ?? 80_000));
     const vertices = Math.min(x * y * z, maximumSamples);
     return { vertices, indices: 0, pickTargets: vertices };
   }
   if (layer.mark.type === 'vector') {
     const vectorLayer = layer as SpatialVectorLayer;
+    if ('dimensions' in vectorLayer.data) {
+      const data = vectorLayer.data as SpatialVectorFieldData;
+      const seedCount =
+        (data.seeds?.length ?? 0) +
+        (data.seedGrid === undefined
+          ? data.seeds === undefined || data.seeds.length === 0
+            ? 8
+            : 0
+          : data.seedGrid.dimensions[0] *
+            data.seedGrid.dimensions[1] *
+            data.seedGrid.dimensions[2]);
+      const maxSteps = Math.trunc(vectorLayer.mark.integration?.maxSteps ?? 512);
+      const directions =
+        vectorLayer.mark.integration?.direction === 'both' ||
+        vectorLayer.mark.integration?.direction === undefined
+          ? 2
+          : 1;
+      const points = seedCount * (maxSteps * directions + 1);
+      const segments = boundedSegments(vectorLayer.mark.segments, 10);
+      return {
+        vertices: points * segments,
+        indices: Math.max(0, points - seedCount) * segments * 6,
+        pickTargets: points,
+      };
+    }
     if (inferredVectorMode(vectorLayer) === 'streamtube') {
       const data = vectorLayer.data as SpatialStreamtubeData;
       const segments = boundedSegments(vectorLayer.mark.segments, 10);

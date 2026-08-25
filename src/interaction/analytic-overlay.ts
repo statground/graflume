@@ -9,6 +9,7 @@ export function compileAnalyticSelectionOverlay(
   state: AnalyticSelectionState,
   context: CartesianCoordinateContext,
   style: Required<HighlightStyleSpec>,
+  idPrefix = 'analytic-selection',
 ): readonly SceneNode[] {
   const nodes: SceneNode[] = [];
   state.selections.forEach((selection, index) => {
@@ -18,7 +19,7 @@ export function compileAnalyticSelectionOverlay(
       if (point === undefined) return;
       nodes.push({
         type: 'circle',
-        ...nodeBase(`analytic-selection:${index}`, { zIndex: 760, opacity: style.opacity }),
+        ...nodeBase(`${idPrefix}:${index}`, { zIndex: 760, opacity: style.opacity }),
         cx: point.x,
         cy: point.y,
         radius: style.radius,
@@ -32,7 +33,7 @@ export function compileAnalyticSelectionOverlay(
     if (selection.type === 'lasso') {
       nodes.push({
         type: 'path',
-        ...nodeBase(`analytic-selection:${index}`, { zIndex: 760, opacity: style.opacity }),
+        ...nodeBase(`${idPrefix}:${index}`, { zIndex: 760, opacity: style.opacity }),
         points,
         closed: true,
         fill: style.fill,
@@ -48,7 +49,7 @@ export function compileAnalyticSelectionOverlay(
     if (first === undefined || last === undefined) return;
     nodes.push({
       type: 'rect',
-      ...nodeBase(`analytic-selection:${index}`, { zIndex: 760, opacity: style.opacity }),
+      ...nodeBase(`${idPrefix}:${index}`, { zIndex: 760, opacity: style.opacity }),
       x: Math.min(first.x, last.x),
       y: Math.min(first.y, last.y),
       width: Math.abs(last.x - first.x),
@@ -62,5 +63,5 @@ export function compileAnalyticSelectionOverlay(
   });
   return nodes.length === 0
     ? []
-    : [group('analytic-selection:overlay', nodes, { zIndex: 760, clip: context.plot })];
+    : [group(`${idPrefix}:overlay`, nodes, { zIndex: 760, clip: context.plot })];
 }

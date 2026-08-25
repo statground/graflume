@@ -2,7 +2,10 @@ import { specVersion } from '../version.js';
 import { builtInTheme, defaultThemeId } from '../theme/defaults.js';
 import type { ThemeTokens } from '../theme/types.js';
 import { assertValidSpec } from './validate.js';
+import { materializeSpecDataflow } from '../data/dataflow.js';
+import { axisChannel, builtInAxisChannel, declaredAxisIds, defaultAxisPosition } from './axes.js';
 import type {
+  AxisChannel,
   AxisFormatInput,
   AxisFontSpec,
   AxisId,
@@ -23,6 +26,7 @@ import type {
   LegendItemSpec,
   LegendSpec,
   MarkInput,
+  MarkLabelPositionSpec,
   NormalizedAxisFontSpec,
   NormalizedAxisFormatSpec,
   NormalizedAxisLabelSpec,
@@ -37,6 +41,7 @@ import type {
   NormalizedInteractionSpec,
   NormalizedLegendSpec,
   NormalizedLayerSpec,
+  NormalizedMarkLabelSpec,
   NormalizedMarkSpec,
   NormalizedTooltipFieldSpec,
   PaddingInput,
@@ -185,6 +190,19 @@ function normalizeInteraction(input: ChartSpec['interaction']): NormalizedIntera
             interval: playbackInput.interval ?? 1_000,
             rate: playbackInput.rate ?? 1,
             loop: playbackInput.loop ?? false,
+            direction: playbackInput.direction ?? 'forward',
+            range:
+              playbackInput.range === undefined
+                ? (false as const)
+                : {
+                    ...(playbackInput.range.start === undefined
+                      ? {}
+                      : { start: playbackInput.range.start }),
+                    ...(playbackInput.range.end === undefined
+                      ? {}
+                      : { end: playbackInput.range.end }),
+                  },
+            namedFrames: (playbackInput.namedFrames ?? []).map((frame) => ({ ...frame })),
             windowSize: playbackInput.windowSize ?? 1,
             autoplay: playbackInput.autoplay ?? false,
             transition:
@@ -253,6 +271,10 @@ function normalizeInteraction(input: ChartSpec['interaction']): NormalizedIntera
           maxLassoPoints:
             typeof selectionInput === 'object' ? (selectionInput.maxLassoPoints ?? 512) : 512,
           minPixelSpan: typeof selectionInput === 'object' ? (selectionInput.minPixelSpan ?? 3) : 3,
+          keyboard: typeof selectionInput === 'object' ? (selectionInput.keyboard ?? true) : true,
+          keyboardStep: typeof selectionInput === 'object' ? (selectionInput.keyboardStep ?? 8) : 8,
+          filter: typeof selectionInput === 'object' ? (selectionInput.filter ?? false) : false,
+          linked: typeof selectionInput === 'object' ? (selectionInput.linked ?? false) : false,
           highlight: {
             fill:
               typeof selectionInput === 'object'
@@ -355,32 +377,79 @@ function cloneAnnotation(annotation: AnnotationSpec): AnnotationSpec {
   };
 }
 
-const axisDefaults: Readonly<
-  Record<
-    AxisId,
-    {
-      readonly position: NormalizedAxisSpec['position'];
-      readonly grid: boolean;
-      readonly titlePadding: number;
-    }
-  >
-> = {
-  x: { position: 'bottom', grid: false, titlePadding: 32 },
-  x2: { position: 'top', grid: false, titlePadding: 32 },
-  y: { position: 'left', grid: true, titlePadding: 46 },
-  y2: { position: 'right', grid: false, titlePadding: 46 },
-};
+function cloneMarkLabelPosition(position: MarkLabelPositionSpec): MarkLabelPositionSpec {
+  return {
+    ...position,
+    target: cloneDecorationTarget(position.target) as MarkLabelPositionSpec['target'],
+  };
+}
 
-function axisGridDefault(id: AxisId, theme: ThemeTokens | undefined): boolean {
+function normalizeMarkLabels(input: ChartSpec['markLabels']): false | NormalizedMarkLabelSpec {
+  if (input === undefined || input === false) return false;
+  const labels = input === true ? {} : input;
+  const connector =
+    labels.connector === undefined || labels.connector === false
+      ? false
+      : labels.connector === true
+        ? {}
+        : {
+            ...labels.connector,
+            ...(labels.connector.dash === undefined ? {} : { dash: [...labels.connector.dash] }),
+          };
+  const authoringInput = labels.authoring;
+  const authoring =
+    authoringInput === undefined || authoringInput === false
+      ? false
+      : (() => {
+          const resolved = typeof authoringInput === 'object' ? authoringInput : {};
+          const snapInput = resolved.snap;
+          const snapResolved = typeof snapInput === 'object' ? snapInput : {};
+          return {
+            pointer: resolved.pointer ?? true,
+            keyboard: resolved.keyboard ?? true,
+            step: resolved.step ?? 1,
+            historyLimit: resolved.historyLimit ?? 50,
+            snap:
+              snapInput === false
+                ? (false as const)
+                : {
+                    grid: snapResolved.grid ?? false,
+                    marks: snapResolved.marks ?? true,
+                    plot: snapResolved.plot ?? true,
+                    distance: snapResolved.distance ?? 6,
+                  },
+          };
+        })();
+  return {
+    visible: labels.visible ?? true,
+    ...(labels.field === undefined ? {} : { field: labels.field }),
+    ...(labels.key === undefined ? {} : { key: labels.key }),
+    layerIds: [...(labels.layerIds ?? [])],
+    placement: labels.placement ?? 'auto',
+    offset: labels.offset ?? 6,
+    collision: labels.collision ?? 'avoid',
+    connector,
+    maxLabels: labels.maxLabels ?? 128,
+    positions: (labels.positions ?? []).map(cloneMarkLabelPosition),
+    style: { ...labels.style },
+    authoring,
+  };
+}
+
+function axisGridDefault(
+  channel: AxisChannel,
+  position: NormalizedAxisSpec['position'],
+  theme: ThemeTokens | undefined,
+): boolean {
   const themed =
-    id === 'x'
+    channel === 'x' && position === 'bottom'
       ? theme?.axis.gridX
-      : id === 'x2'
+      : channel === 'x'
         ? theme?.axis.gridX2
-        : id === 'y'
+        : position === 'left'
           ? theme?.axis.gridY
           : theme?.axis.gridY2;
-  return themed ?? axisDefaults[id].grid;
+  return themed ?? (channel === 'y' && position === 'left');
 }
 
 function normalizeAxisFont(input: AxisFontSpec | undefined): NormalizedAxisFontSpec {
@@ -568,23 +637,26 @@ function mergeAxis(
 function normalizeAxis(
   input: AxisSpec | false | undefined,
   id: AxisId,
+  channel: AxisChannel,
   theme: ThemeTokens | undefined,
 ): NormalizedAxisSpec | false {
   if (input === false) return false;
-  const defaults = axisDefaults[id];
+  const position = input?.position ?? defaultAxisPosition(id, channel);
+  const titlePadding = channel === 'x' ? 32 : 46;
   return {
+    channel,
     visible: input?.visible ?? true,
-    position: input?.position ?? defaults.position,
+    position,
     offset: input?.offset ?? 0,
     line: normalizeAxisStroke(input?.line, theme?.axis.lineVisible ?? true),
     grid: normalizeAxisStroke(
       input?.grid,
-      axisGridDefault(id, theme),
+      axisGridDefault(channel, position, theme),
       theme?.axis.gridOpacity ?? 0.82,
     ),
     ticks: normalizeAxisTicks(input?.ticks, input?.tickCount, theme?.axis.ticksVisible ?? true),
     labels: normalizeAxisLabels(input?.labels, input?.labelAngle),
-    title: normalizeAxisTitle(input?.title, defaults.titlePadding, theme?.axis.titleGap),
+    title: normalizeAxisTitle(input?.title, titlePadding, theme?.axis.titleGap),
     format: normalizeAxisFormat(input?.format),
   };
 }
@@ -604,7 +676,7 @@ function normalizeEncoding(
     title: encoding.title ?? encoding.field,
     scale: { ...encoding.scale },
     axisId,
-    axis: normalizeAxis(axis, axisId, theme),
+    axis: normalizeAxis(axis, axisId, channel, theme),
   };
 }
 
@@ -677,6 +749,39 @@ function normalizeMark(input: MarkInput): NormalizedMarkSpec {
   };
 }
 
+function resolveSpecializedEncoding(
+  markType: string,
+  input: EncodingMap | undefined,
+): EncodingMap | undefined {
+  if (input === undefined) return undefined;
+  const specialized = { ...input };
+  if (['map', 'geo-flow', 'geo-line', 'geo-heatmap', 'tiled-map', 'tilemap'].includes(markType)) {
+    if (specialized.x === undefined && specialized.longitude !== undefined) {
+      specialized.x = specialized.longitude;
+    }
+    if (specialized.y === undefined && specialized.latitude !== undefined) {
+      specialized.y = specialized.latitude;
+    }
+  }
+  if (markType === 'polar') {
+    const angle = specialized.theta ?? specialized.angle;
+    if (specialized.x === undefined && angle !== undefined) specialized.x = angle;
+    if (specialized.y === undefined && specialized.radius !== undefined) {
+      specialized.y = specialized.radius;
+    }
+  }
+  if (markType === 'pie' || markType === 'variable-pie') {
+    const angle = specialized.theta ?? specialized.angle;
+    if (specialized.y === undefined && angle !== undefined) specialized.y = angle;
+  }
+  if (['candlestick', 'financial', 'renko', 'point-figure', 'indicator'].includes(markType)) {
+    if (specialized.y === undefined && specialized.close !== undefined) {
+      specialized.y = specialized.close;
+    }
+  }
+  return specialized;
+}
+
 function normalizeLayer(
   layer: LayerSpec,
   index: number,
@@ -689,22 +794,49 @@ function normalizeLayer(
   if (data === undefined) {
     throw new Error('Spec validation should guarantee layer data.');
   }
-  const encoding = normalizeEncodingMap(layer.x, layer.y, layer.encoding, chartAxes, theme);
+  const markType = typeof layer.mark === 'string' ? layer.mark : layer.mark.type;
+  const specialized = resolveSpecializedEncoding(markType, layer.encoding);
+  const encoding = normalizeEncodingMap(layer.x, layer.y, specialized, chartAxes, theme);
+  const normalizedMark = normalizeMark(layer.mark);
+  const semanticFields = Object.fromEntries(
+    ['longitude', 'latitude', 'open', 'high', 'low', 'close', 'volume', 'angle', 'theta'].flatMap(
+      (channel) => {
+        const field = encoding[channel as keyof typeof encoding]?.field;
+        return field === undefined ? [] : [[channel, field]];
+      },
+    ),
+  );
   return {
     id: layer.id ?? `layer-${index}`,
     name: layer.name ?? layer.id ?? `Series ${index + 1}`,
     data,
     transform: [...parentTransforms, ...(layer.transform ?? [])],
-    mark: normalizeMark(layer.mark),
+    mark: {
+      ...normalizedMark,
+      fields: { ...normalizedMark.fields, ...semanticFields },
+    },
     encoding,
     x: encoding.x,
     y: encoding.y,
+    clip:
+      layer.clip === undefined || layer.clip === true
+        ? true
+        : layer.clip === false
+          ? false
+          : layer.clip.type === 'plot'
+            ? { ...layer.clip }
+            : {
+                type: 'domain',
+                ...(layer.clip.x === undefined ? {} : { x: { ...layer.clip.x } }),
+                ...(layer.clip.y === undefined ? {} : { y: { ...layer.clip.y } }),
+              },
     visible: layer.visible ?? true,
     zIndex: layer.zIndex ?? index,
   };
 }
 
 export function normalizeSpec(input: ChartSpec, resolvedTheme?: ThemeTokens): NormalizedChartSpec {
+  input = materializeSpecDataflow(input);
   assertValidSpec(input);
 
   // Keep the one-argument public normalizer registry-driven so every built-in
@@ -713,24 +845,33 @@ export function normalizeSpec(input: ChartSpec, resolvedTheme?: ThemeTokens): No
     resolvedTheme ?? (typeof input.theme === 'string' ? builtInTheme(input.theme) : undefined);
 
   const chartAxes = input.axes ?? {};
-  const axes = {
-    x: normalizeAxis(chartAxes.x, 'x', theme),
-    x2: normalizeAxis(chartAxes.x2, 'x2', theme),
-    y: normalizeAxis(chartAxes.y, 'y', theme),
-    y2: normalizeAxis(chartAxes.y2, 'y2', theme),
-  } as const;
+  const axes = Object.freeze(
+    Object.fromEntries(
+      declaredAxisIds(chartAxes).map((id) => {
+        const channel = axisChannel(id, chartAxes) ?? builtInAxisChannel(id);
+        if (channel === undefined) {
+          throw new Error(`Spec validation should guarantee a channel for named axis "${id}".`);
+        }
+        return [id, normalizeAxis(chartAxes[id], id, channel, theme)] as const;
+      }),
+    ),
+  ) as Readonly<Record<AxisId, NormalizedAxisSpec | false>>;
 
+  const shorthandEncoding = resolveSpecializedEncoding(
+    typeof input.mark === 'string' ? input.mark : (input.mark?.type ?? ''),
+    input.encoding,
+  );
   const shorthandLayer: LayerSpec | undefined =
     input.mark === undefined ||
-    ((input.encoding?.x === undefined || input.encoding.y === undefined) &&
+    ((shorthandEncoding?.x === undefined || shorthandEncoding.y === undefined) &&
       (input.x === undefined || input.y === undefined))
       ? undefined
       : {
           ...(input.data === undefined ? {} : { data: input.data }),
           mark: input.mark,
-          ...(input.encoding === undefined
+          ...(shorthandEncoding === undefined
             ? { x: input.x as EncodingInput, y: input.y as EncodingInput }
-            : { encoding: input.encoding }),
+            : { encoding: shorthandEncoding }),
         };
 
   const sourceLayers = input.layers ?? (shorthandLayer === undefined ? [] : [shorthandLayer]);
@@ -757,6 +898,7 @@ export function normalizeSpec(input: ChartSpec, resolvedTheme?: ThemeTokens): No
       ...(highlight.dash === undefined ? {} : { dash: [...highlight.dash] }),
     })),
     annotations: (input.annotations ?? []).map(cloneAnnotation),
+    markLabels: normalizeMarkLabels(input.markLabels),
     interaction: normalizeInteraction(input.interaction),
     accessibility: {
       ...(input.accessibility?.label === undefined ? {} : { label: input.accessibility.label }),
@@ -771,6 +913,31 @@ export function normalizeSpec(input: ChartSpec, resolvedTheme?: ThemeTokens): No
             : input.accessibility.table,
       maxRows: input.accessibility?.maxRows ?? 500,
       navigation: input.accessibility?.navigation ?? false,
+      explorer:
+        input.accessibility?.explorer === false ||
+        (input.accessibility?.explorer === undefined &&
+          input.accessibility?.navigation !== true &&
+          input.accessibility?.linkedFocus === undefined &&
+          input.accessibility?.table !== 'visible')
+          ? false
+          : {
+              windowRows:
+                typeof input.accessibility?.explorer === 'object'
+                  ? (input.accessibility.explorer.windowRows ?? 24)
+                  : 24,
+              overscanRows:
+                typeof input.accessibility?.explorer === 'object'
+                  ? (input.accessibility.explorer.overscanRows ?? 6)
+                  : 6,
+              rowHeight:
+                typeof input.accessibility?.explorer === 'object'
+                  ? (input.accessibility.explorer.rowHeight ?? 32)
+                  : 32,
+            },
+      linkedFocus:
+        input.accessibility?.linkedFocus === undefined
+          ? false
+          : { ...input.accessibility.linkedFocus },
       ...(input.accessibility?.summary === undefined
         ? {}
         : { summary: input.accessibility.summary }),

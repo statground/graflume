@@ -1,6 +1,6 @@
 import { sceneNodeBounds } from '../scene/bounds.js';
 import { group, nodeBase } from '../scene/factory.js';
-import type { Rect, SceneNode, TextNode } from '../scene/types.js';
+import type { AnnotationSceneEntry, Rect, SceneNode, TextNode } from '../scene/types.js';
 import type {
   AnnotationSpec,
   DatumTargetSpec,
@@ -15,10 +15,13 @@ import type { ScaleResolution } from './domain.js';
 import type { PlotArea } from './types.js';
 import { isAxislessLayer } from './coordinate.js';
 import { placeCallout, type CalloutRect } from '../interaction/callout-placement.js';
+import { annotationAuthoringHandles } from '../interaction/annotation-authoring.js';
+import { annotationPrimitiveRegistry } from '../annotation/primitives.js';
 
 export interface DecorationRuntimeState {
   readonly annotations?: readonly AnnotationSpec[];
   readonly annotationsVisible?: boolean;
+  readonly activeAnnotationId?: string;
   readonly selection?: readonly DatumTargetSpec[];
 }
 
@@ -507,6 +510,8 @@ function annotationNodes(
   occupiedCallouts: readonly CalloutRect[],
 ): AnnotationNodesResult {
   if (!resolution.found) return { nodes: [], bounds: null };
+  const primitive = annotation.primitive ?? 'callout';
+  annotationPrimitiveRegistry.validateTarget(primitive, annotation.target);
   const style = annotation.style ?? {};
   const availableWidth = Math.max(1, plot.width);
   const availableHeight = Math.max(1, plot.height);
@@ -613,7 +618,42 @@ function annotationNodes(
       : textAlign === 'right'
         ? x + width - padding - glyphGuard
         : x + padding + glyphGuard;
-  if (connectorVisible) {
+  if (primitive === 'band') {
+    nodes.push({
+      type: 'rect',
+      ...nodeBase(`annotation:${id}:band`, { zIndex: 699, opacity: style.opacity ?? 0.16 }),
+      ...resolution.bounds,
+      fill: style.background ?? theme.colors.focus,
+      stroke: style.border ?? theme.colors.focus,
+      lineWidth: 1.25,
+      cornerRadius: 2,
+    });
+  } else if (primitive === 'rule') {
+    const horizontal = target.width >= target.height;
+    nodes.push({
+      type: 'line',
+      ...nodeBase(`annotation:${id}:rule`, { zIndex: 699, opacity: style.opacity ?? 0.92 }),
+      x1: horizontal ? target.x : anchor.x,
+      y1: horizontal ? anchor.y : target.y,
+      x2: horizontal ? target.x + target.width : anchor.x,
+      y2: horizontal ? anchor.y : target.y + target.height,
+      stroke: style.border ?? theme.colors.focus,
+      lineWidth: 1.75,
+      lineCap: 'round',
+    });
+  } else if (primitive === 'point') {
+    nodes.push({
+      type: 'circle',
+      ...nodeBase(`annotation:${id}:point`, { zIndex: 699, opacity: style.opacity ?? 1 }),
+      cx: anchor.x,
+      cy: anchor.y,
+      radius: 5,
+      fill: style.background ?? theme.colors.focus,
+      stroke: style.border ?? theme.colors.surface,
+      lineWidth: 2,
+    });
+  }
+  if (connectorVisible && primitive !== 'label') {
     nodes.push({
       type: 'line',
       ...nodeBase(`annotation:${id}:connector`, { zIndex: 700 }),
@@ -634,10 +674,10 @@ function annotationNodes(
     y,
     width,
     height,
-    fill: style.background ?? theme.colors.surface,
-    stroke: style.border ?? theme.colors.focus,
-    lineWidth: 1.25,
-    cornerRadius: 9,
+    ...(primitive === 'label' ? {} : { fill: style.background ?? theme.colors.surface }),
+    ...(primitive === 'label' ? {} : { stroke: style.border ?? theme.colors.focus }),
+    lineWidth: primitive === 'label' ? 0 : 1.25,
+    cornerRadius: primitive === 'label' ? 0 : 9,
   });
   let textY = y + padding;
   for (const [lineIndex, text] of titleLines.entries()) {
@@ -705,9 +745,14 @@ export function compileDecorations(options: {
     rowIndex: number,
     datum: Readonly<Record<string, unknown>>,
   ) => boolean;
-}): { readonly underlay: readonly SceneNode[]; readonly overlay: readonly SceneNode[] } {
+}): {
+  readonly underlay: readonly SceneNode[];
+  readonly overlay: readonly SceneNode[];
+  readonly annotations: readonly AnnotationSceneEntry[];
+} {
   const underlay: SceneNode[] = [];
   const overlay: SceneNode[] = [];
+  const annotationEntries: AnnotationSceneEntry[] = [];
   options.spec.highlights.forEach((highlight, index) => {
     const resolution = targetBounds(
       highlight.target,
@@ -756,6 +801,7 @@ export function compileDecorations(options: {
           ? []
           : [group('decorations:underlay', underlay, { zIndex: -200, clip: options.plot })],
       overlay: overlay.length === 0 ? [] : [group('decorations:overlay', overlay, { zIndex: 600 })],
+      annotations: [],
     };
   const dataObstacles = dataObstacleBounds(options.layerGroups, options.plot);
   const protectedObstacles = [
@@ -783,13 +829,52 @@ export function compileDecorations(options: {
       occupiedCallouts,
     );
     overlay.push(...compiled.nodes);
-    if (compiled.bounds !== null) occupiedCallouts.push(compiled.bounds);
+    if (compiled.bounds !== null) {
+      occupiedCallouts.push(compiled.bounds);
+      const primitive = annotation.primitive ?? 'callout';
+      annotationEntries.push({
+        id: annotation.id ?? `annotation-${index}`,
+        primitive,
+        bounds: compiled.bounds,
+        targetBounds: resolution.bounds,
+        resizable: annotationPrimitiveRegistry.resolve(primitive).resizable,
+      });
+    }
   });
+  const active = annotationEntries.find(({ id }) => id === options.runtime?.activeAnnotationId);
+  if (active !== undefined) {
+    overlay.push({
+      type: 'rect',
+      ...nodeBase(`annotation:${active.id}:authoring-outline`, { zIndex: 710 }),
+      ...active.bounds,
+      stroke: options.theme.colors.focus,
+      lineWidth: 1.25,
+      dash: [4, 3],
+      cornerRadius: 4,
+    });
+    overlay.push(
+      ...annotationAuthoringHandles(active.bounds)
+        .filter(({ id }) => id !== 'move' && active.resizable)
+        .map(({ id, x, y }) => ({
+          type: 'rect' as const,
+          ...nodeBase(`annotation:${active.id}:handle:${id}`, { zIndex: 711 }),
+          x: x - 3.5,
+          y: y - 3.5,
+          width: 7,
+          height: 7,
+          fill: options.theme.colors.surface,
+          stroke: options.theme.colors.focus,
+          lineWidth: 1.25,
+          cornerRadius: 1,
+        })),
+    );
+  }
   return {
     underlay:
       underlay.length === 0
         ? []
         : [group('decorations:underlay', underlay, { zIndex: -200, clip: options.plot })],
     overlay: overlay.length === 0 ? [] : [group('decorations:overlay', overlay, { zIndex: 600 })],
+    annotations: annotationEntries,
   };
 }

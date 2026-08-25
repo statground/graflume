@@ -10,6 +10,7 @@
     "verifiedAt",
     "totals",
     "groups",
+    "currentLimitations",
     "families",
     "modes",
     "compatibilityIdentifiers",
@@ -34,6 +35,7 @@
     "verifiedAt": { "type": "string", "format": "date" },
     "totals": { "$ref": "#/$defs/totals" },
     "groups": { "type": "array", "items": { "$ref": "#/$defs/group" } },
+    "currentLimitations": { "$ref": "#/$defs/currentLimitations" },
     "families": { "type": "array", "items": { "$ref": "#/$defs/family" } },
     "modes": { "type": "array", "items": { "$ref": "#/$defs/mode" } },
     "compatibilityIdentifiers": {
@@ -101,6 +103,8 @@
         "integratedSpatialModes",
         "compatibilityIdentifiers",
         "themes",
+        "completedCurrentLimitations",
+        "currentLimitations",
         "marks"
       ],
       "properties": {
@@ -113,6 +117,8 @@
         "integratedSpatialModes": { "type": "integer", "minimum": 0 },
         "compatibilityIdentifiers": { "type": "integer", "minimum": 0 },
         "themes": { "type": "integer", "minimum": 1 },
+        "completedCurrentLimitations": { "type": "integer", "minimum": 0 },
+        "currentLimitations": { "type": "integer", "minimum": 0 },
         "marks": { "type": "integer", "minimum": 1 }
       }
     },
@@ -146,6 +152,8 @@
         "representativeSnapshot",
         "supportedFeatures",
         "currentLimitations",
+        "completedCurrentLimitations",
+        "implementationEvidence",
         "developmentDependencies"
       ],
       "properties": {
@@ -163,7 +171,29 @@
         "representativeSnapshot": { "$ref": "#/$defs/nonEmpty" },
         "supportedFeatures": { "$ref": "#/$defs/stringList" },
         "currentLimitations": { "$ref": "#/$defs/stringList" },
+        "completedCurrentLimitations": { "$ref": "#/$defs/stringList" },
+        "implementationEvidence": { "$ref": "#/$defs/implementationEvidence" },
         "developmentDependencies": { "$ref": "#/$defs/stringList" }
+      }
+    },
+    "implementationEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sources", "tests"],
+      "properties": {
+        "sources": { "$ref": "#/$defs/stringList" },
+        "tests": { "$ref": "#/$defs/stringList" }
+      }
+    },
+    "currentLimitations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["release", "completed", "remaining", "evidence"],
+      "properties": {
+        "release": { "$ref": "#/$defs/releaseId" },
+        "completed": { "type": "integer", "minimum": 0 },
+        "remaining": { "type": "integer", "minimum": 0 },
+        "evidence": { "$ref": "#/$defs/nonEmpty" }
       }
     },
     "mode": {
@@ -249,11 +279,126 @@
     "runtimeCapabilities": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["seriesStack", "technicalIndicators", "tiledMap"],
+      "required": ["analyticInteraction", "seriesStack", "technicalIndicators", "tiledMap"],
       "properties": {
+        "analyticInteraction": { "$ref": "#/$defs/analyticInteractionCapability" },
         "seriesStack": { "$ref": "#/$defs/seriesStackCapability" },
         "technicalIndicators": { "$ref": "#/$defs/technicalIndicatorRuntimeCapability" },
         "tiledMap": { "$ref": "#/$defs/tiledMapCapability" }
+      }
+    },
+    "analyticInteractionCapability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "status",
+        "stateVersion",
+        "selections",
+        "combine",
+        "inputs",
+        "coordinates",
+        "domainNavigation",
+        "filtering",
+        "composition"
+      ],
+      "properties": {
+        "id": { "const": "analytic-interaction" },
+        "status": { "enum": ["partial", "supported"] },
+        "stateVersion": { "const": 1 },
+        "selections": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 6,
+          "uniqueItems": true,
+          "items": { "enum": ["point", "interval", "rectangle", "axis", "lasso", "polygon"] }
+        },
+        "combine": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": { "enum": ["union", "intersection"] }
+        },
+        "inputs": { "$ref": "#/$defs/analyticInteractionInputs" },
+        "coordinates": { "$ref": "#/$defs/analyticInteractionCoordinates" },
+        "domainNavigation": { "$ref": "#/$defs/analyticDomainNavigation" },
+        "filtering": { "$ref": "#/$defs/analyticInteractionFiltering" },
+        "composition": { "$ref": "#/$defs/analyticInteractionComposition" }
+      }
+    },
+    "analyticInteractionInputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pointer", "touch", "keyboardEscapeClear", "keyboardGeometryAuthoring"],
+      "properties": {
+        "pointer": { "type": "boolean" },
+        "touch": { "type": "boolean" },
+        "keyboardEscapeClear": { "type": "boolean" },
+        "keyboardGeometryAuthoring": { "type": "boolean" }
+      }
+    },
+    "analyticInteractionCoordinates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "domainPixelRoundTrip",
+        "continuous",
+        "pointNearest",
+        "bandNearest",
+        "categoricalBrush",
+        "nonInvertibleGeometry"
+      ],
+      "properties": {
+        "domainPixelRoundTrip": { "type": "boolean" },
+        "continuous": { "type": "boolean" },
+        "pointNearest": { "type": "boolean" },
+        "bandNearest": { "type": "boolean" },
+        "categoricalBrush": { "type": "boolean" },
+        "nonInvertibleGeometry": { "type": "boolean" }
+      }
+    },
+    "analyticDomainNavigation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cartesianContinuous",
+        "wheel",
+        "pointerDrag",
+        "keyboard",
+        "categorical",
+        "spatial",
+        "multiViewLinkedStore"
+      ],
+      "properties": {
+        "cartesianContinuous": { "type": "boolean" },
+        "wheel": { "type": "boolean" },
+        "pointerDrag": { "type": "boolean" },
+        "keyboard": { "type": "boolean" },
+        "categorical": { "type": "boolean" },
+        "spatial": { "type": "boolean" },
+        "multiViewLinkedStore": { "type": "boolean" }
+      }
+    },
+    "analyticInteractionFiltering": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["selectionDriven", "retainsScaleDomains", "lineage"],
+      "properties": {
+        "selectionDriven": { "type": "boolean" },
+        "retainsScaleDomains": { "type": "boolean" },
+        "lineage": { "type": "boolean" }
+      }
+    },
+    "analyticInteractionComposition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["coordinateViews", "selectionShared", "domainViewShared", "viewAddressable"],
+      "properties": {
+        "coordinateViews": { "type": "boolean" },
+        "selectionShared": { "type": "boolean" },
+        "domainViewShared": { "type": "boolean" },
+        "viewAddressable": { "type": "boolean" }
       }
     },
     "seriesStackCapability": {
@@ -411,7 +556,7 @@
       "required": ["id", "status", "publicEntryPoints", "calculations", "presets"],
       "properties": {
         "id": { "const": "technical-indicator" },
-        "status": { "const": "mixed" },
+        "status": { "const": "supported" },
         "publicEntryPoints": { "$ref": "#/$defs/technicalIndicatorEntryPoints" },
         "calculations": { "$ref": "#/$defs/technicalIndicatorCalculationBoundary" },
         "presets": {
@@ -453,11 +598,43 @@
     "technicalIndicatorCalculationBoundary": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["computed", "precomputedRequired", "warmUpPolicy"],
+      "required": [
+        "computed",
+        "precomputedRequired",
+        "warmUpPolicy",
+        "sessionReset",
+        "incremental",
+        "synchronizedCrosshair"
+      ],
       "properties": {
-        "computed": { "const": 17 },
-        "precomputedRequired": { "const": 28 },
-        "warmUpPolicy": { "const": "null" }
+        "computed": { "const": 45 },
+        "precomputedRequired": { "const": 0 },
+        "warmUpPolicy": { "const": "null" },
+        "sessionReset": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": { "enum": ["hard", "carry"] }
+        },
+        "incremental": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["bounded", "workerProtocol"],
+          "properties": {
+            "bounded": { "const": true },
+            "workerProtocol": { "const": 2 }
+          }
+        },
+        "synchronizedCrosshair": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["axis", "sharedDomain"],
+          "properties": {
+            "axis": { "const": "x" },
+            "sharedDomain": { "const": true }
+          }
+        }
       }
     },
     "technicalIndicatorCapability": {
@@ -479,7 +656,7 @@
         "id": { "$ref": "#/$defs/nonEmpty" },
         "kind": { "$ref": "#/$defs/nonEmpty" },
         "quickApi": { "$ref": "#/$defs/nonEmpty" },
-        "support": { "enum": ["computed", "precomputed-required"] },
+        "support": { "const": "computed" },
         "requiredInputs": { "$ref": "#/$defs/stringList" },
         "outputs": { "$ref": "#/$defs/stringList" },
         "parameters": { "type": "array", "items": { "$ref": "#/$defs/indicatorParameter" } },
@@ -496,11 +673,31 @@
       "additionalProperties": false,
       "required": ["name", "type", "minimum", "maximum", "default"],
       "properties": {
-        "name": { "enum": ["period", "fastPeriod", "slowPeriod", "signalPeriod"] },
-        "type": { "const": "integer" },
-        "minimum": { "type": "integer", "minimum": 1 },
-        "maximum": { "type": "integer", "minimum": 1 },
-        "default": { "type": "integer", "minimum": 1 }
+        "name": {
+          "enum": [
+            "period",
+            "fastPeriod",
+            "slowPeriod",
+            "signalPeriod",
+            "multiplier",
+            "standardDeviations",
+            "atrPeriod",
+            "conversionPeriod",
+            "basePeriod",
+            "spanPeriod",
+            "displacement",
+            "smoothK",
+            "smoothD",
+            "envelopePercent",
+            "acceleration",
+            "maximumAcceleration",
+            "deviation"
+          ]
+        },
+        "type": { "enum": ["integer", "number"] },
+        "minimum": { "type": "number" },
+        "maximum": { "type": "number" },
+        "default": { "type": "number" }
       }
     },
     "indicatorDependencyNode": {

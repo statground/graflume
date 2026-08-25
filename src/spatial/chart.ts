@@ -1,4 +1,10 @@
 import { EventEmitter } from '../core/events.js';
+import {
+  defaultSemanticFocusStore,
+  type SemanticFocusChange,
+  type SemanticFocusStore,
+} from '../interaction/semantic-focus-store.js';
+import type { SemanticMark } from '../scene/semantic.js';
 import { categoricalColor, continuousColor } from '../theme/color.js';
 import type { ThemeTokens } from '../theme/types.js';
 import { collectAccessibleSpatialPicks, spatialAccessibleDescription } from './accessibility.js';
@@ -6,6 +12,12 @@ import { compileSpatial, spatialColor } from './compile.js';
 import { resolveSpatialSize } from './layout.js';
 import { add3, cameraBasis, clamp, normalizedCamera, scale3 } from './math.js';
 import { assertFiniteSpatialNumber, resolveSpatialCameraPatch } from './programmatic.js';
+import {
+  SpatialSemanticNavigator,
+  type SpatialNavigationKey,
+  type SpatialSemanticFocus,
+  type SpatialSemanticNavigationState,
+} from './semantic-navigation.js';
 import {
   SpatialOverlayController,
   type ScreenBounds,
@@ -231,6 +243,7 @@ const defaultLabels: ResolvedSpatialLabels = {
 } as const;
 
 const svgNamespace = 'http://www.w3.org/2000/svg';
+let spatialSemanticViewSequence = 0;
 
 function resolveTarget(target: SpatialChartTarget): HTMLElement {
   if (typeof target !== 'string') return target;
@@ -452,6 +465,7 @@ export class SpatialChart {
   readonly #options: SpatialCreateOptions;
   readonly #activePointers = new Map<number, PointerPosition>();
   readonly #controlButtons = new Map<string, HTMLButtonElement>();
+  readonly #semanticViewId: string;
   #spec: SpatialChartSpec;
   #scene: CompiledSpatialScene;
   #camera: SpatialCameraState;
@@ -478,6 +492,15 @@ export class SpatialChart {
   #annotations: SpatialAnnotationSpec[] = [];
   #annotationsVisible = true;
   #annotationSequence = 0;
+  #semanticNavigation: SpatialSemanticNavigator | null = null;
+  #semanticNavigationSignature = '';
+  #semanticKeyboardNavigation = false;
+  #semanticFocusRing: HTMLDivElement | null = null;
+  #semanticMarks = new Map<string, SemanticMark>();
+  #linkedFocusUnregister: (() => void) | null = null;
+  #linkedFocusUnsubscribe: (() => void) | null = null;
+  #applyingLinkedFocus = false;
+  #lastPublishedSemanticId: string | null = null;
 
   constructor(
     target: SpatialChartTarget,
@@ -487,6 +510,8 @@ export class SpatialChart {
     if (typeof document === 'undefined')
       throw new Error('A DOM environment is required for a spatial chart.');
     this.#target = resolveTarget(target);
+    spatialSemanticViewSequence += 1;
+    this.#semanticViewId = `spatial-view-${spatialSemanticViewSequence}`;
     this.#spec = spec;
     this.#options = options;
     this.#scene = compileSpatial(spec);
@@ -535,6 +560,7 @@ export class SpatialChart {
       if (mounted) this.#setAvailability('ready');
       this.#renderer.setScene(this.#scene);
       this.#renderer.setCamera(this.#camera);
+      this.#syncSemanticNavigation();
       this.#syncAccessibilityDom();
       this.#renderAccessibilityTable();
       this.#syncControlStructure();
@@ -573,6 +599,7 @@ export class SpatialChart {
     this.#initialCamera = this.#camera;
     this.#renderer.setScene(scene);
     this.#renderer.setCamera(this.#camera);
+    this.#syncSemanticNavigation();
     this.#applyThemeChrome();
     this.#hideTooltip();
     this.#syncAccessibilityDom();
@@ -752,6 +779,38 @@ export class SpatialChart {
     return { ...this.#availability };
   }
 
+  getSemanticNavigationState(): SpatialSemanticNavigationState {
+    return (
+      this.#semanticNavigation?.state() ?? {
+        version: 1,
+        rowCount: 0,
+        activeIndex: null,
+        activeNodeId: null,
+        projected: null,
+      }
+    );
+  }
+
+  focusSemanticNode(nodeId: string): void {
+    this.#assertAlive();
+    if (this.#semanticNavigation === null)
+      throw new TypeError('Enable accessibility.navigation before focusing GPU marks.');
+    this.#semanticNavigation.focusNode(nodeId);
+  }
+
+  clearSemanticFocus(): void {
+    this.#assertAlive();
+    this.#semanticNavigation?.clear();
+    this.#lastPublishedSemanticId = null;
+    const store = this.#focusStore();
+    if (
+      this.#spec.accessibility?.linkedFocus !== undefined &&
+      store.state().focused?.sourceViewId === this.#semanticViewId
+    ) {
+      store.clear();
+    }
+  }
+
   setCamera(camera: Readonly<Partial<SpatialCameraState>>): void {
     this.#assertAlive();
     this.#camera = resolveSpatialCameraPatch(
@@ -845,6 +904,7 @@ export class SpatialChart {
     this.#height = resolvedHeight;
     this.#wrapper.style.height = `${resolvedHeight}px`;
     this.#resizeRendererViewport();
+    this.#semanticNavigation?.reproject();
     this.#syncOverlays();
     this.#events.emit('resize', { chart: this, width: resolvedWidth, height: resolvedHeight });
   }
@@ -853,6 +913,7 @@ export class SpatialChart {
     this.#assertAlive();
     this.#renderer.setCamera(this.#camera);
     this.#renderer.render();
+    this.#semanticNavigation?.reproject();
     this.#syncAccessibilityDom();
     this.#syncControlStructure();
     this.#syncOverlays();
@@ -915,6 +976,9 @@ export class SpatialChart {
     this.#overlays.destroy();
     this.#renderer.destroy();
     this.#tooltip?.remove();
+    this.#semanticFocusRing?.remove();
+    this.#linkedFocusUnregister?.();
+    this.#linkedFocusUnsubscribe?.();
     this.#fallback?.remove();
     this.#accessibility?.remove();
     this.#wrapper.remove();
@@ -1020,13 +1084,45 @@ export class SpatialChart {
   readonly #keyDownListener = (event: Event): void => {
     if (!(event instanceof KeyboardEvent)) return;
     const selection = this.#selectionConfig();
+    if (event.key === 'Escape') {
+      let cleared = false;
+      if (selection !== false && selection.clearOnEscape && this.#selection.length > 0) {
+        this.clearSelection();
+        cleared = true;
+      }
+      if (this.#semanticNavigation?.state().activeIndex !== null) {
+        this.clearSemanticFocus();
+        cleared = true;
+      }
+      if (cleared) event.preventDefault();
+      if (cleared) return;
+    }
+    const semanticKeys = new Set<SpatialNavigationKey>([
+      'ArrowLeft',
+      'ArrowRight',
+      'ArrowUp',
+      'ArrowDown',
+      'Home',
+      'End',
+      'PageUp',
+      'PageDown',
+    ]);
     if (
-      event.key === 'Escape' &&
-      selection !== false &&
-      selection.clearOnEscape &&
-      this.#selection.length > 0
+      this.#semanticKeyboardNavigation &&
+      this.#semanticNavigation !== null &&
+      !event.shiftKey &&
+      semanticKeys.has(event.key as SpatialNavigationKey)
     ) {
-      this.clearSelection();
+      this.#semanticNavigation.move(event.key as SpatialNavigationKey);
+      event.preventDefault();
+      return;
+    }
+    if (
+      this.#semanticKeyboardNavigation &&
+      this.#semanticNavigation !== null &&
+      (event.key === 'Enter' || event.key === ' ')
+    ) {
+      this.#semanticNavigation.activate();
       event.preventDefault();
       return;
     }
@@ -1161,7 +1257,10 @@ export class SpatialChart {
         selectedData !== undefined &&
         'vectors' in selectedData
       ) {
-        values = selectedData.vectors.map((vector) => Math.hypot(...vector));
+        values =
+          'dimensions' in selectedData
+            ? compiledValues
+            : selectedData.vectors.map((vector) => Math.hypot(...vector));
         configuredColors = selectedData.colors;
       } else if (selectedLayer.mark.type === 'volume')
         values = (selectedLayer.data as SpatialVolumeData).values;
@@ -1542,6 +1641,195 @@ export class SpatialChart {
         ...(input.far === undefined ? {} : { far: input.far }),
       },
     );
+  }
+
+  #syncSemanticNavigation(): void {
+    const authored = this.#spec.accessibility?.navigation;
+    const linked = this.#spec.accessibility?.linkedFocus;
+    this.#semanticKeyboardNavigation = authored === true || typeof authored === 'object';
+    this.#linkedFocusUnregister?.();
+    this.#linkedFocusUnregister = null;
+    this.#linkedFocusUnsubscribe?.();
+    this.#linkedFocusUnsubscribe = null;
+    this.#semanticMarks.clear();
+    this.#lastPublishedSemanticId = null;
+    if (!this.#semanticKeyboardNavigation && linked === undefined) {
+      this.#semanticNavigation?.clear();
+      this.#semanticNavigation = null;
+      this.#semanticNavigationSignature = '';
+      this.#hideSemanticFocus();
+      return;
+    }
+    const navigation = typeof authored === 'object' ? authored : {};
+    const maxRows = this.#spec.accessibility?.maxRows ?? 100;
+    const signature = JSON.stringify({
+      maxRows,
+      pageRows: navigation.pageRows ?? 10,
+      wrap: navigation.wrap ?? false,
+    });
+    if (this.#semanticNavigation === null || signature !== this.#semanticNavigationSignature) {
+      this.#semanticNavigation = new SpatialSemanticNavigator(
+        {
+          focus: (focus) => this.#applySemanticFocus(focus),
+          activate: (focus) => this.#activateSemanticFocus(focus),
+        },
+        {
+          maxRows,
+          pageRows: navigation.pageRows ?? 10,
+          wrap: navigation.wrap ?? false,
+        },
+      );
+      this.#semanticNavigationSignature = signature;
+    }
+    const previousNode = this.#semanticNavigation.state().activeNodeId;
+    const picks = collectAccessibleSpatialPicks(this.#scene.geometries, maxRows);
+    this.#semanticNavigation.setProjector((pick) => {
+      const projected = this.#renderer.project(pick.position);
+      return projected === null ? null : { ...projected };
+    });
+    this.#semanticNavigation.setTargets(picks, previousNode);
+    if (linked === undefined) return;
+    const linkable = picks.filter(({ datum }) => {
+      const value = datum[linked.key];
+      return (
+        (typeof value === 'string' && value !== '') ||
+        typeof value === 'boolean' ||
+        (typeof value === 'number' && Number.isFinite(value)) ||
+        (value instanceof Date && Number.isFinite(value.getTime()))
+      );
+    });
+    for (const pick of linkable) {
+      const projected = this.#renderer.project(pick.position);
+      this.#semanticMarks.set(pick.nodeId, {
+        id: pick.nodeId,
+        viewId: this.#semanticViewId,
+        layerId: pick.layerId,
+        rowIndex: pick.datumIndex,
+        role: 'spatial-pick',
+        channels: {},
+        datum: pick.datum as SemanticMark['datum'],
+        lineage: {
+          sourceId: pick.layerId,
+          sourceRowIndices: [pick.datumIndex],
+          truncated: false,
+        },
+        bounds:
+          projected === null
+            ? { x: 0, y: 0, width: 0, height: 0 }
+            : { x: projected.x, y: projected.y, width: 8, height: 8 },
+        visible: projected?.visible ?? false,
+        label: safeText(pick.datum.label ?? `${pick.layerId} ${pick.datumIndex + 1}`),
+      });
+    }
+    const store = this.#focusStore();
+    this.#linkedFocusUnregister = store.registerView(this.#semanticViewId, linked, [
+      ...this.#semanticMarks.values(),
+    ]);
+    this.#linkedFocusUnsubscribe = store.subscribe((change) =>
+      this.#applyLinkedSemanticFocus(change),
+    );
+    this.#applyLinkedSemanticFocus({
+      state: store.state(),
+      reason: 'index',
+    });
+  }
+
+  #applyLinkedSemanticFocus(change: SemanticFocusChange): void {
+    const linked = this.#spec.accessibility?.linkedFocus;
+    if (linked === undefined || change.state.focused?.group !== linked.group) return;
+    const match = change.state.matches.find(({ viewId }) => viewId === this.#semanticViewId);
+    if (match === undefined) {
+      this.#hideSemanticFocus();
+      return;
+    }
+    if (this.#semanticNavigation?.state().activeNodeId === match.semanticId) {
+      this.#semanticNavigation.reproject();
+      return;
+    }
+    this.#applyingLinkedFocus = true;
+    try {
+      this.#semanticNavigation?.focusNode(match.semanticId);
+    } finally {
+      this.#applyingLinkedFocus = false;
+    }
+  }
+
+  #applySemanticFocus(focus: SpatialSemanticFocus | null): void {
+    if (focus === null || focus.screen === null || !focus.screen.visible) {
+      this.#hideSemanticFocus();
+      return;
+    }
+    if (this.#semanticFocusRing === null) {
+      const ring = document.createElement('div');
+      ring.dataset.graflumeSpatialSemanticFocus = 'true';
+      ring.setAttribute('aria-hidden', 'true');
+      ring.style.position = 'absolute';
+      ring.style.zIndex = '19';
+      ring.style.pointerEvents = 'none';
+      ring.style.width = '14px';
+      ring.style.height = '14px';
+      ring.style.border = `3px solid ${this.#scene.theme.colors.focus}`;
+      ring.style.borderRadius = '50%';
+      ring.style.boxShadow = '0 0 0 2px rgba(255,255,255,.9)';
+      this.#wrapper.append(ring);
+      this.#semanticFocusRing = ring;
+    }
+    this.#semanticFocusRing.style.borderColor = this.#scene.theme.colors.focus;
+    this.#semanticFocusRing.style.left = `${this.#plotViewport.x + focus.screen.x - 10}px`;
+    this.#semanticFocusRing.style.top = `${this.#plotViewport.y + focus.screen.y - 10}px`;
+    this.#semanticFocusRing.hidden = false;
+    const rowId = this.#spatialSemanticRowId(focus.pick);
+    this.#renderer.surface().setAttribute('aria-activedescendant', rowId);
+    const hit: SpatialHitResult = {
+      ...focus.pick,
+      screen: {
+        x: focus.screen.x,
+        y: focus.screen.y,
+        depth: focus.screen.depth,
+      },
+    };
+    const surfaceBounds = this.#renderer.surface().getBoundingClientRect();
+    this.#showTooltip(hit, {
+      clientX: surfaceBounds.left + focus.screen.x,
+      clientY: surfaceBounds.top + focus.screen.y,
+    } as PointerEvent);
+    if (
+      !this.#applyingLinkedFocus &&
+      this.#spec.accessibility?.linkedFocus !== undefined &&
+      this.#lastPublishedSemanticId !== focus.pick.nodeId
+    ) {
+      const mark = this.#semanticMarks.get(focus.pick.nodeId);
+      if (mark !== undefined) {
+        this.#lastPublishedSemanticId = focus.pick.nodeId;
+        this.#focusStore().focus(this.#semanticViewId, mark);
+      }
+    }
+  }
+
+  #focusStore(): SemanticFocusStore {
+    return this.#options.focusStore ?? defaultSemanticFocusStore;
+  }
+
+  #activateSemanticFocus(focus: SpatialSemanticFocus): void {
+    if (focus.screen === null) return;
+    this.#applyClickSelection({
+      ...focus.pick,
+      screen: {
+        x: focus.screen.x,
+        y: focus.screen.y,
+        depth: focus.screen.depth,
+      },
+    });
+  }
+
+  #hideSemanticFocus(): void {
+    if (this.#semanticFocusRing !== null) this.#semanticFocusRing.hidden = true;
+    this.#renderer.surface().removeAttribute?.('aria-activedescendant');
+    this.#hideTooltip();
+  }
+
+  #spatialSemanticRowId(pick: Readonly<{ layerIndex: number; datumIndex: number }>): string {
+    return `graflume-spatial-row-${this.#semanticViewId}-${pick.layerIndex}-${pick.datumIndex}`;
   }
 
   #syncAccessibilityDom(): void {
@@ -1964,6 +2252,12 @@ export class SpatialChart {
       const body = document.createElement('tbody');
       for (const pick of picks) {
         const row = document.createElement('tr');
+        row.id = this.#spatialSemanticRowId(pick);
+        row.dataset.graflumeSpatialSemanticId = pick.nodeId;
+        row.setAttribute(
+          'aria-label',
+          safeText(pick.datum.label ?? `${pick.layerId} ${pick.datumIndex + 1}`),
+        );
         for (const field of fields) {
           const cell = document.createElement('td');
           cell.textContent = safeText(pick.datum[field]);

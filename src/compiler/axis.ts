@@ -2,17 +2,20 @@ import { nodeBase } from '../scene/factory.js';
 import type { LineNode, SceneNode, TextNode } from '../scene/types.js';
 import type { Scale, Tick } from '../scale/types.js';
 import type {
+  AxisChannel,
   AxisId,
   AxisPosition,
   NormalizedAxisFontSpec,
   NormalizedAxisSpec,
 } from '../spec/types.js';
+import { axisPositionChannel, builtInAxisChannel, defaultAxisPosition } from '../spec/axes.js';
 import type { ThemeTokens } from '../theme/types.js';
 import { formatAxisTick, truncateAxisLabel } from './axis-format.js';
 import type { PlotArea } from './types.js';
 
 export interface AxisCompileContext {
   readonly id: AxisId;
+  readonly channel?: AxisChannel;
   readonly axis: NormalizedAxisSpec | false;
   readonly scale: Scale;
   readonly plot: PlotArea;
@@ -36,30 +39,26 @@ interface ResolvedTextStyle {
   readonly fontStyle?: 'italic';
 }
 
-function defaultPosition(id: AxisId): AxisPosition {
-  switch (id) {
-    case 'x':
-      return 'bottom';
-    case 'x2':
-      return 'top';
-    case 'y':
-      return 'left';
-    case 'y2':
-      return 'right';
-  }
-}
-
-function channel(id: AxisId): 'x' | 'y' {
-  return id === 'x' || id === 'x2' ? 'x' : 'y';
-}
-
 function position(context: AxisCompileContext): AxisPosition {
-  if (context.axis === false) return defaultPosition(context.id);
+  const axisChannel = channel(context);
+  if (context.axis === false) return defaultAxisPosition(context.id, axisChannel);
   const requested = context.axis.position;
-  if (channel(context.id) === 'x') {
-    return requested === 'top' || requested === 'bottom' ? requested : defaultPosition(context.id);
+  if (axisChannel === 'x') {
+    return requested === 'top' || requested === 'bottom'
+      ? requested
+      : defaultAxisPosition(context.id, axisChannel);
   }
-  return requested === 'left' || requested === 'right' ? requested : defaultPosition(context.id);
+  return requested === 'left' || requested === 'right'
+    ? requested
+    : defaultAxisPosition(context.id, axisChannel);
+}
+
+function channel(context: AxisCompileContext): AxisChannel {
+  return (
+    context.channel ??
+    builtInAxisChannel(context.id) ??
+    (context.axis === false ? 'x' : axisPositionChannel(context.axis.position))
+  );
 }
 
 function mappedFontWeight(
@@ -183,8 +182,9 @@ function explicitTickLabel(value: number | string, scale: Scale, locale?: string
 
 function requestedTickCount(context: AxisCompileContext): number {
   if (context.axis === false) return 0;
-  const length = channel(context.id) === 'x' ? context.plot.width : context.plot.height;
-  const automatic = Math.max(2, Math.floor(length / (channel(context.id) === 'x' ? 96 : 58)));
+  const axisChannel = channel(context);
+  const length = axisChannel === 'x' ? context.plot.width : context.plot.height;
+  const automatic = Math.max(2, Math.floor(length / (axisChannel === 'x' ? 96 : 58)));
   const requested = context.axis.ticks.count ?? automatic;
   if (context.axis.ticks.spacing <= 0) return Math.max(1, requested);
   return Math.max(1, Math.min(requested, Math.floor(length / context.axis.ticks.spacing)));
@@ -210,9 +210,9 @@ function resolveTicks(context: AxisCompileContext): readonly ResolvedTick[] {
       ? context.scale.ticks(requestedTickCount(context), context.locale)
       : configuredValues.flatMap((value) => {
           const mapped = context.scale.map(value);
-          const minimum = channel(context.id) === 'x' ? context.plot.x : context.plot.y;
+          const minimum = channel(context) === 'x' ? context.plot.x : context.plot.y;
           const maximum =
-            minimum + (channel(context.id) === 'x' ? context.plot.width : context.plot.height);
+            minimum + (channel(context) === 'x' ? context.plot.width : context.plot.height);
           return Number.isFinite(mapped) && mapped >= minimum - 0.5 && mapped <= maximum + 0.5
             ? [
                 {
@@ -243,7 +243,7 @@ function labelAngle(context: AxisCompileContext, ticks: readonly ResolvedTick[])
     case 'vertical-down':
       return 90;
     case 'auto':
-      return channel(context.id) === 'x' && context.scale.kind === 'band' && ticks.length > 10
+      return channel(context) === 'x' && context.scale.kind === 'band' && ticks.length > 10
         ? -35
         : 0;
   }
@@ -261,7 +261,7 @@ function labelAlign(
   if (context.axis === false) return 'center';
   const configured = explicitAlign(context.axis.labels.align);
   if (configured !== null) return configured;
-  if (channel(context.id) === 'x') {
+  if (channel(context) === 'x') {
     if (angle === 0) return 'center';
     const startsOutward =
       (axisPosition === 'bottom' && angle > 0) || (axisPosition === 'top' && angle < 0);
@@ -274,7 +274,7 @@ function labelAlign(
 function titleAlign(context: AxisCompileContext, angle: number): CanvasTextAlign {
   if (context.axis === false) return 'center';
   const align = context.axis.title.align;
-  if (channel(context.id) !== 'y' || angle >= 0 || align === 'center') return align;
+  if (channel(context) !== 'y' || angle >= 0 || align === 'center') return align;
   return align === 'start' ? 'end' : 'start';
 }
 
@@ -340,9 +340,8 @@ function minorGridPositions(
     const next = positions[index + 1];
     if (next === undefined || next <= tickPosition) return [];
     const midpoint = tickPosition + (next - tickPosition) / 2;
-    const minimum = channel(context.id) === 'x' ? context.plot.x : context.plot.y;
-    const maximum =
-      minimum + (channel(context.id) === 'x' ? context.plot.width : context.plot.height);
+    const minimum = channel(context) === 'x' ? context.plot.x : context.plot.y;
+    const maximum = minimum + (channel(context) === 'x' ? context.plot.width : context.plot.height);
     return midpoint > minimum && midpoint < maximum ? [midpoint] : [];
   });
 }
@@ -355,7 +354,7 @@ function resolvedTitlePadding(
   const axis = context.axis;
   if (axis === false || axis.title.themeGap === undefined)
     return axis === false ? 0 : axis.title.padding;
-  const axisChannel = channel(context.id);
+  const axisChannel = channel(context);
   const tickSize = axis.ticks.visible ? (axis.ticks.size ?? context.theme.axis.tickLength) : 0;
   let labelExtent = 0;
   if (axis.labels.visible && ticks.length > 0) {
@@ -390,7 +389,7 @@ export function compileAxis(context: AxisCompileContext): readonly SceneNode[] {
   if (axis === false || axis.visible === false) return [];
 
   const nodes: SceneNode[] = [];
-  const axisChannel = channel(context.id);
+  const axisChannel = channel(context);
   const axisPosition = position(context);
   const coordinate = axisCoordinate(plot, axisPosition, axis.offset);
   const sign = outwardSign(axisPosition);
@@ -698,7 +697,7 @@ function usesLegacyPrimaryGutter(context: AxisCompileContext): boolean {
 export function measureAxisGutter(context: AxisCompileContext): number {
   const { axis, theme } = context;
   if (axis === false || axis.visible === false) return 0;
-  const axisChannel = channel(context.id);
+  const axisChannel = channel(context);
   let required = measureAxisLabelGutter(context);
 
   const resolvedTitle = titleText(context);
@@ -739,7 +738,7 @@ export function measureAxisGutter(context: AxisCompileContext): number {
 export function measureAxisLabelGutter(context: AxisCompileContext): number {
   const { axis, theme } = context;
   if (axis === false || axis.visible === false) return 0;
-  const axisChannel = channel(context.id);
+  const axisChannel = channel(context);
   const ticks = resolveTicks(context);
   const angle = labelAngle(context, ticks);
   const tickSize = axis.ticks.visible ? (axis.ticks.size ?? theme.axis.tickLength) : 0;

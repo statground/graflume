@@ -1,7 +1,12 @@
-import { compileWithRegistry, type CompileResult } from '../compiler/compile.js';
+import {
+  compileWithRegistry,
+  type CompileCoordinateView,
+  type CompileResult,
+} from '../compiler/compile.js';
 import { GraflumeError } from '../core/errors.js';
 import { EventEmitter } from '../core/events.js';
 import { DataTable } from '../data/table.js';
+import { moveTableCell, nextPieSlice } from '../data/family-layouts.js';
 import {
   IncrementalDataStore,
   incrementalContractsMatch,
@@ -9,6 +14,14 @@ import {
   type IncrementalReplay,
   type IncrementalUpdate,
 } from '../data/incremental.js';
+import {
+  IncrementalStreamRuntime,
+  type IncrementalStreamRuntimeState,
+  type StreamEnqueueOptions,
+  type StreamFrameScheduler,
+  type StreamHistoryPage,
+} from '../data/stream-runtime.js';
+import { AutomaticWorkerRuntime, type WorkerRuntimeFactory } from '../data/worker-runtime.js';
 import { hitTestAxisTooltip } from '../interaction/axis-hit-test.js';
 import {
   AnalyticSelectionStore,
@@ -19,8 +32,22 @@ import {
   type AnalyticSelectionState,
   type AnalyticSelectionUpdate,
 } from '../interaction/analytic-selection.js';
+import {
+  addAnalyticKeyboardVertex,
+  completeAnalyticKeyboardSelection,
+  moveAnalyticKeyboardGesture,
+  previewAnalyticKeyboardSelection,
+  startAnalyticKeyboardGesture,
+  type AnalyticKeyboardGesture,
+} from '../interaction/analytic-keyboard.js';
 import { AccessibilityMirrorController } from '../interaction/accessibility.js';
 import {
+  defaultSemanticFocusStore,
+  type SemanticFocusChange,
+  type SemanticFocusStore,
+} from '../interaction/semantic-focus-store.js';
+import {
+  cartesianAxisChannel,
   domainToPixel as mapDomainToPixel,
   pixelToDomain as mapPixelToDomain,
   pixelAxisToSelection,
@@ -36,7 +63,65 @@ import {
   type ControlsState,
 } from '../interaction/controls.js';
 import { hitTestScene, type HitResult } from '../interaction/hit-test.js';
+import {
+  flowRuntimeOptions,
+  networkRuntimeOptions,
+  normalizeFlowRuntimeState,
+  normalizeNetworkRuntimeState,
+  normalizeTableRuntimeState,
+  tableRuntimeOptions,
+  type ChartFlowRuntimeState,
+  type ChartNetworkRuntimeState,
+  type ChartRuntimeNodePosition,
+  type ChartTableFilter,
+  type ChartTableGroup,
+  type ChartTablePivot,
+  type ChartTableRuntimeState,
+  type ChartTableSort,
+} from '../interaction/family-runtime.js';
+import {
+  heatmapRuntimeOptions,
+  hierarchyRuntimeOptions,
+  invertParallelAxis as invertParallelAxisState,
+  navigatorRuntimeOptions,
+  normalizeHeatmapRuntimeState,
+  normalizeHierarchyRuntimeState,
+  normalizeNavigatorRuntimeState,
+  normalizeParallelRuntimeState,
+  normalizeScatterMatrixRuntimeState,
+  parallelRuntimeOptions,
+  reorderParallelAxis as reorderParallelAxisState,
+  scatterMatrixPointerBrush,
+  scatterMatrixRuntimeOptions,
+  selectScatterMatrixRows,
+  setParallelBrushExtents,
+  translateNavigatorWindow,
+  type ChartHeatmapRuntimeState,
+  type ChartHierarchyRuntimeState,
+  type ChartNavigatorFamily,
+  type ChartNavigatorRuntimeState,
+  type ChartParallelAxisRuntimeState,
+  type ChartParallelRuntimeState,
+  type ChartScatterMatrixRuntimeState,
+  type HeatmapCellInteraction,
+  type NavigatorWindowInteraction,
+  type ScatterMatrixCellInteraction,
+} from '../interaction/advanced-family-runtime.js';
 import { LegendController } from '../interaction/legend.js';
+import {
+  AnnotationAuthoringHistory,
+  editAnnotationByKeyboard,
+  editAnnotationByPointer,
+  hitTestAnnotationHandle,
+  type AnnotationResizeHandle,
+} from '../interaction/annotation-authoring.js';
+import {
+  MarkLabelHistory,
+  cloneMarkLabelPositions,
+  hitTestMarkLabel,
+  setMarkLabelOffset,
+  snapMarkLabelOffset,
+} from '../interaction/mark-label-authoring.js';
 import {
   constrainInspectionView,
   identityInspectionView,
@@ -55,7 +140,18 @@ import {
   zoomDomainAtPixel,
   type DomainViewState,
 } from '../interaction/domain-navigation.js';
-import { collectPlaybackFrames, playbackSpec } from '../interaction/playback.js';
+import type {
+  LinkedViewStateChange,
+  LinkedViewStateStore,
+} from '../interaction/linked-view-store.js';
+import {
+  collectPlaybackFrames,
+  playbackFrameKey,
+  playbackSpec,
+  resolvePlaybackTimeline,
+  type ResolvedPlaybackNamedFrame,
+  type ResolvedPlaybackRange,
+} from '../interaction/playback.js';
 import { resolveTooltipContent, TooltipController } from '../interaction/tooltip.js';
 import type { Renderer } from '../renderer/types.js';
 import { easeSceneProgress, interpolateScene } from '../scene/interpolate.js';
@@ -69,15 +165,31 @@ import type {
   DataValue,
   DatumTargetSpec,
   DecorationTargetSpec,
+  MarkLabelPositionSpec,
+  MarkInput,
   NormalizedChartSpec,
   NormalizedNavigationSpec,
   NormalizedDomainNavigationSpec,
+  NormalizedMarkLabelAuthoringSpec,
   NormalizedPlaybackSpec,
   NormalizedSelectionSpec,
+  PlaybackDirection,
+  PlaybackFrameReference,
   PlaybackMode,
+  PlaybackRangeSpec,
   PlaybackTransitionEasing,
+  TransformSpec,
 } from '../spec/types.js';
-import type { Scene } from '../scene/types.js';
+import type {
+  AnnotationSceneEntry,
+  DatumReference,
+  FamilyDatumInteraction,
+  MarkLabelSceneEntry,
+  Point,
+  Rect,
+  Scene,
+  SceneNode,
+} from '../scene/types.js';
 import { toAccessibleRows, type AccessibleRow, type SemanticMark } from '../scene/semantic.js';
 import type { RuntimeRegistry } from './registry.js';
 import { RenderScheduler } from './scheduler.js';
@@ -89,6 +201,14 @@ export interface ChartCreateOptions {
   readonly width?: number;
   readonly height?: number;
   readonly pixelRatio?: number;
+  /** Runtime-only focus store; authored linkedFocus remains function-free. */
+  readonly focusStore?: SemanticFocusStore;
+  /** Injectable frame scheduler for deterministic streaming tests or host coordination. */
+  readonly streamScheduler?: StreamFrameScheduler;
+  /** Injectable Worker construction boundary; omitted in ordinary browsers. */
+  readonly workerFactory?: WorkerRuntimeFactory;
+  /** Runtime-only shared analytic selection and domain state. */
+  readonly linkedViewStore?: LinkedViewStateStore;
 }
 
 export interface ChartRenderEvent {
@@ -137,15 +257,43 @@ export interface ChartPlaybackState {
   readonly rate: number;
   readonly loop: boolean;
   readonly mode: PlaybackMode;
+  readonly direction: PlaybackDirection;
+  readonly range?: ChartPlaybackRangeState;
+  readonly namedFrames: readonly ChartPlaybackNamedFrameState[];
+  readonly name?: string;
+  /** Human-facing named-frame label, falling back to the formatted frame value. */
+  readonly label: string;
 }
 
 export type ChartPlaybackChangeReason =
-  'play' | 'pause' | 'step' | 'seek' | 'rate' | 'loop' | 'spec';
+  'play' | 'pause' | 'step' | 'seek' | 'rate' | 'loop' | 'direction' | 'range' | 'spec';
+
+export interface ChartPlaybackNamedFrameState {
+  readonly name: string;
+  readonly value: string | number | boolean;
+  readonly index: number;
+}
+
+export interface ChartPlaybackRangeState {
+  readonly start: number;
+  readonly end: number;
+  readonly startFrame: DataValue;
+  readonly endFrame: DataValue;
+}
 
 export interface ChartPlaybackChangeEvent {
   readonly chart: Chart;
   readonly state: ChartPlaybackState;
   readonly reason: ChartPlaybackChangeReason;
+}
+
+/** Renderer-neutral frame landmark event suitable for host accessibility announcements. */
+export interface ChartPlaybackFrameChangeEvent {
+  readonly chart: Chart;
+  readonly state: ChartPlaybackState;
+  readonly reason: 'step' | 'seek' | 'range' | 'spec';
+  readonly previousIndex?: number;
+  readonly label: string;
 }
 
 export interface ChartFullscreenChangeEvent {
@@ -181,7 +329,7 @@ export interface ChartSelectionState {
   readonly items: readonly DatumTargetSpec[];
 }
 
-export type ChartSelectionChangeReason = 'click' | 'programmatic' | 'clear' | 'spec';
+export type ChartSelectionChangeReason = 'click' | 'keyboard' | 'programmatic' | 'clear' | 'spec';
 
 export interface ChartSelectionChangeEvent {
   readonly chart: Chart;
@@ -189,7 +337,8 @@ export interface ChartSelectionChangeEvent {
   readonly reason: ChartSelectionChangeReason;
 }
 
-export type ChartAnalyticSelectionChangeReason = 'pointer' | 'programmatic' | 'clear' | 'spec';
+export type ChartAnalyticSelectionChangeReason =
+  'pointer' | 'keyboard' | 'linked' | 'programmatic' | 'clear' | 'spec';
 
 export interface ChartAnalyticSelectionChangeEvent {
   readonly chart: Chart;
@@ -197,7 +346,8 @@ export interface ChartAnalyticSelectionChangeEvent {
   readonly reason: ChartAnalyticSelectionChangeReason;
 }
 
-export type ChartDomainViewChangeReason = 'zoom' | 'pan' | 'reset' | 'programmatic' | 'spec';
+export type ChartDomainViewChangeReason =
+  'zoom' | 'pan' | 'reset' | 'linked' | 'programmatic' | 'spec';
 
 export interface ChartDomainViewChangeEvent {
   readonly chart: Chart;
@@ -213,13 +363,31 @@ export interface ChartAccessibilityState {
   readonly focusedId?: string;
 }
 
-export type ChartAnnotationChangeReason = 'set' | 'add' | 'update' | 'remove' | 'spec';
+export type ChartAnnotationChangeReason =
+  | 'set'
+  | 'add'
+  | 'update'
+  | 'remove'
+  | 'pointer'
+  | 'keyboard'
+  | 'undo'
+  | 'redo'
+  | 'select'
+  | 'spec';
 
 export interface ChartAnnotationChangeEvent {
   readonly chart: Chart;
   readonly annotations: readonly AnnotationSpec[];
   readonly reason: ChartAnnotationChangeReason;
   readonly id?: string;
+}
+
+export interface ChartAnnotationAuthoringState {
+  readonly annotations: readonly AnnotationSpec[];
+  readonly handles: readonly AnnotationSceneEntry[];
+  readonly canUndo: boolean;
+  readonly canRedo: boolean;
+  readonly activeId?: string;
 }
 
 export type ChartAnnotationVisibilityChangeReason = 'toggle' | 'programmatic' | 'spec';
@@ -230,6 +398,99 @@ export interface ChartAnnotationVisibilityChangeEvent {
   readonly reason: ChartAnnotationVisibilityChangeReason;
 }
 
+export interface ChartMarkLabelState {
+  readonly enabled: boolean;
+  readonly authoring: boolean;
+  readonly labels: readonly MarkLabelSceneEntry[];
+  readonly positions: readonly MarkLabelPositionSpec[];
+  readonly canUndo: boolean;
+  readonly canRedo: boolean;
+  readonly activeId?: string;
+}
+
+export type ChartMarkLabelChangeReason =
+  'set' | 'programmatic' | 'pointer' | 'keyboard' | 'undo' | 'redo' | 'reset' | 'select' | 'spec';
+
+export interface ChartMarkLabelChangeEvent {
+  readonly chart: Chart;
+  readonly state: ChartMarkLabelState;
+  readonly reason: ChartMarkLabelChangeReason;
+  readonly id?: string;
+}
+
+export type ChartFamilyFocusState =
+  | { readonly kind: 'pie-slice'; readonly layerId: string; readonly id: string }
+  | {
+      readonly kind: 'table-cell';
+      readonly layerId: string;
+      readonly row: number;
+      readonly column: number;
+      readonly field: string;
+    };
+
+export interface ChartFamilyFocusChangeEvent {
+  readonly chart: Chart;
+  readonly state: ChartFamilyFocusState | null;
+  readonly reason: 'pointer' | 'keyboard' | 'programmatic' | 'clear' | 'spec';
+}
+
+export interface ChartTableChangeEvent {
+  readonly chart: Chart;
+  readonly layerId: string;
+  readonly state: ChartTableRuntimeState;
+  readonly reason: 'pointer' | 'keyboard' | 'programmatic' | 'reset' | 'spec';
+}
+
+export interface ChartNetworkChangeEvent {
+  readonly chart: Chart;
+  readonly layerId: string;
+  readonly state: ChartNetworkRuntimeState;
+  readonly reason: 'pointer' | 'programmatic' | 'reset' | 'spec';
+}
+
+export interface ChartFlowChangeEvent {
+  readonly chart: Chart;
+  readonly layerId: string;
+  readonly state: ChartFlowRuntimeState;
+  readonly reason: 'pointer' | 'programmatic' | 'reset' | 'spec';
+}
+
+export interface ChartNavigatorChangeEvent {
+  readonly chart: Chart;
+  readonly layerId: string;
+  readonly family: ChartNavigatorFamily;
+  readonly state: ChartNavigatorRuntimeState;
+  readonly reason: 'pointer' | 'programmatic' | 'reset' | 'spec';
+}
+
+export interface ChartHierarchyChangeEvent {
+  readonly chart: Chart;
+  readonly layerId: string;
+  readonly state: ChartHierarchyRuntimeState;
+  readonly reason: 'pointer' | 'programmatic' | 'reset' | 'spec';
+}
+
+export interface ChartParallelChangeEvent {
+  readonly chart: Chart;
+  readonly layerId: string;
+  readonly state: ChartParallelRuntimeState;
+  readonly reason: 'pointer' | 'programmatic' | 'reset' | 'spec';
+}
+
+export interface ChartHeatmapChangeEvent {
+  readonly chart: Chart;
+  readonly layerId: string;
+  readonly state: ChartHeatmapRuntimeState;
+  readonly reason: 'pointer' | 'programmatic' | 'reset' | 'spec';
+}
+
+export interface ChartScatterMatrixChangeEvent {
+  readonly chart: Chart;
+  readonly layerId: string;
+  readonly state: ChartScatterMatrixRuntimeState;
+  readonly reason: 'pointer' | 'programmatic' | 'reset' | 'spec';
+}
+
 export interface ChartEventMap {
   readonly render: ChartRenderEvent;
   readonly hover: ChartPointerEvent;
@@ -237,6 +498,7 @@ export interface ChartEventMap {
   readonly resize: ChartResizeEvent;
   readonly viewchange: ChartViewChangeEvent;
   readonly playbackchange: ChartPlaybackChangeEvent;
+  readonly playbackframechange: ChartPlaybackFrameChangeEvent;
   readonly fullscreenchange: ChartFullscreenChangeEvent;
   readonly legendchange: ChartLegendChangeEvent;
   readonly selectionchange: ChartSelectionChangeEvent;
@@ -244,6 +506,16 @@ export interface ChartEventMap {
   readonly domainviewchange: ChartDomainViewChangeEvent;
   readonly annotationchange: ChartAnnotationChangeEvent;
   readonly annotationvisibilitychange: ChartAnnotationVisibilityChangeEvent;
+  readonly marklabelchange: ChartMarkLabelChangeEvent;
+  readonly familyfocuschange: ChartFamilyFocusChangeEvent;
+  readonly tablechange: ChartTableChangeEvent;
+  readonly networkchange: ChartNetworkChangeEvent;
+  readonly flowchange: ChartFlowChangeEvent;
+  readonly navigatorchange: ChartNavigatorChangeEvent;
+  readonly hierarchychange: ChartHierarchyChangeEvent;
+  readonly parallelchange: ChartParallelChangeEvent;
+  readonly heatmapchange: ChartHeatmapChangeEvent;
+  readonly scattermatrixchange: ChartScatterMatrixChangeEvent;
   readonly error: ChartErrorEvent;
 }
 
@@ -259,6 +531,7 @@ interface PinchStart {
 
 interface AnalyticPointerGesture {
   readonly pointerId: number;
+  readonly viewId: string;
   readonly start: PixelPoint;
   current: PixelPoint;
   readonly points: PixelPoint[];
@@ -266,7 +539,105 @@ interface AnalyticPointerGesture {
 
 interface DomainPointerGesture {
   readonly pointerId: number;
+  readonly viewId: string;
   previous: PixelPoint;
+}
+
+interface ActiveAnalyticKeyboardGesture {
+  readonly viewId: string;
+  readonly gesture: AnalyticKeyboardGesture;
+}
+
+interface MarkLabelPointerGesture {
+  readonly pointerId: number;
+  readonly id: string;
+  readonly target: MarkLabelPositionSpec['target'];
+  readonly start: PixelPoint;
+  readonly startOffsetX: number;
+  readonly startOffsetY: number;
+  readonly entry: MarkLabelSceneEntry;
+  readonly entries: readonly MarkLabelSceneEntry[];
+  readonly plot: import('../scene/types.js').Rect;
+  readonly previous: readonly MarkLabelPositionSpec[];
+}
+
+interface AnnotationPointerGesture {
+  readonly pointerId: number;
+  readonly id: string;
+  readonly handle: AnnotationResizeHandle;
+  readonly start: PixelPoint;
+  readonly bounds: import('../scene/types.js').Rect;
+  readonly annotation: AnnotationSpec;
+  readonly previous: readonly AnnotationSpec[];
+}
+
+interface FamilyNodePointerGesture {
+  readonly kind: 'network-node' | 'flow-node';
+  readonly pointerId: number;
+  readonly layerId: string;
+  readonly id: string;
+  readonly plot: Rect;
+  readonly start: Point;
+  readonly previousNetwork?: ChartNetworkRuntimeState;
+  readonly previousFlow?: ChartFlowRuntimeState;
+}
+
+interface FamilyNetworkLassoGesture {
+  readonly kind: 'network-lasso';
+  readonly pointerId: number;
+  readonly layerId: string;
+  readonly plot: Rect;
+  readonly points: Point[];
+  readonly previous: ChartNetworkRuntimeState;
+}
+
+interface FamilyNavigatorGesture {
+  readonly kind: 'navigator-window';
+  readonly pointerId: number;
+  readonly layerId: string;
+  readonly interaction: NavigatorWindowInteraction;
+  readonly start: Point;
+  readonly previous: ChartNavigatorRuntimeState;
+}
+
+interface FamilyParallelBrushGesture {
+  readonly kind: 'parallel-brush';
+  readonly pointerId: number;
+  readonly layerId: string;
+  readonly field: string;
+  readonly plot: Rect;
+  readonly start: Point;
+  readonly previous: ChartParallelRuntimeState;
+}
+
+interface FamilyHeatmapBrushGesture {
+  readonly kind: 'heatmap-brush';
+  readonly pointerId: number;
+  readonly layerId: string;
+  readonly start: HeatmapCellInteraction;
+  readonly previous: ChartHeatmapRuntimeState;
+}
+
+interface FamilyScatterMatrixBrushGesture {
+  readonly kind: 'scatter-matrix-brush';
+  readonly pointerId: number;
+  readonly layerId: string;
+  readonly interaction: ScatterMatrixCellInteraction;
+  readonly start: Point;
+  readonly previous: ChartScatterMatrixRuntimeState | null;
+}
+
+type FamilyPointerGesture =
+  | FamilyNodePointerGesture
+  | FamilyNetworkLassoGesture
+  | FamilyNavigatorGesture
+  | FamilyParallelBrushGesture
+  | FamilyHeatmapBrushGesture
+  | FamilyScatterMatrixBrushGesture;
+
+interface FamilySceneEntry extends DatumReference {
+  readonly nodeId: string;
+  readonly familyInteraction: FamilyDatumInteraction;
 }
 
 interface ActiveSceneTransition {
@@ -280,6 +651,7 @@ interface ActiveSceneTransition {
 }
 
 const PLAYBACK_TRANSITION_INTERVAL_GAP = 1;
+let canvasSemanticViewSequence = 0;
 
 function effectivePlaybackTransitionDuration(playback: NormalizedPlaybackSpec): number {
   if (playback.transition === false) return 0;
@@ -334,9 +706,10 @@ function pointCenter(left: InspectionViewPoint, right: InspectionViewPoint): Ins
   return { x: (left.x + right.x) / 2, y: (left.y + right.y) / 2 };
 }
 
-function frameKey(value: DataValue): string {
-  if (value instanceof Date) return `date:${value.getTime()}`;
-  return `${typeof value}:${String(value)}`;
+function formatPlaybackFrame(value: DataValue): string {
+  if (value instanceof Date) return value.toISOString();
+  if (Array.isArray(value)) return value.map(String).join(', ');
+  return String(value ?? '');
 }
 
 function configuredFrame(spec: ChartSpec): DataValue | undefined {
@@ -391,6 +764,119 @@ function cloneAnnotation(annotation: AnnotationSpec): AnnotationSpec {
   };
 }
 
+function markWithOptions(
+  mark: MarkInput,
+  options: Readonly<Record<string, import('../spec/types.js').JsonValue>>,
+): MarkInput {
+  return typeof mark === 'string'
+    ? { type: mark, options }
+    : { ...mark, options: { ...mark.options, ...options } };
+}
+
+function cloneTableRuntimeState(state: ChartTableRuntimeState): ChartTableRuntimeState {
+  return {
+    filters: state.filters.map((filter) => ({ ...filter })),
+    sort: state.sort.map((sort) => ({ ...sort })),
+    group:
+      state.group === null
+        ? null
+        : {
+            fields: [...state.group.fields],
+            aggregates: state.group.aggregates.map((aggregate) => ({ ...aggregate })),
+          },
+    pivot: state.pivot === null ? null : { ...state.pivot },
+    windowOffset: state.windowOffset,
+    windowLimit: state.windowLimit,
+    columnOffset: state.columnOffset,
+    columnLimit: state.columnLimit,
+  };
+}
+
+function cloneNetworkRuntimeState(state: ChartNetworkRuntimeState): ChartNetworkRuntimeState {
+  return {
+    positions: Object.fromEntries(
+      Object.entries(state.positions).map(([id, position]) => [id, { ...position }]),
+    ),
+    collapsed: [...state.collapsed],
+    lasso: state.lasso.map((point) => ({ ...point })),
+  };
+}
+
+function cloneFlowRuntimeState(state: ChartFlowRuntimeState): ChartFlowRuntimeState {
+  return {
+    positions: Object.fromEntries(
+      Object.entries(state.positions).map(([id, position]) => [id, { ...position }]),
+    ),
+  };
+}
+
+function cloneNavigatorRuntimeState(state: ChartNavigatorRuntimeState): ChartNavigatorRuntimeState {
+  return { ...state };
+}
+
+function cloneHierarchyRuntimeState(state: ChartHierarchyRuntimeState): ChartHierarchyRuntimeState {
+  return { ...state, collapsed: [...state.collapsed] };
+}
+
+function cloneParallelRuntimeState(state: ChartParallelRuntimeState): ChartParallelRuntimeState {
+  return {
+    axes: state.axes.map((axis) => ({
+      ...axis,
+      ...(axis.domain === undefined ? {} : { domain: [...axis.domain] }),
+    })),
+    brushes: state.brushes.map((brush) => ({
+      field: brush.field,
+      extents: brush.extents.map((extent) => [...extent] as const),
+    })),
+    combine: state.combine,
+  };
+}
+
+function cloneHeatmapRuntimeState(state: ChartHeatmapRuntimeState): ChartHeatmapRuntimeState {
+  return {
+    rows: [...state.rows],
+    columns: [...state.columns],
+    ...(state.value === undefined ? {} : { value: [...state.value] as const }),
+  };
+}
+
+function cloneScatterMatrixRuntimeState(
+  state: ChartScatterMatrixRuntimeState,
+): ChartScatterMatrixRuntimeState {
+  return {
+    ...state,
+    x: [...state.x] as const,
+    y: [...state.y] as const,
+    selectedRows: [...state.selectedRows],
+  };
+}
+
+function familySceneEntries(root: SceneNode): readonly FamilySceneEntry[] {
+  const entries: FamilySceneEntry[] = [];
+  const visit = (node: SceneNode): void => {
+    if (node.type === 'group') {
+      node.children.forEach(visit);
+      return;
+    }
+    if (node.datum?.familyInteraction !== undefined) {
+      entries.push({
+        ...node.datum,
+        nodeId: node.id,
+        familyInteraction: node.datum.familyInteraction,
+      });
+    }
+  };
+  visit(root);
+  return entries;
+}
+
+function normalizedPoint(point: Point, plot: Rect): Point {
+  return {
+    x: Math.max(0, Math.min(1, (point.x - plot.x) / Math.max(1, plot.width))),
+    y: Math.max(0, Math.min(1, (point.y - plot.y) / Math.max(1, plot.height))),
+  };
+}
+
 function annotationId(annotation: AnnotationSpec, index: number): string {
   return annotation.id ?? `annotation-${index}`;
 }
@@ -423,6 +909,8 @@ export class Chart {
   readonly #options: ChartCreateOptions;
   readonly #activePointers = new Map<number, ActivePointer>();
   readonly #incrementalStores = new Map<string, IncrementalDataStore>();
+  readonly #streamRuntimes = new Map<string, IncrementalStreamRuntime>();
+  readonly #semanticViewId: string;
   #spec: ChartSpec;
   #renderer: Renderer | null = null;
   #rendererName: string | null = null;
@@ -436,6 +924,7 @@ export class Chart {
   #surfaceTouchAction: string | null = null;
   #surfaceTabIndex: string | null = null;
   #surfaceCursor: string | null = null;
+  #surfaceAriaKeyShortcuts: string | null = null;
   #view: InspectionViewState = identityInspectionView;
   #dragPrevious: InspectionViewPoint | null = null;
   #pinchStart: PinchStart | null = null;
@@ -446,6 +935,9 @@ export class Chart {
   #playbackIndex = 0;
   #playbackRate = 1;
   #playbackLoop = false;
+  #playbackDirection: PlaybackDirection = 'forward';
+  #playbackRange: ResolvedPlaybackRange = { start: 0, end: -1 };
+  #playbackNamedFrames: readonly ResolvedPlaybackNamedFrame[] = [];
   #playing = false;
   #playbackCancel: (() => void) | null = null;
   #playbackTimestamp: number | null = null;
@@ -458,17 +950,50 @@ export class Chart {
   readonly #analyticSelection = new AnalyticSelectionStore();
   #domainView: DomainViewState = emptyDomainViewState();
   #analyticGesture: AnalyticPointerGesture | null = null;
+  #analyticKeyboardGesture: ActiveAnalyticKeyboardGesture | null = null;
   #domainGesture: DomainPointerGesture | null = null;
   #annotations: AnnotationSpec[] = [];
   #annotationsVisible = true;
+  readonly #annotationHistory = new AnnotationAuthoringHistory();
+  #activeAnnotationId: string | null = null;
+  #annotationGesture: AnnotationPointerGesture | null = null;
+  readonly #markLabels = new MarkLabelHistory();
+  #activeMarkLabelId: string | null = null;
+  #markLabelGesture: MarkLabelPointerGesture | null = null;
+  readonly #tableRuntime = new Map<string, ChartTableRuntimeState>();
+  readonly #networkRuntime = new Map<string, ChartNetworkRuntimeState>();
+  readonly #flowRuntime = new Map<string, ChartFlowRuntimeState>();
+  readonly #navigatorRuntime = new Map<
+    string,
+    { readonly family: ChartNavigatorFamily; readonly state: ChartNavigatorRuntimeState }
+  >();
+  readonly #hierarchyRuntime = new Map<string, ChartHierarchyRuntimeState>();
+  readonly #parallelRuntime = new Map<string, ChartParallelRuntimeState>();
+  readonly #heatmapRuntime = new Map<string, ChartHeatmapRuntimeState>();
+  readonly #scatterMatrixRuntime = new Map<string, ChartScatterMatrixRuntimeState>();
+  #familyFocus: ChartFamilyFocusState | null = null;
+  #familyGesture: FamilyPointerGesture | null = null;
+  #technicalCrosshairValue: number | string | null = null;
+  #markLabelLive: HTMLDivElement | null = null;
+  #markLabelLiveHost: HTMLElement | null = null;
   #selectionLive: HTMLDivElement | null = null;
   #selectionLiveHost: HTMLElement | null = null;
   #selectionLiveTimer: ReturnType<typeof setTimeout> | null = null;
   #selectionLiveUpdatedAt = 0;
+  #linkedFocusUnregister: (() => void) | null = null;
+  #linkedFocusUnsubscribe: (() => void) | null = null;
+  #applyingLinkedFocus = false;
+  #linkedViewUnregister: (() => void) | null = null;
+  #applyingLinkedViewState = false;
+  #lastPublishedSemanticId: string | null = null;
+  #preserveStreamRuntimes = false;
+  #workerRuntime: AutomaticWorkerRuntime | null = null;
 
   readonly #pointerMoveListener = (event: Event): void => {
     if (!(event instanceof PointerEvent)) return;
+    const crosshairChanged = this.#updateTechnicalCrosshair(event, false);
     const navigating = this.#handlePointerMove(event);
+    if (crosshairChanged && !navigating) this.render();
     if (!navigating && this.#result?.spec.interaction.hover !== false) {
       this.#emitPointer('hover', event);
     }
@@ -485,6 +1010,7 @@ export class Chart {
   readonly #pointerCancelListener = (event: Event): void => {
     if (!(event instanceof PointerEvent)) return;
     this.#handlePointerEnd(event, true);
+    this.#clearTechnicalCrosshair();
     this.#tooltip.hide();
     if (this.#result?.spec.interaction.hover !== false) {
       this.#events.emit('hover', { chart: this, hit: null, sourceEvent: event });
@@ -505,6 +1031,7 @@ export class Chart {
 
   readonly #pointerLeaveListener = (event: Event): void => {
     if (!(event instanceof PointerEvent)) return;
+    this.#clearTechnicalCrosshair();
     this.#tooltip.hide();
     if (this.#result?.spec.interaction.hover !== false) {
       this.#events.emit('hover', { chart: this, hit: null, sourceEvent: event });
@@ -550,6 +1077,8 @@ export class Chart {
     options: ChartCreateOptions = {},
   ) {
     this.#target = resolveTarget(target);
+    canvasSemanticViewSequence += 1;
+    this.#semanticViewId = `canvas-view-${canvasSemanticViewSequence}`;
     this.#spec = spec;
     this.#registry = registry;
     this.#options = options;
@@ -560,10 +1089,31 @@ export class Chart {
       ...cloneAnnotation(annotation),
       id: annotationId(annotation, index),
     }));
+    this.#annotationHistory.reset(this.#annotations);
+    this.#resetMarkLabels(normalized);
     this.#configureInteraction(normalized, true);
+    const linkedState = options.linkedViewStore?.get();
+    if (linkedState !== undefined) {
+      this.#analyticSelection.set(linkedState.analyticSelection);
+      this.#domainView = linkedState.domainView;
+      if (
+        normalized.interaction.selection !== false &&
+        normalized.interaction.selection.kind === 'point'
+      ) {
+        this.#selection = linkedState.analyticSelection.selections.flatMap((candidate) =>
+          candidate.type === 'point' && candidate.target !== undefined
+            ? [cloneDatumTarget(candidate.target)]
+            : [],
+        );
+      }
+    }
     try {
       this.#configureEnvironmentListeners();
       this.render();
+      this.#linkedViewUnregister =
+        options.linkedViewStore?.register(this.#semanticViewId, (change) =>
+          this.#applyLinkedViewState(change),
+        ) ?? null;
       this.#configureResizeObserver();
       this.#startAutoplay();
     } catch (error) {
@@ -596,18 +1146,67 @@ export class Chart {
     return this.#result?.scene ?? null;
   }
 
-  domainToPixel(axis: AxisId, value: number | string | Date): number {
+  domainToPixel(axis: AxisId, value: number | string | Date, viewId?: string): number {
     this.#assertAlive();
-    const result = this.#result;
-    if (result === null) throw new GraflumeError('INVALID_SPEC', 'The chart is not rendered.');
-    return mapDomainToPixel(result.coordinates, axis, value);
+    const view = this.#coordinateView(viewId);
+    const pixel = mapDomainToPixel(view.coordinates, axis, value);
+    return (
+      pixel + (cartesianAxisChannel(view.coordinates, axis) === 'x' ? view.offsetX : view.offsetY)
+    );
   }
 
-  pixelToDomain(axis: AxisId, pixel: number): number | string {
+  pixelToDomain(axis: AxisId, pixel: number, viewId?: string): number | string {
     this.#assertAlive();
+    const view = this.#coordinateView(viewId);
+    const local =
+      pixel - (cartesianAxisChannel(view.coordinates, axis) === 'x' ? view.offsetX : view.offsetY);
+    return mapPixelToDomain(view.coordinates, axis, local);
+  }
+
+  getCoordinateViewIds(): readonly string[] {
+    this.#assertAlive();
+    return this.#result?.coordinateViews.map(({ id }) => id) ?? [];
+  }
+
+  #coordinateView(viewId?: string): CompileCoordinateView {
     const result = this.#result;
     if (result === null) throw new GraflumeError('INVALID_SPEC', 'The chart is not rendered.');
-    return mapPixelToDomain(result.coordinates, axis, pixel);
+    const view =
+      viewId === undefined
+        ? result.coordinateViews[0]
+        : result.coordinateViews.find(({ id }) => id === viewId);
+    if (view === undefined) {
+      throw new GraflumeError(
+        'INVALID_SPEC',
+        viewId === undefined
+          ? 'The chart has no Cartesian coordinate view.'
+          : `Coordinate view "${viewId}" was not found.`,
+      );
+    }
+    return view;
+  }
+
+  #coordinateAt(
+    point: PixelPoint,
+  ): { readonly view: CompileCoordinateView; readonly point: PixelPoint } | null {
+    const view = this.#result?.coordinateViews.find(
+      ({ bounds }) =>
+        point.x >= bounds.x &&
+        point.x <= bounds.x + bounds.width &&
+        point.y >= bounds.y &&
+        point.y <= bounds.y + bounds.height,
+    );
+    return view === undefined
+      ? null
+      : {
+          view,
+          point: { x: point.x - view.offsetX, y: point.y - view.offsetY },
+        };
+  }
+
+  #localPoint(viewId: string, point: PixelPoint): PixelPoint {
+    const view = this.#coordinateView(viewId);
+    return { x: point.x - view.offsetX, y: point.y - view.offsetY };
   }
 
   getSemanticIndex(): readonly SemanticMark[] {
@@ -626,11 +1225,996 @@ export class Chart {
     const focusedId = this.#accessibility.getFocusedId();
     return {
       enabled:
-        accessibility !== undefined && (accessibility.table !== false || accessibility.navigation),
+        accessibility !== undefined &&
+        (accessibility.table !== false ||
+          accessibility.navigation ||
+          accessibility.linkedFocus !== false),
       table: accessibility?.table ?? false,
       navigation: accessibility?.navigation ?? false,
       rowCount: this.getSemanticIndex().length,
       ...(focusedId === null ? {} : { focusedId }),
+    };
+  }
+
+  getFamilyFocus(): ChartFamilyFocusState | null {
+    this.#assertAlive();
+    return this.#familyFocus === null ? null : { ...this.#familyFocus };
+  }
+
+  focusPieSlice(layerId: string, id: string): this {
+    this.#assertAlive();
+    const entry = this.#familyEntries('pie-slice').find(
+      (candidate) => candidate.layerId === layerId && candidate.familyInteraction.id === id,
+    );
+    if (entry === undefined) {
+      throw new GraflumeError(
+        'INVALID_SPEC',
+        `Pie slice "${id}" was not found in layer "${layerId}".`,
+      );
+    }
+    return this.#setFamilyFocus({ kind: 'pie-slice', layerId, id }, 'programmatic');
+  }
+
+  focusTableCell(layerId: string, row: number, column: number): this {
+    this.#assertAlive();
+    if (!Number.isInteger(row) || row < 0 || !Number.isInteger(column) || column < 0) {
+      throw new GraflumeError(
+        'INVALID_SPEC',
+        'Table cell row and column must be non-negative integers.',
+      );
+    }
+    const entries = this.#familyEntries('table-cell').filter(
+      (candidate) => candidate.layerId === layerId,
+    );
+    const first = entries[0]?.familyInteraction;
+    if (
+      first === undefined ||
+      first.kind !== 'table-cell' ||
+      row >= first.rows ||
+      column >= first.columns
+    ) {
+      throw new GraflumeError(
+        'INVALID_SPEC',
+        `Table cell (${row}, ${column}) is outside layer "${layerId}".`,
+      );
+    }
+    let state = this.getTableRuntimeState(layerId);
+    const frozenRows = this.#tableFrozenRows(layerId);
+    const frozenColumns = this.#tableFrozenColumns(layerId);
+    let nextState = state;
+    if (
+      row >= frozenRows &&
+      (row < state.windowOffset || row >= state.windowOffset + state.windowLimit)
+    ) {
+      const offset = Math.max(0, row - Math.max(0, state.windowLimit - 1));
+      nextState = normalizeTableRuntimeState({ windowOffset: offset }, nextState);
+    }
+    if (
+      column >= frozenColumns &&
+      (column < state.columnOffset || column >= state.columnOffset + state.columnLimit)
+    ) {
+      const offset = Math.max(0, column - Math.max(0, state.columnLimit - 1));
+      nextState = normalizeTableRuntimeState({ columnOffset: offset }, nextState);
+    }
+    if (nextState !== state) {
+      this.#setTableRuntimeState(layerId, nextState, 'programmatic', false);
+      state = nextState;
+    }
+    const field = this.#familyEntries('table-cell').find(
+      (candidate) =>
+        candidate.layerId === layerId &&
+        candidate.familyInteraction.row === row &&
+        candidate.familyInteraction.column === column,
+    )?.familyInteraction;
+    if (field === undefined || field.kind !== 'table-cell') {
+      throw new GraflumeError('INVALID_SPEC', `Table column ${column} was not found.`);
+    }
+    return this.#setFamilyFocus(
+      { kind: 'table-cell', layerId, row, column, field: field.field },
+      'programmatic',
+    );
+  }
+
+  clearFamilyFocus(): this {
+    this.#assertAlive();
+    if (this.#familyFocus === null) return this;
+    this.#familyFocus = null;
+    this.render();
+    this.#events.emit('familyfocuschange', { chart: this, state: null, reason: 'clear' });
+    return this;
+  }
+
+  getTableRuntimeState(layerId: string): ChartTableRuntimeState {
+    this.#assertAlive();
+    this.#requireFamilyLayer(layerId, ['table']);
+    const stored = this.#tableRuntime.get(layerId);
+    if (stored !== undefined) return cloneTableRuntimeState(stored);
+    const options = this.#layerOptions(layerId);
+    return normalizeTableRuntimeState({
+      filters: Array.isArray(options.filters)
+        ? (options.filters as unknown as readonly ChartTableFilter[])
+        : [],
+      sort: Array.isArray(options.sort)
+        ? (options.sort as unknown as readonly ChartTableSort[])
+        : [],
+      group:
+        options.group !== undefined ? (options.group as unknown as ChartTableGroup | null) : null,
+      pivot:
+        options.pivot !== undefined ? (options.pivot as unknown as ChartTablePivot | null) : null,
+      windowOffset: typeof options.windowOffset === 'number' ? options.windowOffset : 0,
+      windowLimit: typeof options.windowLimit === 'number' ? options.windowLimit : 100,
+      columnOffset: typeof options.columnOffset === 'number' ? options.columnOffset : 0,
+      columnLimit: typeof options.columnLimit === 'number' ? options.columnLimit : 100,
+    });
+  }
+
+  setTableRuntimeState(layerId: string, state: Partial<ChartTableRuntimeState>): this {
+    const current = this.getTableRuntimeState(layerId);
+    return this.#setTableRuntimeState(
+      layerId,
+      normalizeTableRuntimeState(state, current),
+      'programmatic',
+    );
+  }
+
+  setTableFilters(layerId: string, filters: readonly ChartTableFilter[]): this {
+    return this.setTableRuntimeState(layerId, { filters, windowOffset: 0 });
+  }
+
+  setTableSort(layerId: string, sort: readonly ChartTableSort[]): this {
+    return this.setTableRuntimeState(layerId, { sort, windowOffset: 0 });
+  }
+
+  setTableGroup(layerId: string, group: ChartTableGroup | null): this {
+    return this.setTableRuntimeState(layerId, {
+      group,
+      ...(group === null ? {} : { pivot: null }),
+      windowOffset: 0,
+    });
+  }
+
+  setTablePivot(layerId: string, pivot: ChartTablePivot | null): this {
+    return this.setTableRuntimeState(layerId, {
+      pivot,
+      ...(pivot === null ? {} : { group: null }),
+      windowOffset: 0,
+    });
+  }
+
+  resetTableRuntime(layerId: string): this {
+    this.#assertAlive();
+    this.#requireFamilyLayer(layerId, ['table']);
+    if (!this.#tableRuntime.delete(layerId)) return this;
+    this.render();
+    this.#events.emit('tablechange', {
+      chart: this,
+      layerId,
+      state: this.getTableRuntimeState(layerId),
+      reason: 'reset',
+    });
+    return this;
+  }
+
+  getNetworkRuntimeState(layerId: string): ChartNetworkRuntimeState {
+    this.#assertAlive();
+    this.#requireFamilyLayer(layerId, ['graph']);
+    const stored = this.#networkRuntime.get(layerId);
+    if (stored !== undefined) return cloneNetworkRuntimeState(stored);
+    const options = this.#layerOptions(layerId);
+    return normalizeNetworkRuntimeState({
+      positions:
+        options.positions !== null &&
+        typeof options.positions === 'object' &&
+        !Array.isArray(options.positions)
+          ? (options.positions as unknown as Readonly<Record<string, ChartRuntimeNodePosition>>)
+          : {},
+      collapsed: Array.isArray(options.collapsed)
+        ? (options.collapsed as unknown as readonly string[])
+        : [],
+      lasso: Array.isArray(options.lasso) ? (options.lasso as unknown as readonly Point[]) : [],
+    });
+  }
+
+  moveNetworkNode(layerId: string, id: string, position: Point, pin = true): this {
+    const current = this.getNetworkRuntimeState(layerId);
+    this.#requireFamilyNode(layerId, id, 'network-node');
+    return this.#setNetworkRuntimeState(
+      layerId,
+      normalizeNetworkRuntimeState(
+        { positions: { ...current.positions, [id]: { ...position, pinned: pin } } },
+        current,
+      ),
+      'programmatic',
+    );
+  }
+
+  setNetworkNodePinned(layerId: string, id: string, pinned: boolean): this {
+    const current = this.getNetworkRuntimeState(layerId);
+    const entry = this.#requireFamilyNode(layerId, id, 'network-node').familyInteraction;
+    if (entry.kind !== 'network-node') return this;
+    const position = current.positions[id] ?? entry.position;
+    return this.#setNetworkRuntimeState(
+      layerId,
+      normalizeNetworkRuntimeState(
+        { positions: { ...current.positions, [id]: { ...position, pinned } } },
+        current,
+      ),
+      'programmatic',
+    );
+  }
+
+  setNetworkNodeCollapsed(layerId: string, id: string, collapsed: boolean): this {
+    const current = this.getNetworkRuntimeState(layerId);
+    const entry = this.#requireFamilyNode(layerId, id, 'network-node').familyInteraction;
+    if (entry.kind !== 'network-node' || (!entry.compound && collapsed)) {
+      throw new GraflumeError('INVALID_SPEC', `Network node "${id}" is not collapsible.`);
+    }
+    const values = new Set(current.collapsed);
+    if (collapsed) values.add(id);
+    else values.delete(id);
+    return this.#setNetworkRuntimeState(
+      layerId,
+      normalizeNetworkRuntimeState({ collapsed: [...values] }, current),
+      'programmatic',
+    );
+  }
+
+  setNetworkLasso(layerId: string, lasso: readonly Point[]): this {
+    const current = this.getNetworkRuntimeState(layerId);
+    return this.#setNetworkRuntimeState(
+      layerId,
+      normalizeNetworkRuntimeState({ lasso }, current),
+      'programmatic',
+    );
+  }
+
+  resetNetworkRuntime(layerId: string): this {
+    this.#assertAlive();
+    this.#requireFamilyLayer(layerId, ['graph']);
+    if (!this.#networkRuntime.delete(layerId)) return this;
+    this.render();
+    this.#events.emit('networkchange', {
+      chart: this,
+      layerId,
+      state: this.getNetworkRuntimeState(layerId),
+      reason: 'reset',
+    });
+    return this;
+  }
+
+  getFlowRuntimeState(layerId: string): ChartFlowRuntimeState {
+    this.#assertAlive();
+    this.#requireFamilyLayer(layerId, ['sankey']);
+    const stored = this.#flowRuntime.get(layerId);
+    if (stored !== undefined) return cloneFlowRuntimeState(stored);
+    const options = this.#layerOptions(layerId);
+    return normalizeFlowRuntimeState({
+      positions:
+        options.positions !== null &&
+        typeof options.positions === 'object' &&
+        !Array.isArray(options.positions)
+          ? (options.positions as unknown as Readonly<Record<string, ChartRuntimeNodePosition>>)
+          : {},
+    });
+  }
+
+  moveFlowNode(layerId: string, id: string, position: Point): this {
+    const current = this.getFlowRuntimeState(layerId);
+    this.#requireFamilyNode(layerId, id, 'flow-node');
+    return this.#setFlowRuntimeState(
+      layerId,
+      normalizeFlowRuntimeState(
+        { positions: { ...current.positions, [id]: { ...position } } },
+        current,
+      ),
+      'programmatic',
+    );
+  }
+
+  resetFlowRuntime(layerId: string): this {
+    this.#assertAlive();
+    this.#requireFamilyLayer(layerId, ['sankey']);
+    if (!this.#flowRuntime.delete(layerId)) return this;
+    this.render();
+    this.#events.emit('flowchange', {
+      chart: this,
+      layerId,
+      state: this.getFlowRuntimeState(layerId),
+      reason: 'reset',
+    });
+    return this;
+  }
+
+  getNavigatorWindow(layerId: string): ChartNavigatorRuntimeState {
+    this.#assertAlive();
+    this.#requireFamilyLayer(layerId, ['candlestick', 'timeline']);
+    const stored = this.#navigatorRuntime.get(layerId);
+    if (stored !== undefined) return cloneNavigatorRuntimeState(stored.state);
+    const interaction = this.#navigatorInteraction(layerId);
+    return { start: interaction.start, end: interaction.end };
+  }
+
+  setNavigatorWindow(layerId: string, state: Partial<ChartNavigatorRuntimeState>): this {
+    const interaction = this.#navigatorInteraction(layerId);
+    const current = this.getNavigatorWindow(layerId);
+    return this.#setNavigatorRuntimeState(
+      layerId,
+      interaction.family,
+      normalizeNavigatorRuntimeState(state, current, {
+        minimum: interaction.minimum,
+        maximum: interaction.maximum,
+      }),
+      'programmatic',
+    );
+  }
+
+  resetNavigatorWindow(layerId: string): this {
+    this.#assertAlive();
+    const layer = this.#requireFamilyLayer(layerId, ['candlestick', 'timeline']);
+    if (!this.#navigatorRuntime.delete(layerId)) return this;
+    this.render();
+    this.#events.emit('navigatorchange', {
+      chart: this,
+      layerId,
+      family: layer.mark.type as ChartNavigatorFamily,
+      state: this.getNavigatorWindow(layerId),
+      reason: 'reset',
+    });
+    return this;
+  }
+
+  getHierarchyRuntimeState(layerId: string): ChartHierarchyRuntimeState {
+    this.#assertAlive();
+    this.#requireFamilyLayer(layerId, ['tree']);
+    const stored = this.#hierarchyRuntime.get(layerId);
+    if (stored !== undefined) return cloneHierarchyRuntimeState(stored);
+    const options = this.#layerOptions(layerId);
+    return normalizeHierarchyRuntimeState({
+      root: typeof options.root === 'string' ? options.root : null,
+      zoomTo: typeof options.zoomTo === 'string' ? options.zoomTo : null,
+      collapsed: Array.isArray(options.collapsed)
+        ? (options.collapsed as unknown as readonly string[])
+        : [],
+      query: typeof options.query === 'string' ? options.query : '',
+    });
+  }
+
+  setHierarchyRuntimeState(layerId: string, state: Partial<ChartHierarchyRuntimeState>): this {
+    const current = this.getHierarchyRuntimeState(layerId);
+    return this.#setHierarchyRuntimeState(
+      layerId,
+      normalizeHierarchyRuntimeState(state, current),
+      'programmatic',
+    );
+  }
+
+  setHierarchyNodeCollapsed(layerId: string, id: string, collapsed: boolean): this {
+    const current = this.getHierarchyRuntimeState(layerId);
+    const values = new Set(current.collapsed);
+    if (collapsed) values.add(id);
+    else values.delete(id);
+    return this.#setHierarchyRuntimeState(
+      layerId,
+      normalizeHierarchyRuntimeState({ collapsed: [...values] }, current),
+      'programmatic',
+    );
+  }
+
+  rerootHierarchy(layerId: string, id: string | null): this {
+    return this.setHierarchyRuntimeState(layerId, { root: id, zoomTo: null });
+  }
+
+  zoomHierarchy(layerId: string, id: string | null): this {
+    return this.setHierarchyRuntimeState(layerId, { zoomTo: id });
+  }
+
+  setHierarchyQuery(layerId: string, query: string): this {
+    return this.setHierarchyRuntimeState(layerId, { query });
+  }
+
+  resetHierarchyRuntime(layerId: string): this {
+    this.#assertAlive();
+    this.#requireFamilyLayer(layerId, ['tree']);
+    if (!this.#hierarchyRuntime.delete(layerId)) return this;
+    this.render();
+    this.#events.emit('hierarchychange', {
+      chart: this,
+      layerId,
+      state: this.getHierarchyRuntimeState(layerId),
+      reason: 'reset',
+    });
+    return this;
+  }
+
+  getParallelRuntimeState(layerId: string): ChartParallelRuntimeState {
+    this.#assertAlive();
+    const layer = this.#requireFamilyLayer(layerId, ['parallel']);
+    const stored = this.#parallelRuntime.get(layerId);
+    if (stored !== undefined) return cloneParallelRuntimeState(stored);
+    const options = layer.mark.options;
+    const rawAxes = Array.isArray(options.axes)
+      ? options.axes
+      : Array.isArray(options.dimensions)
+        ? options.dimensions.map((field) => ({ field }))
+        : [{ field: layer.x.field }, { field: layer.y.field }];
+    const axes: ChartParallelAxisRuntimeState[] = rawAxes.flatMap((raw) => {
+      if (typeof raw === 'string') {
+        return [{ field: raw, type: 'linear', invert: false, missing: 'gap' as const }];
+      }
+      if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return [];
+      const axis = raw as Readonly<Record<string, unknown>>;
+      if (typeof axis.field !== 'string') return [];
+      const type = axis.type === 'log' || axis.type === 'ordinal' ? axis.type : 'linear';
+      const missing =
+        axis.missing === 'top' || axis.missing === 'bottom' || axis.missing === 'middle'
+          ? axis.missing
+          : 'gap';
+      return [
+        {
+          field: axis.field,
+          type,
+          invert: axis.invert === true,
+          missing,
+          ...(Array.isArray(axis.domain)
+            ? { domain: axis.domain as readonly (number | string)[] }
+            : {}),
+        },
+      ];
+    });
+    return normalizeParallelRuntimeState(
+      {
+        axes,
+        brushes: Array.isArray(options.brushes)
+          ? (options.brushes as unknown as ChartParallelRuntimeState['brushes'])
+          : [],
+        combine: options.combine === 'union' ? 'union' : 'intersection',
+      },
+      { axes, brushes: [], combine: 'intersection' },
+    );
+  }
+
+  setParallelRuntimeState(layerId: string, state: Partial<ChartParallelRuntimeState>): this {
+    const current = this.getParallelRuntimeState(layerId);
+    return this.#setParallelRuntimeState(
+      layerId,
+      normalizeParallelRuntimeState(state, current),
+      'programmatic',
+    );
+  }
+
+  reorderParallelAxis(layerId: string, field: string, index: number): this {
+    return this.#setParallelRuntimeState(
+      layerId,
+      reorderParallelAxisState(this.getParallelRuntimeState(layerId), field, index),
+      'programmatic',
+    );
+  }
+
+  invertParallelAxis(layerId: string, field: string, invert?: boolean): this {
+    return this.#setParallelRuntimeState(
+      layerId,
+      invertParallelAxisState(this.getParallelRuntimeState(layerId), field, invert),
+      'programmatic',
+    );
+  }
+
+  setParallelBrush(
+    layerId: string,
+    field: string,
+    extents: readonly (readonly [number, number])[],
+  ): this {
+    return this.#setParallelRuntimeState(
+      layerId,
+      setParallelBrushExtents(this.getParallelRuntimeState(layerId), field, extents),
+      'programmatic',
+    );
+  }
+
+  resetParallelRuntime(layerId: string): this {
+    this.#assertAlive();
+    this.#requireFamilyLayer(layerId, ['parallel']);
+    if (!this.#parallelRuntime.delete(layerId)) return this;
+    this.render();
+    this.#events.emit('parallelchange', {
+      chart: this,
+      layerId,
+      state: this.getParallelRuntimeState(layerId),
+      reason: 'reset',
+    });
+    return this;
+  }
+
+  getHeatmapBrush(layerId: string): ChartHeatmapRuntimeState {
+    this.#assertAlive();
+    this.#requireFamilyLayer(layerId, ['heatmap']);
+    const stored = this.#heatmapRuntime.get(layerId);
+    if (stored !== undefined) return cloneHeatmapRuntimeState(stored);
+    const brush = this.#layerOptions(layerId).brush;
+    return normalizeHeatmapRuntimeState(
+      brush !== null && typeof brush === 'object' && !Array.isArray(brush)
+        ? (brush as unknown as Partial<ChartHeatmapRuntimeState>)
+        : {},
+    );
+  }
+
+  setHeatmapBrush(layerId: string, state: Partial<ChartHeatmapRuntimeState>): this {
+    const current = this.getHeatmapBrush(layerId);
+    return this.#setHeatmapRuntimeState(
+      layerId,
+      normalizeHeatmapRuntimeState(state, current),
+      'programmatic',
+    );
+  }
+
+  resetHeatmapBrush(layerId: string): this {
+    this.#assertAlive();
+    this.#requireFamilyLayer(layerId, ['heatmap']);
+    if (!this.#heatmapRuntime.delete(layerId)) return this;
+    this.render();
+    this.#events.emit('heatmapchange', {
+      chart: this,
+      layerId,
+      state: this.getHeatmapBrush(layerId),
+      reason: 'reset',
+    });
+    return this;
+  }
+
+  getScatterMatrixBrush(layerId: string): ChartScatterMatrixRuntimeState | null {
+    this.#assertAlive();
+    this.#requireFamilyLayer(layerId, ['scatter-matrix']);
+    const stored = this.#scatterMatrixRuntime.get(layerId);
+    if (stored !== undefined) return cloneScatterMatrixRuntimeState(stored);
+    const cell = this.#familyEntries('scatter-matrix-cell').find(
+      (entry) => entry.layerId === layerId,
+    )?.familyInteraction;
+    if (cell === undefined) return null;
+    const fallback: ChartScatterMatrixRuntimeState = {
+      xField: cell.xField,
+      yField: cell.yField,
+      x: [...cell.xDomain],
+      y: [...cell.yDomain],
+      selectedRows: [],
+    };
+    const linkedBrush = this.#layerOptions(layerId).linkedBrush;
+    return normalizeScatterMatrixRuntimeState(
+      linkedBrush !== null && typeof linkedBrush === 'object' && !Array.isArray(linkedBrush)
+        ? (linkedBrush as unknown as Partial<ChartScatterMatrixRuntimeState>)
+        : {},
+      fallback,
+    );
+  }
+
+  setScatterMatrixBrush(layerId: string, state: Partial<ChartScatterMatrixRuntimeState>): this {
+    const current = this.getScatterMatrixBrush(layerId);
+    if (current === null) {
+      throw new GraflumeError(
+        'INVALID_SPEC',
+        `Layer "${layerId}" has no interactive scatter-matrix cell.`,
+      );
+    }
+    const normalized = normalizeScatterMatrixRuntimeState(state, current);
+    const selectedRows =
+      state.selectedRows === undefined &&
+      (state.x !== undefined ||
+        state.y !== undefined ||
+        state.xField !== undefined ||
+        state.yField !== undefined)
+        ? selectScatterMatrixRows(this.#familyLayerRows(layerId), normalized)
+        : normalized.selectedRows;
+    return this.#setScatterMatrixRuntimeState(
+      layerId,
+      { ...normalized, selectedRows },
+      'programmatic',
+    );
+  }
+
+  resetScatterMatrixBrush(layerId: string): this {
+    this.#assertAlive();
+    this.#requireFamilyLayer(layerId, ['scatter-matrix']);
+    if (!this.#scatterMatrixRuntime.delete(layerId)) return this;
+    this.render();
+    this.#events.emit('scattermatrixchange', {
+      chart: this,
+      layerId,
+      state: this.getScatterMatrixBrush(layerId)!,
+      reason: 'reset',
+    });
+    return this;
+  }
+
+  #familyEntries<K extends FamilyDatumInteraction['kind']>(
+    kind: K,
+  ): readonly (FamilySceneEntry & {
+    readonly familyInteraction: Extract<FamilyDatumInteraction, { readonly kind: K }>;
+  })[] {
+    const scene = this.#result?.scene;
+    if (scene === undefined) return [];
+    return familySceneEntries(scene.root).filter(
+      (
+        entry,
+      ): entry is FamilySceneEntry & {
+        readonly familyInteraction: Extract<FamilyDatumInteraction, { readonly kind: K }>;
+      } => entry.familyInteraction.kind === kind,
+    );
+  }
+
+  #navigatorInteraction(layerId: string): NavigatorWindowInteraction {
+    this.#assertAlive();
+    this.#requireFamilyLayer(layerId, ['candlestick', 'timeline']);
+    const interaction = this.#familyEntries('navigator-window').find(
+      (entry) => entry.layerId === layerId,
+    )?.familyInteraction;
+    if (interaction === undefined) {
+      throw new GraflumeError(
+        'INVALID_SPEC',
+        `Layer "${layerId}" does not have an enabled navigator window.`,
+      );
+    }
+    return interaction;
+  }
+
+  #familyLayerRows(layerId: string): readonly DataRow[] {
+    const layer = this.#result?.spec.layers.find((candidate) => candidate.id === layerId);
+    if (layer === undefined) {
+      throw new GraflumeError('INVALID_SPEC', `Layer "${layerId}" was not found.`);
+    }
+    return dataRows(layer.data);
+  }
+
+  #requireFamilyLayer(layerId: string, types: readonly string[]) {
+    const layer = this.#result?.spec.layers.find((candidate) => candidate.id === layerId);
+    if (layer === undefined || !types.includes(layer.mark.type)) {
+      throw new GraflumeError(
+        'INVALID_SPEC',
+        `Layer "${layerId}" is not an interactive ${types.join('/')} layer.`,
+      );
+    }
+    return layer;
+  }
+
+  #layerOptions(layerId: string) {
+    const layer = this.#result?.spec.layers.find((candidate) => candidate.id === layerId);
+    if (layer === undefined) {
+      throw new GraflumeError('INVALID_SPEC', `Layer "${layerId}" was not found.`);
+    }
+    return layer.mark.options;
+  }
+
+  #tableFrozenRows(layerId: string): number {
+    const value = this.#layerOptions(layerId).frozenRows;
+    return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+  }
+
+  #tableFrozenColumns(layerId: string): number {
+    const value = this.#layerOptions(layerId).frozenColumns;
+    return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+  }
+
+  #requireFamilyNode(
+    layerId: string,
+    id: string,
+    kind: 'network-node' | 'flow-node',
+  ): FamilySceneEntry {
+    const root = this.#result?.scene.root;
+    const entry =
+      root === undefined
+        ? undefined
+        : familySceneEntries(root).find(
+            (candidate) =>
+              candidate.layerId === layerId &&
+              candidate.familyInteraction.kind === kind &&
+              candidate.familyInteraction.id === id,
+          );
+    if (entry === undefined) {
+      throw new GraflumeError(
+        'INVALID_SPEC',
+        `${kind === 'network-node' ? 'Network' : 'Flow'} node "${id}" was not found in layer "${layerId}".`,
+      );
+    }
+    return entry;
+  }
+
+  #setFamilyFocus(
+    state: ChartFamilyFocusState,
+    reason: ChartFamilyFocusChangeEvent['reason'],
+  ): this {
+    if (JSON.stringify(this.#familyFocus) === JSON.stringify(state)) return this;
+    const previous = this.#familyFocus;
+    this.#familyFocus = { ...state };
+    try {
+      this.render();
+    } catch (error) {
+      this.#familyFocus = previous;
+      throw error;
+    }
+    this.#events.emit('familyfocuschange', {
+      chart: this,
+      state: { ...state },
+      reason,
+    });
+    return this;
+  }
+
+  #setTableRuntimeState(
+    layerId: string,
+    state: ChartTableRuntimeState,
+    reason: ChartTableChangeEvent['reason'],
+    emit = true,
+  ): this {
+    this.#assertAlive();
+    this.#requireFamilyLayer(layerId, ['table']);
+    const previous = this.#tableRuntime.get(layerId);
+    this.#tableRuntime.set(layerId, cloneTableRuntimeState(state));
+    try {
+      this.render();
+    } catch (error) {
+      if (previous === undefined) this.#tableRuntime.delete(layerId);
+      else this.#tableRuntime.set(layerId, previous);
+      throw error;
+    }
+    if (emit) {
+      this.#events.emit('tablechange', {
+        chart: this,
+        layerId,
+        state: cloneTableRuntimeState(state),
+        reason,
+      });
+    }
+    return this;
+  }
+
+  #setNetworkRuntimeState(
+    layerId: string,
+    state: ChartNetworkRuntimeState,
+    reason: ChartNetworkChangeEvent['reason'],
+    emit = true,
+  ): this {
+    this.#assertAlive();
+    this.#requireFamilyLayer(layerId, ['graph']);
+    const previous = this.#networkRuntime.get(layerId);
+    this.#networkRuntime.set(layerId, cloneNetworkRuntimeState(state));
+    try {
+      this.render();
+    } catch (error) {
+      if (previous === undefined) this.#networkRuntime.delete(layerId);
+      else this.#networkRuntime.set(layerId, previous);
+      throw error;
+    }
+    if (emit) {
+      this.#events.emit('networkchange', {
+        chart: this,
+        layerId,
+        state: cloneNetworkRuntimeState(state),
+        reason,
+      });
+    }
+    return this;
+  }
+
+  #setFlowRuntimeState(
+    layerId: string,
+    state: ChartFlowRuntimeState,
+    reason: ChartFlowChangeEvent['reason'],
+    emit = true,
+  ): this {
+    this.#assertAlive();
+    this.#requireFamilyLayer(layerId, ['sankey']);
+    const previous = this.#flowRuntime.get(layerId);
+    this.#flowRuntime.set(layerId, cloneFlowRuntimeState(state));
+    try {
+      this.render();
+    } catch (error) {
+      if (previous === undefined) this.#flowRuntime.delete(layerId);
+      else this.#flowRuntime.set(layerId, previous);
+      throw error;
+    }
+    if (emit) {
+      this.#events.emit('flowchange', {
+        chart: this,
+        layerId,
+        state: cloneFlowRuntimeState(state),
+        reason,
+      });
+    }
+    return this;
+  }
+
+  #setNavigatorRuntimeState(
+    layerId: string,
+    family: ChartNavigatorFamily,
+    state: ChartNavigatorRuntimeState,
+    reason: ChartNavigatorChangeEvent['reason'],
+    emit = true,
+  ): this {
+    this.#assertAlive();
+    const interaction = this.#navigatorInteraction(layerId);
+    if (interaction.family !== family) {
+      throw new GraflumeError('INVALID_SPEC', `Navigator family mismatch for layer "${layerId}".`);
+    }
+    const previous = this.#navigatorRuntime.get(layerId);
+    this.#navigatorRuntime.set(layerId, { family, state: cloneNavigatorRuntimeState(state) });
+    try {
+      this.render();
+    } catch (error) {
+      if (previous === undefined) this.#navigatorRuntime.delete(layerId);
+      else this.#navigatorRuntime.set(layerId, previous);
+      throw error;
+    }
+    if (emit) {
+      this.#events.emit('navigatorchange', {
+        chart: this,
+        layerId,
+        family,
+        state: cloneNavigatorRuntimeState(state),
+        reason,
+      });
+    }
+    return this;
+  }
+
+  #setHierarchyRuntimeState(
+    layerId: string,
+    state: ChartHierarchyRuntimeState,
+    reason: ChartHierarchyChangeEvent['reason'],
+    emit = true,
+  ): this {
+    this.#assertAlive();
+    this.#requireFamilyLayer(layerId, ['tree']);
+    const previous = this.#hierarchyRuntime.get(layerId);
+    this.#hierarchyRuntime.set(layerId, cloneHierarchyRuntimeState(state));
+    try {
+      this.render();
+    } catch (error) {
+      if (previous === undefined) this.#hierarchyRuntime.delete(layerId);
+      else this.#hierarchyRuntime.set(layerId, previous);
+      throw error;
+    }
+    if (emit) {
+      this.#events.emit('hierarchychange', {
+        chart: this,
+        layerId,
+        state: cloneHierarchyRuntimeState(state),
+        reason,
+      });
+    }
+    return this;
+  }
+
+  #setParallelRuntimeState(
+    layerId: string,
+    state: ChartParallelRuntimeState,
+    reason: ChartParallelChangeEvent['reason'],
+    emit = true,
+  ): this {
+    this.#assertAlive();
+    this.#requireFamilyLayer(layerId, ['parallel']);
+    const previous = this.#parallelRuntime.get(layerId);
+    this.#parallelRuntime.set(layerId, cloneParallelRuntimeState(state));
+    try {
+      this.render();
+    } catch (error) {
+      if (previous === undefined) this.#parallelRuntime.delete(layerId);
+      else this.#parallelRuntime.set(layerId, previous);
+      throw error;
+    }
+    if (emit) {
+      this.#events.emit('parallelchange', {
+        chart: this,
+        layerId,
+        state: cloneParallelRuntimeState(state),
+        reason,
+      });
+    }
+    return this;
+  }
+
+  #setHeatmapRuntimeState(
+    layerId: string,
+    state: ChartHeatmapRuntimeState,
+    reason: ChartHeatmapChangeEvent['reason'],
+    emit = true,
+  ): this {
+    this.#assertAlive();
+    this.#requireFamilyLayer(layerId, ['heatmap']);
+    const previous = this.#heatmapRuntime.get(layerId);
+    this.#heatmapRuntime.set(layerId, cloneHeatmapRuntimeState(state));
+    try {
+      this.render();
+    } catch (error) {
+      if (previous === undefined) this.#heatmapRuntime.delete(layerId);
+      else this.#heatmapRuntime.set(layerId, previous);
+      throw error;
+    }
+    if (emit) {
+      this.#events.emit('heatmapchange', {
+        chart: this,
+        layerId,
+        state: cloneHeatmapRuntimeState(state),
+        reason,
+      });
+    }
+    return this;
+  }
+
+  #setScatterMatrixRuntimeState(
+    layerId: string,
+    state: ChartScatterMatrixRuntimeState,
+    reason: ChartScatterMatrixChangeEvent['reason'],
+    emit = true,
+  ): this {
+    this.#assertAlive();
+    this.#requireFamilyLayer(layerId, ['scatter-matrix']);
+    const previous = this.#scatterMatrixRuntime.get(layerId);
+    this.#scatterMatrixRuntime.set(layerId, cloneScatterMatrixRuntimeState(state));
+    try {
+      this.render();
+    } catch (error) {
+      if (previous === undefined) this.#scatterMatrixRuntime.delete(layerId);
+      else this.#scatterMatrixRuntime.set(layerId, previous);
+      throw error;
+    }
+    if (emit) {
+      this.#events.emit('scattermatrixchange', {
+        chart: this,
+        layerId,
+        state: cloneScatterMatrixRuntimeState(state),
+        reason,
+      });
+    }
+    return this;
+  }
+
+  #familyOptions(layerId: string): Readonly<Record<string, import('../spec/types.js').JsonValue>> {
+    const options: Record<string, import('../spec/types.js').JsonValue> = {};
+    const table = this.#tableRuntime.get(layerId);
+    if (table !== undefined) Object.assign(options, tableRuntimeOptions(table));
+    const network = this.#networkRuntime.get(layerId);
+    if (network !== undefined) Object.assign(options, networkRuntimeOptions(network));
+    const flow = this.#flowRuntime.get(layerId);
+    if (flow !== undefined) Object.assign(options, flowRuntimeOptions(flow));
+    const navigator = this.#navigatorRuntime.get(layerId);
+    if (navigator !== undefined) {
+      Object.assign(options, navigatorRuntimeOptions(navigator.family, navigator.state));
+    }
+    const hierarchy = this.#hierarchyRuntime.get(layerId);
+    if (hierarchy !== undefined) Object.assign(options, hierarchyRuntimeOptions(hierarchy));
+    const parallel = this.#parallelRuntime.get(layerId);
+    if (parallel !== undefined) Object.assign(options, parallelRuntimeOptions(parallel));
+    const heatmap = this.#heatmapRuntime.get(layerId);
+    if (heatmap !== undefined) Object.assign(options, heatmapRuntimeOptions(heatmap));
+    const scatterMatrix = this.#scatterMatrixRuntime.get(layerId);
+    if (scatterMatrix !== undefined) {
+      Object.assign(options, scatterMatrixRuntimeOptions(scatterMatrix));
+    }
+    if (this.#familyFocus?.layerId === layerId) {
+      if (this.#familyFocus.kind === 'pie-slice') {
+        options.runtimeFocusedSlice = this.#familyFocus.id;
+      } else {
+        options.runtimeFocusedCell = {
+          row: this.#familyFocus.row,
+          column: this.#familyFocus.column,
+        };
+      }
+    }
+    return options;
+  }
+
+  #familyRuntimeSpec(spec: ChartSpec): ChartSpec {
+    const topOptions = this.#familyOptions('layer-0');
+    const layers = spec.layers?.map((layer, index) => {
+      const layerId = layer.id ?? `layer-${index}`;
+      const options = this.#familyOptions(layerId);
+      return Object.keys(options).length === 0
+        ? layer
+        : { ...layer, mark: markWithOptions(layer.mark, options) };
+    });
+    return {
+      ...spec,
+      ...(spec.mark === undefined || Object.keys(topOptions).length === 0
+        ? {}
+        : { mark: markWithOptions(spec.mark, topOptions) }),
+      ...(layers === undefined ? {} : { layers }),
     };
   }
 
@@ -640,6 +2224,10 @@ export class Chart {
 
   getPlaybackState(): ChartPlaybackState {
     const frame = this.#playbackFrames[this.#playbackIndex];
+    const name = this.#playbackNamedFrames.find(
+      (namedFrame) => namedFrame.index === this.#playbackIndex,
+    )?.name;
+    const hasRange = this.#playbackRange.end >= this.#playbackRange.start;
     return {
       enabled: this.#playback !== false,
       frames: this.#playbackFrames,
@@ -649,6 +2237,20 @@ export class Chart {
       rate: this.#playbackRate,
       loop: this.#playbackLoop,
       mode: this.#playback === false ? 'frame' : this.#playback.mode,
+      direction: this.#playbackDirection,
+      ...(hasRange
+        ? {
+            range: {
+              start: this.#playbackRange.start,
+              end: this.#playbackRange.end,
+              startFrame: this.#playbackFrames[this.#playbackRange.start],
+              endFrame: this.#playbackFrames[this.#playbackRange.end],
+            },
+          }
+        : {}),
+      namedFrames: this.#playbackNamedFrames,
+      ...(name === undefined ? {} : { name }),
+      label: name ?? formatPlaybackFrame(frame),
     };
   }
 
@@ -790,7 +2392,7 @@ export class Chart {
           ? [cloneDatumTarget(candidate.target)]
           : [],
       );
-    }
+    } else this.#selection = [];
     try {
       this.render();
     } catch (error) {
@@ -820,7 +2422,7 @@ export class Chart {
             ? [cloneDatumTarget(candidate.target)]
             : [],
         );
-      }
+      } else this.#selection = [];
       this.render();
     } catch (error) {
       this.#analyticSelection.set(previous);
@@ -873,7 +2475,8 @@ export class Chart {
       id: annotationId(annotation, index),
     }));
     normalizeSpec({ ...this.#spec, annotations: resolved });
-    this.#annotations = resolved;
+    this.#annotationHistory.replace(resolved);
+    this.#annotations = [...this.#annotationHistory.annotations()];
     this.render();
     this.#emitAnnotations('set');
     return this;
@@ -887,7 +2490,8 @@ export class Chart {
     }
     const next = [...this.#annotations, { ...cloneAnnotation(annotation), id }];
     normalizeSpec({ ...this.#spec, annotations: next });
-    this.#annotations = next;
+    this.#annotationHistory.replace(next);
+    this.#annotations = [...this.#annotationHistory.annotations()];
     this.render();
     this.#emitAnnotations('add', id);
     return id;
@@ -903,7 +2507,8 @@ export class Chart {
       candidate === index ? updated : annotation,
     );
     normalizeSpec({ ...this.#spec, annotations: next });
-    this.#annotations = next;
+    this.#annotationHistory.replace(next);
+    this.#annotations = [...this.#annotationHistory.annotations()];
     this.render();
     this.#emitAnnotations('update', id);
     return this;
@@ -913,9 +2518,169 @@ export class Chart {
     this.#assertAlive();
     const next = this.#annotations.filter((annotation) => annotation.id !== id);
     if (next.length === this.#annotations.length) return false;
-    this.#annotations = next;
+    this.#annotationHistory.replace(next);
+    this.#annotations = [...this.#annotationHistory.annotations()];
+    if (this.#activeAnnotationId === id) this.#activeAnnotationId = null;
     this.render();
     this.#emitAnnotations('remove', id);
+    return true;
+  }
+
+  getAnnotationAuthoringState(): ChartAnnotationAuthoringState {
+    this.#assertAlive();
+    return {
+      annotations: this.getAnnotations(),
+      handles:
+        this.#result?.scene.metadata.annotations?.entries.map((entry) => ({
+          ...entry,
+          bounds: { ...entry.bounds },
+          targetBounds: { ...entry.targetBounds },
+        })) ?? [],
+      canUndo: this.#annotationHistory.canUndo(),
+      canRedo: this.#annotationHistory.canRedo(),
+      ...(this.#activeAnnotationId === null ? {} : { activeId: this.#activeAnnotationId }),
+    };
+  }
+
+  selectAnnotation(id: string | null): this {
+    this.#assertAlive();
+    if (id !== null && !this.#annotations.some((annotation) => annotation.id === id)) {
+      throw new GraflumeError('INVALID_SPEC', `Annotation "${id}" was not found.`);
+    }
+    if (id === this.#activeAnnotationId) return this;
+    this.#activeAnnotationId = id;
+    this.render();
+    this.#emitAnnotations('select', id ?? undefined);
+    return this;
+  }
+
+  editAnnotationWithKeyboard(
+    id: string,
+    key: 'ArrowLeft' | 'ArrowRight' | 'ArrowUp' | 'ArrowDown',
+    options: { readonly step?: number; readonly coarse?: boolean; readonly resize?: boolean } = {},
+  ): this {
+    this.#assertAlive();
+    const annotation = this.#annotations.find((candidate) => candidate.id === id);
+    if (annotation === undefined) {
+      throw new GraflumeError('INVALID_SPEC', `Annotation "${id}" was not found.`);
+    }
+    const nextAnnotation = editAnnotationByKeyboard({ annotation, key, ...options });
+    const next = this.#annotations.map((candidate) =>
+      candidate.id === id ? nextAnnotation : candidate,
+    );
+    normalizeSpec({ ...this.#spec, annotations: next });
+    if (!this.#annotationHistory.replace(next)) return this;
+    this.#annotations = [...this.#annotationHistory.annotations()];
+    this.#activeAnnotationId = id;
+    this.render();
+    this.#emitAnnotations('keyboard', id);
+    return this;
+  }
+
+  undoAnnotationEdit(): boolean {
+    this.#assertAlive();
+    if (!this.#annotationHistory.undo()) return false;
+    this.#annotations = [...this.#annotationHistory.annotations()];
+    this.render();
+    this.#emitAnnotations('undo', this.#activeAnnotationId ?? undefined);
+    return true;
+  }
+
+  redoAnnotationEdit(): boolean {
+    this.#assertAlive();
+    if (!this.#annotationHistory.redo()) return false;
+    this.#annotations = [...this.#annotationHistory.annotations()];
+    this.render();
+    this.#emitAnnotations('redo', this.#activeAnnotationId ?? undefined);
+    return true;
+  }
+
+  getMarkLabelState(): ChartMarkLabelState {
+    this.#assertAlive();
+    const metadata = this.#result?.scene.metadata.markLabels;
+    const labels =
+      metadata?.entries.map((entry) => ({
+        ...entry,
+        target: cloneDatumTarget(entry.target),
+        anchor: { ...entry.anchor },
+        baseCenter: { ...entry.baseCenter },
+        bounds: { ...entry.bounds },
+      })) ?? [];
+    return {
+      enabled: metadata !== undefined,
+      authoring: this.#markLabelAuthoring() !== false,
+      labels,
+      positions: this.#markLabels.positions(),
+      canUndo: this.#markLabels.canUndo(),
+      canRedo: this.#markLabels.canRedo(),
+      ...(this.#activeMarkLabelId === null ? {} : { activeId: this.#activeMarkLabelId }),
+    };
+  }
+
+  getMarkLabelPositions(): readonly MarkLabelPositionSpec[] {
+    this.#assertAlive();
+    return this.#markLabels.positions();
+  }
+
+  setMarkLabelPositions(positions: readonly MarkLabelPositionSpec[]): this {
+    this.#assertAlive();
+    normalizeSpec(this.#specWithMarkLabelPositions(positions));
+    if (!this.#markLabels.replace(positions)) return this;
+    this.render();
+    this.#emitMarkLabels('set');
+    return this;
+  }
+
+  setMarkLabelPosition(id: string, offsetX: number, offsetY: number): this {
+    this.#assertAlive();
+    if (!Number.isFinite(offsetX) || !Number.isFinite(offsetY)) {
+      throw new RangeError('Mark label offsets must be finite.');
+    }
+    if (Math.abs(offsetX) > 10_000 || Math.abs(offsetY) > 10_000) {
+      throw new RangeError('Mark label offsets must stay within -10000..10000 pixels.');
+    }
+    const entry = this.#requireMarkLabel(id);
+    const next = setMarkLabelOffset(this.#markLabels.positions(), entry.target, offsetX, offsetY);
+    if (!this.#markLabels.replace(next)) return this;
+    this.#activeMarkLabelId = id;
+    this.render();
+    this.#emitMarkLabels('programmatic', id);
+    return this;
+  }
+
+  selectMarkLabel(id: string | null): this {
+    this.#assertAlive();
+    if (id !== null) this.#requireMarkLabel(id);
+    if (id === this.#activeMarkLabelId) return this;
+    this.#activeMarkLabelId = id;
+    this.render();
+    this.#emitMarkLabels('select', id ?? undefined);
+    return this;
+  }
+
+  resetMarkLabelPositions(): this {
+    this.#assertAlive();
+    const configured = normalizeSpec(this.#spec).markLabels;
+    const positions = configured === false ? [] : configured.positions;
+    if (!this.#markLabels.replace(positions)) return this;
+    this.render();
+    this.#emitMarkLabels('reset');
+    return this;
+  }
+
+  undoMarkLabelEdit(): boolean {
+    this.#assertAlive();
+    if (!this.#markLabels.undo()) return false;
+    this.render();
+    this.#emitMarkLabels('undo', this.#activeMarkLabelId ?? undefined);
+    return true;
+  }
+
+  redoMarkLabelEdit(): boolean {
+    this.#assertAlive();
+    if (!this.#markLabels.redo()) return false;
+    this.render();
+    this.#emitMarkLabels('redo', this.#activeMarkLabelId ?? undefined);
     return true;
   }
 
@@ -925,16 +2690,36 @@ export class Chart {
     this.pause();
     this.#spec = spec;
     this.#incrementalStores.clear();
+    if (!this.#preserveStreamRuntimes) {
+      for (const runtime of this.#streamRuntimes.values()) runtime.destroy();
+      this.#streamRuntimes.clear();
+      this.#workerRuntime?.close();
+      this.#workerRuntime = null;
+    }
     this.#annotations = normalized.annotations.map((annotation, index) => ({
       ...cloneAnnotation(annotation),
       id: annotationId(annotation, index),
     }));
+    this.#annotationHistory.reset(this.#annotations);
+    this.#activeAnnotationId = null;
     this.#selection = [];
     this.#analyticSelection.clear();
+    this.#tableRuntime.clear();
+    this.#networkRuntime.clear();
+    this.#flowRuntime.clear();
+    this.#navigatorRuntime.clear();
+    this.#hierarchyRuntime.clear();
+    this.#parallelRuntime.clear();
+    this.#heatmapRuntime.clear();
+    this.#scatterMatrixRuntime.clear();
+    this.#familyFocus = null;
+    this.#familyGesture = null;
+    this.#technicalCrosshairValue = null;
     this.#domainView = emptyDomainViewState();
     this.#annotationsVisible = true;
     this.#hiddenLegendItems.clear();
     this.#configureInteraction(normalized, true);
+    this.#resetMarkLabels(normalized);
     this.render();
     this.#configureResizeObserver();
     this.#emitPlayback('spec');
@@ -948,6 +2733,91 @@ export class Chart {
     this.#emitDomainView('spec');
     this.#emitAnnotations('spec');
     this.#emitAnnotationVisibility('spec');
+    this.#emitMarkLabels('spec');
+    this.#events.emit('familyfocuschange', { chart: this, state: null, reason: 'spec' });
+    for (const layerId of new Set(
+      this.#familyEntries('table-cell').map(({ layerId }) => layerId),
+    )) {
+      this.#events.emit('tablechange', {
+        chart: this,
+        layerId,
+        state: this.getTableRuntimeState(layerId),
+        reason: 'spec',
+      });
+    }
+    for (const layerId of new Set(
+      this.#familyEntries('network-node').map(({ layerId }) => layerId),
+    )) {
+      this.#events.emit('networkchange', {
+        chart: this,
+        layerId,
+        state: this.getNetworkRuntimeState(layerId),
+        reason: 'spec',
+      });
+    }
+    for (const layerId of new Set(this.#familyEntries('flow-node').map(({ layerId }) => layerId))) {
+      this.#events.emit('flowchange', {
+        chart: this,
+        layerId,
+        state: this.getFlowRuntimeState(layerId),
+        reason: 'spec',
+      });
+    }
+    for (const layerId of new Set(
+      this.#familyEntries('navigator-window').map(({ layerId }) => layerId),
+    )) {
+      const interaction = this.#navigatorInteraction(layerId);
+      this.#events.emit('navigatorchange', {
+        chart: this,
+        layerId,
+        family: interaction.family,
+        state: this.getNavigatorWindow(layerId),
+        reason: 'spec',
+      });
+    }
+    for (const layerId of new Set(
+      this.#familyEntries('hierarchy-node').map(({ layerId }) => layerId),
+    )) {
+      this.#events.emit('hierarchychange', {
+        chart: this,
+        layerId,
+        state: this.getHierarchyRuntimeState(layerId),
+        reason: 'spec',
+      });
+    }
+    for (const layerId of new Set(
+      this.#familyEntries('parallel-axis').map(({ layerId }) => layerId),
+    )) {
+      this.#events.emit('parallelchange', {
+        chart: this,
+        layerId,
+        state: this.getParallelRuntimeState(layerId),
+        reason: 'spec',
+      });
+    }
+    for (const layerId of new Set(
+      this.#familyEntries('heatmap-cell').map(({ layerId }) => layerId),
+    )) {
+      this.#events.emit('heatmapchange', {
+        chart: this,
+        layerId,
+        state: this.getHeatmapBrush(layerId),
+        reason: 'spec',
+      });
+    }
+    for (const layerId of new Set(
+      this.#familyEntries('scatter-matrix-cell').map(({ layerId }) => layerId),
+    )) {
+      const state = this.getScatterMatrixBrush(layerId);
+      if (state !== null) {
+        this.#events.emit('scattermatrixchange', {
+          chart: this,
+          layerId,
+          state,
+          reason: 'spec',
+        });
+      }
+    }
     this.#startAutoplay();
     return this;
   }
@@ -1049,6 +2919,72 @@ export class Chart {
       { mode: 'replaceLast', rows, ...(watermark === undefined ? {} : { watermark }) },
       layerId,
     );
+  }
+
+  /** Queue an authored streaming mutation through the bounded frame runtime. */
+  async enqueueData(
+    update: IncrementalUpdate,
+    layerId?: string,
+    options: StreamEnqueueOptions = {},
+  ): Promise<this> {
+    this.#assertAlive();
+    const runtime = this.#streamRuntime(layerId);
+    const result = await runtime.enqueue(update, options);
+    this.#assertAlive();
+    const visible = runtime.visible();
+    if (visible !== null && visible.state.sequence === result.state.sequence) {
+      this.#applyStreamingRows(visible.rows, layerId);
+    }
+    return this;
+  }
+
+  pauseStreaming(layerId?: string): this {
+    this.#assertAlive();
+    this.#streamRuntime(layerId).pause();
+    return this;
+  }
+
+  resumeStreaming(layerId?: string): this {
+    this.#assertAlive();
+    this.#streamRuntime(layerId).resume();
+    return this;
+  }
+
+  setStreamingFollowLive(follow: boolean, layerId?: string): this {
+    this.#assertAlive();
+    if (typeof follow !== 'boolean') {
+      throw new GraflumeError('INVALID_DATA', 'Streaming follow-live state must be boolean.');
+    }
+    const runtime = this.#streamRuntime(layerId);
+    runtime.setFollowLive(follow);
+    const visible = runtime.visible();
+    if (follow && visible !== null) this.#applyStreamingRows(visible.rows, layerId);
+    return this;
+  }
+
+  getStreamRuntimeState(layerId?: string): IncrementalStreamRuntimeState | null {
+    this.#assertAlive();
+    const target = this.#streamingTarget(layerId, false);
+    return target === null ? null : (this.#streamRuntimes.get(target.id)?.state() ?? null);
+  }
+
+  getStreamingHistoryPage(cursor = 0, layerId?: string): StreamHistoryPage {
+    this.#assertAlive();
+    return this.#streamRuntime(layerId).historyPage(cursor);
+  }
+
+  /** Lazily constructs the module Worker declared by ChartSpec.streaming.worker. */
+  getWorkerRuntime(): AutomaticWorkerRuntime {
+    this.#assertAlive();
+    const spec = this.#spec.streaming?.worker;
+    if (spec === undefined) {
+      throw new GraflumeError(
+        'INVALID_SPEC',
+        'getWorkerRuntime requires ChartSpec.streaming.worker.',
+      );
+    }
+    this.#workerRuntime ??= new AutomaticWorkerRuntime(spec, this.#options.workerFactory);
+    return this.#workerRuntime;
   }
 
   getStreamingState(layerId?: string): IncrementalDataState | null {
@@ -1172,42 +3108,54 @@ export class Chart {
     return this.#setDomainView(next, 'programmatic');
   }
 
-  zoomDomainBy(factor: number, anchor?: ChartViewPoint, axes?: readonly AxisId[]): this {
+  zoomDomainBy(
+    factor: number,
+    anchor?: ChartViewPoint,
+    axes?: readonly AxisId[],
+    viewId?: string,
+  ): this {
     this.#assertAlive();
     const navigation = this.#requireDomainNavigation();
     const result = this.#result;
     if (result === null) return this;
+    const located =
+      anchor === undefined || viewId !== undefined ? null : this.#coordinateAt(anchor);
+    const view = this.#coordinateView(viewId ?? located?.view.id);
     const selectedAxes = this.#domainAxes(navigation, axes);
-    const point = anchor ?? {
-      x: result.coordinates.plot.x + result.coordinates.plot.width / 2,
-      y: result.coordinates.plot.y + result.coordinates.plot.height / 2,
-    };
+    const point =
+      anchor === undefined
+        ? {
+            x: view.coordinates.plot.x + view.coordinates.plot.width / 2,
+            y: view.coordinates.plot.y + view.coordinates.plot.height / 2,
+          }
+        : (located?.point ?? this.#localPoint(view.id, anchor));
     let next = this.#domainView;
     for (const axis of selectedAxes) {
       next = zoomDomainAtPixel(
         next,
-        result.coordinates,
+        view.coordinates,
         axis,
         factor,
-        axis === 'x' || axis === 'x2' ? point.x : point.y,
+        cartesianAxisChannel(view.coordinates, axis) === 'x' ? point.x : point.y,
         navigation.maxZoom,
       );
     }
     return this.#setDomainView(next, 'zoom');
   }
 
-  panDomainBy(deltaX: number, deltaY: number, axes?: readonly AxisId[]): this {
+  panDomainBy(deltaX: number, deltaY: number, axes?: readonly AxisId[], viewId?: string): this {
     this.#assertAlive();
     const navigation = this.#requireDomainNavigation();
     const result = this.#result;
     if (result === null) return this;
+    const view = this.#coordinateView(viewId);
     let next = this.#domainView;
     for (const axis of this.#domainAxes(navigation, axes)) {
       next = panDomainByPixels(
         next,
-        result.coordinates,
+        view.coordinates,
         axis,
-        axis === 'x' || axis === 'x2' ? deltaX : deltaY,
+        cartesianAxisChannel(view.coordinates, axis) === 'x' ? deltaX : deltaY,
       );
     }
     return this.#setDomainView(next, 'pan');
@@ -1219,13 +3167,45 @@ export class Chart {
     return this.#setDomainView(emptyDomainViewState(), 'reset');
   }
 
-  play(): this {
+  #resolvePlaybackReference(
+    reference: PlaybackFrameReference | undefined,
+    fallback: number,
+    bound: 'start' | 'end' | 'target',
+  ): number {
+    if (reference === undefined) return fallback;
+    if (typeof reference === 'string') {
+      const named = this.#playbackNamedFrames.find((frame) => frame.name === reference);
+      if (named === undefined) {
+        throw new GraflumeError('INVALID_SPEC', `Unknown playback frame name "${reference}".`, {
+          path:
+            bound === 'target'
+              ? '$.interaction.playback.namedFrames'
+              : `$.interaction.playback.range.${bound}`,
+        });
+      }
+      return named.index;
+    }
+    if (!Number.isFinite(reference) || !Number.isInteger(reference)) {
+      throw new RangeError('Playback frame index must be a finite integer.');
+    }
+    return reference;
+  }
+
+  play(from?: PlaybackFrameReference): this {
     this.#assertAlive();
-    if (this.#playback === false || this.#playbackFrames.length <= 1 || this.#playing) return this;
+    if (this.#playback === false || this.#playbackFrames.length === 0) return this;
+    if (from !== undefined) this.seek(from);
+    const rangeLength = this.#playbackRange.end - this.#playbackRange.start + 1;
+    if (rangeLength <= 1 || this.#playing) return this;
     if (typeof document !== 'undefined' && document.hidden) return this;
-    if (this.#playbackIndex === this.#playbackFrames.length - 1) {
-      this.#renderPlaybackIndex(0);
-      this.#emitPlayback('seek');
+    const terminal =
+      this.#playbackDirection === 'forward' ? this.#playbackRange.end : this.#playbackRange.start;
+    if (from === undefined && this.#playbackIndex === terminal) {
+      const previousIndex = this.#playbackIndex;
+      const restart =
+        this.#playbackDirection === 'forward' ? this.#playbackRange.start : this.#playbackRange.end;
+      this.#renderPlaybackIndex(restart);
+      this.#emitPlayback('seek', previousIndex);
     }
     this.#playing = true;
     this.#playbackTimestamp = null;
@@ -1245,34 +3225,94 @@ export class Chart {
     this.#assertAlive();
     if (!Number.isFinite(delta)) throw new RangeError('Playback step must be finite.');
     if (this.#playback === false || this.#playbackFrames.length === 0) return this;
-    const length = this.#playbackFrames.length;
+    const start = this.#playbackRange.start;
+    const end = this.#playbackRange.end;
+    const length = end - start + 1;
     let next = this.#playbackIndex + Math.trunc(delta);
-    if (this.#playbackLoop) next = ((next % length) + length) % length;
-    else next = Math.max(0, Math.min(length - 1, next));
+    if (this.#playbackLoop) next = start + ((((next - start) % length) + length) % length);
+    else next = Math.max(start, Math.min(end, next));
     if (next === this.#playbackIndex) {
       if (this.#playing && !this.#playbackLoop) this.#stopPlayback(true);
       else if (this.#sceneTransition !== null) this.#finishSceneTransition();
       return this;
     }
+    const previousIndex = this.#playbackIndex;
     this.#renderPlaybackIndex(next);
-    this.#emitPlayback('step');
-    if (this.#playing && !this.#playbackLoop && next === length - 1) {
+    this.#emitPlayback('step', previousIndex);
+    const terminal = this.#playbackDirection === 'forward' ? end : start;
+    if (this.#playing && !this.#playbackLoop && next === terminal) {
       this.#stopPlayback(false);
     }
     return this;
   }
 
-  seek(index: number): this {
+  seek(target: PlaybackFrameReference): this {
     this.#assertAlive();
-    if (!Number.isFinite(index)) throw new RangeError('Playback index must be finite.');
     if (this.#playback === false || this.#playbackFrames.length === 0) return this;
-    const next = Math.max(0, Math.min(this.#playbackFrames.length - 1, Math.trunc(index)));
+    const resolved = this.#resolvePlaybackReference(target, this.#playbackRange.start, 'target');
+    const named = typeof target === 'string';
+    if (named && (resolved < this.#playbackRange.start || resolved > this.#playbackRange.end)) {
+      throw new RangeError(`Named playback frame "${target}" is outside the active range.`);
+    }
+    const next = Math.max(
+      this.#playbackRange.start,
+      Math.min(this.#playbackRange.end, Math.trunc(resolved)),
+    );
     if (next === this.#playbackIndex) {
       if (this.#sceneTransition !== null) this.#finishSceneTransition();
       return this;
     }
+    const previousIndex = this.#playbackIndex;
     this.#renderPlaybackIndex(next);
-    this.#emitPlayback('seek');
+    this.#emitPlayback('seek', previousIndex);
+    return this;
+  }
+
+  setPlaybackDirection(direction: PlaybackDirection): this {
+    this.#assertAlive();
+    if (direction !== 'forward' && direction !== 'reverse') {
+      throw new TypeError('Playback direction must be "forward" or "reverse".');
+    }
+    if (this.#playback === false || this.#playbackDirection === direction) return this;
+    this.#playbackDirection = direction;
+    this.#playbackTimestamp = null;
+    this.#emitPlayback('direction');
+    this.#syncControls();
+    return this;
+  }
+
+  setPlaybackRange(range?: PlaybackRangeSpec): this {
+    this.#assertAlive();
+    if (this.#playback === false) return this;
+    if (
+      range !== undefined &&
+      (typeof range !== 'object' || range === null || Array.isArray(range))
+    ) {
+      throw new TypeError('Playback range must be an object.');
+    }
+    if (this.#playbackFrames.length === 0) {
+      if (range !== undefined) {
+        throw new RangeError('Playback range cannot be set without available frames.');
+      }
+      return this;
+    }
+    const start = this.#resolvePlaybackReference(range?.start, 0, 'start');
+    const end = this.#resolvePlaybackReference(range?.end, this.#playbackFrames.length - 1, 'end');
+    if (
+      start < 0 ||
+      start >= this.#playbackFrames.length ||
+      end < 0 ||
+      end >= this.#playbackFrames.length
+    ) {
+      throw new RangeError('Playback range must stay within the available frame indices.');
+    }
+    if (start > end) throw new RangeError('Playback range start must not exceed its end.');
+    if (start === this.#playbackRange.start && end === this.#playbackRange.end) return this;
+    const previousIndex = this.#playbackIndex;
+    this.#playbackRange = { start, end };
+    this.#playbackTimestamp = null;
+    this.#renderPlaybackIndex(Math.max(start, Math.min(end, previousIndex)));
+    this.#emitPlayback('range', previousIndex);
     return this;
   }
 
@@ -1344,22 +3384,39 @@ export class Chart {
 
   #renderEndpoint(): this {
     const dimensions = this.#measure();
+    const familyRuntimeSpec = this.#familyRuntimeSpec(this.#spec);
     const playbackSpecInput =
       this.#playback === false
-        ? this.#spec
-        : playbackSpec(this.#spec, this.#playback, this.#playbackFrames, this.#playbackIndex);
+        ? familyRuntimeSpec
+        : playbackSpec(
+            familyRuntimeSpec,
+            this.#playback,
+            this.#playbackFrames,
+            this.#playbackIndex,
+            this.#playbackRange.start,
+          );
     // Fullscreen sizing is transient: it must override fixed chart dimensions
     // without mutating the caller's portable base spec.
     const effectiveSpec = this.#fullscreen
       ? { ...playbackSpecInput, width: 'container' as const, height: 'container' as const }
       : playbackSpecInput;
+    const analyticSelectionDraft = this.#analyticSelectionDraft();
     const result = compileWithRegistry(effectiveSpec, this.#registry, dimensions, {
       hiddenLegendItemIds: this.#hiddenLegendItems,
       annotations: this.#annotations,
       annotationsVisible: this.#annotationsVisible,
+      ...(this.#activeAnnotationId === null
+        ? {}
+        : { activeAnnotationId: this.#activeAnnotationId }),
+      markLabelPositions: this.#markLabels.positions(),
+      ...(this.#activeMarkLabelId === null ? {} : { activeMarkLabelId: this.#activeMarkLabelId }),
       selection: this.#selection,
       analyticSelection: this.#analyticSelection.get(),
+      ...(analyticSelectionDraft === undefined ? {} : { analyticSelectionDraft }),
       domainView: this.#domainView,
+      ...(this.#technicalCrosshairValue === null
+        ? {}
+        : { technicalCrosshairValue: this.#technicalCrosshairValue }),
     });
     this.#validateAnalyticCapabilities(result);
     const factory = this.#registry.resolveRenderer(result.spec.renderer);
@@ -1371,6 +3428,7 @@ export class Chart {
       this.#controls.destroy();
       this.#legend.destroy();
       this.#accessibility.destroy();
+      this.#destroyMarkLabelLive();
       this.#destroySelectionLive();
       this.#renderer?.destroy();
       this.#renderer = factory.create();
@@ -1412,32 +3470,46 @@ export class Chart {
     this.#syncControls();
     this.#syncLegend();
     this.#syncAccessibilityMirror();
+    this.#syncMarkLabelAccessibility();
     this.#syncSelectionAccessibility();
     this.#events.emit('render', { chart: this, scene: result.scene });
     return this;
   }
 
   #validateAnalyticCapabilities(result: CompileResult): void {
-    const requireContinuous = (axis: AxisId, feature: string): void => {
-      const scale = result.coordinates.axes[axis];
+    const requireAxis = (
+      view: CompileCoordinateView,
+      axis: AxisId,
+      feature: string,
+      continuous: boolean,
+    ): void => {
+      const scale = view.coordinates.axes[axis];
+      const viewLabel = view.label === '' ? view.id : `${view.id} (${view.label})`;
       if (scale === undefined) {
         throw new GraflumeError(
           'INCOMPATIBLE_SCALE',
-          `${feature} requires resolved axis "${axis}".`,
+          `${feature} requires resolved axis "${axis}" in coordinate view "${viewLabel}".`,
           { path: `$.axes.${axis}` },
         );
       }
-      if (scale.invert === undefined) {
+      if (
+        scale.invert === undefined &&
+        (continuous || (scale.kind !== 'band' && scale.kind !== 'point'))
+      ) {
         throw new GraflumeError(
           'INCOMPATIBLE_SCALE',
-          `${feature} requires an invertible continuous axis; "${axis}" uses "${scale.kind}".`,
+          continuous
+            ? `${feature} requires an invertible continuous axis; "${axis}" in coordinate view "${viewLabel}" uses "${scale.kind}".`
+            : `${feature} requires an invertible continuous, band, or point axis; "${axis}" in coordinate view "${viewLabel}" uses "${scale.kind}".`,
           { path: `$.axes.${axis}` },
         );
       }
     };
     const navigation = result.spec.interaction.domainNavigation;
     if (navigation !== false) {
-      for (const axis of navigation.axes) requireContinuous(axis, 'Domain navigation');
+      for (const view of result.coordinateViews) {
+        for (const axis of navigation.axes) requireAxis(view, axis, 'Domain navigation', false);
+      }
     }
     const selection = result.spec.interaction.selection;
     if (selection === false) {
@@ -1450,15 +3522,18 @@ export class Chart {
       return;
     }
     this.#validateAnalyticStateForConfig(this.#analyticSelection.get(), selection);
-    if (selection.kind === 'axis') {
-      requireContinuous(selection.axis!, 'Axis selection');
-    } else if (
-      selection.kind === 'interval' ||
-      selection.kind === 'rectangle' ||
-      selection.kind === 'lasso'
-    ) {
-      requireContinuous(selection.xAxis, `${selection.kind} selection`);
-      requireContinuous(selection.yAxis, `${selection.kind} selection`);
+    for (const view of result.coordinateViews) {
+      if (selection.kind === 'axis') {
+        requireAxis(view, selection.axis!, 'Axis selection', false);
+      } else if (
+        selection.kind === 'interval' ||
+        selection.kind === 'rectangle' ||
+        selection.kind === 'lasso'
+      ) {
+        const continuous = selection.kind === 'lasso';
+        requireAxis(view, selection.xAxis, `${selection.kind} selection`, continuous);
+        requireAxis(view, selection.yAxis, `${selection.kind} selection`, continuous);
+      }
     }
   }
 
@@ -1499,6 +3574,17 @@ export class Chart {
     this.#controls.destroy();
     this.#legend.destroy();
     this.#accessibility.destroy();
+    this.#linkedFocusUnregister?.();
+    this.#linkedFocusUnsubscribe?.();
+    this.#linkedViewUnregister?.();
+    this.#linkedFocusUnregister = null;
+    this.#linkedFocusUnsubscribe = null;
+    this.#linkedViewUnregister = null;
+    for (const runtime of this.#streamRuntimes.values()) runtime.destroy();
+    this.#streamRuntimes.clear();
+    this.#workerRuntime?.close({ terminate: true });
+    this.#workerRuntime = null;
+    this.#destroyMarkLabelLive();
     this.#destroySelectionLive();
     this.#tooltip.destroy();
     this.#renderer?.destroy();
@@ -1522,22 +3608,34 @@ export class Chart {
       this.#playbackIndex = 0;
       this.#playbackRate = 1;
       this.#playbackLoop = false;
+      this.#playbackDirection = 'forward';
+      this.#playbackRange = { start: 0, end: -1 };
+      this.#playbackNamedFrames = [];
       return;
     }
     this.#playbackFrames = collectPlaybackFrames(this.#spec, this.#playback);
+    const timeline = resolvePlaybackTimeline(this.#playbackFrames, this.#playback);
     this.#playbackRate = this.#playback.rate;
     this.#playbackLoop = this.#playback.loop;
+    this.#playbackDirection = this.#playback.direction;
+    this.#playbackRange = timeline.range;
+    this.#playbackNamedFrames = timeline.namedFrames;
     const initial = configuredFrame(this.#spec);
     const initialIndex =
       initial === undefined
         ? -1
-        : this.#playbackFrames.findIndex((frame) => frameKey(frame) === frameKey(initial));
-    this.#playbackIndex =
-      initialIndex >= 0
-        ? initialIndex
-        : this.#playback.autoplay || this.#playback.mode === 'frame'
-          ? 0
-          : Math.max(0, this.#playbackFrames.length - 1);
+        : this.#playbackFrames.findIndex(
+            (frame) => playbackFrameKey(frame) === playbackFrameKey(initial),
+          );
+    const initialInRange =
+      initialIndex >= this.#playbackRange.start && initialIndex <= this.#playbackRange.end;
+    const directionalStart =
+      this.#playbackDirection === 'forward' ? this.#playbackRange.start : this.#playbackRange.end;
+    this.#playbackIndex = initialInRange
+      ? initialIndex
+      : this.#playback.autoplay || this.#playback.mode === 'frame'
+        ? Math.max(0, directionalStart)
+        : Math.max(0, this.#playbackRange.end);
   }
 
   #navigation(): false | NormalizedNavigationSpec {
@@ -1599,6 +3697,9 @@ export class Chart {
 
   #emitDomainView(reason: ChartDomainViewChangeReason): void {
     this.#events.emit('domainviewchange', { chart: this, state: this.#domainView, reason });
+    if (!this.#applyingLinkedViewState) {
+      this.#options.linkedViewStore?.setDomainView(this.#domainView, this.#semanticViewId);
+    }
   }
 
   #requireNavigation(): NormalizedNavigationSpec {
@@ -1663,12 +3764,26 @@ export class Chart {
     this.#events.emit('viewchange', { chart: this, view: this.getViewState(), reason });
   }
 
-  #emitPlayback(reason: ChartPlaybackChangeReason): void {
+  #emitPlayback(reason: ChartPlaybackChangeReason, previousIndex?: number): void {
+    const state = this.getPlaybackState();
     this.#events.emit('playbackchange', {
       chart: this,
-      state: this.getPlaybackState(),
+      state,
       reason,
     });
+    if (
+      reason === 'spec' ||
+      (previousIndex !== undefined && previousIndex !== this.#playbackIndex)
+    ) {
+      this.#events.emit('playbackframechange', {
+        chart: this,
+        state,
+        reason:
+          reason === 'step' || reason === 'seek' || reason === 'range' ? reason : ('spec' as const),
+        ...(previousIndex === undefined ? {} : { previousIndex }),
+        label: state.label,
+      });
+    }
   }
 
   #renderPlaybackIndex(index: number): void {
@@ -1792,7 +3907,7 @@ export class Chart {
           // Settle before advancing so transient crossfade/exit nodes never
           // accumulate as inputs to the next automatic frame.
           this.#finishSceneTransition();
-          this.step(1);
+          this.step(this.#playbackDirection === 'forward' ? 1 : -1);
         }
       }
       if (this.#playing || this.#sceneTransition !== null) this.#schedulePlaybackFrame();
@@ -1902,6 +4017,7 @@ export class Chart {
       this.#surfaceTouchAction = surface.style.touchAction;
       this.#surfaceTabIndex = surface.getAttribute('tabindex');
       this.#surfaceCursor = surface.style.cursor;
+      this.#surfaceAriaKeyShortcuts = surface.getAttribute('aria-keyshortcuts');
       surface.addEventListener('pointermove', this.#pointerMoveListener, { passive: false });
       surface.addEventListener('pointerdown', this.#pointerDownListener, { passive: false });
       surface.addEventListener('pointerup', this.#pointerUpListener, { passive: false });
@@ -1920,33 +4036,91 @@ export class Chart {
     const navigation = this.#navigation();
     const domainNavigation = this.#domainNavigation();
     const selection = this.#result?.spec.interaction.selection;
+    const markLabelAuthoring = this.#markLabelAuthoring();
+    const annotationAuthoring = (this.#result?.scene.metadata.annotations?.entries.length ?? 0) > 0;
+    const familyKeyboard =
+      this.#familyEntries('pie-slice').length > 0 || this.#familyEntries('table-cell').length > 0;
+    const familyPointer =
+      this.#familyEntries('network-node').length > 0 ||
+      this.#familyEntries('flow-node').length > 0 ||
+      this.#familyEntries('navigator-window').length > 0 ||
+      this.#familyEntries('hierarchy-node').length > 0 ||
+      this.#familyEntries('parallel-axis').length > 0 ||
+      this.#familyEntries('heatmap-cell').length > 0 ||
+      this.#familyEntries('scatter-matrix-cell').length > 0;
     const analyticDrag =
       selection !== undefined && selection !== false && selection.kind !== 'point';
+    const analyticKeyboard = analyticDrag && selection.keyboard;
     const inspecting = this.#view.zoom > 1 || this.#view.offsetX !== 0 || this.#view.offsetY !== 0;
     surface.style.touchAction =
-      analyticDrag || (domainNavigation !== false && domainNavigation.drag)
+      annotationAuthoring ||
+      familyPointer ||
+      (markLabelAuthoring !== false && markLabelAuthoring.pointer) ||
+      analyticDrag ||
+      (domainNavigation !== false && domainNavigation.drag)
         ? 'none'
         : navigation !== false && (navigation.drag || navigation.pinch)
           ? inspecting
             ? 'none'
             : 'pan-y'
           : (this.#surfaceTouchAction ?? '');
-    surface.style.cursor = analyticDrag
-      ? 'crosshair'
-      : domainNavigation !== false && domainNavigation.drag
-        ? 'grab'
-        : navigation !== false && navigation.drag
-          ? 'grab'
-          : (this.#surfaceCursor ?? '');
+    surface.style.cursor =
+      annotationAuthoring && this.#activeAnnotationId !== null
+        ? 'move'
+        : markLabelAuthoring !== false && markLabelAuthoring.pointer
+          ? 'move'
+          : familyPointer
+            ? 'grab'
+            : analyticDrag
+              ? 'crosshair'
+              : domainNavigation !== false && domainNavigation.drag
+                ? 'grab'
+                : navigation !== false && navigation.drag
+                  ? 'grab'
+                  : (this.#surfaceCursor ?? '');
     if (
       (navigation !== false && navigation.keyboard) ||
       (domainNavigation !== false && domainNavigation.keyboard) ||
+      annotationAuthoring ||
+      (markLabelAuthoring !== false && markLabelAuthoring.keyboard) ||
+      analyticKeyboard ||
+      familyKeyboard ||
       this.#result?.spec.accessibility.navigation === true ||
       (selection !== undefined && selection !== false && selection.clearOnEscape)
     )
       surface.tabIndex = 0;
     else if (this.#surfaceTabIndex === null) surface.removeAttribute('tabindex');
     else surface.setAttribute('tabindex', this.#surfaceTabIndex);
+    if (
+      annotationAuthoring ||
+      (markLabelAuthoring !== false && markLabelAuthoring.keyboard) ||
+      analyticKeyboard ||
+      familyKeyboard
+    ) {
+      const shortcuts = [
+        'Enter',
+        'Shift+Enter',
+        'ArrowUp',
+        'ArrowDown',
+        'ArrowLeft',
+        'ArrowRight',
+        'Escape',
+      ];
+      if (annotationAuthoring || (markLabelAuthoring !== false && markLabelAuthoring.keyboard)) {
+        shortcuts.push(
+          'Alt+ArrowLeft',
+          'Alt+ArrowRight',
+          'Control+Z',
+          'Control+Y',
+          'Meta+Z',
+          'Meta+Y',
+        );
+      }
+      if (analyticKeyboard) shortcuts.push('S', 'Space');
+      if (familyKeyboard) shortcuts.push('Home', 'End', 'PageUp', 'PageDown', 'Space');
+      surface.setAttribute('aria-keyshortcuts', [...new Set(shortcuts)].join(' '));
+    } else if (this.#surfaceAriaKeyShortcuts === null) surface.removeAttribute('aria-keyshortcuts');
+    else surface.setAttribute('aria-keyshortcuts', this.#surfaceAriaKeyShortcuts);
   }
 
   #detachSurfaceEvents(): void {
@@ -1966,10 +4140,13 @@ export class Chart {
     surface.style.cursor = this.#surfaceCursor ?? '';
     if (this.#surfaceTabIndex === null) surface.removeAttribute('tabindex');
     else surface.setAttribute('tabindex', this.#surfaceTabIndex);
+    if (this.#surfaceAriaKeyShortcuts === null) surface.removeAttribute('aria-keyshortcuts');
+    else surface.setAttribute('aria-keyshortcuts', this.#surfaceAriaKeyShortcuts);
     this.#eventSurface = null;
     this.#surfaceTouchAction = null;
     this.#surfaceTabIndex = null;
     this.#surfaceCursor = null;
+    this.#surfaceAriaKeyShortcuts = null;
   }
 
   #cancelActiveGesture(): void {
@@ -1978,13 +4155,71 @@ export class Chart {
       const pointerIds = new Set(this.#activePointers.keys());
       if (this.#analyticGesture !== null) pointerIds.add(this.#analyticGesture.pointerId);
       if (this.#domainGesture !== null) pointerIds.add(this.#domainGesture.pointerId);
+      if (this.#annotationGesture !== null) pointerIds.add(this.#annotationGesture.pointerId);
+      if (this.#markLabelGesture !== null) pointerIds.add(this.#markLabelGesture.pointerId);
+      if (this.#familyGesture !== null) pointerIds.add(this.#familyGesture.pointerId);
       for (const pointerId of pointerIds) {
         if (surface.hasPointerCapture?.(pointerId)) surface.releasePointerCapture?.(pointerId);
       }
       surface.style.cursor = this.#surfaceCursor ?? '';
     }
     this.#activePointers.clear();
+    if (this.#annotationGesture !== null) {
+      this.#annotationHistory.restore(this.#annotationGesture.previous);
+      this.#annotations = [...this.#annotationHistory.annotations()];
+    }
+    this.#annotationGesture = null;
+    if (this.#markLabelGesture !== null) this.#markLabels.restore(this.#markLabelGesture.previous);
+    this.#markLabelGesture = null;
+    if (this.#familyGesture?.kind === 'network-lasso') {
+      this.#networkRuntime.set(
+        this.#familyGesture.layerId,
+        cloneNetworkRuntimeState(this.#familyGesture.previous),
+      );
+    } else if (
+      this.#familyGesture?.kind === 'network-node' &&
+      this.#familyGesture.previousNetwork !== undefined
+    ) {
+      this.#networkRuntime.set(
+        this.#familyGesture.layerId,
+        cloneNetworkRuntimeState(this.#familyGesture.previousNetwork),
+      );
+    } else if (
+      this.#familyGesture?.kind === 'flow-node' &&
+      this.#familyGesture.previousFlow !== undefined
+    ) {
+      this.#flowRuntime.set(
+        this.#familyGesture.layerId,
+        cloneFlowRuntimeState(this.#familyGesture.previousFlow),
+      );
+    } else if (this.#familyGesture?.kind === 'navigator-window') {
+      this.#navigatorRuntime.set(this.#familyGesture.layerId, {
+        family: this.#familyGesture.interaction.family,
+        state: cloneNavigatorRuntimeState(this.#familyGesture.previous),
+      });
+    } else if (this.#familyGesture?.kind === 'parallel-brush') {
+      this.#parallelRuntime.set(
+        this.#familyGesture.layerId,
+        cloneParallelRuntimeState(this.#familyGesture.previous),
+      );
+    } else if (this.#familyGesture?.kind === 'heatmap-brush') {
+      this.#heatmapRuntime.set(
+        this.#familyGesture.layerId,
+        cloneHeatmapRuntimeState(this.#familyGesture.previous),
+      );
+    } else if (this.#familyGesture?.kind === 'scatter-matrix-brush') {
+      if (this.#familyGesture.previous === null) {
+        this.#scatterMatrixRuntime.delete(this.#familyGesture.layerId);
+      } else {
+        this.#scatterMatrixRuntime.set(
+          this.#familyGesture.layerId,
+          cloneScatterMatrixRuntimeState(this.#familyGesture.previous),
+        );
+      }
+    }
+    this.#familyGesture = null;
     this.#analyticGesture = null;
+    this.#analyticKeyboardGesture = null;
     this.#domainGesture = null;
     this.#dragPrevious = null;
     this.#pinchStart = null;
@@ -2001,6 +4236,43 @@ export class Chart {
       x: ((event.clientX - bounds.left) / Math.max(1, bounds.width)) * scene.width,
       y: ((event.clientY - bounds.top) / Math.max(1, bounds.height)) * scene.height,
     };
+  }
+
+  #updateTechnicalCrosshair(event: PointerEvent, render = true): boolean {
+    const scene = this.#result?.scene;
+    const surfacePoint = this.#surfacePoint(event);
+    if (scene === undefined || surfacePoint === null) return false;
+    const scenePoint = inverseInspectionPoint(this.#view, surfacePoint);
+    const panel = scene.metadata.technicalIndicatorPanels?.find(
+      ({ bounds }) =>
+        scenePoint.x >= bounds.x &&
+        scenePoint.x <= bounds.x + bounds.width &&
+        scenePoint.y >= bounds.y &&
+        scenePoint.y <= bounds.y + bounds.height,
+    );
+    if (panel === undefined) return this.#clearTechnicalCrosshair(render);
+    const coordinate = this.#coordinateAt(scenePoint);
+    if (coordinate === null) return this.#clearTechnicalCrosshair(render);
+    let value: number | string;
+    try {
+      value = mapPixelToDomain(coordinate.view.coordinates, 'x', coordinate.point.x);
+    } catch {
+      return this.#clearTechnicalCrosshair(render);
+    }
+    if (typeof value === 'number' && !Number.isFinite(value)) {
+      return this.#clearTechnicalCrosshair(render);
+    }
+    if (this.#technicalCrosshairValue === value) return false;
+    this.#technicalCrosshairValue = value;
+    if (render) this.render();
+    return true;
+  }
+
+  #clearTechnicalCrosshair(render = true): boolean {
+    if (this.#technicalCrosshairValue === null) return false;
+    this.#technicalCrosshairValue = null;
+    if (render) this.render();
+    return true;
   }
 
   #handleWheel(event: WheelEvent): void {
@@ -2030,10 +4302,523 @@ export class Chart {
     this.zoomBy(Math.exp(-event.deltaY * 0.002), point);
   }
 
+  #familyHit(point: Point): HitResult | null {
+    const scene = this.#result?.scene;
+    if (scene === undefined) return null;
+    const local = inverseInspectionPoint(this.#view, point);
+    const hit = hitTestScene(scene, local.x, local.y, 8 / this.#view.zoom);
+    return hit?.familyInteraction === undefined ? null : hit;
+  }
+
+  #nearestFamilyNode(
+    scenePoint: Point,
+    maximumDistance = 24,
+  ): { readonly entry: FamilySceneEntry; readonly distance: number } | null {
+    const root = this.#result?.scene.root;
+    if (root === undefined) return null;
+    return (
+      familySceneEntries(root)
+        .flatMap((entry) => {
+          const interaction = entry.familyInteraction;
+          if (interaction.kind !== 'network-node' && interaction.kind !== 'flow-node') return [];
+          const center = {
+            x: interaction.plot.x + interaction.position.x * interaction.plot.width,
+            y: interaction.plot.y + interaction.position.y * interaction.plot.height,
+          };
+          return [{ entry, distance: pointDistance(center, scenePoint) }];
+        })
+        .filter(({ distance }) => distance <= maximumDistance)
+        .sort((left, right) => left.distance - right.distance)[0] ?? null
+    );
+  }
+
+  #familyRegionAt(scenePoint: Point): FamilySceneEntry | null {
+    const root = this.#result?.scene.root;
+    if (root === undefined) return null;
+    const entries = familySceneEntries(root);
+    for (let index = entries.length - 1; index >= 0; index -= 1) {
+      const entry = entries[index];
+      if (entry === undefined) continue;
+      const interaction = entry.familyInteraction;
+      if (
+        interaction.kind !== 'navigator-window' &&
+        interaction.kind !== 'parallel-axis' &&
+        interaction.kind !== 'scatter-matrix-cell'
+      ) {
+        continue;
+      }
+      const { plot } = interaction;
+      if (interaction.kind === 'parallel-axis') {
+        const axisX =
+          plot.x + (interaction.index / Math.max(1, interaction.count - 1)) * plot.width;
+        if (
+          Math.abs(scenePoint.x - axisX) <= 9 &&
+          scenePoint.y >= plot.y &&
+          scenePoint.y <= plot.y + plot.height
+        ) {
+          return entry;
+        }
+        continue;
+      }
+      if (interaction.kind === 'navigator-window') {
+        const span = Math.max(Number.EPSILON, interaction.maximum - interaction.minimum);
+        const x = plot.x + ((interaction.start - interaction.minimum) / span) * plot.width;
+        const width = ((interaction.end - interaction.start) / span) * plot.width;
+        if (
+          scenePoint.x >= x &&
+          scenePoint.x <= x + width &&
+          scenePoint.y >= plot.y &&
+          scenePoint.y <= plot.y + plot.height
+        ) {
+          return entry;
+        }
+        continue;
+      }
+      if (
+        scenePoint.x >= plot.x &&
+        scenePoint.x <= plot.x + plot.width &&
+        scenePoint.y >= plot.y &&
+        scenePoint.y <= plot.y + plot.height
+      ) {
+        return entry;
+      }
+    }
+    return null;
+  }
+
+  #handleFamilyPointerDown(event: PointerEvent, point: Point): boolean {
+    const scenePoint = inverseInspectionPoint(this.#view, point);
+    const hit = this.#familyHit(point);
+    const directTarget = hit ?? this.#familyRegionAt(scenePoint);
+    const directInteraction = directTarget?.familyInteraction;
+    if (directTarget !== null && directInteraction?.kind === 'navigator-window') {
+      this.#familyGesture = {
+        kind: 'navigator-window',
+        pointerId: event.pointerId,
+        layerId: directTarget.layerId,
+        interaction: { ...directInteraction, plot: { ...directInteraction.plot } },
+        start: { ...scenePoint },
+        previous: this.getNavigatorWindow(directTarget.layerId),
+      };
+    } else if (
+      directTarget !== null &&
+      directInteraction?.kind === 'parallel-axis' &&
+      event.shiftKey
+    ) {
+      this.#familyGesture = {
+        kind: 'parallel-brush',
+        pointerId: event.pointerId,
+        layerId: directTarget.layerId,
+        field: directInteraction.field,
+        plot: { ...directInteraction.plot },
+        start: { ...scenePoint },
+        previous: this.getParallelRuntimeState(directTarget.layerId),
+      };
+    } else if (directTarget !== null && directInteraction?.kind === 'heatmap-cell') {
+      this.#familyGesture = {
+        kind: 'heatmap-brush',
+        pointerId: event.pointerId,
+        layerId: directTarget.layerId,
+        start: { ...directInteraction },
+        previous: this.getHeatmapBrush(directTarget.layerId),
+      };
+    } else if (directTarget !== null && directInteraction?.kind === 'scatter-matrix-cell') {
+      this.#familyGesture = {
+        kind: 'scatter-matrix-brush',
+        pointerId: event.pointerId,
+        layerId: directTarget.layerId,
+        interaction: {
+          ...directInteraction,
+          plot: { ...directInteraction.plot },
+          xDomain: [...directInteraction.xDomain],
+          yDomain: [...directInteraction.yDomain],
+        },
+        start: { ...scenePoint },
+        previous: this.getScatterMatrixBrush(directTarget.layerId),
+      };
+    }
+    if (this.#familyGesture !== null) {
+      this.#dragDistance = 0;
+      this.#suppressClick = false;
+      this.#eventSurface?.setPointerCapture?.(event.pointerId);
+      this.#eventSurface?.style.setProperty(
+        'cursor',
+        this.#familyGesture.kind === 'navigator-window' ? 'grabbing' : 'crosshair',
+      );
+      event.preventDefault();
+      return true;
+    }
+    if (event.shiftKey) {
+      const network = this.#familyEntries('network-node').find(({ familyInteraction }) => {
+        const { plot } = familyInteraction;
+        return (
+          scenePoint.x >= plot.x &&
+          scenePoint.x <= plot.x + plot.width &&
+          scenePoint.y >= plot.y &&
+          scenePoint.y <= plot.y + plot.height
+        );
+      });
+      if (network !== undefined) {
+        const previous = this.getNetworkRuntimeState(network.layerId);
+        this.#familyGesture = {
+          kind: 'network-lasso',
+          pointerId: event.pointerId,
+          layerId: network.layerId,
+          plot: { ...network.familyInteraction.plot },
+          points: [{ ...scenePoint }],
+          previous,
+        };
+        this.#dragDistance = 0;
+        this.#suppressClick = false;
+        this.#eventSurface?.setPointerCapture?.(event.pointerId);
+        this.#eventSurface?.style.setProperty('cursor', 'crosshair');
+        event.preventDefault();
+        return true;
+      }
+    }
+    const fallback = this.#nearestFamilyNode(scenePoint)?.entry;
+    const target =
+      directInteraction?.kind === 'network-node' || directInteraction?.kind === 'flow-node'
+        ? hit
+        : (fallback ?? null);
+    const interaction = target?.familyInteraction;
+    if (
+      target === null ||
+      interaction === undefined ||
+      (interaction.kind !== 'network-node' && interaction.kind !== 'flow-node')
+    ) {
+      return false;
+    }
+    this.#familyGesture = {
+      kind: interaction.kind,
+      pointerId: event.pointerId,
+      layerId: target.layerId,
+      id: interaction.id,
+      plot: { ...interaction.plot },
+      start: { ...scenePoint },
+      ...(interaction.kind === 'network-node'
+        ? { previousNetwork: this.getNetworkRuntimeState(target.layerId) }
+        : { previousFlow: this.getFlowRuntimeState(target.layerId) }),
+    };
+    this.#dragDistance = 0;
+    this.#suppressClick = false;
+    this.#eventSurface?.setPointerCapture?.(event.pointerId);
+    this.#eventSurface?.style.setProperty('cursor', 'grabbing');
+    event.preventDefault();
+    return true;
+  }
+
+  #handleFamilyPointerMove(event: PointerEvent): boolean {
+    const gesture = this.#familyGesture;
+    if (gesture === null || gesture.pointerId !== event.pointerId) return false;
+    const surfacePoint = this.#surfacePoint(event);
+    if (surfacePoint === null) return false;
+    const scenePoint = inverseInspectionPoint(this.#view, surfacePoint);
+    if (gesture.kind === 'network-lasso') {
+      const previous = gesture.points.at(-1);
+      if (previous === undefined || pointDistance(previous, scenePoint) >= 2) {
+        if (gesture.points.length < 256) gesture.points.push({ ...scenePoint });
+      }
+      this.#dragDistance = pointDistance(gesture.points[0] ?? scenePoint, scenePoint);
+      if (gesture.points.length >= 3) {
+        const lasso = gesture.points.map((point) => normalizedPoint(point, gesture.plot));
+        const current = this.getNetworkRuntimeState(gesture.layerId);
+        this.#setNetworkRuntimeState(
+          gesture.layerId,
+          normalizeNetworkRuntimeState({ lasso }, current),
+          'pointer',
+          false,
+        );
+      }
+    } else if (gesture.kind === 'network-node' || gesture.kind === 'flow-node') {
+      const position = normalizedPoint(scenePoint, gesture.plot);
+      this.#dragDistance = pointDistance(gesture.start, scenePoint);
+      if (gesture.kind === 'network-node') {
+        const current = this.getNetworkRuntimeState(gesture.layerId);
+        this.#setNetworkRuntimeState(
+          gesture.layerId,
+          normalizeNetworkRuntimeState(
+            {
+              positions: {
+                ...current.positions,
+                [gesture.id]: { ...position, pinned: true },
+              },
+            },
+            current,
+          ),
+          'pointer',
+          false,
+        );
+      } else {
+        const current = this.getFlowRuntimeState(gesture.layerId);
+        this.#setFlowRuntimeState(
+          gesture.layerId,
+          normalizeFlowRuntimeState(
+            { positions: { ...current.positions, [gesture.id]: position } },
+            current,
+          ),
+          'pointer',
+          false,
+        );
+      }
+    } else if (gesture.kind === 'navigator-window') {
+      this.#dragDistance = pointDistance(gesture.start, scenePoint);
+      const state = translateNavigatorWindow(gesture.interaction, scenePoint.x - gesture.start.x);
+      this.#setNavigatorRuntimeState(
+        gesture.layerId,
+        gesture.interaction.family,
+        state,
+        'pointer',
+        false,
+      );
+    } else if (gesture.kind === 'parallel-brush') {
+      this.#dragDistance = pointDistance(gesture.start, scenePoint);
+      const normalizeY = (value: number) =>
+        1 - Math.max(0, Math.min(1, (value - gesture.plot.y) / Math.max(1, gesture.plot.height)));
+      const extent = [normalizeY(gesture.start.y), normalizeY(scenePoint.y)].sort(
+        (left, right) => left - right,
+      ) as [number, number];
+      this.#setParallelRuntimeState(
+        gesture.layerId,
+        setParallelBrushExtents(gesture.previous, gesture.field, [extent]),
+        'pointer',
+        false,
+      );
+    } else if (gesture.kind === 'heatmap-brush') {
+      this.#dragDistance = Math.max(this.#dragDistance, 3);
+      const current = this.#familyHit(surfacePoint)?.familyInteraction;
+      const end = current?.kind === 'heatmap-cell' ? current : gesture.start;
+      const rowMinimum = Math.min(gesture.start.rowIndex, end.rowIndex);
+      const rowMaximum = Math.max(gesture.start.rowIndex, end.rowIndex);
+      const columnMinimum = Math.min(gesture.start.columnIndex, end.columnIndex);
+      const columnMaximum = Math.max(gesture.start.columnIndex, end.columnIndex);
+      const entries = this.#familyEntries('heatmap-cell').filter(
+        (entry) => entry.layerId === gesture.layerId,
+      );
+      const rows = [
+        ...new Map(
+          entries
+            .filter(
+              ({ familyInteraction }) =>
+                familyInteraction.rowIndex >= rowMinimum &&
+                familyInteraction.rowIndex <= rowMaximum,
+            )
+            .map(({ familyInteraction }) => [familyInteraction.rowIndex, familyInteraction.row]),
+        ).entries(),
+      ]
+        .sort(([left], [right]) => left - right)
+        .map(([, value]) => value);
+      const columns = [
+        ...new Map(
+          entries
+            .filter(
+              ({ familyInteraction }) =>
+                familyInteraction.columnIndex >= columnMinimum &&
+                familyInteraction.columnIndex <= columnMaximum,
+            )
+            .map(({ familyInteraction }) => [
+              familyInteraction.columnIndex,
+              familyInteraction.column,
+            ]),
+        ).entries(),
+      ]
+        .sort(([left], [right]) => left - right)
+        .map(([, value]) => value);
+      this.#setHeatmapRuntimeState(
+        gesture.layerId,
+        normalizeHeatmapRuntimeState({ rows, columns }, gesture.previous),
+        'pointer',
+        false,
+      );
+    } else if (gesture.kind === 'scatter-matrix-brush') {
+      this.#dragDistance = pointDistance(gesture.start, scenePoint);
+      const brush = scatterMatrixPointerBrush(gesture.interaction, gesture.start, scenePoint);
+      const selectedRows = selectScatterMatrixRows(this.#familyLayerRows(gesture.layerId), brush);
+      const state = normalizeScatterMatrixRuntimeState(
+        { ...brush, selectedRows },
+        gesture.previous ?? { ...brush, selectedRows: [] },
+      );
+      this.#setScatterMatrixRuntimeState(gesture.layerId, state, 'pointer', false);
+    }
+    if (this.#dragDistance > 2) this.#suppressClick = true;
+    event.preventDefault();
+    return true;
+  }
+
+  #handleFamilyPointerEnd(event: PointerEvent, cancelled: boolean): boolean {
+    const gesture = this.#familyGesture;
+    if (gesture === null || gesture.pointerId !== event.pointerId) return false;
+    this.#familyGesture = null;
+    if (this.#eventSurface?.hasPointerCapture?.(event.pointerId)) {
+      this.#eventSurface.releasePointerCapture?.(event.pointerId);
+    }
+    this.#eventSurface?.style.setProperty('cursor', this.#surfaceCursor ?? '');
+    if (cancelled) {
+      if (gesture.kind === 'network-lasso') {
+        this.#networkRuntime.set(gesture.layerId, cloneNetworkRuntimeState(gesture.previous));
+      } else if (gesture.kind === 'network-node' && gesture.previousNetwork !== undefined) {
+        this.#networkRuntime.set(
+          gesture.layerId,
+          cloneNetworkRuntimeState(gesture.previousNetwork),
+        );
+      } else if (gesture.kind === 'flow-node' && gesture.previousFlow !== undefined) {
+        this.#flowRuntime.set(gesture.layerId, cloneFlowRuntimeState(gesture.previousFlow));
+      } else if (gesture.kind === 'navigator-window') {
+        this.#navigatorRuntime.set(gesture.layerId, {
+          family: gesture.interaction.family,
+          state: cloneNavigatorRuntimeState(gesture.previous),
+        });
+      } else if (gesture.kind === 'parallel-brush') {
+        this.#parallelRuntime.set(gesture.layerId, cloneParallelRuntimeState(gesture.previous));
+      } else if (gesture.kind === 'heatmap-brush') {
+        this.#heatmapRuntime.set(gesture.layerId, cloneHeatmapRuntimeState(gesture.previous));
+      } else if (gesture.kind === 'scatter-matrix-brush') {
+        if (gesture.previous === null) this.#scatterMatrixRuntime.delete(gesture.layerId);
+        else {
+          this.#scatterMatrixRuntime.set(
+            gesture.layerId,
+            cloneScatterMatrixRuntimeState(gesture.previous),
+          );
+        }
+      }
+      this.render();
+      return true;
+    }
+    if (gesture.kind === 'network-lasso' || gesture.kind === 'network-node') {
+      const state = this.getNetworkRuntimeState(gesture.layerId);
+      this.#events.emit('networkchange', {
+        chart: this,
+        layerId: gesture.layerId,
+        state,
+        reason: 'pointer',
+      });
+    } else if (gesture.kind === 'flow-node') {
+      const state = this.getFlowRuntimeState(gesture.layerId);
+      this.#events.emit('flowchange', {
+        chart: this,
+        layerId: gesture.layerId,
+        state,
+        reason: 'pointer',
+      });
+    } else if (gesture.kind === 'navigator-window') {
+      this.#events.emit('navigatorchange', {
+        chart: this,
+        layerId: gesture.layerId,
+        family: gesture.interaction.family,
+        state: this.getNavigatorWindow(gesture.layerId),
+        reason: 'pointer',
+      });
+    } else if (gesture.kind === 'parallel-brush') {
+      this.#events.emit('parallelchange', {
+        chart: this,
+        layerId: gesture.layerId,
+        state: this.getParallelRuntimeState(gesture.layerId),
+        reason: 'pointer',
+      });
+    } else if (gesture.kind === 'heatmap-brush') {
+      this.#events.emit('heatmapchange', {
+        chart: this,
+        layerId: gesture.layerId,
+        state: this.getHeatmapBrush(gesture.layerId),
+        reason: 'pointer',
+      });
+    } else {
+      const state = this.getScatterMatrixBrush(gesture.layerId);
+      if (state !== null) {
+        this.#events.emit('scattermatrixchange', {
+          chart: this,
+          layerId: gesture.layerId,
+          state,
+          reason: 'pointer',
+        });
+      }
+    }
+    this.#suppressClick =
+      this.#suppressClick || gesture.kind === 'network-lasso' || this.#dragDistance > 2;
+    return true;
+  }
+
   #handlePointerDown(event: PointerEvent): void {
     if (event.pointerType === 'mouse' && event.button !== 0) return;
     const point = this.#surfacePoint(event);
     if (point === null) return;
+    const annotationMetadata = this.#result?.scene.metadata.annotations;
+    if (this.#annotationsVisible && annotationMetadata !== undefined) {
+      const scenePoint = inverseInspectionPoint(this.#view, point);
+      const candidates = [...annotationMetadata.entries].reverse();
+      const entry = candidates.find(({ bounds }) =>
+        hitTestAnnotationHandle(bounds, scenePoint.x, scenePoint.y, 7),
+      );
+      if (entry !== undefined) {
+        const annotation = this.#annotations.find(({ id }) => id === entry.id);
+        const tested = hitTestAnnotationHandle(entry.bounds, scenePoint.x, scenePoint.y, 7);
+        const handle = tested !== null && (entry.resizable || tested === 'move') ? tested : 'move';
+        if (annotation !== undefined) {
+          this.#activeAnnotationId = entry.id;
+          this.#annotationGesture = {
+            pointerId: event.pointerId,
+            id: entry.id,
+            handle,
+            start: scenePoint,
+            bounds: { ...entry.bounds },
+            annotation: cloneAnnotation(annotation),
+            previous: this.#annotationHistory.annotations(),
+          };
+          this.#suppressClick = false;
+          this.#dragDistance = 0;
+          this.#eventSurface?.setPointerCapture?.(event.pointerId);
+          this.render();
+          this.#eventSurface?.style.setProperty(
+            'cursor',
+            handle === 'move' ? 'grabbing' : 'nwse-resize',
+          );
+          event.preventDefault();
+          return;
+        }
+      }
+    }
+    const authoring = this.#markLabelAuthoring();
+    const labelMetadata = this.#result?.scene.metadata.markLabels;
+    if (authoring !== false && authoring.pointer && labelMetadata !== undefined) {
+      const scenePoint = inverseInspectionPoint(this.#view, point);
+      const entry = hitTestMarkLabel(
+        labelMetadata.entries,
+        scenePoint.x,
+        scenePoint.y,
+        6,
+        this.#activeMarkLabelId ?? undefined,
+      );
+      if (entry !== null && entry.editable) {
+        const previous = this.#markLabels.positions();
+        this.#activeMarkLabelId = entry.id;
+        this.#markLabelGesture = {
+          pointerId: event.pointerId,
+          id: entry.id,
+          target: cloneDatumTarget(entry.target),
+          start: scenePoint,
+          startOffsetX: entry.offsetX,
+          startOffsetY: entry.offsetY,
+          entry: {
+            ...entry,
+            target: cloneDatumTarget(entry.target),
+            anchor: { ...entry.anchor },
+            baseCenter: { ...entry.baseCenter },
+            bounds: { ...entry.bounds },
+          },
+          entries: labelMetadata.entries,
+          plot: { ...labelMetadata.plot },
+          previous,
+        };
+        this.#suppressClick = false;
+        this.#dragDistance = 0;
+        this.#eventSurface?.setPointerCapture?.(event.pointerId);
+        this.render();
+        this.#eventSurface?.style.setProperty('cursor', 'grabbing');
+        event.preventDefault();
+        return;
+      }
+    }
+    if (this.#handleFamilyPointerDown(event, point)) return;
     const selection = this.#result?.spec.interaction.selection;
     if (
       selection !== undefined &&
@@ -2041,11 +4826,14 @@ export class Chart {
       selection.kind !== 'point' &&
       this.#analyticGesture === null
     ) {
+      const coordinate = this.#coordinateAt(point);
+      if (coordinate === null) return;
       this.#analyticGesture = {
         pointerId: event.pointerId,
-        start: point,
-        current: point,
-        points: [point],
+        viewId: coordinate.view.id,
+        start: coordinate.point,
+        current: coordinate.point,
+        points: [coordinate.point],
       };
       this.#suppressClick = false;
       this.#dragDistance = 0;
@@ -2055,7 +4843,13 @@ export class Chart {
     }
     const domainNavigation = this.#domainNavigation();
     if (domainNavigation !== false && domainNavigation.drag && this.#domainGesture === null) {
-      this.#domainGesture = { pointerId: event.pointerId, previous: point };
+      const coordinate = this.#coordinateAt(point);
+      if (coordinate === null) return;
+      this.#domainGesture = {
+        pointerId: event.pointerId,
+        viewId: coordinate.view.id,
+        previous: coordinate.point,
+      };
       this.#suppressClick = false;
       this.#dragDistance = 0;
       this.#eventSurface?.setPointerCapture?.(event.pointerId);
@@ -2079,10 +4873,69 @@ export class Chart {
   }
 
   #handlePointerMove(event: PointerEvent): boolean {
-    if (this.#analyticGesture?.pointerId === event.pointerId) {
+    if (this.#annotationGesture?.pointerId === event.pointerId) {
       const point = this.#surfacePoint(event);
       if (point === null) return false;
+      const scenePoint = inverseInspectionPoint(this.#view, point);
+      const gesture = this.#annotationGesture;
+      const edited = editAnnotationByPointer({
+        annotation: gesture.annotation,
+        handle: gesture.handle,
+        deltaX: scenePoint.x - gesture.start.x,
+        deltaY: scenePoint.y - gesture.start.y,
+        bounds: gesture.bounds,
+        grid: event.shiftKey ? 10 : false,
+      });
+      const next = this.#annotations.map((annotation) =>
+        annotation.id === gesture.id ? edited : annotation,
+      );
+      this.#dragDistance = Math.hypot(
+        scenePoint.x - gesture.start.x,
+        scenePoint.y - gesture.start.y,
+      );
+      if (this.#annotationHistory.preview(next)) {
+        this.#annotations = [...this.#annotationHistory.annotations()];
+        this.render();
+      }
+      if (this.#dragDistance > 2) this.#suppressClick = true;
+      event.preventDefault();
+      return true;
+    }
+    if (this.#markLabelGesture?.pointerId === event.pointerId) {
+      const point = this.#surfacePoint(event);
+      const authoring = this.#markLabelAuthoring();
+      if (point === null || authoring === false) return false;
+      const scenePoint = inverseInspectionPoint(this.#view, point);
+      const gesture = this.#markLabelGesture;
+      const desired = snapMarkLabelOffset({
+        entry: gesture.entry,
+        entries: gesture.entries,
+        plot: gesture.plot,
+        offsetX: gesture.startOffsetX + scenePoint.x - gesture.start.x,
+        offsetY: gesture.startOffsetY + scenePoint.y - gesture.start.y,
+        snap: authoring.snap,
+      });
+      const next = setMarkLabelOffset(
+        this.#markLabels.positions(),
+        gesture.target,
+        desired.offsetX,
+        desired.offsetY,
+      );
+      this.#dragDistance = Math.hypot(
+        scenePoint.x - gesture.start.x,
+        scenePoint.y - gesture.start.y,
+      );
+      if (this.#markLabels.preview(next)) this.render();
+      if (this.#dragDistance > 2) this.#suppressClick = true;
+      event.preventDefault();
+      return true;
+    }
+    if (this.#handleFamilyPointerMove(event)) return true;
+    if (this.#analyticGesture?.pointerId === event.pointerId) {
       const gesture = this.#analyticGesture;
+      const surfacePoint = this.#surfacePoint(event);
+      if (surfacePoint === null) return false;
+      const point = this.#localPoint(gesture.viewId, surfacePoint);
       this.#dragDistance += pointDistance(gesture.current, point);
       gesture.current = point;
       const selection = this.#result?.spec.interaction.selection;
@@ -2100,14 +4953,16 @@ export class Chart {
       return true;
     }
     if (this.#domainGesture?.pointerId === event.pointerId) {
-      const point = this.#surfacePoint(event);
-      if (point === null) return false;
-      const previous = this.#domainGesture.previous;
+      const gesture = this.#domainGesture;
+      const surfacePoint = this.#surfacePoint(event);
+      if (surfacePoint === null) return false;
+      const point = this.#localPoint(gesture.viewId, surfacePoint);
+      const previous = gesture.previous;
       const deltaX = point.x - previous.x;
       const deltaY = point.y - previous.y;
       this.#dragDistance += Math.hypot(deltaX, deltaY);
-      this.#domainGesture.previous = point;
-      this.panDomainBy(deltaX, deltaY);
+      gesture.previous = point;
+      this.panDomainBy(deltaX, deltaY, undefined, gesture.viewId);
       if (this.#dragDistance > 4) this.#suppressClick = true;
       event.preventDefault();
       return true;
@@ -2164,10 +5019,44 @@ export class Chart {
   }
 
   #handlePointerEnd(event: PointerEvent, cancelled = false): void {
+    if (this.#handleFamilyPointerEnd(event, cancelled)) return;
+    if (this.#annotationGesture?.pointerId === event.pointerId) {
+      const gesture = this.#annotationGesture;
+      this.#annotationGesture = null;
+      if (this.#eventSurface?.hasPointerCapture?.(event.pointerId)) {
+        this.#eventSurface.releasePointerCapture?.(event.pointerId);
+      }
+      this.#eventSurface?.style.setProperty('cursor', 'move');
+      if (cancelled) {
+        this.#annotationHistory.restore(gesture.previous);
+        this.#annotations = [...this.#annotationHistory.annotations()];
+        this.render();
+      } else if (this.#annotationHistory.commit(gesture.previous)) {
+        this.#suppressClick = true;
+        this.#emitAnnotations('pointer', gesture.id);
+      } else this.#emitAnnotations('select', gesture.id);
+      return;
+    }
+    if (this.#markLabelGesture?.pointerId === event.pointerId) {
+      const gesture = this.#markLabelGesture;
+      this.#markLabelGesture = null;
+      if (this.#eventSurface?.hasPointerCapture?.(event.pointerId)) {
+        this.#eventSurface.releasePointerCapture?.(event.pointerId);
+      }
+      this.#eventSurface?.style.setProperty('cursor', 'move');
+      if (cancelled) {
+        this.#markLabels.restore(gesture.previous);
+        this.render();
+      } else if (this.#markLabels.commit(gesture.previous)) {
+        this.#suppressClick = true;
+        this.#emitMarkLabels('pointer', gesture.id);
+      } else this.#emitMarkLabels('select', gesture.id);
+      return;
+    }
     if (this.#analyticGesture?.pointerId === event.pointerId) {
       const gesture = this.#analyticGesture;
       const point = this.#surfacePoint(event);
-      if (point !== null) gesture.current = point;
+      if (point !== null) gesture.current = this.#localPoint(gesture.viewId, point);
       this.#analyticGesture = null;
       if (this.#eventSurface?.hasPointerCapture?.(event.pointerId)) {
         this.#eventSurface.releasePointerCapture?.(event.pointerId);
@@ -2217,18 +5106,14 @@ export class Chart {
     const selection = result?.spec.interaction.selection;
     if (result === null || result === undefined || selection === undefined || selection === false)
       return;
+    const coordinates = this.#coordinateView(gesture.viewId).coordinates;
     const spanX = Math.abs(gesture.current.x - gesture.start.x);
     const spanY = Math.abs(gesture.current.y - gesture.start.y);
     let resolved: AnalyticSelection;
     if (selection.kind === 'axis') {
-      const span = selection.axis === 'x' || selection.axis === 'x2' ? spanX : spanY;
+      const span = cartesianAxisChannel(coordinates, selection.axis!) === 'x' ? spanX : spanY;
       if (span < selection.minPixelSpan) return;
-      resolved = pixelAxisToSelection(
-        result.coordinates,
-        selection.axis!,
-        gesture.start,
-        gesture.current,
-      );
+      resolved = pixelAxisToSelection(coordinates, selection.axis!, gesture.start, gesture.current);
     } else if (selection.kind === 'lasso') {
       const last = gesture.points.at(-1);
       if (last === undefined || pointDistance(last, gesture.current) >= 2) {
@@ -2237,19 +5122,27 @@ export class Chart {
       if (gesture.points.length < 3 || Math.max(spanX, spanY) < selection.minPixelSpan) {
         return;
       }
-      resolved = pixelLassoToSelection(result.coordinates, gesture.points, {
+      resolved = pixelLassoToSelection(coordinates, gesture.points, {
         x: selection.xAxis,
         y: selection.yAxis,
       });
     } else if (selection.kind === 'interval' || selection.kind === 'rectangle') {
       if (Math.max(spanX, spanY) < selection.minPixelSpan) return;
-      resolved = pixelRectangleToSelection(result.coordinates, gesture.start, gesture.current, {
+      resolved = pixelRectangleToSelection(coordinates, gesture.start, gesture.current, {
         type: selection.kind,
         xAxis: selection.xAxis,
         yAxis: selection.yAxis,
       });
     } else return;
 
+    this.#applyAnalyticSelection(resolved, selection, 'pointer');
+  }
+
+  #applyAnalyticSelection(
+    resolved: AnalyticSelection,
+    selection: NormalizedSelectionSpec,
+    reason: ChartAnalyticSelectionChangeReason,
+  ): void {
     const previous = this.#analyticSelection.get();
     if (selection.mode === 'single') {
       this.#analyticSelection.set({
@@ -2265,7 +5158,7 @@ export class Chart {
       this.#analyticSelection.set(previous);
       throw error;
     }
-    this.#emitAnalyticSelection('pointer');
+    this.#emitAnalyticSelection(reason);
   }
 
   #pinchSnapshot(navigation: NormalizedNavigationSpec): PinchStart | null {
@@ -2279,7 +5172,289 @@ export class Chart {
     };
   }
 
+  #analyticSelectionDraft(): AnalyticSelection | undefined {
+    const active = this.#analyticKeyboardGesture;
+    const selection = this.#result?.spec.interaction.selection;
+    if (active === null || selection === undefined || selection === false) return undefined;
+    return previewAnalyticKeyboardSelection(
+      this.#coordinateView(active.viewId).coordinates,
+      active.gesture,
+      selection,
+    );
+  }
+
+  #handleAnalyticSelectionKeyDown(event: KeyboardEvent): boolean {
+    const result = this.#result;
+    const selection = result?.spec.interaction.selection;
+    if (
+      result === null ||
+      result === undefined ||
+      selection === undefined ||
+      selection === false ||
+      selection.kind === 'point' ||
+      !selection.keyboard
+    ) {
+      return false;
+    }
+    const active = this.#analyticKeyboardGesture;
+    if (active === null) {
+      if (event.key.toLowerCase() !== 's' || event.ctrlKey || event.metaKey || event.altKey) {
+        return false;
+      }
+      const focusedId = this.#accessibility.getFocusedId();
+      const focused =
+        focusedId === null
+          ? undefined
+          : result.scene.semanticIndex.find(({ id }) => id === focusedId);
+      const view =
+        (focused === undefined
+          ? undefined
+          : result.coordinateViews.find(({ id }) => id === focused.viewId)) ??
+        result.coordinateViews[0];
+      if (view === undefined) return false;
+      const origin =
+        focused === undefined || focused.viewId !== view.id
+          ? undefined
+          : {
+              x: focused.bounds.x + focused.bounds.width / 2 - view.offsetX,
+              y: focused.bounds.y + focused.bounds.height / 2 - view.offsetY,
+            };
+      this.#analyticKeyboardGesture = {
+        viewId: view.id,
+        gesture: startAnalyticKeyboardGesture(view.coordinates, selection.kind, origin),
+      };
+      this.render();
+      event.preventDefault();
+      return true;
+    }
+
+    if (event.key === 'Escape') {
+      this.#analyticKeyboardGesture = null;
+      this.render();
+      event.preventDefault();
+      return true;
+    }
+
+    const view = this.#coordinateView(active.viewId);
+    const direction =
+      event.key === 'ArrowLeft'
+        ? 'left'
+        : event.key === 'ArrowRight'
+          ? 'right'
+          : event.key === 'ArrowUp'
+            ? 'up'
+            : event.key === 'ArrowDown'
+              ? 'down'
+              : null;
+    if (direction !== null) {
+      this.#analyticKeyboardGesture = {
+        viewId: active.viewId,
+        gesture: moveAnalyticKeyboardGesture(
+          view.coordinates,
+          active.gesture,
+          direction,
+          selection.keyboardStep * (event.shiftKey ? 10 : 1),
+        ),
+      };
+      this.render();
+      event.preventDefault();
+      return true;
+    }
+
+    if ((event.key === ' ' || event.key === 'Spacebar') && selection.kind === 'lasso') {
+      this.#analyticKeyboardGesture = {
+        viewId: active.viewId,
+        gesture: addAnalyticKeyboardVertex(active.gesture, selection.maxLassoPoints),
+      };
+      this.render();
+      event.preventDefault();
+      return true;
+    }
+
+    if (event.key === 'Enter') {
+      const resolved = completeAnalyticKeyboardSelection(
+        view.coordinates,
+        active.gesture,
+        selection,
+      );
+      if (resolved !== null) {
+        this.#analyticKeyboardGesture = null;
+        this.#applyAnalyticSelection(resolved, selection, 'keyboard');
+      }
+      event.preventDefault();
+      return true;
+    }
+    return false;
+  }
+
+  #handleFamilyKeyDown(event: KeyboardEvent): boolean {
+    const navigationKeys = new Set([
+      'ArrowLeft',
+      'ArrowRight',
+      'ArrowUp',
+      'ArrowDown',
+      'Home',
+      'End',
+      'PageUp',
+      'PageDown',
+    ]);
+    if (event.key === 'Escape' && this.#familyFocus !== null) {
+      this.clearFamilyFocus();
+      event.preventDefault();
+      return true;
+    }
+    const pieEntries = this.#familyEntries('pie-slice');
+    const tableEntries = this.#familyEntries('table-cell');
+    if (pieEntries.length === 0 && tableEntries.length === 0) return false;
+
+    let focus = this.#familyFocus;
+    if (focus?.kind === 'pie-slice') {
+      const activeFocus = focus;
+      if (
+        !pieEntries.some(
+          (entry) =>
+            entry.layerId === activeFocus.layerId && entry.familyInteraction.id === activeFocus.id,
+        )
+      ) {
+        focus = null;
+      }
+    } else if (focus?.kind === 'table-cell') {
+      if (!tableEntries.some((entry) => entry.layerId === focus?.layerId)) focus = null;
+    }
+
+    if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
+      if (focus === null) return false;
+      const entry =
+        focus.kind === 'pie-slice'
+          ? pieEntries.find(
+              (candidate) =>
+                candidate.layerId === focus.layerId && candidate.familyInteraction.id === focus.id,
+            )
+          : tableEntries.find(
+              (candidate) =>
+                candidate.layerId === focus.layerId &&
+                candidate.familyInteraction.row === focus.row &&
+                candidate.familyInteraction.column === focus.column,
+            );
+      if (entry !== undefined) {
+        this.#applyClickSelection({ ...entry, x: 0, y: 0, distance: 0 }, 'keyboard', 'keyboard');
+      }
+      event.preventDefault();
+      return true;
+    }
+    if (!navigationKeys.has(event.key)) return false;
+
+    if (focus === null) {
+      const firstPie = pieEntries[0];
+      const firstTable = [...tableEntries].sort(
+        (left, right) =>
+          left.familyInteraction.row - right.familyInteraction.row ||
+          left.familyInteraction.column - right.familyInteraction.column,
+      )[0];
+      if (firstPie !== undefined) {
+        this.#setFamilyFocus(
+          {
+            kind: 'pie-slice',
+            layerId: firstPie.layerId,
+            id: firstPie.familyInteraction.id,
+          },
+          'keyboard',
+        );
+      } else if (firstTable !== undefined) {
+        this.#setFamilyFocus(
+          {
+            kind: 'table-cell',
+            layerId: firstTable.layerId,
+            row: firstTable.familyInteraction.row,
+            column: firstTable.familyInteraction.column,
+            field: firstTable.familyInteraction.field,
+          },
+          'keyboard',
+        );
+      }
+      event.preventDefault();
+      return true;
+    }
+
+    if (focus.kind === 'pie-slice') {
+      const entries = pieEntries
+        .filter(({ layerId }) => layerId === focus?.layerId)
+        .sort((left, right) => left.familyInteraction.index - right.familyInteraction.index);
+      const direction =
+        event.key === 'Home'
+          ? 'first'
+          : event.key === 'End'
+            ? 'last'
+            : event.key === 'ArrowLeft' || event.key === 'ArrowUp' || event.key === 'PageUp'
+              ? 'previous'
+              : 'next';
+      const id = nextPieSlice(
+        entries.map(({ familyInteraction }) => ({ id: familyInteraction.id })),
+        focus.id,
+        direction,
+      );
+      if (id !== null) {
+        this.#setFamilyFocus({ kind: 'pie-slice', layerId: focus.layerId, id }, 'keyboard');
+      }
+      event.preventDefault();
+      return true;
+    }
+
+    const layerEntries = tableEntries.filter(({ layerId }) => layerId === focus?.layerId);
+    const first = layerEntries[0]?.familyInteraction;
+    if (first === undefined || first.kind !== 'table-cell') return false;
+    const next = moveTableCell(
+      { row: focus.row, column: focus.column },
+      event.key as Parameters<typeof moveTableCell>[1],
+      { rows: first.rows, columns: first.columns, pageSize: Math.max(1, first.windowLimit) },
+    );
+    let state = this.getTableRuntimeState(focus.layerId);
+    const frozenRows = this.#tableFrozenRows(focus.layerId);
+    const frozenColumns = this.#tableFrozenColumns(focus.layerId);
+    let stateChanged = false;
+    if (
+      next.row >= frozenRows &&
+      (next.row < state.windowOffset || next.row >= state.windowOffset + state.windowLimit)
+    ) {
+      const windowOffset =
+        next.row < state.windowOffset
+          ? next.row
+          : Math.max(0, next.row - Math.max(0, state.windowLimit - 1));
+      state = normalizeTableRuntimeState({ windowOffset }, state);
+      stateChanged = true;
+    }
+    if (
+      next.column >= frozenColumns &&
+      (next.column < state.columnOffset || next.column >= state.columnOffset + state.columnLimit)
+    ) {
+      const columnOffset =
+        next.column < state.columnOffset
+          ? next.column
+          : Math.max(0, next.column - Math.max(0, state.columnLimit - 1));
+      state = normalizeTableRuntimeState({ columnOffset }, state);
+      stateChanged = true;
+    }
+    if (stateChanged) this.#setTableRuntimeState(focus.layerId, state, 'keyboard');
+    const refreshed = this.#familyEntries('table-cell').find(
+      (entry) =>
+        entry.layerId === focus.layerId &&
+        entry.familyInteraction.row === next.row &&
+        entry.familyInteraction.column === next.column,
+    );
+    const field = refreshed?.familyInteraction.field ?? focus.field;
+    this.#setFamilyFocus(
+      { kind: 'table-cell', layerId: focus.layerId, row: next.row, column: next.column, field },
+      'keyboard',
+    );
+    event.preventDefault();
+    return true;
+  }
+
   #handleKeyDown(event: KeyboardEvent): void {
+    if (this.#handleAnalyticSelectionKeyDown(event)) return;
+    if (this.#handleAnnotationKeyDown(event)) return;
+    if (this.#handleMarkLabelKeyDown(event)) return;
+    if (this.#handleFamilyKeyDown(event)) return;
     const selection = this.#result?.spec.interaction.selection;
     if (
       event.key === 'Escape' &&
@@ -2363,6 +5538,145 @@ export class Chart {
     if (handled && !sameView(before, this.#view)) event.preventDefault();
   }
 
+  #handleAnnotationKeyDown(event: KeyboardEvent): boolean {
+    const entries = this.#result?.scene.metadata.annotations?.entries ?? [];
+    if (entries.length === 0) return false;
+    const command = event.ctrlKey || event.metaKey;
+    const key = event.key.toLowerCase();
+    if (this.#activeAnnotationId !== null && command && key === 'z') {
+      const changed = event.shiftKey ? this.redoAnnotationEdit() : this.undoAnnotationEdit();
+      if (changed) event.preventDefault();
+      return changed;
+    }
+    if (this.#activeAnnotationId !== null && command && key === 'y') {
+      const changed = this.redoAnnotationEdit();
+      if (changed) event.preventDefault();
+      return changed;
+    }
+    if (event.key === 'Enter') {
+      const current = entries.findIndex(({ id }) => id === this.#activeAnnotationId);
+      const direction = event.shiftKey ? -1 : 1;
+      const index =
+        current < 0
+          ? event.shiftKey
+            ? entries.length - 1
+            : 0
+          : (current + direction + entries.length) % entries.length;
+      const entry = entries[index];
+      if (entry !== undefined) {
+        this.selectAnnotation(entry.id);
+        event.preventDefault();
+        return true;
+      }
+    }
+    if (event.key === 'Escape' && this.#activeAnnotationId !== null) {
+      this.selectAnnotation(null);
+      event.preventDefault();
+      return true;
+    }
+    if (
+      this.#activeAnnotationId !== null &&
+      (event.key === 'ArrowLeft' ||
+        event.key === 'ArrowRight' ||
+        event.key === 'ArrowUp' ||
+        event.key === 'ArrowDown')
+    ) {
+      this.editAnnotationWithKeyboard(this.#activeAnnotationId, event.key, {
+        step: 1,
+        coarse: event.shiftKey,
+        resize: event.altKey,
+      });
+      event.preventDefault();
+      return true;
+    }
+    return false;
+  }
+
+  #handleMarkLabelKeyDown(event: KeyboardEvent): boolean {
+    const authoring = this.#markLabelAuthoring();
+    const metadata = this.#result?.scene.metadata.markLabels;
+    if (authoring === false || !authoring.keyboard || metadata === undefined) return false;
+    const command = event.ctrlKey || event.metaKey;
+    const key = event.key.toLowerCase();
+    if (command && key === 'z') {
+      const changed = event.shiftKey ? this.redoMarkLabelEdit() : this.undoMarkLabelEdit();
+      if (changed) event.preventDefault();
+      return changed;
+    }
+    if (command && key === 'y') {
+      const changed = this.redoMarkLabelEdit();
+      if (changed) event.preventDefault();
+      return changed;
+    }
+    if (event.key === 'Enter' && metadata.entries.length > 0) {
+      const current = metadata.entries.findIndex(({ id }) => id === this.#activeMarkLabelId);
+      const direction = event.shiftKey ? -1 : 1;
+      const index =
+        current < 0
+          ? event.shiftKey
+            ? metadata.entries.length - 1
+            : 0
+          : (current + direction + metadata.entries.length) % metadata.entries.length;
+      const entry = metadata.entries[index];
+      if (entry !== undefined) {
+        this.#activeMarkLabelId = entry.id;
+        this.render();
+        this.#emitMarkLabels('select', entry.id);
+        event.preventDefault();
+        return true;
+      }
+    }
+    if (event.key === 'Escape' && this.#activeMarkLabelId !== null) {
+      const previous = this.#activeMarkLabelId;
+      this.#activeMarkLabelId = null;
+      this.render();
+      this.#emitMarkLabels('select', previous);
+      event.preventDefault();
+      return true;
+    }
+    const entry = metadata.entries.find(({ id }) => id === this.#activeMarkLabelId);
+    if (entry === undefined) return false;
+    const step = authoring.step * (event.shiftKey ? 10 : 1);
+    let deltaX = 0;
+    let deltaY = 0;
+    switch (event.key) {
+      case 'ArrowLeft':
+        deltaX = -step;
+        break;
+      case 'ArrowRight':
+        deltaX = step;
+        break;
+      case 'ArrowUp':
+        deltaY = -step;
+        break;
+      case 'ArrowDown':
+        deltaY = step;
+        break;
+      default:
+        return false;
+    }
+    const snapped = snapMarkLabelOffset({
+      entry,
+      entries: metadata.entries,
+      plot: metadata.plot,
+      offsetX: entry.offsetX + deltaX,
+      offsetY: entry.offsetY + deltaY,
+      snap: authoring.snap,
+    });
+    const next = setMarkLabelOffset(
+      this.#markLabels.positions(),
+      entry.target,
+      snapped.offsetX,
+      snapped.offsetY,
+    );
+    if (this.#markLabels.replace(next)) {
+      this.render();
+      this.#emitMarkLabels('keyboard', entry.id);
+    }
+    event.preventDefault();
+    return true;
+  }
+
   #emitPointer(type: 'hover' | 'click', sourceEvent: PointerEvent): void {
     const result = this.#result;
     if (this.#sceneTransition !== null) {
@@ -2380,6 +5694,25 @@ export class Chart {
     const markLocal = scene.metadata.hitTestingEnabled
       ? hitTestScene(scene, local.x, local.y, 8 / this.#view.zoom)
       : null;
+    const regionFamily =
+      markLocal?.familyInteraction === undefined ? this.#familyRegionAt(local) : null;
+    const nearestFamily =
+      markLocal?.familyInteraction === undefined && regionFamily === null
+        ? this.#nearestFamilyNode(local)
+        : null;
+    const familyLocal: HitResult | null =
+      markLocal?.familyInteraction !== undefined
+        ? markLocal
+        : regionFamily !== null
+          ? { ...regionFamily, x: local.x, y: local.y, distance: 0 }
+          : nearestFamily === null
+            ? null
+            : {
+                ...nearestFamily.entry,
+                x: local.x,
+                y: local.y,
+                distance: nearestFamily.distance,
+              };
     const tooltipSpec = result.spec.interaction.tooltip;
     const tooltipLocal =
       type === 'hover' &&
@@ -2405,13 +5738,129 @@ export class Chart {
           this.#renderer?.overlayHost?.() ?? surface.parentElement ?? surface,
         );
     }
-    if (type === 'click') this.#applyClickSelection(markLocal);
+    if (type === 'click' && !this.#handleFamilyClick(familyLocal, sourceEvent)) {
+      this.#applyClickSelection(markLocal);
+    }
     if (type === 'hover' || result.spec.interaction.click !== false) {
       this.#events.emit(type, { chart: this, hit: markHit, sourceEvent });
     }
   }
 
-  #applyClickSelection(hit: HitResult | null): void {
+  #handleFamilyClick(hit: HitResult | null, event: PointerEvent): boolean {
+    const interaction = hit?.familyInteraction;
+    if (hit === null || interaction === undefined) return false;
+    if (interaction.kind === 'pie-slice') {
+      this.#setFamilyFocus(
+        { kind: 'pie-slice', layerId: hit.layerId, id: interaction.id },
+        'pointer',
+      );
+      return false;
+    }
+    if (interaction.kind === 'table-cell') {
+      this.#setFamilyFocus(
+        {
+          kind: 'table-cell',
+          layerId: hit.layerId,
+          row: interaction.row,
+          column: interaction.column,
+          field: interaction.field,
+        },
+        'pointer',
+      );
+      return false;
+    }
+    if (interaction.kind === 'table-header') {
+      const current = this.getTableRuntimeState(hit.layerId);
+      const existing = current.sort.find(({ field }) => field === interaction.field);
+      const nextDirection =
+        existing === undefined
+          ? 'ascending'
+          : existing.direction === 'ascending'
+            ? 'descending'
+            : null;
+      const retained = event.shiftKey
+        ? current.sort.filter(({ field }) => field !== interaction.field)
+        : [];
+      const sort: ChartTableSort[] =
+        nextDirection === null
+          ? retained
+          : [...retained, { field: interaction.field, direction: nextDirection }];
+      this.#setTableRuntimeState(
+        hit.layerId,
+        normalizeTableRuntimeState({ sort, windowOffset: 0 }, current),
+        'pointer',
+      );
+      return true;
+    }
+    if (interaction.kind === 'network-node') {
+      const toggleCollapse = (event.altKey || event.detail >= 2) && interaction.compound;
+      const togglePin = event.ctrlKey || event.metaKey;
+      if (!toggleCollapse && !togglePin) return false;
+      const current = this.getNetworkRuntimeState(hit.layerId);
+      let next = current;
+      if (toggleCollapse) {
+        const collapsed = new Set(current.collapsed);
+        if (collapsed.has(interaction.id)) collapsed.delete(interaction.id);
+        else collapsed.add(interaction.id);
+        next = normalizeNetworkRuntimeState({ collapsed: [...collapsed] }, next);
+      }
+      if (togglePin) {
+        const position = next.positions[interaction.id] ?? interaction.position;
+        next = normalizeNetworkRuntimeState(
+          {
+            positions: {
+              ...next.positions,
+              [interaction.id]: { ...position, pinned: !interaction.pinned },
+            },
+          },
+          next,
+        );
+      }
+      this.#setNetworkRuntimeState(hit.layerId, next, 'pointer');
+      return true;
+    }
+    if (interaction.kind === 'hierarchy-node') {
+      const current = this.getHierarchyRuntimeState(hit.layerId);
+      if (event.shiftKey) {
+        this.#setHierarchyRuntimeState(
+          hit.layerId,
+          normalizeHierarchyRuntimeState({ root: interaction.id, zoomTo: null }, current),
+          'pointer',
+        );
+      } else if (event.altKey) {
+        this.#setHierarchyRuntimeState(
+          hit.layerId,
+          normalizeHierarchyRuntimeState({ zoomTo: interaction.id }, current),
+          'pointer',
+        );
+      } else if (!interaction.leaf || current.collapsed.includes(interaction.id)) {
+        const collapsed = new Set(current.collapsed);
+        if (collapsed.has(interaction.id)) collapsed.delete(interaction.id);
+        else collapsed.add(interaction.id);
+        this.#setHierarchyRuntimeState(
+          hit.layerId,
+          normalizeHierarchyRuntimeState({ collapsed: [...collapsed] }, current),
+          'pointer',
+        );
+      } else return false;
+      return true;
+    }
+    if (interaction.kind === 'parallel-axis' && (event.altKey || event.detail >= 2)) {
+      this.#setParallelRuntimeState(
+        hit.layerId,
+        invertParallelAxisState(this.getParallelRuntimeState(hit.layerId), interaction.field),
+        'pointer',
+      );
+      return true;
+    }
+    return false;
+  }
+
+  #applyClickSelection(
+    hit: HitResult | null,
+    reason: ChartSelectionChangeReason = 'click',
+    analyticReason: ChartAnalyticSelectionChangeReason = 'pointer',
+  ): void {
     const selection = this.#result?.spec.interaction.selection;
     if (selection === undefined || selection === false) return;
     if (selection.kind !== 'point') return;
@@ -2420,8 +5869,8 @@ export class Chart {
         this.#selection = [];
         this.#analyticSelection.clear(selection.combine);
         this.render();
-        this.#emitSelection('click');
-        this.#emitAnalyticSelection('pointer');
+        this.#emitSelection(reason);
+        this.#emitAnalyticSelection(analyticReason);
       }
       return;
     }
@@ -2440,7 +5889,7 @@ export class Chart {
       selection.key !== undefined && portableKey !== undefined
         ? {
             type: 'datum',
-            layerId: hit.layerId,
+            ...(selection.linked ? {} : { layerId: hit.layerId }),
             field: selection.key,
             value: portableKey,
           }
@@ -2458,8 +5907,8 @@ export class Chart {
     if (before === this.#selection.map(selectionKey).join('|')) return;
     this.#syncAnalyticPointTargets();
     this.render();
-    this.#emitSelection('click');
-    this.#emitAnalyticSelection('pointer');
+    this.#emitSelection(reason);
+    this.#emitAnalyticSelection(analyticReason);
   }
 
   #emitSelection(reason: ChartSelectionChangeReason): void {
@@ -2522,11 +5971,85 @@ export class Chart {
 
   #emitAnalyticSelection(reason: ChartAnalyticSelectionChangeReason): void {
     this.#syncSelectionAccessibility();
+    const state = this.#analyticSelection.get();
     this.#events.emit('analyticselectionchange', {
       chart: this,
-      state: this.#analyticSelection.get(),
+      state,
       reason,
     });
+    if (!this.#applyingLinkedViewState) {
+      this.#options.linkedViewStore?.setAnalyticSelection(state, this.#semanticViewId);
+    }
+  }
+
+  #applyLinkedViewState(change: LinkedViewStateChange): void {
+    if (this.#applyingLinkedViewState || change.sourceViewId === this.#semanticViewId) return;
+    const previousSelection = this.#analyticSelection.get();
+    const previousTargets = this.#selection;
+    const previousDomain = this.#domainView;
+    this.#applyingLinkedViewState = true;
+    try {
+      if (change.changed === 'analytic-selection' || change.changed === 'both') {
+        const config = this.#result?.spec.interaction.selection;
+        if (config === undefined || config === false) {
+          if (change.state.analyticSelection.selections.length > 0) {
+            throw new GraflumeError(
+              'INVALID_SPEC',
+              'Linked analytic selection requires interaction.selection in every view.',
+            );
+          }
+        } else {
+          this.#validateAnalyticStateForConfig(change.state.analyticSelection, config);
+          this.#analyticSelection.set(change.state.analyticSelection);
+          if (config.kind === 'point') {
+            this.#selection = change.state.analyticSelection.selections.flatMap((candidate) =>
+              candidate.type === 'point' && candidate.target !== undefined
+                ? [cloneDatumTarget(candidate.target)]
+                : [],
+            );
+          } else this.#selection = [];
+        }
+      }
+      if (change.changed === 'domain-view' || change.changed === 'both') {
+        const navigation = this.#domainNavigation();
+        const next = normalizeDomainViewState(change.state.domainView);
+        if (navigation === false && Object.keys(next.axes).length > 0) {
+          throw new GraflumeError(
+            'INVALID_SPEC',
+            'Linked domain state requires interaction.domainNavigation in every view.',
+          );
+        }
+        if (navigation !== false) {
+          for (const axis of Object.keys(next.axes) as AxisId[]) {
+            if (!navigation.axes.includes(axis)) {
+              throw new GraflumeError(
+                'INVALID_SPEC',
+                `Linked domain axis "${axis}" is not enabled in this view.`,
+              );
+            }
+          }
+        }
+        this.#domainView = next;
+      }
+      this.render();
+      if (change.changed === 'analytic-selection' || change.changed === 'both') {
+        this.#emitAnalyticSelection('linked');
+        const selection = this.#result?.spec.interaction.selection;
+        if (selection !== undefined && selection !== false && selection.kind === 'point') {
+          this.#emitSelection('programmatic');
+        }
+      }
+      if (change.changed === 'domain-view' || change.changed === 'both') {
+        this.#emitDomainView('linked');
+      }
+    } catch (error) {
+      this.#analyticSelection.set(previousSelection);
+      this.#selection = previousTargets;
+      this.#domainView = previousDomain;
+      this.#events.emit('error', { chart: this, error });
+    } finally {
+      this.#applyingLinkedViewState = false;
+    }
   }
 
   #emitAnnotations(reason: ChartAnnotationChangeReason, id?: string): void {
@@ -2536,6 +6059,99 @@ export class Chart {
       reason,
       ...(id === undefined ? {} : { id }),
     });
+  }
+
+  #markLabelAuthoring(): false | NormalizedMarkLabelAuthoringSpec {
+    const labels = this.#result?.spec.markLabels;
+    return labels === undefined || labels === false ? false : labels.authoring;
+  }
+
+  #resetMarkLabels(spec: NormalizedChartSpec): void {
+    const labels = spec.markLabels;
+    const historyLimit =
+      labels === false || labels.authoring === false ? 50 : labels.authoring.historyLimit;
+    this.#markLabels.reset(labels === false ? [] : labels.positions, historyLimit);
+    this.#activeMarkLabelId = null;
+    this.#markLabelGesture = null;
+  }
+
+  #specWithMarkLabelPositions(positions: readonly MarkLabelPositionSpec[]): ChartSpec {
+    const labels = this.#spec.markLabels;
+    if (labels === undefined || labels === false) {
+      throw new GraflumeError(
+        'INVALID_SPEC',
+        'Enable markLabels before setting authored label positions.',
+      );
+    }
+    return {
+      ...this.#spec,
+      markLabels: {
+        ...(labels === true ? {} : labels),
+        positions: cloneMarkLabelPositions(positions),
+      },
+    };
+  }
+
+  #requireMarkLabel(id: string): MarkLabelSceneEntry {
+    const entry = this.#result?.scene.metadata.markLabels?.entries.find(
+      (candidate) => candidate.id === id,
+    );
+    if (entry === undefined) {
+      throw new GraflumeError('INVALID_SPEC', `Mark label "${id}" was not found.`);
+    }
+    return entry;
+  }
+
+  #emitMarkLabels(reason: ChartMarkLabelChangeReason, id?: string): void {
+    const state = this.getMarkLabelState();
+    this.#events.emit('marklabelchange', {
+      chart: this,
+      state,
+      reason,
+      ...(id === undefined ? {} : { id }),
+    });
+    const entry =
+      id === undefined ? undefined : state.labels.find((candidate) => candidate.id === id);
+    const status =
+      reason === 'undo'
+        ? 'Label movement undone.'
+        : reason === 'redo'
+          ? 'Label movement redone.'
+          : reason === 'reset'
+            ? 'Label positions reset.'
+            : entry === undefined
+              ? `Label authoring ${reason}.`
+              : `${entry.text}: horizontal offset ${entry.offsetX}, vertical offset ${entry.offsetY}.`;
+    if (this.#markLabelLive !== null) this.#markLabelLive.textContent = status;
+  }
+
+  #syncMarkLabelAccessibility(): void {
+    const host = this.#renderer?.overlayHost?.();
+    const authoring = this.#markLabelAuthoring();
+    if (host === null || host === undefined || authoring === false) {
+      this.#destroyMarkLabelLive();
+      return;
+    }
+    if (this.#markLabelLiveHost === host && this.#markLabelLive !== null) return;
+    this.#destroyMarkLabelLive();
+    const live = host.ownerDocument.createElement('div');
+    live.dataset.graflumeMarkLabelStatus = 'true';
+    live.setAttribute('role', 'status');
+    live.setAttribute('aria-live', 'polite');
+    live.style.position = 'absolute';
+    live.style.width = '1px';
+    live.style.height = '1px';
+    live.style.overflow = 'hidden';
+    live.style.clipPath = 'inset(50%)';
+    host.append(live);
+    this.#markLabelLive = live;
+    this.#markLabelLiveHost = host;
+  }
+
+  #destroyMarkLabelLive(): void {
+    this.#markLabelLive?.remove();
+    this.#markLabelLive = null;
+    this.#markLabelLiveHost = null;
   }
 
   #setAnnotationsVisible(visible: boolean, reason: ChartAnnotationVisibilityChangeReason): this {
@@ -2623,13 +6239,13 @@ export class Chart {
       playbackEnabled: playbackState.enabled,
       playbackIndex: playbackState.index,
       playbackLength: playbackState.frames.length,
+      playbackRangeStart: playbackState.range?.start ?? 0,
+      playbackRangeEnd: playbackState.range?.end ?? -1,
       playing: playbackState.playing,
       playbackRate: playbackState.rate,
       loop: playbackState.loop,
-      frameLabel:
-        playbackState.frame instanceof Date
-          ? playbackState.frame.toISOString()
-          : String(playbackState.frame ?? ''),
+      frameLabel: playbackState.label,
+      frameNamed: playbackState.name !== undefined,
     };
     const actions: ControlsActions = {
       zoomIn: () => (domainNavigation === false ? this.zoomBy(1.25) : this.zoomDomainBy(1.25)),
@@ -2757,6 +6373,10 @@ export class Chart {
       host === undefined
     ) {
       this.#accessibility.destroy();
+      this.#linkedFocusUnregister?.();
+      this.#linkedFocusUnsubscribe?.();
+      this.#linkedFocusUnregister = null;
+      this.#linkedFocusUnsubscribe = null;
       return;
     }
     const selectedIds = new Set(
@@ -2775,9 +6395,77 @@ export class Chart {
       {
         toggle: (mark) => this.#toggleSemanticSelection(mark),
         clear: () => this.clearSelection(),
-        focus: (mark) => this.#focusSemanticMark(mark),
+        focus: (mark) => {
+          this.#focusSemanticMark(mark);
+          this.#publishLinkedFocus(mark);
+        },
       },
     );
+    this.#syncLinkedFocus();
+  }
+
+  #focusStore(): SemanticFocusStore {
+    return this.#options.focusStore ?? defaultSemanticFocusStore;
+  }
+
+  #syncLinkedFocus(): void {
+    this.#linkedFocusUnregister?.();
+    this.#linkedFocusUnsubscribe?.();
+    this.#linkedFocusUnregister = null;
+    this.#linkedFocusUnsubscribe = null;
+    this.#lastPublishedSemanticId = null;
+    const result = this.#result;
+    const linked = result?.spec.accessibility.linkedFocus;
+    if (result === null || result === undefined || linked === undefined || linked === false) return;
+    const index = result.scene.semanticIndex.filter(({ datum }) => {
+      const value = datum[linked.key];
+      return (
+        (typeof value === 'string' && value !== '') ||
+        typeof value === 'boolean' ||
+        (typeof value === 'number' && Number.isFinite(value)) ||
+        (value instanceof Date && Number.isFinite(value.getTime()))
+      );
+    });
+    const store = this.#focusStore();
+    this.#linkedFocusUnregister = store.registerView(this.#semanticViewId, linked, index);
+    this.#linkedFocusUnsubscribe = store.subscribe((change) => this.#applyLinkedFocus(change));
+    this.#applyLinkedFocus({ state: store.state(), reason: 'index' });
+  }
+
+  #applyLinkedFocus(change: SemanticFocusChange): void {
+    const linked = this.#result?.spec.accessibility.linkedFocus;
+    if (linked === undefined || linked === false || change.state.focused?.group !== linked.group)
+      return;
+    const match = change.state.matches.find(({ viewId }) => viewId === this.#semanticViewId);
+    if (match === undefined || this.#accessibility.getFocusedId() === match.semanticId) return;
+    this.#applyingLinkedFocus = true;
+    try {
+      this.#accessibility.focusSemanticId(match.semanticId);
+    } finally {
+      this.#applyingLinkedFocus = false;
+    }
+  }
+
+  #publishLinkedFocus(mark: SemanticMark | null): void {
+    const linked = this.#result?.spec.accessibility.linkedFocus;
+    if (linked === undefined || linked === false || this.#applyingLinkedFocus) return;
+    const store = this.#focusStore();
+    if (mark === null) {
+      if (store.state().focused?.sourceViewId === this.#semanticViewId) store.clear();
+      this.#lastPublishedSemanticId = null;
+      return;
+    }
+    if (this.#lastPublishedSemanticId === mark.id) return;
+    const value = mark.datum[linked.key];
+    if (!(
+      (typeof value === 'string' && value !== '') ||
+      typeof value === 'boolean' ||
+      (typeof value === 'number' && Number.isFinite(value)) ||
+      (value instanceof Date && Number.isFinite(value.getTime()))
+    ))
+      return;
+    this.#lastPublishedSemanticId = mark.id;
+    store.focus(this.#semanticViewId, mark);
   }
 
   #syncSelectionAccessibility(): void {
@@ -2853,6 +6541,47 @@ export class Chart {
       link.remove();
     } catch (error) {
       this.#events.emit('error', { chart: this, error });
+    }
+  }
+
+  #streamRuntime(layerId: string | undefined): IncrementalStreamRuntime {
+    const streaming = this.#spec.streaming;
+    if (streaming === undefined) {
+      throw new GraflumeError(
+        'INVALID_DATA',
+        'A streaming runtime requires an explicit ChartSpec.streaming contract.',
+      );
+    }
+    const target = this.#streamingTarget(layerId);
+    const existing = this.#streamRuntimes.get(target.id);
+    if (existing !== undefined) return existing;
+    const layerTransforms =
+      target.layerId === undefined
+        ? []
+        : (this.#spec.layers?.find(
+            (layer, index) => (layer.id ?? `layer-${index}`) === target.layerId,
+          )?.transform ?? []);
+    const transforms: readonly TransformSpec[] = [
+      ...(this.#spec.transform ?? []),
+      ...layerTransforms,
+    ];
+    const runtime = new IncrementalStreamRuntime(
+      target.source,
+      transforms,
+      streaming,
+      streaming.runtime,
+      this.#options.streamScheduler,
+    );
+    this.#streamRuntimes.set(target.id, runtime);
+    return runtime;
+  }
+
+  #applyStreamingRows(rows: readonly DataRow[], layerId: string | undefined): void {
+    this.#preserveStreamRuntimes = true;
+    try {
+      this.setData(rows, layerId);
+    } finally {
+      this.#preserveStreamRuntimes = false;
     }
   }
 

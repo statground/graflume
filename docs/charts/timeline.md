@@ -341,7 +341,14 @@ The same `standard`, `large`, `ultra`, and `auto` profiles apply. Complex layout
 
 ## Current limitations
 
-Overlapping interval packing, grouped labels, duration labels, domain-level timeline zoom, interval clipping, and active-at-time playback are not implemented yet. The common inspection viewport magnifies the complete compiled chart without changing its temporal domain.
+None remain in the audited P0/current-limitations boundary as of 2026-08-26. The `current-limitations-2026-08-26` implementation moved these former limitations into executable support:
+
+- lane packing and grouping
+- milestones
+- clipping and duration
+- navigator
+
+The separately cataloged P1/P2 research roadmap remains future work and is not presented as current runtime support. Exact implementation and test paths are recorded in [the completion evidence](../../catalog/graflume.current-limitations.evidence.json).
 
 ## Runnable example and regression coverage
 

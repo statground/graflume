@@ -188,15 +188,25 @@ Rendered datum shapes carry layer id, row index, and the original row for hover/
 interaction: {
   playback: {
     field: 'year',
+    key: 'country',
     mode: 'frame',
     interval: 1000,
+    direction: 'reverse',
+    loop: true,
+    namedFrames: [
+      { name: 'Baseline', value: '2024' },
+      { name: 'Review', value: '2026' },
+    ],
+    range: { start: 'Baseline', end: 'Review' },
     filter: false,
   },
   controls: { playback: true, fullscreen: true, export: true },
 }
 ```
 
-Frame values follow their first occurrence in the source rows, so sort the rows before chart creation when chronological order matters. Playback is discrete and preserves the mark's existing coordinate, size, and color behavior; stable entity interpolation is not inferred. The [common interaction manual](./interactions.md) covers stepping, seeking, speed, events, and the inspection viewport.
+Frame values follow their first occurrence in the source rows, so sort the rows before chart creation when chronological order matters. `key` preserves entity identity through enter/update/exit Scene transitions. Portable `namedFrames` bind labels to scalar frame values, and inclusive `range` endpoints accept those names or zero-based indices. Reverse autoplay and looping remain inside that range; `chart.seek('Review')` and `chart.play('Baseline')` use the same resolved landmarks. The [common interaction manual](./interactions.md) covers stepping, named seeking, direction, range updates, renderer-neutral frame events, reduced motion, and the inspection viewport.
+
+Canvas and registered SVG renderers consume the same compiled endpoint and transition Scenes. The built-in scrubber exposes the active subrange and named `aria-valuetext`, while `playbackframechange` provides the current label and previous index for host accessibility announcements.
 
 ## Performance profiles
 
@@ -204,12 +214,20 @@ The same `standard`, `large`, `ultra`, and `auto` profiles apply. Complex layout
 
 ## Current limitations
 
-Discrete playback controls are implemented. Trails, coordinate interpolation, frame tweening, and identity matching across frames are not implemented. The historical Flash Motion Chart is treated as a compatibility category, not a claim of Flash-era animation parity.
+None remain in the audited P0/current-limitations boundary as of 2026-08-26. The `current-limitations-2026-08-26` implementation moved these former limitations into executable support:
+
+- reverse playback
+- loop subranges
+- named frames
+
+The separately cataloged P1/P2 research roadmap remains future work and is not presented as current runtime support. Exact implementation and test paths are recorded in [the completion evidence](../../catalog/graflume.current-limitations.evidence.json).
 
 ## Runnable example and regression coverage
 
 - [default-family CDN gallery](../../examples/cdn/complete-chart-types.html)
 - [Chart catalog compile tests](../../tests/extended-chart-types.test.mjs)
+- [Playback spec regression tests](../../tests/interaction-spec.test.mjs)
+- [Canvas/SVG runtime and accessibility event tests](../../tests/chart-interaction-runtime.test.mjs)
 - [Generated visual asset](../assets/charts/motion.svg)
 
 [Back to chart guides](./README.md)
