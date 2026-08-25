@@ -141,7 +141,9 @@ test('all 161 completed current limitations have exact source and test evidence'
   const featuresByFamily = new Map(features.families.map((family) => [family.id, family]));
   for (const evidence of currentLimitationEvidence.families) {
     const family = featuresByFamily.get(evidence.id);
+    const catalogFamily = manifest.families.find(({ id }) => id === evidence.id);
     assert.ok(family, evidence.id);
+    assert.ok(catalogFamily, `${evidence.id} public catalog family`);
     assert.ok(evidence.capabilities.length > 0, `${evidence.id} capabilities`);
     assert.equal(new Set(evidence.capabilities).size, evidence.capabilities.length);
     for (const capability of evidence.capabilities) {
@@ -166,6 +168,12 @@ test('all 161 completed current limitations have exact source and test evidence'
         await access(new URL(`../${testEvidence.path}`, import.meta.url));
       }
     }
+    assert.deepEqual(catalogFamily.implementationEvidence, {
+      sources: [
+        ...new Set(evidence.traces.flatMap((trace) => trace.sources.map(({ path }) => path))),
+      ],
+      tests: [...new Set(evidence.traces.flatMap((trace) => trace.tests.map(({ path }) => path)))],
+    });
   }
   await validateCapabilityTraceability(currentLimitationEvidence.families);
   assert.deepEqual(
@@ -181,6 +189,8 @@ test('all 161 completed current limitations have exact source and test evidence'
   });
   assert.equal(manifest.totals.completedCurrentLimitations, 161);
   assert.equal(manifest.totals.currentLimitations, 0);
+  assert.equal(catalogSchema.$defs.implementationEvidence.properties.sources.minItems, 1);
+  assert.equal(catalogSchema.$defs.implementationEvidence.properties.tests.minItems, 1);
 });
 
 test('current limitation traceability rejects duplicate, missing, empty, and false evidence', async () => {

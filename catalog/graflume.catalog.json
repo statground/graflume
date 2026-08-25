@@ -139,7 +139,10 @@
         "drag and resize handles",
         "undo and redo"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": ["src/annotation/primitives.ts", "src/interaction/annotation-authoring.ts"],
+        "tests": ["tests/annotation-authoring.test.mjs"]
+      },
       "developmentDependencies": [
         "label-layout-authoring",
         "analytic-interaction",
@@ -178,7 +181,20 @@
         "automatic series labels",
         "data-domain navigation"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": [
+          "src/data/dataflow.ts",
+          "src/data/worker-runtime.ts",
+          "src/compiler/mark-labels.ts",
+          "src/interaction/domain-navigation.ts"
+        ],
+        "tests": [
+          "tests/foundation-dataflow-encoding.test.mjs",
+          "tests/foundation-runtime.test.mjs",
+          "tests/mark-label-authoring.test.mjs",
+          "tests/chart-interaction-runtime.test.mjs"
+        ]
+      },
       "developmentDependencies": [
         "transform-dataflow",
         "encoding-scale-registry",
@@ -218,7 +234,20 @@
         "automatic total and segment labels",
         "worker-bounded virtualization"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": [
+          "src/data/family-analytics.ts",
+          "src/data/family-layouts.ts",
+          "src/compiler/mark-labels.ts",
+          "src/data/worker-runtime.ts"
+        ],
+        "tests": [
+          "tests/statistical-advanced.test.mjs",
+          "tests/family-layouts.test.mjs",
+          "tests/mark-label-authoring.test.mjs",
+          "tests/foundation-runtime.test.mjs"
+        ]
+      },
       "developmentDependencies": [
         "transform-dataflow",
         "encoding-scale-registry",
@@ -255,7 +284,10 @@
         "zero and negative policy",
         "explicit size guide"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": ["src/data/family-analytics.ts"],
+        "tests": ["tests/family-analytics.test.mjs", "tests/statistical-advanced.test.mjs"]
+      },
       "developmentDependencies": ["label-layout-authoring", "incremental-worker-binary"]
     },
     {
@@ -288,7 +320,10 @@
         "leap/no-data/zero policy",
         "month boundaries"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": ["src/data/family-analytics.ts"],
+        "tests": ["tests/statistical-advanced.test.mjs", "tests/family-analytics.test.mjs"]
+      },
       "developmentDependencies": [
         "transform-dataflow",
         "analytic-interaction",
@@ -328,7 +363,18 @@
         "extended-hours policy",
         "navigator"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": [
+          "src/data/family-analytics.ts",
+          "src/compiler/domain.ts",
+          "src/interaction/advanced-family-runtime.ts"
+        ],
+        "tests": [
+          "tests/family-analytics.test.mjs",
+          "tests/statistical-advanced.test.mjs",
+          "tests/chart-interaction-runtime.test.mjs"
+        ]
+      },
       "developmentDependencies": [
         "transform-dataflow",
         "composition-resolve",
@@ -370,7 +416,14 @@
         "layer transforms",
         "layer clipping"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": [
+          "src/compiler/domain.ts",
+          "src/compiler/composition.ts",
+          "src/compiler/compile.ts"
+        ],
+        "tests": ["tests/named-axes-layer-clip.test.mjs", "tests/composition.test.mjs"]
+      },
       "developmentDependencies": [
         "composition-resolve",
         "transform-dataflow",
@@ -406,7 +459,10 @@
         "absolute/relative/percent policy",
         "crossing interpolation"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": ["src/data/family-analytics.ts", "src/marks/statistical-advanced.ts"],
+        "tests": ["tests/family-analytics.test.mjs", "tests/statistical-advanced.test.mjs"]
+      },
       "developmentDependencies": ["transform-dataflow"]
     },
     {
@@ -441,7 +497,14 @@
         "minimum slice, sorting and padding",
         "keyboard slice traversal"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": ["src/marks/layout-advanced.ts", "src/data/family-layouts.ts"],
+        "tests": [
+          "tests/layout-advanced.test.mjs",
+          "tests/family-layouts.test.mjs",
+          "tests/chart-interaction-runtime.test.mjs"
+        ]
+      },
       "developmentDependencies": [
         "label-layout-authoring",
         "semantic-index-accessibility",
@@ -478,7 +541,14 @@
         "clipping and duration",
         "navigator"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": ["src/data/family-layouts.ts", "src/interaction/advanced-family-runtime.ts"],
+        "tests": [
+          "tests/family-layouts.test.mjs",
+          "tests/layout-advanced.test.mjs",
+          "tests/advanced-family-runtime.test.mjs"
+        ]
+      },
       "developmentDependencies": [
         "transform-dataflow",
         "analytic-interaction",
@@ -516,7 +586,10 @@
         "custom ticks",
         "exact accessible value summary"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": ["src/data/family-layouts.ts"],
+        "tests": ["tests/family-layouts.test.mjs", "tests/layout-advanced.test.mjs"]
+      },
       "developmentDependencies": ["label-layout-authoring", "semantic-index-accessibility"]
     },
     {
@@ -554,7 +627,10 @@
         "flat geodesics",
         "provider-backed tile lifecycle, cache and attribution"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": ["src/geography/map-lifecycle.ts", "src/renderer/canvas.ts"],
+        "tests": ["tests/map-lifecycle.test.mjs", "tests/map-advanced-render.test.mjs"]
+      },
       "developmentDependencies": [
         "analytic-interaction",
         "incremental-worker-binary",
@@ -594,7 +670,10 @@
         "notched and weighted box summaries",
         "rug and strip"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": ["src/data/family-analytics.ts"],
+        "tests": ["tests/family-analytics.test.mjs"]
+      },
       "developmentDependencies": [
         "transform-dataflow",
         "composition-resolve",
@@ -631,7 +710,10 @@
         "horizontal errors",
         "provenance"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": ["src/data/family-analytics.ts", "src/marks/statistical-advanced.ts"],
+        "tests": ["tests/family-analytics.test.mjs", "tests/statistical-advanced.test.mjs"]
+      },
       "developmentDependencies": ["transform-dataflow", "composition-resolve"]
     },
     {
@@ -666,7 +748,20 @@
         "named transform DAG reuse",
         "worker-bounded streaming retention"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": [
+          "src/data/family-analytics.ts",
+          "src/interaction/domain-navigation.ts",
+          "src/data/dataflow.ts",
+          "src/data/worker-runtime.ts"
+        ],
+        "tests": [
+          "tests/statistical-advanced.test.mjs",
+          "tests/chart-interaction-runtime.test.mjs",
+          "tests/foundation-dataflow-encoding.test.mjs",
+          "tests/worker-stream-retention.test.mjs"
+        ]
+      },
       "developmentDependencies": [
         "transform-dataflow",
         "encoding-scale-registry",
@@ -701,7 +796,10 @@
       ],
       "currentLimitations": [],
       "completedCurrentLimitations": ["reverse playback", "loop subranges", "named frames"],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": ["src/interaction/playback.ts"],
+        "tests": ["tests/chart-interaction-runtime.test.mjs"]
+      },
       "developmentDependencies": ["incremental-worker-binary", "composition-resolve"]
     },
     {
@@ -734,7 +832,17 @@
         "collapse/re-root/zoom",
         "breadcrumbs and search"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": [
+          "src/data/structured-analytics.ts",
+          "src/interaction/advanced-family-runtime.ts"
+        ],
+        "tests": [
+          "tests/structured-analytics.test.mjs",
+          "tests/relationship-advanced.test.mjs",
+          "tests/chart-interaction-runtime.test.mjs"
+        ]
+      },
       "developmentDependencies": [
         "analytic-interaction",
         "label-layout-authoring",
@@ -769,7 +877,14 @@
         "cycles and balance validation",
         "node drag and path traversal"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": ["src/data/structured-analytics.ts"],
+        "tests": [
+          "tests/relationship-advanced.test.mjs",
+          "tests/structured-analytics.test.mjs",
+          "tests/chart-interaction-runtime.test.mjs"
+        ]
+      },
       "developmentDependencies": [
         "transform-dataflow",
         "label-layout-authoring",
@@ -806,7 +921,20 @@
         "data-domain navigation",
         "spatial index and WebGL dispatch"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": [
+          "src/encoding/resolve.ts",
+          "src/interaction/analytic-selection.ts",
+          "src/interaction/domain-navigation.ts",
+          "src/interaction/spatial-index.ts",
+          "src/api/scatter-dispatch.ts"
+        ],
+        "tests": [
+          "tests/scatter-p0.test.mjs",
+          "tests/chart-interaction-runtime.test.mjs",
+          "tests/analytic-interaction.test.mjs"
+        ]
+      },
       "developmentDependencies": [
         "encoding-scale-registry",
         "analytic-interaction",
@@ -845,7 +973,14 @@
         "cell-level keyboard grid navigation",
         "formatter registry"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": ["src/interaction/family-runtime.ts", "src/data/family-layouts.ts"],
+        "tests": [
+          "tests/layout-advanced.test.mjs",
+          "tests/chart-interaction-runtime.test.mjs",
+          "tests/family-layouts.test.mjs"
+        ]
+      },
       "developmentDependencies": [
         "semantic-index-accessibility",
         "analytic-interaction",
@@ -873,7 +1008,10 @@
       ],
       "currentLimitations": [],
       "completedCurrentLimitations": ["explicit relative/absolute/subtotal/total semantics"],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": ["src/data/family-analytics.ts"],
+        "tests": ["tests/statistical-advanced.test.mjs"]
+      },
       "developmentDependencies": ["transform-dataflow", "encoding-scale-registry"]
     },
     {
@@ -902,7 +1040,10 @@
         "prefix/suffix/reverse",
         "phrase aggregation and pruning"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": ["src/data/structured-analytics.ts"],
+        "tests": ["tests/structured-analytics.test.mjs", "tests/relationship-advanced.test.mjs"]
+      },
       "developmentDependencies": [
         "transform-dataflow",
         "label-layout-authoring",
@@ -939,7 +1080,10 @@
         "angular bins",
         "stacked and normalized radial bars"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": ["src/data/family-layouts.ts"],
+        "tests": ["tests/family-layouts.test.mjs", "tests/layout-advanced.test.mjs"]
+      },
       "developmentDependencies": [
         "transform-dataflow",
         "encoding-scale-registry",
@@ -978,7 +1122,10 @@
         "drag/pin/collapse/lasso",
         "edge routing"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": ["src/data/network-analytics.ts"],
+        "tests": ["tests/network-analytics.test.mjs", "tests/chart-interaction-runtime.test.mjs"]
+      },
       "developmentDependencies": [
         "analytic-interaction",
         "incremental-worker-binary",
@@ -1014,7 +1161,10 @@
         "padding",
         "directed asymmetry and self-loop semantics"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": ["src/data/structured-analytics.ts"],
+        "tests": ["tests/structured-analytics.test.mjs", "tests/relationship-advanced.test.mjs"]
+      },
       "developmentDependencies": [
         "transform-dataflow",
         "label-layout-authoring",
@@ -1049,7 +1199,10 @@
         "neck configuration",
         "outside label solver"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": ["src/data/structured-analytics.ts", "src/marks/relationship-advanced.ts"],
+        "tests": ["tests/structured-analytics.test.mjs", "tests/relationship-advanced.test.mjs"]
+      },
       "developmentDependencies": [
         "transform-dataflow",
         "label-layout-authoring",
@@ -1085,7 +1238,18 @@
         "axis reorder/invert",
         "per-axis brush and linked filter"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": [
+          "src/data/structured-analytics.ts",
+          "src/interaction/advanced-family-runtime.ts"
+        ],
+        "tests": [
+          "tests/structured-analytics.test.mjs",
+          "tests/relationship-advanced.test.mjs",
+          "tests/advanced-family-runtime.test.mjs",
+          "tests/chart-interaction-runtime.test.mjs"
+        ]
+      },
       "developmentDependencies": [
         "encoding-scale-registry",
         "analytic-interaction",
@@ -1125,7 +1289,14 @@
         "diverging/log/symlog/quantile color",
         "brush"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": ["src/data/specialized-coordinate-analytics.ts", "src/marks/analytical-p0.ts"],
+        "tests": [
+          "tests/specialized-coordinate-analytics.test.mjs",
+          "tests/analytical-p0-compiler.test.mjs",
+          "tests/chart-interaction-runtime.test.mjs"
+        ]
+      },
       "developmentDependencies": [
         "transform-dataflow",
         "encoding-scale-registry",
@@ -1161,7 +1332,10 @@
         "resampling",
         "colormap and window mapping"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": ["src/data/specialized-coordinate-analytics.ts"],
+        "tests": ["tests/specialized-coordinate-analytics.test.mjs"]
+      },
       "developmentDependencies": [
         "encoding-scale-registry",
         "analytic-interaction",
@@ -1197,7 +1371,13 @@
         "raw and normalized tooltip",
         "component ticks and formatting"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": ["src/data/specialized-coordinate-analytics.ts", "src/marks/analytical-p0.ts"],
+        "tests": [
+          "tests/specialized-coordinate-analytics.test.mjs",
+          "tests/analytical-p0-compiler.test.mjs"
+        ]
+      },
       "developmentDependencies": [
         "transform-dataflow",
         "encoding-scale-registry",
@@ -1235,7 +1415,13 @@
         "S/Z/Y/reflection inputs",
         "specialized labels and tooltip"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": ["src/data/specialized-coordinate-analytics.ts", "src/marks/analytical-p0.ts"],
+        "tests": [
+          "tests/specialized-coordinate-analytics.test.mjs",
+          "tests/analytical-p0-compiler.test.mjs"
+        ]
+      },
       "developmentDependencies": [
         "encoding-scale-registry",
         "composition-resolve",
@@ -1271,7 +1457,18 @@
         "upper/lower mark selection",
         "linked brush"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": [
+          "src/data/specialized-coordinate-analytics.ts",
+          "src/marks/analytical-p0.ts",
+          "src/interaction/advanced-family-runtime.ts"
+        ],
+        "tests": [
+          "tests/specialized-coordinate-analytics.test.mjs",
+          "tests/analytical-p0-compiler.test.mjs",
+          "tests/scatter-matrix-runtime.test.mjs"
+        ]
+      },
       "developmentDependencies": [
         "composition-resolve",
         "analytic-interaction",
@@ -1307,7 +1504,13 @@
         "mask policy",
         "dual projected tooltip"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": ["src/data/specialized-coordinate-analytics.ts", "src/marks/analytical-p0.ts"],
+        "tests": [
+          "tests/specialized-coordinate-analytics.test.mjs",
+          "tests/analytical-p0-compiler.test.mjs"
+        ]
+      },
       "developmentDependencies": [
         "encoding-scale-registry",
         "analytic-interaction",
@@ -1344,7 +1547,10 @@
         "triangulated irregular samples",
         "smoothing"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": ["src/data/field-analytics.ts"],
+        "tests": ["tests/field-analytics.test.mjs"]
+      },
       "developmentDependencies": ["transform-dataflow", "incremental-worker-binary"]
     },
     {
@@ -1376,7 +1582,13 @@
         "fill direction and grouping",
         "accessible counts"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": ["src/data/specialized-coordinate-analytics.ts", "src/marks/analytical-p0.ts"],
+        "tests": [
+          "tests/specialized-coordinate-analytics.test.mjs",
+          "tests/analytical-p0-compiler.test.mjs"
+        ]
+      },
       "developmentDependencies": [
         "semantic-index-accessibility",
         "analytic-interaction",
@@ -1410,7 +1622,10 @@
         "normalization and sampled grid",
         "streamline seeding/integration"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": ["src/data/field-analytics.ts"],
+        "tests": ["tests/field-analytics.test.mjs"]
+      },
       "developmentDependencies": [
         "transform-dataflow",
         "analytic-interaction",
@@ -1446,7 +1661,14 @@
         "quality metric and queries",
         "region hit"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": ["src/data/structured-analytics.ts"],
+        "tests": [
+          "tests/structured-analytics.test.mjs",
+          "tests/relationship-advanced.test.mjs",
+          "tests/venn-runtime-hit.test.mjs"
+        ]
+      },
       "developmentDependencies": [
         "transform-dataflow",
         "label-layout-authoring",
@@ -1483,7 +1705,10 @@
         "deterministic seed",
         "padding and allowed-rotation API"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": ["src/data/structured-analytics.ts"],
+        "tests": ["tests/structured-analytics.test.mjs", "tests/relationship-advanced.test.mjs"]
+      },
       "developmentDependencies": [
         "transform-dataflow",
         "label-layout-authoring",
@@ -1522,7 +1747,10 @@
         "percent/ATR/log sizing",
         "OHLC-source provenance"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": ["src/data/finance-analytics.ts"],
+        "tests": ["tests/finance-analytics.test.mjs"]
+      },
       "developmentDependencies": ["transform-dataflow", "incremental-worker-binary"]
     },
     {
@@ -1554,7 +1782,10 @@
         "POC/VAH/VAL",
         "left placement"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": ["src/data/finance-analytics.ts", "src/marks/finance-advanced.ts"],
+        "tests": ["tests/finance-analytics.test.mjs"]
+      },
       "developmentDependencies": [
         "transform-dataflow",
         "analytic-interaction",
@@ -1592,7 +1823,17 @@
         "indicator panes and synchronized crosshair",
         "worker-bounded incremental calculation"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": [
+          "src/data/technical-indicators.ts",
+          "src/compiler/technical-indicator-panels.ts",
+          "src/data/technical-indicator-incremental.ts"
+        ],
+        "tests": [
+          "tests/technical-indicator-p0.test.mjs",
+          "tests/chart-interaction-runtime.test.mjs"
+        ]
+      },
       "developmentDependencies": [
         "transform-dataflow",
         "composition-resolve",
@@ -1628,7 +1869,10 @@
         "filled plus wire overlay",
         "contour projection"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": ["src/spatial/surface-analysis.ts", "src/spatial/compile.ts"],
+        "tests": ["tests/spatial-p0.test.mjs"]
+      },
       "developmentDependencies": ["incremental-worker-binary"]
     },
     {
@@ -1661,7 +1905,10 @@
         "orthogonal and oblique slices",
         "caps and window-level"
       ],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": ["src/spatial/volume-rendering.ts", "src/spatial/compile.ts"],
+        "tests": ["tests/spatial-p0.test.mjs"]
+      },
       "developmentDependencies": ["incremental-worker-binary"]
     },
     {
@@ -1688,7 +1935,10 @@
       ],
       "currentLimitations": [],
       "completedCurrentLimitations": ["seeded adaptive field integration"],
-      "implementationEvidence": {},
+      "implementationEvidence": {
+        "sources": ["src/spatial/vector-field-integration.ts"],
+        "tests": ["tests/spatial-p0.test.mjs"]
+      },
       "developmentDependencies": ["incremental-worker-binary", "analytic-interaction"]
     }
   ],

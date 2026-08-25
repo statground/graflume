@@ -181,9 +181,27 @@
       "additionalProperties": false,
       "required": ["sources", "tests"],
       "properties": {
-        "sources": { "$ref": "#/$defs/stringList" },
-        "tests": { "$ref": "#/$defs/stringList" }
+        "sources": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/sourceEvidencePath" }
+        },
+        "tests": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/testEvidencePath" }
+        }
       }
+    },
+    "sourceEvidencePath": {
+      "type": "string",
+      "pattern": "^src/.+\\.ts$"
+    },
+    "testEvidencePath": {
+      "type": "string",
+      "pattern": "^tests/.+\\.test\\.mjs$"
     },
     "currentLimitations": {
       "type": "object",

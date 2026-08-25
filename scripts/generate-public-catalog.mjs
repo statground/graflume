@@ -106,6 +106,18 @@ function familySnapshot(id, renderer) {
     : `docs/assets/charts/${id}.svg`;
 }
 
+function implementationEvidenceFromTraces(completed) {
+  const sources = [
+    ...new Set(completed.traces.flatMap((trace) => trace.sources.map(({ path }) => path))),
+  ];
+  const tests = [
+    ...new Set(completed.traces.flatMap((trace) => trace.tests.map(({ path }) => path))),
+  ];
+  assert.ok(sources.length > 0, `${completed.id} must expose source evidence`);
+  assert.ok(tests.length > 0, `${completed.id} must expose test evidence`);
+  return { sources, tests };
+}
+
 const families = allFamilyIds.map((id, order) => {
   const group = groupByFamily.get(id);
   const feature = featureByFamily.get(id);
@@ -132,7 +144,7 @@ const families = allFamilyIds.map((id, order) => {
     supportedFeatures: feature.supported,
     currentLimitations: feature.p0,
     completedCurrentLimitations: completed.capabilities,
-    implementationEvidence: { sources: completed.sources, tests: completed.tests },
+    implementationEvidence: implementationEvidenceFromTraces(completed),
     developmentDependencies: feature.dependencies,
   };
 });
