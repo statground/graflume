@@ -94,6 +94,10 @@ rejected when a stack layout is active rather than silently replacing one of the
 | `quantize`         | A two-endpoint numeric domain is divided into equal, clamped bins   |
 | `threshold`        | One or more ascending thresholds select one additional range entry  |
 
+An omitted scale type on a temporal Cartesian encoding resolves to `utc`. This portable default
+keeps date ticks and generated output identical across browser, server, and CI time zones. Request
+`scale: { type: 'time' }` explicitly when the host's civil-time zone is the intended contract.
+
 Cartesian axes currently accept the continuous families above plus `band` and `point`. `ordinal`,
 `quantile`, `quantize`, and `threshold` are available to the standalone registry and compatible
 non-axis visual channels; they are rejected as Cartesian axis scales instead of being approximated.

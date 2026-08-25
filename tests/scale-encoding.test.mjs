@@ -164,6 +164,38 @@ test('time and utc scales expose distinct calendar policies', () => {
   }
 });
 
+test('portable temporal encodings default to UTC while explicit time remains local', () => {
+  const previous = process.env.TZ;
+  process.env.TZ = 'America/Los_Angeles';
+  try {
+    const rows = [
+      { date: '2026-01-01', value: 1 },
+      { date: '2026-01-02', value: 2 },
+    ];
+    const base = {
+      data: rows,
+      mark: 'line',
+      x: { field: 'date', type: 'temporal' },
+      y: { field: 'value', type: 'quantitative' },
+    };
+    const portable = compile(base);
+    const local = compile({
+      ...base,
+      x: { ...base.x, scale: { type: 'time' } },
+    });
+
+    assert.equal(portable.coordinates.axes.x.kind, 'utc');
+    assert.equal(local.coordinates.axes.x.kind, 'time');
+    assert.notEqual(
+      portable.coordinates.axes.x.ticks(2, 'en-US')[0].label,
+      local.coordinates.axes.x.ticks(2, 'en-US')[0].label,
+    );
+  } finally {
+    if (previous === undefined) delete process.env.TZ;
+    else process.env.TZ = previous;
+  }
+});
+
 test('scale constraints and out-of-bounds policies fail explicitly', () => {
   assert.throws(
     () => createPositionScale({ type: 'log' }, { type: 'log', domain: [0, 10], range: [0, 1] }),

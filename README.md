@@ -262,7 +262,9 @@ for exact values and keyboard access.
 
 Graflume resolves `x`, `x2`, `y`, and `y2` independently. The primary defaults are bottom x and
 left y; secondary axes default to top x2 and right y2. Only the primary y grid is enabled by
-default. Axis formatting and styling remain declarative and serializable:
+default. Temporal encodings without an explicit scale use portable UTC ticks; request
+`scale: { type: 'time' }` when host-local civil time is intentional. Axis formatting and styling
+remain declarative and serializable:
 
 ```ts
 import { line } from 'graflume';

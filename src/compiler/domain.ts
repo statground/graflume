@@ -502,7 +502,11 @@ function resolveAxisScale(
   } else {
     const normalRange: readonly [number, number] =
       channel === 'x' ? [plot.x, plot.x + plot.width] : [plot.y + plot.height, plot.y];
-    const type = requestedScaleType ?? (fieldType === 'temporal' ? 'time' : 'linear');
+    // Portable temporal encodings default to UTC so the same function-free
+    // spec produces identical ticks and snapshots in every host time zone.
+    // Authors who need civil-time semantics can still request `time`
+    // explicitly; the registry keeps that scale's local-zone behavior.
+    const type = requestedScaleType ?? (fieldType === 'temporal' ? 'utc' : 'linear');
     if (!continuousAxisTypes.has(type)) {
       throw new GraflumeError(
         'INCOMPATIBLE_SCALE',
