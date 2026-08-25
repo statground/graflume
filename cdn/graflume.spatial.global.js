@@ -29,6 +29,220 @@ var GraflumeSpatial = (function (exports) {
         }
     }
 
+    class GraflumeError extends Error {
+        code;
+        path;
+        details;
+        constructor(code, message, options = {}) {
+            super(message, options.cause === undefined ? undefined : { cause: options.cause });
+            this.name = 'GraflumeError';
+            this.code = code;
+            if (options.path !== undefined)
+                this.path = options.path;
+            if (options.details !== undefined)
+                this.details = options.details;
+        }
+    }
+
+    const UNSAFE_KEYS$1 = new Set(['__proto__', 'prototype', 'constructor']);
+    function assertSafeKey(key, path = key) {
+        if (UNSAFE_KEYS$1.has(key)) {
+            throw new GraflumeError('UNSAFE_KEY', `Unsafe key "${key}" is not allowed.`, { path });
+        }
+    }
+    function isPlainObject(value) {
+        if (value === null || typeof value !== 'object')
+            return false;
+        const prototype = Object.getPrototypeOf(value);
+        return prototype === Object.prototype || prototype === null;
+    }
+    function deepMerge(base, override) {
+        const output = { ...base };
+        for (const [key, overrideValue] of Object.entries(override)) {
+            assertSafeKey(key);
+            if (overrideValue === undefined)
+                continue;
+            const baseValue = output[key];
+            if (isPlainObject(baseValue) && isPlainObject(overrideValue)) {
+                output[key] = deepMerge(baseValue, overrideValue);
+            }
+            else if (Array.isArray(overrideValue)) {
+                output[key] = [...overrideValue];
+            }
+            else {
+                output[key] = overrideValue;
+            }
+        }
+        return output;
+    }
+    function ownValue(record, key) {
+        assertSafeKey(key, `data.${key}`);
+        return Object.prototype.hasOwnProperty.call(record, key) ? record[key] : null;
+    }
+
+    const groupPattern = /^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$/;
+    function boundedInteger$1(value, fallback, maximum, path) {
+        const resolved = value ?? fallback;
+        if (!Number.isInteger(resolved) || resolved < 1 || resolved > maximum) {
+            throw new GraflumeError('INVALID_SPEC', `${path} must be an integer from 1 to ${maximum}.`, {
+                path,
+            });
+        }
+        return resolved;
+    }
+    function safeIdentity(value, path) {
+        if (!groupPattern.test(value)) {
+            throw new GraflumeError('INVALID_SPEC', `${path} must contain 1 to 96 portable identity characters.`, { path });
+        }
+        return value;
+    }
+    function focusKey(value, path) {
+        if (value instanceof Date && Number.isFinite(value.getTime()))
+            return `date:${value.toISOString()}`;
+        if (typeof value === 'string' && value !== '')
+            return `string:${value}`;
+        if (typeof value === 'number' && Number.isFinite(value))
+            return `number:${value}`;
+        if (typeof value === 'boolean')
+            return `boolean:${value}`;
+        throw new GraflumeError('INVALID_DATA', 'Linked focus keys must be non-empty strings, finite numbers, booleans, or valid Dates.', { path });
+    }
+    function cloneTarget(target) {
+        return { ...target };
+    }
+    /**
+     * Bounded shared focus state for linked Canvas and GPU views.
+     *
+     * Specs and emitted state contain data only. Runtime listeners are registered
+     * separately, so chart specifications remain JSON-serializable.
+     */
+    class SemanticFocusStore {
+        #maxViews;
+        #maxRowsPerView;
+        #maxListeners;
+        #views = new Map();
+        #listeners = new Set();
+        #focused = null;
+        #matches = [];
+        #revision = 0;
+        constructor(options = {}) {
+            this.#maxViews = boundedInteger$1(options.maxViews, 64, 1_024, '$.focus.maxViews');
+            this.#maxRowsPerView = boundedInteger$1(options.maxRowsPerView, 5_000, 100_000, '$.focus.maxRowsPerView');
+            this.#maxListeners = boundedInteger$1(options.maxListeners, 128, 4_096, '$.focus.maxListeners');
+        }
+        registerView(viewId, spec, index) {
+            safeIdentity(viewId, '$.focus.viewId');
+            safeIdentity(spec.group, '$.accessibility.linkedFocus.group');
+            if (typeof spec.key !== 'string' || spec.key.trim() === '') {
+                throw new GraflumeError('INVALID_SPEC', '$.accessibility.linkedFocus.key must be a non-empty field.', { path: '$.accessibility.linkedFocus.key' });
+            }
+            assertSafeKey(spec.key, '$.accessibility.linkedFocus.key');
+            if (!this.#views.has(viewId) && this.#views.size >= this.#maxViews) {
+                throw new GraflumeError('INVALID_DATA', 'Linked focus view limit reached.');
+            }
+            if (index.length > this.#maxRowsPerView) {
+                throw new GraflumeError('INVALID_DATA', `Linked focus index has ${index.length} rows; the deterministic limit is ${this.#maxRowsPerView}.`);
+            }
+            const marksByKey = new Map();
+            index.forEach((mark, rowIndex) => {
+                const value = ownValue(mark.datum, spec.key);
+                const key = focusKey(value, `$.semanticIndex[${rowIndex}].datum.${spec.key}`);
+                // A single deterministic target per view prevents an ambiguous focus ring.
+                if (!marksByKey.has(key) || (!marksByKey.get(key).visible && mark.visible)) {
+                    marksByKey.set(key, mark);
+                }
+            });
+            this.#views.set(viewId, { viewId, spec: { ...spec }, marksByKey });
+            this.#reconcile('index');
+            return () => {
+                if (!this.#views.delete(viewId))
+                    return;
+                this.#reconcile('index');
+            };
+        }
+        focus(viewId, mark) {
+            const view = this.#views.get(viewId);
+            if (view === undefined) {
+                throw new GraflumeError('INVALID_DATA', `Linked focus view "${viewId}" is not registered.`);
+            }
+            const key = focusKey(ownValue(mark.datum, view.spec.key), `$.semanticIndex.datum.${view.spec.key}`);
+            this.#focused = {
+                group: view.spec.group,
+                key,
+                sourceViewId: viewId,
+                semanticId: mark.id,
+            };
+            this.#reconcile('focus');
+        }
+        focusTarget(target) {
+            safeIdentity(target.group, '$.focus.group');
+            safeIdentity(target.sourceViewId, '$.focus.sourceViewId');
+            if (target.key.length === 0 || target.key.length > 512) {
+                throw new GraflumeError('INVALID_DATA', 'Linked focus key is empty or exceeds 512 characters.');
+            }
+            if (target.semanticId.length === 0 || target.semanticId.length > 512) {
+                throw new GraflumeError('INVALID_DATA', 'Linked focus semantic identity is empty or exceeds 512 characters.');
+            }
+            this.#focused = cloneTarget(target);
+            this.#reconcile('focus');
+        }
+        clear() {
+            if (this.#focused === null && this.#matches.length === 0)
+                return;
+            this.#focused = null;
+            this.#matches = [];
+            this.#revision += 1;
+            this.#emit('clear');
+        }
+        state() {
+            return {
+                version: 1,
+                revision: this.#revision,
+                focused: this.#focused === null ? null : cloneTarget(this.#focused),
+                matches: this.#matches.map((match) => ({ ...match })),
+                registeredViews: this.#views.size,
+            };
+        }
+        subscribe(listener) {
+            if (this.#listeners.size >= this.#maxListeners) {
+                throw new GraflumeError('INVALID_DATA', 'Linked focus listener limit reached.');
+            }
+            this.#listeners.add(listener);
+            return () => this.#listeners.delete(listener);
+        }
+        #reconcile(reason) {
+            const focused = this.#focused;
+            this.#matches =
+                focused === null
+                    ? []
+                    : [...this.#views.values()]
+                        .filter(({ spec }) => spec.group === focused.group)
+                        .flatMap(({ viewId, marksByKey }) => {
+                        const mark = marksByKey.get(focused.key);
+                        return mark === undefined
+                            ? []
+                            : [
+                                {
+                                    viewId,
+                                    semanticId: mark.id,
+                                    layerId: mark.layerId,
+                                    rowIndex: mark.rowIndex,
+                                },
+                            ];
+                    })
+                        .sort((left, right) => left.viewId.localeCompare(right.viewId, 'en'));
+            this.#revision += 1;
+            this.#emit(reason);
+        }
+        #emit(reason) {
+            const change = { state: this.state(), reason };
+            for (const listener of [...this.#listeners])
+                listener(change);
+        }
+    }
+    /** Shared-by-default store used when linkedFocus is authored without an injected store. */
+    const defaultSemanticFocusStore = new SemanticFocusStore();
+
     function normalizedHex(color) {
         const value = color.trim().replace(/^#/, '');
         if (/^[0-9a-f]{3}$/i.test(value)) {
@@ -123,7 +337,7 @@ var GraflumeSpatial = (function (exports) {
         const startLab = hexToLab(start);
         const endLab = hexToLab(end);
         if (startLab === null || endLab === null)
-            return mixColor(start, end, ratio);
+            return mixColor$1(start, end, ratio);
         const bounded = Number.isFinite(ratio) ? Math.max(0, Math.min(1, ratio)) : 0;
         return labToHex({
             l: startLab.l + (endLab.l - startLab.l) * bounded,
@@ -152,7 +366,7 @@ var GraflumeSpatial = (function (exports) {
             const localRatio = scaled - startIndex;
             return theme.colors.continuousInterpolation === 'lab'
                 ? mixLabColor(start, end, localRatio)
-                : mixColor(start, end, localRatio);
+                : mixColor$1(start, end, localRatio);
         }
         if (theme.colors.continuousInterpolation === 'step') {
             const index = Math.min(palette.length - 1, Math.floor(bounded * palette.length));
@@ -163,7 +377,7 @@ var GraflumeSpatial = (function (exports) {
     function channel(color, index) {
         return Number.parseInt(color.slice(index * 2, index * 2 + 2), 16);
     }
-    function mixColor(start, end, ratio) {
+    function mixColor$1(start, end, ratio) {
         const startHex = normalizedHex(start);
         const endHex = normalizedHex(end);
         if (startHex === null || endHex === null)
@@ -2671,53 +2885,6 @@ var GraflumeSpatial = (function (exports) {
         ...neutralBuiltInThemes.map((tokens) => ({ id: tokens.name, tokens, snapshot: true })),
     ];
 
-    class GraflumeError extends Error {
-        code;
-        path;
-        details;
-        constructor(code, message, options = {}) {
-            super(message, options.cause === undefined ? undefined : { cause: options.cause });
-            this.name = 'GraflumeError';
-            this.code = code;
-            if (options.path !== undefined)
-                this.path = options.path;
-            if (options.details !== undefined)
-                this.details = options.details;
-        }
-    }
-
-    const UNSAFE_KEYS$1 = new Set(['__proto__', 'prototype', 'constructor']);
-    function assertSafeKey(key, path = key) {
-        if (UNSAFE_KEYS$1.has(key)) {
-            throw new GraflumeError('UNSAFE_KEY', `Unsafe key "${key}" is not allowed.`, { path });
-        }
-    }
-    function isPlainObject(value) {
-        if (value === null || typeof value !== 'object')
-            return false;
-        const prototype = Object.getPrototypeOf(value);
-        return prototype === Object.prototype || prototype === null;
-    }
-    function deepMerge(base, override) {
-        const output = { ...base };
-        for (const [key, overrideValue] of Object.entries(override)) {
-            assertSafeKey(key);
-            if (overrideValue === undefined)
-                continue;
-            const baseValue = output[key];
-            if (isPlainObject(baseValue) && isPlainObject(overrideValue)) {
-                output[key] = deepMerge(baseValue, overrideValue);
-            }
-            else if (Array.isArray(overrideValue)) {
-                output[key] = [...overrideValue];
-            }
-            else {
-                output[key] = overrideValue;
-            }
-        }
-        return output;
-    }
-
     class ThemeRegistry {
         #themes = new Map();
         constructor() {
@@ -2988,21 +3155,42 @@ var GraflumeSpatial = (function (exports) {
     function estimateLayer(layer) {
         if (layer.mark.type === 'surface') {
             const surfaceLayer = layer;
+            const contourSegments = surfaceLayer.mark.contours?.maxSegments ?? 100_000;
+            const contourMultiplier = surfaceLayer.mark.contours === undefined ? 0 : 1;
             if (inferredSurfaceMode(surfaceLayer) === 'mesh') {
                 const data = surfaceLayer.data;
+                const triangles = data.triangles.length;
+                const flat = surfaceLayer.mark.normalMode === 'flat' && surfaceLayer.mark.wireframe !== true;
+                const baseVertices = flat ? triangles * 3 : data.positions.length;
+                const baseIndices = surfaceLayer.mark.wireframe ? triangles * 6 : flat ? 0 : triangles * 3;
+                const overlay = surfaceLayer.mark.wireOverlay ? data.positions.length : 0;
+                const overlayIndices = surfaceLayer.mark.wireOverlay ? triangles * 6 : 0;
                 return {
-                    vertices: data.positions.length,
-                    indices: data.triangles.length * (surfaceLayer.mark.wireframe ? 6 : 3),
-                    pickTargets: data.positions.length,
+                    vertices: baseVertices + overlay + contourSegments * 2 * contourMultiplier,
+                    indices: baseIndices + overlayIndices,
+                    pickTargets: data.positions.length + contourSegments * contourMultiplier,
                 };
             }
             const data = surfaceLayer.data;
             const vertices = data.rows * data.columns;
             const cells = (data.rows - 1) * (data.columns - 1);
+            const flat = surfaceLayer.mark.normalMode === 'flat' && surfaceLayer.mark.wireframe !== true;
+            const baseVertices = flat ? cells * 6 : vertices;
             const indices = surfaceLayer.mark.wireframe
                 ? cells * 4 + (data.rows - 1) * 2 + (data.columns - 1) * 2
-                : cells * 6;
-            return { vertices, indices, pickTargets: vertices };
+                : flat
+                    ? 0
+                    : cells * 6;
+            const overlayIndices = surfaceLayer.mark.wireOverlay
+                ? cells * 4 + (data.rows - 1) * 2 + (data.columns - 1) * 2
+                : 0;
+            return {
+                vertices: baseVertices +
+                    (surfaceLayer.mark.wireOverlay ? vertices : 0) +
+                    contourSegments * 2 * contourMultiplier,
+                indices: indices + overlayIndices,
+                pickTargets: vertices + contourSegments * contourMultiplier,
+            };
         }
         if (layer.mark.type === 'volume') {
             const volumeLayer = layer;
@@ -3012,12 +3200,74 @@ var GraflumeSpatial = (function (exports) {
                 const triangles = cells * 12;
                 return { vertices: triangles * 3, indices: 0, pickTargets: triangles };
             }
+            const render = volumeLayer.mark.render;
+            const slices = volumeLayer.mark.slices ?? [];
+            if (render !== undefined || slices.length > 0) {
+                const defaultResolution = (axis) => axis === 'x'
+                    ? [Math.min(256, z), Math.min(256, y)]
+                    : axis === 'y'
+                        ? [Math.min(256, x), Math.min(256, z)]
+                        : [Math.min(256, x), Math.min(256, y)];
+                const plane = (resolution) => ({
+                    vertices: resolution[0] * resolution[1],
+                    indices: Math.max(0, resolution[0] - 1) * Math.max(0, resolution[1] - 1) * 6,
+                    pickTargets: resolution[0] * resolution[1],
+                });
+                const total = { vertices: 0, indices: 0, pickTargets: 0 };
+                const add = (counts) => {
+                    total.vertices += counts.vertices;
+                    total.indices += counts.indices;
+                    total.pickTargets += counts.pickTargets;
+                };
+                if (render !== undefined) {
+                    const resolution = render.resolution ?? defaultResolution(render.axis ?? 'z');
+                    add(plane(resolution));
+                    const caps = render.caps ?? 'none';
+                    if (caps === 'front' || caps === 'back')
+                        add(plane(resolution));
+                    else if (caps === 'both') {
+                        add(plane(resolution));
+                        add(plane(resolution));
+                    }
+                }
+                for (const slice of slices) {
+                    const resolution = slice.resolution ??
+                        (slice.type === 'orthogonal'
+                            ? defaultResolution(slice.axis)
+                            : [Math.min(128, Math.max(x, z)), Math.min(128, y)]);
+                    add(plane(resolution));
+                }
+                return total;
+            }
             const maximumSamples = Math.max(1, Math.trunc(volumeLayer.mark.maxSamples ?? 80_000));
             const vertices = Math.min(x * y * z, maximumSamples);
             return { vertices, indices: 0, pickTargets: vertices };
         }
         if (layer.mark.type === 'vector') {
             const vectorLayer = layer;
+            if ('dimensions' in vectorLayer.data) {
+                const data = vectorLayer.data;
+                const seedCount = (data.seeds?.length ?? 0) +
+                    (data.seedGrid === undefined
+                        ? data.seeds === undefined || data.seeds.length === 0
+                            ? 8
+                            : 0
+                        : data.seedGrid.dimensions[0] *
+                            data.seedGrid.dimensions[1] *
+                            data.seedGrid.dimensions[2]);
+                const maxSteps = Math.trunc(vectorLayer.mark.integration?.maxSteps ?? 512);
+                const directions = vectorLayer.mark.integration?.direction === 'both' ||
+                    vectorLayer.mark.integration?.direction === undefined
+                    ? 2
+                    : 1;
+                const points = seedCount * (maxSteps * directions + 1);
+                const segments = boundedSegments(vectorLayer.mark.segments, 10);
+                return {
+                    vertices: points * segments,
+                    indices: Math.max(0, points - seedCount) * segments * 6,
+                    pickTargets: points,
+                };
+            }
             if (inferredVectorMode(vectorLayer) === 'streamtube') {
                 const data = vectorLayer.data;
                 const segments = boundedSegments(vectorLayer.mark.segments, 10);
@@ -3102,6 +3352,746 @@ var GraflumeSpatial = (function (exports) {
         if (violation === undefined)
             return;
         throw new RangeError(`Compiled spatial output ${violation.resource} (${violation.actual}) exceeds the safe limit (${violation.maximum}).`);
+    }
+
+    function positionAt(positions, index) {
+        const offset = index * 3;
+        return [positions[offset], positions[offset + 1], positions[offset + 2]];
+    }
+    function smoothNormals(positions, indices) {
+        const normals = new Float32Array(positions.length);
+        for (let offset = 0; offset + 2 < indices.length; offset += 3) {
+            const a = indices[offset];
+            const b = indices[offset + 1];
+            const c = indices[offset + 2];
+            const normal = normalize3(cross3(subtract3(positionAt(positions, b), positionAt(positions, a)), subtract3(positionAt(positions, c), positionAt(positions, a))), [0, 1, 0]);
+            for (const vertex of [a, b, c]) {
+                normals[vertex * 3] = normals[vertex * 3] + normal[0];
+                normals[vertex * 3 + 1] = normals[vertex * 3 + 1] + normal[1];
+                normals[vertex * 3 + 2] = normals[vertex * 3 + 2] + normal[2];
+            }
+        }
+        for (let index = 0; index < normals.length; index += 3) {
+            normals.set(normalize3([normals[index], normals[index + 1], normals[index + 2]]), index);
+        }
+        return normals;
+    }
+    /**
+     * Deterministic CPU reference for GPU surface normal input. Flat mode emits a
+     * triangle soup so every face owns its exact normal; smooth mode keeps shared
+     * topology and averages adjacent unit-face normals.
+     */
+    function computeSurfaceNormalGeometry(positions, indices, mode = 'smooth') {
+        if (positions.length % 3 !== 0 || indices.length % 3 !== 0)
+            throw new RangeError('Surface positions and triangle indices must contain complete tuples.');
+        const vertexCount = positions.length / 3;
+        for (const index of indices)
+            if (index >= vertexCount)
+                throw new RangeError('Surface triangle index is outside positions.');
+        if (mode === 'smooth') {
+            return {
+                positions,
+                normals: smoothNormals(positions, indices),
+                indices,
+                sourceVertexIndices: Uint32Array.from({ length: vertexCount }, (_, index) => index),
+            };
+        }
+        const expandedPositions = new Float32Array(indices.length * 3);
+        const normals = new Float32Array(indices.length * 3);
+        const sourceVertexIndices = new Uint32Array(indices.length);
+        for (let offset = 0; offset + 2 < indices.length; offset += 3) {
+            const a = indices[offset];
+            const b = indices[offset + 1];
+            const c = indices[offset + 2];
+            const pa = positionAt(positions, a);
+            const pb = positionAt(positions, b);
+            const pc = positionAt(positions, c);
+            const normal = normalize3(cross3(subtract3(pb, pa), subtract3(pc, pa)), [0, 1, 0]);
+            for (const [local, source] of [a, b, c].entries()) {
+                expandedPositions.set(positionAt(positions, source), (offset + local) * 3);
+                normals.set(normal, (offset + local) * 3);
+                sourceVertexIndices[offset + local] = source;
+            }
+        }
+        return { positions: expandedPositions, normals, sourceVertexIndices };
+    }
+    function contourIntersection(first, second, firstValue, secondValue, level) {
+        const firstSide = firstValue - level;
+        const secondSide = secondValue - level;
+        if ((firstSide < 0 && secondSide < 0) || (firstSide > 0 && secondSide > 0))
+            return null;
+        if (firstSide === 0 && secondSide === 0)
+            return null;
+        const denominator = secondValue - firstValue;
+        const amount = Math.abs(denominator) <= 1e-12 ? 0.5 : (level - firstValue) / denominator;
+        return [
+            first[0] + (second[0] - first[0]) * amount,
+            first[1] + (second[1] - first[1]) * amount,
+            first[2] + (second[2] - first[2]) * amount,
+        ];
+    }
+    function samePoint$1(left, right) {
+        return length3(subtract3(left, right)) <= 1e-9;
+    }
+    function farthestPair(points) {
+        if (points.length < 2)
+            return null;
+        let pair = [points[0], points[1]];
+        let distance = length3(subtract3(pair[0], pair[1]));
+        for (let left = 0; left < points.length; left += 1) {
+            for (let right = left + 1; right < points.length; right += 1) {
+                const candidate = length3(subtract3(points[left], points[right]));
+                if (candidate > distance) {
+                    distance = candidate;
+                    pair = [points[left], points[right]];
+                }
+            }
+        }
+        return distance <= 1e-12 ? null : pair;
+    }
+    /** Extracts bounded isoline segments from any indexed triangle surface. */
+    function extractSurfaceContourSegments(positions, indices, values, options) {
+        const vertexCount = positions.length / 3;
+        if (values.length !== vertexCount)
+            throw new RangeError('Surface contour values must match the source vertex count.');
+        const maximum = Math.max(0, Math.trunc(options.maxSegments));
+        const output = [];
+        outer: for (const level of options.levels) {
+            for (let offset = 0; offset + 2 < indices.length; offset += 3) {
+                if (output.length >= maximum)
+                    break outer;
+                const vertices = [indices[offset], indices[offset + 1], indices[offset + 2]];
+                const points = [];
+                for (const [first, second] of [
+                    [0, 1],
+                    [1, 2],
+                    [2, 0],
+                ]) {
+                    const firstIndex = vertices[first];
+                    const secondIndex = vertices[second];
+                    const point = contourIntersection(positionAt(positions, firstIndex), positionAt(positions, secondIndex), values[firstIndex], values[secondIndex], level);
+                    if (point !== null && !points.some((candidate) => samePoint$1(candidate, point)))
+                        points.push(point);
+                }
+                const pair = farthestPair(points);
+                if (pair === null)
+                    continue;
+                output.push({
+                    level,
+                    from: pair[0],
+                    to: pair[1],
+                    triangleIndex: offset / 3,
+                });
+            }
+        }
+        return output;
+    }
+
+    function dimensions(data) {
+        return [
+            Math.trunc(data.dimensions[0]),
+            Math.trunc(data.dimensions[1]),
+            Math.trunc(data.dimensions[2]),
+        ];
+    }
+    function origin(data) {
+        return data.origin ?? [0, 0, 0];
+    }
+    function spacing(data) {
+        return data.spacing ?? [1, 1, 1];
+    }
+    function indexOf(x, y, z, size) {
+        return z * size[0] * size[1] + y * size[0] + x;
+    }
+    function gridCoordinate(data, point) {
+        const start = origin(data);
+        const step = spacing(data);
+        return [
+            (point[0] - start[0]) / step[0],
+            (point[1] - start[1]) / step[1],
+            (point[2] - start[2]) / step[2],
+        ];
+    }
+    function volumeWorldPosition(data, coordinate) {
+        const start = origin(data);
+        const step = spacing(data);
+        return [
+            start[0] + coordinate[0] * step[0],
+            start[1] + coordinate[1] * step[1],
+            start[2] + coordinate[2] * step[2],
+        ];
+    }
+    function volumeValueExtent(values) {
+        let minimum = Number.POSITIVE_INFINITY;
+        let maximum = Number.NEGATIVE_INFINITY;
+        for (const value of values) {
+            minimum = Math.min(minimum, value);
+            maximum = Math.max(maximum, value);
+        }
+        return Number.isFinite(minimum) ? [minimum, maximum] : [0, 0];
+    }
+    /** Samples a scalar volume in world coordinates with a deterministic CPU path. */
+    function sampleVolumeValue(data, point, interpolation = 'linear') {
+        const size = dimensions(data);
+        const coordinate = gridCoordinate(data, point);
+        if (coordinate[0] < 0 ||
+            coordinate[1] < 0 ||
+            coordinate[2] < 0 ||
+            coordinate[0] > size[0] - 1 ||
+            coordinate[1] > size[1] - 1 ||
+            coordinate[2] > size[2] - 1)
+            return null;
+        if (interpolation === 'nearest') {
+            return data.values[indexOf(Math.round(coordinate[0]), Math.round(coordinate[1]), Math.round(coordinate[2]), size)];
+        }
+        const lowX = Math.floor(coordinate[0]);
+        const lowY = Math.floor(coordinate[1]);
+        const lowZ = Math.floor(coordinate[2]);
+        const highX = Math.min(size[0] - 1, lowX + 1);
+        const highY = Math.min(size[1] - 1, lowY + 1);
+        const highZ = Math.min(size[2] - 1, lowZ + 1);
+        const tx = coordinate[0] - lowX;
+        const ty = coordinate[1] - lowY;
+        const tz = coordinate[2] - lowZ;
+        const at = (x, y, z) => data.values[indexOf(x, y, z, size)];
+        const x00 = at(lowX, lowY, lowZ) * (1 - tx) + at(highX, lowY, lowZ) * tx;
+        const x10 = at(lowX, highY, lowZ) * (1 - tx) + at(highX, highY, lowZ) * tx;
+        const x01 = at(lowX, lowY, highZ) * (1 - tx) + at(highX, lowY, highZ) * tx;
+        const x11 = at(lowX, highY, highZ) * (1 - tx) + at(highX, highY, highZ) * tx;
+        const y0 = x00 * (1 - ty) + x10 * ty;
+        const y1 = x01 * (1 - ty) + x11 * ty;
+        return y0 * (1 - tz) + y1 * tz;
+    }
+    function normalizeVolumeValue(value, minimum, maximum, windowLevel) {
+        if (windowLevel !== undefined) {
+            const low = windowLevel.level - windowLevel.window / 2;
+            return clamp((value - low) / windowLevel.window, 0, 1);
+        }
+        return maximum === minimum ? 0.5 : clamp((value - minimum) / (maximum - minimum), 0, 1);
+    }
+    function mixColor(left, right, amount) {
+        return [
+            left[0] + (right[0] - left[0]) * amount,
+            left[1] + (right[1] - left[1]) * amount,
+            left[2] + (right[2] - left[2]) * amount,
+            left[3] + (right[3] - left[3]) * amount,
+        ];
+    }
+    function evaluateVolumeTransfer(stops, normalizedValue, interpolation = 'linear') {
+        if (stops.length === 0)
+            return [normalizedValue, normalizedValue, normalizedValue, normalizedValue];
+        const amount = clamp(normalizedValue, 0, 1);
+        const first = stops[0];
+        if (amount <= first.offset)
+            return first.color;
+        for (let index = 1; index < stops.length; index += 1) {
+            const right = stops[index];
+            const left = stops[index - 1];
+            if (amount > right.offset)
+                continue;
+            if (interpolation === 'step')
+                return amount === right.offset ? right.color : left.color;
+            if (right.offset === left.offset)
+                return left.color;
+            return mixColor(left.color, right.color, (amount - left.offset) / (right.offset - left.offset));
+        }
+        return stops[stops.length - 1].color;
+    }
+    function rayOpticalSampling(data, axis, sampleCount) {
+        const axisIndex = axis === 'x' ? 0 : axis === 'y' ? 1 : 2;
+        const size = dimensions(data);
+        const step = spacing(data).map(Math.abs);
+        const reference = Math.min(...step.filter((value) => value > 1e-12));
+        const rayLength = (size[axisIndex] - 1) * step[axisIndex];
+        return {
+            interval: rayLength / Math.max(1, sampleCount - 1),
+            reference: Number.isFinite(reference) ? reference : 1,
+        };
+    }
+    function opacityForDistance(opacity, distance, reference) {
+        const bounded = clamp(opacity, 0, 1);
+        if (bounded === 0 || distance <= 0)
+            return 0;
+        if (bounded === 1)
+            return 1;
+        return -Math.expm1(Math.log1p(-bounded) * (distance / reference));
+    }
+    function axisCoordinate(axis, u, v, depth) {
+        if (axis === 'x')
+            return [depth, v, u];
+        if (axis === 'y')
+            return [u, depth, v];
+        return [u, v, depth];
+    }
+    function rayWorldPosition(data, axis, u, v, depth) {
+        const size = dimensions(data);
+        return volumeWorldPosition(data, axisCoordinate(axis, u * (axis === 'x' ? size[2] - 1 : size[0] - 1), v * (axis === 'y' ? size[2] - 1 : size[1] - 1), depth * (axis === 'x' ? size[0] - 1 : axis === 'y' ? size[1] - 1 : size[2] - 1)));
+    }
+    function aggregateRay(context, options, u, v) {
+        const count = Math.max(2, Math.trunc(options.samples));
+        const opticalSampling = rayOpticalSampling(context.data, options.axis, count);
+        const samples = [];
+        for (let index = 0; index < count; index += 1) {
+            const depth = index / (count - 1);
+            const point = rayWorldPosition(context.data, options.axis, u, v, depth);
+            const raw = sampleVolumeValue(context.data, point, options.interpolation);
+            if (raw === null)
+                continue;
+            const normalized = normalizeVolumeValue(raw, context.minimum, context.maximum, context.windowLevel);
+            samples.push({
+                raw,
+                normalized,
+                color: evaluateVolumeTransfer(context.transfer, normalized, context.transferInterpolation),
+                depth,
+                opticalDistance: opticalSampling.interval * (index === 0 || index === count - 1 ? 0.5 : 1),
+                opticalDepth: index === 0
+                    ? 1 / (4 * (count - 1))
+                    : index === count - 1
+                        ? 1 - 1 / (4 * (count - 1))
+                        : depth,
+            });
+        }
+        if (samples.length === 0)
+            return {
+                position: rayWorldPosition(context.data, options.axis, u, v, 0.5),
+                rawValue: 0,
+                normalizedValue: 0,
+                color: [0, 0, 0, 0],
+                sampleCount: 0,
+                depth: 0.5,
+            };
+        if (options.method === 'raycast') {
+            let red = 0;
+            let green = 0;
+            let blue = 0;
+            let alpha = 0;
+            let weightedDepth = 0;
+            let weightedRaw = 0;
+            let weightTotal = 0;
+            for (const sample of samples) {
+                const correctedOpacity = opacityForDistance(sample.color[3], sample.opticalDistance, opticalSampling.reference);
+                const weight = (1 - alpha) * correctedOpacity;
+                red += sample.color[0] * weight;
+                green += sample.color[1] * weight;
+                blue += sample.color[2] * weight;
+                alpha += weight;
+                weightedDepth += sample.opticalDepth * weight;
+                weightedRaw += sample.raw * weight;
+                weightTotal += weight;
+            }
+            const depth = weightTotal > 0 ? weightedDepth / weightTotal : 0.5;
+            const rawValue = weightTotal > 0 ? weightedRaw / weightTotal : samples[0].raw;
+            return {
+                position: rayWorldPosition(context.data, options.axis, u, v, depth),
+                rawValue,
+                normalizedValue: normalizeVolumeValue(rawValue, context.minimum, context.maximum, context.windowLevel),
+                color: alpha <= 1e-12 ? [0, 0, 0, 0] : [red / alpha, green / alpha, blue / alpha, alpha],
+                sampleCount: samples.length,
+                depth,
+            };
+        }
+        let selected = samples[0];
+        if (options.method === 'mip') {
+            for (const sample of samples)
+                if (sample.raw > selected.raw)
+                    selected = sample;
+        }
+        else if (options.method === 'minip') {
+            for (const sample of samples)
+                if (sample.raw < selected.raw)
+                    selected = sample;
+        }
+        else {
+            const rawValue = samples.reduce((total, sample) => total + sample.raw, 0) / samples.length;
+            const normalizedValue = normalizeVolumeValue(rawValue, context.minimum, context.maximum, context.windowLevel);
+            return {
+                position: rayWorldPosition(context.data, options.axis, u, v, 0.5),
+                rawValue,
+                normalizedValue,
+                color: evaluateVolumeTransfer(context.transfer, normalizedValue, context.transferInterpolation),
+                sampleCount: samples.length,
+                depth: 0.5,
+            };
+        }
+        return {
+            position: rayWorldPosition(context.data, options.axis, u, v, selected.depth),
+            rawValue: selected.raw,
+            normalizedValue: selected.normalized,
+            color: selected.color,
+            sampleCount: samples.length,
+            depth: selected.depth,
+        };
+    }
+    /** CPU reference used to compile a bounded projection mesh rendered by WebGL. */
+    function projectVolumeRays(context, options) {
+        const [columns, rows] = options.resolution;
+        const output = [];
+        for (let row = 0; row < rows; row += 1) {
+            const v = rows === 1 ? 0.5 : row / (rows - 1);
+            for (let column = 0; column < columns; column += 1) {
+                const u = columns === 1 ? 0.5 : column / (columns - 1);
+                output.push({ row, column, ...aggregateRay(context, options, u, v) });
+            }
+        }
+        return output;
+    }
+    function orthogonalPlane(data, slice, u, v) {
+        return rayWorldPosition(data, slice.axis, u, v, clamp(slice.position, 0, 1));
+    }
+    function volumeSize(data) {
+        const size = dimensions(data);
+        const step = spacing(data);
+        return [(size[0] - 1) * step[0], (size[1] - 1) * step[1], (size[2] - 1) * step[2]];
+    }
+    function obliquePlane(data, slice, u, v) {
+        const normal = normalize3(slice.normal, [0, 0, 1]);
+        const requestedUp = normalize3(slice.up ?? [0, 1, 0], [0, 1, 0]);
+        let right = cross3(requestedUp, normal);
+        if (length3(right) <= 1e-8) {
+            const reference = [
+                [1, 0, 0],
+                [0, 1, 0],
+                [0, 0, 1],
+            ].reduce((leastParallel, candidate) => Math.abs(candidate[0] * normal[0] + candidate[1] * normal[1] + candidate[2] * normal[2]) <
+                Math.abs(leastParallel[0] * normal[0] + leastParallel[1] * normal[1] + leastParallel[2] * normal[2])
+                ? candidate
+                : leastParallel);
+            right = cross3(reference, normal);
+        }
+        right = normalize3(right, [1, 0, 0]);
+        const up = normalize3(cross3(normal, right), [0, 1, 0]);
+        const extent = volumeSize(data);
+        const fallbackSize = Math.max(extent[0], extent[1], extent[2]);
+        const width = slice.size?.[0] ?? fallbackSize;
+        const height = slice.size?.[1] ?? fallbackSize;
+        return add3(slice.origin, add3(scale3(right, (u - 0.5) * width), scale3(up, (v - 0.5) * height)));
+    }
+    function sampleVolumeSlice(context, slice, options) {
+        const [columns, rows] = options.resolution;
+        const output = [];
+        for (let row = 0; row < rows; row += 1) {
+            const v = rows === 1 ? 0.5 : row / (rows - 1);
+            for (let column = 0; column < columns; column += 1) {
+                const u = columns === 1 ? 0.5 : column / (columns - 1);
+                const position = slice.type === 'orthogonal'
+                    ? orthogonalPlane(context.data, slice, u, v)
+                    : obliquePlane(context.data, slice, u, v);
+                const rawValue = sampleVolumeValue(context.data, position, options.interpolation);
+                const normalizedValue = rawValue === null
+                    ? null
+                    : normalizeVolumeValue(rawValue, context.minimum, context.maximum, context.windowLevel);
+                const baseColor = normalizedValue === null
+                    ? [0, 0, 0, 0]
+                    : evaluateVolumeTransfer(context.transfer, normalizedValue, context.transferInterpolation);
+                output.push({
+                    row,
+                    column,
+                    position,
+                    rawValue,
+                    normalizedValue,
+                    color: [baseColor[0], baseColor[1], baseColor[2], baseColor[3] * options.opacity],
+                });
+            }
+        }
+        return output;
+    }
+    function volumeWorldBounds(data) {
+        const start = origin(data);
+        return [start, add3(start, volumeSize(data))];
+    }
+
+    function fieldDimensions(data) {
+        return [
+            Math.trunc(data.dimensions[0]),
+            Math.trunc(data.dimensions[1]),
+            Math.trunc(data.dimensions[2]),
+        ];
+    }
+    function fieldOrigin(data) {
+        return data.origin ?? [0, 0, 0];
+    }
+    function fieldSpacing(data) {
+        return data.spacing ?? [1, 1, 1];
+    }
+    function fieldIndex(x, y, z, size) {
+        return z * size[0] * size[1] + y * size[0] + x;
+    }
+    function vectorFieldWorldBounds(data) {
+        const size = fieldDimensions(data);
+        const start = fieldOrigin(data);
+        const step = fieldSpacing(data);
+        return [
+            start,
+            [
+                start[0] + (size[0] - 1) * step[0],
+                start[1] + (size[1] - 1) * step[1],
+                start[2] + (size[2] - 1) * step[2],
+            ],
+        ];
+    }
+    function insideField(data, point) {
+        const [minimum, maximum] = vectorFieldWorldBounds(data);
+        return (point[0] >= minimum[0] &&
+            point[0] <= maximum[0] &&
+            point[1] >= minimum[1] &&
+            point[1] <= maximum[1] &&
+            point[2] >= minimum[2] &&
+            point[2] <= maximum[2]);
+    }
+    /** Trilinear CPU sampler shared by deterministic integration and tests. */
+    function sampleVectorField(data, point) {
+        if (!insideField(data, point))
+            return null;
+        const size = fieldDimensions(data);
+        const start = fieldOrigin(data);
+        const step = fieldSpacing(data);
+        const coordinate = [
+            (point[0] - start[0]) / step[0],
+            (point[1] - start[1]) / step[1],
+            (point[2] - start[2]) / step[2],
+        ];
+        const low = coordinate.map(Math.floor);
+        const high = [
+            Math.min(size[0] - 1, low[0] + 1),
+            Math.min(size[1] - 1, low[1] + 1),
+            Math.min(size[2] - 1, low[2] + 1),
+        ];
+        const amount = [
+            coordinate[0] - low[0],
+            coordinate[1] - low[1],
+            coordinate[2] - low[2],
+        ];
+        const at = (x, y, z) => data.vectors[fieldIndex(x, y, z, size)];
+        const interpolate = (left, right, value) => [
+            left[0] + (right[0] - left[0]) * value,
+            left[1] + (right[1] - left[1]) * value,
+            left[2] + (right[2] - left[2]) * value,
+        ];
+        const z0y0 = interpolate(at(low[0], low[1], low[2]), at(high[0], low[1], low[2]), amount[0]);
+        const z0y1 = interpolate(at(low[0], high[1], low[2]), at(high[0], high[1], low[2]), amount[0]);
+        const z1y0 = interpolate(at(low[0], low[1], high[2]), at(high[0], low[1], high[2]), amount[0]);
+        const z1y1 = interpolate(at(low[0], high[1], high[2]), at(high[0], high[1], high[2]), amount[0]);
+        const z0 = interpolate(z0y0, z0y1, amount[1]);
+        const z1 = interpolate(z1y0, z1y1, amount[1]);
+        const vector = interpolate(z0, z1, amount[2]);
+        return { vector, magnitude: length3(vector) };
+    }
+    function random01(state) {
+        let value = (state.value += 0x6d2b79f5);
+        value = Math.imul(value ^ (value >>> 15), value | 1);
+        value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+        state.value = value >>> 0;
+        return ((value ^ (value >>> 14)) >>> 0) / 4_294_967_296;
+    }
+    function seedGrid(data, grid) {
+        const count = [
+            Math.trunc(grid.dimensions[0]),
+            Math.trunc(grid.dimensions[1]),
+            Math.trunc(grid.dimensions[2]),
+        ];
+        const [minimum, maximum] = vectorFieldWorldBounds(data);
+        const jitter = clamp(grid.jitter ?? 0, 0, 0.49);
+        const randomState = { value: Math.trunc(grid.seed ?? 0x9e3779b9) >>> 0 };
+        const output = [];
+        for (let z = 0; z < count[2]; z += 1) {
+            for (let y = 0; y < count[1]; y += 1) {
+                for (let x = 0; x < count[0]; x += 1) {
+                    const position = [x, y, z].map((index, axis) => {
+                        const axisCount = count[axis];
+                        const base = axisCount === 1 ? 0.5 : index / (axisCount - 1);
+                        const cell = axisCount <= 1 ? 1 : 1 / (axisCount - 1);
+                        const offset = jitter === 0 ? 0 : (random01(randomState) * 2 - 1) * jitter * cell;
+                        const normalized = clamp(base + offset, 0, 1);
+                        return minimum[axis] + (maximum[axis] - minimum[axis]) * normalized;
+                    });
+                    output.push(position);
+                }
+            }
+        }
+        return output;
+    }
+    function resolveVectorFieldSeeds(data) {
+        const explicit = data.seeds ?? [];
+        const generated = data.seedGrid === undefined
+            ? explicit.length === 0
+                ? seedGrid(data, { dimensions: [2, 2, 2] })
+                : []
+            : seedGrid(data, data.seedGrid);
+        const candidates = [
+            ...explicit.map((point, sourceIndex) => ({
+                point: [point[0], point[1], point[2]],
+                sourceIndex,
+                source: 'explicit',
+            })),
+            ...generated.map((point, index) => ({
+                point: [point[0], point[1], point[2]],
+                sourceIndex: explicit.length + index,
+                source: 'grid',
+            })),
+        ];
+        const output = [];
+        for (const candidate of candidates) {
+            const { point } = candidate;
+            if (!insideField(data, point))
+                continue;
+            if (output.some((retained) => length3(subtract3(retained.point, point)) <= 1e-9))
+                continue;
+            output.push(candidate);
+        }
+        return { records: output, sourceCount: candidates.length };
+    }
+    /** Produces stable explicit-plus-grid seeds without executable callbacks. */
+    function generateVectorFieldSeeds(data) {
+        return resolveVectorFieldSeeds(data).records.map(({ point }) => point);
+    }
+    function resolveIntegration(data, input = {}) {
+        const step = fieldSpacing(data);
+        const characteristic = Math.min(step[0], step[1], step[2]);
+        const [minimum, maximum] = vectorFieldWorldBounds(data);
+        const diagonal = length3(subtract3(maximum, minimum));
+        const minStep = input.minStep ?? characteristic / 128;
+        const maxStep = input.maxStep ?? characteristic;
+        return {
+            direction: input.direction ?? 'both',
+            initialStep: clamp(input.initialStep ?? characteristic * 0.35, minStep, maxStep),
+            minStep,
+            maxStep,
+            tolerance: input.tolerance ?? Math.max(1e-8, characteristic * 1e-3),
+            maxSteps: Math.trunc(input.maxSteps ?? 512),
+            maxLength: input.maxLength ?? diagonal * 4,
+            minMagnitude: input.minMagnitude ?? 1e-9,
+        };
+    }
+    function directionAt(data, point, sign, minimumMagnitude) {
+        const sample = sampleVectorField(data, point);
+        if (sample === null || sample.magnitude <= minimumMagnitude)
+            return null;
+        return scale3(normalize3(sample.vector), sign);
+    }
+    function rk4Step(data, point, step, sign, minimumMagnitude) {
+        const k1 = directionAt(data, point, sign, minimumMagnitude);
+        if (k1 === null)
+            return null;
+        const k2 = directionAt(data, add3(point, scale3(k1, step / 2)), sign, minimumMagnitude);
+        if (k2 === null)
+            return null;
+        const k3 = directionAt(data, add3(point, scale3(k2, step / 2)), sign, minimumMagnitude);
+        if (k3 === null)
+            return null;
+        const k4 = directionAt(data, add3(point, scale3(k3, step)), sign, minimumMagnitude);
+        if (k4 === null)
+            return null;
+        return add3(point, scale3(add3(add3(k1, scale3(k2, 2)), add3(scale3(k3, 2), k4)), step / 6));
+    }
+    function integrateDirection(data, seed, sign, options) {
+        const first = sampleVectorField(data, seed);
+        if (first === null || first.magnitude <= options.minMagnitude) {
+            return {
+                points: [seed],
+                magnitudes: [first?.magnitude ?? 0],
+                acceptedSteps: 0,
+                rejectedSteps: 0,
+                termination: 'stagnation',
+            };
+        }
+        const points = [seed];
+        const magnitudes = [first.magnitude];
+        let acceptedSteps = 0;
+        let rejectedSteps = 0;
+        let pathLength = 0;
+        let step = options.initialStep;
+        let termination = 'max-steps';
+        let attempts = 0;
+        while (acceptedSteps < options.maxSteps && attempts < options.maxSteps * 8) {
+            attempts += 1;
+            const current = points[points.length - 1];
+            const full = rk4Step(data, current, step, sign, options.minMagnitude);
+            const half = rk4Step(data, current, step / 2, sign, options.minMagnitude);
+            const refined = half === null ? null : rk4Step(data, half, step / 2, sign, options.minMagnitude);
+            if (full === null || refined === null) {
+                termination = insideField(data, current) ? 'stagnation' : 'bounds';
+                break;
+            }
+            const error = length3(subtract3(refined, full));
+            if (error > options.tolerance && step > options.minStep * 1.000001) {
+                step = Math.max(options.minStep, step * Math.max(0.2, 0.9 * (options.tolerance / error) ** 0.2));
+                rejectedSteps += 1;
+                continue;
+            }
+            if (!insideField(data, refined)) {
+                termination = 'bounds';
+                break;
+            }
+            const distance = length3(subtract3(refined, current));
+            if (distance <= 1e-12) {
+                termination = 'stagnation';
+                break;
+            }
+            if (pathLength + distance > options.maxLength) {
+                termination = 'max-length';
+                break;
+            }
+            const sample = sampleVectorField(data, refined);
+            if (sample === null || sample.magnitude <= options.minMagnitude) {
+                termination = 'stagnation';
+                break;
+            }
+            points.push(refined);
+            magnitudes.push(sample.magnitude);
+            pathLength += distance;
+            acceptedSteps += 1;
+            const factor = error <= 1e-16 ? 2 : clamp(0.9 * (options.tolerance / error) ** 0.2, 0.5, 2);
+            step = clamp(step * factor, options.minStep, options.maxStep);
+            if (step <= options.minStep && error > options.tolerance) {
+                termination = 'minimum-step';
+                break;
+            }
+        }
+        return { points, magnitudes, acceptedSteps, rejectedSteps, termination };
+    }
+    /** Integrates a bounded raw 3D field with deterministic adaptive RK4 step doubling. */
+    function integrateVectorField(data, input = {}) {
+        const options = resolveIntegration(data, input);
+        const resolvedSeeds = resolveVectorFieldSeeds(data);
+        const seeds = resolvedSeeds.records.map(({ point }) => point);
+        const paths = [];
+        let totalAccepted = 0;
+        let totalRejected = 0;
+        for (const seedRecord of resolvedSeeds.records) {
+            const seed = seedRecord.point;
+            const backward = options.direction === 'forward' ? null : integrateDirection(data, seed, -1, options);
+            const forward = options.direction === 'backward' ? null : integrateDirection(data, seed, 1, options);
+            const points = [
+                ...(backward === null ? [] : [...backward.points].reverse().slice(0, -1)),
+                ...(forward?.points ?? [seed]),
+            ];
+            const magnitudes = [
+                ...(backward === null ? [] : [...backward.magnitudes].reverse().slice(0, -1)),
+                ...(forward?.magnitudes ?? [sampleVectorField(data, seed)?.magnitude ?? 0]),
+            ];
+            const acceptedSteps = (backward?.acceptedSteps ?? 0) + (forward?.acceptedSteps ?? 0);
+            const rejectedSteps = (backward?.rejectedSteps ?? 0) + (forward?.rejectedSteps ?? 0);
+            totalAccepted += acceptedSteps;
+            totalRejected += rejectedSteps;
+            paths.push({
+                seedIndex: seedRecord.sourceIndex,
+                seedSource: seedRecord.source,
+                points,
+                magnitudes,
+                acceptedSteps,
+                rejectedSteps,
+                termination: forward?.termination ?? backward?.termination ?? 'stagnation',
+            });
+        }
+        return {
+            seeds,
+            seedSourceIndices: resolvedSeeds.records.map(({ sourceIndex }) => sourceIndex),
+            sourceSeedCount: resolvedSeeds.sourceCount,
+            paths,
+            method: 'adaptive-rk4-step-doubling',
+            acceptedSteps: totalAccepted,
+            rejectedSteps: totalRejected,
+        };
     }
 
     const UNSAFE_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
@@ -3291,7 +4281,15 @@ var GraflumeSpatial = (function (exports) {
         'unavailable',
     ]);
     const CONTROLS_KEYS = new Set(['annotations']);
-    const ACCESSIBILITY_KEYS = new Set(['description', 'table', 'maxRows']);
+    const ACCESSIBILITY_KEYS = new Set([
+        'description',
+        'table',
+        'maxRows',
+        'navigation',
+        'linkedFocus',
+    ]);
+    const ACCESSIBILITY_NAVIGATION_KEYS = new Set(['pageRows', 'wrap']);
+    const LINKED_FOCUS_KEYS = new Set(['group', 'key']);
     const LAYER_KEYS = new Set(['id', 'name', 'mark', 'data']);
     const SELECTION_KEYS = new Set([
         'mode',
@@ -3350,7 +4348,26 @@ var GraflumeSpatial = (function (exports) {
         'padding',
         'align',
     ]);
-    const SURFACE_MARK_KEYS = new Set(['type', 'mode', 'color', 'opacity', 'wireframe']);
+    const SURFACE_MARK_KEYS = new Set([
+        'type',
+        'mode',
+        'color',
+        'opacity',
+        'normalMode',
+        'wireframe',
+        'wireOverlay',
+        'contours',
+    ]);
+    const SURFACE_WIRE_OVERLAY_KEYS = new Set(['color', 'opacity']);
+    const SURFACE_CONTOUR_KEYS = new Set([
+        'levels',
+        'count',
+        'projection',
+        'baseHeight',
+        'color',
+        'opacity',
+        'maxSegments',
+    ]);
     const VOLUME_MARK_KEYS = new Set([
         'type',
         'mode',
@@ -3360,6 +4377,39 @@ var GraflumeSpatial = (function (exports) {
         'maxSamples',
         'colorLow',
         'colorHigh',
+        'transferFunction',
+        'windowLevel',
+        'render',
+        'slices',
+    ]);
+    const VOLUME_TRANSFER_KEYS = new Set(['stops', 'interpolation']);
+    const VOLUME_TRANSFER_STOP_KEYS = new Set(['offset', 'color', 'opacity']);
+    const VOLUME_WINDOW_LEVEL_KEYS = new Set(['window', 'level']);
+    const VOLUME_RENDER_KEYS = new Set([
+        'method',
+        'axis',
+        'resolution',
+        'samples',
+        'interpolation',
+        'caps',
+    ]);
+    const VOLUME_ORTHOGONAL_SLICE_KEYS = new Set([
+        'type',
+        'axis',
+        'position',
+        'resolution',
+        'interpolation',
+        'opacity',
+    ]);
+    const VOLUME_OBLIQUE_SLICE_KEYS = new Set([
+        'type',
+        'origin',
+        'normal',
+        'up',
+        'size',
+        'resolution',
+        'interpolation',
+        'opacity',
     ]);
     const VECTOR_MARK_KEYS = new Set([
         'type',
@@ -3369,6 +4419,18 @@ var GraflumeSpatial = (function (exports) {
         'radius',
         'scale',
         'segments',
+        'integration',
+        'magnitudeEncoding',
+    ]);
+    const VECTOR_INTEGRATION_KEYS = new Set([
+        'direction',
+        'initialStep',
+        'minStep',
+        'maxStep',
+        'tolerance',
+        'maxSteps',
+        'maxLength',
+        'minMagnitude',
     ]);
     const SCATTER_MARK_KEYS = new Set(['type', 'color', 'opacity', 'pointSize']);
     const GLOBE_MARK_KEYS = new Set([
@@ -3386,7 +4448,18 @@ var GraflumeSpatial = (function (exports) {
     const MESH_KEYS = new Set(['positions', 'triangles', 'normals', 'colors', 'labels']);
     const VOLUME_DATA_KEYS = new Set(['dimensions', 'values', 'origin', 'spacing']);
     const CONE_DATA_KEYS = new Set(['origins', 'vectors', 'labels', 'colors']);
-    const STREAM_DATA_KEYS = new Set(['paths', 'labels', 'colors']);
+    const STREAM_DATA_KEYS = new Set(['paths', 'magnitudes', 'labels', 'colors']);
+    const VECTOR_FIELD_DATA_KEYS = new Set([
+        'dimensions',
+        'vectors',
+        'origin',
+        'spacing',
+        'seeds',
+        'seedGrid',
+        'labels',
+        'colors',
+    ]);
+    const VECTOR_SEED_GRID_KEYS = new Set(['dimensions', 'jitter', 'seed']);
     const SCATTER_DATA_KEYS = new Set(['positions', 'values', 'sizes', 'colors', 'labels']);
     const GLOBE_DATA_KEYS = new Set(['points', 'routes']);
     const GLOBE_POINT_KEYS = new Set(['longitude', 'latitude', 'value', 'label', 'color', 'size']);
@@ -3501,6 +4574,20 @@ var GraflumeSpatial = (function (exports) {
             return false;
         }
         return value.every((entry, index) => finiteNumber(entry, `${path}[${index}]`, issues) !== undefined);
+    }
+    function integerVec2(value, path, issues, minimum, maximum) {
+        if (!Array.isArray(value) || value.length !== 2) {
+            issue(issues, path, 'Must be a two-integer tuple.');
+            return false;
+        }
+        return value.every((entry, index) => integer(entry, `${path}[${index}]`, issues, minimum, maximum) !== undefined);
+    }
+    function positiveVec2(value, path, issues) {
+        if (!Array.isArray(value) || value.length !== 2) {
+            issue(issues, path, 'Must be a two-number tuple.');
+            return;
+        }
+        value.forEach((entry, index) => finiteNumber(entry, `${path}[${index}]`, issues, 0.000001, 1_000_000_000));
     }
     function lonLat(value, path, issues) {
         if (!Array.isArray(value) || value.length !== 2) {
@@ -4170,6 +5257,168 @@ var GraflumeSpatial = (function (exports) {
         optionalBoolean(accessibility.table, `${path}.table`, issues);
         if (accessibility.maxRows !== undefined)
             integer(accessibility.maxRows, `${path}.maxRows`, issues, 1, 1_000);
+        if (accessibility.navigation !== undefined && typeof accessibility.navigation !== 'boolean') {
+            const navigation = closedObject(accessibility.navigation, `${path}.navigation`, ACCESSIBILITY_NAVIGATION_KEYS, issues);
+            if (navigation !== undefined) {
+                if (navigation.pageRows !== undefined)
+                    integer(navigation.pageRows, `${path}.navigation.pageRows`, issues, 1, 1_000);
+                optionalBoolean(navigation.wrap, `${path}.navigation.wrap`, issues);
+            }
+        }
+        if (accessibility.linkedFocus !== undefined) {
+            const linked = closedObject(accessibility.linkedFocus, `${path}.linkedFocus`, LINKED_FOCUS_KEYS, issues);
+            if (linked !== undefined) {
+                optionalNonEmptyString(linked.group, `${path}.linkedFocus.group`, issues, 96);
+                optionalNonEmptyString(linked.key, `${path}.linkedFocus.key`, issues, 128);
+                if (linked.group === undefined)
+                    issue(issues, `${path}.linkedFocus.group`, 'Linked focus group is required.');
+                else if (typeof linked.group === 'string' &&
+                    !/^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,95}$/.test(linked.group))
+                    issue(issues, `${path}.linkedFocus.group`, 'Linked focus group contains unsupported identity characters.');
+                if (linked.key === undefined)
+                    issue(issues, `${path}.linkedFocus.key`, 'Linked focus key is required.');
+                if (typeof linked.key === 'string' && UNSAFE_KEYS.has(linked.key))
+                    issue(issues, `${path}.linkedFocus.key`, 'Unsafe linked focus key is forbidden.');
+            }
+        }
+    }
+    function validateSurfaceAdvanced(mark, path, issues) {
+        optionalEnum(mark.normalMode, `${path}.normalMode`, new Set(['flat', 'smooth']), issues);
+        if (mark.wireOverlay !== undefined && typeof mark.wireOverlay !== 'boolean') {
+            const overlay = closedObject(mark.wireOverlay, `${path}.wireOverlay`, SURFACE_WIRE_OVERLAY_KEYS, issues);
+            if (overlay !== undefined) {
+                optionalColor(overlay.color, `${path}.wireOverlay.color`, issues);
+                if (overlay.opacity !== undefined)
+                    finiteNumber(overlay.opacity, `${path}.wireOverlay.opacity`, issues, 0, 1);
+            }
+        }
+        if (mark.wireframe === true && mark.wireOverlay !== undefined && mark.wireOverlay !== false)
+            issue(issues, `${path}.wireOverlay`, 'A wire-only surface cannot also request a wire overlay.');
+        if (mark.contours === undefined)
+            return;
+        const contours = closedObject(mark.contours, `${path}.contours`, SURFACE_CONTOUR_KEYS, issues);
+        if (contours === undefined)
+            return;
+        if (contours.levels !== undefined) {
+            const levels = numberArray(contours.levels, `${path}.contours.levels`, issues, 64);
+            if (levels !== undefined && levels.length === 0)
+                issue(issues, `${path}.contours.levels`, 'Must contain at least one level.');
+        }
+        if (contours.count !== undefined)
+            integer(contours.count, `${path}.contours.count`, issues, 1, 64);
+        if (contours.levels !== undefined && contours.count !== undefined)
+            issue(issues, `${path}.contours`, 'Use either explicit levels or count, not both.');
+        optionalEnum(contours.projection, `${path}.contours.projection`, new Set(['surface', 'base', 'both']), issues);
+        if (contours.baseHeight !== undefined)
+            finiteNumber(contours.baseHeight, `${path}.contours.baseHeight`, issues);
+        optionalColor(contours.color, `${path}.contours.color`, issues);
+        if (contours.opacity !== undefined)
+            finiteNumber(contours.opacity, `${path}.contours.opacity`, issues, 0, 1);
+        if (contours.maxSegments !== undefined)
+            integer(contours.maxSegments, `${path}.contours.maxSegments`, issues, 1, 250_000);
+    }
+    function validateTransferFunction(value, path, issues) {
+        if (value === undefined)
+            return;
+        const transfer = closedObject(value, path, VOLUME_TRANSFER_KEYS, issues);
+        if (transfer === undefined)
+            return;
+        optionalEnum(transfer.interpolation, `${path}.interpolation`, new Set(['linear', 'step']), issues);
+        if (!Array.isArray(transfer.stops) || transfer.stops.length < 2 || transfer.stops.length > 64) {
+            issue(issues, `${path}.stops`, 'Must contain 2 to 64 transfer stops.');
+            return;
+        }
+        let previous = -1;
+        transfer.stops.forEach((value, index) => {
+            const stop = closedObject(value, `${path}.stops[${index}]`, VOLUME_TRANSFER_STOP_KEYS, issues);
+            if (stop === undefined)
+                return;
+            const offset = finiteNumber(stop.offset, `${path}.stops[${index}].offset`, issues, 0, 1);
+            if (offset !== undefined && offset <= previous)
+                issue(issues, `${path}.stops[${index}].offset`, 'Transfer offsets must be strictly increasing.');
+            if (offset !== undefined)
+                previous = offset;
+            color(stop.color, `${path}.stops[${index}].color`, issues);
+            if (stop.opacity !== undefined)
+                finiteNumber(stop.opacity, `${path}.stops[${index}].opacity`, issues, 0, 1);
+        });
+    }
+    function validateVolumeAdvanced(mark, path, issues) {
+        validateTransferFunction(mark.transferFunction, `${path}.transferFunction`, issues);
+        if (mark.windowLevel !== undefined) {
+            const windowLevel = closedObject(mark.windowLevel, `${path}.windowLevel`, VOLUME_WINDOW_LEVEL_KEYS, issues);
+            if (windowLevel !== undefined) {
+                finiteNumber(windowLevel.window, `${path}.windowLevel.window`, issues, 0.000001);
+                finiteNumber(windowLevel.level, `${path}.windowLevel.level`, issues);
+            }
+        }
+        if (mark.render !== undefined) {
+            const render = closedObject(mark.render, `${path}.render`, VOLUME_RENDER_KEYS, issues);
+            if (render !== undefined) {
+                optionalEnum(render.method, `${path}.render.method`, new Set(['raycast', 'mip', 'minip', 'average']), issues);
+                optionalEnum(render.axis, `${path}.render.axis`, new Set(['x', 'y', 'z']), issues);
+                if (render.resolution !== undefined)
+                    integerVec2(render.resolution, `${path}.render.resolution`, issues, 2, 256);
+                if (render.samples !== undefined)
+                    integer(render.samples, `${path}.render.samples`, issues, 2, 1_024);
+                optionalEnum(render.interpolation, `${path}.render.interpolation`, new Set(['nearest', 'linear']), issues);
+                optionalEnum(render.caps, `${path}.render.caps`, new Set(['none', 'front', 'back', 'both']), issues);
+            }
+        }
+        if (mark.slices !== undefined) {
+            if (!Array.isArray(mark.slices) || mark.slices.length === 0 || mark.slices.length > 16) {
+                issue(issues, `${path}.slices`, 'Must contain 1 to 16 slice specifications.');
+            }
+            else {
+                mark.slices.forEach((value, index) => {
+                    const itemPath = `${path}.slices[${index}]`;
+                    if (!isRecord(value)) {
+                        issue(issues, itemPath, 'Must be an object.');
+                        return;
+                    }
+                    if (value.type === 'orthogonal') {
+                        const slice = closedObject(value, itemPath, VOLUME_ORTHOGONAL_SLICE_KEYS, issues);
+                        if (slice === undefined)
+                            return;
+                        optionalEnum(slice.axis, `${itemPath}.axis`, new Set(['x', 'y', 'z']), issues);
+                        finiteNumber(slice.position, `${itemPath}.position`, issues, 0, 1);
+                        if (slice.resolution !== undefined)
+                            integerVec2(slice.resolution, `${itemPath}.resolution`, issues, 2, 256);
+                        optionalEnum(slice.interpolation, `${itemPath}.interpolation`, new Set(['nearest', 'linear']), issues);
+                        if (slice.opacity !== undefined)
+                            finiteNumber(slice.opacity, `${itemPath}.opacity`, issues, 0, 1);
+                        return;
+                    }
+                    if (value.type !== 'oblique') {
+                        issue(issues, `${itemPath}.type`, 'Must be one of: orthogonal, oblique.');
+                        return;
+                    }
+                    const slice = closedObject(value, itemPath, VOLUME_OBLIQUE_SLICE_KEYS, issues);
+                    if (slice === undefined)
+                        return;
+                    vec3(slice.origin, `${itemPath}.origin`, issues);
+                    if (vec3(slice.normal, `${itemPath}.normal`, issues)) {
+                        const normal = slice.normal;
+                        if (Math.hypot(normal[0], normal[1], normal[2]) <= 1e-12)
+                            issue(issues, `${itemPath}.normal`, 'Must have non-zero length.');
+                    }
+                    if (slice.up !== undefined && vec3(slice.up, `${itemPath}.up`, issues)) {
+                        const up = slice.up;
+                        if (Math.hypot(up[0], up[1], up[2]) <= 1e-12)
+                            issue(issues, `${itemPath}.up`, 'Must have non-zero length.');
+                    }
+                    if (slice.size !== undefined)
+                        positiveVec2(slice.size, `${itemPath}.size`, issues);
+                    if (slice.resolution !== undefined)
+                        integerVec2(slice.resolution, `${itemPath}.resolution`, issues, 2, 256);
+                    optionalEnum(slice.interpolation, `${itemPath}.interpolation`, new Set(['nearest', 'linear']), issues);
+                    if (slice.opacity !== undefined)
+                        finiteNumber(slice.opacity, `${itemPath}.opacity`, issues, 0, 1);
+                });
+            }
+        }
+        if (mark.mode === 'isosurface' && (mark.render !== undefined || mark.slices !== undefined))
+            issue(issues, path, 'Ray projection and slices require volume mode, not isosurface mode.');
     }
     function validateSurfaceData(value, path, mode, issues) {
         const data = objectValue(value, path, issues);
@@ -4248,6 +5497,71 @@ var GraflumeSpatial = (function (exports) {
         const candidate = objectValue(value, path, issues);
         if (candidate === undefined)
             return;
+        const fieldMode = 'dimensions' in candidate;
+        if (fieldMode) {
+            const data = closedObject(candidate, path, VECTOR_FIELD_DATA_KEYS, issues);
+            if (data === undefined)
+                return;
+            let dimensions;
+            if (vec3(data.dimensions, `${path}.dimensions`, issues)) {
+                dimensions = data.dimensions;
+                dimensions.forEach((entry, index) => integer(entry, `${path}.dimensions[${index}]`, issues, 2, 128));
+            }
+            const count = dimensions?.reduce((total, entry) => total * entry, 1);
+            if (count !== undefined && count > MAX_POINTS)
+                issue(issues, `${path}.dimensions`, `Vector field may contain at most ${MAX_POINTS} cells.`);
+            vec3Array(data.vectors, `${path}.vectors`, issues, MAX_POINTS);
+            if (Array.isArray(data.vectors) && count !== undefined && data.vectors.length !== count)
+                issue(issues, `${path}.vectors`, `Must contain exactly ${count} vectors.`);
+            if (data.origin !== undefined)
+                vec3(data.origin, `${path}.origin`, issues);
+            if (data.spacing !== undefined && vec3(data.spacing, `${path}.spacing`, issues)) {
+                data.spacing.forEach((entry, index) => finiteNumber(entry, `${path}.spacing[${index}]`, issues, 0.000001, 1_000_000_000));
+            }
+            if (data.seeds !== undefined)
+                vec3Array(data.seeds, `${path}.seeds`, issues, MAX_PATHS);
+            let generatedSeeds = 0;
+            if (data.seedGrid !== undefined) {
+                const grid = closedObject(data.seedGrid, `${path}.seedGrid`, VECTOR_SEED_GRID_KEYS, issues);
+                if (grid !== undefined && vec3(grid.dimensions, `${path}.seedGrid.dimensions`, issues)) {
+                    const parsed = grid.dimensions.map((entry, index) => integer(entry, `${path}.seedGrid.dimensions[${index}]`, issues, 1, 16));
+                    if (parsed.every((entry) => entry !== undefined)) {
+                        generatedSeeds = parsed.reduce((total, entry) => total * entry, 1);
+                        if (generatedSeeds > MAX_PATHS)
+                            issue(issues, `${path}.seedGrid.dimensions`, `May generate at most ${MAX_PATHS} seeds.`);
+                    }
+                }
+                if (grid?.jitter !== undefined)
+                    finiteNumber(grid.jitter, `${path}.seedGrid.jitter`, issues, 0, 0.49);
+                if (grid?.seed !== undefined)
+                    integer(grid.seed, `${path}.seedGrid.seed`, issues, 0, 4_294_967_295);
+            }
+            const seedCount = (Array.isArray(data.seeds) ? data.seeds.length : 0) + generatedSeeds;
+            for (const [key, validator] of [
+                [
+                    'labels',
+                    (entry, entryPath, target) => optionalString(entry, entryPath, target, 1_024),
+                ],
+                [
+                    'colors',
+                    (entry, entryPath, target) => color(entry, entryPath, target),
+                ],
+            ]) {
+                const entries = data[key];
+                if (entries === undefined)
+                    continue;
+                if (!Array.isArray(entries) || entries.length > MAX_PATHS)
+                    issue(issues, `${path}.${key}`, `Must contain at most ${MAX_PATHS} entries.`);
+                else {
+                    entries.forEach((entry, index) => validator(entry, `${path}.${key}[${index}]`, issues));
+                    if (seedCount > 0 && entries.length !== seedCount)
+                        issue(issues, `${path}.${key}`, `Must contain exactly ${seedCount} entries for authored seeds.`);
+                }
+            }
+            if (mode === 'cone')
+                issue(issues, path, 'Raw vector fields require streamtube mode.');
+            return;
+        }
         const streamMode = mode === 'streamtube' || (mode === undefined && 'paths' in candidate);
         const data = closedObject(candidate, path, streamMode ? STREAM_DATA_KEYS : CONE_DATA_KEYS, issues);
         if (data === undefined)
@@ -4257,10 +5571,11 @@ var GraflumeSpatial = (function (exports) {
                 issue(issues, `${path}.paths`, 'Must be an array.');
                 return;
             }
-            if (data.paths.length === 0 || data.paths.length > MAX_PATHS)
+            const paths = data.paths;
+            if (paths.length === 0 || paths.length > MAX_PATHS)
                 issue(issues, `${path}.paths`, `Must contain 1 to ${MAX_PATHS} paths.`);
             let total = 0;
-            data.paths.slice(0, MAX_PATHS + 1).forEach((entry, index) => {
+            paths.slice(0, MAX_PATHS + 1).forEach((entry, index) => {
                 const points = vec3Array(entry, `${path}.paths[${index}]`, issues, MAX_POINTS);
                 total += points?.length ?? 0;
                 if (points !== undefined && points.length < 2)
@@ -4268,8 +5583,20 @@ var GraflumeSpatial = (function (exports) {
             });
             if (total > MAX_POINTS)
                 issue(issues, `${path}.paths`, `All paths together may contain at most ${MAX_POINTS} points.`);
-            parallelArray(data.labels, `${path}.labels`, data.paths.length, issues, (entry, entryPath, target) => optionalString(entry, entryPath, target, 1_024));
-            parallelArray(data.colors, `${path}.colors`, data.paths.length, issues, (entry, entryPath, target) => {
+            if (data.magnitudes !== undefined) {
+                if (!Array.isArray(data.magnitudes) || data.magnitudes.length !== paths.length) {
+                    issue(issues, `${path}.magnitudes`, 'Must contain one magnitude array per path.');
+                }
+                else {
+                    data.magnitudes.forEach((entry, index) => {
+                        const pathEntry = paths[index];
+                        const expected = Array.isArray(pathEntry) ? pathEntry.length : undefined;
+                        numberArray(entry, `${path}.magnitudes[${index}]`, issues, MAX_POINTS, expected);
+                    });
+                }
+            }
+            parallelArray(data.labels, `${path}.labels`, paths.length, issues, (entry, entryPath, target) => optionalString(entry, entryPath, target, 1_024));
+            parallelArray(data.colors, `${path}.colors`, paths.length, issues, (entry, entryPath, target) => {
                 color(entry, entryPath, target);
             });
             return;
@@ -4350,6 +5677,38 @@ var GraflumeSpatial = (function (exports) {
             }
         }
     }
+    function validateVectorAdvanced(mark, path, issues) {
+        optionalEnum(mark.magnitudeEncoding, `${path}.magnitudeEncoding`, new Set(['none', 'color', 'radius', 'color-radius']), issues);
+        if (mark.integration === undefined)
+            return;
+        const integration = closedObject(mark.integration, `${path}.integration`, VECTOR_INTEGRATION_KEYS, issues);
+        if (integration === undefined)
+            return;
+        optionalEnum(integration.direction, `${path}.integration.direction`, new Set(['forward', 'backward', 'both']), issues);
+        const minStep = integration.minStep === undefined
+            ? undefined
+            : finiteNumber(integration.minStep, `${path}.integration.minStep`, issues, 0.000000001);
+        const initialStep = integration.initialStep === undefined
+            ? undefined
+            : finiteNumber(integration.initialStep, `${path}.integration.initialStep`, issues, 0.000000001);
+        const maxStep = integration.maxStep === undefined
+            ? undefined
+            : finiteNumber(integration.maxStep, `${path}.integration.maxStep`, issues, 0.000000001);
+        if (minStep !== undefined && maxStep !== undefined && minStep > maxStep)
+            issue(issues, `${path}.integration.maxStep`, 'Must be greater than or equal to minStep.');
+        if (initialStep !== undefined && minStep !== undefined && initialStep < minStep)
+            issue(issues, `${path}.integration.initialStep`, 'Must be greater than or equal to minStep.');
+        if (initialStep !== undefined && maxStep !== undefined && initialStep > maxStep)
+            issue(issues, `${path}.integration.initialStep`, 'Must be less than or equal to maxStep.');
+        if (integration.tolerance !== undefined)
+            finiteNumber(integration.tolerance, `${path}.integration.tolerance`, issues, 1e-12, 1_000_000);
+        if (integration.maxSteps !== undefined)
+            integer(integration.maxSteps, `${path}.integration.maxSteps`, issues, 1, 4_096);
+        if (integration.maxLength !== undefined)
+            finiteNumber(integration.maxLength, `${path}.integration.maxLength`, issues, 0.000001);
+        if (integration.minMagnitude !== undefined)
+            finiteNumber(integration.minMagnitude, `${path}.integration.minMagnitude`, issues, 0);
+    }
     function validateMarkAndData(value, data, path, issues) {
         const mark = objectValue(value, `${path}.mark`, issues);
         if (mark === undefined)
@@ -4376,6 +5735,7 @@ var GraflumeSpatial = (function (exports) {
             if (mark.opacity !== undefined)
                 finiteNumber(mark.opacity, `${path}.mark.opacity`, issues, 0, 1);
             optionalBoolean(mark.wireframe, `${path}.mark.wireframe`, issues);
+            validateSurfaceAdvanced(mark, `${path}.mark`, issues);
             validateSurfaceData(data, `${path}.data`, mark.mode, issues);
         }
         else if (type === 'volume') {
@@ -4390,6 +5750,7 @@ var GraflumeSpatial = (function (exports) {
                 integer(mark.maxSamples, `${path}.mark.maxSamples`, issues, 1, 250_000);
             optionalColor(mark.colorLow, `${path}.mark.colorLow`, issues);
             optionalColor(mark.colorHigh, `${path}.mark.colorHigh`, issues);
+            validateVolumeAdvanced(mark, `${path}.mark`, issues);
             validateVolumeData(data, `${path}.data`, issues);
         }
         else if (type === 'vector') {
@@ -4403,6 +5764,7 @@ var GraflumeSpatial = (function (exports) {
                 finiteNumber(mark.scale, `${path}.mark.scale`, issues, 0.000001, 1_000_000);
             if (mark.segments !== undefined)
                 integer(mark.segments, `${path}.mark.segments`, issues, 5, 48);
+            validateVectorAdvanced(mark, `${path}.mark`, issues);
             validateVectorData(data, `${path}.data`, mark.mode, issues);
         }
         else if (type === 'scatter') {
@@ -4674,6 +6036,158 @@ var GraflumeSpatial = (function (exports) {
     function isMeshData(data) {
         return 'positions' in data;
     }
+    function mappedVertexColors(colors, sourceIndices) {
+        const output = new Float32Array(sourceIndices.length * 4);
+        for (const [index, source] of sourceIndices.entries()) {
+            output.set(colors.subarray(source * 4, source * 4 + 4), index * 4);
+        }
+        return output;
+    }
+    function contourLevels(values, contours) {
+        if (contours.levels !== undefined)
+            return [...new Set(contours.levels)].sort((left, right) => left - right);
+        let minimum = Number.POSITIVE_INFINITY;
+        let maximum = Number.NEGATIVE_INFINITY;
+        for (const value of values) {
+            minimum = Math.min(minimum, value);
+            maximum = Math.max(maximum, value);
+        }
+        if (minimum === maximum)
+            return [];
+        const count = Math.max(1, Math.min(64, Math.trunc(contours.count ?? 8)));
+        return Array.from({ length: count }, (_, index) => minimum + ((index + 1) / (count + 1)) * (maximum - minimum));
+    }
+    function compileSurfaceContours(id, layerIndex, positions, triangleIndices, values, contours, theme) {
+        const projection = contours.projection ?? 'base';
+        const projections = projection === 'both' ? ['surface', 'base'] : [projection];
+        const maximum = Math.max(1, Math.trunc(contours.maxSegments ?? 100_000));
+        const sourceMaximum = Math.max(1, Math.floor(maximum / projections.length));
+        const segments = extractSurfaceContourSegments(positions, triangleIndices, values, {
+            levels: contourLevels(values, contours),
+            maxSegments: sourceMaximum,
+        });
+        if (segments.length === 0)
+            return [];
+        let minimumHeight = Number.POSITIVE_INFINITY;
+        for (let index = 1; index < positions.length; index += 3)
+            minimumHeight = Math.min(minimumHeight, positions[index]);
+        const color = spatialColor(contours.color ?? (usesLegacySpatialDefaults(theme) ? '#111827' : theme.colors.text), contours.opacity ?? 0.92);
+        return projections.map((target) => {
+            const linePositions = [];
+            const picks = [];
+            const baseHeight = contours.baseHeight ?? minimumHeight;
+            for (const [datumIndex, segment] of segments.entries()) {
+                const from = target === 'base' ? [segment.from[0], baseHeight, segment.from[2]] : segment.from;
+                const to = target === 'base' ? [segment.to[0], baseHeight, segment.to[2]] : segment.to;
+                pushVec3(linePositions, from);
+                pushVec3(linePositions, to);
+                picks.push({
+                    layerId: id,
+                    layerIndex,
+                    datumIndex,
+                    nodeId: `${id}:contour:${target}:${datumIndex}`,
+                    position: scale3(add3(from, to), 0.5),
+                    datum: {
+                        level: segment.level,
+                        projection: target,
+                        sourceTriangle: segment.triangleIndex,
+                    },
+                });
+            }
+            const outputPositions = new Float32Array(linePositions);
+            return {
+                id: `${id}:contour:${target}`,
+                primitive: 'lines',
+                positions: outputPositions,
+                normals: repeatedValues(outputPositions.length / 3, [0, 1, 0]),
+                colors: repeatedValues(outputPositions.length / 3, color),
+                sizes: new Float32Array(outputPositions.length / 3).fill(1),
+                picks,
+                role: 'contour',
+                provenance: {
+                    family: 'surface',
+                    operation: 'triangle-contour-projection',
+                    sourceElements: triangleIndices.length / 3,
+                    derivedElements: segments.length,
+                    bounded: true,
+                    parameters: { projection: target, levels: contourLevels(values, contours) },
+                },
+            };
+        });
+    }
+    function compileSurfaceGeometry(id, layerIndex, positions, colors, triangleIndices, wireIndices, picks, layer, theme, suppliedNormals) {
+        if (layer.mark.wireframe === true) {
+            return [
+                {
+                    id,
+                    primitive: 'lines',
+                    positions,
+                    normals: suppliedNormals ?? triangleNormals(positions, triangleIndices),
+                    colors,
+                    sizes: new Float32Array(positions.length / 3).fill(1),
+                    indices: wireIndices,
+                    picks,
+                    role: 'primary',
+                    provenance: {
+                        family: 'surface',
+                        operation: 'wireframe-only',
+                        sourceElements: triangleIndices.length / 3,
+                        derivedElements: wireIndices.length / 2,
+                        bounded: true,
+                    },
+                },
+            ];
+        }
+        const normalMode = layer.mark.normalMode ?? 'smooth';
+        const normalGeometry = computeSurfaceNormalGeometry(positions, triangleIndices, normalMode);
+        const fillColors = mappedVertexColors(colors, normalGeometry.sourceVertexIndices);
+        const fill = {
+            id,
+            primitive: 'triangles',
+            positions: normalGeometry.positions,
+            normals: normalMode === 'smooth' && suppliedNormals !== undefined
+                ? suppliedNormals
+                : normalGeometry.normals,
+            colors: fillColors,
+            sizes: new Float32Array(normalGeometry.positions.length / 3).fill(1),
+            ...(normalGeometry.indices === undefined ? {} : { indices: normalGeometry.indices }),
+            picks,
+            role: 'primary',
+            provenance: {
+                family: 'surface',
+                operation: `${normalMode}-normal-surface`,
+                sourceElements: triangleIndices.length / 3,
+                derivedElements: normalGeometry.positions.length / 3,
+                bounded: true,
+                parameters: { normalMode },
+            },
+        };
+        if (layer.mark.wireOverlay === undefined || layer.mark.wireOverlay === false)
+            return [fill];
+        const overlay = layer.mark.wireOverlay === true ? {} : layer.mark.wireOverlay;
+        const wireColor = spatialColor(overlay.color ?? (usesLegacySpatialDefaults(theme) ? '#111827' : theme.colors.text), overlay.opacity ?? 0.72);
+        return [
+            fill,
+            {
+                id: `${id}:wire-overlay`,
+                primitive: 'lines',
+                positions,
+                normals: suppliedNormals ?? triangleNormals(positions, triangleIndices),
+                colors: repeatedValues(positions.length / 3, wireColor),
+                sizes: new Float32Array(positions.length / 3).fill(1),
+                indices: wireIndices,
+                picks: [],
+                role: 'wire-overlay',
+                provenance: {
+                    family: 'surface',
+                    operation: 'filled-wire-overlay',
+                    sourceElements: triangleIndices.length / 3,
+                    derivedElements: wireIndices.length / 2,
+                    bounded: true,
+                },
+            },
+        ];
+    }
     function compileSurfaceGrid(layer, layerIndex, data, theme) {
         const rows = positiveInteger(data.rows, 'surface.data.rows');
         const columns = positiveInteger(data.columns, 'surface.data.columns');
@@ -4696,7 +6210,7 @@ var GraflumeSpatial = (function (exports) {
             maximum = Math.max(maximum, value);
         }
         const colors = new Float32Array(rows * columns * 4);
-        const sizes = new Float32Array(rows * columns).fill(1);
+        new Float32Array(rows * columns).fill(1);
         const legacyDefaults = usesLegacySpatialDefaults(theme);
         const low = spatialColor(legacyDefaults ? '#0ea5e9' : continuousColor(theme, 0), layer.mark.opacity);
         const high = spatialColor(layer.mark.color ?? (legacyDefaults ? '#7c3aed' : continuousColor(theme, 1)), layer.mark.opacity);
@@ -4740,19 +6254,14 @@ var GraflumeSpatial = (function (exports) {
                     lineIndices.push(b, d);
             }
         }
-        const indices = new Uint32Array(layer.mark.wireframe ? lineIndices : triangleIndices);
-        return [
-            {
-                id,
-                primitive: layer.mark.wireframe ? 'lines' : 'triangles',
-                positions,
-                normals: triangleNormals(positions, new Uint32Array(triangleIndices)),
-                colors,
-                sizes,
-                indices,
-                picks,
-            },
-        ];
+        const triangles = new Uint32Array(triangleIndices);
+        const output = compileSurfaceGeometry(id, layerIndex, positions, colors, triangles, new Uint32Array(lineIndices), picks, layer, theme);
+        return layer.mark.contours === undefined
+            ? output
+            : [
+                ...output,
+                ...compileSurfaceContours(id, layerIndex, positions, triangles, values, layer.mark.contours, theme),
+            ];
     }
     function compileSurfaceMesh(layer, layerIndex, data, theme, layerCount) {
         if (data.positions.length === 0)
@@ -4799,18 +6308,13 @@ var GraflumeSpatial = (function (exports) {
             position,
             datum: { x: position[0], y: position[1], z: position[2], label: data.labels?.[datumIndex] },
         }));
-        return [
-            {
-                id,
-                primitive: layer.mark.wireframe ? 'lines' : 'triangles',
-                positions,
-                normals,
-                colors,
-                sizes: new Float32Array(data.positions.length).fill(1),
-                indices: layer.mark.wireframe ? wireframeIndices : indices,
-                picks,
-            },
-        ];
+        const output = compileSurfaceGeometry(id, layerIndex, positions, colors, indices, wireframeIndices, picks, layer, theme, normals);
+        return layer.mark.contours === undefined
+            ? output
+            : [
+                ...output,
+                ...compileSurfaceContours(id, layerIndex, positions, indices, data.positions.map((position) => position[1]), layer.mark.contours, theme),
+            ];
     }
     function compileSurface(layer, layerIndex, theme, layerCount) {
         const mode = layer.mark.mode ?? (isMeshData(layer.data) ? 'mesh' : 'surface');
@@ -4837,6 +6341,217 @@ var GraflumeSpatial = (function (exports) {
     }
     function volumeIndex(x, y, z, dimensions) {
         return z * dimensions[0] * dimensions[1] + y * dimensions[0] + x;
+    }
+    function resolvedVolumeTransfer(layer, theme) {
+        const opacity = layer.mark.opacity ?? 1;
+        const authored = layer.mark.transferFunction;
+        if (authored !== undefined) {
+            return [...authored.stops]
+                .sort((left, right) => left.offset - right.offset)
+                .map((stop) => ({
+                offset: stop.offset,
+                color: spatialColor(stop.color, opacity * (stop.opacity ?? 1)),
+            }));
+        }
+        const legacy = usesLegacySpatialDefaults(theme);
+        return [
+            {
+                offset: 0,
+                color: spatialColor(layer.mark.colorLow ?? (legacy ? '#0ea5e9' : continuousColor(theme, 0)), opacity * 0.06),
+            },
+            {
+                offset: 1,
+                color: spatialColor(layer.mark.colorHigh ?? (legacy ? '#f43f5e' : continuousColor(theme, 1)), opacity * 0.88),
+            },
+        ];
+    }
+    function volumeSamplingContext(layer, theme) {
+        const [minimum, maximum] = volumeValueExtent(layer.data.values);
+        return {
+            data: layer.data,
+            minimum,
+            maximum,
+            ...(layer.mark.windowLevel === undefined ? {} : { windowLevel: layer.mark.windowLevel }),
+            transfer: resolvedVolumeTransfer(layer, theme),
+            transferInterpolation: layer.mark.transferFunction?.interpolation ?? 'linear',
+        };
+    }
+    function projectionResolution(dimensions, axis, requested) {
+        if (requested !== undefined)
+            return [Math.trunc(requested[0]), Math.trunc(requested[1])];
+        if (axis === 'x')
+            return [Math.min(256, dimensions[2]), Math.min(256, dimensions[1])];
+        if (axis === 'y')
+            return [Math.min(256, dimensions[0]), Math.min(256, dimensions[2])];
+        return [Math.min(256, dimensions[0]), Math.min(256, dimensions[1])];
+    }
+    function gridTriangleIndices(columns, rows) {
+        const indices = [];
+        for (let row = 0; row < rows - 1; row += 1) {
+            for (let column = 0; column < columns - 1; column += 1) {
+                const a = row * columns + column;
+                const b = a + 1;
+                const c = a + columns;
+                const d = c + 1;
+                indices.push(a, c, b, b, c, d);
+            }
+        }
+        return new Uint32Array(indices);
+    }
+    function geometryFromVolumeSamples(id, layerIndex, samples, resolution, method, axis) {
+        const positions = [];
+        const colors = [];
+        const picks = [];
+        for (const [datumIndex, sample] of samples.entries()) {
+            pushVec3(positions, sample.position);
+            pushColor(colors, sample.color);
+            if (sample.color[3] <= 0)
+                continue;
+            picks.push({
+                layerId: id,
+                layerIndex,
+                datumIndex,
+                nodeId: `${id}:ray:${method}:${datumIndex}`,
+                position: sample.position,
+                datum: {
+                    row: sample.row,
+                    column: sample.column,
+                    value: sample.rawValue,
+                    normalizedValue: sample.normalizedValue,
+                    renderMethod: method,
+                    rayAxis: axis,
+                    rayDepth: sample.depth,
+                    sampleCount: sample.sampleCount,
+                },
+            });
+        }
+        const outputPositions = new Float32Array(positions);
+        const normal = axis === 'x' ? [1, 0, 0] : axis === 'y' ? [0, 1, 0] : [0, 0, 1];
+        return {
+            id: `${id}:volume-${method}`,
+            primitive: 'triangles',
+            positions: outputPositions,
+            normals: repeatedValues(outputPositions.length / 3, normal),
+            colors: new Float32Array(colors),
+            sizes: new Float32Array(outputPositions.length / 3).fill(1),
+            indices: gridTriangleIndices(resolution[0], resolution[1]),
+            picks,
+            role: 'volume-projection',
+            provenance: {
+                family: 'volume',
+                operation: `cpu-${method}-webgl-projection`,
+                sourceElements: samples.reduce((total, sample) => total + sample.sampleCount, 0),
+                derivedElements: samples.length,
+                bounded: true,
+                parameters: {
+                    method,
+                    axis,
+                    resolution,
+                },
+            },
+        };
+    }
+    function sliceNormal(slice) {
+        if (slice.type === 'oblique')
+            return normalize3(slice.normal, [0, 0, 1]);
+        return slice.axis === 'x' ? [1, 0, 0] : slice.axis === 'y' ? [0, 1, 0] : [0, 0, 1];
+    }
+    function geometryFromVolumeSlice(id, layerIndex, samples, resolution, slice, sliceIndex, role = 'volume-slice') {
+        const positions = [];
+        const colors = [];
+        const picks = [];
+        for (const [datumIndex, sample] of samples.entries()) {
+            pushVec3(positions, sample.position);
+            pushColor(colors, sample.color);
+            if (sample.rawValue === null || sample.color[3] <= 0)
+                continue;
+            picks.push({
+                layerId: id,
+                layerIndex,
+                datumIndex,
+                nodeId: `${id}:${role}:${sliceIndex}:${datumIndex}`,
+                position: sample.position,
+                datum: {
+                    slice: sliceIndex,
+                    sliceType: slice.type,
+                    row: sample.row,
+                    column: sample.column,
+                    value: sample.rawValue,
+                    normalizedValue: sample.normalizedValue,
+                },
+            });
+        }
+        const outputPositions = new Float32Array(positions);
+        return {
+            id: `${id}:${role}:${sliceIndex}`,
+            primitive: 'triangles',
+            positions: outputPositions,
+            normals: repeatedValues(outputPositions.length / 3, sliceNormal(slice)),
+            colors: new Float32Array(colors),
+            sizes: new Float32Array(outputPositions.length / 3).fill(1),
+            indices: gridTriangleIndices(resolution[0], resolution[1]),
+            picks,
+            role,
+            provenance: {
+                family: 'volume',
+                operation: slice.type === 'orthogonal' ? 'orthogonal-slice' : 'oblique-slice',
+                sourceElements: samples.length,
+                derivedElements: samples.length,
+                bounded: true,
+                parameters: {
+                    sliceIndex,
+                    type: slice.type,
+                    resolution,
+                    ...(slice.type === 'orthogonal' ? { axis: slice.axis, position: slice.position } : {}),
+                },
+            },
+        };
+    }
+    function compileVolumeSlices(layer, layerIndex, theme, slices, role = 'volume-slice') {
+        const id = layerId(layer, layerIndex);
+        const context = volumeSamplingContext(layer, theme);
+        const size = volumeDimensions(layer);
+        return slices.map((slice, sliceIndex) => {
+            const resolution = slice.resolution ??
+                (slice.type === 'orthogonal'
+                    ? projectionResolution(size, slice.axis)
+                    : [Math.min(128, Math.max(size[0], size[2])), Math.min(128, size[1])]);
+            const samples = sampleVolumeSlice(context, slice, {
+                resolution,
+                interpolation: slice.interpolation ?? 'linear',
+                opacity: slice.opacity ?? 1,
+            });
+            return geometryFromVolumeSlice(id, layerIndex, samples, resolution, slice, sliceIndex, role);
+        });
+    }
+    function compileVolumeProjection(layer, layerIndex, theme) {
+        const render = layer.mark.render;
+        if (render === undefined)
+            return [];
+        const size = volumeDimensions(layer);
+        const axis = render.axis ?? 'z';
+        const resolution = projectionResolution(size, axis, render.resolution);
+        const samples = Math.max(2, Math.trunc(render.samples ?? (axis === 'x' ? size[0] : axis === 'y' ? size[1] : size[2])));
+        const method = render.method ?? 'raycast';
+        const projection = projectVolumeRays(volumeSamplingContext(layer, theme), {
+            method,
+            axis,
+            resolution,
+            samples,
+            interpolation: render.interpolation ?? 'linear',
+        });
+        const output = [
+            geometryFromVolumeSamples(layerId(layer, layerIndex), layerIndex, projection, resolution, method, axis),
+        ];
+        const caps = render.caps ?? 'none';
+        const capSlices = [];
+        if (caps === 'front' || caps === 'both')
+            capSlices.push({ type: 'orthogonal', axis, position: 0, resolution });
+        if (caps === 'back' || caps === 'both')
+            capSlices.push({ type: 'orthogonal', axis, position: 1, resolution });
+        if (capSlices.length > 0)
+            output.push(...compileVolumeSlices(layer, layerIndex, theme, capSlices, 'volume-cap'));
+        return output;
     }
     function compileVolumePoints(layer, layerIndex, theme) {
         const dimensions = volumeDimensions(layer);
@@ -4869,12 +6584,19 @@ var GraflumeSpatial = (function (exports) {
             const y = Math.floor(withinPlane / dimensions[0]);
             const x = withinPlane - y * dimensions[0];
             const value = values[datumIndex];
-            const amount = maximum === minimum ? 0.5 : (value - minimum) / (maximum - minimum);
+            const amount = normalizeVolumeValue(value, minimum, maximum, layer.mark.windowLevel);
             const position = volumePosition(x, y, z, origin, spacing);
             const interpolated = interpolateColor(low, high, amount);
+            const color = layer.mark.transferFunction !== undefined
+                ? evaluateVolumeTransfer(resolvedVolumeTransfer(layer, theme), amount, layer.mark.transferFunction.interpolation ?? 'linear')
+                : useThemeScale
+                    ? spatialColor(continuousColor(theme, amount), interpolated[3])
+                    : interpolated;
             pushVec3(positions, position);
-            pushColor(colors, useThemeScale ? spatialColor(continuousColor(theme, amount), interpolated[3]) : interpolated);
+            pushColor(colors, color);
             sizes.push(Math.max(1, (layer.mark.pointSize ?? 5) * (0.45 + amount * 0.75)));
+            if (color[3] <= 0)
+                continue;
             picks.push({
                 layerId: id,
                 layerIndex,
@@ -4894,6 +6616,19 @@ var GraflumeSpatial = (function (exports) {
                 colors: new Float32Array(colors),
                 sizes: new Float32Array(sizes),
                 picks,
+                role: 'primary',
+                provenance: {
+                    family: 'volume',
+                    operation: 'bounded-voxel-sampling',
+                    sourceElements: values.length,
+                    derivedElements: positionArray.length / 3,
+                    bounded: true,
+                    parameters: {
+                        maxSamples: maximumSamples,
+                        transferFunction: layer.mark.transferFunction !== undefined,
+                        windowLevel: layer.mark.windowLevel !== undefined,
+                    },
+                },
             },
         ];
     }
@@ -5026,8 +6761,10 @@ var GraflumeSpatial = (function (exports) {
             }
         }
         const positions = new Float32Array(vertices);
-        const color = spatialColor(layer.mark.colorHigh ??
-            (usesLegacySpatialDefaults(theme) ? '#7c3aed' : continuousColor(theme, 1)), layer.mark.opacity ?? 0.82);
+        const color = layer.mark.transferFunction === undefined
+            ? spatialColor(layer.mark.colorHigh ??
+                (usesLegacySpatialDefaults(theme) ? '#7c3aed' : continuousColor(theme, 1)), layer.mark.opacity ?? 0.82)
+            : evaluateVolumeTransfer(resolvedVolumeTransfer(layer, theme), normalizeVolumeValue(isoValue, minimum, maximum, layer.mark.windowLevel), layer.mark.transferFunction.interpolation ?? 'linear');
         return [
             {
                 id,
@@ -5037,16 +6774,38 @@ var GraflumeSpatial = (function (exports) {
                 colors: repeatedValues(positions.length / 3, color),
                 sizes: new Float32Array(positions.length / 3).fill(1),
                 picks,
+                role: 'primary',
+                provenance: {
+                    family: 'volume',
+                    operation: 'marching-tetrahedra-isosurface',
+                    sourceElements: values.length,
+                    derivedElements: positions.length / 3,
+                    bounded: true,
+                    parameters: {
+                        isoValue,
+                        transferFunction: layer.mark.transferFunction !== undefined,
+                        windowLevel: layer.mark.windowLevel !== undefined,
+                    },
+                },
             },
         ];
     }
     function compileVolume(layer, layerIndex, theme) {
-        return (layer.mark.mode ?? 'volume') === 'isosurface'
-            ? compileIsosurface(layer, layerIndex, theme)
-            : compileVolumePoints(layer, layerIndex, theme);
+        if ((layer.mark.mode ?? 'volume') === 'isosurface')
+            return compileIsosurface(layer, layerIndex, theme);
+        const slices = layer.mark.slices ?? [];
+        if (layer.mark.render === undefined && slices.length === 0)
+            return compileVolumePoints(layer, layerIndex, theme);
+        return [
+            ...compileVolumeProjection(layer, layerIndex, theme),
+            ...compileVolumeSlices(layer, layerIndex, theme, slices),
+        ];
     }
     function isStreamtubeData(data) {
         return 'paths' in data;
+    }
+    function isVectorFieldData(data) {
+        return 'dimensions' in data;
     }
     function vectorBasis(direction) {
         const normalized = normalize3(direction);
@@ -5135,7 +6894,7 @@ var GraflumeSpatial = (function (exports) {
         const next = path[Math.min(path.length - 1, index + 1)];
         return vectorBasis(subtract3(next, previous));
     }
-    function compileStreamtubes(layer, layerIndex, data, theme, layerCount) {
+    function compileStreamtubes(layer, layerIndex, data, theme, layerCount, integration) {
         const segments = Math.max(5, Math.min(48, Math.trunc(layer.mark.segments ?? 10)));
         const radius = Math.max(0.0001, layer.mark.radius ?? 0.035);
         const positions = [];
@@ -5143,23 +6902,47 @@ var GraflumeSpatial = (function (exports) {
         const indices = [];
         const picks = [];
         const id = layerId(layer, layerIndex);
+        let minimumMagnitude = Number.POSITIVE_INFINITY;
+        let maximumMagnitude = Number.NEGATIVE_INFINITY;
+        for (const path of data.magnitudes ?? []) {
+            for (const value of path) {
+                minimumMagnitude = Math.min(minimumMagnitude, value);
+                maximumMagnitude = Math.max(maximumMagnitude, value);
+            }
+        }
+        const magnitudeEncoding = layer.mark.magnitudeEncoding ?? (integration === undefined ? 'none' : 'color-radius');
+        const encodeColor = magnitudeEncoding === 'color' || magnitudeEncoding === 'color-radius';
+        const encodeRadius = magnitudeEncoding === 'radius' || magnitudeEncoding === 'color-radius';
+        const lowMagnitudeColor = spatialColor(usesLegacySpatialDefaults(theme) ? '#0ea5e9' : continuousColor(theme, 0), layer.mark.opacity);
+        const highMagnitudeColor = spatialColor(usesLegacySpatialDefaults(theme) ? '#7c3aed' : continuousColor(theme, 1), layer.mark.opacity);
         for (let datumIndex = 0; datumIndex < data.paths.length; datumIndex += 1) {
             const path = data.paths[datumIndex].map((point, index) => validVec3(point, `stream path ${datumIndex}:${index}`));
             if (path.length < 2)
                 continue;
             const offset = positions.length / 3;
-            const color = spatialColor(data.colors?.[datumIndex] ??
+            const pathColor = spatialColor(data.colors?.[datumIndex] ??
                 layer.mark.color ??
                 (usesLegacySpatialDefaults(theme)
                     ? '#0284c7'
                     : layerThemeColor(theme, layerIndex, layerCount)), layer.mark.opacity);
+            const pathMagnitudes = data.magnitudes?.[datumIndex];
+            if (pathMagnitudes !== undefined && pathMagnitudes.length !== path.length)
+                fail(`stream magnitudes ${datumIndex} length must equal its path length.`);
             for (let pointIndex = 0; pointIndex < path.length; pointIndex += 1) {
                 const [first, second] = tubePointBasis(path, pointIndex);
+                const magnitude = pathMagnitudes?.[pointIndex];
+                const amount = magnitude === undefined || maximumMagnitude === minimumMagnitude
+                    ? 0.5
+                    : clamp((magnitude - minimumMagnitude) / (maximumMagnitude - minimumMagnitude), 0, 1);
+                const pointRadius = radius * (encodeRadius ? 0.45 + amount * 0.9 : 1);
+                const pointColor = encodeColor && data.colors?.[datumIndex] === undefined && layer.mark.color === undefined
+                    ? interpolateColor(lowMagnitudeColor, highMagnitudeColor, amount)
+                    : pathColor;
                 for (let segment = 0; segment < segments; segment += 1) {
                     const angle = (segment / segments) * Math.PI * 2;
-                    const radial = add3(scale3(first, Math.cos(angle) * radius), scale3(second, Math.sin(angle) * radius));
+                    const radial = add3(scale3(first, Math.cos(angle) * pointRadius), scale3(second, Math.sin(angle) * pointRadius));
                     pushVec3(positions, add3(path[pointIndex], radial));
-                    pushColor(colors, color);
+                    pushColor(colors, pointColor);
                 }
             }
             for (let pointIndex = 0; pointIndex < path.length - 1; pointIndex += 1) {
@@ -5185,6 +6968,12 @@ var GraflumeSpatial = (function (exports) {
                         x: path[pointIndex][0],
                         y: path[pointIndex][1],
                         z: path[pointIndex][2],
+                        magnitude: data.magnitudes?.[datumIndex]?.[pointIndex],
+                        seedIndex: integration?.paths[datumIndex]?.seedIndex,
+                        seedSource: integration?.paths[datumIndex]?.seedSource,
+                        acceptedSteps: integration?.paths[datumIndex]?.acceptedSteps,
+                        rejectedSteps: integration?.paths[datumIndex]?.rejectedSteps,
+                        termination: integration?.paths[datumIndex]?.termination,
                         label: data.labels?.[datumIndex],
                     },
                 });
@@ -5202,16 +6991,59 @@ var GraflumeSpatial = (function (exports) {
                 sizes: new Float32Array(positionArray.length / 3).fill(1),
                 indices: indexArray,
                 picks,
+                role: integration === undefined ? 'primary' : 'integrated-streamtube',
+                provenance: {
+                    family: 'spatial-vector',
+                    operation: integration === undefined ? 'provided-path-streamtube' : integration.method,
+                    sourceElements: integration === undefined
+                        ? data.paths.reduce((total, path) => total + path.length, 0)
+                        : integration.sourceSeedCount,
+                    derivedElements: positionArray.length / 3,
+                    bounded: true,
+                    parameters: {
+                        segments,
+                        magnitudeEncoding,
+                        ...(integration === undefined
+                            ? {}
+                            : {
+                                acceptedSteps: integration.acceptedSteps,
+                                rejectedSteps: integration.rejectedSteps,
+                                retainedSeeds: integration.seeds.length,
+                                seedSourceIndices: integration.seedSourceIndices,
+                            }),
+                    },
+                },
             },
         ];
     }
     function compileVector(layer, layerIndex, theme, layerCount) {
-        const mode = layer.mark.mode ?? (isStreamtubeData(layer.data) ? 'streamtube' : 'cone');
+        const mode = layer.mark.mode ??
+            (isStreamtubeData(layer.data) || isVectorFieldData(layer.data) ? 'streamtube' : 'cone');
         if (mode === 'streamtube') {
+            if (isVectorFieldData(layer.data)) {
+                const integration = integrateVectorField(layer.data, layer.mark.integration);
+                const data = {
+                    paths: integration.paths.map((path) => path.points),
+                    magnitudes: integration.paths.map((path) => path.magnitudes),
+                    ...(layer.data.labels === undefined
+                        ? {}
+                        : {
+                            labels: integration.paths.map(({ seedIndex }) => layer.data.labels[seedIndex]),
+                        }),
+                    ...(layer.data.colors === undefined
+                        ? {}
+                        : {
+                            colors: integration.paths.map(({ seedIndex }) => layer.data.colors[seedIndex]),
+                        }),
+                };
+                return compileStreamtubes(layer, layerIndex, data, theme, layerCount, integration);
+            }
             if (!isStreamtubeData(layer.data))
-                fail('streamtube mode requires paths.');
+                fail('streamtube mode requires paths or a vector field.');
             return compileStreamtubes(layer, layerIndex, layer.data, theme, layerCount);
         }
+        if (isVectorFieldData(layer.data))
+            fail('vector field data requires streamtube mode and an integration contract.');
         if (isStreamtubeData(layer.data))
             fail('cone mode requires origins and vectors.');
         return compileCones(layer, layerIndex, layer.data, theme, layerCount);
@@ -5724,6 +7556,167 @@ var GraflumeSpatial = (function (exports) {
         const candidate = { ...current, ...patch };
         assertValidSpatialSpec({ ...spec, camera: candidate });
         return normalizedCamera(candidate.projection, candidate.target, sceneRadius, candidate);
+    }
+
+    function boundedInteger(value, fallback, maximum, path) {
+        const resolved = value ?? fallback;
+        if (!Number.isInteger(resolved) || resolved < 1 || resolved > maximum) {
+            throw new GraflumeError('INVALID_SPEC', `${path} must be an integer from 1 to ${maximum}.`, {
+                path,
+            });
+        }
+        return resolved;
+    }
+    function checkedProjection(value) {
+        if (value === null)
+            return null;
+        if (![value.x, value.y, value.depth].every(Number.isFinite)) {
+            throw new GraflumeError('INVALID_DATA', 'Spatial focus projection must be finite.');
+        }
+        return { ...value };
+    }
+    /**
+     * Renderer-neutral roving traversal for GPU pick targets.
+     *
+     * Camera projection and DOM focus-ring updates are injected, keeping tests
+     * deterministic and keeping the authored spatial specification function-free.
+     */
+    class SpatialSemanticNavigator {
+        #maxRows;
+        #pageRows;
+        #wrap;
+        #actions;
+        #targets = [];
+        #activeIndex = null;
+        #projector = null;
+        #screen = null;
+        constructor(actions, options = {}) {
+            this.#actions = actions;
+            this.#maxRows = boundedInteger(options.maxRows, 1_000, 100_000, '$.spatial.navigation.maxRows');
+            this.#pageRows = boundedInteger(options.pageRows, 10, 1_000, '$.spatial.navigation.pageRows');
+            if (options.wrap !== undefined && typeof options.wrap !== 'boolean') {
+                throw new GraflumeError('INVALID_SPEC', '$.spatial.navigation.wrap must be boolean.');
+            }
+            this.#wrap = options.wrap ?? false;
+        }
+        setTargets(targets, preferredNodeId) {
+            if (targets.length > this.#maxRows) {
+                throw new GraflumeError('INVALID_DATA', `Spatial semantic navigation has ${targets.length} targets; the deterministic limit is ${this.#maxRows}.`);
+            }
+            this.#targets = [...targets];
+            const preferred = preferredNodeId === undefined || preferredNodeId === null
+                ? -1
+                : targets.findIndex(({ nodeId }) => nodeId === preferredNodeId);
+            const previous = this.#activeIndex ?? -1;
+            this.#activeIndex =
+                preferred >= 0
+                    ? preferred
+                    : targets.length === 0
+                        ? null
+                        : Math.min(Math.max(0, previous), targets.length - 1);
+            this.#synchronize(false);
+            return this.state();
+        }
+        setProjector(projector) {
+            this.#projector = projector;
+            this.#synchronize(false);
+            return this.state();
+        }
+        reproject() {
+            this.#synchronize(true);
+            return this.state();
+        }
+        focusIndex(index) {
+            if (!Number.isInteger(index) || index < 0 || index >= this.#targets.length) {
+                throw new GraflumeError('INVALID_DATA', 'Spatial focus index is outside semantic targets.');
+            }
+            this.#activeIndex = index;
+            this.#synchronize(true);
+            return this.state();
+        }
+        focusNode(nodeId) {
+            const index = this.#targets.findIndex((target) => target.nodeId === nodeId);
+            if (index < 0)
+                throw new GraflumeError('INVALID_DATA', `Spatial target "${nodeId}" was not found.`);
+            return this.focusIndex(index);
+        }
+        move(key) {
+            const length = this.#targets.length;
+            if (length === 0)
+                return this.state();
+            const current = this.#activeIndex ?? 0;
+            let next = current;
+            switch (key) {
+                case 'ArrowLeft':
+                case 'ArrowUp':
+                    next = current - 1;
+                    break;
+                case 'ArrowRight':
+                case 'ArrowDown':
+                    next = current + 1;
+                    break;
+                case 'Home':
+                    next = 0;
+                    break;
+                case 'End':
+                    next = length - 1;
+                    break;
+                case 'PageUp':
+                    next = current - this.#pageRows;
+                    break;
+                case 'PageDown':
+                    next = current + this.#pageRows;
+                    break;
+            }
+            if (this.#wrap && (next < 0 || next >= length))
+                next = (next + length) % length;
+            return this.focusIndex(Math.max(0, Math.min(length - 1, next)));
+        }
+        activate() {
+            const focus = this.focus();
+            if (focus !== null)
+                this.#actions.activate?.(focus);
+        }
+        clear() {
+            this.#activeIndex = null;
+            this.#screen = null;
+            this.#actions.focus(null);
+        }
+        focus() {
+            const pick = this.#activeIndex === null ? undefined : this.#targets[this.#activeIndex];
+            return pick === undefined
+                ? null
+                : {
+                    index: this.#activeIndex,
+                    pick,
+                    screen: this.#screen === null ? null : { ...this.#screen },
+                };
+        }
+        state() {
+            const active = this.#activeIndex === null ? undefined : this.#targets[this.#activeIndex];
+            return {
+                version: 1,
+                rowCount: this.#targets.length,
+                activeIndex: active === undefined ? null : this.#activeIndex,
+                activeNodeId: active?.nodeId ?? null,
+                projected: this.#screen === null ? null : { ...this.#screen },
+            };
+        }
+        #synchronize(announce) {
+            const focus = this.focus();
+            if (focus === null) {
+                this.#screen = null;
+                if (announce)
+                    this.#actions.focus(null);
+                return;
+            }
+            this.#screen = checkedProjection(this.#projector?.(focus.pick) ?? null);
+            if (announce)
+                this.#actions.focus({ ...focus, screen: this.#screen });
+        }
+    }
+    function createSpatialSemanticNavigator(actions, options = {}) {
+        return new SpatialSemanticNavigator(actions, options);
     }
 
     function intersectionArea(left, right) {
@@ -6939,6 +8932,16 @@ void main() {
         }
         #drawGeometries(gl, program, geometries = this.#geometries) {
             for (const geometry of geometries) {
+                const offsetSurfaceFill = geometry.source.primitive === 'triangles' &&
+                    geometry.source.role === 'primary' &&
+                    geometry.source.provenance?.family === 'surface' &&
+                    this.#geometries.some((candidate) => candidate.source.role === 'wire-overlay' &&
+                        candidate.source.id.startsWith(`${geometry.source.id}:`)) &&
+                    typeof gl.polygonOffset === 'function';
+                if (offsetSurfaceFill) {
+                    gl.enable(gl.POLYGON_OFFSET_FILL);
+                    gl.polygonOffset(1, 1);
+                }
                 bindAttribute(gl, program.position, geometry.position, 3);
                 bindAttribute(gl, program.normal, geometry.normal, 3);
                 bindAttribute(gl, program.color, geometry.color, 4);
@@ -6954,6 +8957,8 @@ void main() {
                 else {
                     gl.drawArrays(mode, 0, geometry.source.positions.length / 3);
                 }
+                if (offsetSurfaceFill)
+                    gl.disable(gl.POLYGON_OFFSET_FILL);
             }
         }
         #prepareSceneProgram(gl, program, scene, camera) {
@@ -7182,6 +9187,7 @@ void main() {
         unavailable: 'Hardware-accelerated 3D rendering is unavailable. The data table remains available.',
     };
     const svgNamespace = 'http://www.w3.org/2000/svg';
+    let spatialSemanticViewSequence = 0;
     function resolveTarget(target) {
         if (typeof target !== 'string')
             return target;
@@ -7356,6 +9362,7 @@ void main() {
         #options;
         #activePointers = new Map();
         #controlButtons = new Map();
+        #semanticViewId;
         #spec;
         #scene;
         #camera;
@@ -7382,10 +9389,21 @@ void main() {
         #annotations = [];
         #annotationsVisible = true;
         #annotationSequence = 0;
+        #semanticNavigation = null;
+        #semanticNavigationSignature = '';
+        #semanticKeyboardNavigation = false;
+        #semanticFocusRing = null;
+        #semanticMarks = new Map();
+        #linkedFocusUnregister = null;
+        #linkedFocusUnsubscribe = null;
+        #applyingLinkedFocus = false;
+        #lastPublishedSemanticId = null;
         constructor(target, spec, options = {}) {
             if (typeof document === 'undefined')
                 throw new Error('A DOM environment is required for a spatial chart.');
             this.#target = resolveTarget(target);
+            spatialSemanticViewSequence += 1;
+            this.#semanticViewId = `spatial-view-${spatialSemanticViewSequence}`;
             this.#spec = spec;
             this.#options = options;
             this.#scene = compileSpatial(spec);
@@ -7428,6 +9446,7 @@ void main() {
                     this.#setAvailability('ready');
                 this.#renderer.setScene(this.#scene);
                 this.#renderer.setCamera(this.#camera);
+                this.#syncSemanticNavigation();
                 this.#syncAccessibilityDom();
                 this.#renderAccessibilityTable();
                 this.#syncControlStructure();
@@ -7466,6 +9485,7 @@ void main() {
             this.#initialCamera = this.#camera;
             this.#renderer.setScene(scene);
             this.#renderer.setCamera(this.#camera);
+            this.#syncSemanticNavigation();
             this.#applyThemeChrome();
             this.#hideTooltip();
             this.#syncAccessibilityDom();
@@ -7624,6 +9644,31 @@ void main() {
         getAvailability() {
             return { ...this.#availability };
         }
+        getSemanticNavigationState() {
+            return (this.#semanticNavigation?.state() ?? {
+                version: 1,
+                rowCount: 0,
+                activeIndex: null,
+                activeNodeId: null,
+                projected: null,
+            });
+        }
+        focusSemanticNode(nodeId) {
+            this.#assertAlive();
+            if (this.#semanticNavigation === null)
+                throw new TypeError('Enable accessibility.navigation before focusing GPU marks.');
+            this.#semanticNavigation.focusNode(nodeId);
+        }
+        clearSemanticFocus() {
+            this.#assertAlive();
+            this.#semanticNavigation?.clear();
+            this.#lastPublishedSemanticId = null;
+            const store = this.#focusStore();
+            if (this.#spec.accessibility?.linkedFocus !== undefined &&
+                store.state().focused?.sourceViewId === this.#semanticViewId) {
+                store.clear();
+            }
+        }
         setCamera(camera) {
             this.#assertAlive();
             this.#camera = resolveSpatialCameraPatch(this.#spec, this.#camera, camera, this.#scene.bounds.radius);
@@ -7711,6 +9756,7 @@ void main() {
             this.#height = resolvedHeight;
             this.#wrapper.style.height = `${resolvedHeight}px`;
             this.#resizeRendererViewport();
+            this.#semanticNavigation?.reproject();
             this.#syncOverlays();
             this.#events.emit('resize', { chart: this, width: resolvedWidth, height: resolvedHeight });
         }
@@ -7718,6 +9764,7 @@ void main() {
             this.#assertAlive();
             this.#renderer.setCamera(this.#camera);
             this.#renderer.render();
+            this.#semanticNavigation?.reproject();
             this.#syncAccessibilityDom();
             this.#syncControlStructure();
             this.#syncOverlays();
@@ -7773,6 +9820,9 @@ void main() {
             this.#overlays.destroy();
             this.#renderer.destroy();
             this.#tooltip?.remove();
+            this.#semanticFocusRing?.remove();
+            this.#linkedFocusUnregister?.();
+            this.#linkedFocusUnsubscribe?.();
             this.#fallback?.remove();
             this.#accessibility?.remove();
             this.#wrapper.remove();
@@ -7881,11 +9931,43 @@ void main() {
             if (!(event instanceof KeyboardEvent))
                 return;
             const selection = this.#selectionConfig();
-            if (event.key === 'Escape' &&
-                selection !== false &&
-                selection.clearOnEscape &&
-                this.#selection.length > 0) {
-                this.clearSelection();
+            if (event.key === 'Escape') {
+                let cleared = false;
+                if (selection !== false && selection.clearOnEscape && this.#selection.length > 0) {
+                    this.clearSelection();
+                    cleared = true;
+                }
+                if (this.#semanticNavigation?.state().activeIndex !== null) {
+                    this.clearSemanticFocus();
+                    cleared = true;
+                }
+                if (cleared)
+                    event.preventDefault();
+                if (cleared)
+                    return;
+            }
+            const semanticKeys = new Set([
+                'ArrowLeft',
+                'ArrowRight',
+                'ArrowUp',
+                'ArrowDown',
+                'Home',
+                'End',
+                'PageUp',
+                'PageDown',
+            ]);
+            if (this.#semanticKeyboardNavigation &&
+                this.#semanticNavigation !== null &&
+                !event.shiftKey &&
+                semanticKeys.has(event.key)) {
+                this.#semanticNavigation.move(event.key);
+                event.preventDefault();
+                return;
+            }
+            if (this.#semanticKeyboardNavigation &&
+                this.#semanticNavigation !== null &&
+                (event.key === 'Enter' || event.key === ' ')) {
+                this.#semanticNavigation.activate();
                 event.preventDefault();
                 return;
             }
@@ -8006,7 +10088,10 @@ void main() {
                 else if (selectedLayer.mark.type === 'vector' &&
                     selectedData !== undefined &&
                     'vectors' in selectedData) {
-                    values = selectedData.vectors.map((vector) => Math.hypot(...vector));
+                    values =
+                        'dimensions' in selectedData
+                            ? compiledValues
+                            : selectedData.vectors.map((vector) => Math.hypot(...vector));
                     configuredColors = selectedData.colors;
                 }
                 else if (selectedLayer.mark.type === 'volume')
@@ -8355,6 +10440,183 @@ void main() {
                 ...(input.near === undefined ? {} : { near: input.near }),
                 ...(input.far === undefined ? {} : { far: input.far }),
             });
+        }
+        #syncSemanticNavigation() {
+            const authored = this.#spec.accessibility?.navigation;
+            const linked = this.#spec.accessibility?.linkedFocus;
+            this.#semanticKeyboardNavigation = authored === true || typeof authored === 'object';
+            this.#linkedFocusUnregister?.();
+            this.#linkedFocusUnregister = null;
+            this.#linkedFocusUnsubscribe?.();
+            this.#linkedFocusUnsubscribe = null;
+            this.#semanticMarks.clear();
+            this.#lastPublishedSemanticId = null;
+            if (!this.#semanticKeyboardNavigation && linked === undefined) {
+                this.#semanticNavigation?.clear();
+                this.#semanticNavigation = null;
+                this.#semanticNavigationSignature = '';
+                this.#hideSemanticFocus();
+                return;
+            }
+            const navigation = typeof authored === 'object' ? authored : {};
+            const maxRows = this.#spec.accessibility?.maxRows ?? 100;
+            const signature = JSON.stringify({
+                maxRows,
+                pageRows: navigation.pageRows ?? 10,
+                wrap: navigation.wrap ?? false,
+            });
+            if (this.#semanticNavigation === null || signature !== this.#semanticNavigationSignature) {
+                this.#semanticNavigation = new SpatialSemanticNavigator({
+                    focus: (focus) => this.#applySemanticFocus(focus),
+                    activate: (focus) => this.#activateSemanticFocus(focus),
+                }, {
+                    maxRows,
+                    pageRows: navigation.pageRows ?? 10,
+                    wrap: navigation.wrap ?? false,
+                });
+                this.#semanticNavigationSignature = signature;
+            }
+            const previousNode = this.#semanticNavigation.state().activeNodeId;
+            const picks = collectAccessibleSpatialPicks(this.#scene.geometries, maxRows);
+            this.#semanticNavigation.setProjector((pick) => {
+                const projected = this.#renderer.project(pick.position);
+                return projected === null ? null : { ...projected };
+            });
+            this.#semanticNavigation.setTargets(picks, previousNode);
+            if (linked === undefined)
+                return;
+            const linkable = picks.filter(({ datum }) => {
+                const value = datum[linked.key];
+                return ((typeof value === 'string' && value !== '') ||
+                    typeof value === 'boolean' ||
+                    (typeof value === 'number' && Number.isFinite(value)) ||
+                    (value instanceof Date && Number.isFinite(value.getTime())));
+            });
+            for (const pick of linkable) {
+                const projected = this.#renderer.project(pick.position);
+                this.#semanticMarks.set(pick.nodeId, {
+                    id: pick.nodeId,
+                    viewId: this.#semanticViewId,
+                    layerId: pick.layerId,
+                    rowIndex: pick.datumIndex,
+                    role: 'spatial-pick',
+                    channels: {},
+                    datum: pick.datum,
+                    lineage: {
+                        sourceId: pick.layerId,
+                        sourceRowIndices: [pick.datumIndex],
+                        truncated: false,
+                    },
+                    bounds: projected === null
+                        ? { x: 0, y: 0, width: 0, height: 0 }
+                        : { x: projected.x, y: projected.y, width: 8, height: 8 },
+                    visible: projected?.visible ?? false,
+                    label: safeText(pick.datum.label ?? `${pick.layerId} ${pick.datumIndex + 1}`),
+                });
+            }
+            const store = this.#focusStore();
+            this.#linkedFocusUnregister = store.registerView(this.#semanticViewId, linked, [
+                ...this.#semanticMarks.values(),
+            ]);
+            this.#linkedFocusUnsubscribe = store.subscribe((change) => this.#applyLinkedSemanticFocus(change));
+            this.#applyLinkedSemanticFocus({
+                state: store.state(),
+                reason: 'index',
+            });
+        }
+        #applyLinkedSemanticFocus(change) {
+            const linked = this.#spec.accessibility?.linkedFocus;
+            if (linked === undefined || change.state.focused?.group !== linked.group)
+                return;
+            const match = change.state.matches.find(({ viewId }) => viewId === this.#semanticViewId);
+            if (match === undefined) {
+                this.#hideSemanticFocus();
+                return;
+            }
+            if (this.#semanticNavigation?.state().activeNodeId === match.semanticId) {
+                this.#semanticNavigation.reproject();
+                return;
+            }
+            this.#applyingLinkedFocus = true;
+            try {
+                this.#semanticNavigation?.focusNode(match.semanticId);
+            }
+            finally {
+                this.#applyingLinkedFocus = false;
+            }
+        }
+        #applySemanticFocus(focus) {
+            if (focus === null || focus.screen === null || !focus.screen.visible) {
+                this.#hideSemanticFocus();
+                return;
+            }
+            if (this.#semanticFocusRing === null) {
+                const ring = document.createElement('div');
+                ring.dataset.graflumeSpatialSemanticFocus = 'true';
+                ring.setAttribute('aria-hidden', 'true');
+                ring.style.position = 'absolute';
+                ring.style.zIndex = '19';
+                ring.style.pointerEvents = 'none';
+                ring.style.width = '14px';
+                ring.style.height = '14px';
+                ring.style.border = `3px solid ${this.#scene.theme.colors.focus}`;
+                ring.style.borderRadius = '50%';
+                ring.style.boxShadow = '0 0 0 2px rgba(255,255,255,.9)';
+                this.#wrapper.append(ring);
+                this.#semanticFocusRing = ring;
+            }
+            this.#semanticFocusRing.style.borderColor = this.#scene.theme.colors.focus;
+            this.#semanticFocusRing.style.left = `${this.#plotViewport.x + focus.screen.x - 10}px`;
+            this.#semanticFocusRing.style.top = `${this.#plotViewport.y + focus.screen.y - 10}px`;
+            this.#semanticFocusRing.hidden = false;
+            const rowId = this.#spatialSemanticRowId(focus.pick);
+            this.#renderer.surface().setAttribute('aria-activedescendant', rowId);
+            const hit = {
+                ...focus.pick,
+                screen: {
+                    x: focus.screen.x,
+                    y: focus.screen.y,
+                    depth: focus.screen.depth,
+                },
+            };
+            const surfaceBounds = this.#renderer.surface().getBoundingClientRect();
+            this.#showTooltip(hit, {
+                clientX: surfaceBounds.left + focus.screen.x,
+                clientY: surfaceBounds.top + focus.screen.y,
+            });
+            if (!this.#applyingLinkedFocus &&
+                this.#spec.accessibility?.linkedFocus !== undefined &&
+                this.#lastPublishedSemanticId !== focus.pick.nodeId) {
+                const mark = this.#semanticMarks.get(focus.pick.nodeId);
+                if (mark !== undefined) {
+                    this.#lastPublishedSemanticId = focus.pick.nodeId;
+                    this.#focusStore().focus(this.#semanticViewId, mark);
+                }
+            }
+        }
+        #focusStore() {
+            return this.#options.focusStore ?? defaultSemanticFocusStore;
+        }
+        #activateSemanticFocus(focus) {
+            if (focus.screen === null)
+                return;
+            this.#applyClickSelection({
+                ...focus.pick,
+                screen: {
+                    x: focus.screen.x,
+                    y: focus.screen.y,
+                    depth: focus.screen.depth,
+                },
+            });
+        }
+        #hideSemanticFocus() {
+            if (this.#semanticFocusRing !== null)
+                this.#semanticFocusRing.hidden = true;
+            this.#renderer.surface().removeAttribute?.('aria-activedescendant');
+            this.#hideTooltip();
+        }
+        #spatialSemanticRowId(pick) {
+            return `graflume-spatial-row-${this.#semanticViewId}-${pick.layerIndex}-${pick.datumIndex}`;
         }
         #syncAccessibilityDom() {
             const labels = this.#labels();
@@ -8753,6 +11015,9 @@ void main() {
                 const body = document.createElement('tbody');
                 for (const pick of picks) {
                     const row = document.createElement('tr');
+                    row.id = this.#spatialSemanticRowId(pick);
+                    row.dataset.graflumeSpatialSemanticId = pick.nodeId;
+                    row.setAttribute('aria-label', safeText(pick.datum.label ?? `${pick.layerId} ${pick.datumIndex + 1}`));
                     for (const field of fields) {
                         const cell = document.createElement('td');
                         cell.textContent = safeText(pick.datum[field]);
@@ -8895,12 +11160,12 @@ void main() {
     ]);
     const spatialCatalogBoundary = Object.freeze({
         coreAndCompleteCanonicalFamilies: 41,
-        coreAndCompletePresets: 165,
+        coreAndCompletePresets: 168,
         spatialCanonicalFamilies: spatialChartFamilies.length,
         totalCanonicalFamilies: 44,
         spatialVariants: spatialChartFamilies.reduce((total, family) => total + family.variants.length, 0),
         integratedExistingFamilyModes: spatialCompatibilityModes.length,
-        totalPresetsAndModes: 173,
+        totalPresetsAndModes: 176,
     });
 
     const spatialSpecVersion = '0.1';
@@ -8934,7 +11199,10 @@ void main() {
                         mode: 'surface',
                         ...(options.color === undefined ? {} : { color: options.color }),
                         ...(options.opacity === undefined ? {} : { opacity: options.opacity }),
+                        ...(options.normalMode === undefined ? {} : { normalMode: options.normalMode }),
                         ...(options.wireframe === undefined ? {} : { wireframe: options.wireframe }),
+                        ...(options.wireOverlay === undefined ? {} : { wireOverlay: options.wireOverlay }),
+                        ...(options.contours === undefined ? {} : { contours: options.contours }),
                     },
                     data,
                 },
@@ -8952,7 +11220,10 @@ void main() {
                         mode: 'mesh',
                         ...(options.color === undefined ? {} : { color: options.color }),
                         ...(options.opacity === undefined ? {} : { opacity: options.opacity }),
+                        ...(options.normalMode === undefined ? {} : { normalMode: options.normalMode }),
                         ...(options.wireframe === undefined ? {} : { wireframe: options.wireframe }),
+                        ...(options.wireOverlay === undefined ? {} : { wireOverlay: options.wireOverlay }),
+                        ...(options.contours === undefined ? {} : { contours: options.contours }),
                     },
                     data,
                 },
@@ -8974,6 +11245,12 @@ void main() {
                         ...(options.maxSamples === undefined ? {} : { maxSamples: options.maxSamples }),
                         ...(options.colorLow === undefined ? {} : { colorLow: options.colorLow }),
                         ...(options.colorHigh === undefined ? {} : { colorHigh: options.colorHigh }),
+                        ...(options.transferFunction === undefined
+                            ? {}
+                            : { transferFunction: options.transferFunction }),
+                        ...(options.windowLevel === undefined ? {} : { windowLevel: options.windowLevel }),
+                        ...(options.render === undefined ? {} : { render: options.render }),
+                        ...(options.slices === undefined ? {} : { slices: options.slices }),
                     },
                     data,
                 },
@@ -9000,6 +11277,10 @@ void main() {
                         ...(options.radius === undefined ? {} : { radius: options.radius }),
                         ...(options.scale === undefined ? {} : { scale: options.scale }),
                         ...(options.segments === undefined ? {} : { segments: options.segments }),
+                        ...(options.integration === undefined ? {} : { integration: options.integration }),
+                        ...(options.magnitudeEncoding === undefined
+                            ? {}
+                            : { magnitudeEncoding: options.magnitudeEncoding }),
                     },
                     data,
                 },
@@ -9010,6 +11291,10 @@ void main() {
         return vectorChart(target, data, 'cone', options);
     }
     function streamtube(target, data, options = {}) {
+        return vectorChart(target, data, 'streamtube', options);
+    }
+    /** Integrates a portable raw 3D vector lattice and renders the derived paths as streamtubes. */
+    function vectorField(target, data, options = {}) {
         return vectorChart(target, data, 'streamtube', options);
     }
     function spatialScatter(target, data, options = {}) {
@@ -9076,19 +11361,31 @@ void main() {
     });
 
     exports.SpatialChart = SpatialChart;
+    exports.SpatialSemanticNavigator = SpatialSemanticNavigator;
     exports.assertValidSpatialSpec = assertValidSpatialSpec;
     exports.builtInThemeCatalog = builtInThemeCatalog;
     exports.compileSpatial = compileSpatial;
+    exports.computeSurfaceNormalGeometry = computeSurfaceNormalGeometry;
     exports.createSpatial = createSpatial;
+    exports.createSpatialSemanticNavigator = createSpatialSemanticNavigator;
     exports.defaultThemeId = defaultThemeId;
+    exports.evaluateVolumeTransfer = evaluateVolumeTransfer;
+    exports.extractSurfaceContourSegments = extractSurfaceContourSegments;
+    exports.generateVectorFieldSeeds = generateVectorFieldSeeds;
     exports.globe = globe;
     exports.graflumeDark = graflumeDark;
     exports.graflumeGgplot = graflumeGgplot;
     exports.graflumeLight = graflumeLight;
     exports.graflumeMatplotlib = graflumeMatplotlib;
     exports.graflumeRBase = graflumeRBase;
+    exports.integrateVectorField = integrateVectorField;
     exports.isosurface = isosurface;
     exports.mesh = mesh;
+    exports.normalizeVolumeValue = normalizeVolumeValue;
+    exports.projectVolumeRays = projectVolumeRays;
+    exports.sampleVectorField = sampleVectorField;
+    exports.sampleVolumeSlice = sampleVolumeSlice;
+    exports.sampleVolumeValue = sampleVolumeValue;
     exports.scatter = scatter;
     exports.spatialCapabilities = spatialCapabilities;
     exports.spatialCatalogBoundary = spatialCatalogBoundary;
@@ -9101,7 +11398,12 @@ void main() {
     exports.surface = surface;
     exports.validateSpatialSpec = validateSpatialSpec;
     exports.vectorCone = vectorCone;
+    exports.vectorField = vectorField;
+    exports.vectorFieldWorldBounds = vectorFieldWorldBounds;
     exports.volume = volume;
+    exports.volumeValueExtent = volumeValueExtent;
+    exports.volumeWorldBounds = volumeWorldBounds;
+    exports.volumeWorldPosition = volumeWorldPosition;
     exports.webglSpatialRenderer = webglSpatialRenderer;
 
     return exports;
