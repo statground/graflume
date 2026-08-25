@@ -195,12 +195,297 @@ var Graflume = (function (exports) {
         };
     }
 
+    class GraflumeError extends Error {
+        code;
+        path;
+        details;
+        constructor(code, message, options = {}) {
+            super(message, options.cause === undefined ? undefined : { cause: options.cause });
+            this.name = 'GraflumeError';
+            this.code = code;
+            if (options.path !== undefined)
+                this.path = options.path;
+            if (options.details !== undefined)
+                this.details = options.details;
+        }
+    }
+
+    function fail$2(message, path = '$.interaction.selection') {
+        throw new GraflumeError('INCOMPATIBLE_SCALE', message, { path });
+    }
+    function finite$1(value, label) {
+        if (!Number.isFinite(value))
+            fail$2(`${label} must be finite.`);
+        return value;
+    }
+    function scaleFor$1(context, axis) {
+        const scale = context.axes[axis];
+        if (scale === undefined)
+            fail$2(`Axis "${axis}" is not resolved.`, `$.axes.${axis}`);
+        return scale;
+    }
+    function clampToRange(scale, pixel) {
+        finite$1(pixel, 'Pixel coordinate');
+        const range = scale.range();
+        if (range.length === 0)
+            fail$2(`Scale "${scale.kind}" has an empty range.`);
+        const minimum = Math.min(...range);
+        const maximum = Math.max(...range);
+        return Math.max(minimum, Math.min(maximum, pixel));
+    }
+    function nearestCategorical(scale, pixel) {
+        if (scale.kind !== 'band' && scale.kind !== 'point') {
+            fail$2(`Scale "${scale.kind}" has no single-valued inverse; analytic geometry supports invertible continuous, band, and point axes only.`);
+        }
+        const candidates = scale.domain().map((value) => {
+            const mapped = scale.map(value);
+            return { value: String(value), distance: Math.abs(mapped - pixel) };
+        });
+        const nearest = candidates.reduce((best, candidate) => best === undefined || candidate.distance < best.distance ? candidate : best, undefined);
+        if (nearest === undefined)
+            fail$2(`Scale "${scale.kind}" has an empty domain.`);
+        return nearest.value;
+    }
+    function domainToPixel(context, axis, value) {
+        const mapped = scaleFor$1(context, axis).map(value);
+        if (!Number.isFinite(mapped)) {
+            fail$2(`Value ${String(value)} cannot be mapped on axis "${axis}".`, `$.axes.${axis}`);
+        }
+        return mapped;
+    }
+    function pixelToDomain(context, axis, pixel) {
+        const scale = scaleFor$1(context, axis);
+        const bounded = clampToRange(scale, pixel);
+        if (scale.invert === undefined)
+            return nearestCategorical(scale, bounded);
+        const value = scale.invert(bounded);
+        if (typeof value === 'number' && !Number.isFinite(value)) {
+            fail$2(`Pixel ${pixel} cannot be inverted on axis "${axis}".`, `$.axes.${axis}`);
+        }
+        return value;
+    }
+    function clampPixelToPlot(context, point) {
+        finite$1(point.x, 'Pixel x');
+        finite$1(point.y, 'Pixel y');
+        return Object.freeze({
+            x: Math.max(context.plot.x, Math.min(context.plot.x + context.plot.width, point.x)),
+            y: Math.max(context.plot.y, Math.min(context.plot.y + context.plot.height, point.y)),
+        });
+    }
+    function pixelPointToDomain(context, point, axes = {}) {
+        const bounded = clampPixelToPlot(context, point);
+        const xAxis = axes.x ?? 'x';
+        const yAxis = axes.y ?? 'y';
+        return Object.freeze({
+            type: 'point',
+            xAxis,
+            yAxis,
+            x: pixelToDomain(context, xAxis, bounded.x),
+            y: pixelToDomain(context, yAxis, bounded.y),
+        });
+    }
+    function domainPointToPixel(context, point) {
+        if (point.x === undefined || point.y === undefined) {
+            fail$2('A domain point requires both x and y to map to pixels.');
+        }
+        return Object.freeze({
+            x: domainToPixel(context, point.xAxis ?? 'x', point.x),
+            y: domainToPixel(context, point.yAxis ?? 'y', point.y),
+        });
+    }
+    function continuousDomain(context, axis, pixel) {
+        const scale = scaleFor$1(context, axis);
+        if (scale.invert === undefined) {
+            fail$2(`Selection geometry on axis "${axis}" requires an invertible continuous scale; "${scale.kind}" is unsupported.`, `$.axes.${axis}`);
+        }
+        const value = pixelToDomain(context, axis, pixel);
+        if (typeof value !== 'number') {
+            fail$2(`Selection geometry on axis "${axis}" must invert to a number.`, `$.axes.${axis}`);
+        }
+        return value;
+    }
+    function extent$1(start, end) {
+        return Object.freeze(start <= end ? [start, end] : [end, start]);
+    }
+    function pixelRectangleToSelection(context, start, end, options = {}) {
+        const first = clampPixelToPlot(context, start);
+        const last = clampPixelToPlot(context, end);
+        const xAxis = options.xAxis ?? 'x';
+        const yAxis = options.yAxis ?? 'y';
+        return Object.freeze({
+            type: options.type ?? 'rectangle',
+            xAxis,
+            yAxis,
+            x: extent$1(continuousDomain(context, xAxis, first.x), continuousDomain(context, xAxis, last.x)),
+            y: extent$1(continuousDomain(context, yAxis, first.y), continuousDomain(context, yAxis, last.y)),
+        });
+    }
+    function pixelAxisToSelection(context, axis, start, end) {
+        const first = clampPixelToPlot(context, start);
+        const last = clampPixelToPlot(context, end);
+        const horizontal = axis === 'x' || axis === 'x2';
+        return Object.freeze({
+            type: 'axis',
+            axis,
+            extent: extent$1(continuousDomain(context, axis, horizontal ? first.x : first.y), continuousDomain(context, axis, horizontal ? last.x : last.y)),
+        });
+    }
+    function pixelLassoToSelection(context, points, axes = {}) {
+        if (points.length < 3)
+            fail$2('A lasso gesture requires at least three points.');
+        if (points.length > 512)
+            fail$2('A lasso gesture exceeds the 512 point bound.');
+        const xAxis = axes.x ?? 'x';
+        const yAxis = axes.y ?? 'y';
+        const domainPoints = points.map((point) => {
+            const bounded = clampPixelToPlot(context, point);
+            return Object.freeze({
+                x: continuousDomain(context, xAxis, bounded.x),
+                y: continuousDomain(context, yAxis, bounded.y),
+            });
+        });
+        return Object.freeze({
+            type: 'lasso',
+            xAxis,
+            yAxis,
+            points: Object.freeze(domainPoints),
+        });
+    }
+    function selectionToPixels(context, selection) {
+        if (selection.type === 'point') {
+            if (selection.x === undefined || selection.y === undefined)
+                return [];
+            return [domainPointToPixel(context, selection)];
+        }
+        if (selection.type === 'interval' || selection.type === 'rectangle') {
+            return [
+                Object.freeze({
+                    x: domainToPixel(context, selection.xAxis, selection.x[0]),
+                    y: domainToPixel(context, selection.yAxis, selection.y[0]),
+                }),
+                Object.freeze({
+                    x: domainToPixel(context, selection.xAxis, selection.x[1]),
+                    y: domainToPixel(context, selection.yAxis, selection.y[1]),
+                }),
+            ];
+        }
+        if (selection.type === 'axis') {
+            const horizontal = selection.axis === 'x' || selection.axis === 'x2';
+            const start = domainToPixel(context, selection.axis, selection.extent[0]);
+            const end = domainToPixel(context, selection.axis, selection.extent[1]);
+            return horizontal
+                ? [
+                    Object.freeze({ x: start, y: context.plot.y }),
+                    Object.freeze({ x: end, y: context.plot.y + context.plot.height }),
+                ]
+                : [
+                    Object.freeze({ x: context.plot.x, y: start }),
+                    Object.freeze({ x: context.plot.x + context.plot.width, y: end }),
+                ];
+        }
+        return selection.points.map((point) => Object.freeze({
+            x: domainToPixel(context, selection.xAxis, point.x),
+            y: domainToPixel(context, selection.yAxis, point.y),
+        }));
+    }
+
+    /** Compile completed domain selections into non-interactive, plot-clipped Scene nodes. */
+    function compileAnalyticSelectionOverlay(state, context, style) {
+        const nodes = [];
+        state.selections.forEach((selection, index) => {
+            const points = selectionToPixels(context, selection);
+            if (selection.type === 'point') {
+                const point = points[0];
+                if (point === undefined)
+                    return;
+                nodes.push({
+                    type: 'circle',
+                    ...nodeBase(`analytic-selection:${index}`, { zIndex: 760, opacity: style.opacity }),
+                    cx: point.x,
+                    cy: point.y,
+                    radius: style.radius,
+                    fill: style.fill,
+                    stroke: style.stroke,
+                    lineWidth: style.lineWidth,
+                    dash: style.dash,
+                });
+                return;
+            }
+            if (selection.type === 'lasso') {
+                nodes.push({
+                    type: 'path',
+                    ...nodeBase(`analytic-selection:${index}`, { zIndex: 760, opacity: style.opacity }),
+                    points,
+                    closed: true,
+                    fill: style.fill,
+                    stroke: style.stroke,
+                    lineWidth: style.lineWidth,
+                    dash: style.dash,
+                    lineJoin: 'round',
+                });
+                return;
+            }
+            const first = points[0];
+            const last = points[1];
+            if (first === undefined || last === undefined)
+                return;
+            nodes.push({
+                type: 'rect',
+                ...nodeBase(`analytic-selection:${index}`, { zIndex: 760, opacity: style.opacity }),
+                x: Math.min(first.x, last.x),
+                y: Math.min(first.y, last.y),
+                width: Math.abs(last.x - first.x),
+                height: Math.abs(last.y - first.y),
+                fill: style.fill,
+                stroke: style.stroke,
+                lineWidth: style.lineWidth,
+                dash: style.dash,
+                cornerRadius: 0,
+            });
+        });
+        return nodes.length === 0
+            ? []
+            : [group('analytic-selection:overlay', nodes, { zIndex: 760, clip: context.plot })];
+    }
+
     function countSceneNodes(root) {
         let count = 1;
         for (const child of root.children) {
             count += child.type === 'group' ? countSceneNodes(child) : 1;
         }
         return count;
+    }
+
+    const compositionOperators = [
+        'layer',
+        'facet',
+        'repeat',
+        'hconcat',
+        'vconcat',
+        'concat',
+        'inset',
+    ];
+    const maximumCompositionDepth = 4;
+    const maximumCompositionViews = 64;
+    const maximumCompositionLayers = 128;
+    const maximumLayerCompositionChildren = 16;
+    function presentCompositionOperators(input) {
+        return compositionOperators.filter((key) => input[key] !== undefined);
+    }
+    function compositionKind(input) {
+        const operators = presentCompositionOperators(input);
+        return operators.length === 1 ? operators[0] : null;
+    }
+    function isCompositionSpec(input) {
+        return presentCompositionOperators(input).length > 0;
+    }
+    function resolveComposition(input, kind) {
+        const defaultMode = kind === 'layer' ? 'shared' : 'independent';
+        return {
+            scale: input?.scale ?? defaultMode,
+            axis: input?.axis ?? defaultMode,
+            legend: input?.legend ?? defaultMode,
+        };
     }
 
     const version = '0.1.0-alpha.0';
@@ -934,19 +1219,1133 @@ var Graflume = (function (exports) {
         return builtInThemeCatalog.find((entry) => entry.id === name)?.tokens;
     }
 
-    class GraflumeError extends Error {
-        code;
-        path;
-        details;
-        constructor(code, message, options = {}) {
-            super(message, options.cause === undefined ? undefined : { cause: options.cause });
-            this.name = 'GraflumeError';
-            this.code = code;
-            if (options.path !== undefined)
-                this.path = options.path;
-            if (options.details !== undefined)
-                this.details = options.details;
+    /** Function-free curve names accepted by line-like portable marks. */
+    const curveNames = [
+        'straight',
+        'step-before',
+        'step-after',
+        'step-mid',
+        'monotone-x',
+        'natural',
+        'basis',
+        'cardinal',
+    ];
+    function subdivisions(options) {
+        const requested = options?.samples;
+        return typeof requested === 'number' && Number.isFinite(requested)
+            ? Math.max(1, Math.min(64, Math.floor(requested)))
+            : 8;
+    }
+    function boundedTension(options) {
+        const requested = options?.tension;
+        return typeof requested === 'number' && Number.isFinite(requested)
+            ? Math.max(0, Math.min(1, requested))
+            : 0;
+    }
+    function straight(points) {
+        return [...points];
+    }
+    function stepBefore(points) {
+        const output = [];
+        points.forEach((point, index) => {
+            const previous = points[index - 1];
+            if (previous !== undefined)
+                output.push({ x: previous.x, y: point.y });
+            output.push(point);
+        });
+        return output;
+    }
+    function stepAfter(points) {
+        const output = [];
+        points.forEach((point, index) => {
+            const previous = points[index - 1];
+            if (previous !== undefined)
+                output.push({ x: point.x, y: previous.y });
+            output.push(point);
+        });
+        return output;
+    }
+    function stepMid(points) {
+        const first = points[0];
+        if (first === undefined)
+            return [];
+        const output = [first];
+        for (let index = 1; index < points.length; index += 1) {
+            const previous = points[index - 1];
+            const point = points[index];
+            if (previous === undefined || point === undefined)
+                continue;
+            const middle = (previous.x + point.x) / 2;
+            output.push({ x: middle, y: previous.y }, { x: middle, y: point.y }, point);
         }
+        return output;
+    }
+    function cardinal(points, options) {
+        if (points.length < 3)
+            return [...points];
+        const samples = subdivisions(options);
+        const tangentScale = 1 - boundedTension(options);
+        const output = [];
+        for (let index = 0; index < points.length - 1; index += 1) {
+            const p0 = points[Math.max(0, index - 1)] ?? points[0];
+            const p1 = points[index];
+            const p2 = points[index + 1];
+            const p3 = points[Math.min(points.length - 1, index + 2)] ?? p2;
+            const m1 = {
+                x: ((p2.x - p0.x) * tangentScale) / 2,
+                y: ((p2.y - p0.y) * tangentScale) / 2,
+            };
+            const m2 = {
+                x: ((p3.x - p1.x) * tangentScale) / 2,
+                y: ((p3.y - p1.y) * tangentScale) / 2,
+            };
+            for (let sample = 0; sample < samples; sample += 1) {
+                const t = sample / samples;
+                const t2 = t * t;
+                const t3 = t2 * t;
+                const h00 = 2 * t3 - 3 * t2 + 1;
+                const h10 = t3 - 2 * t2 + t;
+                const h01 = -2 * t3 + 3 * t2;
+                const h11 = t3 - t2;
+                output.push({
+                    x: h00 * p1.x + h10 * m1.x + h01 * p2.x + h11 * m2.x,
+                    y: h00 * p1.y + h10 * m1.y + h01 * p2.y + h11 * m2.y,
+                });
+            }
+        }
+        output.push(points.at(-1));
+        return output;
+    }
+    function monotoneX(points, options) {
+        if (points.length < 3)
+            return [...points];
+        const direction = Math.sign((points.at(-1)?.x ?? 0) - (points[0]?.x ?? 0));
+        if (direction === 0 ||
+            points.some((point, index) => {
+                const previous = points[index - 1];
+                return previous !== undefined && Math.sign(point.x - previous.x) !== direction;
+            })) {
+            return [...points];
+        }
+        const slopes = Array.from({ length: points.length - 1 }, (_, index) => {
+            const left = points[index];
+            const right = points[index + 1];
+            return (right.y - left.y) / (right.x - left.x);
+        });
+        const tangents = Array.from({ length: points.length }, (_, index) => {
+            const left = slopes[index - 1];
+            const right = slopes[index];
+            if (left === undefined)
+                return right ?? 0;
+            if (right === undefined)
+                return left;
+            if (left === 0 || right === 0 || Math.sign(left) !== Math.sign(right))
+                return 0;
+            return (2 * left * right) / (left + right);
+        });
+        const samples = subdivisions(options);
+        const output = [];
+        for (let index = 0; index < points.length - 1; index += 1) {
+            const left = points[index];
+            const right = points[index + 1];
+            const span = right.x - left.x;
+            for (let sample = 0; sample < samples; sample += 1) {
+                const t = sample / samples;
+                const t2 = t * t;
+                const t3 = t2 * t;
+                const h00 = 2 * t3 - 3 * t2 + 1;
+                const h10 = t3 - 2 * t2 + t;
+                const h01 = -2 * t3 + 3 * t2;
+                const h11 = t3 - t2;
+                output.push({
+                    x: left.x + span * t,
+                    y: h00 * left.y +
+                        h10 * span * (tangents[index] ?? 0) +
+                        h01 * right.y +
+                        h11 * span * (tangents[index + 1] ?? 0),
+                });
+            }
+        }
+        output.push(points.at(-1));
+        return output;
+    }
+    function naturalCoordinate(values) {
+        const count = values.length;
+        if (count < 3)
+            return Array.from({ length: count }, () => 0);
+        const second = Array.from({ length: count }, () => 0);
+        const interiorCount = count - 2;
+        const upper = [];
+        const right = [];
+        for (let interior = 0; interior < interiorCount; interior += 1) {
+            const index = interior + 1;
+            const source = 6 * (values[index - 1] - 2 * values[index] + values[index + 1]);
+            const denominator = 4 - (interior === 0 ? 0 : upper[interior - 1]);
+            upper[interior] = interior === interiorCount - 1 ? 0 : 1 / denominator;
+            right[interior] = (source - (interior === 0 ? 0 : right[interior - 1])) / denominator;
+        }
+        for (let interior = interiorCount - 1; interior >= 0; interior -= 1) {
+            second[interior + 1] =
+                right[interior] -
+                    (interior === interiorCount - 1 ? 0 : upper[interior] * second[interior + 2]);
+        }
+        return second;
+    }
+    function natural(points, options) {
+        if (points.length < 3)
+            return [...points];
+        const xSecond = naturalCoordinate(points.map(({ x }) => x));
+        const ySecond = naturalCoordinate(points.map(({ y }) => y));
+        const samples = subdivisions(options);
+        const output = [];
+        for (let index = 0; index < points.length - 1; index += 1) {
+            const left = points[index];
+            const right = points[index + 1];
+            for (let sample = 0; sample < samples; sample += 1) {
+                const t = sample / samples;
+                const inverse = 1 - t;
+                const correctionLeft = (inverse * inverse * inverse - inverse) / 6;
+                const correctionRight = (t * t * t - t) / 6;
+                output.push({
+                    x: inverse * left.x +
+                        t * right.x +
+                        correctionLeft * xSecond[index] +
+                        correctionRight * xSecond[index + 1],
+                    y: inverse * left.y +
+                        t * right.y +
+                        correctionLeft * ySecond[index] +
+                        correctionRight * ySecond[index + 1],
+                });
+            }
+        }
+        output.push(points.at(-1));
+        return output;
+    }
+    function basis(points, options) {
+        if (points.length < 3)
+            return [...points];
+        const first = points[0];
+        const last = points.at(-1);
+        const controls = [first, first, ...points, last, last];
+        const samples = subdivisions(options);
+        const output = [];
+        for (let index = 0; index < controls.length - 3; index += 1) {
+            const p0 = controls[index];
+            const p1 = controls[index + 1];
+            const p2 = controls[index + 2];
+            const p3 = controls[index + 3];
+            for (let sample = 0; sample < samples; sample += 1) {
+                const t = sample / samples;
+                const t2 = t * t;
+                const t3 = t2 * t;
+                const b0 = (1 - 3 * t + 3 * t2 - t3) / 6;
+                const b1 = (4 - 6 * t2 + 3 * t3) / 6;
+                const b2 = (1 + 3 * t + 3 * t2 - 3 * t3) / 6;
+                const b3 = t3 / 6;
+                output.push({
+                    x: b0 * p0.x + b1 * p1.x + b2 * p2.x + b3 * p3.x,
+                    y: b0 * p0.y + b1 * p1.y + b2 * p2.y + b3 * p3.y,
+                });
+            }
+        }
+        output[0] = first;
+        output.push(last);
+        return output;
+    }
+    /** Immutable renderer-neutral curve registry used by every line-like compiler. */
+    const curveRegistry = Object.freeze({
+        straight,
+        'step-before': stepBefore,
+        'step-after': stepAfter,
+        'step-mid': stepMid,
+        'monotone-x': monotoneX,
+        natural,
+        basis,
+        cardinal,
+    });
+    function isCurveName(value) {
+        return typeof value === 'string' && curveNames.includes(value);
+    }
+    function resolveCurveName(value, fallback) {
+        return isCurveName(value) ? value : fallback;
+    }
+    function interpolateCurve(points, curve, options) {
+        return curveRegistry[curve](points, options);
+    }
+
+    const seriesStackModes = [
+        'grouped',
+        'stacked',
+        '100-percent',
+        'diverging',
+        'streamgraph',
+    ];
+    const STACK_FIELD_KEYS = {
+        source: '__stackSource',
+        start: '__stackStart',
+        end: '__stackEnd',
+        absoluteTotal: '__stackAbsoluteTotal',
+        positiveTotal: '__stackPositiveTotal',
+        negativeTotal: '__stackNegativeTotal',
+        netTotal: '__stackNetTotal',
+        series: '__stackSeries',
+        category: '__stackCategory',
+    };
+    function plainObject(value) {
+        return value !== null &&
+            typeof value === 'object' &&
+            Object.prototype.toString.call(value) === '[object Object]'
+            ? value
+            : null;
+    }
+    function stackMode(value) {
+        return typeof value === 'string' && seriesStackModes.includes(value)
+            ? value
+            : null;
+    }
+    function defaultOffset(mode) {
+        if (mode === 'grouped')
+            return null;
+        if (mode === '100-percent')
+            return 'normalize';
+        if (mode === 'streamgraph')
+            return 'wiggle';
+        return 'zero';
+    }
+    function defaultOrder(mode) {
+        return mode === 'streamgraph' ? 'insideOut' : 'input';
+    }
+    function safeToken$1(value) {
+        let hash = 2_166_136_261;
+        for (const character of value) {
+            hash ^= character.codePointAt(0) ?? 0;
+            hash = Math.imul(hash, 16_777_619);
+        }
+        return (hash >>> 0).toString(36);
+    }
+    function internalFields(layer) {
+        const suffix = safeToken$1(`${layer.id}\u0000${layer.x.field}\u0000${layer.y.field}\u0000${layer.mark.fields.series ?? ''}`);
+        const field = (name) => `__graflume_${name}_${suffix}`;
+        return {
+            source: field('stack_source'),
+            start: field('stack_start'),
+            end: field('stack_end'),
+            absoluteTotal: field('stack_total'),
+            positiveTotal: field('stack_positive_total'),
+            negativeTotal: field('stack_negative_total'),
+            netTotal: field('stack_net_total'),
+            series: layer.mark.fields.series ?? layer.mark.fields.category ?? 'series',
+            category: layer.mark.orientation === 'horizontal' && layer.mark.type === 'bar'
+                ? layer.y.field
+                : layer.x.field,
+        };
+    }
+    function optionSort(value) {
+        if (!Array.isArray(value))
+            return undefined;
+        const fields = value.flatMap((item) => {
+            const object = plainObject(item);
+            if (object === null || typeof object.field !== 'string')
+                return [];
+            const order = object.order;
+            const entry = {
+                field: object.field,
+                ...(order === 'ascending' || order === 'descending' ? { order } : {}),
+            };
+            return [entry];
+        });
+        return fields.length === value.length ? fields : undefined;
+    }
+    /**
+     * Resolve the public series layout without executing data. Theme river keeps its
+     * historical centered layout unless the streamgraph preset opts into wiggle.
+     */
+    function resolveSeriesStackSpec(layer) {
+        if (!['area', 'bar', 'theme-river'].includes(layer.mark.type))
+            return null;
+        const authored = layer.mark.options.stack;
+        const object = plainObject(authored);
+        const implicitThemeRiver = layer.mark.type === 'theme-river' && authored === undefined;
+        const mode = implicitThemeRiver
+            ? 'streamgraph'
+            : (stackMode(authored) ?? stackMode(object?.mode) ?? null);
+        if (mode === null)
+            return null;
+        const fields = internalFields(layer);
+        const authoredOffset = object?.offset;
+        const offset = typeof authoredOffset === 'string' &&
+            ['zero', 'normalize', 'expand', 'center', 'silhouette', 'wiggle'].includes(authoredOffset)
+            ? authoredOffset
+            : implicitThemeRiver
+                ? 'silhouette'
+                : defaultOffset(mode);
+        const authoredOrder = object?.order;
+        const order = typeof authoredOrder === 'string' &&
+            ['input', 'ascending', 'descending', 'sumAscending', 'sumDescending', 'insideOut'].includes(authoredOrder)
+            ? authoredOrder
+            : implicitThemeRiver
+                ? 'input'
+                : defaultOrder(mode);
+        const sort = object === null ? undefined : optionSort(object.sort);
+        return {
+            mode,
+            offset,
+            order,
+            ...(sort === undefined ? {} : { sort }),
+            seriesField: fields.series,
+            categoryField: fields.category,
+            valueField: layer.mark.orientation === 'horizontal' && layer.mark.type === 'bar'
+                ? layer.x.field
+                : layer.y.field,
+        };
+    }
+    function calculatedTotalTransforms(spec, fields) {
+        const source = { op: 'field', field: spec.valueField };
+        const zero = { op: 'literal', value: 0 };
+        return [
+            { type: 'calculate', as: fields.source, expr: source },
+            {
+                type: 'calculate',
+                as: fields.absoluteTotal,
+                expr: {
+                    op: 'if',
+                    condition: { op: 'lessThan', left: source, right: zero },
+                    then: { op: 'negate', value: source },
+                    else: source,
+                },
+            },
+            {
+                type: 'calculate',
+                as: fields.positiveTotal,
+                expr: {
+                    op: 'if',
+                    condition: { op: 'greaterThan', left: source, right: zero },
+                    then: source,
+                    else: zero,
+                },
+            },
+            {
+                type: 'calculate',
+                as: fields.negativeTotal,
+                expr: {
+                    op: 'if',
+                    condition: { op: 'lessThan', left: source, right: zero },
+                    then: { op: 'negate', value: source },
+                    else: zero,
+                },
+            },
+            {
+                type: 'joinaggregate',
+                groupby: [spec.categoryField],
+                fields: [
+                    { op: 'sum', field: fields.source, as: fields.netTotal },
+                    { op: 'sum', field: fields.absoluteTotal, as: fields.absoluteTotal },
+                    { op: 'sum', field: fields.positiveTotal, as: fields.positiveTotal },
+                    { op: 'sum', field: fields.negativeTotal, as: fields.negativeTotal },
+                ],
+            },
+        ];
+    }
+    /** Append the shared transform and annotate only the internal layer copy. */
+    function prepareSeriesStackLayer(layer) {
+        const spec = resolveSeriesStackSpec(layer);
+        if (spec === null)
+            return null;
+        const fields = internalFields(layer);
+        const transforms = spec.offset === null
+            ? []
+            : [
+                ...calculatedTotalTransforms(spec, fields),
+                {
+                    type: 'stack',
+                    field: fields.source,
+                    groupby: [spec.categoryField],
+                    series: [spec.seriesField],
+                    ...(spec.sort === undefined ? {} : { sort: spec.sort }),
+                    as: [fields.start, fields.end],
+                    offset: spec.offset,
+                    order: spec.order,
+                },
+            ];
+        return {
+            spec,
+            fields,
+            layer: {
+                ...layer,
+                transform: [...layer.transform, ...transforms],
+                mark: {
+                    ...layer.mark,
+                    fields: {
+                        ...layer.mark.fields,
+                        [STACK_FIELD_KEYS.source]: fields.source,
+                        [STACK_FIELD_KEYS.start]: fields.start,
+                        [STACK_FIELD_KEYS.end]: fields.end,
+                        [STACK_FIELD_KEYS.absoluteTotal]: fields.absoluteTotal,
+                        [STACK_FIELD_KEYS.positiveTotal]: fields.positiveTotal,
+                        [STACK_FIELD_KEYS.negativeTotal]: fields.negativeTotal,
+                        [STACK_FIELD_KEYS.netTotal]: fields.netTotal,
+                        [STACK_FIELD_KEYS.series]: fields.series,
+                        [STACK_FIELD_KEYS.category]: fields.category,
+                    },
+                },
+            },
+        };
+    }
+    function preparedSeriesStackFields(layer) {
+        const read = (key) => layer.mark.fields[STACK_FIELD_KEYS[key]];
+        const source = read('source');
+        const start = read('start');
+        const end = read('end');
+        const absoluteTotal = read('absoluteTotal');
+        const positiveTotal = read('positiveTotal');
+        const negativeTotal = read('negativeTotal');
+        const netTotal = read('netTotal');
+        const series = read('series');
+        const category = read('category');
+        if (source === undefined ||
+            start === undefined ||
+            end === undefined ||
+            absoluteTotal === undefined ||
+            positiveTotal === undefined ||
+            negativeTotal === undefined ||
+            netTotal === undefined ||
+            series === undefined ||
+            category === undefined) {
+            return null;
+        }
+        return {
+            source,
+            start,
+            end,
+            absoluteTotal,
+            positiveTotal,
+            negativeTotal,
+            netTotal,
+            series,
+            category,
+        };
+    }
+
+    const definitions = [
+        { id: 'acceleration-bands', kind: 'abands', quickApi: 'accelerationBands' },
+        { id: 'awesome-oscillator', kind: 'ao', quickApi: 'awesomeOscillator' },
+        { id: 'absolute-price-oscillator', kind: 'apo', quickApi: 'absolutePriceOscillator' },
+        { id: 'aroon', kind: 'aroon', quickApi: 'aroon' },
+        { id: 'aroon-oscillator', kind: 'aroonoscillator', quickApi: 'aroonOscillator' },
+        { id: 'average-true-range', kind: 'atr', quickApi: 'averageTrueRange' },
+        { id: 'volatility-bands', kind: 'bb', quickApi: 'volatilityBands' },
+        { id: 'commodity-channel-index', kind: 'cci', quickApi: 'commodityChannelIndex' },
+        { id: 'chaikin-oscillator', kind: 'chaikin', quickApi: 'chaikinOscillator' },
+        { id: 'chaikin-money-flow', kind: 'cmf', quickApi: 'chaikinMoneyFlow' },
+        { id: 'chande-momentum-oscillator', kind: 'cmo', quickApi: 'chandeMomentumOscillator' },
+        {
+            id: 'double-exponential-average',
+            kind: 'dema',
+            quickApi: 'doubleExponentialMovingAverage',
+        },
+        { id: 'disparity-index', kind: 'disparityindex', quickApi: 'disparityIndex' },
+        { id: 'directional-movement-index', kind: 'dmi', quickApi: 'directionalMovementIndex' },
+        { id: 'detrended-price-oscillator', kind: 'dpo', quickApi: 'detrendedPriceOscillator' },
+        {
+            id: 'exponential-moving-average',
+            kind: 'ema',
+            quickApi: 'exponentialMovingAverage',
+        },
+        { id: 'ichimoku-cloud', kind: 'ikh', quickApi: 'ichimokuCloud' },
+        { id: 'keltner-channels', kind: 'keltnerchannels', quickApi: 'keltnerChannels' },
+        { id: 'klinger-oscillator', kind: 'klinger', quickApi: 'klingerOscillator' },
+        { id: 'linear-regression', kind: 'linearregression', quickApi: 'linearRegression' },
+        {
+            id: 'linear-regression-angle',
+            kind: 'linearregressionangle',
+            quickApi: 'linearRegressionAngle',
+        },
+        {
+            id: 'linear-regression-intercept',
+            kind: 'linearregressionintercept',
+            quickApi: 'linearRegressionIntercept',
+        },
+        {
+            id: 'linear-regression-slope',
+            kind: 'linearregressionslope',
+            quickApi: 'linearRegressionSlope',
+        },
+        {
+            id: 'moving-average-convergence-divergence',
+            kind: 'macd',
+            quickApi: 'movingAverageConvergenceDivergence',
+        },
+        { id: 'money-flow-index', kind: 'mfi', quickApi: 'moneyFlowIndex' },
+        { id: 'momentum', kind: 'momentum', quickApi: 'momentumIndicator' },
+        { id: 'normalized-average-true-range', kind: 'natr', quickApi: 'normalizedAverageTrueRange' },
+        { id: 'on-balance-volume', kind: 'obv', quickApi: 'onBalanceVolume' },
+        { id: 'price-channel', kind: 'pc', quickApi: 'priceChannel' },
+        { id: 'pivot-points', kind: 'pivotpoints', quickApi: 'pivotPoints' },
+        { id: 'percentage-price-oscillator', kind: 'ppo', quickApi: 'percentagePriceOscillator' },
+        { id: 'price-envelopes', kind: 'priceenvelopes', quickApi: 'priceEnvelopes' },
+        { id: 'parabolic-stop-and-reverse', kind: 'psar', quickApi: 'parabolicStopAndReverse' },
+        { id: 'rate-of-change', kind: 'roc', quickApi: 'rateOfChange' },
+        { id: 'relative-strength-index', kind: 'rsi', quickApi: 'relativeStrengthIndex' },
+        { id: 'slow-stochastic', kind: 'slowstochastic', quickApi: 'slowStochastic' },
+        { id: 'simple-moving-average', kind: 'sma', quickApi: 'simpleMovingAverage' },
+        { id: 'stochastic', kind: 'stochastic', quickApi: 'stochastic' },
+        { id: 'supertrend', kind: 'supertrend', quickApi: 'supertrend' },
+        {
+            id: 'triple-exponential-average',
+            kind: 'tema',
+            quickApi: 'tripleExponentialMovingAverage',
+        },
+        {
+            id: 'triple-exponential-oscillator',
+            kind: 'trix',
+            quickApi: 'tripleExponentialAverageOscillator',
+        },
+        {
+            id: 'volume-weighted-average-price',
+            kind: 'vwap',
+            quickApi: 'volumeWeightedAveragePrice',
+        },
+        { id: 'williams-range', kind: 'williamsr', quickApi: 'williamsRange' },
+        { id: 'weighted-moving-average', kind: 'wma', quickApi: 'weightedMovingAverage' },
+        { id: 'zigzag', kind: 'zigzag', quickApi: 'zigzag' },
+    ];
+    const periodParameter = {
+        name: 'period',
+        type: 'integer',
+        minimum: 2,
+        maximum: 200,
+        default: 14,
+    };
+    const fastPeriodParameter = {
+        name: 'fastPeriod',
+        type: 'integer',
+        minimum: 2,
+        maximum: 200,
+        default: 12,
+    };
+    const slowPeriodParameter = {
+        name: 'slowPeriod',
+        type: 'integer',
+        minimum: 2,
+        maximum: 200,
+        default: 26,
+    };
+    const signalPeriodParameter = {
+        name: 'signalPeriod',
+        type: 'integer',
+        minimum: 2,
+        maximum: 200,
+        default: 9,
+    };
+    const computedKinds = new Set([
+        'apo',
+        'dema',
+        'disparityindex',
+        'ema',
+        'linearregression',
+        'linearregressionangle',
+        'linearregressionintercept',
+        'linearregressionslope',
+        'macd',
+        'momentum',
+        'ppo',
+        'roc',
+        'rsi',
+        'sma',
+        'tema',
+        'trix',
+        'wma',
+    ]);
+    function capabilityParameters(kind) {
+        if (kind === 'apo' || kind === 'ppo')
+            return [fastPeriodParameter, slowPeriodParameter];
+        if (kind === 'macd')
+            return [fastPeriodParameter, slowPeriodParameter, signalPeriodParameter];
+        return computedKinds.has(kind) ? [periodParameter] : [];
+    }
+    function capabilityOutputs(kind) {
+        return kind === 'macd' ? ['value', 'signal', 'histogram'] : ['value'];
+    }
+    function warmUpDescription(kind) {
+        if (kind === 'dema')
+            return '2 * (period - 1)';
+        if (kind === 'tema' || kind === 'trix')
+            return '3 * (period - 1)';
+        if (kind === 'apo' || kind === 'ppo')
+            return 'slowPeriod - 1';
+        if (kind === 'macd')
+            return 'slowPeriod + signalPeriod - 2';
+        if (kind === 'momentum' || kind === 'roc' || kind === 'rsi')
+            return 'period';
+        return 'period - 1';
+    }
+    function dependencyDag(kind) {
+        const input = { id: 'source', operation: 'input', inputs: [], parameters: [] };
+        if (kind === 'dema') {
+            return [
+                input,
+                { id: 'ema1', operation: 'ema', inputs: ['source'], parameters: ['period'] },
+                { id: 'ema2', operation: 'ema', inputs: ['ema1'], parameters: ['period'] },
+                { id: 'value', operation: '2*ema1-ema2', inputs: ['ema1', 'ema2'], parameters: [] },
+            ];
+        }
+        if (kind === 'tema' || kind === 'trix') {
+            return [
+                input,
+                { id: 'ema1', operation: 'ema', inputs: ['source'], parameters: ['period'] },
+                { id: 'ema2', operation: 'ema', inputs: ['ema1'], parameters: ['period'] },
+                { id: 'ema3', operation: 'ema', inputs: ['ema2'], parameters: ['period'] },
+                {
+                    id: 'value',
+                    operation: kind === 'trix' ? 'rate-of-change' : '3*ema1-3*ema2+ema3',
+                    inputs: kind === 'trix' ? ['ema3'] : ['ema1', 'ema2', 'ema3'],
+                    parameters: kind === 'trix' ? ['1'] : [],
+                },
+            ];
+        }
+        if (kind === 'apo' || kind === 'ppo' || kind === 'macd') {
+            return [
+                input,
+                { id: 'fast', operation: 'ema', inputs: ['source'], parameters: ['fastPeriod'] },
+                { id: 'slow', operation: 'ema', inputs: ['source'], parameters: ['slowPeriod'] },
+                {
+                    id: 'value',
+                    operation: kind === 'ppo' ? 'percent-difference' : 'difference',
+                    inputs: ['fast', 'slow'],
+                    parameters: [],
+                },
+                ...(kind === 'macd'
+                    ? [
+                        {
+                            id: 'signal',
+                            operation: 'ema',
+                            inputs: ['value'],
+                            parameters: ['signalPeriod'],
+                        },
+                        {
+                            id: 'histogram',
+                            operation: 'difference',
+                            inputs: ['value', 'signal'],
+                            parameters: [],
+                        },
+                    ]
+                    : []),
+            ];
+        }
+        return [
+            input,
+            {
+                id: 'value',
+                operation: kind,
+                inputs: ['source'],
+                parameters: capabilityParameters(kind).map(({ name }) => name),
+            },
+        ];
+    }
+    function computedProvenance(kind) {
+        const descriptions = {
+            sma: 'Arithmetic rolling mean over period values.',
+            ema: 'EMA seeded by the first complete period mean, then alpha = 2 / (period + 1).',
+            wma: 'Linearly weighted rolling mean with weights 1 through period.',
+            dema: 'DEMA = 2 * EMA(source) - EMA(EMA(source)).',
+            tema: 'TEMA = 3 * EMA1 - 3 * EMA2 + EMA3.',
+            momentum: 'Momentum = value - value[period].',
+            roc: 'Rate of change = 100 * (value - value[period]) / value[period].',
+            rsi: 'Wilder RSI with an arithmetic seed and Wilder-smoothed gains and losses.',
+            apo: 'Absolute price oscillator = fast EMA - slow EMA.',
+            ppo: 'Percentage price oscillator = 100 * (fast EMA - slow EMA) / slow EMA.',
+            macd: 'MACD = fast EMA - slow EMA; signal is an EMA of MACD; histogram is their difference.',
+            disparityindex: 'Disparity index = 100 * (value / SMA(period) - 1).',
+            linearregression: 'Rolling least-squares value at the final index in each period window.',
+            linearregressionintercept: 'Rolling least-squares intercept over index 0 through period - 1.',
+            linearregressionslope: 'Rolling least-squares slope over index 0 through period - 1.',
+            linearregressionangle: 'Arctangent of the rolling least-squares slope, in degrees.',
+            trix: 'One-period percentage rate of change of a triple EMA.',
+        };
+        return descriptions[kind] ?? 'Deterministic Graflume built-in calculation.';
+    }
+    const technicalIndicatorCapabilities = definitions.map((definition) => {
+        const computed = computedKinds.has(definition.kind);
+        return {
+            ...definition,
+            support: computed ? 'computed' : 'precomputed-required',
+            requiredInputs: ['value'],
+            outputs: capabilityOutputs(definition.kind),
+            parameters: capabilityParameters(definition.kind),
+            dependencyDag: computed ? dependencyDag(definition.kind) : [],
+            warmUp: {
+                policy: 'null',
+                rows: computed ? warmUpDescription(definition.kind) : 'not applicable to supplied columns',
+            },
+            provenance: computed
+                ? computedProvenance(definition.kind)
+                : 'Graflume renders supplied indicator columns and does not calculate this named indicator.',
+        };
+    });
+    const capabilityByIdentifier = new Map();
+    technicalIndicatorCapabilities.forEach((capability) => {
+        for (const identifier of [capability.id, capability.kind, capability.quickApi]) {
+            capabilityByIdentifier.set(identifier.toLowerCase(), capability);
+        }
+    });
+    function resolveTechnicalIndicatorCapability(identifier) {
+        return capabilityByIdentifier.get(identifier.trim().toLowerCase()) ?? null;
+    }
+    function parameter(options, name, fallback) {
+        const value = options[name];
+        return typeof value === 'number' && Number.isFinite(value)
+            ? Math.max(2, Math.min(200, Math.floor(value)))
+            : fallback;
+    }
+    function movingAverage(values, period) {
+        const output = Array.from({ length: values.length }).fill(null);
+        let sum = 0;
+        let valid = 0;
+        for (let index = 0; index < values.length; index += 1) {
+            const value = values[index];
+            if (value !== null && value !== undefined) {
+                sum += value;
+                valid += 1;
+            }
+            const removed = values[index - period];
+            if (removed !== null && removed !== undefined) {
+                sum -= removed;
+                valid -= 1;
+            }
+            if (index + 1 >= period && valid === period)
+                output[index] = sum / period;
+        }
+        return output;
+    }
+    function exponentialAverage(values, period) {
+        const output = Array.from({ length: values.length }).fill(null);
+        const alpha = 2 / (period + 1);
+        let seed = [];
+        let previous = null;
+        values.forEach((value, index) => {
+            if (value === null) {
+                seed = [];
+                previous = null;
+                return;
+            }
+            if (previous === null) {
+                seed.push(value);
+                if (seed.length < period)
+                    return;
+                if (seed.length > period)
+                    seed.shift();
+                previous = seed.reduce((sum, item) => sum + item, 0) / period;
+            }
+            else {
+                previous = value * alpha + previous * (1 - alpha);
+            }
+            output[index] = previous;
+        });
+        return output;
+    }
+    function weightedAverage(values, period) {
+        const denominator = (period * (period + 1)) / 2;
+        return values.map((_, index) => {
+            if (index + 1 < period)
+                return null;
+            const window = values.slice(index + 1 - period, index + 1);
+            if (window.some((value) => value === null))
+                return null;
+            return (window.reduce((sum, value, offset) => sum + value * (offset + 1), 0) / denominator);
+        });
+    }
+    function difference(left, right, percent = false) {
+        return left.map((value, index) => {
+            const baseline = right[index];
+            if (value === null || baseline === null || baseline === undefined)
+                return null;
+            if (percent && baseline === 0)
+                return null;
+            return percent ? ((value - baseline) / baseline) * 100 : value - baseline;
+        });
+    }
+    function lagDifference(values, period, percent) {
+        return values.map((value, index) => {
+            const previous = values[index - period];
+            if (value === null || previous === null || previous === undefined)
+                return null;
+            if (percent && previous === 0)
+                return null;
+            return percent ? ((value - previous) / previous) * 100 : value - previous;
+        });
+    }
+    function relativeStrength(values, period) {
+        const output = Array.from({ length: values.length }).fill(null);
+        let gains = [];
+        let losses = [];
+        let averageGain = null;
+        let averageLoss = null;
+        for (let index = 1; index < values.length; index += 1) {
+            const value = values[index];
+            const previous = values[index - 1];
+            if (value === null || previous === null || value === undefined || previous === undefined) {
+                gains = [];
+                losses = [];
+                averageGain = null;
+                averageLoss = null;
+                continue;
+            }
+            const change = value - previous;
+            const gain = Math.max(0, change);
+            const loss = Math.max(0, -change);
+            if (averageGain === null || averageLoss === null) {
+                gains.push(gain);
+                losses.push(loss);
+                if (gains.length < period)
+                    continue;
+                averageGain = gains.reduce((sum, item) => sum + item, 0) / period;
+                averageLoss = losses.reduce((sum, item) => sum + item, 0) / period;
+            }
+            else {
+                averageGain = (averageGain * (period - 1) + gain) / period;
+                averageLoss = (averageLoss * (period - 1) + loss) / period;
+            }
+            output[index] = averageLoss === 0 ? 100 : 100 - 100 / (1 + averageGain / averageLoss);
+        }
+        return output;
+    }
+    function rollingRegression(values, period) {
+        const value = Array.from({ length: values.length }).fill(null);
+        const slope = [...value];
+        const intercept = [...value];
+        const angle = [...value];
+        const sumX = (period * (period - 1)) / 2;
+        const sumXX = (period * (period - 1) * (2 * period - 1)) / 6;
+        const denominator = period * sumXX - sumX * sumX;
+        for (let index = period - 1; index < values.length; index += 1) {
+            const window = values.slice(index + 1 - period, index + 1);
+            if (window.some((item) => item === null))
+                continue;
+            const sumY = window.reduce((sum, item) => sum + item, 0);
+            const sumXY = window.reduce((sum, item, x) => sum + x * item, 0);
+            const resolvedSlope = denominator === 0 ? 0 : (period * sumXY - sumX * sumY) / denominator;
+            const resolvedIntercept = (sumY - resolvedSlope * sumX) / period;
+            slope[index] = resolvedSlope;
+            intercept[index] = resolvedIntercept;
+            angle[index] = (Math.atan(resolvedSlope) * 180) / Math.PI;
+            value[index] = resolvedIntercept + resolvedSlope * (period - 1);
+        }
+        return { value, slope, intercept, angle };
+    }
+    function warmUpRows(kind, period, slow, signal) {
+        if (kind === 'dema')
+            return 2 * (period - 1);
+        if (kind === 'tema' || kind === 'trix')
+            return 3 * (period - 1);
+        if (kind === 'apo' || kind === 'ppo')
+            return slow - 1;
+        if (kind === 'macd')
+            return slow + signal - 2;
+        if (kind === 'momentum' || kind === 'roc' || kind === 'rsi')
+            return period;
+        return period - 1;
+    }
+    function calculateTechnicalIndicator(identifier, values, options = {}) {
+        const capability = resolveTechnicalIndicatorCapability(identifier);
+        if (capability === null) {
+            throw new GraflumeError('INVALID_SPEC', `Unknown technical indicator "${identifier}".`, {
+                path: '$.mark.options.kind',
+            });
+        }
+        if (capability.support !== 'computed') {
+            throw new GraflumeError('INVALID_SPEC', `${capability.id} is precomputed-required; remove calculate: true and supply its indicator columns.`, { path: '$.mark.options.calculate' });
+        }
+        const period = parameter(options, 'period', 14);
+        const fastPeriod = parameter(options, 'fastPeriod', 12);
+        const slowPeriod = parameter(options, 'slowPeriod', 26);
+        const signalPeriod = parameter(options, 'signalPeriod', 9);
+        if (fastPeriod >= slowPeriod && ['apo', 'ppo', 'macd'].includes(capability.kind)) {
+            throw new GraflumeError('INVALID_SPEC', 'fastPeriod must be smaller than slowPeriod for APO, PPO, and MACD.', { path: '$.mark.options.fastPeriod' });
+        }
+        let outputs;
+        switch (capability.kind) {
+            case 'sma':
+                outputs = { value: movingAverage(values, period) };
+                break;
+            case 'ema':
+                outputs = { value: exponentialAverage(values, period) };
+                break;
+            case 'wma':
+                outputs = { value: weightedAverage(values, period) };
+                break;
+            case 'dema': {
+                const first = exponentialAverage(values, period);
+                const second = exponentialAverage(first, period);
+                outputs = {
+                    value: first.map((item, index) => item === null || second[index] === null ? null : 2 * item - second[index]),
+                };
+                break;
+            }
+            case 'tema': {
+                const first = exponentialAverage(values, period);
+                const second = exponentialAverage(first, period);
+                const third = exponentialAverage(second, period);
+                outputs = {
+                    value: first.map((item, index) => item === null || second[index] === null || third[index] === null
+                        ? null
+                        : 3 * item - 3 * second[index] + third[index]),
+                };
+                break;
+            }
+            case 'momentum':
+                outputs = { value: lagDifference(values, period, false) };
+                break;
+            case 'roc':
+                outputs = { value: lagDifference(values, period, true) };
+                break;
+            case 'rsi':
+                outputs = { value: relativeStrength(values, period) };
+                break;
+            case 'apo':
+            case 'ppo':
+            case 'macd': {
+                const fast = exponentialAverage(values, fastPeriod);
+                const slow = exponentialAverage(values, slowPeriod);
+                const primary = difference(fast, slow, capability.kind === 'ppo');
+                if (capability.kind !== 'macd') {
+                    outputs = { value: primary };
+                    break;
+                }
+                const signal = exponentialAverage(primary, signalPeriod);
+                outputs = { value: primary, signal, histogram: difference(primary, signal) };
+                break;
+            }
+            case 'disparityindex': {
+                const average = movingAverage(values, period);
+                outputs = {
+                    value: values.map((item, index) => {
+                        const baseline = average[index];
+                        return item === null || baseline === null || baseline === undefined || baseline === 0
+                            ? null
+                            : (item / baseline - 1) * 100;
+                    }),
+                };
+                break;
+            }
+            case 'linearregression':
+            case 'linearregressionslope':
+            case 'linearregressionintercept':
+            case 'linearregressionangle': {
+                const regression = rollingRegression(values, period);
+                const key = capability.kind === 'linearregressionslope'
+                    ? 'slope'
+                    : capability.kind === 'linearregressionintercept'
+                        ? 'intercept'
+                        : capability.kind === 'linearregressionangle'
+                            ? 'angle'
+                            : 'value';
+                outputs = { value: regression[key] };
+                break;
+            }
+            case 'trix': {
+                const first = exponentialAverage(values, period);
+                const second = exponentialAverage(first, period);
+                const third = exponentialAverage(second, period);
+                outputs = { value: lagDifference(third, 1, true) };
+                break;
+            }
+            default:
+                throw new GraflumeError('INVALID_SPEC', `${capability.id} has no built-in calculation.`, {
+                    path: '$.mark.options.calculate',
+                });
+        }
+        return {
+            capability,
+            outputs,
+            warmUpRows: warmUpRows(capability.kind, period, slowPeriod, signalPeriod),
+            parameters: { period, fastPeriod, slowPeriod, signalPeriod },
+            provenance: capability.provenance,
+        };
+    }
+    function indicatorSourceField(layer) {
+        let hash = 0;
+        for (const character of `${layer.id}\u0000${layer.y.field}`) {
+            hash = (Math.imul(hash, 31) + (character.codePointAt(0) ?? 0)) >>> 0;
+        }
+        return `__graflume_indicator_source_${hash.toString(36)}`;
+    }
+    /** Materialize a supported calculation before scale-domain resolution and rendering. */
+    function prepareTechnicalIndicator(layer, transformed) {
+        if (layer.mark.type !== 'indicator' || layer.mark.options.calculate !== true) {
+            return { layer, result: transformed, calculation: null };
+        }
+        const kind = typeof layer.mark.options.kind === 'string' && layer.mark.options.kind.trim() !== ''
+            ? layer.mark.options.kind
+            : 'sma';
+        const sourceField = indicatorSourceField(layer);
+        const values = transformed.data.map((row) => {
+            const value = row[layer.y.field];
+            return typeof value === 'number' && Number.isFinite(value) ? value : null;
+        });
+        const calculation = calculateTechnicalIndicator(kind, values, layer.mark.options);
+        const data = transformed.data.map((row, index) => {
+            const output = {
+                ...row,
+                [sourceField]: row[layer.y.field],
+                [layer.y.field]: calculation.outputs.value?.[index] ?? null,
+            };
+            const fields = layer.mark.options.fields;
+            if (Array.isArray(fields)) {
+                fields.forEach((field) => {
+                    if (typeof field !== 'string' || calculation.outputs[field] === undefined)
+                        return;
+                    output[field] = calculation.outputs[field]?.[index] ?? null;
+                });
+            }
+            for (const [role, field] of Object.entries(layer.mark.fields)) {
+                const series = calculation.outputs[role];
+                if (series !== undefined)
+                    output[field] = series[index] ?? null;
+            }
+            return output;
+        });
+        const step = {
+            index: transformed.lineage.transforms.length,
+            type: 'calculate',
+            inputRows: transformed.data.length,
+            outputRows: data.length,
+            parameters: {
+                operation: 'technical-indicator',
+                id: calculation.capability.id,
+                kind: calculation.capability.kind,
+                support: calculation.capability.support,
+                warmUpPolicy: 'null',
+                warmUpRows: calculation.warmUpRows,
+                parameters: calculation.parameters,
+                dependencyDag: calculation.capability.dependencyDag.map((node) => ({
+                    id: node.id,
+                    operation: node.operation,
+                    inputs: [...node.inputs],
+                    parameters: [...node.parameters],
+                })),
+                provenance: calculation.provenance,
+            },
+            detail: `${calculation.capability.id} uses a parameterized dependency DAG and null warm-up rows.`,
+        };
+        const lineage = {
+            ...transformed.lineage,
+            transforms: [...transformed.lineage.transforms, step],
+            summary: `${transformed.lineage.summary} ${step.detail}`,
+        };
+        return {
+            layer: {
+                ...layer,
+                mark: {
+                    ...layer.mark,
+                    fields: {
+                        ...layer.mark.fields,
+                        __indicatorSource: sourceField,
+                    },
+                },
+            },
+            result: { data, lineage },
+            calculation,
+        };
     }
 
     const UNSAFE_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
@@ -997,6 +2396,430 @@ var Graflume = (function (exports) {
         return Number.isFinite(value) ? value : null;
     }
 
+    const unsafeFields$1 = new Set(['__proto__', 'prototype', 'constructor']);
+    const types = new Set([
+        'filter',
+        'sort',
+        'calculate',
+        'aggregate',
+        'joinaggregate',
+        'bin',
+        'bin2d',
+        'density1d',
+        'density2d',
+        'stack',
+        'window',
+        'regression',
+        'fold',
+        'flatten',
+        'pivot',
+        'impute',
+        'lookup',
+        'quantile',
+        'sample',
+        'resample',
+        'timeUnit',
+    ]);
+    const expressionOps = new Set([
+        'literal',
+        'field',
+        'not',
+        'negate',
+        'isValid',
+        'toNumber',
+        'toString',
+        'add',
+        'subtract',
+        'multiply',
+        'divide',
+        'modulo',
+        'equal',
+        'notEqual',
+        'lessThan',
+        'lessThanOrEqual',
+        'greaterThan',
+        'greaterThanOrEqual',
+        'and',
+        'or',
+        'if',
+        'coalesce',
+    ]);
+    function issue(issues, path, message) {
+        issues.push({ path, message });
+    }
+    function field(value, path, issues) {
+        if (typeof value !== 'string' || value.trim() === '' || unsafeFields$1.has(value)) {
+            issue(issues, path, 'Transform field must be a non-empty safe string.');
+            return false;
+        }
+        return true;
+    }
+    function fields(value, path, issues, allowEmpty = false) {
+        if (!Array.isArray(value) || (!allowEmpty && value.length === 0) || value.length > 256) {
+            issue(issues, path, `Transform fields must be ${allowEmpty ? 'an' : 'a non-empty'} array of at most 256 fields.`);
+            return false;
+        }
+        value.forEach((item, index) => field(item, `${path}[${index}]`, issues));
+        return true;
+    }
+    function tuple(value, length, path, issues) {
+        if (!Array.isArray(value) || value.length !== length) {
+            issue(issues, path, `Transform output must contain exactly ${length} field names.`);
+            return;
+        }
+        value.forEach((item, index) => field(item, `${path}[${index}]`, issues));
+    }
+    function expression(value, path, issues, depth = 0) {
+        if (depth > 32 ||
+            !isPlainObject(value) ||
+            typeof value.op !== 'string' ||
+            !expressionOps.has(value.op)) {
+            issue(issues, path, depth > 32
+                ? 'Transform expression exceeds 32 levels.'
+                : 'Invalid closed transform expression.');
+            return;
+        }
+        const op = value.op;
+        const allowed = op === 'literal'
+            ? ['op', 'value']
+            : op === 'field'
+                ? ['op', 'field']
+                : ['not', 'negate', 'isValid', 'toNumber', 'toString'].includes(op)
+                    ? ['op', 'value']
+                    : op === 'if'
+                        ? ['op', 'condition', 'then', 'else']
+                        : op === 'coalesce'
+                            ? ['op', 'values']
+                            : ['op', 'left', 'right'];
+        Object.keys(value).forEach((key) => {
+            if (!allowed.includes(key))
+                issue(issues, `${path}.${key}`, `Unknown ${op} expression property "${key}".`);
+        });
+        if (op === 'literal') {
+            const literal = value.value;
+            if (literal !== null && !['string', 'number', 'boolean'].includes(typeof literal))
+                issue(issues, `${path}.value`, 'Literal must be a JSON scalar.');
+            if (typeof literal === 'number' && !Number.isFinite(literal))
+                issue(issues, `${path}.value`, 'Literal number must be finite.');
+        }
+        else if (op === 'field')
+            field(value.field, `${path}.field`, issues);
+        else if (['not', 'negate', 'isValid', 'toNumber', 'toString'].includes(op))
+            expression(value.value, `${path}.value`, issues, depth + 1);
+        else if (op === 'if') {
+            expression(value.condition, `${path}.condition`, issues, depth + 1);
+            expression(value.then, `${path}.then`, issues, depth + 1);
+            expression(value.else, `${path}.else`, issues, depth + 1);
+        }
+        else if (op === 'coalesce') {
+            if (!Array.isArray(value.values) || value.values.length === 0 || value.values.length > 32)
+                issue(issues, `${path}.values`, 'Coalesce requires 1..32 expressions.');
+            else
+                value.values.forEach((item, index) => expression(item, `${path}.values[${index}]`, issues, depth + 1));
+        }
+        else {
+            expression(value.left, `${path}.left`, issues, depth + 1);
+            expression(value.right, `${path}.right`, issues, depth + 1);
+        }
+    }
+    function validateTransformExpression(value, path, issues) {
+        expression(value, path, issues);
+    }
+    function positive(value, path, issues, integer = false) {
+        if (typeof value !== 'number' ||
+            !Number.isFinite(value) ||
+            value <= 0 ||
+            (integer && !Number.isInteger(value)))
+            issue(issues, path, `Value must be a positive${integer ? ' integer' : ''}.`);
+    }
+    function groupby(value, path, issues) {
+        if (value !== undefined)
+            fields(value, path, issues, true);
+    }
+    function sort(value, path, issues) {
+        if (!Array.isArray(value) || value.length === 0 || value.length > 32) {
+            issue(issues, path, 'Sort must contain 1..32 field declarations.');
+            return;
+        }
+        value.forEach((item, index) => {
+            const itemPath = `${path}[${index}]`;
+            if (!isPlainObject(item)) {
+                issue(issues, itemPath, 'Sort field must be an object.');
+                return;
+            }
+            Object.keys(item).forEach((key) => {
+                if (!['field', 'order'].includes(key))
+                    issue(issues, `${itemPath}.${key}`, `Unknown sort property "${key}".`);
+            });
+            field(item.field, `${itemPath}.field`, issues);
+            if (item.order !== undefined && item.order !== 'ascending' && item.order !== 'descending')
+                issue(issues, `${itemPath}.order`, 'Sort order must be ascending or descending.');
+        });
+    }
+    const keys = {
+        filter: ['type', 'expr'],
+        sort: ['type', 'by'],
+        calculate: ['type', 'as', 'expr'],
+        aggregate: ['type', 'groupby', 'fields'],
+        joinaggregate: ['type', 'groupby', 'fields'],
+        bin: ['type', 'field', 'as', 'maxbins', 'step', 'extent'],
+        bin2d: ['type', 'x', 'y', 'as', 'maxbins'],
+        density1d: ['type', 'field', 'as', 'groupby', 'points', 'bandwidth'],
+        density2d: ['type', 'x', 'y', 'as', 'bins', 'bandwidth'],
+        stack: ['type', 'field', 'groupby', 'series', 'sort', 'as', 'offset', 'order'],
+        window: ['type', 'fields', 'groupby', 'sort', 'frame'],
+        regression: ['type', 'x', 'y', 'as', 'groupby'],
+        fold: ['type', 'fields', 'as'],
+        flatten: ['type', 'fields', 'as'],
+        pivot: ['type', 'field', 'value', 'groupby', 'op'],
+        impute: ['type', 'field', 'key', 'groupby', 'method', 'value'],
+        lookup: ['type', 'field', 'from', 'key', 'values', 'as', 'default'],
+        quantile: ['type', 'field', 'probs', 'as', 'groupby'],
+        sample: ['type', 'size', 'seed'],
+        resample: ['type', 'field', 'interval', 'groupby', 'method'],
+        timeUnit: ['type', 'field', 'unit', 'as', 'utc'],
+    };
+    function validateTransforms(value, path, issues) {
+        if (value === undefined)
+            return;
+        if (!Array.isArray(value) || value.length > 128) {
+            issue(issues, path, 'Transforms must be an ordered array of at most 128 entries.');
+            return;
+        }
+        value.forEach((transform, index) => {
+            const itemPath = `${path}[${index}]`;
+            if (!isPlainObject(transform) ||
+                typeof transform.type !== 'string' ||
+                !types.has(transform.type)) {
+                issue(issues, itemPath, 'Transform type is not supported.');
+                return;
+            }
+            const t = transform.type;
+            Object.keys(transform).forEach((key) => {
+                if (!keys[t].includes(key))
+                    issue(issues, `${itemPath}.${key}`, `Unknown ${t} transform property "${key}".`);
+            });
+            if (t === 'filter' || t === 'calculate')
+                expression(transform.expr, `${itemPath}.expr`, issues);
+            if (t === 'calculate')
+                field(transform.as, `${itemPath}.as`, issues);
+            if (t === 'sort')
+                sort(transform.by, `${itemPath}.by`, issues);
+            if (['aggregate', 'joinaggregate'].includes(t)) {
+                groupby(transform.groupby, `${itemPath}.groupby`, issues);
+                if (!Array.isArray(transform.fields) ||
+                    transform.fields.length === 0 ||
+                    transform.fields.length > 128)
+                    issue(issues, `${itemPath}.fields`, 'Aggregate fields must contain 1..128 entries.');
+                else
+                    transform.fields.forEach((entry, entryIndex) => {
+                        const entryPath = `${itemPath}.fields[${entryIndex}]`;
+                        if (!isPlainObject(entry)) {
+                            issue(issues, entryPath, 'Aggregate field must be an object.');
+                            return;
+                        }
+                        Object.keys(entry).forEach((key) => {
+                            if (!['op', 'field', 'weight', 'as'].includes(key))
+                                issue(issues, `${entryPath}.${key}`, `Unknown aggregate field property "${key}".`);
+                        });
+                        if (![
+                            'count',
+                            'valid',
+                            'missing',
+                            'sum',
+                            'mean',
+                            'weightedMean',
+                            'min',
+                            'max',
+                            'median',
+                            'variance',
+                            'stdev',
+                        ].includes(String(entry.op)))
+                            issue(issues, `${entryPath}.op`, 'Aggregate operation is not supported.');
+                        field(entry.as, `${entryPath}.as`, issues);
+                        if (entry.field !== undefined)
+                            field(entry.field, `${entryPath}.field`, issues);
+                        if (entry.weight !== undefined)
+                            field(entry.weight, `${entryPath}.weight`, issues);
+                        if (entry.op === 'weightedMean' &&
+                            (entry.field === undefined || entry.weight === undefined))
+                            issue(issues, entryPath, 'weightedMean requires field and weight.');
+                        if (!['count'].includes(String(entry.op)) && entry.field === undefined)
+                            issue(issues, `${entryPath}.field`, `${String(entry.op)} requires a field.`);
+                    });
+            }
+            for (const name of ['field', 'x', 'y', 'key', 'value'])
+                if (transform[name] !== undefined && !(['impute'].includes(t) && name === 'value'))
+                    field(transform[name], `${itemPath}.${name}`, issues);
+            groupby(transform.groupby, `${itemPath}.groupby`, issues);
+            if (transform.series !== undefined)
+                fields(transform.series, `${itemPath}.series`, issues, true);
+            if (transform.sort !== undefined)
+                sort(transform.sort, `${itemPath}.sort`, issues);
+            if (t === 'bin')
+                tuple(transform.as, 2, `${itemPath}.as`, issues);
+            if (t === 'bin2d')
+                tuple(transform.as, 5, `${itemPath}.as`, issues);
+            if (t === 'density1d' || t === 'regression' || t === 'fold' || t === 'quantile')
+                tuple(transform.as, 2, `${itemPath}.as`, issues);
+            if (t === 'density2d')
+                tuple(transform.as, 3, `${itemPath}.as`, issues);
+            if (t === 'stack')
+                tuple(transform.as, 2, `${itemPath}.as`, issues);
+            if (t === 'flatten' && transform.as !== undefined)
+                fields(transform.as, `${itemPath}.as`, issues);
+            if (t === 'fold' || t === 'flatten')
+                fields(transform.fields, `${itemPath}.fields`, issues);
+            if (t === 'lookup') {
+                fields(transform.values, `${itemPath}.values`, issues);
+                if (transform.as !== undefined)
+                    fields(transform.as, `${itemPath}.as`, issues);
+                if (!Array.isArray(transform.as) ||
+                    !Array.isArray(transform.values) ||
+                    transform.as.length !== transform.values.length) {
+                    if (transform.as !== undefined)
+                        issue(issues, `${itemPath}.as`, 'Lookup as must match values length.');
+                }
+                if (!Array.isArray(transform.from) && !isPlainObject(transform.from))
+                    issue(issues, `${itemPath}.from`, 'Lookup from must be inline data.');
+            }
+            if (t === 'window') {
+                if (!Array.isArray(transform.fields) || transform.fields.length === 0)
+                    issue(issues, `${itemPath}.fields`, 'Window fields are required.');
+                else
+                    transform.fields.forEach((entry, entryIndex) => {
+                        const entryPath = `${itemPath}.fields[${entryIndex}]`;
+                        if (!isPlainObject(entry)) {
+                            issue(issues, entryPath, 'Window field must be an object.');
+                            return;
+                        }
+                        Object.keys(entry).forEach((key) => {
+                            if (!['op', 'field', 'as', 'offset'].includes(key))
+                                issue(issues, `${entryPath}.${key}`, `Unknown window field property "${key}".`);
+                        });
+                        const op = String(entry.op);
+                        if (![
+                            'rowNumber',
+                            'rank',
+                            'denseRank',
+                            'lag',
+                            'lead',
+                            'sum',
+                            'mean',
+                            'min',
+                            'max',
+                            'count',
+                            'cumulativeSum',
+                            'movingAverage',
+                        ].includes(op))
+                            issue(issues, `${entryPath}.op`, 'Window operation is not supported.');
+                        field(entry.as, `${entryPath}.as`, issues);
+                        if (entry.field !== undefined)
+                            field(entry.field, `${entryPath}.field`, issues);
+                        if (!['rowNumber', 'rank', 'denseRank', 'count'].includes(op) &&
+                            entry.field === undefined)
+                            issue(issues, `${entryPath}.field`, `${op} requires a field.`);
+                        if (entry.offset !== undefined &&
+                            (typeof entry.offset !== 'number' ||
+                                !Number.isInteger(entry.offset) ||
+                                entry.offset < 0))
+                            issue(issues, `${entryPath}.offset`, 'Window offset must be a non-negative integer.');
+                    });
+            }
+            for (const name of ['maxbins', 'points', 'bandwidth', 'size', 'interval']) {
+                const current = transform[name];
+                if (current !== undefined && typeof current === 'number') {
+                    positive(current, `${itemPath}.${name}`, issues, ['maxbins', 'points', 'size'].includes(name));
+                    if (name === 'points' && current > 512)
+                        issue(issues, `${itemPath}.${name}`, 'density1d points must not exceed 512.');
+                }
+            }
+            if (t === 'quantile' && transform.probs !== undefined) {
+                if (!Array.isArray(transform.probs) ||
+                    transform.probs.length === 0 ||
+                    transform.probs.length > 512)
+                    issue(issues, `${itemPath}.probs`, 'Quantile probabilities must contain 1..512 values.');
+                else
+                    transform.probs.forEach((probability, probabilityIndex) => {
+                        if (typeof probability !== 'number' || probability < 0 || probability > 1)
+                            issue(issues, `${itemPath}.probs[${probabilityIndex}]`, 'Probability must be between 0 and 1.');
+                    });
+            }
+            if (t === 'stack') {
+                if (transform.offset !== undefined &&
+                    !['zero', 'normalize', 'expand', 'center', 'silhouette', 'wiggle'].includes(String(transform.offset)))
+                    issue(issues, `${itemPath}.offset`, 'Stack offset is not supported.');
+                if (transform.order !== undefined &&
+                    ![
+                        'input',
+                        'ascending',
+                        'descending',
+                        'sumAscending',
+                        'sumDescending',
+                        'insideOut',
+                    ].includes(String(transform.order)))
+                    issue(issues, `${itemPath}.order`, 'Stack order is not supported.');
+            }
+            if (t === 'pivot' &&
+                transform.op !== undefined &&
+                !['sum', 'mean', 'min', 'max', 'count', 'first'].includes(String(transform.op)))
+                issue(issues, `${itemPath}.op`, 'Pivot operation is not supported.');
+            if (t === 'impute' &&
+                transform.method !== undefined &&
+                !['value', 'mean', 'median', 'min', 'max'].includes(String(transform.method)))
+                issue(issues, `${itemPath}.method`, 'Impute method is not supported.');
+            if (t === 'resample' &&
+                transform.method !== undefined &&
+                !['linear', 'previous', 'next'].includes(String(transform.method)))
+                issue(issues, `${itemPath}.method`, 'Resample method is not supported.');
+            if (t === 'timeUnit') {
+                if (![
+                    'year',
+                    'quarter',
+                    'month',
+                    'week',
+                    'date',
+                    'day',
+                    'hours',
+                    'minutes',
+                    'seconds',
+                ].includes(String(transform.unit)))
+                    issue(issues, `${itemPath}.unit`, 'Time unit is not supported.');
+                if (transform.utc !== undefined && typeof transform.utc !== 'boolean')
+                    issue(issues, `${itemPath}.utc`, 'Time unit utc must be boolean.');
+            }
+            if (t === 'bin' &&
+                transform.extent !== undefined &&
+                (!Array.isArray(transform.extent) ||
+                    transform.extent.length !== 2 ||
+                    transform.extent.some((entry) => typeof entry !== 'number' || !Number.isFinite(entry))))
+                issue(issues, `${itemPath}.extent`, 'Bin extent must contain two finite numbers.');
+            for (const name of ['maxbins', 'bins', 'bandwidth', 'frame']) {
+                const current = transform[name];
+                if (Array.isArray(current)) {
+                    if (current.length !== 2)
+                        issue(issues, `${itemPath}.${name}`, `${name} must contain exactly two values.`);
+                    else if (name === 'frame')
+                        current.forEach((entry, entryIndex) => {
+                            if (entry !== null && !Number.isInteger(entry))
+                                issue(issues, `${itemPath}.${name}[${entryIndex}]`, 'Window frame values must be integers or null.');
+                        });
+                    else
+                        current.forEach((entry, entryIndex) => {
+                            if (typeof entry !== 'number' ||
+                                !Number.isFinite(entry) ||
+                                entry <= 0 ||
+                                (['maxbins', 'bins'].includes(name) && (!Number.isInteger(entry) || entry > 128)))
+                                issue(issues, `${itemPath}.${name}[${entryIndex}]`, `${name} values must be positive${['maxbins', 'bins'].includes(name) ? ' integers up to 128' : ''}.`);
+                        });
+                }
+            }
+            if (transform.seed !== undefined &&
+                (typeof transform.seed !== 'number' || !Number.isFinite(transform.seed)))
+                issue(issues, `${itemPath}.seed`, 'Sample seed must be finite.');
+        });
+    }
+
     const UNSAFE_FIELDS = new Set(['__proto__', 'prototype', 'constructor']);
     const TOOLTIP_FORMATS = new Set(['auto', 'number', 'integer', 'percent', 'date', 'datetime']);
     const TOOLTIP_KEYS = new Set(['trigger', 'axis', 'title', 'fields']);
@@ -1013,12 +2836,14 @@ var Graflume = (function (exports) {
         'click',
         'tooltip',
         'navigation',
+        'domainNavigation',
         'playback',
         'controls',
         'selection',
     ]);
     const NAVIGATION_KEYS = new Set(['minZoom', 'maxZoom', 'wheel', 'drag', 'pinch', 'keyboard']);
     const NAVIGATION_WHEEL_MODES = new Set(['off', 'modifier', 'always']);
+    const DOMAIN_NAVIGATION_KEYS = new Set(['axes', 'maxZoom', 'wheel', 'drag', 'keyboard']);
     const PLAYBACK_KEYS = new Set([
         'field',
         'key',
@@ -1063,6 +2888,8 @@ var Graflume = (function (exports) {
         'loop',
     ]);
     const SELECTION_KEYS = new Set([
+        'kind',
+        'combine',
         'mode',
         'toggle',
         'key',
@@ -1070,8 +2897,27 @@ var Graflume = (function (exports) {
         'clearOnEscape',
         'ariaLabel',
         'highlight',
+        'axis',
+        'xAxis',
+        'yAxis',
+        'maxSelections',
+        'maxLassoPoints',
+        'minPixelSpan',
     ]);
     const SELECTION_MODES = new Set(['single', 'multiple']);
+    const SELECTION_KINDS = new Set(['point', 'interval', 'rectangle', 'axis', 'lasso']);
+    const SELECTION_COMBINE = new Set(['union', 'intersection']);
+    const ACCESSIBILITY_KEYS = new Set([
+        'label',
+        'description',
+        'table',
+        'maxRows',
+        'navigation',
+        'summary',
+        'live',
+    ]);
+    const ACCESSIBILITY_LIVE_KEYS = new Set(['enabled', 'throttleMs']);
+    const ACCESSIBILITY_TABLE_MODES = new Set(['hidden', 'visible']);
     const LEGEND_KEYS = new Set([
         'visible',
         'mode',
@@ -1148,19 +2994,84 @@ var Graflume = (function (exports) {
         'align',
     ]);
     const ANNOTATION_TEXT_ALIGNS = new Set(['start', 'center', 'end']);
-    const ENCODING_KEYS = new Set(['field', 'type', 'title', 'scale', 'axis', 'axisId']);
+    const ENCODING_KEYS = new Set([
+        'field',
+        'value',
+        'type',
+        'title',
+        'scale',
+        'axis',
+        'axisId',
+        'condition',
+    ]);
+    const ENCODING_CONDITION_KEYS = new Set(['test', 'field', 'value']);
+    const ENCODING_CHANNELS = new Set([
+        'x',
+        'x2',
+        'y',
+        'y2',
+        'color',
+        'fill',
+        'stroke',
+        'size',
+        'radius',
+        'shape',
+        'opacity',
+        'strokeWidth',
+        'strokeDash',
+        'text',
+        'order',
+        'detail',
+        'tooltip',
+    ]);
     const FIELD_TYPES = new Set(['quantitative', 'temporal', 'ordinal', 'nominal']);
     const SCALE_KEYS = new Set([
         'type',
         'domain',
+        'range',
         'zero',
         'nice',
         'clamp',
         'reverse',
+        'outOfBounds',
+        'base',
+        'exponent',
+        'constant',
         'paddingInner',
         'paddingOuter',
     ]);
-    const SCALE_TYPES = new Set(['linear', 'band', 'time']);
+    const SCALE_TYPES = new Set([
+        'linear',
+        'log',
+        'symlog',
+        'asinh',
+        'pow',
+        'sqrt',
+        'time',
+        'utc',
+        'band',
+        'point',
+        'ordinal',
+        'quantile',
+        'quantize',
+        'threshold',
+        'sequential',
+        'diverging',
+        'cyclic',
+        'probability',
+        'logit',
+        'probit',
+    ]);
+    const SCALE_OUT_OF_BOUNDS = new Set(['extrapolate', 'clamp', 'error', 'unknown']);
+    const POINT_SHAPES = new Set(['circle', 'square', 'diamond', 'triangle', 'cross']);
+    const RAW_ONLY_ENCODING_CHANNELS = new Set([
+        'shape',
+        'strokeDash',
+        'text',
+        'order',
+        'detail',
+        'tooltip',
+    ]);
     const AXIS_IDS = new Set(['x', 'x2', 'y', 'y2']);
     const AXIS_KEYS = new Set([
         'title',
@@ -1227,6 +3138,108 @@ var Graflume = (function (exports) {
     const THEME_CONTINUOUS_INTERPOLATIONS = new Set(['step', 'rgb', 'lab']);
     const THEME_SERIES_COLOR_MODES = new Set(['theme', 'series']);
     const THEME_PIE_DIRECTIONS = new Set(['clockwise', 'counterclockwise']);
+    const LAYER_KEYS = new Set([
+        'id',
+        'name',
+        'data',
+        'transform',
+        'mark',
+        'x',
+        'y',
+        'encoding',
+        'visible',
+        'zIndex',
+    ]);
+    const COMPOSITION_RESOLVE_KEYS = new Set(['scale', 'axis', 'legend']);
+    const FACET_KEYS = new Set(['row', 'column', 'wrap', 'columns']);
+    const FACET_FIELD_KEYS = new Set(['field', 'title', 'sort']);
+    const FACET_SORTS = new Set(['input', 'ascending', 'descending']);
+    const REPEAT_KEYS = new Set(['items', 'columns']);
+    const REPEAT_ITEM_KEYS = new Set(['id', 'label', 'x', 'y']);
+    const INSET_KEYS = new Set(['base', 'view', 'x', 'y', 'width', 'height', 'label']);
+    const LAYER_COMPOSITION_CHILD_KEYS = new Set([
+        '$schema',
+        'specVersion',
+        'data',
+        'transform',
+        'mark',
+        'x',
+        'y',
+        'encoding',
+        'layers',
+    ]);
+    const COMPOSITION_KEYS = new Set([
+        '$schema',
+        'specVersion',
+        'data',
+        'transform',
+        'mark',
+        'x',
+        'y',
+        'encoding',
+        'layers',
+        'layer',
+        'facet',
+        'repeat',
+        'hconcat',
+        'vconcat',
+        'concat',
+        'inset',
+        'spec',
+        'columns',
+        'spacing',
+        'resolve',
+        'width',
+        'height',
+        'padding',
+        'title',
+        'description',
+        'renderer',
+        'performance',
+        'theme',
+        'locale',
+        'axes',
+        'legend',
+        'highlights',
+        'annotations',
+        'interaction',
+        'accessibility',
+        'streaming',
+    ]);
+    const CURVE_NAMES = new Set(curveNames);
+    const MISSING_VALUE_POLICIES = new Set(['gap', 'zero', 'connect']);
+    const CURVE_MARKS = new Set(['line', 'area', 'smooth', 'stepped-area', 'theme-river']);
+    const SERIES_STACK_MARKS = new Set(['area', 'bar', 'theme-river']);
+    const SERIES_STACK_OFFSETS = new Set([
+        'zero',
+        'normalize',
+        'expand',
+        'center',
+        'silhouette',
+        'wiggle',
+    ]);
+    const SERIES_STACK_ORDERS = new Set([
+        'input',
+        'ascending',
+        'descending',
+        'sumAscending',
+        'sumDescending',
+        'insideOut',
+    ]);
+    const STREAMING_KEYS = new Set([
+        'key',
+        'mode',
+        'maxBatchRows',
+        'retention',
+        'eventTime',
+        'queue',
+        'replay',
+    ]);
+    const STREAMING_RETENTION_KEYS = new Set(['maxRows', 'time']);
+    const STREAMING_TIME_KEYS = new Set(['field', 'durationMs']);
+    const STREAMING_EVENT_TIME_KEYS = new Set(['field', 'allowedLatenessMs', 'lateData']);
+    const STREAMING_QUEUE_KEYS = new Set(['maxBatches', 'maxRows', 'overflow']);
+    const STREAMING_REPLAY_KEYS = new Set(['maxBatches', 'maxRows']);
     function validateUnknownKeys(value, allowed, path, kind, issues) {
         for (const key of Object.keys(value)) {
             if (!allowed.has(key)) {
@@ -1342,15 +3355,16 @@ var Graflume = (function (exports) {
             return;
         }
         validateUnknownKeys(value, SCALE_KEYS, path, 'scale', issues);
+        const type = typeof value.type === 'string' ? value.type : undefined;
         if (value.type !== undefined &&
             (typeof value.type !== 'string' || !SCALE_TYPES.has(value.type))) {
             issues.push({ path: `${path}.type`, message: 'Scale type is not supported.' });
         }
         if (value.domain !== undefined) {
-            if (!Array.isArray(value.domain) || value.domain.length < 2) {
+            if (!Array.isArray(value.domain) || value.domain.length < 1) {
                 issues.push({
                     path: `${path}.domain`,
-                    message: 'Scale domain must contain at least 2 values.',
+                    message: 'Scale domain must contain at least 1 value.',
                 });
             }
             else {
@@ -1365,8 +3379,50 @@ var Graflume = (function (exports) {
                 });
             }
         }
+        if (value.range !== undefined) {
+            if (!Array.isArray(value.range) || value.range.length === 0) {
+                issues.push({
+                    path: `${path}.range`,
+                    message: 'Scale range must contain at least one value.',
+                });
+            }
+            else {
+                value.range.forEach((entry, index) => {
+                    if ((typeof entry !== 'number' && typeof entry !== 'string') ||
+                        (typeof entry === 'number' && !Number.isFinite(entry))) {
+                        issues.push({
+                            path: `${path}.range[${index}]`,
+                            message: 'Scale range values must be finite numbers or strings.',
+                        });
+                    }
+                });
+            }
+        }
         for (const key of ['zero', 'nice', 'clamp', 'reverse']) {
             validateOptionalBoolean(value[key], `${path}.${key}`, `Scale ${key}`, issues);
+        }
+        if (value.outOfBounds !== undefined &&
+            (typeof value.outOfBounds !== 'string' || !SCALE_OUT_OF_BOUNDS.has(value.outOfBounds))) {
+            issues.push({
+                path: `${path}.outOfBounds`,
+                message: 'Scale outOfBounds policy is not supported.',
+            });
+        }
+        if (value.clamp !== undefined && value.outOfBounds !== undefined) {
+            issues.push({
+                path: `${path}.clamp`,
+                message: 'Scale clamp is a compatibility alias; do not combine it with outOfBounds.',
+            });
+        }
+        for (const key of ['base', 'exponent', 'constant']) {
+            if (value[key] !== undefined) {
+                validateFiniteNumber(value[key], `${path}.${key}`, `Scale ${key}`, issues, {
+                    min: Number.MIN_VALUE,
+                });
+            }
+        }
+        if (value.base === 1) {
+            issues.push({ path: `${path}.base`, message: 'Log scale base must not equal 1.' });
         }
         if (value.paddingInner !== undefined) {
             validateFiniteNumber(value.paddingInner, `${path}.paddingInner`, 'Scale paddingInner', issues, {
@@ -1377,6 +3433,274 @@ var Graflume = (function (exports) {
         if (value.paddingOuter !== undefined) {
             validateFiniteNumber(value.paddingOuter, `${path}.paddingOuter`, 'Scale paddingOuter', issues, {
                 min: 0,
+            });
+        }
+        if (Array.isArray(value.range) && type !== undefined) {
+            const numericRangeTypes = new Set([
+                'linear',
+                'log',
+                'symlog',
+                'asinh',
+                'pow',
+                'sqrt',
+                'time',
+                'utc',
+                'band',
+                'point',
+                'quantile',
+                'quantize',
+                'threshold',
+                'probability',
+                'logit',
+                'probit',
+            ]);
+            if (numericRangeTypes.has(type) && value.range.some((entry) => typeof entry !== 'number')) {
+                issues.push({
+                    path: `${path}.range`,
+                    message: `${type} position scale range must contain finite numbers.`,
+                });
+            }
+            if ([
+                'linear',
+                'log',
+                'symlog',
+                'asinh',
+                'pow',
+                'sqrt',
+                'time',
+                'utc',
+                'band',
+                'point',
+                'probability',
+                'logit',
+                'probit',
+            ].includes(type) &&
+                value.range.length !== 2) {
+                issues.push({
+                    path: `${path}.range`,
+                    message: `${type} position scale range must contain exactly 2 values.`,
+                });
+            }
+            if ((type === 'sequential' || type === 'diverging' || type === 'cyclic') &&
+                value.range.some((entry) => typeof entry !== 'string')) {
+                issues.push({
+                    path: `${path}.range`,
+                    message: `${type} color scale range must contain strings.`,
+                });
+            }
+            const minimumColorStops = type === 'diverging' ? 3 : type === 'sequential' || type === 'cyclic' ? 2 : 0;
+            if (minimumColorStops > 0 && value.range.length < minimumColorStops) {
+                issues.push({
+                    path: `${path}.range`,
+                    message: `${type} color scale requires at least ${minimumColorStops} colors.`,
+                });
+            }
+        }
+        if (value.base !== undefined && type !== 'log') {
+            issues.push({ path: `${path}.base`, message: 'Scale base is only valid for log scales.' });
+        }
+        if (value.exponent !== undefined && type !== 'pow') {
+            issues.push({
+                path: `${path}.exponent`,
+                message: 'Scale exponent is only valid for pow scales.',
+            });
+        }
+        if (value.constant !== undefined && type !== 'symlog' && type !== 'asinh') {
+            issues.push({
+                path: `${path}.constant`,
+                message: 'Scale constant is only valid for symlog or asinh scales.',
+            });
+        }
+        if ((value.paddingInner !== undefined || value.paddingOuter !== undefined) &&
+            type !== 'band' &&
+            type !== 'point') {
+            issues.push({ path, message: 'Scale padding is only valid for band or point scales.' });
+        }
+        if (value.nice !== undefined && type !== undefined && !['linear', 'time', 'utc'].includes(type)) {
+            issues.push({
+                path: `${path}.nice`,
+                message: 'Scale nice is currently implemented only for linear, time, and utc scales.',
+            });
+        }
+        if (value.zero === true && (type === 'log' || type === 'logit' || type === 'probit')) {
+            issues.push({ path: `${path}.zero`, message: `${type} scale cannot include zero.` });
+        }
+        if ((type === 'band' || type === 'point' || type === 'ordinal') &&
+            (value.outOfBounds === 'clamp' || value.outOfBounds === 'extrapolate' || value.clamp === true)) {
+            issues.push({
+                path: `${path}.outOfBounds`,
+                message: `${type} scale supports only error or unknown for unseen categories.`,
+            });
+        }
+        if (type === 'quantize' && value.outOfBounds === 'extrapolate') {
+            issues.push({
+                path: `${path}.outOfBounds`,
+                message: 'Quantize scales cannot extrapolate discrete range values.',
+            });
+        }
+        if ((type === 'quantile' || type === 'threshold') &&
+            (value.outOfBounds !== undefined || value.clamp !== undefined)) {
+            issues.push({
+                path: `${path}.outOfBounds`,
+                message: `${type} scale bin semantics do not accept outOfBounds.`,
+            });
+        }
+        if (type === 'cyclic' && (value.outOfBounds !== undefined || value.clamp !== undefined)) {
+            issues.push({
+                path: `${path}.outOfBounds`,
+                message: 'Cyclic scales always wrap and do not accept outOfBounds.',
+            });
+        }
+        if (Array.isArray(value.domain)) {
+            const numbers = value.domain.filter((entry) => typeof entry === 'number');
+            if ((type === 'band' || type === 'point') && numbers.length > 0) {
+                issues.push({
+                    path: `${path}.domain`,
+                    message: `${type} scale domain must contain strings.`,
+                });
+            }
+            if (type !== undefined &&
+                [
+                    'linear',
+                    'log',
+                    'symlog',
+                    'asinh',
+                    'pow',
+                    'sqrt',
+                    'quantile',
+                    'quantize',
+                    'threshold',
+                    'sequential',
+                    'diverging',
+                    'cyclic',
+                    'probability',
+                    'logit',
+                    'probit',
+                ].includes(type) &&
+                numbers.length !== value.domain.length) {
+                issues.push({ path: `${path}.domain`, message: `${type} scale domain must be numeric.` });
+            }
+            if (type === 'quantile' && value.domain.length < 2) {
+                issues.push({
+                    path: `${path}.domain`,
+                    message: 'Quantile scale domain must contain at least 2 numeric samples.',
+                });
+            }
+            if ((type === 'time' || type === 'utc') &&
+                value.domain.some((entry) => typeof entry !== 'number' &&
+                    (typeof entry !== 'string' || !Number.isFinite(Date.parse(entry))))) {
+                issues.push({
+                    path: `${path}.domain`,
+                    message: `${type} scale domain values must be finite epochs or parseable date strings.`,
+                });
+            }
+            if (type === 'log' && numbers.some((entry) => entry <= 0)) {
+                issues.push({
+                    path: `${path}.domain`,
+                    message: 'Log scale domain values must be greater than 0.',
+                });
+            }
+            if (type === 'probability' && numbers.some((entry) => entry < 0 || entry > 1)) {
+                issues.push({
+                    path: `${path}.domain`,
+                    message: 'Probability scale domain values must be between 0 and 1.',
+                });
+            }
+            if ((type === 'logit' || type === 'probit') &&
+                numbers.some((entry) => entry <= 0 || entry >= 1)) {
+                issues.push({
+                    path: `${path}.domain`,
+                    message: `${type} scale domain values must be strictly between 0 and 1.`,
+                });
+            }
+            const requiredLength = type === 'diverging'
+                ? 3
+                : [
+                    'linear',
+                    'log',
+                    'symlog',
+                    'asinh',
+                    'pow',
+                    'sqrt',
+                    'time',
+                    'utc',
+                    'quantize',
+                    'sequential',
+                    'cyclic',
+                    'probability',
+                    'logit',
+                    'probit',
+                ].includes(type ?? '')
+                    ? 2
+                    : undefined;
+            if (requiredLength !== undefined && value.domain.length !== requiredLength) {
+                issues.push({
+                    path: `${path}.domain`,
+                    message: `${type} scale domain must contain exactly ${requiredLength} values.`,
+                });
+            }
+            if (type !== undefined &&
+                [
+                    'linear',
+                    'log',
+                    'symlog',
+                    'asinh',
+                    'pow',
+                    'sqrt',
+                    'quantize',
+                    'sequential',
+                    'cyclic',
+                    'probability',
+                    'logit',
+                    'probit',
+                ].includes(type) &&
+                numbers.length === 2 &&
+                numbers[0] === numbers[1]) {
+                issues.push({
+                    path: `${path}.domain`,
+                    message: `${type} scale domain endpoints must differ.`,
+                });
+            }
+            if ((type === 'time' || type === 'utc') &&
+                value.domain.length === 2 &&
+                value.domain
+                    .map((entry) => (typeof entry === 'number' ? entry : Date.parse(String(entry))))
+                    .every(Number.isFinite) &&
+                (typeof value.domain[0] === 'number'
+                    ? value.domain[0]
+                    : Date.parse(String(value.domain[0]))) ===
+                    (typeof value.domain[1] === 'number'
+                        ? value.domain[1]
+                        : Date.parse(String(value.domain[1])))) {
+                issues.push({
+                    path: `${path}.domain`,
+                    message: `${type} scale domain endpoints must differ.`,
+                });
+            }
+            if (type === 'diverging' &&
+                numbers.length === 3 &&
+                !(numbers[0] < numbers[1] && numbers[1] < numbers[2])) {
+                issues.push({
+                    path: `${path}.domain`,
+                    message: 'Diverging scale domain must be strictly ascending.',
+                });
+            }
+            if (type === 'threshold' &&
+                numbers.length === value.domain.length &&
+                numbers.some((entry, index) => index > 0 && entry <= numbers[index - 1])) {
+                issues.push({
+                    path: `${path}.domain`,
+                    message: 'Threshold scale domain must be strictly ascending.',
+                });
+            }
+        }
+        if (type === 'threshold' &&
+            Array.isArray(value.domain) &&
+            Array.isArray(value.range) &&
+            value.range.length !== value.domain.length + 1) {
+            issues.push({
+                path: `${path}.range`,
+                message: 'Threshold scale range length must equal domain length + 1.',
             });
         }
     }
@@ -1685,6 +4009,65 @@ var Graflume = (function (exports) {
                 validateAxis(value[axisId], `${path}.${axisId}`, axisId, issues);
         }
     }
+    function validateEncodingCondition(value, path, channel, issues) {
+        if (!isPlainObject(value)) {
+            issues.push({ path, message: 'Encoding condition must be an object.' });
+            return;
+        }
+        validateUnknownKeys(value, ENCODING_CONDITION_KEYS, path, 'encoding condition', issues);
+        validateTransformExpression(value.test, `${path}.test`, issues);
+        const hasField = value.field !== undefined;
+        const hasValue = value.value !== undefined;
+        if (hasField === hasValue) {
+            issues.push({ path, message: 'Encoding condition requires exactly one of field or value.' });
+        }
+        if (hasField) {
+            if (typeof value.field !== 'string' ||
+                value.field.trim() === '' ||
+                UNSAFE_FIELDS.has(value.field)) {
+                issues.push({
+                    path: `${path}.field`,
+                    message: 'Conditional field must be a non-empty safe string.',
+                });
+            }
+        }
+        if (hasValue)
+            validateChannelValue(value.value, `${path}.value`, channel, issues);
+    }
+    function validateChannelValue(value, path, channel, issues) {
+        if (channel === 'strokeDash') {
+            if (!Array.isArray(value) ||
+                value.some((entry) => typeof entry !== 'number' || !Number.isFinite(entry) || entry < 0)) {
+                issues.push({
+                    path,
+                    message: 'strokeDash value must be an array of non-negative finite numbers.',
+                });
+            }
+            return;
+        }
+        if (Array.isArray(value) ||
+            value === undefined ||
+            (value !== null && !['string', 'number', 'boolean'].includes(typeof value))) {
+            issues.push({ path, message: 'Encoding value must be a JSON scalar.' });
+            return;
+        }
+        if (typeof value === 'number' && !Number.isFinite(value)) {
+            issues.push({ path, message: 'Encoding number must be finite.' });
+        }
+        if (['size', 'radius', 'strokeWidth'].includes(channel) &&
+            (typeof value !== 'number' || value < 0)) {
+            issues.push({ path, message: `${channel} value must be a non-negative number.` });
+        }
+        if (channel === 'opacity' && (typeof value !== 'number' || value < 0 || value > 1)) {
+            issues.push({ path, message: 'Opacity value must be a number between 0 and 1.' });
+        }
+        if (channel === 'shape' && (typeof value !== 'string' || !POINT_SHAPES.has(value))) {
+            issues.push({
+                path,
+                message: 'Shape value must be circle, square, diamond, triangle, or cross.',
+            });
+        }
+    }
     function validateEncoding(value, path, channel, issues) {
         if (typeof value === 'string') {
             if (value.trim() === '')
@@ -1693,33 +4076,514 @@ var Graflume = (function (exports) {
                 issues.push({ path, message: `Unsafe field "${value}" is forbidden.` });
             return;
         }
-        if (!isPlainObject(value) || typeof value.field !== 'string') {
-            issues.push({ path, message: 'Encoding must be a field name or an object with a field.' });
+        if (!isPlainObject(value)) {
+            issues.push({ path, message: 'Encoding must be a field name or a closed encoding object.' });
             return;
         }
         validateUnknownKeys(value, ENCODING_KEYS, path, 'encoding', issues);
-        if (value.field.trim() === '')
-            issues.push({ path: `${path}.field`, message: 'Field must not be empty.' });
-        if (UNSAFE_FIELDS.has(value.field)) {
-            issues.push({ path: `${path}.field`, message: `Unsafe field "${value.field}" is forbidden.` });
+        const hasField = value.field !== undefined;
+        const hasValue = value.value !== undefined;
+        if (hasField === hasValue) {
+            issues.push({ path, message: 'Encoding requires exactly one of field or value.' });
         }
+        if ((channel === 'x' || channel === 'y') && !hasField) {
+            issues.push({ path: `${path}.field`, message: `${channel} encoding requires a field.` });
+        }
+        if (hasField) {
+            if (typeof value.field !== 'string' || value.field.trim() === '')
+                issues.push({ path: `${path}.field`, message: 'Field must not be empty.' });
+            if (typeof value.field === 'string' && UNSAFE_FIELDS.has(value.field)) {
+                issues.push({
+                    path: `${path}.field`,
+                    message: `Unsafe field "${value.field}" is forbidden.`,
+                });
+            }
+        }
+        if (hasValue)
+            validateChannelValue(value.value, `${path}.value`, channel, issues);
         if (value.type !== undefined &&
             (typeof value.type !== 'string' || !FIELD_TYPES.has(value.type))) {
             issues.push({ path: `${path}.type`, message: 'Encoding type is not supported.' });
         }
         validateOptionalString(value.title, `${path}.title`, 'Encoding title', issues);
         validateScale(value.scale, `${path}.scale`, issues);
+        if (value.scale !== undefined && RAW_ONLY_ENCODING_CHANNELS.has(channel)) {
+            issues.push({
+                path: `${path}.scale`,
+                message: `${channel} uses its raw or closed built-in channel registry and does not accept a scale.`,
+            });
+        }
+        const conditions = value.condition === undefined
+            ? []
+            : Array.isArray(value.condition)
+                ? value.condition
+                : [value.condition];
+        if (hasValue &&
+            value.scale !== undefined &&
+            !conditions.some((condition) => isPlainObject(condition) && condition.field !== undefined)) {
+            issues.push({
+                path: `${path}.scale`,
+                message: 'A literal value bypasses scales; remove scale or add a conditional field.',
+            });
+        }
+        if (isPlainObject(value.scale) &&
+            value.scale.range !== undefined &&
+            (channel === 'x' || channel === 'x2' || channel === 'y' || channel === 'y2')) {
+            issues.push({
+                path: `${path}.scale.range`,
+                message: 'Cartesian position ranges are owned by chart layout; use the standalone scale registry for explicit ranges.',
+            });
+        }
+        if (isPlainObject(value.scale) &&
+            value.scale.type === 'threshold' &&
+            value.scale.domain === undefined &&
+            !['x', 'x2', 'y', 'y2'].includes(channel)) {
+            issues.push({
+                path: `${path}.scale.domain`,
+                message: 'Threshold channel scales require explicit thresholds in domain.',
+            });
+        }
+        if (isPlainObject(value.scale) &&
+            value.scale.type === undefined &&
+            Array.isArray(value.scale.domain) &&
+            (value.type === 'quantitative' || value.type === 'temporal') &&
+            value.scale.domain.length !== 2) {
+            issues.push({
+                path: `${path}.scale.domain`,
+                message: `An inferred ${value.type} scale domain must contain exactly 2 values.`,
+            });
+        }
+        if (isPlainObject(value.scale) &&
+            (value.type === 'nominal' || value.type === 'ordinal') &&
+            typeof value.scale.type === 'string' &&
+            !(channel === 'x' || channel === 'y'
+                ? ['band', 'point'].includes(value.scale.type)
+                : value.scale.type === 'ordinal')) {
+            issues.push({
+                path: `${path}.scale.type`,
+                message: channel === 'x' || channel === 'y'
+                    ? `${value.type} Cartesian encodings require band or point scales.`
+                    : `${value.type} visual encodings require an ordinal scale.`,
+            });
+        }
+        if (isPlainObject(value.scale) &&
+            (value.type === 'quantitative' || value.type === 'temporal') &&
+            typeof value.scale.type === 'string' &&
+            ['band', 'point', 'ordinal'].includes(value.scale.type)) {
+            issues.push({
+                path: `${path}.scale.type`,
+                message: `${value.type} encodings cannot use a categorical scale.`,
+            });
+        }
+        if (isPlainObject(value.scale) &&
+            (channel === 'x' || channel === 'y') &&
+            typeof value.scale.type === 'string' &&
+            ![
+                'linear',
+                'log',
+                'symlog',
+                'asinh',
+                'pow',
+                'sqrt',
+                'time',
+                'utc',
+                'band',
+                'point',
+                'probability',
+                'logit',
+                'probit',
+            ].includes(value.scale.type)) {
+            issues.push({
+                path: `${path}.scale.type`,
+                message: `${value.scale.type} is not implemented as a Cartesian axis scale.`,
+            });
+        }
+        if (isPlainObject(value.scale) &&
+            ['color', 'fill', 'stroke'].includes(channel) &&
+            (value.scale.type === 'band' || value.scale.type === 'point')) {
+            issues.push({
+                path: `${path}.scale.type`,
+                message: `${value.scale.type} is a Cartesian categorical scale; color channels use ordinal.`,
+            });
+        }
+        if (isPlainObject(value.scale) &&
+            ['color', 'fill', 'stroke'].includes(channel) &&
+            value.scale.outOfBounds === 'extrapolate' &&
+            value.scale.type !== 'cyclic') {
+            issues.push({
+                path: `${path}.scale.outOfBounds`,
+                message: 'Color scales do not extrapolate colors; use clamp, error, or unknown.',
+            });
+        }
+        if (isPlainObject(value.scale) && Array.isArray(value.scale.range)) {
+            if (['color', 'fill', 'stroke'].includes(channel) &&
+                value.scale.range.some((entry) => typeof entry !== 'string')) {
+                issues.push({
+                    path: `${path}.scale.range`,
+                    message: 'Color scale range must contain strings.',
+                });
+            }
+            if (['size', 'radius', 'opacity', 'strokeWidth'].includes(channel) &&
+                value.scale.range.some((entry) => typeof entry !== 'number')) {
+                issues.push({
+                    path: `${path}.scale.range`,
+                    message: `${channel} scale range must contain numbers.`,
+                });
+            }
+            if (['color', 'fill', 'stroke'].includes(channel) && typeof value.scale.type !== 'string') {
+                issues.push({
+                    path: `${path}.scale.type`,
+                    message: 'An explicit color range requires an explicit color scale type.',
+                });
+            }
+            if (['color', 'fill', 'stroke'].includes(channel) &&
+                typeof value.scale.type === 'string' &&
+                !['ordinal', 'sequential', 'diverging', 'cyclic'].includes(value.scale.type)) {
+                issues.push({
+                    path: `${path}.scale.range`,
+                    message: 'Transformed numeric color scales use the active theme palette; explicit color ranges require sequential, diverging, cyclic, or ordinal.',
+                });
+            }
+            if (['size', 'radius', 'opacity', 'strokeWidth'].includes(channel) &&
+                (value.scale.type === undefined ||
+                    (typeof value.scale.type === 'string' &&
+                        !['ordinal', 'quantile', 'quantize', 'threshold'].includes(value.scale.type))) &&
+                (value.type === 'quantitative' || value.type === 'temporal') &&
+                value.scale.range.length !== 2) {
+                issues.push({
+                    path: `${path}.scale.range`,
+                    message: `${channel} continuous scale range must contain exactly 2 numbers.`,
+                });
+            }
+        }
+        if (isPlainObject(value.scale) && (channel === 'x2' || channel === 'y2')) {
+            issues.push({
+                path: `${path}.scale`,
+                message: `${channel} shares the primary position scale and cannot declare a separate scale.`,
+            });
+        }
+        if (isPlainObject(value.scale) &&
+            typeof value.scale.type === 'string' &&
+            ['sequential', 'diverging', 'cyclic'].includes(value.scale.type) &&
+            !['color', 'fill', 'stroke'].includes(channel)) {
+            issues.push({
+                path: `${path}.scale.type`,
+                message: `${value.scale.type} is a color-only scale.`,
+            });
+        }
         const allowedAxisIds = channel === 'x' ? new Set(['x', 'x2']) : new Set(['y', 'y2']);
-        const axisId = typeof value.axisId === 'string' && allowedAxisIds.has(value.axisId) ? value.axisId : channel;
+        const axisId = typeof value.axisId === 'string' && allowedAxisIds.has(value.axisId)
+            ? value.axisId
+            : channel === 'x' || channel === 'y'
+                ? channel
+                : undefined;
         if (value.axisId !== undefined &&
-            (typeof value.axisId !== 'string' || !allowedAxisIds.has(value.axisId))) {
+            ((channel !== 'x' && channel !== 'y') ||
+                typeof value.axisId !== 'string' ||
+                !allowedAxisIds.has(value.axisId))) {
             issues.push({
                 path: `${path}.axisId`,
-                message: `${channel}-encoding axisId must be "${channel}" or "${channel}2".`,
+                message: channel === 'x' || channel === 'y'
+                    ? `${channel}-encoding axisId must be "${channel}" or "${channel}2".`
+                    : `axisId is not valid for the ${channel} channel.`,
             });
         }
         if (value.axis !== undefined) {
-            validateAxis(value.axis, `${path}.axis`, axisId, issues);
+            if ((channel === 'x' || channel === 'y') && axisId !== undefined) {
+                validateAxis(value.axis, `${path}.axis`, axisId, issues);
+            }
+            else {
+                issues.push({
+                    path: `${path}.axis`,
+                    message: `Axis is not valid for the ${channel} channel.`,
+                });
+            }
+        }
+        if (value.condition !== undefined) {
+            if (channel === 'x' || channel === 'y' || channel === 'x2' || channel === 'y2') {
+                issues.push({
+                    path: `${path}.condition`,
+                    message: 'Conditional Cartesian positions are not implemented; precompute the position field with calculate instead.',
+                });
+            }
+            if (conditions.length === 0 || conditions.length > 32) {
+                issues.push({
+                    path: `${path}.condition`,
+                    message: 'Encoding condition requires 1..32 entries.',
+                });
+            }
+            else {
+                conditions.forEach((condition, index) => validateEncodingCondition(condition, `${path}.condition[${index}]`, channel, issues));
+            }
+        }
+    }
+    function markType$1(value) {
+        if (typeof value === 'string')
+            return value;
+        return isPlainObject(value) && typeof value.type === 'string' ? value.type : undefined;
+    }
+    function validateMarkEncodingCompatibility(mark, encoding, path, issues) {
+        if (!isPlainObject(encoding))
+            return;
+        const type = markType$1(mark);
+        const markObject = isPlainObject(mark) ? mark : null;
+        const markOptions = markObject !== null && isPlainObject(markObject.options) ? markObject.options : null;
+        const seriesLayout = type === 'theme-river' || markOptions?.stack !== undefined;
+        const shared = new Set(['x', 'y']);
+        const allowed = new Set(shared);
+        if (type === 'point' || type === 'circle') {
+            for (const channel of [
+                'color',
+                'fill',
+                'stroke',
+                'size',
+                'radius',
+                'shape',
+                'opacity',
+                'strokeWidth',
+                'strokeDash',
+                'text',
+                'order',
+                'tooltip',
+            ])
+                allowed.add(channel);
+        }
+        else if (type === 'bar') {
+            for (const channel of [
+                'x2',
+                'y2',
+                'color',
+                'fill',
+                'stroke',
+                'opacity',
+                'strokeWidth',
+                'strokeDash',
+                'order',
+                'tooltip',
+            ])
+                allowed.add(channel);
+        }
+        else if (type === 'line') {
+            for (const channel of [
+                'color',
+                'stroke',
+                'opacity',
+                'strokeWidth',
+                'strokeDash',
+                'order',
+                'detail',
+            ])
+                allowed.add(channel);
+            if (isPlainObject(mark) && mark.point === true) {
+                for (const channel of ['fill', 'size', 'radius', 'tooltip'])
+                    allowed.add(channel);
+            }
+        }
+        else if (type === 'area' || type === 'stepped-area' || type === 'theme-river') {
+            for (const channel of [
+                'y2',
+                'color',
+                'fill',
+                'stroke',
+                'opacity',
+                'strokeWidth',
+                'strokeDash',
+                'order',
+                'detail',
+            ])
+                allowed.add(channel);
+            if (isPlainObject(mark) && mark.point === true) {
+                for (const channel of ['size', 'radius', 'tooltip'])
+                    allowed.add(channel);
+            }
+        }
+        else if (type === 'heatmap') {
+            for (const channel of [
+                'x2',
+                'y2',
+                'color',
+                'fill',
+                'stroke',
+                'opacity',
+                'strokeWidth',
+                'strokeDash',
+                'text',
+                'order',
+                'tooltip',
+            ])
+                allowed.add(channel);
+        }
+        for (const channel of Object.keys(encoding)) {
+            if (seriesLayout &&
+                ((type === 'bar' && (channel === 'x2' || channel === 'y2')) ||
+                    ((type === 'area' || type === 'theme-river') && channel === 'y2'))) {
+                issues.push({
+                    path: `${path}.${channel}`,
+                    message: `The ${channel} range channel conflicts with series-stack boundaries; remove the range channel or the stack layout.`,
+                });
+                continue;
+            }
+            if (!allowed.has(channel)) {
+                issues.push({
+                    path: `${path}.${channel}`,
+                    message: `The ${channel} channel is not implemented for mark "${type ?? 'unknown'}".`,
+                });
+            }
+        }
+    }
+    function validateEncodingMap(value, path, issues) {
+        if (!isPlainObject(value)) {
+            issues.push({ path, message: 'Encoding map must be an object.' });
+            return;
+        }
+        validateUnknownKeys(value, ENCODING_CHANNELS, path, 'encoding channel', issues);
+        if (value.x === undefined)
+            issues.push({ path: `${path}.x`, message: 'Encoding map requires x.' });
+        if (value.y === undefined)
+            issues.push({ path: `${path}.y`, message: 'Encoding map requires y.' });
+        for (const channel of ENCODING_CHANNELS) {
+            if (value[channel] !== undefined) {
+                validateEncoding(value[channel], `${path}.${channel}`, channel, issues);
+            }
+        }
+    }
+    function validateSeriesStack(markType, markFields, value, path, issues) {
+        if (value === undefined)
+            return;
+        if (!SERIES_STACK_MARKS.has(markType)) {
+            issues.push({
+                path,
+                message: 'Series stack layout is supported only by area, bar, and theme-river.',
+            });
+            return;
+        }
+        const object = isPlainObject(value) ? value : null;
+        const mode = typeof value === 'string' ? value : (object?.mode ?? 'stacked');
+        if (typeof mode !== 'string' || !seriesStackModes.includes(mode)) {
+            issues.push({
+                path: object === null ? path : `${path}.mode`,
+                message: `Series stack mode must be one of: ${seriesStackModes.join(', ')}.`,
+            });
+        }
+        if (object === null) {
+            if (typeof value !== 'string') {
+                issues.push({ path, message: 'Series stack must be a supported mode string or an object.' });
+            }
+        }
+        else {
+            validateUnknownKeys(object, new Set(['mode', 'offset', 'order', 'sort']), path, 'series stack', issues);
+            if (object.offset !== undefined &&
+                (typeof object.offset !== 'string' || !SERIES_STACK_OFFSETS.has(object.offset))) {
+                issues.push({ path: `${path}.offset`, message: 'Series stack offset is not supported.' });
+            }
+            if (object.order !== undefined &&
+                (typeof object.order !== 'string' || !SERIES_STACK_ORDERS.has(object.order))) {
+                issues.push({ path: `${path}.order`, message: 'Series stack order is not supported.' });
+            }
+            if (object.sort !== undefined) {
+                if (!Array.isArray(object.sort) || object.sort.length === 0 || object.sort.length > 16) {
+                    issues.push({ path: `${path}.sort`, message: 'Series stack sort requires 1..16 fields.' });
+                }
+                else {
+                    object.sort.forEach((entry, index) => {
+                        const entryPath = `${path}.sort[${index}]`;
+                        if (!isPlainObject(entry)) {
+                            issues.push({ path: entryPath, message: 'Series stack sort entry must be an object.' });
+                            return;
+                        }
+                        validateUnknownKeys(entry, new Set(['field', 'order']), entryPath, 'series stack sort', issues);
+                        if (typeof entry.field !== 'string' ||
+                            entry.field.trim() === '' ||
+                            UNSAFE_FIELDS.has(entry.field)) {
+                            issues.push({
+                                path: `${entryPath}.field`,
+                                message: 'Series stack sort field must be safe and non-empty.',
+                            });
+                        }
+                        if (entry.order !== undefined &&
+                            entry.order !== 'ascending' &&
+                            entry.order !== 'descending') {
+                            issues.push({
+                                path: `${entryPath}.order`,
+                                message: 'Sort order must be ascending or descending.',
+                            });
+                        }
+                    });
+                }
+            }
+            if (mode === 'grouped' && object.offset !== undefined) {
+                issues.push({ path: `${path}.offset`, message: 'Grouped series do not use a stack offset.' });
+            }
+            if (mode === '100-percent' &&
+                object.offset !== undefined &&
+                !['normalize', 'expand'].includes(String(object.offset))) {
+                issues.push({
+                    path: `${path}.offset`,
+                    message: '100-percent series require normalize or expand offset.',
+                });
+            }
+            if (mode === 'diverging' && object.offset === 'wiggle') {
+                issues.push({
+                    path: `${path}.offset`,
+                    message: 'Diverging series cannot use the non-negative wiggle offset.',
+                });
+            }
+            if (mode === 'streamgraph' &&
+                object.offset !== undefined &&
+                !['wiggle', 'center', 'silhouette'].includes(String(object.offset))) {
+                issues.push({
+                    path: `${path}.offset`,
+                    message: 'Streamgraph offset must be wiggle, center, or silhouette.',
+                });
+            }
+        }
+        const hasSeries = isPlainObject(markFields) &&
+            (typeof markFields.series === 'string' ||
+                (markType === 'theme-river' && typeof markFields.category === 'string'));
+        if (!hasSeries) {
+            issues.push({
+                path: `${path.replace(/\.options\.stack$/, '.fields')}.series`,
+                message: 'Series layout requires mark.fields.series.',
+            });
+        }
+    }
+    function validateIndicatorCalculation(options, path, issues) {
+        if (options.calculate !== undefined && typeof options.calculate !== 'boolean') {
+            issues.push({ path: `${path}.calculate`, message: 'Indicator calculate must be boolean.' });
+        }
+        if (options.kind !== undefined &&
+            (typeof options.kind !== 'string' || options.kind.trim() === '')) {
+            issues.push({ path: `${path}.kind`, message: 'Indicator kind must be a non-empty string.' });
+        }
+        for (const name of ['period', 'fastPeriod', 'slowPeriod', 'signalPeriod']) {
+            if (options[name] === undefined)
+                continue;
+            validateFiniteNumber(options[name], `${path}.${name}`, `Indicator ${name}`, issues, {
+                integer: true,
+                min: 2,
+                max: 200,
+            });
+        }
+        if (typeof options.fastPeriod === 'number' &&
+            typeof options.slowPeriod === 'number' &&
+            options.fastPeriod >= options.slowPeriod) {
+            issues.push({
+                path: `${path}.fastPeriod`,
+                message: 'Indicator fastPeriod must be smaller than slowPeriod.',
+            });
+        }
+        if (options.calculate === true) {
+            const kind = typeof options.kind === 'string' ? options.kind : 'sma';
+            const capability = resolveTechnicalIndicatorCapability(kind);
+            if (capability === null) {
+                issues.push({ path: `${path}.kind`, message: `Unknown calculated indicator "${kind}".` });
+            }
+            else if (capability.support !== 'computed') {
+                issues.push({
+                    path: `${path}.calculate`,
+                    message: `${capability.id} is precomputed-required; supply indicator columns instead.`,
+                });
+            }
         }
     }
     function validateMark(value, path, issues) {
@@ -1759,8 +4623,39 @@ var Graflume = (function (exports) {
                 }
             }
         }
-        if (value.options !== undefined && !isPlainObject(value.options)) {
-            issues.push({ path: `${path}.options`, message: 'Mark options must be a JSON object.' });
+        if (value.options !== undefined) {
+            if (!isPlainObject(value.options)) {
+                issues.push({ path: `${path}.options`, message: 'Mark options must be a JSON object.' });
+            }
+            else {
+                validateSeriesStack(value.type, value.fields, value.options.stack, `${path}.options.stack`, issues);
+                if (value.type === 'indicator') {
+                    validateIndicatorCalculation(value.options, `${path}.options`, issues);
+                }
+            }
+            if (isPlainObject(value.options) && CURVE_MARKS.has(value.type)) {
+                if (value.options.curve !== undefined &&
+                    (typeof value.options.curve !== 'string' || !CURVE_NAMES.has(value.options.curve))) {
+                    issues.push({
+                        path: `${path}.options.curve`,
+                        message: `Curve must be one of: ${curveNames.join(', ')}.`,
+                    });
+                }
+                if (value.options.missing !== undefined &&
+                    (typeof value.options.missing !== 'string' ||
+                        !MISSING_VALUE_POLICIES.has(value.options.missing))) {
+                    issues.push({
+                        path: `${path}.options.missing`,
+                        message: 'Missing-value policy must be "gap", "zero", or "connect".',
+                    });
+                }
+                if (value.options.tension !== undefined) {
+                    validateFiniteNumber(value.options.tension, `${path}.options.tension`, 'Cardinal curve tension', issues, { min: 0, max: 1 });
+                }
+                if (value.options.curveSamples !== undefined) {
+                    validateFiniteNumber(value.options.curveSamples, `${path}.options.curveSamples`, 'Curve samples', issues, { integer: true, min: 1, max: 64 });
+                }
+            }
         }
     }
     function validateTooltipField(value, path, issues) {
@@ -1880,9 +4775,74 @@ var Graflume = (function (exports) {
             }
         }
         validateNavigation(value.navigation, `${path}.navigation`, issues);
+        validateDomainNavigation(value.domainNavigation, `${path}.domainNavigation`, issues);
         validatePlayback(value.playback, `${path}.playback`, issues);
         validateControls(value.controls, `${path}.controls`, issues);
         validateSelection(value.selection, `${path}.selection`, issues);
+        const inspectionEnabled = value.navigation !== undefined && value.navigation !== false;
+        const domainEnabled = value.domainNavigation !== undefined && value.domainNavigation !== false;
+        if (inspectionEnabled && domainEnabled) {
+            issues.push({
+                path: `${path}.domainNavigation`,
+                message: 'Domain navigation cannot be combined with inspection navigation; choose one coordinate model.',
+            });
+        }
+        const selection = isPlainObject(value.selection) ? value.selection : undefined;
+        const kind = selection?.kind ?? 'point';
+        const inspectionGesture = value.navigation === true ||
+            (isPlainObject(value.navigation) &&
+                (value.navigation.drag !== false || value.navigation.pinch !== false));
+        const domainDrag = value.domainNavigation === true ||
+            (isPlainObject(value.domainNavigation) && value.domainNavigation.drag !== false);
+        if (kind !== 'point' && (inspectionGesture || domainDrag)) {
+            issues.push({
+                path: `${path}.selection.kind`,
+                message: 'Interval, rectangle, axis, and lasso pointer gestures require navigation.drag=false, navigation.pinch=false, and domainNavigation.drag=false to avoid an ambiguous gesture.',
+            });
+        }
+    }
+    function validateAccessibility(value, path, issues) {
+        if (value === undefined)
+            return;
+        if (!isPlainObject(value)) {
+            issues.push({ path, message: 'Accessibility must be an object.' });
+            return;
+        }
+        validateUnknownKeys(value, ACCESSIBILITY_KEYS, path, 'accessibility', issues);
+        validateOptionalString(value.label, `${path}.label`, 'Accessibility label', issues, false);
+        validateOptionalString(value.description, `${path}.description`, 'Accessibility description', issues, false);
+        validateOptionalString(value.summary, `${path}.summary`, 'Accessibility summary', issues, false);
+        validateOptionalBoolean(value.navigation, `${path}.navigation`, 'Accessibility navigation', issues);
+        if (value.table !== undefined &&
+            typeof value.table !== 'boolean' &&
+            (typeof value.table !== 'string' || !ACCESSIBILITY_TABLE_MODES.has(value.table))) {
+            issues.push({
+                path: `${path}.table`,
+                message: 'Accessibility table must be a boolean, "hidden", or "visible".',
+            });
+        }
+        if (value.maxRows !== undefined) {
+            validateFiniteNumber(value.maxRows, `${path}.maxRows`, 'Accessibility maxRows', issues, {
+                integer: true,
+                min: 1,
+                max: 5_000,
+            });
+        }
+        if (value.live !== undefined && typeof value.live !== 'boolean') {
+            if (!isPlainObject(value.live)) {
+                issues.push({
+                    path: `${path}.live`,
+                    message: 'Accessibility live must be a boolean or object.',
+                });
+            }
+            else {
+                validateUnknownKeys(value.live, ACCESSIBILITY_LIVE_KEYS, `${path}.live`, 'accessibility live', issues);
+                validateOptionalBoolean(value.live.enabled, `${path}.live.enabled`, 'Live announcements', issues);
+                if (value.live.throttleMs !== undefined) {
+                    validateFiniteNumber(value.live.throttleMs, `${path}.live.throttleMs`, 'Live announcement throttle', issues, { integer: true, min: 0, max: 10_000 });
+                }
+            }
+        }
     }
     function validateHighlightStyle(value, path, issues) {
         for (const key of ['fill', 'stroke']) {
@@ -1931,6 +4891,21 @@ var Graflume = (function (exports) {
             return;
         }
         validateUnknownKeys(value, SELECTION_KEYS, path, 'selection', issues);
+        if (value.kind !== undefined &&
+            (typeof value.kind !== 'string' || !SELECTION_KINDS.has(value.kind))) {
+            issues.push({
+                path: `${path}.kind`,
+                message: 'Selection kind must be "point", "interval", "rectangle", "axis", or "lasso".',
+            });
+        }
+        if (value.combine !== undefined &&
+            (typeof value.combine !== 'string' || !SELECTION_COMBINE.has(value.combine))) {
+            issues.push({
+                path: `${path}.combine`,
+                message: 'Selection combine must be "union" or "intersection".',
+            });
+        }
+        const kind = typeof value.kind === 'string' && SELECTION_KINDS.has(value.kind) ? value.kind : 'point';
         if (value.mode !== undefined &&
             (typeof value.mode !== 'string' || !SELECTION_MODES.has(value.mode))) {
             issues.push({
@@ -1946,6 +4921,48 @@ var Graflume = (function (exports) {
         validateOptionalBoolean(value.clearOnBackground, `${path}.clearOnBackground`, 'Selection clearOnBackground', issues);
         validateOptionalBoolean(value.clearOnEscape, `${path}.clearOnEscape`, 'Selection clearOnEscape', issues);
         validateOptionalString(value.ariaLabel, `${path}.ariaLabel`, 'Selection ariaLabel', issues, false);
+        if (value.axis !== undefined && (typeof value.axis !== 'string' || !AXIS_IDS.has(value.axis))) {
+            issues.push({
+                path: `${path}.axis`,
+                message: 'Selection axis must be "x", "x2", "y", or "y2".',
+            });
+        }
+        if (kind === 'axis' && value.axis === undefined) {
+            issues.push({ path: `${path}.axis`, message: 'Axis selection requires an explicit axis.' });
+        }
+        if (kind !== 'axis' && value.axis !== undefined) {
+            issues.push({ path: `${path}.axis`, message: 'Selection axis is only valid for kind "axis".' });
+        }
+        if (value.xAxis !== undefined && value.xAxis !== 'x' && value.xAxis !== 'x2') {
+            issues.push({ path: `${path}.xAxis`, message: 'Selection xAxis must be "x" or "x2".' });
+        }
+        if (value.yAxis !== undefined && value.yAxis !== 'y' && value.yAxis !== 'y2') {
+            issues.push({ path: `${path}.yAxis`, message: 'Selection yAxis must be "y" or "y2".' });
+        }
+        if (kind === 'axis' && (value.xAxis !== undefined || value.yAxis !== undefined)) {
+            issues.push({
+                path,
+                message: 'Axis selection uses axis; xAxis and yAxis are not accepted for this kind.',
+            });
+        }
+        if (kind !== 'point' && (value.toggle !== undefined || value.key !== undefined)) {
+            issues.push({
+                path,
+                message: 'Selection toggle and key are supported only by point/datum selection.',
+            });
+        }
+        if (value.maxSelections !== undefined)
+            validateFiniteNumber(value.maxSelections, `${path}.maxSelections`, 'Selection maxSelections', issues, { integer: true, min: 1, max: 64 });
+        if (value.maxLassoPoints !== undefined)
+            validateFiniteNumber(value.maxLassoPoints, `${path}.maxLassoPoints`, 'Selection maxLassoPoints', issues, { integer: true, min: 3, max: 512 });
+        if (kind !== 'lasso' && value.maxLassoPoints !== undefined) {
+            issues.push({
+                path: `${path}.maxLassoPoints`,
+                message: 'Selection maxLassoPoints is only valid for kind "lasso".',
+            });
+        }
+        if (value.minPixelSpan !== undefined)
+            validateFiniteNumber(value.minPixelSpan, `${path}.minPixelSpan`, 'Selection minPixelSpan', issues, { min: 0, max: 64 });
         if (value.highlight !== undefined) {
             if (!isPlainObject(value.highlight)) {
                 issues.push({ path: `${path}.highlight`, message: 'Selection highlight must be an object.' });
@@ -1989,6 +5006,51 @@ var Graflume = (function (exports) {
         validateOptionalBoolean(value.drag, `${path}.drag`, 'Navigation drag', issues);
         validateOptionalBoolean(value.pinch, `${path}.pinch`, 'Navigation pinch', issues);
         validateOptionalBoolean(value.keyboard, `${path}.keyboard`, 'Navigation keyboard', issues);
+    }
+    function validateDomainNavigation(value, path, issues) {
+        if (value === undefined || typeof value === 'boolean')
+            return;
+        if (!isPlainObject(value)) {
+            issues.push({ path, message: 'Domain navigation must be a boolean or an object.' });
+            return;
+        }
+        validateUnknownKeys(value, DOMAIN_NAVIGATION_KEYS, path, 'domain navigation', issues);
+        if (value.axes !== undefined) {
+            if (!Array.isArray(value.axes) || value.axes.length === 0 || value.axes.length > 4) {
+                issues.push({
+                    path: `${path}.axes`,
+                    message: 'Domain navigation axes must contain 1 to 4 axis IDs.',
+                });
+            }
+            else {
+                const axes = value.axes.filter((axis) => typeof axis === 'string');
+                value.axes.forEach((axis, index) => {
+                    if (typeof axis !== 'string' || !AXIS_IDS.has(axis)) {
+                        issues.push({
+                            path: `${path}.axes[${index}]`,
+                            message: 'Domain navigation axis must be "x", "x2", "y", or "y2".',
+                        });
+                    }
+                });
+                if (new Set(axes).size !== axes.length) {
+                    issues.push({ path: `${path}.axes`, message: 'Domain navigation axes must be unique.' });
+                }
+            }
+        }
+        if (value.maxZoom !== undefined)
+            validateFiniteNumber(value.maxZoom, `${path}.maxZoom`, 'Domain navigation maxZoom', issues, {
+                min: 1,
+                max: 64,
+            });
+        if (value.wheel !== undefined &&
+            (typeof value.wheel !== 'string' || !NAVIGATION_WHEEL_MODES.has(value.wheel))) {
+            issues.push({
+                path: `${path}.wheel`,
+                message: 'Domain navigation wheel must be "off", "modifier", or "always".',
+            });
+        }
+        validateOptionalBoolean(value.drag, `${path}.drag`, 'Domain navigation drag', issues);
+        validateOptionalBoolean(value.keyboard, `${path}.keyboard`, 'Domain navigation keyboard', issues);
     }
     function validatePlayback(value, path, issues) {
         if (value === undefined || value === false)
@@ -2088,10 +5150,24 @@ var Graflume = (function (exports) {
             issues.push({ path, message: 'Layer must be an object.' });
             return;
         }
+        validateUnknownKeys(layer, LAYER_KEYS, path, 'layer', issues);
         validateOptionalString(layer.name, `${path}.name`, 'Layer name', issues, false);
+        validateTransforms(layer.transform, `${path}.transform`, issues);
         validateMark(layer.mark, `${path}.mark`, issues);
-        validateEncoding(layer.x, `${path}.x`, 'x', issues);
-        validateEncoding(layer.y, `${path}.y`, 'y', issues);
+        if (layer.encoding !== undefined && (layer.x !== undefined || layer.y !== undefined)) {
+            issues.push({
+                path,
+                message: 'Use either the legacy x/y facade or the canonical encoding map, not both.',
+            });
+        }
+        if (layer.encoding !== undefined) {
+            validateEncodingMap(layer.encoding, `${path}.encoding`, issues);
+            validateMarkEncodingCompatibility(layer.mark, layer.encoding, `${path}.encoding`, issues);
+        }
+        else {
+            validateEncoding(layer.x, `${path}.x`, 'x', issues);
+            validateEncoding(layer.y, `${path}.y`, 'y', issues);
+        }
         if (!hasParentData && layer.data === undefined) {
             issues.push({
                 path: `${path}.data`,
@@ -2420,7 +5496,10 @@ var Graflume = (function (exports) {
     function validateLayerReferences(input, issues) {
         const sourceLayers = Array.isArray(input.layers)
             ? input.layers
-            : input.mark !== undefined || input.x !== undefined || input.y !== undefined
+            : input.mark !== undefined ||
+                input.x !== undefined ||
+                input.y !== undefined ||
+                input.encoding !== undefined
                 ? [input]
                 : [];
         const layerIds = new Set();
@@ -2514,6 +5593,135 @@ var Graflume = (function (exports) {
         checkUniqueIds(input.highlights, '$.highlights', 'Highlight', 'highlight');
         checkUniqueIds(input.annotations, '$.annotations', 'Annotation', 'annotation');
     }
+    function validateStreaming(value, path, issues) {
+        if (value === undefined)
+            return;
+        if (!isPlainObject(value)) {
+            issues.push({ path, message: 'Streaming must be an object.' });
+            return;
+        }
+        validateUnknownKeys(value, STREAMING_KEYS, path, 'streaming', issues);
+        if (value.key === undefined) {
+            issues.push({ path: `${path}.key`, message: 'Streaming stable key is required.' });
+        }
+        else {
+            validateOptionalString(value.key, `${path}.key`, 'Streaming stable key', issues, false);
+        }
+        if (typeof value.key === 'string' && UNSAFE_FIELDS.has(value.key)) {
+            issues.push({ path: `${path}.key`, message: 'Streaming stable key is unsafe.' });
+        }
+        if (value.mode !== undefined &&
+            !['append', 'upsert', 'replaceLast'].includes(String(value.mode))) {
+            issues.push({ path: `${path}.mode`, message: 'Streaming mode is not supported.' });
+        }
+        if (value.maxBatchRows !== undefined) {
+            validateFiniteNumber(value.maxBatchRows, `${path}.maxBatchRows`, 'Streaming batch limit', issues, {
+                min: 1,
+                max: 1_000_000,
+                integer: true,
+            });
+        }
+        if (value.retention !== undefined) {
+            if (!isPlainObject(value.retention)) {
+                issues.push({ path: `${path}.retention`, message: 'Streaming retention must be an object.' });
+            }
+            else {
+                validateUnknownKeys(value.retention, STREAMING_RETENTION_KEYS, `${path}.retention`, 'streaming retention', issues);
+                if (value.retention.maxRows !== undefined) {
+                    validateFiniteNumber(value.retention.maxRows, `${path}.retention.maxRows`, 'Streaming retention row limit', issues, { min: 1, max: 1_000_000, integer: true });
+                }
+                if (value.retention.time !== undefined) {
+                    if (!isPlainObject(value.retention.time)) {
+                        issues.push({
+                            path: `${path}.retention.time`,
+                            message: 'Time retention must be an object.',
+                        });
+                    }
+                    else {
+                        validateUnknownKeys(value.retention.time, STREAMING_TIME_KEYS, `${path}.retention.time`, 'time retention', issues);
+                        if (value.retention.time.field === undefined) {
+                            issues.push({
+                                path: `${path}.retention.time.field`,
+                                message: 'Time retention field is required.',
+                            });
+                        }
+                        else {
+                            validateOptionalString(value.retention.time.field, `${path}.retention.time.field`, 'Time retention field', issues, false);
+                        }
+                        if (typeof value.retention.time.field === 'string' &&
+                            UNSAFE_FIELDS.has(value.retention.time.field)) {
+                            issues.push({
+                                path: `${path}.retention.time.field`,
+                                message: 'Time retention field is unsafe.',
+                            });
+                        }
+                        validateFiniteNumber(value.retention.time.durationMs, `${path}.retention.time.durationMs`, 'Time retention duration', issues, { min: 0 });
+                        if (value.eventTime === undefined) {
+                            issues.push({
+                                path: `${path}.retention.time`,
+                                message: 'Time retention requires an eventTime watermark contract.',
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        if (value.eventTime !== undefined) {
+            if (!isPlainObject(value.eventTime)) {
+                issues.push({ path: `${path}.eventTime`, message: 'Event time must be an object.' });
+            }
+            else {
+                validateUnknownKeys(value.eventTime, STREAMING_EVENT_TIME_KEYS, `${path}.eventTime`, 'event-time', issues);
+                if (value.eventTime.field === undefined) {
+                    issues.push({ path: `${path}.eventTime.field`, message: 'Event-time field is required.' });
+                }
+                else {
+                    validateOptionalString(value.eventTime.field, `${path}.eventTime.field`, 'Event-time field', issues, false);
+                }
+                if (typeof value.eventTime.field === 'string' && UNSAFE_FIELDS.has(value.eventTime.field)) {
+                    issues.push({ path: `${path}.eventTime.field`, message: 'Event-time field is unsafe.' });
+                }
+                if (value.eventTime.allowedLatenessMs !== undefined) {
+                    validateFiniteNumber(value.eventTime.allowedLatenessMs, `${path}.eventTime.allowedLatenessMs`, 'Allowed lateness', issues, { min: 0 });
+                }
+                if (value.eventTime.lateData !== undefined &&
+                    !['reject', 'drop', 'accept'].includes(String(value.eventTime.lateData))) {
+                    issues.push({
+                        path: `${path}.eventTime.lateData`,
+                        message: 'Late-data policy is unsupported.',
+                    });
+                }
+            }
+        }
+        for (const [name, keys, maximumBatches] of [
+            ['queue', STREAMING_QUEUE_KEYS, 1_024],
+            ['replay', STREAMING_REPLAY_KEYS, 4_096],
+        ]) {
+            const object = value[name];
+            if (object === undefined)
+                continue;
+            if (!isPlainObject(object)) {
+                issues.push({ path: `${path}.${name}`, message: `Streaming ${name} must be an object.` });
+                continue;
+            }
+            validateUnknownKeys(object, keys, `${path}.${name}`, `streaming ${name}`, issues);
+            for (const field of ['maxBatches', 'maxRows']) {
+                if (object[field] !== undefined) {
+                    validateFiniteNumber(object[field], `${path}.${name}.${field}`, `Streaming ${name} ${field}`, issues, {
+                        min: 1,
+                        max: field === 'maxBatches' ? maximumBatches : 1_000_000,
+                        integer: true,
+                    });
+                }
+            }
+            if (name === 'queue' && object.overflow !== undefined && object.overflow !== 'reject') {
+                issues.push({
+                    path: `${path}.queue.overflow`,
+                    message: 'Only reject backpressure is supported.',
+                });
+            }
+        }
+    }
     function findFunctions(value, path, issues, seen) {
         if (typeof value === 'function') {
             issues.push({ path, message: 'Functions are not allowed in the portable chart spec.' });
@@ -2538,7 +5746,7 @@ var Graflume = (function (exports) {
             findFunctions(child, `${path}.${key}`, issues, seen);
         }
     }
-    function validateSpec(input) {
+    function validateUnitSpec(input) {
         const issues = [];
         if (!isPlainObject(input)) {
             return [{ path: '$', message: 'Chart spec must be an object.' }];
@@ -2547,7 +5755,10 @@ var Graflume = (function (exports) {
             issues.push({ path: '$.specVersion', message: 'Only specVersion "0.1" is supported.' });
         }
         const layers = input.layers;
-        const hasShorthand = input.mark !== undefined || input.x !== undefined || input.y !== undefined;
+        const hasShorthand = input.mark !== undefined ||
+            input.x !== undefined ||
+            input.y !== undefined ||
+            input.encoding !== undefined;
         if (layers === undefined && !hasShorthand) {
             issues.push({ path: '$', message: 'Provide layers or the mark/x/y shorthand.' });
         }
@@ -2561,8 +5772,20 @@ var Graflume = (function (exports) {
         }
         if (hasShorthand) {
             validateMark(input.mark, '$.mark', issues);
-            validateEncoding(input.x, '$.x', 'x', issues);
-            validateEncoding(input.y, '$.y', 'y', issues);
+            if (input.encoding !== undefined && (input.x !== undefined || input.y !== undefined)) {
+                issues.push({
+                    path: '$',
+                    message: 'Use either the legacy x/y facade or the canonical encoding map, not both.',
+                });
+            }
+            if (input.encoding !== undefined) {
+                validateEncodingMap(input.encoding, '$.encoding', issues);
+                validateMarkEncodingCompatibility(input.mark, input.encoding, '$.encoding', issues);
+            }
+            else {
+                validateEncoding(input.x, '$.x', 'x', issues);
+                validateEncoding(input.y, '$.y', 'y', issues);
+            }
             if (input.data === undefined) {
                 issues.push({
                     path: '$.data',
@@ -2576,7 +5799,487 @@ var Graflume = (function (exports) {
         validateHighlights(input.highlights, '$.highlights', issues);
         validateAnnotations(input.annotations, '$.annotations', issues);
         validateInteraction(input.interaction, '$.interaction', issues);
+        validateAccessibility(input.accessibility, '$.accessibility', issues);
+        validateStreaming(input.streaming, '$.streaming', issues);
+        validateTransforms(input.transform, '$.transform', issues);
         validateLayerReferences(input, issues);
+        findFunctions(input, '$', issues, new WeakSet());
+        return issues;
+    }
+    function prefixedIssue(issue, path) {
+        return {
+            path: issue.path === '$' ? path : `${path}${issue.path.slice(1)}`,
+            message: issue.message,
+        };
+    }
+    function validateFacetField(value, path, issues) {
+        if (typeof value === 'string') {
+            validateOptionalString(value, path, 'Facet field', issues, false);
+            if (UNSAFE_FIELDS.has(value))
+                issues.push({ path, message: `Unsafe facet field "${value}".` });
+            return;
+        }
+        if (!isPlainObject(value)) {
+            issues.push({ path, message: 'Facet field must be a field name or an object.' });
+            return;
+        }
+        validateUnknownKeys(value, FACET_FIELD_KEYS, path, 'facet field', issues);
+        validateOptionalString(value.field, `${path}.field`, 'Facet field', issues, false);
+        if (typeof value.field === 'string' && UNSAFE_FIELDS.has(value.field)) {
+            issues.push({ path: `${path}.field`, message: `Unsafe facet field "${value.field}".` });
+        }
+        validateOptionalString(value.title, `${path}.title`, 'Facet title', issues);
+        if (value.sort !== undefined &&
+            (typeof value.sort !== 'string' || !FACET_SORTS.has(value.sort))) {
+            issues.push({ path: `${path}.sort`, message: 'Facet sort is not supported.' });
+        }
+    }
+    function validateCompositionResolve(value, path, kind, issues) {
+        if (value !== undefined && !isPlainObject(value)) {
+            issues.push({ path, message: 'Composition resolve must be an object.' });
+            return;
+        }
+        if (isPlainObject(value)) {
+            validateUnknownKeys(value, COMPOSITION_RESOLVE_KEYS, path, 'composition resolve', issues);
+            for (const key of COMPOSITION_RESOLVE_KEYS) {
+                const mode = value[key];
+                if (mode !== undefined && mode !== 'shared' && mode !== 'independent') {
+                    issues.push({
+                        path: `${path}.${key}`,
+                        message: 'Resolve mode must be shared or independent.',
+                    });
+                }
+            }
+        }
+        const resolved = resolveComposition(isPlainObject(value) ? value : undefined, kind);
+        if (kind === 'layer' && Object.values(resolved).some((mode) => mode !== 'shared')) {
+            issues.push({
+                path,
+                message: 'Layer composition currently requires shared scale, axis, and legend resolve.',
+            });
+        }
+        if (kind === 'inset' && Object.values(resolved).some((mode) => mode !== 'independent')) {
+            issues.push({
+                path,
+                message: 'Inset composition currently requires independent scale, axis, and legend resolve.',
+            });
+        }
+        if (kind !== 'layer' && kind !== 'inset') {
+            if (resolved.axis === 'shared') {
+                issues.push({
+                    path: `${path}.axis`,
+                    message: 'Shared multi-view axes are not yet supported; use independent axes.',
+                });
+            }
+            if (resolved.legend === 'shared') {
+                issues.push({
+                    path: `${path}.legend`,
+                    message: 'Shared multi-view legends are not yet supported; use independent legends.',
+                });
+            }
+        }
+        if (resolved.axis === 'shared' && resolved.scale !== 'shared') {
+            issues.push({
+                path: `${path}.axis`,
+                message: 'A shared axis requires a shared position scale.',
+            });
+        }
+    }
+    function validateCompositionInteraction(value, path, kind, issues) {
+        validateInteraction(value, path, issues);
+        if (!isPlainObject(value))
+            return;
+        if (value.playback !== undefined && value.playback !== false) {
+            issues.push({
+                path: `${path}.playback`,
+                message: 'Composition playback is not supported until frame state can be resolved per view.',
+            });
+        }
+        if (kind !== 'layer' && isPlainObject(value.tooltip) && value.tooltip.trigger === 'axis') {
+            issues.push({
+                path: `${path}.tooltip`,
+                message: 'Axis-nearest tooltip is not supported across independent composition views.',
+            });
+        }
+        if (kind !== 'layer' &&
+            value.domainNavigation !== undefined &&
+            value.domainNavigation !== false) {
+            issues.push({
+                path: `${path}.domainNavigation`,
+                message: 'Data-domain navigation is not supported across composition views; use whole-scene navigation.',
+            });
+        }
+        if (kind !== 'layer' &&
+            isPlainObject(value.selection) &&
+            value.selection.kind !== undefined &&
+            value.selection.kind !== 'point') {
+            issues.push({
+                path: `${path}.selection.kind`,
+                message: 'Composition currently supports point selection only.',
+            });
+        }
+        if (kind !== 'layer' && isPlainObject(value.controls)) {
+            if (value.controls.playback === true) {
+                issues.push({
+                    path: `${path}.controls.playback`,
+                    message: 'Composition playback controls are not supported.',
+                });
+            }
+            if (value.controls.annotations === true) {
+                issues.push({
+                    path: `${path}.controls.annotations`,
+                    message: 'Composition-level runtime annotations are not supported.',
+                });
+            }
+        }
+    }
+    function validateCompositionChild(value, path, depth, inheritedData, issues, state) {
+        if (!isPlainObject(value)) {
+            issues.push({ path, message: 'Composition child must be a chart spec object.' });
+            return;
+        }
+        if (value.width !== undefined || value.height !== undefined) {
+            issues.push({
+                path,
+                message: 'Composition cell dimensions are owned by the parent; child width/height are unsupported.',
+            });
+        }
+        if (value.interaction !== undefined) {
+            issues.push({
+                path: `${path}.interaction`,
+                message: 'Declare interaction once on the composition container.',
+            });
+        }
+        if (value.streaming !== undefined) {
+            issues.push({
+                path: `${path}.streaming`,
+                message: 'Streaming composition children are unsupported until updates target a view id.',
+            });
+        }
+        if (isPlainObject(value.legend) && value.legend.interactive === true) {
+            issues.push({
+                path: `${path}.legend.interactive`,
+                message: 'Independent composition legends are visual-only and cannot be interactive.',
+            });
+        }
+        validateCompositionNode(value, path, depth, inheritedData, issues, state);
+    }
+    function validateCompositionArray(value, path, depth, inheritedData, limit, issues, state) {
+        if (!Array.isArray(value) || value.length === 0) {
+            issues.push({ path, message: 'Composition children must be a non-empty array.' });
+            return;
+        }
+        if (value.length > limit) {
+            issues.push({
+                path,
+                message: `Composition child count exceeds the deterministic limit ${limit}.`,
+            });
+        }
+        value.forEach((child, index) => validateCompositionChild(child, `${path}[${index}]`, depth + 1, inheritedData, issues, state));
+    }
+    function validateCompositionNode(input, path, depth, inheritedData, issues, state) {
+        if (state.ancestors.has(input)) {
+            issues.push({ path, message: 'Composition specs must not contain cycles.' });
+            return;
+        }
+        const operators = presentCompositionOperators(input);
+        if (operators.length === 0) {
+            state.views += 1;
+            if (state.views > maximumCompositionViews) {
+                issues.push({ path, message: `Composition view count exceeds ${maximumCompositionViews}.` });
+            }
+            const unit = inheritedData && input.data === undefined ? { ...input, data: [] } : input;
+            issues.push(...validateUnitSpec(unit).map((issue) => prefixedIssue(issue, path)));
+            if (input.renderer !== undefined && input.renderer !== 'auto' && input.renderer !== 'canvas') {
+                issues.push({
+                    path: `${path}.renderer`,
+                    message: 'Composition currently accepts only auto or canvas child renderers.',
+                });
+            }
+            return;
+        }
+        if (operators.length !== 1) {
+            issues.push({
+                path,
+                message: `Use exactly one composition operator; received ${operators.join(', ')}.`,
+            });
+            return;
+        }
+        if (depth >= maximumCompositionDepth) {
+            issues.push({ path, message: `Composition nesting exceeds depth ${maximumCompositionDepth}.` });
+            return;
+        }
+        const kind = operators[0];
+        state.ancestors.add(input);
+        validateUnknownKeys(input, COMPOSITION_KEYS, path, 'composition', issues);
+        const ownsData = input.data !== undefined || inheritedData;
+        const unitFields = ['mark', 'x', 'y', 'encoding', 'layers'].filter((key) => input[key] !== undefined);
+        if (unitFields.length > 0) {
+            issues.push({
+                path,
+                message: `Composition cannot be mixed with unit fields: ${unitFields.join(', ')}.`,
+            });
+        }
+        if (input.specVersion !== undefined && input.specVersion !== '0.1') {
+            issues.push({ path: `${path}.specVersion`, message: 'Only specVersion "0.1" is supported.' });
+        }
+        if (input.renderer !== undefined && input.renderer !== 'auto' && input.renderer !== 'canvas') {
+            issues.push({
+                path: `${path}.renderer`,
+                message: 'Composition currently supports only the Canvas renderer.',
+            });
+        }
+        if (input.streaming !== undefined) {
+            issues.push({
+                path: `${path}.streaming`,
+                message: 'Streaming composition is not supported until updates are routed to explicit views.',
+            });
+        }
+        if (input.spacing !== undefined)
+            validateFiniteNumber(input.spacing, `${path}.spacing`, 'Composition spacing', issues, {
+                min: 0,
+                max: 64,
+            });
+        validateTheme(input.theme, `${path}.theme`, issues);
+        validateTransforms(input.transform, `${path}.transform`, issues);
+        validateAccessibility(input.accessibility, `${path}.accessibility`, issues);
+        validateCompositionInteraction(input.interaction, `${path}.interaction`, kind, issues);
+        validateCompositionResolve(input.resolve, `${path}.resolve`, kind, issues);
+        if (kind !== 'layer') {
+            if (input.axes !== undefined)
+                issues.push({ path: `${path}.axes`, message: 'Axes belong to independent child views.' });
+            if (input.legend !== undefined)
+                issues.push({
+                    path: `${path}.legend`,
+                    message: 'Legends belong to independent child views.',
+                });
+            if (Array.isArray(input.highlights) && input.highlights.length > 0)
+                issues.push({
+                    path: `${path}.highlights`,
+                    message: 'Highlights must be declared in a child view.',
+                });
+            if (Array.isArray(input.annotations) && input.annotations.length > 0)
+                issues.push({
+                    path: `${path}.annotations`,
+                    message: 'Annotations must be declared in a child view.',
+                });
+        }
+        else {
+            validateAxes(input.axes, `${path}.axes`, issues);
+            validateLegend(input.legend, `${path}.legend`, issues);
+            validateHighlights(input.highlights, `${path}.highlights`, issues);
+            validateAnnotations(input.annotations, `${path}.annotations`, issues);
+        }
+        switch (kind) {
+            case 'layer':
+                if (input.spec !== undefined)
+                    issues.push({
+                        path: `${path}.spec`,
+                        message: 'Layer composition does not use a template spec.',
+                    });
+                validateCompositionArray(input.layer, `${path}.layer`, depth, ownsData, maximumLayerCompositionChildren, issues, state);
+                if (Array.isArray(input.layer)) {
+                    input.layer.forEach((child, index) => {
+                        if (!isPlainObject(child))
+                            return;
+                        validateUnknownKeys(child, LAYER_COMPOSITION_CHILD_KEYS, `${path}.layer[${index}]`, 'layer composition child', issues);
+                        if (presentCompositionOperators(child).length > 0) {
+                            issues.push({
+                                path: `${path}.layer[${index}]`,
+                                message: 'Layer composition children must be unit charts so they can share one scale/axis/legend pipeline.',
+                            });
+                        }
+                        if (child.layers !== undefined &&
+                            (child.mark !== undefined ||
+                                child.x !== undefined ||
+                                child.y !== undefined ||
+                                child.encoding !== undefined)) {
+                            issues.push({
+                                path: `${path}.layer[${index}]`,
+                                message: 'Layer composition children must use either flat layers or unit shorthand, not both.',
+                            });
+                        }
+                    });
+                }
+                break;
+            case 'facet': {
+                if (!isPlainObject(input.facet)) {
+                    issues.push({ path: `${path}.facet`, message: 'Facet must be an object.' });
+                }
+                else {
+                    const facet = input.facet;
+                    validateUnknownKeys(facet, FACET_KEYS, `${path}.facet`, 'facet', issues);
+                    const fields = ['row', 'column', 'wrap'].filter((key) => facet[key] !== undefined);
+                    if (fields.length === 0)
+                        issues.push({ path: `${path}.facet`, message: 'Facet requires row, column, or wrap.' });
+                    if (facet.wrap !== undefined && fields.length > 1)
+                        issues.push({
+                            path: `${path}.facet.wrap`,
+                            message: 'Wrap facet cannot be mixed with row/column.',
+                        });
+                    for (const field of fields)
+                        validateFacetField(facet[field], `${path}.facet.${field}`, issues);
+                    if (facet.columns !== undefined)
+                        validateFiniteNumber(facet.columns, `${path}.facet.columns`, 'Facet columns', issues, {
+                            min: 1,
+                            max: 16,
+                            integer: true,
+                        });
+                }
+                if (input.data === undefined)
+                    issues.push({
+                        path: `${path}.data`,
+                        message: 'Facet composition requires chart-level data.',
+                    });
+                if (!isPlainObject(input.spec))
+                    issues.push({
+                        path: `${path}.spec`,
+                        message: 'Facet composition requires a template spec.',
+                    });
+                else {
+                    if (input.spec.data !== undefined)
+                        issues.push({
+                            path: `${path}.spec.data`,
+                            message: 'Facet template data comes from the partition.',
+                        });
+                    validateCompositionChild(input.spec, `${path}.spec`, depth + 1, true, issues, state);
+                }
+                break;
+            }
+            case 'repeat': {
+                if (!isPlainObject(input.repeat)) {
+                    issues.push({ path: `${path}.repeat`, message: 'Repeat must be an object.' });
+                }
+                else {
+                    validateUnknownKeys(input.repeat, REPEAT_KEYS, `${path}.repeat`, 'repeat', issues);
+                    if (!Array.isArray(input.repeat.items) || input.repeat.items.length === 0) {
+                        issues.push({
+                            path: `${path}.repeat.items`,
+                            message: 'Repeat items must be a non-empty array.',
+                        });
+                    }
+                    else {
+                        if (input.repeat.items.length > maximumCompositionViews)
+                            issues.push({
+                                path: `${path}.repeat.items`,
+                                message: `Repeat item count exceeds ${maximumCompositionViews}.`,
+                            });
+                        const ids = new Set();
+                        input.repeat.items.forEach((item, index) => {
+                            const itemPath = `${path}.repeat.items[${index}]`;
+                            if (!isPlainObject(item)) {
+                                issues.push({ path: itemPath, message: 'Repeat item must be an object.' });
+                                return;
+                            }
+                            validateUnknownKeys(item, REPEAT_ITEM_KEYS, itemPath, 'repeat item', issues);
+                            validateOptionalString(item.id, `${itemPath}.id`, 'Repeat item id', issues, false);
+                            validateOptionalString(item.label, `${itemPath}.label`, 'Repeat item label', issues);
+                            validateOptionalString(item.x, `${itemPath}.x`, 'Repeat x field', issues, false);
+                            validateOptionalString(item.y, `${itemPath}.y`, 'Repeat y field', issues, false);
+                            for (const field of ['x', 'y']) {
+                                if (typeof item[field] === 'string' && UNSAFE_FIELDS.has(item[field])) {
+                                    issues.push({
+                                        path: `${itemPath}.${field}`,
+                                        message: `Unsafe repeat ${field} field "${item[field]}".`,
+                                    });
+                                }
+                            }
+                            if (item.x === undefined && item.y === undefined)
+                                issues.push({
+                                    path: itemPath,
+                                    message: 'Repeat item requires x or y field substitution.',
+                                });
+                            if (typeof item.id === 'string') {
+                                if (ids.has(item.id))
+                                    issues.push({ path: `${itemPath}.id`, message: 'Repeat item ids must be unique.' });
+                                ids.add(item.id);
+                            }
+                        });
+                    }
+                    if (input.repeat.columns !== undefined)
+                        validateFiniteNumber(input.repeat.columns, `${path}.repeat.columns`, 'Repeat columns', issues, { min: 1, max: 16, integer: true });
+                }
+                if (!isPlainObject(input.spec))
+                    issues.push({
+                        path: `${path}.spec`,
+                        message: 'Repeat composition requires a template spec.',
+                    });
+                else {
+                    if (presentCompositionOperators(input.spec).length > 0)
+                        issues.push({
+                            path: `${path}.spec`,
+                            message: 'Repeat templates must be unit charts for explicit x/y field substitution.',
+                        });
+                    validateCompositionChild(input.spec, `${path}.spec`, depth + 1, ownsData, issues, state);
+                }
+                break;
+            }
+            case 'hconcat':
+            case 'vconcat':
+            case 'concat': {
+                const children = input[kind];
+                validateCompositionArray(children, `${path}.${kind}`, depth, ownsData, maximumCompositionViews, issues, state);
+                if (kind === 'concat' && input.columns !== undefined)
+                    validateFiniteNumber(input.columns, `${path}.columns`, 'Concat columns', issues, {
+                        min: 1,
+                        max: 16,
+                        integer: true,
+                    });
+                if (kind !== 'concat' && input.columns !== undefined)
+                    issues.push({
+                        path: `${path}.columns`,
+                        message: 'Columns is only valid for wrapped concat.',
+                    });
+                if (input.spec !== undefined)
+                    issues.push({ path: `${path}.spec`, message: `${kind} does not use a template spec.` });
+                break;
+            }
+            case 'inset':
+                if (!isPlainObject(input.inset)) {
+                    issues.push({ path: `${path}.inset`, message: 'Inset must be an object.' });
+                }
+                else {
+                    validateUnknownKeys(input.inset, INSET_KEYS, `${path}.inset`, 'inset', issues);
+                    for (const key of ['x', 'y', 'width', 'height']) {
+                        validateFiniteNumber(input.inset[key], `${path}.inset.${key}`, `Inset ${key}`, issues, {
+                            min: key === 'width' || key === 'height' ? Number.EPSILON : 0,
+                            max: 1,
+                        });
+                    }
+                    if (typeof input.inset.x === 'number' &&
+                        typeof input.inset.width === 'number' &&
+                        input.inset.x + input.inset.width > 1)
+                        issues.push({
+                            path: `${path}.inset.width`,
+                            message: 'Inset exceeds the horizontal plot boundary.',
+                        });
+                    if (typeof input.inset.y === 'number' &&
+                        typeof input.inset.height === 'number' &&
+                        input.inset.y + input.inset.height > 1)
+                        issues.push({
+                            path: `${path}.inset.height`,
+                            message: 'Inset exceeds the vertical plot boundary.',
+                        });
+                    validateOptionalString(input.inset.label, `${path}.inset.label`, 'Inset label', issues);
+                    validateCompositionChild(input.inset.base, `${path}.inset.base`, depth + 1, ownsData, issues, state);
+                    validateCompositionChild(input.inset.view, `${path}.inset.view`, depth + 1, ownsData, issues, state);
+                }
+                if (input.spec !== undefined)
+                    issues.push({ path: `${path}.spec`, message: 'Inset does not use a template spec.' });
+                break;
+        }
+        state.ancestors.delete(input);
+    }
+    function validateSpec(input) {
+        if (!isPlainObject(input))
+            return validateUnitSpec(input);
+        if (presentCompositionOperators(input).length === 0)
+            return validateUnitSpec(input);
+        const issues = [];
+        validateCompositionNode(input, '$', 0, false, issues, {
+            ancestors: new WeakSet(),
+            views: 0,
+        });
         findFunctions(input, '$', issues, new WeakSet());
         return issues;
     }
@@ -2683,6 +6386,22 @@ var Graflume = (function (exports) {
                 pinch: typeof navigationInput === 'object' ? (navigationInput.pinch ?? true) : true,
                 keyboard: typeof navigationInput === 'object' ? (navigationInput.keyboard ?? true) : true,
             };
+        const domainNavigationInput = input?.domainNavigation;
+        const domainNavigation = domainNavigationInput === undefined || domainNavigationInput === false
+            ? false
+            : {
+                axes: typeof domainNavigationInput === 'object'
+                    ? [...(domainNavigationInput.axes ?? ['x', 'y'])]
+                    : ['x', 'y'],
+                maxZoom: typeof domainNavigationInput === 'object' ? (domainNavigationInput.maxZoom ?? 64) : 64,
+                wheel: typeof domainNavigationInput === 'object'
+                    ? (domainNavigationInput.wheel ?? 'modifier')
+                    : 'modifier',
+                drag: typeof domainNavigationInput === 'object' ? (domainNavigationInput.drag ?? true) : true,
+                keyboard: typeof domainNavigationInput === 'object'
+                    ? (domainNavigationInput.keyboard ?? true)
+                    : true,
+            };
         const playbackInput = input?.playback;
         const playback = playbackInput === undefined || playbackInput === false
             ? false
@@ -2725,6 +6444,12 @@ var Graflume = (function (exports) {
         const selection = selectionInput === undefined || selectionInput === false
             ? false
             : {
+                kind: typeof selectionInput === 'object'
+                    ? (selectionInput.kind ?? 'point')
+                    : 'point',
+                combine: typeof selectionInput === 'object'
+                    ? (selectionInput.combine ?? 'union')
+                    : 'union',
                 mode: typeof selectionInput === 'object' ? (selectionInput.mode ?? 'single') : 'single',
                 toggle: typeof selectionInput === 'object' ? (selectionInput.toggle ?? true) : true,
                 ...(typeof selectionInput === 'object' && selectionInput.key !== undefined
@@ -2735,6 +6460,14 @@ var Graflume = (function (exports) {
                 ariaLabel: typeof selectionInput === 'object'
                     ? (selectionInput.ariaLabel ?? 'Chart selection')
                     : 'Chart selection',
+                ...(typeof selectionInput === 'object' && selectionInput.axis !== undefined
+                    ? { axis: selectionInput.axis }
+                    : {}),
+                xAxis: typeof selectionInput === 'object' ? (selectionInput.xAxis ?? 'x') : 'x',
+                yAxis: typeof selectionInput === 'object' ? (selectionInput.yAxis ?? 'y') : 'y',
+                maxSelections: typeof selectionInput === 'object' ? (selectionInput.maxSelections ?? 64) : 64,
+                maxLassoPoints: typeof selectionInput === 'object' ? (selectionInput.maxLassoPoints ?? 512) : 512,
+                minPixelSpan: typeof selectionInput === 'object' ? (selectionInput.minPixelSpan ?? 3) : 3,
                 highlight: {
                     fill: typeof selectionInput === 'object'
                         ? (selectionInput.highlight?.fill ?? 'rgba(79,70,229,0.12)')
@@ -2756,6 +6489,7 @@ var Graflume = (function (exports) {
             click: input?.click ?? true,
             tooltip,
             navigation,
+            domainNavigation,
             playback,
             controls,
             selection,
@@ -3017,6 +6751,43 @@ var Graflume = (function (exports) {
             axis: normalizeAxis(axis, axisId, theme),
         };
     }
+    function normalizeChannelEncoding(input, channel) {
+        const encoding = typeof input === 'string' ? { field: input } : input;
+        const conditions = encoding.condition === undefined
+            ? []
+            : Array.isArray(encoding.condition)
+                ? encoding.condition
+                : [encoding.condition];
+        return {
+            ...(encoding.field === undefined ? {} : { field: encoding.field }),
+            ...(encoding.value === undefined ? {} : { value: encoding.value }),
+            ...(encoding.type === undefined ? {} : { type: encoding.type }),
+            ...(encoding.title === undefined ? {} : { title: encoding.title }),
+            scale: { ...encoding.scale },
+            ...(encoding.axisId === undefined ? {} : { axisId: encoding.axisId }),
+            condition: [...conditions],
+        };
+    }
+    function normalizeEncodingMap(legacyX, legacyY, input, chartAxes, theme) {
+        const x = input?.x ?? legacyX;
+        const y = input?.y ?? legacyY;
+        if (x === undefined || y === undefined) {
+            throw new Error('Spec validation should guarantee x and y encodings.');
+        }
+        const normalized = {};
+        if (input !== undefined) {
+            for (const [channel, encoding] of Object.entries(input)) {
+                if (encoding === undefined || channel === 'x' || channel === 'y')
+                    continue;
+                normalized[channel] = normalizeChannelEncoding(encoding);
+            }
+        }
+        return {
+            x: normalizeEncoding(x, 'x', chartAxes, theme),
+            y: normalizeEncoding(y, 'y', chartAxes, theme),
+            ...normalized,
+        };
+    }
     function normalizeMark(input) {
         const mark = typeof input === 'string' ? { type: input } : input;
         return {
@@ -3034,18 +6805,21 @@ var Graflume = (function (exports) {
             options: { ...mark.options },
         };
     }
-    function normalizeLayer(layer, index, parentData, chartAxes, theme) {
+    function normalizeLayer(layer, index, parentData, chartAxes, theme, parentTransforms) {
         const data = layer.data ?? parentData;
         if (data === undefined) {
             throw new Error('Spec validation should guarantee layer data.');
         }
+        const encoding = normalizeEncodingMap(layer.x, layer.y, layer.encoding, chartAxes, theme);
         return {
             id: layer.id ?? `layer-${index}`,
             name: layer.name ?? layer.id ?? `Series ${index + 1}`,
             data,
+            transform: [...parentTransforms, ...(layer.transform ?? [])],
             mark: normalizeMark(layer.mark),
-            x: normalizeEncoding(layer.x, 'x', chartAxes, theme),
-            y: normalizeEncoding(layer.y, 'y', chartAxes, theme),
+            encoding,
+            x: encoding.x,
+            y: encoding.y,
             visible: layer.visible ?? true,
             zIndex: layer.zIndex ?? index,
         };
@@ -3062,16 +6836,19 @@ var Graflume = (function (exports) {
             y: normalizeAxis(chartAxes.y, 'y', theme),
             y2: normalizeAxis(chartAxes.y2, 'y2', theme),
         };
-        const shorthandLayer = input.mark === undefined || input.x === undefined || input.y === undefined
+        const shorthandLayer = input.mark === undefined ||
+            ((input.encoding?.x === undefined || input.encoding.y === undefined) &&
+                (input.x === undefined || input.y === undefined))
             ? undefined
             : {
                 ...(input.data === undefined ? {} : { data: input.data }),
                 mark: input.mark,
-                x: input.x,
-                y: input.y,
+                ...(input.encoding === undefined
+                    ? { x: input.x, y: input.y }
+                    : { encoding: input.encoding }),
             };
         const sourceLayers = input.layers ?? (shorthandLayer === undefined ? [] : [shorthandLayer]);
-        const layers = sourceLayers.map((layer, index) => normalizeLayer(layer, index, input.data, chartAxes, theme));
+        const layers = sourceLayers.map((layer, index) => normalizeLayer(layer, index, input.data, chartAxes, theme, input.transform ?? []));
         const title = normalizeTitle(input.title, theme);
         const normalized = {
             specVersion,
@@ -3096,6 +6873,25 @@ var Graflume = (function (exports) {
                 ...(input.accessibility?.description === undefined
                     ? {}
                     : { description: input.accessibility.description }),
+                table: input.accessibility?.table === true
+                    ? 'hidden'
+                    : input.accessibility?.table === false || input.accessibility?.table === undefined
+                        ? false
+                        : input.accessibility.table,
+                maxRows: input.accessibility?.maxRows ?? 500,
+                navigation: input.accessibility?.navigation ?? false,
+                ...(input.accessibility?.summary === undefined
+                    ? {}
+                    : { summary: input.accessibility.summary }),
+                live: input.accessibility?.live === false ||
+                    (typeof input.accessibility?.live === 'object' &&
+                        input.accessibility.live.enabled === false)
+                    ? false
+                    : {
+                        throttleMs: typeof input.accessibility?.live === 'object'
+                            ? (input.accessibility.live.throttleMs ?? 150)
+                            : 150,
+                    },
             },
             ...(title === undefined ? {} : { title }),
             ...(input.description === undefined ? {} : { description: input.description }),
@@ -3266,6 +7062,279 @@ var Graflume = (function (exports) {
         });
         const luminance = 0.2126 * (linear[0] ?? 0) + 0.7152 * (linear[1] ?? 0) + 0.0722 * (linear[2] ?? 0);
         return luminance > 0.42 ? dark : light;
+    }
+
+    const provenanceLimit = 1_024;
+    const tableColumnLimit = 24;
+    function boundedText$1(value, limit = 240) {
+        const text = value instanceof Date ? value.toISOString() : String(value ?? '');
+        const characters = Array.from(text);
+        return characters.length <= limit
+            ? text
+            : `${characters.slice(0, Math.max(1, limit - 1)).join('')}\u2026`;
+    }
+    function formatValue$1(value, locale) {
+        if (value === null || value === undefined)
+            return '\u2014';
+        if (value instanceof Date)
+            return value.toISOString();
+        if (typeof value === 'number' && Number.isFinite(value)) {
+            try {
+                return new Intl.NumberFormat(locale, { maximumFractionDigits: 6 }).format(value);
+            }
+            catch {
+                return String(value);
+            }
+        }
+        return boundedText$1(value, 80);
+    }
+    function unionBounds(left, right) {
+        const x = Math.min(left.x, right.x);
+        const y = Math.min(left.y, right.y);
+        const rightEdge = Math.max(left.x + left.width, right.x + right.width);
+        const bottomEdge = Math.max(left.y + left.height, right.y + right.height);
+        return { x, y, width: rightEdge - x, height: bottomEdge - y };
+    }
+    function intersectBounds(bounds, clip) {
+        const x = Math.max(bounds.x, clip.x);
+        const y = Math.max(bounds.y, clip.y);
+        const right = Math.min(bounds.x + bounds.width, clip.x + clip.width);
+        const bottom = Math.min(bounds.y + bounds.height, clip.y + clip.height);
+        return { x, y, width: Math.max(0, right - x), height: Math.max(0, bottom - y) };
+    }
+    function nodeBounds(node) {
+        switch (node.type) {
+            case 'circle':
+                return {
+                    x: node.cx - node.radius - node.lineWidth / 2,
+                    y: node.cy - node.radius - node.lineWidth / 2,
+                    width: node.radius * 2 + node.lineWidth,
+                    height: node.radius * 2 + node.lineWidth,
+                };
+            case 'rect': {
+                const inset = node.lineWidth / 2;
+                return {
+                    x: Math.min(node.x, node.x + node.width) - inset,
+                    y: Math.min(node.y, node.y + node.height) - inset,
+                    width: Math.abs(node.width) + inset * 2,
+                    height: Math.abs(node.height) + inset * 2,
+                };
+            }
+            case 'line': {
+                const inset = node.lineWidth / 2;
+                return {
+                    x: Math.min(node.x1, node.x2) - inset,
+                    y: Math.min(node.y1, node.y2) - inset,
+                    width: Math.abs(node.x2 - node.x1) + inset * 2,
+                    height: Math.abs(node.y2 - node.y1) + inset * 2,
+                };
+            }
+            case 'path': {
+                const points = [node.points, ...(node.subpaths ?? [])].flat();
+                if (points.length === 0)
+                    return { x: 0, y: 0, width: 0, height: 0 };
+                const inset = node.lineWidth / 2;
+                const xs = points.map(({ x }) => x);
+                const ys = points.map(({ y }) => y);
+                const x = Math.min(...xs);
+                const y = Math.min(...ys);
+                return {
+                    x: x - inset,
+                    y: y - inset,
+                    width: Math.max(...xs) - x + inset * 2,
+                    height: Math.max(...ys) - y + inset * 2,
+                };
+            }
+            case 'text': {
+                const width = Math.max(node.fontSize * 0.6, Array.from(node.text).length * node.fontSize * 0.6);
+                const height = Math.max(1, node.fontSize * 1.2);
+                const x = node.align === 'center'
+                    ? node.x - width / 2
+                    : node.align === 'right' || node.align === 'end'
+                        ? node.x - width
+                        : node.x;
+                const y = node.baseline === 'middle'
+                    ? node.y - height / 2
+                    : node.baseline === 'bottom' || node.baseline === 'ideographic'
+                        ? node.y - height
+                        : node.baseline === 'alphabetic'
+                            ? node.y - height * 0.8
+                            : node.y;
+                // Rotation is represented by its safe axis-aligned envelope.
+                const radians = (Math.abs(node.rotation) * Math.PI) / 180;
+                const rotatedWidth = Math.abs(width * Math.cos(radians)) + Math.abs(height * Math.sin(radians));
+                const rotatedHeight = Math.abs(width * Math.sin(radians)) + Math.abs(height * Math.cos(radians));
+                return {
+                    x: x - Math.max(0, rotatedWidth - width) / 2,
+                    y: y - Math.max(0, rotatedHeight - height) / 2,
+                    width: rotatedWidth,
+                    height: rotatedHeight,
+                };
+            }
+        }
+    }
+    function collectNodeDatumBounds(root) {
+        const output = [];
+        const visit = (node, parentVisible, parentOpacity, clips) => {
+            const visible = parentVisible && node.visible && parentOpacity * node.opacity > 0;
+            if (node.type === 'group') {
+                const nextClips = node.clip === undefined ? clips : [...clips, node.clip];
+                for (const child of node.children)
+                    visit(child, visible, parentOpacity * node.opacity, nextClips);
+                return;
+            }
+            if (node.datum === undefined)
+                return;
+            const bounds = clips.reduce(intersectBounds, nodeBounds(node));
+            output.push({
+                nodeId: node.id,
+                layerId: node.datum.layerId,
+                rowIndex: node.datum.rowIndex,
+                datum: node.datum.datum,
+                ...(node.datum.tooltip === undefined ? {} : { tooltip: node.datum.tooltip }),
+                bounds,
+                visible: visible && bounds.width >= 0 && bounds.height >= 0,
+            });
+        };
+        visit(root, true, 1, []);
+        return output;
+    }
+    function valuesDiffer(left, right) {
+        const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
+        return [...keys].some((key) => !Object.is(left[key], right[key]));
+    }
+    function publicDatum(row) {
+        return Object.fromEntries(Object.entries(row).filter(([field]) => !field.startsWith('__graflume_')));
+    }
+    function channels(layer, row) {
+        return {
+            x: { field: layer.layer.x.field, value: row[layer.layer.x.field] },
+            y: { field: layer.layer.y.field, value: row[layer.layer.y.field] },
+        };
+    }
+    function semanticLabel(layer, row, locale) {
+        const x = channels(layer, row).x;
+        const y = channels(layer, row).y;
+        return boundedText$1(`${layer.layer.name}. ${layer.layer.x.title}: ${formatValue$1(x.value, locale)}. ${layer.layer.y.title}: ${formatValue$1(y.value, locale)}.`);
+    }
+    function lineageFor(layer, rowIndex, aggregate, tooltip) {
+        const explicit = tooltip?.sourceRowIndices;
+        const explicitRows = Array.isArray(explicit)
+            ? explicit.filter((value) => typeof value === 'number' && Number.isInteger(value) && value >= 0)
+            : undefined;
+        const sourceRows = explicitRows !== undefined
+            ? explicitRows
+            : aggregate
+                ? layer.lineage.rowSources.flat()
+                : (layer.lineage.rowSources[rowIndex] ?? []);
+        const unique = [...new Set(sourceRows)].sort((left, right) => left - right);
+        const authoredCount = tooltip?.sourceRowCount;
+        const sourceCount = typeof authoredCount === 'number' && Number.isInteger(authoredCount) && authoredCount >= 0
+            ? authoredCount
+            : unique.length;
+        return {
+            sourceId: layer.lineage.sourceId,
+            sourceRowIndices: unique.slice(0, provenanceLimit),
+            truncated: sourceCount > unique.length || unique.length > provenanceLimit,
+        };
+    }
+    function mappedObservationBounds(layer, row) {
+        const xValue = row[layer.layer.x.field];
+        const yValue = row[layer.layer.y.field];
+        const scalar = (value) => typeof value === 'string' || typeof value === 'number' || value instanceof Date ? value : null;
+        const xInput = scalar(xValue);
+        const yInput = scalar(yValue);
+        if (xInput === null || yInput === null) {
+            return { x: 0, y: 0, width: 0, height: 0 };
+        }
+        const x = layer.xScale.map(xInput);
+        const y = layer.yScale.map(yInput);
+        if (!Number.isFinite(x) || !Number.isFinite(y))
+            return { x: 0, y: 0, width: 0, height: 0 };
+        return { x: x - 4, y: y - 4, width: 8, height: 8 };
+    }
+    /** Build the semantic sidecar without depending on any renderer implementation. */
+    function buildSemanticIndex(root, layers, maxRows, locale) {
+        const nodeData = collectNodeDatumBounds(root);
+        const candidates = layers.map((layer) => {
+            const layerNodes = nodeData.filter(({ layerId }) => layerId === layer.layer.id);
+            const rowBounds = new Map();
+            for (const item of layerNodes) {
+                const current = rowBounds.get(item.rowIndex);
+                rowBounds.set(item.rowIndex, {
+                    bounds: current === undefined ? item.bounds : unionBounds(current.bounds, item.bounds),
+                    visible: (current?.visible ?? false) || item.visible,
+                });
+            }
+            const records = [];
+            const retainedRows = Math.min(layer.table.length, maxRows);
+            for (let rowIndex = 0; rowIndex < retainedRows; rowIndex += 1) {
+                const row = layer.table.row(rowIndex);
+                const datum = publicDatum(row);
+                const measured = rowBounds.get(rowIndex);
+                records.push({
+                    id: `${layer.layer.id}:observation:${rowIndex}`,
+                    viewId: 'plot',
+                    layerId: layer.layer.id,
+                    rowIndex,
+                    role: layer.layer.mark.type,
+                    channels: channels(layer, row),
+                    datum,
+                    lineage: lineageFor(layer, rowIndex, false),
+                    bounds: measured?.bounds ?? mappedObservationBounds(layer, row),
+                    visible: layer.layer.visible && (measured?.visible ?? true),
+                    label: semanticLabel(layer, row, locale),
+                });
+            }
+            for (const item of layerNodes) {
+                if (records.length >= maxRows)
+                    break;
+                if (item.tooltip === undefined || !valuesDiffer(item.datum, item.tooltip))
+                    continue;
+                const row = item.tooltip;
+                records.push({
+                    id: `${item.nodeId}:derived`,
+                    viewId: 'plot',
+                    layerId: layer.layer.id,
+                    rowIndex: item.rowIndex,
+                    role: `${layer.layer.mark.type}-aggregate`,
+                    channels: channels(layer, row),
+                    datum: row,
+                    lineage: lineageFor(layer, item.rowIndex, true, item.tooltip),
+                    bounds: item.bounds,
+                    visible: layer.layer.visible && item.visible,
+                    label: semanticLabel(layer, row, locale),
+                });
+            }
+            return records;
+        });
+        const bounded = [];
+        for (let index = 0; bounded.length < maxRows; index += 1) {
+            let appended = false;
+            for (const layer of candidates) {
+                const record = layer[index];
+                if (record === undefined)
+                    continue;
+                bounded.push(record);
+                appended = true;
+                if (bounded.length >= maxRows)
+                    break;
+            }
+            if (!appended)
+                break;
+        }
+        return bounded;
+    }
+    /** Convert semantic marks into bounded, renderer-independent native-table rows. */
+    function toAccessibleRows(semanticIndex, maxRows = semanticIndex.length) {
+        return semanticIndex.slice(0, Math.max(0, maxRows)).map((mark) => ({
+            id: mark.id,
+            layerId: mark.layerId,
+            role: mark.role,
+            label: mark.label,
+            values: Object.fromEntries(Object.entries(mark.datum).slice(0, tableColumnLimit)),
+            visible: mark.visible,
+        }));
     }
 
     function numberFormatter$1(locale, options) {
@@ -3489,7 +7558,7 @@ var Graflume = (function (exports) {
         };
     }
     function explicitTickLabel(value, scale, locale) {
-        if (scale.kind === 'time') {
+        if (scale.kind === 'time' || scale.kind === 'utc') {
             const date = new Date(typeof value === 'number' ? value : Date.parse(value));
             if (Number.isFinite(date.getTime())) {
                 try {
@@ -3497,7 +7566,7 @@ var Graflume = (function (exports) {
                         year: 'numeric',
                         month: 'short',
                         day: 'numeric',
-                        timeZone: 'UTC',
+                        ...(scale.kind === 'utc' ? { timeZone: 'UTC' } : {}),
                     }).format(date);
                 }
                 catch {
@@ -3505,12 +7574,12 @@ var Graflume = (function (exports) {
                         year: 'numeric',
                         month: 'short',
                         day: 'numeric',
-                        timeZone: 'UTC',
+                        ...(scale.kind === 'utc' ? { timeZone: 'UTC' } : {}),
                     }).format(date);
                 }
             }
         }
-        if (scale.kind === 'linear' && typeof value === 'number') {
+        if (!['band', 'point', 'ordinal'].includes(scale.kind) && typeof value === 'number') {
             try {
                 return new Intl.NumberFormat(locale, { maximumFractionDigits: 6 }).format(value);
             }
@@ -3656,7 +7725,7 @@ var Graflume = (function (exports) {
             !context.axis.grid.visible ||
             context.theme.axis.minorGridVisible !== true ||
             (context.id !== 'x' && context.id !== 'y') ||
-            (context.scale.kind !== 'linear' && context.scale.kind !== 'time')) {
+            ['band', 'point', 'ordinal', 'quantile', 'quantize', 'threshold'].includes(context.scale.kind)) {
             return [];
         }
         const positions = [...new Set(ticks.map((tick) => tick.position))].sort((left, right) => left - right);
@@ -4205,6 +8274,175 @@ var Graflume = (function (exports) {
         };
     }
 
+    function sorted$1(input) {
+        return input
+            .filter(({ value, weight }) => Number.isFinite(value) && Number.isFinite(weight) && weight >= 0)
+            .map((observation, index) => ({ observation, index }))
+            .sort((a, b) => a.observation.value - b.observation.value || a.index - b.index)
+            .map(({ observation }) => observation);
+    }
+    function quantile$1(values, probability) {
+        const position = Math.max(0, Math.min(1, probability)) * (values.length - 1);
+        const lower = Math.floor(position);
+        const upper = Math.ceil(position);
+        const a = values[lower];
+        const b = values[upper];
+        return a + (b - a) * (position - lower);
+    }
+    function weightedQuantile(observations, probability) {
+        const totalWeight = observations.reduce((sum, observation) => sum + observation.weight, 0);
+        if (totalWeight <= 0)
+            return observations[0]?.value ?? 0;
+        const target = Math.max(0, Math.min(1, probability)) * totalWeight;
+        let cumulative = 0;
+        for (const observation of observations) {
+            cumulative += observation.weight;
+            if (cumulative >= target)
+                return observation.value;
+        }
+        return observations.at(-1)?.value ?? 0;
+    }
+    function weightedHistogram(input, options) {
+        const observations = sorted$1(input);
+        if (observations.length === 0)
+            return [];
+        const minimum = options.extent?.[0] ?? observations[0].value;
+        const maximum = options.extent?.[1] ?? observations.at(-1).value;
+        const bins = Math.max(1, Math.min(512, Math.trunc(options.bins)));
+        const span = maximum - minimum || 1;
+        const width = span / bins;
+        const accumulators = Array.from({ length: bins }, () => ({
+            weight: 0,
+            count: 0,
+            rows: [],
+        }));
+        for (const observation of observations) {
+            if (observation.value < minimum || observation.value > maximum)
+                continue;
+            const index = Math.min(bins - 1, Math.max(0, Math.floor(((observation.value - minimum) / span) * bins)));
+            const accumulator = accumulators[index];
+            accumulator.weight += observation.weight;
+            accumulator.count += 1;
+            accumulator.rows.push(observation.rowIndex);
+        }
+        const totalWeight = accumulators.reduce((sum, bin) => sum + bin.weight, 0);
+        let cumulativeWeight = 0;
+        return accumulators.map((bin, index) => {
+            cumulativeWeight += bin.weight;
+            const effectiveWeight = options.cumulative === true ? cumulativeWeight : bin.weight;
+            const normalization = options.normalization ?? 'count';
+            const value = normalization === 'probability'
+                ? totalWeight === 0
+                    ? 0
+                    : effectiveWeight / totalWeight
+                : normalization === 'density'
+                    ? totalWeight === 0
+                        ? 0
+                        : options.cumulative === true
+                            ? effectiveWeight / totalWeight
+                            : effectiveWeight / (totalWeight * width)
+                    : effectiveWeight;
+            return {
+                start: minimum + index * width,
+                end: minimum + (index + 1) * width,
+                value,
+                weight: bin.weight,
+                count: bin.count,
+                proportion: totalWeight === 0 ? 0 : bin.weight / totalWeight,
+                rowIndices: bin.rows,
+            };
+        });
+    }
+    function empiricalDistribution(input, complementary = false) {
+        const observations = sorted$1(input);
+        const totalWeight = observations.reduce((sum, observation) => sum + observation.weight, 0);
+        if (observations.length === 0 || totalWeight === 0)
+            return [];
+        const groups = new Map();
+        for (const observation of observations) {
+            const group = groups.get(observation.value) ?? [];
+            group.push(observation);
+            groups.set(observation.value, group);
+        }
+        let cumulative = 0;
+        return [...groups].map(([value, group]) => {
+            const weight = group.reduce((sum, observation) => sum + observation.weight, 0);
+            cumulative += weight;
+            return {
+                value,
+                probability: complementary
+                    ? Math.max(0, 1 - cumulative / totalWeight)
+                    : cumulative / totalWeight,
+                weight,
+                count: group.length,
+                rowIndices: group.map(({ rowIndex }) => rowIndex),
+            };
+        });
+    }
+    /** Gaussian KDE with a robust Silverman bandwidth and unit-integral density. */
+    function kernelDensity1d(input, options = {}) {
+        const observations = sorted$1(input).filter(({ weight }) => weight > 0);
+        if (observations.length === 0)
+            return { bandwidth: 1, points: [] };
+        const totalWeight = observations.reduce((sum, observation) => sum + observation.weight, 0);
+        const squaredWeight = observations.reduce((sum, observation) => sum + observation.weight ** 2, 0);
+        const effectiveSampleSize = Math.max(1, totalWeight ** 2 / squaredWeight);
+        const values = observations.map(({ value }) => value);
+        const mean = observations.reduce((sum, observation) => sum + observation.value * observation.weight, 0) /
+            totalWeight;
+        const varianceDenominator = totalWeight - squaredWeight / totalWeight;
+        const deviation = Math.sqrt(observations.reduce((sum, observation) => sum + observation.weight * (observation.value - mean) ** 2, 0) / Math.max(Number.EPSILON, varianceDenominator));
+        const iqr = weightedQuantile(observations, 0.75) - weightedQuantile(observations, 0.25);
+        const robustScale = Math.min(deviation || Number.POSITIVE_INFINITY, iqr > 0 ? iqr / 1.34 : Number.POSITIVE_INFINITY);
+        const fallback = (values.at(-1) - values[0]) / 6 || Math.abs(mean) * 0.1 || 1;
+        const automaticBandwidth = Math.max(Number.EPSILON, 0.9 * (Number.isFinite(robustScale) ? robustScale : fallback) * effectiveSampleSize ** -0.2);
+        const bandwidth = options.bandwidth !== undefined && Number.isFinite(options.bandwidth) && options.bandwidth > 0
+            ? options.bandwidth
+            : automaticBandwidth;
+        const extentStart = options.extent?.[0] ?? values[0] - bandwidth * 3;
+        const extentEnd = options.extent?.[1] ?? values.at(-1) + bandwidth * 3;
+        const minimum = Math.min(extentStart, extentEnd);
+        const maximum = Math.max(extentStart, extentEnd);
+        const count = Math.max(2, Math.min(512, Math.trunc(options.points ?? 96)));
+        const normalizer = bandwidth * Math.sqrt(2 * Math.PI) * totalWeight;
+        return {
+            bandwidth,
+            points: Array.from({ length: count }, (_, index) => {
+                const value = minimum + ((maximum - minimum || 1) * index) / (count - 1);
+                const density = observations.reduce((sum, observation) => {
+                    const z = (value - observation.value) / bandwidth;
+                    return sum + observation.weight * Math.exp(-0.5 * z * z);
+                }, 0) / normalizer;
+                return { value, density };
+            }),
+        };
+    }
+    function rawBoxSummary(input, whisker = 1.5) {
+        const observations = sorted$1(input);
+        if (observations.length === 0)
+            return null;
+        const values = observations.map(({ value }) => value);
+        const q1 = quantile$1(values, 0.25);
+        const median = quantile$1(values, 0.5);
+        const q3 = quantile$1(values, 0.75);
+        const iqr = q3 - q1;
+        const lowerFence = q1 - Math.max(0, whisker) * iqr;
+        const upperFence = q3 + Math.max(0, whisker) * iqr;
+        const inliers = observations.filter(({ value }) => value >= lowerFence && value <= upperFence);
+        const outliers = observations.filter(({ value }) => value < lowerFence || value > upperFence);
+        return {
+            minimum: values[0],
+            q1,
+            median,
+            q3,
+            maximum: values.at(-1),
+            lowerWhisker: inliers[0]?.value ?? values[0],
+            upperWhisker: inliers.at(-1)?.value ?? values.at(-1),
+            outliers,
+            rowIndices: observations.map(({ rowIndex }) => rowIndex),
+        };
+    }
+
     function isColumnarData(input) {
         return !Array.isArray(input);
     }
@@ -4376,17 +8614,1008 @@ var Graflume = (function (exports) {
         return 'nominal';
     }
 
+    const unsafeFields = new Set(['__proto__', 'prototype', 'constructor']);
+    const maximumDerivedRows = 100_000;
+    const maximumKernelEvaluations = 10_000_000;
+    const maximumStackMatrixCells = 1_000_000;
+    const maximumWindowEvaluations = 10_000_000;
+    function enforceWorkBudget(count, limit, operation, path) {
+        if (!Number.isFinite(count) || count > limit) {
+            throw new GraflumeError('INVALID_DATA', `${operation} would require ${Number.isFinite(count) ? Math.ceil(count) : 'an unbounded number of'} derived operations; the deterministic limit is ${limit}.`, { path });
+        }
+    }
+    function safeField(field) {
+        if (field.trim() === '' || unsafeFields.has(field)) {
+            throw new GraflumeError('INVALID_SPEC', `Unsafe transform field "${field}".`, {
+                path: '$.transform',
+            });
+        }
+        return field;
+    }
+    function cloneRecord(row) {
+        const output = Object.create(null);
+        for (const [field, value] of Object.entries(row)) {
+            safeField(field);
+            output[field] = value;
+        }
+        return output;
+    }
+    function jsonSafe(value) {
+        if (value === null || typeof value === 'string' || typeof value === 'boolean')
+            return value;
+        if (typeof value === 'number')
+            return Number.isFinite(value) ? value : null;
+        if (value instanceof Date)
+            return value.toISOString();
+        if (ArrayBuffer.isView(value)) {
+            return Array.from(value, (entry) => jsonSafe(entry));
+        }
+        if (Array.isArray(value))
+            return value.map(jsonSafe);
+        if (typeof value === 'object' && value !== null) {
+            const output = Object.create(null);
+            for (const [key, child] of Object.entries(value)) {
+                safeField(key);
+                if (child !== undefined)
+                    output[key] = jsonSafe(child);
+            }
+            return output;
+        }
+        throw new GraflumeError('INVALID_SPEC', 'Transform lineage parameters must be JSON-safe.', {
+            path: '$.transform',
+        });
+    }
+    function inputRows(input) {
+        const table = DataTable.from(input);
+        return Array.from({ length: table.length }, (_, index) => ({
+            value: cloneRecord(table.row(index)),
+            sources: [index],
+        }));
+    }
+    function scalar(value) {
+        return value === undefined ||
+            value === null ||
+            value instanceof Date ||
+            ['string', 'number', 'boolean'].includes(typeof value)
+            ? value
+            : String(value);
+    }
+    function numeric$1(value) {
+        if (typeof value === 'number')
+            return Number.isFinite(value) ? value : null;
+        if (value instanceof Date)
+            return value.getTime();
+        if (typeof value === 'string' && value.trim() !== '') {
+            const number = Number(value);
+            if (Number.isFinite(number))
+                return number;
+            const date = Date.parse(value);
+            return Number.isFinite(date) ? date : null;
+        }
+        return null;
+    }
+    function truthy$1(value) {
+        return value !== false && value !== null && value !== undefined && value !== 0 && value !== '';
+    }
+    function evaluate(expr, row) {
+        switch (expr.op) {
+            case 'literal':
+                return expr.value;
+            case 'field':
+                return row[safeField(expr.field)];
+            case 'not':
+                return !truthy$1(evaluate(expr.value, row));
+            case 'negate': {
+                const value = numeric$1(evaluate(expr.value, row));
+                return value === null ? null : -value;
+            }
+            case 'isValid': {
+                const value = evaluate(expr.value, row);
+                return (value !== null &&
+                    value !== undefined &&
+                    !(typeof value === 'number' && !Number.isFinite(value)));
+            }
+            case 'toNumber':
+                return numeric$1(evaluate(expr.value, row));
+            case 'toString': {
+                const value = evaluate(expr.value, row);
+                return value === null || value === undefined
+                    ? ''
+                    : value instanceof Date
+                        ? value.toISOString()
+                        : String(value);
+            }
+            case 'if':
+                return evaluate(truthy$1(evaluate(expr.condition, row)) ? expr.then : expr.else, row);
+            case 'coalesce': {
+                for (const item of expr.values) {
+                    const value = evaluate(item, row);
+                    if (value !== null && value !== undefined)
+                        return value;
+                }
+                return null;
+            }
+            default: {
+                const left = evaluate(expr.left, row);
+                if (expr.op === 'and' && !truthy$1(left))
+                    return false;
+                if (expr.op === 'or' && truthy$1(left))
+                    return true;
+                const right = evaluate(expr.right, row);
+                const a = numeric$1(left);
+                const b = numeric$1(right);
+                switch (expr.op) {
+                    case 'add':
+                        return a === null || b === null ? `${left ?? ''}${right ?? ''}` : a + b;
+                    case 'subtract':
+                        return a === null || b === null ? null : a - b;
+                    case 'multiply':
+                        return a === null || b === null ? null : a * b;
+                    case 'divide':
+                        return a === null || b === null || b === 0 ? null : a / b;
+                    case 'modulo':
+                        return a === null || b === null || b === 0 ? null : a % b;
+                    case 'equal':
+                        return Object.is(left, right);
+                    case 'notEqual':
+                        return !Object.is(left, right);
+                    case 'lessThan':
+                        return a !== null && b !== null ? a < b : String(left) < String(right);
+                    case 'lessThanOrEqual':
+                        return a !== null && b !== null ? a <= b : String(left) <= String(right);
+                    case 'greaterThan':
+                        return a !== null && b !== null ? a > b : String(left) > String(right);
+                    case 'greaterThanOrEqual':
+                        return a !== null && b !== null ? a >= b : String(left) >= String(right);
+                    case 'and':
+                        return truthy$1(right);
+                    case 'or':
+                        return truthy$1(right);
+                }
+            }
+        }
+    }
+    function keyOf(row, fields) {
+        return JSON.stringify(fields.map((field) => {
+            const value = row[safeField(field)];
+            return value instanceof Date ? { date: value.toISOString() } : (value ?? null);
+        }));
+    }
+    function compareValue(a, b) {
+        if (a === b)
+            return 0;
+        if (a === null || a === undefined)
+            return 1;
+        if (b === null || b === undefined)
+            return -1;
+        const an = numeric$1(a);
+        const bn = numeric$1(b);
+        if (an !== null && bn !== null)
+            return an - bn;
+        return String(a).localeCompare(String(b), 'en');
+    }
+    function sorted(rows, by) {
+        return rows
+            .map((row, index) => ({ row, index }))
+            .sort((a, b) => {
+            for (const sort of by) {
+                const result = compareValue(a.row.value[safeField(sort.field)], b.row.value[safeField(sort.field)]);
+                if (result !== 0)
+                    return sort.order === 'descending' ? -result : result;
+            }
+            return a.index - b.index;
+        })
+            .map(({ row }) => row);
+    }
+    function groups(rows, fields = []) {
+        const grouped = new Map();
+        for (const row of rows) {
+            const key = keyOf(row.value, fields);
+            const group = grouped.get(key) ?? [];
+            group.push(row);
+            grouped.set(key, group);
+        }
+        return [...grouped.values()];
+    }
+    function values(group, field) {
+        if (field === undefined)
+            return [];
+        return group.flatMap(({ value }) => {
+            const number = numeric$1(value[safeField(field)]);
+            return number === null ? [] : [number];
+        });
+    }
+    function quantileValue(input, probability) {
+        if (input.length === 0)
+            return null;
+        const ordered = [...input].sort((a, b) => a - b);
+        return quantileFromSorted(ordered, probability);
+    }
+    function quantileFromSorted(ordered, probability) {
+        if (ordered.length === 0)
+            return null;
+        const position = Math.max(0, Math.min(1, probability)) * (ordered.length - 1);
+        const low = Math.floor(position);
+        const high = Math.ceil(position);
+        const a = ordered[low];
+        const b = ordered[high];
+        return a + (b - a) * (position - low);
+    }
+    function aggregateValue(group, spec) {
+        const numbers = values(group, spec.field);
+        switch (spec.op) {
+            case 'count':
+                return group.length;
+            case 'valid':
+                return spec.field === undefined
+                    ? group.length
+                    : group.length - group.filter(({ value }) => value[spec.field] == null).length;
+            case 'missing':
+                return spec.field === undefined
+                    ? 0
+                    : group.filter(({ value }) => value[spec.field] == null).length;
+            case 'sum':
+                return numbers.reduce((sum, value) => sum + value, 0);
+            case 'mean':
+                return numbers.length === 0
+                    ? null
+                    : numbers.reduce((sum, value) => sum + value, 0) / numbers.length;
+            case 'weightedMean': {
+                if (spec.field === undefined || spec.weight === undefined)
+                    return null;
+                let weighted = 0;
+                let weights = 0;
+                for (const { value } of group) {
+                    const number = numeric$1(value[spec.field]);
+                    const weight = numeric$1(value[spec.weight]);
+                    if (number === null || weight === null)
+                        continue;
+                    weighted += number * weight;
+                    weights += weight;
+                }
+                return weights === 0 ? null : weighted / weights;
+            }
+            case 'min':
+                return numbers.length === 0
+                    ? null
+                    : numbers.reduce((minimum, value) => Math.min(minimum, value), Number.POSITIVE_INFINITY);
+            case 'max':
+                return numbers.length === 0
+                    ? null
+                    : numbers.reduce((maximum, value) => Math.max(maximum, value), Number.NEGATIVE_INFINITY);
+            case 'median':
+                return quantileValue(numbers, 0.5);
+            case 'variance': {
+                if (numbers.length < 2)
+                    return null;
+                const mean = numbers.reduce((sum, value) => sum + value, 0) / numbers.length;
+                return numbers.reduce((sum, value) => sum + (value - mean) ** 2, 0) / (numbers.length - 1);
+            }
+            case 'stdev': {
+                const variance = aggregateValue(group, { ...spec, op: 'variance' });
+                return typeof variance === 'number' ? Math.sqrt(variance) : null;
+            }
+        }
+    }
+    function aggregate(rows, transform) {
+        const groupby = transform.groupby ?? [];
+        return groups(rows, groupby).flatMap((group) => {
+            const aggregated = Object.create(null);
+            for (const field of groupby)
+                aggregated[field] = group[0]?.value[field];
+            for (const field of transform.fields)
+                aggregated[safeField(field.as)] = aggregateValue(group, field);
+            const sources = [...new Set(group.flatMap((row) => row.sources))].sort((a, b) => a - b);
+            if (transform.type === 'aggregate')
+                return [{ value: aggregated, sources }];
+            return group.map((row) => ({ value: { ...row.value, ...aggregated }, sources: row.sources }));
+        });
+    }
+    function extent(rows, field) {
+        const found = values(rows, field);
+        if (found.length === 0)
+            return null;
+        let minimum = Number.POSITIVE_INFINITY;
+        let maximum = Number.NEGATIVE_INFINITY;
+        for (const value of found) {
+            minimum = Math.min(minimum, value);
+            maximum = Math.max(maximum, value);
+        }
+        return [minimum, maximum];
+    }
+    function binStep(domain, maxbins) {
+        const span = Math.max(Number.EPSILON, domain[1] - domain[0]);
+        const raw = span / Math.max(1, maxbins);
+        const power = 10 ** Math.floor(Math.log10(raw));
+        const error = raw / power;
+        return (error >= 5 ? 5 : error >= 2 ? 2 : 1) * power;
+    }
+    function bin(rows, transform) {
+        const domain = transform.extent ?? extent(rows, transform.field);
+        if (domain === null)
+            return rows.map((row) => ({
+                ...row,
+                value: { ...row.value, [transform.as[0]]: null, [transform.as[1]]: null },
+            }));
+        const step = transform.step ?? binStep(domain, transform.maxbins ?? 10);
+        return rows.map((row) => {
+            const value = numeric$1(row.value[transform.field]);
+            const start = value === null ? null : Math.floor((value - domain[0]) / step) * step + domain[0];
+            return {
+                ...row,
+                value: {
+                    ...row.value,
+                    [transform.as[0]]: start,
+                    [transform.as[1]]: start === null ? null : start + step,
+                },
+            };
+        });
+    }
+    function density1d(rows, transform) {
+        let kernelEvaluations = 0;
+        return groups(rows, transform.groupby).flatMap((group) => {
+            const input = group.flatMap((row, index) => {
+                const value = numeric$1(row.value[transform.field]);
+                return value === null ? [] : [{ value, weight: 1, rowIndex: row.sources[0] ?? index }];
+            });
+            if (input.length === 0)
+                return [];
+            const pointCount = Math.max(2, transform.points ?? 64);
+            kernelEvaluations += input.length * pointCount;
+            enforceWorkBudget(kernelEvaluations, maximumKernelEvaluations, 'density1d', '$.transform[].points');
+            let minimum = Number.POSITIVE_INFINITY;
+            let maximum = Number.NEGATIVE_INFINITY;
+            for (const { value } of input) {
+                minimum = Math.min(minimum, value);
+                maximum = Math.max(maximum, value);
+            }
+            const estimate = kernelDensity1d(input, {
+                points: pointCount,
+                extent: [minimum, maximum],
+                ...(transform.bandwidth === undefined ? {} : { bandwidth: transform.bandwidth }),
+            });
+            const prefix = Object.create(null);
+            for (const field of transform.groupby ?? [])
+                prefix[field] = group[0]?.value[field];
+            const sources = [...new Set(group.flatMap((row) => row.sources))].sort((a, b) => a - b);
+            return estimate.points.map(({ value, density }) => ({
+                value: { ...prefix, [transform.as[0]]: value, [transform.as[1]]: density },
+                sources,
+            }));
+        });
+    }
+    function stack(rows, transform) {
+        const seriesFields = transform.series ?? [];
+        const buckets = groups(rows, transform.groupby);
+        const seriesTotals = new Map();
+        const seriesOrder = [];
+        for (const row of rows) {
+            const key = keyOf(row.value, seriesFields);
+            if (!seriesTotals.has(key))
+                seriesOrder.push(key);
+            seriesTotals.set(key, (seriesTotals.get(key) ?? 0) + (numeric$1(row.value[transform.field]) ?? 0));
+        }
+        if (transform.order === 'insideOut' || (transform.offset ?? 'zero') === 'wiggle') {
+            enforceWorkBudget(buckets.length * seriesOrder.length, maximumStackMatrixCells, 'Stack layout', '$.transform[].order');
+        }
+        const matrixSeriesOrder = [...seriesOrder];
+        const stackMatrix = transform.order === 'insideOut' || (transform.offset ?? 'zero') === 'wiggle'
+            ? (() => {
+                const seriesIndex = new Map(matrixSeriesOrder.map((key, index) => [key, index]));
+                return buckets.map((bucket) => {
+                    const totals = Array.from({ length: matrixSeriesOrder.length }, () => 0);
+                    for (const row of bucket) {
+                        const index = seriesIndex.get(keyOf(row.value, seriesFields));
+                        if (index === undefined)
+                            continue;
+                        totals[index] =
+                            totals[index] + Math.max(0, numeric$1(row.value[transform.field]) ?? 0);
+                    }
+                    return totals;
+                });
+            })()
+            : undefined;
+        if (transform.order === 'insideOut') {
+            const appearances = seriesOrder
+                .map((key, index) => {
+                let peakIndex = 0;
+                let peakValue = Number.NEGATIVE_INFINITY;
+                stackMatrix.forEach((bucket, bucketIndex) => {
+                    const value = bucket[index] ?? 0;
+                    if (value > peakValue) {
+                        peakValue = value;
+                        peakIndex = bucketIndex;
+                    }
+                });
+                return { key, index, peakIndex, total: seriesTotals.get(key) ?? 0 };
+            })
+                .sort((a, b) => a.peakIndex - b.peakIndex || a.index - b.index);
+            const top = [];
+            const bottom = [];
+            let topTotal = 0;
+            let bottomTotal = 0;
+            for (const series of appearances) {
+                if (topTotal < bottomTotal) {
+                    top.push(series.key);
+                    topTotal += series.total;
+                }
+                else {
+                    bottom.push(series.key);
+                    bottomTotal += series.total;
+                }
+            }
+            seriesOrder.splice(0, seriesOrder.length, ...bottom.reverse(), ...top);
+        }
+        else if (transform.order !== undefined && transform.order !== 'input') {
+            const sign = transform.order === 'descending' || transform.order === 'sumDescending' ? -1 : 1;
+            seriesOrder.sort((a, b) => sign * ((seriesTotals.get(a) ?? 0) - (seriesTotals.get(b) ?? 0)));
+        }
+        const orderedBuckets = buckets.map((bucket) => {
+            const authored = transform.sort === undefined ? [...bucket] : sorted(bucket, transform.sort);
+            if (seriesFields.length === 0)
+                return authored;
+            const seriesIndex = new Map(seriesOrder.map((key, index) => [key, index]));
+            return authored
+                .map((row, index) => ({ row, index }))
+                .sort((a, b) => (seriesIndex.get(keyOf(a.row.value, seriesFields)) ?? 0) -
+                (seriesIndex.get(keyOf(b.row.value, seriesFields)) ?? 0) || a.index - b.index)
+                .map(({ row }) => row);
+        });
+        const wiggleBaselines = Array.from({ length: orderedBuckets.length }, () => 0);
+        if ((transform.offset ?? 'zero') === 'wiggle' &&
+            rows.some((row) => (numeric$1(row.value[transform.field]) ?? 0) < 0)) {
+            throw new GraflumeError('INVALID_DATA', 'The wiggle stack offset requires non-negative values; use zero, normalize, or center for diverging data.', { path: '$.transform[].offset' });
+        }
+        if ((transform.offset ?? 'zero') === 'wiggle' && orderedBuckets.length > 1) {
+            let baseline = 0;
+            let minimum = 0;
+            const originalSeriesIndex = new Map(matrixSeriesOrder.map((key, index) => [key, index]));
+            const matrix = stackMatrix.map((bucket) => seriesOrder.map((key) => bucket[originalSeriesIndex.get(key) ?? 0] ?? 0));
+            for (let bucketIndex = 1; bucketIndex < matrix.length; bucketIndex += 1) {
+                const current = matrix[bucketIndex];
+                const previous = matrix[bucketIndex - 1];
+                const total = current.reduce((sum, value) => sum + value, 0);
+                let weightedSlope = 0;
+                let precedingSlope = 0;
+                for (let seriesIndex = 0; seriesIndex < current.length; seriesIndex += 1) {
+                    const slope = current[seriesIndex] - previous[seriesIndex];
+                    weightedSlope += (slope / 2 + precedingSlope) * current[seriesIndex];
+                    precedingSlope += slope;
+                }
+                baseline -= total === 0 ? 0 : weightedSlope / total;
+                wiggleBaselines[bucketIndex] = baseline;
+                minimum = Math.min(minimum, baseline);
+            }
+            for (let index = 0; index < wiggleBaselines.length; index += 1) {
+                wiggleBaselines[index] = wiggleBaselines[index] - minimum;
+            }
+        }
+        return orderedBuckets.flatMap((ordered, bucketIndex) => {
+            const positiveTotal = ordered.reduce((sum, row) => sum + Math.max(0, numeric$1(row.value[transform.field]) ?? 0), 0);
+            const negativeTotal = ordered.reduce((sum, row) => sum + Math.max(0, -(numeric$1(row.value[transform.field]) ?? 0)), 0);
+            const absoluteTotal = positiveTotal + negativeTotal;
+            const offset = transform.offset ?? 'zero';
+            const centered = offset === 'center' || offset === 'silhouette';
+            const normalized = offset === 'normalize' || offset === 'expand';
+            const baseline = centered
+                ? (negativeTotal - positiveTotal) / 2
+                : offset === 'wiggle'
+                    ? wiggleBaselines[bucketIndex]
+                    : 0;
+            let positiveCursor = baseline;
+            let negativeCursor = baseline;
+            return ordered.map((row) => {
+                let amount = numeric$1(row.value[transform.field]) ?? 0;
+                if (normalized)
+                    amount = absoluteTotal === 0 ? 0 : amount / absoluteTotal;
+                let start;
+                let end;
+                if (amount < 0) {
+                    end = negativeCursor;
+                    negativeCursor += amount;
+                    start = negativeCursor;
+                }
+                else {
+                    start = positiveCursor;
+                    positiveCursor += amount;
+                    end = positiveCursor;
+                }
+                return { ...row, value: { ...row.value, [transform.as[0]]: start, [transform.as[1]]: end } };
+            });
+        });
+    }
+    function frameRows(group, index, frame) {
+        const start = frame[0] === null ? 0 : Math.max(0, index + frame[0]);
+        const end = frame[1] === null ? group.length - 1 : Math.min(group.length - 1, index + frame[1]);
+        return start > end ? [] : group.slice(start, end + 1);
+    }
+    function frameLength(length, index, frame) {
+        const start = frame[0] === null ? 0 : Math.max(0, index + frame[0]);
+        const end = frame[1] === null ? length - 1 : Math.min(length - 1, index + frame[1]);
+        return Math.max(0, end - start + 1);
+    }
+    function windowValue(group, index, spec, frame) {
+        if (spec.op === 'rowNumber')
+            return index + 1;
+        if (spec.op === 'lag' || spec.op === 'lead') {
+            const direction = spec.op === 'lag' ? -1 : 1;
+            return group[index + direction * (spec.offset ?? 1)]?.value[spec.field ?? ''] ?? null;
+        }
+        if (spec.op === 'rank' || spec.op === 'denseRank')
+            return index + 1;
+        const selected = spec.op === 'cumulativeSum' ? group.slice(0, index + 1) : frameRows(group, index, frame);
+        if (spec.op === 'count')
+            return selected.length;
+        const input = values(selected, spec.field);
+        if (spec.op === 'sum' || spec.op === 'cumulativeSum')
+            return input.reduce((sum, value) => sum + value, 0);
+        if (spec.op === 'mean' || spec.op === 'movingAverage')
+            return input.length === 0 ? null : input.reduce((sum, value) => sum + value, 0) / input.length;
+        if (spec.op === 'min')
+            return input.length === 0
+                ? null
+                : input.reduce((minimum, value) => Math.min(minimum, value), Number.POSITIVE_INFINITY);
+        if (spec.op === 'max')
+            return input.length === 0
+                ? null
+                : input.reduce((maximum, value) => Math.max(maximum, value), Number.NEGATIVE_INFINITY);
+        return null;
+    }
+    function windowTransform(rows, transform) {
+        let windowEvaluations = 0;
+        return groups(rows, transform.groupby).flatMap((raw) => {
+            const group = transform.sort === undefined ? raw : sorted(raw, transform.sort);
+            const frame = transform.frame ?? [null, 0];
+            const aggregateFields = transform.fields.filter((field) => ['sum', 'mean', 'min', 'max', 'count', 'cumulativeSum', 'movingAverage'].includes(field.op));
+            for (const field of aggregateFields) {
+                for (let index = 0; index < group.length; index += 1) {
+                    windowEvaluations +=
+                        field.op === 'cumulativeSum' ? index + 1 : frameLength(group.length, index, frame);
+                }
+            }
+            enforceWorkBudget(windowEvaluations, maximumWindowEvaluations, 'window transform', '$.transform[].frame');
+            const rankKeys = transform.sort === undefined
+                ? group.map((_, index) => String(index))
+                : group.map((row) => keyOf(row.value, transform.sort.map(({ field }) => field)));
+            const ranks = [];
+            const denseRanks = [];
+            let dense = 0;
+            for (let index = 0; index < rankKeys.length; index += 1) {
+                if (index === 0 || rankKeys[index] !== rankKeys[index - 1])
+                    dense += 1;
+                ranks[index] =
+                    index === 0 || rankKeys[index] !== rankKeys[index - 1] ? index + 1 : ranks[index - 1];
+                denseRanks[index] = dense;
+            }
+            return group.map((row, index) => {
+                const value = { ...row.value };
+                for (const field of transform.fields) {
+                    if (field.op === 'rank')
+                        value[field.as] = ranks[index];
+                    else if (field.op === 'denseRank')
+                        value[field.as] = denseRanks[index];
+                    else
+                        value[field.as] = windowValue(group, index, field, frame);
+                }
+                return { ...row, value };
+            });
+        });
+    }
+    function regression(rows, transform) {
+        return groups(rows, transform.groupby).flatMap((group) => {
+            const pairs = group.flatMap((row) => {
+                const x = numeric$1(row.value[transform.x]);
+                const y = numeric$1(row.value[transform.y]);
+                return x === null || y === null ? [] : [{ x, y }];
+            });
+            if (pairs.length < 2)
+                return [];
+            const meanX = pairs.reduce((sum, pair) => sum + pair.x, 0) / pairs.length;
+            const meanY = pairs.reduce((sum, pair) => sum + pair.y, 0) / pairs.length;
+            const denominator = pairs.reduce((sum, pair) => sum + (pair.x - meanX) ** 2, 0);
+            const slope = denominator === 0
+                ? 0
+                : pairs.reduce((sum, pair) => sum + (pair.x - meanX) * (pair.y - meanY), 0) / denominator;
+            const intercept = meanY - slope * meanX;
+            const prefix = Object.create(null);
+            for (const field of transform.groupby ?? [])
+                prefix[field] = group[0]?.value[field];
+            const sources = [...new Set(group.flatMap((row) => row.sources))].sort((a, b) => a - b);
+            const xExtent = pairs.reduce(([minimum, maximum], { x }) => [Math.min(minimum, x), Math.max(maximum, x)], [Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]);
+            return xExtent.map((x) => ({
+                value: { ...prefix, [transform.as[0]]: x, [transform.as[1]]: intercept + slope * x },
+                sources,
+            }));
+        });
+    }
+    function pivotAggregate(rows, field, op) {
+        if (op === 'first')
+            return rows[0]?.value[field];
+        if (op === 'count')
+            return rows.length;
+        const input = values(rows, field);
+        if (input.length === 0)
+            return null;
+        if (op === 'sum')
+            return input.reduce((a, b) => a + b, 0);
+        if (op === 'mean')
+            return input.reduce((a, b) => a + b, 0) / input.length;
+        return op === 'min'
+            ? input.reduce((minimum, value) => Math.min(minimum, value), Number.POSITIVE_INFINITY)
+            : input.reduce((maximum, value) => Math.max(maximum, value), Number.NEGATIVE_INFINITY);
+    }
+    function impute(rows, transform) {
+        const keyValues = [
+            ...new Map(rows.map((row) => [JSON.stringify(row.value[transform.key]), row.value[transform.key]])).values(),
+        ];
+        return groups(rows, transform.groupby).flatMap((group) => {
+            const existing = new Map(group.map((row) => [JSON.stringify(row.value[transform.key]), row]));
+            const replacement = transform.method === undefined || transform.method === 'value'
+                ? (transform.value ?? null)
+                : aggregateValue(group, {
+                    op: transform.method === 'mean'
+                        ? 'mean'
+                        : transform.method === 'median'
+                            ? 'median'
+                            : transform.method,
+                    field: transform.field,
+                    as: transform.field,
+                });
+            return keyValues.map((key) => existing.get(JSON.stringify(key)) ?? {
+                value: {
+                    ...Object.fromEntries((transform.groupby ?? []).map((field) => [field, group[0]?.value[field]])),
+                    [transform.key]: key,
+                    [transform.field]: replacement,
+                },
+                sources: [],
+            });
+        });
+    }
+    function seeded(seed) {
+        let state = seed >>> 0;
+        return () => {
+            state = (state + 0x6d2b79f5) | 0;
+            let value = Math.imul(state ^ (state >>> 15), 1 | state);
+            value ^= value + Math.imul(value ^ (value >>> 7), 61 | value);
+            return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+        };
+    }
+    function apply(rows, transform) {
+        switch (transform.type) {
+            case 'filter':
+                return rows.filter((row) => truthy$1(evaluate(transform.expr, row.value)));
+            case 'sort':
+                return sorted(rows, transform.by);
+            case 'calculate':
+                return rows.map((row) => ({
+                    ...row,
+                    value: { ...row.value, [safeField(transform.as)]: evaluate(transform.expr, row.value) },
+                }));
+            case 'aggregate':
+            case 'joinaggregate':
+                return aggregate(rows, transform);
+            case 'bin':
+                return bin(rows, transform);
+            case 'bin2d': {
+                const [x0, x1, y0, y1, count] = transform.as;
+                const xb = bin(rows, {
+                    field: transform.x,
+                    as: [x0, x1],
+                    maxbins: transform.maxbins?.[0] ?? 10,
+                });
+                const both = bin(xb, {
+                    field: transform.y,
+                    as: [y0, y1],
+                    maxbins: transform.maxbins?.[1] ?? 10,
+                });
+                return aggregate(both, {
+                    type: 'aggregate',
+                    groupby: [x0, x1, y0, y1],
+                    fields: [{ op: 'count', as: count }],
+                });
+            }
+            case 'density1d':
+                return density1d(rows, transform);
+            case 'density2d': {
+                const pairs = rows.flatMap((row) => {
+                    const x = numeric$1(row.value[transform.x]);
+                    const y = numeric$1(row.value[transform.y]);
+                    return x === null || y === null ? [] : [{ x, y }];
+                });
+                if (pairs.length === 0)
+                    return [];
+                const [xBins, yBins] = transform.bins ?? [32, 32];
+                enforceWorkBudget(pairs.length * xBins * yBins, maximumKernelEvaluations, 'density2d', '$.transform[].bins');
+                let xMin = Number.POSITIVE_INFINITY;
+                let xMax = Number.NEGATIVE_INFINITY;
+                let yMin = Number.POSITIVE_INFINITY;
+                let yMax = Number.NEGATIVE_INFINITY;
+                for (const pair of pairs) {
+                    xMin = Math.min(xMin, pair.x);
+                    xMax = Math.max(xMax, pair.x);
+                    yMin = Math.min(yMin, pair.y);
+                    yMax = Math.max(yMax, pair.y);
+                }
+                const deviation = (input) => {
+                    const mean = input.reduce((sum, value) => sum + value, 0) / input.length;
+                    return Math.sqrt(input.reduce((sum, value) => sum + (value - mean) ** 2, 0) /
+                        Math.max(1, input.length - 1));
+                };
+                const [bandwidthX, bandwidthY] = transform.bandwidth ?? [
+                    Math.max(Number.EPSILON, 1.06 *
+                        (deviation(pairs.map(({ x }) => x)) || (xMax - xMin) / 6 || 1) *
+                        pairs.length ** -0.2),
+                    Math.max(Number.EPSILON, 1.06 *
+                        (deviation(pairs.map(({ y }) => y)) || (yMax - yMin) / 6 || 1) *
+                        pairs.length ** -0.2),
+                ];
+                const factor = 1 / (2 * Math.PI * bandwidthX * bandwidthY * pairs.length);
+                const sources = [...new Set(rows.flatMap((row) => row.sources))].sort((a, b) => a - b);
+                return Array.from({ length: xBins * yBins }, (_, index) => {
+                    const xIndex = index % xBins;
+                    const yIndex = Math.floor(index / xBins);
+                    const x = xMin + ((xMax - xMin || 1) * xIndex) / Math.max(1, xBins - 1);
+                    const y = yMin + ((yMax - yMin || 1) * yIndex) / Math.max(1, yBins - 1);
+                    const density = pairs.reduce((sum, pair) => {
+                        const zx = (x - pair.x) / bandwidthX;
+                        const zy = (y - pair.y) / bandwidthY;
+                        return sum + Math.exp(-0.5 * (zx * zx + zy * zy));
+                    }, 0) * factor;
+                    return {
+                        value: { [transform.as[0]]: x, [transform.as[1]]: y, [transform.as[2]]: density },
+                        sources,
+                    };
+                });
+            }
+            case 'stack':
+                return stack(rows, transform);
+            case 'window':
+                return windowTransform(rows, transform);
+            case 'regression':
+                return regression(rows, transform);
+            case 'fold':
+                return rows.flatMap((row) => transform.fields.map((field) => ({
+                    ...row,
+                    value: { ...row.value, [transform.as[0]]: field, [transform.as[1]]: row.value[field] },
+                })));
+            case 'flatten':
+                return rows.flatMap((row) => {
+                    const arrays = transform.fields.map((field) => Array.isArray(row.value[field])
+                        ? row.value[field]
+                        : [row.value[field]]);
+                    const length = Math.max(0, ...arrays.map((array) => array.length));
+                    return Array.from({ length }, (_, index) => ({
+                        ...row,
+                        value: {
+                            ...row.value,
+                            ...Object.fromEntries(transform.fields.map((field, fieldIndex) => [
+                                transform.as?.[fieldIndex] ?? field,
+                                scalar(arrays[fieldIndex]?.[index]),
+                            ])),
+                        },
+                    }));
+                });
+            case 'pivot':
+                return groups(rows, transform.groupby).map((group) => {
+                    const output = Object.create(null);
+                    for (const field of transform.groupby ?? [])
+                        output[field] = group[0]?.value[field];
+                    for (const cell of groups(group, [transform.field])) {
+                        const column = String(cell[0]?.value[transform.field] ?? 'null');
+                        safeField(column);
+                        output[column] = pivotAggregate(cell, transform.value, transform.op ?? 'first');
+                    }
+                    return {
+                        value: output,
+                        sources: [...new Set(group.flatMap((row) => row.sources))].sort((a, b) => a - b),
+                    };
+                });
+            case 'impute':
+                return impute(rows, transform);
+            case 'lookup': {
+                const lookup = new Map(inputRows(transform.from).map((row) => [
+                    JSON.stringify(row.value[transform.key]),
+                    row.value,
+                ]));
+                return rows.map((row) => {
+                    const match = lookup.get(JSON.stringify(row.value[transform.field]));
+                    const additions = Object.fromEntries(transform.values.map((field, index) => [
+                        transform.as?.[index] ?? field,
+                        match?.[field] ?? transform.default ?? null,
+                    ]));
+                    return { ...row, value: { ...row.value, ...additions } };
+                });
+            }
+            case 'quantile':
+                return groups(rows, transform.groupby).flatMap((group) => {
+                    const input = values(group, transform.field).sort((a, b) => a - b);
+                    const sources = [...new Set(group.flatMap((row) => row.sources))].sort((a, b) => a - b);
+                    return (transform.probs ?? [0.25, 0.5, 0.75]).map((probability) => ({
+                        value: {
+                            ...Object.fromEntries((transform.groupby ?? []).map((field) => [field, group[0]?.value[field]])),
+                            [transform.as[0]]: probability,
+                            [transform.as[1]]: quantileFromSorted(input, probability),
+                        },
+                        sources,
+                    }));
+                });
+            case 'sample': {
+                if (transform.size >= rows.length)
+                    return [...rows];
+                const random = seeded(transform.seed ?? 0);
+                const reservoir = rows.slice(0, transform.size).map((row, index) => ({ row, index }));
+                for (let index = transform.size; index < rows.length; index += 1) {
+                    const selected = Math.floor(random() * (index + 1));
+                    if (selected < transform.size)
+                        reservoir[selected] = { row: rows[index], index };
+                }
+                return reservoir.sort((a, b) => a.index - b.index).map(({ row }) => row);
+            }
+            case 'resample': {
+                const output = [];
+                for (const group of groups(rows, transform.groupby)) {
+                    const ordered = sorted(group, [{ field: transform.field }]);
+                    const domain = extent(ordered, transform.field);
+                    if (domain === null)
+                        continue;
+                    const expected = Math.floor((domain[1] - domain[0]) / transform.interval) + 1;
+                    enforceWorkBudget(output.length + expected, maximumDerivedRows, 'resample', '$.transform[].interval');
+                    let cursor = 0;
+                    let before;
+                    for (let x = domain[0]; x <= domain[1] + transform.interval / 1e9; x += transform.interval) {
+                        while (cursor < ordered.length) {
+                            const row = ordered[cursor];
+                            const value = numeric$1(row.value[transform.field]);
+                            if (value === null) {
+                                cursor += 1;
+                                continue;
+                            }
+                            if (value >= x)
+                                break;
+                            before = row;
+                            cursor += 1;
+                        }
+                        const candidate = ordered[cursor];
+                        const candidateValue = candidate === undefined ? null : numeric$1(candidate.value[transform.field]);
+                        const after = candidateValue !== null && candidateValue >= x ? candidate : undefined;
+                        const exact = after !== undefined && candidateValue === x ? after : undefined;
+                        if (exact !== undefined) {
+                            output.push(exact);
+                            continue;
+                        }
+                        const method = transform.method ?? 'linear';
+                        const base = method === 'next' ? after : before;
+                        if (base === undefined)
+                            continue;
+                        const value = { ...base.value, [transform.field]: x };
+                        if (method === 'linear' && before !== undefined && after !== undefined) {
+                            const bx = numeric$1(before.value[transform.field]);
+                            const ax = numeric$1(after.value[transform.field]);
+                            const ratio = ax === bx ? 0 : (x - bx) / (ax - bx);
+                            for (const field of new Set([
+                                ...Object.keys(before.value),
+                                ...Object.keys(after.value),
+                            ])) {
+                                if (field === transform.field)
+                                    continue;
+                                const b = numeric$1(before.value[field]);
+                                const a = numeric$1(after.value[field]);
+                                if (b !== null && a !== null)
+                                    value[field] = b + (a - b) * ratio;
+                            }
+                        }
+                        output.push({
+                            value,
+                            sources: [...new Set([...(before?.sources ?? []), ...(after?.sources ?? [])])].sort((a, b) => a - b),
+                        });
+                    }
+                }
+                return output;
+            }
+            case 'timeUnit':
+                return rows.map((row) => {
+                    const raw = row.value[transform.field];
+                    const date = raw instanceof Date
+                        ? new Date(raw)
+                        : new Date(typeof raw === 'number' || typeof raw === 'string' ? raw : Number.NaN);
+                    let result = null;
+                    if (Number.isFinite(date.getTime())) {
+                        const utc = transform.utc ?? true;
+                        const value = (name) => date[`get${utc ? 'UTC' : ''}${name}`]();
+                        result =
+                            transform.unit === 'year'
+                                ? value('FullYear')
+                                : transform.unit === 'quarter'
+                                    ? Math.floor(value('Month') / 3) + 1
+                                    : transform.unit === 'month'
+                                        ? value('Month') + 1
+                                        : transform.unit === 'week'
+                                            ? Math.floor((Date.UTC(value('FullYear'), value('Month'), value('Date')) -
+                                                Date.UTC(value('FullYear'), 0, 1)) /
+                                                604800000) + 1
+                                            : transform.unit === 'date'
+                                                ? value('Date')
+                                                : transform.unit === 'day'
+                                                    ? value('Day')
+                                                    : transform.unit === 'hours'
+                                                        ? value('Hours')
+                                                        : transform.unit === 'minutes'
+                                                            ? value('Minutes')
+                                                            : value('Seconds');
+                    }
+                    return { ...row, value: { ...row.value, [transform.as]: result } };
+                });
+        }
+    }
+    function executeTransforms(input, transforms = [], options = {}) {
+        const issues = [];
+        validateTransforms(transforms, '$.transform', issues);
+        if (issues.length > 0) {
+            throw new GraflumeError('INVALID_SPEC', issues[0].message, {
+                path: issues[0].path,
+                details: { issues },
+            });
+        }
+        const source = inputRows(input);
+        let rows = source;
+        const steps = [];
+        transforms.forEach((transform, index) => {
+            const before = rows.length;
+            const aggregationCount = transform.type === 'aggregate' ||
+                transform.type === 'joinaggregate' ||
+                transform.type === 'stack'
+                ? groups(rows, transform.groupby).length
+                : undefined;
+            rows = apply(rows, transform);
+            const detail = transform.type !== 'stack'
+                ? undefined
+                : transform.offset === 'normalize' || transform.offset === 'expand'
+                    ? 'Diverging normalization uses each bucket total absolute magnitude.'
+                    : transform.offset === 'wiggle'
+                        ? 'Wiggle uses a non-negative streamgraph baseline and rejects negative values.'
+                        : undefined;
+            steps.push({
+                index,
+                type: transform.type,
+                inputRows: before,
+                outputRows: rows.length,
+                parameters: jsonSafe(transform),
+                ...(transform.type === 'sample' ? { seed: transform.seed ?? 0 } : {}),
+                ...(aggregationCount === undefined ? {} : { aggregationCount }),
+                ...(detail === undefined ? {} : { detail }),
+            });
+        });
+        const sourceId = options.sourceId ?? 'data';
+        return {
+            data: rows.map(({ value }) => ({ ...value })),
+            lineage: {
+                sourceId,
+                sourceRows: source.length,
+                outputRows: rows.length,
+                transforms: steps,
+                rowSources: rows.map(({ sources }) => sources),
+                summary: `${sourceId}: ${source.length} source rows, ${steps.length} ordered transforms, ${rows.length} output rows.${steps.flatMap(({ detail }) => (detail === undefined ? [] : [` ${detail}`])).join('')}`,
+            },
+        };
+    }
+    const evaluateTransformExpression = evaluate;
+
     class BandScale {
         kind = 'band';
+        descriptor;
         #domain;
+        #range;
         #positions = new Map();
+        #outOfBounds;
         step;
         bandwidth;
         constructor(options) {
-            this.#domain = [...options.domain];
+            this.#domain = Object.freeze([...options.domain]);
+            this.#range = Object.freeze(options.reverse === true ? [options.range[1], options.range[0]] : [...options.range]);
+            this.#outOfBounds = options.outOfBounds ?? 'unknown';
             const paddingInner = clamp$3(options.paddingInner ?? 0.1, 0, 1);
             const paddingOuter = Math.max(0, options.paddingOuter ?? 0.05);
-            const [start, end] = options.range;
+            const [start, end] = this.#range;
             const direction = end >= start ? 1 : -1;
             const span = Math.abs(end - start);
             const denominator = Math.max(1, this.#domain.length - paddingInner + paddingOuter * 2);
@@ -4397,28 +9626,47 @@ var Graflume = (function (exports) {
                 const position = start + direction * step * (paddingOuter + index);
                 this.#positions.set(value, position);
             });
+            this.descriptor = Object.freeze({
+                type: this.kind,
+                domain: this.#domain,
+                range: this.#range,
+                reverse: options.reverse ?? false,
+                rangeDirection: end < start ? 'descending' : 'ascending',
+                outOfBounds: this.#outOfBounds,
+            });
         }
         domain() {
             return this.#domain;
         }
+        range() {
+            return this.#range;
+        }
         map(input) {
             const value = input instanceof Date ? input.toISOString() : String(input);
             const position = this.#positions.get(value);
-            return position === undefined ? Number.NaN : position + this.bandwidth / 2;
+            if (position !== undefined)
+                return position + this.bandwidth / 2;
+            if (this.#outOfBounds === 'error') {
+                throw new GraflumeError('INVALID_DATA', `Unknown band value: ${value}`, {
+                    path: '$.data',
+                });
+            }
+            return Number.NaN;
         }
         start(input) {
             return this.map(input) - this.bandwidth / 2;
         }
         ticks(count) {
-            const step = Math.max(1, Math.ceil(this.#domain.length / Math.max(1, count)));
+            const domain = this.#range[1] < this.#range[0] ? [...this.#domain].reverse() : this.#domain;
+            const step = Math.max(1, Math.ceil(domain.length / Math.max(1, count)));
             const ticks = [];
-            for (let index = 0; index < this.#domain.length; index += step) {
-                const value = this.#domain[index];
+            for (let index = 0; index < domain.length; index += step) {
+                const value = domain[index];
                 if (value === undefined)
                     continue;
                 ticks.push({ value, label: value, position: this.map(value) });
             }
-            const last = this.#domain.at(-1);
+            const last = domain.at(-1);
             if (last !== undefined && ticks.at(-1)?.value !== last) {
                 ticks.push({ value: last, label: last, position: this.map(last) });
             }
@@ -4456,17 +9704,47 @@ var Graflume = (function (exports) {
     class LinearScale {
         kind;
         bandwidth = 0;
+        descriptor;
         #domain;
         #range;
-        #clamp;
+        #outOfBounds;
         constructor(options) {
             this.kind = options.kind ?? 'linear';
-            this.#domain = options.nice === false ? options.domain : niceDomain(options.domain);
-            this.#range = options.range;
-            this.#clamp = options.clamp ?? false;
+            this.#domain = Object.freeze([
+                ...(options.nice === false ? options.domain : niceDomain(options.domain)),
+            ]);
+            this.#range = Object.freeze(options.reverse === true ? [options.range[1], options.range[0]] : [...options.range]);
+            this.#outOfBounds = options.outOfBounds ?? (options.clamp === true ? 'clamp' : 'extrapolate');
+            this.descriptor = Object.freeze({
+                type: this.kind,
+                domain: this.#domain,
+                range: this.#range,
+                reverse: options.reverse ?? false,
+                rangeDirection: this.#range[1] < this.#range[0] ? 'descending' : 'ascending',
+                outOfBounds: this.#outOfBounds,
+            });
         }
         domain() {
             return this.#domain;
+        }
+        range() {
+            return this.#range;
+        }
+        #ratio(value, start, end) {
+            const denominator = end - start;
+            let ratio = denominator === 0 ? 0.5 : (value - start) / denominator;
+            if (ratio < 0 || ratio > 1) {
+                if (this.#outOfBounds === 'unknown')
+                    return Number.NaN;
+                if (this.#outOfBounds === 'error') {
+                    throw new GraflumeError('INVALID_DATA', 'Scale input is outside the domain.', {
+                        path: '$.data',
+                    });
+                }
+                if (this.#outOfBounds === 'clamp')
+                    ratio = clamp$3(ratio, 0, 1);
+            }
+            return ratio;
         }
         map(input) {
             const value = input instanceof Date
@@ -4478,19 +9756,15 @@ var Graflume = (function (exports) {
                 return Number.NaN;
             const [domainStart, domainEnd] = this.#domain;
             const [rangeStart, rangeEnd] = this.#range;
-            const denominator = domainEnd - domainStart;
-            const ratio = denominator === 0 ? 0.5 : (value - domainStart) / denominator;
-            const normalized = this.#clamp ? clamp$3(ratio, 0, 1) : ratio;
-            return rangeStart + normalized * (rangeEnd - rangeStart);
+            const ratio = this.#ratio(value, domainStart, domainEnd);
+            return rangeStart + ratio * (rangeEnd - rangeStart);
         }
-        invert(position) {
+        invert = (position) => {
             const [domainStart, domainEnd] = this.#domain;
             const [rangeStart, rangeEnd] = this.#range;
-            const denominator = rangeEnd - rangeStart;
-            const ratio = denominator === 0 ? 0.5 : (position - rangeStart) / denominator;
-            const normalized = this.#clamp ? clamp$3(ratio, 0, 1) : ratio;
-            return domainStart + normalized * (domainEnd - domainStart);
-        }
+            const ratio = this.#ratio(position, rangeStart, rangeEnd);
+            return domainStart + ratio * (domainEnd - domainStart);
+        };
         ticks(count, locale) {
             const [start, stop] = this.#domain;
             const step = tickStep(start, stop, Math.max(1, count));
@@ -4512,16 +9786,835 @@ var Graflume = (function (exports) {
             }));
         }
         #format(value, locale) {
-            if (this.kind === 'time') {
+            if (this.kind === 'time' || this.kind === 'utc') {
                 return new Intl.DateTimeFormat(locale, {
                     year: 'numeric',
                     month: 'short',
                     day: 'numeric',
-                    timeZone: 'UTC',
+                    ...(this.kind === 'utc' ? { timeZone: 'UTC' } : {}),
                 }).format(new Date(value));
             }
             return new Intl.NumberFormat(locale, { maximumFractionDigits: 6 }).format(value);
         }
+    }
+
+    function ordinalKey(value) {
+        return `${typeof value}:${String(value)}`;
+    }
+    function frozen(values) {
+        return Object.freeze([...values]);
+    }
+    function fail$1(message, path = '$.scale') {
+        throw new GraflumeError('INCOMPATIBLE_SCALE', message, { path });
+    }
+    function numericDomain$1(values, length = 2) {
+        if (values.length !== length ||
+            values.some((value) => typeof value !== 'number' || !Number.isFinite(value))) {
+            fail$1(`Scale domain must contain exactly ${length} finite numbers.`);
+        }
+        return values;
+    }
+    function numericRange(values, minimum = 2) {
+        if (values.length < minimum ||
+            values.some((value) => typeof value !== 'number' || !Number.isFinite(value))) {
+            fail$1(`Position scale range must contain at least ${minimum} finite numbers.`, '$.scale.range');
+        }
+        return values;
+    }
+    function numericRangePair(values) {
+        const range = numericRange(values, 2);
+        if (range.length !== 2) {
+            fail$1('Continuous, band, and point position ranges must contain exactly 2 numbers.', '$.scale.range');
+        }
+        return range;
+    }
+    function resolvedPolicy(spec, fallback) {
+        return spec.outOfBounds ?? (spec.clamp === true ? 'clamp' : fallback);
+    }
+    function normalizeRatio(value, domain, policy, path) {
+        const denominator = domain[1] - domain[0];
+        let ratio = denominator === 0 ? 0.5 : (value - domain[0]) / denominator;
+        if (ratio >= 0 && ratio <= 1)
+            return ratio;
+        if (policy === 'clamp')
+            return clamp$3(ratio, 0, 1);
+        if (policy === 'unknown')
+            return Number.NaN;
+        if (policy === 'error') {
+            throw new GraflumeError('INVALID_DATA', `Scale input ${value} is outside the domain.`, {
+                path,
+            });
+        }
+        return ratio;
+    }
+    function interpolateRange(range, ratio) {
+        if (!Number.isFinite(ratio))
+            return Number.NaN;
+        const scaled = ratio * (range.length - 1);
+        const index = Math.max(0, Math.min(range.length - 2, Math.floor(scaled)));
+        const start = range[index] ?? Number.NaN;
+        const end = range[index + 1] ?? start;
+        return start + (end - start) * (scaled - index);
+    }
+    function inverseNormal(probability) {
+        // Acklam's rational approximation; absolute error is below 1.2e-9 over (0, 1).
+        const a = [
+            -39.6968302866538, 220.946098424521, -275.928510446969, 138.357751867269, -30.6647980661472,
+            2.50662827745924,
+        ];
+        const b = [
+            -54.4760987982241, 161.585836858041, -155.698979859887, 66.8013118877197, -13.2806815528857,
+        ];
+        const c = [
+            -0.00778489400243029, -0.322396458041136, -2.40075827716184, -2.54973253934373,
+            4.37466414146497, 2.93816398269878,
+        ];
+        const d = [0.00778469570904146, 0.32246712907004, 2.445134137143, 3.75440866190742];
+        const low = 0.02425;
+        const high = 1 - low;
+        if (probability < low) {
+            const q = Math.sqrt(-2 * Math.log(probability));
+            return ((((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) /
+                ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1));
+        }
+        if (probability > high) {
+            const q = Math.sqrt(-2 * Math.log(1 - probability));
+            return (-(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) /
+                ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1));
+        }
+        const q = probability - 0.5;
+        const r = q * q;
+        return (((((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q) /
+            (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1));
+    }
+    function normalCdf(value) {
+        // Abramowitz-Stegun 7.1.26, sufficient for stable interactive inversion.
+        const sign = value < 0 ? -1 : 1;
+        const x = Math.abs(value) / Math.SQRT2;
+        const t = 1 / (1 + 0.3275911 * x);
+        const erf = 1 -
+            ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) *
+                t *
+                Math.exp(-x * x);
+        return 0.5 * (1 + sign * erf);
+    }
+    function transformFor(type, spec) {
+        const identity = (value) => value;
+        if (type === 'log') {
+            const base = spec.base ?? 10;
+            if (!(base > 0) || base === 1)
+                fail$1('Log scale base must be positive and not equal to 1.', '$.scale.base');
+            return {
+                forward: (value) => Math.log(value) / Math.log(base),
+                inverse: (value) => base ** value,
+                validate: ([start, end]) => {
+                    if (!(start > 0 && end > 0))
+                        fail$1('Log scale domain values must be greater than 0.', '$.scale.domain');
+                },
+            };
+        }
+        if (type === 'symlog') {
+            const constant = spec.constant ?? 1;
+            if (!(constant > 0))
+                fail$1('Symlog constant must be greater than 0.', '$.scale.constant');
+            return {
+                forward: (value) => Math.sign(value) * Math.log1p(Math.abs(value) / constant),
+                inverse: (value) => Math.sign(value) * Math.expm1(Math.abs(value)) * constant,
+                validate: () => undefined,
+            };
+        }
+        if (type === 'asinh') {
+            const constant = spec.constant ?? 1;
+            if (!(constant > 0))
+                fail$1('Asinh constant must be greater than 0.', '$.scale.constant');
+            return {
+                forward: (value) => Math.asinh(value / constant),
+                inverse: (value) => Math.sinh(value) * constant,
+                validate: () => undefined,
+            };
+        }
+        if (type === 'pow' || type === 'sqrt') {
+            const exponent = type === 'sqrt' ? 0.5 : (spec.exponent ?? 1);
+            if (!(exponent > 0))
+                fail$1('Power scale exponent must be greater than 0.', '$.scale.exponent');
+            return {
+                forward: (value) => Math.sign(value) * Math.abs(value) ** exponent,
+                inverse: (value) => Math.sign(value) * Math.abs(value) ** (1 / exponent),
+                validate: () => undefined,
+            };
+        }
+        if (type === 'logit') {
+            return {
+                forward: (value) => Math.log(value / (1 - value)),
+                inverse: (value) => 1 / (1 + Math.exp(-value)),
+                validate: ([start, end]) => {
+                    if (!(start > 0 && start < 1 && end > 0 && end < 1))
+                        fail$1('Logit scale domain values must be strictly between 0 and 1.', '$.scale.domain');
+                },
+            };
+        }
+        if (type === 'probit') {
+            return {
+                forward: inverseNormal,
+                inverse: normalCdf,
+                validate: ([start, end]) => {
+                    if (!(start > 0 && start < 1 && end > 0 && end < 1))
+                        fail$1('Probit scale domain values must be strictly between 0 and 1.', '$.scale.domain');
+                },
+            };
+        }
+        return {
+            forward: identity,
+            inverse: identity,
+            validate: ([start, end]) => {
+                if (type === 'probability' && !(start >= 0 && start <= 1 && end >= 0 && end <= 1)) {
+                    fail$1('Probability scale domain values must be between 0 and 1.', '$.scale.domain');
+                }
+            },
+        };
+    }
+    class ContinuousScale {
+        bandwidth = 0;
+        descriptor;
+        #domain;
+        #range;
+        #policy;
+        #transform;
+        constructor(type, spec, domain, range) {
+            this.kind = type;
+            this.#domain = frozen(domain);
+            this.#range = frozen(spec.reverse === true ? [...range].reverse() : range);
+            this.#policy = resolvedPolicy(spec, 'extrapolate');
+            this.#transform = transformFor(type, spec);
+            this.#transform.validate(this.#domain);
+            if (this.#domain[0] === this.#domain[1])
+                fail$1('Continuous scale domain endpoints must differ.', '$.scale.domain');
+            this.descriptor = Object.freeze({
+                type,
+                domain: this.#domain,
+                range: this.#range,
+                reverse: spec.reverse === true,
+                rangeDirection: this.#range.at(-1) < this.#range[0] ? 'descending' : 'ascending',
+                outOfBounds: this.#policy,
+            });
+        }
+        kind;
+        domain() {
+            return this.#domain;
+        }
+        range() {
+            return this.#range;
+        }
+        map(input) {
+            const value = input instanceof Date
+                ? input.getTime()
+                : typeof input === 'string'
+                    ? Date.parse(input)
+                    : input;
+            if (!Number.isFinite(value))
+                return Number.NaN;
+            const outsideMathematicalDomain = (this.kind === 'log' && value <= 0) ||
+                (this.kind === 'probability' && !(value >= 0 && value <= 1)) ||
+                ((this.kind === 'logit' || this.kind === 'probit') && !(value > 0 && value < 1));
+            let supportedValue = value;
+            if (outsideMathematicalDomain) {
+                if (this.#policy === 'unknown')
+                    return Number.NaN;
+                if (this.#policy === 'clamp') {
+                    const minimum = Math.min(this.#domain[0], this.#domain[1]);
+                    const maximum = Math.max(this.#domain[0], this.#domain[1]);
+                    supportedValue = clamp$3(value, minimum, maximum);
+                }
+                else {
+                    throw new GraflumeError('INVALID_DATA', `Value ${value} is outside the mathematical domain of ${this.kind}; it cannot be extrapolated.`, { path: '$.data' });
+                }
+            }
+            const transformedDomain = [
+                this.#transform.forward(this.#domain[0]),
+                this.#transform.forward(this.#domain[1]),
+            ];
+            const ratio = normalizeRatio(this.#transform.forward(supportedValue), transformedDomain, this.#policy, '$.data');
+            return interpolateRange(this.#range, ratio);
+        }
+        invert = (position) => {
+            const rangePair = [this.#range[0], this.#range.at(-1)];
+            const ratio = normalizeRatio(position, rangePair, this.#policy, '$.position');
+            if (!Number.isFinite(ratio))
+                return Number.NaN;
+            const start = this.#transform.forward(this.#domain[0]);
+            const end = this.#transform.forward(this.#domain[1]);
+            return this.#transform.inverse(start + (end - start) * ratio);
+        };
+        ticks(count, locale) {
+            const size = Math.max(1, Math.floor(count));
+            const start = this.#transform.forward(this.#domain[0]);
+            const end = this.#transform.forward(this.#domain[1]);
+            return Array.from({ length: size + 1 }, (_, index) => {
+                const value = this.#transform.inverse(start + ((end - start) * index) / size);
+                const label = this.kind === 'time' || this.kind === 'utc'
+                    ? new Intl.DateTimeFormat(locale, {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        timeZone: this.kind === 'utc' ? 'UTC' : undefined,
+                    }).format(new Date(value))
+                    : new Intl.NumberFormat(locale, { maximumFractionDigits: 6 }).format(value);
+                return { value, label, position: this.map(value) };
+            });
+        }
+    }
+    class PointScale {
+        kind = 'point';
+        bandwidth = 0;
+        descriptor;
+        #domain;
+        #range;
+        #positions = new Map();
+        #policy;
+        constructor(spec, domain, range) {
+            this.#domain = frozen(domain);
+            this.#range = frozen(spec.reverse === true ? [range[1], range[0]] : range);
+            this.#policy = resolvedPolicy(spec, 'unknown');
+            if (this.#policy === 'clamp' || this.#policy === 'extrapolate') {
+                fail$1('Point scales support only error or unknown for unseen categories.', '$.scale.outOfBounds');
+            }
+            const padding = Math.max(0, spec.paddingOuter ?? 0.5);
+            const denominator = Math.max(1, this.#domain.length - 1 + padding * 2);
+            this.#domain.forEach((value, index) => this.#positions.set(value, this.#range[0] + ((this.#range[1] - this.#range[0]) * (index + padding)) / denominator));
+            this.descriptor = Object.freeze({
+                type: this.kind,
+                domain: this.#domain,
+                range: this.#range,
+                reverse: spec.reverse === true,
+                rangeDirection: this.#range[1] < this.#range[0] ? 'descending' : 'ascending',
+                outOfBounds: this.#policy,
+            });
+        }
+        domain() {
+            return this.#domain;
+        }
+        range() {
+            return this.#range;
+        }
+        map(input) {
+            const value = input instanceof Date ? input.toISOString() : String(input);
+            const mapped = this.#positions.get(value);
+            if (mapped !== undefined)
+                return mapped;
+            if (this.#policy === 'error')
+                throw new GraflumeError('INVALID_DATA', `Unknown point scale value: ${value}`, {
+                    path: '$.data',
+                });
+            return Number.NaN;
+        }
+        ticks(count) {
+            const domain = this.#range[1] < this.#range[0] ? [...this.#domain].reverse() : this.#domain;
+            const step = Math.max(1, Math.ceil(domain.length / Math.max(1, count)));
+            return domain
+                .filter((_value, index) => index % step === 0)
+                .map((value) => ({ value, label: value, position: this.map(value) }));
+        }
+    }
+    function quantile(sorted, probability) {
+        const index = (sorted.length - 1) * probability;
+        const lower = Math.floor(index);
+        const upper = Math.ceil(index);
+        const start = sorted[lower] ?? sorted[0] ?? Number.NaN;
+        const end = sorted[upper] ?? start;
+        return start + (end - start) * (index - lower);
+    }
+    class DiscretePositionScale {
+        kind;
+        bandwidth = 0;
+        descriptor;
+        #domain;
+        #range;
+        #policy;
+        #thresholds;
+        #ordinalIndices = new Map();
+        constructor(kind, spec, domain, range) {
+            this.kind = kind;
+            this.#domain = frozen(domain);
+            this.#range = frozen(spec.reverse === true ? [...range].reverse() : range);
+            this.#policy = resolvedPolicy(spec, kind === 'quantize' ? 'clamp' : 'unknown');
+            if (kind === 'ordinal' && (this.#policy === 'clamp' || this.#policy === 'extrapolate')) {
+                fail$1('Ordinal scales support only error or unknown for unseen categories.', '$.scale.outOfBounds');
+            }
+            if (kind === 'quantize' && this.#policy === 'extrapolate') {
+                fail$1('Quantize scales cannot extrapolate discrete range values.', '$.scale.outOfBounds');
+            }
+            if ((kind === 'quantile' || kind === 'threshold') &&
+                (spec.outOfBounds !== undefined || spec.clamp !== undefined)) {
+                fail$1(`${kind} scale bin semantics do not accept outOfBounds.`, '$.scale.outOfBounds');
+            }
+            if (kind === 'ordinal' && this.#range.length < 1)
+                fail$1('Ordinal scale requires at least one range value.', '$.scale.range');
+            if (kind === 'ordinal') {
+                this.#domain.forEach((value, index) => {
+                    const id = ordinalKey(value);
+                    if (!this.#ordinalIndices.has(id))
+                        this.#ordinalIndices.set(id, index);
+                });
+            }
+            if (kind !== 'ordinal' && this.#domain.some((value) => typeof value !== 'number'))
+                fail$1(`${kind} scale domain must be numeric.`, '$.scale.domain');
+            const authoredNumbers = this.#domain;
+            const numbers = [...authoredNumbers].sort((a, b) => a - b);
+            if (kind === 'quantile') {
+                if (numbers.length < 2) {
+                    fail$1('Quantile scale domain must contain at least 2 numeric samples.', '$.scale.domain');
+                }
+                this.#thresholds = frozen(Array.from({ length: Math.max(0, this.#range.length - 1) }, (_, index) => quantile(numbers, (index + 1) / this.#range.length)));
+            }
+            else if (kind === 'quantize') {
+                if (numbers.length !== 2 || numbers[0] === numbers[1])
+                    fail$1('Quantize scale requires two distinct numeric domain endpoints.', '$.scale.domain');
+                this.#thresholds = frozen(Array.from({ length: Math.max(0, this.#range.length - 1) }, (_, index) => numbers[0] + ((numbers[1] - numbers[0]) * (index + 1)) / this.#range.length));
+            }
+            else if (kind === 'threshold') {
+                if (authoredNumbers.some((value, index) => index > 0 && value <= authoredNumbers[index - 1])) {
+                    fail$1('Threshold scale domain must be strictly ascending.', '$.scale.domain');
+                }
+                if (this.#range.length !== numbers.length + 1)
+                    fail$1('Threshold scale range length must equal domain length + 1.', '$.scale.range');
+                this.#thresholds = frozen(authoredNumbers);
+            }
+            else
+                this.#thresholds = [];
+            this.descriptor = Object.freeze({
+                type: kind,
+                domain: this.#domain,
+                range: this.#range,
+                reverse: spec.reverse === true,
+                rangeDirection: this.#range.at(-1) < this.#range[0] ? 'descending' : 'ascending',
+                outOfBounds: this.#policy,
+            });
+        }
+        domain() {
+            return this.#domain;
+        }
+        range() {
+            return this.#range;
+        }
+        map(input) {
+            const value = input instanceof Date ? input.getTime() : input;
+            if (this.kind === 'ordinal') {
+                const index = this.#ordinalIndices.get(ordinalKey(value));
+                if (index !== undefined)
+                    return this.#range[index % this.#range.length];
+                if (this.#policy === 'error')
+                    throw new GraflumeError('INVALID_DATA', `Unknown ordinal scale value: ${String(value)}`, {
+                        path: '$.data',
+                    });
+                return Number.NaN;
+            }
+            const number = typeof value === 'number' ? value : Number(value);
+            if (!Number.isFinite(number))
+                return Number.NaN;
+            if (this.kind === 'quantize') {
+                const endpoints = this.#domain;
+                const minimum = Math.min(endpoints[0], endpoints[1]);
+                const maximum = Math.max(endpoints[0], endpoints[1]);
+                if (number < minimum || number > maximum) {
+                    if (this.#policy === 'unknown')
+                        return Number.NaN;
+                    if (this.#policy === 'error') {
+                        throw new GraflumeError('INVALID_DATA', `Quantize input ${number} is outside the domain.`, { path: '$.data' });
+                    }
+                }
+            }
+            let index = 0;
+            while (index < this.#thresholds.length && number >= this.#thresholds[index])
+                index += 1;
+            return this.#range[Math.min(index, this.#range.length - 1)] ?? Number.NaN;
+        }
+        ticks(_count, locale) {
+            if (this.kind === 'ordinal')
+                return this.#domain.map((value) => ({
+                    value,
+                    label: String(value),
+                    position: this.map(value),
+                }));
+            return this.#thresholds.map((value) => ({
+                value,
+                label: new Intl.NumberFormat(locale, { maximumFractionDigits: 6 }).format(value),
+                position: this.map(value),
+            }));
+        }
+    }
+    function createPositionScale(spec, options) {
+        if (spec.type !== undefined && options.type !== undefined && spec.type !== options.type) {
+            fail$1(`Scale type ${spec.type} conflicts with the requested position scale type ${options.type}.`, '$.scale.type');
+        }
+        const requestedType = spec.type ?? options.type ?? 'linear';
+        if (requestedType === 'sequential' ||
+            requestedType === 'diverging' ||
+            requestedType === 'cyclic') {
+            fail$1(`${requestedType} is a color scale and cannot produce positions.`, '$.scale.type');
+        }
+        const type = requestedType;
+        const domain = spec.domain ?? options.domain;
+        const range = spec.range === undefined ? options.range : numericRange(spec.range);
+        if (type === 'band') {
+            if (domain.some((value) => typeof value !== 'string'))
+                fail$1('Band scale domain must contain strings.', '$.scale.domain');
+            const pair = numericRangePair(range);
+            const policy = resolvedPolicy(spec, 'unknown');
+            if (policy === 'clamp' || policy === 'extrapolate') {
+                fail$1('Band scales support only error or unknown for unseen categories.', '$.scale.outOfBounds');
+            }
+            return new BandScale({
+                domain: domain,
+                range: [pair[0], pair.at(-1)],
+                ...(spec.paddingInner === undefined ? {} : { paddingInner: spec.paddingInner }),
+                ...(spec.paddingOuter === undefined ? {} : { paddingOuter: spec.paddingOuter }),
+                outOfBounds: policy,
+                ...(spec.reverse === undefined ? {} : { reverse: spec.reverse }),
+            });
+        }
+        if (type === 'point') {
+            if (domain.some((value) => typeof value !== 'string'))
+                fail$1('Point scale domain must contain strings.', '$.scale.domain');
+            const pair = numericRangePair(range);
+            return new PointScale(spec, domain, [pair[0], pair.at(-1)]);
+        }
+        if (type === 'ordinal' || type === 'quantile' || type === 'quantize' || type === 'threshold')
+            return new DiscretePositionScale(type, spec, domain, numericRange(range, 1));
+        const resolvedContinuousDomain = type === 'time' || type === 'utc'
+            ? domain.map((value) => (typeof value === 'number' ? value : Date.parse(value)))
+            : domain;
+        const pair = numericDomain$1(resolvedContinuousDomain);
+        if (type === 'linear' || type === 'time' || type === 'utc') {
+            const numeric = numericRangePair(range);
+            return new LinearScale({
+                domain: pair,
+                range: [numeric[0], numeric.at(-1)],
+                kind: type,
+                ...(spec.nice === undefined ? {} : { nice: spec.nice }),
+                outOfBounds: resolvedPolicy(spec, 'extrapolate'),
+                ...(spec.reverse === undefined ? {} : { reverse: spec.reverse }),
+            });
+        }
+        return new ContinuousScale(type, spec, pair, numericRangePair(range));
+    }
+    function interpolateColors(range, ratio) {
+        const bounded = clamp$3(ratio, 0, 1);
+        if (range.length === 1)
+            return range[0];
+        const scaled = bounded * (range.length - 1);
+        const index = Math.min(range.length - 2, Math.floor(scaled));
+        return mixColor$1(range[index], range[index + 1], scaled - index);
+    }
+    function interpolateCyclicColors(range, ratio) {
+        const wrapped = ((ratio % 1) + 1) % 1;
+        const scaled = wrapped * range.length;
+        const index = Math.floor(scaled) % range.length;
+        const next = (index + 1) % range.length;
+        return mixColor$1(range[index], range[next], scaled - Math.floor(scaled));
+    }
+    class RegisteredColorScale {
+        kind;
+        descriptor;
+        #domain;
+        #range;
+        #policy;
+        #ordinalIndices = new Map();
+        constructor(kind, spec, domain, range) {
+            this.kind = kind;
+            this.#domain = frozen(domain);
+            this.#range = frozen(spec.reverse === true ? [...range].reverse() : range);
+            this.#policy = resolvedPolicy(spec, kind === 'ordinal' ? 'unknown' : 'clamp');
+            if (kind === 'cyclic' && (spec.outOfBounds !== undefined || spec.clamp !== undefined)) {
+                fail$1('Cyclic scales always wrap and do not accept outOfBounds.', '$.scale.outOfBounds');
+            }
+            if (this.#policy === 'extrapolate' && kind !== 'cyclic') {
+                fail$1('Color scales do not extrapolate colors; use clamp, error, or unknown.', '$.scale.outOfBounds');
+            }
+            if (kind === 'ordinal' && this.#policy === 'clamp') {
+                fail$1('Ordinal color scales support only error or unknown for unseen categories.', '$.scale.outOfBounds');
+            }
+            if (kind === 'ordinal') {
+                this.#domain.forEach((value, index) => {
+                    const id = ordinalKey(value);
+                    if (!this.#ordinalIndices.has(id))
+                        this.#ordinalIndices.set(id, index);
+                });
+            }
+            if (this.#range.length === 0)
+                fail$1('Color scale requires at least one color in range.', '$.scale.range');
+            if (kind === 'sequential' && this.#range.length < 2)
+                fail$1('Sequential color scale requires at least 2 colors.', '$.scale.range');
+            if (kind === 'diverging' && this.#range.length < 3)
+                fail$1('Diverging color scale requires at least 3 colors.', '$.scale.range');
+            if (kind === 'cyclic' && this.#range.length < 2)
+                fail$1('Cyclic color scale requires at least 2 colors.', '$.scale.range');
+            if (kind === 'diverging')
+                numericDomain$1(domain, 3);
+            else if (kind !== 'ordinal')
+                numericDomain$1(domain);
+            if (kind === 'diverging') {
+                const [start, middle, end] = domain;
+                if (!(start < middle && middle < end)) {
+                    fail$1('Diverging color scale domain must be strictly ascending.', '$.scale.domain');
+                }
+            }
+            else if (kind !== 'ordinal') {
+                const [start, end] = domain;
+                if (start === end)
+                    fail$1(`${kind} color scale domain endpoints must differ.`, '$.scale.domain');
+            }
+            this.descriptor = Object.freeze({
+                type: kind,
+                domain: this.#domain,
+                range: this.#range,
+                reverse: spec.reverse === true,
+                outOfBounds: kind === 'cyclic' ? 'wrap' : this.#policy,
+            });
+        }
+        domain() {
+            return this.#domain;
+        }
+        range() {
+            return this.#range;
+        }
+        map(input) {
+            const value = input instanceof Date ? input.getTime() : input;
+            if (this.kind === 'ordinal') {
+                const index = this.#ordinalIndices.get(ordinalKey(value));
+                if (index !== undefined)
+                    return this.#range[index % this.#range.length];
+                if (this.#policy === 'error')
+                    throw new GraflumeError('INVALID_DATA', `Unknown ordinal color value: ${String(value)}`, {
+                        path: '$.data',
+                    });
+                return specUnknownColor(this.#policy);
+            }
+            const number = typeof value === 'number' ? value : Number(value);
+            if (!Number.isFinite(number))
+                return specUnknownColor(this.#policy);
+            if (this.kind === 'cyclic') {
+                const domain = this.#domain;
+                const span = domain[1] - domain[0];
+                const ratio = span === 0 ? 0 : ((((number - domain[0]) / span) % 1) + 1) % 1;
+                return interpolateCyclicColors(this.#range, ratio);
+            }
+            if (this.kind === 'diverging') {
+                const [start, middle, end] = this.#domain;
+                const ratio = number <= middle
+                    ? normalizeRatio(number, [start, middle], this.#policy, '$.data') / 2
+                    : 0.5 + normalizeRatio(number, [middle, end], this.#policy, '$.data') / 2;
+                return Number.isFinite(ratio)
+                    ? interpolateColors(this.#range, ratio)
+                    : specUnknownColor(this.#policy);
+            }
+            const ratio = normalizeRatio(number, this.#domain, this.#policy, '$.data');
+            return Number.isFinite(ratio)
+                ? interpolateColors(this.#range, ratio)
+                : specUnknownColor(this.#policy);
+        }
+    }
+    function specUnknownColor(policy) {
+        if (policy === 'error')
+            throw new GraflumeError('INVALID_DATA', 'Color scale input is outside the domain.', {
+                path: '$.data',
+            });
+        return 'transparent';
+    }
+    function createColorScale(spec, fallback) {
+        if (spec.type !== undefined &&
+            spec.type !== 'ordinal' &&
+            spec.type !== 'sequential' &&
+            spec.type !== 'diverging' &&
+            spec.type !== 'cyclic') {
+            fail$1(`${spec.type} is not a color registry scale.`, '$.scale.type');
+        }
+        const type = spec.type === 'sequential' || spec.type === 'diverging' || spec.type === 'cyclic'
+            ? spec.type
+            : 'ordinal';
+        const domain = spec.domain ?? fallback.domain;
+        const rawRange = spec.range ?? fallback.range;
+        if (rawRange.some((value) => typeof value !== 'string'))
+            fail$1('Color scale range must contain strings.', '$.scale.range');
+        return new RegisteredColorScale(type, spec, domain, rawRange);
+    }
+    const positionScaleTypes = Object.freeze([
+        'linear',
+        'log',
+        'symlog',
+        'asinh',
+        'pow',
+        'sqrt',
+        'time',
+        'utc',
+        'band',
+        'point',
+        'ordinal',
+        'quantile',
+        'quantize',
+        'threshold',
+        'probability',
+        'logit',
+        'probit',
+    ]);
+    const colorScaleTypes = Object.freeze([
+        'ordinal',
+        'sequential',
+        'diverging',
+        'cyclic',
+    ]);
+
+    const domainViewVersion = 1;
+    function invalid$1(message, path = '$.interaction.domainNavigation') {
+        throw new GraflumeError('INVALID_SPEC', message, { path });
+    }
+    function assertPlainObject$1(value, label) {
+        if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+            invalid$1(`${label} must be an object.`);
+        }
+    }
+    function assertClosedKeys$1(value, allowed, label) {
+        const allowedKeys = new Set(allowed);
+        const unknown = Object.keys(value).filter((key) => !allowedKeys.has(key));
+        if (unknown.length > 0)
+            invalid$1(`${label} contains unknown key "${unknown[0]}".`);
+    }
+    function normalizedWindow(input) {
+        assertPlainObject$1(input, 'Domain axis window');
+        assertClosedKeys$1(input, ['start', 'end'], 'Domain axis window');
+        if (!Number.isFinite(input.start) ||
+            !Number.isFinite(input.end) ||
+            input.start < 0 ||
+            input.end > 1 ||
+            input.start >= input.end) {
+            invalid$1('Domain axis windows require finite 0 <= start < end <= 1 values.');
+        }
+        return Object.freeze({ start: input.start, end: input.end });
+    }
+    function normalizeDomainViewState(input) {
+        assertPlainObject$1(input, 'Domain view state');
+        assertClosedKeys$1(input, ['version', 'axes'], 'Domain view state');
+        if (input.version !== domainViewVersion) {
+            invalid$1(`Domain view state.version must be ${domainViewVersion}.`);
+        }
+        assertPlainObject$1(input.axes, 'Domain view axes');
+        const axes = {};
+        for (const [axis, window] of Object.entries(input.axes)) {
+            if (axis !== 'x' && axis !== 'x2' && axis !== 'y' && axis !== 'y2') {
+                invalid$1(`Unknown domain view axis "${axis}".`);
+            }
+            if (window !== undefined)
+                axes[axis] = normalizedWindow(window);
+        }
+        return Object.freeze({ version: domainViewVersion, axes: Object.freeze(axes) });
+    }
+    function emptyDomainViewState() {
+        return Object.freeze({ version: domainViewVersion, axes: Object.freeze({}) });
+    }
+    function domainAxisWindow(state, axis) {
+        const window = state.axes[axis];
+        return window === undefined ? Object.freeze({ start: 0, end: 1 }) : window;
+    }
+    function boundedWindow(start, width) {
+        const boundedWidth = Math.max(Number.EPSILON, Math.min(1, width));
+        const boundedStart = Math.max(0, Math.min(1 - boundedWidth, start));
+        return Object.freeze({ start: boundedStart, end: boundedStart + boundedWidth });
+    }
+    function withWindow(state, axis, window) {
+        const axes = { ...state.axes };
+        const normalized = normalizedWindow(window);
+        if (Math.abs(normalized.start) < 1e-12 && Math.abs(normalized.end - 1) < 1e-12) {
+            delete axes[axis];
+        }
+        else
+            axes[axis] = normalized;
+        return normalizeDomainViewState({ version: domainViewVersion, axes });
+    }
+    function zoomDomainAxisWindow(state, axis, factor, anchor, maxZoom) {
+        if (!Number.isFinite(factor) || factor <= 0)
+            invalid$1('Domain zoom factor must be positive.');
+        if (!Number.isFinite(anchor))
+            invalid$1('Domain zoom anchor must be finite.');
+        if (!Number.isFinite(maxZoom) || maxZoom < 1)
+            invalid$1('Domain maxZoom must be at least 1.');
+        const current = domainAxisWindow(state, axis);
+        const width = current.end - current.start;
+        const boundedAnchor = Math.max(current.start, Math.min(current.end, anchor));
+        const local = width === 0 ? 0.5 : (boundedAnchor - current.start) / width;
+        const nextWidth = Math.max(1 / maxZoom, Math.min(1, width / factor));
+        return withWindow(state, axis, boundedWindow(boundedAnchor - local * nextWidth, nextWidth));
+    }
+    function panDomainAxisWindow(state, axis, delta) {
+        if (!Number.isFinite(delta))
+            invalid$1('Domain pan delta must be finite.');
+        const current = domainAxisWindow(state, axis);
+        return withWindow(state, axis, boundedWindow(current.start + delta, current.end - current.start));
+    }
+    function scaleFor(context, axis) {
+        const scale = context.axes[axis];
+        if (scale === undefined)
+            invalid$1(`Axis "${axis}" is not resolved.`, `$.axes.${axis}`);
+        if (scale.invert === undefined) {
+            throw new GraflumeError('INCOMPATIBLE_SCALE', `Data-domain navigation requires an invertible continuous scale; axis "${axis}" uses "${scale.kind}".`, { path: `$.axes.${axis}` });
+        }
+        return scale;
+    }
+    function rangeRatio(scale, pixel) {
+        if (!Number.isFinite(pixel))
+            invalid$1('Domain navigation pixel must be finite.');
+        const range = scale.range();
+        const start = range[0];
+        const end = range.at(-1);
+        if (start === undefined || end === undefined || start === end) {
+            throw new GraflumeError('INCOMPATIBLE_SCALE', 'Navigable scale range must be non-empty.');
+        }
+        return Math.max(0, Math.min(1, (pixel - start) / (end - start)));
+    }
+    function zoomDomainAtPixel(state, context, axis, factor, pixel, maxZoom) {
+        const scale = scaleFor(context, axis);
+        const current = domainAxisWindow(state, axis);
+        const ratio = rangeRatio(scale, pixel);
+        const anchor = current.start + ratio * (current.end - current.start);
+        return zoomDomainAxisWindow(state, axis, factor, anchor, maxZoom);
+    }
+    function panDomainByPixels(state, context, axis, deltaPixels) {
+        const scale = scaleFor(context, axis);
+        if (!Number.isFinite(deltaPixels))
+            invalid$1('Domain pan pixel delta must be finite.');
+        const range = scale.range();
+        const start = range[0];
+        const end = range.at(-1);
+        if (start === undefined || end === undefined || start === end) {
+            throw new GraflumeError('INCOMPATIBLE_SCALE', 'Navigable scale range must be non-empty.');
+        }
+        const current = domainAxisWindow(state, axis);
+        // Grab-to-pan: dragging marks toward positive pixels reveals the preceding
+        // authored domain. A descending layout range naturally reverses this sign.
+        const delta = (-deltaPixels / (end - start)) * (current.end - current.start);
+        return panDomainAxisWindow(state, axis, delta);
+    }
+    function domainForAxisWindow(scale, window) {
+        if (scale.invert === undefined) {
+            throw new GraflumeError('INCOMPATIBLE_SCALE', `Data-domain navigation cannot invert the "${scale.kind}" scale.`);
+        }
+        const range = scale.range();
+        const start = range[0];
+        const end = range.at(-1);
+        if (start === undefined || end === undefined || start === end) {
+            throw new GraflumeError('INCOMPATIBLE_SCALE', 'Navigable scale range must be non-empty.');
+        }
+        const first = scale.invert(start + (end - start) * window.start);
+        const last = scale.invert(start + (end - start) * window.end);
+        if (typeof first !== 'number' ||
+            typeof last !== 'number' ||
+            !Number.isFinite(first) ||
+            !Number.isFinite(last) ||
+            first === last) {
+            throw new GraflumeError('INCOMPATIBLE_SCALE', `Data-domain navigation requires finite numeric endpoints from "${scale.kind}".`);
+        }
+        return Object.freeze([first, last]);
+    }
+    function domainViewIsIdentity(state) {
+        return Object.keys(state.axes).length === 0;
     }
 
     /** Resolves canonical/default labels and unknown compatibility values to histogram mode. */
@@ -4532,6 +10625,12 @@ var Graflume = (function (exports) {
             return 'violin';
         if (value === 'curve' || value === 'bell-curve')
             return 'curve';
+        if (value === 'kde' || value === 'density')
+            return 'kde';
+        if (value === 'ecdf')
+            return 'ecdf';
+        if (value === 'ccdf' || value === 'survival')
+            return 'ccdf';
         if (value === 'histogram-2d' || value === 'bivariate')
             return 'histogram-2d';
         if (value === 'histogram-2d-contour' || value === 'bivariate-contour') {
@@ -4580,13 +10679,51 @@ var Graflume = (function (exports) {
                     return value instanceof Date ? value.getTime() : value;
                 }).filter((value) => typeof value === 'number'))
                 : null;
+            const distributionObservations = distributionMode === 'kde' ||
+                distributionMode === 'ecdf' ||
+                distributionMode === 'ccdf' ||
+                distributionMode === 'histogram'
+                ? Array.from({ length: table.length }, (_, rowIndex) => {
+                    const field = layer.mark.fields.value ?? layer.x.field;
+                    const value = table.numericValue(rowIndex, field);
+                    const optionWeightField = layer.mark.options.weightField;
+                    const weightField = layer.mark.fields.weight ??
+                        (typeof optionWeightField === 'string' ? optionWeightField : undefined);
+                    const weight = weightField === undefined ? 1 : table.numericValue(rowIndex, weightField);
+                    return value === null || weight === null || weight < 0
+                        ? null
+                        : { value, weight, rowIndex };
+                }).filter((value) => value !== null)
+                : [];
+            const kde = distributionMode === 'kde'
+                ? kernelDensity1d(distributionObservations, {
+                    points: typeof layer.mark.options.samples === 'number' ? layer.mark.options.samples : 96,
+                    ...(typeof layer.mark.options.bandwidth === 'number' && layer.mark.options.bandwidth > 0
+                        ? { bandwidth: layer.mark.options.bandwidth }
+                        : {}),
+                })
+                : null;
             const fields = densitySummary !== null ||
                 (axis === 'y' &&
                     (layer.mark.type === 'histogram' ||
                         layer.mark.type === 'theme-river' ||
-                        distributionMode === 'histogram'))
+                        distributionMode === 'histogram' ||
+                        distributionMode === 'kde' ||
+                        distributionMode === 'ecdf' ||
+                        distributionMode === 'ccdf'))
                 ? []
                 : [encoding.field];
+            const rangeEncoding = axis === 'x' ? layer.encoding.x2 : layer.encoding.y2;
+            if (rangeEncoding?.field !== undefined)
+                fields.push(rangeEncoding.field);
+            const stackFields = preparedSeriesStackFields(layer);
+            const stackAxis = layer.mark.type === 'bar' && layer.mark.orientation === 'horizontal' ? 'x' : 'y';
+            if (stackFields !== null &&
+                axis === stackAxis &&
+                table.has(stackFields.start) &&
+                table.has(stackFields.end)) {
+                fields.splice(0, fields.length, stackFields.start, stackFields.end);
+            }
             if (axis === 'x' && (layer.mark.type === 'timeline' || layer.mark.type === 'gantt')) {
                 fields.push(layer.mark.fields.end ?? 'end');
             }
@@ -4604,14 +10741,17 @@ var Graflume = (function (exports) {
                     layer.mark.type === 'bullet' ||
                     layer.mark.type === 'indicator' ||
                     layer.mark.type === 'volume-profile')) {
-                fields.push(...Object.values(layer.mark.fields));
+                fields.push(...Object.entries(layer.mark.fields).flatMap(([role, field]) => role.startsWith('__') ? [] : [field]));
                 const optionFields = layer.mark.options.fields;
                 if (Array.isArray(optionFields)) {
                     fields.push(...optionFields.filter((field) => typeof field === 'string' && field.trim() !== ''));
                 }
             }
             if (axis === 'y' && (layer.mark.type === 'boxplot' || distributionMode === 'boxplot')) {
-                fields.push(layer.mark.fields.min ?? 'min', layer.mark.fields.q1 ?? 'q1', layer.mark.fields.median ?? encoding.field, layer.mark.fields.q3 ?? 'q3', layer.mark.fields.max ?? 'max');
+                const rawValueField = layer.mark.fields.value;
+                if (rawValueField !== undefined)
+                    fields.push(rawValueField);
+                fields.push(layer.mark.fields.min ?? layer.mark.fields.low ?? 'min', layer.mark.fields.q1 ?? 'q1', layer.mark.fields.median ?? encoding.field, layer.mark.fields.q3 ?? 'q3', layer.mark.fields.max ?? layer.mark.fields.high ?? 'max');
             }
             if (axis === 'y' && (layer.mark.type === 'lines' || layer.mark.type === 'custom')) {
                 const y2 = layer.mark.fields.y2;
@@ -4643,19 +10783,48 @@ var Graflume = (function (exports) {
                     max = Math.max(max, densitySummary.maximumDensity);
                 }
             }
+            if (kde !== null && kde.points.length > 0) {
+                if (axis === 'x') {
+                    min = Math.min(min, kde.points[0].value);
+                    max = Math.max(max, kde.points.at(-1).value);
+                }
+                else {
+                    min = Math.min(min, 0);
+                    max = Math.max(max, ...kde.points.map(({ density }) => density));
+                }
+            }
+            if (axis === 'y' && (distributionMode === 'ecdf' || distributionMode === 'ccdf')) {
+                min = Math.min(min, 0);
+                max = Math.max(max, 1);
+            }
             if (axis === 'y' && (layer.mark.type === 'histogram' || distributionMode === 'histogram')) {
                 const binCount = Math.max(1, Math.min(100, Math.floor(typeof layer.mark.options.bins === 'number' ? layer.mark.options.bins : 10)));
                 const sourceExtent = table.extent(layer.x.field, layer.x.type === 'temporal');
                 if (sourceExtent !== null) {
-                    const counts = Array.from({ length: binCount }, () => 0);
-                    const span = sourceExtent[1] - sourceExtent[0] || 1;
-                    for (let index = 0; index < table.length; index += 1) {
-                        const value = table.numericValue(index, layer.x.field);
-                        if (value === null)
-                            continue;
-                        const bin = Math.min(binCount - 1, Math.max(0, Math.floor(((value - sourceExtent[0]) / span) * binCount)));
-                        counts[bin] = (counts[bin] ?? 0) + 1;
-                    }
+                    const optionWeightField = layer.mark.options.weightField;
+                    const weightField = layer.mark.fields.weight ??
+                        (typeof optionWeightField === 'string' ? optionWeightField : undefined);
+                    const observations = Array.from({ length: table.length }, (_, rowIndex) => {
+                        const value = table.numericValue(rowIndex, layer.x.field);
+                        const weight = weightField === undefined ? 1 : table.numericValue(rowIndex, weightField);
+                        return value === null || weight === null || weight < 0
+                            ? null
+                            : { value, weight, rowIndex };
+                    }).filter((value) => value !== null);
+                    const normalizationOption = layer.mark.options.normalization;
+                    const normalization = normalizationOption === 'probability' ||
+                        normalizationOption === 'normalized' ||
+                        layer.mark.options.normalized === true
+                        ? 'probability'
+                        : normalizationOption === 'density'
+                            ? 'density'
+                            : 'count';
+                    const counts = weightedHistogram(observations, {
+                        bins: binCount,
+                        extent: sourceExtent,
+                        normalization,
+                        cumulative: layer.mark.options.cumulative === true,
+                    }).map(({ value }) => value);
                     min = Math.min(min, 0);
                     max = Math.max(max, ...counts);
                 }
@@ -4674,40 +10843,49 @@ var Graflume = (function (exports) {
                     max = Math.max(max, previous, total);
                 }
             }
-            if (axis === 'y' && layer.mark.type === 'theme-river') {
+            if (axis === 'y' && layer.mark.type === 'theme-river' && stackFields === null) {
                 const totals = new Map();
                 for (let index = 0; index < table.length; index += 1) {
-                    const key = String(table.value(index, layer.x.field) ?? '');
+                    const rawKey = table.value(index, layer.x.field);
+                    const key = rawKey instanceof Date
+                        ? `date:${rawKey.toISOString()}`
+                        : `${typeof rawKey}:${String(rawKey ?? '')}`;
                     const value = table.numericValue(index, layer.y.field);
                     if (value === null)
                         continue;
                     totals.set(key, (totals.get(key) ?? 0) + Math.max(0, value));
                 }
-                const maximumTotal = Math.max(1, ...totals.values());
+                let maximumTotal = 1;
+                for (const total of totals.values())
+                    maximumTotal = Math.max(maximumTotal, total);
                 min = Math.min(min, -maximumTotal / 2);
                 max = Math.max(max, maximumTotal / 2);
             }
-            if (encoding.scale.zero === true ||
-                (axis === 'y' &&
-                    (layer.mark.type === 'bar' ||
-                        layer.mark.type === 'area' ||
-                        layer.mark.type === 'bullet' ||
-                        layer.mark.type === 'cylinder' ||
-                        layer.mark.type === 'histogram' ||
-                        distributionMode === 'histogram' ||
-                        layer.mark.type === 'item' ||
-                        layer.mark.type === 'lollipop' ||
-                        layer.mark.type === 'packed-bubble' ||
-                        layer.mark.type === 'pareto' ||
-                        layer.mark.type === 'pictorial-bar' ||
-                        layer.mark.type === 'pyramid' ||
-                        layer.mark.type === 'solid-gauge' ||
-                        layer.mark.type === 'theme-river' ||
-                        layer.mark.type === 'variable-pie' ||
-                        layer.mark.type === 'variwide' ||
-                        layer.mark.type === 'volume-profile' ||
-                        layer.mark.type === 'waterfall')) ||
-                (axis === 'x' && layer.mark.type === 'bar' && layer.mark.orientation === 'horizontal')) {
+            const zeroCompatible = !['log', 'logit', 'probit'].includes(encoding.scale.type ?? '');
+            if (zeroCompatible &&
+                (encoding.scale.zero === true ||
+                    (axis === 'y' && layer.mark.options.missing === 'zero') ||
+                    (axis === 'y' &&
+                        (layer.mark.type === 'bar' ||
+                            layer.mark.type === 'area' ||
+                            layer.mark.type === 'bullet' ||
+                            layer.mark.type === 'cylinder' ||
+                            layer.mark.type === 'histogram' ||
+                            distributionMode === 'histogram' ||
+                            layer.mark.type === 'item' ||
+                            layer.mark.type === 'lollipop' ||
+                            layer.mark.type === 'packed-bubble' ||
+                            layer.mark.type === 'pareto' ||
+                            layer.mark.type === 'pictorial-bar' ||
+                            layer.mark.type === 'pyramid' ||
+                            layer.mark.type === 'solid-gauge' ||
+                            layer.mark.type === 'stepped-area' ||
+                            layer.mark.type === 'theme-river' ||
+                            layer.mark.type === 'variable-pie' ||
+                            layer.mark.type === 'variwide' ||
+                            layer.mark.type === 'volume-profile' ||
+                            layer.mark.type === 'waterfall')) ||
+                    (axis === 'x' && layer.mark.type === 'bar' && layer.mark.orientation === 'horizontal'))) {
                 includeZero = true;
             }
         }
@@ -4732,7 +10910,11 @@ var Graflume = (function (exports) {
         const domain = [];
         for (const { layer, table } of layers) {
             const explicit = layer[axis].scale.domain;
-            const values = explicit?.map(String) ?? table.unique(layer[axis].field);
+            const rangeEncoding = axis === 'x' ? layer.encoding.x2 : layer.encoding.y2;
+            const values = explicit?.map(String) ?? [
+                ...table.unique(layer[axis].field),
+                ...(rangeEncoding?.field === undefined ? [] : table.unique(rangeEncoding.field)),
+            ];
             for (const value of values) {
                 if (seen.has(value))
                     continue;
@@ -4756,7 +10938,7 @@ var Graflume = (function (exports) {
             path: `$.layers[${layer.id}].y.axisId`,
         });
     }
-    function resolveAxisScale(id, layers, plot) {
+    function resolveAxisScale(id, layers, plot, domainWindow) {
         const channel = id === 'x' || id === 'x2' ? 'x' : 'y';
         const fieldType = resolveCommonType(layers.map((layer) => (channel === 'x' ? layer.xType : layer.yType)), channel);
         const firstEncoding = layers[0]?.layer[channel];
@@ -4768,54 +10950,86 @@ var Graflume = (function (exports) {
         }
         const requestedScaleType = [...requestedScaleTypes][0];
         const family = typeFamily(fieldType);
-        if ((requestedScaleType === 'band' && family !== 'categorical') ||
-            (requestedScaleType === 'linear' && family !== 'numeric') ||
-            (requestedScaleType === 'time' && family !== 'temporal')) {
+        const continuousAxisTypes = new Set([
+            'linear',
+            'log',
+            'symlog',
+            'asinh',
+            'pow',
+            'sqrt',
+            'time',
+            'utc',
+            'probability',
+            'logit',
+            'probit',
+        ]);
+        if ((requestedScaleType !== undefined &&
+            !continuousAxisTypes.has(requestedScaleType) &&
+            requestedScaleType !== 'band' &&
+            requestedScaleType !== 'point') ||
+            ((requestedScaleType === 'band' || requestedScaleType === 'point') &&
+                family !== 'categorical') ||
+            (requestedScaleType !== undefined &&
+                continuousAxisTypes.has(requestedScaleType) &&
+                requestedScaleType !== 'time' &&
+                requestedScaleType !== 'utc' &&
+                family !== 'numeric') ||
+            ((requestedScaleType === 'time' || requestedScaleType === 'utc') && family !== 'temporal')) {
             throw new GraflumeError('INCOMPATIBLE_SCALE', `Scale type "${requestedScaleType}" is incompatible with the ${id} field type "${fieldType}".`, { path: `$.layers[].${channel}.scale.type` });
         }
-        const reverse = firstEncoding?.scale.reverse === true;
-        const categorical = requestedScaleType === 'band' || family === 'categorical';
+        const categorical = requestedScaleType === 'band' || requestedScaleType === 'point' || family === 'categorical';
         let scale;
         if (categorical) {
             const domain = categoricalDomain(layers, channel);
-            scale = new BandScale({
-                domain: reverse ? [...domain].reverse() : domain,
+            scale = createPositionScale(firstEncoding?.scale ?? {}, {
+                type: requestedScaleType === 'point' ? 'point' : 'band',
+                domain,
                 range: channel === 'x' ? [plot.x, plot.x + plot.width] : [plot.y, plot.y + plot.height],
-                ...(firstEncoding?.scale.paddingInner === undefined
-                    ? {}
-                    : { paddingInner: firstEncoding.scale.paddingInner }),
-                ...(firstEncoding?.scale.paddingOuter === undefined
-                    ? {}
-                    : { paddingOuter: firstEncoding.scale.paddingOuter }),
             });
         }
         else {
             const normalRange = channel === 'x' ? [plot.x, plot.x + plot.width] : [plot.y + plot.height, plot.y];
-            const range = reverse
-                ? [normalRange[1], normalRange[0]]
-                : normalRange;
-            scale = new LinearScale({
+            // Portable temporal encodings default to UTC so the same function-free
+            // spec produces identical ticks and snapshots in every host time zone.
+            // Authors who need civil-time semantics can still request `time`
+            // explicitly; the registry keeps that scale's local-zone behavior.
+            const type = requestedScaleType ?? (fieldType === 'temporal' ? 'utc' : 'linear');
+            if (!continuousAxisTypes.has(type)) {
+                throw new GraflumeError('INCOMPATIBLE_SCALE', `Scale type "${type}" cannot be used as a Cartesian position scale.`, { path: `$.layers[].${channel}.scale.type` });
+            }
+            scale = createPositionScale(firstEncoding?.scale ?? {}, {
+                type: type,
                 domain: numericDomain(layers, channel, fieldType),
-                range,
-                kind: requestedScaleType === 'time' || fieldType === 'temporal' ? 'time' : 'linear',
-                ...(firstEncoding?.scale.nice === undefined ? {} : { nice: firstEncoding.scale.nice }),
-                ...(firstEncoding?.scale.clamp === undefined ? {} : { clamp: firstEncoding.scale.clamp }),
+                range: normalRange,
             });
+        }
+        if (domainWindow !== undefined) {
+            const domain = domainForAxisWindow(scale, domainWindow);
+            const range = channel === 'x' ? [plot.x, plot.x + plot.width] : [plot.y + plot.height, plot.y];
+            scale = createPositionScale({ ...(firstEncoding?.scale ?? {}), domain }, { type: scale.kind, domain, range });
         }
         return { id, channel, fieldType, scale };
     }
-    function resolveScales(spec, plot) {
+    function resolveScales(spec, plot, domainWindows = {}) {
         const preparedLayers = spec.layers
             .filter((layer) => layer.visible)
             .map((layer) => {
-            const table = DataTable.from(layer.data);
+            const stacked = prepareSeriesStackLayer(layer);
+            const preparedLayer = stacked?.layer ?? layer;
+            const transformed = executeTransforms(preparedLayer.data, preparedLayer.transform, {
+                sourceId: `layer:${layer.id}`,
+            });
+            const indicator = prepareTechnicalIndicator(preparedLayer, transformed);
+            const resolvedLayer = indicator.layer;
+            const table = DataTable.from(indicator.result.data);
             return {
-                layer,
+                layer: resolvedLayer,
                 table,
-                xType: layer.x.type ?? inferFieldType(table, layer.x.field),
-                yType: layer.y.type ?? inferFieldType(table, layer.y.field),
-                xAxisId: xAxisId(layer),
-                yAxisId: yAxisId(layer),
+                lineage: indicator.result.lineage,
+                xType: resolvedLayer.x.type ?? inferFieldType(table, resolvedLayer.x.field),
+                yType: resolvedLayer.y.type ?? inferFieldType(table, resolvedLayer.y.field),
+                xAxisId: xAxisId(resolvedLayer),
+                yAxisId: yAxisId(resolvedLayer),
             };
         });
         if (preparedLayers.length === 0) {
@@ -4836,7 +11050,7 @@ var Graflume = (function (exports) {
             const entries = grouped.get(id);
             if (entries === undefined || entries.length === 0)
                 continue;
-            partialAxes[id] = resolveAxisScale(id, entries, plot);
+            partialAxes[id] = resolveAxisScale(id, entries, plot, domainWindows[id]);
         }
         const layers = preparedLayers.map((layer) => {
             const xResolved = partialAxes[layer.xAxisId];
@@ -5252,9 +11466,11 @@ var Graflume = (function (exports) {
                 const yValue = layerData.table.value(rowIndex, layerData.layer.y.field);
                 if (xValue === undefined ||
                     xValue === null ||
+                    (typeof xValue === 'object' && !(xValue instanceof Date)) ||
                     typeof xValue === 'boolean' ||
                     yValue === undefined ||
                     yValue === null ||
+                    (typeof yValue === 'object' && !(yValue instanceof Date)) ||
                     typeof yValue === 'boolean')
                     continue;
                 const x = layerData.xScale.map(xValue);
@@ -5855,7 +12071,7 @@ var Graflume = (function (exports) {
             return 'point';
         return 'rect';
     }
-    function valueKey$1(value) {
+    function valueKey$2(value) {
         return `${value === null ? 'null' : typeof value}:${String(value)}`;
     }
     function safeId(value) {
@@ -5899,7 +12115,7 @@ var Graflume = (function (exports) {
                 (typeof raw === 'number' && !Number.isFinite(raw)))
                 continue;
             const value = raw;
-            const key = valueKey$1(value);
+            const key = valueKey$2(value);
             if (seen.has(key))
                 continue;
             seen.add(key);
@@ -6111,7 +12327,7 @@ var Graflume = (function (exports) {
             const matching = mode === 'categories' && field !== undefined && item.value !== undefined
                 ? nodes.find((node) => [node.datum?.tooltip, node.datum?.datum].some((datum) => datum !== undefined &&
                     Object.prototype.hasOwnProperty.call(datum, field) &&
-                    valueKey$1(datum[field]) === valueKey$1(item.value)))
+                    valueKey$2(datum[field]) === valueKey$2(item.value)))
                 : nodes.find((node) => nodePaint(node) !== undefined);
             const paint = matching === undefined ? undefined : nodePaint(matching);
             if (paint !== undefined)
@@ -6384,6 +12600,870 @@ var Graflume = (function (exports) {
         return legendByScene.get(scene) ?? null;
     }
 
+    const compositionProperties = [
+        'layer',
+        'facet',
+        'repeat',
+        'hconcat',
+        'vconcat',
+        'concat',
+        'inset',
+        'spec',
+        'columns',
+        'spacing',
+        'resolve',
+    ];
+    const minimumCellWidth = 80;
+    const minimumCellHeight = 80;
+    const facetHeaderHeight = 24;
+    function fail(message, path = '$') {
+        throw new GraflumeError('INVALID_SPEC', message, { path });
+    }
+    function mutableSpec(input) {
+        return { ...input };
+    }
+    function withoutComposition(input) {
+        const output = mutableSpec(input);
+        for (const key of compositionProperties)
+            delete output[key];
+        return output;
+    }
+    function withoutDimensions(input) {
+        const output = mutableSpec(input);
+        delete output.width;
+        delete output.height;
+        return output;
+    }
+    function safeToken(value) {
+        const token = value
+            .normalize('NFKC')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '')
+            .slice(0, 32);
+        return token === '' ? 'view' : token;
+    }
+    function inheritedChild(child, parent, options = {}) {
+        const ownsData = child.data !== undefined;
+        const parentTransforms = options.transformed === true || ownsData ? [] : (parent.transform ?? []);
+        return {
+            ...withoutDimensions(child),
+            ...(child.data === undefined && parent.data !== undefined ? { data: parent.data } : {}),
+            transform: [...parentTransforms, ...(child.transform ?? [])],
+            theme: child.theme ?? parent.theme ?? defaultThemeId,
+            ...(child.locale === undefined && parent.locale !== undefined ? { locale: parent.locale } : {}),
+            renderer: child.renderer ?? parent.renderer ?? 'canvas',
+            performance: child.performance ?? parent.performance ?? 'auto',
+            ...(child.accessibility?.maxRows === undefined && parent.accessibility?.maxRows !== undefined
+                ? {
+                    accessibility: {
+                        ...child.accessibility,
+                        maxRows: parent.accessibility.maxRows,
+                    },
+                }
+                : {}),
+            width: 'container',
+            height: 'container',
+        };
+    }
+    function localSelection(runtime, viewId) {
+        return runtime.selection?.flatMap((target) => {
+            if (target.layerId === undefined)
+                return [target];
+            const prefix = `${viewId}/`;
+            return target.layerId.startsWith(prefix)
+                ? [{ ...target, layerId: target.layerId.slice(prefix.length) }]
+                : [];
+        });
+    }
+    function runtimeForView(runtime, viewId) {
+        const selection = localSelection(runtime, viewId);
+        return {
+            ...(runtime.annotationsVisible === undefined
+                ? {}
+                : { annotationsVisible: runtime.annotationsVisible }),
+            ...(selection === undefined ? {} : { selection }),
+        };
+    }
+    function interactionForView(child, parent) {
+        const selection = parent.interaction?.selection;
+        return selection === undefined
+            ? child
+            : {
+                ...child,
+                interaction: {
+                    ...(parent.interaction?.hover === undefined ? {} : { hover: parent.interaction.hover }),
+                    ...(parent.interaction?.click === undefined ? {} : { click: parent.interaction.click }),
+                    tooltip: false,
+                    navigation: false,
+                    playback: false,
+                    controls: false,
+                    selection,
+                },
+            };
+    }
+    function layerFromShorthand(child, childIndex) {
+        if (child.mark === undefined)
+            fail('Layer composition child is missing mark.', `$.layer[${childIndex}].mark`);
+        return {
+            id: `layer-${childIndex}`,
+            ...(child.title === undefined
+                ? {}
+                : { name: typeof child.title === 'string' ? child.title : child.title.text }),
+            ...(child.data === undefined ? {} : { data: child.data }),
+            ...(child.transform === undefined ? {} : { transform: child.transform }),
+            mark: child.mark,
+            ...(child.encoding === undefined ? { x: child.x, y: child.y } : { encoding: child.encoding }),
+        };
+    }
+    function flattenLayerComposition(input) {
+        const children = input.layer ?? [];
+        const layers = children.flatMap((child, childIndex) => {
+            if (isCompositionSpec(child)) {
+                fail('Layer composition children must be unit charts.', `$.layer[${childIndex}]`);
+            }
+            if (child.layers === undefined)
+                return [layerFromShorthand(child, childIndex)];
+            return child.layers.map((layer, layerIndex) => ({
+                ...layer,
+                id: `layer-${childIndex}-${safeToken(layer.id ?? String(layerIndex))}`,
+                ...(layer.data === undefined && child.data !== undefined ? { data: child.data } : {}),
+                transform: [...(child.transform ?? []), ...(layer.transform ?? [])],
+            }));
+        });
+        if (layers.length > maximumCompositionLayers) {
+            fail(`Layer composition exceeds ${maximumCompositionLayers} compiled layers.`, '$.layer');
+        }
+        const output = mutableSpec(withoutComposition(input));
+        delete output.mark;
+        delete output.x;
+        delete output.y;
+        delete output.encoding;
+        output.layers = layers;
+        return output;
+    }
+    function fieldName(input) {
+        return typeof input === 'string' ? input : input.field;
+    }
+    function fieldTitle(input) {
+        return typeof input === 'string' ? input : (input.title ?? input.field);
+    }
+    function facetSort(input) {
+        return typeof input === 'string' ? 'input' : (input.sort ?? 'input');
+    }
+    function valueKey$1(value) {
+        if (value instanceof Date)
+            return `date:${value.toISOString()}`;
+        if (value === undefined)
+            return 'undefined:';
+        if (value === null)
+            return 'null:';
+        if (Array.isArray(value))
+            fail('Facet fields must contain scalar values.', '$.facet');
+        return `${typeof value}:${String(value)}`;
+    }
+    function valueLabel(value) {
+        if (value instanceof Date)
+            return value.toISOString();
+        if (value === null || value === undefined)
+            return '\u2014';
+        if (Array.isArray(value))
+            fail('Facet fields must contain scalar values.', '$.facet');
+        return String(value);
+    }
+    function compareFacetValue(left, right) {
+        if (Object.is(left, right))
+            return 0;
+        const numeric = (value) => value instanceof Date
+            ? value.getTime()
+            : typeof value === 'number' && Number.isFinite(value)
+                ? value
+                : null;
+        const a = numeric(left);
+        const b = numeric(right);
+        if (a !== null && b !== null)
+            return a - b;
+        return valueLabel(left).localeCompare(valueLabel(right), 'en');
+    }
+    function uniqueValues$1(rows, field, maximum = maximumCompositionViews) {
+        const name = fieldName(field);
+        const seen = new Set();
+        const values = [];
+        for (const row of rows) {
+            const value = row[name];
+            const key = valueKey$1(value);
+            if (seen.has(key))
+                continue;
+            seen.add(key);
+            values.push(value);
+            if (values.length > maximum) {
+                fail(`Facet view count exceeds ${maximumCompositionViews}.`, '$.facet');
+            }
+        }
+        const sort = facetSort(field);
+        return sort === 'input'
+            ? values
+            : values.sort((left, right) => sort === 'descending' ? -compareFacetValue(left, right) : compareFacetValue(left, right));
+    }
+    function materializeFacet(input) {
+        if (input.data === undefined || input.facet === undefined || input.spec === undefined) {
+            fail('Facet composition requires data, facet, and spec.', '$.facet');
+        }
+        const transformed = executeTransforms(input.data, input.transform ?? [], {
+            sourceId: 'composition:facet',
+        });
+        const rows = transformed.data;
+        const facet = input.facet;
+        const views = [];
+        if (facet.wrap !== undefined) {
+            const values = uniqueValues$1(rows, facet.wrap);
+            const columns = Math.min(facet.columns ?? Math.max(1, Math.ceil(Math.sqrt(values.length))), 16);
+            const valueIndices = new Map(values.map((value, index) => [valueKey$1(value), index]));
+            const matches = values.map(() => []);
+            rows.forEach((row, rowIndex) => {
+                const index = valueIndices.get(valueKey$1(row[fieldName(facet.wrap)]));
+                if (index !== undefined)
+                    matches[index].push({ row, rowIndex });
+            });
+            values.forEach((value, index) => {
+                const matched = matches[index];
+                const label = `${fieldTitle(facet.wrap)} = ${valueLabel(value)}`;
+                views.push({
+                    id: `facet-${index}-${safeToken(valueLabel(value))}`,
+                    label,
+                    row: Math.floor(index / columns),
+                    column: index % columns,
+                    spec: inheritedChild({ ...input.spec, data: matched.map(({ row }) => row) }, input, {
+                        transformed: true,
+                    }),
+                    sourceMap: {
+                        rows: matched.map(({ rowIndex }) => transformed.lineage.rowSources[rowIndex] ?? []),
+                        sourceRows: transformed.lineage.sourceRows,
+                    },
+                });
+            });
+            return {
+                views,
+                rows: Math.max(1, Math.ceil(views.length / columns)),
+                columns,
+                showLabels: true,
+            };
+        }
+        const rowField = facet.row;
+        const columnField = facet.column;
+        const rowValues = rowField === undefined ? [undefined] : uniqueValues$1(rows, rowField);
+        const columnValues = columnField === undefined ? [undefined] : uniqueValues$1(rows, columnField);
+        const rowIndices = new Map(rowValues.map((value, index) => [valueKey$1(value), index]));
+        const columnIndices = new Map(columnValues.map((value, index) => [valueKey$1(value), index]));
+        const grouped = new Map();
+        rows.forEach((row, sourceIndex) => {
+            const rowIndex = rowIndices.get(valueKey$1(rowField === undefined ? undefined : row[fieldName(rowField)]));
+            const columnIndex = columnIndices.get(valueKey$1(columnField === undefined ? undefined : row[fieldName(columnField)]));
+            if (rowIndex === undefined || columnIndex === undefined)
+                return;
+            const key = `${rowIndex}:${columnIndex}`;
+            let group = grouped.get(key);
+            if (group === undefined) {
+                if (grouped.size >= maximumCompositionViews) {
+                    fail(`Facet view count exceeds ${maximumCompositionViews}.`, '$.facet');
+                }
+                group = { rowIndex, columnIndex, matched: [] };
+                grouped.set(key, group);
+            }
+            group.matched.push({ row, sourceIndex });
+        });
+        const observed = [...grouped.values()].sort((left, right) => left.rowIndex - right.rowIndex || left.columnIndex - right.columnIndex);
+        for (const { rowIndex, columnIndex, matched } of observed) {
+            const rowValue = rowValues[rowIndex];
+            const columnValue = columnValues[columnIndex];
+            const labels = [
+                ...(rowField === undefined ? [] : [`${fieldTitle(rowField)} = ${valueLabel(rowValue)}`]),
+                ...(columnField === undefined
+                    ? []
+                    : [`${fieldTitle(columnField)} = ${valueLabel(columnValue)}`]),
+            ];
+            const label = labels.join(' \u00b7 ');
+            views.push({
+                id: `facet-${rowIndex}-${columnIndex}`,
+                label,
+                row: rowIndex,
+                column: columnIndex,
+                spec: inheritedChild({ ...input.spec, data: matched.map(({ row }) => row) }, input, {
+                    transformed: true,
+                }),
+                sourceMap: {
+                    rows: matched.map(({ sourceIndex }) => transformed.lineage.rowSources[sourceIndex] ?? []),
+                    sourceRows: transformed.lineage.sourceRows,
+                },
+            });
+        }
+        return {
+            views,
+            rows: Math.max(1, rowValues.length),
+            columns: Math.max(1, columnValues.length),
+            showLabels: true,
+        };
+    }
+    function positionWithField(input, field) {
+        if (field === undefined)
+            return input;
+        if (typeof input === 'string' || input === undefined)
+            return { field };
+        return { ...input, field };
+    }
+    function channelWithField(input, field) {
+        if (field === undefined)
+            return input;
+        if (typeof input === 'string' || input === undefined)
+            return { field };
+        const { value: _value, ...rest } = input;
+        return { ...rest, field };
+    }
+    function repeatFields(input, item) {
+        if (isCompositionSpec(input))
+            fail('Repeat templates must currently be unit charts.', '$.spec');
+        const rewriteLayer = (layer) => layer.encoding === undefined
+            ? {
+                ...layer,
+                x: positionWithField(layer.x, item.x),
+                y: positionWithField(layer.y, item.y),
+            }
+            : {
+                ...layer,
+                encoding: {
+                    ...layer.encoding,
+                    x: channelWithField(layer.encoding.x, item.x),
+                    y: channelWithField(layer.encoding.y, item.y),
+                },
+            };
+        if (input.layers !== undefined) {
+            return { ...input, layers: input.layers.map(rewriteLayer) };
+        }
+        return input.encoding === undefined
+            ? {
+                ...input,
+                x: positionWithField(input.x, item.x),
+                y: positionWithField(input.y, item.y),
+            }
+            : {
+                ...input,
+                encoding: {
+                    ...input.encoding,
+                    x: channelWithField(input.encoding.x, item.x),
+                    y: channelWithField(input.encoding.y, item.y),
+                },
+            };
+    }
+    function materializeRepeat(input) {
+        if (input.repeat === undefined || input.spec === undefined) {
+            fail('Repeat composition requires repeat and spec.', '$.repeat');
+        }
+        const columns = Math.min(input.repeat.columns ?? Math.max(1, Math.ceil(Math.sqrt(input.repeat.items.length))), 16);
+        const views = input.repeat.items.map((item, index) => ({
+            id: `repeat-${index}-${safeToken(item.id)}`,
+            label: item.label ?? item.id,
+            row: Math.floor(index / columns),
+            column: index % columns,
+            spec: inheritedChild(repeatFields(input.spec, item), input),
+        }));
+        return {
+            views,
+            rows: Math.max(1, Math.ceil(views.length / columns)),
+            columns,
+            showLabels: true,
+        };
+    }
+    function materializeConcat(input, kind) {
+        const children = input[kind] ?? [];
+        const columns = kind === 'hconcat'
+            ? children.length
+            : kind === 'vconcat'
+                ? 1
+                : Math.min(input.columns ?? Math.max(1, Math.ceil(Math.sqrt(children.length))), 16);
+        return {
+            views: children.map((child, index) => ({
+                id: `${kind}-${index}`,
+                label: `${kind} ${index + 1}`,
+                row: Math.floor(index / columns),
+                column: index % columns,
+                spec: inheritedChild(child, input),
+            })),
+            rows: Math.max(1, Math.ceil(children.length / columns)),
+            columns: Math.max(1, columns),
+            showLabels: false,
+        };
+    }
+    function materializeInset(input) {
+        if (input.inset === undefined)
+            fail('Inset composition requires inset.', '$.inset');
+        return {
+            views: [
+                {
+                    id: 'inset-base',
+                    label: 'Base view',
+                    row: 0,
+                    column: 0,
+                    spec: inheritedChild(input.inset.base, input),
+                },
+                {
+                    id: 'inset-view',
+                    label: input.inset.label ?? 'Inset view',
+                    row: 0,
+                    column: 0,
+                    spec: inheritedChild(input.inset.view, input),
+                },
+            ],
+            rows: 1,
+            columns: 1,
+            showLabels: false,
+        };
+    }
+    function forcePositionDomain(input, domain) {
+        if (input === undefined)
+            return input;
+        if (typeof input === 'string')
+            return { field: input, scale: { domain } };
+        return { ...input, scale: { ...input.scale, domain } };
+    }
+    function forceChannelDomain(input, domain) {
+        if (input === undefined)
+            return input;
+        if (typeof input === 'string')
+            return { field: input, scale: { domain } };
+        return { ...input, scale: { ...input.scale, domain } };
+    }
+    function forcePrimaryDomains(input, xDomain, yDomain) {
+        const rewrite = (layer) => layer.encoding === undefined
+            ? {
+                ...layer,
+                x: forcePositionDomain(layer.x, xDomain),
+                y: forcePositionDomain(layer.y, yDomain),
+            }
+            : {
+                ...layer,
+                encoding: {
+                    ...layer.encoding,
+                    x: forceChannelDomain(layer.encoding.x, xDomain),
+                    y: forceChannelDomain(layer.encoding.y, yDomain),
+                },
+            };
+        if (input.layers !== undefined)
+            return { ...input, layers: input.layers.map(rewrite) };
+        return input.encoding === undefined
+            ? {
+                ...input,
+                x: forcePositionDomain(input.x, xDomain),
+                y: forcePositionDomain(input.y, yDomain),
+            }
+            : {
+                ...input,
+                encoding: {
+                    ...input.encoding,
+                    x: forceChannelDomain(input.encoding.x, xDomain),
+                    y: forceChannelDomain(input.encoding.y, yDomain),
+                },
+            };
+    }
+    function unionDomains(domains, axis) {
+        const values = domains.flat();
+        const allNumbers = values.every((value) => typeof value === 'number');
+        const allStrings = values.every((value) => typeof value === 'string');
+        if (allNumbers) {
+            return [Math.min(...values), Math.max(...values)];
+        }
+        if (allStrings)
+            return [...new Set(values)];
+        throw new GraflumeError('INCOMPATIBLE_SCALE', `Shared ${axis} scale domains cannot mix numeric and categorical values.`, { path: '$.resolve.scale' });
+    }
+    function scaleParameterSignature(scale, descriptor) {
+        const type = descriptor.type;
+        return JSON.stringify({
+            type,
+            reverse: descriptor.reverse,
+            outOfBounds: descriptor.outOfBounds,
+            ...(type === 'log' ? { base: scale.base ?? 10 } : {}),
+            ...(type === 'pow' ? { exponent: scale.exponent ?? 1 } : {}),
+            ...(type === 'symlog' || type === 'asinh' ? { constant: scale.constant ?? 1 } : {}),
+            ...(type === 'linear' || type === 'time' || type === 'utc' ? { nice: scale.nice ?? true } : {}),
+            ...(type === 'band'
+                ? { paddingInner: scale.paddingInner ?? 0.1, paddingOuter: scale.paddingOuter ?? 0.05 }
+                : {}),
+            ...(type === 'point' ? { paddingOuter: scale.paddingOuter ?? 0.5 } : {}),
+        });
+    }
+    function harmonizeSharedScales(views, registry) {
+        const resolved = views.map((view) => {
+            if (isCompositionSpec(view.spec)) {
+                fail('Shared position scales currently require unit child views.', '$.resolve.scale');
+            }
+            const theme = registry.themes.resolve(view.spec.theme ?? defaultThemeId);
+            const spec = normalizeSpec(view.spec, theme);
+            const scales = resolveScales(spec, { x: 0, y: 0, width: 100, height: 100 });
+            if (scales.axes.x2 !== undefined || scales.axes.y2 !== undefined) {
+                throw new GraflumeError('INCOMPATIBLE_SCALE', 'Shared multi-view scales currently support primary x/y axes only.', { path: '$.resolve.scale' });
+            }
+            const primaryScale = (axis) => spec.layers.find((layer) => layer[axis].axisId === axis)?.[axis].scale ?? {};
+            return {
+                view,
+                scales,
+                signatures: {
+                    x: scaleParameterSignature(primaryScale('x'), scales.xScale.descriptor),
+                    y: scaleParameterSignature(primaryScale('y'), scales.yScale.descriptor),
+                },
+            };
+        });
+        for (const axis of ['x', 'y']) {
+            const signatures = resolved.map(({ signatures }) => signatures[axis]);
+            const first = signatures[0];
+            if (first === undefined || signatures.some((signature) => signature !== first)) {
+                throw new GraflumeError('INCOMPATIBLE_SCALE', `Shared ${axis} scales require the same mathematical parameters, scale type, reverse direction, and out-of-bounds policy.`, { path: '$.resolve.scale' });
+            }
+        }
+        const xDomain = unionDomains(resolved.map(({ scales }) => scales.xScale.domain()), 'x');
+        const yDomain = unionDomains(resolved.map(({ scales }) => scales.yScale.domain()), 'y');
+        return resolved.map(({ view }) => ({
+            ...view,
+            spec: forcePrimaryDomains(view.spec, xDomain, yDomain),
+        }));
+    }
+    function compositionContentBounds(spec, width, height) {
+        const titleHeight = spec.title === undefined ? 0 : spec.title.subtitle === undefined ? 36 : 56;
+        return {
+            x: spec.padding.left,
+            y: spec.padding.top + titleHeight,
+            width: Math.max(0, width - spec.padding.left - spec.padding.right),
+            height: Math.max(0, height - spec.padding.top - spec.padding.bottom - titleHeight),
+        };
+    }
+    function layoutViews(input, grid, content, spacing) {
+        if (input.inset !== undefined) {
+            const base = grid.views[0];
+            const inset = grid.views[1];
+            const insetBounds = {
+                x: content.x + content.width * input.inset.x,
+                y: content.y + content.height * input.inset.y,
+                width: content.width * input.inset.width,
+                height: content.height * input.inset.height,
+            };
+            return [
+                { ...base, bounds: content, chartBounds: content },
+                { ...inset, bounds: insetBounds, chartBounds: insetBounds },
+            ];
+        }
+        const cellWidth = (content.width - spacing * Math.max(0, grid.columns - 1)) / grid.columns;
+        const cellHeight = (content.height - spacing * Math.max(0, grid.rows - 1)) / grid.rows;
+        const header = grid.showLabels ? facetHeaderHeight : 0;
+        if (cellWidth < minimumCellWidth || cellHeight - header < minimumCellHeight) {
+            fail(`Composition cells require at least ${minimumCellWidth}x${minimumCellHeight}px after spacing and labels.`, '$.width');
+        }
+        return grid.views.map((view) => {
+            const bounds = {
+                x: content.x + view.column * (cellWidth + spacing),
+                y: content.y + view.row * (cellHeight + spacing),
+                width: cellWidth,
+                height: cellHeight,
+            };
+            return {
+                ...view,
+                bounds,
+                chartBounds: { ...bounds, y: bounds.y + header, height: bounds.height - header },
+            };
+        });
+    }
+    function translatedRect(rect, dx, dy) {
+        return { ...rect, x: rect.x + dx, y: rect.y + dy };
+    }
+    function scopeNode(node, viewId, dx, dy) {
+        const scoped = {
+            id: `${viewId}/${node.id}`,
+            ...(node.datum === undefined
+                ? {}
+                : { datum: { ...node.datum, layerId: `${viewId}/${node.datum.layerId}` } }),
+        };
+        switch (node.type) {
+            case 'group':
+                return {
+                    ...node,
+                    ...scoped,
+                    children: node.children.map((child) => scopeNode(child, viewId, dx, dy)),
+                    ...(node.clip === undefined ? {} : { clip: translatedRect(node.clip, dx, dy) }),
+                };
+            case 'line':
+                return {
+                    ...node,
+                    ...scoped,
+                    x1: node.x1 + dx,
+                    y1: node.y1 + dy,
+                    x2: node.x2 + dx,
+                    y2: node.y2 + dy,
+                };
+            case 'path':
+                return {
+                    ...node,
+                    ...scoped,
+                    points: node.points.map(({ x, y }) => ({ x: x + dx, y: y + dy })),
+                    ...(node.subpaths === undefined
+                        ? {}
+                        : {
+                            subpaths: node.subpaths.map((path) => path.map(({ x, y }) => ({ x: x + dx, y: y + dy }))),
+                        }),
+                };
+            case 'rect':
+                return { ...node, ...scoped, x: node.x + dx, y: node.y + dy };
+            case 'circle':
+                return { ...node, ...scoped, cx: node.cx + dx, cy: node.cy + dy };
+            case 'text':
+                return { ...node, ...scoped, x: node.x + dx, y: node.y + dy };
+        }
+    }
+    function sourceIndices(indices, sourceMap) {
+        if (sourceMap === undefined)
+            return [...indices];
+        return [...new Set(indices.flatMap((index) => sourceMap.rows[index] ?? []))].sort((left, right) => left - right);
+    }
+    function scopedLineage(lineage, viewId, sourceMap) {
+        return {
+            ...lineage,
+            sourceId: `${viewId}/${lineage.sourceId}`,
+            sourceRows: sourceMap?.sourceRows ?? lineage.sourceRows,
+            rowSources: lineage.rowSources.map((indices) => sourceIndices(indices, sourceMap)),
+            summary: `[${viewId}] ${lineage.summary}`,
+        };
+    }
+    function scopedSemantic(mark, view) {
+        const dx = view.chartBounds.x;
+        const dy = view.chartBounds.y;
+        const remapped = sourceIndices(mark.lineage.sourceRowIndices, view.sourceMap);
+        const semanticViewId = mark.viewId === 'plot' ? view.id : `${view.id}/${mark.viewId}`;
+        return {
+            ...mark,
+            id: `${view.id}/${mark.id}`,
+            viewId: semanticViewId,
+            layerId: `${view.id}/${mark.layerId}`,
+            bounds: translatedRect(mark.bounds, dx, dy),
+            label: view.label === '' ? mark.label : `${view.label}. ${mark.label}`,
+            lineage: {
+                ...mark.lineage,
+                sourceId: `${view.id}/${mark.lineage.sourceId}`,
+                sourceRowIndices: remapped,
+                truncated: mark.lineage.truncated || remapped.length > mark.lineage.sourceRowIndices.length,
+            },
+        };
+    }
+    function scopedLayer(layer, view) {
+        return {
+            ...layer,
+            id: `${view.id}/${layer.id}`,
+            name: view.label === '' ? layer.name : `${view.label}: ${layer.name}`,
+        };
+    }
+    function titleNodes$1(spec, theme, width) {
+        if (spec.title === undefined)
+            return [];
+        const align = spec.title.align ?? 'left';
+        const x = align === 'left'
+            ? spec.padding.left
+            : align === 'right'
+                ? width - spec.padding.right
+                : width / 2;
+        const nodes = [
+            {
+                type: 'text',
+                ...nodeBase('composition:title', { zIndex: 1000 }),
+                x,
+                y: spec.padding.top,
+                text: spec.title.text,
+                fill: theme.colors.text,
+                fontFamily: theme.typography.fontFamily,
+                fontSize: theme.typography.titleSize,
+                fontWeight: theme.typography.titleWeight ?? 700,
+                align,
+                baseline: 'top',
+                rotation: 0,
+            },
+        ];
+        if (spec.title.subtitle !== undefined) {
+            nodes.push({
+                type: 'text',
+                ...nodeBase('composition:subtitle', { zIndex: 1000 }),
+                x,
+                y: spec.padding.top + theme.typography.titleSize + 6,
+                text: spec.title.subtitle,
+                fill: theme.colors.subtitle ?? theme.colors.mutedText,
+                fontFamily: theme.typography.fontFamily,
+                fontSize: theme.typography.subtitleSize,
+                fontWeight: theme.typography.subtitleWeight ?? 400,
+                align,
+                baseline: 'top',
+                rotation: 0,
+            });
+        }
+        return nodes;
+    }
+    function labelNode$1(view, theme) {
+        if (view.chartBounds.y === view.bounds.y || view.label === '')
+            return [];
+        return [
+            {
+                type: 'text',
+                ...nodeBase(`composition:label:${view.id}`, { zIndex: 900 }),
+                x: view.bounds.x + 4,
+                y: view.bounds.y + 3,
+                text: view.label,
+                fill: theme.colors.text,
+                fontFamily: theme.typography.fontFamily,
+                fontSize: theme.typography.fontSize,
+                fontWeight: 700,
+                align: 'left',
+                baseline: 'top',
+                rotation: 0,
+            },
+        ];
+    }
+    function performanceProfile(results) {
+        const order = { standard: 0, large: 1, ultra: 2 };
+        return results.reduce((profile, result) => order[result.scene.metadata.performanceProfile] > order[profile]
+            ? result.scene.metadata.performanceProfile
+            : profile, 'standard');
+    }
+    function accessibilityDescription(spec, layouts, results) {
+        const children = results.slice(0, 16).flatMap((result, index) => {
+            const label = layouts[index]?.label ?? `View ${index + 1}`;
+            const description = result.scene.accessibility.description;
+            return description === undefined ? [label] : [`${label}: ${description}`];
+        });
+        if (results.length > 16)
+            children.push(`${results.length - 16} additional views.`);
+        const description = [spec.description, spec.accessibility.summary, ...children]
+            .filter((value) => value !== undefined && value !== '')
+            .join(' ');
+        return description === '' ? undefined : description;
+    }
+    function gridFor(input, kind) {
+        switch (kind) {
+            case 'facet':
+                return materializeFacet(input);
+            case 'repeat':
+                return materializeRepeat(input);
+            case 'hconcat':
+            case 'vconcat':
+            case 'concat':
+                return materializeConcat(input, kind);
+            case 'inset':
+                return materializeInset(input);
+        }
+    }
+    /** Compile a validated composition into one renderer-neutral Canvas scene. */
+    function compileCompositionWithRegistry(input, registry, options, runtime, compiler) {
+        assertValidSpec(input);
+        const kind = compositionKind(input);
+        if (kind === null)
+            fail('Exactly one composition operator is required.');
+        const resolve = resolveComposition(input.resolve, kind);
+        if (kind === 'layer') {
+            const result = compiler.compileUnit(flattenLayerComposition(input), registry, options, runtime);
+            return {
+                ...result,
+                scene: {
+                    ...result.scene,
+                    metadata: {
+                        ...result.scene.metadata,
+                        composition: {
+                            kind,
+                            viewCount: 1,
+                            viewIds: ['plot'],
+                            resolve,
+                        },
+                    },
+                },
+            };
+        }
+        const theme = registry.themes.resolve(input.theme ?? defaultThemeId);
+        const spec = normalizeSpec(input, theme);
+        const width = Math.max(1, spec.width === 'container' ? (options.width ?? 640) : spec.width);
+        const height = Math.max(1, spec.height === 'container' ? (options.height ?? 400) : spec.height);
+        const content = compositionContentBounds(spec, width, height);
+        const spacing = input.spacing ?? 16;
+        const grid = gridFor(input, kind);
+        if (grid.views.length === 0)
+            fail('Composition produced no views.', `$.${kind}`);
+        if (grid.views.length > maximumCompositionViews) {
+            fail(`Composition exceeds ${maximumCompositionViews} materialized views.`, `$.${kind}`);
+        }
+        const views = resolve.scale === 'shared' ? harmonizeSharedScales(grid.views, registry) : grid.views;
+        const layouts = layoutViews(input, { ...grid, views }, content, spacing);
+        const results = layouts.map((view) => {
+            const child = interactionForView(view.spec, input);
+            return compiler.compile(child, registry, { width: view.chartBounds.width, height: view.chartBounds.height }, runtimeForView(runtime, view.id));
+        });
+        const layers = layouts.flatMap((view, index) => results[index].spec.layers.map((layer) => scopedLayer(layer, view)));
+        if (layers.length > maximumCompositionLayers) {
+            fail(`Composition exceeds ${maximumCompositionLayers} compiled layers.`, `$.${kind}`);
+        }
+        const dataLineage = {};
+        layouts.forEach((view, index) => {
+            for (const [layerId, lineage] of Object.entries(results[index].dataLineage)) {
+                dataLineage[`${view.id}/${layerId}`] = scopedLineage(lineage, view.id, view.sourceMap);
+            }
+        });
+        const viewGroups = layouts.map((view, index) => {
+            const result = results[index];
+            const dx = view.chartBounds.x;
+            const dy = view.chartBounds.y;
+            const children = [
+                ...labelNode$1(view, theme),
+                ...result.scene.root.children.map((node) => scopeNode(node, view.id, dx, dy)),
+            ];
+            return group(`composition:view:${view.id}`, children, {
+                zIndex: kind === 'inset' ? index * 1000 : index,
+                clip: view.bounds,
+            });
+        });
+        const root = group('scene:root', [...titleNodes$1(spec, theme, width), ...viewGroups]);
+        const semanticIndex = layouts
+            .flatMap((view, index) => results[index].scene.semanticIndex.map((mark) => scopedSemantic(mark, view)))
+            .slice(0, spec.accessibility.maxRows);
+        const totalRows = results.reduce((sum, result) => sum + result.scene.metadata.rowCount, 0);
+        const description = accessibilityDescription(spec, layouts, results);
+        const scene = {
+            width,
+            height,
+            background: theme.colors.background,
+            root,
+            accessibility: {
+                label: spec.accessibility.label ??
+                    `${spec.title?.text ?? 'Graflume composition'}. ${layouts.length} views.`,
+                ...(description === undefined ? {} : { description }),
+            },
+            semanticIndex,
+            metadata: {
+                rowCount: totalRows,
+                renderedNodeCount: countSceneNodes(root),
+                performanceProfile: performanceProfile(results),
+                hitTestingEnabled: results.every((result) => result.scene.metadata.hitTestingEnabled),
+                dataLineage: Object.values(dataLineage).map(({ summary }) => summary),
+                composition: {
+                    kind,
+                    viewCount: layouts.length,
+                    viewIds: layouts.map(({ id }) => id),
+                    resolve,
+                },
+            },
+        };
+        const normalized = {
+            ...spec,
+            layers,
+            legend: false,
+            highlights: [],
+            annotations: [],
+        };
+        const coordinates = Object.freeze({
+            plot: Object.freeze({ ...content }),
+            axes: Object.freeze({}),
+        });
+        return { scene, spec: normalized, theme, dataLineage, coordinates };
+    }
+
     const AXIS_ORDER = ['x', 'x2', 'y', 'y2'];
     function activeAxes(scales) {
         return AXIS_ORDER.flatMap((id) => {
@@ -6461,7 +13541,7 @@ var Graflume = (function (exports) {
         const rowSummary = `${rowCount.toLocaleString()} ${rowCount === 1 ? 'row' : 'rows'}`;
         return `${title}. ${layerSummary}, ${rowSummary}.`;
     }
-    function compileWithRegistry(input, registry, options = {}, runtime = {}) {
+    function compileUnitWithRegistry(input, registry, options = {}, runtime = {}) {
         const theme = registry.themes.resolve(input.theme ?? defaultThemeId);
         const spec = normalizeSpec(input, theme);
         const width = Math.max(1, spec.width === 'container' ? (options.width ?? 640) : spec.width);
@@ -6469,7 +13549,7 @@ var Graflume = (function (exports) {
         const legendModel = resolveLegendModel(spec, theme, width, height);
         const legendInsets = legendExternalInsets(legendModel);
         let layout = createLayout(spec, width, height, theme, {}, legendInsets);
-        let scales = resolveScales(spec, layout.plot);
+        let scales = resolveScales(spec, layout.plot, runtime.domainView?.axes);
         let axes = activeAxes(scales);
         const minimumInsets = { top: 0, right: 0, bottom: 0, left: 0 };
         for (const axis of axes) {
@@ -6481,10 +13561,11 @@ var Graflume = (function (exports) {
         const measuredLayout = createLayout(spec, width, height, theme, minimumInsets, legendInsets);
         if (!samePlot(layout.plot, measuredLayout.plot)) {
             layout = measuredLayout;
-            scales = resolveScales(spec, layout.plot);
+            scales = resolveScales(spec, layout.plot, runtime.domainView?.axes);
             axes = activeAxes(scales);
         }
         const totalRows = scales.layers.reduce((sum, layer) => sum + layer.table.length, 0);
+        const dataLineage = Object.fromEntries(scales.layers.map(({ layer, lineage }) => [layer.id, lineage]));
         const performance = resolvePerformanceSettings(spec.performance, totalRows, layout.plot.width);
         const axisNodes = axes.flatMap((axis) => compileAxis(axisContext(axis, layout.plot, theme, spec.locale)));
         const groupedBarLayers = new Map();
@@ -6595,6 +13676,16 @@ var Graflume = (function (exports) {
             runtime,
             datumVisible,
         });
+        const coordinates = Object.freeze({
+            plot: Object.freeze({ ...layout.plot }),
+            axes: Object.freeze(Object.fromEntries(AXIS_ORDER.flatMap((id) => {
+                const resolved = scales.axes[id];
+                return resolved === undefined ? [] : [[id, resolved.scale]];
+            }))),
+        });
+        const analyticSelectionNodes = runtime.analyticSelection === undefined || spec.interaction.selection === false
+            ? []
+            : compileAnalyticSelectionOverlay(runtime.analyticSelection, coordinates, spec.interaction.selection.highlight);
         const panelNode = theme.colors.panel === undefined
             ? []
             : [
@@ -6638,10 +13729,12 @@ var Graflume = (function (exports) {
             ...layerGroups,
             ...plotBoxNode,
             ...decorations.overlay,
+            ...analyticSelectionNodes,
             ...legend.nodes,
             ...titleNodes(spec, theme, width, layout.plot, layout.titleY, layout.subtitleY),
         ];
         const root = group('scene:root', children);
+        const semanticIndex = buildSemanticIndex(root, scales.layers, spec.accessibility.maxRows, spec.locale);
         const scene = {
             width,
             height,
@@ -6656,22 +13749,32 @@ var Graflume = (function (exports) {
                         ? annotation.text
                         : `${annotation.text}: ${annotation.detail}`)
                         .join('. ');
-                    const description = [base, annotationText].filter(Boolean).join('. ');
+                    const description = [base, spec.accessibility.summary, annotationText]
+                        .filter(Boolean)
+                        .join('. ');
                     const legendText = legendModel === null
                         ? ''
                         : `${legendModel.spec.title ?? 'Legend'}: ${legendModel.items
                         .slice(0, 12)
                         .map((item) => item.label)
                         .join(', ')}`;
-                    const accessibleDescription = [description, legendText].filter(Boolean).join('. ');
+                    const provenanceText = scales.layers
+                        .filter(({ lineage }) => lineage.transforms.length > 0)
+                        .map(({ lineage }) => lineage.summary)
+                        .join(' ');
+                    const accessibleDescription = [description, legendText, provenanceText]
+                        .filter(Boolean)
+                        .join('. ');
                     return accessibleDescription === '' ? {} : { description: accessibleDescription };
                 })(),
             },
+            semanticIndex,
             metadata: {
                 rowCount: totalRows,
                 renderedNodeCount: countSceneNodes(root),
                 performanceProfile: performance.profile,
                 hitTestingEnabled: performance.enableHitTesting,
+                dataLineage: scales.layers.map(({ lineage }) => lineage.summary),
             },
         };
         registerLegendLayout(scene, legend.layout);
@@ -6718,7 +13821,15 @@ var Graflume = (function (exports) {
                 }),
             });
         }
-        return { scene, spec, theme };
+        return { scene, spec, theme, dataLineage, coordinates };
+    }
+    function compileWithRegistry(input, registry, options = {}, runtime = {}) {
+        if (!isCompositionSpec(input))
+            return compileUnitWithRegistry(input, registry, options, runtime);
+        return compileCompositionWithRegistry(input, registry, options, runtime, {
+            compile: compileWithRegistry,
+            compileUnit: compileUnitWithRegistry,
+        });
     }
 
     class EventEmitter {
@@ -6745,6 +13856,1139 @@ var Graflume = (function (exports) {
         }
         clear() {
             this.#listeners.clear();
+        }
+    }
+
+    const DEFAULT_MAX_ROWS$1 = 100_000;
+    const ABSOLUTE_MAX_ROWS$1 = 1_000_000;
+    const DEFAULT_MAX_BATCH_ROWS = 100_000;
+    const DEFAULT_MAX_QUEUE_BATCHES$1 = 16;
+    const DEFAULT_MAX_REPLAY_BATCHES = 128;
+    const STREAMING_OPTION_KEYS = new Set([
+        'key',
+        'mode',
+        'maxBatchRows',
+        'retention',
+        'eventTime',
+        'queue',
+        'replay',
+    ]);
+    const RETENTION_KEYS = new Set(['maxRows', 'time']);
+    const TIME_RETENTION_KEYS = new Set(['field', 'durationMs']);
+    const EVENT_TIME_KEYS = new Set(['field', 'allowedLatenessMs', 'lateData']);
+    const QUEUE_KEYS = new Set(['maxBatches', 'maxRows', 'overflow']);
+    const REPLAY_KEYS = new Set(['maxBatches', 'maxRows']);
+    const UPDATE_KEYS = new Set(['mode', 'rows', 'watermark']);
+    const REPLAY_ENVELOPE_KEYS = new Set(['version', 'options', 'initial', 'updates']);
+    function closedObject(value, keys, path) {
+        if (!isPlainObject(value)) {
+            throw new GraflumeError('INVALID_SPEC', `${path} must be an object.`, { path });
+        }
+        const unknown = Object.keys(value).find((key) => !keys.has(key));
+        if (unknown !== undefined) {
+            throw new GraflumeError('INVALID_SPEC', `Unknown ${path} property "${unknown}".`, {
+                path: `${path}.${unknown}`,
+            });
+        }
+        return value;
+    }
+    function requiredSafeField(value, path) {
+        if (typeof value !== 'string' || value.trim() === '') {
+            throw new GraflumeError('INVALID_SPEC', `${path} must be a non-empty string.`, { path });
+        }
+        assertSafeKey(value, path);
+    }
+    function validateOptionsShape(value) {
+        const options = closedObject(value, STREAMING_OPTION_KEYS, '$.streaming');
+        requiredSafeField(options.key, '$.streaming.key');
+        if (options.retention !== undefined) {
+            const retention = closedObject(options.retention, RETENTION_KEYS, '$.streaming.retention');
+            if (retention.time !== undefined) {
+                const time = closedObject(retention.time, TIME_RETENTION_KEYS, '$.streaming.retention.time');
+                requiredSafeField(time.field, '$.streaming.retention.time.field');
+                if (time.durationMs === undefined) {
+                    throw new GraflumeError('INVALID_SPEC', '$.streaming.retention.time.durationMs is required.', { path: '$.streaming.retention.time.durationMs' });
+                }
+            }
+        }
+        if (options.eventTime !== undefined) {
+            const eventTime = closedObject(options.eventTime, EVENT_TIME_KEYS, '$.streaming.eventTime');
+            requiredSafeField(eventTime.field, '$.streaming.eventTime.field');
+        }
+        if (options.queue !== undefined) {
+            closedObject(options.queue, QUEUE_KEYS, '$.streaming.queue');
+        }
+        if (options.replay !== undefined) {
+            closedObject(options.replay, REPLAY_KEYS, '$.streaming.replay');
+        }
+    }
+    function validateUpdateShape(value) {
+        const update = closedObject(value, UPDATE_KEYS, '$.update');
+        if (!Array.isArray(update.rows)) {
+            throw new GraflumeError('INVALID_DATA', '$.update.rows must be an array.', {
+                path: '$.update.rows',
+            });
+        }
+    }
+    function boundedInteger$1(value, fallback, maximum, path) {
+        const resolved = value ?? fallback;
+        if (!Number.isInteger(resolved) || resolved < 1 || resolved > maximum) {
+            throw new GraflumeError('INVALID_SPEC', `${path} must be an integer from 1 to ${maximum}.`, {
+                path,
+            });
+        }
+        return resolved;
+    }
+    function nonNegative(value, fallback, path) {
+        const resolved = value ?? fallback;
+        if (!Number.isFinite(resolved) || resolved < 0) {
+            throw new GraflumeError('INVALID_SPEC', `${path} must be a finite non-negative number.`, {
+                path,
+            });
+        }
+        return resolved;
+    }
+    function normalizeOptions$1(options) {
+        validateOptionsShape(options);
+        if (!['append', 'upsert', 'replaceLast'].includes(options.mode ?? 'append')) {
+            throw new GraflumeError('INVALID_SPEC', 'Streaming mode is not supported.', {
+                path: '$.streaming.mode',
+            });
+        }
+        if (options.queue?.overflow !== undefined && options.queue.overflow !== 'reject') {
+            throw new GraflumeError('INVALID_SPEC', 'Only explicit reject backpressure is supported; data is never silently discarded.', { path: '$.streaming.queue.overflow' });
+        }
+        const retentionRows = boundedInteger$1(options.retention?.maxRows, DEFAULT_MAX_ROWS$1, ABSOLUTE_MAX_ROWS$1, '$.streaming.retention.maxRows');
+        const timeRetention = options.retention?.time === undefined
+            ? false
+            : {
+                field: options.retention.time.field,
+                durationMs: nonNegative(options.retention.time.durationMs, 0, '$.streaming.retention.time.durationMs'),
+            };
+        if (timeRetention !== false)
+            assertSafeKey(timeRetention.field, 'streaming.retention.time.field');
+        const eventTime = options.eventTime === undefined
+            ? false
+            : {
+                field: options.eventTime.field,
+                allowedLatenessMs: nonNegative(options.eventTime.allowedLatenessMs, 0, '$.streaming.eventTime.allowedLatenessMs'),
+                lateData: options.eventTime.lateData ?? 'reject',
+            };
+        if (eventTime !== false) {
+            assertSafeKey(eventTime.field, 'streaming.eventTime.field');
+            if (!['reject', 'drop', 'accept'].includes(eventTime.lateData)) {
+                throw new GraflumeError('INVALID_SPEC', 'Late-data policy is not supported.', {
+                    path: '$.streaming.eventTime.lateData',
+                });
+            }
+        }
+        if (timeRetention !== false && eventTime === false) {
+            throw new GraflumeError('INVALID_SPEC', 'Time retention requires an eventTime watermark contract.', { path: '$.streaming.retention.time' });
+        }
+        return {
+            key: options.key,
+            mode: options.mode ?? 'append',
+            maxBatchRows: boundedInteger$1(options.maxBatchRows, DEFAULT_MAX_BATCH_ROWS, ABSOLUTE_MAX_ROWS$1, '$.streaming.maxBatchRows'),
+            retentionRows,
+            timeRetention,
+            eventTime,
+            maxQueueBatches: boundedInteger$1(options.queue?.maxBatches, DEFAULT_MAX_QUEUE_BATCHES$1, 1_024, '$.streaming.queue.maxBatches'),
+            maxQueueRows: boundedInteger$1(options.queue?.maxRows, retentionRows, ABSOLUTE_MAX_ROWS$1, '$.streaming.queue.maxRows'),
+            maxReplayBatches: boundedInteger$1(options.replay?.maxBatches, DEFAULT_MAX_REPLAY_BATCHES, 4_096, '$.streaming.replay.maxBatches'),
+            maxReplayRows: boundedInteger$1(options.replay?.maxRows, DEFAULT_MAX_ROWS$1, ABSOLUTE_MAX_ROWS$1, '$.streaming.replay.maxRows'),
+        };
+    }
+    function rowsFrom(input) {
+        if (Array.isArray(input))
+            return input.map(cloneRow);
+        const table = DataTable.from(input);
+        return Array.from({ length: table.length }, (_, index) => cloneRow(table.row(index)));
+    }
+    function cloneValue(value) {
+        if (value instanceof Date)
+            return new Date(value);
+        return Array.isArray(value) ? [...value] : value;
+    }
+    function cloneRow(row) {
+        if (!isPlainObject(row)) {
+            throw new GraflumeError('INVALID_DATA', 'Incremental rows must be plain objects.', {
+                path: '$.update.rows',
+            });
+        }
+        const copy = Object.create(null);
+        for (const [field, value] of Object.entries(row)) {
+            assertSafeKey(field, `data.${field}`);
+            copy[field] = cloneValue(value);
+        }
+        return copy;
+    }
+    function stableKey(value, path) {
+        if (value instanceof Date && Number.isFinite(value.getTime()))
+            return `date:${value.toISOString()}`;
+        if (typeof value === 'number' && Number.isFinite(value))
+            return `number:${value}`;
+        if (typeof value === 'string' && value !== '')
+            return `string:${value}`;
+        if (typeof value === 'boolean')
+            return `boolean:${value}`;
+        throw new GraflumeError('INVALID_DATA', 'Streaming stable keys must be non-empty strings, finite numbers, booleans, or valid Dates.', { path });
+    }
+    function eventTimestamp(value, path) {
+        const timestamp = value instanceof Date
+            ? value.getTime()
+            : typeof value === 'number'
+                ? value
+                : typeof value === 'string'
+                    ? Date.parse(value)
+                    : Number.NaN;
+        if (!Number.isFinite(timestamp)) {
+            throw new GraflumeError('INVALID_DATA', 'Event time must be a finite epoch number, Date, or parseable date string.', { path });
+        }
+        return timestamp;
+    }
+    function cloneUpdate(update) {
+        return {
+            ...(update.mode === undefined ? {} : { mode: update.mode }),
+            rows: update.rows.map(cloneRow),
+            ...(update.watermark === undefined ? {} : { watermark: update.watermark }),
+        };
+    }
+    function cloneOptions(options) {
+        return {
+            key: options.key,
+            ...(options.mode === undefined ? {} : { mode: options.mode }),
+            ...(options.maxBatchRows === undefined ? {} : { maxBatchRows: options.maxBatchRows }),
+            ...(options.retention === undefined
+                ? {}
+                : {
+                    retention: {
+                        ...(options.retention.maxRows === undefined
+                            ? {}
+                            : { maxRows: options.retention.maxRows }),
+                        ...(options.retention.time === undefined
+                            ? {}
+                            : { time: { ...options.retention.time } }),
+                    },
+                }),
+            ...(options.eventTime === undefined ? {} : { eventTime: { ...options.eventTime } }),
+            ...(options.queue === undefined ? {} : { queue: { ...options.queue } }),
+            ...(options.replay === undefined ? {} : { replay: { ...options.replay } }),
+        };
+    }
+    /** Internal semantic comparison used before attaching replay state to a ChartSpec. */
+    function incrementalContractsMatch(left, right) {
+        return JSON.stringify(normalizeOptions$1(left)) === JSON.stringify(normalizeOptions$1(right));
+    }
+    class IncrementalDataStore {
+        #options;
+        #normalized;
+        #initial;
+        #rows;
+        #watermark = null;
+        #sequence = 0;
+        #acceptedRows = 0;
+        #droppedLateRows = 0;
+        #evictedRows = 0;
+        #provenance = [];
+        #replay = [];
+        #replayRows = 0;
+        #replayTruncated = false;
+        #queue = [];
+        #queuedRows = 0;
+        #draining = false;
+        constructor(input, options) {
+            this.#normalized = normalizeOptions$1(options);
+            this.#options = cloneOptions(options);
+            this.#rows = rowsFrom(input);
+            this.#assertUniqueKeys(this.#rows, '$.data');
+            if (this.#rows.length > this.#normalized.retentionRows) {
+                this.#rows = this.#rows.slice(-this.#normalized.retentionRows);
+            }
+            this.#initial = this.#rows.map(cloneRow);
+        }
+        rows() {
+            return this.#rows.map(cloneRow);
+        }
+        state() {
+            return {
+                version: 1,
+                key: this.#normalized.key,
+                rowCount: this.#rows.length,
+                watermark: this.#watermark,
+                sequence: this.#sequence,
+                acceptedRows: this.#acceptedRows,
+                droppedLateRows: this.#droppedLateRows,
+                evictedRows: this.#evictedRows,
+                queuedBatches: this.#queue.length,
+                queuedRows: this.#queuedRows,
+                replayBatches: this.#replay.length,
+                replayRows: this.#replayRows,
+                replayTruncated: this.#replayTruncated,
+                provenance: this.#provenance.map((step) => ({ ...step })),
+            };
+        }
+        apply(update) {
+            validateUpdateShape(update);
+            const mode = update.mode ?? this.#normalized.mode;
+            if (!['append', 'upsert', 'replaceLast'].includes(mode)) {
+                throw new GraflumeError('INVALID_DATA', `Incremental mode "${String(mode)}" is unsupported.`);
+            }
+            if (update.rows.length > this.#normalized.maxBatchRows) {
+                throw new GraflumeError('INVALID_DATA', `Incremental batch has ${update.rows.length} rows; the deterministic limit is ${this.#normalized.maxBatchRows}.`);
+            }
+            if (update.watermark !== undefined &&
+                (!Number.isFinite(update.watermark) ||
+                    (this.#watermark !== null && update.watermark < this.#watermark))) {
+                throw new GraflumeError('INVALID_DATA', 'Streaming watermarks must be finite and monotonic.');
+            }
+            const incoming = update.rows.map(cloneRow);
+            this.#assertUniqueKeys(incoming, '$.update.rows');
+            const eventTime = this.#normalized.eventTime;
+            const timestamps = eventTime === false
+                ? []
+                : incoming.map((row, index) => eventTimestamp(ownValue(row, eventTime.field), `$.update.rows[${index}].${eventTime.field}`));
+            const latenessWatermark = update.watermark === undefined
+                ? this.#watermark
+                : Math.max(this.#watermark ?? Number.NEGATIVE_INFINITY, update.watermark);
+            let nextWatermark = latenessWatermark;
+            if (eventTime !== false && timestamps.length > 0) {
+                const maximumTimestamp = timestamps.reduce((maximum, value) => Math.max(maximum, value), Number.NEGATIVE_INFINITY);
+                nextWatermark = Math.max(nextWatermark ?? Number.NEGATIVE_INFINITY, maximumTimestamp - eventTime.allowedLatenessMs);
+            }
+            if (update.watermark !== undefined) {
+                nextWatermark = Math.max(nextWatermark ?? Number.NEGATIVE_INFINITY, update.watermark);
+            }
+            const accepted = [];
+            let droppedLateRows = 0;
+            incoming.forEach((row, index) => {
+                const late = latenessWatermark !== null &&
+                    timestamps[index] !== undefined &&
+                    timestamps[index] < latenessWatermark;
+                if (!late || eventTime === false || eventTime.lateData === 'accept') {
+                    accepted.push(row);
+                }
+                else if (eventTime.lateData === 'drop') {
+                    droppedLateRows += 1;
+                }
+                else {
+                    throw new GraflumeError('INVALID_DATA', `Late event at row ${index} is behind watermark ${latenessWatermark}.`, { path: `$.update.rows[${index}].${eventTime.field}` });
+                }
+            });
+            const nextRows = this.#rows.map(cloneRow);
+            const indexByKey = this.#keyIndex(nextRows, '$.data');
+            let insertedRows = 0;
+            let updatedRows = 0;
+            for (const [incomingIndex, row] of accepted.entries()) {
+                const key = stableKey(ownValue(row, this.#normalized.key), `$.update.rows[${incomingIndex}].${this.#normalized.key}`);
+                const existing = indexByKey.get(key);
+                if (mode === 'append') {
+                    if (existing !== undefined) {
+                        throw new GraflumeError('INVALID_DATA', `Append would duplicate stable key "${key}".`);
+                    }
+                    indexByKey.set(key, nextRows.length);
+                    nextRows.push(row);
+                    insertedRows += 1;
+                }
+                else if (mode === 'upsert') {
+                    if (existing === undefined) {
+                        indexByKey.set(key, nextRows.length);
+                        nextRows.push(row);
+                        insertedRows += 1;
+                    }
+                    else {
+                        nextRows[existing] = { ...nextRows[existing], ...row };
+                        updatedRows += 1;
+                    }
+                }
+                else {
+                    const lastIndex = nextRows.length - 1;
+                    if (existing === lastIndex && lastIndex >= 0) {
+                        nextRows[lastIndex] = { ...nextRows[lastIndex], ...row };
+                        updatedRows += 1;
+                    }
+                    else if (existing === undefined) {
+                        indexByKey.set(key, nextRows.length);
+                        nextRows.push(row);
+                        insertedRows += 1;
+                    }
+                    else {
+                        throw new GraflumeError('INVALID_DATA', `replaceLast key "${key}" exists before the final row; use upsert explicitly.`);
+                    }
+                }
+            }
+            let retained = nextRows;
+            const timeRetention = this.#normalized.timeRetention;
+            if (timeRetention !== false && nextWatermark !== null) {
+                const threshold = nextWatermark - timeRetention.durationMs;
+                retained = retained.filter((row) => eventTimestamp(ownValue(row, timeRetention.field), `$.data.${timeRetention.field}`) >= threshold);
+            }
+            if (retained.length > this.#normalized.retentionRows) {
+                retained = retained.slice(-this.#normalized.retentionRows);
+            }
+            const evictedRows = nextRows.length - retained.length;
+            this.#rows = retained;
+            this.#watermark = nextWatermark;
+            this.#sequence += 1;
+            this.#acceptedRows += accepted.length;
+            this.#droppedLateRows += droppedLateRows;
+            this.#evictedRows += evictedRows;
+            const step = {
+                sequence: this.#sequence,
+                mode,
+                inputRows: incoming.length,
+                acceptedRows: accepted.length,
+                insertedRows,
+                updatedRows,
+                droppedLateRows,
+                evictedRows,
+                outputRows: retained.length,
+                watermark: this.#watermark,
+            };
+            this.#provenance.push(step);
+            if (this.#provenance.length > this.#normalized.maxReplayBatches)
+                this.#provenance.shift();
+            this.#acceptedReplay(update);
+            return { rows: this.rows(), state: this.state(), step: { ...step } };
+        }
+        enqueue(update) {
+            let snapshot;
+            try {
+                validateUpdateShape(update);
+                snapshot = cloneUpdate(update);
+            }
+            catch (error) {
+                return Promise.reject(error);
+            }
+            if (this.#queue.length >= this.#normalized.maxQueueBatches ||
+                this.#queuedRows + snapshot.rows.length > this.#normalized.maxQueueRows) {
+                return Promise.reject(new GraflumeError('INVALID_DATA', 'Incremental queue backpressure limit reached; the batch was rejected without mutation.'));
+            }
+            return new Promise((resolve, reject) => {
+                this.#queue.push({ update: snapshot, resolve, reject });
+                this.#queuedRows += snapshot.rows.length;
+                if (!this.#draining)
+                    queueMicrotask(() => this.#drain());
+            });
+        }
+        exportReplay() {
+            if (this.#replayTruncated) {
+                throw new GraflumeError('INVALID_DATA', 'Replay history exceeded its bounded contract; export a fresh snapshot before replay.');
+            }
+            return {
+                version: 1,
+                options: cloneOptions(this.#options),
+                initial: this.#initial.map(cloneRow),
+                updates: this.#replay.map(cloneUpdate),
+            };
+        }
+        static replay(replay) {
+            const envelope = closedObject(replay, REPLAY_ENVELOPE_KEYS, '$.replay');
+            if (replay.version !== 1) {
+                throw new GraflumeError('INVALID_DATA', 'Incremental replay version is unsupported.');
+            }
+            if (!Array.isArray(envelope.initial) || !Array.isArray(envelope.updates)) {
+                throw new GraflumeError('INVALID_DATA', 'Incremental replay rows and updates must be arrays.', {
+                    path: '$.replay',
+                });
+            }
+            const store = new IncrementalDataStore(replay.initial, replay.options);
+            for (const update of replay.updates)
+                store.apply(update);
+            return store;
+        }
+        #assertUniqueKeys(rows, path) {
+            this.#keyIndex(rows, path);
+        }
+        #keyIndex(rows, path) {
+            const index = new Map();
+            rows.forEach((row, rowIndex) => {
+                const key = stableKey(ownValue(row, this.#normalized.key), `${path}[${rowIndex}].${this.#normalized.key}`);
+                if (index.has(key)) {
+                    throw new GraflumeError('INVALID_DATA', `Duplicate stable key "${key}".`, {
+                        path: `${path}[${rowIndex}].${this.#normalized.key}`,
+                    });
+                }
+                index.set(key, rowIndex);
+            });
+            return index;
+        }
+        #acceptedReplay(update) {
+            const copy = cloneUpdate(update);
+            this.#replay.push(copy);
+            this.#replayRows += copy.rows.length;
+            while (this.#replay.length > this.#normalized.maxReplayBatches ||
+                this.#replayRows > this.#normalized.maxReplayRows) {
+                const removed = this.#replay.shift();
+                if (removed === undefined)
+                    break;
+                this.#replayRows -= removed.rows.length;
+                this.#replayTruncated = true;
+            }
+        }
+        #drain() {
+            if (this.#draining)
+                return;
+            this.#draining = true;
+            const next = () => {
+                const item = this.#queue.shift();
+                if (item === undefined) {
+                    this.#draining = false;
+                    return;
+                }
+                this.#queuedRows -= item.update.rows.length;
+                try {
+                    item.resolve(this.apply(item.update));
+                }
+                catch (error) {
+                    item.reject(error);
+                }
+                queueMicrotask(next);
+            };
+            next();
+        }
+    }
+    function createIncrementalDataStore(input, options) {
+        return new IncrementalDataStore(input, options);
+    }
+    function replayIncrementalData(replay) {
+        return IncrementalDataStore.replay(replay);
+    }
+
+    const analyticSelectionVersion = 1;
+    const maximumAnalyticSelections = 64;
+    const maximumLassoPoints = 512;
+    function invalid(message) {
+        throw new GraflumeError('INVALID_SPEC', message, { path: '$.analyticSelection' });
+    }
+    function assertPlainObject(value, label) {
+        if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+            invalid(`${label} must be an object.`);
+        }
+    }
+    function assertClosedKeys(value, allowed, label) {
+        const allowedKeys = new Set(allowed);
+        const unknown = Object.keys(value).filter((key) => !allowedKeys.has(key));
+        if (unknown.length > 0)
+            invalid(`${label} contains unknown key "${unknown[0]}".`);
+    }
+    function canonicalNumber(value) {
+        return Object.is(value, -0) ? 0 : value;
+    }
+    function canonicalPrimitive(value) {
+        return typeof value === 'number' ? canonicalNumber(value) : value;
+    }
+    function domainValue(value, label) {
+        if (typeof value === 'number') {
+            if (!Number.isFinite(value))
+                invalid(`${label} must be finite.`);
+            return;
+        }
+        if (typeof value !== 'string' || value.length === 0 || value.length > 4096) {
+            invalid(`${label} must be a finite number or a non-empty bounded string.`);
+        }
+    }
+    function finiteExtent(value, label) {
+        if (!Array.isArray(value) ||
+            value.length !== 2 ||
+            value.some((entry) => typeof entry !== 'number' || !Number.isFinite(entry))) {
+            invalid(`${label} must contain exactly two finite numbers.`);
+        }
+    }
+    function orderedExtent(value) {
+        const start = canonicalNumber(value[0]);
+        const end = canonicalNumber(value[1]);
+        return Object.freeze(start <= end ? [start, end] : [end, start]);
+    }
+    function cloneTarget(target) {
+        const rows = target.rowIndex === undefined
+            ? undefined
+            : Array.isArray(target.rowIndex)
+                ? [...target.rowIndex].sort((left, right) => left - right)
+                : target.rowIndex;
+        const values = target.values === undefined
+            ? undefined
+            : [...target.values]
+                .map(canonicalPrimitive)
+                .sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
+        return Object.freeze({
+            type: 'datum',
+            ...(target.layerId === undefined ? {} : { layerId: target.layerId }),
+            ...(rows === undefined ? {} : { rowIndex: Array.isArray(rows) ? Object.freeze(rows) : rows }),
+            ...(target.field === undefined ? {} : { field: target.field }),
+            ...(Object.prototype.hasOwnProperty.call(target, 'value')
+                ? { value: canonicalPrimitive(target.value) }
+                : {}),
+            ...(values === undefined ? {} : { values: Object.freeze(values) }),
+        });
+    }
+    function validateTarget(target) {
+        assertPlainObject(target, 'Point target');
+        assertClosedKeys(target, ['type', 'layerId', 'rowIndex', 'field', 'value', 'values'], 'Point target');
+        const candidate = target;
+        if (candidate.type !== 'datum')
+            invalid('Point target.type must be "datum".');
+        if (candidate.layerId !== undefined &&
+            (typeof candidate.layerId !== 'string' ||
+                candidate.layerId.length === 0 ||
+                candidate.layerId.length > 4096)) {
+            invalid('Point target.layerId must be a non-empty bounded string.');
+        }
+        if (candidate.rowIndex !== undefined) {
+            const rows = Array.isArray(candidate.rowIndex) ? candidate.rowIndex : [candidate.rowIndex];
+            if (rows.length === 0 ||
+                rows.length > 1000 ||
+                rows.some((row) => !Number.isInteger(row) || row < 0)) {
+                invalid('Point target.rowIndex must contain bounded non-negative integers.');
+            }
+            if (new Set(rows).size !== rows.length)
+                invalid('Point target.rowIndex must be unique.');
+        }
+        if (candidate.field !== undefined &&
+            (typeof candidate.field !== 'string' ||
+                candidate.field.length === 0 ||
+                candidate.field.length > 4096 ||
+                candidate.field === '__proto__' ||
+                candidate.field === 'prototype' ||
+                candidate.field === 'constructor')) {
+            invalid('Point target.field must be a safe non-empty bounded string.');
+        }
+        const hasValue = Object.prototype.hasOwnProperty.call(candidate, 'value');
+        const hasValues = Object.prototype.hasOwnProperty.call(candidate, 'values');
+        if (candidate.field === undefined && (hasValue || hasValues)) {
+            invalid('Point target.field is required for value matching.');
+        }
+        if (candidate.field !== undefined && hasValue === hasValues) {
+            invalid('Point target field matching requires exactly one of value or values.');
+        }
+        if (hasValues && (!Array.isArray(candidate.values) || candidate.values.length === 0)) {
+            invalid('Point target values must be a non-empty array.');
+        }
+        const values = hasValues ? candidate.values : hasValue ? [candidate.value] : [];
+        if (values.length > 200)
+            invalid('Point target values exceed the 200 item bound.');
+        for (const value of values) {
+            if (value !== null &&
+                typeof value !== 'string' &&
+                typeof value !== 'boolean' &&
+                !(typeof value === 'number' && Number.isFinite(value))) {
+                invalid('Point target values must be JSON primitives with finite numbers.');
+            }
+        }
+        if (new Set(values.map((value) => JSON.stringify(canonicalPrimitive(value)))).size !==
+            values.length) {
+            invalid('Point target values must be unique.');
+        }
+        if (candidate.rowIndex === undefined && candidate.field === undefined) {
+            invalid('Point target requires rowIndex or field/value identity.');
+        }
+    }
+    function axisId(value, orientation) {
+        const allowed = orientation === 'x' ? ['x', 'x2'] : orientation === 'y' ? ['y', 'y2'] : ['x', 'x2', 'y', 'y2'];
+        if (typeof value !== 'string' || !allowed.includes(value)) {
+            invalid(`Selection axis must be one of ${allowed.join(', ')}.`);
+        }
+    }
+    function normalizeSelection(selection) {
+        assertPlainObject(selection, 'Selection');
+        if (selection.type === 'point') {
+            assertClosedKeys(selection, ['type', 'xAxis', 'yAxis', 'x', 'y', 'target'], 'Point selection');
+            if (selection.x === undefined && selection.y === undefined && selection.target === undefined) {
+                invalid('Point selection requires x, y, or target identity.');
+            }
+            if (selection.x !== undefined)
+                domainValue(selection.x, 'Point x');
+            if (selection.y !== undefined)
+                domainValue(selection.y, 'Point y');
+            if (selection.xAxis !== undefined)
+                axisId(selection.xAxis, 'x');
+            if (selection.yAxis !== undefined)
+                axisId(selection.yAxis, 'y');
+            if (selection.target !== undefined)
+                validateTarget(selection.target);
+            return Object.freeze({
+                type: 'point',
+                ...(selection.xAxis === undefined ? {} : { xAxis: selection.xAxis }),
+                ...(selection.yAxis === undefined ? {} : { yAxis: selection.yAxis }),
+                ...(selection.x === undefined
+                    ? {}
+                    : { x: typeof selection.x === 'number' ? canonicalNumber(selection.x) : selection.x }),
+                ...(selection.y === undefined
+                    ? {}
+                    : { y: typeof selection.y === 'number' ? canonicalNumber(selection.y) : selection.y }),
+                ...(selection.target === undefined ? {} : { target: cloneTarget(selection.target) }),
+            });
+        }
+        if (selection.type === 'interval' || selection.type === 'rectangle') {
+            assertClosedKeys(selection, ['type', 'xAxis', 'yAxis', 'x', 'y'], `${selection.type} selection`);
+            axisId(selection.xAxis, 'x');
+            axisId(selection.yAxis, 'y');
+            finiteExtent(selection.x, 'Selection x extent');
+            finiteExtent(selection.y, 'Selection y extent');
+            return Object.freeze({
+                type: selection.type,
+                xAxis: selection.xAxis,
+                yAxis: selection.yAxis,
+                x: orderedExtent(selection.x),
+                y: orderedExtent(selection.y),
+            });
+        }
+        if (selection.type === 'axis') {
+            assertClosedKeys(selection, ['type', 'axis', 'extent'], 'Axis selection');
+            axisId(selection.axis);
+            finiteExtent(selection.extent, 'Axis selection extent');
+            return Object.freeze({
+                type: 'axis',
+                axis: selection.axis,
+                extent: orderedExtent(selection.extent),
+            });
+        }
+        if (selection.type === 'lasso') {
+            assertClosedKeys(selection, ['type', 'xAxis', 'yAxis', 'points'], 'Lasso selection');
+            axisId(selection.xAxis, 'x');
+            axisId(selection.yAxis, 'y');
+            if (!Array.isArray(selection.points) || selection.points.length < 3) {
+                invalid('Lasso selection requires at least three points.');
+            }
+            if (selection.points.length > maximumLassoPoints) {
+                invalid(`Lasso selection exceeds the ${maximumLassoPoints} point bound.`);
+            }
+            const points = selection.points.map((point, index) => {
+                assertPlainObject(point, `Lasso point ${index}`);
+                assertClosedKeys(point, ['x', 'y'], `Lasso point ${index}`);
+                if (typeof point.x !== 'number' ||
+                    typeof point.y !== 'number' ||
+                    !Number.isFinite(point.x) ||
+                    !Number.isFinite(point.y)) {
+                    invalid(`Lasso point ${index} must contain finite x and y values.`);
+                }
+                return Object.freeze({ x: canonicalNumber(point.x), y: canonicalNumber(point.y) });
+            });
+            return Object.freeze({
+                type: 'lasso',
+                xAxis: selection.xAxis,
+                yAxis: selection.yAxis,
+                points: Object.freeze(points),
+            });
+        }
+        invalid(`Unsupported analytic selection type: ${String(selection.type)}.`);
+    }
+    function stableTarget(target) {
+        if (target === undefined)
+            return null;
+        const rows = target.rowIndex === undefined
+            ? null
+            : Array.isArray(target.rowIndex)
+                ? [...target.rowIndex].sort((a, b) => a - b)
+                : [target.rowIndex];
+        const values = target.values ?? (target.value === undefined ? [] : [target.value]);
+        return [
+            target.layerId ?? null,
+            rows,
+            target.field ?? null,
+            [...values].sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
+        ];
+    }
+    function analyticSelectionKey(selection) {
+        switch (selection.type) {
+            case 'point':
+                return JSON.stringify([
+                    'point',
+                    selection.xAxis ?? null,
+                    selection.x ?? null,
+                    selection.yAxis ?? null,
+                    selection.y ?? null,
+                    stableTarget(selection.target),
+                ]);
+            case 'interval':
+            case 'rectangle':
+                return JSON.stringify([
+                    selection.type,
+                    selection.xAxis,
+                    selection.x,
+                    selection.yAxis,
+                    selection.y,
+                ]);
+            case 'axis':
+                return JSON.stringify(['axis', selection.axis, selection.extent]);
+            case 'lasso':
+                return JSON.stringify(['lasso', selection.xAxis, selection.yAxis, selection.points]);
+        }
+    }
+    function normalizeAnalyticSelectionState(input) {
+        assertPlainObject(input, 'Analytic selection state');
+        assertClosedKeys(input, ['version', 'combine', 'selections'], 'Analytic selection state');
+        if (input.version !== analyticSelectionVersion) {
+            invalid(`Analytic selection state.version must be ${analyticSelectionVersion}.`);
+        }
+        if (input.combine !== 'union' && input.combine !== 'intersection') {
+            invalid('Analytic selection state.combine must be "union" or "intersection".');
+        }
+        if (!Array.isArray(input.selections) || input.selections.length > maximumAnalyticSelections) {
+            invalid(`Analytic selection state must contain at most ${maximumAnalyticSelections} selections.`);
+        }
+        const selections = input.selections.map(normalizeSelection);
+        const keys = selections.map(analyticSelectionKey);
+        if (new Set(keys).size !== keys.length)
+            invalid('Analytic selections must be unique.');
+        return Object.freeze({
+            version: analyticSelectionVersion,
+            combine: input.combine,
+            selections: Object.freeze(selections),
+        });
+    }
+    function emptyAnalyticSelectionState(combine = 'union') {
+        return normalizeAnalyticSelectionState({
+            version: analyticSelectionVersion,
+            combine,
+            selections: [],
+        });
+    }
+    function primitiveEqual(left, right) {
+        return typeof left === 'number' && typeof right === 'number'
+            ? Number.isFinite(left) && Object.is(left, right)
+            : Object.is(left, right);
+    }
+    function targetMatches(target, sample) {
+        if (target.layerId !== undefined && target.layerId !== sample.layerId)
+            return false;
+        if (target.rowIndex !== undefined) {
+            const rows = Array.isArray(target.rowIndex) ? target.rowIndex : [target.rowIndex];
+            if (sample.rowIndex === undefined || !rows.includes(sample.rowIndex))
+                return false;
+        }
+        if (target.field !== undefined) {
+            const values = target.values ?? (target.value === undefined ? [] : [target.value]);
+            const actual = sample.datum?.[target.field];
+            if (!values.some((value) => primitiveEqual(actual, value)))
+                return false;
+        }
+        return target.rowIndex !== undefined || target.field !== undefined;
+    }
+    function inExtent(value, extent) {
+        return (typeof value === 'number' && Number.isFinite(value) && value >= extent[0] && value <= extent[1]);
+    }
+    function pointInPolygon(point, polygon) {
+        let inside = false;
+        for (let current = 0, previous = polygon.length - 1; current < polygon.length; previous = current++) {
+            const a = polygon[current];
+            const b = polygon[previous];
+            const crosses = a.y > point.y !== b.y > point.y;
+            const edgeX = ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y || Number.EPSILON) + a.x;
+            if (crosses && point.x < edgeX)
+                inside = !inside;
+        }
+        return inside;
+    }
+    function analyticSelectionMatches(state, sample) {
+        const normalized = normalizeAnalyticSelectionState(state);
+        if (normalized.selections.length === 0)
+            return false;
+        const matches = (selection) => {
+            switch (selection.type) {
+                case 'point': {
+                    if (selection.target !== undefined && !targetMatches(selection.target, sample))
+                        return false;
+                    if (selection.x !== undefined && !Object.is(sample[selection.xAxis ?? 'x'], selection.x))
+                        return false;
+                    if (selection.y !== undefined && !Object.is(sample[selection.yAxis ?? 'y'], selection.y))
+                        return false;
+                    return true;
+                }
+                case 'interval':
+                case 'rectangle':
+                    return (inExtent(sample[selection.xAxis], selection.x) &&
+                        inExtent(sample[selection.yAxis], selection.y));
+                case 'axis':
+                    return inExtent(sample[selection.axis], selection.extent);
+                case 'lasso': {
+                    const x = sample[selection.xAxis];
+                    const y = sample[selection.yAxis];
+                    return (typeof x === 'number' &&
+                        typeof y === 'number' &&
+                        pointInPolygon({ x, y }, selection.points));
+                }
+            }
+        };
+        return normalized.combine === 'union'
+            ? normalized.selections.some(matches)
+            : normalized.selections.every(matches);
+    }
+    class AnalyticSelectionStore {
+        #state;
+        constructor(initial = emptyAnalyticSelectionState()) {
+            this.#state = normalizeAnalyticSelectionState(initial);
+        }
+        get() {
+            return this.#state;
+        }
+        set(state) {
+            this.#state = normalizeAnalyticSelectionState(state);
+            return this.#state;
+        }
+        clear(combine = this.#state.combine) {
+            this.#state = emptyAnalyticSelectionState(combine);
+            return this.#state;
+        }
+        apply(selection, update = 'replace') {
+            const normalized = normalizeSelection(selection);
+            if (update === 'replace') {
+                return this.set({
+                    version: analyticSelectionVersion,
+                    combine: this.#state.combine,
+                    selections: [normalized],
+                });
+            }
+            const existing = this.#state.selections.filter((candidate) => analyticSelectionKey(candidate) !== analyticSelectionKey(normalized));
+            return this.set({
+                version: analyticSelectionVersion,
+                combine: update,
+                selections: [...existing, normalized],
+            });
+        }
+    }
+
+    function visuallyHidden(element) {
+        element.style.position = 'absolute';
+        element.style.width = '1px';
+        element.style.height = '1px';
+        element.style.padding = '0';
+        element.style.margin = '-1px';
+        element.style.overflow = 'hidden';
+        element.style.clipPath = 'inset(50%)';
+        element.style.whiteSpace = 'nowrap';
+        element.style.border = '0';
+    }
+    function selected(mark, selectedKeys) {
+        return selectedKeys.has(mark.id);
+    }
+    function rowFields(index) {
+        const fields = [];
+        for (const mark of index) {
+            for (const field of Object.keys(mark.datum)) {
+                if (!fields.includes(field))
+                    fields.push(field);
+                if (fields.length >= 12)
+                    return fields;
+            }
+        }
+        return fields;
+    }
+    function valueText(value) {
+        if (value === null || value === undefined)
+            return '\u2014';
+        return value instanceof Date ? value.toISOString() : String(value);
+    }
+    class AccessibilityMirrorController {
+        #host = null;
+        #surface = null;
+        #mirror = null;
+        #ring = null;
+        #focusedId = null;
+        getFocusedId() {
+            return this.#focusedId;
+        }
+        sync(container, overlayHost, surface, index, spec, view, selectedKeys, actions) {
+            if (spec.table === false && !spec.navigation) {
+                this.destroy();
+                return;
+            }
+            const host = spec.table === 'visible' ? container : overlayHost;
+            const ownerDocument = host.ownerDocument;
+            const focusedId = ownerDocument.activeElement?.dataset?.graflumeSemanticId ??
+                this.#focusedId;
+            if (this.#host !== host || this.#surface !== surface) {
+                this.destroy();
+                this.#host = host;
+                this.#surface = surface;
+                const mirror = ownerDocument.createElement('div');
+                mirror.dataset.graflumeAccessibilityMirror = spec.table === 'visible' ? 'visible' : 'hidden';
+                mirror.setAttribute('dir', 'auto');
+                host.append(mirror);
+                this.#mirror = mirror;
+                const ring = overlayHost.ownerDocument.createElement('div');
+                ring.dataset.graflumeSemanticFocus = 'true';
+                ring.setAttribute('aria-hidden', 'true');
+                ring.style.position = 'absolute';
+                ring.style.zIndex = '19';
+                ring.style.pointerEvents = 'none';
+                ring.style.border = '3px solid #2563eb';
+                ring.style.borderRadius = '5px';
+                ring.style.boxShadow = '0 0 0 2px rgba(255,255,255,.9)';
+                ring.hidden = true;
+                overlayHost.append(ring);
+                this.#ring = ring;
+            }
+            const mirror = this.#mirror;
+            if (mirror === null)
+                return;
+            mirror.dataset.graflumeAccessibilityMirror = spec.table === 'visible' ? 'visible' : 'hidden';
+            mirror.removeAttribute('style');
+            if (spec.table !== 'visible')
+                visuallyHidden(mirror);
+            else {
+                mirror.style.boxSizing = 'border-box';
+                mirror.style.width = '100%';
+                mirror.style.maxHeight = 'min(360px,50vh)';
+                mirror.style.overflow = 'auto';
+                mirror.style.marginTop = '12px';
+                mirror.style.font =
+                    '13px/1.45 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif';
+                mirror.style.color = '#111827';
+                mirror.style.background = '#fff';
+            }
+            const summary = ownerDocument.createElement('p');
+            summary.dataset.graflumeAccessibilitySummary = 'true';
+            summary.textContent = spec.summary ?? `${index.length} chart marks`;
+            if (spec.table === 'visible')
+                summary.style.margin = '0 0 8px';
+            const table = ownerDocument.createElement('table');
+            table.dataset.graflumeAccessibilityTable = 'true';
+            table.style.borderCollapse = 'collapse';
+            table.style.width = '100%';
+            const caption = ownerDocument.createElement('caption');
+            caption.textContent = spec.summary ?? 'Chart data';
+            visuallyHidden(caption);
+            table.append(caption);
+            const head = ownerDocument.createElement('thead');
+            const headRow = ownerDocument.createElement('tr');
+            const fields = rowFields(index);
+            for (const label of ['Layer', ...fields]) {
+                const cell = ownerDocument.createElement('th');
+                cell.scope = 'col';
+                cell.textContent = label;
+                cell.style.textAlign = 'start';
+                cell.style.padding = spec.table === 'visible' ? '6px 8px' : '0';
+                headRow.append(cell);
+            }
+            head.append(headRow);
+            table.append(head);
+            const body = ownerDocument.createElement('tbody');
+            const navigable = [];
+            const navigableMarks = [];
+            index.forEach((mark) => {
+                const row = ownerDocument.createElement('tr');
+                row.dataset.graflumeSemanticId = mark.id;
+                row.setAttribute('aria-label', mark.label);
+                row.setAttribute('aria-selected', String(selected(mark, selectedKeys)));
+                row.setAttribute('aria-disabled', String(!mark.visible));
+                row.tabIndex = -1;
+                const layerCell = ownerDocument.createElement('th');
+                layerCell.scope = 'row';
+                layerCell.textContent = mark.layerId;
+                layerCell.style.textAlign = 'start';
+                layerCell.style.padding = spec.table === 'visible' ? '6px 8px' : '0';
+                row.append(layerCell);
+                for (const field of fields) {
+                    const cell = ownerDocument.createElement('td');
+                    cell.textContent = valueText(mark.datum[field]);
+                    cell.style.padding = spec.table === 'visible' ? '6px 8px' : '0';
+                    row.append(cell);
+                }
+                if (mark.visible) {
+                    navigable.push(row);
+                    navigableMarks.push(mark);
+                }
+                row.addEventListener('focus', () => {
+                    this.#focusedId = mark.id;
+                    for (const candidate of navigable)
+                        candidate.tabIndex = candidate === row ? 0 : -1;
+                    this.#positionRing(mark, view);
+                    actions.focus(mark);
+                });
+                row.addEventListener('blur', () => {
+                    const activeId = ownerDocument.activeElement?.dataset
+                        ?.graflumeSemanticId;
+                    if (activeId === undefined) {
+                        if (this.#ring !== null)
+                            this.#ring.hidden = true;
+                        actions.focus(null);
+                    }
+                });
+                row.addEventListener('keydown', (event) => {
+                    if (!('key' in event))
+                        return;
+                    const current = navigable.indexOf(row);
+                    let next = current;
+                    switch (event.key) {
+                        case 'ArrowLeft':
+                        case 'ArrowUp':
+                            next = Math.max(0, current - 1);
+                            break;
+                        case 'ArrowRight':
+                        case 'ArrowDown':
+                            next = Math.min(navigable.length - 1, current + 1);
+                            break;
+                        case 'Home':
+                            next = 0;
+                            break;
+                        case 'End':
+                            next = navigable.length - 1;
+                            break;
+                        case 'PageUp':
+                            next = Math.max(0, current - 10);
+                            break;
+                        case 'PageDown':
+                            next = Math.min(navigable.length - 1, current + 10);
+                            break;
+                        case 'Enter':
+                        case ' ':
+                            actions.toggle(mark);
+                            event.preventDefault();
+                            return;
+                        case 'Escape':
+                            actions.clear();
+                            surface.focus();
+                            if (this.#ring !== null)
+                                this.#ring.hidden = true;
+                            actions.focus(null);
+                            event.preventDefault();
+                            return;
+                        default:
+                            return;
+                    }
+                    const target = navigable[next];
+                    const targetMark = navigableMarks[next];
+                    if (target !== undefined && targetMark !== undefined) {
+                        row.tabIndex = -1;
+                        target.tabIndex = 0;
+                        target.focus();
+                        this.#positionRing(targetMark, view);
+                    }
+                    event.preventDefault();
+                });
+                body.append(row);
+            });
+            table.append(body);
+            mirror.replaceChildren(summary, table);
+            const first = navigable[0];
+            const restored = navigable.find(({ dataset }) => dataset.graflumeSemanticId === focusedId);
+            if (restored !== undefined) {
+                restored.tabIndex = 0;
+                restored.focus();
+            }
+            else if (first !== undefined)
+                first.tabIndex = 0;
+        }
+        destroy() {
+            this.#mirror?.remove();
+            this.#ring?.remove();
+            this.#mirror = null;
+            this.#ring = null;
+            this.#host = null;
+            this.#surface = null;
+            this.#focusedId = null;
+        }
+        #positionRing(mark, view) {
+            const ring = this.#ring;
+            if (ring === null)
+                return;
+            const left = mark.bounds.x * view.zoom + view.offsetX;
+            const top = mark.bounds.y * view.zoom + view.offsetY;
+            ring.style.left = `${left}px`;
+            ring.style.top = `${top}px`;
+            ring.style.width = `${Math.max(8, mark.bounds.width * view.zoom)}px`;
+            ring.style.height = `${Math.max(8, mark.bounds.height * view.zoom)}px`;
+            ring.hidden = !mark.visible;
         }
     }
 
@@ -7663,6 +15907,10 @@ var Graflume = (function (exports) {
         #surface = null;
         #nodeId = '';
         show(content, hit, sourceEvent, surface, host) {
+            this.showAt(content, hit, sourceEvent.clientX, sourceEvent.clientY, surface, host);
+        }
+        /** Show the same text-only tooltip for keyboard or other non-pointer semantic focus. */
+        showAt(content, hit, clientX, clientY, surface, host) {
             if (content.rows.length === 0) {
                 this.hide();
                 return;
@@ -7677,7 +15925,7 @@ var Graflume = (function (exports) {
             describedBy.add(this.#id);
             surface.setAttribute('aria-describedby', [...describedBy].join(' '));
             element.hidden = false;
-            this.#position(element, host, sourceEvent.clientX, sourceEvent.clientY);
+            this.#position(element, host, clientX, clientY);
         }
         hide() {
             this.#nodeId = '';
@@ -7705,7 +15953,7 @@ var Graflume = (function (exports) {
                     host.append(this.#element);
                 return this.#element;
             }
-            const element = document.createElement('div');
+            const element = host.ownerDocument.createElement('div');
             element.id = this.#id;
             element.dataset.graflumeTooltip = 'true';
             element.setAttribute('role', 'tooltip');
@@ -7718,17 +15966,18 @@ var Graflume = (function (exports) {
             return element;
         }
         #renderContent(element, content) {
-            const title = document.createElement('div');
+            const ownerDocument = element.ownerDocument;
+            const title = ownerDocument.createElement('div');
             title.textContent = content.title;
             title.style.cssText = 'margin:0 0 6px;font-weight:700;color:#fff';
-            const list = document.createElement('dl');
+            const list = ownerDocument.createElement('dl');
             list.style.cssText =
                 'display:grid;grid-template-columns:minmax(56px,auto) minmax(0,1fr);gap:3px 12px;margin:0';
             for (const row of content.rows) {
-                const term = document.createElement('dt');
+                const term = ownerDocument.createElement('dt');
                 term.textContent = row.label;
                 term.style.cssText = 'margin:0;color:#cbd5e1';
-                const detail = document.createElement('dd');
+                const detail = ownerDocument.createElement('dd');
                 detail.textContent = row.value;
                 detail.style.cssText =
                     'margin:0;text-align:end;font-weight:650;color:#fff;overflow-wrap:anywhere';
@@ -8231,6 +16480,9 @@ var Graflume = (function (exports) {
             Math.abs(left.offsetX - right.offsetX) < 1e-6 &&
             Math.abs(left.offsetY - right.offsetY) < 1e-6);
     }
+    function sameDomainView(left, right) {
+        return JSON.stringify(left) === JSON.stringify(right);
+    }
     function pointDistance(left, right) {
         return Math.hypot(left.x - right.x, left.y - right.y);
     }
@@ -8313,8 +16565,10 @@ var Graflume = (function (exports) {
         #tooltip = new TooltipController();
         #controls = new ControlsController();
         #legend = new LegendController();
+        #accessibility = new AccessibilityMirrorController();
         #options;
         #activePointers = new Map();
+        #incrementalStores = new Map();
         #spec;
         #renderer = null;
         #rendererName = null;
@@ -8347,10 +16601,16 @@ var Graflume = (function (exports) {
         #fullscreen = false;
         #hiddenLegendItems = new Set();
         #selection = [];
+        #analyticSelection = new AnalyticSelectionStore();
+        #domainView = emptyDomainViewState();
+        #analyticGesture = null;
+        #domainGesture = null;
         #annotations = [];
         #annotationsVisible = true;
         #selectionLive = null;
         #selectionLiveHost = null;
+        #selectionLiveTimer = null;
+        #selectionLiveUpdatedAt = 0;
         #pointerMoveListener = (event) => {
             if (!(event instanceof PointerEvent))
                 return;
@@ -8370,7 +16630,7 @@ var Graflume = (function (exports) {
         #pointerCancelListener = (event) => {
             if (!(event instanceof PointerEvent))
                 return;
-            this.#handlePointerEnd(event);
+            this.#handlePointerEnd(event, true);
             this.#tooltip.hide();
             if (this.#result?.spec.interaction.hover !== false) {
                 this.#events.emit('hover', { chart: this, hit: null, sourceEvent: event });
@@ -8471,6 +16731,37 @@ var Graflume = (function (exports) {
         getScene() {
             return this.#result?.scene ?? null;
         }
+        domainToPixel(axis, value) {
+            this.#assertAlive();
+            const result = this.#result;
+            if (result === null)
+                throw new GraflumeError('INVALID_SPEC', 'The chart is not rendered.');
+            return domainToPixel(result.coordinates, axis, value);
+        }
+        pixelToDomain(axis, pixel) {
+            this.#assertAlive();
+            const result = this.#result;
+            if (result === null)
+                throw new GraflumeError('INVALID_SPEC', 'The chart is not rendered.');
+            return pixelToDomain(result.coordinates, axis, pixel);
+        }
+        getSemanticIndex() {
+            return this.#result?.scene.semanticIndex ?? [];
+        }
+        toAccessibleRows(maxRows) {
+            return toAccessibleRows(this.getSemanticIndex(), maxRows ?? this.#result?.spec.accessibility.maxRows ?? 0);
+        }
+        getAccessibilityState() {
+            const accessibility = this.#result?.spec.accessibility;
+            const focusedId = this.#accessibility.getFocusedId();
+            return {
+                enabled: accessibility !== undefined && (accessibility.table !== false || accessibility.navigation),
+                table: accessibility?.table ?? false,
+                navigation: accessibility?.navigation ?? false,
+                rowCount: this.getSemanticIndex().length,
+                ...(focusedId === null ? {} : { focusedId }),
+            };
+        }
         getViewState() {
             return { ...this.#view, enabled: this.#navigation() !== false };
         }
@@ -8549,8 +16840,12 @@ var Graflume = (function (exports) {
         }
         setSelection(items) {
             this.#assertAlive();
-            if (this.#result?.spec.interaction.selection === false) {
+            const configuredSelection = this.#result?.spec.interaction.selection;
+            if (configuredSelection === false) {
                 throw new GraflumeError('INVALID_SPEC', 'Enable interaction.selection before setting selection state.');
+            }
+            if (configuredSelection !== undefined && configuredSelection.kind !== 'point') {
+                throw new GraflumeError('INVALID_SPEC', 'setSelection() is the point/datum facade; use setAnalyticSelection() for domain geometry.');
             }
             normalizeSpec({
                 ...this.#spec,
@@ -8559,7 +16854,10 @@ var Graflume = (function (exports) {
                 highlights: items.map((target) => ({ target })),
             });
             const selection = this.#result?.spec.interaction.selection;
-            if (selection !== undefined && selection.mode === 'single' && items.length > 1)
+            if (selection !== undefined &&
+                selection !== false &&
+                selection.mode === 'single' &&
+                items.length > 1)
                 throw new GraflumeError('INVALID_SPEC', 'Single selection mode accepts at most one target.');
             const next = items.map(cloneDatumTarget);
             const keys = next.map(selectionKey);
@@ -8569,8 +16867,10 @@ var Graflume = (function (exports) {
                 next.every((target, index) => selectionKey(target) === selectionKey(this.#selection[index])))
                 return this;
             this.#selection = next;
+            this.#syncAnalyticPointTargets();
             this.render();
             this.#emitSelection('programmatic');
+            this.#emitAnalyticSelection('programmatic');
             return this;
         }
         clearSelection() {
@@ -8578,8 +16878,82 @@ var Graflume = (function (exports) {
             if (this.#selection.length === 0)
                 return this;
             this.#selection = [];
+            if (this.#result?.spec.interaction.selection !== false)
+                this.#analyticSelection.clear();
             this.render();
             this.#emitSelection('clear');
+            this.#emitAnalyticSelection('clear');
+            return this;
+        }
+        getAnalyticSelection() {
+            this.#assertAlive();
+            return this.#analyticSelection.get();
+        }
+        setAnalyticSelection(state) {
+            this.#assertAlive();
+            const selection = this.#requireAnalyticSelection();
+            const next = normalizeAnalyticSelectionState(state);
+            this.#validateAnalyticStateForConfig(next, selection);
+            const previous = this.#analyticSelection.get();
+            const previousPointSelection = this.#selection;
+            this.#analyticSelection.set(next);
+            if (selection.kind === 'point') {
+                this.#selection = next.selections.flatMap((candidate) => candidate.type === 'point' && candidate.target !== undefined
+                    ? [cloneDatumTarget(candidate.target)]
+                    : []);
+            }
+            try {
+                this.render();
+            }
+            catch (error) {
+                this.#analyticSelection.set(previous);
+                this.#selection = previousPointSelection;
+                throw error;
+            }
+            this.#emitAnalyticSelection('programmatic');
+            if (selection.kind === 'point')
+                this.#emitSelection('programmatic');
+            return this;
+        }
+        applyAnalyticSelection(selection, update = 'replace') {
+            this.#assertAlive();
+            const config = this.#requireAnalyticSelection();
+            const previous = this.#analyticSelection.get();
+            const previousPointSelection = this.#selection;
+            const next = this.#analyticSelection.apply(selection, update);
+            try {
+                this.#validateAnalyticStateForConfig(next, config);
+                if (config.kind === 'point') {
+                    this.#selection = next.selections.flatMap((candidate) => candidate.type === 'point' && candidate.target !== undefined
+                        ? [cloneDatumTarget(candidate.target)]
+                        : []);
+                }
+                this.render();
+            }
+            catch (error) {
+                this.#analyticSelection.set(previous);
+                this.#selection = previousPointSelection;
+                throw error;
+            }
+            this.#emitAnalyticSelection('programmatic');
+            if (config.kind === 'point')
+                this.#emitSelection('programmatic');
+            return this;
+        }
+        clearAnalyticSelection() {
+            this.#assertAlive();
+            if (this.#analyticSelection.get().selections.length === 0)
+                return this;
+            this.#analyticSelection.clear();
+            const selection = this.#result?.spec.interaction.selection;
+            const pointSelection = selection !== undefined && selection !== false && selection.kind === 'point';
+            if (pointSelection) {
+                this.#selection = [];
+            }
+            this.render();
+            this.#emitAnalyticSelection('clear');
+            if (pointSelection)
+                this.#emitSelection('clear');
             return this;
         }
         getAnnotations() {
@@ -8650,11 +17024,14 @@ var Graflume = (function (exports) {
             const normalized = normalizeSpec(spec);
             this.pause();
             this.#spec = spec;
+            this.#incrementalStores.clear();
             this.#annotations = normalized.annotations.map((annotation, index) => ({
                 ...cloneAnnotation(annotation),
                 id: annotationId(annotation, index),
             }));
             this.#selection = [];
+            this.#analyticSelection.clear();
+            this.#domainView = emptyDomainViewState();
             this.#annotationsVisible = true;
             this.#hiddenLegendItems.clear();
             this.#configureInteraction(normalized, true);
@@ -8667,6 +17044,8 @@ var Graflume = (function (exports) {
                 reason: 'spec',
             });
             this.#emitSelection('spec');
+            this.#emitAnalyticSelection('spec');
+            this.#emitDomainView('spec');
             this.#emitAnnotations('spec');
             this.#emitAnnotationVisibility('spec');
             this.#startAutoplay();
@@ -8702,6 +17081,9 @@ var Graflume = (function (exports) {
             this.#assertAlive();
             if (rows.length === 0)
                 return this;
+            if (this.#spec.streaming !== undefined) {
+                return this.updateData({ mode: 'append', rows }, layerId);
+            }
             if (layerId === undefined && this.#spec.data !== undefined) {
                 return this.setSpec({ ...this.#spec, data: appendInput(this.#spec.data, rows) });
             }
@@ -8727,6 +17109,52 @@ var Graflume = (function (exports) {
             if (!matched)
                 throw new GraflumeError('INVALID_DATA', `Layer "${targetLayerId}" was not found.`);
             return this.setSpec({ ...this.#spec, layers });
+        }
+        /** Apply a bounded stable-key mutation configured by ChartSpec.streaming. */
+        updateData(update, layerId) {
+            this.#assertAlive();
+            const streaming = this.#spec.streaming;
+            if (streaming === undefined) {
+                throw new GraflumeError('INVALID_DATA', 'updateData requires an explicit ChartSpec.streaming contract.');
+            }
+            const target = this.#streamingTarget(layerId);
+            const store = this.#incrementalStores.get(target.id) ?? new IncrementalDataStore(target.source, streaming);
+            const result = store.apply(update);
+            this.setData(result.rows, target.layerId);
+            this.#incrementalStores.set(target.id, store);
+            return this;
+        }
+        upsertData(rows, layerId, watermark) {
+            return this.updateData({ mode: 'upsert', rows, ...(watermark === undefined ? {} : { watermark }) }, layerId);
+        }
+        replaceLastData(rows, layerId, watermark) {
+            return this.updateData({ mode: 'replaceLast', rows, ...(watermark === undefined ? {} : { watermark }) }, layerId);
+        }
+        getStreamingState(layerId) {
+            this.#assertAlive();
+            const target = this.#streamingTarget(layerId, false);
+            return target === null ? null : (this.#incrementalStores.get(target.id)?.state() ?? null);
+        }
+        exportStreamingReplay(layerId) {
+            this.#assertAlive();
+            const target = this.#streamingTarget(layerId);
+            const store = this.#incrementalStores.get(target.id);
+            if (store === undefined) {
+                throw new GraflumeError('INVALID_DATA', 'No incremental updates are available to replay.');
+            }
+            return store.exportReplay();
+        }
+        replayData(replay, layerId) {
+            this.#assertAlive();
+            const target = this.#streamingTarget(layerId);
+            const streaming = this.#spec.streaming;
+            if (streaming === undefined || !incrementalContractsMatch(replay.options, streaming)) {
+                throw new GraflumeError('INVALID_DATA', 'Replay options do not match the current ChartSpec.streaming contract.');
+            }
+            const store = IncrementalDataStore.replay(replay);
+            this.setData(store.rows(), target.layerId);
+            this.#incrementalStores.set(target.id, store);
+            return this;
         }
         resize(width, height) {
             this.#assertAlive();
@@ -8781,6 +17209,55 @@ var Graflume = (function (exports) {
                 maxZoom: navigation.maxZoom,
             }), 'reset');
             return this;
+        }
+        getDomainViewState() {
+            this.#assertAlive();
+            return this.#domainView;
+        }
+        setDomainViewState(state) {
+            this.#assertAlive();
+            const navigation = this.#requireDomainNavigation();
+            const next = normalizeDomainViewState(state);
+            for (const axis of Object.keys(next.axes)) {
+                if (!navigation.axes.includes(axis)) {
+                    throw new GraflumeError('INVALID_SPEC', `Axis "${axis}" is not enabled by interaction.domainNavigation.axes.`);
+                }
+            }
+            return this.#setDomainView(next, 'programmatic');
+        }
+        zoomDomainBy(factor, anchor, axes) {
+            this.#assertAlive();
+            const navigation = this.#requireDomainNavigation();
+            const result = this.#result;
+            if (result === null)
+                return this;
+            const selectedAxes = this.#domainAxes(navigation, axes);
+            const point = anchor ?? {
+                x: result.coordinates.plot.x + result.coordinates.plot.width / 2,
+                y: result.coordinates.plot.y + result.coordinates.plot.height / 2,
+            };
+            let next = this.#domainView;
+            for (const axis of selectedAxes) {
+                next = zoomDomainAtPixel(next, result.coordinates, axis, factor, axis === 'x' || axis === 'x2' ? point.x : point.y, navigation.maxZoom);
+            }
+            return this.#setDomainView(next, 'zoom');
+        }
+        panDomainBy(deltaX, deltaY, axes) {
+            this.#assertAlive();
+            const navigation = this.#requireDomainNavigation();
+            const result = this.#result;
+            if (result === null)
+                return this;
+            let next = this.#domainView;
+            for (const axis of this.#domainAxes(navigation, axes)) {
+                next = panDomainByPixels(next, result.coordinates, axis, axis === 'x' || axis === 'x2' ? deltaX : deltaY);
+            }
+            return this.#setDomainView(next, 'pan');
+        }
+        resetDomainView() {
+            this.#assertAlive();
+            this.#requireDomainNavigation();
+            return this.#setDomainView(emptyDomainViewState(), 'reset');
         }
         play() {
             this.#assertAlive();
@@ -8925,7 +17402,10 @@ var Graflume = (function (exports) {
                 annotations: this.#annotations,
                 annotationsVisible: this.#annotationsVisible,
                 selection: this.#selection,
+                analyticSelection: this.#analyticSelection.get(),
+                domainView: this.#domainView,
             });
+            this.#validateAnalyticCapabilities(result);
             const factory = this.#registry.resolveRenderer(result.spec.renderer);
             const pixelRatio = this.#pixelRatio();
             const rendererChanged = this.#renderer === null || this.#rendererName !== factory.name;
@@ -8933,6 +17413,7 @@ var Graflume = (function (exports) {
                 this.#detachSurfaceEvents();
                 this.#controls.destroy();
                 this.#legend.destroy();
+                this.#accessibility.destroy();
                 this.#destroySelectionLive();
                 this.#renderer?.destroy();
                 this.#renderer = factory.create();
@@ -8974,9 +17455,43 @@ var Graflume = (function (exports) {
             this.#syncSurfaceEvents();
             this.#syncControls();
             this.#syncLegend();
+            this.#syncAccessibilityMirror();
             this.#syncSelectionAccessibility();
             this.#events.emit('render', { chart: this, scene: result.scene });
             return this;
+        }
+        #validateAnalyticCapabilities(result) {
+            const requireContinuous = (axis, feature) => {
+                const scale = result.coordinates.axes[axis];
+                if (scale === undefined) {
+                    throw new GraflumeError('INCOMPATIBLE_SCALE', `${feature} requires resolved axis "${axis}".`, { path: `$.axes.${axis}` });
+                }
+                if (scale.invert === undefined) {
+                    throw new GraflumeError('INCOMPATIBLE_SCALE', `${feature} requires an invertible continuous axis; "${axis}" uses "${scale.kind}".`, { path: `$.axes.${axis}` });
+                }
+            };
+            const navigation = result.spec.interaction.domainNavigation;
+            if (navigation !== false) {
+                for (const axis of navigation.axes)
+                    requireContinuous(axis, 'Domain navigation');
+            }
+            const selection = result.spec.interaction.selection;
+            if (selection === false) {
+                if (this.#analyticSelection.get().selections.length > 0) {
+                    throw new GraflumeError('INVALID_SPEC', 'Analytic selection state requires interaction.selection.');
+                }
+                return;
+            }
+            this.#validateAnalyticStateForConfig(this.#analyticSelection.get(), selection);
+            if (selection.kind === 'axis') {
+                requireContinuous(selection.axis, 'Axis selection');
+            }
+            else if (selection.kind === 'interval' ||
+                selection.kind === 'rectangle' ||
+                selection.kind === 'lasso') {
+                requireContinuous(selection.xAxis, `${selection.kind} selection`);
+                requireContinuous(selection.yAxis, `${selection.kind} selection`);
+            }
         }
         toDataURL(type, quality) {
             this.#assertAlive();
@@ -9009,6 +17524,7 @@ var Graflume = (function (exports) {
             this.#detachSurfaceEvents();
             this.#controls.destroy();
             this.#legend.destroy();
+            this.#accessibility.destroy();
             this.#destroySelectionLive();
             this.#tooltip.destroy();
             this.#renderer?.destroy();
@@ -9025,6 +17541,8 @@ var Graflume = (function (exports) {
                 this.#view = identityInspectionView;
             else if (reset)
                 this.#view = { zoom: navigation.minZoom, offsetX: 0, offsetY: 0 };
+            if (reset)
+                this.#domainView = emptyDomainViewState();
             this.#playback = spec.interaction.playback;
             if (this.#playback === false) {
                 this.#playbackFrames = [];
@@ -9049,6 +17567,48 @@ var Graflume = (function (exports) {
         }
         #navigation() {
             return this.#result?.spec.interaction.navigation ?? false;
+        }
+        #domainNavigation() {
+            return this.#result?.spec.interaction.domainNavigation ?? false;
+        }
+        #requireDomainNavigation() {
+            const navigation = this.#domainNavigation();
+            if (navigation === false) {
+                throw new GraflumeError('INVALID_SPEC', 'Enable interaction.domainNavigation before changing data domains.');
+            }
+            return navigation;
+        }
+        #domainAxes(navigation, requested) {
+            const axes = requested ?? navigation.axes;
+            if (axes.length === 0 || new Set(axes).size !== axes.length) {
+                throw new GraflumeError('INVALID_SPEC', 'Domain navigation axes must be non-empty and unique.');
+            }
+            for (const axis of axes) {
+                if (!navigation.axes.includes(axis)) {
+                    throw new GraflumeError('INVALID_SPEC', `Axis "${axis}" is not enabled by interaction.domainNavigation.axes.`);
+                }
+            }
+            return axes;
+        }
+        #setDomainView(state, reason) {
+            const next = normalizeDomainViewState(state);
+            if (sameDomainView(next, this.#domainView))
+                return this;
+            const previous = this.#domainView;
+            this.#domainView = next;
+            this.#tooltip.hide();
+            try {
+                this.render();
+            }
+            catch (error) {
+                this.#domainView = previous;
+                throw error;
+            }
+            this.#emitDomainView(reason);
+            return this;
+        }
+        #emitDomainView(reason) {
+            this.#events.emit('domainviewchange', { chart: this, state: this.#domainView, reason });
         }
         #requireNavigation() {
             const navigation = this.#navigation();
@@ -9095,6 +17655,7 @@ var Graflume = (function (exports) {
             this.#syncSurfaceConfiguration();
             this.#syncControls();
             this.#syncLegend();
+            this.#syncAccessibilityMirror();
             this.#emitView(reason);
         }
         #emitView(reason) {
@@ -9340,17 +17901,28 @@ var Graflume = (function (exports) {
             if (surface === null)
                 return;
             const navigation = this.#navigation();
+            const domainNavigation = this.#domainNavigation();
+            const selection = this.#result?.spec.interaction.selection;
+            const analyticDrag = selection !== undefined && selection !== false && selection.kind !== 'point';
             const inspecting = this.#view.zoom > 1 || this.#view.offsetX !== 0 || this.#view.offsetY !== 0;
             surface.style.touchAction =
-                navigation !== false && (navigation.drag || navigation.pinch)
-                    ? inspecting
-                        ? 'none'
-                        : 'pan-y'
-                    : (this.#surfaceTouchAction ?? '');
-            surface.style.cursor =
-                navigation !== false && navigation.drag ? 'grab' : (this.#surfaceCursor ?? '');
-            const selection = this.#result?.spec.interaction.selection;
+                analyticDrag || (domainNavigation !== false && domainNavigation.drag)
+                    ? 'none'
+                    : navigation !== false && (navigation.drag || navigation.pinch)
+                        ? inspecting
+                            ? 'none'
+                            : 'pan-y'
+                        : (this.#surfaceTouchAction ?? '');
+            surface.style.cursor = analyticDrag
+                ? 'crosshair'
+                : domainNavigation !== false && domainNavigation.drag
+                    ? 'grab'
+                    : navigation !== false && navigation.drag
+                        ? 'grab'
+                        : (this.#surfaceCursor ?? '');
             if ((navigation !== false && navigation.keyboard) ||
+                (domainNavigation !== false && domainNavigation.keyboard) ||
+                this.#result?.spec.accessibility.navigation === true ||
                 (selection !== undefined && selection !== false && selection.clearOnEscape))
                 surface.tabIndex = 0;
             else if (this.#surfaceTabIndex === null)
@@ -9386,13 +17958,20 @@ var Graflume = (function (exports) {
         #cancelActiveGesture() {
             const surface = this.#eventSurface;
             if (surface !== null) {
-                for (const pointerId of this.#activePointers.keys()) {
+                const pointerIds = new Set(this.#activePointers.keys());
+                if (this.#analyticGesture !== null)
+                    pointerIds.add(this.#analyticGesture.pointerId);
+                if (this.#domainGesture !== null)
+                    pointerIds.add(this.#domainGesture.pointerId);
+                for (const pointerId of pointerIds) {
                     if (surface.hasPointerCapture?.(pointerId))
                         surface.releasePointerCapture?.(pointerId);
                 }
                 surface.style.cursor = this.#surfaceCursor ?? '';
             }
             this.#activePointers.clear();
+            this.#analyticGesture = null;
+            this.#domainGesture = null;
             this.#dragPrevious = null;
             this.#pinchStart = null;
             this.#dragDistance = 0;
@@ -9410,6 +17989,17 @@ var Graflume = (function (exports) {
             };
         }
         #handleWheel(event) {
+            const domainNavigation = this.#domainNavigation();
+            if (domainNavigation !== false &&
+                domainNavigation.wheel !== 'off' &&
+                (domainNavigation.wheel !== 'modifier' || event.ctrlKey || event.metaKey)) {
+                const point = this.#surfacePoint(event);
+                if (point === null)
+                    return;
+                event.preventDefault();
+                this.zoomDomainBy(Math.exp(-event.deltaY * 0.002), point);
+                return;
+            }
             const navigation = this.#navigation();
             if (navigation === false ||
                 navigation.wheel === 'off' ||
@@ -9423,13 +18013,42 @@ var Graflume = (function (exports) {
             this.zoomBy(Math.exp(-event.deltaY * 0.002), point);
         }
         #handlePointerDown(event) {
-            const navigation = this.#navigation();
-            if (navigation === false || (event.pointerType === 'mouse' && event.button !== 0))
-                return;
-            if (!navigation.drag && !(navigation.pinch && event.pointerType === 'touch'))
+            if (event.pointerType === 'mouse' && event.button !== 0)
                 return;
             const point = this.#surfacePoint(event);
             if (point === null)
+                return;
+            const selection = this.#result?.spec.interaction.selection;
+            if (selection !== undefined &&
+                selection !== false &&
+                selection.kind !== 'point' &&
+                this.#analyticGesture === null) {
+                this.#analyticGesture = {
+                    pointerId: event.pointerId,
+                    start: point,
+                    current: point,
+                    points: [point],
+                };
+                this.#suppressClick = false;
+                this.#dragDistance = 0;
+                this.#eventSurface?.setPointerCapture?.(event.pointerId);
+                event.preventDefault();
+                return;
+            }
+            const domainNavigation = this.#domainNavigation();
+            if (domainNavigation !== false && domainNavigation.drag && this.#domainGesture === null) {
+                this.#domainGesture = { pointerId: event.pointerId, previous: point };
+                this.#suppressClick = false;
+                this.#dragDistance = 0;
+                this.#eventSurface?.setPointerCapture?.(event.pointerId);
+                this.#eventSurface?.style.setProperty('cursor', 'grabbing');
+                event.preventDefault();
+                return;
+            }
+            const navigation = this.#navigation();
+            if (navigation === false)
+                return;
+            if (!navigation.drag && !(navigation.pinch && event.pointerType === 'touch'))
                 return;
             if (this.#activePointers.size === 0) {
                 this.#suppressClick = false;
@@ -9444,6 +18063,41 @@ var Graflume = (function (exports) {
             event.preventDefault();
         }
         #handlePointerMove(event) {
+            if (this.#analyticGesture?.pointerId === event.pointerId) {
+                const point = this.#surfacePoint(event);
+                if (point === null)
+                    return false;
+                const gesture = this.#analyticGesture;
+                this.#dragDistance += pointDistance(gesture.current, point);
+                gesture.current = point;
+                const selection = this.#result?.spec.interaction.selection;
+                if (selection !== undefined && selection !== false && selection.kind === 'lasso') {
+                    const last = gesture.points.at(-1);
+                    if (gesture.points.length < selection.maxLassoPoints &&
+                        (last === undefined || pointDistance(last, point) >= 2)) {
+                        gesture.points.push(point);
+                    }
+                }
+                if (this.#dragDistance > 4)
+                    this.#suppressClick = true;
+                event.preventDefault();
+                return true;
+            }
+            if (this.#domainGesture?.pointerId === event.pointerId) {
+                const point = this.#surfacePoint(event);
+                if (point === null)
+                    return false;
+                const previous = this.#domainGesture.previous;
+                const deltaX = point.x - previous.x;
+                const deltaY = point.y - previous.y;
+                this.#dragDistance += Math.hypot(deltaX, deltaY);
+                this.#domainGesture.previous = point;
+                this.panDomainBy(deltaX, deltaY);
+                if (this.#dragDistance > 4)
+                    this.#suppressClick = true;
+                event.preventDefault();
+                return true;
+            }
             const navigation = this.#navigation();
             if (navigation === false || !this.#activePointers.has(event.pointerId))
                 return false;
@@ -9491,7 +18145,35 @@ var Graflume = (function (exports) {
             event.preventDefault();
             return true;
         }
-        #handlePointerEnd(event) {
+        #handlePointerEnd(event, cancelled = false) {
+            if (this.#analyticGesture?.pointerId === event.pointerId) {
+                const gesture = this.#analyticGesture;
+                const point = this.#surfacePoint(event);
+                if (point !== null)
+                    gesture.current = point;
+                this.#analyticGesture = null;
+                if (this.#eventSurface?.hasPointerCapture?.(event.pointerId)) {
+                    this.#eventSurface.releasePointerCapture?.(event.pointerId);
+                }
+                this.#suppressClick = true;
+                if (!cancelled) {
+                    try {
+                        this.#completeAnalyticGesture(gesture);
+                    }
+                    catch (error) {
+                        this.#events.emit('error', { chart: this, error });
+                    }
+                }
+                return;
+            }
+            if (this.#domainGesture?.pointerId === event.pointerId) {
+                this.#domainGesture = null;
+                if (this.#eventSurface?.hasPointerCapture?.(event.pointerId)) {
+                    this.#eventSurface.releasePointerCapture?.(event.pointerId);
+                }
+                this.#eventSurface?.style.setProperty('cursor', this.#domainNavigation() !== false ? 'grab' : (this.#surfaceCursor ?? ''));
+                return;
+            }
             if (!this.#activePointers.has(event.pointerId))
                 return;
             this.#activePointers.delete(event.pointerId);
@@ -9507,6 +18189,64 @@ var Graflume = (function (exports) {
             if (remaining.length === 0) {
                 this.#eventSurface?.style.setProperty('cursor', navigation !== false && navigation.drag ? 'grab' : (this.#surfaceCursor ?? ''));
             }
+        }
+        #completeAnalyticGesture(gesture) {
+            const result = this.#result;
+            const selection = result?.spec.interaction.selection;
+            if (result === null || result === undefined || selection === undefined || selection === false)
+                return;
+            const spanX = Math.abs(gesture.current.x - gesture.start.x);
+            const spanY = Math.abs(gesture.current.y - gesture.start.y);
+            let resolved;
+            if (selection.kind === 'axis') {
+                const span = selection.axis === 'x' || selection.axis === 'x2' ? spanX : spanY;
+                if (span < selection.minPixelSpan)
+                    return;
+                resolved = pixelAxisToSelection(result.coordinates, selection.axis, gesture.start, gesture.current);
+            }
+            else if (selection.kind === 'lasso') {
+                const last = gesture.points.at(-1);
+                if (last === undefined || pointDistance(last, gesture.current) >= 2) {
+                    gesture.points.push(gesture.current);
+                }
+                if (gesture.points.length < 3 || Math.max(spanX, spanY) < selection.minPixelSpan) {
+                    return;
+                }
+                resolved = pixelLassoToSelection(result.coordinates, gesture.points, {
+                    x: selection.xAxis,
+                    y: selection.yAxis,
+                });
+            }
+            else if (selection.kind === 'interval' || selection.kind === 'rectangle') {
+                if (Math.max(spanX, spanY) < selection.minPixelSpan)
+                    return;
+                resolved = pixelRectangleToSelection(result.coordinates, gesture.start, gesture.current, {
+                    type: selection.kind,
+                    xAxis: selection.xAxis,
+                    yAxis: selection.yAxis,
+                });
+            }
+            else
+                return;
+            const previous = this.#analyticSelection.get();
+            if (selection.mode === 'single') {
+                this.#analyticSelection.set({
+                    version: analyticSelectionVersion,
+                    combine: selection.combine,
+                    selections: [resolved],
+                });
+            }
+            else
+                this.#analyticSelection.apply(resolved, selection.combine);
+            try {
+                this.#validateAnalyticStateForConfig(this.#analyticSelection.get(), selection);
+                this.render();
+            }
+            catch (error) {
+                this.#analyticSelection.set(previous);
+                throw error;
+            }
+            this.#emitAnalyticSelection('pointer');
         }
         #pinchSnapshot(navigation) {
             if (!navigation.pinch || this.#activePointers.size < 2)
@@ -9526,10 +18266,50 @@ var Graflume = (function (exports) {
                 selection !== undefined &&
                 selection !== false &&
                 selection.clearOnEscape &&
-                this.#selection.length > 0) {
-                this.clearSelection();
+                (this.#selection.length > 0 || this.#analyticSelection.get().selections.length > 0)) {
+                if (selection.kind === 'point')
+                    this.clearSelection();
+                else
+                    this.clearAnalyticSelection();
                 event.preventDefault();
                 return;
+            }
+            const domainNavigation = this.#domainNavigation();
+            if (domainNavigation !== false && domainNavigation.keyboard) {
+                const before = this.#domainView;
+                let handled = true;
+                switch (event.key) {
+                    case '+':
+                    case '=':
+                        this.zoomDomainBy(1.25);
+                        break;
+                    case '-':
+                    case '_':
+                        this.zoomDomainBy(0.8);
+                        break;
+                    case 'ArrowLeft':
+                        this.panDomainBy(24, 0);
+                        break;
+                    case 'ArrowRight':
+                        this.panDomainBy(-24, 0);
+                        break;
+                    case 'ArrowUp':
+                        this.panDomainBy(0, 24);
+                        break;
+                    case 'ArrowDown':
+                        this.panDomainBy(0, -24);
+                        break;
+                    case '0':
+                    case 'Home':
+                        this.resetDomainView();
+                        break;
+                    default:
+                        handled = false;
+                }
+                if (handled && !sameDomainView(before, this.#domainView))
+                    event.preventDefault();
+                if (handled)
+                    return;
             }
             const navigation = this.#navigation();
             if (navigation === false || !navigation.keyboard)
@@ -9613,11 +18393,15 @@ var Graflume = (function (exports) {
             const selection = this.#result?.spec.interaction.selection;
             if (selection === undefined || selection === false)
                 return;
+            if (selection.kind !== 'point')
+                return;
             if (hit === null) {
                 if (selection.clearOnBackground && this.#selection.length > 0) {
                     this.#selection = [];
+                    this.#analyticSelection.clear(selection.combine);
                     this.render();
                     this.#emitSelection('click');
+                    this.#emitAnalyticSelection('pointer');
                 }
                 return;
             }
@@ -9652,12 +18436,55 @@ var Graflume = (function (exports) {
             }
             if (before === this.#selection.map(selectionKey).join('|'))
                 return;
+            this.#syncAnalyticPointTargets();
             this.render();
             this.#emitSelection('click');
+            this.#emitAnalyticSelection('pointer');
         }
         #emitSelection(reason) {
             this.#syncSelectionAccessibility();
             this.#events.emit('selectionchange', { chart: this, state: this.getSelection(), reason });
+        }
+        #requireAnalyticSelection() {
+            const selection = this.#result?.spec.interaction.selection;
+            if (selection === undefined || selection === false) {
+                throw new GraflumeError('INVALID_SPEC', 'Enable interaction.selection before changing analytic selection state.');
+            }
+            return selection;
+        }
+        #validateAnalyticStateForConfig(state, config) {
+            if (state.selections.length > config.maxSelections) {
+                throw new GraflumeError('INVALID_SPEC', `Analytic selection exceeds the configured ${config.maxSelections} selection bound.`);
+            }
+            if (config.mode === 'single' && state.selections.length > 1) {
+                throw new GraflumeError('INVALID_SPEC', 'Single selection mode accepts at most one selection.');
+            }
+            for (const selection of state.selections) {
+                if (selection.type !== config.kind) {
+                    throw new GraflumeError('INVALID_SPEC', `Selection type "${selection.type}" does not match configured kind "${config.kind}".`);
+                }
+                if (selection.type === 'lasso' && selection.points.length > config.maxLassoPoints) {
+                    throw new GraflumeError('INVALID_SPEC', `Lasso selection exceeds the configured ${config.maxLassoPoints} point bound.`);
+                }
+            }
+        }
+        #syncAnalyticPointTargets() {
+            const config = this.#result?.spec.interaction.selection;
+            if (config === undefined || config === false || config.kind !== 'point')
+                return;
+            this.#analyticSelection.set({
+                version: analyticSelectionVersion,
+                combine: config.combine,
+                selections: this.#selection.map((target) => ({ type: 'point', target })),
+            });
+        }
+        #emitAnalyticSelection(reason) {
+            this.#syncSelectionAccessibility();
+            this.#events.emit('analyticselectionchange', {
+                chart: this,
+                state: this.#analyticSelection.get(),
+                reason,
+            });
         }
         #emitAnnotations(reason, id) {
             this.#events.emit('annotationchange', {
@@ -9707,17 +18534,31 @@ var Graflume = (function (exports) {
                 return;
             }
             const navigation = this.#navigation();
+            const domainNavigation = this.#domainNavigation();
+            const domainZoom = domainNavigation === false
+                ? 1
+                : Math.max(...domainNavigation.axes.map((axis) => {
+                    const window = domainAxisWindow(this.#domainView, axis);
+                    return 1 / (window.end - window.start);
+                }));
             const playbackState = this.getPlaybackState();
             const state = {
                 spec: controls,
-                navigationEnabled: navigation !== false &&
-                    this.#renderer?.capabilities.inspectionViewport === true &&
-                    this.#renderer.setInspectionView !== undefined,
-                viewDirty: navigation !== false &&
-                    !sameView(this.#view, { zoom: navigation.minZoom, offsetX: 0, offsetY: 0 }),
-                zoom: this.#view.zoom,
-                minZoom: navigation === false ? 1 : navigation.minZoom,
-                maxZoom: navigation === false ? 1 : navigation.maxZoom,
+                navigationEnabled: domainNavigation !== false ||
+                    (navigation !== false &&
+                        this.#renderer?.capabilities.inspectionViewport === true &&
+                        this.#renderer.setInspectionView !== undefined),
+                viewDirty: domainNavigation !== false
+                    ? !domainViewIsIdentity(this.#domainView)
+                    : navigation !== false &&
+                        !sameView(this.#view, { zoom: navigation.minZoom, offsetX: 0, offsetY: 0 }),
+                zoom: domainNavigation === false ? this.#view.zoom : domainZoom,
+                minZoom: domainNavigation === false ? (navigation === false ? 1 : navigation.minZoom) : 1,
+                maxZoom: domainNavigation === false
+                    ? navigation === false
+                        ? 1
+                        : navigation.maxZoom
+                    : domainNavigation.maxZoom,
                 fullscreenAvailable: this.#fullscreenAvailable(),
                 fullscreen: this.#fullscreen,
                 exportAvailable: this.#renderer?.toDataURL !== undefined &&
@@ -9735,9 +18576,9 @@ var Graflume = (function (exports) {
                     : String(playbackState.frame ?? ''),
             };
             const actions = {
-                zoomIn: () => this.zoomBy(1.25),
-                zoomOut: () => this.zoomBy(0.8),
-                reset: () => this.resetView(),
+                zoomIn: () => (domainNavigation === false ? this.zoomBy(1.25) : this.zoomDomainBy(1.25)),
+                zoomOut: () => (domainNavigation === false ? this.zoomBy(0.8) : this.zoomDomainBy(0.8)),
+                reset: () => (domainNavigation === false ? this.resetView() : this.resetDomainView()),
                 toggleFullscreen: () => void this.toggleFullscreen().catch(() => undefined),
                 exportPng: () => this.#exportPng(),
                 toggleAnnotations: () => this.toggleAnnotations(),
@@ -9761,16 +18602,120 @@ var Graflume = (function (exports) {
                 setVisible: (id, visible) => this.#setLegendItemVisible(id, visible, 'toggle'),
             });
         }
+        #semanticSelected(mark, target) {
+            if (target.layerId !== undefined && target.layerId !== mark.layerId)
+                return false;
+            if (target.rowIndex !== undefined) {
+                const rows = Array.isArray(target.rowIndex) ? target.rowIndex : [target.rowIndex];
+                if (!rows.includes(mark.rowIndex))
+                    return false;
+            }
+            if (target.field !== undefined) {
+                const value = mark.datum[target.field];
+                const values = target.values ?? (target.value === undefined ? [] : [target.value]);
+                if (!values.some((candidate) => Object.is(candidate, value)))
+                    return false;
+            }
+            return target.rowIndex !== undefined || target.field !== undefined;
+        }
+        #semanticSelectionTarget(mark) {
+            const selection = this.#result?.spec.interaction.selection;
+            if (selection !== undefined && selection !== false && selection.key !== undefined) {
+                const value = mark.datum[selection.key];
+                if (value === null ||
+                    typeof value === 'string' ||
+                    typeof value === 'boolean' ||
+                    (typeof value === 'number' && Number.isFinite(value))) {
+                    return { type: 'datum', layerId: mark.layerId, field: selection.key, value };
+                }
+            }
+            return { type: 'datum', layerId: mark.layerId, rowIndex: mark.rowIndex };
+        }
+        #toggleSemanticSelection(mark) {
+            const selection = this.#result?.spec.interaction.selection;
+            if (selection === undefined || selection === false)
+                return;
+            if (selection.kind !== 'point')
+                return;
+            const target = this.#semanticSelectionTarget(mark);
+            const key = selectionKey(target);
+            const existing = this.#selection.findIndex((candidate) => selectionKey(candidate) === key);
+            if (selection.mode === 'single') {
+                this.setSelection(existing >= 0 && selection.toggle ? [] : [target]);
+                return;
+            }
+            if (existing >= 0 && selection.toggle) {
+                this.setSelection(this.#selection.filter((_, index) => index !== existing));
+            }
+            else if (existing < 0)
+                this.setSelection([...this.#selection, target]);
+        }
+        #focusSemanticMark(mark) {
+            if (mark === null) {
+                this.#tooltip.hide();
+                return;
+            }
+            const result = this.#result;
+            const surface = this.#renderer?.surface();
+            const host = this.#renderer?.overlayHost?.();
+            if (result === null ||
+                result.spec.interaction.tooltip === false ||
+                surface === null ||
+                surface === undefined ||
+                host === null ||
+                host === undefined)
+                return;
+            const x = (mark.bounds.x + mark.bounds.width / 2) * this.#view.zoom + this.#view.offsetX;
+            const y = (mark.bounds.y + mark.bounds.height / 2) * this.#view.zoom + this.#view.offsetY;
+            const hostBounds = host.getBoundingClientRect();
+            const hit = {
+                layerId: mark.layerId,
+                rowIndex: mark.rowIndex,
+                datum: mark.datum,
+                nodeId: mark.id,
+                x,
+                y,
+                distance: 0,
+            };
+            this.#tooltip.showAt(resolveTooltipContent(hit, result.spec), hit, hostBounds.left + x, hostBounds.top + y, surface, host);
+        }
+        #syncAccessibilityMirror() {
+            const result = this.#result;
+            const surface = this.#renderer?.surface();
+            const host = this.#renderer?.overlayHost?.();
+            if (result === null ||
+                surface === null ||
+                surface === undefined ||
+                host === null ||
+                host === undefined) {
+                this.#accessibility.destroy();
+                return;
+            }
+            const selectedIds = new Set(result.scene.semanticIndex
+                .filter((mark) => this.#selection.some((target) => this.#semanticSelected(mark, target)))
+                .map(({ id }) => id));
+            this.#accessibility.sync(this.#target, host, surface, result.scene.semanticIndex, result.spec.accessibility, this.#view, selectedIds, {
+                toggle: (mark) => this.#toggleSemanticSelection(mark),
+                clear: () => this.clearSelection(),
+                focus: (mark) => this.#focusSemanticMark(mark),
+            });
+        }
         #syncSelectionAccessibility() {
             const host = this.#renderer?.overlayHost?.();
             const selection = this.#result?.spec.interaction.selection;
-            if (host === null || host === undefined || selection === undefined || selection === false) {
+            const live = this.#result?.spec.accessibility.live;
+            if (host === null ||
+                host === undefined ||
+                selection === undefined ||
+                selection === false ||
+                live === undefined ||
+                live === false) {
                 this.#destroySelectionLive();
                 return;
             }
             if (this.#selectionLiveHost !== host) {
                 this.#destroySelectionLive();
-                const live = document.createElement('div');
+                const live = host.ownerDocument.createElement('div');
                 live.dataset.graflumeSelectionStatus = 'true';
                 live.setAttribute('role', 'status');
                 live.setAttribute('aria-live', 'polite');
@@ -9784,12 +18729,34 @@ var Graflume = (function (exports) {
                 this.#selectionLiveHost = host;
             }
             if (this.#selectionLive !== null) {
-                const summary = `${selection.ariaLabel}: ${this.#selection.length}`;
-                if (this.#selectionLive.textContent !== summary)
-                    this.#selectionLive.textContent = summary;
+                const selectedCount = selection.kind === 'point'
+                    ? this.#selection.length
+                    : this.#analyticSelection.get().selections.length;
+                const summary = `${selection.ariaLabel}: ${selectedCount}`;
+                if (this.#selectionLive.textContent === summary)
+                    return;
+                const throttleMs = live.throttleMs;
+                const elapsed = Date.now() - this.#selectionLiveUpdatedAt;
+                const update = () => {
+                    if (this.#selectionLive !== null)
+                        this.#selectionLive.textContent = summary;
+                    this.#selectionLiveUpdatedAt = Date.now();
+                    this.#selectionLiveTimer = null;
+                };
+                if (this.#selectionLiveUpdatedAt === 0 || elapsed >= throttleMs)
+                    update();
+                else {
+                    if (this.#selectionLiveTimer !== null)
+                        clearTimeout(this.#selectionLiveTimer);
+                    this.#selectionLiveTimer = setTimeout(update, throttleMs - elapsed);
+                }
             }
         }
         #destroySelectionLive() {
+            if (this.#selectionLiveTimer !== null)
+                clearTimeout(this.#selectionLiveTimer);
+            this.#selectionLiveTimer = null;
+            this.#selectionLiveUpdatedAt = 0;
             this.#selectionLive?.remove();
             this.#selectionLive = null;
             this.#selectionLiveHost = null;
@@ -9810,6 +18777,35 @@ var Graflume = (function (exports) {
                 this.#events.emit('error', { chart: this, error });
             }
         }
+        #streamingTarget(layerId, required = true) {
+            if (this.#spec.streaming === undefined) {
+                if (!required)
+                    return null;
+                throw new GraflumeError('INVALID_DATA', 'An explicit ChartSpec.streaming contract is required.');
+            }
+            if (layerId === undefined && this.#spec.data !== undefined) {
+                return { id: '$chart', source: this.#spec.data };
+            }
+            const layers = this.#spec.layers;
+            if (layers === undefined) {
+                if (!required)
+                    return null;
+                throw new GraflumeError('INVALID_DATA', 'The chart has no layer data to update.');
+            }
+            const targetLayerId = layerId ?? (layers.length === 1 ? (layers[0]?.id ?? 'layer-0') : undefined);
+            if (targetLayerId === undefined) {
+                throw new GraflumeError('INVALID_DATA', 'Specify layerId when updating a multi-layer chart.');
+            }
+            const index = layers.findIndex((layer, candidate) => (layer.id ?? `layer-${candidate}`) === targetLayerId);
+            const layer = layers[index];
+            const source = layer?.data ?? this.#spec.data;
+            if (layer === undefined || source === undefined) {
+                if (!required)
+                    return null;
+                throw new GraflumeError('INVALID_DATA', `Layer "${targetLayerId}" has no data source.`);
+            }
+            return { id: `layer:${targetLayerId}`, source, layerId: targetLayerId };
+        }
         #assertAlive() {
             if (this.#destroyed) {
                 throw new GraflumeError('DESTROYED_CHART', 'This chart instance has been destroyed.');
@@ -9817,8 +18813,351 @@ var Graflume = (function (exports) {
         }
     }
 
+    const shapeRange = ['circle', 'square', 'diamond', 'triangle', 'cross'];
+    const dashRange = [[], [7, 4], [2, 3], [10, 3, 2, 3], [1, 3]];
+    function truthy(value) {
+        return value !== false && value !== null && value !== undefined && value !== 0 && value !== '';
+    }
+    function key(value) {
+        if (value instanceof Date)
+            return value.toISOString();
+        return Array.isArray(value) ? JSON.stringify(value) : `${typeof value}:${String(value)}`;
+    }
+    function numeric(value) {
+        if (value instanceof Date)
+            return value.getTime();
+        if (typeof value === 'number' && Number.isFinite(value))
+            return value;
+        if (typeof value === 'string' && value.trim() !== '') {
+            const parsed = Number(value);
+            if (Number.isFinite(parsed))
+                return parsed;
+            const date = Date.parse(value);
+            return Number.isFinite(date) ? date : null;
+        }
+        return null;
+    }
+    function channelSpec(context, channel) {
+        if (channel === 'x' || channel === 'y') {
+            return { ...context.layer.encoding[channel], condition: [] };
+        }
+        return context.layer.encoding[channel];
+    }
+    function resolvedFrom(spec, row) {
+        for (const condition of spec.condition) {
+            if (!truthy(evaluateTransformExpression(condition.test, row)))
+                continue;
+            if (condition.field !== undefined)
+                return { value: row[condition.field], literal: false };
+            return { value: condition.value, literal: true };
+        }
+        if (spec.field !== undefined)
+            return { value: row[spec.field], literal: false };
+        return { value: spec.value, literal: true };
+    }
+    function rawFrom(spec, row) {
+        return resolvedFrom(spec, row).value;
+    }
+    function fieldValues(context, spec) {
+        const values = [];
+        for (let rowIndex = 0; rowIndex < context.table.length; rowIndex += 1) {
+            const resolved = resolvedFrom(spec, context.table.row(rowIndex));
+            if (!resolved.literal && resolved.value !== null && resolved.value !== undefined) {
+                values.push(resolved.value);
+            }
+        }
+        return values;
+    }
+    function uniqueValues(values) {
+        const seen = new Set();
+        const result = [];
+        for (const value of values) {
+            if ((typeof value === 'object' && !(value instanceof Date)) || typeof value === 'boolean')
+                continue;
+            const normalized = value instanceof Date ? value.getTime() : value;
+            if (normalized === null || normalized === undefined)
+                continue;
+            const id = key(normalized);
+            if (seen.has(id))
+                continue;
+            seen.add(id);
+            result.push(normalized);
+        }
+        return result;
+    }
+    function numericExtent(values, includeZero = false) {
+        let minimum = includeZero ? 0 : Number.POSITIVE_INFINITY;
+        let maximum = includeZero ? 0 : Number.NEGATIVE_INFINITY;
+        for (const value of values) {
+            const number = numeric(value);
+            if (number === null)
+                continue;
+            minimum = Math.min(minimum, number);
+            maximum = Math.max(maximum, number);
+        }
+        if (!Number.isFinite(minimum) || !Number.isFinite(maximum))
+            return [0, 1];
+        if (minimum === maximum) {
+            const delta = minimum === 0 ? 1 : Math.abs(minimum) * 0.05;
+            minimum -= delta;
+            maximum += delta;
+        }
+        return [minimum, maximum];
+    }
+    function numericSamples(values) {
+        return values.map(numeric).filter((value) => value !== null);
+    }
+    function scaleType(spec) {
+        return spec.scale.type;
+    }
+    function isCategorical(spec, values) {
+        if (spec.type === 'nominal' || spec.type === 'ordinal')
+            return true;
+        if (spec.type === 'quantitative' || spec.type === 'temporal')
+            return false;
+        return values.some((value) => typeof value === 'string' &&
+            !Number.isFinite(Number(value)) &&
+            !Number.isFinite(Date.parse(value)));
+    }
+    function defaultNumericRange(channel) {
+        switch (channel) {
+            case 'size':
+                return [16, 400];
+            case 'radius':
+                return [2, 18];
+            case 'opacity':
+                return [0.15, 1];
+            case 'strokeWidth':
+                return [0.5, 8];
+            default:
+                return [0, 1];
+        }
+    }
+    class EncodingResolver {
+        context;
+        #channels = new Map();
+        constructor(context) {
+            this.context = context;
+        }
+        #prepare(channel) {
+            if (this.#channels.has(channel))
+                return this.#channels.get(channel) ?? undefined;
+            const spec = channelSpec(this.context, channel);
+            if (spec === undefined) {
+                this.#channels.set(channel, null);
+                return undefined;
+            }
+            const values = fieldValues(this.context, spec);
+            const categories = uniqueValues(values);
+            const categoryIndices = new Map(categories.map((value, index) => [key(value), index]));
+            const type = scaleType(spec);
+            const usesField = spec.field !== undefined || spec.condition.some((condition) => condition.field !== undefined);
+            let positionScale;
+            let colorScale;
+            if (channel === 'x2')
+                positionScale = this.context.xScale;
+            else if (channel === 'y2')
+                positionScale = this.context.yScale;
+            else if (usesField && (channel === 'color' || channel === 'fill' || channel === 'stroke')) {
+                const categorical = type === undefined ? isCategorical(spec, values) : type === 'ordinal';
+                if (categorical || type === 'ordinal') {
+                    colorScale = createColorScale({ ...spec.scale, type: 'ordinal' }, {
+                        domain: categories,
+                        range: categories.map((_value, index) => categoricalColor(this.context.theme, index, categories.length)),
+                    });
+                }
+                else if (type === 'sequential' || type === 'diverging' || type === 'cyclic') {
+                    const domain = type === 'diverging'
+                        ? (() => {
+                            const [minimum, maximum] = numericExtent(values, spec.scale.zero === true);
+                            return [minimum, (minimum + maximum) / 2, maximum];
+                        })()
+                        : numericExtent(values, spec.scale.zero === true);
+                    colorScale = createColorScale(spec.scale, {
+                        domain,
+                        range: type === 'diverging'
+                            ? this.context.theme.colors.diverging
+                            : this.context.theme.colors.sequential,
+                    });
+                }
+                else {
+                    const numericDomain = type === 'quantile'
+                        ? numericSamples(values)
+                        : type === 'threshold' && spec.scale.domain !== undefined
+                            ? spec.scale.domain
+                            : numericExtent(values, spec.scale.zero === true);
+                    const thresholdCount = type === 'threshold' && spec.scale.domain !== undefined
+                        ? spec.scale.domain.length + 1
+                        : 2;
+                    const thresholdRange = Array.from({ length: thresholdCount }, (_value, index) => index / Math.max(1, thresholdCount - 1));
+                    const numericColorScale = spec.scale.outOfBounds === undefined && spec.scale.clamp === undefined
+                        ? { ...spec.scale, nice: false, outOfBounds: 'clamp' }
+                        : { ...spec.scale, nice: false };
+                    positionScale = createPositionScale(numericColorScale, {
+                        domain: numericDomain,
+                        range: thresholdRange,
+                        type: (type ?? 'linear'),
+                    });
+                }
+            }
+            else if (usesField &&
+                (channel === 'size' ||
+                    channel === 'radius' ||
+                    channel === 'opacity' ||
+                    channel === 'strokeWidth')) {
+                const categorical = isCategorical(spec, values) || type === 'ordinal';
+                const output = defaultNumericRange(channel);
+                const categoryCount = Math.max(1, categories.length);
+                const range = categorical
+                    ? Array.from({ length: categoryCount }, (_value, index) => output[0] + ((output[1] - output[0]) * index) / Math.max(1, categoryCount - 1))
+                    : output;
+                positionScale = createPositionScale({ ...spec.scale, nice: false }, {
+                    domain: type === 'quantile'
+                        ? numericSamples(values)
+                        : categorical
+                            ? categories
+                            : numericExtent(values, spec.scale.zero === true),
+                    range,
+                    type: (categorical ? 'ordinal' : (type ?? 'linear')),
+                });
+            }
+            const prepared = {
+                spec,
+                values,
+                categories,
+                categoryIndices,
+                ...(positionScale === undefined ? {} : { positionScale }),
+                ...(colorScale === undefined ? {} : { colorScale }),
+            };
+            this.#channels.set(channel, prepared);
+            return prepared;
+        }
+        has(channel) {
+            return channelSpec(this.context, channel) !== undefined;
+        }
+        raw(channel, rowIndex) {
+            const prepared = this.#prepare(channel);
+            return prepared === undefined
+                ? undefined
+                : rawFrom(prepared.spec, this.context.table.row(rowIndex));
+        }
+        number(channel, rowIndex, fallback) {
+            const prepared = this.#prepare(channel);
+            if (prepared === undefined)
+                return fallback;
+            const resolved = resolvedFrom(prepared.spec, this.context.table.row(rowIndex));
+            const value = resolved.value;
+            if (resolved.literal)
+                return numeric(value) ?? fallback;
+            if (prepared.positionScale !== undefined) {
+                const input = value instanceof Date || typeof value === 'number' || typeof value === 'string'
+                    ? value
+                    : null;
+                if (input === null)
+                    return fallback;
+                const mapped = prepared.positionScale.map(input);
+                return Number.isFinite(mapped) ? mapped : fallback;
+            }
+            return numeric(value) ?? fallback;
+        }
+        position(channel, rowIndex) {
+            const prepared = this.#prepare(channel);
+            if (prepared?.positionScale === undefined)
+                return null;
+            const value = rawFrom(prepared.spec, this.context.table.row(rowIndex));
+            const input = value instanceof Date || typeof value === 'number' || typeof value === 'string'
+                ? value
+                : null;
+            if (input === null)
+                return null;
+            const mapped = prepared.positionScale.map(input);
+            return Number.isFinite(mapped) ? mapped : null;
+        }
+        color(channel, rowIndex, fallback) {
+            const prepared = this.#prepare(channel);
+            if (prepared === undefined)
+                return fallback;
+            const resolved = resolvedFrom(prepared.spec, this.context.table.row(rowIndex));
+            const value = resolved.value;
+            if (resolved.literal)
+                return typeof value === 'string' ? value : fallback;
+            if (prepared.colorScale !== undefined &&
+                (value instanceof Date || typeof value === 'number' || typeof value === 'string')) {
+                return prepared.colorScale.map(value);
+            }
+            if (prepared.positionScale !== undefined &&
+                (value instanceof Date || typeof value === 'number' || typeof value === 'string')) {
+                const ratio = prepared.positionScale.map(value);
+                return Number.isFinite(ratio)
+                    ? continuousColor(this.context.theme, ratio)
+                    : prepared.spec.scale.outOfBounds === 'unknown'
+                        ? 'transparent'
+                        : fallback;
+            }
+            return typeof value === 'string' ? value : fallback;
+        }
+        dash(rowIndex, fallback = []) {
+            const prepared = this.#prepare('strokeDash');
+            if (prepared === undefined)
+                return fallback;
+            const value = rawFrom(prepared.spec, this.context.table.row(rowIndex));
+            if (Array.isArray(value))
+                return value;
+            const index = prepared.categoryIndices.get(key(value));
+            return index === undefined ? fallback : (dashRange[index % dashRange.length] ?? fallback);
+        }
+        shape(rowIndex, fallback = 'circle') {
+            const prepared = this.#prepare('shape');
+            if (prepared === undefined)
+                return fallback;
+            const resolved = resolvedFrom(prepared.spec, this.context.table.row(rowIndex));
+            const value = resolved.value;
+            if (resolved.literal && typeof value === 'string')
+                return value;
+            const index = prepared.categoryIndices.get(key(value));
+            return index === undefined ? fallback : (shapeRange[index % shapeRange.length] ?? fallback);
+        }
+        text(rowIndex, fallback) {
+            const value = this.raw('text', rowIndex);
+            if (value === null || value === undefined || Array.isArray(value))
+                return fallback;
+            return String(value);
+        }
+        tooltip(rowIndex) {
+            const value = this.raw('tooltip', rowIndex);
+            if (value === undefined || Array.isArray(value) || value instanceof Date)
+                return undefined;
+            return { encoded: value };
+        }
+        groupKey(rowIndex) {
+            return ['detail', 'color', 'fill', 'stroke', 'strokeDash', 'strokeWidth', 'opacity']
+                .filter((channel) => this.has(channel))
+                .map((channel) => key(this.raw(channel, rowIndex)))
+                .join('|');
+        }
+        orderedIndices(indices) {
+            if (!this.has('order'))
+                return indices;
+            return [...indices].sort((left, right) => {
+                const a = this.raw('order', left);
+                const b = this.raw('order', right);
+                const an = numeric(a);
+                const bn = numeric(b);
+                if (an !== null && bn !== null)
+                    return an - bn || left - right;
+                return String(a ?? '').localeCompare(String(b ?? '')) || left - right;
+            });
+        }
+    }
+    function createEncodingResolver(context) {
+        return new EncodingResolver(context);
+    }
+
     function scaleInput(value) {
-        if (value === null || value === undefined || typeof value === 'boolean')
+        if (value === null ||
+            value === undefined ||
+            typeof value === 'boolean' ||
+            (typeof value === 'object' && !(value instanceof Date)))
             return null;
         return value;
     }
@@ -9868,92 +19207,818 @@ var Graflume = (function (exports) {
         return palette[Math.round(bounded * (palette.length - 1))] ?? theme.colors.focus;
     }
 
-    const compileAreaMark = (context) => {
-        const { table, layer, xScale, yScale, color, theme, performance } = context;
-        const yValues = Array.from({ length: table.length }, (_, index) => numericDataValue(table.value(index, layer.y.field), layer.y.type === 'temporal'));
-        const indices = minMaxSampleIndices(yValues, performance.maxLinePoints);
-        const baseline = yScale.map(0);
-        const top = [];
-        const topRowIndices = [];
-        for (const rowIndex of indices) {
-            const xInput = scaleInput(table.value(rowIndex, layer.x.field));
-            const yInput = scaleInput(table.value(rowIndex, layer.y.field));
-            if (xInput === null || yInput === null)
-                continue;
-            const x = xScale.map(xInput);
-            const y = yScale.map(yInput);
-            if (Number.isFinite(x) && Number.isFinite(y)) {
-                top.push({ x, y });
-                topRowIndices.push(rowIndex);
+    function boundedSampleIndices(values, budget) {
+        const target = Math.max(1, Math.floor(budget));
+        return target < 4
+            ? exactStrideSampleIndices(values.length, target)
+            : minMaxSampleIndices(values, target);
+    }
+    function allocateSegmentBudgets(lengths, maximumPoints) {
+        let remainingPoints = Math.max(0, Math.floor(maximumPoints));
+        let remainingWeight = lengths.reduce((total, length) => total + length, 0);
+        return lengths.map((length, index) => {
+            const remainingSegments = lengths.length - index - 1;
+            const maximum = Math.max(1, remainingPoints - remainingSegments);
+            const proportional = Math.max(1, Math.floor((remainingPoints * length) / Math.max(1, remainingWeight)));
+            const budget = Math.min(length, maximum, proportional);
+            remainingPoints -= budget;
+            remainingWeight -= length;
+            return budget;
+        });
+    }
+    function resolveMissingValuePolicy(value, fallback) {
+        return value === 'gap' || value === 'zero' || value === 'connect' ? value : fallback;
+    }
+    function curveOptionsForMark(options) {
+        const tension = options.tension;
+        const samples = options.curveSamples;
+        return {
+            ...(typeof tension === 'number' && Number.isFinite(tension) ? { tension } : {}),
+            ...(typeof samples === 'number' && Number.isFinite(samples) ? { samples } : {}),
+        };
+    }
+    function curveNameForMark(options, fallback) {
+        return resolveCurveName(options.curve, fallback);
+    }
+    function collectCurveSegments(context, defaultMissing) {
+        const { table, layer, xScale, yScale, performance } = context;
+        const encoding = createEncodingResolver(context);
+        const missing = resolveMissingValuePolicy(layer.mark.options.missing, defaultMissing);
+        const rawSegments = [];
+        const allIndices = encoding.orderedIndices(Array.from({ length: table.length }, (_value, index) => index));
+        const grouped = new Map();
+        for (const rowIndex of allIndices) {
+            const group = encoding.groupKey(rowIndex);
+            const indices = grouped.get(group) ?? [];
+            indices.push(rowIndex);
+            grouped.set(group, indices);
+        }
+        for (const indices of grouped.values()) {
+            let current = [];
+            const flush = () => {
+                if (current.length > 0)
+                    rawSegments.push(current);
+                current = [];
+            };
+            for (const rowIndex of indices) {
+                const xInput = scaleInput(table.value(rowIndex, layer.x.field));
+                const yInput = scaleInput(table.value(rowIndex, layer.y.field));
+                if (xInput === null) {
+                    if (missing !== 'connect')
+                        flush();
+                    continue;
+                }
+                const x = xScale.map(xInput);
+                let sourceValue = numericDataValue(table.value(rowIndex, layer.y.field), layer.y.type === 'temporal');
+                let yValue;
+                if (yInput === null) {
+                    if (missing === 'zero') {
+                        yValue = 0;
+                        sourceValue = 0;
+                    }
+                    else {
+                        if (missing === 'gap')
+                            flush();
+                        continue;
+                    }
+                }
+                else
+                    yValue = yInput;
+                const y = yScale.map(yValue);
+                if (!Number.isFinite(x) || !Number.isFinite(y)) {
+                    if (missing !== 'connect')
+                        flush();
+                    continue;
+                }
+                current.push({ point: { x, y }, rowIndex, value: sourceValue ?? y });
+            }
+            flush();
+        }
+        const maximumPoints = Math.max(1, Math.floor(performance.maxLinePoints));
+        const retainedSegments = exactStrideSampleIndices(rawSegments.length, maximumPoints).flatMap((index) => (rawSegments[index] === undefined ? [] : [rawSegments[index]]));
+        const budgets = allocateSegmentBudgets(retainedSegments.map(({ length }) => length), maximumPoints);
+        return retainedSegments.map((segment, segmentIndex) => {
+            const indices = boundedSampleIndices(segment.map(({ value }) => value), budgets[segmentIndex] ?? 1);
+            return indices
+                .map((index) => segment[index])
+                .filter((entry) => entry !== undefined);
+        });
+    }
+    function interpolateSegments(segments, curve, options, maxPoints = Number.POSITIVE_INFINITY) {
+        const interpolated = segments.map((source) => ({
+            source,
+            points: interpolateCurve(source.map(({ point }) => point), curve, options),
+        }));
+        if (!Number.isFinite(maxPoints))
+            return interpolated;
+        const maximumPoints = Math.max(1, Math.floor(maxPoints));
+        const retained = exactStrideSampleIndices(interpolated.length, maximumPoints).flatMap((index) => interpolated[index] === undefined ? [] : [interpolated[index]]);
+        const budgets = allocateSegmentBudgets(retained.map(({ points }) => points.length), maximumPoints);
+        return retained.map(({ source, points }, segmentIndex) => {
+            const budget = budgets[segmentIndex] ?? 1;
+            if (points.length <= budget)
+                return { source, points };
+            const indices = boundedSampleIndices(points.map(({ y }) => y), budget);
+            return {
+                source,
+                points: indices
+                    .map((index) => points[index])
+                    .filter((point) => point !== undefined),
+            };
+        });
+    }
+
+    function identityKey(value) {
+        if (value instanceof Date)
+            return `date:${value.toISOString()}`;
+        return `${typeof value}:${String(value)}`;
+    }
+    function finiteRowValue(context, rowIndex, field) {
+        return numericDataValue(context.table.value(rowIndex, field));
+    }
+    function cleanRow(row) {
+        return Object.fromEntries(Object.entries(row).filter(([field]) => !field.startsWith('__graflume_')));
+    }
+    function tooltipRow(context, entry, encoding) {
+        const encoded = encoding.tooltip(entry.rowIndex);
+        return {
+            ...cleanRow(context.table.row(entry.rowIndex)),
+            stackSeries: entry.series,
+            stackValue: entry.source,
+            stackStart: entry.start,
+            stackEnd: entry.end,
+            stackTotal: entry.absoluteTotal,
+            stackPositiveTotal: entry.positiveTotal,
+            stackNegativeTotal: entry.negativeTotal,
+            stackNetTotal: entry.netTotal,
+            stackPercent: entry.absoluteTotal === 0 ? 0 : entry.source / entry.absoluteTotal,
+            ...(encoded ?? {}),
+        };
+    }
+    function datum(context, entry, encoding) {
+        const row = context.table.row(entry.rowIndex);
+        return {
+            layerId: context.layer.id,
+            rowIndex: entry.rowIndex,
+            datum: cleanRow(row),
+            tooltip: tooltipRow(context, entry, encoding),
+        };
+    }
+    function seriesEntries(context, fields) {
+        const stack = resolveSeriesStackSpec(context.layer);
+        if (stack === null)
+            return [];
+        const groupedTotals = new Map();
+        if (stack.offset === null) {
+            for (let rowIndex = 0; rowIndex < context.table.length; rowIndex += 1) {
+                const category = scaleInput(context.table.value(rowIndex, fields.category));
+                const source = finiteRowValue(context, rowIndex, stack.valueField);
+                if (category === null || source === null)
+                    continue;
+                const key = identityKey(category);
+                const total = groupedTotals.get(key) ?? { absolute: 0, positive: 0, negative: 0, net: 0 };
+                total.absolute += Math.abs(source);
+                total.positive += Math.max(0, source);
+                total.negative += Math.max(0, -source);
+                total.net += source;
+                groupedTotals.set(key, total);
             }
         }
-        if (top.length === 0)
-            return [];
-        const first = top[0];
-        const last = top.at(-1);
-        if (first === undefined || last === undefined)
-            return [];
-        const points = [...top, { x: last.x, y: baseline }, { x: first.x, y: baseline }];
-        const fill = {
-            type: 'path',
-            ...nodeBase(`${layer.id}:area-fill`, {
-                zIndex: layer.zIndex,
-                opacity: layer.mark.opacity,
-            }),
-            points,
-            closed: true,
-            fill: layer.mark.fill ??
-                themedAreaFill(theme, color, colorWithOpacity(color, theme.mode === 'dark' ? 0.28 : 0.2)),
-            lineWidth: 0,
-        };
-        const stroke = {
-            type: 'path',
-            ...nodeBase(`${layer.id}:area-line`, {
-                zIndex: layer.zIndex + 0.1,
-                opacity: layer.mark.opacity,
-            }),
-            points: top,
-            closed: false,
-            stroke: layer.mark.stroke ??
-                themedAreaStroke(theme, color, theme.mark.lineColor ?? theme.mark.defaultColor ?? color),
-            lineWidth: layer.mark.lineWidth ?? theme.mark.lineWidth,
-            lineCap: theme.mark.lineCap ?? 'round',
-            lineJoin: theme.mark.lineJoin ?? 'round',
-        };
-        const nodes = [
-            fill,
-            ...(layer.mark.stroke === undefined && theme.mark.areaStrokeVisible === false ? [] : [stroke]),
-        ];
-        if (layer.mark.point) {
-            const pointIndices = new Set(strideSampleIndices(top.length, performance.maxPointMarks).filter((index) => index !== undefined));
-            top.forEach((point, pointIndex) => {
-                const rowIndex = topRowIndices[pointIndex];
-                if (rowIndex === undefined || !pointIndices.has(pointIndex))
-                    return;
-                const circle = {
-                    type: 'circle',
-                    ...nodeBase(`${layer.id}:area-point:${rowIndex}`, {
-                        zIndex: layer.zIndex + 0.2,
-                        opacity: layer.mark.opacity,
-                        interactive: performance.enableHitTesting,
-                        datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) },
-                    }),
-                    cx: point.x,
-                    cy: point.y,
-                    radius: layer.mark.radius ?? theme.mark.pointRadius,
-                    fill: layer.mark.fill ?? themedPointFill(theme, color, theme.colors.background),
-                    stroke: layer.mark.stroke ??
-                        themedPointStroke(theme, color, themedAreaStroke(theme, color, theme.mark.lineColor ?? color)),
-                    lineWidth: layer.mark.lineWidth === undefined
-                        ? (theme.mark.pointStrokeWidth ?? Math.max(1.5, theme.mark.lineWidth * 0.68))
-                        : Math.max(1.5, layer.mark.lineWidth * 0.68),
-                };
-                nodes.push(circle);
+        const names = [];
+        const indexes = new Map();
+        const combinations = new Set();
+        const entries = [];
+        for (let rowIndex = 0; rowIndex < context.table.length; rowIndex += 1) {
+            const category = scaleInput(context.table.value(rowIndex, fields.category));
+            const rawSeries = context.table.value(rowIndex, fields.series);
+            const series = rawSeries === null || rawSeries === undefined
+                ? ''
+                : rawSeries instanceof Date
+                    ? rawSeries.toISOString()
+                    : String(rawSeries);
+            const seriesKey = rawSeries === null || rawSeries === undefined
+                ? ''
+                : rawSeries instanceof Date
+                    ? `date:${rawSeries.toISOString()}`
+                    : `${typeof rawSeries}:${String(rawSeries)}`;
+            const source = finiteRowValue(context, rowIndex, stack.offset === null ? stack.valueField : fields.source);
+            if (category === null || series === '' || source === null)
+                continue;
+            const categoryKey = identityKey(category);
+            const combination = `${categoryKey}\u0000${seriesKey}`;
+            if (combinations.has(combination)) {
+                throw new GraflumeError('INVALID_DATA', 'Series layouts require one row per category-series pair; aggregate duplicate pairs explicitly.', { path: '$.data' });
+            }
+            combinations.add(combination);
+            let seriesIndex = indexes.get(seriesKey);
+            if (seriesIndex === undefined) {
+                seriesIndex = names.length;
+                names.push(seriesKey);
+                indexes.set(seriesKey, seriesIndex);
+            }
+            const grouped = groupedTotals.get(categoryKey);
+            const start = stack.offset === null ? 0 : (finiteRowValue(context, rowIndex, fields.start) ?? 0);
+            const end = stack.offset === null ? source : (finiteRowValue(context, rowIndex, fields.end) ?? start);
+            entries.push({
+                rowIndex,
+                series,
+                seriesKey,
+                seriesIndex,
+                category,
+                categoryKey,
+                source,
+                start,
+                end,
+                absoluteTotal: grouped?.absolute ?? finiteRowValue(context, rowIndex, fields.absoluteTotal) ?? 0,
+                positiveTotal: grouped?.positive ?? finiteRowValue(context, rowIndex, fields.positiveTotal) ?? 0,
+                negativeTotal: grouped?.negative ?? finiteRowValue(context, rowIndex, fields.negativeTotal) ?? 0,
+                netTotal: grouped?.net ?? finiteRowValue(context, rowIndex, fields.netTotal) ?? 0,
             });
         }
+        return entries;
+    }
+    function seriesColor(context, index, count) {
+        return context.layer.mark.fill ?? categoricalColor(context.theme, index, count);
+    }
+    function compileSeriesBarMark(context) {
+        const fields = preparedSeriesStackFields(context.layer);
+        if (fields === null)
+            return null;
+        const entries = seriesEntries(context, fields);
+        if (entries.length === 0)
+            return [];
+        const { layer, xScale, yScale, plot, theme, performance, barGroup } = context;
+        const encoding = createEncodingResolver(context);
+        const seriesCount = Math.max(1, new Set(entries.map(({ seriesKey }) => seriesKey)).size);
+        const grouped = resolveSeriesStackSpec(layer)?.offset === null;
+        const externalCount = layer.mark.position === 'group' ? Math.max(1, barGroup.count) : 1;
+        const externalIndex = layer.mark.position === 'group' ? barGroup.index : 0;
+        const subgroupCount = grouped ? seriesCount * externalCount : externalCount;
+        const categoryCount = Math.max(1, new Set(entries.map(({ categoryKey }) => categoryKey)).size);
+        const themedWidthRatio = theme.mark.barWidthRatio;
+        const indices = new Set(strideSampleIndices(entries.length, performance.maxBarMarks));
+        const nodes = [];
+        const entryByRow = new Map(entries.map((entry) => [entry.rowIndex, entry]));
+        const visibleEntries = encoding
+            .orderedIndices(entries.flatMap((entry, index) => (indices.has(index) ? [entry.rowIndex] : [])))
+            .flatMap((rowIndex) => {
+            const entry = entryByRow.get(rowIndex);
+            return entry === undefined ? [] : [entry];
+        });
+        visibleEntries.forEach((entry, drawIndex) => {
+            const subgroupIndex = grouped ? externalIndex * seriesCount + entry.seriesIndex : externalIndex;
+            const baseColor = seriesColor(context, entry.seriesIndex, seriesCount);
+            const encodedColor = encoding.color('color', entry.rowIndex, baseColor);
+            const fill = encoding.color('fill', entry.rowIndex, encoding.has('color') ? encodedColor : baseColor);
+            const fallbackStroke = layer.mark.stroke ?? theme.mark.barStroke;
+            const stroke = encoding.color('stroke', entry.rowIndex, fallbackStroke ?? encodedColor);
+            const hasStroke = encoding.has('stroke') || fallbackStroke !== undefined;
+            const lineWidth = encoding.number('strokeWidth', entry.rowIndex, layer.mark.lineWidth ?? (hasStroke ? (theme.mark.barStrokeWidth ?? theme.mark.lineWidth) : 0));
+            const dash = encoding.dash(entry.rowIndex);
+            if (layer.mark.orientation === 'horizontal') {
+                const center = yScale.map(entry.category);
+                const start = xScale.map(entry.start);
+                const end = xScale.map(entry.end);
+                if (![center, start, end].every(Number.isFinite))
+                    return;
+                const slot = yScale instanceof BandScale
+                    ? (themedWidthRatio === undefined ? yScale.bandwidth : yScale.step) / subgroupCount
+                    : ((plot.height / categoryCount) * (themedWidthRatio === undefined ? 0.8 : 1)) /
+                        subgroupCount;
+                const size = Math.max(1, slot * (themedWidthRatio ?? 0.74));
+                const offset = (subgroupIndex - (subgroupCount - 1) / 2) * slot;
+                nodes.push({
+                    type: 'rect',
+                    ...nodeBase(`${layer.id}:series-bar:${entry.rowIndex}`, {
+                        zIndex: layer.zIndex +
+                            (encoding.has('order')
+                                ? drawIndex / Math.max(100, visibleEntries.length * 10)
+                                : entry.seriesIndex / 100),
+                        opacity: encoding.number('opacity', entry.rowIndex, layer.mark.opacity),
+                        interactive: performance.enableHitTesting,
+                        datum: datum(context, entry, encoding),
+                    }),
+                    x: Math.min(start, end),
+                    y: center + offset - size / 2,
+                    width: Math.max(0.5, Math.abs(end - start)),
+                    height: size,
+                    fill,
+                    ...(hasStroke ? { stroke } : {}),
+                    lineWidth,
+                    ...(dash.length === 0 ? {} : { dash }),
+                    cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
+                });
+                return;
+            }
+            const center = xScale.map(entry.category);
+            const start = yScale.map(entry.start);
+            const end = yScale.map(entry.end);
+            if (![center, start, end].every(Number.isFinite))
+                return;
+            const slot = xScale instanceof BandScale
+                ? (themedWidthRatio === undefined ? xScale.bandwidth : xScale.step) / subgroupCount
+                : ((plot.width / categoryCount) * (themedWidthRatio === undefined ? 0.8 : 1)) /
+                    subgroupCount;
+            const size = Math.max(1, slot * (themedWidthRatio ?? 0.74));
+            const offset = (subgroupIndex - (subgroupCount - 1) / 2) * slot;
+            nodes.push({
+                type: 'rect',
+                ...nodeBase(`${layer.id}:series-bar:${entry.rowIndex}`, {
+                    zIndex: layer.zIndex +
+                        (encoding.has('order')
+                            ? drawIndex / Math.max(100, visibleEntries.length * 10)
+                            : entry.seriesIndex / 100),
+                    opacity: encoding.number('opacity', entry.rowIndex, layer.mark.opacity),
+                    interactive: performance.enableHitTesting,
+                    datum: datum(context, entry, encoding),
+                }),
+                x: center + offset - size / 2,
+                y: Math.min(start, end),
+                width: size,
+                height: Math.max(0.5, Math.abs(end - start)),
+                fill,
+                ...(hasStroke ? { stroke } : {}),
+                lineWidth,
+                ...(dash.length === 0 ? {} : { dash }),
+                cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
+            });
+        });
         return nodes;
+    }
+    function sampledEntries(entries, budget) {
+        if (entries.length <= budget)
+            return entries;
+        const target = Math.max(1, Math.floor(budget));
+        const indices = target < 4
+            ? exactStrideSampleIndices(entries.length, target)
+            : minMaxSampleIndices(entries.map(({ end }) => end), target);
+        return indices.flatMap((index) => (entries[index] === undefined ? [] : [entries[index]]));
+    }
+    function compileSeriesAreaMark(context) {
+        const fields = preparedSeriesStackFields(context.layer);
+        if (fields === null)
+            return null;
+        const entries = seriesEntries(context, fields);
+        if (entries.length === 0)
+            return [];
+        const { layer, xScale, yScale, theme, performance } = context;
+        const encoding = createEncodingResolver(context);
+        const series = [...new Set(entries.map(({ seriesKey }) => seriesKey))];
+        const groups = new Map();
+        for (const entry of entries) {
+            const key = `${entry.seriesKey}\u0000${encoding.groupKey(entry.rowIndex)}`;
+            const group = groups.get(key) ?? {
+                series: entry.series,
+                seriesIndex: entry.seriesIndex,
+                entries: [],
+            };
+            group.entries.push(entry);
+            groups.set(key, group);
+        }
+        const allRenderGroups = [...groups.values()];
+        const maximumGroups = Math.max(1, Math.floor(performance.maxLinePoints / 2));
+        const renderGroups = exactStrideSampleIndices(allRenderGroups.length, maximumGroups).flatMap((index) => (allRenderGroups[index] === undefined ? [] : [allRenderGroups[index]]));
+        const curve = curveNameForMark(layer.mark.options, 'straight');
+        const curveOptions = curveOptionsForMark(layer.mark.options);
+        const nodes = [];
+        renderGroups.forEach((group, groupIndex) => {
+            const entryByRow = new Map(group.entries.map((entry) => [entry.rowIndex, entry]));
+            const ordered = encoding.has('order')
+                ? encoding
+                    .orderedIndices(group.entries.map(({ rowIndex }) => rowIndex))
+                    .flatMap((rowIndex) => {
+                    const entry = entryByRow.get(rowIndex);
+                    return entry === undefined ? [] : [entry];
+                })
+                : [...group.entries].sort((left, right) => xScale.map(left.category) - xScale.map(right.category));
+            const pathBudget = Math.max(2, Math.floor(performance.maxLinePoints / Math.max(1, renderGroups.length)));
+            const boundaryBudget = Math.max(1, Math.floor(pathBudget / 2));
+            const source = sampledEntries(ordered, boundaryBudget);
+            if (source.length === 0)
+                return;
+            const upperSource = source.map((entry) => ({
+                x: xScale.map(entry.category),
+                y: yScale.map(entry.end),
+            }));
+            const lowerSource = source.map((entry) => ({
+                x: xScale.map(entry.category),
+                y: yScale.map(entry.start),
+            }));
+            if ([...upperSource, ...lowerSource].some(({ x, y }) => !Number.isFinite(x) || !Number.isFinite(y))) {
+                return;
+            }
+            const interpolatedUpper = interpolateCurve(upperSource, curve, curveOptions);
+            const interpolatedLower = interpolateCurve(lowerSource, curve, curveOptions);
+            const commonLength = Math.min(interpolatedUpper.length, interpolatedLower.length);
+            const boundaryIndices = commonLength <= boundaryBudget
+                ? exactStrideSampleIndices(commonLength, commonLength)
+                : boundaryBudget < 4
+                    ? exactStrideSampleIndices(commonLength, boundaryBudget)
+                    : minMaxSampleIndices(Array.from({ length: commonLength }, (_value, index) => Math.abs(interpolatedUpper[index].y - interpolatedLower[index].y)), boundaryBudget);
+            const upper = boundaryIndices.map((index) => interpolatedUpper[index]);
+            const lower = boundaryIndices.map((index) => interpolatedLower[index]);
+            const representative = source[0].rowIndex;
+            const baseColor = seriesColor(context, group.seriesIndex, series.length);
+            const color = encoding.color('color', representative, baseColor);
+            const themeRiver = layer.mark.type === 'theme-river';
+            const fillColor = themeRiver
+                ? encoding.color('fill', representative, encoding.has('color')
+                    ? color
+                    : colorWithOpacity(color, theme.mode === 'dark' ? 0.72 : 0.62))
+                : encoding.color('fill', representative, encoding.has('color')
+                    ? color
+                    : (layer.mark.fill ??
+                        themedAreaFill(theme, color, colorWithOpacity(color, theme.mode === 'dark' ? 0.28 : 0.2))));
+            const strokeColor = encoding.color('stroke', representative, encoding.has('color')
+                ? color
+                : (layer.mark.stroke ??
+                    (themeRiver
+                        ? color
+                        : themedAreaStroke(theme, color, theme.mark.lineColor ?? theme.mark.defaultColor ?? color))));
+            const lineWidth = encoding.number('strokeWidth', representative, layer.mark.lineWidth ?? (themeRiver ? 1.2 : theme.mark.lineWidth));
+            const dash = encoding.dash(representative);
+            const stem = themeRiver ? 'river' : 'series-area';
+            const fill = {
+                type: 'path',
+                ...nodeBase(`${layer.id}:${stem}:${groupIndex}`, {
+                    zIndex: layer.zIndex + groupIndex / Math.max(100, renderGroups.length * 10),
+                    opacity: encoding.number('opacity', representative, layer.mark.opacity),
+                }),
+                points: [...upper, ...[...lower].reverse()],
+                closed: true,
+                fill: fillColor,
+                stroke: strokeColor,
+                lineWidth,
+                lineJoin: theme.mark.lineJoin ?? 'round',
+                ...(dash.length === 0 ? {} : { dash }),
+            };
+            nodes.push(fill);
+            source.forEach((entry, index) => {
+                if (!performance.enableHitTesting)
+                    return;
+                const upperPoint = upperSource[index];
+                const lowerPoint = lowerSource[index];
+                if (upperPoint === undefined || lowerPoint === undefined)
+                    return;
+                const pointColor = encoding.color('color', entry.rowIndex, baseColor);
+                const encodedSize = encoding.number('size', entry.rowIndex, Number.NaN);
+                const radius = layer.mark.point
+                    ? encoding.number('radius', entry.rowIndex, Number.isFinite(encodedSize)
+                        ? Math.sqrt(Math.max(0, encodedSize) / Math.PI)
+                        : (layer.mark.radius ?? theme.mark.pointRadius))
+                    : Math.max(6, Math.min(16, Math.abs(upperPoint.y - lowerPoint.y) / 2));
+                const pointFill = encoding.color('fill', entry.rowIndex, encoding.has('color')
+                    ? pointColor
+                    : (layer.mark.fill ?? themedPointFill(theme, pointColor, theme.colors.background)));
+                const pointStroke = encoding.color('stroke', entry.rowIndex, encoding.has('color')
+                    ? pointColor
+                    : (layer.mark.stroke ??
+                        themedPointStroke(theme, pointColor, themedAreaStroke(theme, pointColor, theme.mark.lineColor ?? pointColor))));
+                const pointDash = encoding.dash(entry.rowIndex);
+                const target = {
+                    type: 'circle',
+                    ...nodeBase(`${layer.id}:${stem}-target:${entry.rowIndex}`, {
+                        zIndex: layer.zIndex + groupIndex / Math.max(100, renderGroups.length * 10) + 0.01,
+                        opacity: layer.mark.point
+                            ? encoding.number('opacity', entry.rowIndex, layer.mark.opacity)
+                            : 0.001,
+                        interactive: true,
+                        datum: datum(context, entry, encoding),
+                    }),
+                    cx: upperPoint.x,
+                    cy: (upperPoint.y + lowerPoint.y) / 2,
+                    radius,
+                    fill: layer.mark.point ? pointFill : pointColor,
+                    ...(layer.mark.point ? { stroke: pointStroke } : {}),
+                    lineWidth: layer.mark.point
+                        ? encoding.number('strokeWidth', entry.rowIndex, layer.mark.lineWidth === undefined
+                            ? (theme.mark.pointStrokeWidth ?? Math.max(1.5, theme.mark.lineWidth * 0.68))
+                            : Math.max(1.5, layer.mark.lineWidth * 0.68))
+                        : 0,
+                    ...(layer.mark.point && pointDash.length > 0 ? { dash: pointDash } : {}),
+                };
+                nodes.push(target);
+            });
+        });
+        return nodes;
+    }
+
+    function compileAreaSeries(context, defaults) {
+        const { table, layer, yScale, color, theme, performance } = context;
+        const encoding = createEncodingResolver(context);
+        const curve = curveNameForMark(layer.mark.options, defaults.curve);
+        const curveOptions = curveOptionsForMark(layer.mark.options);
+        const segments = interpolateSegments(collectCurveSegments(context, defaults.missing), curve, curveOptions, performance.maxLinePoints);
+        if (segments.length === 0)
+            return [];
+        const mappedZero = yScale.map(0);
+        const baseline = Number.isFinite(mappedZero) ? mappedZero : yScale.map(yScale.domain()[0] ?? 0);
+        const nodes = [];
+        segments.forEach((segment, segmentIndex) => {
+            const first = segment.points[0];
+            const last = segment.points.at(-1);
+            if (first === undefined || last === undefined)
+                return;
+            const suffix = segments.length === 1 ? '' : `:${segmentIndex}`;
+            const representative = segment.source[0]?.rowIndex ?? 0;
+            const seriesColor = encoding.color('color', representative, color);
+            const strokeColor = encoding.color('stroke', representative, encoding.has('color')
+                ? seriesColor
+                : (layer.mark.stroke ??
+                    themedAreaStroke(theme, seriesColor, theme.mark.lineColor ?? theme.mark.defaultColor ?? seriesColor)));
+            const lowerSource = segment.source.map(({ point, rowIndex }) => ({
+                x: point.x,
+                y: encoding.position('y2', rowIndex) ?? baseline,
+            }));
+            const interpolatedLower = encoding.has('y2')
+                ? interpolateCurve(lowerSource, curve, curveOptions)
+                : [
+                    { x: last.x, y: baseline },
+                    { x: first.x, y: baseline },
+                ];
+            const lower = interpolatedLower.length <= segment.points.length
+                ? interpolatedLower
+                : minMaxSampleIndices(interpolatedLower.map(({ y }) => y), segment.points.length)
+                    .map((index) => interpolatedLower[index])
+                    .filter((point) => point !== undefined);
+            const points = [...segment.points, ...[...lower].reverse()];
+            const opacity = encoding.number('opacity', representative, layer.mark.opacity);
+            const fillColor = encoding.color('fill', representative, encoding.has('color')
+                ? seriesColor
+                : (layer.mark.fill ??
+                    themedAreaFill(theme, seriesColor, colorWithOpacity(seriesColor, theme.mode === 'dark' ? 0.28 : 0.2))));
+            const lineWidth = encoding.number('strokeWidth', representative, layer.mark.lineWidth ?? theme.mark.lineWidth);
+            const dash = encoding.dash(representative);
+            const fill = {
+                type: 'path',
+                ...nodeBase(`${layer.id}:${defaults.idStem}-fill${suffix}`, {
+                    zIndex: layer.zIndex,
+                    opacity,
+                }),
+                points,
+                closed: true,
+                fill: fillColor,
+                lineWidth: 0,
+            };
+            nodes.push(fill);
+            if (layer.mark.stroke !== undefined || theme.mark.areaStrokeVisible !== false) {
+                const stroke = {
+                    type: 'path',
+                    ...nodeBase(`${layer.id}:${defaults.idStem}-line${suffix}`, {
+                        zIndex: layer.zIndex + 0.1,
+                        opacity,
+                    }),
+                    points: segment.points,
+                    closed: false,
+                    stroke: strokeColor,
+                    lineWidth,
+                    lineCap: theme.mark.lineCap ?? 'round',
+                    lineJoin: theme.mark.lineJoin ?? 'round',
+                    ...(dash.length === 0 ? {} : { dash }),
+                };
+                nodes.push(stroke);
+            }
+        });
+        if (layer.mark.point) {
+            const sourcePoints = segments.flatMap(({ source }) => source);
+            const pointRows = new Set(strideSampleIndices(sourcePoints.length, performance.maxPointMarks)
+                .map((index) => sourcePoints[index]?.rowIndex)
+                .filter((rowIndex) => rowIndex !== undefined));
+            for (const { source } of segments) {
+                for (const { point, rowIndex } of source) {
+                    if (!pointRows.has(rowIndex))
+                        continue;
+                    const pointColor = encoding.color('color', rowIndex, color);
+                    const encodedSize = encoding.number('size', rowIndex, Number.NaN);
+                    const radius = encoding.number('radius', rowIndex, Number.isFinite(encodedSize)
+                        ? Math.sqrt(Math.max(0, encodedSize) / Math.PI)
+                        : (layer.mark.radius ?? theme.mark.pointRadius));
+                    const tooltip = encoding.tooltip(rowIndex);
+                    const circle = {
+                        type: 'circle',
+                        ...nodeBase(`${layer.id}:${defaults.idStem}-point:${rowIndex}`, {
+                            zIndex: layer.zIndex + 0.2,
+                            opacity: encoding.number('opacity', rowIndex, layer.mark.opacity),
+                            interactive: performance.enableHitTesting,
+                            datum: {
+                                layerId: layer.id,
+                                rowIndex,
+                                datum: table.row(rowIndex),
+                                ...(tooltip === undefined ? {} : { tooltip }),
+                            },
+                        }),
+                        cx: point.x,
+                        cy: point.y,
+                        radius,
+                        fill: encoding.color('fill', rowIndex, encoding.has('color')
+                            ? pointColor
+                            : (layer.mark.fill ?? themedPointFill(theme, pointColor, theme.colors.background))),
+                        stroke: encoding.color('stroke', rowIndex, encoding.has('color')
+                            ? pointColor
+                            : (layer.mark.stroke ??
+                                themedPointStroke(theme, pointColor, themedAreaStroke(theme, pointColor, theme.mark.lineColor ?? pointColor)))),
+                        lineWidth: encoding.number('strokeWidth', rowIndex, layer.mark.lineWidth === undefined
+                            ? (theme.mark.pointStrokeWidth ?? Math.max(1.5, theme.mark.lineWidth * 0.68))
+                            : Math.max(1.5, layer.mark.lineWidth * 0.68)),
+                        ...(encoding.dash(rowIndex).length === 0 ? {} : { dash: encoding.dash(rowIndex) }),
+                    };
+                    nodes.push(circle);
+                }
+            }
+        }
+        return nodes;
+    }
+    const compileAreaMark = (context) => {
+        const series = compileSeriesAreaMark(context);
+        return (series ?? compileAreaSeries(context, { curve: 'straight', missing: 'connect', idStem: 'area' }));
     };
 
+    function interpolate(start, end, startValue, endValue, level) {
+        const denominator = endValue - startValue;
+        const ratio = denominator === 0 ? 0.5 : Math.max(0, Math.min(1, (level - startValue) / denominator));
+        return { x: start.x + (end.x - start.x) * ratio, y: start.y + (end.y - start.y) * ratio };
+    }
+    function pointKey(point) {
+        return `${Math.round(point.x * 1e9)}:${Math.round(point.y * 1e9)}`;
+    }
+    function saddleHighConnected(values, level, policy, code) {
+        if (policy === 'high')
+            return true;
+        if (policy === 'low')
+            return false;
+        // Nielson-Hamann asymptotic decider for the bilinear cell. The sign of
+        // Q=a*c-b*d selects which diagonally-opposed sign regions connect. Equality
+        // consistently connects the high corners.
+        const [a, b, c, d] = values.map((value) => value - level);
+        const q = a * c - b * d;
+        return code === 5 ? q >= 0 : q <= 0;
+    }
+    function cellSegments(values, points, level, levelIndex, sourceRows, saddle) {
+        const high = values.map((value) => value >= level);
+        const code = (high[0] ? 1 : 0) | (high[1] ? 2 : 0) | (high[2] ? 4 : 0) | (high[3] ? 8 : 0);
+        if (code === 0 || code === 15)
+            return [];
+        const edges = [
+            [0, 1],
+            [1, 2],
+            [2, 3],
+            [3, 0],
+        ];
+        const crossing = new Map();
+        edges.forEach(([start, end], edge) => {
+            if (high[start] === high[end])
+                return;
+            crossing.set(edge, interpolate(points[start], points[end], values[start], values[end], level));
+        });
+        const pair = (a, b) => {
+            const start = crossing.get(a);
+            const end = crossing.get(b);
+            return start === undefined || end === undefined
+                ? null
+                : { level, levelIndex, points: [start, end], sourceRows };
+        };
+        if (crossing.size === 2) {
+            const indices = [...crossing.keys()];
+            const segment = pair(indices[0], indices[1]);
+            return segment === null ? [] : [segment];
+        }
+        const centerHigh = saddleHighConnected(values, level, saddle, code);
+        // Corner order is top-left, top-right, bottom-right, bottom-left. Pairing is
+        // chosen around low corners when the centre is high, and around high corners
+        // when it is low, preserving topology through ambiguous saddles.
+        const pairs = code === 5
+            ? centerHigh
+                ? [
+                    [0, 1],
+                    [2, 3],
+                ]
+                : [
+                    [0, 3],
+                    [1, 2],
+                ]
+            : centerHigh
+                ? [
+                    [0, 3],
+                    [1, 2],
+                ]
+                : [
+                    [0, 1],
+                    [2, 3],
+                ];
+        return pairs.flatMap(([a, b]) => {
+            const segment = pair(a, b);
+            return segment === null ? [] : [segment];
+        });
+    }
+    function stitchSegments(segments) {
+        const byLevel = new Map();
+        for (const segment of segments) {
+            const group = byLevel.get(segment.levelIndex) ?? [];
+            group.push(segment);
+            byLevel.set(segment.levelIndex, group);
+        }
+        const output = [];
+        for (const [, levelSegments] of [...byLevel].sort(([a], [b]) => a - b)) {
+            const adjacency = new Map();
+            levelSegments.forEach((segment, index) => {
+                segment.points.forEach((point, endpoint) => {
+                    const key = pointKey(point);
+                    const entries = adjacency.get(key) ?? [];
+                    entries.push({ index, endpoint: endpoint });
+                    adjacency.set(key, entries);
+                });
+            });
+            const visited = new Set();
+            for (let seed = 0; seed < levelSegments.length; seed += 1) {
+                if (visited.has(seed))
+                    continue;
+                const segment = levelSegments[seed];
+                const firstDegree = adjacency.get(pointKey(segment.points[0]))?.length ?? 0;
+                const secondDegree = adjacency.get(pointKey(segment.points[1]))?.length ?? 0;
+                let current = firstDegree === 1 || secondDegree !== 1 ? segment.points[0] : segment.points[1];
+                const startKey = pointKey(current);
+                const points = [current];
+                const rows = new Set();
+                while (true) {
+                    const candidate = (adjacency.get(pointKey(current)) ?? []).find(({ index }) => !visited.has(index));
+                    if (candidate === undefined)
+                        break;
+                    visited.add(candidate.index);
+                    const nextSegment = levelSegments[candidate.index];
+                    nextSegment.sourceRows.forEach((row) => rows.add(row));
+                    current = nextSegment.points[candidate.endpoint === 0 ? 1 : 0];
+                    points.push(current);
+                    if (pointKey(current) === startKey)
+                        break;
+                }
+                if (points.length >= 2) {
+                    output.push({
+                        level: segment.level,
+                        levelIndex: segment.levelIndex,
+                        points,
+                        closed: points.length > 2 && pointKey(points[0]) === pointKey(points.at(-1)),
+                        sourceRows: [...rows].sort((a, b) => a - b),
+                    });
+                }
+            }
+        }
+        return output;
+    }
+    /** Extracts deterministic marching-squares isoline topology from a scalar grid. */
+    function extractIsolines(values, points, levels, sourceRows, options = {}) {
+        const maximumSegments = Math.max(0, Math.trunc(options.maximumSegments ?? Number.MAX_SAFE_INTEGER));
+        if (maximumSegments === 0)
+            return [];
+        const segments = [];
+        outer: for (let row = 0; row < values.length - 1; row += 1) {
+            const width = Math.min(values[row]?.length ?? 0, values[row + 1]?.length ?? 0);
+            for (let column = 0; column < width - 1; column += 1) {
+                const cellValues = [
+                    values[row]?.[column],
+                    values[row]?.[column + 1],
+                    values[row + 1]?.[column + 1],
+                    values[row + 1]?.[column],
+                ];
+                const cellPoints = [
+                    points[row]?.[column],
+                    points[row]?.[column + 1],
+                    points[row + 1]?.[column + 1],
+                    points[row + 1]?.[column],
+                ];
+                if (cellValues.some((value) => value === null || value === undefined || !Number.isFinite(value)) ||
+                    cellPoints.some((point) => point === null || point === undefined))
+                    continue;
+                const rows = [
+                    sourceRows?.[row]?.[column],
+                    sourceRows?.[row]?.[column + 1],
+                    sourceRows?.[row + 1]?.[column + 1],
+                    sourceRows?.[row + 1]?.[column],
+                ].flatMap((value) => value === null || value === undefined ? [] : typeof value === 'number' ? [value] : value);
+                for (let levelIndex = 0; levelIndex < levels.length; levelIndex += 1) {
+                    const level = levels[levelIndex];
+                    if (level === undefined)
+                        continue;
+                    for (const segment of cellSegments(cellValues, cellPoints, level, levelIndex, rows, options.saddle ?? 'asymptotic')) {
+                        segments.push(segment);
+                        if (segments.length >= maximumSegments)
+                            break outer;
+                    }
+                }
+            }
+        }
+        return stitchSegments(segments);
+    }
+
+    function finiteOption(value, fallback) {
+        return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+    }
+    function stringValue$1(value) {
+        if (value === null || value === undefined)
+            return null;
+        if (value instanceof Date)
+            return value.toISOString();
+        return String(value);
+    }
     function datumBase$2(context, id, rowIndex, zIndex = 0, tooltip) {
         return nodeBase(id, {
             zIndex: context.layer.zIndex + zIndex,
@@ -9963,17 +20028,136 @@ var Graflume = (function (exports) {
                 layerId: context.layer.id,
                 rowIndex,
                 datum: context.table.row(rowIndex),
-                ...({} ),
+                ...(tooltip === undefined ? {} : { tooltip }),
             },
         });
     }
     const compileBoxplotMark = (context) => {
         const { layer, table, xScale, yScale, theme } = context;
-        const minField = layer.mark.fields.min ?? 'min';
+        const minField = layer.mark.fields.min ?? layer.mark.fields.low ?? 'min';
         const q1Field = layer.mark.fields.q1 ?? 'q1';
         const medianField = layer.mark.fields.median ?? layer.y.field;
         const q3Field = layer.mark.fields.q3 ?? 'q3';
-        const maxField = layer.mark.fields.max ?? 'max';
+        const maxField = layer.mark.fields.max ?? layer.mark.fields.high ?? 'max';
+        const summaryFields = [minField, q1Field, medianField, q3Field, maxField];
+        if (!summaryFields.every((field) => table.has(field))) {
+            const valueField = layer.mark.fields.value ?? layer.y.field;
+            const grouped = new Map();
+            for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+                const xValue = table.value(rowIndex, layer.x.field);
+                const category = stringValue$1(xValue);
+                const value = numericDataValue(table.value(rowIndex, valueField));
+                if (category === null || value === null)
+                    continue;
+                const group = grouped.get(category) ?? { xValue, observations: [] };
+                group.observations.push({ value, weight: 1, rowIndex });
+                grouped.set(category, group);
+            }
+            const boxWidth = Math.max(8, xScale instanceof BandScale
+                ? xScale.bandwidth * 0.55
+                : context.plot.width / Math.max(3, grouped.size * 2));
+            const nodes = [];
+            [...grouped].forEach(([category, group], groupIndex) => {
+                const summary = rawBoxSummary(group.observations, finiteOption(layer.mark.options.whisker, 1.5));
+                const input = scaleInput(group.xValue);
+                if (summary === null || input === null)
+                    return;
+                const x = xScale.map(input);
+                const yLow = yScale.map(summary.lowerWhisker);
+                const yQ1 = yScale.map(summary.q1);
+                const yMedian = yScale.map(summary.median);
+                const yQ3 = yScale.map(summary.q3);
+                const yHigh = yScale.map(summary.upperWhisker);
+                const rowIndex = summary.rowIndices[0] ?? 0;
+                const fill = layer.mark.fill ??
+                    theme.mark.boxplotFill ??
+                    theme.mark.areaFill ??
+                    colorWithOpacity(context.color, 0.22);
+                const stroke = layer.mark.stroke ?? theme.mark.areaStroke ?? theme.mark.lineColor ?? context.color;
+                const tooltip = {
+                    kind: 'raw-box-summary',
+                    category,
+                    valueField,
+                    minimum: summary.minimum,
+                    q1: summary.q1,
+                    median: summary.median,
+                    q3: summary.q3,
+                    maximum: summary.maximum,
+                    lowerWhisker: summary.lowerWhisker,
+                    upperWhisker: summary.upperWhisker,
+                    outlierCount: summary.outliers.length,
+                    sourceRowCount: summary.rowIndices.length,
+                    sourceRowIndices: summary.rowIndices.slice(0, 256),
+                };
+                nodes.push({
+                    type: 'line',
+                    ...nodeBase(`${layer.id}:boxplot-whisker:${groupIndex}`, { zIndex: layer.zIndex }),
+                    x1: x,
+                    y1: yLow,
+                    x2: x,
+                    y2: yHigh,
+                    stroke,
+                    lineWidth: layer.mark.lineWidth ?? theme.mark.boxplotLineWidth ?? 1.5,
+                    lineCap: theme.mark.lineCap ?? 'round',
+                });
+                [yLow, yHigh].forEach((y, capIndex) => nodes.push({
+                    type: 'line',
+                    ...nodeBase(`${layer.id}:boxplot-cap:${groupIndex}:${capIndex}`, {
+                        zIndex: layer.zIndex + 0.5,
+                    }),
+                    x1: x - boxWidth * 0.3,
+                    y1: y,
+                    x2: x + boxWidth * 0.3,
+                    y2: y,
+                    stroke,
+                    lineWidth: layer.mark.lineWidth ?? theme.mark.boxplotLineWidth ?? 1.5,
+                    lineCap: theme.mark.lineCap ?? 'round',
+                }));
+                nodes.push({
+                    type: 'rect',
+                    ...datumBase$2(context, `${layer.id}:boxplot-box:${groupIndex}`, rowIndex, 1, tooltip),
+                    x: x - boxWidth / 2,
+                    y: Math.min(yQ1, yQ3),
+                    width: boxWidth,
+                    height: Math.max(1, Math.abs(yQ3 - yQ1)),
+                    fill,
+                    stroke,
+                    lineWidth: layer.mark.lineWidth ?? theme.mark.boxplotLineWidth ?? 1.8,
+                    cornerRadius: layer.mark.cornerRadius ?? theme.mark.boxplotRadius ?? 3,
+                });
+                nodes.push({
+                    type: 'line',
+                    ...nodeBase(`${layer.id}:boxplot-median:${groupIndex}`, { zIndex: layer.zIndex + 2 }),
+                    x1: x - boxWidth / 2,
+                    y1: yMedian,
+                    x2: x + boxWidth / 2,
+                    y2: yMedian,
+                    stroke: layer.mark.stroke ??
+                        theme.mark.boxplotMedianStroke ??
+                        mixColor$1(stroke, theme.colors.text, 0.22),
+                    lineWidth: layer.mark.lineWidth ?? theme.mark.boxplotLineWidth ?? 2.2,
+                    lineCap: theme.mark.lineCap ?? 'round',
+                });
+                summary.outliers
+                    .slice(0, context.performance.maxPointMarks)
+                    .forEach((outlier, outlierIndex) => nodes.push({
+                    type: 'circle',
+                    ...datumBase$2(context, `${layer.id}:boxplot-outlier:${groupIndex}:${outlierIndex}`, outlier.rowIndex, 3, {
+                        kind: 'boxplot-outlier',
+                        category,
+                        value: outlier.value,
+                        valueField,
+                    }),
+                    cx: x,
+                    cy: yScale.map(outlier.value),
+                    radius: layer.mark.radius ?? 3,
+                    fill: theme.colors.background,
+                    stroke,
+                    lineWidth: 1,
+                }));
+            });
+            return nodes;
+        }
         const nodes = [];
         const boxWidth = Math.max(8, xScale instanceof BandScale
             ? xScale.bandwidth * 0.55
@@ -10053,10 +20237,14 @@ var Graflume = (function (exports) {
     };
 
     const compileBarMark = (context) => {
+        const series = compileSeriesBarMark(context);
+        if (series !== null)
+            return series;
         const { table, layer, xScale, yScale, color, theme, barGroup, performance, plot } = context;
+        const encoding = createEncodingResolver(context);
         const themedWidthRatio = theme.mark.barWidthRatio;
         if (layer.mark.orientation === 'horizontal') {
-            const baseline = xScale.map(0);
+            const defaultBaseline = xScale.map(0);
             const slotHeight = yScale instanceof BandScale
                 ? (themedWidthRatio === undefined ? yScale.bandwidth : yScale.step) /
                     Math.max(1, barGroup.count)
@@ -10065,7 +20253,7 @@ var Graflume = (function (exports) {
                     Math.max(1, barGroup.count));
             const barHeight = Math.max(1, slotHeight * (themedWidthRatio ?? 0.74));
             const nodes = [];
-            const indices = strideSampleIndices(table.length, performance.maxBarMarks);
+            const indices = encoding.orderedIndices(strideSampleIndices(table.length, performance.maxBarMarks));
             for (const rowIndex of indices) {
                 const xInput = scaleInput(table.value(rowIndex, layer.x.field));
                 const yInput = scaleInput(table.value(rowIndex, layer.y.field));
@@ -10073,37 +20261,53 @@ var Graflume = (function (exports) {
                     continue;
                 const xValue = xScale.map(xInput);
                 const yCenter = yScale.map(yInput);
+                const baseline = encoding.position('x2', rowIndex) ??
+                    (Number.isFinite(defaultBaseline) ? defaultBaseline : xScale.map(xScale.domain()[0] ?? 0));
                 if (!Number.isFinite(xValue) || !Number.isFinite(yCenter) || !Number.isFinite(baseline))
                     continue;
                 const groupOffset = layer.mark.position === 'group'
                     ? (barGroup.index - (barGroup.count - 1) / 2) * slotHeight
                     : 0;
+                const encodedY2 = encoding.position('y2', rowIndex);
+                const seriesColor = encoding.color('color', rowIndex, color);
+                const fill = encoding.color('fill', rowIndex, encoding.has('color')
+                    ? seriesColor
+                    : (layer.mark.fill ?? theme.mark.barFill ?? seriesColor));
+                const fallbackStroke = layer.mark.stroke ?? theme.mark.barStroke;
+                const stroke = encoding.color('stroke', rowIndex, fallbackStroke ?? seriesColor);
+                const hasStroke = encoding.has('stroke') || fallbackStroke !== undefined;
+                const lineWidth = encoding.number('strokeWidth', rowIndex, layer.mark.lineWidth ??
+                    (hasStroke ? (theme.mark.barStrokeWidth ?? theme.mark.lineWidth) : 0));
+                const resolvedY = encodedY2 === null ? yCenter + groupOffset - barHeight / 2 : Math.min(yCenter, encodedY2);
+                const resolvedHeight = encodedY2 === null ? barHeight : Math.max(0.5, Math.abs(encodedY2 - yCenter));
+                const tooltip = encoding.tooltip(rowIndex);
                 nodes.push({
                     type: 'rect',
                     ...nodeBase(`${layer.id}:bar:${rowIndex}`, {
                         zIndex: layer.zIndex,
-                        opacity: layer.mark.opacity,
+                        opacity: encoding.number('opacity', rowIndex, layer.mark.opacity),
                         interactive: performance.enableHitTesting,
-                        datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) },
+                        datum: {
+                            layerId: layer.id,
+                            rowIndex,
+                            datum: table.row(rowIndex),
+                            ...(tooltip === undefined ? {} : { tooltip }),
+                        },
                     }),
                     x: Math.min(xValue, baseline),
-                    y: yCenter + groupOffset - barHeight / 2,
+                    y: resolvedY,
                     width: Math.max(0.5, Math.abs(baseline - xValue)),
-                    height: barHeight,
-                    fill: layer.mark.fill ?? theme.mark.barFill ?? color,
-                    ...(layer.mark.stroke === undefined && theme.mark.barStroke === undefined
-                        ? {}
-                        : { stroke: layer.mark.stroke ?? theme.mark.barStroke }),
-                    lineWidth: layer.mark.lineWidth ??
-                        (layer.mark.stroke === undefined && theme.mark.barStroke === undefined
-                            ? 0
-                            : (theme.mark.barStrokeWidth ?? theme.mark.lineWidth)),
+                    height: resolvedHeight,
+                    fill,
+                    ...(hasStroke ? { stroke } : {}),
+                    lineWidth,
+                    ...(encoding.dash(rowIndex).length === 0 ? {} : { dash: encoding.dash(rowIndex) }),
                     cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
                 });
             }
             return nodes;
         }
-        const baseline = yScale.map(0);
+        const defaultBaseline = yScale.map(0);
         const nodes = [];
         const slotWidth = xScale instanceof BandScale
             ? (themedWidthRatio === undefined ? xScale.bandwidth : xScale.step) /
@@ -10111,7 +20315,7 @@ var Graflume = (function (exports) {
             : Math.max(1, ((plot.width / Math.max(1, table.length)) * (themedWidthRatio === undefined ? 0.8 : 1)) /
                 Math.max(1, barGroup.count));
         const barWidth = Math.max(1, slotWidth * (themedWidthRatio ?? 0.74));
-        const indices = strideSampleIndices(table.length, performance.maxBarMarks);
+        const indices = encoding.orderedIndices(strideSampleIndices(table.length, performance.maxBarMarks));
         for (const rowIndex of indices) {
             const xInput = scaleInput(table.value(rowIndex, layer.x.field));
             const yInput = scaleInput(table.value(rowIndex, layer.y.field));
@@ -10119,32 +20323,44 @@ var Graflume = (function (exports) {
                 continue;
             const xCenter = xScale.map(xInput);
             const yValue = yScale.map(yInput);
+            const baseline = encoding.position('y2', rowIndex) ??
+                (Number.isFinite(defaultBaseline) ? defaultBaseline : yScale.map(yScale.domain()[0] ?? 0));
             if (!Number.isFinite(xCenter) || !Number.isFinite(yValue) || !Number.isFinite(baseline))
                 continue;
             const groupOffset = layer.mark.position === 'group' ? (barGroup.index - (barGroup.count - 1) / 2) * slotWidth : 0;
-            const x = xCenter + groupOffset - barWidth / 2;
+            const encodedX2 = encoding.position('x2', rowIndex);
+            const x = encodedX2 === null ? xCenter + groupOffset - barWidth / 2 : Math.min(xCenter, encodedX2);
+            const width = encodedX2 === null ? barWidth : Math.max(0.5, Math.abs(encodedX2 - xCenter));
             const y = Math.min(yValue, baseline);
             const height = Math.max(0.5, Math.abs(baseline - yValue));
+            const seriesColor = encoding.color('color', rowIndex, color);
+            const fill = encoding.color('fill', rowIndex, encoding.has('color') ? seriesColor : (layer.mark.fill ?? theme.mark.barFill ?? seriesColor));
+            const fallbackStroke = layer.mark.stroke ?? theme.mark.barStroke;
+            const stroke = encoding.color('stroke', rowIndex, fallbackStroke ?? seriesColor);
+            const hasStroke = encoding.has('stroke') || fallbackStroke !== undefined;
+            const lineWidth = encoding.number('strokeWidth', rowIndex, layer.mark.lineWidth ?? (hasStroke ? (theme.mark.barStrokeWidth ?? theme.mark.lineWidth) : 0));
+            const tooltip = encoding.tooltip(rowIndex);
             nodes.push({
                 type: 'rect',
                 ...nodeBase(`${layer.id}:bar:${rowIndex}`, {
                     zIndex: layer.zIndex,
-                    opacity: layer.mark.opacity,
+                    opacity: encoding.number('opacity', rowIndex, layer.mark.opacity),
                     interactive: performance.enableHitTesting,
-                    datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) },
+                    datum: {
+                        layerId: layer.id,
+                        rowIndex,
+                        datum: table.row(rowIndex),
+                        ...(tooltip === undefined ? {} : { tooltip }),
+                    },
                 }),
                 x,
                 y,
-                width: barWidth,
+                width,
                 height,
-                fill: layer.mark.fill ?? theme.mark.barFill ?? color,
-                ...(layer.mark.stroke === undefined && theme.mark.barStroke === undefined
-                    ? {}
-                    : { stroke: layer.mark.stroke ?? theme.mark.barStroke }),
-                lineWidth: layer.mark.lineWidth ??
-                    (layer.mark.stroke === undefined && theme.mark.barStroke === undefined
-                        ? 0
-                        : (theme.mark.barStrokeWidth ?? theme.mark.lineWidth)),
+                fill,
+                ...(hasStroke ? { stroke } : {}),
+                lineWidth,
+                ...(encoding.dash(rowIndex).length === 0 ? {} : { dash: encoding.dash(rowIndex) }),
                 cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
             });
         }
@@ -10152,45 +20368,27 @@ var Graflume = (function (exports) {
     };
 
     const compileLineMark = (context) => {
-        const { table, layer, xScale, yScale, color, theme, performance } = context;
-        const yValues = Array.from({ length: table.length }, (_, index) => numericDataValue(table.value(index, layer.y.field), layer.y.type === 'temporal'));
-        const indices = minMaxSampleIndices(yValues, performance.maxLinePoints);
+        const { table, layer, color, theme, performance } = context;
+        const encoding = createEncodingResolver(context);
+        const segments = interpolateSegments(collectCurveSegments(context, 'gap'), curveNameForMark(layer.mark.options, 'straight'), curveOptionsForMark(layer.mark.options), performance.maxLinePoints);
         const nodes = [];
-        const pointRows = new Set(strideSampleIndices(indices.length, performance.maxPointMarks)
-            .map((sampleIndex) => indices[sampleIndex])
+        const sourcePoints = segments.flatMap(({ source }) => source);
+        const pointRows = new Set(strideSampleIndices(sourcePoints.length, performance.maxPointMarks)
+            .map((sampleIndex) => sourcePoints[sampleIndex]?.rowIndex)
             .filter((rowIndex) => rowIndex !== undefined));
-        const segments = [];
-        let current = { points: [], rowIndices: [] };
-        const flush = () => {
-            if (current.points.length > 0)
-                segments.push(current);
-            current = { points: [], rowIndices: [] };
-        };
-        for (const rowIndex of indices) {
-            const xInput = scaleInput(table.value(rowIndex, layer.x.field));
-            const yInput = scaleInput(table.value(rowIndex, layer.y.field));
-            if (xInput === null || yInput === null) {
-                flush();
-                continue;
-            }
-            const x = xScale.map(xInput);
-            const y = yScale.map(yInput);
-            if (!Number.isFinite(x) || !Number.isFinite(y)) {
-                flush();
-                continue;
-            }
-            current.points.push({ x, y });
-            current.rowIndices.push(rowIndex);
-        }
-        flush();
-        const stroke = layer.mark.stroke ?? theme.mark.lineColor ?? theme.mark.defaultColor ?? color;
-        const lineWidth = layer.mark.lineWidth ?? theme.mark.lineWidth;
         segments.forEach((segment, segmentIndex) => {
+            const representative = segment.source[0]?.rowIndex ?? 0;
+            const seriesColor = encoding.color('color', representative, color);
+            const stroke = encoding.color('stroke', representative, encoding.has('color')
+                ? seriesColor
+                : (layer.mark.stroke ?? theme.mark.lineColor ?? theme.mark.defaultColor ?? seriesColor));
+            const lineWidth = encoding.number('strokeWidth', representative, layer.mark.lineWidth ?? theme.mark.lineWidth);
+            const dash = encoding.dash(representative);
             const path = {
                 type: 'path',
                 ...nodeBase(`${layer.id}:line:${segmentIndex}`, {
                     zIndex: layer.zIndex,
-                    opacity: layer.mark.opacity,
+                    opacity: encoding.number('opacity', representative, layer.mark.opacity),
                 }),
                 points: segment.points,
                 closed: false,
@@ -10198,29 +20396,42 @@ var Graflume = (function (exports) {
                 lineWidth,
                 lineCap: theme.mark.lineCap ?? 'round',
                 lineJoin: theme.mark.lineJoin ?? 'round',
+                ...(dash.length === 0 ? {} : { dash }),
             };
             nodes.push(path);
             if (layer.mark.point) {
-                segment.points.forEach((point, pointIndex) => {
-                    const rowIndex = segment.rowIndices[pointIndex];
+                segment.source.forEach(({ point, rowIndex }) => {
                     if (rowIndex === undefined || !pointRows.has(rowIndex))
                         return;
+                    const pointColor = encoding.color('color', rowIndex, seriesColor);
+                    const pointStroke = encoding.color('stroke', rowIndex, layer.mark.stroke ?? themedPointStroke(theme, pointColor, stroke));
+                    const encodedSize = encoding.number('size', rowIndex, Number.NaN);
+                    const radius = encoding.number('radius', rowIndex, Number.isFinite(encodedSize)
+                        ? Math.sqrt(Math.max(0, encodedSize) / Math.PI)
+                        : (layer.mark.radius ?? theme.mark.pointRadius));
+                    const tooltip = encoding.tooltip(rowIndex);
                     const circle = {
                         type: 'circle',
                         ...nodeBase(`${layer.id}:point:${rowIndex}`, {
                             zIndex: layer.zIndex + 0.1,
-                            opacity: layer.mark.opacity,
+                            opacity: encoding.number('opacity', rowIndex, layer.mark.opacity),
                             interactive: performance.enableHitTesting,
-                            datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) },
+                            datum: {
+                                layerId: layer.id,
+                                rowIndex,
+                                datum: table.row(rowIndex),
+                                ...(tooltip === undefined ? {} : { tooltip }),
+                            },
                         }),
                         cx: point.x,
                         cy: point.y,
-                        radius: layer.mark.radius ?? theme.mark.pointRadius,
-                        fill: layer.mark.fill ?? themedPointFill(theme, stroke, theme.colors.background),
-                        stroke: layer.mark.stroke ?? themedPointStroke(theme, stroke, stroke),
-                        lineWidth: layer.mark.lineWidth === undefined
+                        radius,
+                        fill: encoding.color('fill', rowIndex, layer.mark.fill ?? themedPointFill(theme, pointColor, theme.colors.background)),
+                        stroke: pointStroke,
+                        lineWidth: encoding.number('strokeWidth', rowIndex, layer.mark.lineWidth === undefined
                             ? (theme.mark.pointStrokeWidth ?? Math.max(1.5, lineWidth * 0.68))
-                            : Math.max(1.5, lineWidth * 0.68),
+                            : Math.max(1.5, lineWidth * 0.68)),
+                        ...(encoding.dash(rowIndex).length === 0 ? {} : { dash: encoding.dash(rowIndex) }),
                     };
                     nodes.push(circle);
                 });
@@ -10231,7 +20442,8 @@ var Graflume = (function (exports) {
 
     const compilePointMark = (context) => {
         const { table, layer, xScale, yScale, color, theme, performance } = context;
-        const indices = strideSampleIndices(table.length, performance.maxPointMarks);
+        const encoding = createEncodingResolver(context);
+        const indices = encoding.orderedIndices(strideSampleIndices(table.length, performance.maxPointMarks));
         const nodes = [];
         for (const rowIndex of indices) {
             const xInput = scaleInput(table.value(rowIndex, layer.x.field));
@@ -10242,21 +20454,123 @@ var Graflume = (function (exports) {
             const cy = yScale.map(yInput);
             if (!Number.isFinite(cx) || !Number.isFinite(cy))
                 continue;
-            nodes.push({
-                type: 'circle',
-                ...nodeBase(`${layer.id}:point:${rowIndex}`, {
-                    zIndex: layer.zIndex,
-                    opacity: layer.mark.opacity,
-                    interactive: performance.enableHitTesting,
-                    datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) },
-                }),
-                cx,
-                cy,
-                radius: layer.mark.radius ?? theme.mark.pointRadius,
-                fill: layer.mark.fill ?? themedPointFill(theme, color, theme.mark.defaultColor ?? color),
-                stroke: layer.mark.stroke ?? themedPointStroke(theme, color, theme.colors.background),
-                lineWidth: layer.mark.lineWidth ?? theme.mark.pointStrokeWidth ?? 1.75,
+            const seriesColor = encoding.color('color', rowIndex, color);
+            const fill = encoding.color('fill', rowIndex, encoding.has('color')
+                ? seriesColor
+                : (layer.mark.fill ??
+                    themedPointFill(theme, seriesColor, theme.mark.defaultColor ?? seriesColor)));
+            const stroke = encoding.color('stroke', rowIndex, encoding.has('color')
+                ? seriesColor
+                : (layer.mark.stroke ?? themedPointStroke(theme, seriesColor, theme.colors.background)));
+            const encodedSize = encoding.number('size', rowIndex, Number.NaN);
+            const radius = encoding.number('radius', rowIndex, Number.isFinite(encodedSize)
+                ? Math.sqrt(Math.max(0, encodedSize) / Math.PI)
+                : (layer.mark.radius ?? theme.mark.pointRadius));
+            const opacity = encoding.number('opacity', rowIndex, layer.mark.opacity);
+            const lineWidth = encoding.number('strokeWidth', rowIndex, layer.mark.lineWidth ?? theme.mark.pointStrokeWidth ?? 1.75);
+            const dash = encoding.dash(rowIndex);
+            const base = nodeBase(`${layer.id}:point:${rowIndex}`, {
+                zIndex: layer.zIndex,
+                opacity,
+                interactive: performance.enableHitTesting,
+                datum: {
+                    layerId: layer.id,
+                    rowIndex,
+                    datum: table.row(rowIndex),
+                    ...(encoding.tooltip(rowIndex) === undefined
+                        ? {}
+                        : { tooltip: encoding.tooltip(rowIndex) }),
+                },
             });
+            const shape = encoding.shape(rowIndex);
+            if (shape === 'circle') {
+                const node = {
+                    type: 'circle',
+                    ...base,
+                    cx,
+                    cy,
+                    radius,
+                    fill,
+                    stroke,
+                    lineWidth,
+                    ...(dash.length === 0 ? {} : { dash }),
+                };
+                nodes.push(node);
+            }
+            else if (shape === 'square') {
+                const node = {
+                    type: 'rect',
+                    ...base,
+                    x: cx - radius,
+                    y: cy - radius,
+                    width: radius * 2,
+                    height: radius * 2,
+                    fill,
+                    stroke,
+                    lineWidth,
+                    cornerRadius: 0,
+                    ...(dash.length === 0 ? {} : { dash }),
+                };
+                nodes.push(node);
+            }
+            else {
+                const points = shape === 'triangle'
+                    ? [
+                        { x: cx, y: cy - radius },
+                        { x: cx + radius * 0.866, y: cy + radius * 0.5 },
+                        { x: cx - radius * 0.866, y: cy + radius * 0.5 },
+                    ]
+                    : shape === 'cross'
+                        ? [
+                            { x: cx - radius, y: cy - radius / 3 },
+                            { x: cx - radius / 3, y: cy - radius / 3 },
+                            { x: cx - radius / 3, y: cy - radius },
+                            { x: cx + radius / 3, y: cy - radius },
+                            { x: cx + radius / 3, y: cy - radius / 3 },
+                            { x: cx + radius, y: cy - radius / 3 },
+                            { x: cx + radius, y: cy + radius / 3 },
+                            { x: cx + radius / 3, y: cy + radius / 3 },
+                            { x: cx + radius / 3, y: cy + radius },
+                            { x: cx - radius / 3, y: cy + radius },
+                            { x: cx - radius / 3, y: cy + radius / 3 },
+                            { x: cx - radius, y: cy + radius / 3 },
+                        ]
+                        : [
+                            { x: cx, y: cy - radius },
+                            { x: cx + radius, y: cy },
+                            { x: cx, y: cy + radius },
+                            { x: cx - radius, y: cy },
+                        ];
+                const node = {
+                    type: 'path',
+                    ...base,
+                    points,
+                    closed: true,
+                    fill,
+                    stroke,
+                    lineWidth,
+                    ...(dash.length === 0 ? {} : { dash }),
+                };
+                nodes.push(node);
+            }
+            const label = encoding.text(rowIndex);
+            if (label !== undefined) {
+                const text = {
+                    type: 'text',
+                    ...nodeBase(`${layer.id}:point-label:${rowIndex}`, { zIndex: layer.zIndex + 0.1, opacity }),
+                    x: cx,
+                    y: cy - radius - 4,
+                    text: label,
+                    fill: encoding.color('color', rowIndex, theme.colors.text),
+                    fontFamily: theme.typography.fontFamily,
+                    fontSize: theme.typography.fontSize,
+                    fontWeight: theme.typography.fontWeight ?? 400,
+                    align: 'center',
+                    baseline: 'bottom',
+                    rotation: 0,
+                };
+                nodes.push(text);
+            }
         }
         return nodes;
     };
@@ -10285,56 +20599,11 @@ var Graflume = (function (exports) {
             rotation: 0,
         };
     }
-    const compileSteppedAreaMark = (context) => {
-        const { table, layer, xScale, yScale, color, theme } = context;
-        const top = [];
-        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
-            const xInput = scaleInput(table.value(rowIndex, layer.x.field));
-            const yInput = scaleInput(table.value(rowIndex, layer.y.field));
-            if (xInput === null || yInput === null)
-                continue;
-            const x = xScale.map(xInput);
-            const y = yScale.map(yInput);
-            if (!Number.isFinite(x) || !Number.isFinite(y))
-                continue;
-            const previous = top.at(-1);
-            if (previous !== undefined)
-                top.push({ x, y: previous.y });
-            top.push({ x, y });
-        }
-        const first = top[0];
-        const last = top.at(-1);
-        if (first === undefined || last === undefined)
-            return [];
-        const baseline = yScale.map(0);
-        const area = {
-            type: 'path',
-            ...nodeBase(`${layer.id}:stepped-area-fill`, {
-                zIndex: layer.zIndex,
-                opacity: layer.mark.opacity,
-            }),
-            points: [...top, { x: last.x, y: baseline }, { x: first.x, y: baseline }],
-            closed: true,
-            fill: layer.mark.fill ??
-                themedAreaFill(theme, color, colorWithOpacity(color, theme.mode === 'dark' ? 0.28 : 0.2)),
-            lineWidth: 0,
-        };
-        const outline = {
-            type: 'path',
-            ...nodeBase(`${layer.id}:stepped-area-line`, {
-                zIndex: layer.zIndex + 0.1,
-                opacity: layer.mark.opacity,
-            }),
-            points: top,
-            closed: false,
-            stroke: layer.mark.stroke ??
-                themedAreaStroke(theme, color, theme.mark.lineColor ?? theme.mark.defaultColor ?? color),
-            lineWidth: layer.mark.lineWidth ?? theme.mark.lineWidth,
-            lineCap: theme.mark.lineCap ?? 'round',
-            lineJoin: theme.mark.lineJoin ?? 'round',
-        };
-        return [area, outline];
-    };
+    const compileSteppedAreaMark = (context) => compileAreaSeries(context, {
+        curve: 'step-after',
+        missing: 'connect',
+        idStem: 'stepped-area',
+    });
     const compileBubbleMark = (context) => {
         const { table, layer, xScale, yScale, theme, color, performance } = context;
         const sizeField = layer.mark.fields.size;
@@ -10483,28 +20752,39 @@ var Graflume = (function (exports) {
         const extent = table.extent(layer.x.field, layer.x.type === 'temporal');
         if (extent === null)
             return [];
-        const span = extent[1] - extent[0] || 1;
-        const bins = Array.from({ length: binCount }, () => 0);
-        const rows = Array.from({ length: binCount }, () => []);
+        const weightField = layer.mark.fields.weight ?? optionString$3(layer.mark.options, 'weightField');
+        const observations = [];
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
             const value = numericDataValue(table.value(rowIndex, layer.x.field), layer.x.type === 'temporal');
             if (value === null)
                 continue;
-            const bin = Math.min(binCount - 1, Math.max(0, Math.floor(((value - extent[0]) / span) * binCount)));
-            bins[bin] = (bins[bin] ?? 0) + 1;
-            rows[bin]?.push(rowIndex);
+            const weight = weightField === undefined ? 1 : numericDataValue(table.value(rowIndex, weightField));
+            if (weight === null || weight < 0)
+                continue;
+            observations.push({ value, weight, rowIndex });
         }
+        const normalizationOption = optionString$3(layer.mark.options, 'normalization');
+        const normalization = normalizationOption === 'probability' ||
+            normalizationOption === 'normalized' ||
+            layer.mark.options.normalized === true
+            ? 'probability'
+            : normalizationOption === 'density'
+                ? 'density'
+                : 'count';
+        const bins = weightedHistogram(observations, {
+            bins: binCount,
+            extent,
+            normalization,
+            cumulative: layer.mark.options.cumulative === true,
+        });
         const baseline = yScale.map(0);
         const nodes = [];
-        const totalCount = bins.reduce((sum, count) => sum + count, 0);
         const histogramGap = Math.max(0, theme.mark.histogramGap ?? 2);
-        bins.forEach((count, index) => {
-            const start = extent[0] + (span * index) / binCount;
-            const end = extent[0] + (span * (index + 1)) / binCount;
-            const x1 = xScale.map(start);
-            const x2 = xScale.map(end);
-            const y = yScale.map(count);
-            const rowIndex = rows[index]?.[0];
+        bins.forEach((bin, index) => {
+            const x1 = xScale.map(bin.start);
+            const x2 = xScale.map(bin.end);
+            const y = yScale.map(bin.value);
+            const rowIndex = bin.rowIndices[0];
             if (![x1, x2, y, baseline].every(Number.isFinite))
                 return;
             const stroke = layer.mark.stroke ??
@@ -10524,10 +20804,18 @@ var Graflume = (function (exports) {
                                 rowIndex,
                                 datum: table.row(rowIndex),
                                 tooltip: {
-                                    binStart: start,
-                                    binEnd: end,
-                                    count,
-                                    proportion: totalCount === 0 ? 0 : count / totalCount,
+                                    kind: 'histogram-bin',
+                                    binStart: bin.start,
+                                    binEnd: bin.end,
+                                    count: bin.count,
+                                    weight: bin.weight,
+                                    value: bin.value,
+                                    proportion: bin.proportion,
+                                    normalization,
+                                    cumulative: layer.mark.options.cumulative === true,
+                                    weightField: weightField ?? null,
+                                    sourceRowCount: bin.rowIndices.length,
+                                    sourceRowIndices: bin.rowIndices.slice(0, 256),
                                 },
                             },
                         }),
@@ -12276,6 +22564,7 @@ var Graflume = (function (exports) {
         return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
     }
     function datumBase$1(context, id, rowIndex, offset = 0, tooltip) {
+        const row = context.table.row(rowIndex);
         return nodeBase(id, {
             zIndex: context.layer.zIndex + offset,
             opacity: context.layer.mark.opacity,
@@ -12283,7 +22572,7 @@ var Graflume = (function (exports) {
             datum: {
                 layerId: context.layer.id,
                 rowIndex,
-                datum: context.table.row(rowIndex),
+                datum: Object.fromEntries(Object.entries(row).filter(([field]) => !field.startsWith('__graflume_'))),
                 ...(tooltip === undefined ? {} : { tooltip }),
             },
         });
@@ -12362,6 +22651,135 @@ var Graflume = (function (exports) {
             }),
         ];
     };
+    function distributionObservations(context) {
+        const { layer, table } = context;
+        const valueField = layer.mark.fields.value ?? layer.x.field;
+        const optionWeightField = layer.mark.options.weightField;
+        const weightField = layer.mark.fields.weight ??
+            (typeof optionWeightField === 'string' ? optionWeightField : undefined);
+        const observations = [];
+        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+            const value = numericDataValue(table.value(rowIndex, valueField), layer.x.type === 'temporal');
+            const weight = weightField === undefined ? 1 : numericDataValue(table.value(rowIndex, weightField));
+            if (value === null || weight === null || weight < 0)
+                continue;
+            observations.push({ value, weight, rowIndex });
+        }
+        return observations;
+    }
+    const compileEmpiricalDistributionMark = (context) => {
+        const { layer, table, xScale, yScale, theme } = context;
+        const complementary = resolveDistributionMode(layer.mark.options.mode) === 'ccdf';
+        const observations = distributionObservations(context);
+        const empirical = empiricalDistribution(observations, complementary);
+        if (empirical.length === 0)
+            return [];
+        const sampledEmpirical = exactStrideSampleIndices(empirical.length, Math.max(1, Math.floor(context.performance.maxLinePoints / 2))).map((index) => empirical[index]);
+        const rawPoints = [];
+        let previous = complementary ? 1 : 0;
+        for (const point of sampledEmpirical) {
+            const x = xScale.map(point.value);
+            rawPoints.push({ x, y: yScale.map(previous) }, { x, y: yScale.map(point.probability) });
+            previous = point.probability;
+        }
+        const points = rawPoints;
+        const stroke = layer.mark.stroke ?? theme.mark.lineColor ?? context.color;
+        const valueField = layer.mark.fields.value ?? layer.x.field;
+        const nodes = [
+            {
+                type: 'path',
+                ...nodeBase(`${layer.id}:${complementary ? 'ccdf' : 'ecdf'}-line`, {
+                    zIndex: layer.zIndex,
+                    interactive: context.performance.enableHitTesting,
+                    datum: {
+                        layerId: layer.id,
+                        rowIndex: empirical[0]?.rowIndices[0] ?? 0,
+                        datum: table.row(empirical[0]?.rowIndices[0] ?? 0),
+                        tooltip: {
+                            kind: complementary ? 'ccdf' : 'ecdf',
+                            valueField,
+                            weightField: layer.mark.fields.weight ??
+                                (typeof layer.mark.options.weightField === 'string'
+                                    ? layer.mark.options.weightField
+                                    : null),
+                            sampleCount: observations.length,
+                        },
+                    },
+                }),
+                points,
+                closed: false,
+                stroke,
+                lineWidth: layer.mark.lineWidth ?? theme.mark.lineWidth,
+                lineCap: theme.mark.lineCap ?? 'round',
+                lineJoin: theme.mark.lineJoin ?? 'round',
+            },
+        ];
+        exactStrideSampleIndices(empirical.length, context.performance.maxPointMarks).forEach((empiricalIndex, index) => {
+            const point = empirical[empiricalIndex];
+            const rowIndex = point.rowIndices[0] ?? 0;
+            nodes.push({
+                type: 'circle',
+                ...datumBase$1(context, `${layer.id}:${complementary ? 'ccdf' : 'ecdf'}-point:${index}`, rowIndex, 1, {
+                    kind: complementary ? 'ccdf-point' : 'ecdf-point',
+                    value: point.value,
+                    probability: point.probability,
+                    weight: point.weight,
+                    count: point.count,
+                    sourceRowCount: point.rowIndices.length,
+                    sourceRowIndices: point.rowIndices.slice(0, 256),
+                }),
+                cx: xScale.map(point.value),
+                cy: yScale.map(point.probability),
+                radius: layer.mark.radius ?? 2.5,
+                fill: layer.mark.fill ?? stroke,
+                stroke: theme.colors.background,
+                lineWidth: 0.75,
+            });
+        });
+        return nodes;
+    };
+    const compileKernelDensityMark = (context) => {
+        const { layer, table, xScale, yScale, theme } = context;
+        const observations = distributionObservations(context);
+        const requestedBandwidth = layer.mark.options.bandwidth;
+        const estimate = kernelDensity1d(observations, {
+            points: clamp$1(Math.floor(optionNumber$3(layer.mark.options.samples, 96)), 24, Math.min(512, context.performance.maxLinePoints)),
+            ...(typeof requestedBandwidth === 'number' && requestedBandwidth > 0
+                ? { bandwidth: requestedBandwidth }
+                : {}),
+        });
+        if (estimate.points.length === 0)
+            return [];
+        const points = estimate.points.map((point) => ({
+            x: xScale.map(point.value),
+            y: yScale.map(point.density),
+        }));
+        const stroke = layer.mark.stroke ?? theme.mark.lineColor ?? context.color;
+        const rowIndex = observations[0]?.rowIndex ?? 0;
+        return [
+            {
+                type: 'path',
+                ...datumBase$1(context, `${layer.id}:kde-line`, rowIndex, 1, {
+                    kind: 'kernel-density',
+                    bandwidth: estimate.bandwidth,
+                    sampleCount: observations.length,
+                    valueField: layer.mark.fields.value ?? layer.x.field,
+                    weightField: layer.mark.fields.weight ??
+                        (typeof layer.mark.options.weightField === 'string'
+                            ? layer.mark.options.weightField
+                            : null),
+                    sourceRowCount: observations.length,
+                    sourceRowIndices: observations.slice(0, 256).map(({ rowIndex: source }) => source),
+                }),
+                points,
+                closed: false,
+                stroke,
+                lineWidth: layer.mark.lineWidth ?? theme.mark.lineWidth,
+                lineCap: theme.mark.lineCap ?? 'round',
+                lineJoin: theme.mark.lineJoin ?? 'round',
+            },
+        ];
+    };
 
     const TAU = Math.PI * 2;
     function clamp(value, minimum, maximum) {
@@ -12403,83 +22821,6 @@ var Graflume = (function (exports) {
                 ...(tooltip === undefined ? {} : { tooltip }),
             },
         });
-    }
-    function interpolateContourPoint(start, end, startValue, endValue, level) {
-        const ratio = clamp((level - startValue) / (endValue - startValue || 1), 0, 1);
-        return {
-            x: start.x + (end.x - start.x) * ratio,
-            y: start.y + (end.y - start.y) * ratio,
-        };
-    }
-    /** Deterministic marching-squares segments for regular or warped grids. */
-    function contourSegments(values, points, levels, maximumSegments = Number.POSITIVE_INFINITY) {
-        const limit = Math.max(0, Math.trunc(maximumSegments));
-        if (limit === 0)
-            return [];
-        const segments = [];
-        for (let row = 0; row < values.length - 1; row += 1) {
-            const current = values[row];
-            const next = values[row + 1];
-            const currentPoints = points[row];
-            const nextPoints = points[row + 1];
-            if (current === undefined ||
-                next === undefined ||
-                currentPoints === undefined ||
-                nextPoints === undefined)
-                continue;
-            const width = Math.min(current.length, next.length, currentPoints.length, nextPoints.length);
-            for (let column = 0; column < width - 1; column += 1) {
-                const cellValues = [current[column], current[column + 1], next[column + 1], next[column]];
-                const cellPoints = [
-                    currentPoints[column],
-                    currentPoints[column + 1],
-                    nextPoints[column + 1],
-                    nextPoints[column],
-                ];
-                if (cellValues.some((value) => value === null || value === undefined) ||
-                    cellPoints.some((point) => point === null || point === undefined))
-                    continue;
-                const numeric = cellValues;
-                const corners = cellPoints;
-                for (let levelIndex = 0; levelIndex < levels.length; levelIndex += 1) {
-                    const level = levels[levelIndex];
-                    if (level === undefined)
-                        continue;
-                    const crossings = [];
-                    for (let edge = 0; edge < 4; edge += 1) {
-                        const nextEdge = (edge + 1) % 4;
-                        const startValue = numeric[edge] ?? 0;
-                        const endValue = numeric[nextEdge] ?? 0;
-                        if ((startValue < level && endValue >= level) ||
-                            (endValue < level && startValue >= level)) {
-                            crossings.push(interpolateContourPoint(corners[edge] ?? corners[0], corners[nextEdge] ?? corners[0], startValue, endValue, level));
-                        }
-                    }
-                    if (crossings.length === 2 && crossings[0] !== undefined && crossings[1] !== undefined) {
-                        segments.push({ levelIndex, points: [crossings[0], crossings[1]] });
-                        if (segments.length >= limit)
-                            return segments;
-                    }
-                    else if (crossings.length === 4) {
-                        const first = crossings[0];
-                        const second = crossings[1];
-                        const third = crossings[2];
-                        const fourth = crossings[3];
-                        if (first !== undefined && second !== undefined) {
-                            segments.push({ levelIndex, points: [first, second] });
-                            if (segments.length >= limit)
-                                return segments;
-                        }
-                        if (third !== undefined && fourth !== undefined) {
-                            segments.push({ levelIndex, points: [third, fourth] });
-                            if (segments.length >= limit)
-                                return segments;
-                        }
-                    }
-                }
-            }
-        }
-        return segments;
     }
     function gaussianKernel(distance) {
         return Math.exp(-0.5 * distance * distance) / Math.sqrt(TAU);
@@ -12673,7 +23014,7 @@ var Graflume = (function (exports) {
         const requestedBinsY = clamp(Math.floor(optionNumber$2(layer.mark.options, 'binsY', 10)), 2, 80);
         const [binsX, binsY] = boundedGridDimensions(requestedBinsX, requestedBinsY, context.performance.maxBarMarks);
         const counts = Array.from({ length: binsY }, () => Array.from({ length: binsX }, () => 0));
-        const rows = Array.from({ length: binsY }, () => Array.from({ length: binsX }, () => -1));
+        const rows = Array.from({ length: binsY }, () => Array.from({ length: binsX }, () => []));
         const xSpan = xExtent[1] - xExtent[0] || 1;
         const ySpan = yExtent[1] - yExtent[0] || 1;
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
@@ -12688,8 +23029,7 @@ var Graflume = (function (exports) {
             if (rowCounts === undefined || rowRefs === undefined)
                 continue;
             rowCounts[xBin] = (rowCounts[xBin] ?? 0) + 1;
-            if ((rowRefs[xBin] ?? -1) < 0)
-                rowRefs[xBin] = rowIndex;
+            rowRefs[xBin]?.push(rowIndex);
         }
         const maximum = Math.max(1, ...counts.flat());
         const nodes = [];
@@ -12707,7 +23047,7 @@ var Graflume = (function (exports) {
                 const bottom = yScale.map(yStart);
                 const ratio = count / maximum;
                 const fill = layer.mark.fill ?? mappedContinuousColor(theme, ratio);
-                const rowIndex = Math.max(0, rows[yBin]?.[xBin] ?? 0);
+                const rowIndex = rows[yBin]?.[xBin]?.[0] ?? 0;
                 const centerRow = centerPoints[yBin];
                 if (centerRow !== undefined) {
                     centerRow[xBin] = { x: (left + right) / 2, y: (top + bottom) / 2 };
@@ -12739,21 +23079,25 @@ var Graflume = (function (exports) {
         if (contours) {
             const levelCount = clamp(Math.floor(optionNumber$2(layer.mark.options, 'levels', 6)), 2, 16);
             const levels = Array.from({ length: levelCount }, (_, index) => ((index + 1) / (levelCount + 1)) * maximum);
-            contourSegments(counts, centerPoints, levels, Math.floor(context.performance.maxLinePoints / 2)).forEach((segment, index) => {
+            extractIsolines(counts, centerPoints, levels, rows, {
+                maximumSegments: Math.floor(context.performance.maxLinePoints / 2),
+            }).forEach((segment, index) => {
                 const ratio = segment.levelIndex / Math.max(1, levelCount - 1);
                 const stroke = layer.mark.stroke ?? mappedContinuousColor(theme, ratio);
                 nodes.push({
                     type: 'path',
-                    ...datumBase(context, `${layer.id}:histogram-2d-contour:${segment.levelIndex}:${index}`, 0, 1, {
+                    ...datumBase(context, `${layer.id}:histogram-2d-contour:${segment.levelIndex}:${index}`, segment.sourceRows[0] ?? 0, 1, {
                         kind: 'density-isoline',
                         level: levels[segment.levelIndex] ?? 0,
                         minimumCount: 0,
                         maximumCount: maximum,
                         binsX,
                         binsY,
+                        sourceRowCount: segment.sourceRows.length,
+                        sourceRowIndices: segment.sourceRows.slice(0, 256),
                     }),
                     points: segment.points,
-                    closed: false,
+                    closed: segment.closed,
                     stroke,
                     lineWidth: layer.mark.lineWidth ?? 1.8,
                     lineCap: theme.mark.lineCap ?? 'round',
@@ -12763,7 +23107,7 @@ var Graflume = (function (exports) {
         }
         return nodes;
     }
-    /** One implementation surface for histogram, box, violin, curve, and bivariate modes. */
+    /** One implementation surface for histogram, empirical, KDE, box, violin, curve, and bivariate modes. */
     const compileDistributionFamilyMark = (context) => {
         const mode = resolveDistributionMode(context.layer.mark.options.mode);
         if (mode === 'boxplot')
@@ -12772,6 +23116,10 @@ var Graflume = (function (exports) {
             return compileViolin(context);
         if (mode === 'curve')
             return compileDistributionMark(context);
+        if (mode === 'kde')
+            return compileKernelDensityMark(context);
+        if (mode === 'ecdf' || mode === 'ccdf')
+            return compileEmpiricalDistributionMark(context);
         if (mode === 'histogram-2d')
             return compileHistogram2d(context);
         if (mode === 'histogram-2d-contour') {
@@ -14320,6 +24668,7 @@ var Graflume = (function (exports) {
         #drawCircle(context, node) {
             context.beginPath();
             context.arc(node.cx, node.cy, node.radius, 0, Math.PI * 2);
+            context.setLineDash(node.dash === undefined ? [] : [...node.dash]);
             if (node.fill !== undefined) {
                 context.fillStyle = node.fill;
                 context.fill();
@@ -14553,6 +24902,9 @@ var Graflume = (function (exports) {
         variant('geo', 'Geographic region chart', 'geo', 'geo', 'map', 'region'),
         variant('distribution', 'Distribution chart', 'distribution', 'distribution', 'distribution', 'histogram'),
         variant('histogram', 'Histogram', 'histogram', 'histogram', 'distribution', 'histogram'),
+        variant('ecdf', 'Empirical cumulative distribution', 'ecdf', 'distribution', 'distribution', 'ecdf'),
+        variant('ccdf', 'Complementary empirical distribution', 'ccdf', 'distribution', 'distribution', 'ccdf'),
+        variant('kde', 'Kernel density estimate', 'kde', 'distribution', 'distribution', 'kde'),
         variant('histogram-2d', 'Bivariate histogram', 'histogram2d', 'distribution', 'distribution', 'histogram-2d'),
         variant('histogram-2d-contour', 'Bivariate density contours', 'histogram2dContour', 'distribution', 'distribution', 'histogram-2d-contour'),
         variant('violin', 'Violin chart', 'violin', 'distribution', 'distribution', 'violin'),
@@ -14574,6 +24926,289 @@ var Graflume = (function (exports) {
         variant('waterfall', 'Waterfall chart', 'waterfall', 'waterfall', 'waterfall'),
         variant('word-tree', 'Word tree', 'wordTree', 'word-tree', 'word-tree'),
     ];
+
+    const transformWorkerProtocolVersion = 1;
+    const DEFAULT_MAX_QUEUE_BATCHES = 8;
+    const DEFAULT_MAX_ROWS = 100_000;
+    const ABSOLUTE_MAX_ROWS = 1_000_000;
+    const DEFAULT_MAX_TRANSFORMS = 128;
+    const ADAPTER_OPTION_KEYS = new Set([
+        'maxQueueBatches',
+        'maxQueueRows',
+        'maxInputRows',
+        'maxTransforms',
+    ]);
+    const EXECUTE_OPTION_KEYS = new Set(['transferOwnership']);
+    function assertClosedOptions(value, allowed, path) {
+        if (!isPlainObject(value)) {
+            throw new GraflumeError('INVALID_DATA', `${path} must be an object.`, { path });
+        }
+        const unknown = Object.keys(value).find((key) => !allowed.has(key));
+        if (unknown !== undefined) {
+            throw new GraflumeError('INVALID_DATA', `Unknown ${path} property "${unknown}".`, {
+                path: `${path}.${unknown}`,
+            });
+        }
+    }
+    function boundedInteger(value, fallback, maximum, path) {
+        const resolved = value ?? fallback;
+        if (!Number.isInteger(resolved) || resolved < 1 || resolved > maximum) {
+            throw new GraflumeError('INVALID_DATA', `${path} must be an integer from 1 to ${maximum}.`, {
+                path,
+            });
+        }
+        return resolved;
+    }
+    function normalizeOptions(options) {
+        assertClosedOptions(options, ADAPTER_OPTION_KEYS, '$.worker');
+        const maxInputRows = boundedInteger(options.maxInputRows, DEFAULT_MAX_ROWS, ABSOLUTE_MAX_ROWS, 'worker.maxInputRows');
+        return {
+            maxQueueBatches: boundedInteger(options.maxQueueBatches, DEFAULT_MAX_QUEUE_BATCHES, 1_024, 'worker.maxQueueBatches'),
+            maxQueueRows: boundedInteger(options.maxQueueRows, maxInputRows, ABSOLUTE_MAX_ROWS, 'worker.maxQueueRows'),
+            maxInputRows,
+            maxTransforms: boundedInteger(options.maxTransforms, DEFAULT_MAX_TRANSFORMS, DEFAULT_MAX_TRANSFORMS, 'worker.maxTransforms'),
+        };
+    }
+    function rowCount(data) {
+        return DataTable.from(data).length;
+    }
+    function transferables(data) {
+        if (Array.isArray(data))
+            return [];
+        const columnar = data;
+        const buffers = new Set();
+        for (const column of Object.values(columnar.columns)) {
+            if (ArrayBuffer.isView(column) && column.buffer instanceof ArrayBuffer) {
+                buffers.add(column.buffer);
+            }
+        }
+        return [...buffers];
+    }
+    function snapshotRequest(data, transforms, transferOwnership) {
+        try {
+            const transformSnapshot = structuredClone(transforms);
+            const sourceTransfers = transferOwnership ? transferables(data) : [];
+            const dataSnapshot = structuredClone(data, sourceTransfers.length === 0 ? undefined : { transfer: sourceTransfers });
+            return {
+                data: dataSnapshot,
+                transforms: transformSnapshot,
+                transfer: transferOwnership ? transferables(dataSnapshot) : [],
+            };
+        }
+        catch (error) {
+            throw new GraflumeError('INVALID_DATA', 'Worker data and transforms must be structured-clone portable; functions are unsupported.', { details: { cause: error instanceof Error ? error.message : String(error) } });
+        }
+    }
+    function isResponse(value) {
+        if (value === null || typeof value !== 'object')
+            return false;
+        const response = value;
+        return (response.protocol === transformWorkerProtocolVersion &&
+            response.type === 'graflume:transform-result' &&
+            typeof response.id === 'number' &&
+            typeof response.ok === 'boolean');
+    }
+    function isRequest(value) {
+        if (value === null || typeof value !== 'object')
+            return false;
+        const request = value;
+        return (request.protocol === transformWorkerProtocolVersion &&
+            request.type === 'graflume:transform' &&
+            typeof request.id === 'number' &&
+            request.data !== undefined &&
+            Array.isArray(request.transforms));
+    }
+    function serializedError(error) {
+        if (error instanceof GraflumeError) {
+            return {
+                name: error.name,
+                message: error.message,
+                code: error.code,
+                ...(error.path === undefined ? {} : { path: error.path }),
+            };
+        }
+        return {
+            name: error instanceof Error ? error.name : 'Error',
+            message: error instanceof Error ? error.message : String(error),
+        };
+    }
+    class TransformWorkerAdapter {
+        #port;
+        #options;
+        #queue = [];
+        #queuedRows = 0;
+        #active = null;
+        #nextId = 1;
+        #completed = 0;
+        #rejected = 0;
+        #closed = false;
+        #messageListener = (event) => {
+            if (!isResponse(event.data) || this.#active === null)
+                return;
+            if (event.data.id !== this.#active.request.id)
+                return;
+            const active = this.#active;
+            this.#active = null;
+            if (event.data.ok) {
+                this.#completed += 1;
+                active.resolve(event.data.result);
+            }
+            else {
+                this.#rejected += 1;
+                active.reject(new GraflumeError('INVALID_DATA', event.data.error.message, {
+                    ...(event.data.error.path === undefined ? {} : { path: event.data.error.path }),
+                    details: { workerCode: event.data.error.code ?? event.data.error.name },
+                }));
+            }
+            this.#dispatch();
+        };
+        constructor(port, options = {}) {
+            this.#port = port;
+            this.#options = normalizeOptions(options);
+            this.#port.addEventListener('message', this.#messageListener);
+        }
+        execute(data, transforms, options = {}) {
+            if (this.#closed) {
+                return this.#rejectRequest(new GraflumeError('INVALID_DATA', 'Transform worker adapter is closed.'));
+            }
+            try {
+                assertClosedOptions(options, EXECUTE_OPTION_KEYS, '$.worker.execute');
+                if (options.transferOwnership !== undefined &&
+                    typeof options.transferOwnership !== 'boolean') {
+                    throw new GraflumeError('INVALID_DATA', '$.worker.execute.transferOwnership must be boolean.', { path: '$.worker.execute.transferOwnership' });
+                }
+            }
+            catch (error) {
+                return this.#rejectRequest(error);
+            }
+            const rows = rowCount(data);
+            if (rows > this.#options.maxInputRows) {
+                return this.#rejectRequest(new GraflumeError('INVALID_DATA', `Worker input has ${rows} rows; the deterministic limit is ${this.#options.maxInputRows}.`));
+            }
+            if (transforms.length > this.#options.maxTransforms) {
+                return this.#rejectRequest(new GraflumeError('INVALID_DATA', `Worker request has ${transforms.length} transforms; the deterministic limit is ${this.#options.maxTransforms}.`));
+            }
+            if (this.#queue.length + (this.#active === null ? 0 : 1) >= this.#options.maxQueueBatches ||
+                this.#queuedRows + (this.#active?.rows ?? 0) + rows > this.#options.maxQueueRows) {
+                return this.#rejectRequest(new GraflumeError('INVALID_DATA', 'Transform worker backpressure limit reached; the request was rejected without dispatch.'));
+            }
+            let snapshot;
+            try {
+                snapshot = snapshotRequest(data, transforms, options.transferOwnership === true);
+            }
+            catch (error) {
+                return this.#rejectRequest(error);
+            }
+            const request = {
+                protocol: transformWorkerProtocolVersion,
+                type: 'graflume:transform',
+                id: this.#nextId,
+                data: snapshot.data,
+                transforms: snapshot.transforms,
+            };
+            this.#nextId += 1;
+            return new Promise((resolve, reject) => {
+                this.#queue.push({
+                    request,
+                    rows,
+                    transfer: snapshot.transfer,
+                    resolve,
+                    reject,
+                });
+                this.#queuedRows += rows;
+                this.#dispatch();
+            });
+        }
+        state() {
+            return {
+                protocol: transformWorkerProtocolVersion,
+                queuedBatches: this.#queue.length,
+                queuedRows: this.#queuedRows,
+                inFlight: this.#active !== null,
+                completed: this.#completed,
+                rejected: this.#rejected,
+                closed: this.#closed,
+            };
+        }
+        close(options = {}) {
+            if (this.#closed)
+                return;
+            this.#closed = true;
+            this.#port.removeEventListener('message', this.#messageListener);
+            const error = new GraflumeError('INVALID_DATA', 'Transform worker adapter closed.');
+            this.#rejected += (this.#active === null ? 0 : 1) + this.#queue.length;
+            this.#active?.reject(error);
+            this.#active = null;
+            for (const item of this.#queue)
+                item.reject(error);
+            this.#queue = [];
+            this.#queuedRows = 0;
+            if (options.terminate === true)
+                this.#port.terminate?.();
+        }
+        #rejectRequest(error) {
+            this.#rejected += 1;
+            return Promise.reject(error);
+        }
+        #dispatch() {
+            if (this.#closed || this.#active !== null)
+                return;
+            const next = this.#queue.shift();
+            if (next === undefined)
+                return;
+            this.#queuedRows -= next.rows;
+            this.#active = next;
+            try {
+                this.#port.postMessage(next.request, next.transfer);
+            }
+            catch (error) {
+                this.#active = null;
+                this.#rejected += 1;
+                next.reject(error);
+                this.#dispatch();
+            }
+        }
+    }
+    function createTransformWorkerAdapter(port, options = {}) {
+        return new TransformWorkerAdapter(port, options);
+    }
+    function installTransformWorker(scope, options = {}) {
+        const normalized = normalizeOptions(options);
+        const listener = (event) => {
+            if (!isRequest(event.data))
+                return;
+            const request = event.data;
+            let response;
+            try {
+                const rows = rowCount(request.data);
+                if (rows > normalized.maxInputRows) {
+                    throw new GraflumeError('INVALID_DATA', `Worker input has ${rows} rows; the deterministic limit is ${normalized.maxInputRows}.`);
+                }
+                if (request.transforms.length > normalized.maxTransforms) {
+                    throw new GraflumeError('INVALID_DATA', `Worker request has ${request.transforms.length} transforms; the deterministic limit is ${normalized.maxTransforms}.`);
+                }
+                response = {
+                    protocol: transformWorkerProtocolVersion,
+                    type: 'graflume:transform-result',
+                    id: request.id,
+                    ok: true,
+                    result: executeTransforms(request.data, request.transforms),
+                };
+            }
+            catch (error) {
+                response = {
+                    protocol: transformWorkerProtocolVersion,
+                    type: 'graflume:transform-result',
+                    id: request.id,
+                    ok: false,
+                    error: serializedError(error),
+                };
+            }
+            scope.postMessage(response);
+        };
+        scope.addEventListener('message', listener);
+        return () => scope.removeEventListener('message', listener);
+    }
 
     function create(target, spec, options) {
         return new Chart(target, spec, defaultRegistry, options);
@@ -14671,12 +25306,21 @@ var Graflume = (function (exports) {
     function histogram(target, data, options) {
         return specialized('histogram', target, data, options);
     }
-    /** Canonical API for histogram, box, violin, curve, and bivariate distribution modes. */
+    /** Canonical API for histogram, empirical, KDE, box, violin, curve, and bivariate modes. */
     function distribution(target, data, options) {
         return specialized('distribution', target, data, options, { options: { mode: 'histogram' } });
     }
     function violin(target, data, options) {
         return specialized('distribution', target, data, options, { options: { mode: 'violin' } });
+    }
+    function ecdf(target, data, options) {
+        return specialized('distribution', target, data, options, { options: { mode: 'ecdf' } });
+    }
+    function ccdf(target, data, options) {
+        return specialized('distribution', target, data, options, { options: { mode: 'ccdf' } });
+    }
+    function kde(target, data, options) {
+        return specialized('distribution', target, data, options, { options: { mode: 'kde' } });
     }
     function histogram2d(target, data, options) {
         return specialized('distribution', target, data, options, {
@@ -14751,11 +25395,17 @@ var Graflume = (function (exports) {
     }
     const createRegistry = createDefaultRegistry;
 
+    exports.AnalyticSelectionStore = AnalyticSelectionStore;
     exports.CanvasRenderer = CanvasRenderer;
     exports.Chart = Chart;
     exports.DataTable = DataTable;
     exports.GraflumeError = GraflumeError;
+    exports.IncrementalDataStore = IncrementalDataStore;
     exports.RuntimeRegistry = RuntimeRegistry;
+    exports.TransformWorkerAdapter = TransformWorkerAdapter;
+    exports.analyticSelectionKey = analyticSelectionKey;
+    exports.analyticSelectionMatches = analyticSelectionMatches;
+    exports.analyticSelectionVersion = analyticSelectionVersion;
     exports.annotatedTimeline = annotatedTimeline;
     exports.annotation = annotation;
     exports.area = area;
@@ -14767,17 +25417,38 @@ var Graflume = (function (exports) {
     exports.candlestick = candlestick;
     exports.canvasRendererFactory = canvasRendererFactory;
     exports.capabilities = capabilities;
+    exports.ccdf = ccdf;
     exports.chartTypeCatalog = chartTypeCatalog;
     exports.chartVariantCatalog = chartVariantCatalog;
+    exports.clampPixelToPlot = clampPixelToPlot;
+    exports.colorScaleTypes = colorScaleTypes;
     exports.column = column;
     exports.combo = combo;
     exports.compile = compile;
+    exports.compositionOperators = compositionOperators;
     exports.create = create;
+    exports.createColorScale = createColorScale;
+    exports.createIncrementalDataStore = createIncrementalDataStore;
+    exports.createPositionScale = createPositionScale;
     exports.createRegistry = createRegistry;
+    exports.createTransformWorkerAdapter = createTransformWorkerAdapter;
+    exports.curveNames = curveNames;
+    exports.curveRegistry = curveRegistry;
     exports.defaultThemeId = defaultThemeId;
     exports.diff = diff;
     exports.distribution = distribution;
+    exports.domainAxisWindow = domainAxisWindow;
+    exports.domainForAxisWindow = domainForAxisWindow;
+    exports.domainPointToPixel = domainPointToPixel;
+    exports.domainToPixel = domainToPixel;
+    exports.domainViewIsIdentity = domainViewIsIdentity;
+    exports.domainViewVersion = domainViewVersion;
     exports.donut = donut;
+    exports.ecdf = ecdf;
+    exports.emptyAnalyticSelectionState = emptyAnalyticSelectionState;
+    exports.emptyDomainViewState = emptyDomainViewState;
+    exports.evaluateTransformExpression = evaluateTransformExpression;
+    exports.executeTransforms = executeTransforms;
     exports.gantt = gantt;
     exports.gauge = gauge;
     exports.gaugeBullet = gaugeBullet;
@@ -14795,25 +25466,49 @@ var Graflume = (function (exports) {
     exports.hitTestScene = hitTestScene;
     exports.horizontalBar = horizontalBar;
     exports.icicle = icicle;
+    exports.installTransformWorker = installTransformWorker;
+    exports.interpolateCurve = interpolateCurve;
     exports.interval = interval;
     exports.intervals = intervals;
+    exports.kde = kde;
     exports.line = line;
     exports.map = map;
+    exports.maximumAnalyticSelections = maximumAnalyticSelections;
+    exports.maximumCompositionDepth = maximumCompositionDepth;
+    exports.maximumCompositionLayers = maximumCompositionLayers;
+    exports.maximumCompositionViews = maximumCompositionViews;
+    exports.maximumLassoPoints = maximumLassoPoints;
+    exports.maximumLayerCompositionChildren = maximumLayerCompositionChildren;
     exports.motion = motion;
+    exports.normalizeAnalyticSelectionState = normalizeAnalyticSelectionState;
+    exports.normalizeDomainViewState = normalizeDomainViewState;
     exports.normalizeSpec = normalizeSpec;
     exports.org = org;
+    exports.panDomainAxisWindow = panDomainAxisWindow;
+    exports.panDomainByPixels = panDomainByPixels;
     exports.pie = pie;
+    exports.pixelAxisToSelection = pixelAxisToSelection;
+    exports.pixelLassoToSelection = pixelLassoToSelection;
+    exports.pixelPointToDomain = pixelPointToDomain;
+    exports.pixelRectangleToSelection = pixelRectangleToSelection;
+    exports.pixelToDomain = pixelToDomain;
     exports.pluginApiVersion = pluginApiVersion;
     exports.point = point;
+    exports.positionScaleTypes = positionScaleTypes;
     exports.registerMark = registerMark;
     exports.registerRenderer = registerRenderer;
     exports.registerTheme = registerTheme;
+    exports.replayIncrementalData = replayIncrementalData;
     exports.sankey = sankey;
     exports.scatter = scatter;
+    exports.selectionToPixels = selectionToPixels;
+    exports.seriesStackModes = seriesStackModes;
     exports.specVersion = specVersion;
     exports.steppedArea = steppedArea;
     exports.table = table;
     exports.timeline = timeline;
+    exports.toAccessibleRows = toAccessibleRows;
+    exports.transformWorkerProtocolVersion = transformWorkerProtocolVersion;
     exports.treemap = treemap;
     exports.trendline = trendline;
     exports.use = use;
@@ -14823,6 +25518,8 @@ var Graflume = (function (exports) {
     exports.violin = violin;
     exports.waterfall = waterfall;
     exports.wordTree = wordTree;
+    exports.zoomDomainAtPixel = zoomDomainAtPixel;
+    exports.zoomDomainAxisWindow = zoomDomainAxisWindow;
 
     return exports;
 

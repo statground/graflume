@@ -8365,12 +8365,12 @@ void main() {
     ]);
     const spatialCatalogBoundary = Object.freeze({
         coreAndCompleteCanonicalFamilies: 41,
-        coreAndCompletePresets: 162,
+        coreAndCompletePresets: 165,
         spatialCanonicalFamilies: spatialChartFamilies.length,
         totalCanonicalFamilies: 44,
         spatialVariants: spatialChartFamilies.reduce((total, family) => total + family.variants.length, 0),
         integratedExistingFamilyModes: spatialCompatibilityModes.length,
-        totalPresetsAndModes: 170,
+        totalPresetsAndModes: 173,
     });
 
     const spatialSpecVersion = '0.1';
