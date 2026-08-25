@@ -151,7 +151,7 @@ function text(
 }
 
 function explicitTickLabel(value: number | string, scale: Scale, locale?: string): string {
-  if (scale.kind === 'time') {
+  if (scale.kind === 'time' || scale.kind === 'utc') {
     const date = new Date(typeof value === 'number' ? value : Date.parse(value));
     if (Number.isFinite(date.getTime())) {
       try {
@@ -159,19 +159,19 @@ function explicitTickLabel(value: number | string, scale: Scale, locale?: string
           year: 'numeric',
           month: 'short',
           day: 'numeric',
-          timeZone: 'UTC',
+          ...(scale.kind === 'utc' ? { timeZone: 'UTC' } : {}),
         }).format(date);
       } catch {
         return new Intl.DateTimeFormat(undefined, {
           year: 'numeric',
           month: 'short',
           day: 'numeric',
-          timeZone: 'UTC',
+          ...(scale.kind === 'utc' ? { timeZone: 'UTC' } : {}),
         }).format(date);
       }
     }
   }
-  if (scale.kind === 'linear' && typeof value === 'number') {
+  if (!['band', 'point', 'ordinal'].includes(scale.kind) && typeof value === 'number') {
     try {
       return new Intl.NumberFormat(locale, { maximumFractionDigits: 6 }).format(value);
     } catch {
@@ -329,7 +329,7 @@ function minorGridPositions(
     !context.axis.grid.visible ||
     context.theme.axis.minorGridVisible !== true ||
     (context.id !== 'x' && context.id !== 'y') ||
-    (context.scale.kind !== 'linear' && context.scale.kind !== 'time')
+    ['band', 'point', 'ordinal', 'quantile', 'quantize', 'threshold'].includes(context.scale.kind)
   ) {
     return [];
   }

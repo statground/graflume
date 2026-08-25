@@ -40,9 +40,17 @@ for (const file of files) {
   } catch {
     continue;
   }
+  // The generated feature matrix deliberately ends with the audited external
+  // ecosystem and URL provenance from the research intake. Those names are
+  // evidence, not public identifiers; keep checking the runtime/current-state
+  // portion above this explicit boundary.
+  const checkedSource =
+    file === 'docs/development/verified-feature-matrix.md'
+      ? source.split('\n## Ecosystem inputs\n', 1)[0]
+      : source;
   if (
-    source.includes(exactPhrase) ||
-    restrictedNames.some((name) => source.toLowerCase().includes(name.toLowerCase()))
+    checkedSource.includes(exactPhrase) ||
+    restrictedNames.some((name) => checkedSource.toLowerCase().includes(name.toLowerCase()))
   ) {
     hits.push(file);
   }

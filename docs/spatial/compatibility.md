@@ -15,7 +15,7 @@ The spatial entry exports `spatialChartFamilies`, `spatialCompatibilityModes`, a
 | `spatial-scatter` | `spatial-vector` | `scatter / scatter`   | `spatialScatter()` | no                |
 | `globe`           | `map`            | `globe / globe`       | `globe()`          | existing map mode |
 
-The boundary is 41 default/complete canonical families plus 3 spatial canonical families, totaling 44. The seven spatial variants and one integrated map mode must not be added again as canonical families. For presentation counts, `spatialCatalogBoundary` records 162 default/complete presets + 7 spatial variants + 1 integrated globe mode = 170.
+The boundary is 41 default/complete canonical families plus 3 spatial canonical families, totaling 44. The seven spatial variants and one integrated map mode must not be added again as canonical families. For presentation counts, `spatialCatalogBoundary` records 165 default/complete presets + 7 spatial variants + 1 integrated globe mode = 173.
 
 ## Serialization boundary
 

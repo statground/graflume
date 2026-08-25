@@ -2,7 +2,33 @@ import { compileWithRegistry, type CompileResult } from '../compiler/compile.js'
 import { GraflumeError } from '../core/errors.js';
 import { EventEmitter } from '../core/events.js';
 import { DataTable } from '../data/table.js';
+import {
+  IncrementalDataStore,
+  incrementalContractsMatch,
+  type IncrementalDataState,
+  type IncrementalReplay,
+  type IncrementalUpdate,
+} from '../data/incremental.js';
 import { hitTestAxisTooltip } from '../interaction/axis-hit-test.js';
+import {
+  AnalyticSelectionStore,
+  analyticSelectionVersion,
+  emptyAnalyticSelectionState,
+  normalizeAnalyticSelectionState,
+  type AnalyticSelection,
+  type AnalyticSelectionState,
+  type AnalyticSelectionUpdate,
+} from '../interaction/analytic-selection.js';
+import { AccessibilityMirrorController } from '../interaction/accessibility.js';
+import {
+  domainToPixel as mapDomainToPixel,
+  pixelToDomain as mapPixelToDomain,
+  pixelAxisToSelection,
+  pixelLassoToSelection,
+  pixelPointToDomain,
+  pixelRectangleToSelection,
+  type PixelPoint,
+} from '../interaction/cartesian-coordinates.js';
 import { sceneLegendLayout } from '../compiler/legend.js';
 import {
   ControlsController,
@@ -20,6 +46,15 @@ import {
   type InspectionViewPoint,
   type InspectionViewState,
 } from '../interaction/inspection-view.js';
+import {
+  domainAxisWindow,
+  domainViewIsIdentity,
+  emptyDomainViewState,
+  normalizeDomainViewState,
+  panDomainByPixels,
+  zoomDomainAtPixel,
+  type DomainViewState,
+} from '../interaction/domain-navigation.js';
 import { collectPlaybackFrames, playbackSpec } from '../interaction/playback.js';
 import { resolveTooltipContent, TooltipController } from '../interaction/tooltip.js';
 import type { Renderer } from '../renderer/types.js';
@@ -28,6 +63,7 @@ import { normalizeSpec } from '../spec/normalize.js';
 import type {
   ChartSpec,
   AnnotationSpec,
+  AxisId,
   DataInput,
   DataRow,
   DataValue,
@@ -35,11 +71,14 @@ import type {
   DecorationTargetSpec,
   NormalizedChartSpec,
   NormalizedNavigationSpec,
+  NormalizedDomainNavigationSpec,
   NormalizedPlaybackSpec,
+  NormalizedSelectionSpec,
   PlaybackMode,
   PlaybackTransitionEasing,
 } from '../spec/types.js';
 import type { Scene } from '../scene/types.js';
+import { toAccessibleRows, type AccessibleRow, type SemanticMark } from '../scene/semantic.js';
 import type { RuntimeRegistry } from './registry.js';
 import { RenderScheduler } from './scheduler.js';
 
@@ -150,6 +189,30 @@ export interface ChartSelectionChangeEvent {
   readonly reason: ChartSelectionChangeReason;
 }
 
+export type ChartAnalyticSelectionChangeReason = 'pointer' | 'programmatic' | 'clear' | 'spec';
+
+export interface ChartAnalyticSelectionChangeEvent {
+  readonly chart: Chart;
+  readonly state: AnalyticSelectionState;
+  readonly reason: ChartAnalyticSelectionChangeReason;
+}
+
+export type ChartDomainViewChangeReason = 'zoom' | 'pan' | 'reset' | 'programmatic' | 'spec';
+
+export interface ChartDomainViewChangeEvent {
+  readonly chart: Chart;
+  readonly state: DomainViewState;
+  readonly reason: ChartDomainViewChangeReason;
+}
+
+export interface ChartAccessibilityState {
+  readonly enabled: boolean;
+  readonly table: false | 'hidden' | 'visible';
+  readonly navigation: boolean;
+  readonly rowCount: number;
+  readonly focusedId?: string;
+}
+
 export type ChartAnnotationChangeReason = 'set' | 'add' | 'update' | 'remove' | 'spec';
 
 export interface ChartAnnotationChangeEvent {
@@ -177,6 +240,8 @@ export interface ChartEventMap {
   readonly fullscreenchange: ChartFullscreenChangeEvent;
   readonly legendchange: ChartLegendChangeEvent;
   readonly selectionchange: ChartSelectionChangeEvent;
+  readonly analyticselectionchange: ChartAnalyticSelectionChangeEvent;
+  readonly domainviewchange: ChartDomainViewChangeEvent;
   readonly annotationchange: ChartAnnotationChangeEvent;
   readonly annotationvisibilitychange: ChartAnnotationVisibilityChangeEvent;
   readonly error: ChartErrorEvent;
@@ -190,6 +255,18 @@ interface PinchStart {
   readonly distance: number;
   readonly center: InspectionViewPoint;
   readonly view: InspectionViewState;
+}
+
+interface AnalyticPointerGesture {
+  readonly pointerId: number;
+  readonly start: PixelPoint;
+  current: PixelPoint;
+  readonly points: PixelPoint[];
+}
+
+interface DomainPointerGesture {
+  readonly pointerId: number;
+  previous: PixelPoint;
 }
 
 interface ActiveSceneTransition {
@@ -243,6 +320,10 @@ function sameView(left: InspectionViewState, right: InspectionViewState): boolea
     Math.abs(left.offsetX - right.offsetX) < 1e-6 &&
     Math.abs(left.offsetY - right.offsetY) < 1e-6
   );
+}
+
+function sameDomainView(left: DomainViewState, right: DomainViewState): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 function pointDistance(left: InspectionViewPoint, right: InspectionViewPoint): number {
@@ -338,8 +419,10 @@ export class Chart {
   readonly #tooltip = new TooltipController();
   readonly #controls = new ControlsController();
   readonly #legend = new LegendController();
+  readonly #accessibility = new AccessibilityMirrorController();
   readonly #options: ChartCreateOptions;
   readonly #activePointers = new Map<number, ActivePointer>();
+  readonly #incrementalStores = new Map<string, IncrementalDataStore>();
   #spec: ChartSpec;
   #renderer: Renderer | null = null;
   #rendererName: string | null = null;
@@ -372,10 +455,16 @@ export class Chart {
   #fullscreen = false;
   #hiddenLegendItems = new Set<string>();
   #selection: DatumTargetSpec[] = [];
+  readonly #analyticSelection = new AnalyticSelectionStore();
+  #domainView: DomainViewState = emptyDomainViewState();
+  #analyticGesture: AnalyticPointerGesture | null = null;
+  #domainGesture: DomainPointerGesture | null = null;
   #annotations: AnnotationSpec[] = [];
   #annotationsVisible = true;
   #selectionLive: HTMLDivElement | null = null;
   #selectionLiveHost: HTMLElement | null = null;
+  #selectionLiveTimer: ReturnType<typeof setTimeout> | null = null;
+  #selectionLiveUpdatedAt = 0;
 
   readonly #pointerMoveListener = (event: Event): void => {
     if (!(event instanceof PointerEvent)) return;
@@ -395,7 +484,7 @@ export class Chart {
 
   readonly #pointerCancelListener = (event: Event): void => {
     if (!(event instanceof PointerEvent)) return;
-    this.#handlePointerEnd(event);
+    this.#handlePointerEnd(event, true);
     this.#tooltip.hide();
     if (this.#result?.spec.interaction.hover !== false) {
       this.#events.emit('hover', { chart: this, hit: null, sourceEvent: event });
@@ -507,6 +596,44 @@ export class Chart {
     return this.#result?.scene ?? null;
   }
 
+  domainToPixel(axis: AxisId, value: number | string | Date): number {
+    this.#assertAlive();
+    const result = this.#result;
+    if (result === null) throw new GraflumeError('INVALID_SPEC', 'The chart is not rendered.');
+    return mapDomainToPixel(result.coordinates, axis, value);
+  }
+
+  pixelToDomain(axis: AxisId, pixel: number): number | string {
+    this.#assertAlive();
+    const result = this.#result;
+    if (result === null) throw new GraflumeError('INVALID_SPEC', 'The chart is not rendered.');
+    return mapPixelToDomain(result.coordinates, axis, pixel);
+  }
+
+  getSemanticIndex(): readonly SemanticMark[] {
+    return this.#result?.scene.semanticIndex ?? [];
+  }
+
+  toAccessibleRows(maxRows?: number): readonly AccessibleRow[] {
+    return toAccessibleRows(
+      this.getSemanticIndex(),
+      maxRows ?? this.#result?.spec.accessibility.maxRows ?? 0,
+    );
+  }
+
+  getAccessibilityState(): ChartAccessibilityState {
+    const accessibility = this.#result?.spec.accessibility;
+    const focusedId = this.#accessibility.getFocusedId();
+    return {
+      enabled:
+        accessibility !== undefined && (accessibility.table !== false || accessibility.navigation),
+      table: accessibility?.table ?? false,
+      navigation: accessibility?.navigation ?? false,
+      rowCount: this.getSemanticIndex().length,
+      ...(focusedId === null ? {} : { focusedId }),
+    };
+  }
+
   getViewState(): ChartViewState {
     return { ...this.#view, enabled: this.#navigation() !== false };
   }
@@ -589,10 +716,17 @@ export class Chart {
 
   setSelection(items: readonly DatumTargetSpec[]): this {
     this.#assertAlive();
-    if (this.#result?.spec.interaction.selection === false) {
+    const configuredSelection = this.#result?.spec.interaction.selection;
+    if (configuredSelection === false) {
       throw new GraflumeError(
         'INVALID_SPEC',
         'Enable interaction.selection before setting selection state.',
+      );
+    }
+    if (configuredSelection !== undefined && configuredSelection.kind !== 'point') {
+      throw new GraflumeError(
+        'INVALID_SPEC',
+        'setSelection() is the point/datum facade; use setAnalyticSelection() for domain geometry.',
       );
     }
     normalizeSpec({
@@ -602,7 +736,12 @@ export class Chart {
       highlights: items.map((target) => ({ target })),
     });
     const selection = this.#result?.spec.interaction.selection;
-    if (selection !== undefined && selection.mode === 'single' && items.length > 1)
+    if (
+      selection !== undefined &&
+      selection !== false &&
+      selection.mode === 'single' &&
+      items.length > 1
+    )
       throw new GraflumeError('INVALID_SPEC', 'Single selection mode accepts at most one target.');
     const next = items.map(cloneDatumTarget);
     const keys = next.map(selectionKey);
@@ -614,8 +753,10 @@ export class Chart {
     )
       return this;
     this.#selection = next;
+    this.#syncAnalyticPointTargets();
     this.render();
     this.#emitSelection('programmatic');
+    this.#emitAnalyticSelection('programmatic');
     return this;
   }
 
@@ -623,8 +764,87 @@ export class Chart {
     this.#assertAlive();
     if (this.#selection.length === 0) return this;
     this.#selection = [];
+    if (this.#result?.spec.interaction.selection !== false) this.#analyticSelection.clear();
     this.render();
     this.#emitSelection('clear');
+    this.#emitAnalyticSelection('clear');
+    return this;
+  }
+
+  getAnalyticSelection(): AnalyticSelectionState {
+    this.#assertAlive();
+    return this.#analyticSelection.get();
+  }
+
+  setAnalyticSelection(state: AnalyticSelectionState): this {
+    this.#assertAlive();
+    const selection = this.#requireAnalyticSelection();
+    const next = normalizeAnalyticSelectionState(state);
+    this.#validateAnalyticStateForConfig(next, selection);
+    const previous = this.#analyticSelection.get();
+    const previousPointSelection = this.#selection;
+    this.#analyticSelection.set(next);
+    if (selection.kind === 'point') {
+      this.#selection = next.selections.flatMap((candidate) =>
+        candidate.type === 'point' && candidate.target !== undefined
+          ? [cloneDatumTarget(candidate.target)]
+          : [],
+      );
+    }
+    try {
+      this.render();
+    } catch (error) {
+      this.#analyticSelection.set(previous);
+      this.#selection = previousPointSelection;
+      throw error;
+    }
+    this.#emitAnalyticSelection('programmatic');
+    if (selection.kind === 'point') this.#emitSelection('programmatic');
+    return this;
+  }
+
+  applyAnalyticSelection(
+    selection: AnalyticSelection,
+    update: AnalyticSelectionUpdate = 'replace',
+  ): this {
+    this.#assertAlive();
+    const config = this.#requireAnalyticSelection();
+    const previous = this.#analyticSelection.get();
+    const previousPointSelection = this.#selection;
+    const next = this.#analyticSelection.apply(selection, update);
+    try {
+      this.#validateAnalyticStateForConfig(next, config);
+      if (config.kind === 'point') {
+        this.#selection = next.selections.flatMap((candidate) =>
+          candidate.type === 'point' && candidate.target !== undefined
+            ? [cloneDatumTarget(candidate.target)]
+            : [],
+        );
+      }
+      this.render();
+    } catch (error) {
+      this.#analyticSelection.set(previous);
+      this.#selection = previousPointSelection;
+      throw error;
+    }
+    this.#emitAnalyticSelection('programmatic');
+    if (config.kind === 'point') this.#emitSelection('programmatic');
+    return this;
+  }
+
+  clearAnalyticSelection(): this {
+    this.#assertAlive();
+    if (this.#analyticSelection.get().selections.length === 0) return this;
+    this.#analyticSelection.clear();
+    const selection = this.#result?.spec.interaction.selection;
+    const pointSelection =
+      selection !== undefined && selection !== false && selection.kind === 'point';
+    if (pointSelection) {
+      this.#selection = [];
+    }
+    this.render();
+    this.#emitAnalyticSelection('clear');
+    if (pointSelection) this.#emitSelection('clear');
     return this;
   }
 
@@ -704,11 +924,14 @@ export class Chart {
     const normalized = normalizeSpec(spec);
     this.pause();
     this.#spec = spec;
+    this.#incrementalStores.clear();
     this.#annotations = normalized.annotations.map((annotation, index) => ({
       ...cloneAnnotation(annotation),
       id: annotationId(annotation, index),
     }));
     this.#selection = [];
+    this.#analyticSelection.clear();
+    this.#domainView = emptyDomainViewState();
     this.#annotationsVisible = true;
     this.#hiddenLegendItems.clear();
     this.#configureInteraction(normalized, true);
@@ -721,6 +944,8 @@ export class Chart {
       reason: 'spec',
     });
     this.#emitSelection('spec');
+    this.#emitAnalyticSelection('spec');
+    this.#emitDomainView('spec');
     this.#emitAnnotations('spec');
     this.#emitAnnotationVisibility('spec');
     this.#startAutoplay();
@@ -760,6 +985,9 @@ export class Chart {
   appendData(rows: readonly DataRow[], layerId?: string): this {
     this.#assertAlive();
     if (rows.length === 0) return this;
+    if (this.#spec.streaming !== undefined) {
+      return this.updateData({ mode: 'append', rows }, layerId);
+    }
     if (layerId === undefined && this.#spec.data !== undefined) {
       return this.setSpec({ ...this.#spec, data: appendInput(this.#spec.data, rows) });
     }
@@ -788,6 +1016,71 @@ export class Chart {
     if (!matched)
       throw new GraflumeError('INVALID_DATA', `Layer "${targetLayerId}" was not found.`);
     return this.setSpec({ ...this.#spec, layers });
+  }
+
+  /** Apply a bounded stable-key mutation configured by ChartSpec.streaming. */
+  updateData(update: IncrementalUpdate, layerId?: string): this {
+    this.#assertAlive();
+    const streaming = this.#spec.streaming;
+    if (streaming === undefined) {
+      throw new GraflumeError(
+        'INVALID_DATA',
+        'updateData requires an explicit ChartSpec.streaming contract.',
+      );
+    }
+    const target = this.#streamingTarget(layerId);
+    const store =
+      this.#incrementalStores.get(target.id) ?? new IncrementalDataStore(target.source, streaming);
+    const result = store.apply(update);
+    this.setData(result.rows, target.layerId);
+    this.#incrementalStores.set(target.id, store);
+    return this;
+  }
+
+  upsertData(rows: readonly DataRow[], layerId?: string, watermark?: number): this {
+    return this.updateData(
+      { mode: 'upsert', rows, ...(watermark === undefined ? {} : { watermark }) },
+      layerId,
+    );
+  }
+
+  replaceLastData(rows: readonly DataRow[], layerId?: string, watermark?: number): this {
+    return this.updateData(
+      { mode: 'replaceLast', rows, ...(watermark === undefined ? {} : { watermark }) },
+      layerId,
+    );
+  }
+
+  getStreamingState(layerId?: string): IncrementalDataState | null {
+    this.#assertAlive();
+    const target = this.#streamingTarget(layerId, false);
+    return target === null ? null : (this.#incrementalStores.get(target.id)?.state() ?? null);
+  }
+
+  exportStreamingReplay(layerId?: string): IncrementalReplay {
+    this.#assertAlive();
+    const target = this.#streamingTarget(layerId);
+    const store = this.#incrementalStores.get(target.id);
+    if (store === undefined) {
+      throw new GraflumeError('INVALID_DATA', 'No incremental updates are available to replay.');
+    }
+    return store.exportReplay();
+  }
+
+  replayData(replay: IncrementalReplay, layerId?: string): this {
+    this.#assertAlive();
+    const target = this.#streamingTarget(layerId);
+    const streaming = this.#spec.streaming;
+    if (streaming === undefined || !incrementalContractsMatch(replay.options, streaming)) {
+      throw new GraflumeError(
+        'INVALID_DATA',
+        'Replay options do not match the current ChartSpec.streaming contract.',
+      );
+    }
+    const store = IncrementalDataStore.replay(replay);
+    this.setData(store.rows(), target.layerId);
+    this.#incrementalStores.set(target.id, store);
+    return this;
   }
 
   resize(width?: number, height?: number): this {
@@ -857,6 +1150,73 @@ export class Chart {
       'reset',
     );
     return this;
+  }
+
+  getDomainViewState(): DomainViewState {
+    this.#assertAlive();
+    return this.#domainView;
+  }
+
+  setDomainViewState(state: DomainViewState): this {
+    this.#assertAlive();
+    const navigation = this.#requireDomainNavigation();
+    const next = normalizeDomainViewState(state);
+    for (const axis of Object.keys(next.axes) as AxisId[]) {
+      if (!navigation.axes.includes(axis)) {
+        throw new GraflumeError(
+          'INVALID_SPEC',
+          `Axis "${axis}" is not enabled by interaction.domainNavigation.axes.`,
+        );
+      }
+    }
+    return this.#setDomainView(next, 'programmatic');
+  }
+
+  zoomDomainBy(factor: number, anchor?: ChartViewPoint, axes?: readonly AxisId[]): this {
+    this.#assertAlive();
+    const navigation = this.#requireDomainNavigation();
+    const result = this.#result;
+    if (result === null) return this;
+    const selectedAxes = this.#domainAxes(navigation, axes);
+    const point = anchor ?? {
+      x: result.coordinates.plot.x + result.coordinates.plot.width / 2,
+      y: result.coordinates.plot.y + result.coordinates.plot.height / 2,
+    };
+    let next = this.#domainView;
+    for (const axis of selectedAxes) {
+      next = zoomDomainAtPixel(
+        next,
+        result.coordinates,
+        axis,
+        factor,
+        axis === 'x' || axis === 'x2' ? point.x : point.y,
+        navigation.maxZoom,
+      );
+    }
+    return this.#setDomainView(next, 'zoom');
+  }
+
+  panDomainBy(deltaX: number, deltaY: number, axes?: readonly AxisId[]): this {
+    this.#assertAlive();
+    const navigation = this.#requireDomainNavigation();
+    const result = this.#result;
+    if (result === null) return this;
+    let next = this.#domainView;
+    for (const axis of this.#domainAxes(navigation, axes)) {
+      next = panDomainByPixels(
+        next,
+        result.coordinates,
+        axis,
+        axis === 'x' || axis === 'x2' ? deltaX : deltaY,
+      );
+    }
+    return this.#setDomainView(next, 'pan');
+  }
+
+  resetDomainView(): this {
+    this.#assertAlive();
+    this.#requireDomainNavigation();
+    return this.#setDomainView(emptyDomainViewState(), 'reset');
   }
 
   play(): this {
@@ -998,7 +1358,10 @@ export class Chart {
       annotations: this.#annotations,
       annotationsVisible: this.#annotationsVisible,
       selection: this.#selection,
+      analyticSelection: this.#analyticSelection.get(),
+      domainView: this.#domainView,
     });
+    this.#validateAnalyticCapabilities(result);
     const factory = this.#registry.resolveRenderer(result.spec.renderer);
     const pixelRatio = this.#pixelRatio();
     const rendererChanged = this.#renderer === null || this.#rendererName !== factory.name;
@@ -1007,6 +1370,7 @@ export class Chart {
       this.#detachSurfaceEvents();
       this.#controls.destroy();
       this.#legend.destroy();
+      this.#accessibility.destroy();
       this.#destroySelectionLive();
       this.#renderer?.destroy();
       this.#renderer = factory.create();
@@ -1047,9 +1411,55 @@ export class Chart {
     this.#syncSurfaceEvents();
     this.#syncControls();
     this.#syncLegend();
+    this.#syncAccessibilityMirror();
     this.#syncSelectionAccessibility();
     this.#events.emit('render', { chart: this, scene: result.scene });
     return this;
+  }
+
+  #validateAnalyticCapabilities(result: CompileResult): void {
+    const requireContinuous = (axis: AxisId, feature: string): void => {
+      const scale = result.coordinates.axes[axis];
+      if (scale === undefined) {
+        throw new GraflumeError(
+          'INCOMPATIBLE_SCALE',
+          `${feature} requires resolved axis "${axis}".`,
+          { path: `$.axes.${axis}` },
+        );
+      }
+      if (scale.invert === undefined) {
+        throw new GraflumeError(
+          'INCOMPATIBLE_SCALE',
+          `${feature} requires an invertible continuous axis; "${axis}" uses "${scale.kind}".`,
+          { path: `$.axes.${axis}` },
+        );
+      }
+    };
+    const navigation = result.spec.interaction.domainNavigation;
+    if (navigation !== false) {
+      for (const axis of navigation.axes) requireContinuous(axis, 'Domain navigation');
+    }
+    const selection = result.spec.interaction.selection;
+    if (selection === false) {
+      if (this.#analyticSelection.get().selections.length > 0) {
+        throw new GraflumeError(
+          'INVALID_SPEC',
+          'Analytic selection state requires interaction.selection.',
+        );
+      }
+      return;
+    }
+    this.#validateAnalyticStateForConfig(this.#analyticSelection.get(), selection);
+    if (selection.kind === 'axis') {
+      requireContinuous(selection.axis!, 'Axis selection');
+    } else if (
+      selection.kind === 'interval' ||
+      selection.kind === 'rectangle' ||
+      selection.kind === 'lasso'
+    ) {
+      requireContinuous(selection.xAxis, `${selection.kind} selection`);
+      requireContinuous(selection.yAxis, `${selection.kind} selection`);
+    }
   }
 
   toDataURL(type?: string, quality?: number): string {
@@ -1088,6 +1498,7 @@ export class Chart {
     this.#detachSurfaceEvents();
     this.#controls.destroy();
     this.#legend.destroy();
+    this.#accessibility.destroy();
     this.#destroySelectionLive();
     this.#tooltip.destroy();
     this.#renderer?.destroy();
@@ -1103,6 +1514,7 @@ export class Chart {
     const navigation = spec.interaction.navigation;
     if (navigation === false) this.#view = identityInspectionView;
     else if (reset) this.#view = { zoom: navigation.minZoom, offsetX: 0, offsetY: 0 };
+    if (reset) this.#domainView = emptyDomainViewState();
 
     this.#playback = spec.interaction.playback;
     if (this.#playback === false) {
@@ -1130,6 +1542,63 @@ export class Chart {
 
   #navigation(): false | NormalizedNavigationSpec {
     return this.#result?.spec.interaction.navigation ?? false;
+  }
+
+  #domainNavigation(): false | NormalizedDomainNavigationSpec {
+    return this.#result?.spec.interaction.domainNavigation ?? false;
+  }
+
+  #requireDomainNavigation(): NormalizedDomainNavigationSpec {
+    const navigation = this.#domainNavigation();
+    if (navigation === false) {
+      throw new GraflumeError(
+        'INVALID_SPEC',
+        'Enable interaction.domainNavigation before changing data domains.',
+      );
+    }
+    return navigation;
+  }
+
+  #domainAxes(
+    navigation: NormalizedDomainNavigationSpec,
+    requested?: readonly AxisId[],
+  ): readonly AxisId[] {
+    const axes = requested ?? navigation.axes;
+    if (axes.length === 0 || new Set(axes).size !== axes.length) {
+      throw new GraflumeError(
+        'INVALID_SPEC',
+        'Domain navigation axes must be non-empty and unique.',
+      );
+    }
+    for (const axis of axes) {
+      if (!navigation.axes.includes(axis)) {
+        throw new GraflumeError(
+          'INVALID_SPEC',
+          `Axis "${axis}" is not enabled by interaction.domainNavigation.axes.`,
+        );
+      }
+    }
+    return axes;
+  }
+
+  #setDomainView(state: DomainViewState, reason: ChartDomainViewChangeReason): this {
+    const next = normalizeDomainViewState(state);
+    if (sameDomainView(next, this.#domainView)) return this;
+    const previous = this.#domainView;
+    this.#domainView = next;
+    this.#tooltip.hide();
+    try {
+      this.render();
+    } catch (error) {
+      this.#domainView = previous;
+      throw error;
+    }
+    this.#emitDomainView(reason);
+    return this;
+  }
+
+  #emitDomainView(reason: ChartDomainViewChangeReason): void {
+    this.#events.emit('domainviewchange', { chart: this, state: this.#domainView, reason });
   }
 
   #requireNavigation(): NormalizedNavigationSpec {
@@ -1186,6 +1655,7 @@ export class Chart {
     this.#syncSurfaceConfiguration();
     this.#syncControls();
     this.#syncLegend();
+    this.#syncAccessibilityMirror();
     this.#emitView(reason);
   }
 
@@ -1448,18 +1918,30 @@ export class Chart {
     const surface = this.#eventSurface;
     if (surface === null) return;
     const navigation = this.#navigation();
+    const domainNavigation = this.#domainNavigation();
+    const selection = this.#result?.spec.interaction.selection;
+    const analyticDrag =
+      selection !== undefined && selection !== false && selection.kind !== 'point';
     const inspecting = this.#view.zoom > 1 || this.#view.offsetX !== 0 || this.#view.offsetY !== 0;
     surface.style.touchAction =
-      navigation !== false && (navigation.drag || navigation.pinch)
-        ? inspecting
-          ? 'none'
-          : 'pan-y'
-        : (this.#surfaceTouchAction ?? '');
-    surface.style.cursor =
-      navigation !== false && navigation.drag ? 'grab' : (this.#surfaceCursor ?? '');
-    const selection = this.#result?.spec.interaction.selection;
+      analyticDrag || (domainNavigation !== false && domainNavigation.drag)
+        ? 'none'
+        : navigation !== false && (navigation.drag || navigation.pinch)
+          ? inspecting
+            ? 'none'
+            : 'pan-y'
+          : (this.#surfaceTouchAction ?? '');
+    surface.style.cursor = analyticDrag
+      ? 'crosshair'
+      : domainNavigation !== false && domainNavigation.drag
+        ? 'grab'
+        : navigation !== false && navigation.drag
+          ? 'grab'
+          : (this.#surfaceCursor ?? '');
     if (
       (navigation !== false && navigation.keyboard) ||
+      (domainNavigation !== false && domainNavigation.keyboard) ||
+      this.#result?.spec.accessibility.navigation === true ||
       (selection !== undefined && selection !== false && selection.clearOnEscape)
     )
       surface.tabIndex = 0;
@@ -1493,12 +1975,17 @@ export class Chart {
   #cancelActiveGesture(): void {
     const surface = this.#eventSurface;
     if (surface !== null) {
-      for (const pointerId of this.#activePointers.keys()) {
+      const pointerIds = new Set(this.#activePointers.keys());
+      if (this.#analyticGesture !== null) pointerIds.add(this.#analyticGesture.pointerId);
+      if (this.#domainGesture !== null) pointerIds.add(this.#domainGesture.pointerId);
+      for (const pointerId of pointerIds) {
         if (surface.hasPointerCapture?.(pointerId)) surface.releasePointerCapture?.(pointerId);
       }
       surface.style.cursor = this.#surfaceCursor ?? '';
     }
     this.#activePointers.clear();
+    this.#analyticGesture = null;
+    this.#domainGesture = null;
     this.#dragPrevious = null;
     this.#pinchStart = null;
     this.#dragDistance = 0;
@@ -1517,6 +2004,18 @@ export class Chart {
   }
 
   #handleWheel(event: WheelEvent): void {
+    const domainNavigation = this.#domainNavigation();
+    if (
+      domainNavigation !== false &&
+      domainNavigation.wheel !== 'off' &&
+      (domainNavigation.wheel !== 'modifier' || event.ctrlKey || event.metaKey)
+    ) {
+      const point = this.#surfacePoint(event);
+      if (point === null) return;
+      event.preventDefault();
+      this.zoomDomainBy(Math.exp(-event.deltaY * 0.002), point);
+      return;
+    }
     const navigation = this.#navigation();
     if (
       navigation === false ||
@@ -1532,11 +2031,41 @@ export class Chart {
   }
 
   #handlePointerDown(event: PointerEvent): void {
-    const navigation = this.#navigation();
-    if (navigation === false || (event.pointerType === 'mouse' && event.button !== 0)) return;
-    if (!navigation.drag && !(navigation.pinch && event.pointerType === 'touch')) return;
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
     const point = this.#surfacePoint(event);
     if (point === null) return;
+    const selection = this.#result?.spec.interaction.selection;
+    if (
+      selection !== undefined &&
+      selection !== false &&
+      selection.kind !== 'point' &&
+      this.#analyticGesture === null
+    ) {
+      this.#analyticGesture = {
+        pointerId: event.pointerId,
+        start: point,
+        current: point,
+        points: [point],
+      };
+      this.#suppressClick = false;
+      this.#dragDistance = 0;
+      this.#eventSurface?.setPointerCapture?.(event.pointerId);
+      event.preventDefault();
+      return;
+    }
+    const domainNavigation = this.#domainNavigation();
+    if (domainNavigation !== false && domainNavigation.drag && this.#domainGesture === null) {
+      this.#domainGesture = { pointerId: event.pointerId, previous: point };
+      this.#suppressClick = false;
+      this.#dragDistance = 0;
+      this.#eventSurface?.setPointerCapture?.(event.pointerId);
+      this.#eventSurface?.style.setProperty('cursor', 'grabbing');
+      event.preventDefault();
+      return;
+    }
+    const navigation = this.#navigation();
+    if (navigation === false) return;
+    if (!navigation.drag && !(navigation.pinch && event.pointerType === 'touch')) return;
     if (this.#activePointers.size === 0) {
       this.#suppressClick = false;
       this.#dragDistance = 0;
@@ -1550,6 +2079,39 @@ export class Chart {
   }
 
   #handlePointerMove(event: PointerEvent): boolean {
+    if (this.#analyticGesture?.pointerId === event.pointerId) {
+      const point = this.#surfacePoint(event);
+      if (point === null) return false;
+      const gesture = this.#analyticGesture;
+      this.#dragDistance += pointDistance(gesture.current, point);
+      gesture.current = point;
+      const selection = this.#result?.spec.interaction.selection;
+      if (selection !== undefined && selection !== false && selection.kind === 'lasso') {
+        const last = gesture.points.at(-1);
+        if (
+          gesture.points.length < selection.maxLassoPoints &&
+          (last === undefined || pointDistance(last, point) >= 2)
+        ) {
+          gesture.points.push(point);
+        }
+      }
+      if (this.#dragDistance > 4) this.#suppressClick = true;
+      event.preventDefault();
+      return true;
+    }
+    if (this.#domainGesture?.pointerId === event.pointerId) {
+      const point = this.#surfacePoint(event);
+      if (point === null) return false;
+      const previous = this.#domainGesture.previous;
+      const deltaX = point.x - previous.x;
+      const deltaY = point.y - previous.y;
+      this.#dragDistance += Math.hypot(deltaX, deltaY);
+      this.#domainGesture.previous = point;
+      this.panDomainBy(deltaX, deltaY);
+      if (this.#dragDistance > 4) this.#suppressClick = true;
+      event.preventDefault();
+      return true;
+    }
     const navigation = this.#navigation();
     if (navigation === false || !this.#activePointers.has(event.pointerId)) return false;
     const point = this.#surfacePoint(event);
@@ -1601,7 +2163,36 @@ export class Chart {
     return true;
   }
 
-  #handlePointerEnd(event: PointerEvent): void {
+  #handlePointerEnd(event: PointerEvent, cancelled = false): void {
+    if (this.#analyticGesture?.pointerId === event.pointerId) {
+      const gesture = this.#analyticGesture;
+      const point = this.#surfacePoint(event);
+      if (point !== null) gesture.current = point;
+      this.#analyticGesture = null;
+      if (this.#eventSurface?.hasPointerCapture?.(event.pointerId)) {
+        this.#eventSurface.releasePointerCapture?.(event.pointerId);
+      }
+      this.#suppressClick = true;
+      if (!cancelled) {
+        try {
+          this.#completeAnalyticGesture(gesture);
+        } catch (error) {
+          this.#events.emit('error', { chart: this, error });
+        }
+      }
+      return;
+    }
+    if (this.#domainGesture?.pointerId === event.pointerId) {
+      this.#domainGesture = null;
+      if (this.#eventSurface?.hasPointerCapture?.(event.pointerId)) {
+        this.#eventSurface.releasePointerCapture?.(event.pointerId);
+      }
+      this.#eventSurface?.style.setProperty(
+        'cursor',
+        this.#domainNavigation() !== false ? 'grab' : (this.#surfaceCursor ?? ''),
+      );
+      return;
+    }
     if (!this.#activePointers.has(event.pointerId)) return;
     this.#activePointers.delete(event.pointerId);
     if (this.#eventSurface?.hasPointerCapture?.(event.pointerId)) {
@@ -1619,6 +2210,62 @@ export class Chart {
         navigation !== false && navigation.drag ? 'grab' : (this.#surfaceCursor ?? ''),
       );
     }
+  }
+
+  #completeAnalyticGesture(gesture: AnalyticPointerGesture): void {
+    const result = this.#result;
+    const selection = result?.spec.interaction.selection;
+    if (result === null || result === undefined || selection === undefined || selection === false)
+      return;
+    const spanX = Math.abs(gesture.current.x - gesture.start.x);
+    const spanY = Math.abs(gesture.current.y - gesture.start.y);
+    let resolved: AnalyticSelection;
+    if (selection.kind === 'axis') {
+      const span = selection.axis === 'x' || selection.axis === 'x2' ? spanX : spanY;
+      if (span < selection.minPixelSpan) return;
+      resolved = pixelAxisToSelection(
+        result.coordinates,
+        selection.axis!,
+        gesture.start,
+        gesture.current,
+      );
+    } else if (selection.kind === 'lasso') {
+      const last = gesture.points.at(-1);
+      if (last === undefined || pointDistance(last, gesture.current) >= 2) {
+        gesture.points.push(gesture.current);
+      }
+      if (gesture.points.length < 3 || Math.max(spanX, spanY) < selection.minPixelSpan) {
+        return;
+      }
+      resolved = pixelLassoToSelection(result.coordinates, gesture.points, {
+        x: selection.xAxis,
+        y: selection.yAxis,
+      });
+    } else if (selection.kind === 'interval' || selection.kind === 'rectangle') {
+      if (Math.max(spanX, spanY) < selection.minPixelSpan) return;
+      resolved = pixelRectangleToSelection(result.coordinates, gesture.start, gesture.current, {
+        type: selection.kind,
+        xAxis: selection.xAxis,
+        yAxis: selection.yAxis,
+      });
+    } else return;
+
+    const previous = this.#analyticSelection.get();
+    if (selection.mode === 'single') {
+      this.#analyticSelection.set({
+        version: analyticSelectionVersion,
+        combine: selection.combine,
+        selections: [resolved],
+      });
+    } else this.#analyticSelection.apply(resolved, selection.combine);
+    try {
+      this.#validateAnalyticStateForConfig(this.#analyticSelection.get(), selection);
+      this.render();
+    } catch (error) {
+      this.#analyticSelection.set(previous);
+      throw error;
+    }
+    this.#emitAnalyticSelection('pointer');
   }
 
   #pinchSnapshot(navigation: NormalizedNavigationSpec): PinchStart | null {
@@ -1639,11 +2286,47 @@ export class Chart {
       selection !== undefined &&
       selection !== false &&
       selection.clearOnEscape &&
-      this.#selection.length > 0
+      (this.#selection.length > 0 || this.#analyticSelection.get().selections.length > 0)
     ) {
-      this.clearSelection();
+      if (selection.kind === 'point') this.clearSelection();
+      else this.clearAnalyticSelection();
       event.preventDefault();
       return;
+    }
+    const domainNavigation = this.#domainNavigation();
+    if (domainNavigation !== false && domainNavigation.keyboard) {
+      const before = this.#domainView;
+      let handled = true;
+      switch (event.key) {
+        case '+':
+        case '=':
+          this.zoomDomainBy(1.25);
+          break;
+        case '-':
+        case '_':
+          this.zoomDomainBy(0.8);
+          break;
+        case 'ArrowLeft':
+          this.panDomainBy(24, 0);
+          break;
+        case 'ArrowRight':
+          this.panDomainBy(-24, 0);
+          break;
+        case 'ArrowUp':
+          this.panDomainBy(0, 24);
+          break;
+        case 'ArrowDown':
+          this.panDomainBy(0, -24);
+          break;
+        case '0':
+        case 'Home':
+          this.resetDomainView();
+          break;
+        default:
+          handled = false;
+      }
+      if (handled && !sameDomainView(before, this.#domainView)) event.preventDefault();
+      if (handled) return;
     }
     const navigation = this.#navigation();
     if (navigation === false || !navigation.keyboard) return;
@@ -1731,11 +2414,14 @@ export class Chart {
   #applyClickSelection(hit: HitResult | null): void {
     const selection = this.#result?.spec.interaction.selection;
     if (selection === undefined || selection === false) return;
+    if (selection.kind !== 'point') return;
     if (hit === null) {
       if (selection.clearOnBackground && this.#selection.length > 0) {
         this.#selection = [];
+        this.#analyticSelection.clear(selection.combine);
         this.render();
         this.#emitSelection('click');
+        this.#emitAnalyticSelection('pointer');
       }
       return;
     }
@@ -1770,13 +2456,77 @@ export class Chart {
       this.#selection = [...this.#selection, target];
     }
     if (before === this.#selection.map(selectionKey).join('|')) return;
+    this.#syncAnalyticPointTargets();
     this.render();
     this.#emitSelection('click');
+    this.#emitAnalyticSelection('pointer');
   }
 
   #emitSelection(reason: ChartSelectionChangeReason): void {
     this.#syncSelectionAccessibility();
     this.#events.emit('selectionchange', { chart: this, state: this.getSelection(), reason });
+  }
+
+  #requireAnalyticSelection(): NormalizedSelectionSpec {
+    const selection = this.#result?.spec.interaction.selection;
+    if (selection === undefined || selection === false) {
+      throw new GraflumeError(
+        'INVALID_SPEC',
+        'Enable interaction.selection before changing analytic selection state.',
+      );
+    }
+    return selection;
+  }
+
+  #validateAnalyticStateForConfig(
+    state: AnalyticSelectionState,
+    config: NormalizedSelectionSpec,
+  ): void {
+    if (state.selections.length > config.maxSelections) {
+      throw new GraflumeError(
+        'INVALID_SPEC',
+        `Analytic selection exceeds the configured ${config.maxSelections} selection bound.`,
+      );
+    }
+    if (config.mode === 'single' && state.selections.length > 1) {
+      throw new GraflumeError(
+        'INVALID_SPEC',
+        'Single selection mode accepts at most one selection.',
+      );
+    }
+    for (const selection of state.selections) {
+      if (selection.type !== config.kind) {
+        throw new GraflumeError(
+          'INVALID_SPEC',
+          `Selection type "${selection.type}" does not match configured kind "${config.kind}".`,
+        );
+      }
+      if (selection.type === 'lasso' && selection.points.length > config.maxLassoPoints) {
+        throw new GraflumeError(
+          'INVALID_SPEC',
+          `Lasso selection exceeds the configured ${config.maxLassoPoints} point bound.`,
+        );
+      }
+    }
+  }
+
+  #syncAnalyticPointTargets(): void {
+    const config = this.#result?.spec.interaction.selection;
+    if (config === undefined || config === false || config.kind !== 'point') return;
+    this.#analyticSelection.set({
+      version: analyticSelectionVersion,
+      combine: config.combine,
+      selections: this.#selection.map((target) => ({ type: 'point', target })),
+    });
+  }
+
+  #emitAnalyticSelection(reason: ChartAnalyticSelectionChangeReason): void {
+    this.#syncSelectionAccessibility();
+    this.#events.emit('analyticselectionchange', {
+      chart: this,
+      state: this.#analyticSelection.get(),
+      reason,
+    });
   }
 
   #emitAnnotations(reason: ChartAnnotationChangeReason, id?: string): void {
@@ -1832,19 +2582,37 @@ export class Chart {
       return;
     }
     const navigation = this.#navigation();
+    const domainNavigation = this.#domainNavigation();
+    const domainZoom =
+      domainNavigation === false
+        ? 1
+        : Math.max(
+            ...domainNavigation.axes.map((axis) => {
+              const window = domainAxisWindow(this.#domainView, axis);
+              return 1 / (window.end - window.start);
+            }),
+          );
     const playbackState = this.getPlaybackState();
     const state: ControlsState = {
       spec: controls,
       navigationEnabled:
-        navigation !== false &&
-        this.#renderer?.capabilities.inspectionViewport === true &&
-        this.#renderer.setInspectionView !== undefined,
+        domainNavigation !== false ||
+        (navigation !== false &&
+          this.#renderer?.capabilities.inspectionViewport === true &&
+          this.#renderer.setInspectionView !== undefined),
       viewDirty:
-        navigation !== false &&
-        !sameView(this.#view, { zoom: navigation.minZoom, offsetX: 0, offsetY: 0 }),
-      zoom: this.#view.zoom,
-      minZoom: navigation === false ? 1 : navigation.minZoom,
-      maxZoom: navigation === false ? 1 : navigation.maxZoom,
+        domainNavigation !== false
+          ? !domainViewIsIdentity(this.#domainView)
+          : navigation !== false &&
+            !sameView(this.#view, { zoom: navigation.minZoom, offsetX: 0, offsetY: 0 }),
+      zoom: domainNavigation === false ? this.#view.zoom : domainZoom,
+      minZoom: domainNavigation === false ? (navigation === false ? 1 : navigation.minZoom) : 1,
+      maxZoom:
+        domainNavigation === false
+          ? navigation === false
+            ? 1
+            : navigation.maxZoom
+          : domainNavigation.maxZoom,
       fullscreenAvailable: this.#fullscreenAvailable(),
       fullscreen: this.#fullscreen,
       exportAvailable:
@@ -1864,9 +2632,9 @@ export class Chart {
           : String(playbackState.frame ?? ''),
     };
     const actions: ControlsActions = {
-      zoomIn: () => this.zoomBy(1.25),
-      zoomOut: () => this.zoomBy(0.8),
-      reset: () => this.resetView(),
+      zoomIn: () => (domainNavigation === false ? this.zoomBy(1.25) : this.zoomDomainBy(1.25)),
+      zoomOut: () => (domainNavigation === false ? this.zoomBy(0.8) : this.zoomDomainBy(0.8)),
+      reset: () => (domainNavigation === false ? this.resetView() : this.resetDomainView()),
       toggleFullscreen: () => void this.toggleFullscreen().catch(() => undefined),
       exportPng: () => this.#exportPng(),
       toggleAnnotations: () => this.toggleAnnotations(),
@@ -1892,16 +2660,144 @@ export class Chart {
     });
   }
 
+  #semanticSelected(mark: SemanticMark, target: DatumTargetSpec): boolean {
+    if (target.layerId !== undefined && target.layerId !== mark.layerId) return false;
+    if (target.rowIndex !== undefined) {
+      const rows = Array.isArray(target.rowIndex) ? target.rowIndex : [target.rowIndex];
+      if (!rows.includes(mark.rowIndex)) return false;
+    }
+    if (target.field !== undefined) {
+      const value = mark.datum[target.field];
+      const values = target.values ?? (target.value === undefined ? [] : [target.value]);
+      if (!values.some((candidate) => Object.is(candidate, value))) return false;
+    }
+    return target.rowIndex !== undefined || target.field !== undefined;
+  }
+
+  #semanticSelectionTarget(mark: SemanticMark): DatumTargetSpec {
+    const selection = this.#result?.spec.interaction.selection;
+    if (selection !== undefined && selection !== false && selection.key !== undefined) {
+      const value = mark.datum[selection.key];
+      if (
+        value === null ||
+        typeof value === 'string' ||
+        typeof value === 'boolean' ||
+        (typeof value === 'number' && Number.isFinite(value))
+      ) {
+        return { type: 'datum', layerId: mark.layerId, field: selection.key, value };
+      }
+    }
+    return { type: 'datum', layerId: mark.layerId, rowIndex: mark.rowIndex };
+  }
+
+  #toggleSemanticSelection(mark: SemanticMark): void {
+    const selection = this.#result?.spec.interaction.selection;
+    if (selection === undefined || selection === false) return;
+    if (selection.kind !== 'point') return;
+    const target = this.#semanticSelectionTarget(mark);
+    const key = selectionKey(target);
+    const existing = this.#selection.findIndex((candidate) => selectionKey(candidate) === key);
+    if (selection.mode === 'single') {
+      this.setSelection(existing >= 0 && selection.toggle ? [] : [target]);
+      return;
+    }
+    if (existing >= 0 && selection.toggle) {
+      this.setSelection(this.#selection.filter((_, index) => index !== existing));
+    } else if (existing < 0) this.setSelection([...this.#selection, target]);
+  }
+
+  #focusSemanticMark(mark: SemanticMark | null): void {
+    if (mark === null) {
+      this.#tooltip.hide();
+      return;
+    }
+    const result = this.#result;
+    const surface = this.#renderer?.surface();
+    const host = this.#renderer?.overlayHost?.();
+    if (
+      result === null ||
+      result.spec.interaction.tooltip === false ||
+      surface === null ||
+      surface === undefined ||
+      host === null ||
+      host === undefined
+    )
+      return;
+    const x = (mark.bounds.x + mark.bounds.width / 2) * this.#view.zoom + this.#view.offsetX;
+    const y = (mark.bounds.y + mark.bounds.height / 2) * this.#view.zoom + this.#view.offsetY;
+    const hostBounds = host.getBoundingClientRect();
+    const hit: HitResult = {
+      layerId: mark.layerId,
+      rowIndex: mark.rowIndex,
+      datum: mark.datum,
+      nodeId: mark.id,
+      x,
+      y,
+      distance: 0,
+    };
+    this.#tooltip.showAt(
+      resolveTooltipContent(hit, result.spec),
+      hit,
+      hostBounds.left + x,
+      hostBounds.top + y,
+      surface,
+      host,
+    );
+  }
+
+  #syncAccessibilityMirror(): void {
+    const result = this.#result;
+    const surface = this.#renderer?.surface();
+    const host = this.#renderer?.overlayHost?.();
+    if (
+      result === null ||
+      surface === null ||
+      surface === undefined ||
+      host === null ||
+      host === undefined
+    ) {
+      this.#accessibility.destroy();
+      return;
+    }
+    const selectedIds = new Set(
+      result.scene.semanticIndex
+        .filter((mark) => this.#selection.some((target) => this.#semanticSelected(mark, target)))
+        .map(({ id }) => id),
+    );
+    this.#accessibility.sync(
+      this.#target,
+      host,
+      surface,
+      result.scene.semanticIndex,
+      result.spec.accessibility,
+      this.#view,
+      selectedIds,
+      {
+        toggle: (mark) => this.#toggleSemanticSelection(mark),
+        clear: () => this.clearSelection(),
+        focus: (mark) => this.#focusSemanticMark(mark),
+      },
+    );
+  }
+
   #syncSelectionAccessibility(): void {
     const host = this.#renderer?.overlayHost?.();
     const selection = this.#result?.spec.interaction.selection;
-    if (host === null || host === undefined || selection === undefined || selection === false) {
+    const live = this.#result?.spec.accessibility.live;
+    if (
+      host === null ||
+      host === undefined ||
+      selection === undefined ||
+      selection === false ||
+      live === undefined ||
+      live === false
+    ) {
       this.#destroySelectionLive();
       return;
     }
     if (this.#selectionLiveHost !== host) {
       this.#destroySelectionLive();
-      const live = document.createElement('div');
+      const live = host.ownerDocument.createElement('div');
       live.dataset.graflumeSelectionStatus = 'true';
       live.setAttribute('role', 'status');
       live.setAttribute('aria-live', 'polite');
@@ -1915,12 +2811,31 @@ export class Chart {
       this.#selectionLiveHost = host;
     }
     if (this.#selectionLive !== null) {
-      const summary = `${selection.ariaLabel}: ${this.#selection.length}`;
-      if (this.#selectionLive.textContent !== summary) this.#selectionLive.textContent = summary;
+      const selectedCount =
+        selection.kind === 'point'
+          ? this.#selection.length
+          : this.#analyticSelection.get().selections.length;
+      const summary = `${selection.ariaLabel}: ${selectedCount}`;
+      if (this.#selectionLive.textContent === summary) return;
+      const throttleMs = live.throttleMs;
+      const elapsed = Date.now() - this.#selectionLiveUpdatedAt;
+      const update = (): void => {
+        if (this.#selectionLive !== null) this.#selectionLive.textContent = summary;
+        this.#selectionLiveUpdatedAt = Date.now();
+        this.#selectionLiveTimer = null;
+      };
+      if (this.#selectionLiveUpdatedAt === 0 || elapsed >= throttleMs) update();
+      else {
+        if (this.#selectionLiveTimer !== null) clearTimeout(this.#selectionLiveTimer);
+        this.#selectionLiveTimer = setTimeout(update, throttleMs - elapsed);
+      }
     }
   }
 
   #destroySelectionLive(): void {
+    if (this.#selectionLiveTimer !== null) clearTimeout(this.#selectionLiveTimer);
+    this.#selectionLiveTimer = null;
+    this.#selectionLiveUpdatedAt = 0;
     this.#selectionLive?.remove();
     this.#selectionLive = null;
     this.#selectionLiveHost = null;
@@ -1939,6 +2854,51 @@ export class Chart {
     } catch (error) {
       this.#events.emit('error', { chart: this, error });
     }
+  }
+
+  #streamingTarget(layerId: string | undefined): {
+    readonly id: string;
+    readonly source: DataInput;
+    readonly layerId?: string;
+  };
+  #streamingTarget(
+    layerId: string | undefined,
+    required: false,
+  ): { readonly id: string; readonly source: DataInput; readonly layerId?: string } | null;
+  #streamingTarget(
+    layerId: string | undefined,
+    required = true,
+  ): { readonly id: string; readonly source: DataInput; readonly layerId?: string } | null {
+    if (this.#spec.streaming === undefined) {
+      if (!required) return null;
+      throw new GraflumeError(
+        'INVALID_DATA',
+        'An explicit ChartSpec.streaming contract is required.',
+      );
+    }
+    if (layerId === undefined && this.#spec.data !== undefined) {
+      return { id: '$chart', source: this.#spec.data };
+    }
+    const layers = this.#spec.layers;
+    if (layers === undefined) {
+      if (!required) return null;
+      throw new GraflumeError('INVALID_DATA', 'The chart has no layer data to update.');
+    }
+    const targetLayerId =
+      layerId ?? (layers.length === 1 ? (layers[0]?.id ?? 'layer-0') : undefined);
+    if (targetLayerId === undefined) {
+      throw new GraflumeError('INVALID_DATA', 'Specify layerId when updating a multi-layer chart.');
+    }
+    const index = layers.findIndex(
+      (layer, candidate) => (layer.id ?? `layer-${candidate}`) === targetLayerId,
+    );
+    const layer = layers[index];
+    const source = layer?.data ?? this.#spec.data;
+    if (layer === undefined || source === undefined) {
+      if (!required) return null;
+      throw new GraflumeError('INVALID_DATA', `Layer "${targetLayerId}" has no data source.`);
+    }
+    return { id: `layer:${targetLayerId}`, source, layerId: targetLayerId };
   }
 
   #assertAlive(): void {

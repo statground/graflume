@@ -131,9 +131,11 @@ function fallbackDatumBounds(
       if (
         xValue === undefined ||
         xValue === null ||
+        (typeof xValue === 'object' && !(xValue instanceof Date)) ||
         typeof xValue === 'boolean' ||
         yValue === undefined ||
         yValue === null ||
+        (typeof yValue === 'object' && !(yValue instanceof Date)) ||
         typeof yValue === 'boolean'
       )
         continue;

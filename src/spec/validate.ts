@@ -1,6 +1,25 @@
 import { GraflumeError } from '../core/errors.js';
+import { curveNames } from '../curve/registry.js';
+import { seriesStackModes } from '../data/series-stack.js';
+import { resolveTechnicalIndicatorCapability } from '../data/technical-indicators.js';
 import { isPlainObject } from '../utils/object.js';
-import type { ChartSpec, EncodingInput, LayerSpec, MarkInput } from './types.js';
+import {
+  maximumCompositionDepth,
+  maximumCompositionViews,
+  maximumLayerCompositionChildren,
+  presentCompositionOperators,
+  resolveComposition,
+  type CompositionKind,
+} from './composition.js';
+import type {
+  ChannelEncodingInput,
+  ChartSpec,
+  EncodingChannel,
+  EncodingInput,
+  LayerSpec,
+  MarkInput,
+} from './types.js';
+import { validateTransformExpression, validateTransforms } from './transform-validation.js';
 
 export interface SpecIssue {
   readonly path: string;
@@ -23,12 +42,14 @@ const INTERACTION_KEYS = new Set([
   'click',
   'tooltip',
   'navigation',
+  'domainNavigation',
   'playback',
   'controls',
   'selection',
 ]);
 const NAVIGATION_KEYS = new Set(['minZoom', 'maxZoom', 'wheel', 'drag', 'pinch', 'keyboard']);
 const NAVIGATION_WHEEL_MODES = new Set(['off', 'modifier', 'always']);
+const DOMAIN_NAVIGATION_KEYS = new Set(['axes', 'maxZoom', 'wheel', 'drag', 'keyboard']);
 const PLAYBACK_KEYS = new Set([
   'field',
   'key',
@@ -73,6 +94,8 @@ const CONTROL_LABEL_KEYS = new Set([
   'loop',
 ]);
 const SELECTION_KEYS = new Set([
+  'kind',
+  'combine',
   'mode',
   'toggle',
   'key',
@@ -80,8 +103,27 @@ const SELECTION_KEYS = new Set([
   'clearOnEscape',
   'ariaLabel',
   'highlight',
+  'axis',
+  'xAxis',
+  'yAxis',
+  'maxSelections',
+  'maxLassoPoints',
+  'minPixelSpan',
 ]);
 const SELECTION_MODES = new Set(['single', 'multiple']);
+const SELECTION_KINDS = new Set(['point', 'interval', 'rectangle', 'axis', 'lasso']);
+const SELECTION_COMBINE = new Set(['union', 'intersection']);
+const ACCESSIBILITY_KEYS = new Set([
+  'label',
+  'description',
+  'table',
+  'maxRows',
+  'navigation',
+  'summary',
+  'live',
+]);
+const ACCESSIBILITY_LIVE_KEYS = new Set(['enabled', 'throttleMs']);
+const ACCESSIBILITY_TABLE_MODES = new Set(['hidden', 'visible']);
 const LEGEND_KEYS = new Set([
   'visible',
   'mode',
@@ -158,19 +200,84 @@ const ANNOTATION_STYLE_KEYS = new Set([
   'align',
 ]);
 const ANNOTATION_TEXT_ALIGNS = new Set(['start', 'center', 'end']);
-const ENCODING_KEYS = new Set(['field', 'type', 'title', 'scale', 'axis', 'axisId']);
+const ENCODING_KEYS = new Set([
+  'field',
+  'value',
+  'type',
+  'title',
+  'scale',
+  'axis',
+  'axisId',
+  'condition',
+]);
+const ENCODING_CONDITION_KEYS = new Set(['test', 'field', 'value']);
+const ENCODING_CHANNELS = new Set<EncodingChannel>([
+  'x',
+  'x2',
+  'y',
+  'y2',
+  'color',
+  'fill',
+  'stroke',
+  'size',
+  'radius',
+  'shape',
+  'opacity',
+  'strokeWidth',
+  'strokeDash',
+  'text',
+  'order',
+  'detail',
+  'tooltip',
+]);
 const FIELD_TYPES = new Set(['quantitative', 'temporal', 'ordinal', 'nominal']);
 const SCALE_KEYS = new Set([
   'type',
   'domain',
+  'range',
   'zero',
   'nice',
   'clamp',
   'reverse',
+  'outOfBounds',
+  'base',
+  'exponent',
+  'constant',
   'paddingInner',
   'paddingOuter',
 ]);
-const SCALE_TYPES = new Set(['linear', 'band', 'time']);
+const SCALE_TYPES = new Set([
+  'linear',
+  'log',
+  'symlog',
+  'asinh',
+  'pow',
+  'sqrt',
+  'time',
+  'utc',
+  'band',
+  'point',
+  'ordinal',
+  'quantile',
+  'quantize',
+  'threshold',
+  'sequential',
+  'diverging',
+  'cyclic',
+  'probability',
+  'logit',
+  'probit',
+]);
+const SCALE_OUT_OF_BOUNDS = new Set(['extrapolate', 'clamp', 'error', 'unknown']);
+const POINT_SHAPES = new Set(['circle', 'square', 'diamond', 'triangle', 'cross']);
+const RAW_ONLY_ENCODING_CHANNELS = new Set([
+  'shape',
+  'strokeDash',
+  'text',
+  'order',
+  'detail',
+  'tooltip',
+]);
 const AXIS_IDS = new Set(['x', 'x2', 'y', 'y2']);
 const AXIS_KEYS = new Set([
   'title',
@@ -237,6 +344,108 @@ const AXIS_TIME_STYLES = new Set(['short', 'medium', 'long']);
 const THEME_CONTINUOUS_INTERPOLATIONS = new Set(['step', 'rgb', 'lab']);
 const THEME_SERIES_COLOR_MODES = new Set(['theme', 'series']);
 const THEME_PIE_DIRECTIONS = new Set(['clockwise', 'counterclockwise']);
+const LAYER_KEYS = new Set([
+  'id',
+  'name',
+  'data',
+  'transform',
+  'mark',
+  'x',
+  'y',
+  'encoding',
+  'visible',
+  'zIndex',
+]);
+const COMPOSITION_RESOLVE_KEYS = new Set(['scale', 'axis', 'legend']);
+const FACET_KEYS = new Set(['row', 'column', 'wrap', 'columns']);
+const FACET_FIELD_KEYS = new Set(['field', 'title', 'sort']);
+const FACET_SORTS = new Set(['input', 'ascending', 'descending']);
+const REPEAT_KEYS = new Set(['items', 'columns']);
+const REPEAT_ITEM_KEYS = new Set(['id', 'label', 'x', 'y']);
+const INSET_KEYS = new Set(['base', 'view', 'x', 'y', 'width', 'height', 'label']);
+const LAYER_COMPOSITION_CHILD_KEYS = new Set([
+  '$schema',
+  'specVersion',
+  'data',
+  'transform',
+  'mark',
+  'x',
+  'y',
+  'encoding',
+  'layers',
+]);
+const COMPOSITION_KEYS = new Set([
+  '$schema',
+  'specVersion',
+  'data',
+  'transform',
+  'mark',
+  'x',
+  'y',
+  'encoding',
+  'layers',
+  'layer',
+  'facet',
+  'repeat',
+  'hconcat',
+  'vconcat',
+  'concat',
+  'inset',
+  'spec',
+  'columns',
+  'spacing',
+  'resolve',
+  'width',
+  'height',
+  'padding',
+  'title',
+  'description',
+  'renderer',
+  'performance',
+  'theme',
+  'locale',
+  'axes',
+  'legend',
+  'highlights',
+  'annotations',
+  'interaction',
+  'accessibility',
+  'streaming',
+]);
+const CURVE_NAMES = new Set<string>(curveNames);
+const MISSING_VALUE_POLICIES = new Set(['gap', 'zero', 'connect']);
+const CURVE_MARKS = new Set(['line', 'area', 'smooth', 'stepped-area', 'theme-river']);
+const SERIES_STACK_MARKS = new Set(['area', 'bar', 'theme-river']);
+const SERIES_STACK_OFFSETS = new Set([
+  'zero',
+  'normalize',
+  'expand',
+  'center',
+  'silhouette',
+  'wiggle',
+]);
+const SERIES_STACK_ORDERS = new Set([
+  'input',
+  'ascending',
+  'descending',
+  'sumAscending',
+  'sumDescending',
+  'insideOut',
+]);
+const STREAMING_KEYS = new Set([
+  'key',
+  'mode',
+  'maxBatchRows',
+  'retention',
+  'eventTime',
+  'queue',
+  'replay',
+]);
+const STREAMING_RETENTION_KEYS = new Set(['maxRows', 'time']);
+const STREAMING_TIME_KEYS = new Set(['field', 'durationMs']);
+const STREAMING_EVENT_TIME_KEYS = new Set(['field', 'allowedLatenessMs', 'lateData']);
+const STREAMING_QUEUE_KEYS = new Set(['maxBatches', 'maxRows', 'overflow']);
+const STREAMING_REPLAY_KEYS = new Set(['maxBatches', 'maxRows']);
 
 function validateUnknownKeys(
   value: Record<string, unknown>,
@@ -423,6 +632,7 @@ function validateScale(value: unknown, path: string, issues: SpecIssue[]): void 
     return;
   }
   validateUnknownKeys(value, SCALE_KEYS, path, 'scale', issues);
+  const type = typeof value.type === 'string' ? value.type : undefined;
   if (
     value.type !== undefined &&
     (typeof value.type !== 'string' || !SCALE_TYPES.has(value.type))
@@ -430,10 +640,10 @@ function validateScale(value: unknown, path: string, issues: SpecIssue[]): void 
     issues.push({ path: `${path}.type`, message: 'Scale type is not supported.' });
   }
   if (value.domain !== undefined) {
-    if (!Array.isArray(value.domain) || value.domain.length < 2) {
+    if (!Array.isArray(value.domain) || value.domain.length < 1) {
       issues.push({
         path: `${path}.domain`,
-        message: 'Scale domain must contain at least 2 values.',
+        message: 'Scale domain must contain at least 1 value.',
       });
     } else {
       value.domain.forEach((entry, index) => {
@@ -449,8 +659,53 @@ function validateScale(value: unknown, path: string, issues: SpecIssue[]): void 
       });
     }
   }
+  if (value.range !== undefined) {
+    if (!Array.isArray(value.range) || value.range.length === 0) {
+      issues.push({
+        path: `${path}.range`,
+        message: 'Scale range must contain at least one value.',
+      });
+    } else {
+      value.range.forEach((entry, index) => {
+        if (
+          (typeof entry !== 'number' && typeof entry !== 'string') ||
+          (typeof entry === 'number' && !Number.isFinite(entry))
+        ) {
+          issues.push({
+            path: `${path}.range[${index}]`,
+            message: 'Scale range values must be finite numbers or strings.',
+          });
+        }
+      });
+    }
+  }
   for (const key of ['zero', 'nice', 'clamp', 'reverse'] as const) {
     validateOptionalBoolean(value[key], `${path}.${key}`, `Scale ${key}`, issues);
+  }
+  if (
+    value.outOfBounds !== undefined &&
+    (typeof value.outOfBounds !== 'string' || !SCALE_OUT_OF_BOUNDS.has(value.outOfBounds))
+  ) {
+    issues.push({
+      path: `${path}.outOfBounds`,
+      message: 'Scale outOfBounds policy is not supported.',
+    });
+  }
+  if (value.clamp !== undefined && value.outOfBounds !== undefined) {
+    issues.push({
+      path: `${path}.clamp`,
+      message: 'Scale clamp is a compatibility alias; do not combine it with outOfBounds.',
+    });
+  }
+  for (const key of ['base', 'exponent', 'constant'] as const) {
+    if (value[key] !== undefined) {
+      validateFiniteNumber(value[key], `${path}.${key}`, `Scale ${key}`, issues, {
+        min: Number.MIN_VALUE,
+      });
+    }
+  }
+  if (value.base === 1) {
+    issues.push({ path: `${path}.base`, message: 'Log scale base must not equal 1.' });
   }
   if (value.paddingInner !== undefined) {
     validateFiniteNumber(value.paddingInner, `${path}.paddingInner`, 'Scale paddingInner', issues, {
@@ -461,6 +716,306 @@ function validateScale(value: unknown, path: string, issues: SpecIssue[]): void 
   if (value.paddingOuter !== undefined) {
     validateFiniteNumber(value.paddingOuter, `${path}.paddingOuter`, 'Scale paddingOuter', issues, {
       min: 0,
+    });
+  }
+
+  if (Array.isArray(value.range) && type !== undefined) {
+    const numericRangeTypes = new Set([
+      'linear',
+      'log',
+      'symlog',
+      'asinh',
+      'pow',
+      'sqrt',
+      'time',
+      'utc',
+      'band',
+      'point',
+      'quantile',
+      'quantize',
+      'threshold',
+      'probability',
+      'logit',
+      'probit',
+    ]);
+    if (numericRangeTypes.has(type) && value.range.some((entry) => typeof entry !== 'number')) {
+      issues.push({
+        path: `${path}.range`,
+        message: `${type} position scale range must contain finite numbers.`,
+      });
+    }
+    if (
+      [
+        'linear',
+        'log',
+        'symlog',
+        'asinh',
+        'pow',
+        'sqrt',
+        'time',
+        'utc',
+        'band',
+        'point',
+        'probability',
+        'logit',
+        'probit',
+      ].includes(type) &&
+      value.range.length !== 2
+    ) {
+      issues.push({
+        path: `${path}.range`,
+        message: `${type} position scale range must contain exactly 2 values.`,
+      });
+    }
+    if (
+      (type === 'sequential' || type === 'diverging' || type === 'cyclic') &&
+      value.range.some((entry) => typeof entry !== 'string')
+    ) {
+      issues.push({
+        path: `${path}.range`,
+        message: `${type} color scale range must contain strings.`,
+      });
+    }
+    const minimumColorStops =
+      type === 'diverging' ? 3 : type === 'sequential' || type === 'cyclic' ? 2 : 0;
+    if (minimumColorStops > 0 && value.range.length < minimumColorStops) {
+      issues.push({
+        path: `${path}.range`,
+        message: `${type} color scale requires at least ${minimumColorStops} colors.`,
+      });
+    }
+  }
+  if (value.base !== undefined && type !== 'log') {
+    issues.push({ path: `${path}.base`, message: 'Scale base is only valid for log scales.' });
+  }
+  if (value.exponent !== undefined && type !== 'pow') {
+    issues.push({
+      path: `${path}.exponent`,
+      message: 'Scale exponent is only valid for pow scales.',
+    });
+  }
+  if (value.constant !== undefined && type !== 'symlog' && type !== 'asinh') {
+    issues.push({
+      path: `${path}.constant`,
+      message: 'Scale constant is only valid for symlog or asinh scales.',
+    });
+  }
+  if (
+    (value.paddingInner !== undefined || value.paddingOuter !== undefined) &&
+    type !== 'band' &&
+    type !== 'point'
+  ) {
+    issues.push({ path, message: 'Scale padding is only valid for band or point scales.' });
+  }
+  if (value.nice !== undefined && type !== undefined && !['linear', 'time', 'utc'].includes(type)) {
+    issues.push({
+      path: `${path}.nice`,
+      message: 'Scale nice is currently implemented only for linear, time, and utc scales.',
+    });
+  }
+  if (value.zero === true && (type === 'log' || type === 'logit' || type === 'probit')) {
+    issues.push({ path: `${path}.zero`, message: `${type} scale cannot include zero.` });
+  }
+  if (
+    (type === 'band' || type === 'point' || type === 'ordinal') &&
+    (value.outOfBounds === 'clamp' || value.outOfBounds === 'extrapolate' || value.clamp === true)
+  ) {
+    issues.push({
+      path: `${path}.outOfBounds`,
+      message: `${type} scale supports only error or unknown for unseen categories.`,
+    });
+  }
+  if (type === 'quantize' && value.outOfBounds === 'extrapolate') {
+    issues.push({
+      path: `${path}.outOfBounds`,
+      message: 'Quantize scales cannot extrapolate discrete range values.',
+    });
+  }
+  if (
+    (type === 'quantile' || type === 'threshold') &&
+    (value.outOfBounds !== undefined || value.clamp !== undefined)
+  ) {
+    issues.push({
+      path: `${path}.outOfBounds`,
+      message: `${type} scale bin semantics do not accept outOfBounds.`,
+    });
+  }
+  if (type === 'cyclic' && (value.outOfBounds !== undefined || value.clamp !== undefined)) {
+    issues.push({
+      path: `${path}.outOfBounds`,
+      message: 'Cyclic scales always wrap and do not accept outOfBounds.',
+    });
+  }
+  if (Array.isArray(value.domain)) {
+    const numbers = value.domain.filter((entry): entry is number => typeof entry === 'number');
+    if ((type === 'band' || type === 'point') && numbers.length > 0) {
+      issues.push({
+        path: `${path}.domain`,
+        message: `${type} scale domain must contain strings.`,
+      });
+    }
+    if (
+      type !== undefined &&
+      [
+        'linear',
+        'log',
+        'symlog',
+        'asinh',
+        'pow',
+        'sqrt',
+        'quantile',
+        'quantize',
+        'threshold',
+        'sequential',
+        'diverging',
+        'cyclic',
+        'probability',
+        'logit',
+        'probit',
+      ].includes(type) &&
+      numbers.length !== value.domain.length
+    ) {
+      issues.push({ path: `${path}.domain`, message: `${type} scale domain must be numeric.` });
+    }
+    if (type === 'quantile' && value.domain.length < 2) {
+      issues.push({
+        path: `${path}.domain`,
+        message: 'Quantile scale domain must contain at least 2 numeric samples.',
+      });
+    }
+    if (
+      (type === 'time' || type === 'utc') &&
+      value.domain.some(
+        (entry) =>
+          typeof entry !== 'number' &&
+          (typeof entry !== 'string' || !Number.isFinite(Date.parse(entry))),
+      )
+    ) {
+      issues.push({
+        path: `${path}.domain`,
+        message: `${type} scale domain values must be finite epochs or parseable date strings.`,
+      });
+    }
+    if (type === 'log' && numbers.some((entry) => entry <= 0)) {
+      issues.push({
+        path: `${path}.domain`,
+        message: 'Log scale domain values must be greater than 0.',
+      });
+    }
+    if (type === 'probability' && numbers.some((entry) => entry < 0 || entry > 1)) {
+      issues.push({
+        path: `${path}.domain`,
+        message: 'Probability scale domain values must be between 0 and 1.',
+      });
+    }
+    if (
+      (type === 'logit' || type === 'probit') &&
+      numbers.some((entry) => entry <= 0 || entry >= 1)
+    ) {
+      issues.push({
+        path: `${path}.domain`,
+        message: `${type} scale domain values must be strictly between 0 and 1.`,
+      });
+    }
+    const requiredLength =
+      type === 'diverging'
+        ? 3
+        : [
+              'linear',
+              'log',
+              'symlog',
+              'asinh',
+              'pow',
+              'sqrt',
+              'time',
+              'utc',
+              'quantize',
+              'sequential',
+              'cyclic',
+              'probability',
+              'logit',
+              'probit',
+            ].includes(type ?? '')
+          ? 2
+          : undefined;
+    if (requiredLength !== undefined && value.domain.length !== requiredLength) {
+      issues.push({
+        path: `${path}.domain`,
+        message: `${type} scale domain must contain exactly ${requiredLength} values.`,
+      });
+    }
+    if (
+      type !== undefined &&
+      [
+        'linear',
+        'log',
+        'symlog',
+        'asinh',
+        'pow',
+        'sqrt',
+        'quantize',
+        'sequential',
+        'cyclic',
+        'probability',
+        'logit',
+        'probit',
+      ].includes(type) &&
+      numbers.length === 2 &&
+      numbers[0] === numbers[1]
+    ) {
+      issues.push({
+        path: `${path}.domain`,
+        message: `${type} scale domain endpoints must differ.`,
+      });
+    }
+    if (
+      (type === 'time' || type === 'utc') &&
+      value.domain.length === 2 &&
+      value.domain
+        .map((entry) => (typeof entry === 'number' ? entry : Date.parse(String(entry))))
+        .every(Number.isFinite) &&
+      (typeof value.domain[0] === 'number'
+        ? value.domain[0]
+        : Date.parse(String(value.domain[0]))) ===
+        (typeof value.domain[1] === 'number'
+          ? value.domain[1]
+          : Date.parse(String(value.domain[1])))
+    ) {
+      issues.push({
+        path: `${path}.domain`,
+        message: `${type} scale domain endpoints must differ.`,
+      });
+    }
+    if (
+      type === 'diverging' &&
+      numbers.length === 3 &&
+      !(numbers[0]! < numbers[1]! && numbers[1]! < numbers[2]!)
+    ) {
+      issues.push({
+        path: `${path}.domain`,
+        message: 'Diverging scale domain must be strictly ascending.',
+      });
+    }
+    if (
+      type === 'threshold' &&
+      numbers.length === value.domain.length &&
+      numbers.some((entry, index) => index > 0 && entry <= numbers[index - 1]!)
+    ) {
+      issues.push({
+        path: `${path}.domain`,
+        message: 'Threshold scale domain must be strictly ascending.',
+      });
+    }
+  }
+  if (
+    type === 'threshold' &&
+    Array.isArray(value.domain) &&
+    Array.isArray(value.range) &&
+    value.range.length !== value.domain.length + 1
+  ) {
+    issues.push({
+      path: `${path}.range`,
+      message: 'Threshold scale range length must equal domain length + 1.',
     });
   }
 }
@@ -811,10 +1366,88 @@ function validateAxes(value: unknown, path: string, issues: SpecIssue[]): void {
   }
 }
 
+function validateEncodingCondition(
+  value: unknown,
+  path: string,
+  channel: EncodingChannel,
+  issues: SpecIssue[],
+): void {
+  if (!isPlainObject(value)) {
+    issues.push({ path, message: 'Encoding condition must be an object.' });
+    return;
+  }
+  validateUnknownKeys(value, ENCODING_CONDITION_KEYS, path, 'encoding condition', issues);
+  validateTransformExpression(value.test, `${path}.test`, issues);
+  const hasField = value.field !== undefined;
+  const hasValue = value.value !== undefined;
+  if (hasField === hasValue) {
+    issues.push({ path, message: 'Encoding condition requires exactly one of field or value.' });
+  }
+  if (hasField) {
+    if (
+      typeof value.field !== 'string' ||
+      value.field.trim() === '' ||
+      UNSAFE_FIELDS.has(value.field)
+    ) {
+      issues.push({
+        path: `${path}.field`,
+        message: 'Conditional field must be a non-empty safe string.',
+      });
+    }
+  }
+  if (hasValue) validateChannelValue(value.value, `${path}.value`, channel, issues);
+}
+
+function validateChannelValue(
+  value: unknown,
+  path: string,
+  channel: EncodingChannel,
+  issues: SpecIssue[],
+): void {
+  if (channel === 'strokeDash') {
+    if (
+      !Array.isArray(value) ||
+      value.some((entry) => typeof entry !== 'number' || !Number.isFinite(entry) || entry < 0)
+    ) {
+      issues.push({
+        path,
+        message: 'strokeDash value must be an array of non-negative finite numbers.',
+      });
+    }
+    return;
+  }
+  if (
+    Array.isArray(value) ||
+    value === undefined ||
+    (value !== null && !['string', 'number', 'boolean'].includes(typeof value))
+  ) {
+    issues.push({ path, message: 'Encoding value must be a JSON scalar.' });
+    return;
+  }
+  if (typeof value === 'number' && !Number.isFinite(value)) {
+    issues.push({ path, message: 'Encoding number must be finite.' });
+  }
+  if (
+    ['size', 'radius', 'strokeWidth'].includes(channel) &&
+    (typeof value !== 'number' || value < 0)
+  ) {
+    issues.push({ path, message: `${channel} value must be a non-negative number.` });
+  }
+  if (channel === 'opacity' && (typeof value !== 'number' || value < 0 || value > 1)) {
+    issues.push({ path, message: 'Opacity value must be a number between 0 and 1.' });
+  }
+  if (channel === 'shape' && (typeof value !== 'string' || !POINT_SHAPES.has(value))) {
+    issues.push({
+      path,
+      message: 'Shape value must be circle, square, diamond, triangle, or cross.',
+    });
+  }
+}
+
 function validateEncoding(
   value: unknown,
   path: string,
-  channel: 'x' | 'y',
+  channel: EncodingChannel,
   issues: SpecIssue[],
 ): void {
   if (typeof value === 'string') {
@@ -824,18 +1457,32 @@ function validateEncoding(
     return;
   }
 
-  if (!isPlainObject(value) || typeof value.field !== 'string') {
-    issues.push({ path, message: 'Encoding must be a field name or an object with a field.' });
+  if (!isPlainObject(value)) {
+    issues.push({ path, message: 'Encoding must be a field name or a closed encoding object.' });
     return;
   }
 
   validateUnknownKeys(value, ENCODING_KEYS, path, 'encoding', issues);
 
-  if (value.field.trim() === '')
-    issues.push({ path: `${path}.field`, message: 'Field must not be empty.' });
-  if (UNSAFE_FIELDS.has(value.field)) {
-    issues.push({ path: `${path}.field`, message: `Unsafe field "${value.field}" is forbidden.` });
+  const hasField = value.field !== undefined;
+  const hasValue = value.value !== undefined;
+  if (hasField === hasValue) {
+    issues.push({ path, message: 'Encoding requires exactly one of field or value.' });
   }
+  if ((channel === 'x' || channel === 'y') && !hasField) {
+    issues.push({ path: `${path}.field`, message: `${channel} encoding requires a field.` });
+  }
+  if (hasField) {
+    if (typeof value.field !== 'string' || value.field.trim() === '')
+      issues.push({ path: `${path}.field`, message: 'Field must not be empty.' });
+    if (typeof value.field === 'string' && UNSAFE_FIELDS.has(value.field)) {
+      issues.push({
+        path: `${path}.field`,
+        message: `Unsafe field "${value.field}" is forbidden.`,
+      });
+    }
+  }
+  if (hasValue) validateChannelValue(value.value, `${path}.value`, channel, issues);
   if (
     value.type !== undefined &&
     (typeof value.type !== 'string' || !FIELD_TYPES.has(value.type))
@@ -845,20 +1492,567 @@ function validateEncoding(
   validateOptionalString(value.title, `${path}.title`, 'Encoding title', issues);
   validateScale(value.scale, `${path}.scale`, issues);
 
+  if (value.scale !== undefined && RAW_ONLY_ENCODING_CHANNELS.has(channel)) {
+    issues.push({
+      path: `${path}.scale`,
+      message: `${channel} uses its raw or closed built-in channel registry and does not accept a scale.`,
+    });
+  }
+
+  const conditions =
+    value.condition === undefined
+      ? []
+      : Array.isArray(value.condition)
+        ? value.condition
+        : [value.condition];
+  if (
+    hasValue &&
+    value.scale !== undefined &&
+    !conditions.some((condition) => isPlainObject(condition) && condition.field !== undefined)
+  ) {
+    issues.push({
+      path: `${path}.scale`,
+      message: 'A literal value bypasses scales; remove scale or add a conditional field.',
+    });
+  }
+
+  if (
+    isPlainObject(value.scale) &&
+    value.scale.range !== undefined &&
+    (channel === 'x' || channel === 'x2' || channel === 'y' || channel === 'y2')
+  ) {
+    issues.push({
+      path: `${path}.scale.range`,
+      message:
+        'Cartesian position ranges are owned by chart layout; use the standalone scale registry for explicit ranges.',
+    });
+  }
+  if (
+    isPlainObject(value.scale) &&
+    value.scale.type === 'threshold' &&
+    value.scale.domain === undefined &&
+    !['x', 'x2', 'y', 'y2'].includes(channel)
+  ) {
+    issues.push({
+      path: `${path}.scale.domain`,
+      message: 'Threshold channel scales require explicit thresholds in domain.',
+    });
+  }
+  if (
+    isPlainObject(value.scale) &&
+    value.scale.type === undefined &&
+    Array.isArray(value.scale.domain) &&
+    (value.type === 'quantitative' || value.type === 'temporal') &&
+    value.scale.domain.length !== 2
+  ) {
+    issues.push({
+      path: `${path}.scale.domain`,
+      message: `An inferred ${value.type} scale domain must contain exactly 2 values.`,
+    });
+  }
+  if (
+    isPlainObject(value.scale) &&
+    (value.type === 'nominal' || value.type === 'ordinal') &&
+    typeof value.scale.type === 'string' &&
+    !(channel === 'x' || channel === 'y'
+      ? ['band', 'point'].includes(value.scale.type)
+      : value.scale.type === 'ordinal')
+  ) {
+    issues.push({
+      path: `${path}.scale.type`,
+      message:
+        channel === 'x' || channel === 'y'
+          ? `${value.type} Cartesian encodings require band or point scales.`
+          : `${value.type} visual encodings require an ordinal scale.`,
+    });
+  }
+  if (
+    isPlainObject(value.scale) &&
+    (value.type === 'quantitative' || value.type === 'temporal') &&
+    typeof value.scale.type === 'string' &&
+    ['band', 'point', 'ordinal'].includes(value.scale.type)
+  ) {
+    issues.push({
+      path: `${path}.scale.type`,
+      message: `${value.type} encodings cannot use a categorical scale.`,
+    });
+  }
+  if (
+    isPlainObject(value.scale) &&
+    (channel === 'x' || channel === 'y') &&
+    typeof value.scale.type === 'string' &&
+    ![
+      'linear',
+      'log',
+      'symlog',
+      'asinh',
+      'pow',
+      'sqrt',
+      'time',
+      'utc',
+      'band',
+      'point',
+      'probability',
+      'logit',
+      'probit',
+    ].includes(value.scale.type)
+  ) {
+    issues.push({
+      path: `${path}.scale.type`,
+      message: `${value.scale.type} is not implemented as a Cartesian axis scale.`,
+    });
+  }
+  if (
+    isPlainObject(value.scale) &&
+    ['color', 'fill', 'stroke'].includes(channel) &&
+    (value.scale.type === 'band' || value.scale.type === 'point')
+  ) {
+    issues.push({
+      path: `${path}.scale.type`,
+      message: `${value.scale.type} is a Cartesian categorical scale; color channels use ordinal.`,
+    });
+  }
+  if (
+    isPlainObject(value.scale) &&
+    ['color', 'fill', 'stroke'].includes(channel) &&
+    value.scale.outOfBounds === 'extrapolate' &&
+    value.scale.type !== 'cyclic'
+  ) {
+    issues.push({
+      path: `${path}.scale.outOfBounds`,
+      message: 'Color scales do not extrapolate colors; use clamp, error, or unknown.',
+    });
+  }
+  if (isPlainObject(value.scale) && Array.isArray(value.scale.range)) {
+    if (
+      ['color', 'fill', 'stroke'].includes(channel) &&
+      value.scale.range.some((entry) => typeof entry !== 'string')
+    ) {
+      issues.push({
+        path: `${path}.scale.range`,
+        message: 'Color scale range must contain strings.',
+      });
+    }
+    if (
+      ['size', 'radius', 'opacity', 'strokeWidth'].includes(channel) &&
+      value.scale.range.some((entry) => typeof entry !== 'number')
+    ) {
+      issues.push({
+        path: `${path}.scale.range`,
+        message: `${channel} scale range must contain numbers.`,
+      });
+    }
+    if (['color', 'fill', 'stroke'].includes(channel) && typeof value.scale.type !== 'string') {
+      issues.push({
+        path: `${path}.scale.type`,
+        message: 'An explicit color range requires an explicit color scale type.',
+      });
+    }
+    if (
+      ['color', 'fill', 'stroke'].includes(channel) &&
+      typeof value.scale.type === 'string' &&
+      !['ordinal', 'sequential', 'diverging', 'cyclic'].includes(value.scale.type)
+    ) {
+      issues.push({
+        path: `${path}.scale.range`,
+        message:
+          'Transformed numeric color scales use the active theme palette; explicit color ranges require sequential, diverging, cyclic, or ordinal.',
+      });
+    }
+    if (
+      ['size', 'radius', 'opacity', 'strokeWidth'].includes(channel) &&
+      (value.scale.type === undefined ||
+        (typeof value.scale.type === 'string' &&
+          !['ordinal', 'quantile', 'quantize', 'threshold'].includes(value.scale.type))) &&
+      (value.type === 'quantitative' || value.type === 'temporal') &&
+      value.scale.range.length !== 2
+    ) {
+      issues.push({
+        path: `${path}.scale.range`,
+        message: `${channel} continuous scale range must contain exactly 2 numbers.`,
+      });
+    }
+  }
+  if (isPlainObject(value.scale) && (channel === 'x2' || channel === 'y2')) {
+    issues.push({
+      path: `${path}.scale`,
+      message: `${channel} shares the primary position scale and cannot declare a separate scale.`,
+    });
+  }
+  if (
+    isPlainObject(value.scale) &&
+    typeof value.scale.type === 'string' &&
+    ['sequential', 'diverging', 'cyclic'].includes(value.scale.type) &&
+    !['color', 'fill', 'stroke'].includes(channel)
+  ) {
+    issues.push({
+      path: `${path}.scale.type`,
+      message: `${value.scale.type} is a color-only scale.`,
+    });
+  }
+
   const allowedAxisIds = channel === 'x' ? new Set(['x', 'x2']) : new Set(['y', 'y2']);
   const axisId =
-    typeof value.axisId === 'string' && allowedAxisIds.has(value.axisId) ? value.axisId : channel;
+    typeof value.axisId === 'string' && allowedAxisIds.has(value.axisId)
+      ? value.axisId
+      : channel === 'x' || channel === 'y'
+        ? channel
+        : undefined;
   if (
     value.axisId !== undefined &&
-    (typeof value.axisId !== 'string' || !allowedAxisIds.has(value.axisId))
+    ((channel !== 'x' && channel !== 'y') ||
+      typeof value.axisId !== 'string' ||
+      !allowedAxisIds.has(value.axisId))
   ) {
     issues.push({
       path: `${path}.axisId`,
-      message: `${channel}-encoding axisId must be "${channel}" or "${channel}2".`,
+      message:
+        channel === 'x' || channel === 'y'
+          ? `${channel}-encoding axisId must be "${channel}" or "${channel}2".`
+          : `axisId is not valid for the ${channel} channel.`,
     });
   }
   if (value.axis !== undefined) {
-    validateAxis(value.axis, `${path}.axis`, axisId as 'x' | 'x2' | 'y' | 'y2', issues);
+    if ((channel === 'x' || channel === 'y') && axisId !== undefined) {
+      validateAxis(value.axis, `${path}.axis`, axisId as 'x' | 'x2' | 'y' | 'y2', issues);
+    } else {
+      issues.push({
+        path: `${path}.axis`,
+        message: `Axis is not valid for the ${channel} channel.`,
+      });
+    }
+  }
+  if (value.condition !== undefined) {
+    if (channel === 'x' || channel === 'y' || channel === 'x2' || channel === 'y2') {
+      issues.push({
+        path: `${path}.condition`,
+        message:
+          'Conditional Cartesian positions are not implemented; precompute the position field with calculate instead.',
+      });
+    }
+    if (conditions.length === 0 || conditions.length > 32) {
+      issues.push({
+        path: `${path}.condition`,
+        message: 'Encoding condition requires 1..32 entries.',
+      });
+    } else {
+      conditions.forEach((condition, index) =>
+        validateEncodingCondition(condition, `${path}.condition[${index}]`, channel, issues),
+      );
+    }
+  }
+}
+
+function markType(value: unknown): string | undefined {
+  if (typeof value === 'string') return value;
+  return isPlainObject(value) && typeof value.type === 'string' ? value.type : undefined;
+}
+
+function validateMarkEncodingCompatibility(
+  mark: unknown,
+  encoding: unknown,
+  path: string,
+  issues: SpecIssue[],
+): void {
+  if (!isPlainObject(encoding)) return;
+  const type = markType(mark);
+  const markObject = isPlainObject(mark) ? mark : null;
+  const markOptions =
+    markObject !== null && isPlainObject(markObject.options) ? markObject.options : null;
+  const seriesLayout = type === 'theme-river' || markOptions?.stack !== undefined;
+  const shared = new Set(['x', 'y']);
+  const allowed = new Set(shared);
+  if (type === 'point' || type === 'circle') {
+    for (const channel of [
+      'color',
+      'fill',
+      'stroke',
+      'size',
+      'radius',
+      'shape',
+      'opacity',
+      'strokeWidth',
+      'strokeDash',
+      'text',
+      'order',
+      'tooltip',
+    ])
+      allowed.add(channel);
+  } else if (type === 'bar') {
+    for (const channel of [
+      'x2',
+      'y2',
+      'color',
+      'fill',
+      'stroke',
+      'opacity',
+      'strokeWidth',
+      'strokeDash',
+      'order',
+      'tooltip',
+    ])
+      allowed.add(channel);
+  } else if (type === 'line') {
+    for (const channel of [
+      'color',
+      'stroke',
+      'opacity',
+      'strokeWidth',
+      'strokeDash',
+      'order',
+      'detail',
+    ])
+      allowed.add(channel);
+    if (isPlainObject(mark) && mark.point === true) {
+      for (const channel of ['fill', 'size', 'radius', 'tooltip']) allowed.add(channel);
+    }
+  } else if (type === 'area' || type === 'stepped-area' || type === 'theme-river') {
+    for (const channel of [
+      'y2',
+      'color',
+      'fill',
+      'stroke',
+      'opacity',
+      'strokeWidth',
+      'strokeDash',
+      'order',
+      'detail',
+    ])
+      allowed.add(channel);
+    if (isPlainObject(mark) && mark.point === true) {
+      for (const channel of ['size', 'radius', 'tooltip']) allowed.add(channel);
+    }
+  } else if (type === 'heatmap') {
+    for (const channel of [
+      'x2',
+      'y2',
+      'color',
+      'fill',
+      'stroke',
+      'opacity',
+      'strokeWidth',
+      'strokeDash',
+      'text',
+      'order',
+      'tooltip',
+    ])
+      allowed.add(channel);
+  }
+  for (const channel of Object.keys(encoding)) {
+    if (
+      seriesLayout &&
+      ((type === 'bar' && (channel === 'x2' || channel === 'y2')) ||
+        ((type === 'area' || type === 'theme-river') && channel === 'y2'))
+    ) {
+      issues.push({
+        path: `${path}.${channel}`,
+        message: `The ${channel} range channel conflicts with series-stack boundaries; remove the range channel or the stack layout.`,
+      });
+      continue;
+    }
+    if (!allowed.has(channel)) {
+      issues.push({
+        path: `${path}.${channel}`,
+        message: `The ${channel} channel is not implemented for mark "${type ?? 'unknown'}".`,
+      });
+    }
+  }
+}
+
+function validateEncodingMap(value: unknown, path: string, issues: SpecIssue[]): void {
+  if (!isPlainObject(value)) {
+    issues.push({ path, message: 'Encoding map must be an object.' });
+    return;
+  }
+  validateUnknownKeys(value, ENCODING_CHANNELS, path, 'encoding channel', issues);
+  if (value.x === undefined)
+    issues.push({ path: `${path}.x`, message: 'Encoding map requires x.' });
+  if (value.y === undefined)
+    issues.push({ path: `${path}.y`, message: 'Encoding map requires y.' });
+  for (const channel of ENCODING_CHANNELS) {
+    if (value[channel] !== undefined) {
+      validateEncoding(
+        value[channel] as ChannelEncodingInput,
+        `${path}.${channel}`,
+        channel,
+        issues,
+      );
+    }
+  }
+}
+
+function validateSeriesStack(
+  markType: string,
+  markFields: unknown,
+  value: unknown,
+  path: string,
+  issues: SpecIssue[],
+): void {
+  if (value === undefined) return;
+  if (!SERIES_STACK_MARKS.has(markType)) {
+    issues.push({
+      path,
+      message: 'Series stack layout is supported only by area, bar, and theme-river.',
+    });
+    return;
+  }
+  const object = isPlainObject(value) ? value : null;
+  const mode = typeof value === 'string' ? value : (object?.mode ?? 'stacked');
+  if (typeof mode !== 'string' || !(seriesStackModes as readonly string[]).includes(mode)) {
+    issues.push({
+      path: object === null ? path : `${path}.mode`,
+      message: `Series stack mode must be one of: ${seriesStackModes.join(', ')}.`,
+    });
+  }
+  if (object === null) {
+    if (typeof value !== 'string') {
+      issues.push({ path, message: 'Series stack must be a supported mode string or an object.' });
+    }
+  } else {
+    validateUnknownKeys(
+      object,
+      new Set(['mode', 'offset', 'order', 'sort']),
+      path,
+      'series stack',
+      issues,
+    );
+    if (
+      object.offset !== undefined &&
+      (typeof object.offset !== 'string' || !SERIES_STACK_OFFSETS.has(object.offset))
+    ) {
+      issues.push({ path: `${path}.offset`, message: 'Series stack offset is not supported.' });
+    }
+    if (
+      object.order !== undefined &&
+      (typeof object.order !== 'string' || !SERIES_STACK_ORDERS.has(object.order))
+    ) {
+      issues.push({ path: `${path}.order`, message: 'Series stack order is not supported.' });
+    }
+    if (object.sort !== undefined) {
+      if (!Array.isArray(object.sort) || object.sort.length === 0 || object.sort.length > 16) {
+        issues.push({ path: `${path}.sort`, message: 'Series stack sort requires 1..16 fields.' });
+      } else {
+        object.sort.forEach((entry, index) => {
+          const entryPath = `${path}.sort[${index}]`;
+          if (!isPlainObject(entry)) {
+            issues.push({ path: entryPath, message: 'Series stack sort entry must be an object.' });
+            return;
+          }
+          validateUnknownKeys(
+            entry,
+            new Set(['field', 'order']),
+            entryPath,
+            'series stack sort',
+            issues,
+          );
+          if (
+            typeof entry.field !== 'string' ||
+            entry.field.trim() === '' ||
+            UNSAFE_FIELDS.has(entry.field)
+          ) {
+            issues.push({
+              path: `${entryPath}.field`,
+              message: 'Series stack sort field must be safe and non-empty.',
+            });
+          }
+          if (
+            entry.order !== undefined &&
+            entry.order !== 'ascending' &&
+            entry.order !== 'descending'
+          ) {
+            issues.push({
+              path: `${entryPath}.order`,
+              message: 'Sort order must be ascending or descending.',
+            });
+          }
+        });
+      }
+    }
+    if (mode === 'grouped' && object.offset !== undefined) {
+      issues.push({ path: `${path}.offset`, message: 'Grouped series do not use a stack offset.' });
+    }
+    if (
+      mode === '100-percent' &&
+      object.offset !== undefined &&
+      !['normalize', 'expand'].includes(String(object.offset))
+    ) {
+      issues.push({
+        path: `${path}.offset`,
+        message: '100-percent series require normalize or expand offset.',
+      });
+    }
+    if (mode === 'diverging' && object.offset === 'wiggle') {
+      issues.push({
+        path: `${path}.offset`,
+        message: 'Diverging series cannot use the non-negative wiggle offset.',
+      });
+    }
+    if (
+      mode === 'streamgraph' &&
+      object.offset !== undefined &&
+      !['wiggle', 'center', 'silhouette'].includes(String(object.offset))
+    ) {
+      issues.push({
+        path: `${path}.offset`,
+        message: 'Streamgraph offset must be wiggle, center, or silhouette.',
+      });
+    }
+  }
+  const hasSeries =
+    isPlainObject(markFields) &&
+    (typeof markFields.series === 'string' ||
+      (markType === 'theme-river' && typeof markFields.category === 'string'));
+  if (!hasSeries) {
+    issues.push({
+      path: `${path.replace(/\.options\.stack$/, '.fields')}.series`,
+      message: 'Series layout requires mark.fields.series.',
+    });
+  }
+}
+
+function validateIndicatorCalculation(
+  options: Readonly<Record<string, unknown>>,
+  path: string,
+  issues: SpecIssue[],
+): void {
+  if (options.calculate !== undefined && typeof options.calculate !== 'boolean') {
+    issues.push({ path: `${path}.calculate`, message: 'Indicator calculate must be boolean.' });
+  }
+  if (
+    options.kind !== undefined &&
+    (typeof options.kind !== 'string' || options.kind.trim() === '')
+  ) {
+    issues.push({ path: `${path}.kind`, message: 'Indicator kind must be a non-empty string.' });
+  }
+  for (const name of ['period', 'fastPeriod', 'slowPeriod', 'signalPeriod'] as const) {
+    if (options[name] === undefined) continue;
+    validateFiniteNumber(options[name], `${path}.${name}`, `Indicator ${name}`, issues, {
+      integer: true,
+      min: 2,
+      max: 200,
+    });
+  }
+  if (
+    typeof options.fastPeriod === 'number' &&
+    typeof options.slowPeriod === 'number' &&
+    options.fastPeriod >= options.slowPeriod
+  ) {
+    issues.push({
+      path: `${path}.fastPeriod`,
+      message: 'Indicator fastPeriod must be smaller than slowPeriod.',
+    });
+  }
+  if (options.calculate === true) {
+    const kind = typeof options.kind === 'string' ? options.kind : 'sma';
+    const capability = resolveTechnicalIndicatorCapability(kind);
+    if (capability === null) {
+      issues.push({ path: `${path}.kind`, message: `Unknown calculated indicator "${kind}".` });
+    } else if (capability.support !== 'computed') {
+      issues.push({
+        path: `${path}.calculate`,
+        message: `${capability.id} is precomputed-required; supply indicator columns instead.`,
+      });
+    }
   }
 }
 
@@ -898,8 +2092,60 @@ function validateMark(value: unknown, path: string, issues: SpecIssue[]): void {
     }
   }
 
-  if (value.options !== undefined && !isPlainObject(value.options)) {
-    issues.push({ path: `${path}.options`, message: 'Mark options must be a JSON object.' });
+  if (value.options !== undefined) {
+    if (!isPlainObject(value.options)) {
+      issues.push({ path: `${path}.options`, message: 'Mark options must be a JSON object.' });
+    } else {
+      validateSeriesStack(
+        value.type,
+        value.fields,
+        value.options.stack,
+        `${path}.options.stack`,
+        issues,
+      );
+      if (value.type === 'indicator') {
+        validateIndicatorCalculation(value.options, `${path}.options`, issues);
+      }
+    }
+    if (isPlainObject(value.options) && CURVE_MARKS.has(value.type)) {
+      if (
+        value.options.curve !== undefined &&
+        (typeof value.options.curve !== 'string' || !CURVE_NAMES.has(value.options.curve))
+      ) {
+        issues.push({
+          path: `${path}.options.curve`,
+          message: `Curve must be one of: ${curveNames.join(', ')}.`,
+        });
+      }
+      if (
+        value.options.missing !== undefined &&
+        (typeof value.options.missing !== 'string' ||
+          !MISSING_VALUE_POLICIES.has(value.options.missing))
+      ) {
+        issues.push({
+          path: `${path}.options.missing`,
+          message: 'Missing-value policy must be "gap", "zero", or "connect".',
+        });
+      }
+      if (value.options.tension !== undefined) {
+        validateFiniteNumber(
+          value.options.tension,
+          `${path}.options.tension`,
+          'Cardinal curve tension',
+          issues,
+          { min: 0, max: 1 },
+        );
+      }
+      if (value.options.curveSamples !== undefined) {
+        validateFiniteNumber(
+          value.options.curveSamples,
+          `${path}.options.curveSamples`,
+          'Curve samples',
+          issues,
+          { integer: true, min: 1, max: 64 },
+        );
+      }
+    }
   }
 }
 
@@ -1030,9 +2276,108 @@ function validateInteraction(value: unknown, path: string, issues: SpecIssue[]):
   }
 
   validateNavigation(value.navigation, `${path}.navigation`, issues);
+  validateDomainNavigation(value.domainNavigation, `${path}.domainNavigation`, issues);
   validatePlayback(value.playback, `${path}.playback`, issues);
   validateControls(value.controls, `${path}.controls`, issues);
   validateSelection(value.selection, `${path}.selection`, issues);
+
+  const inspectionEnabled = value.navigation !== undefined && value.navigation !== false;
+  const domainEnabled = value.domainNavigation !== undefined && value.domainNavigation !== false;
+  if (inspectionEnabled && domainEnabled) {
+    issues.push({
+      path: `${path}.domainNavigation`,
+      message:
+        'Domain navigation cannot be combined with inspection navigation; choose one coordinate model.',
+    });
+  }
+  const selection = isPlainObject(value.selection) ? value.selection : undefined;
+  const kind = selection?.kind ?? 'point';
+  const inspectionGesture =
+    value.navigation === true ||
+    (isPlainObject(value.navigation) &&
+      (value.navigation.drag !== false || value.navigation.pinch !== false));
+  const domainDrag =
+    value.domainNavigation === true ||
+    (isPlainObject(value.domainNavigation) && value.domainNavigation.drag !== false);
+  if (kind !== 'point' && (inspectionGesture || domainDrag)) {
+    issues.push({
+      path: `${path}.selection.kind`,
+      message:
+        'Interval, rectangle, axis, and lasso pointer gestures require navigation.drag=false, navigation.pinch=false, and domainNavigation.drag=false to avoid an ambiguous gesture.',
+    });
+  }
+}
+
+function validateAccessibility(value: unknown, path: string, issues: SpecIssue[]): void {
+  if (value === undefined) return;
+  if (!isPlainObject(value)) {
+    issues.push({ path, message: 'Accessibility must be an object.' });
+    return;
+  }
+  validateUnknownKeys(value, ACCESSIBILITY_KEYS, path, 'accessibility', issues);
+  validateOptionalString(value.label, `${path}.label`, 'Accessibility label', issues, false);
+  validateOptionalString(
+    value.description,
+    `${path}.description`,
+    'Accessibility description',
+    issues,
+    false,
+  );
+  validateOptionalString(value.summary, `${path}.summary`, 'Accessibility summary', issues, false);
+  validateOptionalBoolean(
+    value.navigation,
+    `${path}.navigation`,
+    'Accessibility navigation',
+    issues,
+  );
+  if (
+    value.table !== undefined &&
+    typeof value.table !== 'boolean' &&
+    (typeof value.table !== 'string' || !ACCESSIBILITY_TABLE_MODES.has(value.table))
+  ) {
+    issues.push({
+      path: `${path}.table`,
+      message: 'Accessibility table must be a boolean, "hidden", or "visible".',
+    });
+  }
+  if (value.maxRows !== undefined) {
+    validateFiniteNumber(value.maxRows, `${path}.maxRows`, 'Accessibility maxRows', issues, {
+      integer: true,
+      min: 1,
+      max: 5_000,
+    });
+  }
+  if (value.live !== undefined && typeof value.live !== 'boolean') {
+    if (!isPlainObject(value.live)) {
+      issues.push({
+        path: `${path}.live`,
+        message: 'Accessibility live must be a boolean or object.',
+      });
+    } else {
+      validateUnknownKeys(
+        value.live,
+        ACCESSIBILITY_LIVE_KEYS,
+        `${path}.live`,
+        'accessibility live',
+        issues,
+      );
+      validateOptionalBoolean(
+        value.live.enabled,
+        `${path}.live.enabled`,
+        'Live announcements',
+        issues,
+      );
+      if (value.live.throttleMs !== undefined) {
+        validateFiniteNumber(
+          value.live.throttleMs,
+          `${path}.live.throttleMs`,
+          'Live announcement throttle',
+          issues,
+          { integer: true, min: 0, max: 10_000 },
+        );
+      }
+    }
+  }
 }
 
 function validateHighlightStyle(value: Record<string, unknown>, path: string, issues: SpecIssue[]) {
@@ -1084,6 +2429,26 @@ function validateSelection(value: unknown, path: string, issues: SpecIssue[]): v
   }
   validateUnknownKeys(value, SELECTION_KEYS, path, 'selection', issues);
   if (
+    value.kind !== undefined &&
+    (typeof value.kind !== 'string' || !SELECTION_KINDS.has(value.kind))
+  ) {
+    issues.push({
+      path: `${path}.kind`,
+      message: 'Selection kind must be "point", "interval", "rectangle", "axis", or "lasso".',
+    });
+  }
+  if (
+    value.combine !== undefined &&
+    (typeof value.combine !== 'string' || !SELECTION_COMBINE.has(value.combine))
+  ) {
+    issues.push({
+      path: `${path}.combine`,
+      message: 'Selection combine must be "union" or "intersection".',
+    });
+  }
+  const kind =
+    typeof value.kind === 'string' && SELECTION_KINDS.has(value.kind) ? value.kind : 'point';
+  if (
     value.mode !== undefined &&
     (typeof value.mode !== 'string' || !SELECTION_MODES.has(value.mode))
   ) {
@@ -1116,6 +2481,66 @@ function validateSelection(value: unknown, path: string, issues: SpecIssue[]): v
     issues,
     false,
   );
+  if (value.axis !== undefined && (typeof value.axis !== 'string' || !AXIS_IDS.has(value.axis))) {
+    issues.push({
+      path: `${path}.axis`,
+      message: 'Selection axis must be "x", "x2", "y", or "y2".',
+    });
+  }
+  if (kind === 'axis' && value.axis === undefined) {
+    issues.push({ path: `${path}.axis`, message: 'Axis selection requires an explicit axis.' });
+  }
+  if (kind !== 'axis' && value.axis !== undefined) {
+    issues.push({ path: `${path}.axis`, message: 'Selection axis is only valid for kind "axis".' });
+  }
+  if (value.xAxis !== undefined && value.xAxis !== 'x' && value.xAxis !== 'x2') {
+    issues.push({ path: `${path}.xAxis`, message: 'Selection xAxis must be "x" or "x2".' });
+  }
+  if (value.yAxis !== undefined && value.yAxis !== 'y' && value.yAxis !== 'y2') {
+    issues.push({ path: `${path}.yAxis`, message: 'Selection yAxis must be "y" or "y2".' });
+  }
+  if (kind === 'axis' && (value.xAxis !== undefined || value.yAxis !== undefined)) {
+    issues.push({
+      path,
+      message: 'Axis selection uses axis; xAxis and yAxis are not accepted for this kind.',
+    });
+  }
+  if (kind !== 'point' && (value.toggle !== undefined || value.key !== undefined)) {
+    issues.push({
+      path,
+      message: 'Selection toggle and key are supported only by point/datum selection.',
+    });
+  }
+  if (value.maxSelections !== undefined)
+    validateFiniteNumber(
+      value.maxSelections,
+      `${path}.maxSelections`,
+      'Selection maxSelections',
+      issues,
+      { integer: true, min: 1, max: 64 },
+    );
+  if (value.maxLassoPoints !== undefined)
+    validateFiniteNumber(
+      value.maxLassoPoints,
+      `${path}.maxLassoPoints`,
+      'Selection maxLassoPoints',
+      issues,
+      { integer: true, min: 3, max: 512 },
+    );
+  if (kind !== 'lasso' && value.maxLassoPoints !== undefined) {
+    issues.push({
+      path: `${path}.maxLassoPoints`,
+      message: 'Selection maxLassoPoints is only valid for kind "lasso".',
+    });
+  }
+  if (value.minPixelSpan !== undefined)
+    validateFiniteNumber(
+      value.minPixelSpan,
+      `${path}.minPixelSpan`,
+      'Selection minPixelSpan',
+      issues,
+      { min: 0, max: 64 },
+    );
   if (value.highlight !== undefined) {
     if (!isPlainObject(value.highlight)) {
       issues.push({ path: `${path}.highlight`, message: 'Selection highlight must be an object.' });
@@ -1168,6 +2593,52 @@ function validateNavigation(value: unknown, path: string, issues: SpecIssue[]): 
   validateOptionalBoolean(value.drag, `${path}.drag`, 'Navigation drag', issues);
   validateOptionalBoolean(value.pinch, `${path}.pinch`, 'Navigation pinch', issues);
   validateOptionalBoolean(value.keyboard, `${path}.keyboard`, 'Navigation keyboard', issues);
+}
+
+function validateDomainNavigation(value: unknown, path: string, issues: SpecIssue[]): void {
+  if (value === undefined || typeof value === 'boolean') return;
+  if (!isPlainObject(value)) {
+    issues.push({ path, message: 'Domain navigation must be a boolean or an object.' });
+    return;
+  }
+  validateUnknownKeys(value, DOMAIN_NAVIGATION_KEYS, path, 'domain navigation', issues);
+  if (value.axes !== undefined) {
+    if (!Array.isArray(value.axes) || value.axes.length === 0 || value.axes.length > 4) {
+      issues.push({
+        path: `${path}.axes`,
+        message: 'Domain navigation axes must contain 1 to 4 axis IDs.',
+      });
+    } else {
+      const axes = value.axes.filter((axis): axis is string => typeof axis === 'string');
+      value.axes.forEach((axis, index) => {
+        if (typeof axis !== 'string' || !AXIS_IDS.has(axis)) {
+          issues.push({
+            path: `${path}.axes[${index}]`,
+            message: 'Domain navigation axis must be "x", "x2", "y", or "y2".',
+          });
+        }
+      });
+      if (new Set(axes).size !== axes.length) {
+        issues.push({ path: `${path}.axes`, message: 'Domain navigation axes must be unique.' });
+      }
+    }
+  }
+  if (value.maxZoom !== undefined)
+    validateFiniteNumber(value.maxZoom, `${path}.maxZoom`, 'Domain navigation maxZoom', issues, {
+      min: 1,
+      max: 64,
+    });
+  if (
+    value.wheel !== undefined &&
+    (typeof value.wheel !== 'string' || !NAVIGATION_WHEEL_MODES.has(value.wheel))
+  ) {
+    issues.push({
+      path: `${path}.wheel`,
+      message: 'Domain navigation wheel must be "off", "modifier", or "always".',
+    });
+  }
+  validateOptionalBoolean(value.drag, `${path}.drag`, 'Domain navigation drag', issues);
+  validateOptionalBoolean(value.keyboard, `${path}.keyboard`, 'Domain navigation keyboard', issues);
 }
 
 function validatePlayback(value: unknown, path: string, issues: SpecIssue[]): void {
@@ -1293,11 +2764,25 @@ function validateLayer(
     return;
   }
 
+  validateUnknownKeys(layer, LAYER_KEYS, path, 'layer', issues);
+
   validateOptionalString(layer.name, `${path}.name`, 'Layer name', issues, false);
+  validateTransforms(layer.transform, `${path}.transform`, issues);
 
   validateMark(layer.mark as MarkInput, `${path}.mark`, issues);
-  validateEncoding(layer.x as EncodingInput, `${path}.x`, 'x', issues);
-  validateEncoding(layer.y as EncodingInput, `${path}.y`, 'y', issues);
+  if (layer.encoding !== undefined && (layer.x !== undefined || layer.y !== undefined)) {
+    issues.push({
+      path,
+      message: 'Use either the legacy x/y facade or the canonical encoding map, not both.',
+    });
+  }
+  if (layer.encoding !== undefined) {
+    validateEncodingMap(layer.encoding, `${path}.encoding`, issues);
+    validateMarkEncodingCompatibility(layer.mark, layer.encoding, `${path}.encoding`, issues);
+  } else {
+    validateEncoding(layer.x as EncodingInput, `${path}.x`, 'x', issues);
+    validateEncoding(layer.y as EncodingInput, `${path}.y`, 'y', issues);
+  }
 
   if (!hasParentData && layer.data === undefined) {
     issues.push({
@@ -1728,7 +3213,10 @@ function validateAnnotations(value: unknown, path: string, issues: SpecIssue[]):
 function validateLayerReferences(input: Record<string, unknown>, issues: SpecIssue[]): void {
   const sourceLayers = Array.isArray(input.layers)
     ? input.layers
-    : input.mark !== undefined || input.x !== undefined || input.y !== undefined
+    : input.mark !== undefined ||
+        input.x !== undefined ||
+        input.y !== undefined ||
+        input.encoding !== undefined
       ? [input]
       : [];
   const layerIds = new Set<string>();
@@ -1821,6 +3309,194 @@ function validateLayerReferences(input: Record<string, unknown>, issues: SpecIss
   checkUniqueIds(input.annotations, '$.annotations', 'Annotation', 'annotation');
 }
 
+function validateStreaming(value: unknown, path: string, issues: SpecIssue[]): void {
+  if (value === undefined) return;
+  if (!isPlainObject(value)) {
+    issues.push({ path, message: 'Streaming must be an object.' });
+    return;
+  }
+  validateUnknownKeys(value, STREAMING_KEYS, path, 'streaming', issues);
+  if (value.key === undefined) {
+    issues.push({ path: `${path}.key`, message: 'Streaming stable key is required.' });
+  } else {
+    validateOptionalString(value.key, `${path}.key`, 'Streaming stable key', issues, false);
+  }
+  if (typeof value.key === 'string' && UNSAFE_FIELDS.has(value.key)) {
+    issues.push({ path: `${path}.key`, message: 'Streaming stable key is unsafe.' });
+  }
+  if (
+    value.mode !== undefined &&
+    !['append', 'upsert', 'replaceLast'].includes(String(value.mode))
+  ) {
+    issues.push({ path: `${path}.mode`, message: 'Streaming mode is not supported.' });
+  }
+  if (value.maxBatchRows !== undefined) {
+    validateFiniteNumber(
+      value.maxBatchRows,
+      `${path}.maxBatchRows`,
+      'Streaming batch limit',
+      issues,
+      {
+        min: 1,
+        max: 1_000_000,
+        integer: true,
+      },
+    );
+  }
+  if (value.retention !== undefined) {
+    if (!isPlainObject(value.retention)) {
+      issues.push({ path: `${path}.retention`, message: 'Streaming retention must be an object.' });
+    } else {
+      validateUnknownKeys(
+        value.retention,
+        STREAMING_RETENTION_KEYS,
+        `${path}.retention`,
+        'streaming retention',
+        issues,
+      );
+      if (value.retention.maxRows !== undefined) {
+        validateFiniteNumber(
+          value.retention.maxRows,
+          `${path}.retention.maxRows`,
+          'Streaming retention row limit',
+          issues,
+          { min: 1, max: 1_000_000, integer: true },
+        );
+      }
+      if (value.retention.time !== undefined) {
+        if (!isPlainObject(value.retention.time)) {
+          issues.push({
+            path: `${path}.retention.time`,
+            message: 'Time retention must be an object.',
+          });
+        } else {
+          validateUnknownKeys(
+            value.retention.time,
+            STREAMING_TIME_KEYS,
+            `${path}.retention.time`,
+            'time retention',
+            issues,
+          );
+          if (value.retention.time.field === undefined) {
+            issues.push({
+              path: `${path}.retention.time.field`,
+              message: 'Time retention field is required.',
+            });
+          } else {
+            validateOptionalString(
+              value.retention.time.field,
+              `${path}.retention.time.field`,
+              'Time retention field',
+              issues,
+              false,
+            );
+          }
+          if (
+            typeof value.retention.time.field === 'string' &&
+            UNSAFE_FIELDS.has(value.retention.time.field)
+          ) {
+            issues.push({
+              path: `${path}.retention.time.field`,
+              message: 'Time retention field is unsafe.',
+            });
+          }
+          validateFiniteNumber(
+            value.retention.time.durationMs,
+            `${path}.retention.time.durationMs`,
+            'Time retention duration',
+            issues,
+            { min: 0 },
+          );
+          if (value.eventTime === undefined) {
+            issues.push({
+              path: `${path}.retention.time`,
+              message: 'Time retention requires an eventTime watermark contract.',
+            });
+          }
+        }
+      }
+    }
+  }
+  if (value.eventTime !== undefined) {
+    if (!isPlainObject(value.eventTime)) {
+      issues.push({ path: `${path}.eventTime`, message: 'Event time must be an object.' });
+    } else {
+      validateUnknownKeys(
+        value.eventTime,
+        STREAMING_EVENT_TIME_KEYS,
+        `${path}.eventTime`,
+        'event-time',
+        issues,
+      );
+      if (value.eventTime.field === undefined) {
+        issues.push({ path: `${path}.eventTime.field`, message: 'Event-time field is required.' });
+      } else {
+        validateOptionalString(
+          value.eventTime.field,
+          `${path}.eventTime.field`,
+          'Event-time field',
+          issues,
+          false,
+        );
+      }
+      if (typeof value.eventTime.field === 'string' && UNSAFE_FIELDS.has(value.eventTime.field)) {
+        issues.push({ path: `${path}.eventTime.field`, message: 'Event-time field is unsafe.' });
+      }
+      if (value.eventTime.allowedLatenessMs !== undefined) {
+        validateFiniteNumber(
+          value.eventTime.allowedLatenessMs,
+          `${path}.eventTime.allowedLatenessMs`,
+          'Allowed lateness',
+          issues,
+          { min: 0 },
+        );
+      }
+      if (
+        value.eventTime.lateData !== undefined &&
+        !['reject', 'drop', 'accept'].includes(String(value.eventTime.lateData))
+      ) {
+        issues.push({
+          path: `${path}.eventTime.lateData`,
+          message: 'Late-data policy is unsupported.',
+        });
+      }
+    }
+  }
+  for (const [name, keys, maximumBatches] of [
+    ['queue', STREAMING_QUEUE_KEYS, 1_024],
+    ['replay', STREAMING_REPLAY_KEYS, 4_096],
+  ] as const) {
+    const object = value[name];
+    if (object === undefined) continue;
+    if (!isPlainObject(object)) {
+      issues.push({ path: `${path}.${name}`, message: `Streaming ${name} must be an object.` });
+      continue;
+    }
+    validateUnknownKeys(object, keys, `${path}.${name}`, `streaming ${name}`, issues);
+    for (const field of ['maxBatches', 'maxRows'] as const) {
+      if (object[field] !== undefined) {
+        validateFiniteNumber(
+          object[field],
+          `${path}.${name}.${field}`,
+          `Streaming ${name} ${field}`,
+          issues,
+          {
+            min: 1,
+            max: field === 'maxBatches' ? maximumBatches : 1_000_000,
+            integer: true,
+          },
+        );
+      }
+    }
+    if (name === 'queue' && object.overflow !== undefined && object.overflow !== 'reject') {
+      issues.push({
+        path: `${path}.queue.overflow`,
+        message: 'Only reject backpressure is supported.',
+      });
+    }
+  }
+}
+
 function findFunctions(
   value: unknown,
   path: string,
@@ -1850,7 +3526,7 @@ function findFunctions(
   }
 }
 
-export function validateSpec(input: unknown): readonly SpecIssue[] {
+function validateUnitSpec(input: unknown): readonly SpecIssue[] {
   const issues: SpecIssue[] = [];
   if (!isPlainObject(input)) {
     return [{ path: '$', message: 'Chart spec must be an object.' }];
@@ -1861,7 +3537,11 @@ export function validateSpec(input: unknown): readonly SpecIssue[] {
   }
 
   const layers = input.layers;
-  const hasShorthand = input.mark !== undefined || input.x !== undefined || input.y !== undefined;
+  const hasShorthand =
+    input.mark !== undefined ||
+    input.x !== undefined ||
+    input.y !== undefined ||
+    input.encoding !== undefined;
 
   if (layers === undefined && !hasShorthand) {
     issues.push({ path: '$', message: 'Provide layers or the mark/x/y shorthand.' });
@@ -1879,8 +3559,19 @@ export function validateSpec(input: unknown): readonly SpecIssue[] {
 
   if (hasShorthand) {
     validateMark(input.mark as MarkInput, '$.mark', issues);
-    validateEncoding(input.x as EncodingInput, '$.x', 'x', issues);
-    validateEncoding(input.y as EncodingInput, '$.y', 'y', issues);
+    if (input.encoding !== undefined && (input.x !== undefined || input.y !== undefined)) {
+      issues.push({
+        path: '$',
+        message: 'Use either the legacy x/y facade or the canonical encoding map, not both.',
+      });
+    }
+    if (input.encoding !== undefined) {
+      validateEncodingMap(input.encoding, '$.encoding', issues);
+      validateMarkEncodingCompatibility(input.mark, input.encoding, '$.encoding', issues);
+    } else {
+      validateEncoding(input.x as EncodingInput, '$.x', 'x', issues);
+      validateEncoding(input.y as EncodingInput, '$.y', 'y', issues);
+    }
     if (input.data === undefined) {
       issues.push({
         path: '$.data',
@@ -1895,8 +3586,590 @@ export function validateSpec(input: unknown): readonly SpecIssue[] {
   validateHighlights(input.highlights, '$.highlights', issues);
   validateAnnotations(input.annotations, '$.annotations', issues);
   validateInteraction(input.interaction, '$.interaction', issues);
+  validateAccessibility(input.accessibility, '$.accessibility', issues);
+  validateStreaming(input.streaming, '$.streaming', issues);
+  validateTransforms(input.transform, '$.transform', issues);
   validateLayerReferences(input, issues);
 
+  findFunctions(input, '$', issues, new WeakSet());
+  return issues;
+}
+
+interface CompositionValidationState {
+  readonly ancestors: WeakSet<object>;
+  views: number;
+}
+
+function prefixedIssue(issue: SpecIssue, path: string): SpecIssue {
+  return {
+    path: issue.path === '$' ? path : `${path}${issue.path.slice(1)}`,
+    message: issue.message,
+  };
+}
+
+function validateFacetField(value: unknown, path: string, issues: SpecIssue[]): void {
+  if (typeof value === 'string') {
+    validateOptionalString(value, path, 'Facet field', issues, false);
+    if (UNSAFE_FIELDS.has(value)) issues.push({ path, message: `Unsafe facet field "${value}".` });
+    return;
+  }
+  if (!isPlainObject(value)) {
+    issues.push({ path, message: 'Facet field must be a field name or an object.' });
+    return;
+  }
+  validateUnknownKeys(value, FACET_FIELD_KEYS, path, 'facet field', issues);
+  validateOptionalString(value.field, `${path}.field`, 'Facet field', issues, false);
+  if (typeof value.field === 'string' && UNSAFE_FIELDS.has(value.field)) {
+    issues.push({ path: `${path}.field`, message: `Unsafe facet field "${value.field}".` });
+  }
+  validateOptionalString(value.title, `${path}.title`, 'Facet title', issues);
+  if (
+    value.sort !== undefined &&
+    (typeof value.sort !== 'string' || !FACET_SORTS.has(value.sort))
+  ) {
+    issues.push({ path: `${path}.sort`, message: 'Facet sort is not supported.' });
+  }
+}
+
+function validateCompositionResolve(
+  value: unknown,
+  path: string,
+  kind: CompositionKind,
+  issues: SpecIssue[],
+): void {
+  if (value !== undefined && !isPlainObject(value)) {
+    issues.push({ path, message: 'Composition resolve must be an object.' });
+    return;
+  }
+  if (isPlainObject(value)) {
+    validateUnknownKeys(value, COMPOSITION_RESOLVE_KEYS, path, 'composition resolve', issues);
+    for (const key of COMPOSITION_RESOLVE_KEYS) {
+      const mode = value[key];
+      if (mode !== undefined && mode !== 'shared' && mode !== 'independent') {
+        issues.push({
+          path: `${path}.${key}`,
+          message: 'Resolve mode must be shared or independent.',
+        });
+      }
+    }
+  }
+  const resolved = resolveComposition(
+    isPlainObject(value) ? (value as ChartSpec['resolve']) : undefined,
+    kind,
+  );
+  if (kind === 'layer' && Object.values(resolved).some((mode) => mode !== 'shared')) {
+    issues.push({
+      path,
+      message: 'Layer composition currently requires shared scale, axis, and legend resolve.',
+    });
+  }
+  if (kind === 'inset' && Object.values(resolved).some((mode) => mode !== 'independent')) {
+    issues.push({
+      path,
+      message: 'Inset composition currently requires independent scale, axis, and legend resolve.',
+    });
+  }
+  if (kind !== 'layer' && kind !== 'inset') {
+    if (resolved.axis === 'shared') {
+      issues.push({
+        path: `${path}.axis`,
+        message: 'Shared multi-view axes are not yet supported; use independent axes.',
+      });
+    }
+    if (resolved.legend === 'shared') {
+      issues.push({
+        path: `${path}.legend`,
+        message: 'Shared multi-view legends are not yet supported; use independent legends.',
+      });
+    }
+  }
+  if (resolved.axis === 'shared' && resolved.scale !== 'shared') {
+    issues.push({
+      path: `${path}.axis`,
+      message: 'A shared axis requires a shared position scale.',
+    });
+  }
+}
+
+function validateCompositionInteraction(
+  value: unknown,
+  path: string,
+  kind: CompositionKind,
+  issues: SpecIssue[],
+): void {
+  validateInteraction(value, path, issues);
+  if (!isPlainObject(value)) return;
+  if (value.playback !== undefined && value.playback !== false) {
+    issues.push({
+      path: `${path}.playback`,
+      message: 'Composition playback is not supported until frame state can be resolved per view.',
+    });
+  }
+  if (kind !== 'layer' && isPlainObject(value.tooltip) && value.tooltip.trigger === 'axis') {
+    issues.push({
+      path: `${path}.tooltip`,
+      message: 'Axis-nearest tooltip is not supported across independent composition views.',
+    });
+  }
+  if (
+    kind !== 'layer' &&
+    value.domainNavigation !== undefined &&
+    value.domainNavigation !== false
+  ) {
+    issues.push({
+      path: `${path}.domainNavigation`,
+      message:
+        'Data-domain navigation is not supported across composition views; use whole-scene navigation.',
+    });
+  }
+  if (
+    kind !== 'layer' &&
+    isPlainObject(value.selection) &&
+    value.selection.kind !== undefined &&
+    value.selection.kind !== 'point'
+  ) {
+    issues.push({
+      path: `${path}.selection.kind`,
+      message: 'Composition currently supports point selection only.',
+    });
+  }
+  if (kind !== 'layer' && isPlainObject(value.controls)) {
+    if (value.controls.playback === true) {
+      issues.push({
+        path: `${path}.controls.playback`,
+        message: 'Composition playback controls are not supported.',
+      });
+    }
+    if (value.controls.annotations === true) {
+      issues.push({
+        path: `${path}.controls.annotations`,
+        message: 'Composition-level runtime annotations are not supported.',
+      });
+    }
+  }
+}
+
+function validateCompositionChild(
+  value: unknown,
+  path: string,
+  depth: number,
+  inheritedData: boolean,
+  issues: SpecIssue[],
+  state: CompositionValidationState,
+): void {
+  if (!isPlainObject(value)) {
+    issues.push({ path, message: 'Composition child must be a chart spec object.' });
+    return;
+  }
+  if (value.width !== undefined || value.height !== undefined) {
+    issues.push({
+      path,
+      message:
+        'Composition cell dimensions are owned by the parent; child width/height are unsupported.',
+    });
+  }
+  if (value.interaction !== undefined) {
+    issues.push({
+      path: `${path}.interaction`,
+      message: 'Declare interaction once on the composition container.',
+    });
+  }
+  if (value.streaming !== undefined) {
+    issues.push({
+      path: `${path}.streaming`,
+      message: 'Streaming composition children are unsupported until updates target a view id.',
+    });
+  }
+  if (isPlainObject(value.legend) && value.legend.interactive === true) {
+    issues.push({
+      path: `${path}.legend.interactive`,
+      message: 'Independent composition legends are visual-only and cannot be interactive.',
+    });
+  }
+  validateCompositionNode(value, path, depth, inheritedData, issues, state);
+}
+
+function validateCompositionArray(
+  value: unknown,
+  path: string,
+  depth: number,
+  inheritedData: boolean,
+  limit: number,
+  issues: SpecIssue[],
+  state: CompositionValidationState,
+): void {
+  if (!Array.isArray(value) || value.length === 0) {
+    issues.push({ path, message: 'Composition children must be a non-empty array.' });
+    return;
+  }
+  if (value.length > limit) {
+    issues.push({
+      path,
+      message: `Composition child count exceeds the deterministic limit ${limit}.`,
+    });
+  }
+  value.forEach((child, index) =>
+    validateCompositionChild(child, `${path}[${index}]`, depth + 1, inheritedData, issues, state),
+  );
+}
+
+function validateCompositionNode(
+  input: Record<string, unknown>,
+  path: string,
+  depth: number,
+  inheritedData: boolean,
+  issues: SpecIssue[],
+  state: CompositionValidationState,
+): void {
+  if (state.ancestors.has(input)) {
+    issues.push({ path, message: 'Composition specs must not contain cycles.' });
+    return;
+  }
+  const operators = presentCompositionOperators(input);
+  if (operators.length === 0) {
+    state.views += 1;
+    if (state.views > maximumCompositionViews) {
+      issues.push({ path, message: `Composition view count exceeds ${maximumCompositionViews}.` });
+    }
+    const unit = inheritedData && input.data === undefined ? { ...input, data: [] } : input;
+    issues.push(...validateUnitSpec(unit).map((issue) => prefixedIssue(issue, path)));
+    if (input.renderer !== undefined && input.renderer !== 'auto' && input.renderer !== 'canvas') {
+      issues.push({
+        path: `${path}.renderer`,
+        message: 'Composition currently accepts only auto or canvas child renderers.',
+      });
+    }
+    return;
+  }
+  if (operators.length !== 1) {
+    issues.push({
+      path,
+      message: `Use exactly one composition operator; received ${operators.join(', ')}.`,
+    });
+    return;
+  }
+  if (depth >= maximumCompositionDepth) {
+    issues.push({ path, message: `Composition nesting exceeds depth ${maximumCompositionDepth}.` });
+    return;
+  }
+  const kind = operators[0]!;
+  state.ancestors.add(input);
+  validateUnknownKeys(input, COMPOSITION_KEYS, path, 'composition', issues);
+  const ownsData = input.data !== undefined || inheritedData;
+  const unitFields = ['mark', 'x', 'y', 'encoding', 'layers'].filter(
+    (key) => input[key] !== undefined,
+  );
+  if (unitFields.length > 0) {
+    issues.push({
+      path,
+      message: `Composition cannot be mixed with unit fields: ${unitFields.join(', ')}.`,
+    });
+  }
+  if (input.specVersion !== undefined && input.specVersion !== '0.1') {
+    issues.push({ path: `${path}.specVersion`, message: 'Only specVersion "0.1" is supported.' });
+  }
+  if (input.renderer !== undefined && input.renderer !== 'auto' && input.renderer !== 'canvas') {
+    issues.push({
+      path: `${path}.renderer`,
+      message: 'Composition currently supports only the Canvas renderer.',
+    });
+  }
+  if (input.streaming !== undefined) {
+    issues.push({
+      path: `${path}.streaming`,
+      message: 'Streaming composition is not supported until updates are routed to explicit views.',
+    });
+  }
+  if (input.spacing !== undefined)
+    validateFiniteNumber(input.spacing, `${path}.spacing`, 'Composition spacing', issues, {
+      min: 0,
+      max: 64,
+    });
+  validateTheme(input.theme, `${path}.theme`, issues);
+  validateTransforms(input.transform, `${path}.transform`, issues);
+  validateAccessibility(input.accessibility, `${path}.accessibility`, issues);
+  validateCompositionInteraction(input.interaction, `${path}.interaction`, kind, issues);
+  validateCompositionResolve(input.resolve, `${path}.resolve`, kind, issues);
+
+  if (kind !== 'layer') {
+    if (input.axes !== undefined)
+      issues.push({ path: `${path}.axes`, message: 'Axes belong to independent child views.' });
+    if (input.legend !== undefined)
+      issues.push({
+        path: `${path}.legend`,
+        message: 'Legends belong to independent child views.',
+      });
+    if (Array.isArray(input.highlights) && input.highlights.length > 0)
+      issues.push({
+        path: `${path}.highlights`,
+        message: 'Highlights must be declared in a child view.',
+      });
+    if (Array.isArray(input.annotations) && input.annotations.length > 0)
+      issues.push({
+        path: `${path}.annotations`,
+        message: 'Annotations must be declared in a child view.',
+      });
+  } else {
+    validateAxes(input.axes, `${path}.axes`, issues);
+    validateLegend(input.legend, `${path}.legend`, issues);
+    validateHighlights(input.highlights, `${path}.highlights`, issues);
+    validateAnnotations(input.annotations, `${path}.annotations`, issues);
+  }
+
+  switch (kind) {
+    case 'layer':
+      if (input.spec !== undefined)
+        issues.push({
+          path: `${path}.spec`,
+          message: 'Layer composition does not use a template spec.',
+        });
+      validateCompositionArray(
+        input.layer,
+        `${path}.layer`,
+        depth,
+        ownsData,
+        maximumLayerCompositionChildren,
+        issues,
+        state,
+      );
+      if (Array.isArray(input.layer)) {
+        input.layer.forEach((child, index) => {
+          if (!isPlainObject(child)) return;
+          validateUnknownKeys(
+            child,
+            LAYER_COMPOSITION_CHILD_KEYS,
+            `${path}.layer[${index}]`,
+            'layer composition child',
+            issues,
+          );
+          if (presentCompositionOperators(child).length > 0) {
+            issues.push({
+              path: `${path}.layer[${index}]`,
+              message:
+                'Layer composition children must be unit charts so they can share one scale/axis/legend pipeline.',
+            });
+          }
+          if (
+            child.layers !== undefined &&
+            (child.mark !== undefined ||
+              child.x !== undefined ||
+              child.y !== undefined ||
+              child.encoding !== undefined)
+          ) {
+            issues.push({
+              path: `${path}.layer[${index}]`,
+              message:
+                'Layer composition children must use either flat layers or unit shorthand, not both.',
+            });
+          }
+        });
+      }
+      break;
+    case 'facet': {
+      if (!isPlainObject(input.facet)) {
+        issues.push({ path: `${path}.facet`, message: 'Facet must be an object.' });
+      } else {
+        const facet = input.facet;
+        validateUnknownKeys(facet, FACET_KEYS, `${path}.facet`, 'facet', issues);
+        const fields = ['row', 'column', 'wrap'].filter((key) => facet[key] !== undefined);
+        if (fields.length === 0)
+          issues.push({ path: `${path}.facet`, message: 'Facet requires row, column, or wrap.' });
+        if (facet.wrap !== undefined && fields.length > 1)
+          issues.push({
+            path: `${path}.facet.wrap`,
+            message: 'Wrap facet cannot be mixed with row/column.',
+          });
+        for (const field of fields)
+          validateFacetField(facet[field], `${path}.facet.${field}`, issues);
+        if (facet.columns !== undefined)
+          validateFiniteNumber(facet.columns, `${path}.facet.columns`, 'Facet columns', issues, {
+            min: 1,
+            max: 16,
+            integer: true,
+          });
+      }
+      if (input.data === undefined)
+        issues.push({
+          path: `${path}.data`,
+          message: 'Facet composition requires chart-level data.',
+        });
+      if (!isPlainObject(input.spec))
+        issues.push({
+          path: `${path}.spec`,
+          message: 'Facet composition requires a template spec.',
+        });
+      else {
+        if (input.spec.data !== undefined)
+          issues.push({
+            path: `${path}.spec.data`,
+            message: 'Facet template data comes from the partition.',
+          });
+        validateCompositionChild(input.spec, `${path}.spec`, depth + 1, true, issues, state);
+      }
+      break;
+    }
+    case 'repeat': {
+      if (!isPlainObject(input.repeat)) {
+        issues.push({ path: `${path}.repeat`, message: 'Repeat must be an object.' });
+      } else {
+        validateUnknownKeys(input.repeat, REPEAT_KEYS, `${path}.repeat`, 'repeat', issues);
+        if (!Array.isArray(input.repeat.items) || input.repeat.items.length === 0) {
+          issues.push({
+            path: `${path}.repeat.items`,
+            message: 'Repeat items must be a non-empty array.',
+          });
+        } else {
+          if (input.repeat.items.length > maximumCompositionViews)
+            issues.push({
+              path: `${path}.repeat.items`,
+              message: `Repeat item count exceeds ${maximumCompositionViews}.`,
+            });
+          const ids = new Set<string>();
+          input.repeat.items.forEach((item, index) => {
+            const itemPath = `${path}.repeat.items[${index}]`;
+            if (!isPlainObject(item)) {
+              issues.push({ path: itemPath, message: 'Repeat item must be an object.' });
+              return;
+            }
+            validateUnknownKeys(item, REPEAT_ITEM_KEYS, itemPath, 'repeat item', issues);
+            validateOptionalString(item.id, `${itemPath}.id`, 'Repeat item id', issues, false);
+            validateOptionalString(item.label, `${itemPath}.label`, 'Repeat item label', issues);
+            validateOptionalString(item.x, `${itemPath}.x`, 'Repeat x field', issues, false);
+            validateOptionalString(item.y, `${itemPath}.y`, 'Repeat y field', issues, false);
+            for (const field of ['x', 'y'] as const) {
+              if (typeof item[field] === 'string' && UNSAFE_FIELDS.has(item[field])) {
+                issues.push({
+                  path: `${itemPath}.${field}`,
+                  message: `Unsafe repeat ${field} field "${item[field]}".`,
+                });
+              }
+            }
+            if (item.x === undefined && item.y === undefined)
+              issues.push({
+                path: itemPath,
+                message: 'Repeat item requires x or y field substitution.',
+              });
+            if (typeof item.id === 'string') {
+              if (ids.has(item.id))
+                issues.push({ path: `${itemPath}.id`, message: 'Repeat item ids must be unique.' });
+              ids.add(item.id);
+            }
+          });
+        }
+        if (input.repeat.columns !== undefined)
+          validateFiniteNumber(
+            input.repeat.columns,
+            `${path}.repeat.columns`,
+            'Repeat columns',
+            issues,
+            { min: 1, max: 16, integer: true },
+          );
+      }
+      if (!isPlainObject(input.spec))
+        issues.push({
+          path: `${path}.spec`,
+          message: 'Repeat composition requires a template spec.',
+        });
+      else {
+        if (presentCompositionOperators(input.spec).length > 0)
+          issues.push({
+            path: `${path}.spec`,
+            message: 'Repeat templates must be unit charts for explicit x/y field substitution.',
+          });
+        validateCompositionChild(input.spec, `${path}.spec`, depth + 1, ownsData, issues, state);
+      }
+      break;
+    }
+    case 'hconcat':
+    case 'vconcat':
+    case 'concat': {
+      const children = input[kind];
+      validateCompositionArray(
+        children,
+        `${path}.${kind}`,
+        depth,
+        ownsData,
+        maximumCompositionViews,
+        issues,
+        state,
+      );
+      if (kind === 'concat' && input.columns !== undefined)
+        validateFiniteNumber(input.columns, `${path}.columns`, 'Concat columns', issues, {
+          min: 1,
+          max: 16,
+          integer: true,
+        });
+      if (kind !== 'concat' && input.columns !== undefined)
+        issues.push({
+          path: `${path}.columns`,
+          message: 'Columns is only valid for wrapped concat.',
+        });
+      if (input.spec !== undefined)
+        issues.push({ path: `${path}.spec`, message: `${kind} does not use a template spec.` });
+      break;
+    }
+    case 'inset':
+      if (!isPlainObject(input.inset)) {
+        issues.push({ path: `${path}.inset`, message: 'Inset must be an object.' });
+      } else {
+        validateUnknownKeys(input.inset, INSET_KEYS, `${path}.inset`, 'inset', issues);
+        for (const key of ['x', 'y', 'width', 'height'] as const) {
+          validateFiniteNumber(input.inset[key], `${path}.inset.${key}`, `Inset ${key}`, issues, {
+            min: key === 'width' || key === 'height' ? Number.EPSILON : 0,
+            max: 1,
+          });
+        }
+        if (
+          typeof input.inset.x === 'number' &&
+          typeof input.inset.width === 'number' &&
+          input.inset.x + input.inset.width > 1
+        )
+          issues.push({
+            path: `${path}.inset.width`,
+            message: 'Inset exceeds the horizontal plot boundary.',
+          });
+        if (
+          typeof input.inset.y === 'number' &&
+          typeof input.inset.height === 'number' &&
+          input.inset.y + input.inset.height > 1
+        )
+          issues.push({
+            path: `${path}.inset.height`,
+            message: 'Inset exceeds the vertical plot boundary.',
+          });
+        validateOptionalString(input.inset.label, `${path}.inset.label`, 'Inset label', issues);
+        validateCompositionChild(
+          input.inset.base,
+          `${path}.inset.base`,
+          depth + 1,
+          ownsData,
+          issues,
+          state,
+        );
+        validateCompositionChild(
+          input.inset.view,
+          `${path}.inset.view`,
+          depth + 1,
+          ownsData,
+          issues,
+          state,
+        );
+      }
+      if (input.spec !== undefined)
+        issues.push({ path: `${path}.spec`, message: 'Inset does not use a template spec.' });
+      break;
+  }
+  state.ancestors.delete(input);
+}
+
+export function validateSpec(input: unknown): readonly SpecIssue[] {
+  if (!isPlainObject(input)) return validateUnitSpec(input);
+  if (presentCompositionOperators(input).length === 0) return validateUnitSpec(input);
+  const issues: SpecIssue[] = [];
+  validateCompositionNode(input, '$', 0, false, issues, {
+    ancestors: new WeakSet(),
+    views: 0,
+  });
   findFunctions(input, '$', issues, new WeakSet());
   return issues;
 }

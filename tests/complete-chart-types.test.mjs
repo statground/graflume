@@ -309,7 +309,7 @@ test('the opt-in catalog exposes distinct families and retains every preset', ()
   assert.equal(additionalChartTypeCatalog.length, 11);
   assert.equal(additionalChartVariantCatalog.length, 27);
   assert.equal(fullCatalog.length, 41);
-  assert.equal(fullVariantCatalog.length, 162);
+  assert.equal(fullVariantCatalog.length, 165);
   const marks = capabilities().marks;
   for (const entry of additionalChartTypeCatalog) {
     assert.ok(
@@ -326,7 +326,7 @@ test('the JSON Schema advertises the full built-in catalog without closing plugi
   const catalog = schema['x-graflume-catalog'];
   assert.equal(catalog.defaultFamilyCount, 22);
   assert.equal(catalog.fullFamilyCount, 41);
-  assert.equal(catalog.fullVariantCount, 162);
+  assert.equal(catalog.fullVariantCount, 165);
   for (const entry of additionalChartTypeCatalog) {
     assert.ok(catalog.additionalMarks.includes(entry.mark), entry.mark);
   }

@@ -1,4 +1,5 @@
 import type { DataRow } from '../spec/types.js';
+import type { SemanticMark } from './semantic.js';
 
 export interface Point {
   readonly x: number;
@@ -82,6 +83,7 @@ export interface CircleNode extends BaseNode {
   readonly fill?: string;
   readonly stroke?: string;
   readonly lineWidth: number;
+  readonly dash?: readonly number[];
 }
 
 export interface TextNode extends BaseNode {
@@ -110,10 +112,23 @@ export interface Scene {
     readonly label: string;
     readonly description?: string;
   };
+  /** Bounded renderer-neutral mark descriptions used by accessible and host UIs. */
+  readonly semanticIndex: readonly SemanticMark[];
   readonly metadata: {
     readonly rowCount: number;
     readonly renderedNodeCount: number;
     readonly performanceProfile: 'standard' | 'large' | 'ultra';
     readonly hitTestingEnabled: boolean;
+    readonly dataLineage?: readonly string[];
+    readonly composition?: {
+      readonly kind: 'layer' | 'facet' | 'repeat' | 'hconcat' | 'vconcat' | 'concat' | 'inset';
+      readonly viewCount: number;
+      readonly viewIds: readonly string[];
+      readonly resolve: {
+        readonly scale: 'shared' | 'independent';
+        readonly axis: 'shared' | 'independent';
+        readonly legend: 'shared' | 'independent';
+      };
+    };
   };
 }

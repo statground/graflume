@@ -3,7 +3,13 @@ import { continuousColor, mixColor } from '../theme/color.js';
 import type { ThemeTokens } from '../theme/types.js';
 
 export function scaleInput(value: DataValue): number | string | Date | null {
-  if (value === null || value === undefined || typeof value === 'boolean') return null;
+  if (
+    value === null ||
+    value === undefined ||
+    typeof value === 'boolean' ||
+    (typeof value === 'object' && !(value instanceof Date))
+  )
+    return null;
   return value;
 }
 

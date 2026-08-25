@@ -88,6 +88,23 @@ export const chartVariantCatalog = [
   ),
   variant('histogram', 'Histogram', 'histogram', 'histogram', 'distribution', 'histogram'),
   variant(
+    'ecdf',
+    'Empirical cumulative distribution',
+    'ecdf',
+    'distribution',
+    'distribution',
+    'ecdf',
+  ),
+  variant(
+    'ccdf',
+    'Complementary empirical distribution',
+    'ccdf',
+    'distribution',
+    'distribution',
+    'ccdf',
+  ),
+  variant('kde', 'Kernel density estimate', 'kde', 'distribution', 'distribution', 'kde'),
+  variant(
     'histogram-2d',
     'Bivariate histogram',
     'histogram2d',

@@ -1,0 +1,172 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:graflume:features:1",
+  "title": "Graflume verified feature matrix",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "verifiedAt",
+    "statusVocabulary",
+    "commonFoundations",
+    "families",
+    "candidates",
+    "capabilityProfiles",
+    "principles",
+    "crossCuttingContracts",
+    "modeBacklog",
+    "ecosystemInputs",
+    "researchSources",
+    "verificationContracts",
+    "themeFamilies"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "const": 1 },
+    "verifiedAt": { "type": "string", "format": "date" },
+    "statusVocabulary": {
+      "type": "array",
+      "prefixItems": [
+        { "const": "supported" },
+        { "const": "partial" },
+        { "const": "planned" },
+        { "const": "research" }
+      ],
+      "items": false
+    },
+    "commonFoundations": {
+      "type": "array",
+      "minItems": 7,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/foundation" }
+    },
+    "families": {
+      "type": "array",
+      "minItems": 44,
+      "maxItems": 44,
+      "items": { "$ref": "#/$defs/family" }
+    },
+    "candidates": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/candidate" }
+    },
+    "capabilityProfiles": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/profile" }
+    },
+    "principles": { "$ref": "#/$defs/stringList" },
+    "crossCuttingContracts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/crossCutting" }
+    },
+    "modeBacklog": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "$ref": "#/$defs/stringList" }
+    },
+    "ecosystemInputs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/ecosystem" }
+    },
+    "researchSources": {
+      "type": "array",
+      "minItems": 95,
+      "items": { "type": "string", "format": "uri", "pattern": "^https://" },
+      "uniqueItems": true
+    },
+    "verificationContracts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/verification" }
+    },
+    "themeFamilies": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/nonEmpty" },
+      "uniqueItems": true
+    }
+  },
+  "$defs": {
+    "nonEmpty": { "type": "string", "minLength": 1 },
+    "status": { "enum": ["supported", "partial", "planned", "research"] },
+    "stringList": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/nonEmpty" },
+      "uniqueItems": true
+    },
+    "foundation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "status", "summary", "unlocks"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmpty" },
+        "status": { "$ref": "#/$defs/status" },
+        "summary": { "$ref": "#/$defs/nonEmpty" },
+        "unlocks": { "$ref": "#/$defs/stringList" }
+      }
+    },
+    "family": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "coordinate", "status", "supported", "p0", "p1", "p2", "dependencies"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmpty" },
+        "coordinate": { "$ref": "#/$defs/nonEmpty" },
+        "status": { "$ref": "#/$defs/status" },
+        "supported": { "$ref": "#/$defs/stringList" },
+        "p0": { "$ref": "#/$defs/stringList" },
+        "p1": { "$ref": "#/$defs/stringList" },
+        "p2": { "$ref": "#/$defs/stringList" },
+        "dependencies": { "$ref": "#/$defs/stringList" }
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "status", "contract"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmpty" },
+        "kind": { "$ref": "#/$defs/nonEmpty" },
+        "status": { "$ref": "#/$defs/status" },
+        "host": { "$ref": "#/$defs/nonEmpty" },
+        "contract": { "$ref": "#/$defs/stringList" }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "status"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmpty" },
+        "status": { "$ref": "#/$defs/status" }
+      }
+    },
+    "crossCutting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "status", "items"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmpty" },
+        "status": { "$ref": "#/$defs/status" },
+        "items": { "$ref": "#/$defs/stringList" }
+      }
+    },
+    "ecosystem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "placement", "features"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmpty" },
+        "placement": { "$ref": "#/$defs/nonEmpty" },
+        "features": { "$ref": "#/$defs/stringList" }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "items"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmpty" },
+        "items": { "$ref": "#/$defs/stringList" }
+      }
+    }
+  }
+}

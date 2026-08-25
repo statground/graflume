@@ -1,4 +1,9 @@
 import type { MarkCompiler } from '../compiler/types.js';
+import {
+  weightedHistogram,
+  type HistogramNormalization,
+  type WeightedObservation,
+} from '../data/statistics.js';
 import { BandScale } from '../scale/band.js';
 import { nodeBase } from '../scene/factory.js';
 import type {
@@ -11,18 +16,11 @@ import type {
   TextNode,
 } from '../scene/types.js';
 import { categoricalColor, colorWithOpacity, mixColor } from '../theme/color.js';
-import { compileAreaMark } from './area.js';
+import { compileAreaMark, compileAreaSeries } from './area.js';
 import { compileBarMark } from './bar.js';
 import { compileLineMark } from './line.js';
 import { compilePointMark } from './point.js';
-import {
-  numericDataValue,
-  scaleInput,
-  themedAreaFill,
-  themedAreaStroke,
-  themedPointFill,
-  themedPointStroke,
-} from './utils.js';
+import { numericDataValue, scaleInput, themedPointFill, themedPointStroke } from './utils.js';
 
 function optionNumber(
   options: Readonly<Record<string, unknown>>,
@@ -70,54 +68,12 @@ function textNode(
   };
 }
 
-export const compileSteppedAreaMark: MarkCompiler = (context) => {
-  const { table, layer, xScale, yScale, color, theme } = context;
-  const top: Point[] = [];
-  for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
-    const xInput = scaleInput(table.value(rowIndex, layer.x.field));
-    const yInput = scaleInput(table.value(rowIndex, layer.y.field));
-    if (xInput === null || yInput === null) continue;
-    const x = xScale.map(xInput);
-    const y = yScale.map(yInput);
-    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
-    const previous = top.at(-1);
-    if (previous !== undefined) top.push({ x, y: previous.y });
-    top.push({ x, y });
-  }
-  const first = top[0];
-  const last = top.at(-1);
-  if (first === undefined || last === undefined) return [];
-  const baseline = yScale.map(0);
-  const area: PathNode = {
-    type: 'path',
-    ...nodeBase(`${layer.id}:stepped-area-fill`, {
-      zIndex: layer.zIndex,
-      opacity: layer.mark.opacity,
-    }),
-    points: [...top, { x: last.x, y: baseline }, { x: first.x, y: baseline }],
-    closed: true,
-    fill:
-      layer.mark.fill ??
-      themedAreaFill(theme, color, colorWithOpacity(color, theme.mode === 'dark' ? 0.28 : 0.2)),
-    lineWidth: 0,
-  };
-  const outline: PathNode = {
-    type: 'path',
-    ...nodeBase(`${layer.id}:stepped-area-line`, {
-      zIndex: layer.zIndex + 0.1,
-      opacity: layer.mark.opacity,
-    }),
-    points: top,
-    closed: false,
-    stroke:
-      layer.mark.stroke ??
-      themedAreaStroke(theme, color, theme.mark.lineColor ?? theme.mark.defaultColor ?? color),
-    lineWidth: layer.mark.lineWidth ?? theme.mark.lineWidth,
-    lineCap: theme.mark.lineCap ?? 'round',
-    lineJoin: theme.mark.lineJoin ?? 'round',
-  };
-  return [area, outline];
-};
+export const compileSteppedAreaMark: MarkCompiler = (context) =>
+  compileAreaSeries(context, {
+    curve: 'step-after',
+    missing: 'connect',
+    idStem: 'stepped-area',
+  });
 
 export const compileBubbleMark: MarkCompiler = (context) => {
   const { table, layer, xScale, yScale, theme, color, performance } = context;
@@ -282,33 +238,42 @@ export const compileHistogramMark: MarkCompiler = (context) => {
   );
   const extent = table.extent(layer.x.field, layer.x.type === 'temporal');
   if (extent === null) return [];
-  const span = extent[1] - extent[0] || 1;
-  const bins = Array.from({ length: binCount }, () => 0);
-  const rows = Array.from({ length: binCount }, () => [] as number[]);
+  const weightField = layer.mark.fields.weight ?? optionString(layer.mark.options, 'weightField');
+  const observations: WeightedObservation[] = [];
   for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
     const value = numericDataValue(
       table.value(rowIndex, layer.x.field),
       layer.x.type === 'temporal',
     );
     if (value === null) continue;
-    const bin = Math.min(
-      binCount - 1,
-      Math.max(0, Math.floor(((value - extent[0]) / span) * binCount)),
-    );
-    bins[bin] = (bins[bin] ?? 0) + 1;
-    rows[bin]?.push(rowIndex);
+    const weight =
+      weightField === undefined ? 1 : numericDataValue(table.value(rowIndex, weightField));
+    if (weight === null || weight < 0) continue;
+    observations.push({ value, weight, rowIndex });
   }
+  const normalizationOption = optionString(layer.mark.options, 'normalization');
+  const normalization: HistogramNormalization =
+    normalizationOption === 'probability' ||
+    normalizationOption === 'normalized' ||
+    layer.mark.options.normalized === true
+      ? 'probability'
+      : normalizationOption === 'density'
+        ? 'density'
+        : 'count';
+  const bins = weightedHistogram(observations, {
+    bins: binCount,
+    extent,
+    normalization,
+    cumulative: layer.mark.options.cumulative === true,
+  });
   const baseline = yScale.map(0);
   const nodes: RectNode[] = [];
-  const totalCount = bins.reduce((sum, count) => sum + count, 0);
   const histogramGap = Math.max(0, theme.mark.histogramGap ?? 2);
-  bins.forEach((count, index) => {
-    const start = extent[0] + (span * index) / binCount;
-    const end = extent[0] + (span * (index + 1)) / binCount;
-    const x1 = xScale.map(start);
-    const x2 = xScale.map(end);
-    const y = yScale.map(count);
-    const rowIndex = rows[index]?.[0];
+  bins.forEach((bin, index) => {
+    const x1 = xScale.map(bin.start);
+    const x2 = xScale.map(bin.end);
+    const y = yScale.map(bin.value);
+    const rowIndex = bin.rowIndices[0];
     if (![x1, x2, y, baseline].every(Number.isFinite)) return;
     const stroke =
       layer.mark.stroke ??
@@ -328,10 +293,18 @@ export const compileHistogramMark: MarkCompiler = (context) => {
                 rowIndex,
                 datum: table.row(rowIndex),
                 tooltip: {
-                  binStart: start,
-                  binEnd: end,
-                  count,
-                  proportion: totalCount === 0 ? 0 : count / totalCount,
+                  kind: 'histogram-bin',
+                  binStart: bin.start,
+                  binEnd: bin.end,
+                  count: bin.count,
+                  weight: bin.weight,
+                  value: bin.value,
+                  proportion: bin.proportion,
+                  normalization,
+                  cumulative: layer.mark.options.cumulative === true,
+                  weightField: weightField ?? null,
+                  sourceRowCount: bin.rowIndices.length,
+                  sourceRowIndices: bin.rowIndices.slice(0, 256),
                 },
               },
             }),

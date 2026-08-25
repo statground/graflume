@@ -1,17 +1,33 @@
 import { GraflumeError } from '../core/errors.js';
 import { summarizeNormalDistribution } from '../data/distribution.js';
+import {
+  kernelDensity1d,
+  weightedHistogram,
+  type HistogramNormalization,
+  type WeightedObservation,
+} from '../data/statistics.js';
 import { inferFieldType } from '../data/infer.js';
 import { DataTable } from '../data/table.js';
-import { BandScale } from '../scale/band.js';
-import { LinearScale } from '../scale/linear.js';
+import { prepareSeriesStackLayer, preparedSeriesStackFields } from '../data/series-stack.js';
+import { prepareTechnicalIndicator } from '../data/technical-indicators.js';
+import { executeTransforms, type DataLineage } from '../data/transforms.js';
+import { createPositionScale } from '../scale/registry.js';
 import type { Scale } from '../scale/types.js';
-import type { AxisId, FieldType, NormalizedChartSpec, NormalizedLayerSpec } from '../spec/types.js';
+import { domainForAxisWindow, type DomainAxisWindow } from '../interaction/domain-navigation.js';
+import type {
+  AxisId,
+  FieldType,
+  NormalizedChartSpec,
+  NormalizedLayerSpec,
+  ScaleType,
+} from '../spec/types.js';
 import { resolveDistributionMode } from '../spec/distribution.js';
 import type { PlotArea } from './types.js';
 
 export interface LayerData {
   readonly layer: NormalizedLayerSpec;
   readonly table: DataTable;
+  readonly lineage: DataLineage;
   readonly xType: FieldType;
   readonly yType: FieldType;
   readonly xAxisId: 'x' | 'x2';
@@ -41,6 +57,7 @@ export interface ScaleResolution {
 interface PreparedLayerData {
   readonly layer: NormalizedLayerSpec;
   readonly table: DataTable;
+  readonly lineage: DataLineage;
   readonly xType: FieldType;
   readonly yType: FieldType;
   readonly xAxisId: 'x' | 'x2';
@@ -104,14 +121,59 @@ function numericDomain(
             }).filter((value): value is number => typeof value === 'number'),
           )
         : null;
+    const distributionObservations: WeightedObservation[] =
+      distributionMode === 'kde' ||
+      distributionMode === 'ecdf' ||
+      distributionMode === 'ccdf' ||
+      distributionMode === 'histogram'
+        ? Array.from({ length: table.length }, (_, rowIndex) => {
+            const field = layer.mark.fields.value ?? layer.x.field;
+            const value = table.numericValue(rowIndex, field);
+            const optionWeightField = layer.mark.options.weightField;
+            const weightField =
+              layer.mark.fields.weight ??
+              (typeof optionWeightField === 'string' ? optionWeightField : undefined);
+            const weight =
+              weightField === undefined ? 1 : table.numericValue(rowIndex, weightField);
+            return value === null || weight === null || weight < 0
+              ? null
+              : { value, weight, rowIndex };
+          }).filter((value): value is WeightedObservation => value !== null)
+        : [];
+    const kde =
+      distributionMode === 'kde'
+        ? kernelDensity1d(distributionObservations, {
+            points:
+              typeof layer.mark.options.samples === 'number' ? layer.mark.options.samples : 96,
+            ...(typeof layer.mark.options.bandwidth === 'number' && layer.mark.options.bandwidth > 0
+              ? { bandwidth: layer.mark.options.bandwidth }
+              : {}),
+          })
+        : null;
     const fields =
       densitySummary !== null ||
       (axis === 'y' &&
         (layer.mark.type === 'histogram' ||
           layer.mark.type === 'theme-river' ||
-          distributionMode === 'histogram'))
+          distributionMode === 'histogram' ||
+          distributionMode === 'kde' ||
+          distributionMode === 'ecdf' ||
+          distributionMode === 'ccdf'))
         ? []
         : [encoding.field];
+    const rangeEncoding = axis === 'x' ? layer.encoding.x2 : layer.encoding.y2;
+    if (rangeEncoding?.field !== undefined) fields.push(rangeEncoding.field);
+    const stackFields = preparedSeriesStackFields(layer);
+    const stackAxis =
+      layer.mark.type === 'bar' && layer.mark.orientation === 'horizontal' ? 'x' : 'y';
+    if (
+      stackFields !== null &&
+      axis === stackAxis &&
+      table.has(stackFields.start) &&
+      table.has(stackFields.end)
+    ) {
+      fields.splice(0, fields.length, stackFields.start, stackFields.end);
+    }
     if (axis === 'x' && (layer.mark.type === 'timeline' || layer.mark.type === 'gantt')) {
       fields.push(layer.mark.fields.end ?? 'end');
     }
@@ -135,7 +197,11 @@ function numericDomain(
         layer.mark.type === 'indicator' ||
         layer.mark.type === 'volume-profile')
     ) {
-      fields.push(...Object.values(layer.mark.fields));
+      fields.push(
+        ...Object.entries(layer.mark.fields).flatMap(([role, field]) =>
+          role.startsWith('__') ? [] : [field],
+        ),
+      );
       const optionFields = layer.mark.options.fields;
       if (Array.isArray(optionFields)) {
         fields.push(
@@ -146,12 +212,14 @@ function numericDomain(
       }
     }
     if (axis === 'y' && (layer.mark.type === 'boxplot' || distributionMode === 'boxplot')) {
+      const rawValueField = layer.mark.fields.value;
+      if (rawValueField !== undefined) fields.push(rawValueField);
       fields.push(
-        layer.mark.fields.min ?? 'min',
+        layer.mark.fields.min ?? layer.mark.fields.low ?? 'min',
         layer.mark.fields.q1 ?? 'q1',
         layer.mark.fields.median ?? encoding.field,
         layer.mark.fields.q3 ?? 'q3',
-        layer.mark.fields.max ?? 'max',
+        layer.mark.fields.max ?? layer.mark.fields.high ?? 'max',
       );
     }
     if (axis === 'y' && (layer.mark.type === 'lines' || layer.mark.type === 'custom')) {
@@ -184,6 +252,21 @@ function numericDomain(
       }
     }
 
+    if (kde !== null && kde.points.length > 0) {
+      if (axis === 'x') {
+        min = Math.min(min, kde.points[0]!.value);
+        max = Math.max(max, kde.points.at(-1)!.value);
+      } else {
+        min = Math.min(min, 0);
+        max = Math.max(max, ...kde.points.map(({ density }) => density));
+      }
+    }
+
+    if (axis === 'y' && (distributionMode === 'ecdf' || distributionMode === 'ccdf')) {
+      min = Math.min(min, 0);
+      max = Math.max(max, 1);
+    }
+
     if (axis === 'y' && (layer.mark.type === 'histogram' || distributionMode === 'histogram')) {
       const binCount = Math.max(
         1,
@@ -194,17 +277,32 @@ function numericDomain(
       );
       const sourceExtent = table.extent(layer.x.field, layer.x.type === 'temporal');
       if (sourceExtent !== null) {
-        const counts = Array.from({ length: binCount }, () => 0);
-        const span = sourceExtent[1] - sourceExtent[0] || 1;
-        for (let index = 0; index < table.length; index += 1) {
-          const value = table.numericValue(index, layer.x.field);
-          if (value === null) continue;
-          const bin = Math.min(
-            binCount - 1,
-            Math.max(0, Math.floor(((value - sourceExtent[0]) / span) * binCount)),
-          );
-          counts[bin] = (counts[bin] ?? 0) + 1;
-        }
+        const optionWeightField = layer.mark.options.weightField;
+        const weightField =
+          layer.mark.fields.weight ??
+          (typeof optionWeightField === 'string' ? optionWeightField : undefined);
+        const observations = Array.from({ length: table.length }, (_, rowIndex) => {
+          const value = table.numericValue(rowIndex, layer.x.field);
+          const weight = weightField === undefined ? 1 : table.numericValue(rowIndex, weightField);
+          return value === null || weight === null || weight < 0
+            ? null
+            : { value, weight, rowIndex };
+        }).filter((value): value is WeightedObservation => value !== null);
+        const normalizationOption = layer.mark.options.normalization;
+        const normalization: HistogramNormalization =
+          normalizationOption === 'probability' ||
+          normalizationOption === 'normalized' ||
+          layer.mark.options.normalized === true
+            ? 'probability'
+            : normalizationOption === 'density'
+              ? 'density'
+              : 'count';
+        const counts = weightedHistogram(observations, {
+          bins: binCount,
+          extent: sourceExtent,
+          normalization,
+          cumulative: layer.mark.options.cumulative === true,
+        }).map(({ value }) => value);
         min = Math.min(min, 0);
         max = Math.max(max, ...counts);
       }
@@ -223,40 +321,49 @@ function numericDomain(
         max = Math.max(max, previous, total);
       }
     }
-    if (axis === 'y' && layer.mark.type === 'theme-river') {
+    if (axis === 'y' && layer.mark.type === 'theme-river' && stackFields === null) {
       const totals = new Map<string, number>();
       for (let index = 0; index < table.length; index += 1) {
-        const key = String(table.value(index, layer.x.field) ?? '');
+        const rawKey = table.value(index, layer.x.field);
+        const key =
+          rawKey instanceof Date
+            ? `date:${rawKey.toISOString()}`
+            : `${typeof rawKey}:${String(rawKey ?? '')}`;
         const value = table.numericValue(index, layer.y.field);
         if (value === null) continue;
         totals.set(key, (totals.get(key) ?? 0) + Math.max(0, value));
       }
-      const maximumTotal = Math.max(1, ...totals.values());
+      let maximumTotal = 1;
+      for (const total of totals.values()) maximumTotal = Math.max(maximumTotal, total);
       min = Math.min(min, -maximumTotal / 2);
       max = Math.max(max, maximumTotal / 2);
     }
+    const zeroCompatible = !['log', 'logit', 'probit'].includes(encoding.scale.type ?? '');
     if (
-      encoding.scale.zero === true ||
-      (axis === 'y' &&
-        (layer.mark.type === 'bar' ||
-          layer.mark.type === 'area' ||
-          layer.mark.type === 'bullet' ||
-          layer.mark.type === 'cylinder' ||
-          layer.mark.type === 'histogram' ||
-          distributionMode === 'histogram' ||
-          layer.mark.type === 'item' ||
-          layer.mark.type === 'lollipop' ||
-          layer.mark.type === 'packed-bubble' ||
-          layer.mark.type === 'pareto' ||
-          layer.mark.type === 'pictorial-bar' ||
-          layer.mark.type === 'pyramid' ||
-          layer.mark.type === 'solid-gauge' ||
-          layer.mark.type === 'theme-river' ||
-          layer.mark.type === 'variable-pie' ||
-          layer.mark.type === 'variwide' ||
-          layer.mark.type === 'volume-profile' ||
-          layer.mark.type === 'waterfall')) ||
-      (axis === 'x' && layer.mark.type === 'bar' && layer.mark.orientation === 'horizontal')
+      zeroCompatible &&
+      (encoding.scale.zero === true ||
+        (axis === 'y' && layer.mark.options.missing === 'zero') ||
+        (axis === 'y' &&
+          (layer.mark.type === 'bar' ||
+            layer.mark.type === 'area' ||
+            layer.mark.type === 'bullet' ||
+            layer.mark.type === 'cylinder' ||
+            layer.mark.type === 'histogram' ||
+            distributionMode === 'histogram' ||
+            layer.mark.type === 'item' ||
+            layer.mark.type === 'lollipop' ||
+            layer.mark.type === 'packed-bubble' ||
+            layer.mark.type === 'pareto' ||
+            layer.mark.type === 'pictorial-bar' ||
+            layer.mark.type === 'pyramid' ||
+            layer.mark.type === 'solid-gauge' ||
+            layer.mark.type === 'stepped-area' ||
+            layer.mark.type === 'theme-river' ||
+            layer.mark.type === 'variable-pie' ||
+            layer.mark.type === 'variwide' ||
+            layer.mark.type === 'volume-profile' ||
+            layer.mark.type === 'waterfall')) ||
+        (axis === 'x' && layer.mark.type === 'bar' && layer.mark.orientation === 'horizontal'))
     ) {
       includeZero = true;
     }
@@ -292,7 +399,11 @@ function categoricalDomain(
   const domain: string[] = [];
   for (const { layer, table } of layers) {
     const explicit = layer[axis].scale.domain;
-    const values = explicit?.map(String) ?? table.unique(layer[axis].field);
+    const rangeEncoding = axis === 'x' ? layer.encoding.x2 : layer.encoding.y2;
+    const values = explicit?.map(String) ?? [
+      ...table.unique(layer[axis].field),
+      ...(rangeEncoding?.field === undefined ? [] : table.unique(rangeEncoding.field)),
+    ];
     for (const value of values) {
       if (seen.has(value)) continue;
       seen.add(value);
@@ -320,6 +431,7 @@ function resolveAxisScale(
   id: AxisId,
   layers: readonly PreparedLayerData[],
   plot: PlotArea,
+  domainWindow?: DomainAxisWindow,
 ): Omit<ResolvedAxisScale, 'layers'> {
   const channel = id === 'x' || id === 'x2' ? 'x' : 'y';
   const fieldType = resolveCommonType(
@@ -330,7 +442,7 @@ function resolveAxisScale(
   const requestedScaleTypes = new Set(
     layers
       .map((layer) => layer.layer[channel].scale.type)
-      .filter((type): type is 'linear' | 'band' | 'time' => type !== undefined),
+      .filter((type): type is ScaleType => type !== undefined),
   );
   if (requestedScaleTypes.size > 1) {
     throw new GraflumeError(
@@ -343,10 +455,32 @@ function resolveAxisScale(
   }
   const requestedScaleType = [...requestedScaleTypes][0];
   const family = typeFamily(fieldType);
+  const continuousAxisTypes = new Set<ScaleType>([
+    'linear',
+    'log',
+    'symlog',
+    'asinh',
+    'pow',
+    'sqrt',
+    'time',
+    'utc',
+    'probability',
+    'logit',
+    'probit',
+  ]);
   if (
-    (requestedScaleType === 'band' && family !== 'categorical') ||
-    (requestedScaleType === 'linear' && family !== 'numeric') ||
-    (requestedScaleType === 'time' && family !== 'temporal')
+    (requestedScaleType !== undefined &&
+      !continuousAxisTypes.has(requestedScaleType) &&
+      requestedScaleType !== 'band' &&
+      requestedScaleType !== 'point') ||
+    ((requestedScaleType === 'band' || requestedScaleType === 'point') &&
+      family !== 'categorical') ||
+    (requestedScaleType !== undefined &&
+      continuousAxisTypes.has(requestedScaleType) &&
+      requestedScaleType !== 'time' &&
+      requestedScaleType !== 'utc' &&
+      family !== 'numeric') ||
+    ((requestedScaleType === 'time' || requestedScaleType === 'utc') && family !== 'temporal')
   ) {
     throw new GraflumeError(
       'INCOMPATIBLE_SCALE',
@@ -354,52 +488,72 @@ function resolveAxisScale(
       { path: `$.layers[].${channel}.scale.type` },
     );
   }
-  const reverse = firstEncoding?.scale.reverse === true;
-  const categorical = requestedScaleType === 'band' || family === 'categorical';
+  const categorical =
+    requestedScaleType === 'band' || requestedScaleType === 'point' || family === 'categorical';
 
   let scale: Scale;
   if (categorical) {
     const domain = categoricalDomain(layers, channel);
-    scale = new BandScale({
-      domain: reverse ? [...domain].reverse() : domain,
+    scale = createPositionScale(firstEncoding?.scale ?? {}, {
+      type: requestedScaleType === 'point' ? 'point' : 'band',
+      domain,
       range: channel === 'x' ? [plot.x, plot.x + plot.width] : [plot.y, plot.y + plot.height],
-      ...(firstEncoding?.scale.paddingInner === undefined
-        ? {}
-        : { paddingInner: firstEncoding.scale.paddingInner }),
-      ...(firstEncoding?.scale.paddingOuter === undefined
-        ? {}
-        : { paddingOuter: firstEncoding.scale.paddingOuter }),
     });
   } else {
     const normalRange: readonly [number, number] =
       channel === 'x' ? [plot.x, plot.x + plot.width] : [plot.y + plot.height, plot.y];
-    const range: readonly [number, number] = reverse
-      ? [normalRange[1], normalRange[0]]
-      : normalRange;
-    scale = new LinearScale({
+    const type = requestedScaleType ?? (fieldType === 'temporal' ? 'time' : 'linear');
+    if (!continuousAxisTypes.has(type)) {
+      throw new GraflumeError(
+        'INCOMPATIBLE_SCALE',
+        `Scale type "${type}" cannot be used as a Cartesian position scale.`,
+        { path: `$.layers[].${channel}.scale.type` },
+      );
+    }
+    scale = createPositionScale(firstEncoding?.scale ?? {}, {
+      type: type as import('../scale/types.js').PositionScaleType,
       domain: numericDomain(layers, channel, fieldType),
-      range,
-      kind: requestedScaleType === 'time' || fieldType === 'temporal' ? 'time' : 'linear',
-      ...(firstEncoding?.scale.nice === undefined ? {} : { nice: firstEncoding.scale.nice }),
-      ...(firstEncoding?.scale.clamp === undefined ? {} : { clamp: firstEncoding.scale.clamp }),
+      range: normalRange,
     });
+  }
+
+  if (domainWindow !== undefined) {
+    const domain = domainForAxisWindow(scale, domainWindow);
+    const range: readonly [number, number] =
+      channel === 'x' ? [plot.x, plot.x + plot.width] : [plot.y + plot.height, plot.y];
+    scale = createPositionScale(
+      { ...(firstEncoding?.scale ?? {}), domain },
+      { type: scale.kind, domain, range },
+    );
   }
 
   return { id, channel, fieldType, scale };
 }
 
-export function resolveScales(spec: NormalizedChartSpec, plot: PlotArea): ScaleResolution {
+export function resolveScales(
+  spec: NormalizedChartSpec,
+  plot: PlotArea,
+  domainWindows: Readonly<Partial<Record<AxisId, DomainAxisWindow>>> = {},
+): ScaleResolution {
   const preparedLayers: PreparedLayerData[] = spec.layers
     .filter((layer) => layer.visible)
     .map((layer) => {
-      const table = DataTable.from(layer.data);
+      const stacked = prepareSeriesStackLayer(layer);
+      const preparedLayer = stacked?.layer ?? layer;
+      const transformed = executeTransforms(preparedLayer.data, preparedLayer.transform, {
+        sourceId: `layer:${layer.id}`,
+      });
+      const indicator = prepareTechnicalIndicator(preparedLayer, transformed);
+      const resolvedLayer = indicator.layer;
+      const table = DataTable.from(indicator.result.data);
       return {
-        layer,
+        layer: resolvedLayer,
         table,
-        xType: layer.x.type ?? inferFieldType(table, layer.x.field),
-        yType: layer.y.type ?? inferFieldType(table, layer.y.field),
-        xAxisId: xAxisId(layer),
-        yAxisId: yAxisId(layer),
+        lineage: indicator.result.lineage,
+        xType: resolvedLayer.x.type ?? inferFieldType(table, resolvedLayer.x.field),
+        yType: resolvedLayer.y.type ?? inferFieldType(table, resolvedLayer.y.field),
+        xAxisId: xAxisId(resolvedLayer),
+        yAxisId: yAxisId(resolvedLayer),
       };
     });
 
@@ -422,7 +576,7 @@ export function resolveScales(spec: NormalizedChartSpec, plot: PlotArea): ScaleR
   for (const id of ['x', 'x2', 'y', 'y2'] as const) {
     const entries = grouped.get(id);
     if (entries === undefined || entries.length === 0) continue;
-    partialAxes[id] = resolveAxisScale(id, entries, plot);
+    partialAxes[id] = resolveAxisScale(id, entries, plot, domainWindows[id]);
   }
 
   const layers: LayerData[] = preparedLayers.map((layer) => {

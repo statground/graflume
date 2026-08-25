@@ -21,7 +21,7 @@ The default plus complete catalog has 41 canonical 2D families. The optional spa
 
 `globe()` is a spatial mode of the existing canonical `map` family, not a 45th family. See [spatial compatibility](./compatibility.md).
 
-The machine catalog also exposes the presentation count: 162 default/complete presets + 7 spatial variants + 1 integrated globe mode = 170 presets and modes across 44 canonical families.
+The machine catalog also exposes the presentation count: 165 default/complete presets + 7 spatial variants + 1 integrated globe mode = 173 presets and modes across 44 canonical families.
 
 ## Guides and compiled previews
 

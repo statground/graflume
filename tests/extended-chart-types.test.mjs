@@ -281,7 +281,7 @@ specs.set(
 
 test('catalog separates distinct families from compatible variant names', () => {
   assert.equal(chartTypeCatalog.length, 22);
-  assert.equal(chartVariantCatalog.length, 39);
+  assert.equal(chartVariantCatalog.length, 42);
   const familyIds = new Set(chartTypeCatalog.map((entry) => entry.id));
   for (const entry of chartVariantCatalog) {
     if (entry.familyId !== 'custom') assert.ok(familyIds.has(entry.familyId), entry.id);

@@ -1,5 +1,6 @@
 import type { MarkCompileContext, MarkCompiler } from '../compiler/types.js';
 import { exactStrideSampleIndices, minMaxSampleIndices } from '../data/sample.js';
+import { extractIsolines } from '../data/contours.js';
 import type { DataRow, DataValue, JsonValue } from '../spec/types.js';
 import { nodeBase } from '../scene/factory.js';
 import type { Point, SceneNode, TextNode } from '../scene/types.js';
@@ -7,7 +8,11 @@ import { BandScale } from '../scale/band.js';
 import { categoricalColor, colorWithOpacity, mixColor, readableTextColor } from '../theme/color.js';
 import { compileBoxplotMark, compileRadarMark } from './advanced.js';
 import { compileHistogramMark } from './cartesian-extended.js';
-import { compileDistributionMark } from './series.js';
+import {
+  compileDistributionMark,
+  compileEmpiricalDistributionMark,
+  compileKernelDensityMark,
+} from './series.js';
 import { resolveDistributionMode } from '../spec/distribution.js';
 import { mappedContinuousColor, numericDataValue, scaleInput } from './utils.js';
 
@@ -124,109 +129,6 @@ function inferredCellSpan(values: readonly number[], fallback: number): number {
     smallest = Math.min(smallest, (sorted[index] ?? 0) - (sorted[index - 1] ?? 0));
   }
   return Number.isFinite(smallest) ? Math.max(1, smallest) : Math.max(1, fallback);
-}
-
-interface ContourSegment {
-  readonly levelIndex: number;
-  readonly points: readonly [Point, Point];
-}
-
-function interpolateContourPoint(
-  start: Point,
-  end: Point,
-  startValue: number,
-  endValue: number,
-  level: number,
-): Point {
-  const ratio = clamp((level - startValue) / (endValue - startValue || 1), 0, 1);
-  return {
-    x: start.x + (end.x - start.x) * ratio,
-    y: start.y + (end.y - start.y) * ratio,
-  };
-}
-
-/** Deterministic marching-squares segments for regular or warped grids. */
-function contourSegments(
-  values: readonly (readonly (number | null)[])[],
-  points: readonly (readonly (Point | null)[])[],
-  levels: readonly number[],
-  maximumSegments = Number.POSITIVE_INFINITY,
-): readonly ContourSegment[] {
-  const limit = Math.max(0, Math.trunc(maximumSegments));
-  if (limit === 0) return [];
-  const segments: ContourSegment[] = [];
-  for (let row = 0; row < values.length - 1; row += 1) {
-    const current = values[row];
-    const next = values[row + 1];
-    const currentPoints = points[row];
-    const nextPoints = points[row + 1];
-    if (
-      current === undefined ||
-      next === undefined ||
-      currentPoints === undefined ||
-      nextPoints === undefined
-    )
-      continue;
-    const width = Math.min(current.length, next.length, currentPoints.length, nextPoints.length);
-    for (let column = 0; column < width - 1; column += 1) {
-      const cellValues = [current[column], current[column + 1], next[column + 1], next[column]];
-      const cellPoints = [
-        currentPoints[column],
-        currentPoints[column + 1],
-        nextPoints[column + 1],
-        nextPoints[column],
-      ];
-      if (
-        cellValues.some((value) => value === null || value === undefined) ||
-        cellPoints.some((point) => point === null || point === undefined)
-      )
-        continue;
-      const numeric = cellValues as [number, number, number, number];
-      const corners = cellPoints as [Point, Point, Point, Point];
-      for (let levelIndex = 0; levelIndex < levels.length; levelIndex += 1) {
-        const level = levels[levelIndex];
-        if (level === undefined) continue;
-        const crossings: Point[] = [];
-        for (let edge = 0; edge < 4; edge += 1) {
-          const nextEdge = (edge + 1) % 4;
-          const startValue = numeric[edge] ?? 0;
-          const endValue = numeric[nextEdge] ?? 0;
-          if (
-            (startValue < level && endValue >= level) ||
-            (endValue < level && startValue >= level)
-          ) {
-            crossings.push(
-              interpolateContourPoint(
-                corners[edge] ?? corners[0],
-                corners[nextEdge] ?? corners[0],
-                startValue,
-                endValue,
-                level,
-              ),
-            );
-          }
-        }
-        if (crossings.length === 2 && crossings[0] !== undefined && crossings[1] !== undefined) {
-          segments.push({ levelIndex, points: [crossings[0], crossings[1]] });
-          if (segments.length >= limit) return segments;
-        } else if (crossings.length === 4) {
-          const first = crossings[0];
-          const second = crossings[1];
-          const third = crossings[2];
-          const fourth = crossings[3];
-          if (first !== undefined && second !== undefined) {
-            segments.push({ levelIndex, points: [first, second] });
-            if (segments.length >= limit) return segments;
-          }
-          if (third !== undefined && fourth !== undefined) {
-            segments.push({ levelIndex, points: [third, fourth] });
-            if (segments.length >= limit) return segments;
-          }
-        }
-      }
-    }
-  }
-  return segments;
 }
 
 function byteChannel(value: DataValue, fallback: number): number {
@@ -524,7 +426,9 @@ function compileHistogram2d(context: MarkCompileContext, contours = false): read
     context.performance.maxBarMarks,
   );
   const counts = Array.from({ length: binsY }, () => Array.from({ length: binsX }, () => 0));
-  const rows = Array.from({ length: binsY }, () => Array.from({ length: binsX }, () => -1));
+  const rows = Array.from({ length: binsY }, () =>
+    Array.from({ length: binsX }, () => [] as number[]),
+  );
   const xSpan = xExtent[1] - xExtent[0] || 1;
   const ySpan = yExtent[1] - yExtent[0] || 1;
   for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
@@ -537,7 +441,7 @@ function compileHistogram2d(context: MarkCompileContext, contours = false): read
     const rowRefs = rows[yBin];
     if (rowCounts === undefined || rowRefs === undefined) continue;
     rowCounts[xBin] = (rowCounts[xBin] ?? 0) + 1;
-    if ((rowRefs[xBin] ?? -1) < 0) rowRefs[xBin] = rowIndex;
+    rowRefs[xBin]?.push(rowIndex);
   }
   const maximum = Math.max(1, ...counts.flat());
   const nodes: SceneNode[] = [];
@@ -555,7 +459,7 @@ function compileHistogram2d(context: MarkCompileContext, contours = false): read
       const bottom = yScale.map(yStart);
       const ratio = count / maximum;
       const fill = layer.mark.fill ?? mappedContinuousColor(theme, ratio);
-      const rowIndex = Math.max(0, rows[yBin]?.[xBin] ?? 0);
+      const rowIndex = rows[yBin]?.[xBin]?.[0] ?? 0;
       const centerRow = centerPoints[yBin];
       if (centerRow !== undefined) {
         centerRow[xBin] = { x: (left + right) / 2, y: (top + bottom) / 2 };
@@ -588,12 +492,9 @@ function compileHistogram2d(context: MarkCompileContext, contours = false): read
       { length: levelCount },
       (_, index) => ((index + 1) / (levelCount + 1)) * maximum,
     );
-    contourSegments(
-      counts,
-      centerPoints,
-      levels,
-      Math.floor(context.performance.maxLinePoints / 2),
-    ).forEach((segment, index) => {
+    extractIsolines(counts, centerPoints, levels, rows, {
+      maximumSegments: Math.floor(context.performance.maxLinePoints / 2),
+    }).forEach((segment, index) => {
       const ratio = segment.levelIndex / Math.max(1, levelCount - 1);
       const stroke = layer.mark.stroke ?? mappedContinuousColor(theme, ratio);
       nodes.push({
@@ -601,7 +502,7 @@ function compileHistogram2d(context: MarkCompileContext, contours = false): read
         ...datumBase(
           context,
           `${layer.id}:histogram-2d-contour:${segment.levelIndex}:${index}`,
-          0,
+          segment.sourceRows[0] ?? 0,
           1,
           {
             kind: 'density-isoline',
@@ -610,10 +511,12 @@ function compileHistogram2d(context: MarkCompileContext, contours = false): read
             maximumCount: maximum,
             binsX,
             binsY,
+            sourceRowCount: segment.sourceRows.length,
+            sourceRowIndices: segment.sourceRows.slice(0, 256),
           },
         ),
         points: segment.points,
-        closed: false,
+        closed: segment.closed,
         stroke,
         lineWidth: layer.mark.lineWidth ?? 1.8,
         lineCap: theme.mark.lineCap ?? 'round',
@@ -624,12 +527,14 @@ function compileHistogram2d(context: MarkCompileContext, contours = false): read
   return nodes;
 }
 
-/** One implementation surface for histogram, box, violin, curve, and bivariate modes. */
+/** One implementation surface for histogram, empirical, KDE, box, violin, curve, and bivariate modes. */
 export const compileDistributionFamilyMark: MarkCompiler = (context) => {
   const mode = resolveDistributionMode(context.layer.mark.options.mode);
   if (mode === 'boxplot') return compileBoxplotMark(context);
   if (mode === 'violin') return compileViolin(context);
   if (mode === 'curve') return compileDistributionMark(context);
+  if (mode === 'kde') return compileKernelDensityMark(context);
+  if (mode === 'ecdf' || mode === 'ccdf') return compileEmpiricalDistributionMark(context);
   if (mode === 'histogram-2d') return compileHistogram2d(context);
   if (mode === 'histogram-2d-contour') {
     return compileHistogram2d(context, true);
@@ -1407,32 +1312,37 @@ export const compileCarpetMark: MarkCompiler = (context) => {
         (_, index) =>
           valueMinimum + ((index + 1) / (levelCount + 1)) * (valueMaximum - valueMinimum || 1),
       );
-      contourSegments(gridValues, gridPoints, levels, maximumSegments).forEach((segment, index) => {
-        const ratio = segment.levelIndex / Math.max(1, levelCount - 1);
-        const stroke = layer.mark.stroke ?? mappedContinuousColor(theme, ratio);
-        nodes.push({
-          type: 'path',
-          ...datumBase(
-            context,
-            `${layer.id}:carpet-contour:${segment.levelIndex}:${index}`,
-            data[0]?.rowIndex ?? 0,
-            2,
-            {
-              kind: 'value-isoline',
-              level: levels[segment.levelIndex] ?? valueMinimum,
-              minimumValue: valueMinimum,
-              maximumValue: valueMaximum,
-              valueField: valueField ?? 'value',
-            },
-          ),
-          points: segment.points,
-          closed: false,
-          stroke,
-          lineWidth: layer.mark.lineWidth ?? 1.8,
-          lineCap: theme.mark.lineCap ?? 'round',
-          lineJoin: theme.mark.lineJoin ?? 'round',
-        });
-      });
+      const gridRows = bKeys.map((b) => aKeys.map((a) => indexed.get(a)?.get(b)?.rowIndex ?? null));
+      extractIsolines(gridValues, gridPoints, levels, gridRows, { maximumSegments }).forEach(
+        (segment, index) => {
+          const ratio = segment.levelIndex / Math.max(1, levelCount - 1);
+          const stroke = layer.mark.stroke ?? mappedContinuousColor(theme, ratio);
+          nodes.push({
+            type: 'path',
+            ...datumBase(
+              context,
+              `${layer.id}:carpet-contour:${segment.levelIndex}:${index}`,
+              data[0]?.rowIndex ?? 0,
+              2,
+              {
+                kind: 'value-isoline',
+                level: levels[segment.levelIndex] ?? valueMinimum,
+                minimumValue: valueMinimum,
+                maximumValue: valueMaximum,
+                valueField: valueField ?? 'value',
+                sourceRowCount: segment.sourceRows.length,
+                sourceRowIndices: segment.sourceRows.slice(0, 256),
+              },
+            ),
+            points: segment.points,
+            closed: segment.closed,
+            stroke,
+            lineWidth: layer.mark.lineWidth ?? 1.8,
+            lineCap: theme.mark.lineCap ?? 'round',
+            lineJoin: theme.mark.lineJoin ?? 'round',
+          });
+        },
+      );
     }
   } else if (mode === 'scatter') {
     sampledItems(data, context.performance.maxPointMarks).forEach((datum) => {

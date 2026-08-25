@@ -2,9 +2,9 @@
 
 Graflume `0.1.0-alpha.0` exposes 41 distinct chart families through two package entrypoints. The default entrypoint contains 22 established families, while `graflume/complete` adds 11 advanced and 8 specialized families. The 162 documented presets include 117 public compatibility identifiers without duplicating the shared compiler, theme, Scene, Canvas renderer, interaction, or accessibility contracts.
 
-Every family below is implemented today. Direction, curve, depth, radius, glyph, layout, and indicator differences are presets inside one family instead of separate discovery entries.
+Every family below is implemented today. Direction, curve, depth, radius, glyph, layout, and indicator differences are presets inside one family instead of separate discovery entries. The shared [composition and resolve manual](../composition.md) documents layer, facet, repeat, concat, nested-grid, and inset views with their exact scale/axis/legend boundary. The [scale and encoding manual](../scales-and-encodings.md) documents the canonical channel map, legacy facade, mathematical scale registry, mark-by-channel support boundary, and explicit out-of-bounds behavior.
 
-The directory contains one manual per representative family, not one file per compatible name. Each family manual keeps every integrated type visible in a compiled-output gallery and follows it with type-by-type selection guidance, required data fields, stable anchors, and minimal runnable Quick API examples. The shared [Cartesian axis manual](./axes.md) documents formatting, label layout, styles, scale direction, secondary axes, and axis-nearest tooltips. [Common chart interactions](./interactions.md) documents legends, highlights, reference bands, selection, safe runtime callouts, the inspection viewport, reset, fullscreen, PNG export, discrete playback, and the capability/constraint matrix for all 41 families. The [compatibility preset index](./compatibility-presets.md) maps 160 family presets, while [Declarative adapters](./adapters.md) covers the remaining two adapter names with the same visual-and-code structure; together they document all 162 presets.
+The directory contains one manual per representative family, not one file per compatible name. Each family manual keeps every integrated type visible in a compiled-output gallery and follows it with type-by-type selection guidance, required data fields, stable anchors, and minimal runnable Quick API examples. The shared [Cartesian axis manual](./axes.md) documents formatting, label layout, styles, scale direction, secondary axes, and axis-nearest tooltips. [Common chart interactions](./interactions.md) documents legends, highlights, reference bands, selection, safe runtime callouts, the inspection viewport, reset, fullscreen, PNG export, discrete playback, and the capability/constraint matrix for all 41 families. The [compatibility preset index](./compatibility-presets.md) maps 163 family presets, while [Declarative adapters](./adapters.md) covers the remaining two adapter names with the same visual-and-code structure; together they document all 165 Canvas presets.
 
 Use `resolveSeriesType(identifier)` from `graflume/complete` to resolve case, spaces, hyphens, or underscores into the catalog's single representative family. `seriesCompatibilityCatalog` exposes all 117 identifier-to-family mappings for adapters and migration tools.
 
@@ -332,7 +332,7 @@ Supported formats are `auto`, `number`, `integer`, `percent`, `date`, and `datet
 
 Tooltip titles, labels, and values are inserted with DOM `textContent`. Raw HTML, formatter callbacks, expressions, and runtime code evaluation are intentionally unsupported. Aggregate marks may attach derived fields, such as a bin boundary and count, to their hit target; those derived values take precedence over a representative source row when the same tooltip field is requested.
 
-The tooltip follows the pointer and is clamped to the chart surface. It adds `role="tooltip"` and temporarily connects the Canvas through `aria-describedby`, but it does not replace the nearby summary or data-table fallback recommended below. Both trigger modes are pointer-only; they do not provide keyboard traversal or touch-specific interaction. Disabling `hover` also disables the tooltip. Large and ultra profiles disable datum hit lookup, so they do not display mark or axis-nearest tooltips.
+The pointer tooltip follows the pointer and is clamped to the chart surface. It adds `role="tooltip"` and temporarily connects the Canvas through `aria-describedby`. Pointer triggers remain pointer-only, while opt-in `accessibility.navigation` focuses bounded semantic marks and reuses the same safe tooltip content. `accessibility.table` can create a hidden or visible native table; a larger domain-specific table remains useful when `maxRows` omits data. Disabling `hover` disables pointer lookup. Large and ultra profiles disable pointer datum lookup, but their compiler semantic sidecar and opt-in native table remain independently bounded.
 
 ### Inspection, fullscreen, export, and playback
 
@@ -377,7 +377,7 @@ Recommended page-level additions:
 - a high-contrast or dark theme option;
 - reduced-motion handling in surrounding UI.
 
-Automatic data tables and keyboard traversal of individual marks are not implemented yet.
+Bounded native data tables and individual Canvas mark traversal are opt-in through `accessibility.table`, `accessibility.maxRows`, and `accessibility.navigation`. They do not virtualize or expose rows beyond the declared bound.
 
 ## Still planned, not presented as complete
 

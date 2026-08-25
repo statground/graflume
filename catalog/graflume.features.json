@@ -1,0 +1,1949 @@
+{
+  "$schema": "../schema/graflume.features.schema.json",
+  "schemaVersion": 1,
+  "verifiedAt": "2026-08-25",
+  "statusVocabulary": ["supported", "partial", "planned", "research"],
+  "commonFoundations": [
+    {
+      "id": "transform-dataflow",
+      "status": "partial",
+      "summary": "Ordered, function-free transforms, top-level and layer pipelines, deterministic row lineage, parameters, seed and aggregation counts are supported; named sources, branches and a reusable DAG remain planned.",
+      "unlocks": [
+        "area",
+        "bar",
+        "distribution",
+        "interval",
+        "line",
+        "heatmap",
+        "map",
+        "technical-indicator"
+      ]
+    },
+    {
+      "id": "encoding-scale-registry",
+      "status": "partial",
+      "summary": "A closed portable encoding map, conditional mark channels, 17 positional/categorical/probability/temporal scale types, four color scale types and compatible primary x/y shared-domain resolve for Canvas unit views are supported; geographic/trading channels, shared multi-view axes and shared legends/colorbars remain planned.",
+      "unlocks": ["scatter", "heatmap", "parallel", "polar", "smith", "ternary"]
+    },
+    {
+      "id": "analytic-interaction",
+      "status": "partial",
+      "summary": "A closed immutable v1 store, union/intersection semantics, point/interval/rectangle/axis/lasso state, Canvas pointer/touch gestures, scale-registry pixel/domain round-trip and continuous Cartesian domain zoom/pan are supported. Categorical geometry/navigation, spatial selection, keyboard-authored geometry, linked multi-view stores and selection-driven data transforms remain planned.",
+      "unlocks": ["scatter", "heatmap", "parallel", "scatter-matrix", "map", "combination"]
+    },
+    {
+      "id": "composition-resolve",
+      "status": "partial",
+      "summary": "Legacy flat layers and the closed layer/facet/repeat/hconcat/vconcat/concat/inset Canvas composition grammar are supported with deterministic bounded layout, scoped semantic/lineage identities, independent child axes/legends and compatible primary x/y shared-domain resolve. Shared multi-view axes/legends/colorbars, linked view stores, facet pagination/virtualization, per-view interaction, streaming composition and Spatial/WebGL composition remain planned.",
+      "unlocks": ["combination", "distribution", "interval", "timeline", "technical-indicator"]
+    },
+    {
+      "id": "semantic-index-accessibility",
+      "status": "partial",
+      "summary": "All Canvas families compile a bounded semantic index with lineage, Canvas Chart exposes a native table mirror, roving keyboard traversal, focus, tooltip and selection synchronization, and composed Canvas views carry deterministic scoped semantic, hit-target and lineage identities; equivalent native GPU traversal and linked multi-view focus stores remain planned.",
+      "unlocks": ["table", "all-canvas", "all-spatial"]
+    },
+    {
+      "id": "label-layout-authoring",
+      "status": "partial",
+      "summary": "Callout collision placement and connectors are supported; reusable mark labels, editing handles, snapping and undo/redo remain planned.",
+      "unlocks": ["pie", "bubble", "map", "chord", "funnel", "annotation", "network"]
+    },
+    {
+      "id": "incremental-worker-binary",
+      "status": "partial",
+      "summary": "Typed column input, legacy copy-compatible appendData, deterministic stable-key append/upsert/replaceLast, bounded count/event-time retention, monotonic watermarks with explicit late-data policy, reject-only bounded queues/replay, and an opt-in transferable typed-column TransformSpec worker adapter are supported. Ring-buffer storage, incremental transform recomputation, worker-owned chart rendering, Arrow/WASM, RAF coalescing, pause/follow-live, lazy history and cancellation remain planned.",
+      "unlocks": ["line", "scatter", "candlestick", "map", "network", "combination"]
+    }
+  ],
+  "families": [
+    {
+      "id": "annotation",
+      "coordinate": "overlay",
+      "status": "partial",
+      "supported": [
+        "datum/layer/range/plot targets",
+        "callout connectors",
+        "collision-aware placement",
+        "runtime CRUD",
+        "visibility and serialization"
+      ],
+      "p0": [
+        "data-coordinate primitive registry",
+        "keyboard authoring",
+        "drag and resize handles",
+        "undo and redo"
+      ],
+      "p1": ["image/channel/freehand/measure tools", "snapping", "filter and side panel"],
+      "p2": ["collaborative authorship", "comments and locks", "templates"],
+      "dependencies": [
+        "label-layout-authoring",
+        "analytic-interaction",
+        "semantic-index-accessibility"
+      ]
+    },
+    {
+      "id": "area",
+      "coordinate": "cartesian",
+      "status": "partial",
+      "supported": [
+        "zero-baseline area",
+        "shared linear, step, monotone, natural, basis and cardinal curves with explicit missing-value policy",
+        "polygon",
+        "grouped, stacked, 100 percent and diverging long-form series",
+        "zero, normalize, silhouette and wiggle offsets with explicit series order",
+        "per-observation semantic and datum hit targets"
+      ],
+      "p0": [
+        "named and branched transform DAG reuse",
+        "worker-bounded incremental stack updates",
+        "automatic series labels",
+        "data-domain navigation"
+      ],
+      "p1": ["horizon", "bump and area-bump", "fan and threshold bands", "radial area"],
+      "p2": ["gradient and per-segment hit testing", "renderer parity and LOD"],
+      "dependencies": ["transform-dataflow", "encoding-scale-registry", "incremental-worker-binary"]
+    },
+    {
+      "id": "bar",
+      "coordinate": "cartesian",
+      "status": "partial",
+      "supported": [
+        "horizontal and vertical bars",
+        "grouped layers",
+        "positive and negative baseline",
+        "single-layer grouped, stacked, 100 percent and diverging series",
+        "signed stack totals, percentages, source lineage and datum hits",
+        "stack ordering and zero/normalize offsets",
+        "bullet/lollipop/pictorial/cylinder/pyramid/variable-width modes"
+      ],
+      "p0": [
+        "weighted count",
+        "interactive sort and rank",
+        "automatic total and segment labels",
+        "worker-bounded virtualization"
+      ],
+      "p1": ["butterfly and tornado", "race", "nested dodge", "pattern and drill"],
+      "p2": ["cross-renderer dense-category LOD", "progressive labels"],
+      "dependencies": [
+        "transform-dataflow",
+        "encoding-scale-registry",
+        "label-layout-authoring",
+        "semantic-index-accessibility"
+      ]
+    },
+    {
+      "id": "bubble",
+      "coordinate": "cartesian",
+      "status": "partial",
+      "supported": [
+        "square-root radius",
+        "bounded radius",
+        "color field",
+        "frame filtering",
+        "packed collision layout and labels"
+      ],
+      "p0": ["absolute-area scale contract", "zero and negative policy", "explicit size guide"],
+      "p1": ["grouped pack", "grid and swarm", "explode and drill", "stable updates"],
+      "p2": ["incremental worker layout"],
+      "dependencies": ["label-layout-authoring", "incremental-worker-binary"]
+    },
+    {
+      "id": "calendar",
+      "coordinate": "calendar",
+      "status": "partial",
+      "supported": ["UTC year grid", "week by weekday cells", "month headers", "day hit targets"],
+      "p0": [
+        "year/month/week/day modes",
+        "locale week start and timezone",
+        "leap/no-data/zero policy",
+        "month boundaries"
+      ],
+      "p1": ["multi-year and rolling calendars", "fiscal calendar", "brush and drill"],
+      "p2": ["virtualized long ranges", "facets and events", "keyboard day navigation"],
+      "dependencies": [
+        "transform-dataflow",
+        "analytic-interaction",
+        "semantic-index-accessibility",
+        "label-layout-authoring"
+      ]
+    },
+    {
+      "id": "candlestick",
+      "coordinate": "financial",
+      "status": "partial",
+      "supported": ["candlestick", "OHLC and HLC", "hollow candle", "Heikin-Ashi"],
+      "p0": [
+        "OHLC aggregation",
+        "session and timezone calendar",
+        "gapless trading axis",
+        "extended-hours policy",
+        "navigator"
+      ],
+      "p1": [
+        "volume and indicator panes",
+        "crosshair",
+        "events and drawing",
+        "comparison and log price"
+      ],
+      "p2": ["stream grouping and history", "orders", "multiple price scales"],
+      "dependencies": ["transform-dataflow", "composition-resolve", "incremental-worker-binary"]
+    },
+    {
+      "id": "combination",
+      "coordinate": "composite",
+      "status": "partial",
+      "supported": [
+        "flat portable layers",
+        "z-index",
+        "independent x/x2/y/y2 domains",
+        "closed Canvas layer/facet/repeat/concat/inset composition",
+        "compatible shared primary x/y domains and independent child axes/legends",
+        "scoped multi-view semantics and lineage",
+        "Pareto preset"
+      ],
+      "p0": [
+        "named axes",
+        "shared multi-view axes/legends/colorbars",
+        "linked view state",
+        "layer transforms",
+        "layer clipping"
+      ],
+      "p1": [
+        "linked overview and detail",
+        "linked selections",
+        "shared tooltip and crosshair",
+        "mixed stacks",
+        "facet pagination and virtualization"
+      ],
+      "p2": ["per-layer renderer", "dashboard actions", "streaming and Spatial composition"],
+      "dependencies": [
+        "composition-resolve",
+        "transform-dataflow",
+        "encoding-scale-registry",
+        "analytic-interaction"
+      ]
+    },
+    {
+      "id": "difference",
+      "coordinate": "cartesian",
+      "status": "partial",
+      "supported": ["row old/new bars", "delta connector"],
+      "p0": [
+        "series alignment",
+        "baseline comparison",
+        "absolute/relative/percent policy",
+        "crossing interpolation"
+      ],
+      "p1": [
+        "area/line/bar difference",
+        "crossing labels",
+        "comparison tooltip",
+        "threshold and uncertainty"
+      ],
+      "p2": ["significance and confidence interval", "baseline animation"],
+      "dependencies": ["transform-dataflow"]
+    },
+    {
+      "id": "pie",
+      "coordinate": "radial",
+      "status": "partial",
+      "supported": [
+        "pie and donut",
+        "start angle and direction",
+        "inner radius",
+        "center label/value",
+        "leader labels",
+        "variable-radius pie"
+      ],
+      "p0": [
+        "dense label solver",
+        "zero and negative policy",
+        "minimum slice, sorting and padding",
+        "keyboard slice traversal"
+      ],
+      "p1": ["partial arc", "explode and drill", "multi-ring"],
+      "p2": ["automatic accessible alternate recommendation"],
+      "dependencies": [
+        "label-layout-authoring",
+        "semantic-index-accessibility",
+        "analytic-interaction"
+      ]
+    },
+    {
+      "id": "timeline",
+      "coordinate": "time-range",
+      "status": "partial",
+      "supported": ["interval and x-range", "Gantt", "progress bars", "basic dependencies"],
+      "p0": ["lane packing and grouping", "milestones", "clipping and duration", "navigator"],
+      "p1": [
+        "editable Gantt",
+        "baseline and working calendar",
+        "collapse and resources",
+        "critical path",
+        "state/status modes"
+      ],
+      "p2": ["trace and active-at-time", "twisted timelines", "incident/deployment semantics"],
+      "dependencies": [
+        "transform-dataflow",
+        "analytic-interaction",
+        "composition-resolve",
+        "semantic-index-accessibility"
+      ]
+    },
+    {
+      "id": "gauge",
+      "coordinate": "radial-or-linear",
+      "status": "partial",
+      "supported": [
+        "radial arc",
+        "needle and bar",
+        "number and delta",
+        "linear bullet target",
+        "solid gauge",
+        "multiple rows"
+      ],
+      "p0": ["threshold bands", "custom ticks", "exact accessible value summary"],
+      "p1": ["segmented gauge", "multiple needles", "editable target", "value transition"],
+      "p2": ["thermometer/liquid/tank/LED", "clustered KPI fallback"],
+      "dependencies": ["label-layout-authoring", "semantic-index-accessibility"]
+    },
+    {
+      "id": "map",
+      "coordinate": "geographic-and-globe",
+      "status": "partial",
+      "supported": [
+        "embedded Natural Earth basemap",
+        "point/region/choropleth/route/heat halo",
+        "optional graticule",
+        "bounded equirectangular viewport and coordinate validation",
+        "embedded Natural Earth attribution toggle",
+        "globe great-circle routes",
+        "back-face occlusion and orbit"
+      ],
+      "p0": [
+        "source/layer/projection lifecycle",
+        "GeoJSON and TopoJSON",
+        "general fit and clip policy",
+        "flat geodesics",
+        "provider-backed tile lifecycle, cache and attribution"
+      ],
+      "p1": [
+        "raster/vector tiles and WMS",
+        "cluster and spatial bins",
+        "cartogram",
+        "classification",
+        "draw/edit/measure",
+        "camera state"
+      ],
+      "p2": ["terrain/hillshade/extrusion/trips", "3D Tiles and glTF", "worker LOD"],
+      "dependencies": [
+        "analytic-interaction",
+        "incremental-worker-binary",
+        "encoding-scale-registry"
+      ]
+    },
+    {
+      "id": "distribution",
+      "coordinate": "statistical",
+      "status": "partial",
+      "supported": [
+        "weighted count/probability/density and cumulative histograms",
+        "raw weighted Gaussian KDE with robust bandwidth",
+        "weighted ECDF and CCDF",
+        "raw Type-7 box quartiles, 1.5-IQR whiskers and outliers",
+        "raw KDE violin",
+        "precomputed box",
+        "normal density curve",
+        "2D histogram",
+        "grid contour"
+      ],
+      "p0": ["shared bins", "notched and weighted box summaries", "rug and strip"],
+      "p1": [
+        "swarm/beeswarm",
+        "raincloud/ridgeline/bean",
+        "boxen/quantile-dot/split violin",
+        "hexbin and marginals"
+      ],
+      "p2": ["bootstrap and HDI", "censoring and confidence", "aggregate raster"],
+      "dependencies": ["transform-dataflow", "composition-resolve", "incremental-worker-binary"]
+    },
+    {
+      "id": "interval",
+      "coordinate": "cartesian",
+      "status": "partial",
+      "supported": [
+        "precomputed vertical interval",
+        "area and spline range",
+        "column range",
+        "dumbbell"
+      ],
+      "p0": ["raw estimator", "CI/PI/SE/SD/IQR/HDI", "horizontal errors", "provenance"],
+      "p1": ["forest and caterpillar", "nested intervals", "fan and bootstrap"],
+      "p2": ["custom estimators", "cluster bootstrap", "weights and deterministic seed"],
+      "dependencies": ["transform-dataflow", "composition-resolve"]
+    },
+    {
+      "id": "line",
+      "coordinate": "cartesian",
+      "status": "partial",
+      "supported": [
+        "shared linear, step-before/after/center, monotone, natural, basis and cardinal curve registry",
+        "gap, zero and connect missing-value policies",
+        "linear trendline",
+        "min-max sampling",
+        "appendData",
+        "per-observation semantic and datum hit targets"
+      ],
+      "p0": [
+        "duplicate and implicit sort policy",
+        "data-domain navigation",
+        "named transform DAG reuse",
+        "worker-bounded streaming retention"
+      ],
+      "p1": [
+        "rolling/cumulative",
+        "LOESS/GAM",
+        "fan/bump/slope/stem/event",
+        "threshold and indexed comparison"
+      ],
+      "p2": ["bounded streaming and resampling", "LTTB/M4", "per-segment styles", "direct labels"],
+      "dependencies": [
+        "transform-dataflow",
+        "encoding-scale-registry",
+        "analytic-interaction",
+        "incremental-worker-binary",
+        "label-layout-authoring"
+      ]
+    },
+    {
+      "id": "motion",
+      "coordinate": "animated",
+      "status": "partial",
+      "supported": [
+        "stable keys",
+        "frame/cumulative/window playback",
+        "enter/update/exit transitions",
+        "geometry and color tween",
+        "seek/scrubber/step/rate/loop",
+        "reduced motion"
+      ],
+      "p0": ["reverse playback", "loop subranges", "named frames"],
+      "p1": ["trails", "richer easing", "axis tween", "race labels and count-up", "prefetch"],
+      "p2": ["layout morph", "narrative bookmarks and tours", "recorded export"],
+      "dependencies": ["incremental-worker-binary", "composition-resolve"]
+    },
+    {
+      "id": "hierarchy",
+      "coordinate": "hierarchical",
+      "status": "partial",
+      "supported": ["treemap", "nested icicle", "tree and organization", "sunburst"],
+      "p0": [
+        "circle pack",
+        "dendrogram and radial tree",
+        "collapse/re-root/zoom",
+        "breadcrumbs and search"
+      ],
+      "p1": [
+        "tiler registry and resquarify",
+        "Voronoi/indented/mindmap/fishbone/decomposition",
+        "flame and diff flame",
+        "lazy loading and crosslinks"
+      ],
+      "p2": ["worker LOD", "semantic depth", "phylogenetic tracks"],
+      "dependencies": [
+        "analytic-interaction",
+        "label-layout-authoring",
+        "incremental-worker-binary"
+      ]
+    },
+    {
+      "id": "flow",
+      "coordinate": "flow",
+      "status": "partial",
+      "supported": ["two-column weighted Sankey", "interactive links"],
+      "p0": [
+        "multi-stage graph model",
+        "alignment/order/sort/iterations",
+        "cycles and balance validation",
+        "node drag and path traversal"
+      ],
+      "p1": [
+        "circular/alluvial/vertical/bidirectional",
+        "parallel sets",
+        "gradient and percent",
+        "drill"
+      ],
+      "p2": ["map-Sankey", "warnings", "particles and bundling"],
+      "dependencies": ["transform-dataflow", "label-layout-authoring", "analytic-interaction"]
+    },
+    {
+      "id": "scatter",
+      "coordinate": "cartesian",
+      "status": "partial",
+      "supported": [
+        "point mark",
+        "effect scatter",
+        "portable 2D depth-cue scatter3d",
+        "performance sampling"
+      ],
+      "p0": [
+        "color/radius/shape/opacity encodings",
+        "brush/lasso/polygon selection",
+        "data-domain navigation",
+        "spatial index and WebGL dispatch"
+      ],
+      "p1": [
+        "jitter",
+        "regression and density overlays",
+        "hexbin",
+        "marginal joint plot",
+        "ellipse/hull/Voronoi"
+      ],
+      "p2": ["biplot", "multi-brush", "million-point aggregation and GPU picking"],
+      "dependencies": [
+        "encoding-scale-registry",
+        "analytic-interaction",
+        "transform-dataflow",
+        "incremental-worker-binary"
+      ]
+    },
+    {
+      "id": "table",
+      "coordinate": "tabular",
+      "status": "partial",
+      "supported": [
+        "Canvas header and cells",
+        "column and row height options",
+        "exact cell hit",
+        "bounded native semantic HTML mirror",
+        "roving keyboard navigation with focus, tooltip and selection synchronization"
+      ],
+      "p0": [
+        "interactive sort/filter/group/pivot controls",
+        "virtualization and frozen regions",
+        "cell-level keyboard grid navigation",
+        "formatter registry"
+      ],
+      "p1": ["conditional formatting", "in-cell charts", "tree/subtotal/link/paging"],
+      "p2": ["editing and validation", "reorder/resize", "CSV/JSON/XLSX export"],
+      "dependencies": [
+        "semantic-index-accessibility",
+        "analytic-interaction",
+        "incremental-worker-binary"
+      ]
+    },
+    {
+      "id": "waterfall",
+      "coordinate": "cartesian",
+      "status": "partial",
+      "supported": ["running sum", "connectors", "positive and negative styling"],
+      "p0": ["explicit relative/absolute/subtotal/total semantics"],
+      "p1": ["horizontal and stacked/grouped", "intermediate sums", "labels and drill"],
+      "p2": ["scenario and uncertainty", "interactive subtotal"],
+      "dependencies": ["transform-dataflow", "encoding-scale-registry"]
+    },
+    {
+      "id": "word-tree",
+      "coordinate": "hierarchical-text",
+      "status": "partial",
+      "supported": ["prestructured phrase hierarchy", "weighted labels and links"],
+      "p0": [
+        "tokenization/case/stopword/stemming",
+        "prefix/suffix/reverse",
+        "phrase aggregation and pruning"
+      ],
+      "p1": ["search/collapse/reroot", "context window", "label collision"],
+      "p2": ["n-grams", "multilingual and RTL segmentation", "large-corpus concordance"],
+      "dependencies": ["transform-dataflow", "label-layout-authoring", "incremental-worker-binary"]
+    },
+    {
+      "id": "polar",
+      "coordinate": "polar",
+      "status": "partial",
+      "supported": [
+        "radar",
+        "line/scatter/bar and area",
+        "degrees or radians",
+        "categorical spokes"
+      ],
+      "p0": [
+        "configurable zero/direction/wrap",
+        "log/sqrt radius",
+        "angular bins",
+        "stacked and normalized radial bars"
+      ],
+      "p1": [
+        "rose and wind rose",
+        "circular histogram/density",
+        "radial range/heatmap",
+        "partial arc and brush"
+      ],
+      "p2": ["hodograph", "irregular bins", "facets and dense labels"],
+      "dependencies": [
+        "transform-dataflow",
+        "encoding-scale-registry",
+        "analytic-interaction",
+        "label-layout-authoring"
+      ]
+    },
+    {
+      "id": "network",
+      "coordinate": "graph",
+      "status": "partial",
+      "supported": [
+        "stable node/source/target IDs",
+        "circular node-link",
+        "arc diagram",
+        "connection arrows",
+        "tree preset"
+      ],
+      "p0": [
+        "directed/multiedge/self-loop/compound/port model",
+        "force/radial/grid/DAG layouts",
+        "drag/pin/collapse/lasso",
+        "edge routing"
+      ],
+      "p1": [
+        "worker layouts",
+        "groups/hulls/minimap/editor",
+        "path/centrality/community algorithms"
+      ],
+      "p2": ["hybrid/GPU renderer", "semantic zoom", "label LOD"],
+      "dependencies": [
+        "analytic-interaction",
+        "incremental-worker-binary",
+        "label-layout-authoring"
+      ]
+    },
+    {
+      "id": "chord",
+      "coordinate": "radial-graph",
+      "status": "partial",
+      "supported": ["weighted group arcs", "ribbon-like center links", "dependency-wheel alias"],
+      "p0": [
+        "matrix transform",
+        "subgroups and sorting",
+        "padding",
+        "directed asymmetry and self-loop semantics"
+      ],
+      "p1": ["non-ribbon", "focus/rotate/reorder", "path and gradient", "drill"],
+      "p2": ["hierarchical/edge-bundled", "dense thresholds", "label solver"],
+      "dependencies": ["transform-dataflow", "label-layout-authoring", "analytic-interaction"]
+    },
+    {
+      "id": "funnel",
+      "coordinate": "stage",
+      "status": "partial",
+      "supported": [
+        "length funnel",
+        "area-proportional funnel",
+        "pyramid and depth-styled variants",
+        "sorting and value labels"
+      ],
+      "p0": [
+        "conversion/dropoff/cumulative semantics",
+        "neck configuration",
+        "outside label solver"
+      ],
+      "p1": ["segmented/stacked/paired/horizontal", "drill and explode"],
+      "p2": ["time and facets", "hooks and editable ordering", "rate uncertainty"],
+      "dependencies": ["transform-dataflow", "label-layout-authoring", "composition-resolve"]
+    },
+    {
+      "id": "parallel",
+      "coordinate": "parallel",
+      "status": "partial",
+      "supported": [
+        "numeric and ordinal normalization",
+        "category/group color",
+        "aggregated categorical ribbons"
+      ],
+      "p0": [
+        "log scale",
+        "missing routing",
+        "axis reorder/invert",
+        "per-axis brush and linked filter"
+      ],
+      "p1": ["smooth and bundled lines", "density and context rendering"],
+      "p2": ["WebGL sampling", "axis search", "projection assistance"],
+      "dependencies": [
+        "encoding-scale-registry",
+        "analytic-interaction",
+        "semantic-index-accessibility"
+      ]
+    },
+    {
+      "id": "heatmap",
+      "coordinate": "matrix",
+      "status": "partial",
+      "supported": [
+        "long-form rectangular cells",
+        "band and numeric positions",
+        "continuous palette and legend",
+        "automatic value labels",
+        "tile-map shapes"
+      ],
+      "p0": [
+        "pivot/matrix input",
+        "irregular extents",
+        "explicit missing-value pattern",
+        "diverging/log/symlog/quantile color",
+        "brush"
+      ],
+      "p1": [
+        "clustergram and dendrogram",
+        "correlation triangle",
+        "sparse/adjacency/oncoPrint",
+        "annotation tracks"
+      ],
+      "p2": ["tile pyramid and WebGL", "sparse storage", "multiresolution clustering"],
+      "dependencies": [
+        "transform-dataflow",
+        "encoding-scale-registry",
+        "analytic-interaction",
+        "incremental-worker-binary"
+      ]
+    },
+    {
+      "id": "image",
+      "coordinate": "raster",
+      "status": "partial",
+      "supported": [
+        "row RGB/RGBA or explicit color pixels",
+        "numeric and band coordinates",
+        "exact pixel hit",
+        "RGBA channel composition"
+      ],
+      "p0": ["extent and origin", "resampling", "colormap and window mapping"],
+      "p1": ["window-level", "mask and blend", "ROI and linked pixel profile"],
+      "p2": ["tile streaming", "GPU multichannel", "arbitrary slices"],
+      "dependencies": [
+        "encoding-scale-registry",
+        "analytic-interaction",
+        "composition-resolve",
+        "incremental-worker-binary"
+      ]
+    },
+    {
+      "id": "ternary",
+      "coordinate": "ternary",
+      "status": "partial",
+      "supported": [
+        "nonnegative component normalization",
+        "barycentric mapping",
+        "grid and labels",
+        "scatter and line/closed path"
+      ],
+      "p0": [
+        "constant-sum validation policy",
+        "raw and normalized tooltip",
+        "component ticks and formatting"
+      ],
+      "p1": ["area/regions", "contour and density heatmap", "tie lines", "hull and brush"],
+      "p2": ["uncertainty", "compositional transforms", "linked Cartesian and facets"],
+      "dependencies": [
+        "transform-dataflow",
+        "encoding-scale-registry",
+        "analytic-interaction",
+        "composition-resolve"
+      ]
+    },
+    {
+      "id": "smith",
+      "coordinate": "smith",
+      "status": "partial",
+      "supported": [
+        "normalized impedance to reflection transform",
+        "resistance/reactance grid",
+        "line and scatter",
+        "multiple series"
+      ],
+      "p0": [
+        "impedance/admittance/combined modes",
+        "reference impedance",
+        "S/Z/Y/reflection inputs",
+        "specialized labels and tooltip"
+      ],
+      "p1": ["VSWR/Q/gain/stability/noise overlays", "frequency color and markers"],
+      "p2": ["navigator", "linked magnitude-phase", "overlay registry", "print grid"],
+      "dependencies": ["encoding-scale-registry", "composition-resolve", "analytic-interaction"]
+    },
+    {
+      "id": "scatter-matrix",
+      "coordinate": "matrix",
+      "status": "partial",
+      "supported": [
+        "up to eight dimensions",
+        "explicit dimension order",
+        "diagonal histogram",
+        "off-diagonal scatter",
+        "shared category color"
+      ],
+      "p0": ["selectable diagonal KDE/ECDF", "upper/lower mark selection", "linked brush"],
+      "p1": [
+        "hexbin/correlation/regression/ellipse",
+        "corner mode",
+        "log scales and missing counts"
+      ],
+      "p2": ["pagination and cell virtualization", "large-data aggregation", "summary table"],
+      "dependencies": [
+        "composition-resolve",
+        "analytic-interaction",
+        "transform-dataflow",
+        "incremental-worker-binary",
+        "semantic-index-accessibility"
+      ]
+    },
+    {
+      "id": "carpet",
+      "coordinate": "warped-grid",
+      "status": "partial",
+      "supported": [
+        "explicit logical and projected coordinates",
+        "irregular/missing grids",
+        "base/scatter/contour modes"
+      ],
+      "p0": ["logical axis ticks and labels", "mask policy", "dual projected tooltip"],
+      "p1": ["line/vector/filled contour/heatmap", "multiple carpets", "cheater plot"],
+      "p2": ["probe and domain navigation", "grid diagnostics", "high-resolution contour"],
+      "dependencies": ["encoding-scale-registry", "analytic-interaction", "transform-dataflow"]
+    },
+    {
+      "id": "contour",
+      "coordinate": "field",
+      "status": "partial",
+      "supported": [
+        "deterministic regular-grid marching-squares isolines",
+        "explicit, linear and Type-7 quantile thresholds",
+        "threshold-relative asymptotic saddle decider with explicit high/low policies",
+        "null-cell holes and bounded extraction",
+        "shared canonical, bivariate and carpet extractor",
+        "optional threshold-colored cells"
+      ],
+      "p0": [
+        "filled and banded contours with polygon-hole topology",
+        "triangulated irregular samples",
+        "smoothing"
+      ],
+      "p1": ["contour labels", "general KDE overlay", "3D contour projection"],
+      "p2": ["GPU extraction", "progressive topology hit", "level animation"],
+      "dependencies": ["transform-dataflow", "incremental-worker-binary"]
+    },
+    {
+      "id": "item",
+      "coordinate": "unit-grid",
+      "status": "partial",
+      "supported": [
+        "fixed waffle-like grid",
+        "proportional unit assignment",
+        "per-unit hit and selection"
+      ],
+      "p0": [
+        "explicit waffle/isotype contract",
+        "partial units",
+        "fill direction and grouping",
+        "accessible counts"
+      ],
+      "p1": ["custom paths", "category focus", "dot and grid variants"],
+      "p2": ["aggregate and SVG patterns", "responsive recompute", "animation"],
+      "dependencies": [
+        "semantic-index-accessibility",
+        "analytic-interaction",
+        "label-layout-authoring"
+      ]
+    },
+    {
+      "id": "vector-field",
+      "coordinate": "field",
+      "status": "partial",
+      "supported": ["direction and magnitude arrows", "wind barbs", "magnitude size and width"],
+      "p0": [
+        "vector-to-magnitude transform",
+        "normalization and sampled grid",
+        "streamline seeding/integration"
+      ],
+      "p1": ["scalar background", "divergence and curl", "LIC and particles", "probe"],
+      "p2": ["GPU particles and LIC", "adaptive integration", "LOD"],
+      "dependencies": ["transform-dataflow", "analytic-interaction", "incremental-worker-binary"]
+    },
+    {
+      "id": "venn",
+      "coordinate": "set",
+      "status": "partial",
+      "supported": ["up to six deterministic circles", "size-derived radius", "set hit targets"],
+      "p0": [
+        "membership and intersection input",
+        "proportional two/three-set solve",
+        "quality metric and queries",
+        "region hit"
+      ],
+      "p1": [
+        "Set analysis naming with Venn alias",
+        "UpSet matrix/bars/degree/filter",
+        "linked attribute plots"
+      ],
+      "p2": ["nested sets", "linked distributions", "bitsets and worker"],
+      "dependencies": [
+        "transform-dataflow",
+        "label-layout-authoring",
+        "analytic-interaction",
+        "incremental-worker-binary"
+      ]
+    },
+    {
+      "id": "word-cloud",
+      "coordinate": "text-layout",
+      "status": "partial",
+      "supported": [
+        "weight scale",
+        "bounded spiral",
+        "iterative bounding-box collision search",
+        "fixed rotation set",
+        "exact word hit"
+      ],
+      "p0": ["tokenizer/stopword/n-gram", "deterministic seed", "padding and allowed-rotation API"],
+      "p1": ["spiral selection", "mask and shape", "search", "stable responsive layout"],
+      "p2": ["worker and incremental layout", "pruning", "multilingual segmentation"],
+      "dependencies": ["transform-dataflow", "label-layout-authoring", "incremental-worker-binary"]
+    },
+    {
+      "id": "price-blocks",
+      "coordinate": "financial",
+      "status": "partial",
+      "supported": ["Renko", "Point and Figure", "fixed brick/box", "partial provenance tooltip"],
+      "p0": [
+        "Kagi",
+        "three-line break",
+        "range bars",
+        "percent/ATR/log sizing",
+        "OHLC-source provenance"
+      ],
+      "p1": ["navigator and volume", "annotations", "time-independent timestamp mapping"],
+      "p2": ["incremental construction and replay", "adjusted source", "GPU"],
+      "dependencies": ["transform-dataflow", "incremental-worker-binary"]
+    },
+    {
+      "id": "volume-profile",
+      "coordinate": "financial",
+      "status": "partial",
+      "supported": [
+        "whole-input price-bin aggregation",
+        "volume/proportion tooltip",
+        "right placement"
+      ],
+      "p0": ["fixed/visible/session/periodic scope", "row size", "POC/VAH/VAL", "left placement"],
+      "p1": ["up/down and delta", "visible recompute", "developing POC and session overlay"],
+      "p2": ["TPO and footprint", "imbalance and single print", "initial balance and bid/ask"],
+      "dependencies": ["transform-dataflow", "analytic-interaction", "incremental-worker-binary"]
+    },
+    {
+      "id": "technical-indicator",
+      "coordinate": "financial",
+      "status": "partial",
+      "supported": [
+        "47 public indicator names",
+        "17 registry-audited calculated indicators and 28 explicit precomputed-only presets",
+        "parameter schemas, dependency DAGs, formula provenance and null warm-up rows for calculated indicators",
+        "band/line/column rendering",
+        "supplied-column fallback"
+      ],
+      "p0": [
+        "calculation coverage for the 28 precomputed-only presets",
+        "session-aware warm-up policy",
+        "indicator panes and synchronized crosshair",
+        "worker-bounded incremental calculation"
+      ],
+      "p1": ["composition and signals", "custom registry", "panel state"],
+      "p2": ["streaming worker/WASM", "replay/backfill", "diagnostics"],
+      "dependencies": ["transform-dataflow", "composition-resolve", "incremental-worker-binary"]
+    },
+    {
+      "id": "surface",
+      "coordinate": "spatial",
+      "status": "partial",
+      "supported": [
+        "WebGL regular grid and indexed mesh",
+        "theme colormap",
+        "generated or supplied normals",
+        "filled or wireframe",
+        "lighting and vertex picking"
+      ],
+      "p0": ["flat/smooth normal mode", "filled plus wire overlay", "contour projection"],
+      "p1": [
+        "texture/material/transparency",
+        "clipping and cross-section",
+        "camera animation",
+        "axis gizmo"
+      ],
+      "p2": ["import/export", "decimation and LOD", "streaming and WebGPU memory budget"],
+      "dependencies": ["incremental-worker-binary"]
+    },
+    {
+      "id": "volume",
+      "coordinate": "spatial",
+      "status": "partial",
+      "supported": [
+        "bounded voxel point sampling",
+        "color ramp",
+        "marching-tetrahedra isosurface",
+        "multiple isosurface layers"
+      ],
+      "p0": [
+        "transfer functions",
+        "raycast/MIP/minIP/average",
+        "orthogonal and oblique slices",
+        "caps and window-level"
+      ],
+      "p1": [
+        "gradient lighting",
+        "clipping and segmentation",
+        "orthogonal panels",
+        "volume ray picking"
+      ],
+      "p2": ["empty-space skipping", "bricking/compression", "streaming and WebGPU memory"],
+      "dependencies": ["incremental-worker-binary"]
+    },
+    {
+      "id": "spatial-vector",
+      "coordinate": "spatial",
+      "status": "partial",
+      "supported": [
+        "cone",
+        "provided-path streamtube",
+        "spatial scatter",
+        "magnitude-derived geometry/color",
+        "radius/scale/segments",
+        "camera and depth picking"
+      ],
+      "p0": ["seeded adaptive field integration"],
+      "p1": [
+        "computed streamlines",
+        "particles",
+        "scalar slices",
+        "interactive seeds",
+        "uncertainty"
+      ],
+      "p2": [
+        "GPU integration",
+        "order-independent transparency",
+        "octree tours",
+        "multiview clipping"
+      ],
+      "dependencies": ["incremental-worker-binary", "analytic-interaction"]
+    }
+  ],
+  "candidates": [
+    {
+      "id": "set-analysis",
+      "kind": "canonical-evolution",
+      "status": "planned",
+      "host": "venn",
+      "contract": [
+        "element-set membership",
+        "intersection cardinality and degree",
+        "query",
+        "UpSet mode"
+      ]
+    },
+    {
+      "id": "proximity-tessellation",
+      "kind": "canonical-proof",
+      "status": "research",
+      "contract": ["points to Delaunay edges", "Voronoi cells", "convex hull", "neighbor query"]
+    },
+    {
+      "id": "mosaic-contingency",
+      "kind": "canonical-proof",
+      "status": "research",
+      "host": "bar",
+      "contract": [
+        "contingency pivot",
+        "recursive area partition",
+        "residual and association color"
+      ]
+    },
+    {
+      "id": "statistical-diagnostic",
+      "kind": "optional-analytics",
+      "status": "research",
+      "contract": [
+        "QQ/PP",
+        "residual diagnostics",
+        "scale-location and leverage",
+        "Bland-Altman",
+        "ACF/PACF"
+      ]
+    },
+    {
+      "id": "model-evaluation",
+      "kind": "optional-analytics",
+      "status": "research",
+      "contract": [
+        "ROC/PR/DET",
+        "calibration",
+        "lift/gain",
+        "learning/validation curves",
+        "AUC/AP provenance"
+      ]
+    },
+    {
+      "id": "survival",
+      "kind": "optional-analytics",
+      "status": "research",
+      "contract": [
+        "Kaplan-Meier",
+        "hazard and competing risk",
+        "censor and confidence intervals",
+        "at-risk table"
+      ]
+    },
+    {
+      "id": "signal",
+      "kind": "optional-scientific",
+      "status": "research",
+      "contract": [
+        "waveform",
+        "PSD/spectrum/coherence",
+        "spectrogram/scalogram",
+        "ACF/CCF",
+        "window and sample-rate provenance"
+      ]
+    },
+    {
+      "id": "model-explanation",
+      "kind": "optional-analytics",
+      "status": "research",
+      "contract": ["attribution and baseline", "beeswarm and dependence", "segments", "uncertainty"]
+    },
+    {
+      "id": "statistical-process-control",
+      "kind": "domain-package",
+      "status": "research",
+      "contract": ["Shewhart", "CUSUM/EWMA", "capability", "rule provenance"]
+    },
+    {
+      "id": "project-network",
+      "kind": "recipe-first",
+      "status": "research",
+      "host": "timeline",
+      "contract": ["three-point duration", "earliest/latest", "slack", "critical path"]
+    },
+    {
+      "id": "control-system",
+      "kind": "domain-package",
+      "status": "research",
+      "contract": ["Bode/Nyquist/Nichols", "root locus", "pole-zero", "step/impulse response"]
+    },
+    {
+      "id": "genome-track",
+      "kind": "domain-package",
+      "status": "research",
+      "contract": [
+        "aligned genomic coordinates",
+        "ideogram/gene/coverage/variant tracks",
+        "semantic zoom",
+        "packed/dense display"
+      ]
+    },
+    {
+      "id": "atmospheric-sounding",
+      "kind": "domain-package",
+      "status": "research",
+      "contract": ["Skew-T/log-P and tephigram", "parcel", "CAPE/CIN"]
+    },
+    {
+      "id": "market-microstructure",
+      "kind": "domain-package",
+      "status": "research",
+      "host": "volume-profile",
+      "contract": ["order-book depth", "footprint and TPO", "imbalance ladder"]
+    },
+    {
+      "id": "profile-flame",
+      "kind": "family-mode",
+      "status": "research",
+      "host": "hierarchy",
+      "contract": ["self/total", "diff", "focus and sandwich", "top table"]
+    },
+    {
+      "id": "trace",
+      "kind": "family-mode",
+      "status": "research",
+      "host": "timeline",
+      "contract": ["nested spans", "service lanes", "critical path", "logs/events"]
+    }
+  ],
+  "capabilityProfiles": [
+    { "id": "print", "status": "research" },
+    { "id": "dashboard", "status": "research" },
+    { "id": "realtime", "status": "partial" },
+    { "id": "dense-data", "status": "partial" },
+    { "id": "accessible", "status": "partial" },
+    { "id": "geo", "status": "partial" },
+    { "id": "spatial", "status": "partial" }
+  ],
+  "principles": [
+    "Theme controls visual tokens and defaults, never family semantics or renderer availability.",
+    "Capability profiles describe renderer, interaction, accessibility and data behavior.",
+    "Family modes and recipes own data meaning, transforms and layout.",
+    "Aliases converge on one canonical implementation and never create a second renderer path.",
+    "Unavailable capabilities produce an explicit error, warning or documented fallback instead of a silent semantic downgrade.",
+    "A planned or research contract is never described as current runtime support."
+  ],
+  "crossCuttingContracts": [
+    {
+      "id": "encoding-channels",
+      "status": "partial",
+      "items": [
+        "x",
+        "x2",
+        "y",
+        "y2",
+        "color",
+        "fill",
+        "stroke",
+        "size",
+        "radius",
+        "shape",
+        "symbol",
+        "icon",
+        "opacity",
+        "strokeWidth",
+        "strokeDash",
+        "text",
+        "angle",
+        "theta",
+        "longitude",
+        "latitude",
+        "order",
+        "detail",
+        "tooltip",
+        "conditional encoding"
+      ]
+    },
+    {
+      "id": "scale-registry",
+      "status": "partial",
+      "items": [
+        "linear",
+        "log",
+        "symlog",
+        "asinh",
+        "pow",
+        "sqrt",
+        "time",
+        "UTC",
+        "trading-time",
+        "band",
+        "point",
+        "ordinal",
+        "quantile",
+        "quantize",
+        "threshold",
+        "sequential",
+        "diverging",
+        "cyclical",
+        "probability",
+        "logit",
+        "probit",
+        "reverse",
+        "clamp",
+        "OOB clip/censor/squish",
+        "shared and independent domain",
+        "invertible secondary axis"
+      ]
+    },
+    {
+      "id": "composition",
+      "status": "partial",
+      "items": [
+        "supported: shared layer over the legacy flat compiler",
+        "supported: observed row/column and wrap facet",
+        "supported: explicit x/y repeat items",
+        "supported: horizontal, vertical and wrapped concat",
+        "supported: nested bounded Canvas grid",
+        "supported: plot-relative independent inset",
+        "supported: independent child scale/axis/legend",
+        "supported: compatible primary x/y shared-domain resolve",
+        "planned: shared multi-view axes, legends and colorbars",
+        "planned: linked view state and per-view interaction",
+        "planned: facet pagination and virtualization",
+        "planned: streaming and Spatial/WebGL composition"
+      ]
+    },
+    {
+      "id": "linked-interaction",
+      "status": "planned",
+      "items": [
+        "point",
+        "nearest",
+        "interval",
+        "axis brush",
+        "rectangle",
+        "lasso",
+        "polygon",
+        "union",
+        "intersection",
+        "toggle",
+        "cross-highlight",
+        "cross-filter",
+        "synchronized domain",
+        "synchronized crosshair",
+        "shared selection store",
+        "drill down/up/through",
+        "history/undo/reset",
+        "legend filtering",
+        "state serialization/restoration"
+      ]
+    },
+    {
+      "id": "labels-and-authoring",
+      "status": "partial",
+      "items": [
+        "overlap solving",
+        "direct endpoint labels",
+        "inside/outside selection",
+        "leader routing",
+        "wrap/truncate/fit/ellipsis",
+        "priority/hide policy",
+        "CJK/RTL/vertical text",
+        "stable updates",
+        "point/x-line/y-line/x-range/y-range",
+        "text/image/arrow/channel/freehand/measure",
+        "create/edit/delete",
+        "drag/resize",
+        "data snapping",
+        "undo/redo",
+        "persistence",
+        "subplot-spanning geometry",
+        "export inclusion"
+      ]
+    },
+    {
+      "id": "renderer-matrix",
+      "status": "partial",
+      "items": [
+        "SVG document and DOM accessibility",
+        "Canvas2D dirty regions/cached paths/spatial index",
+        "WebGL2 typed buffers/GPU picking/LOD",
+        "WebGPU compute and 3D",
+        "WebGL2 fallback",
+        "context recovery"
+      ]
+    },
+    {
+      "id": "streaming",
+      "status": "partial",
+      "items": [
+        "supported: whole-snapshot replace",
+        "supported: copy-compatible append",
+        "supported: stable-key upsert",
+        "supported: stable-key replaceLast",
+        "supported: bounded count and event-time retention",
+        "supported: monotonic event-time watermarks",
+        "supported: reject/drop/accept late-data policy",
+        "supported: reject-only bounded backpressure",
+        "supported: bounded exact replay until truncation",
+        "supported: stale worker response prevention by request id",
+        "supported: typed columns",
+        "supported: opt-in transferable typed-column TransformSpec worker adapter",
+        "planned: explicit dropBefore",
+        "planned: ring-buffer storage",
+        "planned: RAF coalescing",
+        "planned: pause/follow-live",
+        "planned: lazy history and cancellable query",
+        "planned: worker-owned chart rendering and incremental transform recomputation",
+        "planned: Arrow/WASM binary ingestion and output"
+      ]
+    },
+    {
+      "id": "accessibility",
+      "status": "partial",
+      "items": [
+        "roving mark navigation",
+        "Arrow/Home/End/Page",
+        "series/x/y/value/index/selection announcement",
+        "keyboard alternatives for brush/zoom/legend/drag",
+        "visible focus ring",
+        "minimum target size",
+        "persistent dismissible tooltip",
+        "shape/dash/texture/decal redundancy",
+        "high contrast",
+        "forced colors",
+        "semantic HTML table/list",
+        "author summary",
+        "throttled live updates",
+        "reduced motion",
+        "pause/stop",
+        "locale/RTL/CJK"
+      ]
+    },
+    {
+      "id": "export",
+      "status": "partial",
+      "items": [
+        "SVG",
+        "high-DPI PNG/JPEG/WebP",
+        "PDF/print",
+        "clipboard",
+        "CSV/JSON/Arrow",
+        "selection/filter/domain Scene and Spec snapshot",
+        "deterministic font/locale headless rendering"
+      ]
+    }
+  ],
+  "modeBacklog": {
+    "area": [
+      "grouped",
+      "stacked",
+      "100-percent",
+      "diverging",
+      "streamgraph",
+      "horizon",
+      "bump",
+      "area-bump",
+      "range",
+      "confidence-band",
+      "fan",
+      "step",
+      "radial"
+    ],
+    "bar": [
+      "grouped",
+      "stacked",
+      "100-percent",
+      "diverging",
+      "butterfly",
+      "population-pyramid",
+      "tornado",
+      "floating/range",
+      "nested-dodge",
+      "race",
+      "weighted-count",
+      "lollipop/stick"
+    ],
+    "distribution": [
+      "rug",
+      "strip",
+      "swarm/beeswarm",
+      "raincloud",
+      "ridgeline",
+      "bean",
+      "boxen/letter-value",
+      "quantile-dot",
+      "half-eye",
+      "split-violin",
+      "marginals",
+      "hexbin"
+    ],
+    "interval": [
+      "error-bars",
+      "error-band",
+      "forest",
+      "caterpillar",
+      "lineribbon",
+      "nested",
+      "prediction",
+      "floating-range",
+      "connected"
+    ],
+    "line": [
+      "step-pre/mid/post",
+      "monotone/natural/basis/cardinal",
+      "stem",
+      "stairs",
+      "event/raster",
+      "slopegraph",
+      "bump/rank",
+      "rolling",
+      "regression/LOESS/GAM",
+      "forecast-fan",
+      "threshold-segments",
+      "indexed/percent-compare"
+    ],
+    "scatter": [
+      "jitter/dodge",
+      "regression",
+      "density-contour",
+      "hexbin/bin2d",
+      "marginal-joint",
+      "error-ellipse",
+      "hull",
+      "Voronoi",
+      "biplot",
+      "quadrant",
+      "million-point-aggregate"
+    ],
+    "heatmap": [
+      "clustergram",
+      "correlation-triangle",
+      "adjacency-matrix",
+      "sparse-spy",
+      "oncoPrint",
+      "continuous-raster",
+      "irregular-cells",
+      "annotated",
+      "time-distribution"
+    ],
+    "combination": [
+      "Pareto",
+      "forecast-actual",
+      "anomaly-band",
+      "small-multiples",
+      "overview-detail",
+      "dual/multi-axis",
+      "marginal",
+      "clustergram",
+      "linked-dashboard"
+    ],
+    "timeline": [
+      "Gantt",
+      "resource-Gantt",
+      "milestones/dependencies",
+      "state",
+      "status-history",
+      "trace-waterfall",
+      "incident",
+      "deployment",
+      "active-at-time",
+      "curved/serpentine/spiral"
+    ],
+    "calendar": ["month", "week", "day", "multi-year", "rolling/fiscal"],
+    "candlestick": [
+      "volume-candle",
+      "baseline/HiLo/HLC-compare",
+      "session-shading",
+      "linked-volume/indicator-panes"
+    ],
+    "price-blocks": ["Kagi", "three-line-break", "range-bars", "ATR/percent/log"],
+    "volume-profile": [
+      "fixed",
+      "visible",
+      "session",
+      "periodic",
+      "delta-split",
+      "developing-POC/value-area",
+      "TPO",
+      "footprint"
+    ],
+    "technical-indicator": [
+      "overlays",
+      "oscillators",
+      "bands",
+      "signals",
+      "multi-panel",
+      "custom-registry"
+    ],
+    "hierarchy": [
+      "circle-pack",
+      "dendrogram/cluster",
+      "radial-tree",
+      "indented-tree",
+      "mindmap",
+      "fishbone",
+      "Voronoi-treemap",
+      "decomposition",
+      "flame/diff-flame",
+      "phylogenetic"
+    ],
+    "network": [
+      "force",
+      "ForceAtlas-like",
+      "CoSE-like",
+      "layered/DAG",
+      "circular",
+      "concentric",
+      "radial",
+      "grid",
+      "geographic",
+      "bipartite",
+      "3D-force",
+      "compound/combo",
+      "editable"
+    ],
+    "flow": [
+      "circular-Sankey",
+      "alluvial",
+      "vertical",
+      "bidirectional",
+      "parallel-sets",
+      "map-Sankey"
+    ],
+    "chord": ["directed", "non-ribbon", "hierarchical", "edge-bundled", "self-loop"],
+    "venn": ["proportional-Venn", "Euler", "UpSet", "nested-set-summary", "linked-attribute-plots"],
+    "word-tree": ["prefix", "suffix", "reverse", "double", "context-window", "reroot"],
+    "polar": [
+      "rose/Nightingale",
+      "wind-rose",
+      "circular-histogram/density",
+      "stacked-radial-bars",
+      "radial-range",
+      "polar-heatmap",
+      "hodograph"
+    ],
+    "ternary": ["line", "area/regions", "contour", "density/heatmap", "tie-lines"],
+    "smith": ["impedance/admittance", "VSWR/Q/gain/stability/noise", "frequency-colored-sweeps"],
+    "carpet": ["scatter", "line", "vector", "contour", "heatmap", "cheater"],
+    "contour": ["filled/banded-with-holes", "density", "triangulated", "3D"],
+    "vector-field": ["quiver", "wind-barbs", "streamline", "LIC", "particles", "divergence/curl"],
+    "surface": [
+      "trisurface",
+      "wireframe+surface",
+      "texture",
+      "contour-projection",
+      "clipped-terrain"
+    ],
+    "volume": [
+      "raycast",
+      "MIP/minIP/average",
+      "orthogonal/oblique-slices",
+      "multi-isosurface",
+      "labeled-voxels"
+    ],
+    "spatial-vector": ["cone", "streamline", "streamtube", "3D-particles", "seeded-probes"],
+    "map": [
+      "alternate-projections",
+      "cartogram",
+      "raster/vector-tile",
+      "H3/S2/geohash/A5",
+      "cluster/spiderfy",
+      "geo-Sankey",
+      "animated-trips",
+      "terrain/hillshade",
+      "3D-buildings",
+      "globe",
+      "seat/floor-plan"
+    ],
+    "gauge": [
+      "linear",
+      "radial",
+      "multi-target",
+      "needle/bar/both",
+      "segmented",
+      "thermometer",
+      "liquid/tank",
+      "LED",
+      "KPI/stat-card"
+    ],
+    "table": [
+      "matrix/pivot",
+      "tree-table",
+      "in-cell-chart",
+      "conditional-format",
+      "linked",
+      "virtualized"
+    ],
+    "item": ["waffle", "isotype/pictogram", "unit/dot-density", "partial-units"],
+    "word-cloud": ["masked/shape", "rotated", "n-gram", "interactive-search"],
+    "image": [
+      "scientific-window-level",
+      "multichannel-composite",
+      "tiled-large-image",
+      "ROI/pixel-profile"
+    ]
+  },
+  "ecosystemInputs": [
+    {
+      "id": "Vega/Vega-Lite",
+      "placement": "Spec/dataflow/interaction",
+      "features": [
+        "transform grammar",
+        "parameters/signals",
+        "selection",
+        "composition/resolve",
+        "reactive view"
+      ]
+    },
+    {
+      "id": "D3/Observable Plot",
+      "placement": "layout/transform registries",
+      "features": ["curve and stack", "hierarchy", "geo", "Delaunay", "marks and transforms"]
+    },
+    {
+      "id": "Plotly",
+      "placement": "Spatial/Motion/Combination",
+      "features": ["trace/subplot grammar", "3D", "frames/sliders", "WebGL/export"]
+    },
+    {
+      "id": "Apache ECharts",
+      "placement": "dataset/renderer/plugin",
+      "features": [
+        "dataset transforms",
+        "transitions",
+        "matrix/custom series",
+        "progressive rendering"
+      ]
+    },
+    {
+      "id": "Highcharts",
+      "placement": "finance/performance/accessibility",
+      "features": ["navigator/grouping", "Boost", "Maps/Gantt", "sonification/export"]
+    },
+    {
+      "id": "amCharts",
+      "placement": "Timeline/Map/Hierarchy/authoring",
+      "features": ["stock tools", "dynamic date grouping", "twisted timelines", "labels/export"]
+    },
+    {
+      "id": "AntV G2/G6",
+      "placement": "Network/plugin architecture",
+      "features": ["grammar", "graph layouts/behaviors", "worker/WASM/GPU", "hybrid renderer"]
+    },
+    {
+      "id": "AG Charts",
+      "placement": "Line/Finance/Annotation/Gauge",
+      "features": [
+        "large-data interaction",
+        "navigator",
+        "annotations",
+        "financial and gauge modes"
+      ]
+    },
+    {
+      "id": "Bokeh",
+      "placement": "interaction/tools",
+      "features": ["gesture/inspector/edit", "linked ranges/selections", "widgets"]
+    },
+    {
+      "id": "Nivo",
+      "placement": "family modes",
+      "features": ["Marimekko", "bump", "swarm", "circle pack", "renderer variants"]
+    },
+    {
+      "id": "AnyChart",
+      "placement": "project-network/mosaic",
+      "features": ["PERT", "Gantt/stock", "Mosaic"]
+    },
+    {
+      "id": "FusionCharts",
+      "placement": "realtime/network/finance",
+      "features": ["streaming", "pin/zoom", "node editing", "Kagi"]
+    },
+    {
+      "id": "SciChart",
+      "placement": "renderer/performance",
+      "features": ["unlimited axes", "synchronized charts", "FIFO/sweep", "WebGL/WASM"]
+    },
+    {
+      "id": "Datashader",
+      "placement": "dense Scatter/Map/Heatmap",
+      "features": ["aggregate-transform-shade", "distributed/GPU pipeline"]
+    },
+    {
+      "id": "deck.gl",
+      "placement": "Map layers",
+      "features": ["composable geo layers", "aggregation", "H3/S2", "tiles/terrain/trips/3D"]
+    },
+    {
+      "id": "MapLibre",
+      "placement": "Map renderer",
+      "features": ["vector-tile style/layers/camera", "terrain/hillshade"]
+    },
+    {
+      "id": "OpenLayers",
+      "placement": "Map authoring",
+      "features": ["source/layer/projection", "draw/modify/snap"]
+    },
+    {
+      "id": "CesiumJS",
+      "placement": "Map Spatial mode",
+      "features": ["3D Tiles", "terrain/imagery", "time-dynamic globe", "2D/2.5D/3D"]
+    },
+    {
+      "id": "Grafana",
+      "placement": "Timeline/Hierarchy/Network",
+      "features": ["state/status", "flame", "node graph", "thresholds and drill"]
+    },
+    {
+      "id": "Power BI/Tableau/Qlik",
+      "placement": "dashboard actions",
+      "features": ["small multiples", "cross-highlight/filter", "associative states", "explanation"]
+    },
+    {
+      "id": "Lightweight Charts",
+      "placement": "finance engine",
+      "features": ["panes", "crosshair", "price scales", "realtime/history/whitespace"]
+    },
+    {
+      "id": "Matplotlib/Seaborn/ggplot2",
+      "placement": "statistics/grammar/themes",
+      "features": ["scientific breadth", "stat transforms", "position adjustments", "facets/scales"]
+    },
+    {
+      "id": "Makie/Wolfram/MATLAB",
+      "placement": "scientific packages",
+      "features": ["field", "control", "signal", "scientific 2D/3D"]
+    },
+    {
+      "id": "ComplexHeatmap",
+      "placement": "Heatmap/Set analysis",
+      "features": ["cluster/dendrogram", "annotations", "oncoPrint", "UpSet"]
+    },
+    {
+      "id": "statsmodels/scikit-learn/lifelines/SciPy",
+      "placement": "optional analytics",
+      "features": ["diagnostics", "model evaluation", "survival", "signal"]
+    }
+  ],
+  "researchSources": [
+    "https://api.highcharts.com/",
+    "https://bioconductor.org/packages/release/bioc/html/ComplexHeatmap.html",
+    "https://cesium.com/platform/cesiumjs/",
+    "https://d3js.org/",
+    "https://d3js.org/d3-brush",
+    "https://d3js.org/d3-hierarchy",
+    "https://d3js.org/d3-hierarchy/pack",
+    "https://d3js.org/d3-shape/stack",
+    "https://d3js.org/d3-zoom",
+    "https://datashader.org/",
+    "https://deck.gl/docs/api-reference/layers",
+    "https://deck.gl/docs/developer-guide/performance",
+    "https://docs.anychart.com/PERT_Chart/Pert_Chart",
+    "https://docs.bokeh.org/en/latest/docs/user_guide/interaction.html",
+    "https://docs.bokeh.org/en/latest/docs/user_guide/interaction/tools.html",
+    "https://docs.makie.org/stable/reference/plots/overview",
+    "https://docs.scipy.org/doc/scipy/reference/signal.html",
+    "https://echarts.apache.org/handbook/en/concepts/data-transform/",
+    "https://echarts.apache.org/handbook/en/how-to/animation/transition/",
+    "https://g2.antv.antgroup.com/en/manual/core/interaction/brush-axis-highlight",
+    "https://g2.antv.antgroup.com/en/manual/core/mark/overview",
+    "https://g6.antv.antgroup.com/en/manual/behavior/overview",
+    "https://g6.antv.antgroup.com/en/manual/layout/overview",
+    "https://genome.ucsc.edu/goldenPath/help/hgTracksHelp.html",
+    "https://ggplot2.tidyverse.org/reference/",
+    "https://github.com/d3/d3-sankey",
+    "https://grafana.com/docs/grafana/latest/visualizations/panels-visualizations/visualizations/",
+    "https://grafana.com/docs/grafana/latest/visualizations/panels-visualizations/visualizations/flame-graph/",
+    "https://grafana.com/docs/grafana/latest/visualizations/panels-visualizations/visualizations/state-timeline/",
+    "https://graphology.github.io/standard-library/",
+    "https://help.qlik.com/en-US/cloud-services/Subsystems/Hub/Content/Sense_Hub/Visualizations/creating-visualization.htm",
+    "https://help.tableau.com/current/pro/desktop/en-us/what_chart_example.htm",
+    "https://jokergoo.github.io/ComplexHeatmap-reference/book/",
+    "https://js.cytoscape.org/",
+    "https://kitware.github.io/vtk-js/api/Rendering_Core_Volume.html",
+    "https://learn.microsoft.com/en-us/power-bi/visuals/power-bi-visualization-influencers",
+    "https://learn.microsoft.com/en-us/power-bi/visuals/power-bi-visualizations-overview",
+    "https://lifelines.readthedocs.io/en/latest/",
+    "https://lifelines.readthedocs.io/en/latest/Survival%20analysis%20with%20lifelines.html",
+    "https://maplibre.org/maplibre-gl-js/docs/",
+    "https://matplotlib.org/stable/plot_types/index.html",
+    "https://matplotlib.org/stable/plot_types/stats/index.html",
+    "https://nivo.rocks/",
+    "https://nivo.rocks/area-bump/",
+    "https://nivo.rocks/calendar/",
+    "https://nivo.rocks/marimekko/",
+    "https://nivo.rocks/parallel-coordinates/",
+    "https://observablehq.com/plot/features/marks",
+    "https://observablehq.com/plot/marks/contour",
+    "https://observablehq.com/plot/marks/delaunay",
+    "https://observablehq.com/plot/marks/raster",
+    "https://observablehq.com/plot/marks/waffle",
+    "https://observablehq.com/plot/what-is-plot",
+    "https://openlayers.org/en/latest/apidoc/",
+    "https://openlayers.org/en/latest/apidoc/module-ol_interaction_Draw-Draw.html",
+    "https://plotly.com/javascript/animations/",
+    "https://plotly.com/python/3d-charts/",
+    "https://plotly.com/python/3d-volume-plots/",
+    "https://plotly.com/python/reference/index/",
+    "https://reference.wolfram.com/language/guide/VisualizationGallery.html.en",
+    "https://scikit-learn.org/dev/visualizations.html",
+    "https://scikit-rf.readthedocs.io/en/latest/api/generated/skrf.plotting.smith.html",
+    "https://seaborn.pydata.org/",
+    "https://seaborn.pydata.org/archive/0.12/tutorial/error_bars.html",
+    "https://seaborn.pydata.org/generated/seaborn.catplot.html",
+    "https://seaborn.pydata.org/generated/seaborn.ecdfplot.html",
+    "https://tradingview.github.io/lightweight-charts/tutorials",
+    "https://upset.js.org/docs/",
+    "https://upset.js.org/docs/plots/",
+    "https://vega.github.io/vega-lite/docs/composition.html",
+    "https://vega.github.io/vega-lite/docs/errorbar.html",
+    "https://vega.github.io/vega-lite/docs/selection.html",
+    "https://vega.github.io/vega-lite/docs/transform.html",
+    "https://vega.github.io/vega/docs/api/view/",
+    "https://vega.github.io/vega/docs/transforms/loess/",
+    "https://vega.github.io/vega/docs/transforms/wordcloud/",
+    "https://www.ag-grid.com/charts/javascript/annotations/",
+    "https://www.ag-grid.com/charts/javascript/large-dataset-interactivity/",
+    "https://www.ag-grid.com/charts/javascript/radial-gauge/",
+    "https://www.amcharts.com/docs/v5/",
+    "https://www.amcharts.com/docs/v5/charts/flow-charts/chord-diagram/",
+    "https://www.amcharts.com/docs/v5/charts/stock/",
+    "https://www.fusioncharts.com/dev/chart-guide/list-of-charts",
+    "https://www.fusioncharts.com/dev/chart-guide/standard-charts/kagi-chart",
+    "https://www.highcharts.com/docs/accessibility/accessibility-module",
+    "https://www.highcharts.com/docs/advanced-chart-features/boost-module",
+    "https://www.highcharts.com/docs/gantt/gantt-task-dependencies",
+    "https://www.highcharts.com/docs/stock/data-grouping",
+    "https://www.highcharts.com/docs/stock/understanding-highcharts-stock",
+    "https://www.mathworks.com/help/matlab/creating_plots/types-of-matlab-plots.html",
+    "https://www.scichart.com/documentation/js/v4/user-manual/what-chart-types/",
+    "https://www.statsmodels.org/dev/generated/statsmodels.graphics.mosaicplot.mosaic.html",
+    "https://www.statsmodels.org/stable/graphics.html",
+    "https://www.tradingview.com/support/solutions/43000502040-volume-profile-indicators-basic-concepts/",
+    "https://www.w3.org/WAI/WCAG22/Understanding/pause-stop-hide.html"
+  ],
+  "verificationContracts": [
+    {
+      "id": "semantic-correctness",
+      "items": [
+        "stack total/order/offset invariants",
+        "actual curve curvature",
+        "difference crossing and percent denominator",
+        "histogram/KDE/ECDF normalization and monotonicity",
+        "finance warm-up/session/OHLC provenance",
+        "set intersection cardinality"
+      ]
+    },
+    {
+      "id": "interaction",
+      "items": [
+        "selection serialize/replay",
+        "pixel-domain round trip",
+        "linked union/intersection/filter/highlight separation",
+        "pointer/touch/keyboard transition parity"
+      ]
+    },
+    {
+      "id": "renderer-export",
+      "items": [
+        "Canvas/SVG/WebGL semantic parity",
+        "title/legend/annotation/facet/domain preservation",
+        "GPU context fallback",
+        "large-data error bounds"
+      ]
+    },
+    {
+      "id": "accessibility",
+      "items": [
+        "keyboard order and focus persistence",
+        "tooltip dismissal",
+        "semantic mirror synchronization",
+        "high contrast/forced colors/CVD/reduced motion/RTL/CJK",
+        "throttled streaming announcements"
+      ]
+    },
+    {
+      "id": "documentation",
+      "items": [
+        "meaning/modes/transforms/interactions/accessibility/performance/limits/example per family",
+        "compatibility-to-canonical parity",
+        "no names reserved for unimplemented semantics"
+      ]
+    }
+  ],
+  "themeFamilies": [
+    "editorial",
+    "scientific-classic",
+    "statistical-minimal",
+    "dashboard-dense",
+    "finance-terminal",
+    "observability",
+    "geospatial",
+    "spatial-lab",
+    "presentation",
+    "pictorial",
+    "dark-technical",
+    "high-contrast"
+  ]
+}

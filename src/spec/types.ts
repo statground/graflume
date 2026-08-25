@@ -4,7 +4,7 @@ import type { ThemeTokens } from '../theme/types.js';
 export type JsonPrimitive = string | number | boolean | null;
 export type JsonValue =
   JsonPrimitive | readonly JsonValue[] | { readonly [key: string]: JsonValue };
-export type DataValue = JsonPrimitive | Date | undefined;
+export type DataValue = JsonPrimitive | Date | readonly JsonPrimitive[] | undefined;
 export type DataRow = Readonly<Record<string, DataValue>>;
 export type ColumnLike = ArrayLike<DataValue>;
 
@@ -14,6 +14,241 @@ export interface ColumnarData {
 }
 
 export type DataInput = readonly DataRow[] | ColumnarData;
+
+export type StreamingMode = 'append' | 'upsert' | 'replaceLast';
+
+export interface StreamingSpec {
+  /** Stable scalar identity field used by every incremental mutation. */
+  readonly key: string;
+  readonly mode?: StreamingMode;
+  /** Per-update input limit. Defaults to 100,000 rows. */
+  readonly maxBatchRows?: number;
+  readonly retention?: {
+    /** Maximum retained rows. Defaults to 100,000. */
+    readonly maxRows?: number;
+    readonly time?: {
+      readonly field: string;
+      readonly durationMs: number;
+    };
+  };
+  readonly eventTime?: {
+    readonly field: string;
+    readonly allowedLatenessMs?: number;
+    readonly lateData?: 'reject' | 'drop' | 'accept';
+  };
+  readonly queue?: {
+    readonly maxBatches?: number;
+    readonly maxRows?: number;
+    /** Silent queue loss is intentionally unsupported. */
+    readonly overflow?: 'reject';
+  };
+  readonly replay?: {
+    readonly maxBatches?: number;
+    readonly maxRows?: number;
+  };
+}
+
+/** Function-free expression tree used by calculate and filter transforms. */
+export type TransformExpression =
+  | { readonly op: 'literal'; readonly value: JsonPrimitive }
+  | { readonly op: 'field'; readonly field: string }
+  | {
+      readonly op: 'not' | 'negate' | 'isValid' | 'toNumber' | 'toString';
+      readonly value: TransformExpression;
+    }
+  | {
+      readonly op:
+        | 'add'
+        | 'subtract'
+        | 'multiply'
+        | 'divide'
+        | 'modulo'
+        | 'equal'
+        | 'notEqual'
+        | 'lessThan'
+        | 'lessThanOrEqual'
+        | 'greaterThan'
+        | 'greaterThanOrEqual'
+        | 'and'
+        | 'or';
+      readonly left: TransformExpression;
+      readonly right: TransformExpression;
+    }
+  | {
+      readonly op: 'if';
+      readonly condition: TransformExpression;
+      readonly then: TransformExpression;
+      readonly else: TransformExpression;
+    }
+  | { readonly op: 'coalesce'; readonly values: readonly TransformExpression[] };
+
+export interface TransformSortField {
+  readonly field: string;
+  readonly order?: 'ascending' | 'descending';
+}
+
+export type AggregateOperation =
+  | 'count'
+  | 'valid'
+  | 'missing'
+  | 'sum'
+  | 'mean'
+  | 'weightedMean'
+  | 'min'
+  | 'max'
+  | 'median'
+  | 'variance'
+  | 'stdev';
+
+export interface AggregateFieldSpec {
+  readonly op: AggregateOperation;
+  readonly field?: string;
+  readonly weight?: string;
+  readonly as: string;
+}
+
+export interface WindowFieldSpec {
+  readonly op:
+    | 'rowNumber'
+    | 'rank'
+    | 'denseRank'
+    | 'lag'
+    | 'lead'
+    | 'sum'
+    | 'mean'
+    | 'min'
+    | 'max'
+    | 'count'
+    | 'cumulativeSum'
+    | 'movingAverage';
+  readonly field?: string;
+  readonly as: string;
+  readonly offset?: number;
+}
+
+/** Ordered, deterministic and JSON-serializable dataflow transform. */
+export type TransformSpec =
+  | { readonly type: 'filter'; readonly expr: TransformExpression }
+  | { readonly type: 'sort'; readonly by: readonly TransformSortField[] }
+  | { readonly type: 'calculate'; readonly as: string; readonly expr: TransformExpression }
+  | {
+      readonly type: 'aggregate' | 'joinaggregate';
+      readonly groupby?: readonly string[];
+      readonly fields: readonly AggregateFieldSpec[];
+    }
+  | {
+      readonly type: 'bin';
+      readonly field: string;
+      readonly as: readonly [string, string];
+      readonly maxbins?: number;
+      readonly step?: number;
+      readonly extent?: readonly [number, number];
+    }
+  | {
+      readonly type: 'bin2d';
+      readonly x: string;
+      readonly y: string;
+      readonly as: readonly [string, string, string, string, string];
+      readonly maxbins?: readonly [number, number];
+    }
+  | {
+      readonly type: 'density1d';
+      readonly field: string;
+      readonly as: readonly [string, string];
+      readonly groupby?: readonly string[];
+      readonly points?: number;
+      readonly bandwidth?: number;
+    }
+  | {
+      readonly type: 'density2d';
+      readonly x: string;
+      readonly y: string;
+      readonly as: readonly [string, string, string];
+      readonly bins?: readonly [number, number];
+      readonly bandwidth?: readonly [number, number];
+    }
+  | {
+      readonly type: 'stack';
+      readonly field: string;
+      readonly groupby: readonly string[];
+      readonly series?: readonly string[];
+      readonly sort?: readonly TransformSortField[];
+      readonly as: readonly [string, string];
+      readonly offset?: 'zero' | 'normalize' | 'expand' | 'center' | 'silhouette' | 'wiggle';
+      readonly order?:
+        'input' | 'ascending' | 'descending' | 'sumAscending' | 'sumDescending' | 'insideOut';
+    }
+  | {
+      readonly type: 'window';
+      readonly fields: readonly WindowFieldSpec[];
+      readonly groupby?: readonly string[];
+      readonly sort?: readonly TransformSortField[];
+      readonly frame?: readonly [number | null, number | null];
+    }
+  | {
+      readonly type: 'regression';
+      readonly x: string;
+      readonly y: string;
+      readonly as: readonly [string, string];
+      readonly groupby?: readonly string[];
+    }
+  | {
+      readonly type: 'fold';
+      readonly fields: readonly string[];
+      readonly as: readonly [string, string];
+    }
+  | {
+      readonly type: 'flatten';
+      readonly fields: readonly string[];
+      readonly as?: readonly string[];
+    }
+  | {
+      readonly type: 'pivot';
+      readonly field: string;
+      readonly value: string;
+      readonly groupby?: readonly string[];
+      readonly op?: 'sum' | 'mean' | 'min' | 'max' | 'count' | 'first';
+    }
+  | {
+      readonly type: 'impute';
+      readonly field: string;
+      readonly key: string;
+      readonly groupby?: readonly string[];
+      readonly method?: 'value' | 'mean' | 'median' | 'min' | 'max';
+      readonly value?: JsonPrimitive;
+    }
+  | {
+      readonly type: 'lookup';
+      readonly field: string;
+      readonly from: DataInput;
+      readonly key: string;
+      readonly values: readonly string[];
+      readonly as?: readonly string[];
+      readonly default?: JsonPrimitive;
+    }
+  | {
+      readonly type: 'quantile';
+      readonly field: string;
+      readonly probs?: readonly number[];
+      readonly as: readonly [string, string];
+      readonly groupby?: readonly string[];
+    }
+  | { readonly type: 'sample'; readonly size: number; readonly seed?: number }
+  | {
+      readonly type: 'resample';
+      readonly field: string;
+      readonly interval: number;
+      readonly groupby?: readonly string[];
+      readonly method?: 'linear' | 'previous' | 'next';
+    }
+  | {
+      readonly type: 'timeUnit';
+      readonly field: string;
+      readonly unit:
+        'year' | 'quarter' | 'month' | 'week' | 'date' | 'day' | 'hours' | 'minutes' | 'seconds';
+      readonly as: string;
+      readonly utc?: boolean;
+    };
 export type FieldType = 'quantitative' | 'temporal' | 'ordinal' | 'nominal';
 export type MarkType =
   | 'annotation'
@@ -98,13 +333,44 @@ export type MarkType =
 export type PerformanceProfile = 'auto' | 'standard' | 'large' | 'ultra';
 export type RendererPreference = 'auto' | 'canvas' | 'svg' | 'webgl' | 'webgpu' | string;
 
+export type ScaleType =
+  | 'linear'
+  | 'log'
+  | 'symlog'
+  | 'asinh'
+  | 'pow'
+  | 'sqrt'
+  | 'time'
+  | 'utc'
+  | 'band'
+  | 'point'
+  | 'ordinal'
+  | 'quantile'
+  | 'quantize'
+  | 'threshold'
+  | 'sequential'
+  | 'diverging'
+  | 'cyclic'
+  | 'probability'
+  | 'logit'
+  | 'probit';
+
+export type ScaleOutOfBounds = 'extrapolate' | 'clamp' | 'error' | 'unknown';
+
 export interface ScaleSpec {
-  readonly type?: 'linear' | 'band' | 'time';
+  readonly type?: ScaleType;
   readonly domain?: readonly (number | string)[];
+  /** Explicit output range for non-layout channels and standalone scale construction. */
+  readonly range?: readonly (number | string)[];
   readonly zero?: boolean;
   readonly nice?: boolean;
+  /** Compatibility alias for outOfBounds: "clamp". */
   readonly clamp?: boolean;
   readonly reverse?: boolean;
+  readonly outOfBounds?: ScaleOutOfBounds;
+  readonly base?: number;
+  readonly exponent?: number;
+  readonly constant?: number;
   readonly paddingInner?: number;
   readonly paddingOuter?: number;
 }
@@ -211,6 +477,65 @@ export interface EncodingSpec {
 
 export type EncodingInput = string | EncodingSpec;
 
+export type EncodingChannel =
+  | 'x'
+  | 'x2'
+  | 'y'
+  | 'y2'
+  | 'color'
+  | 'fill'
+  | 'stroke'
+  | 'size'
+  | 'radius'
+  | 'shape'
+  | 'opacity'
+  | 'strokeWidth'
+  | 'strokeDash'
+  | 'text'
+  | 'order'
+  | 'detail'
+  | 'tooltip';
+
+export interface EncodingConditionSpec {
+  readonly test: TransformExpression;
+  readonly field?: string;
+  readonly value?: JsonPrimitive | readonly number[];
+}
+
+/** Function-free channel encoding. Exactly one of field or value is required. */
+export interface ChannelEncodingSpec {
+  readonly field?: string;
+  readonly value?: JsonPrimitive | readonly number[];
+  readonly type?: FieldType;
+  readonly title?: string;
+  readonly scale?: ScaleSpec;
+  readonly axis?: AxisSpec | false;
+  readonly axisId?: AxisId;
+  readonly condition?: EncodingConditionSpec | readonly EncodingConditionSpec[];
+}
+
+export type ChannelEncodingInput = string | ChannelEncodingSpec;
+
+export interface EncodingMap {
+  readonly x?: ChannelEncodingInput;
+  readonly x2?: ChannelEncodingInput;
+  readonly y?: ChannelEncodingInput;
+  readonly y2?: ChannelEncodingInput;
+  readonly color?: ChannelEncodingInput;
+  readonly fill?: ChannelEncodingInput;
+  readonly stroke?: ChannelEncodingInput;
+  readonly size?: ChannelEncodingInput;
+  readonly radius?: ChannelEncodingInput;
+  readonly shape?: ChannelEncodingInput;
+  readonly opacity?: ChannelEncodingInput;
+  readonly strokeWidth?: ChannelEncodingInput;
+  readonly strokeDash?: ChannelEncodingInput;
+  readonly text?: ChannelEncodingInput;
+  readonly order?: ChannelEncodingInput;
+  readonly detail?: ChannelEncodingInput;
+  readonly tooltip?: ChannelEncodingInput;
+}
+
 export interface MarkSpec {
   readonly type: MarkType | string;
   readonly stroke?: string;
@@ -235,9 +560,12 @@ export interface LayerSpec {
   /** Human-readable series name used by automatic layer legends. */
   readonly name?: string;
   readonly data?: DataInput;
+  readonly transform?: readonly TransformSpec[];
   readonly mark: MarkInput;
-  readonly x: EncodingInput;
-  readonly y: EncodingInput;
+  /** Legacy position facade. Use either x/y or encoding, not both. */
+  readonly x?: EncodingInput;
+  readonly y?: EncodingInput;
+  readonly encoding?: EncodingMap;
   readonly visible?: boolean;
   readonly zIndex?: number;
 }
@@ -260,6 +588,21 @@ export interface TitleSpec {
 export interface AccessibilitySpec {
   readonly label?: string;
   readonly description?: string;
+  /** Native Canvas data mirror. `true` is visually hidden; `visible` displays it. */
+  readonly table?: boolean | 'hidden' | 'visible';
+  /** Maximum semantic/native rows retained by the compiler and runtime. */
+  readonly maxRows?: number;
+  /** Enable roving keyboard traversal of the native mark mirror. */
+  readonly navigation?: boolean;
+  /** Optional text placed before the native table. */
+  readonly summary?: string;
+  /** Configure polite selection announcements, or disable them. */
+  readonly live?: boolean | AccessibilityLiveSpec;
+}
+
+export interface AccessibilityLiveSpec {
+  readonly enabled?: boolean;
+  readonly throttleMs?: number;
 }
 
 export type LegendMode = 'auto' | 'layers' | 'categories' | 'continuous';
@@ -430,6 +773,15 @@ export interface NavigationSpec {
   readonly keyboard?: boolean;
 }
 
+/** Recompute Cartesian position domains instead of magnifying the rendered surface. */
+export interface DomainNavigationSpec {
+  readonly axes?: readonly AxisId[];
+  readonly maxZoom?: number;
+  readonly wheel?: NavigationWheelMode;
+  readonly drag?: boolean;
+  readonly keyboard?: boolean;
+}
+
 export type PlaybackMode = 'frame' | 'cumulative' | 'window';
 
 export type PlaybackTransitionEasing = 'linear' | 'ease-in-out';
@@ -491,6 +843,9 @@ export interface ControlsSpec {
 }
 
 export interface SelectionSpec {
+  /** Point preserves the historical click/datum behavior; other kinds author domain geometry. */
+  readonly kind?: 'point' | 'interval' | 'rectangle' | 'axis' | 'lasso';
+  readonly combine?: 'union' | 'intersection';
   readonly mode?: 'single' | 'multiple';
   readonly toggle?: boolean;
   readonly key?: string;
@@ -498,6 +853,13 @@ export interface SelectionSpec {
   readonly clearOnEscape?: boolean;
   readonly ariaLabel?: string;
   readonly highlight?: HighlightStyleSpec;
+  /** Required only for axis selection. */
+  readonly axis?: AxisId;
+  readonly xAxis?: 'x' | 'x2';
+  readonly yAxis?: 'y' | 'y2';
+  readonly maxSelections?: number;
+  readonly maxLassoPoints?: number;
+  readonly minPixelSpan?: number;
 }
 
 export interface InteractionSpec {
@@ -509,20 +871,86 @@ export interface InteractionSpec {
    */
   readonly tooltip?: boolean | TooltipSpec;
   readonly navigation?: boolean | NavigationSpec;
+  readonly domainNavigation?: boolean | DomainNavigationSpec;
   readonly playback?: false | PlaybackSpec;
   readonly controls?: boolean | ControlsSpec;
   /** Click-driven, renderer-neutral datum selection. */
   readonly selection?: boolean | SelectionSpec;
 }
 
+export type CompositionResolveMode = 'shared' | 'independent';
+
+/** Position-scale, axis, and legend ownership for a composed Canvas scene. */
+export interface CompositionResolveSpec {
+  readonly scale?: CompositionResolveMode;
+  readonly axis?: CompositionResolveMode;
+  readonly legend?: CompositionResolveMode;
+}
+
+export interface FacetFieldSpec {
+  readonly field: string;
+  readonly title?: string;
+  readonly sort?: 'input' | 'ascending' | 'descending';
+}
+
+export type FacetFieldInput = string | FacetFieldSpec;
+
+/** Row/column or wrapped small-multiple partition. */
+export interface FacetCompositionSpec {
+  readonly row?: FacetFieldInput;
+  readonly column?: FacetFieldInput;
+  readonly wrap?: FacetFieldInput;
+  readonly columns?: number;
+}
+
+/** Explicit encoding-field substitution for one repeated view. */
+export interface RepeatItemSpec {
+  readonly id: string;
+  readonly label?: string;
+  readonly x?: string;
+  readonly y?: string;
+}
+
+export interface RepeatCompositionSpec {
+  readonly items: readonly RepeatItemSpec[];
+  readonly columns?: number;
+}
+
+/** Plot-relative independent child view rendered over a base view. */
+export interface InsetCompositionSpec {
+  readonly base: ChartSpec;
+  readonly view: ChartSpec;
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+  readonly label?: string;
+}
+
 export interface ChartSpec {
   readonly $schema?: string;
   readonly specVersion?: '0.1';
   readonly data?: DataInput;
+  readonly transform?: readonly TransformSpec[];
   readonly mark?: MarkInput;
   readonly x?: EncodingInput;
   readonly y?: EncodingInput;
+  readonly encoding?: EncodingMap;
   readonly layers?: readonly LayerSpec[];
+  /** Shared-scale compositional layering. Existing `layers` remains the flat layer facade. */
+  readonly layer?: readonly ChartSpec[];
+  readonly facet?: FacetCompositionSpec;
+  readonly repeat?: RepeatCompositionSpec;
+  readonly hconcat?: readonly ChartSpec[];
+  readonly vconcat?: readonly ChartSpec[];
+  readonly concat?: readonly ChartSpec[];
+  readonly inset?: InsetCompositionSpec;
+  /** Template used by facet and repeat compositions. */
+  readonly spec?: ChartSpec;
+  /** Wrapped concat column count. */
+  readonly columns?: number;
+  readonly spacing?: number;
+  readonly resolve?: CompositionResolveSpec;
   readonly width?: number | 'container';
   readonly height?: number | 'container';
   readonly padding?: PaddingInput;
@@ -543,6 +971,8 @@ export interface ChartSpec {
   readonly annotations?: readonly AnnotationSpec[];
   readonly interaction?: InteractionSpec;
   readonly accessibility?: AccessibilitySpec;
+  /** Optional bounded incremental data contract. */
+  readonly streaming?: StreamingSpec;
 }
 
 export interface NormalizedEncodingSpec {
@@ -552,6 +982,37 @@ export interface NormalizedEncodingSpec {
   readonly scale: ScaleSpec;
   readonly axisId: AxisId;
   readonly axis: NormalizedAxisSpec | false;
+}
+
+export interface NormalizedChannelEncodingSpec {
+  readonly field?: string;
+  readonly value?: JsonPrimitive | readonly number[];
+  readonly type?: FieldType;
+  readonly title?: string;
+  readonly scale: ScaleSpec;
+  readonly axisId?: AxisId;
+  readonly axis?: NormalizedAxisSpec | false;
+  readonly condition: readonly EncodingConditionSpec[];
+}
+
+export interface NormalizedEncodingMap {
+  readonly x: NormalizedEncodingSpec;
+  readonly y: NormalizedEncodingSpec;
+  readonly x2?: NormalizedChannelEncodingSpec;
+  readonly y2?: NormalizedChannelEncodingSpec;
+  readonly color?: NormalizedChannelEncodingSpec;
+  readonly fill?: NormalizedChannelEncodingSpec;
+  readonly stroke?: NormalizedChannelEncodingSpec;
+  readonly size?: NormalizedChannelEncodingSpec;
+  readonly radius?: NormalizedChannelEncodingSpec;
+  readonly shape?: NormalizedChannelEncodingSpec;
+  readonly opacity?: NormalizedChannelEncodingSpec;
+  readonly strokeWidth?: NormalizedChannelEncodingSpec;
+  readonly strokeDash?: NormalizedChannelEncodingSpec;
+  readonly text?: NormalizedChannelEncodingSpec;
+  readonly order?: NormalizedChannelEncodingSpec;
+  readonly detail?: NormalizedChannelEncodingSpec;
+  readonly tooltip?: NormalizedChannelEncodingSpec;
 }
 
 export interface NormalizedAxisFontSpec {
@@ -644,7 +1105,9 @@ export interface NormalizedLayerSpec {
   readonly id: string;
   readonly name: string;
   readonly data: DataInput;
+  readonly transform: readonly TransformSpec[];
   readonly mark: NormalizedMarkSpec;
+  readonly encoding: NormalizedEncodingMap;
   readonly x: NormalizedEncodingSpec;
   readonly y: NormalizedEncodingSpec;
   readonly visible: boolean;
@@ -699,6 +1162,14 @@ export interface NormalizedNavigationSpec {
   readonly keyboard: boolean;
 }
 
+export interface NormalizedDomainNavigationSpec {
+  readonly axes: readonly AxisId[];
+  readonly maxZoom: number;
+  readonly wheel: NavigationWheelMode;
+  readonly drag: boolean;
+  readonly keyboard: boolean;
+}
+
 export interface NormalizedPlaybackSpec {
   readonly field: string;
   readonly key?: string;
@@ -748,6 +1219,8 @@ export interface NormalizedControlsSpec {
 }
 
 export interface NormalizedSelectionSpec {
+  readonly kind: 'point' | 'interval' | 'rectangle' | 'axis' | 'lasso';
+  readonly combine: 'union' | 'intersection';
   readonly mode: 'single' | 'multiple';
   readonly toggle: boolean;
   readonly key?: string;
@@ -755,6 +1228,12 @@ export interface NormalizedSelectionSpec {
   readonly clearOnEscape: boolean;
   readonly ariaLabel: string;
   readonly highlight: Required<HighlightStyleSpec>;
+  readonly axis?: AxisId;
+  readonly xAxis: 'x' | 'x2';
+  readonly yAxis: 'y' | 'y2';
+  readonly maxSelections: number;
+  readonly maxLassoPoints: number;
+  readonly minPixelSpan: number;
 }
 
 export interface NormalizedInteractionSpec {
@@ -762,6 +1241,7 @@ export interface NormalizedInteractionSpec {
   readonly click: boolean;
   readonly tooltip: false | NormalizedTooltipSpec;
   readonly navigation: false | NormalizedNavigationSpec;
+  readonly domainNavigation: false | NormalizedDomainNavigationSpec;
   readonly playback: false | NormalizedPlaybackSpec;
   readonly controls: false | NormalizedControlsSpec;
   readonly selection: false | NormalizedSelectionSpec;
@@ -789,5 +1269,15 @@ export interface NormalizedChartSpec {
   readonly highlights: readonly HighlightSpec[];
   readonly annotations: readonly AnnotationSpec[];
   readonly interaction: NormalizedInteractionSpec;
-  readonly accessibility: AccessibilitySpec;
+  readonly accessibility: NormalizedAccessibilitySpec;
+}
+
+export interface NormalizedAccessibilitySpec {
+  readonly label?: string;
+  readonly description?: string;
+  readonly table: false | 'hidden' | 'visible';
+  readonly maxRows: number;
+  readonly navigation: boolean;
+  readonly summary?: string;
+  readonly live: false | { readonly throttleMs: number };
 }

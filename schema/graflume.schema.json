@@ -8,10 +8,10 @@
     "additionalFamilyCount": 11,
     "seriesFamilyCount": 8,
     "fullFamilyCount": 41,
-    "defaultVariantCount": 39,
+    "defaultVariantCount": 42,
     "additionalVariantCount": 27,
     "seriesVariantCount": 96,
-    "fullVariantCount": 162,
+    "fullVariantCount": 165,
     "compatibilitySeriesCount": 117,
     "additionalMarks": [
       "radar",
@@ -164,6 +164,9 @@
     "data": {
       "$ref": "#/$defs/data"
     },
+    "transform": {
+      "$ref": "#/$defs/transformList"
+    },
     "mark": {
       "$ref": "#/$defs/mark"
     },
@@ -173,6 +176,9 @@
     "y": {
       "$ref": "#/$defs/yEncoding"
     },
+    "encoding": {
+      "$ref": "#/$defs/encodingMap"
+    },
     "layers": {
       "type": "array",
       "minItems": 1,
@@ -180,6 +186,37 @@
         "$ref": "#/$defs/layer"
       }
     },
+    "layer": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": { "$ref": "#/$defs/layerCompositionChild" }
+    },
+    "facet": { "$ref": "#/$defs/facetComposition" },
+    "repeat": { "$ref": "#/$defs/repeatComposition" },
+    "hconcat": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": { "$ref": "#/$defs/chartNode" }
+    },
+    "vconcat": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": { "$ref": "#/$defs/chartNode" }
+    },
+    "concat": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": { "$ref": "#/$defs/chartNode" }
+    },
+    "inset": { "$ref": "#/$defs/insetComposition" },
+    "spec": { "$ref": "#/$defs/chartNode" },
+    "columns": { "type": "integer", "minimum": 1, "maximum": 16 },
+    "spacing": { "type": "number", "minimum": 0, "maximum": 64 },
+    "resolve": { "$ref": "#/$defs/compositionResolve" },
     "width": {
       "oneOf": [
         {
@@ -345,6 +382,9 @@
             }
           ]
         },
+        "domainNavigation": {
+          "oneOf": [{ "type": "boolean" }, { "$ref": "#/$defs/domainNavigation" }]
+        },
         "playback": {
           "oneOf": [
             {
@@ -379,8 +419,42 @@
         },
         "description": {
           "type": "string"
+        },
+        "table": {
+          "oneOf": [{ "type": "boolean" }, { "enum": ["hidden", "visible"] }]
+        },
+        "maxRows": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5000
+        },
+        "navigation": {
+          "type": "boolean"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "live": {
+          "oneOf": [
+            { "type": "boolean" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "throttleMs": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000
+                }
+              }
+            }
+          ]
         }
       }
+    },
+    "streaming": {
+      "$ref": "#/$defs/streaming"
     }
   },
   "anyOf": [
@@ -388,7 +462,62 @@
       "required": ["data", "mark", "x", "y"]
     },
     {
+      "required": ["data", "mark", "encoding"]
+    },
+    {
       "required": ["layers"]
+    },
+    {
+      "required": ["layer"]
+    },
+    {
+      "required": ["data", "facet", "spec"]
+    },
+    {
+      "required": ["repeat", "spec"]
+    },
+    {
+      "required": ["hconcat"]
+    },
+    {
+      "required": ["vconcat"]
+    },
+    {
+      "required": ["concat"]
+    },
+    {
+      "required": ["inset"]
+    }
+  ],
+  "allOf": [
+    {
+      "if": {
+        "anyOf": [
+          { "required": ["layer"] },
+          { "required": ["facet"] },
+          { "required": ["repeat"] },
+          { "required": ["hconcat"] },
+          { "required": ["vconcat"] },
+          { "required": ["concat"] },
+          { "required": ["inset"] }
+        ]
+      },
+      "then": {
+        "allOf": [
+          { "$ref": "#/$defs/compositionChoice" },
+          {
+            "not": {
+              "anyOf": [
+                { "required": ["mark"] },
+                { "required": ["x"] },
+                { "required": ["y"] },
+                { "required": ["encoding"] },
+                { "required": ["layers"] }
+              ]
+            }
+          }
+        ]
+      }
     }
   ],
   "$defs": {
@@ -403,7 +532,10 @@
         }
       },
       "additionalProperties": {
-        "$ref": "#/$defs/primitive"
+        "oneOf": [
+          { "$ref": "#/$defs/primitive" },
+          { "type": "array", "items": { "$ref": "#/$defs/primitive" } }
+        ]
       }
     },
     "data": {
@@ -429,7 +561,10 @@
               "additionalProperties": {
                 "type": "array",
                 "items": {
-                  "$ref": "#/$defs/primitive"
+                  "oneOf": [
+                    { "$ref": "#/$defs/primitive" },
+                    { "type": "array", "items": { "$ref": "#/$defs/primitive" } }
+                  ]
                 }
               }
             },
@@ -441,16 +576,484 @@
         }
       ]
     },
+    "streaming": {
+      "type": "object",
+      "required": ["key"],
+      "additionalProperties": false,
+      "properties": {
+        "key": { "$ref": "#/$defs/fieldName" },
+        "mode": { "enum": ["append", "upsert", "replaceLast"] },
+        "maxBatchRows": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "retention": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "maxRows": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000
+            },
+            "time": {
+              "type": "object",
+              "required": ["field", "durationMs"],
+              "additionalProperties": false,
+              "properties": {
+                "field": { "$ref": "#/$defs/fieldName" },
+                "durationMs": { "type": "number", "minimum": 0 }
+              }
+            }
+          }
+        },
+        "eventTime": {
+          "type": "object",
+          "required": ["field"],
+          "additionalProperties": false,
+          "properties": {
+            "field": { "$ref": "#/$defs/fieldName" },
+            "allowedLatenessMs": { "type": "number", "minimum": 0 },
+            "lateData": { "enum": ["reject", "drop", "accept"] }
+          }
+        },
+        "queue": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "maxBatches": { "type": "integer", "minimum": 1, "maximum": 1024 },
+            "maxRows": { "type": "integer", "minimum": 1, "maximum": 1000000 },
+            "overflow": { "const": "reject" }
+          }
+        },
+        "replay": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "maxBatches": { "type": "integer", "minimum": 1, "maximum": 4096 },
+            "maxRows": { "type": "integer", "minimum": 1, "maximum": 1000000 }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "retention": { "required": ["time"] }
+            },
+            "required": ["retention"]
+          },
+          "then": { "required": ["eventTime"] }
+        }
+      ]
+    },
+    "fieldName": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S",
+      "not": { "enum": ["__proto__", "prototype", "constructor"] }
+    },
+    "transformExpression": {
+      "type": "object",
+      "required": ["op"],
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "enum": [
+            "literal",
+            "field",
+            "not",
+            "negate",
+            "isValid",
+            "toNumber",
+            "toString",
+            "add",
+            "subtract",
+            "multiply",
+            "divide",
+            "modulo",
+            "equal",
+            "notEqual",
+            "lessThan",
+            "lessThanOrEqual",
+            "greaterThan",
+            "greaterThanOrEqual",
+            "and",
+            "or",
+            "if",
+            "coalesce"
+          ]
+        },
+        "value": {},
+        "field": { "$ref": "#/$defs/fieldName" },
+        "left": { "$ref": "#/$defs/transformExpression" },
+        "right": { "$ref": "#/$defs/transformExpression" },
+        "condition": { "$ref": "#/$defs/transformExpression" },
+        "then": { "$ref": "#/$defs/transformExpression" },
+        "else": { "$ref": "#/$defs/transformExpression" },
+        "values": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": { "$ref": "#/$defs/transformExpression" }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "op": { "const": "literal" } } },
+          "then": {
+            "required": ["value"],
+            "properties": { "value": { "$ref": "#/$defs/primitive" } }
+          }
+        },
+        {
+          "if": { "properties": { "op": { "const": "field" } } },
+          "then": { "required": ["field"] }
+        },
+        {
+          "if": {
+            "properties": {
+              "op": { "enum": ["not", "negate", "isValid", "toNumber", "toString"] }
+            }
+          },
+          "then": { "required": ["value"] }
+        },
+        {
+          "if": {
+            "properties": {
+              "op": {
+                "enum": [
+                  "add",
+                  "subtract",
+                  "multiply",
+                  "divide",
+                  "modulo",
+                  "equal",
+                  "notEqual",
+                  "lessThan",
+                  "lessThanOrEqual",
+                  "greaterThan",
+                  "greaterThanOrEqual",
+                  "and",
+                  "or"
+                ]
+              }
+            }
+          },
+          "then": { "required": ["left", "right"] }
+        },
+        {
+          "if": { "properties": { "op": { "const": "if" } } },
+          "then": { "required": ["condition", "then", "else"] }
+        },
+        {
+          "if": { "properties": { "op": { "const": "coalesce" } } },
+          "then": { "required": ["values"] }
+        }
+      ]
+    },
+    "transformSort": {
+      "type": "object",
+      "required": ["field"],
+      "additionalProperties": false,
+      "properties": {
+        "field": { "$ref": "#/$defs/fieldName" },
+        "order": { "enum": ["ascending", "descending"] }
+      }
+    },
+    "transformAggregateField": {
+      "type": "object",
+      "required": ["op", "as"],
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "enum": [
+            "count",
+            "valid",
+            "missing",
+            "sum",
+            "mean",
+            "weightedMean",
+            "min",
+            "max",
+            "median",
+            "variance",
+            "stdev"
+          ]
+        },
+        "field": { "$ref": "#/$defs/fieldName" },
+        "weight": { "$ref": "#/$defs/fieldName" },
+        "as": { "$ref": "#/$defs/fieldName" }
+      }
+    },
+    "transformWindowField": {
+      "type": "object",
+      "required": ["op", "as"],
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "enum": [
+            "rowNumber",
+            "rank",
+            "denseRank",
+            "lag",
+            "lead",
+            "sum",
+            "mean",
+            "min",
+            "max",
+            "count",
+            "cumulativeSum",
+            "movingAverage"
+          ]
+        },
+        "field": { "$ref": "#/$defs/fieldName" },
+        "as": { "$ref": "#/$defs/fieldName" },
+        "offset": { "type": "integer" }
+      }
+    },
+    "transform": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": [
+            "filter",
+            "sort",
+            "calculate",
+            "aggregate",
+            "joinaggregate",
+            "bin",
+            "bin2d",
+            "density1d",
+            "density2d",
+            "stack",
+            "window",
+            "regression",
+            "fold",
+            "flatten",
+            "pivot",
+            "impute",
+            "lookup",
+            "quantile",
+            "sample",
+            "resample",
+            "timeUnit"
+          ]
+        },
+        "expr": { "$ref": "#/$defs/transformExpression" },
+        "by": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/transformSort" } },
+        "as": {
+          "oneOf": [
+            { "$ref": "#/$defs/fieldName" },
+            {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 5,
+              "items": { "$ref": "#/$defs/fieldName" }
+            }
+          ]
+        },
+        "groupby": { "type": "array", "items": { "$ref": "#/$defs/fieldName" } },
+        "fields": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "oneOf": [
+              { "$ref": "#/$defs/fieldName" },
+              { "$ref": "#/$defs/transformAggregateField" },
+              { "$ref": "#/$defs/transformWindowField" }
+            ]
+          }
+        },
+        "field": { "$ref": "#/$defs/fieldName" },
+        "weight": { "$ref": "#/$defs/fieldName" },
+        "x": { "$ref": "#/$defs/fieldName" },
+        "y": { "$ref": "#/$defs/fieldName" },
+        "key": { "$ref": "#/$defs/fieldName" },
+        "value": {},
+        "values": { "type": "array", "items": { "$ref": "#/$defs/fieldName" } },
+        "from": { "$ref": "#/$defs/data" },
+        "default": { "$ref": "#/$defs/primitive" },
+        "maxbins": {
+          "oneOf": [
+            { "type": "integer", "minimum": 1, "maximum": 128 },
+            {
+              "type": "array",
+              "prefixItems": [
+                { "type": "integer", "minimum": 1, "maximum": 128 },
+                { "type": "integer", "minimum": 1, "maximum": 128 }
+              ],
+              "items": false
+            }
+          ]
+        },
+        "step": { "type": "number", "exclusiveMinimum": 0 },
+        "extent": {
+          "type": "array",
+          "prefixItems": [{ "type": "number" }, { "type": "number" }],
+          "items": false
+        },
+        "points": { "type": "integer", "minimum": 2, "maximum": 512 },
+        "bandwidth": {
+          "oneOf": [
+            { "type": "number", "exclusiveMinimum": 0 },
+            {
+              "type": "array",
+              "prefixItems": [
+                { "type": "number", "exclusiveMinimum": 0 },
+                { "type": "number", "exclusiveMinimum": 0 }
+              ],
+              "items": false
+            }
+          ]
+        },
+        "bins": {
+          "type": "array",
+          "prefixItems": [
+            { "type": "integer", "minimum": 1, "maximum": 128 },
+            { "type": "integer", "minimum": 1, "maximum": 128 }
+          ],
+          "items": false
+        },
+        "series": { "type": "array", "items": { "$ref": "#/$defs/fieldName" } },
+        "sort": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/transformSort" } },
+        "offset": { "enum": ["zero", "normalize", "expand", "center", "silhouette", "wiggle"] },
+        "order": {
+          "enum": ["input", "ascending", "descending", "sumAscending", "sumDescending", "insideOut"]
+        },
+        "frame": {
+          "type": "array",
+          "prefixItems": [{ "type": ["integer", "null"] }, { "type": ["integer", "null"] }],
+          "items": false
+        },
+        "op": { "enum": ["sum", "mean", "min", "max", "count", "first"] },
+        "method": {
+          "enum": ["value", "mean", "median", "min", "max", "linear", "previous", "next"]
+        },
+        "probs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 512,
+          "items": { "type": "number", "minimum": 0, "maximum": 1 }
+        },
+        "size": { "type": "integer", "minimum": 1 },
+        "seed": { "type": "number" },
+        "interval": { "type": "number", "exclusiveMinimum": 0 },
+        "unit": {
+          "enum": ["year", "quarter", "month", "week", "date", "day", "hours", "minutes", "seconds"]
+        },
+        "utc": { "type": "boolean" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "filter" } } },
+          "then": { "required": ["expr"] }
+        },
+        { "if": { "properties": { "type": { "const": "sort" } } }, "then": { "required": ["by"] } },
+        {
+          "if": { "properties": { "type": { "const": "calculate" } } },
+          "then": { "required": ["as", "expr"] }
+        },
+        {
+          "if": { "properties": { "type": { "enum": ["aggregate", "joinaggregate", "window"] } } },
+          "then": { "required": ["fields"] }
+        },
+        {
+          "if": { "properties": { "type": { "const": "bin" } } },
+          "then": { "required": ["field", "as"] }
+        },
+        {
+          "if": { "properties": { "type": { "enum": ["bin2d", "density2d", "regression"] } } },
+          "then": { "required": ["x", "y", "as"] }
+        },
+        {
+          "if": { "properties": { "type": { "enum": ["density1d", "quantile"] } } },
+          "then": { "required": ["field", "as"] }
+        },
+        {
+          "if": { "properties": { "type": { "const": "stack" } } },
+          "then": { "required": ["field", "groupby", "as"] }
+        },
+        {
+          "if": { "properties": { "type": { "const": "fold" } } },
+          "then": { "required": ["fields", "as"] }
+        },
+        {
+          "if": { "properties": { "type": { "const": "flatten" } } },
+          "then": { "required": ["fields"] }
+        },
+        {
+          "if": { "properties": { "type": { "const": "pivot" } } },
+          "then": { "required": ["field", "value"] }
+        },
+        {
+          "if": { "properties": { "type": { "const": "impute" } } },
+          "then": { "required": ["field", "key"] }
+        },
+        {
+          "if": { "properties": { "type": { "const": "lookup" } } },
+          "then": { "required": ["field", "from", "key", "values"] }
+        },
+        {
+          "if": { "properties": { "type": { "const": "sample" } } },
+          "then": { "required": ["size"] }
+        },
+        {
+          "if": { "properties": { "type": { "const": "resample" } } },
+          "then": { "required": ["field", "interval"] }
+        },
+        {
+          "if": { "properties": { "type": { "const": "timeUnit" } } },
+          "then": { "required": ["field", "unit", "as"] }
+        }
+      ]
+    },
+    "transformList": {
+      "type": "array",
+      "maxItems": 128,
+      "items": { "$ref": "#/$defs/transform" }
+    },
     "scale": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "type": {
-          "enum": ["linear", "band", "time"]
+          "enum": [
+            "linear",
+            "log",
+            "symlog",
+            "asinh",
+            "pow",
+            "sqrt",
+            "time",
+            "utc",
+            "band",
+            "point",
+            "ordinal",
+            "quantile",
+            "quantize",
+            "threshold",
+            "sequential",
+            "diverging",
+            "cyclic",
+            "probability",
+            "logit",
+            "probit"
+          ]
         },
         "domain": {
           "type": "array",
-          "minItems": 2,
+          "minItems": 1,
+          "items": {
+            "type": ["number", "string"]
+          }
+        },
+        "range": {
+          "type": "array",
+          "minItems": 1,
           "items": {
             "type": ["number", "string"]
           }
@@ -467,6 +1070,22 @@
         "reverse": {
           "type": "boolean"
         },
+        "outOfBounds": {
+          "enum": ["extrapolate", "clamp", "error", "unknown"]
+        },
+        "base": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "not": { "const": 1 }
+        },
+        "exponent": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "constant": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
         "paddingInner": {
           "type": "number",
           "minimum": 0,
@@ -476,7 +1095,295 @@
           "type": "number",
           "minimum": 0
         }
-      }
+      },
+      "allOf": [
+        {
+          "not": { "required": ["clamp", "outOfBounds"] }
+        },
+        {
+          "if": {
+            "required": ["type"],
+            "properties": {
+              "type": {
+                "enum": [
+                  "linear",
+                  "log",
+                  "symlog",
+                  "asinh",
+                  "pow",
+                  "sqrt",
+                  "time",
+                  "utc",
+                  "quantize",
+                  "sequential",
+                  "cyclic",
+                  "probability",
+                  "logit",
+                  "probit"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "domain": { "minItems": 2, "maxItems": 2 }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["type"],
+            "properties": { "type": { "const": "diverging" } }
+          },
+          "then": {
+            "properties": {
+              "domain": { "minItems": 3, "maxItems": 3 }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["type"],
+            "properties": { "type": { "const": "quantile" } }
+          },
+          "then": {
+            "properties": {
+              "domain": { "minItems": 2 }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["type"],
+            "properties": {
+              "type": {
+                "enum": [
+                  "linear",
+                  "log",
+                  "symlog",
+                  "asinh",
+                  "pow",
+                  "sqrt",
+                  "quantile",
+                  "quantize",
+                  "threshold",
+                  "sequential",
+                  "diverging",
+                  "cyclic",
+                  "probability",
+                  "logit",
+                  "probit"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "domain": { "items": { "type": "number" } }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["type"],
+            "properties": { "type": { "enum": ["band", "point"] } }
+          },
+          "then": {
+            "properties": {
+              "domain": { "items": { "type": "string" } },
+              "range": {
+                "minItems": 2,
+                "maxItems": 2,
+                "items": { "type": "number" }
+              },
+              "clamp": { "const": false },
+              "outOfBounds": { "enum": ["error", "unknown"] }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["type"],
+            "properties": { "type": { "const": "ordinal" } }
+          },
+          "then": {
+            "properties": {
+              "clamp": { "const": false },
+              "outOfBounds": { "enum": ["error", "unknown"] }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["type"],
+            "properties": {
+              "type": {
+                "enum": [
+                  "linear",
+                  "log",
+                  "symlog",
+                  "asinh",
+                  "pow",
+                  "sqrt",
+                  "time",
+                  "utc",
+                  "probability",
+                  "logit",
+                  "probit"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "range": {
+                "minItems": 2,
+                "maxItems": 2,
+                "items": { "type": "number" }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["type"],
+            "properties": {
+              "type": { "enum": ["quantile", "quantize", "threshold"] }
+            }
+          },
+          "then": {
+            "properties": {
+              "range": { "items": { "type": "number" } }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["type"],
+            "properties": { "type": { "enum": ["sequential", "cyclic"] } }
+          },
+          "then": {
+            "properties": {
+              "range": { "minItems": 2, "items": { "type": "string" } }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["type"],
+            "properties": { "type": { "const": "diverging" } }
+          },
+          "then": {
+            "properties": {
+              "range": { "minItems": 3, "items": { "type": "string" } }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["type"],
+            "properties": { "type": { "const": "log" } }
+          },
+          "then": {
+            "properties": {
+              "domain": { "items": { "type": "number", "exclusiveMinimum": 0 } }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["type"],
+            "properties": { "type": { "const": "probability" } }
+          },
+          "then": {
+            "properties": {
+              "domain": {
+                "items": { "type": "number", "minimum": 0, "maximum": 1 }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["type"],
+            "properties": { "type": { "enum": ["logit", "probit"] } }
+          },
+          "then": {
+            "properties": {
+              "domain": {
+                "items": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "exclusiveMaximum": 1
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": { "required": ["base"] },
+          "then": { "properties": { "type": { "const": "log" } }, "required": ["type"] }
+        },
+        {
+          "if": { "required": ["exponent"] },
+          "then": { "properties": { "type": { "const": "pow" } }, "required": ["type"] }
+        },
+        {
+          "if": { "required": ["constant"] },
+          "then": {
+            "properties": { "type": { "enum": ["symlog", "asinh"] } },
+            "required": ["type"]
+          }
+        },
+        {
+          "if": {
+            "anyOf": [{ "required": ["paddingInner"] }, { "required": ["paddingOuter"] }]
+          },
+          "then": {
+            "properties": { "type": { "enum": ["band", "point"] } },
+            "required": ["type"]
+          }
+        },
+        {
+          "if": { "required": ["nice"] },
+          "then": {
+            "properties": { "type": { "enum": ["linear", "time", "utc"] } }
+          }
+        },
+        {
+          "if": {
+            "required": ["type"],
+            "properties": { "type": { "enum": ["quantile", "threshold", "cyclic"] } }
+          },
+          "then": {
+            "not": {
+              "anyOf": [{ "required": ["outOfBounds"] }, { "required": ["clamp"] }]
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["type"],
+            "properties": { "type": { "const": "quantize" } }
+          },
+          "then": {
+            "properties": {
+              "outOfBounds": { "enum": ["clamp", "error", "unknown"] }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["type"],
+            "properties": { "type": { "enum": ["sequential", "diverging"] } }
+          },
+          "then": {
+            "properties": {
+              "outOfBounds": { "enum": ["clamp", "error", "unknown"] }
+            }
+          }
+        }
+      ]
     },
     "axisFont": {
       "type": "object",
@@ -1011,6 +1918,23 @@
         }
       }
     },
+    "domainNavigation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "axes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": { "enum": ["x", "x2", "y", "y2"] }
+        },
+        "maxZoom": { "type": "number", "minimum": 1, "maximum": 64 },
+        "wheel": { "enum": ["off", "modifier", "always"] },
+        "drag": { "type": "boolean" },
+        "keyboard": { "type": "boolean" }
+      }
+    },
     "playback": {
       "type": "object",
       "required": ["field"],
@@ -1150,7 +2074,23 @@
     "selection": {
       "type": "object",
       "additionalProperties": false,
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "const": "axis" } }, "required": ["kind"] },
+          "then": { "required": ["axis"] }
+        },
+        {
+          "if": { "required": ["axis"] },
+          "then": { "properties": { "kind": { "const": "axis" } }, "required": ["kind"] }
+        },
+        {
+          "if": { "required": ["maxLassoPoints"] },
+          "then": { "properties": { "kind": { "const": "lasso" } }, "required": ["kind"] }
+        }
+      ],
       "properties": {
+        "kind": { "enum": ["point", "interval", "rectangle", "axis", "lasso"] },
+        "combine": { "enum": ["union", "intersection"] },
         "mode": { "enum": ["single", "multiple"] },
         "toggle": { "type": "boolean" },
         "key": {
@@ -1161,7 +2101,135 @@
         "clearOnBackground": { "type": "boolean" },
         "clearOnEscape": { "type": "boolean" },
         "ariaLabel": { "type": "string", "minLength": 1, "pattern": "\\S" },
-        "highlight": { "$ref": "#/$defs/highlightStyle" }
+        "highlight": { "$ref": "#/$defs/highlightStyle" },
+        "axis": { "enum": ["x", "x2", "y", "y2"] },
+        "xAxis": { "enum": ["x", "x2"] },
+        "yAxis": { "enum": ["y", "y2"] },
+        "maxSelections": { "type": "integer", "minimum": 1, "maximum": 64 },
+        "maxLassoPoints": { "type": "integer", "minimum": 3, "maximum": 512 },
+        "minPixelSpan": { "type": "number", "minimum": 0, "maximum": 64 }
+      }
+    },
+    "analyticExtent": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": { "type": "number" }
+    },
+    "analyticSelection": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["type"],
+          "additionalProperties": false,
+          "anyOf": [{ "required": ["x"] }, { "required": ["y"] }, { "required": ["target"] }],
+          "properties": {
+            "type": { "const": "point" },
+            "xAxis": { "enum": ["x", "x2"] },
+            "yAxis": { "enum": ["y", "y2"] },
+            "x": {
+              "oneOf": [
+                { "type": "number" },
+                { "type": "string", "minLength": 1, "maxLength": 4096 }
+              ]
+            },
+            "y": {
+              "oneOf": [
+                { "type": "number" },
+                { "type": "string", "minLength": 1, "maxLength": 4096 }
+              ]
+            },
+            "target": { "$ref": "#/$defs/datumTarget" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "xAxis", "yAxis", "x", "y"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "enum": ["interval", "rectangle"] },
+            "xAxis": { "enum": ["x", "x2"] },
+            "yAxis": { "enum": ["y", "y2"] },
+            "x": { "$ref": "#/$defs/analyticExtent" },
+            "y": { "$ref": "#/$defs/analyticExtent" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "axis", "extent"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "axis" },
+            "axis": { "enum": ["x", "x2", "y", "y2"] },
+            "extent": { "$ref": "#/$defs/analyticExtent" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "xAxis", "yAxis", "points"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "lasso" },
+            "xAxis": { "enum": ["x", "x2"] },
+            "yAxis": { "enum": ["y", "y2"] },
+            "points": {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 512,
+              "items": {
+                "type": "object",
+                "required": ["x", "y"],
+                "additionalProperties": false,
+                "properties": {
+                  "x": { "type": "number" },
+                  "y": { "type": "number" }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "analyticSelectionState": {
+      "type": "object",
+      "required": ["version", "combine", "selections"],
+      "additionalProperties": false,
+      "properties": {
+        "version": { "const": 1 },
+        "combine": { "enum": ["union", "intersection"] },
+        "selections": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/analyticSelection" }
+        }
+      }
+    },
+    "domainViewState": {
+      "type": "object",
+      "required": ["version", "axes"],
+      "additionalProperties": false,
+      "properties": {
+        "version": { "const": 1 },
+        "axes": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "x": { "$ref": "#/$defs/domainAxisWindow" },
+            "x2": { "$ref": "#/$defs/domainAxisWindow" },
+            "y": { "$ref": "#/$defs/domainAxisWindow" },
+            "y2": { "$ref": "#/$defs/domainAxisWindow" }
+          }
+        }
+      }
+    },
+    "domainAxisWindow": {
+      "type": "object",
+      "required": ["start", "end"],
+      "additionalProperties": false,
+      "properties": {
+        "start": { "type": "number", "minimum": 0, "exclusiveMaximum": 1 },
+        "end": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
       }
     },
     "legendItem": {
@@ -1420,7 +2488,118 @@
         },
         "axisId": {
           "enum": ["x", "x2", "y", "y2"]
+        },
+        "condition": {
+          "oneOf": [
+            { "$ref": "#/$defs/encodingCondition" },
+            {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 32,
+              "items": { "$ref": "#/$defs/encodingCondition" }
+            }
+          ]
         }
+      }
+    },
+    "encodingCondition": {
+      "type": "object",
+      "required": ["test"],
+      "additionalProperties": false,
+      "properties": {
+        "test": { "$ref": "#/$defs/expression" },
+        "field": {
+          "type": "string",
+          "minLength": 1,
+          "not": { "enum": ["__proto__", "prototype", "constructor"] }
+        },
+        "value": {
+          "oneOf": [
+            { "$ref": "#/$defs/primitive" },
+            {
+              "type": "array",
+              "items": { "type": "number", "minimum": 0 }
+            }
+          ]
+        }
+      },
+      "oneOf": [
+        { "required": ["field"], "not": { "required": ["value"] } },
+        { "required": ["value"], "not": { "required": ["field"] } }
+      ]
+    },
+    "channelEncodingObject": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "type": "string",
+          "minLength": 1,
+          "not": { "enum": ["__proto__", "prototype", "constructor"] }
+        },
+        "value": {
+          "oneOf": [
+            { "$ref": "#/$defs/primitive" },
+            {
+              "type": "array",
+              "items": { "type": "number", "minimum": 0 }
+            }
+          ]
+        },
+        "type": { "enum": ["quantitative", "temporal", "ordinal", "nominal"] },
+        "title": { "type": "string" },
+        "scale": { "$ref": "#/$defs/scale" },
+        "axis": { "$ref": "#/$defs/axisOrFalse" },
+        "axisId": { "enum": ["x", "x2", "y", "y2"] },
+        "condition": {
+          "oneOf": [
+            { "$ref": "#/$defs/encodingCondition" },
+            {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 32,
+              "items": { "$ref": "#/$defs/encodingCondition" }
+            }
+          ]
+        }
+      },
+      "oneOf": [
+        { "required": ["field"], "not": { "required": ["value"] } },
+        { "required": ["value"], "not": { "required": ["field"] } }
+      ]
+    },
+    "channelEncoding": {
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "not": { "enum": ["__proto__", "prototype", "constructor"] }
+        },
+        { "$ref": "#/$defs/channelEncodingObject" }
+      ]
+    },
+    "encodingMap": {
+      "type": "object",
+      "required": ["x", "y"],
+      "additionalProperties": false,
+      "properties": {
+        "x": { "$ref": "#/$defs/xEncoding" },
+        "x2": { "$ref": "#/$defs/channelEncoding" },
+        "y": { "$ref": "#/$defs/yEncoding" },
+        "y2": { "$ref": "#/$defs/channelEncoding" },
+        "color": { "$ref": "#/$defs/channelEncoding" },
+        "fill": { "$ref": "#/$defs/channelEncoding" },
+        "stroke": { "$ref": "#/$defs/channelEncoding" },
+        "size": { "$ref": "#/$defs/channelEncoding" },
+        "radius": { "$ref": "#/$defs/channelEncoding" },
+        "shape": { "$ref": "#/$defs/channelEncoding" },
+        "opacity": { "$ref": "#/$defs/channelEncoding" },
+        "strokeWidth": { "$ref": "#/$defs/channelEncoding" },
+        "strokeDash": { "$ref": "#/$defs/channelEncoding" },
+        "text": { "$ref": "#/$defs/channelEncoding" },
+        "order": { "$ref": "#/$defs/channelEncoding" },
+        "detail": { "$ref": "#/$defs/channelEncoding" },
+        "tooltip": { "$ref": "#/$defs/channelEncoding" }
       }
     },
     "encoding": {
@@ -1545,6 +2724,110 @@
               "enum": ["__proto__", "prototype", "constructor"]
             }
           },
+          "properties": {
+            "curve": {
+              "enum": [
+                "straight",
+                "step-before",
+                "step-after",
+                "step-mid",
+                "monotone-x",
+                "natural",
+                "basis",
+                "cardinal"
+              ]
+            },
+            "missing": {
+              "enum": ["gap", "zero", "connect"]
+            },
+            "tension": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "curveSamples": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 64
+            },
+            "stack": {
+              "description": "Function-free one-layer series layout for Area, Bar, and Theme river. A series field is required in mark.fields.series.",
+              "oneOf": [
+                {
+                  "enum": ["grouped", "stacked", "100-percent", "diverging", "streamgraph"]
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "mode": {
+                      "enum": ["grouped", "stacked", "100-percent", "diverging", "streamgraph"]
+                    },
+                    "offset": {
+                      "enum": ["zero", "normalize", "expand", "center", "silhouette", "wiggle"]
+                    },
+                    "order": {
+                      "enum": [
+                        "input",
+                        "ascending",
+                        "descending",
+                        "sumAscending",
+                        "sumDescending",
+                        "insideOut"
+                      ]
+                    },
+                    "sort": {
+                      "type": "array",
+                      "minItems": 1,
+                      "maxItems": 16,
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["field"],
+                        "properties": {
+                          "field": {
+                            "$ref": "#/$defs/fieldName"
+                          },
+                          "order": {
+                            "enum": ["ascending", "descending"]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "kind": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Technical-indicator registry kind. Calculation support is exposed by technicalIndicatorCapabilities."
+            },
+            "calculate": {
+              "type": "boolean",
+              "description": "Calculate only registry entries whose support is computed; precomputed-required kinds fail validation."
+            },
+            "period": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 200
+            },
+            "fastPeriod": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 200
+            },
+            "slowPeriod": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 200
+            },
+            "signalPeriod": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 200
+            }
+          },
           "additionalProperties": {
             "$ref": "#/$defs/jsonValue"
           }
@@ -1588,7 +2871,7 @@
     },
     "layer": {
       "type": "object",
-      "required": ["mark", "x", "y"],
+      "required": ["mark"],
       "additionalProperties": false,
       "properties": {
         "id": {
@@ -1602,6 +2885,9 @@
         "data": {
           "$ref": "#/$defs/data"
         },
+        "transform": {
+          "$ref": "#/$defs/transformList"
+        },
         "mark": {
           "$ref": "#/$defs/mark"
         },
@@ -1611,13 +2897,243 @@
         "y": {
           "$ref": "#/$defs/yEncoding"
         },
+        "encoding": {
+          "$ref": "#/$defs/encodingMap"
+        },
         "visible": {
           "type": "boolean"
         },
         "zIndex": {
           "type": "number"
         }
+      },
+      "oneOf": [
+        { "required": ["x", "y"], "not": { "required": ["encoding"] } },
+        {
+          "required": ["encoding"],
+          "not": { "anyOf": [{ "required": ["x"] }, { "required": ["y"] }] }
+        }
+      ]
+    },
+    "compositionResolve": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "scale": { "enum": ["shared", "independent"] },
+        "axis": { "enum": ["shared", "independent"] },
+        "legend": { "enum": ["shared", "independent"] }
       }
+    },
+    "compositionChoice": {
+      "oneOf": [
+        { "required": ["layer"] },
+        { "required": ["facet", "spec"] },
+        { "required": ["repeat", "spec"] },
+        { "required": ["hconcat"] },
+        { "required": ["vconcat"] },
+        { "required": ["concat"] },
+        { "required": ["inset"] }
+      ]
+    },
+    "facetField": {
+      "oneOf": [
+        { "$ref": "#/$defs/fieldName" },
+        {
+          "type": "object",
+          "required": ["field"],
+          "additionalProperties": false,
+          "properties": {
+            "field": { "$ref": "#/$defs/fieldName" },
+            "title": { "type": "string" },
+            "sort": { "enum": ["input", "ascending", "descending"] }
+          }
+        }
+      ]
+    },
+    "facetComposition": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "row": { "$ref": "#/$defs/facetField" },
+        "column": { "$ref": "#/$defs/facetField" },
+        "wrap": { "$ref": "#/$defs/facetField" },
+        "columns": { "type": "integer", "minimum": 1, "maximum": 16 }
+      },
+      "oneOf": [
+        {
+          "required": ["wrap"],
+          "not": { "anyOf": [{ "required": ["row"] }, { "required": ["column"] }] }
+        },
+        {
+          "anyOf": [{ "required": ["row"] }, { "required": ["column"] }],
+          "not": { "required": ["wrap"] }
+        }
+      ]
+    },
+    "repeatItem": {
+      "type": "object",
+      "required": ["id"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "label": { "type": "string" },
+        "x": { "$ref": "#/$defs/fieldName" },
+        "y": { "$ref": "#/$defs/fieldName" }
+      },
+      "anyOf": [{ "required": ["x"] }, { "required": ["y"] }]
+    },
+    "repeatComposition": {
+      "type": "object",
+      "required": ["items"],
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": { "$ref": "#/$defs/repeatItem" }
+        },
+        "columns": { "type": "integer", "minimum": 1, "maximum": 16 }
+      }
+    },
+    "insetComposition": {
+      "type": "object",
+      "required": ["base", "view", "x", "y", "width", "height"],
+      "additionalProperties": false,
+      "properties": {
+        "base": { "$ref": "#/$defs/chartNode" },
+        "view": { "$ref": "#/$defs/chartNode" },
+        "x": { "type": "number", "minimum": 0, "maximum": 1 },
+        "y": { "type": "number", "minimum": 0, "maximum": 1 },
+        "width": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+        "height": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+        "label": { "type": "string" }
+      }
+    },
+    "layerCompositionChild": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "$schema": { "$ref": "#/properties/$schema" },
+        "specVersion": { "$ref": "#/properties/specVersion" },
+        "data": { "$ref": "#/properties/data" },
+        "transform": { "$ref": "#/properties/transform" },
+        "mark": { "$ref": "#/properties/mark" },
+        "x": { "$ref": "#/properties/x" },
+        "y": { "$ref": "#/properties/y" },
+        "encoding": { "$ref": "#/properties/encoding" },
+        "layers": { "$ref": "#/properties/layers" }
+      },
+      "oneOf": [
+        {
+          "required": ["mark", "x", "y"],
+          "not": { "anyOf": [{ "required": ["encoding"] }, { "required": ["layers"] }] }
+        },
+        {
+          "required": ["mark", "encoding"],
+          "not": {
+            "anyOf": [{ "required": ["x"] }, { "required": ["y"] }, { "required": ["layers"] }]
+          }
+        },
+        {
+          "required": ["layers"],
+          "not": {
+            "anyOf": [
+              { "required": ["mark"] },
+              { "required": ["x"] },
+              { "required": ["y"] },
+              { "required": ["encoding"] }
+            ]
+          }
+        }
+      ]
+    },
+    "chartNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "$schema": { "$ref": "#/properties/$schema" },
+        "specVersion": { "$ref": "#/properties/specVersion" },
+        "data": { "$ref": "#/properties/data" },
+        "transform": { "$ref": "#/properties/transform" },
+        "mark": { "$ref": "#/properties/mark" },
+        "x": { "$ref": "#/properties/x" },
+        "y": { "$ref": "#/properties/y" },
+        "encoding": { "$ref": "#/properties/encoding" },
+        "layers": { "$ref": "#/properties/layers" },
+        "layer": { "$ref": "#/properties/layer" },
+        "facet": { "$ref": "#/properties/facet" },
+        "repeat": { "$ref": "#/properties/repeat" },
+        "hconcat": { "$ref": "#/properties/hconcat" },
+        "vconcat": { "$ref": "#/properties/vconcat" },
+        "concat": { "$ref": "#/properties/concat" },
+        "inset": { "$ref": "#/properties/inset" },
+        "spec": { "$ref": "#/properties/spec" },
+        "columns": { "$ref": "#/properties/columns" },
+        "spacing": { "$ref": "#/properties/spacing" },
+        "resolve": { "$ref": "#/properties/resolve" },
+        "padding": { "$ref": "#/properties/padding" },
+        "title": { "$ref": "#/properties/title" },
+        "description": { "$ref": "#/properties/description" },
+        "renderer": { "$ref": "#/properties/renderer" },
+        "performance": { "$ref": "#/properties/performance" },
+        "theme": { "$ref": "#/properties/theme" },
+        "locale": { "$ref": "#/properties/locale" },
+        "axes": { "$ref": "#/properties/axes" },
+        "legend": { "$ref": "#/properties/legend" },
+        "highlights": { "$ref": "#/properties/highlights" },
+        "annotations": { "$ref": "#/properties/annotations" },
+        "accessibility": { "$ref": "#/properties/accessibility" }
+      },
+      "anyOf": [
+        {
+          "required": ["mark", "x", "y"],
+          "not": { "required": ["encoding"] }
+        },
+        {
+          "required": ["mark", "encoding"],
+          "not": { "anyOf": [{ "required": ["x"] }, { "required": ["y"] }] }
+        },
+        { "required": ["layers"] },
+        { "required": ["layer"] },
+        { "required": ["facet", "spec"] },
+        { "required": ["repeat", "spec"] },
+        { "required": ["hconcat"] },
+        { "required": ["vconcat"] },
+        { "required": ["concat"] },
+        { "required": ["inset"] }
+      ],
+      "allOf": [
+        {
+          "if": {
+            "anyOf": [
+              { "required": ["layer"] },
+              { "required": ["facet"] },
+              { "required": ["repeat"] },
+              { "required": ["hconcat"] },
+              { "required": ["vconcat"] },
+              { "required": ["concat"] },
+              { "required": ["inset"] }
+            ]
+          },
+          "then": {
+            "allOf": [
+              { "$ref": "#/$defs/compositionChoice" },
+              {
+                "not": {
+                  "anyOf": [
+                    { "required": ["mark"] },
+                    { "required": ["x"] },
+                    { "required": ["y"] },
+                    { "required": ["encoding"] },
+                    { "required": ["layers"] }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
     },
     "padding": {
       "type": "object",

@@ -34,7 +34,7 @@ Every image below is generated from the current compiled Scene rather than drawn
 
 ## Type-by-type implementation
 
-The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. This family uses `trigger: "axis"` with `axis: "x"`. An exact rendered-mark hit still has priority; otherwise Graflume selects the nearest actual datum on that axis without inventing an interpolated row. Tooltip interaction is a pointer-only convenience, so keep a readable summary or data table available for exact values and keyboard access. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. This family uses `trigger: "axis"` with `axis: "x"`. An exact rendered-mark hit still has priority; otherwise Graflume selects the nearest actual datum on that axis without inventing an interpolated row. Pointer tooltip triggers remain a convenience; opt into `accessibility.table` and `accessibility.navigation` for the bounded native table and keyboard mark traversal, or provide a larger domain-specific table. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
 
 Every family can opt into the Canvas [inspection viewport, fullscreen, reset, and PNG controls](./interactions.md). Inspection magnifies and translates the complete already-rendered chart, including its title and axes; it is not data-domain or GIS zoom. Generated examples intentionally leave playback off. Add discrete playback only after selecting a meaningful frame field and reviewing the family-specific capability table.
 
@@ -847,7 +847,26 @@ Graflume.create('#chart', spec);
 
 ## Grouped bars
 
-Set `position: 'group'` on every bar layer that should occupy a separate slot.
+For long-form data, keep all series in one layer with `mark.fields.series` and the function-free `mark.options.stack` contract. `grouped` dodges series, `stacked` and `diverging` use separate positive and negative cursors, and `100-percent` divides signed widths by the category's total absolute magnitude.
+
+```ts
+Graflume.bar('#chart', data, {
+  x: { field: 'month', type: 'ordinal' },
+  y: { field: 'sales', type: 'quantitative' },
+  mark: {
+    fields: { series: 'region' },
+    options: {
+      stack: { mode: '100-percent', order: 'sumDescending' },
+    },
+  },
+});
+```
+
+Every rectangle retains the source row and adds `stackStart`, `stackEnd`, `stackTotal`, positive/negative/net totals, and signed `stackPercent` to its derived tooltip row. The compiler's data lineage records the total calculation and exact stack offset/order. One source row per category-series pair is the portable input contract; aggregate duplicates explicitly before stacking.
+
+Canonical `encoding` remains active on this series path: `color`, `fill`, `stroke`, `opacity`, `strokeWidth`, `strokeDash`, draw `order`, and `tooltip` are resolved for every source row. The stack transform owns both quantitative boundaries, so `x2` and `y2` are explicit validation errors when `mark.options.stack` is present; they are never accepted and then ignored. Use `mark.options.stack.order` for stack-layer order—`encoding.order` controls only Scene draw order.
+
+For wide data, set `position: 'group'` on every bar layer that should occupy a separate slot.
 
 ```ts
 Graflume.create('#chart', {
@@ -889,10 +908,10 @@ Large and ultra profiles reduce rendered bars and disable per-bar and axis-neare
 
 ## Current limitations
 
-- no stacked or normalized stack calculation;
 - no range, floating, or funnel semantics; waterfall uses its own portable mark;
+- one-layer series layouts do not implicitly aggregate duplicate category-series rows or impute missing combinations;
 - no rendered crosshair guide or data-label layout; shared layer and explicit category legends are available;
-- no keyboard traversal of individual bars;
+- keyboard traversal is available only through the bounded opt-in native accessibility mirror;
 - no SVG/WebGL renderer parity yet.
 
 ## Runnable examples and tests
@@ -902,5 +921,6 @@ Large and ultra profiles reduce rendered bars and disable per-bar and axis-neare
 - [chart type gallery](../../examples/cdn/chart-types.html)
 - [default-family chart gallery](../../examples/cdn/complete-chart-types.html)
 - [bar regression tests](../../tests/bar.test.mjs)
+- [series stack and indicator contract tests](../../tests/series-stack-indicator.test.mjs)
 
 [Back to chart guides](./README.md)

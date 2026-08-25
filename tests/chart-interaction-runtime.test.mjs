@@ -1410,3 +1410,312 @@ test('multiple selection keys preserve compound rows and canonicalize selector s
     environment.restore();
   }
 });
+
+test('Canvas native semantic table supports roving keys, focus ring, tooltip, and selection sync', () => {
+  const environment = installEnvironment();
+  const { registry, target, renderers } = createHarness(environment.document);
+  const chart = new Chart(
+    target,
+    {
+      data: [
+        { category: '서울', value: 10 },
+        { category: 'بوسان', value: 14 },
+        { category: '제주', value: 8 },
+      ],
+      mark: 'bar',
+      x: 'category',
+      y: 'value',
+      interaction: {
+        tooltip: true,
+        selection: { mode: 'multiple', clearOnEscape: true },
+      },
+      accessibility: {
+        table: 'hidden',
+        navigation: true,
+        maxRows: 10,
+        summary: '지역별 값',
+        live: { throttleMs: 0 },
+      },
+    },
+    registry,
+    { width: 240, height: 160, autoResize: false },
+  );
+  try {
+    assert.equal(chart.getSemanticIndex().length, 3);
+    assert.equal(chart.toAccessibleRows().length, 3);
+    assert.deepEqual(chart.getAccessibilityState(), {
+      enabled: true,
+      table: 'hidden',
+      navigation: true,
+      rowCount: 3,
+    });
+    const host = renderers[0].host;
+    const mirror = walk(host).find(
+      ({ dataset }) => dataset.graflumeAccessibilityMirror === 'hidden',
+    );
+    assert.notEqual(mirror, undefined);
+    assert.equal(mirror.getAttribute('dir'), 'auto');
+    let rows = walk(mirror).filter(({ dataset }) => dataset.graflumeSemanticId !== undefined);
+    assert.equal(rows.length, 3);
+    assert.equal(rows[0].tabIndex, 0);
+    assert.match(rows[0].getAttribute('aria-label'), /서울/);
+
+    rows[0].focus();
+    rows[0].dispatchEvent(new Event('focus'));
+    const ring = walk(host).find(({ dataset }) => dataset.graflumeSemanticFocus === 'true');
+    assert.equal(ring.hidden, false);
+    assert.ok(Number.parseFloat(ring.style.width) >= 8);
+    const tooltip = walk(host).find(({ dataset }) => dataset.graflumeTooltip === 'true');
+    assert.equal(tooltip.hidden, false);
+
+    rows[0].dispatchEvent(new FakeKeyboardEvent('keydown', { key: 'ArrowDown' }));
+    assert.equal(
+      environment.document.activeElement.dataset.graflumeSemanticId,
+      rows[1].dataset.graflumeSemanticId,
+    );
+    environment.document.activeElement.dispatchEvent(new Event('focus'));
+    environment.document.activeElement.dispatchEvent(
+      new FakeKeyboardEvent('keydown', { key: ' ' }),
+    );
+    assert.equal(chart.getSelection().items.length, 1);
+    rows = walk(host).filter(({ dataset }) => dataset.graflumeSemanticId !== undefined);
+    assert.equal(rows[1].getAttribute('aria-selected'), 'true');
+
+    rows[1].dispatchEvent(new FakeKeyboardEvent('keydown', { key: 'End' }));
+    assert.equal(
+      environment.document.activeElement.dataset.graflumeSemanticId,
+      rows[2].dataset.graflumeSemanticId,
+    );
+    rows[2].dispatchEvent(new FakeKeyboardEvent('keydown', { key: 'Escape' }));
+    assert.equal(chart.getSelection().items.length, 0);
+    assert.equal(environment.document.activeElement, renderers[0].chartSurface);
+    assert.equal(ring.hidden, true);
+  } finally {
+    chart.destroy();
+    environment.restore();
+  }
+});
+
+test('semantic mirror and selection live region follow the target owner document', () => {
+  const environment = installEnvironment();
+  const secondaryDocument = new FakeDocument();
+  const { registry, target, renderers } = createHarness(secondaryDocument);
+  const chart = new Chart(
+    target,
+    {
+      data: [{ category: '서울', value: 10 }],
+      mark: 'bar',
+      x: 'category',
+      y: 'value',
+      interaction: { tooltip: true, selection: true },
+      accessibility: { table: true, navigation: true, live: { throttleMs: 0 } },
+    },
+    registry,
+    { width: 240, height: 160, autoResize: false },
+  );
+  try {
+    const host = renderers[0].host;
+    const mirror = walk(host).find(
+      ({ dataset }) => dataset.graflumeAccessibilityMirror === 'hidden',
+    );
+    const live = walk(host).find(({ dataset }) => dataset.graflumeSelectionStatus === 'true');
+    assert.equal(mirror.ownerDocument, secondaryDocument);
+    assert.equal(live.ownerDocument, secondaryDocument);
+    const row = walk(mirror).find(({ dataset }) => dataset.graflumeSemanticId !== undefined);
+    row.focus();
+    row.dispatchEvent(new Event('focus'));
+    const tooltip = walk(host).find(({ dataset }) => dataset.graflumeTooltip === 'true');
+    assert.equal(tooltip.ownerDocument, secondaryDocument);
+  } finally {
+    chart.destroy();
+    environment.restore();
+  }
+});
+
+test('data-domain navigation supports wheel, pointer drag, keyboard reset, and coordinate round-trip', () => {
+  const environment = installEnvironment();
+  const { registry, target, renderers } = createHarness(environment.document);
+  const spec = {
+    data: [
+      { x: 0, y: 0 },
+      { x: 10, y: 10 },
+    ],
+    mark: 'line',
+    encoding: {
+      x: { field: 'x', type: 'quantitative', scale: { domain: [0, 10], nice: false } },
+      y: { field: 'y', type: 'quantitative', scale: { domain: [0, 10], nice: false } },
+    },
+    annotations: [{ id: 'guide', target: { type: 'plot', x: 0.5, y: 0.5 }, text: 'Guide' }],
+    interaction: {
+      domainNavigation: { axes: ['x'], maxZoom: 8, wheel: 'always', drag: true, keyboard: true },
+    },
+  };
+  const chart = new Chart(target, spec, registry, {
+    width: 240,
+    height: 160,
+    autoResize: false,
+  });
+  try {
+    const surface = renderers[0].chartSurface;
+    closeEnough(chart.pixelToDomain('x', chart.domainToPixel('x', 4)), 4);
+    const reasons = [];
+    chart.on('domainviewchange', ({ reason }) => reasons.push(reason));
+    const anchor = chart.domainToPixel('x', 5);
+    const wheel = new FakeWheelEvent('wheel', { clientX: anchor, clientY: 80, deltaY: -120 });
+    surface.dispatchEvent(wheel);
+    assert.equal(wheel.defaultPrevented, true);
+    assert.ok(chart.getDomainViewState().axes.x.end - chart.getDomainViewState().axes.x.start < 1);
+    assert.equal(chart.getSpec(), spec);
+    assert.ok(sceneNodes(chart.getScene().root).some(({ id }) => id === 'annotation:guide:bubble'));
+
+    const beforePan = chart.getDomainViewState().axes.x.start;
+    surface.dispatchEvent(
+      new FakePointerEvent('pointerdown', { pointerId: 7, clientX: anchor, clientY: 80 }),
+    );
+    surface.dispatchEvent(
+      new FakePointerEvent('pointermove', { pointerId: 7, clientX: anchor + 20, clientY: 80 }),
+    );
+    surface.dispatchEvent(
+      new FakePointerEvent('pointerup', { pointerId: 7, clientX: anchor + 20, clientY: 80 }),
+    );
+    assert.notEqual(chart.getDomainViewState().axes.x.start, beforePan);
+    const reset = new FakeKeyboardEvent('keydown', { key: 'Home' });
+    surface.dispatchEvent(reset);
+    assert.equal(reset.defaultPrevented, true);
+    assert.deepEqual(chart.getDomainViewState(), { version: 1, axes: {} });
+    assert.ok(reasons.includes('zoom'));
+    assert.ok(reasons.includes('pan'));
+    assert.ok(reasons.includes('reset'));
+  } finally {
+    chart.destroy();
+    environment.restore();
+  }
+});
+
+test('rectangle, lasso, and axis pointer selections use bounded serializable domain state', () => {
+  const environment = installEnvironment();
+  const { registry, target, renderers } = createHarness(environment.document);
+  const base = {
+    data: [
+      { x: 0, y: 0 },
+      { x: 10, y: 10 },
+    ],
+    mark: 'point',
+    encoding: {
+      x: { field: 'x', type: 'quantitative', scale: { domain: [0, 10], nice: false } },
+      y: { field: 'y', type: 'quantitative', scale: { domain: [0, 10], nice: false } },
+    },
+  };
+  const chart = new Chart(
+    target,
+    {
+      ...base,
+      interaction: {
+        selection: {
+          kind: 'rectangle',
+          mode: 'multiple',
+          combine: 'union',
+          minPixelSpan: 1,
+        },
+      },
+    },
+    registry,
+    { width: 240, height: 160, autoResize: false },
+  );
+  try {
+    const pointerReasons = [];
+    chart.on('analyticselectionchange', ({ reason }) => pointerReasons.push(reason));
+    const surface = renderers[0].chartSurface;
+    const start = { x: chart.domainToPixel('x', 2), y: chart.domainToPixel('y', 3) };
+    const end = { x: chart.domainToPixel('x', 8), y: chart.domainToPixel('y', 9) };
+    surface.dispatchEvent(
+      new FakePointerEvent('pointerdown', {
+        pointerId: 11,
+        pointerType: 'touch',
+        clientX: start.x,
+        clientY: start.y,
+      }),
+    );
+    surface.dispatchEvent(
+      new FakePointerEvent('pointermove', {
+        pointerId: 11,
+        pointerType: 'touch',
+        clientX: end.x,
+        clientY: end.y,
+      }),
+    );
+    surface.dispatchEvent(
+      new FakePointerEvent('pointerup', {
+        pointerId: 11,
+        pointerType: 'touch',
+        clientX: end.x,
+        clientY: end.y,
+      }),
+    );
+    const rectangle = chart.getAnalyticSelection();
+    assert.equal(rectangle.selections[0].type, 'rectangle');
+    assert.deepEqual(JSON.parse(JSON.stringify(rectangle)), rectangle);
+    assert.ok(sceneNodes(chart.getScene().root).some(({ id }) => id === 'analytic-selection:0'));
+
+    const escape = new FakeKeyboardEvent('keydown', { key: 'Escape' });
+    surface.dispatchEvent(escape);
+    assert.equal(escape.defaultPrevented, true);
+    assert.equal(chart.getAnalyticSelection().selections.length, 0);
+
+    chart.setSpec({
+      ...base,
+      interaction: {
+        selection: { kind: 'lasso', maxLassoPoints: 8, minPixelSpan: 1 },
+      },
+    });
+    const lassoSurface = renderers.at(-1).chartSurface;
+    const points = [
+      [2, 2],
+      [8, 2],
+      [8, 8],
+      [2, 8],
+    ].map(([x, y]) => ({ x: chart.domainToPixel('x', x), y: chart.domainToPixel('y', y) }));
+    lassoSurface.dispatchEvent(
+      new FakePointerEvent('pointerdown', {
+        pointerId: 12,
+        clientX: points[0].x,
+        clientY: points[0].y,
+      }),
+    );
+    for (const point of points.slice(1, -1)) {
+      lassoSurface.dispatchEvent(
+        new FakePointerEvent('pointermove', { pointerId: 12, clientX: point.x, clientY: point.y }),
+      );
+    }
+    lassoSurface.dispatchEvent(
+      new FakePointerEvent('pointerup', {
+        pointerId: 12,
+        clientX: points.at(-1).x,
+        clientY: points.at(-1).y,
+      }),
+    );
+    assert.equal(chart.getAnalyticSelection().selections[0].type, 'lasso');
+    assert.ok(chart.getAnalyticSelection().selections[0].points.length <= 8);
+
+    chart.setSpec({
+      ...base,
+      interaction: { selection: { kind: 'axis', axis: 'x', minPixelSpan: 1 } },
+    });
+    const axisSurface = renderers.at(-1).chartSurface;
+    axisSurface.dispatchEvent(
+      new FakePointerEvent('pointerdown', { pointerId: 13, clientX: start.x, clientY: start.y }),
+    );
+    axisSurface.dispatchEvent(
+      new FakePointerEvent('pointerup', { pointerId: 13, clientX: end.x, clientY: start.y }),
+    );
+    assert.equal(chart.getAnalyticSelection().selections[0].type, 'axis');
+    assert.ok(pointerReasons.includes('pointer'));
+  } finally {
+    chart.destroy();
+    environment.restore();
+  }
+});
+
+function closeEnough(actual, expected, tolerance = 1e-7) {
+  assert.ok(Math.abs(actual - expected) <= tolerance, `${actual} ~= ${expected}`);
+}

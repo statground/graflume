@@ -37,9 +37,9 @@ const completeModule = await import(new URL('../dist/graflume.complete.js', impo
 const spatialModule = await import(new URL('../dist/graflume.spatial.js', import.meta.url));
 
 assert.equal(defaultModule.chartTypeCatalog.length, 22);
-assert.equal(defaultModule.chartVariantCatalog.length, 39);
+assert.equal(defaultModule.chartVariantCatalog.length, 42);
 assert.equal(completeModule.fullCatalog.length, 41);
-assert.equal(completeModule.fullVariantCatalog.length, 162);
+assert.equal(completeModule.fullVariantCatalog.length, 165);
 assert.equal(completeModule.additionalChartTypeCatalog.length, 11);
 assert.equal(completeModule.additionalChartVariantCatalog.length, 27);
 assert.equal(completeModule.seriesChartTypeCatalog.length, 8);
@@ -167,9 +167,9 @@ assert.ok(defaultGlobal);
 assert.ok(completeGlobal);
 assert.ok(spatialGlobal);
 assert.equal(defaultGlobal.chartTypeCatalog.length, 22);
-assert.equal(defaultGlobal.chartVariantCatalog.length, 39);
+assert.equal(defaultGlobal.chartVariantCatalog.length, 42);
 assert.equal(completeGlobal.fullCatalog.length, 41);
-assert.equal(completeGlobal.fullVariantCatalog.length, 162);
+assert.equal(completeGlobal.fullVariantCatalog.length, 165);
 assert.equal(completeGlobal.seriesChartTypeCatalog.length, 8);
 assert.equal(completeGlobal.seriesChartVariantCatalog.length, 96);
 assert.equal(completeGlobal.seriesCompatibilityCatalog.length, 117);

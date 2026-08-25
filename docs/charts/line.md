@@ -25,7 +25,7 @@ Every image below is generated from the current compiled Scene rather than drawn
 
 ## Type-by-type implementation
 
-The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. This family uses `trigger: "axis"` with `axis: "x"`. An exact rendered-mark hit still has priority; otherwise Graflume selects the nearest actual datum on that axis without inventing an interpolated row. Tooltip interaction is a pointer-only convenience, so keep a readable summary or data table available for exact values and keyboard access. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. This family uses `trigger: "axis"` with `axis: "x"`. An exact rendered-mark hit still has priority; otherwise Graflume selects the nearest actual datum on that axis without inventing an interpolated row. Pointer tooltip triggers remain a convenience; opt into `accessibility.table` and `accessibility.navigation` for the bounded native table and keyboard mark traversal, or provide a larger domain-specific table. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
 
 Every family can opt into the Canvas [inspection viewport, fullscreen, reset, and PNG controls](./interactions.md). Inspection magnifies and translates the complete already-rendered chart, including its title and axes; it is not data-domain or GIS zoom. Generated examples intentionally leave playback off. Add discrete playback only after selecting a meaningful frame field and reviewing the family-specific capability table.
 
@@ -325,13 +325,40 @@ Graflume.create('#chart', {
 
 - Graflume connects points in input-row order; it does not sort automatically.
 - Sort temporal or quantitative x values before rendering when order matters.
-- An invalid or missing x/y pair ends the current line segment.
-- A later valid row starts a new segment.
+- `mark.options.missing: 'gap'` is the line default: an invalid x/y pair ends the current segment and a later valid row starts another.
+- `'connect'` omits invalid pairs and connects the valid rows on either side. `'zero'` substitutes `0` only for a missing/invalid y value; an invalid x value still breaks the segment.
 - `scale.zero` defaults to false for a line, so the y domain can focus on the observed range.
+- Selecting `'zero'` includes zero in the resolved y domain unless an explicit domain overrides it.
 
 ```ts
 const ordered = [...rows].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 ```
+
+## Curves and steps
+
+Line-like marks use one renderer-neutral, function-free curve registry. Set the curve in portable `mark.options`; no callback or renderer-specific path object enters `ChartSpec 0.1`.
+
+```ts
+mark: {
+  type: 'line',
+  options: {
+    curve: 'monotone-x',
+    missing: 'gap',
+    curveSamples: 8,
+  },
+}
+```
+
+Supported names are:
+
+- `straight`: direct segments and the `line` default;
+- `step-before`, `step-after`, and `step-mid`: the new y value takes effect at the old x, new x, or midpoint respectively;
+- `monotone-x`: sampled monotone cubic interpolation for strictly increasing or decreasing x coordinates; non-monotone or repeated x coordinates fall back to straight segments;
+- `natural`: a sampled natural cubic spline through the source points;
+- `basis`: a sampled uniform cubic B-spline, which smooths through a control-point basis rather than promising passage through every interior point;
+- `cardinal`: a sampled cardinal spline and the `smooth`/`spline()` compatibility default. `tension` is limited to `0..1`; `0` retains the previous Catmull-Rom-compatible shape and `1` gives zero endpoint tangents per interval.
+
+`curveSamples` is an integer from `1` to `64` and defaults to `8` sampled Scene segments per curved source interval. Step and straight curves do not use it. Curve sampling happens after the existing min/max source reduction, so the performance profile still bounds source observations before interpolated geometry is created.
 
 ## Line points and interaction
 
@@ -359,8 +386,8 @@ Pre-aggregate or downsample when every source observation is not visually distin
 
 ## Current limitations
 
-- straight connected segments only; no curve/interpolation setting;
-- no step line, range line, confidence band, or error bar;
+- no automatic curve choice or sorting based on data semantics;
+- no range line, confidence band, or error bar in the canonical line mark;
 - no automatic sorting or time-window transform;
 - no rendered crosshair guide or path-level datum hit testing; shared layer/category/continuous legends are available;
 - no path-level datum hit testing;
@@ -370,5 +397,6 @@ Pre-aggregate or downsample when every source observation is not visually distin
 
 - [chart type gallery](../../examples/cdn/chart-types.html)
 - [line regression test](../../tests/chart-types.test.mjs)
+- [curve semantic tests](../../tests/curve.test.mjs)
 
 [Back to chart guides](./README.md)

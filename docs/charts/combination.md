@@ -23,7 +23,7 @@ Every image below is generated from the current compiled Scene rather than drawn
 
 ## Type-by-type implementation
 
-The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. This family uses `trigger: "axis"` with `axis: "x"`. An exact rendered-mark hit still has priority; otherwise Graflume selects the nearest actual datum on that axis without inventing an interpolated row. Tooltip interaction is a pointer-only convenience, so keep a readable summary or data table available for exact values and keyboard access. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. This family uses `trigger: "axis"` with `axis: "x"`. An exact rendered-mark hit still has priority; otherwise Graflume selects the nearest actual datum on that axis without inventing an interpolated row. Pointer tooltip triggers remain a convenience; opt into `accessibility.table` and `accessibility.navigation` for the bounded native table and keyboard mark traversal, or provide a larger domain-specific table. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
 
 Every family can opt into the Canvas [inspection viewport, fullscreen, reset, and PNG controls](./interactions.md). Inspection magnifies and translates the complete already-rendered chart, including its title and axes; it is not data-domain or GIS zoom. Generated examples intentionally leave playback off. Add discrete playback only after selecting a meaningful frame field and reviewing the family-specific capability table.
 
@@ -358,7 +358,9 @@ A reviewed cumulative playback can reveal a shared ordered source across all lay
 ## Current limitations
 
 - four axis ids (`x`, `x2`, `y`, `y2`) rather than an unbounded number of axes;
-- no facet, repeat, concat, grid, dashboard, or inset layout;
+- the closed Canvas facet, repeat, concat, nested-grid, and inset operators are available around
+  unit or flat-layer views, but only compatible primary x/y domains can be shared; multi-view axes,
+  legends, colorbars, streaming, and Spatial composition remain unsupported;
 - no linked brushing, cross-filtering, synchronized data-domain zoom, or rendered crosshair guide; whole-Canvas inspection is available;
 - synthesized per-layer shared tooltip aggregation is not built in;
 - annotation, interval, and trendline marks can participate when their scales are compatible; top-level range highlights provide reference bands, while forecast semantics remain host-defined;

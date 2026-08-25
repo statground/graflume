@@ -333,7 +333,7 @@ export function histogram(target: ChartTarget, data: DataInput, options: QuickCh
   return specialized('histogram', target, data, options);
 }
 
-/** Canonical API for histogram, box, violin, curve, and bivariate distribution modes. */
+/** Canonical API for histogram, empirical, KDE, box, violin, curve, and bivariate modes. */
 export function distribution(
   target: ChartTarget,
   data: DataInput,
@@ -344,6 +344,18 @@ export function distribution(
 
 export function violin(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
   return specialized('distribution', target, data, options, { options: { mode: 'violin' } });
+}
+
+export function ecdf(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
+  return specialized('distribution', target, data, options, { options: { mode: 'ecdf' } });
+}
+
+export function ccdf(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
+  return specialized('distribution', target, data, options, { options: { mode: 'ccdf' } });
+}
+
+export function kde(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
+  return specialized('distribution', target, data, options, { options: { mode: 'kde' } });
 }
 
 export function histogram2d(
@@ -684,7 +696,12 @@ export const pyramid3d = makeSeriesQuick('pyramid', { options: { variant: 'pyram
 export const scatter3d = makeSeriesQuick('scatter-3d', { fields: { z: 'z' } });
 export const solidGauge = makeSeriesQuick('solid-gauge');
 export const spline = makeSeriesQuick('smooth');
-export const streamgraph = themeRiver;
+export const streamgraph = makeSeriesQuick('theme-river', {
+  fields: { series: 'series' },
+  options: {
+    stack: { mode: 'streamgraph', offset: 'wiggle', order: 'insideOut' },
+  },
+});
 export const tileMap = makeSeriesQuick('tilemap', { fields: { value: 'value' } });
 export const treeGraph = tree;
 export const variablePie = makeSeriesQuick('variable-pie', { fields: { radius: 'radius' } });
@@ -857,6 +874,29 @@ export {
   seriesCompatibilityCatalog,
   seriesCompatibilityIds,
 };
+export {
+  calculateTechnicalIndicator,
+  resolveTechnicalIndicatorCapability,
+  technicalIndicatorCapabilities,
+  technicalIndicatorPresetIds,
+} from './data/technical-indicators.js';
+export type {
+  IndicatorDependencyNode,
+  IndicatorParameterCapability,
+  TechnicalIndicatorCalculation,
+  TechnicalIndicatorCapability,
+  TechnicalIndicatorPresetId,
+  TechnicalIndicatorSupport,
+} from './data/technical-indicators.js';
+export {
+  analyticInteractionCapability,
+  runtimeCapabilities,
+  seriesStackCapability,
+  technicalIndicatorCanonicalSurfaces,
+  technicalIndicatorPublicEntryPointCount,
+  technicalIndicatorRuntimeCapability,
+  tiledMapCapability,
+} from './catalog/runtime-capabilities.js';
 export * from './index.js';
 export type {
   AdditionalChartTypeId,

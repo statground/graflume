@@ -1,14 +1,21 @@
 import { resolvePerformanceSettings } from '../data/performance.js';
 import { registerAxisTooltipIndex } from '../interaction/axis-hit-test.js';
+import { compileAnalyticSelectionOverlay } from '../interaction/analytic-overlay.js';
+import type { AnalyticSelectionState } from '../interaction/analytic-selection.js';
+import type { CartesianCoordinateContext } from '../interaction/cartesian-coordinates.js';
+import type { DomainViewState } from '../interaction/domain-navigation.js';
 import { group, nodeBase } from '../scene/factory.js';
 import { countSceneNodes } from '../scene/walk.js';
 import type { Scene, SceneNode, TextNode } from '../scene/types.js';
 import type { AxisId, ChartSpec, NormalizedAxisSpec, NormalizedChartSpec } from '../spec/types.js';
+import { isCompositionSpec } from '../spec/composition.js';
 import { normalizeSpec } from '../spec/normalize.js';
 import { categoricalColor } from '../theme/color.js';
 import { defaultThemeId } from '../theme/defaults.js';
 import type { ThemeTokens } from '../theme/types.js';
 import type { RuntimeRegistry } from '../runtime/registry.js';
+import type { DataLineage } from '../data/transforms.js';
+import { buildSemanticIndex } from '../scene/semantic.js';
 import {
   compileAxis,
   measureAxisGutter,
@@ -27,6 +34,7 @@ import {
   registerLegendLayout,
   resolveLegendModel,
 } from './legend.js';
+import { compileCompositionWithRegistry } from './composition.js';
 
 export interface CompileOptions {
   readonly width?: number;
@@ -37,10 +45,15 @@ export interface CompileResult {
   readonly scene: Scene;
   readonly spec: NormalizedChartSpec;
   readonly theme: ThemeTokens;
+  readonly dataLineage: Readonly<Record<string, DataLineage>>;
+  /** Resolved Cartesian scales for deterministic pixel/domain interaction. */
+  readonly coordinates: CartesianCoordinateContext;
 }
 
 export interface CompileRuntimeState extends DecorationRuntimeState {
   readonly hiddenLegendItemIds?: ReadonlySet<string>;
+  readonly analyticSelection?: AnalyticSelectionState;
+  readonly domainView?: DomainViewState;
 }
 
 const AXIS_ORDER = ['x', 'x2', 'y', 'y2'] as const;
@@ -145,7 +158,7 @@ function accessibilityLabel(spec: NormalizedChartSpec, rowCount: number): string
   return `${title}. ${layerSummary}, ${rowSummary}.`;
 }
 
-export function compileWithRegistry(
+function compileUnitWithRegistry(
   input: ChartSpec,
   registry: RuntimeRegistry,
   options: CompileOptions = {},
@@ -158,7 +171,7 @@ export function compileWithRegistry(
   const legendModel = resolveLegendModel(spec, theme, width, height);
   const legendInsets = legendExternalInsets(legendModel);
   let layout = createLayout(spec, width, height, theme, {}, legendInsets);
-  let scales = resolveScales(spec, layout.plot);
+  let scales = resolveScales(spec, layout.plot, runtime.domainView?.axes);
   let axes = activeAxes(scales);
   const minimumInsets = { top: 0, right: 0, bottom: 0, left: 0 };
   for (const axis of axes) {
@@ -169,10 +182,13 @@ export function compileWithRegistry(
   const measuredLayout = createLayout(spec, width, height, theme, minimumInsets, legendInsets);
   if (!samePlot(layout.plot, measuredLayout.plot)) {
     layout = measuredLayout;
-    scales = resolveScales(spec, layout.plot);
+    scales = resolveScales(spec, layout.plot, runtime.domainView?.axes);
     axes = activeAxes(scales);
   }
   const totalRows = scales.layers.reduce((sum, layer) => sum + layer.table.length, 0);
+  const dataLineage = Object.fromEntries(
+    scales.layers.map(({ layer, lineage }) => [layer.id, lineage]),
+  );
   const performance = resolvePerformanceSettings(spec.performance, totalRows, layout.plot.width);
 
   const axisNodes: SceneNode[] = axes.flatMap((axis) =>
@@ -316,6 +332,25 @@ export function compileWithRegistry(
     runtime,
     datumVisible,
   });
+  const coordinates: CartesianCoordinateContext = Object.freeze({
+    plot: Object.freeze({ ...layout.plot }),
+    axes: Object.freeze(
+      Object.fromEntries(
+        AXIS_ORDER.flatMap((id) => {
+          const resolved = scales.axes[id];
+          return resolved === undefined ? [] : [[id, resolved.scale] as const];
+        }),
+      ),
+    ),
+  });
+  const analyticSelectionNodes =
+    runtime.analyticSelection === undefined || spec.interaction.selection === false
+      ? []
+      : compileAnalyticSelectionOverlay(
+          runtime.analyticSelection,
+          coordinates,
+          spec.interaction.selection.highlight,
+        );
 
   const panelNode: SceneNode[] =
     theme.colors.panel === undefined
@@ -362,10 +397,17 @@ export function compileWithRegistry(
     ...layerGroups,
     ...plotBoxNode,
     ...decorations.overlay,
+    ...analyticSelectionNodes,
     ...legend.nodes,
     ...titleNodes(spec, theme, width, layout.plot, layout.titleY, layout.subtitleY),
   ];
   const root = group('scene:root', children);
+  const semanticIndex = buildSemanticIndex(
+    root,
+    scales.layers,
+    spec.accessibility.maxRows,
+    spec.locale,
+  );
   const scene: Scene = {
     width,
     height,
@@ -382,7 +424,9 @@ export function compileWithRegistry(
               : `${annotation.text}: ${annotation.detail}`,
           )
           .join('. ');
-        const description = [base, annotationText].filter(Boolean).join('. ');
+        const description = [base, spec.accessibility.summary, annotationText]
+          .filter(Boolean)
+          .join('. ');
         const legendText =
           legendModel === null
             ? ''
@@ -390,15 +434,23 @@ export function compileWithRegistry(
                 .slice(0, 12)
                 .map((item) => item.label)
                 .join(', ')}`;
-        const accessibleDescription = [description, legendText].filter(Boolean).join('. ');
+        const provenanceText = scales.layers
+          .filter(({ lineage }) => lineage.transforms.length > 0)
+          .map(({ lineage }) => lineage.summary)
+          .join(' ');
+        const accessibleDescription = [description, legendText, provenanceText]
+          .filter(Boolean)
+          .join('. ');
         return accessibleDescription === '' ? {} : { description: accessibleDescription };
       })(),
     },
+    semanticIndex,
     metadata: {
       rowCount: totalRows,
       renderedNodeCount: countSceneNodes(root),
       performanceProfile: performance.profile,
       hitTestingEnabled: performance.enableHitTesting,
+      dataLineage: scales.layers.map(({ lineage }) => lineage.summary),
     },
   };
   registerLegendLayout(scene, legend.layout);
@@ -453,5 +505,18 @@ export function compileWithRegistry(
     });
   }
 
-  return { scene, spec, theme };
+  return { scene, spec, theme, dataLineage, coordinates };
+}
+
+export function compileWithRegistry(
+  input: ChartSpec,
+  registry: RuntimeRegistry,
+  options: CompileOptions = {},
+  runtime: CompileRuntimeState = {},
+): CompileResult {
+  if (!isCompositionSpec(input)) return compileUnitWithRegistry(input, registry, options, runtime);
+  return compileCompositionWithRegistry(input, registry, options, runtime, {
+    compile: compileWithRegistry,
+    compileUnit: compileUnitWithRegistry,
+  });
 }

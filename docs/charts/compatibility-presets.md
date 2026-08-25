@@ -1,6 +1,6 @@
 # Compatibility preset index
 
-Graflume exposes 41 representative chart families while preserving compatible names. This index maps the 160 family presets to the one manual that documents their data contract, functional differences, and current compiled output.
+Graflume exposes 41 representative chart families while preserving compatible names. This index maps the 163 family presets to the one manual that documents their data contract, functional differences, and current compiled output.
 
 Use `resolveSeriesType(identifier)` from `graflume/complete` when an integration receives names with mixed case, spaces, hyphens, or underscores. The returned `familyId` selects the representative manual and `variantId` preserves the requested preset.
 
@@ -120,6 +120,9 @@ The two function-free adapter names are documented separately in [Adapters](./ad
 | ---------------------- | ---------------------------------------------------------------------------- | ---------------------- | ---------------------- | -------------- |
 | `distribution`         | [Distribution chart](./distribution.md#variant-distribution)                 | `distribution()`       | `histogram`            | `distribution` |
 | `histogram`            | [Histogram](./distribution.md#variant-histogram)                             | `histogram()`          | `histogram`            | `histogram`    |
+| `ecdf`                 | [Empirical cumulative distribution](./distribution.md#variant-ecdf)          | `ecdf()`               | `ecdf`                 | `distribution` |
+| `ccdf`                 | [Complementary empirical distribution](./distribution.md#variant-ccdf)       | `ccdf()`               | `ccdf`                 | `distribution` |
+| `kde`                  | [Kernel density estimate](./distribution.md#variant-kde)                     | `kde()`                | `kde`                  | `distribution` |
 | `histogram-2d`         | [Bivariate histogram](./distribution.md#variant-histogram-2d)                | `histogram2d()`        | `histogram-2d`         | `distribution` |
 | `histogram-2d-contour` | [Bivariate density contours](./distribution.md#variant-histogram-2d-contour) | `histogram2dContour()` | `histogram-2d-contour` | `distribution` |
 | `violin`               | [Violin chart](./distribution.md#variant-violin)                             | `violin()`             | `violin`               | `distribution` |

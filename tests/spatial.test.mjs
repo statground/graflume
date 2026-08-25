@@ -117,12 +117,12 @@ test('spatial catalog adds three canonical families without duplicating map', ()
   assert.equal(spatialCompatibilityModes[0].canonicalFamilyId, 'map');
   assert.deepEqual(spatialCatalogBoundary, {
     coreAndCompleteCanonicalFamilies: 41,
-    coreAndCompletePresets: 162,
+    coreAndCompletePresets: 165,
     spatialCanonicalFamilies: 3,
     totalCanonicalFamilies: 44,
     spatialVariants: 7,
     integratedExistingFamilyModes: 1,
-    totalPresetsAndModes: 170,
+    totalPresetsAndModes: 173,
   });
   assert.deepEqual(spatialCapabilities().projections, ['perspective', 'orthographic']);
 });

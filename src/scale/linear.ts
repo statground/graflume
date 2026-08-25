@@ -1,5 +1,6 @@
 import { clamp as clampNumber } from '../utils/object.js';
-import type { Scale, Tick } from './types.js';
+import { GraflumeError } from '../core/errors.js';
+import type { PositionScaleDescriptor, Scale, ScaleOutOfBounds, Tick } from './types.js';
 
 function tickStep(start: number, stop: number, count: number): number {
   const span = Math.abs(stop - start);
@@ -32,27 +33,61 @@ export function niceDomain(
 }
 
 export class LinearScale implements Scale {
-  readonly kind: 'linear' | 'time';
+  readonly kind: 'linear' | 'time' | 'utc';
   readonly bandwidth = 0;
+  readonly descriptor: PositionScaleDescriptor;
   readonly #domain: readonly [number, number];
   readonly #range: readonly [number, number];
-  readonly #clamp: boolean;
+  readonly #outOfBounds: ScaleOutOfBounds;
 
   constructor(options: {
     domain: readonly [number, number];
     range: readonly [number, number];
-    kind?: 'linear' | 'time';
+    kind?: 'linear' | 'time' | 'utc';
     clamp?: boolean;
     nice?: boolean;
+    outOfBounds?: ScaleOutOfBounds;
+    reverse?: boolean;
   }) {
     this.kind = options.kind ?? 'linear';
-    this.#domain = options.nice === false ? options.domain : niceDomain(options.domain);
-    this.#range = options.range;
-    this.#clamp = options.clamp ?? false;
+    this.#domain = Object.freeze([
+      ...(options.nice === false ? options.domain : niceDomain(options.domain)),
+    ]) as unknown as readonly [number, number];
+    this.#range = Object.freeze(
+      options.reverse === true ? [options.range[1], options.range[0]] : [...options.range],
+    ) as unknown as readonly [number, number];
+    this.#outOfBounds = options.outOfBounds ?? (options.clamp === true ? 'clamp' : 'extrapolate');
+    this.descriptor = Object.freeze({
+      type: this.kind,
+      domain: this.#domain,
+      range: this.#range,
+      reverse: options.reverse ?? false,
+      rangeDirection: this.#range[1] < this.#range[0] ? 'descending' : 'ascending',
+      outOfBounds: this.#outOfBounds,
+    });
   }
 
   domain(): readonly [number, number] {
     return this.#domain;
+  }
+
+  range(): readonly [number, number] {
+    return this.#range;
+  }
+
+  #ratio(value: number, start: number, end: number): number {
+    const denominator = end - start;
+    let ratio = denominator === 0 ? 0.5 : (value - start) / denominator;
+    if (ratio < 0 || ratio > 1) {
+      if (this.#outOfBounds === 'unknown') return Number.NaN;
+      if (this.#outOfBounds === 'error') {
+        throw new GraflumeError('INVALID_DATA', 'Scale input is outside the domain.', {
+          path: '$.data',
+        });
+      }
+      if (this.#outOfBounds === 'clamp') ratio = clampNumber(ratio, 0, 1);
+    }
+    return ratio;
   }
 
   map(input: number | string | Date): number {
@@ -65,20 +100,16 @@ export class LinearScale implements Scale {
     if (!Number.isFinite(value)) return Number.NaN;
     const [domainStart, domainEnd] = this.#domain;
     const [rangeStart, rangeEnd] = this.#range;
-    const denominator = domainEnd - domainStart;
-    const ratio = denominator === 0 ? 0.5 : (value - domainStart) / denominator;
-    const normalized = this.#clamp ? clampNumber(ratio, 0, 1) : ratio;
-    return rangeStart + normalized * (rangeEnd - rangeStart);
+    const ratio = this.#ratio(value, domainStart, domainEnd);
+    return rangeStart + ratio * (rangeEnd - rangeStart);
   }
 
-  invert(position: number): number {
+  readonly invert = (position: number): number => {
     const [domainStart, domainEnd] = this.#domain;
     const [rangeStart, rangeEnd] = this.#range;
-    const denominator = rangeEnd - rangeStart;
-    const ratio = denominator === 0 ? 0.5 : (position - rangeStart) / denominator;
-    const normalized = this.#clamp ? clampNumber(ratio, 0, 1) : ratio;
-    return domainStart + normalized * (domainEnd - domainStart);
-  }
+    const ratio = this.#ratio(position, rangeStart, rangeEnd);
+    return domainStart + ratio * (domainEnd - domainStart);
+  };
 
   ticks(count: number, locale?: string): readonly Tick[] {
     const [start, stop] = this.#domain;
@@ -101,12 +132,12 @@ export class LinearScale implements Scale {
   }
 
   #format(value: number, locale?: string): string {
-    if (this.kind === 'time') {
+    if (this.kind === 'time' || this.kind === 'utc') {
       return new Intl.DateTimeFormat(locale, {
         year: 'numeric',
         month: 'short',
         day: 'numeric',
-        timeZone: 'UTC',
+        ...(this.kind === 'utc' ? { timeZone: 'UTC' } : {}),
       }).format(new Date(value));
     }
     return new Intl.NumberFormat(locale, { maximumFractionDigits: 6 }).format(value);

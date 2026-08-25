@@ -241,7 +241,7 @@ test('the unified series catalog covers every public series identifier', () => {
   assert.equal(seriesChartTypeCatalog.length, 8);
   assert.equal(seriesChartVariantCatalog.length, 96);
   assert.equal(fullCatalog.length, 41);
-  assert.equal(fullVariantCatalog.length, 162);
+  assert.equal(fullVariantCatalog.length, 165);
   assert.equal(new Set(fullCatalog.map((entry) => entry.id)).size, 41);
   const familyIds = new Set(fullCatalog.map((entry) => entry.id));
   const variantIds = new Set(fullVariantCatalog.map((entry) => entry.id));

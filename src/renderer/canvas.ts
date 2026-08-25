@@ -241,6 +241,7 @@ export class CanvasRenderer implements Renderer {
   #drawCircle(context: CanvasRenderingContext2D, node: CircleNode): void {
     context.beginPath();
     context.arc(node.cx, node.cy, node.radius, 0, Math.PI * 2);
+    context.setLineDash(node.dash === undefined ? [] : [...node.dash]);
     if (node.fill !== undefined) {
       context.fillStyle = node.fill;
       context.fill();

@@ -1,6 +1,6 @@
 # Common chart interactions
 
-Graflume keeps interaction portable by separating the chart specification from the browser controls that operate it. The built-in Canvas renderer supports legends, static highlights, selection, text-only callouts, an opt-in inspection viewport, reset, fullscreen, PNG export, and discrete playback. The same contract is available to every one of the 41 chart families, but playback and automatic legend meaning remain explicit semantic choices rather than guesses.
+Graflume keeps interaction portable by separating the chart specification from the browser controls that operate it. The built-in Canvas renderer supports legends, static highlights, point and domain-geometry selection, text-only callouts, opt-in inspection or data-domain navigation, reset, fullscreen, PNG export, and discrete playback. The same contract is available to every one of the 41 chart families only where its coordinate semantics are real; unsupported scale and gesture combinations fail validation instead of falling back silently.
 
 ## Inspection viewport, not data zoom
 
@@ -13,7 +13,7 @@ This is useful for inspecting a dense chart, but it does **not**:
 - fit a map region, change its projection, load tiles, or provide GIS/slippy-map zoom;
 - preserve the title and axes while zooming only the plot.
 
-Reset returns the complete surface to the configured `minZoom` (default `1`) with zero offsets. If an application needs domain zoom, brush selection, resampling, geographic fitting, or tile navigation, it needs a domain-specific integration beyond this inspection viewport.
+Reset returns the complete surface to the configured `minZoom` (default `1`) with zero offsets. Continuous Cartesian data-domain zoom and domain selection use the separate contracts below. Resampling, geographic fitting, and tile navigation remain outside the inspection viewport.
 
 ```ts
 import { line } from 'graflume';
@@ -57,19 +57,54 @@ When keyboard navigation is enabled, Graflume makes the Canvas focusable. `+` or
 
 The renderer advertises inspection support separately. The built-in Canvas renderer supports it; a custom renderer may decline it, so integrations must not present renderer-specific controls as universally operational.
 
+## Continuous Cartesian data-domain navigation
+
+`interaction.domainNavigation` changes the resolved x/x2/y/y2 domain and recompiles axes and marks. It is distinct from `interaction.navigation`, and enabling both is a validation error. Only resolved, invertible continuous Cartesian scales are accepted; categorical band/point navigation, discrete quantile/threshold navigation, map or Spatial navigation, resampling, and linked multi-view windows are not silently approximated.
+
+```ts
+const chart = create('#chart', {
+  data: rows,
+  mark: 'line',
+  encoding: {
+    x: { field: 'time', type: 'temporal', scale: { type: 'utc' } },
+    y: { field: 'value', type: 'quantitative', scale: { type: 'log' } },
+  },
+  interaction: {
+    domainNavigation: {
+      axes: ['x', 'y'],
+      maxZoom: 32,
+      wheel: 'modifier',
+      drag: true,
+      keyboard: true,
+    },
+    controls: { zoom: true, reset: true },
+  },
+});
+
+chart.zoomDomainBy(2, { x: chart.domainToPixel('x', timestamp), y: 120 });
+chart.panDomainBy(24, 0);
+const portableWindow = chart.getDomainViewState(); // { version: 1, axes: ... }
+chart.setDomainViewState(portableWindow);
+chart.resetDomainView();
+```
+
+`axes` defaults to `['x', 'y']`, `maxZoom` defaults to `64`, wheel defaults to `modifier`, and drag and keyboard default to `true`. Wheel and controls zoom around the visible plot; grab-drag pans in pixel units. `+`/`-`, arrows, Home, and `0` mirror the inspection keyboard path. Every window is normalized to the authored domain and clamped to `0..1`; a window never becomes smaller than `1 / maxZoom`. Log, symlog, asinh, power, square-root, probability, logit, probit, time, UTC, and linear transforms reuse the scale registry's real inverse rather than linearizing their data values.
+
+`domainToPixel(axis, value)` and `pixelToDomain(axis, pixel)` expose the same resolved scale used by the current Scene. Continuous scales round-trip through `invert`; band and point axes return the nearest category for point lookup only. Interval, rectangle, axis, lasso, and domain-navigation geometry reject non-invertible axes. `domainviewchange` reports `zoom`, `pan`, `reset`, `programmatic`, or `spec`. The state is transient, JSON-serializable, and never mutates `getSpec()`; `setSpec()` resets it.
+
 ## Controls, fullscreen, and export
 
 `interaction.controls` adds a compact floating control strip at the chart's top-right corner. The closed desktop strip is icon-only: each 28 px control keeps its localized `title` tooltip and accessible name, while the single translucent surface becomes fully opaque on hover or keyboard focus. A boolean `true` requests every control group. When an object is used, every omitted group defaults to `false`, which makes an explicit object the safer choice for production interfaces.
 
-| Option        | Effect                                                           |
-| ------------- | ---------------------------------------------------------------- |
-| `zoom`        | Zoom-in and zoom-out buttons for the inspection viewport         |
-| `reset`       | Restore the configured minimum inspection view                   |
-| `fullscreen`  | Enter or exit browser fullscreen for the chart host              |
-| `export`      | Download the currently rendered Canvas as PNG                    |
-| `annotations` | Show a callout visibility toggle when annotations exist          |
-| `playback`    | Previous, play/pause, next, seek, speed, and loop controls       |
-| `labels`      | Override control tooltips and accessible names without callbacks |
+| Option        | Effect                                                                 |
+| ------------- | ---------------------------------------------------------------------- |
+| `zoom`        | Zoom-in and zoom-out buttons for the enabled inspection or domain view |
+| `reset`       | Restore the enabled inspection or domain view                          |
+| `fullscreen`  | Enter or exit browser fullscreen for the chart host                    |
+| `export`      | Download the currently rendered Canvas as PNG                          |
+| `annotations` | Show a callout visibility toggle when annotations exist                |
+| `playback`    | Previous, play/pause, next, seek, speed, and loop controls             |
+| `labels`      | Override control tooltips and accessible names without callbacks       |
 
 The label keys are `controls` for the toolbar name plus `zoomIn`, `zoomOut`, `reset`, `enterFullscreen`, `exitFullscreen`, `exportPng`, `showAnnotations`, `hideAnnotations`, `previousFrame`, `play`, `pause`, `nextFrame`, `seek`, `speed`, and `loop`. Values must be non-empty strings. This keeps localization declarative and avoids executable formatters in the portable spec.
 
@@ -77,7 +112,7 @@ Previous, play/pause, and next remain in the closed strip. Seek, current frame, 
 
 The desktop strip is 30 CSS pixels high and sits 6 pixels from the chart's top and right edges. Coarse-pointer or narrow layouts use real 44 px button targets in a 44 px strip positioned 2 pixels from those edges; the SVG remains visually small, and the strip scrolls horizontally only if the host is narrower than the enabled control set. Hosts whose title or marks occupy the top-right corner should reserve at least 50 CSS pixels of top padding. Both LTR and RTL pages keep this technical control sequence LTR and anchored top-right. The diagnostic `data-graflume-controls`, `data-graflume-controls-density`, `data-graflume-controls-placement`, `data-graflume-control`, and playback-panel attributes support behavior tests; applications should prefer the portable options and labels instead of replacing internal control styles.
 
-A control does not enable the underlying capability. Pair zoom/reset controls with `navigation`, pair playback controls with a valid `playback` object, and set `controls.annotations: true` to expose callout visibility. The annotation button is omitted while no authored or runtime annotation exists; renderer, browser, or playback controls whose prerequisites are temporarily unavailable remain disabled.
+A control does not enable the underlying capability. Pair zoom/reset controls with exactly one of `navigation` or `domainNavigation`, pair playback controls with a valid `playback` object, and set `controls.annotations: true` to expose callout visibility. The annotation button is omitted while no authored or runtime annotation exists; renderer, browser, or playback controls whose prerequisites are temporarily unavailable remain disabled.
 
 Fullscreen depends on the browser Fullscreen API and a live DOM target. Graflume requests fullscreen for the renderer overlay host, remeasures and renders at the temporary fullscreen size, and restores the ordinary measured dimensions after exit. PNG export depends on the active renderer exposing `toDataURL()`; the built-in Canvas renderer does, and the built-in control downloads `graflume-chart.png`. The exported image contains the current inspection transform but not DOM overlays such as the toolbar or tooltip. Neither action changes the underlying data specification.
 
@@ -146,11 +181,40 @@ Decoration targets are closed and portable:
 
 Static `highlights` stay compiled in large and ultra profiles. Pointer selection follows the family's existing hit-test policy, so dense profiles that disable per-datum hit lookup also disable click selection; configured and programmatic targets remain stored and simply stop drawing when the selected datum is absent from a playback frame. Selection is opt-in. Click selects or toggles a datum, an enabled background clear removes it, and Escape clears it from a focused surface. Hosts use `getSelection()`, `setSelection()`, `clearSelection()`, and `selectionchange`; `setSelection()` requires `interaction.selection` to be enabled.
 
+The default `kind: 'point'` preserves that point/datum facade. Continuous Cartesian charts may instead author a drag selection with `kind: 'interval'`, `'rectangle'`, `'axis'`, or `'lasso'`. Axis selection requires `axis`; two-dimensional geometry uses `xAxis`/`yAxis`, defaulting to x/y. `mode: 'single'` replaces the prior clause. Multiple mode uses the explicit `combine: 'union' | 'intersection'` predicate; Graflume does not guess a boolean operator from modifier keys. `maxSelections` is bounded at 64, `maxLassoPoints` at 512, and `minPixelSpan` suppresses accidental micro-drags.
+
+```ts
+const chart = create('#chart', {
+  data: rows,
+  mark: 'point',
+  x: { field: 'x', type: 'quantitative' },
+  y: { field: 'y', type: 'quantitative' },
+  interaction: {
+    selection: {
+      kind: 'lasso',
+      mode: 'multiple',
+      combine: 'intersection',
+      maxLassoPoints: 256,
+      clearOnEscape: true,
+    },
+  },
+});
+
+const state = chart.getAnalyticSelection();
+chart.setAnalyticSelection(state);
+chart.applyAnalyticSelection(nextClause, 'union');
+chart.clearAnalyticSelection();
+```
+
+The closed state shape is `{ version: 1, combine, selections }`; every clause is deeply copied, validated, bounded, frozen, deterministically deduplicated, and JSON-serializable. `AnalyticSelectionStore` and `analyticSelectionMatches()` allow a host to share or evaluate that state without executable predicates. `analyticselectionchange` reports pointer, programmatic, clear, and spec changes. Completed selections compile into the same clipped Scene and therefore remain aligned across playback and ordinary rerenders.
+
+Non-point selection owns one pointer drag, including a single touch pointer. It cannot share that gesture with inspection drag/pinch or domain drag; those ambiguous combinations are validation errors, although wheel-only domain navigation may coexist when drag is disabled. Escape clearing is keyboard-supported, while keyboard-authored interval/lasso geometry and directional mark traversal remain outside the current boundary. Point selection continues to synchronize the semantic accessibility mirror; non-point selection retains the accessible table and focus path but does not pretend that a table row can author a geometric brush.
+
 Top-level `annotations` are general overlay callouts and are distinct from the canonical `mark: "annotation"` chart family. The mark turns an annotation field into an ordered event-series presentation; a top-level callout can target any compiled family without changing its mark. Callouts accept plain `text` and optional `detail`, placement, connector, and safe style fields. They never accept raw HTML or executable formatters. `placement: "auto"` evaluates perimeter candidates against chart bounds, the target, visible data geometry, the control strip, an inside legend, and previously placed callouts. An authored `top`, `right`, `bottom`, or `left` stays authoritative while it is safe; overflow or a severe collision triggers a bounded fallback. Canvas text uses grapheme-aware wrapping for unbroken Latin, CJK, emoji, and RTL text, applies an ellipsis only when the line budget is exhausted, and clips the text group to the bubble as a final rendering guard.
 
 Runtime authoring uses `getAnnotations()`, `setAnnotations()`, `addAnnotation()`, `updateAnnotation()`, and `removeAnnotation()`; `annotationchange` reports `set`, `add`, `update`, `remove`, or `spec`. Visibility uses `getAnnotationsVisible()`, `setAnnotationsVisible(visible)`, and `toggleAnnotations()`. `annotationvisibilitychange` reports `toggle`, `programmatic`, or `spec`. Hiding annotations removes only bubbles and connectors: highlights, selection, and the full authored annotation text in the chart accessibility description remain available.
 
-Legend visibility, selection, runtime annotations, and annotation visibility are presentation state. They do not mutate the caller's specification. `setSpec()` installs the new base contract, restores annotation visibility, and resets transient state, while playback hides unresolved targets without deleting their configuration. IDs and referenced layer IDs are validated for uniqueness and existence so DOM controls, Scene nodes, and host state remain deterministic. Legend controls and selection summaries expose accessible names and an `aria-live` status; Canvas marks still require a nearby readable summary or table for full keyboard access.
+Legend visibility, selection, runtime annotations, and annotation visibility are presentation state. They do not mutate the caller's specification. `setSpec()` installs the new base contract, restores annotation visibility, and resets transient state, while playback hides unresolved targets without deleting their configuration. IDs and referenced layer IDs are validated for uniqueness and existence so DOM controls, Scene nodes, and host state remain deterministic. Legend controls and selection summaries expose accessible names and a configurable throttled `aria-live` status. Canvas semantic rows gain native table and keyboard access only when `accessibility.table` or `accessibility.navigation` is enabled.
 
 ![Compiled Graflume legend, reference band, highlight, and callout](../assets/charts/customization.svg)
 
@@ -341,7 +405,26 @@ All rows below support inspection/reset, fullscreen, and PNG export when they us
 
 ## Accessibility and motion
 
-The controls are keyboard-operable browser UI, but Canvas marks do not gain keyboard traversal. Keep a visible summary and an HTML data table for exact values. Provide localized control labels and announce application-specific playback context outside the Canvas when frame meaning is important.
+Every Canvas compile now includes a bounded renderer-neutral `scene.semanticIndex`. Each record carries the plot view, layer, mark role, x/y channel values, semantic datum, source-row lineage, clipped bounds, visibility, and a text label. `chart.getSemanticIndex()` returns that sidecar, `chart.toAccessibleRows()` produces table-ready rows, and `chart.getAccessibilityState()` reports the current mirror configuration. Line and area paths retain one semantic observation per retained source row even when visible point marks are disabled; compiler-derived aggregate tooltip rows are added with bounded provenance instead of being presented as an arbitrary representative row.
+
+The native mirror is opt-in:
+
+```js
+const chart = Graflume.bar('#chart', data, {
+  accessibility: {
+    table: 'visible', // true or 'hidden' keeps a screen-reader-only native table
+    maxRows: 500,
+    navigation: true,
+    summary: 'Quarterly revenue by region',
+    live: { enabled: true, throttleMs: 200 },
+  },
+  interaction: { tooltip: true, selection: { mode: 'multiple' } },
+});
+```
+
+The table uses text-only cells and `dir="auto"`, so CJK and RTL values remain intact without raw HTML. With `navigation: true`, its visible semantic rows use roving focus: arrows move one row, Home/End move to the boundary, Page Up/Page Down move ten rows, Enter/Space use the configured selection contract, and Escape clears selection and returns focus to the Canvas. Focus projects a bounded ring over the corresponding mark and uses the same safe tooltip content as pointer inspection. Pointer, keyboard, and programmatic selection all resynchronize `aria-selected`; polite selection announcements can be disabled or throttled. `maxRows` is constrained to 1–5,000 and bounds both the Scene sidecar and native mirror, so this is not virtualized exploration of an unbounded dataset.
+
+The mirror covers the 41 Canvas families. The three Spatial families retain their existing WebGL accessible-row contract rather than being silently routed through the two-dimensional Scene index. Applications may still provide a domain-specific visible summary or larger external data table, especially when the bounded mirror omits rows or a derived chart requires additional explanation. Provide localized control labels and announce application-specific playback context outside the Canvas when frame meaning is important.
 
 Do not use autoplay as the only way to expose information. Host applications should honor their reduced-motion policy, provide pause and step controls, and avoid rapid flashing changes. Graflume playback defaults to paused with transitions off; enabled transitions interpolate compiled rendering only and never synthesize source observations.
 

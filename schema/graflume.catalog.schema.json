@@ -1,0 +1,605 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:graflume:catalog:1",
+  "title": "Graflume public catalog manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "package",
+    "verifiedAt",
+    "totals",
+    "groups",
+    "families",
+    "modes",
+    "compatibilityIdentifiers",
+    "themes",
+    "samples",
+    "runtimeCapabilities",
+    "principles",
+    "crossCuttingContracts",
+    "modeBacklog",
+    "ecosystemInputs",
+    "researchSources",
+    "verificationContracts",
+    "commonFoundations",
+    "candidates",
+    "capabilityProfiles",
+    "themeFamilies"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "const": 1 },
+    "package": { "$ref": "#/$defs/package" },
+    "verifiedAt": { "type": "string", "format": "date" },
+    "totals": { "$ref": "#/$defs/totals" },
+    "groups": { "type": "array", "items": { "$ref": "#/$defs/group" } },
+    "families": { "type": "array", "items": { "$ref": "#/$defs/family" } },
+    "modes": { "type": "array", "items": { "$ref": "#/$defs/mode" } },
+    "compatibilityIdentifiers": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/compatibility" }
+    },
+    "themes": { "type": "array", "items": { "$ref": "#/$defs/theme" } },
+    "samples": { "type": "array", "items": { "$ref": "#/$defs/sample" } },
+    "runtimeCapabilities": { "$ref": "#/$defs/runtimeCapabilities" },
+    "principles": { "$ref": "#/$defs/stringList" },
+    "crossCuttingContracts": { "type": "array", "items": { "$ref": "#/$defs/crossCutting" } },
+    "modeBacklog": { "type": "object", "additionalProperties": { "$ref": "#/$defs/stringList" } },
+    "ecosystemInputs": { "type": "array", "items": { "$ref": "#/$defs/ecosystem" } },
+    "researchSources": {
+      "type": "array",
+      "minItems": 95,
+      "items": { "type": "string", "format": "uri", "pattern": "^https://" },
+      "uniqueItems": true
+    },
+    "verificationContracts": { "type": "array", "items": { "$ref": "#/$defs/verification" } },
+    "commonFoundations": { "type": "array", "items": { "$ref": "#/$defs/foundation" } },
+    "candidates": { "type": "array", "items": { "$ref": "#/$defs/candidate" } },
+    "capabilityProfiles": { "type": "array", "items": { "$ref": "#/$defs/profile" } },
+    "themeFamilies": { "$ref": "#/$defs/stringList" }
+  },
+  "$defs": {
+    "nonEmpty": { "type": "string", "minLength": 1 },
+    "status": { "enum": ["supported", "partial", "planned", "research"] },
+    "stringList": { "type": "array", "items": { "$ref": "#/$defs/nonEmpty" } },
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "chartSpecVersion", "spatialSpecVersion", "bundles"],
+      "properties": {
+        "name": { "$ref": "#/$defs/nonEmpty" },
+        "version": { "$ref": "#/$defs/nonEmpty" },
+        "chartSpecVersion": { "$ref": "#/$defs/nonEmpty" },
+        "spatialSpecVersion": { "$ref": "#/$defs/nonEmpty" },
+        "bundles": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["default", "complete", "spatial"],
+          "properties": {
+            "default": { "$ref": "#/$defs/nonEmpty" },
+            "complete": { "$ref": "#/$defs/nonEmpty" },
+            "spatial": { "$ref": "#/$defs/nonEmpty" }
+          }
+        }
+      }
+    },
+    "totals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canonicalFamilies",
+        "canvasFamilies",
+        "spatialFamilies",
+        "presetsAndModes",
+        "canvasPresets",
+        "spatialVariants",
+        "integratedSpatialModes",
+        "compatibilityIdentifiers",
+        "themes",
+        "marks"
+      ],
+      "properties": {
+        "canonicalFamilies": { "type": "integer", "minimum": 1 },
+        "canvasFamilies": { "type": "integer", "minimum": 1 },
+        "spatialFamilies": { "type": "integer", "minimum": 0 },
+        "presetsAndModes": { "type": "integer", "minimum": 1 },
+        "canvasPresets": { "type": "integer", "minimum": 1 },
+        "spatialVariants": { "type": "integer", "minimum": 0 },
+        "integratedSpatialModes": { "type": "integer", "minimum": 0 },
+        "compatibilityIdentifiers": { "type": "integer", "minimum": 0 },
+        "themes": { "type": "integer", "minimum": 1 },
+        "marks": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "group": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "entryPoint", "renderer", "familyIds"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmpty" },
+        "name": { "$ref": "#/$defs/nonEmpty" },
+        "entryPoint": { "$ref": "#/$defs/nonEmpty" },
+        "renderer": { "enum": ["canvas", "webgl"] },
+        "familyIds": { "$ref": "#/$defs/stringList" }
+      }
+    },
+    "family": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "order",
+        "group",
+        "entryPoint",
+        "renderer",
+        "quickApi",
+        "mark",
+        "coordinate",
+        "implementationStatus",
+        "manual",
+        "representativeSnapshot",
+        "supportedFeatures",
+        "currentLimitations",
+        "developmentDependencies"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmpty" },
+        "name": { "$ref": "#/$defs/nonEmpty" },
+        "order": { "type": "integer", "minimum": 0 },
+        "group": { "$ref": "#/$defs/nonEmpty" },
+        "entryPoint": { "$ref": "#/$defs/nonEmpty" },
+        "renderer": { "enum": ["canvas", "webgl"] },
+        "quickApi": { "$ref": "#/$defs/nonEmpty" },
+        "mark": { "$ref": "#/$defs/nonEmpty" },
+        "coordinate": { "$ref": "#/$defs/nonEmpty" },
+        "implementationStatus": { "$ref": "#/$defs/status" },
+        "manual": { "$ref": "#/$defs/nonEmpty" },
+        "representativeSnapshot": { "$ref": "#/$defs/nonEmpty" },
+        "supportedFeatures": { "$ref": "#/$defs/stringList" },
+        "currentLimitations": { "$ref": "#/$defs/stringList" },
+        "developmentDependencies": { "$ref": "#/$defs/stringList" }
+      }
+    },
+    "mode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "order",
+        "familyId",
+        "mode",
+        "kind",
+        "entryPoint",
+        "renderer",
+        "quickApi",
+        "mark",
+        "requiredCapabilities",
+        "transformSemantics",
+        "accessibilityFallback",
+        "performanceProfile",
+        "exampleRef"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmpty" },
+        "name": { "$ref": "#/$defs/nonEmpty" },
+        "order": { "type": "integer", "minimum": 0 },
+        "familyId": { "oneOf": [{ "$ref": "#/$defs/nonEmpty" }, { "type": "null" }] },
+        "mode": { "$ref": "#/$defs/nonEmpty" },
+        "kind": { "$ref": "#/$defs/nonEmpty" },
+        "entryPoint": { "$ref": "#/$defs/nonEmpty" },
+        "renderer": { "enum": ["canvas", "webgl"] },
+        "quickApi": { "$ref": "#/$defs/nonEmpty" },
+        "mark": { "$ref": "#/$defs/nonEmpty" },
+        "requiredCapabilities": { "$ref": "#/$defs/stringList" },
+        "transformSemantics": { "$ref": "#/$defs/stringList" },
+        "accessibilityFallback": { "$ref": "#/$defs/nonEmpty" },
+        "performanceProfile": { "$ref": "#/$defs/nonEmpty" },
+        "exampleRef": { "$ref": "#/$defs/nonEmpty" },
+        "deprecated": { "type": "boolean" },
+        "preferredModeId": { "$ref": "#/$defs/nonEmpty" },
+        "compatibilityNote": { "$ref": "#/$defs/nonEmpty" }
+      }
+    },
+    "compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "familyId", "modeId"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmpty" },
+        "familyId": { "$ref": "#/$defs/nonEmpty" },
+        "modeId": { "$ref": "#/$defs/nonEmpty" }
+      }
+    },
+    "theme": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "order", "default", "mode", "sourceBaseline", "snapshotRoot"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmpty" },
+        "name": { "$ref": "#/$defs/nonEmpty" },
+        "order": { "type": "integer", "minimum": 0 },
+        "default": { "type": "boolean" },
+        "mode": { "enum": ["light", "dark"] },
+        "sourceBaseline": { "type": ["string", "null"] },
+        "snapshotRoot": { "$ref": "#/$defs/nonEmpty" }
+      }
+    },
+    "sample": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "familyId", "modeId", "entryPoint", "renderer", "manual", "snapshot"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmpty" },
+        "familyId": { "$ref": "#/$defs/nonEmpty" },
+        "modeId": { "$ref": "#/$defs/nonEmpty" },
+        "entryPoint": { "$ref": "#/$defs/nonEmpty" },
+        "renderer": { "enum": ["canvas", "webgl"] },
+        "manual": { "$ref": "#/$defs/nonEmpty" },
+        "snapshot": { "$ref": "#/$defs/nonEmpty" }
+      }
+    },
+    "runtimeCapabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seriesStack", "technicalIndicators", "tiledMap"],
+      "properties": {
+        "seriesStack": { "$ref": "#/$defs/seriesStackCapability" },
+        "technicalIndicators": { "$ref": "#/$defs/technicalIndicatorRuntimeCapability" },
+        "tiledMap": { "$ref": "#/$defs/tiledMapCapability" }
+      }
+    },
+    "seriesStackCapability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "status",
+        "marks",
+        "seriesField",
+        "option",
+        "modes",
+        "offsets",
+        "orders",
+        "signedBaseline",
+        "totals",
+        "tooltipLineage",
+        "datumHitTargets",
+        "encoding"
+      ],
+      "properties": {
+        "id": { "const": "series-stack" },
+        "status": { "const": "supported" },
+        "marks": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": { "enum": ["area", "bar", "theme-river"] }
+        },
+        "seriesField": { "const": "mark.fields.series" },
+        "option": { "const": "mark.options.stack" },
+        "modes": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": { "enum": ["grouped", "stacked", "100-percent", "diverging", "streamgraph"] }
+        },
+        "offsets": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 6,
+          "uniqueItems": true,
+          "items": { "enum": ["zero", "normalize", "expand", "center", "silhouette", "wiggle"] }
+        },
+        "orders": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 6,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "input",
+              "ascending",
+              "descending",
+              "sumAscending",
+              "sumDescending",
+              "insideOut"
+            ]
+          }
+        },
+        "signedBaseline": { "const": true },
+        "totals": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": { "enum": ["absolute", "positive", "negative", "net"] }
+        },
+        "tooltipLineage": { "const": true },
+        "datumHitTargets": { "const": true },
+        "encoding": { "$ref": "#/$defs/seriesStackEncodingCapability" }
+      }
+    },
+    "seriesStackEncodingCapability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bar", "areaAndThemeRiver", "areaPointOnly", "positionalConflicts"],
+      "properties": {
+        "bar": {
+          "type": "array",
+          "minItems": 8,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "color",
+              "fill",
+              "stroke",
+              "opacity",
+              "strokeWidth",
+              "strokeDash",
+              "order",
+              "tooltip"
+            ]
+          }
+        },
+        "areaAndThemeRiver": {
+          "type": "array",
+          "minItems": 8,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "color",
+              "fill",
+              "stroke",
+              "opacity",
+              "strokeWidth",
+              "strokeDash",
+              "order",
+              "detail"
+            ]
+          }
+        },
+        "areaPointOnly": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": { "enum": ["size", "radius", "tooltip"] }
+        },
+        "positionalConflicts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["bar", "area", "themeRiver"],
+          "properties": {
+            "bar": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "uniqueItems": true,
+              "items": { "enum": ["x2", "y2"] }
+            },
+            "area": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 1,
+              "items": { "const": "y2" }
+            },
+            "themeRiver": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 1,
+              "items": { "const": "y2" }
+            }
+          }
+        }
+      }
+    },
+    "technicalIndicatorRuntimeCapability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "status", "publicEntryPoints", "calculations", "presets"],
+      "properties": {
+        "id": { "const": "technical-indicator" },
+        "status": { "const": "mixed" },
+        "publicEntryPoints": { "$ref": "#/$defs/technicalIndicatorEntryPoints" },
+        "calculations": { "$ref": "#/$defs/technicalIndicatorCalculationBoundary" },
+        "presets": {
+          "type": "array",
+          "minItems": 45,
+          "maxItems": 45,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/technicalIndicatorCapability" }
+        }
+      }
+    },
+    "technicalIndicatorEntryPoints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["canonical", "canonicalSurfaces", "namedPresets", "total"],
+      "properties": {
+        "canonical": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/technicalIndicatorCanonicalSurface" }
+        },
+        "canonicalSurfaces": { "const": 2 },
+        "namedPresets": { "const": 45 },
+        "total": { "const": 47 }
+      }
+    },
+    "technicalIndicatorCanonicalSurface": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "entryPoint"],
+      "properties": {
+        "id": { "enum": ["technicalIndicator", "indicator"] },
+        "kind": { "enum": ["quick-api", "portable-mark"] },
+        "entryPoint": { "enum": ["graflume/complete", "ChartSpec"] }
+      }
+    },
+    "technicalIndicatorCalculationBoundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["computed", "precomputedRequired", "warmUpPolicy"],
+      "properties": {
+        "computed": { "const": 17 },
+        "precomputedRequired": { "const": 28 },
+        "warmUpPolicy": { "const": "null" }
+      }
+    },
+    "technicalIndicatorCapability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "quickApi",
+        "support",
+        "requiredInputs",
+        "outputs",
+        "parameters",
+        "dependencyDag",
+        "warmUp",
+        "provenance"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmpty" },
+        "kind": { "$ref": "#/$defs/nonEmpty" },
+        "quickApi": { "$ref": "#/$defs/nonEmpty" },
+        "support": { "enum": ["computed", "precomputed-required"] },
+        "requiredInputs": { "$ref": "#/$defs/stringList" },
+        "outputs": { "$ref": "#/$defs/stringList" },
+        "parameters": { "type": "array", "items": { "$ref": "#/$defs/indicatorParameter" } },
+        "dependencyDag": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/indicatorDependencyNode" }
+        },
+        "warmUp": { "$ref": "#/$defs/indicatorWarmUp" },
+        "provenance": { "$ref": "#/$defs/nonEmpty" }
+      }
+    },
+    "indicatorParameter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type", "minimum", "maximum", "default"],
+      "properties": {
+        "name": { "enum": ["period", "fastPeriod", "slowPeriod", "signalPeriod"] },
+        "type": { "const": "integer" },
+        "minimum": { "type": "integer", "minimum": 1 },
+        "maximum": { "type": "integer", "minimum": 1 },
+        "default": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "indicatorDependencyNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "operation", "inputs", "parameters"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmpty" },
+        "operation": { "$ref": "#/$defs/nonEmpty" },
+        "inputs": { "$ref": "#/$defs/stringList" },
+        "parameters": { "$ref": "#/$defs/stringList" }
+      }
+    },
+    "indicatorWarmUp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy", "rows"],
+      "properties": {
+        "policy": { "const": "null" },
+        "rows": { "$ref": "#/$defs/nonEmpty" }
+      }
+    },
+    "tiledMapCapability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "status",
+        "behavior",
+        "preferredFamily",
+        "basemap",
+        "tileLifecycle",
+        "networkRequests"
+      ],
+      "properties": {
+        "id": { "const": "tiled-map" },
+        "status": { "const": "deprecated" },
+        "behavior": { "const": "embedded-basemap-alias" },
+        "preferredFamily": { "const": "map" },
+        "basemap": { "const": "natural-earth-embedded" },
+        "tileLifecycle": { "const": false },
+        "networkRequests": { "const": false }
+      }
+    },
+    "foundation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "status", "summary", "unlocks"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmpty" },
+        "status": { "$ref": "#/$defs/status" },
+        "summary": { "$ref": "#/$defs/nonEmpty" },
+        "unlocks": { "$ref": "#/$defs/stringList" }
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "status", "contract"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmpty" },
+        "kind": { "$ref": "#/$defs/nonEmpty" },
+        "status": { "$ref": "#/$defs/status" },
+        "host": { "$ref": "#/$defs/nonEmpty" },
+        "contract": { "$ref": "#/$defs/stringList" }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "status"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmpty" },
+        "status": { "$ref": "#/$defs/status" }
+      }
+    },
+    "crossCutting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "status", "items"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmpty" },
+        "status": { "$ref": "#/$defs/status" },
+        "items": { "$ref": "#/$defs/stringList" }
+      }
+    },
+    "ecosystem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "placement", "features"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmpty" },
+        "placement": { "$ref": "#/$defs/nonEmpty" },
+        "features": { "$ref": "#/$defs/stringList" }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "items"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmpty" },
+        "items": { "$ref": "#/$defs/stringList" }
+      }
+    }
+  }
+}

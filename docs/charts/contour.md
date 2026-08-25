@@ -22,7 +22,7 @@ Every image below is generated from the current compiled Scene rather than drawn
 
 ## Type-by-type implementation
 
-The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. This family keeps `trigger: "mark"`, so the pointer must hit rendered datum geometry. Tooltip interaction is a pointer-only convenience, so keep a readable summary or data table available for exact values and keyboard access. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. This family keeps `trigger: "mark"`, so the pointer must hit rendered datum geometry. Pointer tooltip triggers remain a convenience; opt into `accessibility.table` and `accessibility.navigation` for the bounded native table and keyboard mark traversal, or provide a larger domain-specific table. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
 
 Every family can opt into the Canvas [inspection viewport, fullscreen, reset, and PNG controls](./interactions.md). Inspection magnifies and translates the complete already-rendered chart, including its title and axes; it is not data-domain or GIS zoom. Generated examples intentionally leave playback off. Add discrete playback only after selecting a meaningful frame field and reviewing the family-specific capability table.
 
@@ -258,11 +258,11 @@ The family API and every compatible preset enter the same normalize, validate, s
 
 ## Data, ordering, and missing values
 
-The primary encodings provide samples or ordered values. Distribution-specific value, band, or category fields are declared in `mark.fields`. Input order is preserved unless the mark explicitly documents a deterministic sort. Missing required values skip only the affected row; invalid specs still fail validation before compilation.
+Provide one finite scalar `mark.fields.value` for each unique quantitative x/y coordinate on a rectilinear grid. Coordinates are sorted numerically before extraction, so input row order does not change topology. A missing grid coordinate is a hole: every cell touching it is skipped instead of interpolating across unknown data. Duplicate x/y coordinates currently resolve to the last valid input row and should be deduplicated upstream when that choice is not meaningful.
 
 ## Implemented rendering behavior
 
-Colors a scalar grid and adds deterministic isoline approximations at configured levels. The output uses only groups, paths, lines, rectangles, circles, and text, so Canvas, snapshots, export adapters, and future renderers share the same geometry contract.
+The canonical mark runs deterministic marching squares over the scalar grid and stitches cell segments into open or closed isolines. `options.thresholds` supplies sorted explicit levels; otherwise `options.levels` (1–32) uses linear levels or Type-7 quantiles with `thresholdMethod: "quantile"`. Ambiguous 5/10 saddle cells default to a threshold-relative asymptotic decider using `Q = a*c - b*d`; `options.saddle: "high" | "low"` provides deterministic explicit connectivity. `showCells: false` hides the optional colored scalar cells without changing isolines. Bivariate distribution contours and carpet contours reuse the same topology extractor.
 
 ## Styling
 
@@ -270,7 +270,7 @@ Common `fill`, `stroke`, `opacity`, `lineWidth`, `radius`, and `cornerRadius` pr
 
 ## Interaction and hit testing
 
-Rendered datum shapes keep `layerId`, `rowIndex`, and the source row. Standard mode enables hit testing; large and ultra profiles may disable per-mark hit testing. Decorative grid, shadow, depth, label, and arrowhead nodes do not create duplicate datum targets.
+Rendered isolines keep `layerId`, a representative `rowIndex`, exact threshold metadata, saddle policy, the full `sourceRowCount`, and a sorted `sourceRowIndices` prefix capped at 256; bivariate bins include all contributing rows before that tooltip cap is applied. Standard mode enables hit testing; large and ultra profiles may disable per-mark hit testing.
 
 ## Accessibility
 
@@ -278,11 +278,11 @@ Provide a concise `accessibility.label` and a description of the main pattern. C
 
 ## Performance
 
-Scene cost is linear in rows for ordinary cases. Relationship crossings, repeated symbols, sampled curves, dense labels, and multi-line indicators can produce more than one node per row. Use `auto`, `large`, or `ultra` with aggregation when row counts grow beyond the analytical value of individual marks.
+Grid coordinates are deterministically thinned to `maxBarMarks` before canonical extraction when necessary, and emitted segments stop at half of `maxLinePoints` so the stitched point count remains bounded. Bivariate and carpet callers allocate from the same profile budgets. This is a synchronous main-thread extractor; pre-grid or aggregate very large inputs upstream.
 
 ## Current limitations
 
-This alpha implementation covers the documented data meaning and Scene output. Domain-specific editing tools, animation choreography, and very-large-data GPU paths remain separate follow-up work.
+Only line isolines are implemented. Filled or banded polygons—especially nested hole topology—triangulation of irregular samples, contour smoothing/labels, general density-to-contour calculation, GPU extraction, and 3D contour projection remain planned. They are not exposed as supported runtime options.
 
 ## Runnable references
 

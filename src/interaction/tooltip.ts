@@ -211,6 +211,18 @@ export class TooltipController {
     surface: HTMLElement,
     host: HTMLElement,
   ): void {
+    this.showAt(content, hit, sourceEvent.clientX, sourceEvent.clientY, surface, host);
+  }
+
+  /** Show the same text-only tooltip for keyboard or other non-pointer semantic focus. */
+  showAt(
+    content: TooltipContent,
+    hit: HitResult,
+    clientX: number,
+    clientY: number,
+    surface: HTMLElement,
+    host: HTMLElement,
+  ): void {
     if (content.rows.length === 0) {
       this.hide();
       return;
@@ -227,7 +239,7 @@ export class TooltipController {
     describedBy.add(this.#id);
     surface.setAttribute('aria-describedby', [...describedBy].join(' '));
     element.hidden = false;
-    this.#position(element, host, sourceEvent.clientX, sourceEvent.clientY);
+    this.#position(element, host, clientX, clientY);
   }
 
   hide(): void {
@@ -254,7 +266,7 @@ export class TooltipController {
       if (this.#element.parentElement !== host) host.append(this.#element);
       return this.#element;
     }
-    const element = document.createElement('div');
+    const element = host.ownerDocument.createElement('div');
     element.id = this.#id;
     element.dataset.graflumeTooltip = 'true';
     element.setAttribute('role', 'tooltip');
@@ -268,17 +280,18 @@ export class TooltipController {
   }
 
   #renderContent(element: HTMLDivElement, content: TooltipContent): void {
-    const title = document.createElement('div');
+    const ownerDocument = element.ownerDocument;
+    const title = ownerDocument.createElement('div');
     title.textContent = content.title;
     title.style.cssText = 'margin:0 0 6px;font-weight:700;color:#fff';
-    const list = document.createElement('dl');
+    const list = ownerDocument.createElement('dl');
     list.style.cssText =
       'display:grid;grid-template-columns:minmax(56px,auto) minmax(0,1fr);gap:3px 12px;margin:0';
     for (const row of content.rows) {
-      const term = document.createElement('dt');
+      const term = ownerDocument.createElement('dt');
       term.textContent = row.label;
       term.style.cssText = 'margin:0;color:#cbd5e1';
-      const detail = document.createElement('dd');
+      const detail = ownerDocument.createElement('dd');
       detail.textContent = row.value;
       detail.style.cssText =
         'margin:0;text-align:end;font-weight:650;color:#fff;overflow-wrap:anywhere';

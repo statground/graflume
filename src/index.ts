@@ -19,10 +19,60 @@ import type { ChartSpec, DataInput } from './spec/types.js';
 import type { ThemeTokens } from './theme/types.js';
 import { specVersion, version } from './version.js';
 import { chartTypeCatalog, chartVariantCatalog } from './catalog/chart-types.js';
+import { curveNames, curveRegistry, interpolateCurve } from './curve/registry.js';
+import {
+  colorScaleTypes,
+  createColorScale,
+  createPositionScale,
+  positionScaleTypes,
+} from './scale/registry.js';
+export { executeTransforms, evaluateTransformExpression } from './data/transforms.js';
+export type { DataLineage, TransformResult, TransformStepLineage } from './data/transforms.js';
+export {
+  IncrementalDataStore,
+  createIncrementalDataStore,
+  replayIncrementalData,
+} from './data/incremental.js';
+export type {
+  IncrementalDataState,
+  IncrementalProvenanceStep,
+  IncrementalReplay,
+  IncrementalUpdate,
+  IncrementalUpdateResult,
+} from './data/incremental.js';
+export {
+  TransformWorkerAdapter,
+  createTransformWorkerAdapter,
+  installTransformWorker,
+  transformWorkerProtocolVersion,
+} from './data/worker-protocol.js';
+export type {
+  TransformWorkerAdapterOptions,
+  TransformWorkerExecuteOptions,
+  TransformWorkerFailure,
+  TransformWorkerPort,
+  TransformWorkerRequest,
+  TransformWorkerResponse,
+  TransformWorkerScope,
+  TransformWorkerState,
+  TransformWorkerSuccess,
+} from './data/worker-protocol.js';
 
 export function create(target: ChartTarget, spec: ChartSpec, options?: ChartCreateOptions): Chart {
   return new Chart(target, spec, defaultRegistry, options);
 }
+
+export { curveNames, curveRegistry, interpolateCurve };
+export { colorScaleTypes, createColorScale, createPositionScale, positionScaleTypes };
+export { seriesStackModes } from './data/series-stack.js';
+export {
+  compositionOperators,
+  maximumCompositionDepth,
+  maximumCompositionLayers,
+  maximumCompositionViews,
+  maximumLayerCompositionChildren,
+} from './spec/composition.js';
+export type { CompositionKind, ResolvedCompositionResolve } from './spec/composition.js';
 
 export function compile(spec: ChartSpec, options?: CompileOptions): CompileResult {
   return compileWithRegistry(spec, defaultRegistry, options);
@@ -176,7 +226,7 @@ export function histogram(target: ChartTarget, data: DataInput, options: QuickCh
   return specialized('histogram', target, data, options);
 }
 
-/** Canonical API for histogram, box, violin, curve, and bivariate distribution modes. */
+/** Canonical API for histogram, empirical, KDE, box, violin, curve, and bivariate modes. */
 export function distribution(
   target: ChartTarget,
   data: DataInput,
@@ -187,6 +237,18 @@ export function distribution(
 
 export function violin(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
   return specialized('distribution', target, data, options, { options: { mode: 'violin' } });
+}
+
+export function ecdf(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
+  return specialized('distribution', target, data, options, { options: { mode: 'ecdf' } });
+}
+
+export function ccdf(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
+  return specialized('distribution', target, data, options, { options: { mode: 'ccdf' } });
+}
+
+export function kde(target: ChartTarget, data: DataInput, options: QuickChartOptions): Chart {
+  return specialized('distribution', target, data, options, { options: { mode: 'kde' } });
 }
 
 export function histogram2d(
@@ -315,6 +377,39 @@ export {
 export { pluginApiVersion } from './core/plugin.js';
 export { GraflumeError } from './core/errors.js';
 export { hitTestScene } from './interaction/hit-test.js';
+export {
+  AnalyticSelectionStore,
+  analyticSelectionKey,
+  analyticSelectionMatches,
+  analyticSelectionVersion,
+  emptyAnalyticSelectionState,
+  maximumAnalyticSelections,
+  maximumLassoPoints,
+  normalizeAnalyticSelectionState,
+} from './interaction/analytic-selection.js';
+export {
+  clampPixelToPlot,
+  domainPointToPixel,
+  domainToPixel,
+  pixelAxisToSelection,
+  pixelLassoToSelection,
+  pixelPointToDomain,
+  pixelRectangleToSelection,
+  pixelToDomain,
+  selectionToPixels,
+} from './interaction/cartesian-coordinates.js';
+export {
+  domainAxisWindow,
+  domainForAxisWindow,
+  domainViewIsIdentity,
+  domainViewVersion,
+  emptyDomainViewState,
+  normalizeDomainViewState,
+  panDomainAxisWindow,
+  panDomainByPixels,
+  zoomDomainAtPixel,
+  zoomDomainAxisWindow,
+} from './interaction/domain-navigation.js';
 
 export type { QuickChartOptions, QuickComboOptions } from './api/quick.js';
 export type {
@@ -324,6 +419,7 @@ export type {
   ChartVariantId,
 } from './catalog/chart-types.js';
 export type {
+  ChartAccessibilityState,
   ChartCreateOptions,
   ChartErrorEvent,
   ChartEventMap,
@@ -335,6 +431,10 @@ export type {
   ChartSelectionChangeEvent,
   ChartSelectionChangeReason,
   ChartSelectionState,
+  ChartAnalyticSelectionChangeEvent,
+  ChartAnalyticSelectionChangeReason,
+  ChartDomainViewChangeEvent,
+  ChartDomainViewChangeReason,
   ChartAnnotationChangeEvent,
   ChartAnnotationChangeReason,
   ChartAnnotationVisibilityChangeEvent,
@@ -361,8 +461,16 @@ export type {
   RendererFactory,
 } from './renderer/types.js';
 export type { Scene, SceneNode, DatumReference } from './scene/types.js';
+export { toAccessibleRows } from './scene/semantic.js';
+export type {
+  AccessibleRow,
+  SemanticChannel,
+  SemanticLineage,
+  SemanticMark,
+} from './scene/semantic.js';
 export type {
   AccessibilitySpec,
+  AccessibilityLiveSpec,
   AnnotationConnectorSpec,
   AnnotationSpec,
   AnnotationStyleSpec,
@@ -381,17 +489,29 @@ export type {
   AxisValueFormat,
   ChartSpec,
   ColumnarData,
+  CompositionResolveMode,
+  CompositionResolveSpec,
   ControlLabelsSpec,
   ControlsSpec,
+  DomainNavigationSpec,
   DataInput,
   DataRow,
   DataValue,
   DatumTargetSpec,
   DecorationTargetSpec,
   EncodingInput,
+  EncodingChannel,
+  EncodingConditionSpec,
+  EncodingMap,
   EncodingSpec,
+  ChannelEncodingInput,
+  ChannelEncodingSpec,
+  FacetCompositionSpec,
+  FacetFieldInput,
+  FacetFieldSpec,
   FieldType,
   InteractionSpec,
+  InsetCompositionSpec,
   HighlightSpec,
   HighlightStyleSpec,
   JsonPrimitive,
@@ -411,6 +531,7 @@ export type {
   NormalizedChartSpec,
   NormalizedControlLabelsSpec,
   NormalizedControlsSpec,
+  NormalizedDomainNavigationSpec,
   NormalizedLegendItemSpec,
   NormalizedLegendSpec,
   NormalizedNavigationSpec,
@@ -424,8 +545,14 @@ export type {
   PlotTargetSpec,
   RangeTargetSpec,
   RendererPreference,
+  RepeatCompositionSpec,
+  RepeatItemSpec,
   ScaleSpec,
+  ScaleOutOfBounds,
+  ScaleType,
   SelectionSpec,
+  StreamingMode,
+  StreamingSpec,
   TitleSpec,
   TooltipFieldInput,
   TooltipFieldSpec,
@@ -433,6 +560,54 @@ export type {
   TooltipAxis,
   TooltipTrigger,
   TooltipValueFormat,
+  AggregateFieldSpec,
+  AggregateOperation,
+  TransformExpression,
+  TransformSortField,
+  TransformSpec,
+  WindowFieldSpec,
 } from './spec/types.js';
+export type {
+  AnalyticAxisSelection,
+  AnalyticDomainPoint,
+  AnalyticDomainValue,
+  AnalyticIntervalSelection,
+  AnalyticLassoSelection,
+  AnalyticPointSelection,
+  AnalyticRectangleSelection,
+  AnalyticSelection,
+  AnalyticSelectionCombine,
+  AnalyticSelectionSample,
+  AnalyticSelectionState,
+  AnalyticSelectionUpdate,
+} from './interaction/analytic-selection.js';
+export type {
+  CartesianCoordinateContext,
+  PixelPoint,
+} from './interaction/cartesian-coordinates.js';
+export type { DomainAxisWindow, DomainViewState } from './interaction/domain-navigation.js';
+export type {
+  ColorScale,
+  ColorScaleDescriptor,
+  ColorScaleType,
+  PositionScaleDescriptor,
+  PositionScaleType,
+  Scale,
+  ScaleOutOfBounds as RuntimeScaleOutOfBounds,
+  Tick,
+} from './scale/types.js';
 export type { ThemeTokens } from './theme/types.js';
 export type { DeepPartial } from './utils/object.js';
+export type {
+  CurveInterpolator,
+  CurveName,
+  CurveOptions,
+  MissingValuePolicy,
+} from './curve/registry.js';
+export type {
+  ResolvedSeriesStackSpec,
+  SeriesStackMode,
+  SeriesStackOffset,
+  SeriesStackOrder,
+  SeriesStackSpec,
+} from './data/series-stack.js';

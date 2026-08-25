@@ -6,15 +6,18 @@
 
 This is the single manual for the `distribution` family. Its canonical Quick API is `distribution()` from `graflume`, and its representative portable mark is `distribution`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
 
-| Compatible name                                             | Quick API              | Mode                   | Portable mark  | Functional difference                                                  |
-| ----------------------------------------------------------- | ---------------------- | ---------------------- | -------------- | ---------------------------------------------------------------------- |
-| [Distribution chart](#variant-distribution)                 | `distribution()`       | `histogram`            | `distribution` | Uses the canonical raw-sample histogram presentation.                  |
-| [Histogram](#variant-histogram)                             | `histogram()`          | `histogram`            | `histogram`    | Bins samples into counts.                                              |
-| [Bivariate histogram](#variant-histogram-2d)                | `histogram2d()`        | `histogram-2d`         | `distribution` | Bins two quantitative coordinates into rectangular heat cells.         |
-| [Bivariate density contours](#variant-histogram-2d-contour) | `histogram2dContour()` | `histogram-2d-contour` | `distribution` | Traces density isolines over the complete bivariate bin grid.          |
-| [Violin chart](#variant-violin)                             | `violin()`             | `violin`               | `distribution` | Estimates a mirrored kernel-density shape for each group.              |
-| [Boxplot](#variant-boxplot)                                 | `boxplot()`            | `boxplot`              | `boxplot`      | Selects the `boxplot` presentation through the shared family pipeline. |
-| [Bell curve](#variant-bell-curve)                           | `bellCurve()`          | `bell-curve`           | `distribution` | Derives and overlays a sampled normal-density curve.                   |
+| Compatible name                                             | Quick API              | Mode                   | Portable mark  | Functional difference                                                             |
+| ----------------------------------------------------------- | ---------------------- | ---------------------- | -------------- | --------------------------------------------------------------------------------- |
+| [Distribution chart](#variant-distribution)                 | `distribution()`       | `histogram`            | `distribution` | Uses the canonical raw-sample histogram presentation.                             |
+| [Histogram](#variant-histogram)                             | `histogram()`          | `histogram`            | `histogram`    | Bins samples into counts.                                                         |
+| [Empirical cumulative distribution](#variant-ecdf)          | `ecdf()`               | `ecdf`                 | `distribution` | Computes the weighted empirical cumulative probability at each distinct sample.   |
+| [Complementary empirical distribution](#variant-ccdf)       | `ccdf()`               | `ccdf`                 | `distribution` | Computes the weighted complementary probability P(X > x) at each distinct sample. |
+| [Kernel density estimate](#variant-kde)                     | `kde()`                | `kde`                  | `distribution` | Estimates a unit-integral Gaussian density with a robust automatic bandwidth.     |
+| [Bivariate histogram](#variant-histogram-2d)                | `histogram2d()`        | `histogram-2d`         | `distribution` | Bins two quantitative coordinates into rectangular heat cells.                    |
+| [Bivariate density contours](#variant-histogram-2d-contour) | `histogram2dContour()` | `histogram-2d-contour` | `distribution` | Traces density isolines over the complete bivariate bin grid.                     |
+| [Violin chart](#variant-violin)                             | `violin()`             | `violin`               | `distribution` | Estimates a mirrored kernel-density shape for each group.                         |
+| [Boxplot](#variant-boxplot)                                 | `boxplot()`            | `boxplot`              | `boxplot`      | Selects the `boxplot` presentation through the shared family pipeline.            |
+| [Bell curve](#variant-bell-curve)                           | `bellCurve()`          | `bell-curve`           | `distribution` | Derives and overlays a sampled normal-density curve.                              |
 
 All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining manually maintained sections describe the canonical/default presentation unless a preset row above states a different behavior.
 
@@ -22,16 +25,17 @@ All presets reuse the same validation, normalization, scale, compiler, renderer-
 
 Every image below is generated from the current compiled Scene rather than drawn by hand. Select a name to jump to its data fields and implementation.
 
-|                                                                                                                                                                   |                                                                                                                                                                                                         |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **[Distribution chart](#variant-distribution)**<br>[![Current Distribution chart output](../assets/charts/distribution.svg)](../assets/charts/distribution.svg)   | **[Histogram](#variant-histogram)**<br>[![Current Histogram output](../assets/charts/histogram.svg)](../assets/charts/histogram.svg)                                                                    |
-| **[Bivariate histogram](#variant-histogram-2d)**<br>[![Current Bivariate histogram output](../assets/charts/histogram-2d.svg)](../assets/charts/histogram-2d.svg) | **[Bivariate density contours](#variant-histogram-2d-contour)**<br>[![Current Bivariate density contours output](../assets/charts/histogram-2d-contour.svg)](../assets/charts/histogram-2d-contour.svg) |
-| **[Violin chart](#variant-violin)**<br>[![Current Violin chart output](../assets/charts/violin.svg)](../assets/charts/violin.svg)                                 | **[Boxplot](#variant-boxplot)**<br>[![Current Boxplot output](../assets/charts/boxplot.svg)](../assets/charts/boxplot.svg)                                                                              |
-| **[Bell curve](#variant-bell-curve)**<br>[![Current Bell curve output](../assets/charts/bell-curve.svg)](../assets/charts/bell-curve.svg)                         |                                                                                                                                                                                                         |
+|                                                                                                                                                                                                         |                                                                                                                                                                                             |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **[Distribution chart](#variant-distribution)**<br>[![Current Distribution chart output](../assets/charts/distribution.svg)](../assets/charts/distribution.svg)                                         | **[Histogram](#variant-histogram)**<br>[![Current Histogram output](../assets/charts/histogram.svg)](../assets/charts/histogram.svg)                                                        |
+| **[Empirical cumulative distribution](#variant-ecdf)**<br>[![Current Empirical cumulative distribution output](../assets/charts/distribution.svg)](../assets/charts/distribution.svg)                   | **[Complementary empirical distribution](#variant-ccdf)**<br>[![Current Complementary empirical distribution output](../assets/charts/distribution.svg)](../assets/charts/distribution.svg) |
+| **[Kernel density estimate](#variant-kde)**<br>[![Current Kernel density estimate output](../assets/charts/distribution.svg)](../assets/charts/distribution.svg)                                        | **[Bivariate histogram](#variant-histogram-2d)**<br>[![Current Bivariate histogram output](../assets/charts/histogram-2d.svg)](../assets/charts/histogram-2d.svg)                           |
+| **[Bivariate density contours](#variant-histogram-2d-contour)**<br>[![Current Bivariate density contours output](../assets/charts/histogram-2d-contour.svg)](../assets/charts/histogram-2d-contour.svg) | **[Violin chart](#variant-violin)**<br>[![Current Violin chart output](../assets/charts/violin.svg)](../assets/charts/violin.svg)                                                           |
+| **[Boxplot](#variant-boxplot)**<br>[![Current Boxplot output](../assets/charts/boxplot.svg)](../assets/charts/boxplot.svg)                                                                              | **[Bell curve](#variant-bell-curve)**<br>[![Current Bell curve output](../assets/charts/bell-curve.svg)](../assets/charts/bell-curve.svg)                                                   |
 
 ## Type-by-type implementation
 
-The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. This family uses `trigger: "axis"` with `axis: "x"`. An exact rendered-mark hit still has priority; otherwise Graflume selects the nearest actual datum on that axis without inventing an interpolated row. Tooltip interaction is a pointer-only convenience, so keep a readable summary or data table available for exact values and keyboard access. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. This family uses `trigger: "axis"` with `axis: "x"`. An exact rendered-mark hit still has priority; otherwise Graflume selects the nearest actual datum on that axis without inventing an interpolated row. Pointer tooltip triggers remain a convenience; opt into `accessibility.table` and `accessibility.navigation` for the bounded native table and keyboard mark traversal, or provide a larger domain-specific table. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
 
 Every family can opt into the Canvas [inspection viewport, fullscreen, reset, and PNG controls](./interactions.md). Inspection magnifies and translates the complete already-rendered chart, including its title and axes; it is not data-domain or GIS zoom. Generated examples intentionally leave playback off. Add discrete playback only after selecting a meaningful frame field and reviewing the family-specific capability table.
 
@@ -225,6 +229,300 @@ histogram('#chart', data, {
           field: 'value',
           label: 'value',
           format: 'number',
+        },
+      ],
+      trigger: 'axis',
+      axis: 'x',
+    },
+  },
+});
+```
+
+<a id="variant-ecdf"></a>
+
+### Empirical cumulative distribution
+
+Use this preset when the shape or summary of one or two quantitative distributions matters. Computes the weighted empirical cumulative probability at each distinct sample.
+
+- **Quick API:** `ecdf()`
+- **Mode:** `ecdf`
+- **Portable mark:** `distribution`
+- **Required example fields:** `value`, `series`
+
+```js
+import { ecdf } from 'graflume';
+
+const data = [
+  {
+    value: 24,
+    series: 'Alpha',
+  },
+  {
+    value: 29.916,
+    series: 'Beta',
+  },
+  {
+    value: 33.54,
+    series: 'Alpha',
+  },
+  {
+    value: 33.72,
+    series: 'Beta',
+  },
+];
+
+ecdf('#chart', data, {
+  x: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Empirical cumulative distribution',
+    subtitle: 'distribution family · ecdf mode',
+  },
+  accessibility: {
+    label: 'Empirical cumulative distribution example',
+    description:
+      'A compiled empirical cumulative distribution example using the distribution family.',
+  },
+  mark: {
+    fields: {
+      group: 'series',
+      value: 'value',
+    },
+    options: {
+      mode: 'ecdf',
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Empirical cumulative distribution',
+      fields: [
+        {
+          field: 'probability',
+          label: 'Probability',
+          format: 'percent',
+        },
+        {
+          field: 'weight',
+          label: 'Weight',
+          format: 'number',
+        },
+        {
+          field: 'count',
+          label: 'Tied rows',
+          format: 'integer',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'series',
+          label: 'Series',
+          format: 'auto',
+        },
+      ],
+      trigger: 'axis',
+      axis: 'x',
+    },
+  },
+});
+```
+
+<a id="variant-ccdf"></a>
+
+### Complementary empirical distribution
+
+Use this preset when the shape or summary of one or two quantitative distributions matters. Computes the weighted complementary probability P(X > x) at each distinct sample.
+
+- **Quick API:** `ccdf()`
+- **Mode:** `ccdf`
+- **Portable mark:** `distribution`
+- **Required example fields:** `value`, `series`
+
+```js
+import { ccdf } from 'graflume';
+
+const data = [
+  {
+    value: 24,
+    series: 'Alpha',
+  },
+  {
+    value: 29.916,
+    series: 'Beta',
+  },
+  {
+    value: 33.54,
+    series: 'Alpha',
+  },
+  {
+    value: 33.72,
+    series: 'Beta',
+  },
+];
+
+ccdf('#chart', data, {
+  x: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Complementary empirical distribution',
+    subtitle: 'distribution family · ccdf mode',
+  },
+  accessibility: {
+    label: 'Complementary empirical distribution example',
+    description:
+      'A compiled complementary empirical distribution example using the distribution family.',
+  },
+  mark: {
+    fields: {
+      group: 'series',
+      value: 'value',
+    },
+    options: {
+      mode: 'ccdf',
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Complementary empirical distribution',
+      fields: [
+        {
+          field: 'probability',
+          label: 'Probability',
+          format: 'percent',
+        },
+        {
+          field: 'weight',
+          label: 'Weight',
+          format: 'number',
+        },
+        {
+          field: 'count',
+          label: 'Tied rows',
+          format: 'integer',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'series',
+          label: 'Series',
+          format: 'auto',
+        },
+      ],
+      trigger: 'axis',
+      axis: 'x',
+    },
+  },
+});
+```
+
+<a id="variant-kde"></a>
+
+### Kernel density estimate
+
+Use this preset when the shape or summary of one or two quantitative distributions matters. Estimates a unit-integral Gaussian density with a robust automatic bandwidth.
+
+- **Quick API:** `kde()`
+- **Mode:** `kde`
+- **Portable mark:** `distribution`
+- **Required example fields:** `value`, `series`
+
+```js
+import { kde } from 'graflume';
+
+const data = [
+  {
+    value: 24,
+    series: 'Alpha',
+  },
+  {
+    value: 29.916,
+    series: 'Beta',
+  },
+  {
+    value: 33.54,
+    series: 'Alpha',
+  },
+  {
+    value: 33.72,
+    series: 'Beta',
+  },
+];
+
+kde('#chart', data, {
+  x: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  y: {
+    field: 'value',
+    type: 'quantitative',
+    title: 'value',
+  },
+  title: {
+    text: 'Kernel density estimate',
+    subtitle: 'distribution family · kde mode',
+  },
+  accessibility: {
+    label: 'Kernel density estimate example',
+    description: 'A compiled kernel density estimate example using the distribution family.',
+  },
+  mark: {
+    fields: {
+      group: 'series',
+      value: 'value',
+    },
+    options: {
+      mode: 'kde',
+    },
+  },
+  locale: 'en-US',
+  interaction: {
+    tooltip: {
+      title: 'Kernel density estimate',
+      fields: [
+        {
+          field: 'bandwidth',
+          label: 'Bandwidth',
+          format: 'number',
+        },
+        {
+          field: 'sampleCount',
+          label: 'Sample count',
+          format: 'integer',
+        },
+        {
+          field: 'value',
+          label: 'value',
+          format: 'number',
+        },
+        {
+          field: 'series',
+          label: 'Series',
+          format: 'auto',
         },
       ],
       trigger: 'axis',
@@ -737,21 +1035,23 @@ bellCurve('#chart', data, {
 
 <!-- FAMILY_PRESETS_END -->
 
-Distribution charts share one portable `distribution` family for raw-sample histograms, density curves, violins, bivariate heat cells, bivariate density contours, and five-number summaries. Legacy `histogram()` and `boxplot()` calls remain compatible presets.
+Distribution charts share one portable `distribution` family for raw-sample histograms, empirical distribution functions, kernel-density estimates, normal curves, violins, bivariate heat cells, bivariate contours, and box summaries. Legacy `histogram()` and `boxplot()` calls remain compatible presets; `ecdf()`, `ccdf()`, and `kde()` are family-mode Quick APIs rather than new canonical families.
 
 ## Data contract
 
-Use a quantitative value field for one-dimensional modes. Violin mode additionally accepts a grouping field. Bivariate modes use quantitative `x` and `y` encodings. Box mode accepts `low`, `q1`, `median`, `q3`, and `high` fields.
+Use a quantitative value field for one-dimensional modes. `fields.weight` or `options.weightField` supplies non-negative observation weights for histograms, ECDF/CCDF, and KDE. Violin mode additionally accepts a grouping field. Bivariate modes use quantitative `x` and `y` encodings. Box mode accepts precomputed `min`, `q1`, `median`, `q3`, and `max` fields (`low`/`high` remain compatibility aliases); when that complete summary is absent, it groups raw `fields.value` (or y) rows by x and computes an unweighted Type-7 summary.
 
-Missing or non-finite values are ignored. Omitted mode, the canonical `distribution` label, and unknown compatibility labels resolve to histogram mode through the same resolver used by axis-domain calculation. Histogram domains are derived from the accepted sample; bivariate contour mode records zero-density bins so isolines remain continuous around sparse peaks. Curve mode derives `mean ± 3.5σ` on x and density from zero through the normal peak on y, and both the axes and rendered curve use those same resolved scales.
+Missing or non-finite values and negative/missing weights are ignored. Omitted mode, the canonical `distribution` label, and unknown compatibility labels resolve to histogram mode through the same resolver used by axis-domain calculation. Histograms accept `normalization: "count" | "probability" | "density"` (with `"normalized"` or `normalized: true` as probability aliases) plus `cumulative: true`; probability and cumulative density end at one, while an ordinary density integrates to one over bin width. ECDF reports weighted `P(X ≤ x)` and CCDF reports weighted `P(X > x)` once per distinct tied value. KDE uses Gaussian kernels, an explicit positive `bandwidth` or a robust weighted Silverman rule, and weight-normalized density. Raw boxes use Type-7 quartiles, 1.5-IQR whiskers by default (`options.whisker`), and individual outlier marks. Bivariate contour mode records zero-density bins so isolines remain continuous around sparse peaks. Curve mode derives `mean ± 3.5σ` on x and density from zero through the normal peak on y, and both the axes and rendered curve use those same resolved scales.
 
 ## Styling and interaction
 
-Portable fill, stroke, opacity, line width, bin counts, density sample count, and bandwidth options are supported where the selected mode uses them. Derived bins and density regions carry tooltip data; bivariate isolines expose their density level and count range, while the bell curve exposes its mean, standard deviation, sample count, and observed range instead of presenting one source row as the whole curve. Exact values should also remain available in an accessible summary or table.
+Portable fill, stroke, opacity, line width, bin counts, density sample count, and bandwidth options are supported where the selected mode uses them. Derived bins, empirical points, KDE paths, raw box summaries/outliers, and bivariate isolines carry source-row provenance in text-only tooltip data. Aggregate paths expose a bounded row-index prefix plus the exact source-row count where a full list would be excessive. Exact values should also remain available in an accessible summary or table.
 
 ## Performance and limits
 
-Bin and density sampling options are bounded. Bivariate bin counts preserve their requested aspect ratio while fitting `maxBarMarks`, and density-isoline segments stop at the active line-point budget. Violin groups are deterministically limited so their combined density-path points stay within that same line budget, while the KDE source is sampled within the chart-wide point budget. The violin tooltip still reports exact count, minimum, maximum, mean, and median values from all valid rows; `densitySampleCount` makes the bounded approximation explicit. Statistics are computed in the compiler for histogram and violin modes; the box preset consumes a supplied five-number summary rather than recomputing it from raw rows.
+Bin and density sampling options are bounded. Histogram bin counts cap at 100; ECDF point marks obey `maxPointMarks`; KDE sample points cap at 512 and `maxLinePoints`; source-row tooltip lists cap at 256 while retaining the full count. Bivariate bin counts preserve their requested aspect ratio while fitting `maxBarMarks`, and density-isoline segments stop at the active line-point budget. Violin groups are deterministically limited so their combined density-path points stay within that same line budget, while the violin KDE source is sampled within the chart-wide point budget. The violin tooltip still reports exact count, minimum, maximum, mean, and median values from all valid rows; `densitySampleCount` makes the bounded approximation explicit.
+
+Not yet implemented: rug/strip, swarm or beeswarm, raincloud, ridgeline/bean, notched or weighted raw boxes, letter-value/boxen, quantile-dot/half-eye, split violin, marginals, and hexbin. These remain planned and are not supported runtime modes.
 
 ## Verification
 

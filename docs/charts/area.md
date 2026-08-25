@@ -6,14 +6,14 @@
 
 This is the single manual for the `area` family. Its canonical Quick API is `area()` from `graflume`, and its representative portable mark is `area`. The compatible names below remain callable, but they are modes or data-meaning presets rather than separate chart families.
 
-| Compatible name                             | Quick API       | Mode          | Portable mark  | Functional difference                                          |
-| ------------------------------------------- | --------------- | ------------- | -------------- | -------------------------------------------------------------- |
-| [Area chart](#variant-area)                 | `area()`        | `default`     | `area`         | Fills an ordered series to its baseline.                       |
-| [Stepped area chart](#variant-stepped-area) | `steppedArea()` | `stepped`     | `stepped-area` | Uses horizontal and vertical steps instead of direct segments. |
-| [Theme river chart](#variant-theme-river)   | `themeRiver()`  | `stream`      | `theme-river`  | Centers stacked category bands around a shared baseline.       |
-| [Smooth area chart](#variant-area-spline)   | `areaSpline()`  | `area-spline` | `smooth`       | Uses a sampled smooth upper path with an area fill.            |
-| [Polygon chart](#variant-polygon)           | `polygon()`     | `polygon`     | `polygon`      | Closes ordered coordinates into a filled polygon.              |
-| [Streamgraph](#variant-streamgraph)         | `streamgraph()` | `streamgraph` | `theme-river`  | Uses the centered multi-series stream presentation.            |
+| Compatible name                             | Quick API       | Mode          | Portable mark  | Functional difference                                                         |
+| ------------------------------------------- | --------------- | ------------- | -------------- | ----------------------------------------------------------------------------- |
+| [Area chart](#variant-area)                 | `area()`        | `default`     | `area`         | Fills an ordered series to its baseline.                                      |
+| [Stepped area chart](#variant-stepped-area) | `steppedArea()` | `stepped`     | `stepped-area` | Uses horizontal and vertical steps instead of direct segments.                |
+| [Theme river chart](#variant-theme-river)   | `themeRiver()`  | `stream`      | `theme-river`  | Centers stacked category bands around a shared baseline.                      |
+| [Smooth area chart](#variant-area-spline)   | `areaSpline()`  | `area-spline` | `smooth`       | Uses a sampled smooth upper path with an area fill.                           |
+| [Polygon chart](#variant-polygon)           | `polygon()`     | `polygon`     | `polygon`      | Closes ordered coordinates into a filled polygon.                             |
+| [Streamgraph](#variant-streamgraph)         | `streamgraph()` | `streamgraph` | `theme-river`  | Uses the shared multi-series stack with wiggle offset and insideOut ordering. |
 
 All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining manually maintained sections describe the canonical/default presentation unless a preset row above states a different behavior.
 
@@ -29,7 +29,7 @@ Every image below is generated from the current compiled Scene rather than drawn
 
 ## Type-by-type implementation
 
-The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. This family uses `trigger: "axis"` with `axis: "x"`. An exact rendered-mark hit still has priority; otherwise Graflume selects the nearest actual datum on that axis without inventing an interpolated row. Tooltip interaction is a pointer-only convenience, so keep a readable summary or data table available for exact values and keyboard access. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. This family uses `trigger: "axis"` with `axis: "x"`. An exact rendered-mark hit still has priority; otherwise Graflume selects the nearest actual datum on that axis without inventing an interpolated row. Pointer tooltip triggers remain a convenience; opt into `accessibility.table` and `accessibility.navigation` for the bounded native table and keyboard mark traversal, or provide a larger domain-specific table. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
 
 Every family can opt into the Canvas [inspection viewport, fullscreen, reset, and PNG controls](./interactions.md). Inspection magnifies and translates the complete already-rendered chart, including its title and axes; it is not data-domain or GIS zoom. Generated examples intentionally leave playback off. Add discrete playback only after selecting a meaningful frame field and reviewing the family-specific capability table.
 
@@ -454,7 +454,7 @@ polygon('#chart', data, {
 
 ### Streamgraph
 
-Use this preset when the magnitude and continuity of an ordered series matter more than individual points. Uses the centered multi-series stream presentation.
+Use this preset when the magnitude and continuity of an ordered series matter more than individual points. Uses the shared multi-series stack with wiggle offset and insideOut ordering.
 
 - **Quick API:** `streamgraph()`
 - **Mode:** `streamgraph`
@@ -598,12 +598,51 @@ Graflume.create('#chart', {
 - The area mark always includes zero in the y domain.
 - Valid top-line points form a fill polygon closed to zero plus a separate open stroke path.
 - Input-row order determines the top-line order; data is not sorted automatically.
-- Invalid x/y pairs are omitted. The current single polygon may bridge across omitted rows, so pre-filter or split discontinuous data into explicit layers.
+- `mark.options.missing: 'connect'` preserves the area default by omitting invalid pairs and bridging between the valid rows on either side.
+- `'gap'` creates independently baseline-closed fill and stroke segments. `'zero'` substitutes `0` only for a missing/invalid y value; an invalid x value still breaks the segment.
 - Min/max sampling uses the line-point performance budget.
+
+## Grouped, stacked, and streamgraph series
+
+Long-form Area data can declare `mark.fields.series` and a function-free `mark.options.stack` layout. `grouped` draws each series against zero, `stacked` uses a zero offset, `100-percent` normalizes by total absolute magnitude, and `diverging` preserves separate positive/negative accumulation. `streamgraph` defaults to a true wiggle baseline and `insideOut` ordering; `center` and `silhouette` remain explicit offsets.
+
+```ts
+Graflume.area('#chart', data, {
+  x: { field: 'date', type: 'temporal' },
+  y: { field: 'value', type: 'quantitative' },
+  mark: {
+    fields: { series: 'group' },
+    options: {
+      stack: { mode: 'streamgraph', offset: 'wiggle', order: 'insideOut' },
+      curve: 'basis',
+    },
+  },
+});
+```
+
+Wiggle rejects negative inputs rather than silently changing their sign. `themeRiver()` keeps its historical centered silhouette default; `streamgraph()` selects wiggle plus `insideOut`. Both now consume the same stack engine and expose exact source lineage, totals, series identity, and bounded per-row hit targets.
+
+The shared series renderer also consumes canonical `color`, `fill`, `stroke`, `opacity`, `strokeWidth`, `strokeDash`, `order`, and `detail` encodings. With `mark.point: true`, visible source points additionally consume `size`, `radius`, and `tooltip`; otherwise the renderer keeps bounded nearly transparent datum hit targets. Because the stack transform owns the lower boundary, `y2` with a series layout is a closed validation error instead of a silently ignored range. Use `mark.options.stack.order` for stack-layer order—`encoding.order` controls source/draw traversal.
+
+## Curves, steps, and compatibility presets
+
+Area top lines accept the same function-free `mark.options.curve`, `tension`, and `curveSamples` contract documented in the [line manual](./line.md#curves-and-steps): `straight`, `step-before`, `step-after`, `step-mid`, `monotone-x`, `natural`, `basis`, and `cardinal`.
+
+```ts
+mark: {
+  type: 'area',
+  options: {
+    curve: 'natural',
+    missing: 'gap',
+  },
+}
+```
+
+The canonical `area` mark defaults to `straight`. `steppedArea()` and the portable `stepped-area` mark now select `step-after` through the same registry, matching their previous horizontal-then-vertical geometry. `areaSpline()` and `spline()` retain the `smooth` compatibility mark and its previous Catmull-Rom-compatible presentation by selecting `cardinal` with zero tension. Explicit curve and missing-value options override those preset defaults without changing the portable mark name or serialization version.
 
 ## Interaction
 
-The filled polygon does not currently expose exact per-row datum hit targets. The generated examples enable point circles and an x-axis tooltip: exact circles keep priority, while other eligible pointer positions resolve the nearest actual row. For structured hover/click hits without relying on the tooltip fallback, enable area points or overlay a point layer:
+Single-series filled polygons do not expose exact per-row datum hit targets unless points are enabled. Series-layout areas add bounded transparent targets at each retained source position, while generated examples can still use an x-axis tooltip. For a single-series area, enable points or overlay a point layer:
 
 ```ts
 Graflume.create('#chart', {
@@ -628,15 +667,17 @@ Graflume.create('#chart', {
 ## Current limitations
 
 - zero baseline only;
-- no stacked, normalized, streamgraph, or between-two-lines area;
-- one closed polygon per area layer;
-- missing rows do not create separate area segments;
-- no polygon-level per-row hit testing; use point targets or the explicit x-axis tooltip;
+- no between-two-lines area in the canonical Area mark (use the interval/range family);
+- series layouts do not implicitly aggregate duplicate category-series rows or impute absent combinations;
+- one closed polygon per continuous area segment; `missing: 'gap'` may create several segments;
+- single-series polygons still use point targets or the explicit x-axis tooltip;
 - no SVG/WebGL renderer parity yet.
 
 ## Runnable examples and tests
 
 - [chart type gallery](../../examples/cdn/chart-types.html)
 - [area regression test](../../tests/chart-types.test.mjs)
+- [curve semantic tests](../../tests/curve.test.mjs)
+- [series stack and indicator contract tests](../../tests/series-stack-indicator.test.mjs)
 
 [Back to chart guides](./README.md)

@@ -6,11 +6,16 @@ Graflume is an experimental, CDN-first visualization engine built around a porta
 
 ## What already works
 
-- 79 portable `ChartSpec` marks covering 41 Canvas 2D families and 162 compatible presets, plus 5 portable `SpatialSpec` marks covering 3 opt-in WebGL families and 7 spatial variants
-- 44 canonical families and 170 callable presets or modes in total, including one WebGL globe mode integrated into the existing Map family and 117 preserved public compatibility identifiers
+- 79 portable `ChartSpec` marks covering 41 Canvas 2D families and 165 compatible presets, plus 5 portable `SpatialSpec` marks covering 3 opt-in WebGL families and 7 spatial variants
+- 44 canonical families and 173 callable presets or modes in total, including one WebGL globe mode integrated into the existing Map family and 117 preserved public compatibility identifiers
 - Cartesian, radial, distribution, financial, interval, calendar, timeline/Gantt, table, hierarchy, flow, word, and statistical world-map Scenes backed by built-in Natural Earth 1:110m country boundaries
 - mixed layers such as bar + line + points on shared or independent `x`/`x2`/`y`/`y2` axes
 - row-oriented data and zero-copy `TypedArray` columnar input
+- ordered, function-free [data transforms](docs/data-transforms.md) with deterministic execution and source-row lineage
+- closed, bounded [Canvas composition and resolve](docs/composition.md) for layer, facet, repeat,
+  horizontal/vertical/wrapped concat, nested grids, and plot-relative inset views
+- bounded stable-key incremental updates and an opt-in [portable transform worker adapter](docs/data-streaming-workers.md)
+- a function-free [scale and encoding registry](docs/scales-and-encodings.md) with explicit mathematical domains, OOB policy, conditional visual channels, and a legacy `x`/`y` facade
 - a versioned, function-free `ChartSpec 0.1` plus JSON Schema for portable JSON data
 - runtime validation and canonical normalization
 - Canvas 2D rendering behind a renderer interface, plus an independent opt-in WebGL spatial renderer for filled and lit surfaces, meshes, bounded scalar clouds, isosurfaces, vector cones, streamtubes, sphere-shaded spatial scatter, and a real Natural Earth globe
@@ -19,13 +24,15 @@ Graflume is an experimental, CDN-first visualization engine built around a porta
   profile, and custom theme registration
 - custom mark, renderer, and theme plugins
 - responsive chart instances, mark-aware legends with keyboard visibility controls, portable static
-  highlights and reference bands, click/programmatic selection, collision-aware text-only runtime callouts with an accessible visibility toggle,
+  highlights and reference bands, click/programmatic point selection, bounded serializable
+  interval/rectangle/axis/lasso selection with explicit union/intersection, continuous Cartesian
+  domain zoom/pan and pixel/domain round-trip, collision-aware text-only runtime callouts with an accessible visibility toggle,
   pointer hit testing, mark or axis-nearest tooltips, whole-Canvas inspection controls, fullscreen,
   PNG export, and discrete playback with opt-in smooth Scene transitions
 - standard/large/ultra performance profiles with bounded line, point, and bar rendering
 - a DOM-free `compile()` path for wrappers, SSR pipelines, testing, and future language bindings
 
-WebGPU, workers, Arrow/WASM ingestion, multi-view dashboards, full tile GIS, roads and place layers, geocoding, additional geographic projections, and Python/R/Java wrappers are planned rather than claimed as complete. The Canvas inspection viewport magnifies the complete already-rendered chart, including titles and axes; it does not change scale domains or geographic projections. The WebGL spatial entry provides camera orbit, pan, zoom, projection switching, picking, compact controls, fullscreen, and PNG export, but it is deliberately separate from a general GIS or medical-volume toolkit. Some newly added specialist marks intentionally expose an alpha subset; every chart manual states its exact limits.
+WebGPU, worker-owned chart rendering, Arrow/WASM ingestion, linked multi-view dashboards, full tile GIS, roads and place layers, geocoding, additional geographic projections, and Python/R/Java wrappers are planned rather than claimed as complete. The current worker adapter only executes closed `TransformSpec` lists off the main thread when the host supplies a Worker-like port. The Canvas inspection viewport magnifies the complete already-rendered chart, including titles and axes; `interaction.domainNavigation` is the separate continuous Cartesian scale-domain path. Categorical/spatial domain navigation and keyboard-authored selection geometry are not approximated. The WebGL spatial entry provides camera orbit, pan, zoom, projection switching, picking, compact controls, fullscreen, and PNG export, but it is deliberately separate from a general GIS or medical-volume toolkit. Some newly added specialist marks intentionally expose an alpha subset; every chart manual states its exact limits.
 
 ## Local development
 
@@ -103,7 +110,9 @@ For pre-npm alpha testing, the repository maintains source-controlled default, c
 
 ## Chart types and examples
 
-The Canvas 2D catalog covers 41 distinct chart families and 117 compatibility identifiers. The default `graflume` entrypoint exposes 22 established families. The optional `graflume/complete` entrypoint adds 11 advanced and 8 specialized families while reusing the same data table, validation, normalization, scales, theme tokens, renderer-neutral Scene, Canvas renderer, interactions, and accessibility metadata. All 162 documented 2D names remain compatible presets rather than duplicate discovery entries. The independent `graflume/spatial` entrypoint adds 3 canonical WebGL families with 7 variants; `globe()` remains a mode of Map, producing a combined boundary of 44 families and 170 callable presets or modes.
+The Canvas 2D catalog covers 41 distinct chart families and 117 compatibility identifiers. The default `graflume` entrypoint exposes 22 established families. The optional `graflume/complete` entrypoint adds 11 advanced and 8 specialized families while reusing the same data table, validation, normalization, scales, theme tokens, renderer-neutral Scene, Canvas renderer, interactions, and accessibility metadata. All 165 documented 2D names remain compatible presets rather than duplicate discovery entries. The independent `graflume/spatial` entrypoint adds 3 canonical WebGL families with 7 variants; `globe()` remains a mode of Map, producing a combined boundary of 44 families and 173 callable presets or modes.
+
+Canvas compilation also exposes a bounded renderer-neutral semantic index for every family. Opt into a hidden or visible native table with `accessibility.table`, cap it with `maxRows`, and enable roving mark traversal with `navigation`. Arrow/Home/End/Page keys navigate, Enter/Space follows the chart selection contract, and Escape clears selection; focus projects a mark ring and reuses the safe text-only tooltip. Hosts can inspect the same state through `getSemanticIndex()`, `toAccessibleRows()`, and `getAccessibilityState()`. See [Common chart interactions](docs/charts/interactions.md#accessibility-and-motion) for the exact bounds, lineage, multilingual, live-announcement, and Spatial boundary.
 
 | Family group                  | Distinct chart guides                                                                                                                                                                                                                                                                                                                                                                                                         |
 | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -114,7 +123,7 @@ The Canvas 2D catalog covers 41 distinct chart families and 117 compatibility id
 | Hierarchy, flow, and networks | [Hierarchy](docs/charts/hierarchy.md), [Flow](docs/charts/flow.md), [Network](docs/charts/network.md), [Parallel coordinates](docs/charts/parallel.md), [Word tree](docs/charts/word-tree.md), [Table](docs/charts/table.md)                                                                                                                                                                                                  |
 | Geographic and specialized    | [Map](docs/charts/map.md), [Carpet](docs/charts/carpet.md), [Raster image](docs/charts/image.md), [Vector field](docs/charts/vector-field.md), [Venn](docs/charts/venn.md), [Word cloud](docs/charts/word-cloud.md), [Item](docs/charts/item.md), and the [full catalog index](docs/charts/README.md#unified-specialized-series)                                                                                              |
 
-Start with the [chart guide index and common options](docs/charts/README.md). The [theme manual](docs/charts/themes.md) documents the registry-driven built-in catalog, including the ggplot2-compatible, R 4.6.1 base-graphics, and Matplotlib 3.11.1 default-style profiles, exact precedence, and the boundary for chart types without a direct reference counterpart. The dedicated [Cartesian axis manual](docs/charts/axes.md) covers formatting, label layout, styling, reversed domains, secondary axes, and axis-nearest tooltips. The [common interaction manual](docs/charts/interactions.md) documents legends, highlights, reference bands, selection, runtime callouts, the inspection viewport, controls, fullscreen, PNG export, playback, optional stable-key Scene transitions, and a capability/constraint matrix for all 41 families. Every representative family page includes its compatible names, functional mode differences, a visible compiled-output gallery, and type-by-type runnable Quick API examples with required fields and stable links, followed by the shared portable contract, missing-value behavior, interaction/accessibility guidance, performance notes, and explicit limitations. Use the [compatibility preset index](docs/charts/compatibility-presets.md) to map any compatible name to its family manual; function-free compatibility adapters are documented separately in [Declarative adapters](docs/charts/adapters.md).
+Start with the [chart guide index and common options](docs/charts/README.md). The [composition and resolve manual](docs/composition.md) defines the portable layer/facet/repeat/concat/inset grammar, deterministic view identity, shared-domain boundary, limits, and explicit exclusions. The [scale and encoding manual](docs/scales-and-encodings.md) defines the immutable registry, channel/mark matrix, conditional values, strict domain constraints, OOB policy, and interaction coordinate bridge. The [theme manual](docs/charts/themes.md) documents the registry-driven built-in catalog, including the ggplot2-compatible, R 4.6.1 base-graphics, and Matplotlib 3.11.1 default-style profiles, exact precedence, and the boundary for chart types without a direct reference counterpart. The dedicated [Cartesian axis manual](docs/charts/axes.md) covers formatting, label layout, styling, reversed domains, secondary axes, and axis-nearest tooltips. The [common interaction manual](docs/charts/interactions.md) documents legends, highlights, reference bands, point and analytic selection, continuous data-domain navigation, runtime callouts, the inspection viewport, controls, fullscreen, PNG export, playback, optional stable-key Scene transitions, and the exact unsupported boundary. Every representative family page includes its compatible names, functional mode differences, a visible compiled-output gallery, and type-by-type runnable Quick API examples with required fields and stable links, followed by the shared portable contract, missing-value behavior, interaction/accessibility guidance, performance notes, and explicit limitations. Use the [compatibility preset index](docs/charts/compatibility-presets.md) to map any compatible name to its family manual; function-free compatibility adapters are documented separately in [Declarative adapters](docs/charts/adapters.md).
 
 The [spatial guide index](docs/spatial/README.md) documents `SpatialSpec 0.1`, the separate bundle boundary, camera and picking interactions, accessibility fallbacks, and actual generated previews for Surface/Mesh, Volume/Isosurface, Spatial Vector modes, and the Map globe mode. The [spatial browser gallery](examples/cdn/spatial-chart-types.html) renders filled multi-peak terrain and shell geometry, a sampled multi-lobe scalar field, a cyclone, multiple helical tubes, and a clustered galaxy with the real WebGL runtime.
 
@@ -142,7 +151,11 @@ openHighLowClose('#prices', priceRows, {
 });
 ```
 
-`flowMap()` and `relativeStrengthIndex()` follow the same Quick API shape for geographic routes and precomputed indicator columns. `resolveSeriesType('area-spline-range')` returns the single canonical family used for a supported compatibility identifier, so overlapping catalog names never create a second renderer path. Importing `graflume/complete` registers only additional portable mark compilers and re-exports the default API. It does not embed a second rendering engine. Portable custom charts remain function-free and may emit only the declared Scene primitive subset.
+`flowMap()` and `relativeStrengthIndex()` follow the same Quick API shape for geographic routes and indicator columns. The technical-indicator capability registry distinguishes 17 formula-tested `computed` kinds from every `precomputed-required` preset; `calculate: true` never silently reuses the source column for an unsupported name. The 47-entry public total is exactly 45 named presets plus two canonical surfaces: `technicalIndicator()` and the portable `indicator` mark.
+
+Area and Bar accept one-layer long-form series through `mark.fields.series` plus `mark.options.stack`. Grouped, stacked, 100-percent, and diverging layouts share the ordered stack transform; `streamgraph()` selects a true wiggle offset with `insideOut` order while `themeRiver()` retains its centered silhouette default. Totals, stack boundaries, signed percentages, source-row lineage, and per-row hit targets remain renderer-neutral.
+
+`resolveSeriesType('area-spline-range')` returns the single canonical family used for a supported compatibility identifier, so overlapping catalog names never create a second renderer path. Importing `graflume/complete` registers only additional portable mark compilers and re-exports the default API. It does not embed a second rendering engine. Portable custom charts remain function-free and may emit only the declared Scene primitive subset. `runtimeCapabilities` publishes the same closed name-function contract in `catalog/graflume.catalog.json`; its `tiledMap` member identifies the deprecated compatibility name as an embedded Natural Earth basemap alias with no tile lifecycle or network request.
 
 ### Bar chart
 
@@ -290,9 +303,9 @@ settings are deeply merged with encoding-level `axis` overrides. See the [Cartes
 manual](docs/charts/axes.md) for label orientation, fonts, spacing, styles, reversed domains,
 independent dual-axis layers, and axis-nearest tooltip examples.
 
-## Inspection, controls, and playback
+## Inspection, analytic interaction, controls, and playback
 
-The built-in Canvas renderer can magnify and translate the complete compiled chart surface, enter browser fullscreen, and export the current Canvas as PNG. This inspection viewport moves the title and axes with the marks; it is not scale-domain, brush, tile, or GIS zoom.
+The built-in Canvas renderer can magnify and translate the complete compiled chart surface, enter browser fullscreen, and export the current Canvas as PNG. This inspection viewport moves the title and axes with the marks; it is not scale-domain, brush, tile, or GIS zoom. Use the separate `domainNavigation` contract for invertible continuous Cartesian axes and `selection.kind` for point, interval, rectangle, axis, or lasso state. Ambiguous drag controllers and non-invertible geometry fail explicitly.
 
 ```ts
 line('#revenue', revenueRows, {
@@ -304,6 +317,8 @@ line('#revenue', revenueRows, {
   },
 });
 ```
+
+Analytic state is closed and portable: `getAnalyticSelection()` returns versioned union/intersection clauses, while `getDomainViewState()` returns normalized axis windows. `domainToPixel()` and `pixelToDomain()` use the exact compiled scale. Pointer and touch author geometry; wheel, drag, and keyboard operate enabled domain navigation; Escape clears selection. These transient APIs recompile the Scene without mutating `getSpec()`. See [Common chart interactions](docs/charts/interactions.md) for bounds and current categorical, Spatial, linked-view, and keyboard-authoring limits.
 
 Playback is opt-in and frame selection remains discrete. A `motion` chart can select its native frame while retaining the full domain; other families show playback only through an explicitly approved transient filter, which may recompile domains and layouts. An explicit transition smoothly interpolates compatible compiled geometry and safely crossfades incompatible topology without inventing source values:
 
@@ -325,13 +340,28 @@ Frame order follows each value's first occurrence in source rows, not an automat
 
 ## Streaming-shaped updates
 
-The alpha runtime exposes a portable update surface now; later engines can replace its current copy-based path with ring buffers and incremental transforms without changing the chart instance API.
+Without `streaming`, `appendData()` retains its original copy-compatible behavior. Opt in with an explicit stable key for deterministic `upsertData()`, `replaceLastData()`, retention, watermark/late-data policy, bounded replay, and serialized provenance:
 
 ```ts
-chart.appendData([{ timestamp: '2026-08-19T12:00:00Z', value: 71 }]);
-chart.setData(nextSnapshot);
-chart.setSpec(nextSpec);
+const chart = create('#revenue', {
+  data: [{ id: 'a', timestamp: 1000, value: 70 }],
+  mark: 'line',
+  x: 'timestamp',
+  y: 'value',
+  streaming: {
+    key: 'id',
+    mode: 'upsert',
+    retention: { maxRows: 10_000, time: { field: 'timestamp', durationMs: 60_000 } },
+    eventTime: { field: 'timestamp', allowedLatenessMs: 2_000, lateData: 'drop' },
+  },
+});
+
+chart.upsertData([{ id: 'a', value: 71, timestamp: 1500 }]);
+chart.replaceLastData([{ id: 'a', value: 72, timestamp: 2000 }]);
+const replay = chart.exportStreamingReplay();
 ```
+
+The current path still copies rows and recompiles the complete transform pipeline. For bounded asynchronous ingestion use `createIncrementalDataStore().enqueue()`; for off-main-thread transforms use a host-created Worker with `installTransformWorker()` and `createTransformWorkerAdapter()`. See [Incremental data and portable workers](docs/data-streaming-workers.md) for ownership, replay, queue, and unsupported-mode boundaries.
 
 ## Architectural boundary
 

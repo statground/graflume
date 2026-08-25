@@ -35,12 +35,21 @@ const axisTooltipFamilies = new Map([
 ]);
 
 const calculatedIndicators = new Set([
+  'absolute-price-oscillator',
   'simple-moving-average',
   'exponential-moving-average',
   'weighted-moving-average',
   'double-exponential-average',
   'triple-exponential-average',
+  'triple-exponential-oscillator',
+  'disparity-index',
+  'linear-regression',
+  'linear-regression-angle',
+  'linear-regression-intercept',
+  'linear-regression-slope',
+  'moving-average-convergence-divergence',
   'momentum',
+  'percentage-price-oscillator',
   'rate-of-change',
   'relative-strength-index',
 ]);
@@ -54,7 +63,7 @@ const presetDescriptions = {
   'theme-river': 'Centers stacked category bands around a shared baseline.',
   'area-spline': 'Uses a sampled smooth upper path with an area fill.',
   polygon: 'Closes ordered coordinates into a filled polygon.',
-  streamgraph: 'Uses the centered multi-series stream presentation.',
+  streamgraph: 'Uses the shared multi-series stack with wiggle offset and insideOut ordering.',
   bar: 'Uses the canonical horizontal comparison orientation.',
   column: 'Rotates the shared bar geometry into vertical columns.',
   'pictorial-bar': 'Repeats symbols inside the shared categorical bar layout.',
@@ -96,6 +105,9 @@ const presetDescriptions = {
     'Retains the historical compatibility name for projected points on the built-in political basemap; it does not request or simulate web tiles.',
   histogram: 'Bins samples into counts.',
   distribution: 'Uses the canonical raw-sample histogram presentation.',
+  ecdf: 'Computes the weighted empirical cumulative probability at each distinct sample.',
+  ccdf: 'Computes the weighted complementary probability P(X > x) at each distinct sample.',
+  kde: 'Estimates a unit-integral Gaussian density with a robust automatic bandwidth.',
   violin: 'Estimates a mirrored kernel-density shape for each group.',
   'histogram-2d': 'Bins two quantitative coordinates into rectangular heat cells.',
   'histogram-2d-contour': 'Traces density isolines over the complete bivariate bin grid.',
@@ -208,8 +220,8 @@ function presetDescription(variant) {
   if (description !== undefined) return description;
   if (variant.familyId === 'technical-indicator') {
     const calculation = calculatedIndicators.has(variant.id)
-      ? 'supports supplied values and the current `calculate: true` transform'
-      : 'uses supplied indicator columns in the current release';
+      ? 'is registry-marked `computed` with formula provenance, a dependency DAG, and null warm-up rows'
+      : 'is registry-marked `precomputed-required` and uses supplied indicator columns';
     return `Selects ${variant.name.toLowerCase()} semantics and ${calculation}.`;
   }
   if (variant.mode === 'default') return 'Uses the canonical presentation for this family.';
@@ -414,6 +426,19 @@ function derivedTooltipFields(spec) {
       { field: 'maximum', label: 'Maximum', format: 'number' },
     );
   }
+  if (marks.has('distribution') && (distributionMode === 'ecdf' || distributionMode === 'ccdf')) {
+    fields.push(
+      { field: 'probability', label: 'Probability', format: 'percent' },
+      { field: 'weight', label: 'Weight', format: 'number' },
+      { field: 'count', label: 'Tied rows', format: 'integer' },
+    );
+  }
+  if (marks.has('distribution') && distributionMode === 'kde') {
+    fields.push(
+      { field: 'bandwidth', label: 'Bandwidth', format: 'number' },
+      { field: 'sampleCount', label: 'Sample count', format: 'integer' },
+    );
+  }
   if (marks.has('distribution') && distributionMode === 'histogram-2d-contour') {
     fields.push(
       { field: 'level', label: 'Density level', format: 'number' },
@@ -541,7 +566,7 @@ ${quickExample(variant)}
     .join('\n\n');
   return `## Type-by-type implementation
 
-The snippets are minimal runnable examples. Change \`#chart\` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared \`locale\`. ${tooltipGuidance} Tooltip interaction is a pointer-only convenience, so keep a readable summary or data table available for exact values and keyboard access. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
+The snippets are minimal runnable examples. Change \`#chart\` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared \`locale\`. ${tooltipGuidance} Pointer tooltip triggers remain a convenience; opt into \`accessibility.table\` and \`accessibility.navigation\` for the bounded native table and keyboard mark traversal, or provide a larger domain-specific table. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.
 
 Every family can opt into the Canvas [inspection viewport, fullscreen, reset, and PNG controls](./interactions.md). Inspection magnifies and translates the complete already-rendered chart, including its title and axes; it is not data-domain or GIS zoom. Generated examples intentionally leave playback off. Add discrete playback only after selecting a meaningful frame field and reviewing the family-specific capability table.
 
@@ -680,6 +705,7 @@ const retainedFiles = new Set([
   'histogram.md',
   'interactions.md',
   'radar.md',
+  'themes.md',
   ...fullCatalog.map(({ id }) => `${id}.md`),
 ]);
 const chartFiles = await readdir(chartDirectory);

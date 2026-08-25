@@ -1,10 +1,26 @@
 import type { MarkCompileContext, MarkCompiler } from '../compiler/types.js';
+import { interpolateCurve } from '../curve/registry.js';
 import { normalDensity, summarizeNormalDistribution } from '../data/distribution.js';
+import { contourThresholds, extractIsolines, type ContourSaddlePolicy } from '../data/contours.js';
+import { exactStrideSampleIndices } from '../data/sample.js';
+import {
+  empiricalDistribution,
+  kernelDensity1d,
+  type WeightedObservation,
+} from '../data/statistics.js';
+import { resolveTechnicalIndicatorCapability } from '../data/technical-indicators.js';
 import { BandScale } from '../scale/band.js';
 import { nodeBase } from '../scene/factory.js';
 import type { Point, SceneNode, TextNode } from '../scene/types.js';
 import type { DataRow, DataValue, JsonValue } from '../spec/types.js';
+import { resolveDistributionMode } from '../spec/distribution.js';
 import { categoricalColor, colorWithOpacity, mixColor, readableTextColor } from '../theme/color.js';
+import {
+  collectCurveSegments,
+  curveNameForMark,
+  curveOptionsForMark,
+  interpolateSegments,
+} from './curve-series.js';
 import {
   isGeographicPosition,
   projectGeographicPosition,
@@ -50,6 +66,7 @@ function datumBase(
   offset = 0,
   tooltip?: DataRow,
 ) {
+  const row = context.table.row(rowIndex);
   return nodeBase(id, {
     zIndex: context.layer.zIndex + offset,
     opacity: context.layer.mark.opacity,
@@ -57,7 +74,9 @@ function datumBase(
     datum: {
       layerId: context.layer.id,
       rowIndex,
-      datum: context.table.row(rowIndex),
+      datum: Object.fromEntries(
+        Object.entries(row).filter(([field]) => !field.startsWith('__graflume_')),
+      ),
       ...(tooltip === undefined ? {} : { tooltip }),
     },
   });
@@ -138,97 +157,63 @@ function quadraticPoints(start: Point, control: Point, end: Point, segments = 24
 }
 
 function smoothPoints(points: readonly Point[], subdivisions = 8): Point[] {
-  if (points.length < 3) return [...points];
-  const output: Point[] = [];
-  for (let index = 0; index < points.length - 1; index += 1) {
-    const p0 = points[Math.max(0, index - 1)] ?? points[0]!;
-    const p1 = points[index]!;
-    const p2 = points[index + 1]!;
-    const p3 = points[Math.min(points.length - 1, index + 2)] ?? p2;
-    for (let step = 0; step < subdivisions; step += 1) {
-      const t = step / subdivisions;
-      const t2 = t * t;
-      const t3 = t2 * t;
-      output.push({
-        x:
-          0.5 *
-          (2 * p1.x +
-            (-p0.x + p2.x) * t +
-            (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 +
-            (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
-        y:
-          0.5 *
-          (2 * p1.y +
-            (-p0.y + p2.y) * t +
-            (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 +
-            (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3),
-      });
-    }
-  }
-  output.push(points.at(-1)!);
-  return output;
-}
-
-function validCartesianRows(context: MarkCompileContext): Array<{
-  readonly rowIndex: number;
-  readonly x: number;
-  readonly y: number;
-}> {
-  const { table, layer, xScale, yScale } = context;
-  const rows = [];
-  for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
-    const xValue = scaleInput(table.value(rowIndex, layer.x.field));
-    const yValue = scaleInput(table.value(rowIndex, layer.y.field));
-    if (xValue === null || yValue === null) continue;
-    const x = xScale.map(xValue);
-    const y = yScale.map(yValue);
-    if (Number.isFinite(x) && Number.isFinite(y)) rows.push({ rowIndex, x, y });
-  }
-  return rows;
+  return [...interpolateCurve(points, 'cardinal', { samples: subdivisions })];
 }
 
 export const compileSmoothMark: MarkCompiler = (context) => {
-  const rows = validCartesianRows(context);
-  if (rows.length === 0) return [];
   const { layer, yScale, theme } = context;
+  const segments = interpolateSegments(
+    collectCurveSegments(context, 'connect'),
+    curveNameForMark(layer.mark.options, 'cardinal'),
+    curveOptionsForMark(layer.mark.options),
+    context.performance.maxLinePoints,
+  );
+  if (segments.length === 0) return [];
   const stroke =
     layer.mark.stroke ?? theme.mark.lineColor ?? theme.mark.defaultColor ?? context.color;
-  const points = smoothPoints(rows.map(({ x, y }) => ({ x, y })));
   const nodes: SceneNode[] = [];
-  if (layer.mark.options.area === true) {
-    const baseline = yScale.map(optionNumber(layer.mark.options.baseline, 0));
+  const baseline = yScale.map(optionNumber(layer.mark.options.baseline, 0));
+  segments.forEach((segment, segmentIndex) => {
+    const first = segment.points[0];
+    const last = segment.points.at(-1);
+    if (first === undefined || last === undefined) return;
+    const suffix = segments.length === 1 ? '' : `:${segmentIndex}`;
+    if (layer.mark.options.area === true) {
+      nodes.push({
+        type: 'path',
+        ...nodeBase(`${layer.id}:smooth-area${suffix}`, {
+          zIndex: layer.zIndex,
+          opacity: layer.mark.opacity,
+        }),
+        points: [{ x: first.x, y: baseline }, ...segment.points, { x: last.x, y: baseline }],
+        closed: true,
+        fill:
+          layer.mark.fill ?? themedAreaFill(theme, context.color, colorWithOpacity(stroke, 0.24)),
+        lineWidth: 0,
+      });
+    }
     nodes.push({
       type: 'path',
-      ...nodeBase(`${layer.id}:smooth-area`, {
-        zIndex: layer.zIndex,
+      ...nodeBase(`${layer.id}:smooth-line${suffix}`, {
+        zIndex: layer.zIndex + 1,
         opacity: layer.mark.opacity,
       }),
-      points: [{ x: points[0]!.x, y: baseline }, ...points, { x: points.at(-1)!.x, y: baseline }],
-      closed: true,
-      fill: layer.mark.fill ?? themedAreaFill(theme, context.color, colorWithOpacity(stroke, 0.24)),
-      lineWidth: 0,
+      points: segment.points,
+      closed: false,
+      stroke,
+      lineWidth: layer.mark.lineWidth ?? theme.mark.lineWidth,
+      lineCap: theme.mark.lineCap ?? 'round',
+      lineJoin: theme.mark.lineJoin ?? 'round',
     });
-  }
-  nodes.push({
-    type: 'path',
-    ...nodeBase(`${layer.id}:smooth-line`, {
-      zIndex: layer.zIndex + 1,
-      opacity: layer.mark.opacity,
-    }),
-    points,
-    closed: false,
-    stroke,
-    lineWidth: layer.mark.lineWidth ?? theme.mark.lineWidth,
-    lineCap: theme.mark.lineCap ?? 'round',
-    lineJoin: theme.mark.lineJoin ?? 'round',
   });
+  const rows = segments.flatMap(({ source }) => source);
   if (layer.mark.point) {
     for (const row of rows) {
       nodes.push({
         type: 'circle',
         ...datumBase(context, `${layer.id}:smooth-point:${row.rowIndex}`, row.rowIndex, 2),
-        cx: row.x,
-        cy: row.y,
+        cx: row.point.x,
+        cy: row.point.y,
         radius: layer.mark.radius ?? theme.mark.pointRadius,
         fill: layer.mark.fill ?? themedPointFill(theme, stroke, theme.colors.background),
         stroke: layer.mark.stroke ?? themedPointStroke(theme, stroke, stroke),
@@ -240,8 +225,8 @@ export const compileSmoothMark: MarkCompiler = (context) => {
       nodes.push({
         type: 'circle',
         ...datumBase(context, `${layer.id}:smooth-hit:${row.rowIndex}`, row.rowIndex, 2),
-        cx: row.x,
-        cy: row.y,
+        cx: row.point.x,
+        cy: row.point.y,
         radius: Math.max(2.5, layer.mark.radius ?? 3),
         fill: layer.mark.fill ?? themedPointFill(theme, stroke, stroke),
         stroke: layer.mark.stroke ?? themedPointStroke(theme, stroke, theme.colors.background),
@@ -434,6 +419,154 @@ export const compileDistributionMark: MarkCompiler = (context) => {
   ];
 };
 
+function distributionObservations(context: MarkCompileContext): WeightedObservation[] {
+  const { layer, table } = context;
+  const valueField = layer.mark.fields.value ?? layer.x.field;
+  const optionWeightField = layer.mark.options.weightField;
+  const weightField =
+    layer.mark.fields.weight ??
+    (typeof optionWeightField === 'string' ? optionWeightField : undefined);
+  const observations: WeightedObservation[] = [];
+  for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+    const value = numericDataValue(table.value(rowIndex, valueField), layer.x.type === 'temporal');
+    const weight =
+      weightField === undefined ? 1 : numericDataValue(table.value(rowIndex, weightField));
+    if (value === null || weight === null || weight < 0) continue;
+    observations.push({ value, weight, rowIndex });
+  }
+  return observations;
+}
+
+export const compileEmpiricalDistributionMark: MarkCompiler = (context) => {
+  const { layer, table, xScale, yScale, theme } = context;
+  const complementary = resolveDistributionMode(layer.mark.options.mode) === 'ccdf';
+  const observations = distributionObservations(context);
+  const empirical = empiricalDistribution(observations, complementary);
+  if (empirical.length === 0) return [];
+  const sampledEmpirical = exactStrideSampleIndices(
+    empirical.length,
+    Math.max(1, Math.floor(context.performance.maxLinePoints / 2)),
+  ).map((index) => empirical[index]!);
+  const rawPoints: Point[] = [];
+  let previous = complementary ? 1 : 0;
+  for (const point of sampledEmpirical) {
+    const x = xScale.map(point.value);
+    rawPoints.push({ x, y: yScale.map(previous) }, { x, y: yScale.map(point.probability) });
+    previous = point.probability;
+  }
+  const points = rawPoints;
+  const stroke = layer.mark.stroke ?? theme.mark.lineColor ?? context.color;
+  const valueField = layer.mark.fields.value ?? layer.x.field;
+  const nodes: SceneNode[] = [
+    {
+      type: 'path',
+      ...nodeBase(`${layer.id}:${complementary ? 'ccdf' : 'ecdf'}-line`, {
+        zIndex: layer.zIndex,
+        interactive: context.performance.enableHitTesting,
+        datum: {
+          layerId: layer.id,
+          rowIndex: empirical[0]?.rowIndices[0] ?? 0,
+          datum: table.row(empirical[0]?.rowIndices[0] ?? 0),
+          tooltip: {
+            kind: complementary ? 'ccdf' : 'ecdf',
+            valueField,
+            weightField:
+              layer.mark.fields.weight ??
+              (typeof layer.mark.options.weightField === 'string'
+                ? layer.mark.options.weightField
+                : null),
+            sampleCount: observations.length,
+          },
+        },
+      }),
+      points,
+      closed: false,
+      stroke,
+      lineWidth: layer.mark.lineWidth ?? theme.mark.lineWidth,
+      lineCap: theme.mark.lineCap ?? 'round',
+      lineJoin: theme.mark.lineJoin ?? 'round',
+    },
+  ];
+  exactStrideSampleIndices(empirical.length, context.performance.maxPointMarks).forEach(
+    (empiricalIndex, index) => {
+      const point = empirical[empiricalIndex]!;
+      const rowIndex = point.rowIndices[0] ?? 0;
+      nodes.push({
+        type: 'circle',
+        ...datumBase(
+          context,
+          `${layer.id}:${complementary ? 'ccdf' : 'ecdf'}-point:${index}`,
+          rowIndex,
+          1,
+          {
+            kind: complementary ? 'ccdf-point' : 'ecdf-point',
+            value: point.value,
+            probability: point.probability,
+            weight: point.weight,
+            count: point.count,
+            sourceRowCount: point.rowIndices.length,
+            sourceRowIndices: point.rowIndices.slice(0, 256),
+          },
+        ),
+        cx: xScale.map(point.value),
+        cy: yScale.map(point.probability),
+        radius: layer.mark.radius ?? 2.5,
+        fill: layer.mark.fill ?? stroke,
+        stroke: theme.colors.background,
+        lineWidth: 0.75,
+      });
+    },
+  );
+  return nodes;
+};
+
+export const compileKernelDensityMark: MarkCompiler = (context) => {
+  const { layer, table, xScale, yScale, theme } = context;
+  const observations = distributionObservations(context);
+  const requestedBandwidth = layer.mark.options.bandwidth;
+  const estimate = kernelDensity1d(observations, {
+    points: clamp(
+      Math.floor(optionNumber(layer.mark.options.samples, 96)),
+      24,
+      Math.min(512, context.performance.maxLinePoints),
+    ),
+    ...(typeof requestedBandwidth === 'number' && requestedBandwidth > 0
+      ? { bandwidth: requestedBandwidth }
+      : {}),
+  });
+  if (estimate.points.length === 0) return [];
+  const points = estimate.points.map((point) => ({
+    x: xScale.map(point.value),
+    y: yScale.map(point.density),
+  }));
+  const stroke = layer.mark.stroke ?? theme.mark.lineColor ?? context.color;
+  const rowIndex = observations[0]?.rowIndex ?? 0;
+  return [
+    {
+      type: 'path',
+      ...datumBase(context, `${layer.id}:kde-line`, rowIndex, 1, {
+        kind: 'kernel-density',
+        bandwidth: estimate.bandwidth,
+        sampleCount: observations.length,
+        valueField: layer.mark.fields.value ?? layer.x.field,
+        weightField:
+          layer.mark.fields.weight ??
+          (typeof layer.mark.options.weightField === 'string'
+            ? layer.mark.options.weightField
+            : null),
+        sourceRowCount: observations.length,
+        sourceRowIndices: observations.slice(0, 256).map(({ rowIndex: source }) => source),
+      }),
+      points,
+      closed: false,
+      stroke,
+      lineWidth: layer.mark.lineWidth ?? theme.mark.lineWidth,
+      lineCap: theme.mark.lineCap ?? 'round',
+      lineJoin: theme.mark.lineJoin ?? 'round',
+    },
+  ];
+};
+
 export const compileBulletMark: MarkCompiler = (context) => {
   const { layer, table, xScale, yScale, theme, plot } = context;
   const targetField = layer.mark.fields.target ?? 'target';
@@ -506,66 +639,143 @@ export const compileBulletMark: MarkCompiler = (context) => {
 export const compileContourMark: MarkCompiler = (context) => {
   const { layer, table, xScale, yScale, theme } = context;
   const valueField = layer.mark.fields.value ?? 'value';
-  const rows: Array<{ rowIndex: number; x: number; y: number; value: number }> = [];
+  const rows: Array<{
+    rowIndex: number;
+    xValue: number;
+    yValue: number;
+    x: number;
+    y: number;
+    value: number;
+  }> = [];
   for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
-    const xValue = scaleInput(table.value(rowIndex, layer.x.field));
-    const yValue = scaleInput(table.value(rowIndex, layer.y.field));
+    const xValue = numericDataValue(
+      table.value(rowIndex, layer.x.field),
+      layer.x.type === 'temporal',
+    );
+    const yValue = numericDataValue(
+      table.value(rowIndex, layer.y.field),
+      layer.y.type === 'temporal',
+    );
     const value = numericDataValue(table.value(rowIndex, valueField));
     if (xValue === null || yValue === null || value === null) continue;
     const x = xScale.map(xValue);
     const y = yScale.map(yValue);
-    if (Number.isFinite(x) && Number.isFinite(y)) rows.push({ rowIndex, x, y, value });
+    if (Number.isFinite(x) && Number.isFinite(y))
+      rows.push({ rowIndex, xValue, yValue, x, y, value });
   }
   if (rows.length === 0) return [];
   const minimum = Math.min(...rows.map(({ value }) => value));
   const maximum = Math.max(...rows.map(({ value }) => value));
-  const xValues = [...new Set(rows.map(({ x }) => x))].sort((left, right) => left - right);
-  const yValues = [...new Set(rows.map(({ y }) => y))].sort((left, right) => left - right);
-  const cellWidth = Math.max(5, ((xValues[1] ?? xValues[0]! + 18) - xValues[0]!) * 0.92);
-  const cellHeight = Math.max(5, ((yValues[1] ?? yValues[0]! + 18) - yValues[0]!) * 0.92);
-  const nodes: SceneNode[] = rows.map((row) => {
-    const ratio = maximum === minimum ? 0.5 : (row.value - minimum) / (maximum - minimum);
-    return {
-      type: 'rect',
-      ...datumBase(context, `${layer.id}:contour-cell:${row.rowIndex}`, row.rowIndex),
-      x: row.x - cellWidth / 2,
-      y: row.y - cellHeight / 2,
-      width: cellWidth,
-      height: cellHeight,
-      fill: layer.mark.fill ?? mappedContinuousColor(theme, ratio),
-      lineWidth: 0,
-      cornerRadius: layer.mark.cornerRadius ?? 2,
-    };
+  let xValues = [...new Set(rows.map(({ xValue }) => xValue))].sort((left, right) => left - right);
+  let yValues = [...new Set(rows.map(({ yValue }) => yValue))].sort((left, right) => left - right);
+  const maximumCells = Math.max(4, context.performance.maxBarMarks);
+  if (xValues.length * yValues.length > maximumCells) {
+    const ratio = xValues.length / Math.max(1, yValues.length);
+    const xCount = Math.max(
+      2,
+      Math.min(xValues.length, Math.floor(Math.sqrt(maximumCells * ratio))),
+    );
+    const yCount = Math.max(2, Math.min(yValues.length, Math.floor(maximumCells / xCount)));
+    const sample = (values: readonly number[], count: number) =>
+      Array.from(
+        { length: count },
+        (_, index) => values[Math.round((index * (values.length - 1)) / Math.max(1, count - 1))]!,
+      ).filter((value, index, selected) => index === 0 || value !== selected[index - 1]);
+    xValues = sample(xValues, xCount);
+    yValues = sample(yValues, yCount);
+  }
+  const byCoordinate = new Map(rows.map((row) => [`${row.xValue}\u0000${row.yValue}`, row]));
+  const gridRows = yValues.map((yValue) =>
+    xValues.map((xValue) => byCoordinate.get(`${xValue}\u0000${yValue}`)),
+  );
+  const values = gridRows.map((row) => row.map((datum) => datum?.value ?? null));
+  const points = gridRows.map((row) =>
+    row.map((datum) => (datum === undefined ? null : { x: datum.x, y: datum.y })),
+  );
+  const sources = gridRows.map((row) => row.map((datum) => datum?.rowIndex ?? null));
+  const cellWidth = Math.max(
+    5,
+    Math.abs(xScale.map(xValues[1] ?? xValues[0]!) - xScale.map(xValues[0]!)) * 0.92 || 18,
+  );
+  const cellHeight = Math.max(
+    5,
+    Math.abs(yScale.map(yValues[1] ?? yValues[0]!) - yScale.map(yValues[0]!)) * 0.92 || 18,
+  );
+  const showCells = layer.mark.options.showCells !== false;
+  const nodes: SceneNode[] = showCells
+    ? rows
+        .filter((row) => xValues.includes(row.xValue) && yValues.includes(row.yValue))
+        .slice(0, maximumCells)
+        .map((row) => {
+          const ratio = maximum === minimum ? 0.5 : (row.value - minimum) / (maximum - minimum);
+          return {
+            type: 'rect',
+            ...datumBase(context, `${layer.id}:contour-cell:${row.rowIndex}`, row.rowIndex),
+            x: row.x - cellWidth / 2,
+            y: row.y - cellHeight / 2,
+            width: cellWidth,
+            height: cellHeight,
+            fill: layer.mark.fill ?? mappedContinuousColor(theme, ratio),
+            lineWidth: 0,
+            cornerRadius: layer.mark.cornerRadius ?? 2,
+          };
+        })
+    : [];
+  const explicitThresholds = Array.isArray(layer.mark.options.thresholds)
+    ? layer.mark.options.thresholds.filter(
+        (value): value is number => typeof value === 'number' && Number.isFinite(value),
+      )
+    : undefined;
+  const levels = contourThresholds(values, {
+    levels: clamp(Math.floor(optionNumber(layer.mark.options.levels, 5)), 1, 32),
+    ...(explicitThresholds === undefined ? {} : { thresholds: explicitThresholds }),
+    method: layer.mark.options.thresholdMethod === 'quantile' ? 'quantile' : 'linear',
   });
-  const levelCount = clamp(Math.floor(optionNumber(layer.mark.options.levels, 5)), 2, 10);
-  for (let levelIndex = 1; levelIndex < levelCount; levelIndex += 1) {
-    const target = minimum + ((maximum - minimum) * levelIndex) / levelCount;
-    const candidates = rows.filter((row) => row.value >= target);
-    if (candidates.length < 2) continue;
-    const center = {
-      x: candidates.reduce((sum, row) => sum + row.x, 0) / candidates.length,
-      y: candidates.reduce((sum, row) => sum + row.y, 0) / candidates.length,
-    };
-    const radiusX =
-      Math.max(...candidates.map((row) => Math.abs(row.x - center.x))) + cellWidth * 0.45;
-    const radiusY =
-      Math.max(...candidates.map((row) => Math.abs(row.y - center.y))) + cellHeight * 0.45;
+  const requestedSaddle = optionString(layer.mark.options.saddle, 'asymptotic');
+  const saddle: ContourSaddlePolicy =
+    requestedSaddle === 'high' || requestedSaddle === 'low' ? requestedSaddle : 'asymptotic';
+  extractIsolines(values, points, levels, sources, {
+    maximumSegments: Math.floor(context.performance.maxLinePoints / 2),
+    saddle,
+  }).forEach((isoline, pathIndex) => {
+    const rowIndex = isoline.sourceRows[0] ?? 0;
+    const ratio = isoline.levelIndex / Math.max(1, levels.length - 1);
     nodes.push({
       type: 'path',
-      ...nodeBase(`${layer.id}:contour-line:${levelIndex}`, { zIndex: layer.zIndex + 2 }),
-      points: Array.from({ length: 37 }, (_, index) => {
-        const angle = (index / 36) * TAU;
-        return {
-          x: center.x + Math.cos(angle) * radiusX,
-          y: center.y + Math.sin(angle) * radiusY,
-        };
+      ...nodeBase(`${layer.id}:contour-line:${isoline.levelIndex}:${pathIndex}`, {
+        zIndex: layer.zIndex + 2,
+        interactive: context.performance.enableHitTesting,
+        datum: {
+          layerId: layer.id,
+          rowIndex,
+          datum: table.row(rowIndex),
+          tooltip: {
+            kind: 'scalar-isoline',
+            level: isoline.level,
+            thresholdIndex: isoline.levelIndex,
+            thresholdMethod:
+              explicitThresholds === undefined
+                ? layer.mark.options.thresholdMethod === 'quantile'
+                  ? 'quantile'
+                  : 'linear'
+                : 'explicit',
+            saddle,
+            xField: layer.x.field,
+            yField: layer.y.field,
+            valueField,
+            sourceRowCount: isoline.sourceRows.length,
+            sourceRowIndices: isoline.sourceRows.slice(0, 256),
+          },
+        },
       }),
-      closed: true,
-      stroke: layer.mark.stroke ?? colorWithOpacity(theme.colors.text, 0.72),
+      points: isoline.points,
+      closed: isoline.closed,
+      stroke: layer.mark.stroke ?? mappedContinuousColor(theme, ratio),
       lineWidth: layer.mark.lineWidth ?? 1.2,
       lineJoin: theme.mark.lineJoin ?? 'round',
+      lineCap: theme.mark.lineCap ?? 'round',
     });
-  }
+  });
   return nodes;
 };
 
@@ -1577,108 +1787,6 @@ export const compileWordCloudMark: MarkCompiler = (context) => {
   return nodes;
 };
 
-function movingAverage(values: readonly (number | null)[], period: number): Array<number | null> {
-  return values.map((_, index) => {
-    if (index + 1 < period) return null;
-    const window = values.slice(index + 1 - period, index + 1);
-    if (window.some((value) => value === null)) return null;
-    return window.reduce<number>((sum, value) => sum + (value ?? 0), 0) / period;
-  });
-}
-
-function exponentialAverage(
-  values: readonly (number | null)[],
-  period: number,
-): Array<number | null> {
-  const multiplier = 2 / (period + 1);
-  let previous: number | null = null;
-  return values.map((value) => {
-    if (value === null) return null;
-    previous = previous === null ? value : value * multiplier + previous * (1 - multiplier);
-    return previous;
-  });
-}
-
-function weightedAverage(values: readonly (number | null)[], period: number): Array<number | null> {
-  const denominator = (period * (period + 1)) / 2;
-  return values.map((_, index) => {
-    if (index + 1 < period) return null;
-    const window = values.slice(index + 1 - period, index + 1);
-    if (window.some((value) => value === null)) return null;
-    return (
-      window.reduce<number>((sum, value, offset) => sum + (value ?? 0) * (offset + 1), 0) /
-      denominator
-    );
-  });
-}
-
-function relativeStrength(
-  values: readonly (number | null)[],
-  period: number,
-): Array<number | null> {
-  return values.map((_, index) => {
-    if (index < period) return null;
-    let gains = 0;
-    let losses = 0;
-    for (let offset = index - period + 1; offset <= index; offset += 1) {
-      const current = values[offset];
-      const previous = values[offset - 1];
-      if (current === null || previous === null || current === undefined || previous === undefined)
-        return null;
-      const change = current - previous;
-      if (change >= 0) gains += change;
-      else losses -= change;
-    }
-    if (losses === 0) return 100;
-    const ratio = gains / losses;
-    return 100 - 100 / (1 + ratio);
-  });
-}
-
-function calculatedIndicator(
-  kind: string,
-  values: readonly (number | null)[],
-  period: number,
-): Array<number | null> {
-  if (kind === 'sma') return movingAverage(values, period);
-  if (kind === 'ema') return exponentialAverage(values, period);
-  if (kind === 'wma') return weightedAverage(values, period);
-  if (kind === 'dema') {
-    const once = exponentialAverage(values, period);
-    const twice = exponentialAverage(once, period);
-    return once.map((value, index) =>
-      value === null || twice[index] === null ? null : 2 * value - (twice[index] ?? 0),
-    );
-  }
-  if (kind === 'tema') {
-    const once = exponentialAverage(values, period);
-    const twice = exponentialAverage(once, period);
-    const three = exponentialAverage(twice, period);
-    return once.map((value, index) =>
-      value === null || twice[index] === null || three[index] === null
-        ? null
-        : 3 * value - 3 * (twice[index] ?? 0) + (three[index] ?? 0),
-    );
-  }
-  if (kind === 'momentum') {
-    return values.map((value, index) =>
-      value === null || index < period || values[index - period] === null
-        ? null
-        : value - (values[index - period] ?? 0),
-    );
-  }
-  if (kind === 'roc') {
-    return values.map((value, index) => {
-      const previous = index < period ? null : values[index - period];
-      return value === null || previous === null || previous === undefined || previous === 0
-        ? null
-        : ((value - previous) / previous) * 100;
-    });
-  }
-  if (kind === 'rsi') return relativeStrength(values, period);
-  return [...values];
-}
-
 function indicatorKind(context: MarkCompileContext): string {
   return optionString(context.layer.mark.options.kind, 'line');
 }
@@ -1702,17 +1810,27 @@ function indicatorFields(context: MarkCompileContext): string[] {
 export const compileIndicatorMark: MarkCompiler = (context) => {
   const { layer, table, xScale, yScale, theme, plot } = context;
   const kind = indicatorKind(context);
+  const capability = resolveTechnicalIndicatorCapability(kind);
   const lowerField = layer.mark.fields.lower ?? 'lower';
   const upperField = layer.mark.fields.upper ?? 'upper';
   const fields = indicatorFields(context);
-  const period = clamp(Math.floor(optionNumber(layer.mark.options.period, 14)), 2, 200);
-  const sourceValues = Array.from({ length: table.length }, (_, rowIndex) =>
-    numericDataValue(table.value(rowIndex, layer.y.field)),
-  );
-  const calculated =
-    layer.mark.options.calculate === true
-      ? calculatedIndicator(kind, sourceValues, period)
-      : sourceValues;
+  const calculated = layer.mark.options.calculate === true;
+  const sourceField = layer.mark.fields.__indicatorSource;
+  const indicatorTooltip = (rowIndex: number, value: number): DataRow | undefined => {
+    if (!calculated || capability === null) return undefined;
+    const row = table.row(rowIndex);
+    return {
+      ...Object.fromEntries(
+        Object.entries(row).filter(([field]) => !field.startsWith('__graflume_')),
+      ),
+      indicatorId: capability.id,
+      indicatorKind: capability.kind,
+      indicatorValue: value,
+      indicatorSource: sourceField === undefined ? null : row[sourceField],
+      indicatorWarmUp: 'null',
+      indicatorProvenance: capability.provenance,
+    };
+  };
   const nodes: SceneNode[] = [];
 
   if (table.has(lowerField) && table.has(upperField)) {
@@ -1746,12 +1864,7 @@ export const compileIndicatorMark: MarkCompiler = (context) => {
     const points: Array<{ rowIndex: number; point: Point; value: number }> = [];
     for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
       const xValue = scaleInput(table.value(rowIndex, layer.x.field));
-      const value =
-        layer.mark.options.calculate === true && field === layer.y.field
-          ? calculated[rowIndex]
-          : table.has(field)
-            ? numericDataValue(table.value(rowIndex, field))
-            : null;
+      const value = table.has(field) ? numericDataValue(table.value(rowIndex, field)) : null;
       if (xValue === null || value === null || value === undefined) continue;
       const point = { x: xScale.map(xValue), y: yScale.map(value) };
       if ([point.x, point.y].every(Number.isFinite)) points.push({ rowIndex, point, value });
@@ -1771,6 +1884,7 @@ export const compileIndicatorMark: MarkCompiler = (context) => {
             `${layer.id}:indicator-column:${fieldIndex}:${rowIndex}`,
             rowIndex,
             fieldIndex,
+            indicatorTooltip(rowIndex, value),
           ),
           x: point.x - width / 2,
           y: Math.min(point.y, baseline),
@@ -1810,6 +1924,7 @@ export const compileIndicatorMark: MarkCompiler = (context) => {
             `${layer.id}:indicator-point:${fieldIndex}:${rowIndex}`,
             rowIndex,
             fieldIndex + 2,
+            indicatorTooltip(rowIndex, points[index]?.value ?? 0),
           ),
           cx: point.x,
           cy: point.y,

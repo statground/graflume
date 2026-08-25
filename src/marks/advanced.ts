@@ -1,10 +1,13 @@
 import type { MarkCompileContext, MarkCompiler } from '../compiler/types.js';
 import { exactStrideSampleIndices } from '../data/sample.js';
+import { rawBoxSummary, type WeightedObservation } from '../data/statistics.js';
+import { createEncodingResolver } from '../encoding/resolve.js';
 import type { DataRow, DataValue, JsonValue } from '../spec/types.js';
 import { nodeBase } from '../scene/factory.js';
 import type { Point, SceneNode, TextNode } from '../scene/types.js';
 import { BandScale } from '../scale/band.js';
 import { categoricalColor, colorWithOpacity, mixColor, readableTextColor } from '../theme/color.js';
+import { compileSeriesAreaMark } from './stacked-series.js';
 import {
   mappedContinuousColor,
   numericDataValue,
@@ -1064,11 +1067,147 @@ export const compileParallelMark: MarkCompiler = (context) => {
 
 export const compileBoxplotMark: MarkCompiler = (context) => {
   const { layer, table, xScale, yScale, theme } = context;
-  const minField = layer.mark.fields.min ?? 'min';
+  const minField = layer.mark.fields.min ?? layer.mark.fields.low ?? 'min';
   const q1Field = layer.mark.fields.q1 ?? 'q1';
   const medianField = layer.mark.fields.median ?? layer.y.field;
   const q3Field = layer.mark.fields.q3 ?? 'q3';
-  const maxField = layer.mark.fields.max ?? 'max';
+  const maxField = layer.mark.fields.max ?? layer.mark.fields.high ?? 'max';
+  const summaryFields = [minField, q1Field, medianField, q3Field, maxField];
+  if (!summaryFields.every((field) => table.has(field))) {
+    const valueField = layer.mark.fields.value ?? layer.y.field;
+    const grouped = new Map<string, { xValue: DataValue; observations: WeightedObservation[] }>();
+    for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+      const xValue = table.value(rowIndex, layer.x.field);
+      const category = stringValue(xValue);
+      const value = numericDataValue(table.value(rowIndex, valueField));
+      if (category === null || value === null) continue;
+      const group = grouped.get(category) ?? { xValue, observations: [] };
+      group.observations.push({ value, weight: 1, rowIndex });
+      grouped.set(category, group);
+    }
+    const boxWidth = Math.max(
+      8,
+      xScale instanceof BandScale
+        ? xScale.bandwidth * 0.55
+        : context.plot.width / Math.max(3, grouped.size * 2),
+    );
+    const nodes: SceneNode[] = [];
+    [...grouped].forEach(([category, group], groupIndex) => {
+      const summary = rawBoxSummary(
+        group.observations,
+        finiteOption(layer.mark.options.whisker, 1.5),
+      );
+      const input = scaleInput(group.xValue);
+      if (summary === null || input === null) return;
+      const x = xScale.map(input);
+      const yLow = yScale.map(summary.lowerWhisker);
+      const yQ1 = yScale.map(summary.q1);
+      const yMedian = yScale.map(summary.median);
+      const yQ3 = yScale.map(summary.q3);
+      const yHigh = yScale.map(summary.upperWhisker);
+      const rowIndex = summary.rowIndices[0] ?? 0;
+      const fill =
+        layer.mark.fill ??
+        theme.mark.boxplotFill ??
+        theme.mark.areaFill ??
+        colorWithOpacity(context.color, 0.22);
+      const stroke =
+        layer.mark.stroke ?? theme.mark.areaStroke ?? theme.mark.lineColor ?? context.color;
+      const tooltip = {
+        kind: 'raw-box-summary',
+        category,
+        valueField,
+        minimum: summary.minimum,
+        q1: summary.q1,
+        median: summary.median,
+        q3: summary.q3,
+        maximum: summary.maximum,
+        lowerWhisker: summary.lowerWhisker,
+        upperWhisker: summary.upperWhisker,
+        outlierCount: summary.outliers.length,
+        sourceRowCount: summary.rowIndices.length,
+        sourceRowIndices: summary.rowIndices.slice(0, 256),
+      };
+      nodes.push({
+        type: 'line',
+        ...nodeBase(`${layer.id}:boxplot-whisker:${groupIndex}`, { zIndex: layer.zIndex }),
+        x1: x,
+        y1: yLow,
+        x2: x,
+        y2: yHigh,
+        stroke,
+        lineWidth: layer.mark.lineWidth ?? theme.mark.boxplotLineWidth ?? 1.5,
+        lineCap: theme.mark.lineCap ?? 'round',
+      });
+      [yLow, yHigh].forEach((y, capIndex) =>
+        nodes.push({
+          type: 'line',
+          ...nodeBase(`${layer.id}:boxplot-cap:${groupIndex}:${capIndex}`, {
+            zIndex: layer.zIndex + 0.5,
+          }),
+          x1: x - boxWidth * 0.3,
+          y1: y,
+          x2: x + boxWidth * 0.3,
+          y2: y,
+          stroke,
+          lineWidth: layer.mark.lineWidth ?? theme.mark.boxplotLineWidth ?? 1.5,
+          lineCap: theme.mark.lineCap ?? 'round',
+        }),
+      );
+      nodes.push({
+        type: 'rect',
+        ...datumBase(context, `${layer.id}:boxplot-box:${groupIndex}`, rowIndex, 1, tooltip),
+        x: x - boxWidth / 2,
+        y: Math.min(yQ1, yQ3),
+        width: boxWidth,
+        height: Math.max(1, Math.abs(yQ3 - yQ1)),
+        fill,
+        stroke,
+        lineWidth: layer.mark.lineWidth ?? theme.mark.boxplotLineWidth ?? 1.8,
+        cornerRadius: layer.mark.cornerRadius ?? theme.mark.boxplotRadius ?? 3,
+      });
+      nodes.push({
+        type: 'line',
+        ...nodeBase(`${layer.id}:boxplot-median:${groupIndex}`, { zIndex: layer.zIndex + 2 }),
+        x1: x - boxWidth / 2,
+        y1: yMedian,
+        x2: x + boxWidth / 2,
+        y2: yMedian,
+        stroke:
+          layer.mark.stroke ??
+          theme.mark.boxplotMedianStroke ??
+          mixColor(stroke, theme.colors.text, 0.22),
+        lineWidth: layer.mark.lineWidth ?? theme.mark.boxplotLineWidth ?? 2.2,
+        lineCap: theme.mark.lineCap ?? 'round',
+      });
+      summary.outliers
+        .slice(0, context.performance.maxPointMarks)
+        .forEach((outlier, outlierIndex) =>
+          nodes.push({
+            type: 'circle',
+            ...datumBase(
+              context,
+              `${layer.id}:boxplot-outlier:${groupIndex}:${outlierIndex}`,
+              outlier.rowIndex,
+              3,
+              {
+                kind: 'boxplot-outlier',
+                category,
+                value: outlier.value,
+                valueField,
+              },
+            ),
+            cx: x,
+            cy: yScale.map(outlier.value),
+            radius: layer.mark.radius ?? 3,
+            fill: theme.colors.background,
+            stroke,
+            lineWidth: 1,
+          }),
+        );
+    });
+    return nodes;
+  }
   const nodes: SceneNode[] = [];
   const boxWidth = Math.max(
     8,
@@ -1287,12 +1426,16 @@ function heatmapCellSpan(positions: readonly number[], fallback: number, gap: nu
 
 export const compileHeatmapMark: MarkCompiler = (context) => {
   const { layer, table, plot, xScale, yScale, theme } = context;
+  const encoding = createEncodingResolver(context);
   const valueField = layer.mark.fields.value ?? 'value';
   if (!table.has(valueField)) return [];
   const values: number[] = [];
   const xPositions: number[] = [];
   const yPositions: number[] = [];
-  for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+  const indices = encoding.orderedIndices(
+    Array.from({ length: table.length }, (_value, index) => index),
+  );
+  for (const rowIndex of indices) {
     const value = numericDataValue(table.value(rowIndex, valueField));
     const xValue = scaleInput(table.value(rowIndex, layer.x.field));
     const yValue = scaleInput(table.value(rowIndex, layer.y.field));
@@ -1330,26 +1473,57 @@ export const compileHeatmapMark: MarkCompiler = (context) => {
     const y = yScale.map(yValue);
     if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
     const ratio = max === min ? 0.5 : clamp((value - min) / (max - min), 0, 1);
-    const color = layer.mark.fill ?? mappedContinuousColor(theme, ratio);
+    const seriesColor = encoding.color('color', rowIndex, mappedContinuousColor(theme, ratio));
+    const color = encoding.color(
+      'fill',
+      rowIndex,
+      encoding.has('color') ? seriesColor : (layer.mark.fill ?? seriesColor),
+    );
+    const x2 = encoding.position('x2', rowIndex);
+    const y2 = encoding.position('y2', rowIndex);
+    const cellX = x2 === null ? x - cellWidth / 2 : Math.min(x, x2);
+    const cellY = y2 === null ? y - cellHeight / 2 : Math.min(y, y2);
+    const width = x2 === null ? cellWidth : Math.max(1, Math.abs(x2 - x));
+    const height = y2 === null ? cellHeight : Math.max(1, Math.abs(y2 - y));
+    const stroke = encoding.color('stroke', rowIndex, layer.mark.stroke ?? theme.colors.background);
+    const tooltip = encoding.tooltip(rowIndex);
     nodes.push({
       type: 'rect',
-      ...datumBase(context, `${layer.id}:heatmap:${rowIndex}`, rowIndex),
-      x: x - cellWidth / 2,
-      y: y - cellHeight / 2,
-      width: cellWidth,
-      height: cellHeight,
+      ...nodeBase(`${layer.id}:heatmap:${rowIndex}`, {
+        zIndex: layer.zIndex,
+        opacity: encoding.number('opacity', rowIndex, layer.mark.opacity),
+        interactive: context.performance.enableHitTesting,
+        datum: {
+          layerId: layer.id,
+          rowIndex,
+          datum: table.row(rowIndex),
+          ...(tooltip === undefined ? {} : { tooltip }),
+        },
+      }),
+      x: cellX,
+      y: cellY,
+      width,
+      height,
       fill: color,
-      stroke: layer.mark.stroke ?? theme.colors.background,
-      lineWidth: layer.mark.lineWidth ?? 1,
+      stroke,
+      lineWidth: encoding.number('strokeWidth', rowIndex, layer.mark.lineWidth ?? 1),
+      ...(encoding.dash(rowIndex).length === 0 ? {} : { dash: encoding.dash(rowIndex) }),
       cornerRadius: layer.mark.cornerRadius ?? 1,
     });
-    if (cellWidth >= 34 && cellHeight >= 24 && layer.mark.options.labels !== false) {
+    if (width >= 34 && height >= 24 && layer.mark.options.labels !== false) {
       nodes.push(
-        textNode(`${layer.id}:heatmap-label:${rowIndex}`, x, y, String(value), context, {
-          fill: readableTextColor(color, '#ffffff', '#0f172a'),
-          size: Math.max(9, theme.typography.fontSize - 1),
-          weight: 650,
-        }),
+        textNode(
+          `${layer.id}:heatmap-label:${rowIndex}`,
+          cellX + width / 2,
+          cellY + height / 2,
+          encoding.text(rowIndex, String(value)) ?? String(value),
+          context,
+          {
+            fill: readableTextColor(color, '#ffffff', '#0f172a'),
+            size: Math.max(9, theme.typography.fontSize - 1),
+            weight: 650,
+          },
+        ),
       );
     }
   }
@@ -1437,97 +1611,8 @@ export const compilePictorialBarMark: MarkCompiler = (context) => {
   return nodes;
 };
 
-interface RiverPoint {
-  readonly xValue: number | string | Date;
-  readonly series: string;
-  readonly value: number;
-  readonly rowIndex: number;
-}
-
 export const compileThemeRiverMark: MarkCompiler = (context) => {
-  const { layer, table, xScale, yScale, theme } = context;
-  const seriesField = layer.mark.fields.series ?? layer.mark.fields.category ?? 'series';
-  if (!table.has(seriesField)) return [];
-  const points: RiverPoint[] = [];
-  for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
-    const xValue = scaleInput(table.value(rowIndex, layer.x.field));
-    const series = stringValue(table.value(rowIndex, seriesField));
-    const value = numericDataValue(table.value(rowIndex, layer.y.field));
-    if (xValue === null || series === null || value === null) continue;
-    points.push({ xValue, series, value: Math.max(0, value), rowIndex });
-  }
-  const seriesNames = [...new Set(points.map((point) => point.series))];
-  const xKeys = [
-    ...new Map(points.map((point) => [String(point.xValue), point.xValue])).values(),
-  ].sort((left, right) => xScale.map(left) - xScale.map(right));
-  if (seriesNames.length === 0 || xKeys.length < 2) return [];
-  const values = new Map<string, RiverPoint>();
-  points.forEach((point) => values.set(`${String(point.xValue)}\u0000${point.series}`, point));
-  const totals = new Map<string, number>();
-  xKeys.forEach((xValue) => {
-    totals.set(
-      String(xValue),
-      seriesNames.reduce(
-        (sum, series) => sum + (values.get(`${String(xValue)}\u0000${series}`)?.value ?? 0),
-        0,
-      ),
-    );
-  });
-  const lowerBySeries = new Map<string, number[]>();
-  const upperBySeries = new Map<string, number[]>();
-  xKeys.forEach((xValue, xIndex) => {
-    let cursor = -(totals.get(String(xValue)) ?? 0) / 2;
-    seriesNames.forEach((series) => {
-      const value = values.get(`${String(xValue)}\u0000${series}`)?.value ?? 0;
-      const lower = lowerBySeries.get(series) ?? Array.from({ length: xKeys.length }, () => 0);
-      const upper = upperBySeries.get(series) ?? Array.from({ length: xKeys.length }, () => 0);
-      lower[xIndex] = cursor;
-      cursor += value;
-      upper[xIndex] = cursor;
-      lowerBySeries.set(series, lower);
-      upperBySeries.set(series, upper);
-    });
-  });
-  const nodes: SceneNode[] = [];
-  seriesNames.forEach((series, seriesIndex) => {
-    const lower = lowerBySeries.get(series) ?? [];
-    const upper = upperBySeries.get(series) ?? [];
-    const top = xKeys.map((xValue, index) => ({
-      x: xScale.map(xValue),
-      y: yScale.map(upper[index] ?? 0),
-    }));
-    const bottom = xKeys
-      .map((xValue, index) => ({ x: xScale.map(xValue), y: yScale.map(lower[index] ?? 0) }))
-      .reverse();
-    if (![...top, ...bottom].every((point) => Number.isFinite(point.x) && Number.isFinite(point.y)))
-      return;
-    const color = themeColor(context, seriesIndex, seriesNames.length);
-    const datum = points.find((point) => point.series === series);
-    nodes.push({
-      type: 'path',
-      ...nodeBase(`${layer.id}:river:${seriesIndex}`, {
-        zIndex: layer.zIndex + seriesIndex / 100,
-        opacity: layer.mark.opacity,
-        interactive: context.performance.enableHitTesting,
-        ...(datum === undefined
-          ? {}
-          : {
-              datum: {
-                layerId: layer.id,
-                rowIndex: datum.rowIndex,
-                datum: table.row(datum.rowIndex),
-              },
-            }),
-      }),
-      points: [...top, ...bottom],
-      closed: true,
-      fill: colorWithOpacity(layer.mark.fill ?? color, theme.mode === 'dark' ? 0.72 : 0.62),
-      stroke: layer.mark.stroke ?? color,
-      lineWidth: layer.mark.lineWidth ?? 1.2,
-      lineJoin: 'round',
-    });
-  });
-  return nodes;
+  return compileSeriesAreaMark(context) ?? [];
 };
 
 interface SunburstNode extends HierarchyItem {

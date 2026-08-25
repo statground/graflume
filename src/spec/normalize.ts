@@ -13,9 +13,12 @@ import type {
   AxisTitleSpec,
   AnnotationSpec,
   ChartSpec,
+  ChannelEncodingInput,
   DataInput,
   DecorationTargetSpec,
   EncodingInput,
+  EncodingMap,
+  EncodingChannel,
   LayerSpec,
   LegendItemSpec,
   LegendSpec,
@@ -29,6 +32,8 @@ import type {
   NormalizedAxisTitleSpec,
   NormalizedChartSpec,
   NormalizedEncodingSpec,
+  NormalizedChannelEncodingSpec,
+  NormalizedEncodingMap,
   NormalizedInteractionSpec,
   NormalizedLegendSpec,
   NormalizedLayerSpec,
@@ -38,6 +43,7 @@ import type {
   PaddingSpec,
   TitleSpec,
   TooltipFieldInput,
+  TransformSpec,
 } from './types.js';
 
 const defaultControlLabels = {
@@ -144,6 +150,28 @@ function normalizeInteraction(input: ChartSpec['interaction']): NormalizedIntera
           pinch: typeof navigationInput === 'object' ? (navigationInput.pinch ?? true) : true,
           keyboard: typeof navigationInput === 'object' ? (navigationInput.keyboard ?? true) : true,
         };
+  const domainNavigationInput = input?.domainNavigation;
+  const domainNavigation =
+    domainNavigationInput === undefined || domainNavigationInput === false
+      ? false
+      : {
+          axes:
+            typeof domainNavigationInput === 'object'
+              ? [...(domainNavigationInput.axes ?? ['x', 'y'])]
+              : (['x', 'y'] as const),
+          maxZoom:
+            typeof domainNavigationInput === 'object' ? (domainNavigationInput.maxZoom ?? 64) : 64,
+          wheel:
+            typeof domainNavigationInput === 'object'
+              ? (domainNavigationInput.wheel ?? 'modifier')
+              : ('modifier' as const),
+          drag:
+            typeof domainNavigationInput === 'object' ? (domainNavigationInput.drag ?? true) : true,
+          keyboard:
+            typeof domainNavigationInput === 'object'
+              ? (domainNavigationInput.keyboard ?? true)
+              : true,
+        };
   const playbackInput = input?.playback;
   const playback =
     playbackInput === undefined || playbackInput === false
@@ -192,6 +220,14 @@ function normalizeInteraction(input: ChartSpec['interaction']): NormalizedIntera
     selectionInput === undefined || selectionInput === false
       ? false
       : {
+          kind:
+            typeof selectionInput === 'object'
+              ? (selectionInput.kind ?? 'point')
+              : ('point' as const),
+          combine:
+            typeof selectionInput === 'object'
+              ? (selectionInput.combine ?? 'union')
+              : ('union' as const),
           mode: typeof selectionInput === 'object' ? (selectionInput.mode ?? 'single') : 'single',
           toggle: typeof selectionInput === 'object' ? (selectionInput.toggle ?? true) : true,
           ...(typeof selectionInput === 'object' && selectionInput.key !== undefined
@@ -205,6 +241,18 @@ function normalizeInteraction(input: ChartSpec['interaction']): NormalizedIntera
             typeof selectionInput === 'object'
               ? (selectionInput.ariaLabel ?? 'Chart selection')
               : 'Chart selection',
+          ...(typeof selectionInput === 'object' && selectionInput.axis !== undefined
+            ? { axis: selectionInput.axis }
+            : {}),
+          xAxis:
+            typeof selectionInput === 'object' ? (selectionInput.xAxis ?? 'x') : ('x' as const),
+          yAxis:
+            typeof selectionInput === 'object' ? (selectionInput.yAxis ?? 'y') : ('y' as const),
+          maxSelections:
+            typeof selectionInput === 'object' ? (selectionInput.maxSelections ?? 64) : 64,
+          maxLassoPoints:
+            typeof selectionInput === 'object' ? (selectionInput.maxLassoPoints ?? 512) : 512,
+          minPixelSpan: typeof selectionInput === 'object' ? (selectionInput.minPixelSpan ?? 3) : 3,
           highlight: {
             fill:
               typeof selectionInput === 'object'
@@ -233,6 +281,7 @@ function normalizeInteraction(input: ChartSpec['interaction']): NormalizedIntera
     click: input?.click ?? true,
     tooltip,
     navigation,
+    domainNavigation,
     playback,
     controls,
     selection,
@@ -559,6 +608,57 @@ function normalizeEncoding(
   };
 }
 
+function normalizeChannelEncoding(
+  input: ChannelEncodingInput,
+  channel: EncodingChannel,
+): NormalizedChannelEncodingSpec {
+  const encoding = typeof input === 'string' ? { field: input } : input;
+  const conditions =
+    encoding.condition === undefined
+      ? []
+      : Array.isArray(encoding.condition)
+        ? encoding.condition
+        : [encoding.condition];
+  return {
+    ...(encoding.field === undefined ? {} : { field: encoding.field }),
+    ...(encoding.value === undefined ? {} : { value: encoding.value }),
+    ...(encoding.type === undefined ? {} : { type: encoding.type }),
+    ...(encoding.title === undefined ? {} : { title: encoding.title }),
+    scale: { ...encoding.scale },
+    ...(encoding.axisId === undefined ? {} : { axisId: encoding.axisId }),
+    condition: [...conditions],
+  };
+}
+
+function normalizeEncodingMap(
+  legacyX: EncodingInput | undefined,
+  legacyY: EncodingInput | undefined,
+  input: EncodingMap | undefined,
+  chartAxes: NonNullable<ChartSpec['axes']>,
+  theme: ThemeTokens | undefined,
+): NormalizedEncodingMap {
+  const x = input?.x ?? legacyX;
+  const y = input?.y ?? legacyY;
+  if (x === undefined || y === undefined) {
+    throw new Error('Spec validation should guarantee x and y encodings.');
+  }
+  const normalized: Record<string, NormalizedChannelEncodingSpec> = {};
+  if (input !== undefined) {
+    for (const [channel, encoding] of Object.entries(input)) {
+      if (encoding === undefined || channel === 'x' || channel === 'y') continue;
+      normalized[channel] = normalizeChannelEncoding(
+        encoding as ChannelEncodingInput,
+        channel as EncodingChannel,
+      );
+    }
+  }
+  return {
+    x: normalizeEncoding(x as EncodingInput, 'x', chartAxes, theme),
+    y: normalizeEncoding(y as EncodingInput, 'y', chartAxes, theme),
+    ...normalized,
+  } as unknown as NormalizedEncodingMap;
+}
+
 function normalizeMark(input: MarkInput): NormalizedMarkSpec {
   const mark = typeof input === 'string' ? { type: input } : input;
   return {
@@ -583,18 +683,22 @@ function normalizeLayer(
   parentData: DataInput | undefined,
   chartAxes: NonNullable<ChartSpec['axes']>,
   theme: ThemeTokens | undefined,
+  parentTransforms: readonly TransformSpec[],
 ): NormalizedLayerSpec {
   const data = layer.data ?? parentData;
   if (data === undefined) {
     throw new Error('Spec validation should guarantee layer data.');
   }
+  const encoding = normalizeEncodingMap(layer.x, layer.y, layer.encoding, chartAxes, theme);
   return {
     id: layer.id ?? `layer-${index}`,
     name: layer.name ?? layer.id ?? `Series ${index + 1}`,
     data,
+    transform: [...parentTransforms, ...(layer.transform ?? [])],
     mark: normalizeMark(layer.mark),
-    x: normalizeEncoding(layer.x, 'x', chartAxes, theme),
-    y: normalizeEncoding(layer.y, 'y', chartAxes, theme),
+    encoding,
+    x: encoding.x,
+    y: encoding.y,
     visible: layer.visible ?? true,
     zIndex: layer.zIndex ?? index,
   };
@@ -617,18 +721,21 @@ export function normalizeSpec(input: ChartSpec, resolvedTheme?: ThemeTokens): No
   } as const;
 
   const shorthandLayer: LayerSpec | undefined =
-    input.mark === undefined || input.x === undefined || input.y === undefined
+    input.mark === undefined ||
+    ((input.encoding?.x === undefined || input.encoding.y === undefined) &&
+      (input.x === undefined || input.y === undefined))
       ? undefined
       : {
           ...(input.data === undefined ? {} : { data: input.data }),
           mark: input.mark,
-          x: input.x,
-          y: input.y,
+          ...(input.encoding === undefined
+            ? { x: input.x as EncodingInput, y: input.y as EncodingInput }
+            : { encoding: input.encoding }),
         };
 
   const sourceLayers = input.layers ?? (shorthandLayer === undefined ? [] : [shorthandLayer]);
   const layers = sourceLayers.map((layer, index) =>
-    normalizeLayer(layer, index, input.data, chartAxes, theme),
+    normalizeLayer(layer, index, input.data, chartAxes, theme, input.transform ?? []),
   );
 
   const title = normalizeTitle(input.title, theme);
@@ -656,6 +763,28 @@ export function normalizeSpec(input: ChartSpec, resolvedTheme?: ThemeTokens): No
       ...(input.accessibility?.description === undefined
         ? {}
         : { description: input.accessibility.description }),
+      table:
+        input.accessibility?.table === true
+          ? 'hidden'
+          : input.accessibility?.table === false || input.accessibility?.table === undefined
+            ? false
+            : input.accessibility.table,
+      maxRows: input.accessibility?.maxRows ?? 500,
+      navigation: input.accessibility?.navigation ?? false,
+      ...(input.accessibility?.summary === undefined
+        ? {}
+        : { summary: input.accessibility.summary }),
+      live:
+        input.accessibility?.live === false ||
+        (typeof input.accessibility?.live === 'object' &&
+          input.accessibility.live.enabled === false)
+          ? false
+          : {
+              throttleMs:
+                typeof input.accessibility?.live === 'object'
+                  ? (input.accessibility.live.throttleMs ?? 150)
+                  : 150,
+            },
     },
     ...(title === undefined ? {} : { title }),
     ...(input.description === undefined ? {} : { description: input.description }),
