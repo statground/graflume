@@ -17,9 +17,11 @@ Graflume keeps these concerns orthogonal:
 3. **Family mode or recipe** owns data meaning, transforms, layout, and the
    semantic invariants of a chart.
 
-External library names are research provenance, not public theme or API IDs.
-The accepted neutral theme families are recorded in
-`catalog/graflume.features.json`.
+External library names are research provenance, not public neutral theme or API
+IDs. The accepted neutral theme families are executable visual profiles in the
+ordered `builtInThemeCatalog`; their audited vocabulary remains recorded in
+`catalog/graflume.features.json`. They do not enable capabilities or family
+semantics.
 
 ## Dependency order
 

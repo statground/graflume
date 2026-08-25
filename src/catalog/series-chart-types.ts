@@ -19,6 +19,8 @@ export interface SeriesChartTypeEntry {
 export interface SeriesChartVariantEntry extends SeriesChartTypeEntry {
   readonly familyId: string;
   readonly mode: string;
+  /** Stable release identifier for the first catalog release that exposed this mode. */
+  readonly introducedIn?: string;
   /** @deprecated Use familyId. */
   readonly canonicalFamily: string;
 }

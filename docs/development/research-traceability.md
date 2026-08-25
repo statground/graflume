@@ -65,19 +65,19 @@ numbered top-level sections (`0` plus the 12 substantive sections `1`–`12`),
 all 44 family subsections, the promotion and domain candidates, every mode
 inventory group, every library input, and every verification group.
 
-| Intake surface              |    Research/catalog cardinality | Audit result                                                                          |
-| --------------------------- | ------------------------------: | ------------------------------------------------------------------------------------- |
-| Top-level sections          | 13 numbered headings (`0`–`12`) | All routed in the section table above                                                 |
-| Canonical families          |  44 (`41` Canvas + `3` Spatial) | Exact ID set; one partial-status audit row per runtime family                         |
-| Candidate families/packages |                              16 | All remain `planned` or `research`                                                    |
-| Common foundations          |                               7 | Exact inventory; three stale implementation summaries corrected                       |
-| Capability profiles         |                               7 | Exact inventory; none promoted beyond current evidence                                |
-| Cross-cutting contracts     |                               9 | Exact inventory; encoding and scale registries corrected to `partial`                 |
-| Mode research inventory     |           35 groups / 253 names | All retained; presence is not a runtime support claim                                 |
-| Ecosystem/library inputs    |                              25 | Exact inventory and placement retained                                                |
-| Verification groups         |                               5 | Exact semantic, interaction, renderer/export, accessibility, and documentation groups |
-| Neutral theme families      |                              12 | Exact inventory; independent of runtime theme IDs                                     |
-| Research references         |            95 unique HTTPS URLs | Exact sorted set; no missing or extra URL                                             |
+| Intake surface              |    Research/catalog cardinality | Audit result                                                                           |
+| --------------------------- | ------------------------------: | -------------------------------------------------------------------------------------- |
+| Top-level sections          | 13 numbered headings (`0`–`12`) | All routed in the section table above                                                  |
+| Canonical families          |  44 (`41` Canvas + `3` Spatial) | Exact ID set; one partial-status audit row per runtime family                          |
+| Candidate families/packages |                              16 | All remain `planned` or `research`                                                     |
+| Common foundations          |                               7 | Exact inventory; three stale implementation summaries corrected                        |
+| Capability profiles         |                               7 | Exact inventory; none promoted beyond current evidence                                 |
+| Cross-cutting contracts     |                               9 | Exact inventory; encoding and scale registries corrected to `partial`                  |
+| Mode research inventory     |           35 groups / 253 names | All retained; presence is not a runtime support claim                                  |
+| Ecosystem/library inputs    |                              25 | Exact inventory and placement retained                                                 |
+| Verification groups         |                               5 | Exact semantic, interaction, renderer/export, accessibility, and documentation groups  |
+| Neutral theme families      |                              12 | Exact inventory and matching runtime IDs; independent of capability and family support |
+| Research references         |            95 unique HTTPS URLs | Exact sorted set; no missing or extra URL                                              |
 
 The implementation-state correction moved only independently tested subsets
 into current evidence: ordered transforms, portable encodings/scales, the

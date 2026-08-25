@@ -61,6 +61,10 @@
   },
   "$defs": {
     "nonEmpty": { "type": "string", "minLength": 1 },
+    "releaseId": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$"
+    },
     "status": { "enum": ["supported", "partial", "planned", "research"] },
     "stringList": { "type": "array", "items": { "$ref": "#/$defs/nonEmpty" } },
     "package": {
@@ -198,6 +202,7 @@
         "accessibilityFallback": { "$ref": "#/$defs/nonEmpty" },
         "performanceProfile": { "$ref": "#/$defs/nonEmpty" },
         "exampleRef": { "$ref": "#/$defs/nonEmpty" },
+        "introducedIn": { "$ref": "#/$defs/releaseId" },
         "deprecated": { "type": "boolean" },
         "preferredModeId": { "$ref": "#/$defs/nonEmpty" },
         "compatibilityNote": { "$ref": "#/$defs/nonEmpty" }

@@ -2,13 +2,25 @@
 
 Graflume ships an ordered built-in theme catalog. The current catalog is:
 
-| Theme            | Purpose                                              |
-| ---------------- | ---------------------------------------------------- |
-| `graflume-light` | Graflume's presentation-oriented light design        |
-| `graflume-dark`  | Graflume's presentation-oriented dark design         |
-| `ggplot`         | The visual contract of ggplot2 `theme_gray()`        |
-| `r-base`         | The common visual contract of R base graphics output |
-| `matplotlib`     | Matplotlib 3.11.1's default visual contract          |
+| Theme                 | Purpose                                                  |
+| --------------------- | -------------------------------------------------------- |
+| `graflume-light`      | Graflume's presentation-oriented light design            |
+| `graflume-dark`       | Graflume's presentation-oriented dark design             |
+| `ggplot`              | The visual contract of ggplot2 `theme_gray()`            |
+| `r-base`              | The common visual contract of R base graphics output     |
+| `matplotlib`          | Matplotlib 3.11.1's default visual contract              |
+| `editorial`           | Warm, serif-led print and long-form storytelling         |
+| `scientific-classic`  | Boxed axes and restrained scientific publishing defaults |
+| `statistical-minimal` | Quiet statistical comparison with low visual noise       |
+| `dashboard-dense`     | Compact operational dashboards and small multiples       |
+| `finance-terminal`    | Dark, monospaced market-monitoring surfaces              |
+| `observability`       | Dense dark telemetry, status, and incident views         |
+| `geospatial`          | Water, land, terrain, and route-oriented visual tokens   |
+| `spatial-lab`         | Dark scientific field and volume exploration             |
+| `presentation`        | Large, spacious typography for projected charts          |
+| `pictorial`           | Rounded, expressive marks for explanatory graphics       |
+| `dark-technical`      | Precise dark technical diagrams and engineering data     |
+| `high-contrast`       | Heavy geometry, zero motion, and maximum contrast        |
 
 Do not copy that table into a closed application-side allowlist. `builtInThemeCatalog` is the ordered source of truth, and `defaultThemeId` identifies its default. A theme picker can therefore follow future built-ins without another hard-coded cycle:
 
@@ -20,6 +32,8 @@ const themeOptions = builtInThemeCatalog.map(({ id, tokens }) => ({
   dark: tokens.mode === 'dark',
 }));
 ```
+
+The twelve neutral profiles are visual contracts, not aliases and not capability switches. For example, `geospatial` does not enable map data sources and `spatial-lab` does not enable WebGL. Family, renderer, transform, interaction, and accessibility support remains independent of the selected theme.
 
 Use the same theme name with a portable `ChartSpec`, a Quick API, or a `SpatialSpec`:
 

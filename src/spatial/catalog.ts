@@ -6,6 +6,8 @@ export interface SpatialVariantCatalogEntry {
   readonly mark: 'surface' | 'volume' | 'vector' | 'scatter';
   readonly quickApi: string;
   readonly description: string;
+  /** Stable release identifier for the first catalog release that exposed this mode. */
+  readonly introducedIn?: string;
 }
 
 export interface SpatialFamilyCatalogEntry {

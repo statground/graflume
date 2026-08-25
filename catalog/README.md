@@ -5,6 +5,13 @@ documentation sites. It contains the exact runtime family, mode, compatibility,
 theme, representative sample, and current capability boundaries. Counts are
 derived from those arrays; consumers must not copy numeric totals by hand.
 
+A mode may carry an optional `introducedIn` release identifier copied directly
+from its runtime variant entry. This is provenance for release-aware discovery,
+not a new canonical-family boundary: missing metadata means the mode predates
+the marker or has not been attributed, not that the mode is unsupported. The
+`research-foundations-2026-08-25` release introduces `ecdf`, `ccdf`, and `kde`
+inside the existing `distribution` family.
+
 `runtimeCapabilities` is the closed name-function contract for the shared
 Area/Bar/Theme river stack engine, all 47 technical-indicator entry points, and
 the deprecated `tiled-map` embedded-basemap alias. Indicator support is declared

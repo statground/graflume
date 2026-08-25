@@ -310,6 +310,28 @@ test('the opt-in catalog exposes distinct families and retains every preset', ()
   assert.equal(additionalChartVariantCatalog.length, 27);
   assert.equal(fullCatalog.length, 41);
   assert.equal(fullVariantCatalog.length, 165);
+  assert.deepEqual(
+    fullVariantCatalog
+      .filter(({ introducedIn }) => introducedIn !== undefined)
+      .map(({ id, familyId, introducedIn }) => ({ id, familyId, introducedIn })),
+    [
+      {
+        id: 'ecdf',
+        familyId: 'distribution',
+        introducedIn: 'research-foundations-2026-08-25',
+      },
+      {
+        id: 'ccdf',
+        familyId: 'distribution',
+        introducedIn: 'research-foundations-2026-08-25',
+      },
+      {
+        id: 'kde',
+        familyId: 'distribution',
+        introducedIn: 'research-foundations-2026-08-25',
+      },
+    ],
+  );
   const marks = capabilities().marks;
   for (const entry of additionalChartTypeCatalog) {
     assert.ok(

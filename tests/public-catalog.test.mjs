@@ -163,6 +163,26 @@ test('every mode resolves to a canonical family or the explicit adapter surface'
   assert.match(tiledMap.compatibilityNote, /no tile request/);
 });
 
+test('mode introduction metadata is source-derived without changing family counts', () => {
+  const releaseId = 'research-foundations-2026-08-25';
+  const runtimeIntroductions = Complete.fullVariantCatalog
+    .filter(({ introducedIn }) => introducedIn !== undefined)
+    .map(({ id, familyId, introducedIn }) => ({ id, familyId, introducedIn }));
+  const manifestIntroductions = manifest.modes
+    .filter(({ introducedIn }) => introducedIn !== undefined)
+    .map(({ id, familyId, introducedIn }) => ({ id, familyId, introducedIn }));
+
+  assert.deepEqual(runtimeIntroductions, [
+    { id: 'ecdf', familyId: 'distribution', introducedIn: releaseId },
+    { id: 'ccdf', familyId: 'distribution', introducedIn: releaseId },
+    { id: 'kde', familyId: 'distribution', introducedIn: releaseId },
+  ]);
+  assert.deepEqual(manifestIntroductions, runtimeIntroductions);
+  assert.equal(manifest.totals.canonicalFamilies, 44);
+  assert.equal(catalogSchema.$defs.mode.properties.introducedIn.$ref, '#/$defs/releaseId');
+  assert.equal(catalogSchema.$defs.releaseId.pattern, '^[a-z0-9]+(?:[._-][a-z0-9]+)*$');
+});
+
 test('runtime capability catalog keeps stack, indicator, and tiled-map names honest', () => {
   assert.deepEqual(manifest.runtimeCapabilities, Complete.runtimeCapabilities);
   const { seriesStack, technicalIndicators, tiledMap } = manifest.runtimeCapabilities;

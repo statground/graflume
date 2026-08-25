@@ -8,6 +8,8 @@ export interface ChartFamilyEntry {
 export interface ChartVariantEntry extends ChartFamilyEntry {
   readonly familyId: string;
   readonly mode: string;
+  /** Stable release identifier for the first catalog release that exposed this mode. */
+  readonly introducedIn?: string;
 }
 
 const family = (id: string, name: string, quickApi: string, mark: string): ChartFamilyEntry => ({
@@ -24,7 +26,12 @@ const variant = (
   mark: string,
   familyId: string,
   mode = 'default',
-): ChartVariantEntry => ({ id, name, quickApi, mark, familyId, mode });
+  metadata: Pick<ChartVariantEntry, 'introducedIn'> = {},
+): ChartVariantEntry => ({ id, name, quickApi, mark, familyId, mode, ...metadata });
+
+const researchFoundationsIntroduction = {
+  introducedIn: 'research-foundations-2026-08-25',
+} as const;
 
 /** Established chart families shown in discovery surfaces. */
 export const chartTypeCatalog = [
@@ -94,6 +101,7 @@ export const chartVariantCatalog = [
     'distribution',
     'distribution',
     'ecdf',
+    researchFoundationsIntroduction,
   ),
   variant(
     'ccdf',
@@ -102,8 +110,17 @@ export const chartVariantCatalog = [
     'distribution',
     'distribution',
     'ccdf',
+    researchFoundationsIntroduction,
   ),
-  variant('kde', 'Kernel density estimate', 'kde', 'distribution', 'distribution', 'kde'),
+  variant(
+    'kde',
+    'Kernel density estimate',
+    'kde',
+    'distribution',
+    'distribution',
+    'kde',
+    researchFoundationsIntroduction,
+  ),
   variant(
     'histogram-2d',
     'Bivariate histogram',

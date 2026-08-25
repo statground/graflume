@@ -22,7 +22,7 @@
     "spatialVariants": 7,
     "integratedSpatialModes": 1,
     "compatibilityIdentifiers": 117,
-    "themes": 5,
+    "themes": 17,
     "marks": 84
   },
   "groups": [
@@ -1734,7 +1734,8 @@
       "transformSemantics": [],
       "accessibilityFallback": "host-provided-semantic-table",
       "performanceProfile": "auto",
-      "exampleRef": "docs/charts/distribution.md#variant-ecdf"
+      "exampleRef": "docs/charts/distribution.md#variant-ecdf",
+      "introducedIn": "research-foundations-2026-08-25"
     },
     {
       "id": "ccdf",
@@ -1751,7 +1752,8 @@
       "transformSemantics": [],
       "accessibilityFallback": "host-provided-semantic-table",
       "performanceProfile": "auto",
-      "exampleRef": "docs/charts/distribution.md#variant-ccdf"
+      "exampleRef": "docs/charts/distribution.md#variant-ccdf",
+      "introducedIn": "research-foundations-2026-08-25"
     },
     {
       "id": "kde",
@@ -1768,7 +1770,8 @@
       "transformSemantics": [],
       "accessibilityFallback": "host-provided-semantic-table",
       "performanceProfile": "auto",
-      "exampleRef": "docs/charts/distribution.md#variant-kde"
+      "exampleRef": "docs/charts/distribution.md#variant-kde",
+      "introducedIn": "research-foundations-2026-08-25"
     },
     {
       "id": "histogram-2d",
@@ -4974,6 +4977,114 @@
       "mode": "light",
       "sourceBaseline": "Matplotlib 3.11.1",
       "snapshotRoot": "docs/assets/themes/matplotlib"
+    },
+    {
+      "id": "editorial",
+      "name": "editorial",
+      "order": 5,
+      "default": false,
+      "mode": "light",
+      "sourceBaseline": null,
+      "snapshotRoot": "docs/assets/themes/editorial"
+    },
+    {
+      "id": "scientific-classic",
+      "name": "scientific-classic",
+      "order": 6,
+      "default": false,
+      "mode": "light",
+      "sourceBaseline": null,
+      "snapshotRoot": "docs/assets/themes/scientific-classic"
+    },
+    {
+      "id": "statistical-minimal",
+      "name": "statistical-minimal",
+      "order": 7,
+      "default": false,
+      "mode": "light",
+      "sourceBaseline": null,
+      "snapshotRoot": "docs/assets/themes/statistical-minimal"
+    },
+    {
+      "id": "dashboard-dense",
+      "name": "dashboard-dense",
+      "order": 8,
+      "default": false,
+      "mode": "light",
+      "sourceBaseline": null,
+      "snapshotRoot": "docs/assets/themes/dashboard-dense"
+    },
+    {
+      "id": "finance-terminal",
+      "name": "finance-terminal",
+      "order": 9,
+      "default": false,
+      "mode": "dark",
+      "sourceBaseline": null,
+      "snapshotRoot": "docs/assets/themes/finance-terminal"
+    },
+    {
+      "id": "observability",
+      "name": "observability",
+      "order": 10,
+      "default": false,
+      "mode": "dark",
+      "sourceBaseline": null,
+      "snapshotRoot": "docs/assets/themes/observability"
+    },
+    {
+      "id": "geospatial",
+      "name": "geospatial",
+      "order": 11,
+      "default": false,
+      "mode": "light",
+      "sourceBaseline": null,
+      "snapshotRoot": "docs/assets/themes/geospatial"
+    },
+    {
+      "id": "spatial-lab",
+      "name": "spatial-lab",
+      "order": 12,
+      "default": false,
+      "mode": "dark",
+      "sourceBaseline": null,
+      "snapshotRoot": "docs/assets/themes/spatial-lab"
+    },
+    {
+      "id": "presentation",
+      "name": "presentation",
+      "order": 13,
+      "default": false,
+      "mode": "light",
+      "sourceBaseline": null,
+      "snapshotRoot": "docs/assets/themes/presentation"
+    },
+    {
+      "id": "pictorial",
+      "name": "pictorial",
+      "order": 14,
+      "default": false,
+      "mode": "light",
+      "sourceBaseline": null,
+      "snapshotRoot": "docs/assets/themes/pictorial"
+    },
+    {
+      "id": "dark-technical",
+      "name": "dark-technical",
+      "order": 15,
+      "default": false,
+      "mode": "dark",
+      "sourceBaseline": null,
+      "snapshotRoot": "docs/assets/themes/dark-technical"
+    },
+    {
+      "id": "high-contrast",
+      "name": "high-contrast",
+      "order": 16,
+      "default": false,
+      "mode": "dark",
+      "sourceBaseline": null,
+      "snapshotRoot": "docs/assets/themes/high-contrast"
     }
   ],
   "samples": [
