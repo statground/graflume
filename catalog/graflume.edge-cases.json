@@ -14540,7 +14540,7 @@
         "version": 1,
         "seed": 3316355012,
         "shape": "volume-grid",
-        "rowCount": 6,
+        "rowCount": 8,
         "parameters": {
           "family": "volume",
           "scenario": "range",
@@ -14586,6 +14586,18 @@
           "y": 1.5,
           "z": -1.5,
           "value": 1000000
+        },
+        {
+          "x": 1,
+          "y": -1,
+          "z": -1.3333333333333333,
+          "value": -1000000000000
+        },
+        {
+          "x": 0.33333333333333326,
+          "y": -0.3333333333333335,
+          "z": -1.3333333333333333,
+          "value": -1e-9
         }
       ],
       "fields": [
@@ -14635,8 +14647,8 @@
       "summary": "Volume: Exercises family-safe minimums, maximums, zeros, and signed values without violating the chart semantics.",
       "demonstrates": ["extreme-range", "extreme-small", "extreme-large", "zero", "mixed-sign"],
       "expectations": {
-        "inputRows": 6,
-        "tablePreviewRows": 6,
+        "inputRows": 8,
+        "tablePreviewRows": 8,
         "performanceProfile": "spatial-bounded",
         "bounded": true,
         "outputBudget": {
@@ -14662,7 +14674,7 @@
         "version": 1,
         "seed": 960596708,
         "shape": "volume-grid",
-        "rowCount": 6,
+        "rowCount": 8,
         "parameters": {
           "family": "volume",
           "scenario": "structure",
@@ -14708,6 +14720,18 @@
           "y": 1.5,
           "z": -1.5,
           "value": 0.0007363617635754292
+        },
+        {
+          "x": 1,
+          "y": -1,
+          "z": -1.3333333333333333,
+          "value": -0.023932870783574284
+        },
+        {
+          "x": 0.33333333333333326,
+          "y": -0.3333333333333335,
+          "z": -1.3333333333333333,
+          "value": 0.03826766019510716
         }
       ],
       "fields": [
@@ -14757,8 +14781,8 @@
       "summary": "Volume: Exercises only the missing, sparse, duplicate, or out-of-order cases that have a defined meaning for the family.",
       "demonstrates": ["irregular-structure", "near-flat", "isolated-spike", "isolated-trough"],
       "expectations": {
-        "inputRows": 6,
-        "tablePreviewRows": 6,
+        "inputRows": 8,
+        "tablePreviewRows": 8,
         "performanceProfile": "spatial-bounded",
         "bounded": true,
         "outputBudget": {
@@ -14832,6 +14856,18 @@
           "y": 1.5,
           "z": -1.5,
           "value": 1000000
+        },
+        {
+          "x": 1,
+          "y": -1,
+          "z": -1.3333333333333333,
+          "value": -1000000000000
+        },
+        {
+          "x": 0.33333333333333326,
+          "y": -0.3333333333333335,
+          "z": -1.3333333333333333,
+          "value": -1e-9
         }
       ],
       "fields": [
@@ -14882,7 +14918,7 @@
       "demonstrates": ["high-volume", "deterministic-generation", "bounded-rendering"],
       "expectations": {
         "inputRows": 262144,
-        "tablePreviewRows": 6,
+        "tablePreviewRows": 8,
         "performanceProfile": "spatial-bounded",
         "bounded": true,
         "outputBudget": {

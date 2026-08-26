@@ -308,6 +308,16 @@ test('volume profiles remain recipes and declare deterministic renderer budgets'
   assert.deepEqual(examplesForFamily('volume')[2].recipe.parameters.dimensions, [64, 64, 64]);
 });
 
+test('spatial volume previews have a valid minimum 2 by 2 by 2 cardinality', () => {
+  const [range, structure] = examplesForFamily('volume');
+  for (const example of [range, structure]) {
+    assert.equal(example.recipe.shape, 'volume-grid');
+    assert.equal(example.tableData.length, 8);
+    assert.equal(example.recipe.rowCount, 8);
+    assert.equal(example.expectations.inputRows, 8);
+  }
+});
+
 test('family mathematical invariants are visible in the range preview', () => {
   for (const familyId of ['candlestick', 'technical-indicator']) {
     for (const row of examplesForFamily(familyId)[0].tableData) {

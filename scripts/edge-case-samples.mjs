@@ -645,6 +645,12 @@ function rowsForPreview(example, definition, count = 6) {
   });
 }
 
+function previewRowCountForFamily(familyId) {
+  // Spatial volume dimensions are all at least 2, so the smallest valid
+  // structured preview is 2 x 2 x 2 rather than the generic six rows.
+  return familyId === 'volume' ? 8 : 6;
+}
+
 const signedRange = [-1e12, -1e-9, 0, 1e12, 1e-9, 1e6];
 const positiveRange = [1e-9, 0, 1e12, 1, 1e6, 1e-6];
 const boundedRange = [0, 1e-9, 25, 50, 99.999999999, 100];
@@ -730,7 +736,7 @@ function spatialVectorPreview(rows) {
 }
 
 function rangePreview(familyId, example, definition) {
-  const rows = rowsForPreview(example, definition);
+  const rows = rowsForPreview(example, definition, previewRowCountForFamily(familyId));
   if (familyId === 'timeline') {
     rows[0].start = '1900-01-01';
     rows[0].end = '1900-01-01';
@@ -797,7 +803,7 @@ function rangePreview(familyId, example, definition) {
 }
 
 function structurePreview(familyId, example, definition) {
-  let rows = rowsForPreview(example, definition);
+  let rows = rowsForPreview(example, definition, previewRowCountForFamily(familyId));
   if (definition.structure.includes('out-of-order')) {
     rows = rows.length < 3 ? [...rows].reverse() : [rows[2], rows[0], ...rows.slice(3), rows[1]];
   }
