@@ -15962,7 +15962,7 @@ var Graflume = (function (exports) {
         }
         return result;
     }
-    function numericExtent(values, includeZero = false) {
+    function numericExtent$1(values, includeZero = false) {
         let minimum = includeZero ? 0 : Number.POSITIVE_INFINITY;
         let maximum = includeZero ? 0 : Number.NEGATIVE_INFINITY;
         for (const value of values) {
@@ -16046,10 +16046,10 @@ var Graflume = (function (exports) {
                 else if (type === 'sequential' || type === 'diverging' || type === 'cyclic') {
                     const domain = type === 'diverging'
                         ? (() => {
-                            const [minimum, maximum] = numericExtent(values, spec.scale.zero === true);
+                            const [minimum, maximum] = numericExtent$1(values, spec.scale.zero === true);
                             return [minimum, (minimum + maximum) / 2, maximum];
                         })()
-                        : numericExtent(values, spec.scale.zero === true);
+                        : numericExtent$1(values, spec.scale.zero === true);
                     colorScale = createColorScale(spec.scale, {
                         domain,
                         range: type === 'diverging'
@@ -16062,7 +16062,7 @@ var Graflume = (function (exports) {
                         ? numericSamples(values)
                         : type === 'threshold' && spec.scale.domain !== undefined
                             ? spec.scale.domain
-                            : numericExtent(values, spec.scale.zero === true);
+                            : numericExtent$1(values, spec.scale.zero === true);
                     const thresholdCount = type === 'threshold' && spec.scale.domain !== undefined
                         ? spec.scale.domain.length + 1
                         : 2;
@@ -16093,7 +16093,7 @@ var Graflume = (function (exports) {
                         ? numericSamples(values)
                         : categorical
                             ? categories
-                            : numericExtent(values, spec.scale.zero === true),
+                            : numericExtent$1(values, spec.scale.zero === true),
                     range,
                     type: (categorical ? 'ordinal' : (type ?? 'linear')),
                 });
@@ -32398,6 +32398,16 @@ var Graflume = (function (exports) {
     function clamp$7(value, low, high) {
         return Math.max(low, Math.min(high, value));
     }
+    function priceExtent$1(values) {
+        const first = values[0];
+        let minimum = first.low;
+        let maximum = first.high;
+        for (let index = 1; index < values.length; index += 1) {
+            minimum = Math.min(minimum, values[index].low);
+            maximum = Math.max(maximum, values[index].high);
+        }
+        return { minimum, maximum };
+    }
     function normalizeBars(input) {
         return input
             .map((bar, sourceIndex) => {
@@ -32425,14 +32435,15 @@ var Graflume = (function (exports) {
     function provenance(bars) {
         const first = bars[0];
         const last = bars.at(-1);
+        const { minimum: sourceLow, maximum: sourceHigh } = priceExtent$1(bars);
         return {
             sourceIndexes: bars.map(({ sourceIndex }) => sourceIndex),
             sourceIds: bars.map(({ id }) => id),
             timeStart: first.time,
             timeEnd: last.time,
             sourceOpen: first.open,
-            sourceHigh: Math.max(...bars.map(({ high }) => high)),
-            sourceLow: Math.min(...bars.map(({ low }) => low)),
+            sourceHigh,
+            sourceLow,
             sourceClose: last.close,
             sourceVolume: bars.reduce((sum, { volume }) => sum + volume, 0),
         };
@@ -32476,8 +32487,7 @@ var Graflume = (function (exports) {
         return (index) => Math.max(Number.EPSILON, atr[index] * multiplier);
     }
     function defaultSizing(bars) {
-        const minimum = Math.min(...bars.map(({ low }) => low));
-        const maximum = Math.max(...bars.map(({ high }) => high));
+        const { minimum, maximum } = priceExtent$1(bars);
         return { mode: 'fixed', value: Math.max(Number.EPSILON, (maximum - minimum) / 12 || 1) };
     }
     function sourceSlice(bars, start, end) {
@@ -32606,12 +32616,12 @@ var Graflume = (function (exports) {
             const close = bars[index].close;
             const recent = output.slice(-lineCount);
             const previousClose = output.at(-1)?.close ?? bars[index - 1].close;
-            const upper = recent.length === 0
-                ? previousClose
-                : Math.max(...recent.flatMap(({ open, close: end }) => [open, end]));
-            const lower = recent.length === 0
-                ? previousClose
-                : Math.min(...recent.flatMap(({ open, close: end }) => [open, end]));
+            let upper = previousClose;
+            let lower = previousClose;
+            for (const line of recent) {
+                upper = Math.max(upper, line.open, line.close);
+                lower = Math.min(lower, line.open, line.close);
+            }
             if (close <= upper && close >= lower)
                 continue;
             const direction = close > upper ? 'up' : 'down';
@@ -32730,16 +32740,14 @@ var Graflume = (function (exports) {
         });
         return [...groups].map(([id, grouped]) => ({ id, bars: grouped }));
     }
-    function resolveRowSize(bars, rows) {
-        const low = Math.min(...bars.map(({ low: value }) => value));
-        const high = Math.max(...bars.map(({ high: value }) => value));
+    function resolveRowSize(extent, rows) {
         if (rows.mode === 'size')
             return positive(rows.size, '$.rows.size');
         if (rows.mode === 'tick') {
             return (positive(rows.tick, '$.rows.tick') * clamp$7(Math.floor(rows.ticksPerRow ?? 1), 1, 100_000));
         }
         const count = clamp$7(Math.floor(rows.count), 1, 10_000);
-        return Math.max(Number.EPSILON, (high - low) / count || 1);
+        return Math.max(Number.EPSILON, (extent.maximum - extent.minimum) / count || 1);
     }
     function valueArea(rows, target) {
         let poc = 0;
@@ -32768,9 +32776,10 @@ var Graflume = (function (exports) {
     function oneVolumeProfile(id, bars, options) {
         if (bars.length === 0)
             return null;
-        const rowSize = resolveRowSize(bars, options.rows ?? { mode: 'count', count: 24 });
-        const minimum = Math.floor(Math.min(...bars.map(({ low }) => low)) / rowSize) * rowSize;
-        const maximum = Math.max(...bars.map(({ high }) => high));
+        const extent = priceExtent$1(bars);
+        const rowSize = resolveRowSize(extent, options.rows ?? { mode: 'count', count: 24 });
+        const minimum = Math.floor(extent.minimum / rowSize) * rowSize;
+        const maximum = extent.maximum;
         const count = clamp$7(Math.ceil((maximum - minimum) / rowSize) || 1, 1, 10_000);
         const volumes = Array.from({ length: count }, () => 0);
         const sources = Array.from({ length: count }, () => new Set());
@@ -32859,6 +32868,25 @@ var Graflume = (function (exports) {
                 return parsed;
         }
         return fallback;
+    }
+    function priceExtent(values) {
+        const first = values[0];
+        let minimum = first.low;
+        let maximum = first.high;
+        for (let index = 1; index < values.length; index += 1) {
+            minimum = Math.min(minimum, values[index].low);
+            maximum = Math.max(maximum, values[index].high);
+        }
+        return { minimum, maximum };
+    }
+    function numericExtent(values) {
+        let minimum = Number.POSITIVE_INFINITY;
+        let maximum = Number.NEGATIVE_INFINITY;
+        for (const value of values) {
+            minimum = Math.min(minimum, value);
+            maximum = Math.max(maximum, value);
+        }
+        return { minimum, maximum };
     }
     function financialRows(context) {
         const { table, layer } = context;
@@ -32952,8 +32980,7 @@ var Graflume = (function (exports) {
         if (blocks.length === 0)
             return [];
         const { layer, plot, theme, performance } = context;
-        const minimum = Math.min(...blocks.map(({ low }) => low));
-        const maximum = Math.max(...blocks.map(({ high }) => high));
+        const { minimum, maximum } = priceExtent(blocks);
         const span = Math.max(Number.EPSILON, maximum - minimum);
         const width = plot.width / Math.max(1, blocks.length);
         const mapY = (value) => plot.y + plot.height - ((value - minimum) / span) * plot.height;
@@ -33047,8 +33074,9 @@ var Graflume = (function (exports) {
                 .domain()
                 .map((value) => numericDataValue(value, context.layer.x.type === 'temporal'))
                 .filter((value) => value !== null);
-            const start = optionNumber$2(context, 'visibleStart') ?? Math.min(...domain);
-            const end = optionNumber$2(context, 'visibleEnd') ?? Math.max(...domain);
+            const extent = numericExtent(domain);
+            const start = optionNumber$2(context, 'visibleStart') ?? extent.minimum;
+            const end = optionNumber$2(context, 'visibleEnd') ?? extent.maximum;
             if (!Number.isFinite(start) || !Number.isFinite(end))
                 throw new GraflumeError('INVALID_SPEC', 'Visible volume profile scope requires a finite active x-domain or visibleStart/visibleEnd.');
             return { mode, time: [start, end] };
@@ -33120,7 +33148,9 @@ var Graflume = (function (exports) {
         const slotWidth = plot.width / profiles.length;
         const nodes = [];
         profiles.forEach((profile, profileIndex) => {
-            const maximum = Math.max(1, ...profile.rows.map(({ volume }) => volume));
+            let maximum = 1;
+            for (const row of profile.rows)
+                maximum = Math.max(maximum, row.volume);
             const priceSpan = Math.max(Number.EPSILON, profile.priceHigh - profile.priceLow);
             const mapY = (value) => plot.y + plot.height - ((value - profile.priceLow) / priceSpan) * plot.height;
             profile.rows.forEach((row) => {
@@ -34044,7 +34074,7 @@ var Graflume = (function (exports) {
     function layoutPie(data, options = {}) {
         const negative = options.negative ?? 'reject';
         const zero = options.zero ?? 'hide';
-        const values = data.flatMap((datum, index) => {
+        const normalized = data.flatMap((datum, index) => {
             const id = label(datum.id, `$.data[${index}].id`);
             const rawValue = finite$7(datum.value, `$.data[${index}].value`);
             if (rawValue < 0 && negative === 'reject')
@@ -34060,11 +34090,25 @@ var Graflume = (function (exports) {
                     rawValue,
                     value: Math.abs(rawValue),
                     inputIndex: index,
+                    sourceRows: [index],
                 },
             ];
         });
-        if (new Set(values.map(({ id }) => id)).size !== values.length)
-            throw new GraflumeError('INVALID_DATA', 'Pie ids must be unique.');
+        // Quick APIs use the semantic category as the slice id, so repeated source
+        // categories are folded deterministically before sorting and angle layout.
+        const aggregated = new Map();
+        normalized.forEach((datum) => {
+            const existing = aggregated.get(datum.id);
+            aggregated.set(datum.id, existing === undefined
+                ? datum
+                : {
+                    ...existing,
+                    rawValue: existing.rawValue + datum.rawValue,
+                    value: existing.value + datum.value,
+                    sourceRows: [...existing.sourceRows, ...datum.sourceRows],
+                });
+        });
+        const values = [...aggregated.values()];
         if (options.sort === 'ascending')
             values.sort((a, b) => a.value - b.value || a.inputIndex - b.inputIndex);
         if (options.sort === 'descending')
@@ -34097,6 +34141,7 @@ var Graflume = (function (exports) {
             return {
                 id: datum.id,
                 label: datum.label,
+                sourceRows: datum.sourceRows,
                 rawValue: datum.rawValue,
                 value: datum.value,
                 proportion,
@@ -35040,7 +35085,7 @@ var Graflume = (function (exports) {
             const renderedStart = renderAngle(slice.startAngle);
             const renderedEnd = renderAngle(slice.endAngle);
             const middle = (renderedStart + renderedEnd) / 2;
-            const rowIndex = data.find(({ id }) => id === slice.id)?.rowIndex ?? index;
+            const rowIndex = slice.sourceRows[0] ?? index;
             const focused = runtimeFocusedSlice === slice.id;
             nodes.push({
                 type: 'path',
@@ -35055,6 +35100,7 @@ var Graflume = (function (exports) {
                             ...context.table.row(rowIndex),
                             id: slice.id,
                             label: slice.label,
+                            sourceRows: [...slice.sourceRows],
                             rawValue: slice.rawValue,
                             value: slice.value,
                             proportion: slice.proportion,
@@ -35063,6 +35109,9 @@ var Graflume = (function (exports) {
                         },
                         tooltip: {
                             label: slice.label,
+                            sourceRows: slice.sourceRows.join(', '),
+                            sourceRowCount: slice.sourceRows.length,
+                            sourceRowIndices: [...slice.sourceRows],
                             rawValue: slice.rawValue,
                             value: slice.value,
                             proportion: slice.proportion,

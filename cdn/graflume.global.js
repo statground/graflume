@@ -26417,7 +26417,7 @@ var Graflume = (function (exports) {
     function layoutPie(data, options = {}) {
         const negative = options.negative ?? 'reject';
         const zero = options.zero ?? 'hide';
-        const values = data.flatMap((datum, index) => {
+        const normalized = data.flatMap((datum, index) => {
             const id = label(datum.id, `$.data[${index}].id`);
             const rawValue = finite$7(datum.value, `$.data[${index}].value`);
             if (rawValue < 0 && negative === 'reject')
@@ -26433,11 +26433,25 @@ var Graflume = (function (exports) {
                     rawValue,
                     value: Math.abs(rawValue),
                     inputIndex: index,
+                    sourceRows: [index],
                 },
             ];
         });
-        if (new Set(values.map(({ id }) => id)).size !== values.length)
-            throw new GraflumeError('INVALID_DATA', 'Pie ids must be unique.');
+        // Quick APIs use the semantic category as the slice id, so repeated source
+        // categories are folded deterministically before sorting and angle layout.
+        const aggregated = new Map();
+        normalized.forEach((datum) => {
+            const existing = aggregated.get(datum.id);
+            aggregated.set(datum.id, existing === undefined
+                ? datum
+                : {
+                    ...existing,
+                    rawValue: existing.rawValue + datum.rawValue,
+                    value: existing.value + datum.value,
+                    sourceRows: [...existing.sourceRows, ...datum.sourceRows],
+                });
+        });
+        const values = [...aggregated.values()];
         if (options.sort === 'ascending')
             values.sort((a, b) => a.value - b.value || a.inputIndex - b.inputIndex);
         if (options.sort === 'descending')
@@ -26470,6 +26484,7 @@ var Graflume = (function (exports) {
             return {
                 id: datum.id,
                 label: datum.label,
+                sourceRows: datum.sourceRows,
                 rawValue: datum.rawValue,
                 value: datum.value,
                 proportion,
@@ -40285,7 +40300,7 @@ var Graflume = (function (exports) {
             const renderedStart = renderAngle(slice.startAngle);
             const renderedEnd = renderAngle(slice.endAngle);
             const middle = (renderedStart + renderedEnd) / 2;
-            const rowIndex = data.find(({ id }) => id === slice.id)?.rowIndex ?? index;
+            const rowIndex = slice.sourceRows[0] ?? index;
             const focused = runtimeFocusedSlice === slice.id;
             nodes.push({
                 type: 'path',
@@ -40300,6 +40315,7 @@ var Graflume = (function (exports) {
                             ...context.table.row(rowIndex),
                             id: slice.id,
                             label: slice.label,
+                            sourceRows: [...slice.sourceRows],
                             rawValue: slice.rawValue,
                             value: slice.value,
                             proportion: slice.proportion,
@@ -40308,6 +40324,9 @@ var Graflume = (function (exports) {
                         },
                         tooltip: {
                             label: slice.label,
+                            sourceRows: slice.sourceRows.join(', '),
+                            sourceRowCount: slice.sourceRows.length,
+                            sourceRowIndices: [...slice.sourceRows],
                             rawValue: slice.rawValue,
                             value: slice.value,
                             proportion: slice.proportion,
