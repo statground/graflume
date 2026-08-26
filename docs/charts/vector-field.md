@@ -38,56 +38,58 @@ Use this preset when direction and magnitude must be read at each coordinate. Dr
 - **Quick API:** `vector()`
 - **Mode:** `vector`
 - **Portable mark:** `vector`
-- **Required example fields:** `value`, `high`, `direction`, `magnitude`
+- **Required example fields:** `x`, `y`, `direction`, `magnitude`
 
 ```js
 import { vector } from 'graflume/complete';
 
 const data = [
   {
-    value: 24,
-    high: 33,
-    direction: 0,
-    magnitude: 5,
+    x: -4,
+    y: -3,
+    direction: 310.267,
+    magnitude: 2.228,
   },
   {
-    value: 29.916,
-    high: 34.1,
-    direction: 37,
-    magnitude: 8,
+    x: -3,
+    y: -3,
+    direction: 322.357,
+    magnitude: 1.998,
   },
   {
-    value: 33.54,
-    high: 35.2,
-    direction: 74,
-    magnitude: 11,
+    x: -2,
+    y: -3,
+    direction: 335.932,
+    magnitude: 1.815,
   },
   {
-    value: 33.72,
-    high: 36.3,
-    direction: 111,
-    magnitude: 14,
+    x: -1,
+    y: -3,
+    direction: 350.937,
+    magnitude: 1.651,
   },
 ];
 
 vector('#chart', data, {
   x: {
-    field: 'value',
+    field: 'x',
     type: 'quantitative',
-    title: 'value',
+    title: 'Horizontal position',
   },
   y: {
-    field: 'high',
+    field: 'y',
     type: 'quantitative',
-    title: 'high',
+    title: 'Vertical position',
   },
   title: {
     text: 'Vector field chart',
     subtitle: 'vector-field family · vector mode',
   },
   accessibility: {
-    label: 'Vector field chart example',
-    description: 'A compiled vector field chart example using the vector-field family.',
+    label:
+      'Vector field chart: A balanced vortex keeps direction, magnitude, and the calm center visible',
+    description:
+      'A balanced vortex keeps direction, magnitude, and the calm center visible. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -101,13 +103,13 @@ vector('#chart', data, {
       title: 'Vector field chart',
       fields: [
         {
-          field: 'value',
-          label: 'value',
+          field: 'x',
+          label: 'Horizontal position',
           format: 'number',
         },
         {
-          field: 'high',
-          label: 'high',
+          field: 'y',
+          label: 'Vertical position',
           format: 'number',
         },
         {
@@ -136,56 +138,58 @@ Use this preset when direction and magnitude must be read at each coordinate. Co
 - **Quick API:** `windBarb()`
 - **Mode:** `wind-barb`
 - **Portable mark:** `wind-barb`
-- **Required example fields:** `value`, `high`, `speed`, `direction`
+- **Required example fields:** `x`, `y`, `speed`, `direction`
 
 ```js
 import { windBarb } from 'graflume/complete';
 
 const data = [
   {
-    value: 24,
-    high: 33,
-    speed: 10,
-    direction: 0,
+    x: -4,
+    y: -3,
+    speed: 17.824,
+    direction: 310.267,
   },
   {
-    value: 29.916,
-    high: 34.1,
-    speed: 13,
-    direction: 37,
+    x: -3,
+    y: -3,
+    speed: 15.984,
+    direction: 322.357,
   },
   {
-    value: 33.54,
-    high: 35.2,
-    speed: 16,
-    direction: 74,
+    x: -2,
+    y: -3,
+    speed: 14.52,
+    direction: 335.932,
   },
   {
-    value: 33.72,
-    high: 36.3,
-    speed: 19,
-    direction: 111,
+    x: -1,
+    y: -3,
+    speed: 13.208,
+    direction: 350.937,
   },
 ];
 
 windBarb('#chart', data, {
   x: {
-    field: 'value',
+    field: 'x',
     type: 'quantitative',
-    title: 'value',
+    title: 'Horizontal position',
   },
   y: {
-    field: 'high',
+    field: 'y',
     type: 'quantitative',
-    title: 'high',
+    title: 'Vertical position',
   },
   title: {
     text: 'Wind barb chart',
     subtitle: 'vector-field family · wind-barb mode',
   },
   accessibility: {
-    label: 'Wind barb chart example',
-    description: 'A compiled wind barb chart example using the vector-field family.',
+    label:
+      'Wind barb chart: A balanced vortex keeps direction, magnitude, and the calm center visible',
+    description:
+      'A balanced vortex keeps direction, magnitude, and the calm center visible. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -199,13 +203,13 @@ windBarb('#chart', data, {
       title: 'Wind barb chart',
       fields: [
         {
-          field: 'value',
-          label: 'value',
+          field: 'x',
+          label: 'Horizontal position',
           format: 'number',
         },
         {
-          field: 'high',
-          label: 'high',
+          field: 'y',
+          label: 'Vertical position',
           format: 'number',
         },
         {

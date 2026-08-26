@@ -538,6 +538,7 @@ Do not use autoplay as the only way to expose information. Host applications sho
 
 ## Related guides
 
+- [Adaptive output and constrained environments](../adaptive-output.md)
 - [Chart guide index](./README.md)
 - [Cartesian axes](./axes.md)
 - [Motion chart](./motion.md)

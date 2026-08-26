@@ -37,48 +37,64 @@ Use this preset when set overlap is the primary reading task. Uses the canonical
 - **Quick API:** `venn()`
 - **Mode:** `default`
 - **Portable mark:** `venn`
-- **Required example fields:** `category`, `value`
+- **Required example fields:** `sets`, `size`, `members`
 
 ```js
 import { venn } from 'graflume/complete';
 
 const data = [
   {
-    category: 'P1',
-    value: 24,
+    sets: ['Analysis'],
+    size: 34,
+    members: ['Cohort explorer', 'Forecast review'],
   },
   {
-    category: 'P2',
-    value: 29.916,
+    sets: ['Engineering'],
+    size: 28,
+    members: ['Runtime profiler', 'Schema audit'],
   },
   {
-    category: 'P3',
-    value: 33.54,
+    sets: ['Design'],
+    size: 22,
+    members: ['Theme studio', 'Layout review'],
+  },
+  {
+    sets: ['Analysis', 'Engineering'],
+    size: 15,
+    members: ['Metric debugger'],
   },
 ];
 
 venn('#chart', data, {
   x: {
-    field: 'category',
+    field: 'sets',
     type: 'ordinal',
-    title: 'category',
+    title: 'Sets',
   },
   y: {
-    field: 'value',
+    field: 'size',
     type: 'quantitative',
-    title: 'value',
+    title: 'Items',
   },
   title: {
     text: 'Venn diagram',
     subtitle: 'venn family · default mode',
   },
   accessibility: {
-    label: 'Venn diagram example',
-    description: 'A compiled venn diagram example using the venn family.',
+    label: 'Venn diagram: Analysis, engineering, and design overlap in seven valid set regions',
+    description:
+      'Analysis, engineering, and design overlap in seven valid set regions. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   axes: {
     x: false,
     y: false,
+  },
+  mark: {
+    fields: {
+      sets: 'sets',
+      size: 'size',
+      members: 'members',
+    },
   },
   locale: 'en-US',
   interaction: {
@@ -86,14 +102,19 @@ venn('#chart', data, {
       title: 'Venn diagram',
       fields: [
         {
-          field: 'category',
-          label: 'category',
+          field: 'sets',
+          label: 'Sets',
           format: 'auto',
         },
         {
-          field: 'value',
-          label: 'value',
+          field: 'size',
+          label: 'Items',
           format: 'number',
+        },
+        {
+          field: 'members',
+          label: 'Members',
+          format: 'auto',
         },
       ],
       trigger: 'mark',

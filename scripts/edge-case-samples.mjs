@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 
+import { demoRecipeCatalog, materializeDemoRecipe } from '../src/demo/recipes-engine.js';
+
 export const edgeCaseProfiles = Object.freeze([
   Object.freeze({
     id: 'range',
@@ -24,67 +26,11 @@ export const edgeCaseProfiles = Object.freeze([
   }),
 ]);
 
-export const edgeCaseRecipeCatalog = Object.freeze([
-  Object.freeze({
-    id: 'row-sequence-v1',
-    shape: 'rows',
-    summary: 'Deterministic scalar, categorical, and temporal rows.',
-  }),
-  Object.freeze({
-    id: 'interval-sequence-v1',
-    shape: 'rows',
-    summary: 'Ordered low/high or start/end rows with closed interval invariants.',
-  }),
-  Object.freeze({
-    id: 'ohlcv-sequence-v1',
-    shape: 'rows',
-    summary: 'Deterministic OHLCV rows that preserve candle and volume invariants.',
-  }),
-  Object.freeze({
-    id: 'relationship-edges-v1',
-    shape: 'rows',
-    summary: 'Deterministic positive-weight relationship edges with stable identities.',
-  }),
-  Object.freeze({
-    id: 'hierarchy-nodes-v1',
-    shape: 'rows',
-    summary: 'Deterministic rooted hierarchy nodes with stable parent identities.',
-  }),
-  Object.freeze({
-    id: 'grid-2d-v1',
-    shape: 'rows',
-    summary: 'Deterministic two-dimensional grid or raster rows.',
-  }),
-  Object.freeze({
-    id: 'ternary-composition-v1',
-    shape: 'rows',
-    summary: 'Non-negative three-part compositions with a strictly positive total.',
-  }),
-  Object.freeze({
-    id: 'venn-membership-v1',
-    shape: 'rows',
-    summary: 'Consistent set cardinalities derived from bounded aggregate membership rows.',
-  }),
-  Object.freeze({
-    id: 'surface-grid-v1',
-    shape: 'surface-grid',
-    summary: 'Deterministic finite surface grid arrays.',
-  }),
-  Object.freeze({
-    id: 'volume-grid-v1',
-    shape: 'volume-grid',
-    summary: 'Deterministic finite voxel values and dimensions.',
-  }),
-  Object.freeze({
-    id: 'spatial-vector-v1',
-    shape: 'vector-set',
-    summary: 'Deterministic finite vector origins and components.',
-  }),
-]);
+export const edgeCaseRecipeCatalog = demoRecipeCatalog;
 
 const policies = {
   annotation: policy({
-    recipe: 'row-sequence-v1',
+    recipe: 'time-signal',
     range: 'signed',
     valueFields: ['value'],
     nullableFields: ['annotation'],
@@ -94,7 +40,7 @@ const policies = {
     volume: volume(60_000, 'large', 'line-points', 30_000),
   }),
   area: policy({
-    recipe: 'row-sequence-v1',
+    recipe: 'time-signal',
     range: 'signed',
     valueFields: ['value'],
     nullableFields: ['value'],
@@ -104,7 +50,7 @@ const policies = {
     volume: volume(60_000, 'large', 'line-points', 30_000, { seriesCount: 4 }),
   }),
   bar: policy({
-    recipe: 'row-sequence-v1',
+    recipe: 'categorical-events',
     range: 'signed',
     valueFields: ['value'],
     nullableFields: ['value'],
@@ -114,7 +60,7 @@ const policies = {
     volume: volume(60_000, 'large', 'bar-marks', 12_000),
   }),
   bubble: policy({
-    recipe: 'row-sequence-v1',
+    recipe: 'clustered-points',
     range: 'signed-size',
     valueFields: ['x', 'y'],
     positiveFields: ['size'],
@@ -125,7 +71,7 @@ const policies = {
     volume: volume(60_000, 'large', 'point-marks', 20_000),
   }),
   calendar: policy({
-    recipe: 'row-sequence-v1',
+    recipe: 'time-signal',
     range: 'signed',
     valueFields: ['value'],
     nullableFields: ['value'],
@@ -135,7 +81,7 @@ const policies = {
     volume: volume(60_000, 'large', 'bar-marks', 12_000, { dateCycleDays: 3_000 }),
   }),
   candlestick: policy({
-    recipe: 'ohlcv-sequence-v1',
+    recipe: 'ohlcv-sequence',
     range: 'ohlcv',
     valueFields: ['value', 'open', 'high', 'low', 'close'],
     positiveFields: ['volume'],
@@ -145,7 +91,7 @@ const policies = {
     volume: volume(60_000, 'large', 'bar-marks', 12_000),
   }),
   combination: policy({
-    recipe: 'row-sequence-v1',
+    recipe: 'time-signal',
     range: 'signed',
     valueFields: ['value', 'target'],
     nullableFields: ['value'],
@@ -155,7 +101,7 @@ const policies = {
     volume: volume(60_000, 'large', 'combined-marks', 30_000),
   }),
   difference: policy({
-    recipe: 'row-sequence-v1',
+    recipe: 'categorical-events',
     range: 'signed',
     valueFields: ['value', 'previous'],
     nullableFields: ['value'],
@@ -165,7 +111,7 @@ const policies = {
     volume: volume(60_000, 'large', 'bar-marks', 12_000),
   }),
   pie: policy({
-    recipe: 'row-sequence-v1',
+    recipe: 'categorical-events',
     range: 'nonnegative',
     valueFields: ['value'],
     positiveFields: ['radius'],
@@ -176,7 +122,7 @@ const policies = {
     volume: volume(30_000, 'large', 'radial-marks', 20_000),
   }),
   timeline: policy({
-    recipe: 'interval-sequence-v1',
+    recipe: 'interval-sequence',
     range: 'temporal-bounds',
     valueFields: [],
     structure: ['sparse', 'out-of-order', 'overlap'],
@@ -185,7 +131,7 @@ const policies = {
     volume: volume(20_000, 'standard', 'bar-marks', 20_000),
   }),
   gauge: policy({
-    recipe: 'row-sequence-v1',
+    recipe: 'categorical-events',
     range: 'bounded-domain',
     valueFields: ['value', 'previous', 'target'],
     structure: ['zero-baseline', 'domain-boundary'],
@@ -194,7 +140,7 @@ const policies = {
     volume: volume(6_000, 'ultra', 'bar-marks', 5_000, { explicitPerformance: true }),
   }),
   map: policy({
-    recipe: 'row-sequence-v1',
+    recipe: 'geo-events',
     range: 'signed',
     valueFields: ['value'],
     nullableFields: ['value'],
@@ -204,7 +150,7 @@ const policies = {
     volume: volume(60_000, 'large', 'point-marks', 20_000, { geometry: 'projected-points' }),
   }),
   distribution: policy({
-    recipe: 'row-sequence-v1',
+    recipe: 'multivariate-observations',
     range: 'signed',
     valueFields: ['value'],
     nullableFields: ['value'],
@@ -214,7 +160,7 @@ const policies = {
     volume: volume(100_000, 'large', 'line-points', 30_000),
   }),
   interval: policy({
-    recipe: 'interval-sequence-v1',
+    recipe: 'interval-sequence',
     range: 'interval',
     valueFields: ['value', 'low', 'high'],
     nullableFields: ['low'],
@@ -224,7 +170,7 @@ const policies = {
     volume: volume(60_000, 'large', 'bar-marks', 12_000),
   }),
   line: policy({
-    recipe: 'row-sequence-v1',
+    recipe: 'time-signal',
     range: 'signed',
     valueFields: ['value'],
     nullableFields: ['value'],
@@ -234,7 +180,7 @@ const policies = {
     volume: volume(60_000, 'large', 'line-points', 30_000),
   }),
   motion: policy({
-    recipe: 'row-sequence-v1',
+    recipe: 'motion-trajectories',
     range: 'signed-size',
     valueFields: ['x', 'y'],
     positiveFields: ['size'],
@@ -252,7 +198,7 @@ const policies = {
     }),
   }),
   hierarchy: policy({
-    recipe: 'hierarchy-nodes-v1',
+    recipe: 'hierarchy-nodes',
     range: 'descending-nonnegative',
     valueFields: ['value'],
     structure: ['sparse', 'out-of-order', 'deep-hierarchy'],
@@ -268,7 +214,7 @@ const policies = {
     }),
   }),
   flow: policy({
-    recipe: 'relationship-edges-v1',
+    recipe: 'relationship-edges',
     range: 'nonnegative',
     valueFields: ['value'],
     structure: ['duplicate-edge', 'out-of-order', 'disconnected'],
@@ -284,7 +230,7 @@ const policies = {
     }),
   }),
   scatter: policy({
-    recipe: 'row-sequence-v1',
+    recipe: 'clustered-points',
     range: 'signed',
     valueFields: ['x', 'y'],
     nullableFields: ['x'],
@@ -294,7 +240,7 @@ const policies = {
     volume: volume(60_000, 'large', 'point-marks', 20_000),
   }),
   table: policy({
-    recipe: 'row-sequence-v1',
+    recipe: 'multivariate-observations',
     range: 'signed',
     valueFields: ['value', 'target'],
     nullableFields: ['value'],
@@ -304,7 +250,7 @@ const policies = {
     volume: volume(100_000, 'ultra', 'visible-rows', 5_000, { explicitPerformance: true }),
   }),
   waterfall: policy({
-    recipe: 'row-sequence-v1',
+    recipe: 'categorical-events',
     range: 'signed',
     valueFields: ['value'],
     structure: ['duplicate-label', 'zero-baseline', 'cancellation'],
@@ -317,7 +263,7 @@ const policies = {
     volume: volume(60_000, 'large', 'bar-marks', 12_000),
   }),
   'word-tree': policy({
-    recipe: 'hierarchy-nodes-v1',
+    recipe: 'hierarchy-nodes',
     range: 'descending-nonnegative',
     valueFields: ['weight'],
     structure: ['sparse', 'out-of-order', 'deep-hierarchy'],
@@ -330,7 +276,7 @@ const policies = {
     volume: volume(10_000, 'ultra', 'bar-marks', 5_000, { explicitPerformance: true }),
   }),
   polar: policy({
-    recipe: 'row-sequence-v1',
+    recipe: 'time-signal',
     range: 'nonnegative',
     valueFields: ['value'],
     nullableFields: ['value'],
@@ -340,7 +286,7 @@ const policies = {
     volume: volume(60_000, 'large', 'line-points', 30_000),
   }),
   network: policy({
-    recipe: 'relationship-edges-v1',
+    recipe: 'relationship-edges',
     range: 'nonnegative',
     valueFields: ['value'],
     structure: ['duplicate-edge', 'out-of-order', 'self-loop', 'disconnected'],
@@ -352,7 +298,7 @@ const policies = {
     }),
   }),
   chord: policy({
-    recipe: 'relationship-edges-v1',
+    recipe: 'relationship-edges',
     range: 'nonnegative',
     valueFields: ['value'],
     structure: ['duplicate-edge', 'self-loop', 'sparse'],
@@ -364,7 +310,7 @@ const policies = {
     }),
   }),
   funnel: policy({
-    recipe: 'row-sequence-v1',
+    recipe: 'categorical-events',
     range: 'descending-nonnegative',
     valueFields: ['value'],
     nullableFields: ['value'],
@@ -374,7 +320,7 @@ const policies = {
     volume: volume(130_000, 'ultra', 'bar-marks', 5_000, { explicitPerformance: true }),
   }),
   parallel: policy({
-    recipe: 'row-sequence-v1',
+    recipe: 'multivariate-observations',
     range: 'signed',
     valueFields: ['speed', 'quality', 'cost'],
     nullableFields: ['quality'],
@@ -391,7 +337,7 @@ const policies = {
     }),
   }),
   heatmap: policy({
-    recipe: 'grid-2d-v1',
+    recipe: 'grid-2d',
     range: 'signed',
     valueFields: ['value'],
     nullableFields: ['value'],
@@ -401,7 +347,7 @@ const policies = {
     volume: volume(65_536, 'large', 'bar-marks', 12_000, { rows: 256, columns: 256 }),
   }),
   image: policy({
-    recipe: 'grid-2d-v1',
+    recipe: 'grid-2d',
     range: 'color-channel',
     valueFields: ['red', 'green', 'blue'],
     nullableFields: ['red'],
@@ -415,7 +361,7 @@ const policies = {
     volume: volume(262_144, 'large', 'bar-marks', 12_000, { rows: 512, columns: 512 }),
   }),
   ternary: policy({
-    recipe: 'ternary-composition-v1',
+    recipe: 'ternary-composition',
     range: 'ternary',
     valueFields: ['a', 'b', 'c'],
     structure: ['duplicate-point', 'out-of-order', 'zero-component'],
@@ -428,7 +374,7 @@ const policies = {
     volume: volume(60_000, 'large', 'point-marks', 20_000),
   }),
   smith: policy({
-    recipe: 'row-sequence-v1',
+    recipe: 'smith-sweep',
     range: 'smith',
     valueFields: ['imaginary'],
     positiveFields: ['real'],
@@ -442,7 +388,7 @@ const policies = {
     volume: volume(60_000, 'large', 'line-points', 30_000),
   }),
   'scatter-matrix': policy({
-    recipe: 'row-sequence-v1',
+    recipe: 'multivariate-observations',
     range: 'signed',
     valueFields: ['speed', 'quality', 'cost'],
     nullableFields: ['quality'],
@@ -455,7 +401,7 @@ const policies = {
     }),
   }),
   carpet: policy({
-    recipe: 'grid-2d-v1',
+    recipe: 'grid-2d',
     range: 'signed',
     valueFields: ['value'],
     nullableFields: ['value'],
@@ -465,7 +411,7 @@ const policies = {
     volume: volume(16_384, 'standard', 'bar-marks', 16_384, { rows: 128, columns: 128 }),
   }),
   contour: policy({
-    recipe: 'grid-2d-v1',
+    recipe: 'grid-2d',
     range: 'signed',
     valueFields: ['value'],
     nullableFields: ['value'],
@@ -478,7 +424,7 @@ const policies = {
     }),
   }),
   item: policy({
-    recipe: 'row-sequence-v1',
+    recipe: 'categorical-events',
     range: 'nonnegative-integer',
     valueFields: ['value'],
     nullableFields: ['value'],
@@ -488,7 +434,7 @@ const policies = {
     volume: volume(60_000, 'large', 'bar-marks', 12_000),
   }),
   'vector-field': policy({
-    recipe: 'row-sequence-v1',
+    recipe: 'spatial-vector',
     range: 'vector',
     valueFields: ['value', 'high'],
     positiveFields: ['magnitude'],
@@ -502,9 +448,9 @@ const policies = {
     volume: volume(60_000, 'large', 'point-marks', 20_000),
   }),
   venn: policy({
-    recipe: 'venn-membership-v1',
+    recipe: 'venn-membership',
     range: 'venn',
-    valueFields: ['value'],
+    valueFields: ['size'],
     structure: ['sparse', 'zero-baseline', 'nested-overlap'],
     handling: [
       'raw-membership-preaggregated',
@@ -512,13 +458,13 @@ const policies = {
       'set-count-bounded',
     ],
     invariants: ['set-cardinality-nonnegative', 'intersection-not-above-set-cardinality'],
-    volume: volume(100_000, 'standard', 'aggregate-sets', 5, {
-      aggregateSetCount: 5,
+    volume: volume(100_000, 'standard', 'set-intersections', 7, {
+      aggregateSetCount: 3,
       preAggregate: true,
     }),
   }),
   'word-cloud': policy({
-    recipe: 'row-sequence-v1',
+    recipe: 'text-corpus',
     range: 'nonnegative',
     valueFields: ['weight'],
     nullableFields: ['weight'],
@@ -532,7 +478,7 @@ const policies = {
     volume: volume(10_000, 'ultra', 'bar-marks', 5_000, { explicitPerformance: true }),
   }),
   'price-blocks': policy({
-    recipe: 'ohlcv-sequence-v1',
+    recipe: 'ohlcv-sequence',
     range: 'positive-price',
     valueFields: ['close'],
     structure: ['sparse', 'out-of-order', 'flat-run'],
@@ -541,7 +487,7 @@ const policies = {
     volume: volume(100_000, 'ultra', 'line-points', 8_000, { explicitPerformance: true }),
   }),
   'volume-profile': policy({
-    recipe: 'ohlcv-sequence-v1',
+    recipe: 'ohlcv-sequence',
     range: 'price-volume',
     valueFields: ['price'],
     positiveFields: ['volume'],
@@ -551,7 +497,7 @@ const policies = {
     volume: volume(100_000, 'ultra', 'bar-marks', 5_000, { explicitPerformance: true }),
   }),
   'technical-indicator': policy({
-    recipe: 'ohlcv-sequence-v1',
+    recipe: 'ohlcv-sequence',
     range: 'ohlcv',
     valueFields: ['value', 'signal', 'open', 'high', 'low', 'close'],
     positiveFields: ['volume'],
@@ -562,33 +508,33 @@ const policies = {
     volume: volume(100_000, 'ultra', 'line-points', 8_000, { explicitPerformance: true }),
   }),
   surface: policy({
-    recipe: 'surface-grid-v1',
+    recipe: 'surface-grid',
     shape: 'surface-grid',
     range: 'spatial-signed',
     valueFields: ['z', 'value'],
     structure: ['near-flat', 'isolated-spike', 'nonuniform-grid'],
     handling: ['finite-grid-required', 'flat-domain-centered', 'nonuniform-axis-preserved'],
     invariants: ['surface-array-length-match', 'surface-value-finite'],
-    volume: volume(66_049, 'spatial-bounded', 'grid-points', 66_049, {
+    volume: volume(66_049, 'spatial-bounded', 'grid-points', 16_641, {
       rows: 257,
       columns: 257,
     }),
   }),
   volume: policy({
-    recipe: 'volume-grid-v1',
+    recipe: 'volume-grid',
     shape: 'volume-grid',
     range: 'spatial-signed',
     valueFields: ['value'],
     structure: ['near-flat', 'isolated-spike', 'isolated-trough'],
     handling: ['finite-voxel-required', 'window-level-explicit', 'null-voxel-forbidden'],
     invariants: ['volume-dimension-product-match', 'volume-value-finite'],
-    volume: volume(262_144, 'spatial-bounded', 'sampled-voxels', 80_000, {
+    volume: volume(262_144, 'spatial-bounded', 'sampled-voxels', 5_200, {
       dimensions: [64, 64, 64],
-      maxSamples: 80_000,
+      maxSamples: 5_200,
     }),
   }),
   'spatial-vector': policy({
-    recipe: 'spatial-vector-v1',
+    recipe: 'spatial-vector',
     shape: 'vector-set',
     range: 'spatial-vector',
     valueFields: ['u', 'v', 'w'],
@@ -740,9 +686,9 @@ function rangePreview(familyId, example, definition) {
   if (familyId === 'timeline') {
     rows[0].start = '1900-01-01';
     rows[0].end = '1900-01-01';
-    if (rows[1]) {
-      rows[1].start = '2099-12-01';
-      rows[1].end = '2100-01-01';
+    if (rows.at(-1)) {
+      rows.at(-1).start = '2099-12-01';
+      rows.at(-1).end = '2100-01-01';
     }
     return rows;
   }
@@ -850,21 +796,8 @@ function structurePreview(familyId, example, definition) {
   return rows.slice(0, 12);
 }
 
-function volumePreview(familyId, example, definition) {
-  const rows = rangePreview(familyId, example, definition).slice(0, 8);
-  rows.forEach((row, index) => {
-    if (Object.hasOwn(row, 'category')) row.category = `sample-${index + 1}`;
-    if (Object.hasOwn(row, 'date')) row.date = `2026-${String(index + 1).padStart(2, '0')}-01`;
-    if (Object.hasOwn(row, 'id')) {
-      row.id = `sample-${index + 1}`;
-      if (Object.hasOwn(row, 'parent')) row.parent = index === 0 ? '' : 'sample-1';
-    }
-    if (familyId === 'word-tree' && Object.hasOwn(row, 'word')) {
-      row.word = `sample-${index + 1}`;
-      row.parent = index === 0 ? '' : 'sample-1';
-    }
-  });
-  return rows;
+function volumePreview(recipe) {
+  return clone(materializeDemoRecipe(recipe).previewRows);
 }
 
 function rangeDemonstrates(definition) {
@@ -911,9 +844,15 @@ function optionsFor(example, familyId, profileId, definition) {
   const options = clone(example.options);
   const title = options.title;
   if (title && typeof title === 'object' && typeof title.text === 'string') {
-    title.subtitle = `edge case · ${profileId}`;
+    title.subtitle =
+      profileId === 'volume'
+        ? `${title.subtitle || 'Curated product example'} · ${definition.volume.rowCount.toLocaleString('en-US')} logical rows, screen-aware detail`
+        : `edge case · ${profileId}`;
   } else if (typeof title === 'string') {
-    options.title = `${title} · ${profileId}`;
+    options.title =
+      profileId === 'volume'
+        ? `${title} · ${definition.volume.rowCount.toLocaleString('en-US')} logical rows, screen-aware detail`
+        : `${title} · ${profileId}`;
   }
   if (
     profileId === 'range' &&
@@ -966,6 +905,93 @@ function optionsFor(example, familyId, profileId, definition) {
   return options;
 }
 
+const recipeDefinitionById = new Map(edgeCaseRecipeCatalog.map((recipe) => [recipe.id, recipe]));
+
+function recipeAxes(definition, parameters, sourceRows) {
+  if (definition.shape === 'surface-grid') {
+    return Object.fromEntries(
+      [
+        ['rows', parameters.rows],
+        ['columns', parameters.columns],
+      ].filter(([, value]) => value !== undefined),
+    );
+  }
+  if (definition.shape === 'volume-grid') {
+    return parameters.dimensions === undefined ? {} : { dimensions: parameters.dimensions };
+  }
+  if (definition.shape === 'vector-set') {
+    return { vectors: sourceRows };
+  }
+  const axes = {};
+  for (const key of [
+    'rows',
+    'columns',
+    'entityCount',
+    'frameCount',
+    'nodeCount',
+    'categoryCount',
+    'aggregateSetCount',
+  ]) {
+    if (Object.hasOwn(parameters, key)) axes[key] = parameters[key];
+  }
+  return axes;
+}
+
+function cardinalityUnit(definition) {
+  if (definition.shape === 'surface-grid') return 'cells';
+  if (definition.shape === 'volume-grid') return 'voxels';
+  if (definition.shape === 'vector-set') return 'vectors';
+  if (definition.recipe === 'grid-2d') return 'cells';
+  if (definition.recipe === 'relationship-edges') return 'edges';
+  if (definition.recipe === 'hierarchy-nodes') return 'nodes';
+  return definition.recipe === 'categorical-events' || definition.recipe === 'text-corpus'
+    ? 'events'
+    : 'rows';
+}
+
+function reductionStage(recipeId) {
+  if (
+    ['categorical-events', 'relationship-edges', 'text-corpus', 'venn-membership'].includes(
+      recipeId,
+    )
+  ) {
+    return 'pre-aggregate';
+  }
+  if (['time-signal', 'ohlcv-sequence'].includes(recipeId)) return 'bin';
+  if (
+    ['hierarchy-nodes', 'grid-2d', 'surface-grid', 'volume-grid', 'spatial-vector'].includes(
+      recipeId,
+    )
+  ) {
+    return 'level-of-detail';
+  }
+  return 'sample';
+}
+
+function initialViewFor(familyId, recipeId) {
+  if (recipeId === 'volume-grid') {
+    return {
+      kind: 'slice',
+      zoom: 1,
+      xDomain: [-1, 1],
+      yDomain: [-1, 1],
+      zDomain: [-1, 1],
+      sliceAxis: 'z',
+      sliceIndex: 0.5,
+    };
+  }
+  if (['surface-grid', 'spatial-vector'].includes(recipeId) && familyId !== 'vector-field') {
+    return { kind: 'camera', zoom: 1, xDomain: [-2, 2], yDomain: [-2, 2], zDomain: [-1.5, 1.5] };
+  }
+  if (recipeId === 'motion-trajectories') {
+    return { kind: 'viewport', zoom: 1, xDomain: [-70, 70], yDomain: [-55, 55], frame: 0 };
+  }
+  if (recipeId === 'geo-events') {
+    return { kind: 'viewport', zoom: 1, xDomain: [-180, 180], yDomain: [-70, 80] };
+  }
+  return { kind: 'domain', zoom: 1 };
+}
+
 function recipeFor(familyId, profileId, definition, previewRowCount) {
   const profileRowCount = profileId === 'volume' ? definition.volume.rowCount : previewRowCount;
   const parameters = {
@@ -977,20 +1003,45 @@ function recipeFor(familyId, profileId, definition, previewRowCount) {
     nullableFields: definition.nullableFields,
     ...(profileId === 'volume' ? definition.volume.parameters : {}),
   };
+  const recipeDefinition = recipeDefinitionById.get(definition.recipe);
+  assert.ok(recipeDefinition, `${familyId} recipe definition`);
+  const maximum =
+    profileId === 'volume' ? definition.volume.maximum : Math.min(25_000, profileRowCount);
+  const invariants = [...new Set(['finite-json', ...definition.invariants])];
   return {
     id: definition.recipe,
-    version: 1,
+    version: 2,
     seed: seedFor(familyId, profileId),
     shape: definition.shape,
-    rowCount: profileRowCount,
     parameters,
+    cardinality: {
+      sourceRows: profileRowCount,
+      unit: cardinalityUnit(definition),
+      axes: recipeAxes(definition, parameters, profileRowCount),
+    },
+    reduction: {
+      stage: reductionStage(definition.recipe),
+      method: recipeDefinition.reductionMethod,
+    },
+    outputBudget: {
+      resource:
+        profileId === 'volume'
+          ? definition.volume.resource
+          : definition.shape === 'rows'
+            ? 'marks'
+            : 'spatial-elements',
+      maximum,
+    },
+    preview: { method: recipeDefinition.previewMethod, maximumRows: 12 },
+    initialView: initialViewFor(familyId, definition.recipe),
+    expectedInvariants: invariants,
   };
 }
 
-function expectationsFor(profileId, definition, tableData) {
+function expectationsFor(profileId, definition, tableData, recipe) {
   const isVolume = profileId === 'volume';
   return {
-    inputRows: isVolume ? definition.volume.rowCount : tableData.length,
+    inputRows: recipe.cardinality.sourceRows,
     tablePreviewRows: tableData.length,
     performanceProfile: isVolume
       ? definition.volume.performanceProfile
@@ -998,15 +1049,30 @@ function expectationsFor(profileId, definition, tableData) {
         ? 'standard'
         : 'spatial-bounded',
     bounded: true,
-    outputBudget: isVolume
-      ? { resource: definition.volume.resource, maximum: definition.volume.maximum }
-      : { resource: definition.shape === 'rows' ? 'marks' : 'spatial-elements', maximum: 25_000 },
-    invariants: ['finite-json', ...definition.invariants],
+    outputBudget: recipe.outputBudget,
+    dataPlan: isVolume
+      ? materializeDemoRecipe(recipe).plan
+      : {
+          recipeId: recipe.id,
+          seed: recipe.seed,
+          sourceRows: recipe.cardinality.sourceRows,
+          derivedRows: tableData.length,
+          renderedRows: tableData.length,
+          renderedMaximum: recipe.outputBudget.maximum,
+          reduction: recipe.reduction,
+          budget: recipe.outputBudget,
+        },
+    invariants: recipe.expectedInvariants,
     handling:
       profileId === 'structure'
         ? definition.handling
         : profileId === 'volume'
-          ? ['deterministic-seed', 'bounded-output', 'compact-recipe-not-expanded-data']
+          ? [
+              'deterministic-seed',
+              'semantic-level-of-detail',
+              'bounded-output',
+              'lazy-materialization-after-consent',
+            ]
           : ['family-safe-domain', 'explicit-scale-policy'],
   };
 }
@@ -1047,12 +1113,19 @@ export function buildEdgeCaseCatalog(publicCatalog) {
     assert.ok(manualExample, `${family.id} representative manual example`);
     const definition = policies[family.id];
     for (const profile of edgeCaseProfiles) {
-      const tableData =
+      const compactTableData =
         profile.id === 'range'
           ? rangePreview(family.id, manualExample, definition)
           : profile.id === 'structure'
             ? structurePreview(family.id, manualExample, definition)
-            : volumePreview(family.id, manualExample, definition);
+            : [];
+      const recipe = recipeFor(
+        family.id,
+        profile.id,
+        definition,
+        compactTableData.length || previewRowCountForFamily(family.id),
+      );
+      const tableData = profile.id === 'volume' ? volumePreview(recipe) : compactTableData;
       const demonstrates =
         profile.id === 'range'
           ? rangeDemonstrates(definition)
@@ -1068,13 +1141,13 @@ export function buildEdgeCaseCatalog(publicCatalog) {
         renderer: manualExample.renderer,
         quickApi: family.quickApi,
         portableMark: family.mark,
-        recipe: recipeFor(family.id, profile.id, definition, tableData.length),
+        recipe,
         tableData,
         fields: fieldsForEdgeExample(manualExample, definition),
         options: optionsFor(manualExample, family.id, profile.id, definition),
         summary: `${family.name}: ${profile.summary}`,
         demonstrates,
-        expectations: expectationsFor(profile.id, definition, tableData),
+        expectations: expectationsFor(profile.id, definition, tableData, recipe),
         sourceRef: `scripts/edge-case-samples.mjs#family-${family.id}`,
       });
     }
@@ -1082,7 +1155,7 @@ export function buildEdgeCaseCatalog(publicCatalog) {
 
   return {
     $schema: '../schema/graflume.edge-cases.schema.json',
-    schemaVersion: 1,
+    schemaVersion: 2,
     verifiedAt: publicCatalog.verifiedAt,
     sourceCatalog: { path: 'catalog/graflume.catalog.json', schemaVersion: 2 },
     totals: {

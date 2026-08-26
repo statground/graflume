@@ -45,24 +45,24 @@ import { chord } from 'graflume/complete';
 
 const data = [
   {
-    source: 'Input',
-    value: 9,
-    target: 'Compiler',
+    source: 'Collected',
+    value: 86,
+    target: 'Validated',
   },
   {
-    source: 'Compiler',
-    value: 8,
-    target: 'Scene',
+    source: 'Collected',
+    value: 14,
+    target: 'Review queue',
   },
   {
-    source: 'Scene',
-    value: 6,
-    target: 'Canvas',
+    source: 'Validated',
+    value: 58,
+    target: 'Aggregated',
   },
   {
-    source: 'Scene',
-    value: 4,
-    target: 'Vector',
+    source: 'Validated',
+    value: 28,
+    target: 'Exploration',
   },
 ];
 
@@ -70,20 +70,25 @@ chord('#chart', data, {
   x: {
     field: 'source',
     type: 'ordinal',
-    title: 'source',
+    title: 'Team',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Hand-offs',
   },
   title: {
     text: 'Chord diagram',
     subtitle: 'chord family · default mode',
   },
   accessibility: {
-    label: 'Chord diagram example',
-    description: 'A compiled chord diagram example using the chord family.',
+    label: 'Chord diagram: Cross-team hand-offs make reciprocal movement and concentration visible',
+    description:
+      'Cross-team hand-offs make reciprocal movement and concentration visible. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
+  },
+  axes: {
+    x: false,
+    y: false,
   },
   mark: {
     fields: {
@@ -149,24 +154,24 @@ import { dependencyWheel } from 'graflume/complete';
 
 const data = [
   {
-    source: 'Input',
-    value: 9,
-    target: 'Compiler',
+    source: 'Collected',
+    value: 86,
+    target: 'Validated',
   },
   {
-    source: 'Compiler',
-    value: 8,
-    target: 'Scene',
+    source: 'Collected',
+    value: 14,
+    target: 'Review queue',
   },
   {
-    source: 'Scene',
-    value: 6,
-    target: 'Canvas',
+    source: 'Validated',
+    value: 58,
+    target: 'Aggregated',
   },
   {
-    source: 'Scene',
-    value: 4,
-    target: 'Vector',
+    source: 'Validated',
+    value: 28,
+    target: 'Exploration',
   },
 ];
 
@@ -174,20 +179,22 @@ dependencyWheel('#chart', data, {
   x: {
     field: 'source',
     type: 'ordinal',
-    title: 'source',
+    title: 'Team',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Hand-offs',
   },
   title: {
     text: 'Dependency wheel',
     subtitle: 'chord family · dependency-wheel mode',
   },
   accessibility: {
-    label: 'Dependency wheel example',
-    description: 'A compiled dependency wheel example using the chord family.',
+    label:
+      'Dependency wheel: Cross-team hand-offs make reciprocal movement and concentration visible',
+    description:
+      'Cross-team hand-offs make reciprocal movement and concentration visible. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   axes: {
     x: false,

@@ -1,108 +1,327 @@
-const trend = Array.from({ length: 10 }, (_, index) => ({
-  date: `2026-${String(index + 1).padStart(2, '0')}-01`,
-  category: `P${index + 1}`,
-  value: 24 + Math.sin(index * 0.72) * 7 + index * 1.3,
-  low: 14 + index * 0.8,
-  high: 33 + index * 1.1,
-  lower: 16 + index * 0.8,
-  upper: 31 + index,
-  target: 29 + index,
-  width: 3 + (index % 4),
-  radius: 9 + index * 2,
-  z: 5 + index,
-  direction: (index * 37) % 360,
-  magnitude: 5 + (index % 6) * 3,
-  speed: 10 + index * 3,
-  signal: 20 + index * 1.2,
-  secondary: 18 + index,
-  up: 42 + index * 2,
-  down: 66 - index * 2,
-  plus: 25 + index,
-  minus: 34 - index * 0.6,
-  conversion: 21 + index,
-  base: 19 + index * 0.9,
-  support: 14 + index * 0.8,
-  resistance: 34 + index,
-  volume: 120 + index * 31,
-  price: 24 + index * 1.2,
-  title: String.fromCharCode(65 + index),
-  open: 22 + index,
-  close: 23 + index + (index % 2 === 0 ? 2 : -2),
-  previous: 20 + index * 0.8,
-  series: index % 2 === 0 ? 'Alpha' : 'Beta',
-}));
+const monthNames = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+const monthlyActiveTeams = [48, 53, 51, 59, 66, 70, 76, 82, 80, 89, 96, 104];
+const trend = monthlyActiveTeams.map((value, index) => {
+  const target = 50 + index * 4.6;
+  const spread = 4 + (index % 3);
+  const previous = index === 0 ? 44 : monthlyActiveTeams[index - 1];
+  return {
+    date: `2026-${String(index + 1).padStart(2, '0')}-01`,
+    category: monthNames[index],
+    value,
+    low: value - spread,
+    high: value + spread + 2,
+    lower: value - spread - 1,
+    upper: value + spread + 3,
+    target: Number(target.toFixed(1)),
+    width: 2.8 + (index % 4) * 0.9,
+    radius: 10 + value * 0.22,
+    z: 8 + index * 1.4,
+    direction: (28 + index * 31) % 360,
+    magnitude: 7 + (index % 5) * 2.4,
+    speed: 18 + index * 2.7,
+    signal: Number((value * 0.9 + target * 0.1).toFixed(2)),
+    secondary: Number((36 + index * 3.1 + Math.sin(index * 0.8) * 4).toFixed(2)),
+    up: 54 + index * 2.4,
+    down: 78 - index * 1.7,
+    plus: 24 + index * 1.6,
+    minus: 39 - index * 1.1,
+    conversion: Number((18 + index * 1.15 + Math.sin(index * 0.6) * 2).toFixed(2)),
+    base: Number((value * 0.78).toFixed(2)),
+    support: value - 8,
+    resistance: value + 9,
+    volume: 1_250 + index * 145 + ((index * 83) % 210),
+    price: Number((72 + index * 1.35 + Math.sin(index * 0.7) * 3.2).toFixed(2)),
+    title: index === 2 ? 'Spring release' : index === 8 ? 'Team plan launch' : '',
+    open: previous,
+    close: value,
+    previous,
+    series: index < 6 ? 'Before launch' : 'After launch',
+  };
+});
 
 const relation = [
-  { source: 'Input', target: 'Compiler', value: 9 },
-  { source: 'Compiler', target: 'Scene', value: 8 },
-  { source: 'Scene', target: 'Canvas', value: 6 },
-  { source: 'Scene', target: 'Vector', value: 4 },
+  { source: 'Collected', target: 'Validated', value: 86 },
+  { source: 'Collected', target: 'Review queue', value: 14 },
+  { source: 'Validated', target: 'Aggregated', value: 58 },
+  { source: 'Validated', target: 'Exploration', value: 28 },
+  { source: 'Aggregated', target: 'Reports', value: 36 },
+  { source: 'Aggregated', target: 'Alerts', value: 22 },
+  { source: 'Exploration', target: 'Models', value: 18 },
+  { source: 'Exploration', target: 'Exports', value: 10 },
 ];
 
 const hierarchy = [
-  { id: 'All', parent: '', value: 12 },
-  { id: 'Data', parent: 'All', value: 8 },
-  { id: 'Design', parent: 'All', value: 7 },
-  { id: 'Runtime', parent: 'Data', value: 5 },
+  { id: 'Statground', parent: '', value: 100 },
+  { id: 'Visualization', parent: 'Statground', value: 46 },
+  { id: 'Data products', parent: 'Statground', value: 34 },
+  { id: 'Documentation', parent: 'Statground', value: 20 },
+  { id: 'Canvas charts', parent: 'Visualization', value: 28 },
+  { id: 'Spatial charts', parent: 'Visualization', value: 18 },
+  { id: 'Catalog', parent: 'Data products', value: 14 },
+  { id: 'Workbench', parent: 'Data products', value: 12 },
+  { id: 'Pipelines', parent: 'Data products', value: 8 },
+  { id: 'Guides', parent: 'Documentation', value: 12 },
+  { id: 'Examples', parent: 'Documentation', value: 8 },
 ];
 
 const geo = [
-  { longitude: 126.98, latitude: 37.57, longitude2: 37.62, latitude2: 55.75, value: 72 },
-  { longitude: -74, latitude: 40.71, longitude2: 2.35, latitude2: 48.86, value: 55 },
-  { longitude: 139.69, latitude: 35.68, longitude2: 151.21, latitude2: -33.87, value: 43 },
+  {
+    name: 'Seoul',
+    longitude: 126.98,
+    latitude: 37.57,
+    longitude2: 139.69,
+    latitude2: 35.68,
+    value: 92,
+  },
+  {
+    name: 'Tokyo',
+    longitude: 139.69,
+    latitude: 35.68,
+    longitude2: 103.82,
+    latitude2: 1.35,
+    value: 78,
+  },
+  {
+    name: 'Singapore',
+    longitude: 103.82,
+    latitude: 1.35,
+    longitude2: 77.21,
+    latitude2: 28.61,
+    value: 64,
+  },
+  {
+    name: 'Delhi',
+    longitude: 77.21,
+    latitude: 28.61,
+    longitude2: 2.35,
+    latitude2: 48.86,
+    value: 58,
+  },
+  { name: 'Paris', longitude: 2.35, latitude: 48.86, longitude2: -74, latitude2: 40.71, value: 73 },
+  {
+    name: 'New York',
+    longitude: -74,
+    latitude: 40.71,
+    longitude2: -122.42,
+    latitude2: 37.77,
+    value: 88,
+  },
+  {
+    name: 'San Francisco',
+    longitude: -122.42,
+    latitude: 37.77,
+    longitude2: -99.13,
+    latitude2: 19.43,
+    value: 69,
+  },
+  {
+    name: 'Sydney',
+    longitude: 151.21,
+    latitude: -33.87,
+    longitude2: 126.98,
+    latitude2: 37.57,
+    value: 51,
+  },
 ];
 
-const grid = Array.from({ length: 30 }, (_, index) => {
-  const x = index % 6;
-  const y = Math.floor(index / 6);
-  const primary = 72 * Math.exp(-((x - 2.2) ** 2 + (y - 1.7) ** 2) / 3.2);
-  const secondary = 34 * Math.exp(-((x - 4.7) ** 2 + (y - 3.3) ** 2) / 1.8);
-  return { x, y, value: primary + secondary + 4 };
+const grid = Array.from({ length: 96 }, (_, index) => {
+  const x = index % 12;
+  const y = Math.floor(index / 12);
+  const primary = 78 * Math.exp(-((x - 3.6) ** 2 + (y - 2.7) ** 2) / 8.5);
+  const secondary = 52 * Math.exp(-((x - 8.8) ** 2 + (y - 5.3) ** 2) / 5.2);
+  const ridge = 12 * Math.exp(-((y - 0.45 * x - 0.7) ** 2) / 1.8);
+  return { x, y, value: Number((primary + secondary + ridge + 3).toFixed(3)) };
 });
 
 const points = [
-  { x: 12, y: 42, size: 20, group: 'A', z: 8 },
-  { x: 24, y: 55, size: 85, group: 'B', z: 14 },
-  { x: 38, y: 33, size: 55, group: 'A', z: 21 },
-  { x: 51, y: 68, size: 120, group: 'C', z: 17 },
+  { name: 'Starter 1', x: 14, y: 38, size: 28, group: 'Starter', z: 7 },
+  { name: 'Starter 2', x: 20, y: 45, size: 34, group: 'Starter', z: 10 },
+  { name: 'Starter 3', x: 25, y: 41, size: 31, group: 'Starter', z: 12 },
+  { name: 'Growth 1', x: 38, y: 57, size: 64, group: 'Growth', z: 15 },
+  { name: 'Growth 2', x: 45, y: 63, size: 78, group: 'Growth', z: 18 },
+  { name: 'Growth 3', x: 50, y: 55, size: 70, group: 'Growth', z: 21 },
+  { name: 'Scale 1', x: 64, y: 72, size: 112, group: 'Scale', z: 25 },
+  { name: 'Scale 2', x: 72, y: 79, size: 128, group: 'Scale', z: 28 },
+  { name: 'Scale 3', x: 78, y: 70, size: 118, group: 'Scale', z: 31 },
+  { name: 'Efficient outlier', x: 61, y: 88, size: 52, group: 'Opportunity', z: 34 },
 ];
 
 const timeline = [
-  { id: 'research', task: 'Research', start: '2026-01-01', end: '2026-01-07', progress: 100 },
-  { id: 'design', task: 'Design', start: '2026-01-06', end: '2026-01-14', progress: 80 },
-  { id: 'build', task: 'Build', start: '2026-01-13', end: '2026-01-27', progress: 45 },
+  { id: 'research', task: 'Research', start: '2026-01-01', end: '2026-01-09', progress: 100 },
+  { id: 'data', task: 'Data design', start: '2026-01-05', end: '2026-01-16', progress: 100 },
+  { id: 'prototype', task: 'Prototype', start: '2026-01-12', end: '2026-01-25', progress: 86 },
+  {
+    id: 'accessibility',
+    task: 'Accessibility',
+    start: '2026-01-19',
+    end: '2026-02-02',
+    progress: 72,
+  },
+  { id: 'validation', task: 'Validation', start: '2026-01-27', end: '2026-02-10', progress: 48 },
+  { id: 'release', task: 'Release', start: '2026-02-09', end: '2026-02-14', progress: 20 },
 ];
 
 const composition = [
-  { category: 'Search', value: 46, radius: 32 },
-  { category: 'Direct', value: 28, radius: 24 },
-  { category: 'Social', value: 17, radius: 18 },
-  { category: 'Other', value: 9, radius: 12 },
+  { category: 'Organic search', value: 38, radius: 34 },
+  { category: 'Direct', value: 27, radius: 28 },
+  { category: 'Product referrals', value: 18, radius: 23 },
+  { category: 'Community', value: 11, radius: 18 },
+  { category: 'Campaigns', value: 6, radius: 13 },
+];
+
+const productMetrics = [
+  { category: 'Insights', value: 86, previous: 74, target: 88, low: 81, high: 91, width: 24 },
+  { category: 'Dashboards', value: 78, previous: 69, target: 82, low: 72, high: 84, width: 21 },
+  { category: 'Reports', value: 69, previous: 65, target: 74, low: 63, high: 76, width: 18 },
+  { category: 'Alerts', value: 61, previous: 48, target: 66, low: 55, high: 68, width: 15 },
+  { category: 'Models', value: 48, previous: 41, target: 55, low: 42, high: 56, width: 12 },
+  { category: 'Exports', value: 37, previous: 34, target: 44, low: 31, high: 45, width: 10 },
+];
+
+const serviceIndicators = [
+  { category: 'Reliability', value: 99.93, previous: 99.84, target: 99.9 },
+  { category: 'Fast responses', value: 94, previous: 89, target: 92 },
+  { category: 'Accessible flows', value: 91, previous: 82, target: 95 },
+  { category: 'Successful exports', value: 97, previous: 94, target: 98 },
+];
+
+const effectEstimates = [
+  { category: 'Guided setup', value: 8.4, previous: 4.1, low: 5.9, high: 10.8 },
+  { category: 'Saved views', value: 6.7, previous: 2.8, low: 4.8, high: 8.6 },
+  { category: 'Smart alerts', value: 5.1, previous: 1.7, low: 2.6, high: 7.5 },
+  { category: 'Team sharing', value: 3.9, previous: 1.5, low: 1.4, high: 6.3 },
+  { category: 'CSV onboarding', value: 2.3, previous: 0.8, low: -0.3, high: 4.8 },
+];
+
+const funnelStages = [
+  { category: 'Visited', value: 12_000 },
+  { category: 'Explored a chart', value: 8_450 },
+  { category: 'Created a view', value: 5_120 },
+  { category: 'Shared with a team', value: 2_940 },
+  { category: 'Returned in 30 days', value: 1_860 },
+];
+
+const waterfallDrivers = [
+  { category: 'Opening MRR', value: 420 },
+  { category: 'New teams', value: 86 },
+  { category: 'Plan upgrades', value: 34 },
+  { category: 'Reactivations', value: 12 },
+  { category: 'Downgrades', value: -18 },
+  { category: 'Churn', value: -41 },
+  { category: 'Currency impact', value: -5 },
+];
+
+const calendarActivity = Array.from({ length: 365 }, (_, index) => {
+  const date = new Date(Date.UTC(2025, 0, index + 1));
+  const weekday = date.getUTCDay();
+  const seasonal = Math.sin(index * 0.075) * 13 + Math.cos(index * 0.021) * 7;
+  const releaseLift = index >= 238 ? 18 : 0;
+  const weekendAdjustment = weekday === 0 || weekday === 6 ? -17 : 0;
+  return {
+    date: date.toISOString().slice(0, 10),
+    value: Math.max(5, Math.round(52 + seasonal + releaseLift + weekendAdjustment)),
+  };
+});
+
+const regionPerformance = [
+  { region: 'KR', value: 92 },
+  { region: 'JPN', value: 84 },
+  { region: 'SGP', value: 79 },
+  { region: 'USA', value: 88 },
+  { region: 'BRA', value: 63 },
+  { region: 'FRA', value: 76 },
+  { region: 'ZAF', value: 58 },
+  { region: 'AUS', value: 72 },
+];
+
+const vennIntersections = [
+  { sets: ['Analysis'], size: 34, members: ['Cohort explorer', 'Forecast review'] },
+  { sets: ['Engineering'], size: 28, members: ['Runtime profiler', 'Schema audit'] },
+  { sets: ['Design'], size: 22, members: ['Theme studio', 'Layout review'] },
+  { sets: ['Analysis', 'Engineering'], size: 15, members: ['Metric debugger'] },
+  { sets: ['Analysis', 'Design'], size: 12, members: ['Story dashboard'] },
+  { sets: ['Engineering', 'Design'], size: 9, members: ['Component lab'] },
+  { sets: ['Analysis', 'Engineering', 'Design'], size: 7, members: ['Graflume manual'] },
 ];
 
 const radar = [
-  { indicator: 'Speed', series: 'Alpha', value: 82 },
-  { indicator: 'Quality', series: 'Alpha', value: 74 },
-  { indicator: 'Reach', series: 'Alpha', value: 91 },
-  { indicator: 'Speed', series: 'Beta', value: 66 },
-  { indicator: 'Quality', series: 'Beta', value: 88 },
-  { indicator: 'Reach', series: 'Beta', value: 69 },
+  { indicator: 'Speed', series: 'Current', value: 82 },
+  { indicator: 'Clarity', series: 'Current', value: 74 },
+  { indicator: 'Coverage', series: 'Current', value: 91 },
+  { indicator: 'Accessibility', series: 'Current', value: 79 },
+  { indicator: 'Efficiency', series: 'Current', value: 76 },
+  { indicator: 'Speed', series: 'Previous', value: 68 },
+  { indicator: 'Clarity', series: 'Previous', value: 66 },
+  { indicator: 'Coverage', series: 'Previous', value: 73 },
+  { indicator: 'Accessibility', series: 'Previous', value: 61 },
+  { indicator: 'Efficiency', series: 'Previous', value: 64 },
 ];
 
 const boxSummary = [
-  { category: 'Alpha', low: 12, q1: 19, median: 27, q3: 34, high: 43 },
-  { category: 'Beta', low: 17, q1: 24, median: 31, q3: 39, high: 48 },
-  { category: 'Gamma', low: 9, q1: 16, median: 22, q3: 29, high: 38 },
+  { category: 'Starter', low: 12, q1: 19, median: 27, q3: 34, high: 43 },
+  { category: 'Team', low: 17, q1: 25, median: 33, q3: 41, high: 51 },
+  { category: 'Business', low: 21, q1: 31, median: 40, q3: 49, high: 60 },
+  { category: 'Enterprise', low: 28, q1: 39, median: 48, q3: 58, high: 71 },
 ];
 
 const words = [
-  { word: 'Analytics', weight: 92, parent: '' },
-  { word: 'Canvas', weight: 76, parent: 'Analytics' },
-  { word: 'Portable', weight: 69, parent: 'Analytics' },
-  { word: 'Scene', weight: 61, parent: 'Canvas' },
-  { word: 'Scale', weight: 53, parent: 'Canvas' },
-  { word: 'Theme', weight: 47, parent: 'Portable' },
+  { word: 'Visualization', weight: 100, parent: '' },
+  { word: 'Statistics', weight: 88, parent: 'Visualization' },
+  { word: 'Interaction', weight: 81, parent: 'Visualization' },
+  { word: 'Accessibility', weight: 76, parent: 'Visualization' },
+  { word: 'Canvas', weight: 70, parent: 'Interaction' },
+  { word: 'Spatial', weight: 65, parent: 'Interaction' },
+  { word: 'Scales', weight: 61, parent: 'Statistics' },
+  { word: 'Uncertainty', weight: 56, parent: 'Statistics' },
+  { word: 'Keyboard', weight: 51, parent: 'Accessibility' },
+  { word: 'Contrast', weight: 47, parent: 'Accessibility' },
+  { word: 'Themes', weight: 43, parent: 'Canvas' },
+  { word: 'Tooltips', weight: 39, parent: 'Canvas' },
 ];
+
+const observations = Array.from({ length: 72 }, (_, index) => {
+  const cohort = index < 36 ? 'Before launch' : 'After launch';
+  const local = index % 36;
+  const wave = Math.sin(local * 0.58) * 5.4 + Math.cos(local * 0.19) * 2.8;
+  const value = 42 + (cohort === 'After launch' ? 11 : 0) + wave + (local % 7) * 0.9;
+  return {
+    sample: `S${String(index + 1).padStart(3, '0')}`,
+    series: cohort,
+    value: Number(value.toFixed(3)),
+    weight: 1 + (index % 4) * 0.25,
+  };
+});
+
+const vectorField = Array.from({ length: 63 }, (_, index) => {
+  const column = index % 9;
+  const row = Math.floor(index / 9);
+  const x = column - 4;
+  const y = row - 3;
+  const dx = -y * 0.48 + Math.sin(column * 0.7) * 0.22;
+  const dy = x * 0.48 + Math.cos(row * 0.6) * 0.22;
+  const magnitude = Math.hypot(dx, dy);
+  return {
+    x,
+    y,
+    direction: Number(((Math.atan2(dy, dx) * 180) / Math.PI + 360).toFixed(3)) % 360,
+    magnitude: Number(magnitude.toFixed(3)),
+    value: Number(dx.toFixed(3)),
+    high: Number(dy.toFixed(3)),
+  };
+});
 
 function deterministicOhlcvRows(length = 128) {
   return Array.from({ length }, (_, index) => {
@@ -125,6 +344,236 @@ function deterministicOhlcvRows(length = 128) {
   });
 }
 
+const familyStories = {
+  annotation: {
+    subtitle: 'Monthly active teams with the releases that changed adoption',
+    xTitle: 'Month',
+    yTitle: 'Active teams',
+  },
+  area: {
+    subtitle: 'A year of steady team adoption with visible seasonal movement',
+    xTitle: 'Month',
+    yTitle: 'Active teams',
+  },
+  bar: {
+    subtitle: 'Feature adoption, ordered so the leading capability is immediately clear',
+    xTitle: 'Capability',
+    yTitle: 'Adoption (%)',
+  },
+  bubble: {
+    subtitle: 'Customer segments compared by engagement, satisfaction, and team size',
+    xTitle: 'Engagement score',
+    yTitle: 'Satisfaction score',
+  },
+  calendar: {
+    subtitle: 'A complete year of daily activity with weekday rhythm and a release lift',
+    xTitle: 'Date',
+    yTitle: 'Daily sessions',
+  },
+  candlestick: {
+    subtitle: 'A coherent daily market path with open, high, low, close, and volume',
+    xTitle: 'Trading day',
+    yTitle: 'Price',
+  },
+  combination: {
+    subtitle: 'Monthly active teams compared with the operating target',
+    xTitle: 'Month',
+    yTitle: 'Active teams',
+  },
+  difference: {
+    subtitle: 'Current feature adoption compared with the previous release',
+    xTitle: 'Capability',
+    yTitle: 'Adoption (%)',
+  },
+  pie: {
+    subtitle: 'Acquisition channels shown as a restrained five-part composition',
+    xTitle: 'Channel',
+    yTitle: 'Share (%)',
+  },
+  timeline: {
+    subtitle: 'A release plan with overlapping work, progress, and a clear finish',
+    xTitle: 'Schedule',
+    yTitle: 'Workstream',
+  },
+  gauge: {
+    subtitle: 'Service reliability compared with its target and previous value',
+    xTitle: 'Service metric',
+    yTitle: 'Percent',
+  },
+  map: {
+    subtitle: 'Regional adoption and routes connecting Statground teams around the world',
+    xTitle: 'Longitude',
+    yTitle: 'Latitude',
+  },
+  distribution: {
+    subtitle: 'Before-and-after cohorts reveal the shift, spread, and remaining overlap',
+    xTitle: 'Outcome score',
+    yTitle: 'Frequency',
+  },
+  interval: {
+    subtitle: 'Estimated onboarding lift with uncertainty kept visible for every change',
+    xTitle: 'Experiment',
+    yTitle: 'Lift (points)',
+  },
+  line: {
+    subtitle: 'Monthly active teams make the trend and two release moments easy to read',
+    xTitle: 'Month',
+    yTitle: 'Active teams',
+  },
+  motion: {
+    subtitle: 'Customer segments move from the 2025 baseline to their 2026 position',
+    xTitle: 'Engagement score',
+    yTitle: 'Satisfaction score',
+  },
+  hierarchy: {
+    subtitle: 'The Statground portfolio from platform areas down to concrete products',
+    xTitle: 'Portfolio node',
+    yTitle: 'Relative investment',
+  },
+  flow: {
+    subtitle: 'Validated data branches into reports, alerts, models, and exports',
+    xTitle: 'Pipeline stage',
+    yTitle: 'Records',
+  },
+  scatter: {
+    subtitle: 'Customer segments expose a clear trade-off and one efficient opportunity',
+    xTitle: 'Engagement score',
+    yTitle: 'Satisfaction score',
+  },
+  table: {
+    subtitle: 'A compact operational scorecard with current, target, and previous values',
+    xTitle: 'Capability',
+    yTitle: 'Current value',
+  },
+  waterfall: {
+    subtitle: 'Opening monthly revenue reconciled through growth, contraction, and churn',
+    xTitle: 'Revenue driver',
+    yTitle: 'MRR change (kUSD)',
+  },
+  'word-tree': {
+    subtitle: 'A readable concept tree linking statistics, interaction, and accessibility',
+    xTitle: 'Concept',
+    yTitle: 'Mentions',
+  },
+  polar: {
+    subtitle: 'A full-day usage cycle highlights recurring peaks without excess categories',
+    xTitle: 'Angle',
+    yTitle: 'Activity index',
+  },
+  network: {
+    subtitle: 'Product workflows reveal the strongest paths and the bridge between teams',
+    xTitle: 'Workflow node',
+    yTitle: 'Interactions',
+  },
+  chord: {
+    subtitle: 'Cross-team hand-offs make reciprocal movement and concentration visible',
+    xTitle: 'Team',
+    yTitle: 'Hand-offs',
+  },
+  funnel: {
+    subtitle: 'A realistic product journey exposes the largest conversion loss',
+    xTitle: 'Journey stage',
+    yTitle: 'Teams',
+  },
+  parallel: {
+    subtitle: 'Release candidates balance speed, quality, and operating cost',
+    xTitle: 'Candidate',
+    yTitle: 'Score',
+  },
+  heatmap: {
+    subtitle: 'Two hotspots and a diagonal ridge form a purposeful density landscape',
+    xTitle: 'Horizontal bin',
+    yTitle: 'Vertical bin',
+  },
+  image: {
+    subtitle: 'A smooth calibration raster demonstrates color and pixel inspection',
+    xTitle: 'Column',
+    yTitle: 'Row',
+  },
+  ternary: {
+    subtitle: 'Balanced blends move across a composition whose three parts always sum to 100',
+    xTitle: 'Component A (%)',
+    yTitle: 'Component B (%)',
+  },
+  smith: {
+    subtitle: 'A monotonic frequency sweep passes through a visible resonance',
+    xTitle: 'Normalized resistance',
+    yTitle: 'Normalized reactance',
+  },
+  'scatter-matrix': {
+    subtitle: 'Release builds expose correlations among speed, quality, and cost',
+    xTitle: 'Build metric',
+    yTitle: 'Build metric',
+  },
+  carpet: {
+    subtitle: 'A warped coordinate surface retains two peaks and its underlying topology',
+    xTitle: 'Carpet axis A',
+    yTitle: 'Carpet axis B',
+  },
+  contour: {
+    subtitle: 'Smooth peaks, a ridge, and a basin produce interpretable contour structure',
+    xTitle: 'Horizontal bin',
+    yTitle: 'Vertical bin',
+  },
+  item: {
+    subtitle: 'One hundred marks translate acquisition share into an immediate countable view',
+    xTitle: 'Channel',
+    yTitle: 'Share (%)',
+  },
+  'vector-field': {
+    subtitle: 'A balanced vortex keeps direction, magnitude, and the calm center visible',
+    xTitle: 'Horizontal position',
+    yTitle: 'Vertical position',
+  },
+  venn: {
+    subtitle: 'Analysis, engineering, and design overlap in seven valid set regions',
+    xTitle: 'Sets',
+    yTitle: 'Items',
+  },
+  'word-cloud': {
+    subtitle: 'Visualization topics are ranked with stable, meaningful vocabulary',
+    xTitle: 'Topic',
+    yTitle: 'Mentions',
+  },
+  'price-blocks': {
+    subtitle: 'A coherent price path reveals regimes without fabricated independent bars',
+    xTitle: 'Trading day',
+    yTitle: 'Price',
+  },
+  'volume-profile': {
+    subtitle: 'Trading activity reveals the price levels where liquidity accumulated',
+    xTitle: 'Trading day',
+    yTitle: 'Price',
+  },
+  'technical-indicator': {
+    subtitle: 'Every indicator is calculated from the same coherent OHLCV market history',
+    xTitle: 'Trading day',
+    yTitle: 'Indicator value',
+  },
+};
+
+const axislessFamilies = [
+  'calendar',
+  'pie',
+  'gauge',
+  'map',
+  'hierarchy',
+  'flow',
+  'word-tree',
+  'polar',
+  'network',
+  'chord',
+  'funnel',
+  'parallel',
+  'ternary',
+  'smith',
+  'scatter-matrix',
+  'carpet',
+  'item',
+  'venn',
+  'word-cloud',
+];
+
 function fieldType(field) {
   if (field === 'date' || field === 'start') return 'temporal';
   if (
@@ -139,6 +588,7 @@ function fieldType(field) {
       'indicator',
       'name',
       'series',
+      'sets',
     ].includes(field)
   )
     return 'ordinal';
@@ -162,12 +612,11 @@ export function seriesSampleSpec(entry) {
   if (mark === 'annotation') {
     spec = base(
       { type: mark, fields: { annotation: 'annotation' }, point: true },
-      [
-        { date: '2026-01-01', value: 22, annotation: 'Launch' },
-        { date: '2026-02-01', value: 31, annotation: null },
-        { date: '2026-03-01', value: 27, annotation: 'Campaign' },
-        { date: '2026-04-01', value: 43, annotation: null },
-      ],
+      trend.map(({ date, value, title }) => ({
+        date,
+        value,
+        annotation: title || null,
+      })),
       'date',
       'value',
     );
@@ -179,11 +628,14 @@ export function seriesSampleSpec(entry) {
   ) {
     spec = base({ type: mark, point: mark === 'line' || mark === 'trendline' });
   } else if (mark === 'bar') {
-    spec = base({
-      type: mark,
-      orientation: id === 'bar' ? 'horizontal' : 'vertical',
-      cornerRadius: 6,
-    });
+    spec = base(
+      {
+        type: mark,
+        orientation: id === 'bar' ? 'horizontal' : 'vertical',
+        cornerRadius: 6,
+      },
+      productMetrics,
+    );
   } else if (mark === 'boxplot') {
     spec = base(
       { type: mark, fields: { low: 'low', q1: 'q1', median: 'median', q3: 'q3', high: 'high' } },
@@ -192,19 +644,11 @@ export function seriesSampleSpec(entry) {
   } else if (mark === 'bubble' || mark === 'effect-scatter') {
     spec = base({ type: mark, fields: { size: 'size', color: 'group' } }, points, 'x', 'y');
   } else if (mark === 'calendar') {
-    spec = base(
-      mark,
-      Array.from({ length: 28 }, (_, index) => ({
-        date: `2026-01-${String(index + 1).padStart(2, '0')}`,
-        value: (index * 13) % 47,
-      })),
-      'date',
-      'value',
-    );
+    spec = base(mark, calendarActivity, 'date', 'value');
   } else if (mark === 'candlestick') {
     spec = base(
       { type: mark, fields: { open: 'open', high: 'high', low: 'low', close: 'close' } },
-      trend,
+      deterministicOhlcvRows(64),
       'date',
       'close',
     );
@@ -227,11 +671,11 @@ export function seriesSampleSpec(entry) {
       ],
     };
   } else if (mark === 'diff') {
-    spec = base({ type: mark, fields: { old: 'previous', new: 'value' } });
+    spec = base({ type: mark, fields: { old: 'previous', new: 'value' } }, productMetrics);
   } else if (mark === 'funnel') {
     spec = base(
       { type: mark, options: { mode: entry.mode === 'area' ? 'area' : 'default' } },
-      composition,
+      funnelStages,
     );
   } else if (mark === 'gantt') {
     spec = base(
@@ -247,24 +691,19 @@ export function seriesSampleSpec(entry) {
         fields: { reference: 'previous', target: 'target' },
         options: { min: 0, max: 100, mode: entry.mode === 'default' ? 'angular' : entry.mode },
       },
-      trend.slice(0, 3),
+      serviceIndicators.slice(0, 1),
     );
   } else if (mark === 'geo') {
     spec = base(
       { type: mark, options: { mode: 'choropleth' } },
-      [
-        { region: 'KR', value: 72 },
-        { region: 'United States', value: 88 },
-        { region: 'Brazil', value: 41 },
-        { region: 'RUS', value: 63 },
-      ],
+      regionPerformance,
       'region',
       'value',
     );
   } else if (mark === 'heatmap') {
     spec = base(mark, grid, 'x', 'y');
   } else if (mark === 'histogram') {
-    spec = base({ type: mark, options: { bins: 8 } }, trend, 'value', 'value');
+    spec = base({ type: mark, options: { bins: 12 } }, observations, 'value', 'value');
   } else if (mark === 'motion') {
     spec = base(
       {
@@ -291,16 +730,19 @@ export function seriesSampleSpec(entry) {
       },
       categorical
         ? [
-            { region: 'East', channel: 'Web', outcome: 'Won', value: 1 },
-            { region: 'East', channel: 'Web', outcome: 'Won', value: 1 },
-            { region: 'East', channel: 'Store', outcome: 'Lost', value: 1 },
-            { region: 'West', channel: 'Web', outcome: 'Won', value: 1 },
-            { region: 'West', channel: 'Store', outcome: 'Lost', value: 1 },
+            { region: 'Asia', channel: 'Organic', outcome: 'Expanded', value: 1 },
+            { region: 'Asia', channel: 'Community', outcome: 'Expanded', value: 1 },
+            { region: 'Europe', channel: 'Organic', outcome: 'Renewed', value: 1 },
+            { region: 'Europe', channel: 'Partner', outcome: 'Expanded', value: 1 },
+            { region: 'Americas', channel: 'Partner', outcome: 'Renewed', value: 1 },
+            { region: 'Americas', channel: 'Community', outcome: 'Evaluating', value: 1 },
           ]
         : [
-            { name: 'Alpha', speed: 82, quality: 74, cost: 61 },
-            { name: 'Beta', speed: 66, quality: 88, cost: 73 },
-            { name: 'Gamma', speed: 91, quality: 69, cost: 54 },
+            { name: 'Balanced', speed: 82, quality: 84, cost: 63 },
+            { name: 'Fast', speed: 94, quality: 72, cost: 76 },
+            { name: 'Precise', speed: 69, quality: 95, cost: 71 },
+            { name: 'Efficient', speed: 78, quality: 86, cost: 49 },
+            { name: 'Baseline', speed: 62, quality: 68, cost: 58 },
           ],
       categorical ? 'region' : 'name',
       categorical ? 'value' : 'speed',
@@ -321,14 +763,13 @@ export function seriesSampleSpec(entry) {
         fields: { series: 'series' },
         options: { mode: entry.mode === 'default' ? 'line' : entry.mode, closed: true },
       },
-      [
-        { angle: 0, series: 'Alpha', value: 56 },
-        { angle: 60, series: 'Alpha', value: 82 },
-        { angle: 120, series: 'Alpha', value: 67 },
-        { angle: 180, series: 'Alpha', value: 91 },
-        { angle: 240, series: 'Alpha', value: 72 },
-        { angle: 300, series: 'Alpha', value: 63 },
-      ],
+      Array.from({ length: 12 }, (_, index) => ({
+        angle: index * 30,
+        series: 'Daily cycle',
+        value: Number(
+          (63 + Math.sin(index * 0.86 - 0.7) * 19 + Math.cos(index * 0.31) * 7).toFixed(2),
+        ),
+      })),
       'angle',
       'value',
     );
@@ -346,14 +787,12 @@ export function seriesSampleSpec(entry) {
       'value',
     );
   } else if (mark === 'table') {
-    spec = base({ type: mark, options: { columns: ['category', 'value', 'target'] } });
+    spec = base(
+      { type: mark, options: { columns: ['category', 'value', 'target', 'previous'] } },
+      productMetrics,
+    );
   } else if (mark === 'waterfall') {
-    spec = base(mark, [
-      { category: 'Start', value: 40 },
-      { category: 'Sales', value: 22 },
-      { category: 'Returns', value: -8 },
-      { category: 'Costs', value: -19 },
-    ]);
+    spec = base(mark, waterfallDrivers);
   } else if (mark === 'word-tree') {
     spec = base({ type: mark, fields: { parent: 'parent' } }, words, 'word', 'weight');
   } else if (mark === 'vega') {
@@ -364,7 +803,7 @@ export function seriesSampleSpec(entry) {
       points.map((point, index) => ({
         ...point,
         shape: index % 2 === 0 ? 'circle' : 'diamond',
-        label: `P${index + 1}`,
+        label: point.name,
       })),
       'x',
       'y',
@@ -375,11 +814,14 @@ export function seriesSampleSpec(entry) {
     spec = base({ type: mark, fields: { parent: 'parent' } }, hierarchy, 'id', 'value');
   } else if (mark === 'range') {
     const mode = id.includes('column') ? 'column' : id === 'dumbbell' ? 'dumbbell' : 'area';
-    spec = base({
-      type: mark,
-      fields: { low: 'low', high: 'high' },
-      options: { mode, smooth: id.includes('spline') },
-    });
+    spec = base(
+      {
+        type: mark,
+        fields: { low: 'low', high: 'high' },
+        options: { mode, smooth: id.includes('spline') },
+      },
+      effectEstimates,
+    );
   } else if (mark === 'smooth') {
     spec = base({ type: mark, point: true, options: { area: id.includes('area') } });
   } else if (mark === 'distribution') {
@@ -387,8 +829,11 @@ export function seriesSampleSpec(entry) {
     if (mode === 'histogram-2d' || mode === 'histogram-2d-contour') {
       spec = base(
         { type: mark, options: { mode, binsX: 6, binsY: 5, levels: 4 } },
-        grid.flatMap((row, index) =>
-          Array.from({ length: 1 + (index % 5) }, () => ({ x: row.x, y: row.y })),
+        grid.flatMap((row) =>
+          Array.from({ length: Math.max(1, Math.round(row.value / 12)) }, (_, sampleIndex) => ({
+            x: row.x + ((sampleIndex % 3) - 1) * 0.08,
+            y: row.y + ((Math.floor(sampleIndex / 3) % 3) - 1) * 0.08,
+          })),
         ),
         'x',
         'y',
@@ -401,7 +846,7 @@ export function seriesSampleSpec(entry) {
           fields: { group: 'series', value: 'value' },
           options: { mode: mode === 'bell-curve' ? 'curve' : mode },
         },
-        trend,
+        observations,
         violinMode ? 'series' : 'value',
         'value',
       );
@@ -409,12 +854,12 @@ export function seriesSampleSpec(entry) {
   } else if (mark === 'image') {
     spec = base(
       { type: mark, fields: { red: 'red', green: 'green', blue: 'blue' } },
-      Array.from({ length: 30 }, (_, index) => ({
-        x: index % 6,
-        y: Math.floor(index / 6),
-        red: 38 + (index % 6) * 35,
-        green: 72 + Math.floor(index / 6) * 32,
-        blue: 210 - (index % 5) * 24,
+      Array.from({ length: 96 }, (_, index) => ({
+        x: index % 12,
+        y: Math.floor(index / 12),
+        red: 32 + Math.round((index % 12) * 16.8),
+        green: 52 + Math.round(Math.floor(index / 12) * 24.5),
+        blue: 224 - Math.round(((index % 12) + Math.floor(index / 12)) * 8.4),
       })),
       'x',
       'y',
@@ -422,37 +867,38 @@ export function seriesSampleSpec(entry) {
   } else if (mark === 'ternary') {
     spec = base(
       { type: mark, fields: { c: 'c', series: 'series' }, options: { mode: 'line' } },
-      [
-        { a: 65, b: 25, c: 10, series: 'Mix' },
-        { a: 42, b: 38, c: 20, series: 'Mix' },
-        { a: 24, b: 31, c: 45, series: 'Mix' },
-        { a: 12, b: 58, c: 30, series: 'Mix' },
-      ],
+      Array.from({ length: 12 }, (_, index) => {
+        const a = 70 - index * 4.5;
+        const b = 18 + Math.sin(index * 0.72) * 9 + index * 1.6;
+        return {
+          a: Number(a.toFixed(2)),
+          b: Number(b.toFixed(2)),
+          c: Number((100 - a - b).toFixed(2)),
+          series: 'Balanced blend',
+        };
+      }),
       'a',
       'b',
     );
   } else if (mark === 'smith') {
     spec = base(
       { type: mark, options: { mode: 'line' } },
-      [
-        { real: 0.15, imaginary: -1.4 },
-        { real: 0.35, imaginary: -0.6 },
-        { real: 0.8, imaginary: 0 },
-        { real: 1.5, imaginary: 0.7 },
-        { real: 2.6, imaginary: 1.4 },
-      ],
+      Array.from({ length: 15 }, (_, index) => ({
+        real: Number((0.12 + index * 0.19).toFixed(3)),
+        imaginary: Number((1.45 * Math.sin(-1.25 + index * 0.19)).toFixed(3)),
+      })),
       'real',
       'imaginary',
     );
   } else if (mark === 'scatter-matrix') {
     spec = base(
       { type: mark, options: { dimensions: ['speed', 'quality', 'cost'] } },
-      [
-        { speed: 82, quality: 74, cost: 61 },
-        { speed: 66, quality: 88, cost: 73 },
-        { speed: 91, quality: 69, cost: 54 },
-        { speed: 75, quality: 81, cost: 67 },
-      ],
+      Array.from({ length: 18 }, (_, index) => ({
+        name: `Build ${String(index + 1).padStart(2, '0')}`,
+        speed: Number((61 + index * 1.5 + Math.sin(index * 0.7) * 8).toFixed(2)),
+        quality: Number((68 + index * 1.1 + Math.cos(index * 0.55) * 7).toFixed(2)),
+        cost: Number((82 - index * 1.25 + Math.sin(index * 0.42) * 5).toFixed(2)),
+      })),
       'speed',
       'quality',
     );
@@ -463,98 +909,123 @@ export function seriesSampleSpec(entry) {
         fields: { x: 'px', y: 'py', value: 'value' },
         options: { mode: entry.mode === 'default' ? 'grid' : entry.mode, levels: 4 },
       },
-      Array.from({ length: 20 }, (_, index) => {
-        const a = index % 5;
-        const b = Math.floor(index / 5);
+      Array.from({ length: 63 }, (_, index) => {
+        const a = index % 9;
+        const b = Math.floor(index / 9);
         return {
           a,
           b,
-          px: a + b * 0.2,
-          py: b + a * 0.08 + Math.sin(a * 0.8) * 0.12,
-          value: 8 + ((a * 7 + b * 11) % 29),
+          px: Number((a + b * 0.18 + Math.sin(b * 0.8) * 0.08).toFixed(3)),
+          py: Number((b + a * 0.075 + Math.sin(a * 0.72) * 0.13).toFixed(3)),
+          value: Number(
+            (
+              12 +
+              58 * Math.exp(-((a - 3.1) ** 2 + (b - 2.4) ** 2) / 7) +
+              34 * Math.exp(-((a - 7.2) ** 2 + (b - 5.3) ** 2) / 4.5)
+            ).toFixed(3),
+          ),
         };
       }),
       'a',
       'b',
     );
   } else if (mark === 'bullet') {
-    spec = base({ type: mark, fields: { target: 'target' } });
+    spec = base({ type: mark, fields: { target: 'target' } }, serviceIndicators);
   } else if (mark === 'contour') {
     spec = base({ type: mark, fields: { value: 'value' } }, grid, 'x', 'y');
-  } else if (['cylinder', 'item', 'lollipop', 'packed-bubble', 'pareto'].includes(mark)) {
-    spec = base(mark);
+  } else if (['cylinder', 'lollipop', 'pareto'].includes(mark)) {
+    spec = base(mark, productMetrics);
+  } else if (mark === 'packed-bubble') {
+    spec = base(mark, composition);
+  } else if (mark === 'item') {
+    spec = base(mark, composition);
   } else if (mark === 'interval') {
-    spec = base({ type: mark, fields: { low: 'low', high: 'high' } });
+    spec = base({ type: mark, fields: { low: 'low', high: 'high' } }, effectEstimates);
   } else if (mark === 'pictorial-bar') {
-    spec = base({ type: mark, options: { symbol: 'diamond' } });
+    spec = base({ type: mark, options: { symbol: 'diamond' } }, productMetrics);
   } else if (mark === 'polygon') {
     spec = base(
       { type: mark, fields: { series: 'series' } },
       [
-        { x: 1, y: 2, series: 'A' },
-        { x: 3, y: 7, series: 'A' },
-        { x: 6, y: 3, series: 'A' },
-        { x: 2, y: 3, series: 'B' },
-        { x: 4, y: 8, series: 'B' },
-        { x: 7, y: 4, series: 'B' },
+        { x: 1, y: 2, series: 'Current' },
+        { x: 2.4, y: 6.8, series: 'Current' },
+        { x: 5.2, y: 7.5, series: 'Current' },
+        { x: 7.4, y: 3.4, series: 'Current' },
+        { x: 4.1, y: 1.1, series: 'Current' },
+        { x: 2.2, y: 2.8, series: 'Previous' },
+        { x: 3.1, y: 5.7, series: 'Previous' },
+        { x: 5.1, y: 6.2, series: 'Previous' },
+        { x: 6.3, y: 3.6, series: 'Previous' },
+        { x: 4.2, y: 2.2, series: 'Previous' },
       ],
       'x',
       'y',
     );
   } else if (mark === 'pyramid') {
-    spec = base({
-      type: mark,
-      options: { variant: id.includes('3d') ? `${id.replace('-3d', '')}-3d` : id },
-    });
+    spec = base(
+      {
+        type: mark,
+        options: { variant: id.includes('3d') ? `${id.replace('-3d', '')}-3d` : id },
+      },
+      familyId === 'funnel' ? funnelStages : productMetrics,
+    );
   } else if (mark === 'scatter-3d') {
-    spec = base({ type: mark, fields: { z: 'z' } }, trend, 'value', 'high');
+    spec = base({ type: mark, fields: { z: 'z', color: 'group', size: 'size' } }, points, 'x', 'y');
   } else if (mark === 'solid-gauge') {
-    spec = base({ type: mark, options: { min: 0, max: 100 } });
+    spec = base({ type: mark, options: { min: 0, max: 100 } }, serviceIndicators.slice(0, 1));
   } else if (mark === 'theme-river') {
     spec = base(
       { type: mark, fields: { category: 'series' } },
-      [
-        { date: '2026-01-01', series: 'A', value: 12 },
-        { date: '2026-01-01', series: 'B', value: 8 },
-        { date: '2026-02-01', series: 'A', value: 18 },
-        { date: '2026-02-01', series: 'B', value: 11 },
-        { date: '2026-03-01', series: 'A', value: 14 },
-        { date: '2026-03-01', series: 'B', value: 16 },
-      ],
+      ['Dashboards', 'Reports', 'Models', 'Exports'].flatMap((series, seriesIndex) =>
+        trend.map(({ date }, index) => ({
+          date,
+          series,
+          value: Number(
+            (
+              8 +
+              seriesIndex * 3.5 +
+              Math.sin(index * 0.62 + seriesIndex * 1.1) * 4 +
+              index * (0.55 + seriesIndex * 0.11)
+            ).toFixed(2),
+          ),
+        })),
+      ),
       'date',
       'value',
     );
   } else if (mark === 'tilemap') {
     spec = base({ type: mark, fields: { value: 'value' } }, grid, 'x', 'y');
   } else if (mark === 'variable-pie') {
-    spec = base({ type: mark, fields: { radius: 'radius' } });
+    spec = base({ type: mark, fields: { radius: 'radius' } }, composition);
   } else if (mark === 'variwide') {
-    spec = base({ type: mark, fields: { width: 'width' } });
+    spec = base({ type: mark, fields: { width: 'width' } }, productMetrics);
   } else if (mark === 'vector') {
     spec = base(
       { type: mark, fields: { direction: 'direction', magnitude: 'magnitude' } },
-      trend,
-      'value',
-      'high',
+      vectorField,
+      'x',
+      'y',
     );
   } else if (mark === 'venn') {
-    spec = base(mark, trend.slice(0, 3));
+    spec = base(
+      { type: mark, fields: { sets: 'sets', size: 'size', members: 'members' } },
+      vennIntersections,
+      'sets',
+      'size',
+    );
   } else if (mark === 'wind-barb') {
     spec = base(
       { type: mark, fields: { speed: 'speed', direction: 'direction' } },
-      trend,
-      'value',
-      'high',
+      vectorField.map((row) => ({ ...row, speed: row.magnitude * 8 })),
+      'x',
+      'y',
     );
   } else if (mark === 'word-cloud') {
     spec = base(mark, words, 'word', 'weight');
   } else if (mark === 'timeline') {
     spec = base(
       { type: mark, fields: { end: 'end' } },
-      [
-        { start: '2026-01-01', end: '2026-01-08', category: 'A' },
-        { start: '2026-01-05', end: '2026-01-15', category: 'B' },
-      ],
+      timeline.map(({ start, end, task }) => ({ start, end, category: task })),
       'start',
       'category',
     );
@@ -588,7 +1059,12 @@ export function seriesSampleSpec(entry) {
       'value',
     );
   } else if (mark === 'flags') {
-    spec = base({ type: mark, fields: { title: 'title' } }, trend.slice(0, 5), 'date', 'value');
+    spec = base(
+      { type: mark, fields: { title: 'title' } },
+      trend.filter(({ title }) => title !== ''),
+      'date',
+      'value',
+    );
   } else if (mark === 'financial') {
     spec = base(
       {
@@ -596,16 +1072,19 @@ export function seriesSampleSpec(entry) {
         fields: { open: 'open', high: 'high', low: 'low', close: 'close' },
         options: { kind: id },
       },
-      trend,
+      deterministicOhlcvRows(64),
       'date',
       'close',
     );
   } else if (mark === 'point-figure' || mark === 'renko') {
-    spec = base(mark, trend, 'date', 'close');
+    spec = base(mark, deterministicOhlcvRows(96), 'date', 'close');
   } else if (mark === 'volume-profile') {
     spec = base(
       { type: mark, fields: { price: 'price', volume: 'volume' } },
-      trend,
+      deterministicOhlcvRows(128).map((row) => ({
+        ...row,
+        price: row.close,
+      })),
       'date',
       'price',
     );
@@ -629,13 +1108,34 @@ export function seriesSampleSpec(entry) {
     throw new Error(`Missing sample for ${id} (${mark})`);
   }
 
-  const hideAxes = ['map', 'radial', 'relationship'].includes(category);
+  const story =
+    familyId === 'parallel' && entry.mode === 'categories'
+      ? {
+          subtitle: 'Regional journeys connect acquisition channels to renewal outcomes',
+          xTitle: 'Region',
+          yTitle: 'Path frequency',
+        }
+      : (familyStories[familyId] ?? {
+          subtitle: `A focused, executable ${name.toLowerCase()} example`,
+          xTitle: spec.x?.title ?? spec.x?.field ?? 'Category',
+          yTitle: spec.y?.title ?? spec.y?.field ?? 'Value',
+        });
+  const presentedLayers = spec.layers?.map((layer) => ({
+    ...layer,
+    ...(layer.x === undefined ? {} : { x: { ...layer.x, title: story.xTitle } }),
+    ...(layer.y === undefined ? {} : { y: { ...layer.y, title: story.yTitle } }),
+  }));
+  const hideAxes =
+    axislessFamilies.includes(familyId) || ['map', 'radial', 'relationship'].includes(category);
   return {
     ...spec,
-    title: { text: name, subtitle: `${category} · ${familyId}` },
+    ...(spec.x === undefined ? {} : { x: { ...spec.x, title: story.xTitle } }),
+    ...(spec.y === undefined ? {} : { y: { ...spec.y, title: story.yTitle } }),
+    ...(presentedLayers === undefined ? {} : { layers: presentedLayers }),
+    title: { text: name, subtitle: story.subtitle },
     accessibility: {
-      label: `${name} example`,
-      description: `A compiled ${name.toLowerCase()} example using the ${familyId} family.`,
+      label: `${name}: ${story.subtitle}`,
+      description: `${story.subtitle}. The example uses curated, deterministic data and exposes its exact values in a semantic table.`,
     },
     ...(hideAxes ? { axes: { x: false, y: false } } : {}),
   };
@@ -651,9 +1151,21 @@ export function seriesSampleRuntimeSource() {
     `const points = ${JSON.stringify(points)};`,
     `const timeline = ${JSON.stringify(timeline)};`,
     `const composition = ${JSON.stringify(composition)};`,
+    `const productMetrics = ${JSON.stringify(productMetrics)};`,
+    `const serviceIndicators = ${JSON.stringify(serviceIndicators)};`,
+    `const effectEstimates = ${JSON.stringify(effectEstimates)};`,
+    `const funnelStages = ${JSON.stringify(funnelStages)};`,
+    `const waterfallDrivers = ${JSON.stringify(waterfallDrivers)};`,
+    `const calendarActivity = ${JSON.stringify(calendarActivity)};`,
+    `const regionPerformance = ${JSON.stringify(regionPerformance)};`,
+    `const vennIntersections = ${JSON.stringify(vennIntersections)};`,
     `const radar = ${JSON.stringify(radar)};`,
     `const boxSummary = ${JSON.stringify(boxSummary)};`,
     `const words = ${JSON.stringify(words)};`,
+    `const observations = ${JSON.stringify(observations)};`,
+    `const vectorField = ${JSON.stringify(vectorField)};`,
+    `const familyStories = ${JSON.stringify(familyStories)};`,
+    `const axislessFamilies = ${JSON.stringify(axislessFamilies)};`,
     deterministicOhlcvRows.toString(),
     fieldType.toString(),
     base.toString(),

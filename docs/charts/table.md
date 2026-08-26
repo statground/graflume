@@ -37,31 +37,35 @@ Use this preset when exact row values are more important than geometric comparis
 - **Quick API:** `table()`
 - **Mode:** `default`
 - **Portable mark:** `table`
-- **Required example fields:** `category`, `value`, `target`
+- **Required example fields:** `category`, `value`, `target`, `previous`
 
 ```js
 import { table } from 'graflume';
 
 const data = [
   {
-    category: 'P1',
-    value: 24,
-    target: 29,
+    category: 'Insights',
+    value: 86,
+    target: 88,
+    previous: 74,
   },
   {
-    category: 'P2',
-    value: 29.916,
-    target: 30,
+    category: 'Dashboards',
+    value: 78,
+    target: 82,
+    previous: 69,
   },
   {
-    category: 'P3',
-    value: 33.54,
-    target: 31,
+    category: 'Reports',
+    value: 69,
+    target: 74,
+    previous: 65,
   },
   {
-    category: 'P4',
-    value: 33.72,
-    target: 32,
+    category: 'Alerts',
+    value: 61,
+    target: 66,
+    previous: 48,
   },
 ];
 
@@ -69,24 +73,25 @@ table('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Capability',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Current value',
   },
   title: {
     text: 'Table chart',
     subtitle: 'table family · default mode',
   },
   accessibility: {
-    label: 'Table chart example',
-    description: 'A compiled table chart example using the table family.',
+    label: 'Table chart: A compact operational scorecard with current, target, and previous values',
+    description:
+      'A compact operational scorecard with current, target, and previous values. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     options: {
-      columns: ['category', 'value', 'target'],
+      columns: ['category', 'value', 'target', 'previous'],
     },
   },
   locale: 'en-US',
@@ -96,17 +101,22 @@ table('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Capability',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Current value',
           format: 'number',
         },
         {
           field: 'target',
           label: 'Target',
+          format: 'number',
+        },
+        {
+          field: 'previous',
+          label: 'Previous',
           format: 'number',
         },
       ],

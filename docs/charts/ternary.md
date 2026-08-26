@@ -44,28 +44,28 @@ import { ternary } from 'graflume/complete';
 
 const data = [
   {
-    a: 65,
-    b: 25,
-    c: 10,
-    series: 'Mix',
+    a: 70,
+    b: 18,
+    c: 12,
+    series: 'Balanced blend',
   },
   {
-    a: 42,
-    b: 38,
-    c: 20,
-    series: 'Mix',
+    a: 65.5,
+    b: 25.53,
+    c: 8.97,
+    series: 'Balanced blend',
   },
   {
-    a: 24,
-    b: 31,
-    c: 45,
-    series: 'Mix',
+    a: 61,
+    b: 30.12,
+    c: 8.88,
+    series: 'Balanced blend',
   },
   {
-    a: 12,
-    b: 58,
-    c: 30,
-    series: 'Mix',
+    a: 56.5,
+    b: 30.28,
+    c: 13.22,
+    series: 'Balanced blend',
   },
 ];
 
@@ -73,20 +73,26 @@ ternary('#chart', data, {
   x: {
     field: 'a',
     type: 'quantitative',
-    title: 'a',
+    title: 'Component A (%)',
   },
   y: {
     field: 'b',
     type: 'quantitative',
-    title: 'b',
+    title: 'Component B (%)',
   },
   title: {
     text: 'Ternary chart',
     subtitle: 'ternary family · default mode',
   },
   accessibility: {
-    label: 'Ternary chart example',
-    description: 'A compiled ternary chart example using the ternary family.',
+    label:
+      'Ternary chart: Balanced blends move across a composition whose three parts always sum to 100',
+    description:
+      'Balanced blends move across a composition whose three parts always sum to 100. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
+  },
+  axes: {
+    x: false,
+    y: false,
   },
   mark: {
     fields: {
@@ -104,12 +110,12 @@ ternary('#chart', data, {
       fields: [
         {
           field: 'a',
-          label: 'a',
+          label: 'Component A (%)',
           format: 'number',
         },
         {
           field: 'b',
-          label: 'b',
+          label: 'Component B (%)',
           format: 'number',
         },
         {

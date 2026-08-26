@@ -44,24 +44,24 @@ import { scatterMatrix } from 'graflume/complete';
 
 const data = [
   {
-    speed: 82,
-    quality: 74,
-    cost: 61,
+    speed: 61,
+    quality: 75,
+    cost: 82,
   },
   {
-    speed: 66,
-    quality: 88,
-    cost: 73,
+    speed: 67.65,
+    quality: 75.07,
+    cost: 82.79,
   },
   {
-    speed: 91,
-    quality: 69,
-    cost: 54,
+    speed: 71.88,
+    quality: 73.38,
+    cost: 83.22,
   },
   {
-    speed: 75,
-    quality: 81,
-    cost: 67,
+    speed: 72.41,
+    quality: 70.75,
+    cost: 83.01,
   },
 ];
 
@@ -69,20 +69,25 @@ scatterMatrix('#chart', data, {
   x: {
     field: 'speed',
     type: 'quantitative',
-    title: 'speed',
+    title: 'Build metric',
   },
   y: {
     field: 'quality',
     type: 'quantitative',
-    title: 'quality',
+    title: 'Build metric',
   },
   title: {
     text: 'Scatter matrix',
     subtitle: 'scatter-matrix family · default mode',
   },
   accessibility: {
-    label: 'Scatter matrix example',
-    description: 'A compiled scatter matrix example using the scatter-matrix family.',
+    label: 'Scatter matrix: Release builds expose correlations among speed, quality, and cost',
+    description:
+      'Release builds expose correlations among speed, quality, and cost. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
+  },
+  axes: {
+    x: false,
+    y: false,
   },
   mark: {
     options: {
@@ -96,12 +101,12 @@ scatterMatrix('#chart', data, {
       fields: [
         {
           field: 'speed',
-          label: 'speed',
+          label: 'Build metric',
           format: 'number',
         },
         {
           field: 'quality',
-          label: 'quality',
+          label: 'Build metric',
           format: 'number',
         },
         {

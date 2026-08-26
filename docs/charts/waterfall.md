@@ -44,20 +44,20 @@ import { waterfall } from 'graflume';
 
 const data = [
   {
-    category: 'Start',
-    value: 40,
+    category: 'Opening MRR',
+    value: 420,
   },
   {
-    category: 'Sales',
-    value: 22,
+    category: 'New teams',
+    value: 86,
   },
   {
-    category: 'Returns',
-    value: -8,
+    category: 'Plan upgrades',
+    value: 34,
   },
   {
-    category: 'Costs',
-    value: -19,
+    category: 'Reactivations',
+    value: 12,
   },
 ];
 
@@ -65,20 +65,22 @@ waterfall('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Revenue driver',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'MRR change (kUSD)',
   },
   title: {
     text: 'Waterfall chart',
     subtitle: 'waterfall family · default mode',
   },
   accessibility: {
-    label: 'Waterfall chart example',
-    description: 'A compiled waterfall chart example using the waterfall family.',
+    label:
+      'Waterfall chart: Opening monthly revenue reconciled through growth, contraction, and churn',
+    description:
+      'Opening monthly revenue reconciled through growth, contraction, and churn. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   locale: 'en-US',
   interaction: {
@@ -87,12 +89,12 @@ waterfall('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Revenue driver',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'MRR change (kUSD)',
           format: 'number',
         },
       ],

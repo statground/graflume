@@ -46,30 +46,30 @@ const data = [
   {
     x: 0,
     y: 0,
-    red: 38,
-    green: 72,
-    blue: 210,
+    red: 32,
+    green: 52,
+    blue: 224,
   },
   {
     x: 1,
     y: 0,
-    red: 73,
-    green: 72,
-    blue: 186,
+    red: 49,
+    green: 52,
+    blue: 216,
   },
   {
     x: 2,
     y: 0,
-    red: 108,
-    green: 72,
-    blue: 162,
+    red: 66,
+    green: 52,
+    blue: 207,
   },
   {
     x: 3,
     y: 0,
-    red: 143,
-    green: 72,
-    blue: 138,
+    red: 82,
+    green: 52,
+    blue: 199,
   },
 ];
 
@@ -77,20 +77,21 @@ image('#chart', data, {
   x: {
     field: 'x',
     type: 'quantitative',
-    title: 'x',
+    title: 'Column',
   },
   y: {
     field: 'y',
     type: 'quantitative',
-    title: 'y',
+    title: 'Row',
   },
   title: {
     text: 'Raster image',
     subtitle: 'image family · default mode',
   },
   accessibility: {
-    label: 'Raster image example',
-    description: 'A compiled raster image example using the image family.',
+    label: 'Raster image: A smooth calibration raster demonstrates color and pixel inspection',
+    description:
+      'A smooth calibration raster demonstrates color and pixel inspection. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -106,12 +107,12 @@ image('#chart', data, {
       fields: [
         {
           field: 'x',
-          label: 'x',
+          label: 'Column',
           format: 'number',
         },
         {
           field: 'y',
-          label: 'y',
+          label: 'Row',
           format: 'number',
         },
         {

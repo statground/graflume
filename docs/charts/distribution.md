@@ -57,20 +57,20 @@ import { distribution } from 'graflume';
 
 const data = [
   {
-    value: 24,
-    series: 'Alpha',
+    value: 44.8,
+    series: 'Before launch',
   },
   {
-    value: 29.916,
-    series: 'Beta',
+    value: 48.609,
+    series: 'Before launch',
   },
   {
-    value: 33.54,
-    series: 'Alpha',
+    value: 51.351,
+    series: 'Before launch',
   },
   {
-    value: 33.72,
-    series: 'Beta',
+    value: 52.38,
+    series: 'Before launch',
   },
 ];
 
@@ -78,20 +78,22 @@ distribution('#chart', data, {
   x: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Outcome score',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Frequency',
   },
   title: {
     text: 'Distribution chart',
     subtitle: 'distribution family · histogram mode',
   },
   accessibility: {
-    label: 'Distribution chart example',
-    description: 'A compiled distribution chart example using the distribution family.',
+    label:
+      'Distribution chart: Before-and-after cohorts reveal the shift, spread, and remaining overlap',
+    description:
+      'Before-and-after cohorts reveal the shift, spread, and remaining overlap. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -130,7 +132,7 @@ distribution('#chart', data, {
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Outcome score',
           format: 'number',
         },
         {
@@ -162,16 +164,16 @@ import { histogram } from 'graflume';
 
 const data = [
   {
-    value: 24,
+    value: 44.8,
   },
   {
-    value: 29.916,
+    value: 48.609,
   },
   {
-    value: 33.54,
+    value: 51.351,
   },
   {
-    value: 33.72,
+    value: 52.38,
   },
 ];
 
@@ -179,24 +181,25 @@ histogram('#chart', data, {
   x: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Outcome score',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Frequency',
   },
   title: {
     text: 'Histogram',
     subtitle: 'distribution family · histogram mode',
   },
   accessibility: {
-    label: 'Histogram example',
-    description: 'A compiled histogram example using the distribution family.',
+    label: 'Histogram: Before-and-after cohorts reveal the shift, spread, and remaining overlap',
+    description:
+      'Before-and-after cohorts reveal the shift, spread, and remaining overlap. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     options: {
-      bins: 8,
+      bins: 12,
     },
   },
   locale: 'en-US',
@@ -227,7 +230,7 @@ histogram('#chart', data, {
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Outcome score',
           format: 'number',
         },
       ],
@@ -254,20 +257,20 @@ import { ecdf } from 'graflume';
 
 const data = [
   {
-    value: 24,
-    series: 'Alpha',
+    value: 44.8,
+    series: 'Before launch',
   },
   {
-    value: 29.916,
-    series: 'Beta',
+    value: 48.609,
+    series: 'Before launch',
   },
   {
-    value: 33.54,
-    series: 'Alpha',
+    value: 51.351,
+    series: 'Before launch',
   },
   {
-    value: 33.72,
-    series: 'Beta',
+    value: 52.38,
+    series: 'Before launch',
   },
 ];
 
@@ -275,21 +278,22 @@ ecdf('#chart', data, {
   x: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Outcome score',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Frequency',
   },
   title: {
     text: 'Empirical cumulative distribution',
     subtitle: 'distribution family · ecdf mode',
   },
   accessibility: {
-    label: 'Empirical cumulative distribution example',
+    label:
+      'Empirical cumulative distribution: Before-and-after cohorts reveal the shift, spread, and remaining overlap',
     description:
-      'A compiled empirical cumulative distribution example using the distribution family.',
+      'Before-and-after cohorts reveal the shift, spread, and remaining overlap. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -322,7 +326,7 @@ ecdf('#chart', data, {
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Outcome score',
           format: 'number',
         },
         {
@@ -354,20 +358,20 @@ import { ccdf } from 'graflume';
 
 const data = [
   {
-    value: 24,
-    series: 'Alpha',
+    value: 44.8,
+    series: 'Before launch',
   },
   {
-    value: 29.916,
-    series: 'Beta',
+    value: 48.609,
+    series: 'Before launch',
   },
   {
-    value: 33.54,
-    series: 'Alpha',
+    value: 51.351,
+    series: 'Before launch',
   },
   {
-    value: 33.72,
-    series: 'Beta',
+    value: 52.38,
+    series: 'Before launch',
   },
 ];
 
@@ -375,21 +379,22 @@ ccdf('#chart', data, {
   x: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Outcome score',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Frequency',
   },
   title: {
     text: 'Complementary empirical distribution',
     subtitle: 'distribution family · ccdf mode',
   },
   accessibility: {
-    label: 'Complementary empirical distribution example',
+    label:
+      'Complementary empirical distribution: Before-and-after cohorts reveal the shift, spread, and remaining overlap',
     description:
-      'A compiled complementary empirical distribution example using the distribution family.',
+      'Before-and-after cohorts reveal the shift, spread, and remaining overlap. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -422,7 +427,7 @@ ccdf('#chart', data, {
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Outcome score',
           format: 'number',
         },
         {
@@ -454,20 +459,20 @@ import { kde } from 'graflume';
 
 const data = [
   {
-    value: 24,
-    series: 'Alpha',
+    value: 44.8,
+    series: 'Before launch',
   },
   {
-    value: 29.916,
-    series: 'Beta',
+    value: 48.609,
+    series: 'Before launch',
   },
   {
-    value: 33.54,
-    series: 'Alpha',
+    value: 51.351,
+    series: 'Before launch',
   },
   {
-    value: 33.72,
-    series: 'Beta',
+    value: 52.38,
+    series: 'Before launch',
   },
 ];
 
@@ -475,20 +480,22 @@ kde('#chart', data, {
   x: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Outcome score',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Frequency',
   },
   title: {
     text: 'Kernel density estimate',
     subtitle: 'distribution family · kde mode',
   },
   accessibility: {
-    label: 'Kernel density estimate example',
-    description: 'A compiled kernel density estimate example using the distribution family.',
+    label:
+      'Kernel density estimate: Before-and-after cohorts reveal the shift, spread, and remaining overlap',
+    description:
+      'Before-and-after cohorts reveal the shift, spread, and remaining overlap. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -516,7 +523,7 @@ kde('#chart', data, {
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Outcome score',
           format: 'number',
         },
         {
@@ -548,20 +555,20 @@ import { histogram2d } from 'graflume';
 
 const data = [
   {
+    x: -0.08,
+    y: -0.08,
+  },
+  {
     x: 0,
-    y: 0,
+    y: -0.08,
+  },
+  {
+    x: 0.92,
+    y: -0.08,
   },
   {
     x: 1,
-    y: 0,
-  },
-  {
-    x: 1,
-    y: 0,
-  },
-  {
-    x: 2,
-    y: 0,
+    y: -0.08,
   },
 ];
 
@@ -569,20 +576,22 @@ histogram2d('#chart', data, {
   x: {
     field: 'x',
     type: 'quantitative',
-    title: 'x',
+    title: 'Outcome score',
   },
   y: {
     field: 'y',
     type: 'quantitative',
-    title: 'y',
+    title: 'Frequency',
   },
   title: {
     text: 'Bivariate histogram',
     subtitle: 'distribution family · histogram-2d mode',
   },
   accessibility: {
-    label: 'Bivariate histogram example',
-    description: 'A compiled bivariate histogram example using the distribution family.',
+    label:
+      'Bivariate histogram: Before-and-after cohorts reveal the shift, spread, and remaining overlap',
+    description:
+      'Before-and-after cohorts reveal the shift, spread, and remaining overlap. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     options: {
@@ -599,12 +608,12 @@ histogram2d('#chart', data, {
       fields: [
         {
           field: 'x',
-          label: 'x',
+          label: 'Outcome score',
           format: 'number',
         },
         {
           field: 'y',
-          label: 'y',
+          label: 'Frequency',
           format: 'number',
         },
       ],
@@ -631,20 +640,20 @@ import { histogram2dContour } from 'graflume';
 
 const data = [
   {
+    x: -0.08,
+    y: -0.08,
+  },
+  {
     x: 0,
-    y: 0,
+    y: -0.08,
+  },
+  {
+    x: 0.92,
+    y: -0.08,
   },
   {
     x: 1,
-    y: 0,
-  },
-  {
-    x: 1,
-    y: 0,
-  },
-  {
-    x: 2,
-    y: 0,
+    y: -0.08,
   },
 ];
 
@@ -652,20 +661,22 @@ histogram2dContour('#chart', data, {
   x: {
     field: 'x',
     type: 'quantitative',
-    title: 'x',
+    title: 'Outcome score',
   },
   y: {
     field: 'y',
     type: 'quantitative',
-    title: 'y',
+    title: 'Frequency',
   },
   title: {
     text: 'Bivariate density contours',
     subtitle: 'distribution family · histogram-2d-contour mode',
   },
   accessibility: {
-    label: 'Bivariate density contours example',
-    description: 'A compiled bivariate density contours example using the distribution family.',
+    label:
+      'Bivariate density contours: Before-and-after cohorts reveal the shift, spread, and remaining overlap',
+    description:
+      'Before-and-after cohorts reveal the shift, spread, and remaining overlap. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     options: {
@@ -707,12 +718,12 @@ histogram2dContour('#chart', data, {
         },
         {
           field: 'x',
-          label: 'x',
+          label: 'Outcome score',
           format: 'number',
         },
         {
           field: 'y',
-          label: 'y',
+          label: 'Frequency',
           format: 'number',
         },
       ],
@@ -739,20 +750,20 @@ import { violin } from 'graflume';
 
 const data = [
   {
-    series: 'Alpha',
-    value: 24,
+    series: 'Before launch',
+    value: 44.8,
   },
   {
-    series: 'Beta',
-    value: 29.916,
+    series: 'Before launch',
+    value: 48.609,
   },
   {
-    series: 'Alpha',
-    value: 33.54,
+    series: 'Before launch',
+    value: 51.351,
   },
   {
-    series: 'Beta',
-    value: 33.72,
+    series: 'Before launch',
+    value: 52.38,
   },
 ];
 
@@ -760,20 +771,21 @@ violin('#chart', data, {
   x: {
     field: 'series',
     type: 'ordinal',
-    title: 'series',
+    title: 'Outcome score',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Frequency',
   },
   title: {
     text: 'Violin chart',
     subtitle: 'distribution family · violin mode',
   },
   accessibility: {
-    label: 'Violin chart example',
-    description: 'A compiled violin chart example using the distribution family.',
+    label: 'Violin chart: Before-and-after cohorts reveal the shift, spread, and remaining overlap',
+    description:
+      'Before-and-after cohorts reveal the shift, spread, and remaining overlap. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -791,12 +803,12 @@ violin('#chart', data, {
       fields: [
         {
           field: 'series',
-          label: 'series',
+          label: 'Outcome score',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Frequency',
           format: 'number',
         },
       ],
@@ -823,7 +835,7 @@ import { boxplot } from 'graflume/complete';
 
 const data = [
   {
-    category: 'Alpha',
+    category: 'Starter',
     low: 12,
     q1: 19,
     median: 27,
@@ -831,20 +843,28 @@ const data = [
     high: 43,
   },
   {
-    category: 'Beta',
+    category: 'Team',
     low: 17,
-    q1: 24,
-    median: 31,
-    q3: 39,
-    high: 48,
+    q1: 25,
+    median: 33,
+    q3: 41,
+    high: 51,
   },
   {
-    category: 'Gamma',
-    low: 9,
-    q1: 16,
-    median: 22,
-    q3: 29,
-    high: 38,
+    category: 'Business',
+    low: 21,
+    q1: 31,
+    median: 40,
+    q3: 49,
+    high: 60,
+  },
+  {
+    category: 'Enterprise',
+    low: 28,
+    q1: 39,
+    median: 48,
+    q3: 58,
+    high: 71,
   },
 ];
 
@@ -852,20 +872,21 @@ boxplot('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Outcome score',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Frequency',
   },
   title: {
     text: 'Boxplot',
     subtitle: 'distribution family · boxplot mode',
   },
   accessibility: {
-    label: 'Boxplot example',
-    description: 'A compiled boxplot example using the distribution family.',
+    label: 'Boxplot: Before-and-after cohorts reveal the shift, spread, and remaining overlap',
+    description:
+      'Before-and-after cohorts reveal the shift, spread, and remaining overlap. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -883,12 +904,12 @@ boxplot('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Outcome score',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Frequency',
           format: 'auto',
         },
         {
@@ -940,20 +961,20 @@ import { bellCurve } from 'graflume/complete';
 
 const data = [
   {
-    value: 24,
-    series: 'Alpha',
+    value: 44.8,
+    series: 'Before launch',
   },
   {
-    value: 29.916,
-    series: 'Beta',
+    value: 48.609,
+    series: 'Before launch',
   },
   {
-    value: 33.54,
-    series: 'Alpha',
+    value: 51.351,
+    series: 'Before launch',
   },
   {
-    value: 33.72,
-    series: 'Beta',
+    value: 52.38,
+    series: 'Before launch',
   },
 ];
 
@@ -961,20 +982,21 @@ bellCurve('#chart', data, {
   x: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Outcome score',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Frequency',
   },
   title: {
     text: 'Bell curve',
     subtitle: 'distribution family · bell-curve mode',
   },
   accessibility: {
-    label: 'Bell curve example',
-    description: 'A compiled bell curve example using the distribution family.',
+    label: 'Bell curve: Before-and-after cohorts reveal the shift, spread, and remaining overlap',
+    description:
+      'Before-and-after cohorts reveal the shift, spread, and remaining overlap. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -1017,7 +1039,7 @@ bellCurve('#chart', data, {
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Outcome score',
           format: 'number',
         },
         {

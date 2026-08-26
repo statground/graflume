@@ -41,20 +41,20 @@ import { vegaChart } from 'graflume';
 
 const data = [
   {
-    category: 'P1',
-    value: 24,
+    category: 'Jan',
+    value: 48,
   },
   {
-    category: 'P2',
-    value: 29.916,
+    category: 'Feb',
+    value: 53,
   },
   {
-    category: 'P3',
-    value: 33.54,
+    category: 'Mar',
+    value: 51,
   },
   {
-    category: 'P4',
-    value: 33.72,
+    category: 'Apr',
+    value: 59,
   },
 ];
 
@@ -74,8 +74,9 @@ vegaChart('#chart', data, {
     subtitle: 'custom family · adapter mode',
   },
   accessibility: {
-    label: 'Portable adapter chart example',
-    description: 'A compiled portable adapter chart example using the custom family.',
+    label: 'Portable adapter chart: A focused, executable portable adapter chart example',
+    description:
+      'A focused, executable portable adapter chart example. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     options: {
@@ -121,32 +122,32 @@ import { custom } from 'graflume/complete';
 
 const data = [
   {
-    x: 12,
-    y: 42,
+    x: 14,
+    y: 38,
     shape: 'circle',
-    size: 20,
-    label: 'P1',
+    size: 28,
+    label: 'Starter 1',
   },
   {
-    x: 24,
-    y: 55,
+    x: 20,
+    y: 45,
     shape: 'diamond',
-    size: 85,
-    label: 'P2',
+    size: 34,
+    label: 'Starter 2',
+  },
+  {
+    x: 25,
+    y: 41,
+    shape: 'circle',
+    size: 31,
+    label: 'Starter 3',
   },
   {
     x: 38,
-    y: 33,
-    shape: 'circle',
-    size: 55,
-    label: 'P3',
-  },
-  {
-    x: 51,
-    y: 68,
+    y: 57,
     shape: 'diamond',
-    size: 120,
-    label: 'P4',
+    size: 64,
+    label: 'Growth 1',
   },
 ];
 
@@ -166,8 +167,9 @@ custom('#chart', data, {
     subtitle: 'custom family · default mode',
   },
   accessibility: {
-    label: 'Declarative custom chart example',
-    description: 'A compiled declarative custom chart example using the custom family.',
+    label: 'Declarative custom chart: A focused, executable declarative custom chart example',
+    description:
+      'A focused, executable declarative custom chart example. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {

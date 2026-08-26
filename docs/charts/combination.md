@@ -45,24 +45,24 @@ import { combo } from 'graflume';
 
 const data = [
   {
-    category: 'P1',
-    target: 29,
-    value: 24,
+    category: 'Jan',
+    target: 50,
+    value: 48,
   },
   {
-    category: 'P2',
-    target: 30,
-    value: 29.916,
+    category: 'Feb',
+    target: 54.6,
+    value: 53,
   },
   {
-    category: 'P3',
-    target: 31,
-    value: 33.54,
+    category: 'Mar',
+    target: 59.2,
+    value: 51,
   },
   {
-    category: 'P4',
-    target: 32,
-    value: 33.72,
+    category: 'Apr',
+    target: 63.8,
+    value: 59,
   },
 ];
 
@@ -78,10 +78,12 @@ combo('#chart', data, {
       x: {
         field: 'category',
         type: 'ordinal',
+        title: 'Month',
       },
       y: {
         field: 'target',
         type: 'quantitative',
+        title: 'Active teams',
       },
     },
     {
@@ -94,10 +96,12 @@ combo('#chart', data, {
       x: {
         field: 'category',
         type: 'ordinal',
+        title: 'Month',
       },
       y: {
         field: 'value',
         type: 'quantitative',
+        title: 'Active teams',
       },
     },
   ],
@@ -106,8 +110,9 @@ combo('#chart', data, {
     subtitle: 'combination family · default mode',
   },
   accessibility: {
-    label: 'Combo chart example',
-    description: 'A compiled combo chart example using the combination family.',
+    label: 'Combo chart: Monthly active teams compared with the operating target',
+    description:
+      'Monthly active teams compared with the operating target. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   locale: 'en-US',
   interaction: {
@@ -116,17 +121,17 @@ combo('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'Category',
+          label: 'Month',
           format: 'auto',
         },
         {
           field: 'target',
-          label: 'Target',
+          label: 'Active teams',
           format: 'number',
         },
         {
           field: 'value',
-          label: 'Value',
+          label: 'Active teams',
           format: 'number',
         },
       ],
@@ -153,20 +158,20 @@ import { pareto } from 'graflume/complete';
 
 const data = [
   {
-    category: 'P1',
-    value: 24,
+    category: 'Insights',
+    value: 86,
   },
   {
-    category: 'P2',
-    value: 29.916,
+    category: 'Dashboards',
+    value: 78,
   },
   {
-    category: 'P3',
-    value: 33.54,
+    category: 'Reports',
+    value: 69,
   },
   {
-    category: 'P4',
-    value: 33.72,
+    category: 'Alerts',
+    value: 61,
   },
 ];
 
@@ -174,20 +179,21 @@ pareto('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Month',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Active teams',
   },
   title: {
     text: 'Pareto chart',
     subtitle: 'combination family · pareto mode',
   },
   accessibility: {
-    label: 'Pareto chart example',
-    description: 'A compiled pareto chart example using the combination family.',
+    label: 'Pareto chart: Monthly active teams compared with the operating target',
+    description:
+      'Monthly active teams compared with the operating target. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   locale: 'en-US',
   interaction: {
@@ -196,12 +202,12 @@ pareto('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Month',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Active teams',
           format: 'number',
         },
       ],

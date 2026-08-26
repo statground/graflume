@@ -44,20 +44,20 @@ import { wordCloud } from 'graflume/complete';
 
 const data = [
   {
-    word: 'Analytics',
-    weight: 92,
+    word: 'Visualization',
+    weight: 100,
   },
   {
-    word: 'Canvas',
+    word: 'Statistics',
+    weight: 88,
+  },
+  {
+    word: 'Interaction',
+    weight: 81,
+  },
+  {
+    word: 'Accessibility',
     weight: 76,
-  },
-  {
-    word: 'Portable',
-    weight: 69,
-  },
-  {
-    word: 'Scene',
-    weight: 61,
   },
 ];
 
@@ -65,20 +65,21 @@ wordCloud('#chart', data, {
   x: {
     field: 'word',
     type: 'ordinal',
-    title: 'word',
+    title: 'Topic',
   },
   y: {
     field: 'weight',
     type: 'quantitative',
-    title: 'weight',
+    title: 'Mentions',
   },
   title: {
     text: 'Word cloud',
     subtitle: 'word-cloud family · default mode',
   },
   accessibility: {
-    label: 'Word cloud example',
-    description: 'A compiled word cloud example using the word-cloud family.',
+    label: 'Word cloud: Visualization topics are ranked with stable, meaningful vocabulary',
+    description:
+      'Visualization topics are ranked with stable, meaningful vocabulary. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   axes: {
     x: false,
@@ -91,12 +92,12 @@ wordCloud('#chart', data, {
       fields: [
         {
           field: 'word',
-          label: 'word',
+          label: 'Topic',
           format: 'auto',
         },
         {
           field: 'weight',
-          label: 'weight',
+          label: 'Mentions',
           format: 'number',
         },
       ],

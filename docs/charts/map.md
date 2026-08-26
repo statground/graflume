@@ -55,19 +55,19 @@ import { geo } from 'graflume';
 const data = [
   {
     region: 'KR',
-    value: 72,
+    value: 92,
   },
   {
-    region: 'United States',
+    region: 'JPN',
+    value: 84,
+  },
+  {
+    region: 'SGP',
+    value: 79,
+  },
+  {
+    region: 'USA',
     value: 88,
-  },
-  {
-    region: 'Brazil',
-    value: 41,
-  },
-  {
-    region: 'RUS',
-    value: 63,
   },
 ];
 
@@ -75,20 +75,26 @@ geo('#chart', data, {
   x: {
     field: 'region',
     type: 'ordinal',
-    title: 'region',
+    title: 'Longitude',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Latitude',
   },
   title: {
     text: 'Geographic region chart',
     subtitle: 'map family · region mode',
   },
   accessibility: {
-    label: 'Geographic region chart example',
-    description: 'A compiled geographic region chart example using the map family.',
+    label:
+      'Geographic region chart: Regional adoption and routes connecting Statground teams around the world',
+    description:
+      'Regional adoption and routes connecting Statground teams around the world. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
+  },
+  axes: {
+    x: false,
+    y: false,
   },
   mark: {
     options: {
@@ -102,12 +108,12 @@ geo('#chart', data, {
       fields: [
         {
           field: 'region',
-          label: 'region',
+          label: 'Longitude',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Latitude',
           format: 'number',
         },
       ],
@@ -135,17 +141,22 @@ const data = [
   {
     longitude: 126.98,
     latitude: 37.57,
-    value: 72,
-  },
-  {
-    longitude: -74,
-    latitude: 40.71,
-    value: 55,
+    value: 92,
   },
   {
     longitude: 139.69,
     latitude: 35.68,
-    value: 43,
+    value: 78,
+  },
+  {
+    longitude: 103.82,
+    latitude: 1.35,
+    value: 64,
+  },
+  {
+    longitude: 77.21,
+    latitude: 28.61,
+    value: 58,
   },
 ];
 
@@ -153,20 +164,25 @@ map('#chart', data, {
   x: {
     field: 'longitude',
     type: 'quantitative',
-    title: 'longitude',
+    title: 'Longitude',
   },
   y: {
     field: 'latitude',
     type: 'quantitative',
-    title: 'latitude',
+    title: 'Latitude',
   },
   title: {
     text: 'Map',
     subtitle: 'map family · default mode',
   },
   accessibility: {
-    label: 'Map example',
-    description: 'A compiled map example using the map family.',
+    label: 'Map: Regional adoption and routes connecting Statground teams around the world',
+    description:
+      'Regional adoption and routes connecting Statground teams around the world. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
+  },
+  axes: {
+    x: false,
+    y: false,
   },
   mark: {
     fields: {
@@ -180,12 +196,12 @@ map('#chart', data, {
       fields: [
         {
           field: 'longitude',
-          label: 'longitude',
+          label: 'Longitude',
           format: 'number',
         },
         {
           field: 'latitude',
-          label: 'latitude',
+          label: 'Latitude',
           format: 'number',
         },
         {
@@ -218,23 +234,30 @@ const data = [
   {
     longitude: 126.98,
     latitude: 37.57,
-    longitude2: 37.62,
-    latitude2: 55.75,
-    value: 72,
-  },
-  {
-    longitude: -74,
-    latitude: 40.71,
-    longitude2: 2.35,
-    latitude2: 48.86,
-    value: 55,
+    longitude2: 139.69,
+    latitude2: 35.68,
+    value: 92,
   },
   {
     longitude: 139.69,
     latitude: 35.68,
-    longitude2: 151.21,
-    latitude2: -33.87,
-    value: 43,
+    longitude2: 103.82,
+    latitude2: 1.35,
+    value: 78,
+  },
+  {
+    longitude: 103.82,
+    latitude: 1.35,
+    longitude2: 77.21,
+    latitude2: 28.61,
+    value: 64,
+  },
+  {
+    longitude: 77.21,
+    latitude: 28.61,
+    longitude2: 2.35,
+    latitude2: 48.86,
+    value: 58,
   },
 ];
 
@@ -242,20 +265,21 @@ flowMap('#chart', data, {
   x: {
     field: 'longitude',
     type: 'quantitative',
-    title: 'longitude',
+    title: 'Longitude',
   },
   y: {
     field: 'latitude',
     type: 'quantitative',
-    title: 'latitude',
+    title: 'Latitude',
   },
   title: {
     text: 'Flow map',
     subtitle: 'map family · flow-map mode',
   },
   accessibility: {
-    label: 'Flow map example',
-    description: 'A compiled flow map example using the map family.',
+    label: 'Flow map: Regional adoption and routes connecting Statground teams around the world',
+    description:
+      'Regional adoption and routes connecting Statground teams around the world. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   axes: {
     x: false,
@@ -275,12 +299,12 @@ flowMap('#chart', data, {
       fields: [
         {
           field: 'longitude',
-          label: 'longitude',
+          label: 'Longitude',
           format: 'number',
         },
         {
           field: 'latitude',
-          label: 'latitude',
+          label: 'Latitude',
           format: 'number',
         },
         {
@@ -323,17 +347,22 @@ const data = [
   {
     longitude: 126.98,
     latitude: 37.57,
-    value: 72,
-  },
-  {
-    longitude: -74,
-    latitude: 40.71,
-    value: 55,
+    value: 92,
   },
   {
     longitude: 139.69,
     latitude: 35.68,
-    value: 43,
+    value: 78,
+  },
+  {
+    longitude: 103.82,
+    latitude: 1.35,
+    value: 64,
+  },
+  {
+    longitude: 77.21,
+    latitude: 28.61,
+    value: 58,
   },
 ];
 
@@ -341,20 +370,22 @@ geoHeatmap('#chart', data, {
   x: {
     field: 'longitude',
     type: 'quantitative',
-    title: 'longitude',
+    title: 'Longitude',
   },
   y: {
     field: 'latitude',
     type: 'quantitative',
-    title: 'latitude',
+    title: 'Latitude',
   },
   title: {
     text: 'Geographic heatmap',
     subtitle: 'map family · geo-heatmap mode',
   },
   accessibility: {
-    label: 'Geographic heatmap example',
-    description: 'A compiled geographic heatmap example using the map family.',
+    label:
+      'Geographic heatmap: Regional adoption and routes connecting Statground teams around the world',
+    description:
+      'Regional adoption and routes connecting Statground teams around the world. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   axes: {
     x: false,
@@ -372,12 +403,12 @@ geoHeatmap('#chart', data, {
       fields: [
         {
           field: 'longitude',
-          label: 'longitude',
+          label: 'Longitude',
           format: 'number',
         },
         {
           field: 'latitude',
-          label: 'latitude',
+          label: 'Latitude',
           format: 'number',
         },
         {
@@ -410,17 +441,22 @@ const data = [
   {
     longitude: 126.98,
     latitude: 37.57,
-    value: 72,
-  },
-  {
-    longitude: -74,
-    latitude: 40.71,
-    value: 55,
+    value: 92,
   },
   {
     longitude: 139.69,
     latitude: 35.68,
-    value: 43,
+    value: 78,
+  },
+  {
+    longitude: 103.82,
+    latitude: 1.35,
+    value: 64,
+  },
+  {
+    longitude: 77.21,
+    latitude: 28.61,
+    value: 58,
   },
 ];
 
@@ -428,20 +464,22 @@ mapBubble('#chart', data, {
   x: {
     field: 'longitude',
     type: 'quantitative',
-    title: 'longitude',
+    title: 'Longitude',
   },
   y: {
     field: 'latitude',
     type: 'quantitative',
-    title: 'latitude',
+    title: 'Latitude',
   },
   title: {
     text: 'Map bubble chart',
     subtitle: 'map family · map-bubble mode',
   },
   accessibility: {
-    label: 'Map bubble chart example',
-    description: 'A compiled map bubble chart example using the map family.',
+    label:
+      'Map bubble chart: Regional adoption and routes connecting Statground teams around the world',
+    description:
+      'Regional adoption and routes connecting Statground teams around the world. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   axes: {
     x: false,
@@ -459,12 +497,12 @@ mapBubble('#chart', data, {
       fields: [
         {
           field: 'longitude',
-          label: 'longitude',
+          label: 'Longitude',
           format: 'number',
         },
         {
           field: 'latitude',
-          label: 'latitude',
+          label: 'Latitude',
           format: 'number',
         },
         {
@@ -497,23 +535,30 @@ const data = [
   {
     longitude: 126.98,
     latitude: 37.57,
-    longitude2: 37.62,
-    latitude2: 55.75,
-    value: 72,
-  },
-  {
-    longitude: -74,
-    latitude: 40.71,
-    longitude2: 2.35,
-    latitude2: 48.86,
-    value: 55,
+    longitude2: 139.69,
+    latitude2: 35.68,
+    value: 92,
   },
   {
     longitude: 139.69,
     latitude: 35.68,
-    longitude2: 151.21,
-    latitude2: -33.87,
-    value: 43,
+    longitude2: 103.82,
+    latitude2: 1.35,
+    value: 78,
+  },
+  {
+    longitude: 103.82,
+    latitude: 1.35,
+    longitude2: 77.21,
+    latitude2: 28.61,
+    value: 64,
+  },
+  {
+    longitude: 77.21,
+    latitude: 28.61,
+    longitude2: 2.35,
+    latitude2: 48.86,
+    value: 58,
   },
 ];
 
@@ -521,20 +566,22 @@ mapLine('#chart', data, {
   x: {
     field: 'longitude',
     type: 'quantitative',
-    title: 'longitude',
+    title: 'Longitude',
   },
   y: {
     field: 'latitude',
     type: 'quantitative',
-    title: 'latitude',
+    title: 'Latitude',
   },
   title: {
     text: 'Map line chart',
     subtitle: 'map family · map-line mode',
   },
   accessibility: {
-    label: 'Map line chart example',
-    description: 'A compiled map line chart example using the map family.',
+    label:
+      'Map line chart: Regional adoption and routes connecting Statground teams around the world',
+    description:
+      'Regional adoption and routes connecting Statground teams around the world. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   axes: {
     x: false,
@@ -554,12 +601,12 @@ mapLine('#chart', data, {
       fields: [
         {
           field: 'longitude',
-          label: 'longitude',
+          label: 'Longitude',
           format: 'number',
         },
         {
           field: 'latitude',
-          label: 'latitude',
+          label: 'Latitude',
           format: 'number',
         },
         {
@@ -602,17 +649,22 @@ const data = [
   {
     longitude: 126.98,
     latitude: 37.57,
-    value: 72,
-  },
-  {
-    longitude: -74,
-    latitude: 40.71,
-    value: 55,
+    value: 92,
   },
   {
     longitude: 139.69,
     latitude: 35.68,
-    value: 43,
+    value: 78,
+  },
+  {
+    longitude: 103.82,
+    latitude: 1.35,
+    value: 64,
+  },
+  {
+    longitude: 77.21,
+    latitude: 28.61,
+    value: 58,
   },
 ];
 
@@ -620,20 +672,22 @@ mapPoint('#chart', data, {
   x: {
     field: 'longitude',
     type: 'quantitative',
-    title: 'longitude',
+    title: 'Longitude',
   },
   y: {
     field: 'latitude',
     type: 'quantitative',
-    title: 'latitude',
+    title: 'Latitude',
   },
   title: {
     text: 'Map point chart',
     subtitle: 'map family · map-point mode',
   },
   accessibility: {
-    label: 'Map point chart example',
-    description: 'A compiled map point chart example using the map family.',
+    label:
+      'Map point chart: Regional adoption and routes connecting Statground teams around the world',
+    description:
+      'Regional adoption and routes connecting Statground teams around the world. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   axes: {
     x: false,
@@ -651,12 +705,12 @@ mapPoint('#chart', data, {
       fields: [
         {
           field: 'longitude',
-          label: 'longitude',
+          label: 'Longitude',
           format: 'number',
         },
         {
           field: 'latitude',
-          label: 'latitude',
+          label: 'Latitude',
           format: 'number',
         },
         {
@@ -691,12 +745,16 @@ const data = [
     latitude: 37.57,
   },
   {
-    longitude: -74,
-    latitude: 40.71,
-  },
-  {
     longitude: 139.69,
     latitude: 35.68,
+  },
+  {
+    longitude: 103.82,
+    latitude: 1.35,
+  },
+  {
+    longitude: 77.21,
+    latitude: 28.61,
   },
 ];
 
@@ -704,20 +762,21 @@ tiledMap('#chart', data, {
   x: {
     field: 'longitude',
     type: 'quantitative',
-    title: 'longitude',
+    title: 'Longitude',
   },
   y: {
     field: 'latitude',
     type: 'quantitative',
-    title: 'latitude',
+    title: 'Latitude',
   },
   title: {
     text: 'Tiled map',
     subtitle: 'map family · tiled-map mode',
   },
   accessibility: {
-    label: 'Tiled map example',
-    description: 'A compiled tiled map example using the map family.',
+    label: 'Tiled map: Regional adoption and routes connecting Statground teams around the world',
+    description:
+      'Regional adoption and routes connecting Statground teams around the world. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   axes: {
     x: false,
@@ -735,12 +794,12 @@ tiledMap('#chart', data, {
       fields: [
         {
           field: 'longitude',
-          label: 'longitude',
+          label: 'Longitude',
           format: 'number',
         },
         {
           field: 'latitude',
-          label: 'latitude',
+          label: 'Latitude',
           format: 'number',
         },
       ],

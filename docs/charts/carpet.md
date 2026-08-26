@@ -51,28 +51,28 @@ const data = [
     b: 0,
     px: 0,
     py: 0,
-    value: 8,
+    value: 18.454,
   },
   {
     a: 1,
     b: 0,
     px: 1,
-    py: 0.166,
-    value: 15,
+    py: 0.161,
+    value: 25.566,
   },
   {
     a: 2,
     b: 0,
     px: 2,
-    py: 0.28,
-    value: 22,
+    py: 0.279,
+    value: 33.429,
   },
   {
     a: 3,
     b: 0,
     px: 3,
-    py: 0.321,
-    value: 29,
+    py: 0.333,
+    value: 37.437,
   },
 ];
 
@@ -80,20 +80,26 @@ carpet('#chart', data, {
   x: {
     field: 'a',
     type: 'quantitative',
-    title: 'a',
+    title: 'Carpet axis A',
   },
   y: {
     field: 'b',
     type: 'quantitative',
-    title: 'b',
+    title: 'Carpet axis B',
   },
   title: {
     text: 'Carpet chart',
     subtitle: 'carpet family · default mode',
   },
   accessibility: {
-    label: 'Carpet chart example',
-    description: 'A compiled carpet chart example using the carpet family.',
+    label:
+      'Carpet chart: A warped coordinate surface retains two peaks and its underlying topology',
+    description:
+      'A warped coordinate surface retains two peaks and its underlying topology. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
+  },
+  axes: {
+    x: false,
+    y: false,
   },
   mark: {
     fields: {
@@ -128,12 +134,12 @@ carpet('#chart', data, {
         },
         {
           field: 'a',
-          label: 'a',
+          label: 'Carpet axis A',
           format: 'number',
         },
         {
           field: 'b',
-          label: 'b',
+          label: 'Carpet axis B',
           format: 'number',
         },
         {
@@ -178,28 +184,28 @@ const data = [
     b: 0,
     px: 0,
     py: 0,
-    value: 8,
+    value: 18.454,
   },
   {
     a: 1,
     b: 0,
     px: 1,
-    py: 0.166,
-    value: 15,
+    py: 0.161,
+    value: 25.566,
   },
   {
     a: 2,
     b: 0,
     px: 2,
-    py: 0.28,
-    value: 22,
+    py: 0.279,
+    value: 33.429,
   },
   {
     a: 3,
     b: 0,
     px: 3,
-    py: 0.321,
-    value: 29,
+    py: 0.333,
+    value: 37.437,
   },
 ];
 
@@ -207,20 +213,26 @@ carpetScatter('#chart', data, {
   x: {
     field: 'a',
     type: 'quantitative',
-    title: 'a',
+    title: 'Carpet axis A',
   },
   y: {
     field: 'b',
     type: 'quantitative',
-    title: 'b',
+    title: 'Carpet axis B',
   },
   title: {
     text: 'Carpet scatter overlay',
     subtitle: 'carpet family · scatter mode',
   },
   accessibility: {
-    label: 'Carpet scatter overlay example',
-    description: 'A compiled carpet scatter overlay example using the carpet family.',
+    label:
+      'Carpet scatter overlay: A warped coordinate surface retains two peaks and its underlying topology',
+    description:
+      'A warped coordinate surface retains two peaks and its underlying topology. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
+  },
+  axes: {
+    x: false,
+    y: false,
   },
   mark: {
     fields: {
@@ -255,12 +267,12 @@ carpetScatter('#chart', data, {
         },
         {
           field: 'a',
-          label: 'a',
+          label: 'Carpet axis A',
           format: 'number',
         },
         {
           field: 'b',
-          label: 'b',
+          label: 'Carpet axis B',
           format: 'number',
         },
         {
@@ -305,28 +317,28 @@ const data = [
     b: 0,
     px: 0,
     py: 0,
-    value: 8,
+    value: 18.454,
   },
   {
     a: 1,
     b: 0,
     px: 1,
-    py: 0.166,
-    value: 15,
+    py: 0.161,
+    value: 25.566,
   },
   {
     a: 2,
     b: 0,
     px: 2,
-    py: 0.28,
-    value: 22,
+    py: 0.279,
+    value: 33.429,
   },
   {
     a: 3,
     b: 0,
     px: 3,
-    py: 0.321,
-    value: 29,
+    py: 0.333,
+    value: 37.437,
   },
 ];
 
@@ -334,20 +346,26 @@ carpetContour('#chart', data, {
   x: {
     field: 'a',
     type: 'quantitative',
-    title: 'a',
+    title: 'Carpet axis A',
   },
   y: {
     field: 'b',
     type: 'quantitative',
-    title: 'b',
+    title: 'Carpet axis B',
   },
   title: {
     text: 'Carpet contour overlay',
     subtitle: 'carpet family · contour mode',
   },
   accessibility: {
-    label: 'Carpet contour overlay example',
-    description: 'A compiled carpet contour overlay example using the carpet family.',
+    label:
+      'Carpet contour overlay: A warped coordinate surface retains two peaks and its underlying topology',
+    description:
+      'A warped coordinate surface retains two peaks and its underlying topology. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
+  },
+  axes: {
+    x: false,
+    y: false,
   },
   mark: {
     fields: {
@@ -402,12 +420,12 @@ carpetContour('#chart', data, {
         },
         {
           field: 'a',
-          label: 'a',
+          label: 'Carpet axis A',
           format: 'number',
         },
         {
           field: 'b',
-          label: 'b',
+          label: 'Carpet axis B',
           format: 'number',
         },
         {

@@ -48,22 +48,22 @@ import { annotation } from 'graflume';
 const data = [
   {
     date: '2026-01-01',
-    value: 22,
-    annotation: 'Launch',
+    value: 48,
+    annotation: null,
   },
   {
     date: '2026-02-01',
-    value: 31,
+    value: 53,
     annotation: null,
   },
   {
     date: '2026-03-01',
-    value: 27,
-    annotation: 'Campaign',
+    value: 51,
+    annotation: 'Spring release',
   },
   {
     date: '2026-04-01',
-    value: 43,
+    value: 59,
     annotation: null,
   },
 ];
@@ -72,20 +72,21 @@ annotation('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Month',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Active teams',
   },
   title: {
     text: 'Annotation chart',
     subtitle: 'annotation family · default mode',
   },
   accessibility: {
-    label: 'Annotation chart example',
-    description: 'A compiled annotation chart example using the annotation family.',
+    label: 'Annotation chart: Monthly active teams with the releases that changed adoption',
+    description:
+      'Monthly active teams with the releases that changed adoption. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -100,12 +101,12 @@ annotation('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Month',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Active teams',
           format: 'number',
         },
         {
@@ -138,22 +139,22 @@ import { annotatedTimeline } from 'graflume';
 const data = [
   {
     date: '2026-01-01',
-    value: 22,
-    annotation: 'Launch',
+    value: 48,
+    annotation: null,
   },
   {
     date: '2026-02-01',
-    value: 31,
+    value: 53,
     annotation: null,
   },
   {
     date: '2026-03-01',
-    value: 27,
-    annotation: 'Campaign',
+    value: 51,
+    annotation: 'Spring release',
   },
   {
     date: '2026-04-01',
-    value: 43,
+    value: 59,
     annotation: null,
   },
 ];
@@ -162,20 +163,21 @@ annotatedTimeline('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Month',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Active teams',
   },
   title: {
     text: 'Annotated timeline',
     subtitle: 'annotation family · timeline mode',
   },
   accessibility: {
-    label: 'Annotated timeline example',
-    description: 'A compiled annotated timeline example using the annotation family.',
+    label: 'Annotated timeline: Monthly active teams with the releases that changed adoption',
+    description:
+      'Monthly active teams with the releases that changed adoption. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -190,12 +192,12 @@ annotatedTimeline('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Month',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Active teams',
           format: 'number',
         },
         {
@@ -227,24 +229,14 @@ import { eventFlags } from 'graflume/complete';
 
 const data = [
   {
-    date: '2026-01-01',
-    value: 24,
-    title: 'A',
-  },
-  {
-    date: '2026-02-01',
-    value: 29.916,
-    title: 'B',
-  },
-  {
     date: '2026-03-01',
-    value: 33.54,
-    title: 'C',
+    value: 51,
+    title: 'Spring release',
   },
   {
-    date: '2026-04-01',
-    value: 33.72,
-    title: 'D',
+    date: '2026-09-01',
+    value: 80,
+    title: 'Team plan launch',
   },
 ];
 
@@ -252,20 +244,21 @@ eventFlags('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Month',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Active teams',
   },
   title: {
     text: 'Event flags',
     subtitle: 'annotation family · event-flags mode',
   },
   accessibility: {
-    label: 'Event flags example',
-    description: 'A compiled event flags example using the annotation family.',
+    label: 'Event flags: Monthly active teams with the releases that changed adoption',
+    description:
+      'Monthly active teams with the releases that changed adoption. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -279,12 +272,12 @@ eventFlags('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Month',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Active teams',
           format: 'number',
         },
         {

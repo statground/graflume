@@ -51,20 +51,20 @@ import { area } from 'graflume';
 
 const data = [
   {
-    category: 'P1',
-    value: 24,
+    category: 'Jan',
+    value: 48,
   },
   {
-    category: 'P2',
-    value: 29.916,
+    category: 'Feb',
+    value: 53,
   },
   {
-    category: 'P3',
-    value: 33.54,
+    category: 'Mar',
+    value: 51,
   },
   {
-    category: 'P4',
-    value: 33.72,
+    category: 'Apr',
+    value: 59,
   },
 ];
 
@@ -72,20 +72,21 @@ area('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Month',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Active teams',
   },
   title: {
     text: 'Area chart',
     subtitle: 'area family · default mode',
   },
   accessibility: {
-    label: 'Area chart example',
-    description: 'A compiled area chart example using the area family.',
+    label: 'Area chart: A year of steady team adoption with visible seasonal movement',
+    description:
+      'A year of steady team adoption with visible seasonal movement. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     point: true,
@@ -97,12 +98,12 @@ area('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Month',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Active teams',
           format: 'number',
         },
       ],
@@ -129,20 +130,20 @@ import { steppedArea } from 'graflume';
 
 const data = [
   {
-    category: 'P1',
-    value: 24,
+    category: 'Jan',
+    value: 48,
   },
   {
-    category: 'P2',
-    value: 29.916,
+    category: 'Feb',
+    value: 53,
   },
   {
-    category: 'P3',
-    value: 33.54,
+    category: 'Mar',
+    value: 51,
   },
   {
-    category: 'P4',
-    value: 33.72,
+    category: 'Apr',
+    value: 59,
   },
 ];
 
@@ -150,20 +151,21 @@ steppedArea('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Month',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Active teams',
   },
   title: {
     text: 'Stepped area chart',
     subtitle: 'area family · stepped mode',
   },
   accessibility: {
-    label: 'Stepped area chart example',
-    description: 'A compiled stepped area chart example using the area family.',
+    label: 'Stepped area chart: A year of steady team adoption with visible seasonal movement',
+    description:
+      'A year of steady team adoption with visible seasonal movement. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     point: true,
@@ -175,12 +177,12 @@ steppedArea('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Month',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Active teams',
           format: 'number',
         },
       ],
@@ -208,23 +210,23 @@ import { themeRiver } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 12,
-    series: 'A',
-  },
-  {
-    date: '2026-01-01',
     value: 8,
-    series: 'B',
+    series: 'Dashboards',
   },
   {
     date: '2026-02-01',
-    value: 18,
-    series: 'A',
+    value: 10.87,
+    series: 'Dashboards',
   },
   {
-    date: '2026-02-01',
-    value: 11,
-    series: 'B',
+    date: '2026-03-01',
+    value: 12.88,
+    series: 'Dashboards',
+  },
+  {
+    date: '2026-04-01',
+    value: 13.48,
+    series: 'Dashboards',
   },
 ];
 
@@ -232,20 +234,21 @@ themeRiver('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Month',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Active teams',
   },
   title: {
     text: 'Theme river chart',
     subtitle: 'area family · stream mode',
   },
   accessibility: {
-    label: 'Theme river chart example',
-    description: 'A compiled theme river chart example using the area family.',
+    label: 'Theme river chart: A year of steady team adoption with visible seasonal movement',
+    description:
+      'A year of steady team adoption with visible seasonal movement. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -259,12 +262,12 @@ themeRiver('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Month',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Active teams',
           format: 'number',
         },
         {
@@ -296,20 +299,20 @@ import { areaSpline } from 'graflume/complete';
 
 const data = [
   {
-    category: 'P1',
-    value: 24,
+    category: 'Jan',
+    value: 48,
   },
   {
-    category: 'P2',
-    value: 29.916,
+    category: 'Feb',
+    value: 53,
   },
   {
-    category: 'P3',
-    value: 33.54,
+    category: 'Mar',
+    value: 51,
   },
   {
-    category: 'P4',
-    value: 33.72,
+    category: 'Apr',
+    value: 59,
   },
 ];
 
@@ -317,20 +320,21 @@ areaSpline('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Month',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Active teams',
   },
   title: {
     text: 'Smooth area chart',
     subtitle: 'area family · area-spline mode',
   },
   accessibility: {
-    label: 'Smooth area chart example',
-    description: 'A compiled smooth area chart example using the area family.',
+    label: 'Smooth area chart: A year of steady team adoption with visible seasonal movement',
+    description:
+      'A year of steady team adoption with visible seasonal movement. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     point: true,
@@ -345,12 +349,12 @@ areaSpline('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Month',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Active teams',
           format: 'number',
         },
       ],
@@ -379,22 +383,22 @@ const data = [
   {
     x: 1,
     y: 2,
-    series: 'A',
+    series: 'Current',
   },
   {
-    x: 3,
-    y: 7,
-    series: 'A',
+    x: 2.4,
+    y: 6.8,
+    series: 'Current',
   },
   {
-    x: 6,
-    y: 3,
-    series: 'A',
+    x: 5.2,
+    y: 7.5,
+    series: 'Current',
   },
   {
-    x: 2,
-    y: 3,
-    series: 'B',
+    x: 7.4,
+    y: 3.4,
+    series: 'Current',
   },
 ];
 
@@ -402,20 +406,21 @@ polygon('#chart', data, {
   x: {
     field: 'x',
     type: 'quantitative',
-    title: 'x',
+    title: 'Month',
   },
   y: {
     field: 'y',
     type: 'quantitative',
-    title: 'y',
+    title: 'Active teams',
   },
   title: {
     text: 'Polygon chart',
     subtitle: 'area family · polygon mode',
   },
   accessibility: {
-    label: 'Polygon chart example',
-    description: 'A compiled polygon chart example using the area family.',
+    label: 'Polygon chart: A year of steady team adoption with visible seasonal movement',
+    description:
+      'A year of steady team adoption with visible seasonal movement. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -429,12 +434,12 @@ polygon('#chart', data, {
       fields: [
         {
           field: 'x',
-          label: 'x',
+          label: 'Month',
           format: 'number',
         },
         {
           field: 'y',
-          label: 'y',
+          label: 'Active teams',
           format: 'number',
         },
         {
@@ -467,23 +472,23 @@ import { streamgraph } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 12,
-    series: 'A',
-  },
-  {
-    date: '2026-01-01',
     value: 8,
-    series: 'B',
+    series: 'Dashboards',
   },
   {
     date: '2026-02-01',
-    value: 18,
-    series: 'A',
+    value: 10.87,
+    series: 'Dashboards',
   },
   {
-    date: '2026-02-01',
-    value: 11,
-    series: 'B',
+    date: '2026-03-01',
+    value: 12.88,
+    series: 'Dashboards',
+  },
+  {
+    date: '2026-04-01',
+    value: 13.48,
+    series: 'Dashboards',
   },
 ];
 
@@ -491,20 +496,21 @@ streamgraph('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Month',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Active teams',
   },
   title: {
     text: 'Streamgraph',
     subtitle: 'area family · streamgraph mode',
   },
   accessibility: {
-    label: 'Streamgraph example',
-    description: 'A compiled streamgraph example using the area family.',
+    label: 'Streamgraph: A year of steady team adoption with visible seasonal movement',
+    description:
+      'A year of steady team adoption with visible seasonal movement. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -518,12 +524,12 @@ streamgraph('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Month',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Active teams',
           format: 'number',
         },
         {

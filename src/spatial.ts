@@ -415,6 +415,27 @@ export const webglSpatialRenderer = Object.freeze({
 
 export { SpatialChart, compileSpatial, type CompiledSpatialScene, type SpatialChartTarget };
 export {
+  adaptiveCapabilityCatalog,
+  adaptiveContractVersion,
+  adaptiveMediaQueries,
+  adaptiveProfileCatalog,
+  createAdaptiveEnvironment,
+  detectBrowserAdaptiveEnvironment,
+  normalizeAdaptiveOptions,
+  resolveAdaptiveProfile,
+} from './adaptive/capabilities.js';
+export * from './demo/recipes.js';
+export type {
+  AdaptiveCapabilityDefinition,
+  AdaptiveCapabilityId,
+  AdaptiveEnvironment,
+  AdaptiveEnvironmentInput,
+  AdaptiveOptions,
+  AdaptiveProfileDefinition,
+  AdaptiveProfileId,
+  AdaptiveState,
+} from './adaptive/capabilities.js';
+export {
   computeSurfaceNormalGeometry,
   extractSurfaceContourSegments,
 } from './spatial/surface-analysis.js';
@@ -448,6 +469,7 @@ export type {
 } from './spatial/vector-field-integration.js';
 export * from './spatial/types.js';
 export type {
+  SpatialAdaptiveChangeEvent,
   SpatialAvailabilityChangeEvent,
   SpatialAvailabilityState,
   SpatialAvailabilityStatus,

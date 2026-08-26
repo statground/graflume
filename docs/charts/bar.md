@@ -56,20 +56,20 @@ import { horizontalBar } from 'graflume';
 
 const data = [
   {
-    category: 'P1',
-    value: 24,
+    category: 'Insights',
+    value: 86,
   },
   {
-    category: 'P2',
-    value: 29.916,
+    category: 'Dashboards',
+    value: 78,
   },
   {
-    category: 'P3',
-    value: 33.54,
+    category: 'Reports',
+    value: 69,
   },
   {
-    category: 'P4',
-    value: 33.72,
+    category: 'Alerts',
+    value: 61,
   },
 ];
 
@@ -77,20 +77,21 @@ horizontalBar('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Capability',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Adoption (%)',
   },
   title: {
     text: 'Bar chart',
     subtitle: 'bar family · horizontal mode',
   },
   accessibility: {
-    label: 'Bar chart example',
-    description: 'A compiled bar chart example using the bar family.',
+    label: 'Bar chart: Feature adoption, ordered so the leading capability is immediately clear',
+    description:
+      'Feature adoption, ordered so the leading capability is immediately clear. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     orientation: 'horizontal',
@@ -103,12 +104,12 @@ horizontalBar('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Capability',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Adoption (%)',
           format: 'number',
         },
       ],
@@ -135,20 +136,20 @@ import { column } from 'graflume';
 
 const data = [
   {
-    category: 'P1',
-    value: 24,
+    category: 'Insights',
+    value: 86,
   },
   {
-    category: 'P2',
-    value: 29.916,
+    category: 'Dashboards',
+    value: 78,
   },
   {
-    category: 'P3',
-    value: 33.54,
+    category: 'Reports',
+    value: 69,
   },
   {
-    category: 'P4',
-    value: 33.72,
+    category: 'Alerts',
+    value: 61,
   },
 ];
 
@@ -156,20 +157,21 @@ column('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Capability',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Adoption (%)',
   },
   title: {
     text: 'Column chart',
     subtitle: 'bar family · vertical mode',
   },
   accessibility: {
-    label: 'Column chart example',
-    description: 'A compiled column chart example using the bar family.',
+    label: 'Column chart: Feature adoption, ordered so the leading capability is immediately clear',
+    description:
+      'Feature adoption, ordered so the leading capability is immediately clear. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     orientation: 'vertical',
@@ -182,12 +184,12 @@ column('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Capability',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Adoption (%)',
           format: 'number',
         },
       ],
@@ -214,20 +216,20 @@ import { pictorialBar } from 'graflume/complete';
 
 const data = [
   {
-    category: 'P1',
-    value: 24,
+    category: 'Insights',
+    value: 86,
   },
   {
-    category: 'P2',
-    value: 29.916,
+    category: 'Dashboards',
+    value: 78,
   },
   {
-    category: 'P3',
-    value: 33.54,
+    category: 'Reports',
+    value: 69,
   },
   {
-    category: 'P4',
-    value: 33.72,
+    category: 'Alerts',
+    value: 61,
   },
 ];
 
@@ -235,20 +237,22 @@ pictorialBar('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Capability',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Adoption (%)',
   },
   title: {
     text: 'Pictorial bar chart',
     subtitle: 'bar family · pictorial mode',
   },
   accessibility: {
-    label: 'Pictorial bar chart example',
-    description: 'A compiled pictorial bar chart example using the bar family.',
+    label:
+      'Pictorial bar chart: Feature adoption, ordered so the leading capability is immediately clear',
+    description:
+      'Feature adoption, ordered so the leading capability is immediately clear. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     options: {
@@ -262,12 +266,12 @@ pictorialBar('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Capability',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Adoption (%)',
           format: 'number',
         },
       ],
@@ -294,24 +298,24 @@ import { bullet } from 'graflume/complete';
 
 const data = [
   {
-    category: 'P1',
-    value: 24,
-    target: 29,
+    category: 'Reliability',
+    value: 99.93,
+    target: 99.9,
   },
   {
-    category: 'P2',
-    value: 29.916,
-    target: 30,
+    category: 'Fast responses',
+    value: 94,
+    target: 92,
   },
   {
-    category: 'P3',
-    value: 33.54,
-    target: 31,
+    category: 'Accessible flows',
+    value: 91,
+    target: 95,
   },
   {
-    category: 'P4',
-    value: 33.72,
-    target: 32,
+    category: 'Successful exports',
+    value: 97,
+    target: 98,
   },
 ];
 
@@ -319,20 +323,21 @@ bullet('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Capability',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Adoption (%)',
   },
   title: {
     text: 'Bullet chart',
     subtitle: 'bar family · bullet mode',
   },
   accessibility: {
-    label: 'Bullet chart example',
-    description: 'A compiled bullet chart example using the bar family.',
+    label: 'Bullet chart: Feature adoption, ordered so the leading capability is immediately clear',
+    description:
+      'Feature adoption, ordered so the leading capability is immediately clear. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -346,12 +351,12 @@ bullet('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Capability',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Adoption (%)',
           format: 'number',
         },
         {
@@ -383,20 +388,20 @@ import { columnPyramid } from 'graflume/complete';
 
 const data = [
   {
-    category: 'P1',
-    value: 24,
+    category: 'Insights',
+    value: 86,
   },
   {
-    category: 'P2',
-    value: 29.916,
+    category: 'Dashboards',
+    value: 78,
   },
   {
-    category: 'P3',
-    value: 33.54,
+    category: 'Reports',
+    value: 69,
   },
   {
-    category: 'P4',
-    value: 33.72,
+    category: 'Alerts',
+    value: 61,
   },
 ];
 
@@ -404,20 +409,22 @@ columnPyramid('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Capability',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Adoption (%)',
   },
   title: {
     text: 'Column pyramid chart',
     subtitle: 'bar family · column-pyramid mode',
   },
   accessibility: {
-    label: 'Column pyramid chart example',
-    description: 'A compiled column pyramid chart example using the bar family.',
+    label:
+      'Column pyramid chart: Feature adoption, ordered so the leading capability is immediately clear',
+    description:
+      'Feature adoption, ordered so the leading capability is immediately clear. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     options: {
@@ -431,12 +438,12 @@ columnPyramid('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Capability',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Adoption (%)',
           format: 'number',
         },
       ],
@@ -463,20 +470,20 @@ import { cylinder } from 'graflume/complete';
 
 const data = [
   {
-    category: 'P1',
-    value: 24,
+    category: 'Insights',
+    value: 86,
   },
   {
-    category: 'P2',
-    value: 29.916,
+    category: 'Dashboards',
+    value: 78,
   },
   {
-    category: 'P3',
-    value: 33.54,
+    category: 'Reports',
+    value: 69,
   },
   {
-    category: 'P4',
-    value: 33.72,
+    category: 'Alerts',
+    value: 61,
   },
 ];
 
@@ -484,20 +491,22 @@ cylinder('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Capability',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Adoption (%)',
   },
   title: {
     text: 'Cylinder chart',
     subtitle: 'bar family · cylinder mode',
   },
   accessibility: {
-    label: 'Cylinder chart example',
-    description: 'A compiled cylinder chart example using the bar family.',
+    label:
+      'Cylinder chart: Feature adoption, ordered so the leading capability is immediately clear',
+    description:
+      'Feature adoption, ordered so the leading capability is immediately clear. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   locale: 'en-US',
   interaction: {
@@ -506,12 +515,12 @@ cylinder('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Capability',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Adoption (%)',
           format: 'number',
         },
       ],
@@ -538,20 +547,20 @@ import { lollipop } from 'graflume/complete';
 
 const data = [
   {
-    category: 'P1',
-    value: 24,
+    category: 'Insights',
+    value: 86,
   },
   {
-    category: 'P2',
-    value: 29.916,
+    category: 'Dashboards',
+    value: 78,
   },
   {
-    category: 'P3',
-    value: 33.54,
+    category: 'Reports',
+    value: 69,
   },
   {
-    category: 'P4',
-    value: 33.72,
+    category: 'Alerts',
+    value: 61,
   },
 ];
 
@@ -559,20 +568,22 @@ lollipop('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Capability',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Adoption (%)',
   },
   title: {
     text: 'Lollipop chart',
     subtitle: 'bar family · lollipop mode',
   },
   accessibility: {
-    label: 'Lollipop chart example',
-    description: 'A compiled lollipop chart example using the bar family.',
+    label:
+      'Lollipop chart: Feature adoption, ordered so the leading capability is immediately clear',
+    description:
+      'Feature adoption, ordered so the leading capability is immediately clear. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   locale: 'en-US',
   interaction: {
@@ -581,12 +592,12 @@ lollipop('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Capability',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Adoption (%)',
           format: 'number',
         },
       ],
@@ -613,20 +624,20 @@ import { pictorialColumn } from 'graflume/complete';
 
 const data = [
   {
-    category: 'P1',
-    value: 24,
+    category: 'Insights',
+    value: 86,
   },
   {
-    category: 'P2',
-    value: 29.916,
+    category: 'Dashboards',
+    value: 78,
   },
   {
-    category: 'P3',
-    value: 33.54,
+    category: 'Reports',
+    value: 69,
   },
   {
-    category: 'P4',
-    value: 33.72,
+    category: 'Alerts',
+    value: 61,
   },
 ];
 
@@ -634,20 +645,22 @@ pictorialColumn('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Capability',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Adoption (%)',
   },
   title: {
     text: 'Pictorial column chart',
     subtitle: 'bar family · pictorial-column mode',
   },
   accessibility: {
-    label: 'Pictorial column chart example',
-    description: 'A compiled pictorial column chart example using the bar family.',
+    label:
+      'Pictorial column chart: Feature adoption, ordered so the leading capability is immediately clear',
+    description:
+      'Feature adoption, ordered so the leading capability is immediately clear. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     options: {
@@ -661,12 +674,12 @@ pictorialColumn('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Capability',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Adoption (%)',
           format: 'number',
         },
       ],
@@ -693,24 +706,24 @@ import { variableWidth } from 'graflume/complete';
 
 const data = [
   {
-    category: 'P1',
-    value: 24,
-    width: 3,
+    category: 'Insights',
+    value: 86,
+    width: 24,
   },
   {
-    category: 'P2',
-    value: 29.916,
-    width: 4,
+    category: 'Dashboards',
+    value: 78,
+    width: 21,
   },
   {
-    category: 'P3',
-    value: 33.54,
-    width: 5,
+    category: 'Reports',
+    value: 69,
+    width: 18,
   },
   {
-    category: 'P4',
-    value: 33.72,
-    width: 6,
+    category: 'Alerts',
+    value: 61,
+    width: 15,
   },
 ];
 
@@ -718,20 +731,22 @@ variableWidth('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Capability',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Adoption (%)',
   },
   title: {
     text: 'Variable width column chart',
     subtitle: 'bar family · variable-width mode',
   },
   accessibility: {
-    label: 'Variable width column chart example',
-    description: 'A compiled variable width column chart example using the bar family.',
+    label:
+      'Variable width column chart: Feature adoption, ordered so the leading capability is immediately clear',
+    description:
+      'Feature adoption, ordered so the leading capability is immediately clear. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -745,12 +760,12 @@ variableWidth('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Capability',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Adoption (%)',
           format: 'number',
         },
         {

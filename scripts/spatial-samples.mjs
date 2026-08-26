@@ -214,7 +214,7 @@ const galaxy = galaxyScatter();
 export const spatialSampleSpecs = Object.freeze({
   surface: {
     specVersion: '0.1',
-    title: 'Multi-peak terrain surface',
+    title: 'Terrain risk landscape',
     background: '#f8fafc',
     camera: camera(0.3, 0.5, 9.6),
     lighting: lighting(),
@@ -229,7 +229,7 @@ export const spatialSampleSpecs = Object.freeze({
   },
   mesh: {
     specVersion: '0.1',
-    title: 'Faceted shell mesh',
+    title: 'Faceted material shell',
     background: '#07111f',
     camera: camera(0.72, 0.4, 7.8, 40),
     lighting: lighting([-0.65, 0.72, 0.48]),
@@ -244,7 +244,7 @@ export const spatialSampleSpecs = Object.freeze({
   },
   volume: {
     specVersion: '0.1',
-    title: 'Sampled scalar cloud',
+    title: 'Dual-lobe density volume',
     background: '#050b18',
     camera: camera(0.68, 0.4, 9, 40),
     interaction,
@@ -267,7 +267,7 @@ export const spatialSampleSpecs = Object.freeze({
   },
   isosurface: {
     specVersion: '0.1',
-    title: 'Multi-lobe isosurface',
+    title: 'Density threshold isosurface',
     background: '#f8fafc',
     camera: camera(0, 0.45, 3.6, 40),
     lighting: lighting([-0.55, 0.88, 0.42]),
@@ -288,7 +288,7 @@ export const spatialSampleSpecs = Object.freeze({
   },
   'vector-cone': {
     specVersion: '0.1',
-    title: 'Cyclone vector field',
+    title: 'Cyclone updraft vectors',
     background: '#f8fafc',
     camera: camera(0.72, 0.5, 8.6, 44),
     lighting: lighting(),
@@ -303,7 +303,7 @@ export const spatialSampleSpecs = Object.freeze({
   },
   streamtube: {
     specVersion: '0.1',
-    title: 'Multi-helix streamtubes',
+    title: 'Rising helical flow paths',
     background: '#07111f',
     camera: camera(0.68, 0.4, 7.3, 40),
     lighting: lighting([-0.35, 0.9, 0.5]),
@@ -322,7 +322,7 @@ export const spatialSampleSpecs = Object.freeze({
   },
   'spatial-scatter': {
     specVersion: '0.1',
-    title: 'Clustered galaxy scatter',
+    title: 'Three-segment spatial population',
     background: '#050b18',
     camera: camera(-0.58, 0.5, 7.5, 42),
     lighting: { ambient: 0.58, diffuse: 0.72, direction: [-0.4, 0.78, 0.66] },
@@ -337,7 +337,7 @@ export const spatialSampleSpecs = Object.freeze({
   },
   globe: {
     specVersion: '0.1',
-    title: 'Globe',
+    title: 'Global team activity routes',
     background: '#050b18',
     camera: camera(0.35, 0.38, 4.8, 40),
     interaction,

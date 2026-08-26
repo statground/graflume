@@ -1,5 +1,15 @@
 import { EventEmitter } from '../core/events.js';
 import {
+  adaptiveMediaQueries,
+  adaptiveStateSignature,
+  applyAdaptiveSurface,
+  detectBrowserAdaptiveEnvironment,
+  normalizeAdaptiveOptions,
+  resolveAdaptiveProfile,
+  type AdaptiveState,
+  type NormalizedAdaptiveOptions,
+} from '../adaptive/capabilities.js';
+import {
   defaultSemanticFocusStore,
   type SemanticFocusChange,
   type SemanticFocusStore,
@@ -66,6 +76,12 @@ export interface SpatialResizeEvent {
   readonly chart: SpatialChart;
   readonly width: number;
   readonly height: number;
+}
+
+export interface SpatialAdaptiveChangeEvent {
+  readonly chart: SpatialChart;
+  readonly state: AdaptiveState;
+  readonly previous: AdaptiveState;
 }
 
 export interface SpatialCameraChangeEvent {
@@ -158,6 +174,7 @@ export interface SpatialChartEventMap {
   readonly hover: SpatialPointerEvent;
   readonly click: SpatialPointerEvent;
   readonly resize: SpatialResizeEvent;
+  readonly adaptivechange: SpatialAdaptiveChangeEvent;
   readonly camerachange: SpatialCameraChangeEvent;
   readonly fullscreenchange: SpatialFullscreenChangeEvent;
   readonly legendchange: SpatialLegendChangeEvent;
@@ -186,6 +203,7 @@ function spatialPlotViewport(
   spec: SpatialChartSpec,
   width: number,
   height: number,
+  reflowLegend = false,
 ): SpatialPlotViewport {
   const input = spec.legend;
   if (
@@ -194,7 +212,11 @@ function spatialPlotViewport(
     (typeof input === 'object' && input.visible === false)
   )
     return { x: 0, y: 0, width, height };
-  const position = typeof input === 'object' ? (input.position ?? 'right') : 'right';
+  const authoredPosition = typeof input === 'object' ? (input.position ?? 'right') : 'right';
+  const position =
+    reflowLegend && (input === true || (typeof input === 'object' && input.position === undefined))
+      ? 'bottom'
+      : authoredPosition;
   if (position.startsWith('inside-')) return { x: 0, y: 0, width, height };
   if (position === 'top' || position === 'bottom') {
     const rail = Math.min(Math.max(0, height - 1), Math.max(32, Math.min(72, height * 0.2)));
@@ -250,6 +272,30 @@ function resolveTarget(target: SpatialChartTarget): HTMLElement {
   const element = document.querySelector<HTMLElement>(target);
   if (element === null) throw new Error(`Spatial chart target "${target}" was not found.`);
   return element;
+}
+
+function arrayLikeLength(value: unknown): number {
+  if (value === null || typeof value !== 'object') return 0;
+  const length = (value as { readonly length?: unknown }).length;
+  return typeof length === 'number' && Number.isInteger(length) && length >= 0 ? length : 0;
+}
+
+function estimateSpatialRowCount(spec: SpatialChartSpec): number {
+  let total = 0;
+  for (const layer of spec.layers) {
+    const data = layer.data as unknown as Readonly<Record<string, unknown>> | undefined;
+    if (data === undefined) continue;
+    total += Math.max(
+      arrayLikeLength(data.positions),
+      arrayLikeLength(data.origins),
+      arrayLikeLength(data.paths),
+      arrayLikeLength(data.z),
+      arrayLikeLength(data.values),
+      arrayLikeLength(data.points),
+      arrayLikeLength(data.routes),
+    );
+  }
+  return Math.min(Number.MAX_SAFE_INTEGER, total);
 }
 
 function eventPoint(event: PointerEvent, element: HTMLElement): PointerPosition {
@@ -463,6 +509,7 @@ export class SpatialChart {
   readonly #overlays = new SpatialOverlayController();
   readonly #events = new EventEmitter<SpatialChartEventMap>();
   readonly #options: SpatialCreateOptions;
+  readonly #adaptiveOptions: NormalizedAdaptiveOptions;
   readonly #activePointers = new Map<number, PointerPosition>();
   readonly #controlButtons = new Map<string, HTMLButtonElement>();
   readonly #semanticViewId: string;
@@ -475,6 +522,8 @@ export class SpatialChart {
   #pinch: PinchState | null = null;
   #resizeObserver: ResizeObserver | null = null;
   #windowResizeListener: (() => void) | null = null;
+  #adaptiveMediaLists: readonly MediaQueryList[] = [];
+  #adaptiveState: AdaptiveState;
   #tooltip: HTMLDivElement | null = null;
   #fallback: HTMLDivElement | null = null;
   #accessibility: HTMLDivElement | null = null;
@@ -502,6 +551,10 @@ export class SpatialChart {
   #applyingLinkedFocus = false;
   #lastPublishedSemanticId: string | null = null;
 
+  readonly #adaptiveMediaListener = (): void => {
+    if (!this.#destroyed) this.resize();
+  };
+
   constructor(
     target: SpatialChartTarget,
     spec: SpatialChartSpec,
@@ -514,6 +567,18 @@ export class SpatialChart {
     this.#semanticViewId = `spatial-view-${spatialSemanticViewSequence}`;
     this.#spec = spec;
     this.#options = options;
+    this.#adaptiveOptions = normalizeAdaptiveOptions(options.adaptive);
+    this.#adaptiveState = resolveAdaptiveProfile(
+      detectBrowserAdaptiveEnvironment(
+        {
+          width: options.width ?? (this.#target.clientWidth || 640),
+          height: options.height ?? (this.#target.clientHeight || 420),
+          rowCount: estimateSpatialRowCount(spec),
+        },
+        this.#adaptiveOptions.environment,
+      ),
+      this.#adaptiveOptions,
+    );
     this.#scene = compileSpatial(spec);
     this.#annotations = (spec.annotations ?? []).map((annotation, index) => ({
       ...cloneSpatialAnnotation(annotation),
@@ -581,6 +646,11 @@ export class SpatialChart {
 
   getSpec(): SpatialChartSpec {
     return this.#spec;
+  }
+
+  getAdaptiveState(): AdaptiveState {
+    this.#assertAlive();
+    return this.#adaptiveState;
   }
 
   setSpec(spec: SpatialChartSpec): void {
@@ -900,13 +970,35 @@ export class SpatialChart {
       ...(this.#options.width === undefined ? {} : { configuredWidth: this.#options.width }),
       ...(this.#options.height === undefined ? {} : { configuredHeight: this.#options.height }),
     });
+    const previousAdaptiveState = this.#adaptiveState;
+    this.#adaptiveState = resolveAdaptiveProfile(
+      detectBrowserAdaptiveEnvironment(
+        {
+          width: resolvedWidth,
+          height: resolvedHeight,
+          rowCount: estimateSpatialRowCount(this.#spec),
+        },
+        this.#adaptiveOptions.environment,
+      ),
+      this.#adaptiveOptions,
+    );
     this.#width = resolvedWidth;
     this.#height = resolvedHeight;
     this.#wrapper.style.height = `${resolvedHeight}px`;
     this.#resizeRendererViewport();
     this.#semanticNavigation?.reproject();
     this.#syncOverlays();
+    applyAdaptiveSurface(this.#wrapper, this.#renderer.surface(), this.#adaptiveState);
     this.#events.emit('resize', { chart: this, width: resolvedWidth, height: resolvedHeight });
+    if (
+      adaptiveStateSignature(previousAdaptiveState) !== adaptiveStateSignature(this.#adaptiveState)
+    ) {
+      this.#events.emit('adaptivechange', {
+        chart: this,
+        state: this.#adaptiveState,
+        previous: previousAdaptiveState,
+      });
+    }
   }
 
   render(): void {
@@ -917,6 +1009,7 @@ export class SpatialChart {
     this.#syncAccessibilityDom();
     this.#syncControlStructure();
     this.#syncOverlays();
+    applyAdaptiveSurface(this.#wrapper, this.#renderer.surface(), this.#adaptiveState);
     this.#events.emit('render', { chart: this, scene: this.#scene });
   }
 
@@ -971,6 +1064,9 @@ export class SpatialChart {
     this.#resizeObserver?.disconnect();
     if (this.#windowResizeListener !== null)
       window.removeEventListener('resize', this.#windowResizeListener);
+    for (const query of this.#adaptiveMediaLists)
+      query.removeEventListener?.('change', this.#adaptiveMediaListener);
+    this.#adaptiveMediaLists = [];
     document.removeEventListener('fullscreenchange', this.#fullscreenListener);
     this.#detachInteraction();
     this.#overlays.destroy();
@@ -1359,7 +1455,11 @@ export class SpatialChart {
         };
       });
     }
-    const position = legend.position ?? 'right';
+    const authoredPosition = legend.position ?? 'right';
+    const position =
+      this.#adaptiveState.layout.legend === 'bottom-flow' && legend.position === undefined
+        ? 'bottom'
+        : authoredPosition;
     return {
       visible: true,
       ...(legend.title === undefined ? {} : { title: legend.title }),
@@ -1545,8 +1645,12 @@ export class SpatialChart {
 
   #controlCollisionBounds(): ScreenBounds | undefined {
     if (this.#controls === null || this.#controlButtons.size === 0) return undefined;
-    const buttonSize = this.#width <= 560 ? 44 : 28;
-    const height = this.#width <= 560 ? 46 : 32;
+    const buttonSize = this.#adaptiveState.enabled
+      ? this.#adaptiveState.layout.controlTarget
+      : this.#width <= 560
+        ? 44
+        : 28;
+    const height = buttonSize + 2;
     const width = Math.min(
       Math.max(1, this.#plotViewport.width - 12),
       this.#controlButtons.size * buttonSize + Math.max(0, this.#controlButtons.size - 1) + 4,
@@ -1616,6 +1720,21 @@ export class SpatialChart {
       if (fullscreen || embeddedFallback) this.resize();
     };
     window.addEventListener('resize', this.#windowResizeListener);
+    if (this.#adaptiveOptions.enabled && typeof window.matchMedia === 'function') {
+      this.#adaptiveMediaLists = [
+        ...new Set(
+          adaptiveMediaQueries.map((query) => {
+            try {
+              return window.matchMedia(query);
+            } catch {
+              return null;
+            }
+          }),
+        ),
+      ].filter((query): query is MediaQueryList => query !== null);
+      for (const query of this.#adaptiveMediaLists)
+        query.addEventListener?.('change', this.#adaptiveMediaListener);
+    }
     if (this.#options.autoResize === false || this.#options.width !== undefined) return;
     if (typeof ResizeObserver !== 'undefined') {
       this.#resizeObserver = new ResizeObserver(() => this.resize());
@@ -1890,6 +2009,33 @@ export class SpatialChart {
   overflow-x: auto;
   scrollbar-width: thin;
 }
+[data-graflume-spatial="true"][data-graflume-adaptive-viewport="micro"] [data-graflume-spatial-control],
+[data-graflume-spatial="true"][data-graflume-adaptive-viewport="narrow"] [data-graflume-spatial-control],
+[data-graflume-spatial="true"][data-graflume-adaptive-input="coarse"] [data-graflume-spatial-control],
+[data-graflume-spatial="true"][data-graflume-adaptive-input="keyboard"] [data-graflume-spatial-control],
+[data-graflume-spatial="true"][data-graflume-adaptive-input="remote"] [data-graflume-spatial-control] {
+  inline-size: var(--graflume-control-target, 44px) !important;
+  block-size: var(--graflume-control-target, 44px) !important;
+  min-inline-size: var(--graflume-control-target, 44px);
+}
+[data-graflume-spatial="true"][data-graflume-adaptive-display="e-ink"] [data-graflume-spatial-controls="true"],
+[data-graflume-spatial="true"][data-graflume-adaptive-display="monochrome"] [data-graflume-spatial-controls="true"],
+[data-graflume-spatial="true"][data-graflume-adaptive-display="grid"] [data-graflume-spatial-controls="true"],
+[data-graflume-spatial="true"][data-graflume-adaptive-display="high-contrast"] [data-graflume-spatial-controls="true"] {
+  color: #000 !important;
+  border: 2px solid #000 !important;
+  background: #fff !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+[data-graflume-spatial="true"][data-graflume-adaptive-display="e-ink"] [data-graflume-spatial-legend="true"],
+[data-graflume-spatial="true"][data-graflume-adaptive-display="monochrome"] [data-graflume-spatial-legend="true"],
+[data-graflume-spatial="true"][data-graflume-adaptive-display="grid"] [data-graflume-spatial-legend="true"],
+[data-graflume-spatial="true"][data-graflume-adaptive-display="high-contrast"] [data-graflume-spatial-legend="true"] {
+  color: #000 !important;
+  border-color: #000 !important;
+  background: #fff !important;
+}
 @media (pointer: coarse), (max-width: 560px) {
   [data-graflume-spatial="true"] [data-graflume-spatial-control] {
     inline-size: 44px !important;
@@ -1997,13 +2143,22 @@ export class SpatialChart {
   }
 
   #resizeRendererViewport(): void {
-    this.#plotViewport = spatialPlotViewport(this.#spec, this.#width, this.#height);
+    this.#plotViewport = spatialPlotViewport(
+      this.#spec,
+      this.#width,
+      this.#height,
+      this.#adaptiveState.layout.legend === 'bottom-flow',
+    );
     const surface = this.#renderer.surface();
     surface.style.position = 'absolute';
     surface.style.left = `${this.#plotViewport.x}px`;
     surface.style.top = `${this.#plotViewport.y}px`;
     const ratio = this.#options.pixelRatio ?? window.devicePixelRatio ?? 1;
-    this.#renderer.resize(this.#plotViewport.width, this.#plotViewport.height, ratio);
+    this.#renderer.resize(
+      this.#plotViewport.width,
+      this.#plotViewport.height,
+      Math.min(ratio, this.#adaptiveState.rendering.pixelRatioCap),
+    );
     this.#syncControlLayout();
   }
 

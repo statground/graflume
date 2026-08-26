@@ -46,22 +46,22 @@ const data = [
   {
     x: 0,
     y: 0,
-    value: 10.43,
+    value: 19.342,
   },
   {
     x: 1,
     y: 0,
-    value: 22.607,
+    value: 23.692,
   },
   {
     x: 2,
     y: 0,
-    value: 32.821,
+    value: 30.375,
   },
   {
     x: 3,
     y: 0,
-    value: 27.908,
+    value: 35.875,
   },
 ];
 
@@ -69,20 +69,22 @@ contour('#chart', data, {
   x: {
     field: 'x',
     type: 'quantitative',
-    title: 'x',
+    title: 'Horizontal bin',
   },
   y: {
     field: 'y',
     type: 'quantitative',
-    title: 'y',
+    title: 'Vertical bin',
   },
   title: {
     text: 'Contour chart',
     subtitle: 'contour family · default mode',
   },
   accessibility: {
-    label: 'Contour chart example',
-    description: 'A compiled contour chart example using the contour family.',
+    label:
+      'Contour chart: Smooth peaks, a ridge, and a basin produce interpretable contour structure',
+    description:
+      'Smooth peaks, a ridge, and a basin produce interpretable contour structure. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -96,12 +98,12 @@ contour('#chart', data, {
       fields: [
         {
           field: 'x',
-          label: 'x',
+          label: 'Horizontal bin',
           format: 'number',
         },
         {
           field: 'y',
-          label: 'y',
+          label: 'Vertical bin',
           format: 'number',
         },
         {

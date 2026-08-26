@@ -45,28 +45,28 @@ import { bubble } from 'graflume';
 
 const data = [
   {
-    x: 12,
-    y: 42,
-    size: 20,
-    group: 'A',
+    x: 14,
+    y: 38,
+    size: 28,
+    group: 'Starter',
   },
   {
-    x: 24,
-    y: 55,
-    size: 85,
-    group: 'B',
+    x: 20,
+    y: 45,
+    size: 34,
+    group: 'Starter',
+  },
+  {
+    x: 25,
+    y: 41,
+    size: 31,
+    group: 'Starter',
   },
   {
     x: 38,
-    y: 33,
-    size: 55,
-    group: 'A',
-  },
-  {
-    x: 51,
-    y: 68,
-    size: 120,
-    group: 'C',
+    y: 57,
+    size: 64,
+    group: 'Growth',
   },
 ];
 
@@ -74,20 +74,21 @@ bubble('#chart', data, {
   x: {
     field: 'x',
     type: 'quantitative',
-    title: 'x',
+    title: 'Engagement score',
   },
   y: {
     field: 'y',
     type: 'quantitative',
-    title: 'y',
+    title: 'Satisfaction score',
   },
   title: {
     text: 'Bubble chart',
     subtitle: 'bubble family · default mode',
   },
   accessibility: {
-    label: 'Bubble chart example',
-    description: 'A compiled bubble chart example using the bubble family.',
+    label: 'Bubble chart: Customer segments compared by engagement, satisfaction, and team size',
+    description:
+      'Customer segments compared by engagement, satisfaction, and team size. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -102,12 +103,12 @@ bubble('#chart', data, {
       fields: [
         {
           field: 'x',
-          label: 'x',
+          label: 'Engagement score',
           format: 'number',
         },
         {
           field: 'y',
-          label: 'y',
+          label: 'Satisfaction score',
           format: 'number',
         },
         {
@@ -143,20 +144,20 @@ import { packedBubble } from 'graflume/complete';
 
 const data = [
   {
-    category: 'P1',
-    value: 24,
+    category: 'Organic search',
+    value: 38,
   },
   {
-    category: 'P2',
-    value: 29.916,
+    category: 'Direct',
+    value: 27,
   },
   {
-    category: 'P3',
-    value: 33.54,
+    category: 'Product referrals',
+    value: 18,
   },
   {
-    category: 'P4',
-    value: 33.72,
+    category: 'Community',
+    value: 11,
   },
 ];
 
@@ -164,20 +165,22 @@ packedBubble('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Engagement score',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Satisfaction score',
   },
   title: {
     text: 'Packed bubble chart',
     subtitle: 'bubble family · packed-bubble mode',
   },
   accessibility: {
-    label: 'Packed bubble chart example',
-    description: 'A compiled packed bubble chart example using the bubble family.',
+    label:
+      'Packed bubble chart: Customer segments compared by engagement, satisfaction, and team size',
+    description:
+      'Customer segments compared by engagement, satisfaction, and team size. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   axes: {
     x: false,
@@ -190,12 +193,12 @@ packedBubble('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Engagement score',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Satisfaction score',
           format: 'number',
         },
       ],

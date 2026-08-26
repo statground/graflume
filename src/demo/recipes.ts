@@ -1,0 +1,103 @@
+export const demoRecipeIds = [
+  'time-signal',
+  'categorical-events',
+  'clustered-points',
+  'interval-sequence',
+  'ohlcv-sequence',
+  'motion-trajectories',
+  'geo-events',
+  'relationship-edges',
+  'hierarchy-nodes',
+  'text-corpus',
+  'multivariate-observations',
+  'grid-2d',
+  'ternary-composition',
+  'smith-sweep',
+  'venn-membership',
+  'surface-grid',
+  'volume-grid',
+  'spatial-vector',
+] as const;
+
+export type DemoRecipeId = (typeof demoRecipeIds)[number];
+export type DemoRecipeShape = 'rows' | 'surface-grid' | 'volume-grid' | 'vector-set';
+export type DemoReductionStage = 'source' | 'pre-aggregate' | 'sample' | 'bin' | 'level-of-detail';
+
+export interface DemoRecipe {
+  readonly id: DemoRecipeId;
+  readonly version: 2;
+  readonly seed: number;
+  readonly shape: DemoRecipeShape;
+  readonly parameters: Readonly<Record<string, unknown>>;
+  readonly cardinality: {
+    readonly sourceRows: number;
+    readonly unit: 'rows' | 'events' | 'edges' | 'nodes' | 'cells' | 'voxels' | 'vectors';
+    readonly axes?: Readonly<Record<string, unknown>>;
+  };
+  readonly reduction: { readonly stage: DemoReductionStage; readonly method: string };
+  readonly outputBudget: { readonly resource: string; readonly maximum: number };
+  readonly preview: { readonly method: string; readonly maximumRows: number };
+  readonly initialView: Readonly<Record<string, unknown>>;
+  readonly expectedInvariants: readonly string[];
+}
+
+export interface DemoSurfaceGrid {
+  readonly rows: number;
+  readonly columns: number;
+  readonly x: readonly number[];
+  readonly y: readonly number[];
+  readonly z: readonly number[];
+  readonly values: readonly number[];
+}
+
+export interface DemoVolumeGrid {
+  readonly dimensions: readonly [number, number, number];
+  readonly values: readonly number[];
+  readonly origin: readonly [number, number, number];
+  readonly spacing: readonly [number, number, number];
+}
+
+export interface DemoVectorSet {
+  readonly origins: readonly (readonly [number, number, number])[];
+  readonly vectors: readonly (readonly [number, number, number])[];
+  readonly labels: readonly string[];
+  readonly colors: readonly string[];
+}
+
+export type DemoRecipeData =
+  readonly Readonly<Record<string, unknown>>[] | DemoSurfaceGrid | DemoVolumeGrid | DemoVectorSet;
+
+export interface DemoMaterializationPlan {
+  readonly recipeId: DemoRecipeId;
+  readonly seed: number;
+  readonly sourceRows: number;
+  readonly derivedRows: number;
+  readonly renderedRows: number;
+  readonly renderedMaximum: number;
+  readonly reduction: { readonly stage: DemoReductionStage; readonly method: string };
+  readonly budget: { readonly resource: string; readonly maximum: number };
+}
+
+export interface DemoRecipeMaterialization {
+  readonly data: DemoRecipeData;
+  readonly previewRows: readonly Readonly<Record<string, unknown>>[];
+  readonly plan: DemoMaterializationPlan;
+}
+
+import {
+  demoRecipeCatalog as engineCatalog,
+  materializeDemoRecipe as materializeRecipe,
+} from './recipes-engine.js';
+
+export const demoRecipeCatalog = engineCatalog as readonly {
+  readonly id: DemoRecipeId;
+  readonly shape: 'rows' | 'surface-grid' | 'volume-grid' | 'rows-or-vector-set';
+  readonly summary: string;
+  readonly reductionMethod: string;
+  readonly previewMethod: string;
+  readonly parameterKeys: readonly string[];
+}[];
+
+export function materializeDemoRecipe(recipe: DemoRecipe): DemoRecipeMaterialization {
+  return materializeRecipe(recipe) as DemoRecipeMaterialization;
+}

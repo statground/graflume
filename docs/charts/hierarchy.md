@@ -53,24 +53,24 @@ import { org } from 'graflume';
 
 const data = [
   {
-    id: 'All',
-    value: 12,
+    id: 'Statground',
+    value: 100,
     parent: '',
   },
   {
-    id: 'Data',
-    value: 8,
-    parent: 'All',
+    id: 'Visualization',
+    value: 46,
+    parent: 'Statground',
   },
   {
-    id: 'Design',
-    value: 7,
-    parent: 'All',
+    id: 'Data products',
+    value: 34,
+    parent: 'Statground',
   },
   {
-    id: 'Runtime',
-    value: 5,
-    parent: 'Data',
+    id: 'Documentation',
+    value: 20,
+    parent: 'Statground',
   },
 ];
 
@@ -78,20 +78,26 @@ org('#chart', data, {
   x: {
     field: 'id',
     type: 'ordinal',
-    title: 'id',
+    title: 'Portfolio node',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Relative investment',
   },
   title: {
     text: 'Organization chart',
     subtitle: 'hierarchy family · organization mode',
   },
   accessibility: {
-    label: 'Organization chart example',
-    description: 'A compiled organization chart example using the hierarchy family.',
+    label:
+      'Organization chart: The Statground portfolio from platform areas down to concrete products',
+    description:
+      'The Statground portfolio from platform areas down to concrete products. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
+  },
+  axes: {
+    x: false,
+    y: false,
   },
   mark: {
     fields: {
@@ -105,12 +111,12 @@ org('#chart', data, {
       fields: [
         {
           field: 'id',
-          label: 'id',
+          label: 'Portfolio node',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Relative investment',
           format: 'number',
         },
         {
@@ -141,24 +147,24 @@ import { treemap } from 'graflume';
 
 const data = [
   {
-    id: 'All',
-    value: 12,
+    id: 'Statground',
+    value: 100,
     parent: '',
   },
   {
-    id: 'Data',
-    value: 8,
-    parent: 'All',
+    id: 'Visualization',
+    value: 46,
+    parent: 'Statground',
   },
   {
-    id: 'Design',
-    value: 7,
-    parent: 'All',
+    id: 'Data products',
+    value: 34,
+    parent: 'Statground',
   },
   {
-    id: 'Runtime',
-    value: 5,
-    parent: 'Data',
+    id: 'Documentation',
+    value: 20,
+    parent: 'Statground',
   },
 ];
 
@@ -166,20 +172,25 @@ treemap('#chart', data, {
   x: {
     field: 'id',
     type: 'ordinal',
-    title: 'id',
+    title: 'Portfolio node',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Relative investment',
   },
   title: {
     text: 'Tree map',
     subtitle: 'hierarchy family · treemap mode',
   },
   accessibility: {
-    label: 'Tree map example',
-    description: 'A compiled tree map example using the hierarchy family.',
+    label: 'Tree map: The Statground portfolio from platform areas down to concrete products',
+    description:
+      'The Statground portfolio from platform areas down to concrete products. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
+  },
+  axes: {
+    x: false,
+    y: false,
   },
   mark: {
     fields: {
@@ -194,12 +205,12 @@ treemap('#chart', data, {
       fields: [
         {
           field: 'id',
-          label: 'id',
+          label: 'Portfolio node',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Relative investment',
           format: 'number',
         },
         {
@@ -230,24 +241,24 @@ import { icicle } from 'graflume';
 
 const data = [
   {
-    id: 'All',
-    value: 12,
+    id: 'Statground',
+    value: 100,
     parent: '',
   },
   {
-    id: 'Data',
-    value: 8,
-    parent: 'All',
+    id: 'Visualization',
+    value: 46,
+    parent: 'Statground',
   },
   {
-    id: 'Design',
-    value: 7,
-    parent: 'All',
+    id: 'Data products',
+    value: 34,
+    parent: 'Statground',
   },
   {
-    id: 'Runtime',
-    value: 5,
-    parent: 'Data',
+    id: 'Documentation',
+    value: 20,
+    parent: 'Statground',
   },
 ];
 
@@ -255,20 +266,25 @@ icicle('#chart', data, {
   x: {
     field: 'id',
     type: 'ordinal',
-    title: 'id',
+    title: 'Portfolio node',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Relative investment',
   },
   title: {
     text: 'Icicle chart',
     subtitle: 'hierarchy family · icicle mode',
   },
   accessibility: {
-    label: 'Icicle chart example',
-    description: 'A compiled icicle chart example using the hierarchy family.',
+    label: 'Icicle chart: The Statground portfolio from platform areas down to concrete products',
+    description:
+      'The Statground portfolio from platform areas down to concrete products. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
+  },
+  axes: {
+    x: false,
+    y: false,
   },
   mark: {
     fields: {
@@ -285,12 +301,12 @@ icicle('#chart', data, {
       fields: [
         {
           field: 'id',
-          label: 'id',
+          label: 'Portfolio node',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Relative investment',
           format: 'number',
         },
         {
@@ -321,24 +337,24 @@ import { tree } from 'graflume/complete';
 
 const data = [
   {
-    id: 'All',
-    value: 12,
+    id: 'Statground',
+    value: 100,
     parent: '',
   },
   {
-    id: 'Data',
-    value: 8,
-    parent: 'All',
+    id: 'Visualization',
+    value: 46,
+    parent: 'Statground',
   },
   {
-    id: 'Design',
-    value: 7,
-    parent: 'All',
+    id: 'Data products',
+    value: 34,
+    parent: 'Statground',
   },
   {
-    id: 'Runtime',
-    value: 5,
-    parent: 'Data',
+    id: 'Documentation',
+    value: 20,
+    parent: 'Statground',
   },
 ];
 
@@ -346,20 +362,25 @@ tree('#chart', data, {
   x: {
     field: 'id',
     type: 'ordinal',
-    title: 'id',
+    title: 'Portfolio node',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Relative investment',
   },
   title: {
     text: 'Tree chart',
     subtitle: 'hierarchy family · tree mode',
   },
   accessibility: {
-    label: 'Tree chart example',
-    description: 'A compiled tree chart example using the hierarchy family.',
+    label: 'Tree chart: The Statground portfolio from platform areas down to concrete products',
+    description:
+      'The Statground portfolio from platform areas down to concrete products. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
+  },
+  axes: {
+    x: false,
+    y: false,
   },
   mark: {
     fields: {
@@ -373,12 +394,12 @@ tree('#chart', data, {
       fields: [
         {
           field: 'id',
-          label: 'id',
+          label: 'Portfolio node',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Relative investment',
           format: 'number',
         },
         {
@@ -409,24 +430,24 @@ import { sunburst } from 'graflume/complete';
 
 const data = [
   {
-    id: 'All',
-    value: 12,
+    id: 'Statground',
+    value: 100,
     parent: '',
   },
   {
-    id: 'Data',
-    value: 8,
-    parent: 'All',
+    id: 'Visualization',
+    value: 46,
+    parent: 'Statground',
   },
   {
-    id: 'Design',
-    value: 7,
-    parent: 'All',
+    id: 'Data products',
+    value: 34,
+    parent: 'Statground',
   },
   {
-    id: 'Runtime',
-    value: 5,
-    parent: 'Data',
+    id: 'Documentation',
+    value: 20,
+    parent: 'Statground',
   },
 ];
 
@@ -434,20 +455,25 @@ sunburst('#chart', data, {
   x: {
     field: 'id',
     type: 'ordinal',
-    title: 'id',
+    title: 'Portfolio node',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Relative investment',
   },
   title: {
     text: 'Sunburst chart',
     subtitle: 'hierarchy family · sunburst mode',
   },
   accessibility: {
-    label: 'Sunburst chart example',
-    description: 'A compiled sunburst chart example using the hierarchy family.',
+    label: 'Sunburst chart: The Statground portfolio from platform areas down to concrete products',
+    description:
+      'The Statground portfolio from platform areas down to concrete products. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
+  },
+  axes: {
+    x: false,
+    y: false,
   },
   mark: {
     fields: {
@@ -462,12 +488,12 @@ sunburst('#chart', data, {
       fields: [
         {
           field: 'id',
-          label: 'id',
+          label: 'Portfolio node',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Relative investment',
           format: 'number',
         },
         {
@@ -498,24 +524,24 @@ import { organizationNetwork } from 'graflume/complete';
 
 const data = [
   {
-    id: 'All',
-    value: 12,
+    id: 'Statground',
+    value: 100,
     parent: '',
   },
   {
-    id: 'Data',
-    value: 8,
-    parent: 'All',
+    id: 'Visualization',
+    value: 46,
+    parent: 'Statground',
   },
   {
-    id: 'Design',
-    value: 7,
-    parent: 'All',
+    id: 'Data products',
+    value: 34,
+    parent: 'Statground',
   },
   {
-    id: 'Runtime',
-    value: 5,
-    parent: 'Data',
+    id: 'Documentation',
+    value: 20,
+    parent: 'Statground',
   },
 ];
 
@@ -523,20 +549,22 @@ organizationNetwork('#chart', data, {
   x: {
     field: 'id',
     type: 'ordinal',
-    title: 'id',
+    title: 'Portfolio node',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Relative investment',
   },
   title: {
     text: 'Organization network',
     subtitle: 'hierarchy family · organization-network mode',
   },
   accessibility: {
-    label: 'Organization network example',
-    description: 'A compiled organization network example using the hierarchy family.',
+    label:
+      'Organization network: The Statground portfolio from platform areas down to concrete products',
+    description:
+      'The Statground portfolio from platform areas down to concrete products. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   axes: {
     x: false,
@@ -554,12 +582,12 @@ organizationNetwork('#chart', data, {
       fields: [
         {
           field: 'id',
-          label: 'id',
+          label: 'Portfolio node',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Relative investment',
           format: 'number',
         },
         {
@@ -590,24 +618,24 @@ import { treeGraph } from 'graflume/complete';
 
 const data = [
   {
-    id: 'All',
-    value: 12,
+    id: 'Statground',
+    value: 100,
     parent: '',
   },
   {
-    id: 'Data',
-    value: 8,
-    parent: 'All',
+    id: 'Visualization',
+    value: 46,
+    parent: 'Statground',
   },
   {
-    id: 'Design',
-    value: 7,
-    parent: 'All',
+    id: 'Data products',
+    value: 34,
+    parent: 'Statground',
   },
   {
-    id: 'Runtime',
-    value: 5,
-    parent: 'Data',
+    id: 'Documentation',
+    value: 20,
+    parent: 'Statground',
   },
 ];
 
@@ -615,20 +643,21 @@ treeGraph('#chart', data, {
   x: {
     field: 'id',
     type: 'ordinal',
-    title: 'id',
+    title: 'Portfolio node',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Relative investment',
   },
   title: {
     text: 'Tree graph',
     subtitle: 'hierarchy family · tree-graph mode',
   },
   accessibility: {
-    label: 'Tree graph example',
-    description: 'A compiled tree graph example using the hierarchy family.',
+    label: 'Tree graph: The Statground portfolio from platform areas down to concrete products',
+    description:
+      'The Statground portfolio from platform areas down to concrete products. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   axes: {
     x: false,
@@ -646,12 +675,12 @@ treeGraph('#chart', data, {
       fields: [
         {
           field: 'id',
-          label: 'id',
+          label: 'Portfolio node',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Relative investment',
           format: 'number',
         },
         {

@@ -111,31 +111,31 @@ import { accelerationBands } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -143,20 +143,22 @@ accelerationBands('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Acceleration bands',
     subtitle: 'technical-indicator family · acceleration-bands mode',
   },
   accessibility: {
-    label: 'Acceleration bands example',
-    description: 'A compiled acceleration bands example using the technical-indicator family.',
+    label:
+      'Acceleration bands: Every indicator is calculated from the same coherent OHLCV market history',
+    description:
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -175,12 +177,12 @@ accelerationBands('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -223,31 +225,31 @@ import { awesomeOscillator } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -255,20 +257,22 @@ awesomeOscillator('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Awesome oscillator',
     subtitle: 'technical-indicator family · awesome-oscillator mode',
   },
   accessibility: {
-    label: 'Awesome oscillator example',
-    description: 'A compiled awesome oscillator example using the technical-indicator family.',
+    label:
+      'Awesome oscillator: Every indicator is calculated from the same coherent OHLCV market history',
+    description:
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -287,12 +291,12 @@ awesomeOscillator('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -335,31 +339,31 @@ import { absolutePriceOscillator } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -367,21 +371,22 @@ absolutePriceOscillator('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Absolute price oscillator',
     subtitle: 'technical-indicator family · absolute-price-oscillator mode',
   },
   accessibility: {
-    label: 'Absolute price oscillator example',
+    label:
+      'Absolute price oscillator: Every indicator is calculated from the same coherent OHLCV market history',
     description:
-      'A compiled absolute price oscillator example using the technical-indicator family.',
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -400,12 +405,12 @@ absolutePriceOscillator('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -448,31 +453,31 @@ import { aroon } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -480,20 +485,22 @@ aroon('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Aroon indicator',
     subtitle: 'technical-indicator family · aroon mode',
   },
   accessibility: {
-    label: 'Aroon indicator example',
-    description: 'A compiled aroon indicator example using the technical-indicator family.',
+    label:
+      'Aroon indicator: Every indicator is calculated from the same coherent OHLCV market history',
+    description:
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -512,12 +519,12 @@ aroon('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -560,31 +567,31 @@ import { aroonOscillator } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -592,20 +599,22 @@ aroonOscillator('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Aroon oscillator',
     subtitle: 'technical-indicator family · aroon-oscillator mode',
   },
   accessibility: {
-    label: 'Aroon oscillator example',
-    description: 'A compiled aroon oscillator example using the technical-indicator family.',
+    label:
+      'Aroon oscillator: Every indicator is calculated from the same coherent OHLCV market history',
+    description:
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -624,12 +633,12 @@ aroonOscillator('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -672,31 +681,31 @@ import { averageTrueRange } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -704,20 +713,22 @@ averageTrueRange('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Average true range',
     subtitle: 'technical-indicator family · average-true-range mode',
   },
   accessibility: {
-    label: 'Average true range example',
-    description: 'A compiled average true range example using the technical-indicator family.',
+    label:
+      'Average true range: Every indicator is calculated from the same coherent OHLCV market history',
+    description:
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -736,12 +747,12 @@ averageTrueRange('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -784,31 +795,31 @@ import { volatilityBands } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -816,20 +827,22 @@ volatilityBands('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Volatility bands',
     subtitle: 'technical-indicator family · volatility-bands mode',
   },
   accessibility: {
-    label: 'Volatility bands example',
-    description: 'A compiled volatility bands example using the technical-indicator family.',
+    label:
+      'Volatility bands: Every indicator is calculated from the same coherent OHLCV market history',
+    description:
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -848,12 +861,12 @@ volatilityBands('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -896,31 +909,31 @@ import { commodityChannelIndex } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -928,20 +941,22 @@ commodityChannelIndex('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Commodity channel index',
     subtitle: 'technical-indicator family · commodity-channel-index mode',
   },
   accessibility: {
-    label: 'Commodity channel index example',
-    description: 'A compiled commodity channel index example using the technical-indicator family.',
+    label:
+      'Commodity channel index: Every indicator is calculated from the same coherent OHLCV market history',
+    description:
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -960,12 +975,12 @@ commodityChannelIndex('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -1008,31 +1023,31 @@ import { chaikinOscillator } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -1040,20 +1055,22 @@ chaikinOscillator('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Chaikin oscillator',
     subtitle: 'technical-indicator family · chaikin-oscillator mode',
   },
   accessibility: {
-    label: 'Chaikin oscillator example',
-    description: 'A compiled chaikin oscillator example using the technical-indicator family.',
+    label:
+      'Chaikin oscillator: Every indicator is calculated from the same coherent OHLCV market history',
+    description:
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -1072,12 +1089,12 @@ chaikinOscillator('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -1120,31 +1137,31 @@ import { chaikinMoneyFlow } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -1152,20 +1169,22 @@ chaikinMoneyFlow('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Chaikin money flow',
     subtitle: 'technical-indicator family · chaikin-money-flow mode',
   },
   accessibility: {
-    label: 'Chaikin money flow example',
-    description: 'A compiled chaikin money flow example using the technical-indicator family.',
+    label:
+      'Chaikin money flow: Every indicator is calculated from the same coherent OHLCV market history',
+    description:
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -1184,12 +1203,12 @@ chaikinMoneyFlow('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -1232,31 +1251,31 @@ import { chandeMomentumOscillator } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -1264,21 +1283,22 @@ chandeMomentumOscillator('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Chande momentum oscillator',
     subtitle: 'technical-indicator family · chande-momentum-oscillator mode',
   },
   accessibility: {
-    label: 'Chande momentum oscillator example',
+    label:
+      'Chande momentum oscillator: Every indicator is calculated from the same coherent OHLCV market history',
     description:
-      'A compiled chande momentum oscillator example using the technical-indicator family.',
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -1297,12 +1317,12 @@ chandeMomentumOscillator('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -1345,31 +1365,31 @@ import { doubleExponentialMovingAverage } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -1377,21 +1397,22 @@ doubleExponentialMovingAverage('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Double exponential moving average',
     subtitle: 'technical-indicator family · double-exponential-average mode',
   },
   accessibility: {
-    label: 'Double exponential moving average example',
+    label:
+      'Double exponential moving average: Every indicator is calculated from the same coherent OHLCV market history',
     description:
-      'A compiled double exponential moving average example using the technical-indicator family.',
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -1410,12 +1431,12 @@ doubleExponentialMovingAverage('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -1458,31 +1479,31 @@ import { disparityIndex } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -1490,20 +1511,22 @@ disparityIndex('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Disparity index',
     subtitle: 'technical-indicator family · disparity-index mode',
   },
   accessibility: {
-    label: 'Disparity index example',
-    description: 'A compiled disparity index example using the technical-indicator family.',
+    label:
+      'Disparity index: Every indicator is calculated from the same coherent OHLCV market history',
+    description:
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -1522,12 +1545,12 @@ disparityIndex('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -1570,31 +1593,31 @@ import { directionalMovementIndex } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -1602,21 +1625,22 @@ directionalMovementIndex('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Directional movement index',
     subtitle: 'technical-indicator family · directional-movement-index mode',
   },
   accessibility: {
-    label: 'Directional movement index example',
+    label:
+      'Directional movement index: Every indicator is calculated from the same coherent OHLCV market history',
     description:
-      'A compiled directional movement index example using the technical-indicator family.',
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -1635,12 +1659,12 @@ directionalMovementIndex('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -1683,31 +1707,31 @@ import { detrendedPriceOscillator } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -1715,21 +1739,22 @@ detrendedPriceOscillator('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Detrended price oscillator',
     subtitle: 'technical-indicator family · detrended-price-oscillator mode',
   },
   accessibility: {
-    label: 'Detrended price oscillator example',
+    label:
+      'Detrended price oscillator: Every indicator is calculated from the same coherent OHLCV market history',
     description:
-      'A compiled detrended price oscillator example using the technical-indicator family.',
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -1748,12 +1773,12 @@ detrendedPriceOscillator('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -1796,31 +1821,31 @@ import { exponentialMovingAverage } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -1828,21 +1853,22 @@ exponentialMovingAverage('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Exponential moving average',
     subtitle: 'technical-indicator family · exponential-moving-average mode',
   },
   accessibility: {
-    label: 'Exponential moving average example',
+    label:
+      'Exponential moving average: Every indicator is calculated from the same coherent OHLCV market history',
     description:
-      'A compiled exponential moving average example using the technical-indicator family.',
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -1861,12 +1887,12 @@ exponentialMovingAverage('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -1909,31 +1935,31 @@ import { ichimokuCloud } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -1941,20 +1967,22 @@ ichimokuCloud('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Ichimoku cloud',
     subtitle: 'technical-indicator family · ichimoku-cloud mode',
   },
   accessibility: {
-    label: 'Ichimoku cloud example',
-    description: 'A compiled ichimoku cloud example using the technical-indicator family.',
+    label:
+      'Ichimoku cloud: Every indicator is calculated from the same coherent OHLCV market history',
+    description:
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -1973,12 +2001,12 @@ ichimokuCloud('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -2021,31 +2049,31 @@ import { keltnerChannels } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -2053,20 +2081,22 @@ keltnerChannels('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Keltner channels',
     subtitle: 'technical-indicator family · keltner-channels mode',
   },
   accessibility: {
-    label: 'Keltner channels example',
-    description: 'A compiled keltner channels example using the technical-indicator family.',
+    label:
+      'Keltner channels: Every indicator is calculated from the same coherent OHLCV market history',
+    description:
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -2085,12 +2115,12 @@ keltnerChannels('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -2133,31 +2163,31 @@ import { klingerOscillator } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -2165,20 +2195,22 @@ klingerOscillator('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Klinger oscillator',
     subtitle: 'technical-indicator family · klinger-oscillator mode',
   },
   accessibility: {
-    label: 'Klinger oscillator example',
-    description: 'A compiled klinger oscillator example using the technical-indicator family.',
+    label:
+      'Klinger oscillator: Every indicator is calculated from the same coherent OHLCV market history',
+    description:
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -2197,12 +2229,12 @@ klingerOscillator('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -2245,31 +2277,31 @@ import { linearRegression } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -2277,20 +2309,22 @@ linearRegression('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Linear regression',
     subtitle: 'technical-indicator family · linear-regression mode',
   },
   accessibility: {
-    label: 'Linear regression example',
-    description: 'A compiled linear regression example using the technical-indicator family.',
+    label:
+      'Linear regression: Every indicator is calculated from the same coherent OHLCV market history',
+    description:
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -2309,12 +2343,12 @@ linearRegression('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -2357,31 +2391,31 @@ import { linearRegressionAngle } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -2389,20 +2423,22 @@ linearRegressionAngle('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Linear regression angle',
     subtitle: 'technical-indicator family · linear-regression-angle mode',
   },
   accessibility: {
-    label: 'Linear regression angle example',
-    description: 'A compiled linear regression angle example using the technical-indicator family.',
+    label:
+      'Linear regression angle: Every indicator is calculated from the same coherent OHLCV market history',
+    description:
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -2421,12 +2457,12 @@ linearRegressionAngle('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -2469,31 +2505,31 @@ import { linearRegressionIntercept } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -2501,21 +2537,22 @@ linearRegressionIntercept('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Linear regression intercept',
     subtitle: 'technical-indicator family · linear-regression-intercept mode',
   },
   accessibility: {
-    label: 'Linear regression intercept example',
+    label:
+      'Linear regression intercept: Every indicator is calculated from the same coherent OHLCV market history',
     description:
-      'A compiled linear regression intercept example using the technical-indicator family.',
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -2534,12 +2571,12 @@ linearRegressionIntercept('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -2582,31 +2619,31 @@ import { linearRegressionSlope } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -2614,20 +2651,22 @@ linearRegressionSlope('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Linear regression slope',
     subtitle: 'technical-indicator family · linear-regression-slope mode',
   },
   accessibility: {
-    label: 'Linear regression slope example',
-    description: 'A compiled linear regression slope example using the technical-indicator family.',
+    label:
+      'Linear regression slope: Every indicator is calculated from the same coherent OHLCV market history',
+    description:
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -2646,12 +2685,12 @@ linearRegressionSlope('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -2694,31 +2733,31 @@ import { movingAverageConvergenceDivergence } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -2726,21 +2765,22 @@ movingAverageConvergenceDivergence('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Moving average convergence divergence',
     subtitle: 'technical-indicator family · moving-average-convergence-divergence mode',
   },
   accessibility: {
-    label: 'Moving average convergence divergence example',
+    label:
+      'Moving average convergence divergence: Every indicator is calculated from the same coherent OHLCV market history',
     description:
-      'A compiled moving average convergence divergence example using the technical-indicator family.',
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -2759,12 +2799,12 @@ movingAverageConvergenceDivergence('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -2807,31 +2847,31 @@ import { moneyFlowIndex } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -2839,20 +2879,22 @@ moneyFlowIndex('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Money flow index',
     subtitle: 'technical-indicator family · money-flow-index mode',
   },
   accessibility: {
-    label: 'Money flow index example',
-    description: 'A compiled money flow index example using the technical-indicator family.',
+    label:
+      'Money flow index: Every indicator is calculated from the same coherent OHLCV market history',
+    description:
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -2871,12 +2913,12 @@ moneyFlowIndex('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -2919,31 +2961,31 @@ import { momentumIndicator } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -2951,20 +2993,22 @@ momentumIndicator('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Momentum indicator',
     subtitle: 'technical-indicator family · momentum mode',
   },
   accessibility: {
-    label: 'Momentum indicator example',
-    description: 'A compiled momentum indicator example using the technical-indicator family.',
+    label:
+      'Momentum indicator: Every indicator is calculated from the same coherent OHLCV market history',
+    description:
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -2983,12 +3027,12 @@ momentumIndicator('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -3031,31 +3075,31 @@ import { normalizedAverageTrueRange } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -3063,21 +3107,22 @@ normalizedAverageTrueRange('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Normalized average true range',
     subtitle: 'technical-indicator family · normalized-average-true-range mode',
   },
   accessibility: {
-    label: 'Normalized average true range example',
+    label:
+      'Normalized average true range: Every indicator is calculated from the same coherent OHLCV market history',
     description:
-      'A compiled normalized average true range example using the technical-indicator family.',
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -3096,12 +3141,12 @@ normalizedAverageTrueRange('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -3144,31 +3189,31 @@ import { onBalanceVolume } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -3176,20 +3221,22 @@ onBalanceVolume('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'On-balance volume',
     subtitle: 'technical-indicator family · on-balance-volume mode',
   },
   accessibility: {
-    label: 'On-balance volume example',
-    description: 'A compiled on-balance volume example using the technical-indicator family.',
+    label:
+      'On-balance volume: Every indicator is calculated from the same coherent OHLCV market history',
+    description:
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -3208,12 +3255,12 @@ onBalanceVolume('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -3256,31 +3303,31 @@ import { priceChannel } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -3288,20 +3335,22 @@ priceChannel('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Price channel',
     subtitle: 'technical-indicator family · price-channel mode',
   },
   accessibility: {
-    label: 'Price channel example',
-    description: 'A compiled price channel example using the technical-indicator family.',
+    label:
+      'Price channel: Every indicator is calculated from the same coherent OHLCV market history',
+    description:
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -3320,12 +3369,12 @@ priceChannel('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -3368,31 +3417,31 @@ import { pivotPoints } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -3400,20 +3449,22 @@ pivotPoints('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Pivot points',
     subtitle: 'technical-indicator family · pivot-points mode',
   },
   accessibility: {
-    label: 'Pivot points example',
-    description: 'A compiled pivot points example using the technical-indicator family.',
+    label:
+      'Pivot points: Every indicator is calculated from the same coherent OHLCV market history',
+    description:
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -3432,12 +3483,12 @@ pivotPoints('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -3480,31 +3531,31 @@ import { percentagePriceOscillator } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -3512,21 +3563,22 @@ percentagePriceOscillator('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Percentage price oscillator',
     subtitle: 'technical-indicator family · percentage-price-oscillator mode',
   },
   accessibility: {
-    label: 'Percentage price oscillator example',
+    label:
+      'Percentage price oscillator: Every indicator is calculated from the same coherent OHLCV market history',
     description:
-      'A compiled percentage price oscillator example using the technical-indicator family.',
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -3545,12 +3597,12 @@ percentagePriceOscillator('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -3593,31 +3645,31 @@ import { priceEnvelopes } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -3625,20 +3677,22 @@ priceEnvelopes('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Price envelopes',
     subtitle: 'technical-indicator family · price-envelopes mode',
   },
   accessibility: {
-    label: 'Price envelopes example',
-    description: 'A compiled price envelopes example using the technical-indicator family.',
+    label:
+      'Price envelopes: Every indicator is calculated from the same coherent OHLCV market history',
+    description:
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -3657,12 +3711,12 @@ priceEnvelopes('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -3705,31 +3759,31 @@ import { parabolicStopAndReverse } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -3737,21 +3791,22 @@ parabolicStopAndReverse('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Parabolic stop and reverse',
     subtitle: 'technical-indicator family · parabolic-stop-and-reverse mode',
   },
   accessibility: {
-    label: 'Parabolic stop and reverse example',
+    label:
+      'Parabolic stop and reverse: Every indicator is calculated from the same coherent OHLCV market history',
     description:
-      'A compiled parabolic stop and reverse example using the technical-indicator family.',
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -3770,12 +3825,12 @@ parabolicStopAndReverse('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -3818,31 +3873,31 @@ import { rateOfChange } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -3850,20 +3905,22 @@ rateOfChange('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Rate of change',
     subtitle: 'technical-indicator family · rate-of-change mode',
   },
   accessibility: {
-    label: 'Rate of change example',
-    description: 'A compiled rate of change example using the technical-indicator family.',
+    label:
+      'Rate of change: Every indicator is calculated from the same coherent OHLCV market history',
+    description:
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -3882,12 +3939,12 @@ rateOfChange('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -3930,31 +3987,31 @@ import { relativeStrengthIndex } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -3962,20 +4019,22 @@ relativeStrengthIndex('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Relative strength index',
     subtitle: 'technical-indicator family · relative-strength-index mode',
   },
   accessibility: {
-    label: 'Relative strength index example',
-    description: 'A compiled relative strength index example using the technical-indicator family.',
+    label:
+      'Relative strength index: Every indicator is calculated from the same coherent OHLCV market history',
+    description:
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -3994,12 +4053,12 @@ relativeStrengthIndex('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -4042,31 +4101,31 @@ import { slowStochastic } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -4074,21 +4133,22 @@ slowStochastic('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Slow stochastic oscillator',
     subtitle: 'technical-indicator family · slow-stochastic mode',
   },
   accessibility: {
-    label: 'Slow stochastic oscillator example',
+    label:
+      'Slow stochastic oscillator: Every indicator is calculated from the same coherent OHLCV market history',
     description:
-      'A compiled slow stochastic oscillator example using the technical-indicator family.',
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -4107,12 +4167,12 @@ slowStochastic('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -4155,31 +4215,31 @@ import { simpleMovingAverage } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -4187,20 +4247,22 @@ simpleMovingAverage('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Simple moving average',
     subtitle: 'technical-indicator family · simple-moving-average mode',
   },
   accessibility: {
-    label: 'Simple moving average example',
-    description: 'A compiled simple moving average example using the technical-indicator family.',
+    label:
+      'Simple moving average: Every indicator is calculated from the same coherent OHLCV market history',
+    description:
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -4219,12 +4281,12 @@ simpleMovingAverage('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -4267,31 +4329,31 @@ import { stochastic } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -4299,20 +4361,22 @@ stochastic('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Stochastic oscillator',
     subtitle: 'technical-indicator family · stochastic mode',
   },
   accessibility: {
-    label: 'Stochastic oscillator example',
-    description: 'A compiled stochastic oscillator example using the technical-indicator family.',
+    label:
+      'Stochastic oscillator: Every indicator is calculated from the same coherent OHLCV market history',
+    description:
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -4331,12 +4395,12 @@ stochastic('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -4379,31 +4443,31 @@ import { supertrend } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -4411,20 +4475,21 @@ supertrend('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Supertrend',
     subtitle: 'technical-indicator family · supertrend mode',
   },
   accessibility: {
-    label: 'Supertrend example',
-    description: 'A compiled supertrend example using the technical-indicator family.',
+    label: 'Supertrend: Every indicator is calculated from the same coherent OHLCV market history',
+    description:
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -4443,12 +4508,12 @@ supertrend('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -4491,31 +4556,31 @@ import { tripleExponentialMovingAverage } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -4523,21 +4588,22 @@ tripleExponentialMovingAverage('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Triple exponential moving average',
     subtitle: 'technical-indicator family · triple-exponential-average mode',
   },
   accessibility: {
-    label: 'Triple exponential moving average example',
+    label:
+      'Triple exponential moving average: Every indicator is calculated from the same coherent OHLCV market history',
     description:
-      'A compiled triple exponential moving average example using the technical-indicator family.',
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -4556,12 +4622,12 @@ tripleExponentialMovingAverage('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -4604,31 +4670,31 @@ import { tripleExponentialAverageOscillator } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -4636,21 +4702,22 @@ tripleExponentialAverageOscillator('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Triple exponential average oscillator',
     subtitle: 'technical-indicator family · triple-exponential-oscillator mode',
   },
   accessibility: {
-    label: 'Triple exponential average oscillator example',
+    label:
+      'Triple exponential average oscillator: Every indicator is calculated from the same coherent OHLCV market history',
     description:
-      'A compiled triple exponential average oscillator example using the technical-indicator family.',
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -4669,12 +4736,12 @@ tripleExponentialAverageOscillator('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -4717,31 +4784,31 @@ import { volumeWeightedAveragePrice } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -4749,21 +4816,22 @@ volumeWeightedAveragePrice('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Volume weighted average price',
     subtitle: 'technical-indicator family · volume-weighted-average-price mode',
   },
   accessibility: {
-    label: 'Volume weighted average price example',
+    label:
+      'Volume weighted average price: Every indicator is calculated from the same coherent OHLCV market history',
     description:
-      'A compiled volume weighted average price example using the technical-indicator family.',
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -4782,12 +4850,12 @@ volumeWeightedAveragePrice('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -4830,31 +4898,31 @@ import { williamsRange } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -4862,20 +4930,22 @@ williamsRange('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Williams range',
     subtitle: 'technical-indicator family · williams-range mode',
   },
   accessibility: {
-    label: 'Williams range example',
-    description: 'A compiled williams range example using the technical-indicator family.',
+    label:
+      'Williams range: Every indicator is calculated from the same coherent OHLCV market history',
+    description:
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -4894,12 +4964,12 @@ williamsRange('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -4942,31 +5012,31 @@ import { weightedMovingAverage } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -4974,20 +5044,22 @@ weightedMovingAverage('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Weighted moving average',
     subtitle: 'technical-indicator family · weighted-moving-average mode',
   },
   accessibility: {
-    label: 'Weighted moving average example',
-    description: 'A compiled weighted moving average example using the technical-indicator family.',
+    label:
+      'Weighted moving average: Every indicator is calculated from the same coherent OHLCV market history',
+    description:
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -5006,12 +5078,12 @@ weightedMovingAverage('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {
@@ -5054,31 +5126,31 @@ import { zigzag } from 'graflume/complete';
 const data = [
   {
     date: '2026-01-01',
-    value: 24,
-    lower: 16,
-    upper: 31,
-    signal: 20,
+    value: 48,
+    lower: 43,
+    upper: 55,
+    signal: 48.2,
   },
   {
     date: '2026-02-01',
-    value: 29.916,
-    lower: 16.8,
-    upper: 32,
-    signal: 21.2,
+    value: 53,
+    lower: 47,
+    upper: 61,
+    signal: 53.16,
   },
   {
     date: '2026-03-01',
-    value: 33.54,
-    lower: 17.6,
-    upper: 33,
-    signal: 22.4,
+    value: 51,
+    lower: 44,
+    upper: 60,
+    signal: 51.82,
   },
   {
     date: '2026-04-01',
-    value: 33.72,
-    lower: 18.4,
-    upper: 34,
-    signal: 23.6,
+    value: 59,
+    lower: 54,
+    upper: 66,
+    signal: 59.48,
   },
 ];
 
@@ -5086,20 +5158,22 @@ zigzag('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Indicator value',
   },
   title: {
     text: 'Zigzag indicator',
     subtitle: 'technical-indicator family · zigzag mode',
   },
   accessibility: {
-    label: 'Zigzag indicator example',
-    description: 'A compiled zigzag indicator example using the technical-indicator family.',
+    label:
+      'Zigzag indicator: Every indicator is calculated from the same coherent OHLCV market history',
+    description:
+      'Every indicator is calculated from the same coherent OHLCV market history. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -5118,12 +5192,12 @@ zigzag('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Indicator value',
           format: 'number',
         },
         {

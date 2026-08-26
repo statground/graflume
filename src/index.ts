@@ -604,6 +604,22 @@ export const createRegistry = createDefaultRegistry;
 export { chartTypeCatalog, chartVariantCatalog };
 
 export { Chart, specVersion, version };
+export {
+  adaptChartSpec,
+  adaptiveCapabilityCatalog,
+  adaptiveContractVersion,
+  adaptiveMediaQueries,
+  adaptiveProfileCatalog,
+  adaptiveStateSignature,
+  adaptiveTheme,
+  applyAdaptiveSurface,
+  createAdaptiveEnvironment,
+  detectBrowserAdaptiveEnvironment,
+  estimateSpecRowCount,
+  normalizeAdaptiveOptions,
+  resolveAdaptiveProfile,
+} from './adaptive/capabilities.js';
+export * from './demo/recipes.js';
 export { assertValidSpec, validateSpec } from './spec/validate.js';
 export { normalizeSpec } from './spec/normalize.js';
 export { DataTable } from './data/table.js';
@@ -721,6 +737,7 @@ export type {
   ChartVariantId,
 } from './catalog/chart-types.js';
 export type {
+  ChartAdaptiveChangeEvent,
   ChartAccessibilityState,
   ChartCreateOptions,
   ChartErrorEvent,
@@ -769,6 +786,24 @@ export type {
   ChartViewPoint,
   ChartViewState,
 } from './runtime/chart.js';
+export type {
+  AdaptiveCapabilityCategory,
+  AdaptiveCapabilityDefinition,
+  AdaptiveCapabilityId,
+  AdaptiveDisplayClass,
+  AdaptiveEnvironment,
+  AdaptiveEnvironmentInput,
+  AdaptiveInputClass,
+  AdaptiveMotionClass,
+  AdaptiveOptions,
+  AdaptiveProfileDefinition,
+  AdaptiveProfileId,
+  AdaptiveResourceClass,
+  AdaptiveSafeAreaInsets,
+  AdaptiveState,
+  AdaptiveViewportClass,
+  NormalizedAdaptiveOptions,
+} from './adaptive/capabilities.js';
 export type {
   ChartFlowRuntimeState,
   ChartNetworkRuntimeState,

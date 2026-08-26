@@ -3,6 +3,19 @@ import {
   type CompileCoordinateView,
   type CompileResult,
 } from '../compiler/compile.js';
+import {
+  adaptChartSpec,
+  adaptiveMediaQueries,
+  adaptiveStateSignature,
+  applyAdaptiveSurface,
+  detectBrowserAdaptiveEnvironment,
+  estimateSpecRowCount,
+  normalizeAdaptiveOptions,
+  resolveAdaptiveProfile,
+  type AdaptiveOptions,
+  type AdaptiveState,
+  type NormalizedAdaptiveOptions,
+} from '../adaptive/capabilities.js';
 import { GraflumeError } from '../core/errors.js';
 import { EventEmitter } from '../core/events.js';
 import { DataTable } from '../data/table.js';
@@ -201,6 +214,8 @@ export interface ChartCreateOptions {
   readonly width?: number;
   readonly height?: number;
   readonly pixelRatio?: number;
+  /** Capability-driven responsive/display/input adaptation; enabled by default. */
+  readonly adaptive?: boolean | AdaptiveOptions;
   /** Runtime-only focus store; authored linkedFocus remains function-free. */
   readonly focusStore?: SemanticFocusStore;
   /** Injectable frame scheduler for deterministic streaming tests or host coordination. */
@@ -226,6 +241,12 @@ export interface ChartResizeEvent {
   readonly chart: Chart;
   readonly width: number;
   readonly height: number;
+}
+
+export interface ChartAdaptiveChangeEvent {
+  readonly chart: Chart;
+  readonly state: AdaptiveState;
+  readonly previous: AdaptiveState;
 }
 
 export interface ChartErrorEvent {
@@ -496,6 +517,7 @@ export interface ChartEventMap {
   readonly hover: ChartPointerEvent;
   readonly click: ChartPointerEvent;
   readonly resize: ChartResizeEvent;
+  readonly adaptivechange: ChartAdaptiveChangeEvent;
   readonly viewchange: ChartViewChangeEvent;
   readonly playbackchange: ChartPlaybackChangeEvent;
   readonly playbackframechange: ChartPlaybackFrameChangeEvent;
@@ -907,6 +929,7 @@ export class Chart {
   readonly #legend = new LegendController();
   readonly #accessibility = new AccessibilityMirrorController();
   readonly #options: ChartCreateOptions;
+  readonly #adaptiveOptions: NormalizedAdaptiveOptions;
   readonly #activePointers = new Map<number, ActivePointer>();
   readonly #incrementalStores = new Map<string, IncrementalDataStore>();
   readonly #streamRuntimes = new Map<string, IncrementalStreamRuntime>();
@@ -944,6 +967,8 @@ export class Chart {
   #sceneTransition: ActiveSceneTransition | null = null;
   #displayScene: Scene | null = null;
   #reducedMotion: MediaQueryList | null = null;
+  #adaptiveMediaLists: readonly MediaQueryList[] = [];
+  #adaptiveState: AdaptiveState;
   #fullscreen = false;
   #hiddenLegendItems = new Set<string>();
   #selection: DatumTargetSpec[] = [];
@@ -1054,6 +1079,11 @@ export class Chart {
     if (event.matches) this.pause();
   };
 
+  readonly #adaptiveMediaListener = (): void => {
+    if (this.#destroyed) return;
+    this.scheduleRender();
+  };
+
   readonly #fullscreenListener = (): void => {
     const active = this.#isOwnFullscreen();
     if (active === this.#fullscreen) return;
@@ -1082,8 +1112,17 @@ export class Chart {
     this.#spec = spec;
     this.#registry = registry;
     this.#options = options;
+    this.#adaptiveOptions = normalizeAdaptiveOptions(options.adaptive);
     this.#manualWidth = options.width;
     this.#manualHeight = options.height;
+    this.#adaptiveState = resolveAdaptiveProfile(
+      {
+        width: options.width ?? (this.#target.clientWidth || 640),
+        height: options.height ?? (this.#target.clientHeight || 400),
+        rowCount: estimateSpecRowCount(spec),
+      },
+      this.#adaptiveOptions,
+    );
     const normalized = normalizeSpec(spec);
     this.#annotations = normalized.annotations.map((annotation, index) => ({
       ...cloneAnnotation(annotation),
@@ -2220,6 +2259,11 @@ export class Chart {
 
   getViewState(): ChartViewState {
     return { ...this.#view, enabled: this.#navigation() !== false };
+  }
+
+  getAdaptiveState(): AdaptiveState {
+    this.#assertAlive();
+    return this.#adaptiveState;
   }
 
   getPlaybackState(): ChartPlaybackState {
@@ -3384,6 +3428,23 @@ export class Chart {
 
   #renderEndpoint(): this {
     const dimensions = this.#measure();
+    const previousAdaptiveState = this.#adaptiveState;
+    this.#adaptiveState = resolveAdaptiveProfile(
+      detectBrowserAdaptiveEnvironment(
+        {
+          ...dimensions,
+          rowCount: estimateSpecRowCount(this.#spec),
+          direction:
+            this.#target.closest?.('[dir="rtl"]') != null ||
+            this.#target.ownerDocument?.documentElement?.getAttribute('dir') === 'rtl'
+              ? 'rtl'
+              : 'ltr',
+        },
+        this.#adaptiveOptions.environment,
+      ),
+      this.#adaptiveOptions,
+    );
+    if (this.#adaptiveState.motion !== 'full' && this.#playing) this.pause();
     const familyRuntimeSpec = this.#familyRuntimeSpec(this.#spec);
     const playbackSpecInput =
       this.#playback === false
@@ -3397,9 +3458,10 @@ export class Chart {
           );
     // Fullscreen sizing is transient: it must override fixed chart dimensions
     // without mutating the caller's portable base spec.
-    const effectiveSpec = this.#fullscreen
+    const dimensionSpec = this.#fullscreen
       ? { ...playbackSpecInput, width: 'container' as const, height: 'container' as const }
       : playbackSpecInput;
+    const effectiveSpec = adaptChartSpec(dimensionSpec, this.#adaptiveState);
     const analyticSelectionDraft = this.#analyticSelectionDraft();
     const result = compileWithRegistry(effectiveSpec, this.#registry, dimensions, {
       hiddenLegendItemIds: this.#hiddenLegendItems,
@@ -3467,12 +3529,25 @@ export class Chart {
     renderer.render(result.scene);
     this.#displayScene = result.scene;
     this.#syncSurfaceEvents();
+    const adaptiveHost = renderer.overlayHost?.();
+    if (adaptiveHost !== null && adaptiveHost !== undefined) {
+      applyAdaptiveSurface(adaptiveHost, renderer.surface(), this.#adaptiveState);
+    }
     this.#syncControls();
     this.#syncLegend();
     this.#syncAccessibilityMirror();
     this.#syncMarkLabelAccessibility();
     this.#syncSelectionAccessibility();
     this.#events.emit('render', { chart: this, scene: result.scene });
+    if (
+      adaptiveStateSignature(previousAdaptiveState) !== adaptiveStateSignature(this.#adaptiveState)
+    ) {
+      this.#events.emit('adaptivechange', {
+        chart: this,
+        state: this.#adaptiveState,
+        previous: previousAdaptiveState,
+      });
+    }
     return this;
   }
 
@@ -3800,6 +3875,7 @@ export class Chart {
       playback === false ||
       playback.transition === false ||
       this.#reducedMotion?.matches === true ||
+      this.#adaptiveState.motion !== 'full' ||
       from === null ||
       to === undefined ||
       renderer === null ||
@@ -3884,7 +3960,8 @@ export class Chart {
     if (
       this.#playback !== false &&
       this.#playback.autoplay &&
-      this.#reducedMotion?.matches !== true
+      this.#reducedMotion?.matches !== true &&
+      this.#adaptiveState.motion === 'full'
     ) {
       this.play();
     }
@@ -3942,6 +4019,21 @@ export class Chart {
     if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
       this.#reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
       this.#reducedMotion.addEventListener?.('change', this.#reducedMotionListener);
+      if (this.#adaptiveOptions.enabled) {
+        this.#adaptiveMediaLists = [
+          ...new Set(
+            adaptiveMediaQueries.map((query) => {
+              try {
+                return window.matchMedia(query);
+              } catch {
+                return null;
+              }
+            }),
+          ),
+        ].filter((query): query is MediaQueryList => query !== null);
+        for (const query of this.#adaptiveMediaLists)
+          query.addEventListener?.('change', this.#adaptiveMediaListener);
+      }
     }
   }
 
@@ -3952,6 +4044,9 @@ export class Chart {
     }
     this.#reducedMotion?.removeEventListener?.('change', this.#reducedMotionListener);
     this.#reducedMotion = null;
+    for (const query of this.#adaptiveMediaLists)
+      query.removeEventListener?.('change', this.#adaptiveMediaListener);
+    this.#adaptiveMediaLists = [];
   }
 
   #measure(): { width: number; height: number } {
@@ -3977,7 +4072,7 @@ export class Chart {
     const ratio =
       this.#options.pixelRatio ??
       (typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1);
-    return Math.max(1, Math.min(3, ratio));
+    return Math.max(1, Math.min(this.#adaptiveState.rendering.pixelRatioCap, ratio));
   }
 
   #configureResizeObserver(): void {

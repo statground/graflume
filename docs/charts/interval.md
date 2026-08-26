@@ -51,28 +51,28 @@ import { intervals } from 'graflume';
 
 const data = [
   {
-    category: 'P1',
-    value: 24,
-    low: 14,
-    high: 33,
+    category: 'Guided setup',
+    value: 8.4,
+    low: 5.9,
+    high: 10.8,
   },
   {
-    category: 'P2',
-    value: 29.916,
-    low: 14.8,
-    high: 34.1,
+    category: 'Saved views',
+    value: 6.7,
+    low: 4.8,
+    high: 8.6,
   },
   {
-    category: 'P3',
-    value: 33.54,
-    low: 15.6,
-    high: 35.2,
+    category: 'Smart alerts',
+    value: 5.1,
+    low: 2.6,
+    high: 7.5,
   },
   {
-    category: 'P4',
-    value: 33.72,
-    low: 16.4,
-    high: 36.3,
+    category: 'Team sharing',
+    value: 3.9,
+    low: 1.4,
+    high: 6.3,
   },
 ];
 
@@ -80,20 +80,21 @@ intervals('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Experiment',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Lift (points)',
   },
   title: {
     text: 'Intervals',
     subtitle: 'interval family · default mode',
   },
   accessibility: {
-    label: 'Intervals example',
-    description: 'A compiled intervals example using the interval family.',
+    label: 'Intervals: Estimated onboarding lift with uncertainty kept visible for every change',
+    description:
+      'Estimated onboarding lift with uncertainty kept visible for every change. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -108,12 +109,12 @@ intervals('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Experiment',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Lift (points)',
           format: 'number',
         },
         {
@@ -150,28 +151,28 @@ import { areaRange } from 'graflume/complete';
 
 const data = [
   {
-    category: 'P1',
-    value: 24,
-    low: 14,
-    high: 33,
+    category: 'Guided setup',
+    value: 8.4,
+    low: 5.9,
+    high: 10.8,
   },
   {
-    category: 'P2',
-    value: 29.916,
-    low: 14.8,
-    high: 34.1,
+    category: 'Saved views',
+    value: 6.7,
+    low: 4.8,
+    high: 8.6,
   },
   {
-    category: 'P3',
-    value: 33.54,
-    low: 15.6,
-    high: 35.2,
+    category: 'Smart alerts',
+    value: 5.1,
+    low: 2.6,
+    high: 7.5,
   },
   {
-    category: 'P4',
-    value: 33.72,
-    low: 16.4,
-    high: 36.3,
+    category: 'Team sharing',
+    value: 3.9,
+    low: 1.4,
+    high: 6.3,
   },
 ];
 
@@ -179,20 +180,22 @@ areaRange('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Experiment',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Lift (points)',
   },
   title: {
     text: 'Area range chart',
     subtitle: 'interval family · area-range mode',
   },
   accessibility: {
-    label: 'Area range chart example',
-    description: 'A compiled area range chart example using the interval family.',
+    label:
+      'Area range chart: Estimated onboarding lift with uncertainty kept visible for every change',
+    description:
+      'Estimated onboarding lift with uncertainty kept visible for every change. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -211,12 +214,12 @@ areaRange('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Experiment',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Lift (points)',
           format: 'number',
         },
         {
@@ -253,28 +256,28 @@ import { areaSplineRange } from 'graflume/complete';
 
 const data = [
   {
-    category: 'P1',
-    value: 24,
-    low: 14,
-    high: 33,
+    category: 'Guided setup',
+    value: 8.4,
+    low: 5.9,
+    high: 10.8,
   },
   {
-    category: 'P2',
-    value: 29.916,
-    low: 14.8,
-    high: 34.1,
+    category: 'Saved views',
+    value: 6.7,
+    low: 4.8,
+    high: 8.6,
   },
   {
-    category: 'P3',
-    value: 33.54,
-    low: 15.6,
-    high: 35.2,
+    category: 'Smart alerts',
+    value: 5.1,
+    low: 2.6,
+    high: 7.5,
   },
   {
-    category: 'P4',
-    value: 33.72,
-    low: 16.4,
-    high: 36.3,
+    category: 'Team sharing',
+    value: 3.9,
+    low: 1.4,
+    high: 6.3,
   },
 ];
 
@@ -282,20 +285,22 @@ areaSplineRange('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Experiment',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Lift (points)',
   },
   title: {
     text: 'Smooth area range chart',
     subtitle: 'interval family · area-spline-range mode',
   },
   accessibility: {
-    label: 'Smooth area range chart example',
-    description: 'A compiled smooth area range chart example using the interval family.',
+    label:
+      'Smooth area range chart: Estimated onboarding lift with uncertainty kept visible for every change',
+    description:
+      'Estimated onboarding lift with uncertainty kept visible for every change. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -314,12 +319,12 @@ areaSplineRange('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Experiment',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Lift (points)',
           format: 'number',
         },
         {
@@ -356,28 +361,28 @@ import { columnRange } from 'graflume/complete';
 
 const data = [
   {
-    category: 'P1',
-    value: 24,
-    low: 14,
-    high: 33,
+    category: 'Guided setup',
+    value: 8.4,
+    low: 5.9,
+    high: 10.8,
   },
   {
-    category: 'P2',
-    value: 29.916,
-    low: 14.8,
-    high: 34.1,
+    category: 'Saved views',
+    value: 6.7,
+    low: 4.8,
+    high: 8.6,
   },
   {
-    category: 'P3',
-    value: 33.54,
-    low: 15.6,
-    high: 35.2,
+    category: 'Smart alerts',
+    value: 5.1,
+    low: 2.6,
+    high: 7.5,
   },
   {
-    category: 'P4',
-    value: 33.72,
-    low: 16.4,
-    high: 36.3,
+    category: 'Team sharing',
+    value: 3.9,
+    low: 1.4,
+    high: 6.3,
   },
 ];
 
@@ -385,20 +390,22 @@ columnRange('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Experiment',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Lift (points)',
   },
   title: {
     text: 'Column range chart',
     subtitle: 'interval family · column-range mode',
   },
   accessibility: {
-    label: 'Column range chart example',
-    description: 'A compiled column range chart example using the interval family.',
+    label:
+      'Column range chart: Estimated onboarding lift with uncertainty kept visible for every change',
+    description:
+      'Estimated onboarding lift with uncertainty kept visible for every change. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -417,12 +424,12 @@ columnRange('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Experiment',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Lift (points)',
           format: 'number',
         },
         {
@@ -459,28 +466,28 @@ import { dumbbell } from 'graflume/complete';
 
 const data = [
   {
-    category: 'P1',
-    value: 24,
-    low: 14,
-    high: 33,
+    category: 'Guided setup',
+    value: 8.4,
+    low: 5.9,
+    high: 10.8,
   },
   {
-    category: 'P2',
-    value: 29.916,
-    low: 14.8,
-    high: 34.1,
+    category: 'Saved views',
+    value: 6.7,
+    low: 4.8,
+    high: 8.6,
   },
   {
-    category: 'P3',
-    value: 33.54,
-    low: 15.6,
-    high: 35.2,
+    category: 'Smart alerts',
+    value: 5.1,
+    low: 2.6,
+    high: 7.5,
   },
   {
-    category: 'P4',
-    value: 33.72,
-    low: 16.4,
-    high: 36.3,
+    category: 'Team sharing',
+    value: 3.9,
+    low: 1.4,
+    high: 6.3,
   },
 ];
 
@@ -488,20 +495,22 @@ dumbbell('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Experiment',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Lift (points)',
   },
   title: {
     text: 'Dumbbell chart',
     subtitle: 'interval family · dumbbell mode',
   },
   accessibility: {
-    label: 'Dumbbell chart example',
-    description: 'A compiled dumbbell chart example using the interval family.',
+    label:
+      'Dumbbell chart: Estimated onboarding lift with uncertainty kept visible for every change',
+    description:
+      'Estimated onboarding lift with uncertainty kept visible for every change. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -520,12 +529,12 @@ dumbbell('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Experiment',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Lift (points)',
           format: 'number',
         },
         {
@@ -562,28 +571,28 @@ import { errorBar } from 'graflume/complete';
 
 const data = [
   {
-    category: 'P1',
-    value: 24,
-    low: 14,
-    high: 33,
+    category: 'Guided setup',
+    value: 8.4,
+    low: 5.9,
+    high: 10.8,
   },
   {
-    category: 'P2',
-    value: 29.916,
-    low: 14.8,
-    high: 34.1,
+    category: 'Saved views',
+    value: 6.7,
+    low: 4.8,
+    high: 8.6,
   },
   {
-    category: 'P3',
-    value: 33.54,
-    low: 15.6,
-    high: 35.2,
+    category: 'Smart alerts',
+    value: 5.1,
+    low: 2.6,
+    high: 7.5,
   },
   {
-    category: 'P4',
-    value: 33.72,
-    low: 16.4,
-    high: 36.3,
+    category: 'Team sharing',
+    value: 3.9,
+    low: 1.4,
+    high: 6.3,
   },
 ];
 
@@ -591,20 +600,22 @@ errorBar('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Experiment',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Lift (points)',
   },
   title: {
     text: 'Error bar chart',
     subtitle: 'interval family · error-bar mode',
   },
   accessibility: {
-    label: 'Error bar chart example',
-    description: 'A compiled error bar chart example using the interval family.',
+    label:
+      'Error bar chart: Estimated onboarding lift with uncertainty kept visible for every change',
+    description:
+      'Estimated onboarding lift with uncertainty kept visible for every change. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -619,12 +630,12 @@ errorBar('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Experiment',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Lift (points)',
           format: 'number',
         },
         {

@@ -47,20 +47,20 @@ import { scatter } from 'graflume';
 
 const data = [
   {
-    x: 12,
-    y: 42,
+    x: 14,
+    y: 38,
   },
   {
-    x: 24,
-    y: 55,
+    x: 20,
+    y: 45,
+  },
+  {
+    x: 25,
+    y: 41,
   },
   {
     x: 38,
-    y: 33,
-  },
-  {
-    x: 51,
-    y: 68,
+    y: 57,
   },
 ];
 
@@ -68,20 +68,22 @@ scatter('#chart', data, {
   x: {
     field: 'x',
     type: 'quantitative',
-    title: 'x',
+    title: 'Engagement score',
   },
   y: {
     field: 'y',
     type: 'quantitative',
-    title: 'y',
+    title: 'Satisfaction score',
   },
   title: {
     text: 'Scatter chart',
     subtitle: 'scatter family · default mode',
   },
   accessibility: {
-    label: 'Scatter chart example',
-    description: 'A compiled scatter chart example using the scatter family.',
+    label:
+      'Scatter chart: Customer segments expose a clear trade-off and one efficient opportunity',
+    description:
+      'Customer segments expose a clear trade-off and one efficient opportunity. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   locale: 'en-US',
   interaction: {
@@ -90,12 +92,12 @@ scatter('#chart', data, {
       fields: [
         {
           field: 'x',
-          label: 'x',
+          label: 'Engagement score',
           format: 'number',
         },
         {
           field: 'y',
-          label: 'y',
+          label: 'Satisfaction score',
           format: 'number',
         },
       ],
@@ -121,28 +123,28 @@ import { effectScatter } from 'graflume/complete';
 
 const data = [
   {
-    x: 12,
-    y: 42,
-    size: 20,
-    group: 'A',
+    x: 14,
+    y: 38,
+    size: 28,
+    group: 'Starter',
   },
   {
-    x: 24,
-    y: 55,
-    size: 85,
-    group: 'B',
+    x: 20,
+    y: 45,
+    size: 34,
+    group: 'Starter',
+  },
+  {
+    x: 25,
+    y: 41,
+    size: 31,
+    group: 'Starter',
   },
   {
     x: 38,
-    y: 33,
-    size: 55,
-    group: 'A',
-  },
-  {
-    x: 51,
-    y: 68,
-    size: 120,
-    group: 'C',
+    y: 57,
+    size: 64,
+    group: 'Growth',
   },
 ];
 
@@ -150,20 +152,22 @@ effectScatter('#chart', data, {
   x: {
     field: 'x',
     type: 'quantitative',
-    title: 'x',
+    title: 'Engagement score',
   },
   y: {
     field: 'y',
     type: 'quantitative',
-    title: 'y',
+    title: 'Satisfaction score',
   },
   title: {
     text: 'Effect scatter chart',
     subtitle: 'scatter family · emphasis mode',
   },
   accessibility: {
-    label: 'Effect scatter chart example',
-    description: 'A compiled effect scatter chart example using the scatter family.',
+    label:
+      'Effect scatter chart: Customer segments expose a clear trade-off and one efficient opportunity',
+    description:
+      'Customer segments expose a clear trade-off and one efficient opportunity. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -178,12 +182,12 @@ effectScatter('#chart', data, {
       fields: [
         {
           field: 'x',
-          label: 'x',
+          label: 'Engagement score',
           format: 'number',
         },
         {
           field: 'y',
-          label: 'y',
+          label: 'Satisfaction score',
           format: 'number',
         },
         {
@@ -212,56 +216,68 @@ Use this preset when the relationship between quantitative coordinates must be i
 - **Quick API:** `scatter3d()`
 - **Mode:** `scatter-3d`
 - **Portable mark:** `scatter-3d`
-- **Required example fields:** `value`, `high`, `z`
+- **Required example fields:** `x`, `y`, `z`, `group`, `size`
 
 ```js
 import { scatter3d } from 'graflume/complete';
 
 const data = [
   {
-    value: 24,
-    high: 33,
-    z: 5,
-  },
-  {
-    value: 29.916,
-    high: 34.1,
-    z: 6,
-  },
-  {
-    value: 33.54,
-    high: 35.2,
+    x: 14,
+    y: 38,
     z: 7,
+    group: 'Starter',
+    size: 28,
   },
   {
-    value: 33.72,
-    high: 36.3,
-    z: 8,
+    x: 20,
+    y: 45,
+    z: 10,
+    group: 'Starter',
+    size: 34,
+  },
+  {
+    x: 25,
+    y: 41,
+    z: 12,
+    group: 'Starter',
+    size: 31,
+  },
+  {
+    x: 38,
+    y: 57,
+    z: 15,
+    group: 'Growth',
+    size: 64,
   },
 ];
 
 scatter3d('#chart', data, {
   x: {
-    field: 'value',
+    field: 'x',
     type: 'quantitative',
-    title: 'value',
+    title: 'Engagement score',
   },
   y: {
-    field: 'high',
+    field: 'y',
     type: 'quantitative',
-    title: 'high',
+    title: 'Satisfaction score',
   },
   title: {
     text: 'Three-axis scatter chart',
     subtitle: 'scatter family · scatter-3d mode',
   },
   accessibility: {
-    label: 'Three-axis scatter chart example',
-    description: 'A compiled three-axis scatter chart example using the scatter family.',
+    label:
+      'Three-axis scatter chart: Customer segments expose a clear trade-off and one efficient opportunity',
+    description:
+      'Customer segments expose a clear trade-off and one efficient opportunity. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
       z: 'z',
+      color: 'group',
+      size: 'size',
     },
   },
   locale: 'en-US',
@@ -270,18 +286,28 @@ scatter3d('#chart', data, {
       title: 'Three-axis scatter chart',
       fields: [
         {
-          field: 'value',
-          label: 'value',
+          field: 'x',
+          label: 'Engagement score',
           format: 'number',
         },
         {
-          field: 'high',
-          label: 'high',
+          field: 'y',
+          label: 'Satisfaction score',
           format: 'number',
         },
         {
           field: 'z',
           label: 'Z',
+          format: 'number',
+        },
+        {
+          field: 'group',
+          label: 'Group',
+          format: 'auto',
+        },
+        {
+          field: 'size',
+          label: 'Size',
           format: 'number',
         },
       ],

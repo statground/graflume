@@ -1,0 +1,699 @@
+{
+  "$schema": "../schema/graflume.adaptive-profiles.schema.json",
+  "schemaVersion": 1,
+  "contractVersion": "0.1",
+  "totals": {
+    "profiles": 23,
+    "scenarios": 6,
+    "capabilities": 17
+  },
+  "capabilities": [
+    {
+      "id": "zoom-reflow",
+      "category": "layout",
+      "signals": ["small CSS viewport", "page zoom"],
+      "behavior": ["compact gutters", "wrapped legend rail", "inspection zoom"]
+    },
+    {
+      "id": "foldable-dual",
+      "category": "layout",
+      "signals": ["multiple viewport segments"],
+      "behavior": ["segment-safe reflow", "avoid hinge/cutout insets"]
+    },
+    {
+      "id": "tv-remote",
+      "category": "input",
+      "signals": ["large viewport", "no pointer hover", "remote navigation"],
+      "behavior": ["large focus targets", "keyboard-equivalent navigation"]
+    },
+    {
+      "id": "print-paged",
+      "category": "display",
+      "signals": ["print media", "paged block overflow"],
+      "behavior": ["static frame", "visible semantic table recommendation"]
+    },
+    {
+      "id": "forced-colors",
+      "category": "display",
+      "signals": ["forced-colors", "increased contrast preference"],
+      "behavior": ["high-contrast theme override", "visible focus and outlines"]
+    },
+    {
+      "id": "reduced-effects",
+      "category": "motion",
+      "signals": ["reduced motion/transparency", "slow or static update"],
+      "behavior": ["no autoplay", "no interpolation", "opaque chrome"]
+    },
+    {
+      "id": "coarse-touch",
+      "category": "input",
+      "signals": ["coarse pointer"],
+      "behavior": ["44 CSS pixel targets", "pinch and vertical-scroll-safe gestures"]
+    },
+    {
+      "id": "keyboard-switch",
+      "category": "input",
+      "signals": ["keyboard-only", "switch control"],
+      "behavior": ["roving focus", "zoom/reset keyboard parity"]
+    },
+    {
+      "id": "low-resource",
+      "category": "resource",
+      "signals": ["save-data", "small memory/CPU budget", "grid/static display"],
+      "behavior": ["bounded pixel ratio", "bounded effects", "semantic fallback"]
+    },
+    {
+      "id": "rtl",
+      "category": "layout",
+      "signals": ["right-to-left direction"],
+      "behavior": ["logical chrome and text direction"]
+    },
+    {
+      "id": "vertical-writing",
+      "category": "layout",
+      "signals": ["vertical writing mode"],
+      "behavior": ["vertical-safe axis labels", "logical layout metadata"]
+    },
+    {
+      "id": "ultrawide-projection",
+      "category": "layout",
+      "signals": ["ultrawide aspect ratio", "projection surface"],
+      "behavior": ["bounded content measure", "readable typography and controls"]
+    },
+    {
+      "id": "screenreader-braille",
+      "category": "accessibility",
+      "signals": ["explicit assistive-technology host signal"],
+      "behavior": ["visible semantic table", "complete keyboard navigation"]
+    },
+    {
+      "id": "no-script",
+      "category": "runtime",
+      "signals": ["scripting unavailable or initial-only"],
+      "behavior": ["static image and semantic table fallback required"]
+    },
+    {
+      "id": "spatial-xr",
+      "category": "input",
+      "signals": ["explicit immersive/XR host signal"],
+      "behavior": ["programmatic camera parity", "non-immersive semantic fallback"]
+    },
+    {
+      "id": "cutout-round",
+      "category": "layout",
+      "signals": ["round display", "non-zero safe-area inset"],
+      "behavior": ["safe inset padding", "scrollable compact controls"]
+    },
+    {
+      "id": "virtual-keyboard",
+      "category": "layout",
+      "signals": ["virtual keyboard inset", "visual viewport contraction"],
+      "behavior": ["height reflow", "focused controls remain reachable"]
+    }
+  ],
+  "profiles": [
+    {
+      "id": "responsive-fluid",
+      "order": 0,
+      "kind": "scenario",
+      "category": "scenario",
+      "label": "Responsive fluid viewport",
+      "compactLabel": "Responsive",
+      "summary": "A fluid container that continuously reflows axes, legends, controls, and plots.",
+      "capabilities": ["zoom-reflow"],
+      "environment": {
+        "width": 960,
+        "height": 540
+      },
+      "presentation": {
+        "width": 960,
+        "height": 540,
+        "shape": "rectangle",
+        "display": "color",
+        "input": "fine",
+        "motion": "full",
+        "renderer": "canvas-spatial"
+      }
+    },
+    {
+      "id": "mobile-touch",
+      "order": 1,
+      "kind": "scenario",
+      "category": "scenario",
+      "label": "Mobile touch viewport",
+      "compactLabel": "Mobile",
+      "summary": "A narrow coarse-pointer viewport with scroll-safe gestures and 44px controls.",
+      "capabilities": ["zoom-reflow", "coarse-touch", "virtual-keyboard"],
+      "environment": {
+        "width": 390,
+        "height": 844,
+        "pointer": "coarse",
+        "hover": false,
+        "virtualKeyboardInset": 280
+      },
+      "presentation": {
+        "width": 390,
+        "height": 844,
+        "shape": "rectangle",
+        "display": "color",
+        "input": "coarse",
+        "motion": "full",
+        "renderer": "canvas-spatial"
+      }
+    },
+    {
+      "id": "smartwatch",
+      "order": 2,
+      "kind": "scenario",
+      "category": "scenario",
+      "label": "Smartwatch viewport",
+      "compactLabel": "Watch",
+      "summary": "A round micro viewport with safe insets, touch targets, and inspection zoom.",
+      "capabilities": [
+        "zoom-reflow",
+        "reduced-effects",
+        "coarse-touch",
+        "low-resource",
+        "cutout-round"
+      ],
+      "environment": {
+        "width": 184,
+        "height": 224,
+        "pointer": "coarse",
+        "hover": false,
+        "roundDisplay": true,
+        "reducedMotion": true,
+        "safeArea": {
+          "top": 18,
+          "right": 18,
+          "bottom": 18,
+          "left": 18
+        },
+        "deviceMemoryGB": 1
+      },
+      "presentation": {
+        "width": 184,
+        "height": 224,
+        "shape": "round",
+        "display": "color",
+        "input": "coarse",
+        "motion": "reduced",
+        "renderer": "canvas-spatial"
+      }
+    },
+    {
+      "id": "ebook-paper",
+      "order": 3,
+      "kind": "scenario",
+      "category": "scenario",
+      "label": "Electronic paper reader",
+      "compactLabel": "E-paper",
+      "summary": "A paged monochrome display with slow refresh and static semantic output.",
+      "capabilities": ["print-paged", "reduced-effects", "low-resource"],
+      "environment": {
+        "width": 758,
+        "height": 1024,
+        "update": "slow",
+        "monochromeBits": 4,
+        "paged": true,
+        "pointer": "none",
+        "keyboard": true,
+        "reducedMotion": true
+      },
+      "presentation": {
+        "width": 758,
+        "height": 1024,
+        "shape": "paged",
+        "display": "e-ink",
+        "input": "keyboard",
+        "motion": "static",
+        "renderer": "canvas-spatial"
+      }
+    },
+    {
+      "id": "monochrome",
+      "order": 4,
+      "kind": "scenario",
+      "category": "scenario",
+      "label": "Monochrome display",
+      "compactLabel": "Monochrome",
+      "summary": "A colorless display using contrast, outlines, and ordered gray ramps.",
+      "capabilities": ["reduced-effects"],
+      "environment": {
+        "width": 640,
+        "height": 400,
+        "monochromeBits": 8
+      },
+      "presentation": {
+        "width": 640,
+        "height": 400,
+        "shape": "rectangle",
+        "display": "monochrome",
+        "input": "fine",
+        "motion": "reduced",
+        "renderer": "canvas-spatial"
+      }
+    },
+    {
+      "id": "dot-matrix",
+      "order": 5,
+      "kind": "scenario",
+      "category": "scenario",
+      "label": "Dot matrix or grid display",
+      "compactLabel": "Dot matrix",
+      "summary": "A low-resolution grid display with pixelated, static, high-contrast output.",
+      "capabilities": ["zoom-reflow", "reduced-effects", "keyboard-switch", "low-resource"],
+      "environment": {
+        "width": 320,
+        "height": 240,
+        "pointer": "none",
+        "keyboard": true,
+        "grid": true,
+        "update": "none",
+        "monochromeBits": 1
+      },
+      "presentation": {
+        "width": 320,
+        "height": 240,
+        "shape": "rectangle",
+        "display": "grid",
+        "input": "keyboard",
+        "motion": "static",
+        "renderer": "canvas-spatial"
+      }
+    },
+    {
+      "id": "zoom-reflow",
+      "order": 6,
+      "kind": "capability",
+      "category": "layout",
+      "label": "Zoom Reflow",
+      "compactLabel": "zoom-reflow",
+      "summary": "compact gutters; wrapped legend rail; inspection zoom",
+      "capabilities": ["zoom-reflow"],
+      "environment": {
+        "width": 320,
+        "height": 480,
+        "zoom": 2
+      },
+      "presentation": {
+        "width": 320,
+        "height": 480,
+        "shape": "rectangle",
+        "display": "color",
+        "input": "fine",
+        "motion": "full",
+        "renderer": "canvas-spatial"
+      }
+    },
+    {
+      "id": "foldable-dual",
+      "order": 7,
+      "kind": "capability",
+      "category": "layout",
+      "label": "Foldable Dual",
+      "compactLabel": "foldable-dual",
+      "summary": "segment-safe reflow; avoid hinge/cutout insets",
+      "capabilities": ["foldable-dual"],
+      "environment": {
+        "width": 720,
+        "height": 640,
+        "viewportSegments": 2
+      },
+      "presentation": {
+        "width": 720,
+        "height": 640,
+        "shape": "dual",
+        "display": "color",
+        "input": "fine",
+        "motion": "full",
+        "renderer": "canvas-spatial"
+      }
+    },
+    {
+      "id": "tv-remote",
+      "order": 8,
+      "kind": "capability",
+      "category": "input",
+      "label": "Tv Remote",
+      "compactLabel": "tv-remote",
+      "summary": "large focus targets; keyboard-equivalent navigation",
+      "capabilities": ["tv-remote"],
+      "environment": {
+        "width": 1920,
+        "height": 1080,
+        "pointer": "none",
+        "hover": false,
+        "remoteControl": true
+      },
+      "presentation": {
+        "width": 1920,
+        "height": 1080,
+        "shape": "rectangle",
+        "display": "color",
+        "input": "remote",
+        "motion": "full",
+        "renderer": "canvas-spatial"
+      }
+    },
+    {
+      "id": "print-paged",
+      "order": 9,
+      "kind": "capability",
+      "category": "display",
+      "label": "Print Paged",
+      "compactLabel": "print-paged",
+      "summary": "static frame; visible semantic table recommendation",
+      "capabilities": ["print-paged"],
+      "environment": {
+        "width": 794,
+        "height": 1123,
+        "media": "print",
+        "paged": true,
+        "update": "none"
+      },
+      "presentation": {
+        "width": 794,
+        "height": 1123,
+        "shape": "paged",
+        "display": "color",
+        "input": "fine",
+        "motion": "static",
+        "renderer": "canvas-spatial"
+      }
+    },
+    {
+      "id": "forced-colors",
+      "order": 10,
+      "kind": "capability",
+      "category": "display",
+      "label": "Forced Colors",
+      "compactLabel": "forced-colors",
+      "summary": "high-contrast theme override; visible focus and outlines",
+      "capabilities": ["forced-colors"],
+      "environment": {
+        "forcedColors": true,
+        "contrast": "more"
+      },
+      "presentation": {
+        "width": 640,
+        "height": 400,
+        "shape": "rectangle",
+        "display": "high-contrast",
+        "input": "fine",
+        "motion": "full",
+        "renderer": "canvas-spatial"
+      }
+    },
+    {
+      "id": "reduced-effects",
+      "order": 11,
+      "kind": "capability",
+      "category": "motion",
+      "label": "Reduced Effects",
+      "compactLabel": "reduced-effects",
+      "summary": "no autoplay; no interpolation; opaque chrome",
+      "capabilities": ["reduced-effects"],
+      "environment": {
+        "reducedMotion": true,
+        "reducedTransparency": true
+      },
+      "presentation": {
+        "width": 640,
+        "height": 400,
+        "shape": "rectangle",
+        "display": "color",
+        "input": "fine",
+        "motion": "reduced",
+        "renderer": "canvas-spatial"
+      }
+    },
+    {
+      "id": "coarse-touch",
+      "order": 12,
+      "kind": "capability",
+      "category": "input",
+      "label": "Coarse Touch",
+      "compactLabel": "coarse-touch",
+      "summary": "44 CSS pixel targets; pinch and vertical-scroll-safe gestures",
+      "capabilities": ["coarse-touch"],
+      "environment": {
+        "width": 390,
+        "height": 844,
+        "pointer": "coarse",
+        "hover": false
+      },
+      "presentation": {
+        "width": 390,
+        "height": 844,
+        "shape": "rectangle",
+        "display": "color",
+        "input": "coarse",
+        "motion": "full",
+        "renderer": "canvas-spatial"
+      }
+    },
+    {
+      "id": "keyboard-switch",
+      "order": 13,
+      "kind": "capability",
+      "category": "input",
+      "label": "Keyboard Switch",
+      "compactLabel": "keyboard-switch",
+      "summary": "roving focus; zoom/reset keyboard parity",
+      "capabilities": ["keyboard-switch"],
+      "environment": {
+        "pointer": "none",
+        "keyboard": true,
+        "switchControl": true
+      },
+      "presentation": {
+        "width": 640,
+        "height": 400,
+        "shape": "rectangle",
+        "display": "color",
+        "input": "keyboard",
+        "motion": "full",
+        "renderer": "canvas-spatial"
+      }
+    },
+    {
+      "id": "low-resource",
+      "order": 14,
+      "kind": "capability",
+      "category": "resource",
+      "label": "Low Resource",
+      "compactLabel": "low-resource",
+      "summary": "bounded pixel ratio; bounded effects; semantic fallback",
+      "capabilities": ["low-resource"],
+      "environment": {
+        "deviceMemoryGB": 1,
+        "hardwareConcurrency": 2,
+        "saveData": true
+      },
+      "presentation": {
+        "width": 640,
+        "height": 400,
+        "shape": "rectangle",
+        "display": "color",
+        "input": "fine",
+        "motion": "full",
+        "renderer": "canvas-spatial"
+      }
+    },
+    {
+      "id": "rtl",
+      "order": 15,
+      "kind": "capability",
+      "category": "layout",
+      "label": "Rtl",
+      "compactLabel": "rtl",
+      "summary": "logical chrome and text direction",
+      "capabilities": ["rtl"],
+      "environment": {
+        "direction": "rtl"
+      },
+      "presentation": {
+        "width": 640,
+        "height": 400,
+        "shape": "rectangle",
+        "display": "color",
+        "input": "fine",
+        "motion": "full",
+        "renderer": "canvas-spatial"
+      }
+    },
+    {
+      "id": "vertical-writing",
+      "order": 16,
+      "kind": "capability",
+      "category": "layout",
+      "label": "Vertical Writing",
+      "compactLabel": "vertical-writing",
+      "summary": "vertical-safe axis labels; logical layout metadata",
+      "capabilities": ["vertical-writing"],
+      "environment": {
+        "writingMode": "vertical-rl"
+      },
+      "presentation": {
+        "width": 640,
+        "height": 400,
+        "shape": "rectangle",
+        "display": "color",
+        "input": "fine",
+        "motion": "full",
+        "renderer": "canvas-spatial"
+      }
+    },
+    {
+      "id": "ultrawide-projection",
+      "order": 17,
+      "kind": "capability",
+      "category": "layout",
+      "label": "Ultrawide Projection",
+      "compactLabel": "ultrawide-projection",
+      "summary": "bounded content measure; readable typography and controls",
+      "capabilities": ["ultrawide-projection"],
+      "environment": {
+        "width": 1920,
+        "height": 720,
+        "projection": true
+      },
+      "presentation": {
+        "width": 1920,
+        "height": 720,
+        "shape": "rectangle",
+        "display": "color",
+        "input": "fine",
+        "motion": "full",
+        "renderer": "canvas-spatial"
+      }
+    },
+    {
+      "id": "screenreader-braille",
+      "order": 18,
+      "kind": "capability",
+      "category": "accessibility",
+      "label": "Screenreader Braille",
+      "compactLabel": "screenreader-braille",
+      "summary": "visible semantic table; complete keyboard navigation",
+      "capabilities": ["screenreader-braille"],
+      "environment": {
+        "pointer": "none",
+        "keyboard": true,
+        "screenReader": true,
+        "braille": true
+      },
+      "presentation": {
+        "width": 640,
+        "height": 400,
+        "shape": "nonvisual",
+        "display": "color",
+        "input": "nonvisual",
+        "motion": "full",
+        "renderer": "canvas-spatial"
+      }
+    },
+    {
+      "id": "no-script",
+      "order": 19,
+      "kind": "capability",
+      "category": "runtime",
+      "label": "No Script",
+      "compactLabel": "no-script",
+      "summary": "static image and semantic table fallback required",
+      "capabilities": ["no-script"],
+      "environment": {
+        "scripting": "none",
+        "update": "none"
+      },
+      "presentation": {
+        "width": 640,
+        "height": 400,
+        "shape": "nonvisual",
+        "display": "color",
+        "input": "fine",
+        "motion": "static",
+        "renderer": "static-fallback"
+      }
+    },
+    {
+      "id": "spatial-xr",
+      "order": 20,
+      "kind": "capability",
+      "category": "input",
+      "label": "Spatial Xr",
+      "compactLabel": "spatial-xr",
+      "summary": "programmatic camera parity; non-immersive semantic fallback",
+      "capabilities": ["spatial-xr"],
+      "environment": {
+        "spatialXR": true,
+        "pointer": "none",
+        "keyboard": false
+      },
+      "presentation": {
+        "width": 640,
+        "height": 400,
+        "shape": "rectangle",
+        "display": "color",
+        "input": "fine",
+        "motion": "full",
+        "renderer": "canvas-spatial"
+      }
+    },
+    {
+      "id": "cutout-round",
+      "order": 21,
+      "kind": "capability",
+      "category": "layout",
+      "label": "Cutout Round",
+      "compactLabel": "cutout-round",
+      "summary": "safe inset padding; scrollable compact controls",
+      "capabilities": ["cutout-round"],
+      "environment": {
+        "width": 184,
+        "height": 224,
+        "roundDisplay": true,
+        "safeArea": {
+          "top": 18,
+          "right": 18,
+          "bottom": 18,
+          "left": 18
+        }
+      },
+      "presentation": {
+        "width": 184,
+        "height": 224,
+        "shape": "round",
+        "display": "color",
+        "input": "fine",
+        "motion": "full",
+        "renderer": "canvas-spatial"
+      }
+    },
+    {
+      "id": "virtual-keyboard",
+      "order": 22,
+      "kind": "capability",
+      "category": "layout",
+      "label": "Virtual Keyboard",
+      "compactLabel": "virtual-keyboard",
+      "summary": "height reflow; focused controls remain reachable",
+      "capabilities": ["virtual-keyboard"],
+      "environment": {
+        "width": 390,
+        "height": 560,
+        "virtualKeyboardInset": 280
+      },
+      "presentation": {
+        "width": 390,
+        "height": 560,
+        "shape": "rectangle",
+        "display": "color",
+        "input": "fine",
+        "motion": "full",
+        "renderer": "canvas-spatial"
+      }
+    }
+  ]
+}

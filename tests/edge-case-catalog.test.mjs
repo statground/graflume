@@ -8,6 +8,9 @@ import {
   edgeCaseProfiles,
   edgeCaseRecipeCatalog,
 } from '../scripts/edge-case-samples.mjs';
+import { demoRecipeIds, materializeDemoRecipe } from '../.tmp/src/demo/recipes.js';
+import * as PublicApi from '../.tmp/src/index.js';
+import * as SpatialApi from '../.tmp/src/spatial.js';
 
 const publicCatalog = JSON.parse(
   await readFile(new URL('../catalog/graflume.catalog.json', import.meta.url), 'utf8'),
@@ -21,6 +24,10 @@ const schema = JSON.parse(
   await readFile(new URL('../schema/graflume.edge-cases.schema.json', import.meta.url), 'utf8'),
 );
 const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+const materializerSource = await readFile(
+  new URL('../src/demo/recipes-engine.js', import.meta.url),
+  'utf8',
+);
 
 const profileIds = ['range', 'structure', 'volume'];
 
@@ -59,7 +66,7 @@ test('edge-case catalog is a deterministic companion without changing public cat
   assert.equal(Object.hasOwn(publicCatalog, 'edgeCases'), false);
   assert.equal(Object.hasOwn(publicCatalog, 'edgeCaseExamples'), false);
   assert.deepEqual(buildEdgeCaseCatalog(publicCatalog), catalog);
-  assert.equal(catalog.schemaVersion, 1);
+  assert.equal(catalog.schemaVersion, 2);
   assert.deepEqual(catalog.sourceCatalog, {
     path: 'catalog/graflume.catalog.json',
     schemaVersion: 2,
@@ -123,15 +130,21 @@ test('recipes are closed, seeded, JSON-safe, compact, and carry bounded table pr
   );
   assert.equal(new Set(recipeIds).size, recipeIds.length);
   assert.equal(new Set(catalog.examples.map(({ recipe }) => recipe.seed)).size, 132);
-  assert.ok(Buffer.byteLength(catalogSource) < 500_000, 'edge catalog must stay compact');
+  assert.ok(Buffer.byteLength(catalogSource) < 750_000, 'edge catalog must stay compact');
   finiteJson(catalog);
 
-  const shapeByRecipe = new Map(catalog.recipeCatalog.map(({ id, shape }) => [id, shape]));
+  assert.deepEqual(recipeIds, demoRecipeIds);
   for (const example of catalog.examples) {
     assert.equal(Object.hasOwn(example, 'data'), false, `${example.id} embeds no generated data`);
     assert.ok(recipeIds.includes(example.recipe.id), `${example.id} recipe id`);
-    assert.equal(example.recipe.version, 1, `${example.id} recipe version`);
-    assert.equal(example.recipe.shape, shapeByRecipe.get(example.recipe.id), `${example.id} shape`);
+    assert.equal(example.recipe.version, 2, `${example.id} recipe version`);
+    const catalogShape = catalog.recipeCatalog.find(({ id }) => id === example.recipe.id).shape;
+    assert.ok(
+      catalogShape === example.recipe.shape ||
+        (catalogShape === 'rows-or-vector-set' &&
+          ['rows', 'vector-set'].includes(example.recipe.shape)),
+      `${example.id} shape`,
+    );
     assert.ok(example.recipe.seed >= 1 && example.recipe.seed <= 0xffffffff, `${example.id} seed`);
     assert.ok(
       example.tableData.length >= 1 && example.tableData.length <= 12,
@@ -144,11 +157,30 @@ test('recipes are closed, seeded, JSON-safe, compact, and carry bounded table pr
     );
     assert.equal(
       example.expectations.inputRows,
-      example.recipe.rowCount,
+      example.recipe.cardinality.sourceRows,
       `${example.id} input rows`,
     );
     assert.equal(example.expectations.bounded, true, `${example.id} bounded`);
     assert.ok(example.expectations.outputBudget.maximum >= 1, `${example.id} output budget`);
+    assert.deepEqual(
+      example.recipe.outputBudget,
+      example.expectations.outputBudget,
+      `${example.id} recipe budget`,
+    );
+    assert.deepEqual(
+      example.recipe.expectedInvariants,
+      example.expectations.invariants,
+      `${example.id} recipe invariants`,
+    );
+    assert.equal(example.recipe.preview.maximumRows, 12, `${example.id} preview contract`);
+    assert.ok(example.recipe.initialView.zoom > 0, `${example.id} initial view`);
+    const parameterKeys = new Set(
+      catalog.recipeCatalog.find(({ id }) => id === example.recipe.id).parameterKeys,
+    );
+    assert.ok(
+      Object.keys(example.recipe.parameters).every((key) => parameterKeys.has(key)),
+      `${example.id} recipe-specific parameters`,
+    );
     assert.ok(
       example.expectations.invariants.includes('finite-json'),
       `${example.id} finite invariant`,
@@ -265,17 +297,25 @@ test('volume profiles remain recipes and declare deterministic renderer budgets'
       'deterministic-generation',
       'bounded-rendering',
     ]);
-    assert.ok(example.recipe.rowCount >= 5_000, `${example.id} logical input volume`);
-    assert.ok(example.recipe.rowCount > example.tableData.length, `${example.id} compact preview`);
+    assert.ok(example.recipe.cardinality.sourceRows >= 5_000, `${example.id} logical input volume`);
+    assert.ok(
+      example.recipe.cardinality.sourceRows > example.tableData.length,
+      `${example.id} compact preview`,
+    );
     assert.ok(
       example.expectations.outputBudget.maximum <= 4_194_304,
       `${example.id} bounded output`,
     );
     assert.deepEqual(example.expectations.handling, [
       'deterministic-seed',
+      'semantic-level-of-detail',
       'bounded-output',
-      'compact-recipe-not-expanded-data',
+      'lazy-materialization-after-consent',
     ]);
+    assert.ok(
+      example.expectations.dataPlan.derivedRows <= example.expectations.dataPlan.renderedMaximum,
+      `${example.id} materialized budget`,
+    );
     if (example.runtime === 'core') {
       const explicit = example.recipe.parameters.explicitPerformance === true;
       assert.equal(
@@ -293,9 +333,9 @@ test('volume profiles remain recipes and declare deterministic renderer budgets'
     }
   }
 
-  assert.equal(examplesForFamily('funnel')[2].recipe.rowCount, 130_000);
+  assert.equal(examplesForFamily('funnel')[2].recipe.cardinality.sourceRows, 130_000);
   assert.equal(examplesForFamily('hierarchy')[2].expectations.outputBudget.maximum, 5_000);
-  assert.equal(examplesForFamily('calendar')[2].recipe.rowCount, 60_000);
+  assert.equal(examplesForFamily('calendar')[2].recipe.cardinality.sourceRows, 60_000);
   assert.equal(examplesForFamily('calendar')[2].recipe.parameters.dateCycleDays, 3_000);
   assert.deepEqual(examplesForFamily('surface')[2].recipe.parameters, {
     family: 'surface',
@@ -308,6 +348,138 @@ test('volume profiles remain recipes and declare deterministic renderer budgets'
     columns: 257,
   });
   assert.deepEqual(examplesForFamily('volume')[2].recipe.parameters.dimensions, [64, 64, 64]);
+});
+
+test('all 18 public materializers are deterministic semantic LODs with catalog-identical previews', () => {
+  assert.equal(PublicApi.materializeDemoRecipe, materializeDemoRecipe);
+  assert.deepEqual(PublicApi.demoRecipeIds, demoRecipeIds);
+  assert.equal(SpatialApi.materializeDemoRecipe, materializeDemoRecipe);
+  assert.deepEqual(SpatialApi.demoRecipeIds, demoRecipeIds);
+  assert.equal(
+    materializerSource.includes('Math.random'),
+    false,
+    'ambient randomness is forbidden',
+  );
+  const usedRecipeIds = new Set();
+  for (const family of publicCatalog.families) {
+    const example = examplesForFamily(family.id)[2];
+    usedRecipeIds.add(example.recipe.id);
+    const first = materializeDemoRecipe(example.recipe);
+    const second = materializeDemoRecipe(example.recipe);
+    assert.deepEqual(first, second, `${example.id} same-seed stability`);
+    assert.deepEqual(first.previewRows, example.tableData, `${example.id} catalog preview`);
+    assert.deepEqual(first.plan, example.expectations.dataPlan, `${example.id} data plan`);
+    assert.equal(
+      first.plan.sourceRows,
+      example.recipe.cardinality.sourceRows,
+      `${example.id} source cardinality`,
+    );
+    assert.ok(first.plan.derivedRows <= first.plan.renderedMaximum, `${example.id} bounded LOD`);
+    assert.equal(
+      first.plan.renderedMaximum,
+      example.recipe.outputBudget.maximum,
+      `${example.id} budget`,
+    );
+  }
+  assert.deepEqual([...usedRecipeIds].sort(), [...demoRecipeIds].sort());
+});
+
+test('materializer rejects irrelevant parameters and every mismatched closed-contract boundary', () => {
+  const source = examplesForFamily('line')[2].recipe;
+  const mutate = (callback) => {
+    const recipe = structuredClone(source);
+    callback(recipe);
+    return recipe;
+  };
+  assert.throws(
+    () => materializeDemoRecipe(mutate((recipe) => (recipe.parameters.nodeCount = 10))),
+    /parameters\.nodeCount is not allowed/,
+  );
+  assert.throws(
+    () => materializeDemoRecipe(mutate((recipe) => (recipe.unreviewed = true))),
+    /recipe\.unreviewed is not allowed/,
+  );
+  assert.throws(
+    () => materializeDemoRecipe(mutate((recipe) => (recipe.shape = 'volume-grid'))),
+    /shape .* does not match/,
+  );
+  assert.throws(
+    () => materializeDemoRecipe(mutate((recipe) => (recipe.cardinality.unit = 'edges'))),
+    /cardinality\.unit/,
+  );
+  assert.throws(
+    () => materializeDemoRecipe(mutate((recipe) => (recipe.cardinality.axes.nodeCount = 2))),
+    /cardinality\.axes\.nodeCount is not allowed/,
+  );
+  assert.throws(
+    () => materializeDemoRecipe(mutate((recipe) => delete recipe.initialView)),
+    /initialView is required/,
+  );
+  assert.throws(
+    () => materializeDemoRecipe(mutate((recipe) => (recipe.expectedInvariants = []))),
+    /expectedInvariants/,
+  );
+  assert.throws(
+    () => materializeDemoRecipe(mutate((recipe) => (recipe.outputBudget.resource = 'voxels'))),
+    /outputBudget\.resource/,
+  );
+});
+
+test('recipe-specific materializers preserve financial, hierarchy, simplex, set, grid, and vector invariants', () => {
+  const materializeFamily = (familyId) =>
+    materializeDemoRecipe(examplesForFamily(familyId)[2].recipe);
+
+  for (const familyId of ['candlestick', 'technical-indicator']) {
+    const { data } = materializeFamily(familyId);
+    assert.ok(Array.isArray(data));
+    for (const row of data) {
+      assert.ok(row.low <= Math.min(row.open, row.close), `${familyId} low`);
+      assert.ok(row.high >= Math.max(row.open, row.close), `${familyId} high`);
+      assert.ok(row.volume >= 0, `${familyId} volume`);
+    }
+  }
+
+  const ternary = materializeFamily('ternary').data;
+  assert.ok(Array.isArray(ternary));
+  for (const row of ternary) {
+    assert.ok(row.a >= 0 && row.b >= 0 && row.c >= 0, 'ternary nonnegative');
+    assert.ok(Math.abs(row.a + row.b + row.c - 1) <= 2e-7, 'ternary normalized');
+  }
+
+  for (const familyId of ['hierarchy', 'word-tree']) {
+    const rows = materializeFamily(familyId).data;
+    const idField = familyId === 'word-tree' ? 'word' : 'id';
+    const ids = new Set(rows.map((row) => row[idField]));
+    assert.equal(ids.size, rows.length, `${familyId} unique IDs`);
+    assert.equal(rows.filter((row) => row.parent === '').length, 1, `${familyId} root`);
+    assert.ok(
+      rows.slice(1).every((row) => ids.has(row.parent)),
+      `${familyId} parent closure`,
+    );
+  }
+
+  const venn = materializeFamily('venn').data;
+  const singletons = new Map(
+    venn.filter((row) => row.sets.length === 1).map((row) => [row.sets[0], row.size]),
+  );
+  for (const row of venn) {
+    assert.ok(
+      row.sets.every((set) => row.size <= singletons.get(set)),
+      `${row.category} bounded intersection`,
+    );
+  }
+
+  const surface = materializeFamily('surface').data;
+  assert.equal(surface.z.length, surface.rows * surface.columns);
+  assert.equal(surface.values.length, surface.z.length);
+  const volume = materializeFamily('volume').data;
+  assert.equal(
+    volume.values.length,
+    volume.dimensions.reduce((total, value) => total * value, 1),
+  );
+  const vectors = materializeFamily('spatial-vector').data;
+  assert.equal(vectors.origins.length, vectors.vectors.length);
+  assert.ok(vectors.vectors.flat().every(Number.isFinite));
 });
 
 test('technical-indicator edge cases use finite precomputed series without warm-up-only output', () => {
@@ -335,7 +507,7 @@ test('spatial volume previews have a valid minimum 2 by 2 by 2 cardinality', () 
   for (const example of [range, structure]) {
     assert.equal(example.recipe.shape, 'volume-grid');
     assert.equal(example.tableData.length, 8);
-    assert.equal(example.recipe.rowCount, 8);
+    assert.equal(example.recipe.cardinality.sourceRows, 8);
     assert.equal(example.expectations.inputRows, 8);
   }
 });
@@ -378,8 +550,8 @@ test('family mathematical invariants are visible in the range preview', () => {
 });
 
 test('schema and package exports publish the exact separate contract', () => {
-  assert.equal(schema.$id, 'urn:graflume:edge-cases:1');
-  assert.equal(schema.properties.schemaVersion.const, 1);
+  assert.equal(schema.$id, 'urn:graflume:edge-cases:2');
+  assert.equal(schema.properties.schemaVersion.const, 2);
   assert.equal(schema.properties.examples.minItems, 132);
   assert.equal(schema.properties.examples.maxItems, 132);
   assert.equal(schema.$defs.example.properties.tableData.maxItems, 12);
@@ -387,6 +559,8 @@ test('schema and package exports publish the exact separate contract', () => {
     schema.$defs.recipeId.enum,
     edgeCaseRecipeCatalog.map(({ id }) => id),
   );
+  assert.ok(edgeCaseRecipeCatalog.every(({ parameterKeys }) => parameterKeys.length >= 6));
+  assert.equal(schema.$defs.recipe.allOf[0].oneOf.length, 18);
   assert.equal(schema.$defs.recipe.additionalProperties, false);
   assert.equal(schema.$defs.example.additionalProperties, false);
   assert.equal(packageJson.exports['./edge-cases'], './catalog/graflume.edge-cases.json');

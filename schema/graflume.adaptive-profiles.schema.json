@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:graflume:adaptive-profiles:1",
+  "title": "Graflume adaptive capability and profile catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "contractVersion", "totals", "capabilities", "profiles"],
+  "properties": {
+    "$schema": { "const": "../schema/graflume.adaptive-profiles.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "contractVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "totals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profiles", "scenarios", "capabilities"],
+      "properties": {
+        "profiles": { "type": "integer", "minimum": 23 },
+        "scenarios": { "type": "integer", "minimum": 6 },
+        "capabilities": { "type": "integer", "minimum": 17 }
+      }
+    },
+    "capabilities": {
+      "type": "array",
+      "minItems": 17,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/capability" }
+    },
+    "profiles": {
+      "type": "array",
+      "minItems": 23,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/profile" }
+    }
+  },
+  "$defs": {
+    "nonEmpty": { "type": "string", "minLength": 1 },
+    "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "category": {
+      "enum": ["layout", "input", "display", "motion", "resource", "accessibility", "runtime"]
+    },
+    "stringList": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/nonEmpty" }
+    },
+    "capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "category", "signals", "behavior"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "category": { "$ref": "#/$defs/category" },
+        "signals": { "$ref": "#/$defs/stringList" },
+        "behavior": { "$ref": "#/$defs/stringList" }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "order",
+        "kind",
+        "category",
+        "label",
+        "compactLabel",
+        "summary",
+        "capabilities",
+        "environment",
+        "presentation"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "order": { "type": "integer", "minimum": 0 },
+        "kind": { "enum": ["scenario", "capability"] },
+        "category": {
+          "oneOf": [{ "const": "scenario" }, { "$ref": "#/$defs/category" }]
+        },
+        "label": { "$ref": "#/$defs/nonEmpty" },
+        "compactLabel": { "$ref": "#/$defs/nonEmpty" },
+        "summary": { "$ref": "#/$defs/nonEmpty" },
+        "capabilities": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "environment": { "$ref": "#/$defs/environment" },
+        "presentation": { "$ref": "#/$defs/presentation" }
+      }
+    },
+    "presentation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "height", "shape", "display", "input", "motion", "renderer"],
+      "properties": {
+        "width": { "type": "number", "exclusiveMinimum": 0 },
+        "height": { "type": "number", "exclusiveMinimum": 0 },
+        "shape": { "enum": ["rectangle", "round", "dual", "paged", "nonvisual"] },
+        "display": { "enum": ["color", "high-contrast", "monochrome", "e-ink", "grid"] },
+        "input": { "enum": ["fine", "coarse", "keyboard", "remote", "nonvisual"] },
+        "motion": { "enum": ["full", "reduced", "static"] },
+        "renderer": { "enum": ["canvas-spatial", "static-fallback"] }
+      }
+    },
+    "safeArea": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["top", "right", "bottom", "left"],
+      "properties": {
+        "top": { "type": "number", "minimum": 0 },
+        "right": { "type": "number", "minimum": 0 },
+        "bottom": { "type": "number", "minimum": 0 },
+        "left": { "type": "number", "minimum": 0 }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "width": { "type": "number", "exclusiveMinimum": 0 },
+        "height": { "type": "number", "exclusiveMinimum": 0 },
+        "rowCount": { "type": "integer", "minimum": 0 },
+        "pixelRatio": { "type": "number", "exclusiveMinimum": 0 },
+        "zoom": { "type": "number", "exclusiveMinimum": 0 },
+        "pointer": { "enum": ["fine", "coarse", "none"] },
+        "hover": { "type": "boolean" },
+        "keyboard": { "type": "boolean" },
+        "switchControl": { "type": "boolean" },
+        "remoteControl": { "type": "boolean" },
+        "update": { "enum": ["fast", "slow", "none"] },
+        "monochromeBits": { "type": "number", "minimum": 0 },
+        "grid": { "type": "boolean" },
+        "viewportSegments": { "type": "integer", "minimum": 1 },
+        "forcedColors": { "type": "boolean" },
+        "contrast": { "enum": ["normal", "more", "less", "custom"] },
+        "reducedMotion": { "type": "boolean" },
+        "reducedTransparency": { "type": "boolean" },
+        "reducedData": { "type": "boolean" },
+        "scripting": { "enum": ["enabled", "initial-only", "none"] },
+        "media": { "enum": ["screen", "print"] },
+        "paged": { "type": "boolean" },
+        "direction": { "enum": ["ltr", "rtl"] },
+        "writingMode": { "enum": ["horizontal-tb", "vertical-rl", "vertical-lr"] },
+        "deviceMemoryGB": { "type": "number", "minimum": 0 },
+        "hardwareConcurrency": { "type": "integer", "minimum": 0 },
+        "saveData": { "type": "boolean" },
+        "screenReader": { "type": "boolean" },
+        "braille": { "type": "boolean" },
+        "spatialXR": { "type": "boolean" },
+        "roundDisplay": { "type": "boolean" },
+        "safeArea": { "$ref": "#/$defs/safeArea" },
+        "virtualKeyboardInset": { "type": "number", "minimum": 0 },
+        "projection": { "type": "boolean" }
+      }
+    }
+  }
+}

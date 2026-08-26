@@ -47,20 +47,20 @@ import { line } from 'graflume';
 
 const data = [
   {
-    category: 'P1',
-    value: 24,
+    category: 'Jan',
+    value: 48,
   },
   {
-    category: 'P2',
-    value: 29.916,
+    category: 'Feb',
+    value: 53,
   },
   {
-    category: 'P3',
-    value: 33.54,
+    category: 'Mar',
+    value: 51,
   },
   {
-    category: 'P4',
-    value: 33.72,
+    category: 'Apr',
+    value: 59,
   },
 ];
 
@@ -68,20 +68,21 @@ line('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Month',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Active teams',
   },
   title: {
     text: 'Line chart',
     subtitle: 'line family · default mode',
   },
   accessibility: {
-    label: 'Line chart example',
-    description: 'A compiled line chart example using the line family.',
+    label: 'Line chart: Monthly active teams make the trend and two release moments easy to read',
+    description:
+      'Monthly active teams make the trend and two release moments easy to read. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     point: true,
@@ -93,12 +94,12 @@ line('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Month',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Active teams',
           format: 'number',
         },
       ],
@@ -125,20 +126,20 @@ import { trendline } from 'graflume';
 
 const data = [
   {
-    category: 'P1',
-    value: 24,
+    category: 'Jan',
+    value: 48,
   },
   {
-    category: 'P2',
-    value: 29.916,
+    category: 'Feb',
+    value: 53,
   },
   {
-    category: 'P3',
-    value: 33.54,
+    category: 'Mar',
+    value: 51,
   },
   {
-    category: 'P4',
-    value: 33.72,
+    category: 'Apr',
+    value: 59,
   },
 ];
 
@@ -146,20 +147,21 @@ trendline('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Month',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Active teams',
   },
   title: {
     text: 'Trendline',
     subtitle: 'line family · trend mode',
   },
   accessibility: {
-    label: 'Trendline example',
-    description: 'A compiled trendline example using the line family.',
+    label: 'Trendline: Monthly active teams make the trend and two release moments easy to read',
+    description:
+      'Monthly active teams make the trend and two release moments easy to read. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     point: true,
@@ -171,12 +173,12 @@ trendline('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Month',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Active teams',
           format: 'number',
         },
       ],
@@ -203,20 +205,20 @@ import { spline } from 'graflume/complete';
 
 const data = [
   {
-    category: 'P1',
-    value: 24,
+    category: 'Jan',
+    value: 48,
   },
   {
-    category: 'P2',
-    value: 29.916,
+    category: 'Feb',
+    value: 53,
   },
   {
-    category: 'P3',
-    value: 33.54,
+    category: 'Mar',
+    value: 51,
   },
   {
-    category: 'P4',
-    value: 33.72,
+    category: 'Apr',
+    value: 59,
   },
 ];
 
@@ -224,20 +226,21 @@ spline('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Month',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Active teams',
   },
   title: {
     text: 'Spline chart',
     subtitle: 'line family · spline mode',
   },
   accessibility: {
-    label: 'Spline chart example',
-    description: 'A compiled spline chart example using the line family.',
+    label: 'Spline chart: Monthly active teams make the trend and two release moments easy to read',
+    description:
+      'Monthly active teams make the trend and two release moments easy to read. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     point: true,
@@ -252,12 +255,12 @@ spline('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Month',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Active teams',
           format: 'number',
         },
       ],

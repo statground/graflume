@@ -44,24 +44,24 @@ import { wordTree } from 'graflume';
 
 const data = [
   {
-    word: 'Analytics',
-    weight: 92,
+    word: 'Visualization',
+    weight: 100,
     parent: '',
   },
   {
-    word: 'Canvas',
+    word: 'Statistics',
+    weight: 88,
+    parent: 'Visualization',
+  },
+  {
+    word: 'Interaction',
+    weight: 81,
+    parent: 'Visualization',
+  },
+  {
+    word: 'Accessibility',
     weight: 76,
-    parent: 'Analytics',
-  },
-  {
-    word: 'Portable',
-    weight: 69,
-    parent: 'Analytics',
-  },
-  {
-    word: 'Scene',
-    weight: 61,
-    parent: 'Canvas',
+    parent: 'Visualization',
   },
 ];
 
@@ -69,20 +69,25 @@ wordTree('#chart', data, {
   x: {
     field: 'word',
     type: 'ordinal',
-    title: 'word',
+    title: 'Concept',
   },
   y: {
     field: 'weight',
     type: 'quantitative',
-    title: 'weight',
+    title: 'Mentions',
   },
   title: {
     text: 'Word tree',
     subtitle: 'word-tree family · default mode',
   },
   accessibility: {
-    label: 'Word tree example',
-    description: 'A compiled word tree example using the word-tree family.',
+    label: 'Word tree: A readable concept tree linking statistics, interaction, and accessibility',
+    description:
+      'A readable concept tree linking statistics, interaction, and accessibility. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
+  },
+  axes: {
+    x: false,
+    y: false,
   },
   mark: {
     fields: {
@@ -96,12 +101,12 @@ wordTree('#chart', data, {
       fields: [
         {
           field: 'word',
-          label: 'word',
+          label: 'Concept',
           format: 'auto',
         },
         {
           field: 'weight',
-          label: 'weight',
+          label: 'Mentions',
           format: 'number',
         },
         {

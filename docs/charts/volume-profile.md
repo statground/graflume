@@ -44,24 +44,24 @@ import { volumeByPrice } from 'graflume/complete';
 
 const data = [
   {
-    date: '2026-01-01',
-    price: 24,
-    volume: 120,
+    date: '2025-01-01',
+    price: 95.1,
+    volume: 1070,
   },
   {
-    date: '2026-02-01',
-    price: 25.2,
-    volume: 151,
+    date: '2025-01-02',
+    price: 96.418,
+    volume: 1144,
   },
   {
-    date: '2026-03-01',
-    price: 26.4,
-    volume: 182,
+    date: '2025-01-03',
+    price: 97.464,
+    volume: 1217,
   },
   {
-    date: '2026-04-01',
-    price: 27.6,
-    volume: 213,
+    date: '2025-01-04',
+    price: 98.163,
+    volume: 1287,
   },
 ];
 
@@ -69,20 +69,21 @@ volumeByPrice('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'price',
     type: 'quantitative',
-    title: 'price',
+    title: 'Price',
   },
   title: {
     text: 'Volume by price',
     subtitle: 'volume-profile family · volume-by-price mode',
   },
   accessibility: {
-    label: 'Volume by price example',
-    description: 'A compiled volume by price example using the volume-profile family.',
+    label: 'Volume by price: Trading activity reveals the price levels where liquidity accumulated',
+    description:
+      'Trading activity reveals the price levels where liquidity accumulated. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -118,12 +119,12 @@ volumeByPrice('#chart', data, {
         },
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'price',
-          label: 'price',
+          label: 'Price',
           format: 'number',
         },
       ],

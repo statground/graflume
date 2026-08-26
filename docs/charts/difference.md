@@ -44,24 +44,24 @@ import { diff } from 'graflume';
 
 const data = [
   {
-    category: 'P1',
-    value: 24,
-    previous: 20,
+    category: 'Insights',
+    value: 86,
+    previous: 74,
   },
   {
-    category: 'P2',
-    value: 29.916,
-    previous: 20.8,
+    category: 'Dashboards',
+    value: 78,
+    previous: 69,
   },
   {
-    category: 'P3',
-    value: 33.54,
-    previous: 21.6,
+    category: 'Reports',
+    value: 69,
+    previous: 65,
   },
   {
-    category: 'P4',
-    value: 33.72,
-    previous: 22.4,
+    category: 'Alerts',
+    value: 61,
+    previous: 48,
   },
 ];
 
@@ -69,20 +69,21 @@ diff('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Capability',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Adoption (%)',
   },
   title: {
     text: 'Diff chart',
     subtitle: 'difference family · default mode',
   },
   accessibility: {
-    label: 'Diff chart example',
-    description: 'A compiled diff chart example using the difference family.',
+    label: 'Diff chart: Current feature adoption compared with the previous release',
+    description:
+      'Current feature adoption compared with the previous release. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -97,12 +98,12 @@ diff('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Capability',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Adoption (%)',
           format: 'number',
         },
         {

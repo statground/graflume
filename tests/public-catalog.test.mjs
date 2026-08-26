@@ -48,7 +48,7 @@ test('edge cases remain a separate three-profile companion to public catalog v2'
   assert.equal(manifest.schemaVersion, 2);
   assert.equal(manifest.manualExamples.length, manifest.modes.length);
   assert.equal(Object.hasOwn(manifest, 'edgeCases'), false);
-  assert.equal(edgeCases.schemaVersion, 1);
+  assert.equal(edgeCases.schemaVersion, 2);
   assert.equal(edgeCases.sourceCatalog.schemaVersion, 2);
   assert.equal(edgeCases.totals.canonicalFamilies, manifest.families.length);
   assert.equal(edgeCases.totals.examples, manifest.families.length * 3);

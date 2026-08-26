@@ -50,20 +50,20 @@ import { funnel } from 'graflume/complete';
 
 const data = [
   {
-    category: 'Search',
-    value: 46,
+    category: 'Visited',
+    value: 12000,
   },
   {
-    category: 'Direct',
-    value: 28,
+    category: 'Explored a chart',
+    value: 8450,
   },
   {
-    category: 'Social',
-    value: 17,
+    category: 'Created a view',
+    value: 5120,
   },
   {
-    category: 'Other',
-    value: 9,
+    category: 'Shared with a team',
+    value: 2940,
   },
 ];
 
@@ -71,20 +71,25 @@ funnel('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Journey stage',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Teams',
   },
   title: {
     text: 'Funnel chart',
     subtitle: 'funnel family · default mode',
   },
   accessibility: {
-    label: 'Funnel chart example',
-    description: 'A compiled funnel chart example using the funnel family.',
+    label: 'Funnel chart: A realistic product journey exposes the largest conversion loss',
+    description:
+      'A realistic product journey exposes the largest conversion loss. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
+  },
+  axes: {
+    x: false,
+    y: false,
   },
   mark: {
     options: {
@@ -98,12 +103,12 @@ funnel('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Journey stage',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Teams',
           format: 'number',
         },
       ],
@@ -129,20 +134,20 @@ import { funnelArea } from 'graflume/complete';
 
 const data = [
   {
-    category: 'Search',
-    value: 46,
+    category: 'Visited',
+    value: 12000,
   },
   {
-    category: 'Direct',
-    value: 28,
+    category: 'Explored a chart',
+    value: 8450,
   },
   {
-    category: 'Social',
-    value: 17,
+    category: 'Created a view',
+    value: 5120,
   },
   {
-    category: 'Other',
-    value: 9,
+    category: 'Shared with a team',
+    value: 2940,
   },
 ];
 
@@ -150,20 +155,25 @@ funnelArea('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Journey stage',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Teams',
   },
   title: {
     text: 'Funnel area chart',
     subtitle: 'funnel family · area mode',
   },
   accessibility: {
-    label: 'Funnel area chart example',
-    description: 'A compiled funnel area chart example using the funnel family.',
+    label: 'Funnel area chart: A realistic product journey exposes the largest conversion loss',
+    description:
+      'A realistic product journey exposes the largest conversion loss. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
+  },
+  axes: {
+    x: false,
+    y: false,
   },
   mark: {
     options: {
@@ -177,12 +187,12 @@ funnelArea('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Journey stage',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Teams',
           format: 'number',
         },
       ],
@@ -208,20 +218,20 @@ import { funnel3d } from 'graflume/complete';
 
 const data = [
   {
-    category: 'P1',
-    value: 24,
+    category: 'Visited',
+    value: 12000,
   },
   {
-    category: 'P2',
-    value: 29.916,
+    category: 'Explored a chart',
+    value: 8450,
   },
   {
-    category: 'P3',
-    value: 33.54,
+    category: 'Created a view',
+    value: 5120,
   },
   {
-    category: 'P4',
-    value: 33.72,
+    category: 'Shared with a team',
+    value: 2940,
   },
 ];
 
@@ -229,20 +239,21 @@ funnel3d('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Journey stage',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Teams',
   },
   title: {
     text: 'Depth funnel chart',
     subtitle: 'funnel family · funnel-3d mode',
   },
   accessibility: {
-    label: 'Depth funnel chart example',
-    description: 'A compiled depth funnel chart example using the funnel family.',
+    label: 'Depth funnel chart: A realistic product journey exposes the largest conversion loss',
+    description:
+      'A realistic product journey exposes the largest conversion loss. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   axes: {
     x: false,
@@ -260,12 +271,12 @@ funnel3d('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Journey stage',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Teams',
           format: 'number',
         },
       ],
@@ -291,20 +302,20 @@ import { pyramid } from 'graflume/complete';
 
 const data = [
   {
-    category: 'P1',
-    value: 24,
+    category: 'Visited',
+    value: 12000,
   },
   {
-    category: 'P2',
-    value: 29.916,
+    category: 'Explored a chart',
+    value: 8450,
   },
   {
-    category: 'P3',
-    value: 33.54,
+    category: 'Created a view',
+    value: 5120,
   },
   {
-    category: 'P4',
-    value: 33.72,
+    category: 'Shared with a team',
+    value: 2940,
   },
 ];
 
@@ -312,20 +323,21 @@ pyramid('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Journey stage',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Teams',
   },
   title: {
     text: 'Pyramid chart',
     subtitle: 'funnel family · pyramid mode',
   },
   accessibility: {
-    label: 'Pyramid chart example',
-    description: 'A compiled pyramid chart example using the funnel family.',
+    label: 'Pyramid chart: A realistic product journey exposes the largest conversion loss',
+    description:
+      'A realistic product journey exposes the largest conversion loss. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   axes: {
     x: false,
@@ -343,12 +355,12 @@ pyramid('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Journey stage',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Teams',
           format: 'number',
         },
       ],
@@ -374,20 +386,20 @@ import { pyramid3d } from 'graflume/complete';
 
 const data = [
   {
-    category: 'P1',
-    value: 24,
+    category: 'Visited',
+    value: 12000,
   },
   {
-    category: 'P2',
-    value: 29.916,
+    category: 'Explored a chart',
+    value: 8450,
   },
   {
-    category: 'P3',
-    value: 33.54,
+    category: 'Created a view',
+    value: 5120,
   },
   {
-    category: 'P4',
-    value: 33.72,
+    category: 'Shared with a team',
+    value: 2940,
   },
 ];
 
@@ -395,20 +407,21 @@ pyramid3d('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Journey stage',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Teams',
   },
   title: {
     text: 'Depth pyramid chart',
     subtitle: 'funnel family · pyramid-3d mode',
   },
   accessibility: {
-    label: 'Depth pyramid chart example',
-    description: 'A compiled depth pyramid chart example using the funnel family.',
+    label: 'Depth pyramid chart: A realistic product journey exposes the largest conversion loss',
+    description:
+      'A realistic product journey exposes the largest conversion loss. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   axes: {
     x: false,
@@ -426,12 +439,12 @@ pyramid3d('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Journey stage',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Teams',
           format: 'number',
         },
       ],

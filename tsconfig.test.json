@@ -3,9 +3,10 @@
   "compilerOptions": {
     "noEmit": false,
     "declaration": false,
+    "allowJs": true,
     "sourceMap": false,
     "rootDir": "src",
     "outDir": ".tmp/src"
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "src/demo/recipes-engine.js"]
 }

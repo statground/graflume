@@ -50,22 +50,29 @@ const data = [
     start: '2026-01-01',
     task: 'Research',
     id: 'research',
-    end: '2026-01-07',
+    end: '2026-01-09',
     progress: 100,
   },
   {
-    start: '2026-01-06',
-    task: 'Design',
-    id: 'design',
-    end: '2026-01-14',
-    progress: 80,
+    start: '2026-01-05',
+    task: 'Data design',
+    id: 'data',
+    end: '2026-01-16',
+    progress: 100,
   },
   {
-    start: '2026-01-13',
-    task: 'Build',
-    id: 'build',
-    end: '2026-01-27',
-    progress: 45,
+    start: '2026-01-12',
+    task: 'Prototype',
+    id: 'prototype',
+    end: '2026-01-25',
+    progress: 86,
+  },
+  {
+    start: '2026-01-19',
+    task: 'Accessibility',
+    id: 'accessibility',
+    end: '2026-02-02',
+    progress: 72,
   },
 ];
 
@@ -73,20 +80,21 @@ gantt('#chart', data, {
   x: {
     field: 'start',
     type: 'temporal',
-    title: 'start',
+    title: 'Schedule',
   },
   y: {
     field: 'task',
     type: 'ordinal',
-    title: 'task',
+    title: 'Workstream',
   },
   title: {
     text: 'Gantt chart',
     subtitle: 'timeline family · gantt mode',
   },
   accessibility: {
-    label: 'Gantt chart example',
-    description: 'A compiled gantt chart example using the timeline family.',
+    label: 'Gantt chart: A release plan with overlapping work, progress, and a clear finish',
+    description:
+      'A release plan with overlapping work, progress, and a clear finish. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -102,12 +110,12 @@ gantt('#chart', data, {
       fields: [
         {
           field: 'start',
-          label: 'start',
+          label: 'Schedule',
           format: 'date',
         },
         {
           field: 'task',
-          label: 'task',
+          label: 'Workstream',
           format: 'auto',
         },
         {
@@ -150,13 +158,23 @@ import { timeline } from 'graflume';
 const data = [
   {
     start: '2026-01-01',
-    category: 'A',
-    end: '2026-01-08',
+    category: 'Research',
+    end: '2026-01-09',
   },
   {
     start: '2026-01-05',
-    category: 'B',
-    end: '2026-01-15',
+    category: 'Data design',
+    end: '2026-01-16',
+  },
+  {
+    start: '2026-01-12',
+    category: 'Prototype',
+    end: '2026-01-25',
+  },
+  {
+    start: '2026-01-19',
+    category: 'Accessibility',
+    end: '2026-02-02',
   },
 ];
 
@@ -164,20 +182,21 @@ timeline('#chart', data, {
   x: {
     field: 'start',
     type: 'temporal',
-    title: 'start',
+    title: 'Schedule',
   },
   y: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Workstream',
   },
   title: {
     text: 'Timeline',
     subtitle: 'timeline family · default mode',
   },
   accessibility: {
-    label: 'Timeline example',
-    description: 'A compiled timeline example using the timeline family.',
+    label: 'Timeline: A release plan with overlapping work, progress, and a clear finish',
+    description:
+      'A release plan with overlapping work, progress, and a clear finish. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -191,12 +210,12 @@ timeline('#chart', data, {
       fields: [
         {
           field: 'start',
-          label: 'start',
+          label: 'Schedule',
           format: 'date',
         },
         {
           field: 'category',
-          label: 'category',
+          label: 'Workstream',
           format: 'auto',
         },
         {
@@ -229,13 +248,23 @@ import { xRange } from 'graflume/complete';
 const data = [
   {
     start: '2026-01-01',
-    category: 'A',
-    end: '2026-01-08',
+    category: 'Research',
+    end: '2026-01-09',
   },
   {
     start: '2026-01-05',
-    category: 'B',
-    end: '2026-01-15',
+    category: 'Data design',
+    end: '2026-01-16',
+  },
+  {
+    start: '2026-01-12',
+    category: 'Prototype',
+    end: '2026-01-25',
+  },
+  {
+    start: '2026-01-19',
+    category: 'Accessibility',
+    end: '2026-02-02',
   },
 ];
 
@@ -243,20 +272,22 @@ xRange('#chart', data, {
   x: {
     field: 'start',
     type: 'temporal',
-    title: 'start',
+    title: 'Schedule',
   },
   y: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Workstream',
   },
   title: {
     text: 'Horizontal range chart',
     subtitle: 'timeline family · x-range mode',
   },
   accessibility: {
-    label: 'Horizontal range chart example',
-    description: 'A compiled horizontal range chart example using the timeline family.',
+    label:
+      'Horizontal range chart: A release plan with overlapping work, progress, and a clear finish',
+    description:
+      'A release plan with overlapping work, progress, and a clear finish. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -270,12 +301,12 @@ xRange('#chart', data, {
       fields: [
         {
           field: 'start',
-          label: 'start',
+          label: 'Schedule',
           format: 'date',
         },
         {
           field: 'category',
-          label: 'category',
+          label: 'Workstream',
           format: 'auto',
         },
         {

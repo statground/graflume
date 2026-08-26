@@ -67,6 +67,29 @@ whole KiB with less than 3 KiB of headroom. Raw size remains the hard gate; gzip
 transfer context and never used to hide growth. Source maps and any hypothetical lazy chunks do not
 substitute for counting required runtime bytes.
 
+## 2026-08-27 adaptive and demo-recipe audit
+
+The 23-profile adaptive registry is intentionally shared by Canvas and Spatial so both renderers
+resolve the same environment capabilities. The closed demo-recipe v2 engine is also public from all
+three entry points: the default and complete Canvas runtimes use it for every family, while the
+independent Spatial runtime uses the same deterministic contract for surface, volume, and vector
+examples. The graph-boundary checks continue to reject Canvas implementation leakage into Spatial
+and Spatial implementation leakage into the Canvas entry points.
+
+The clean measured artifacts are:
+
+| Browser file               |    Raw minified | GNU gzip `-9` |                  Raw budget |  Headroom |
+| -------------------------- | --------------: | ------------: | --------------------------: | --------: |
+| `graflume.min.js`          | 1,111,134 bytes | 322,911 bytes | 1,086 KiB (1,112,064 bytes) | 930 bytes |
+| `graflume.complete.min.js` | 1,307,482 bytes | 379,238 bytes | 1,277 KiB (1,307,648 bytes) | 166 bytes |
+| `graflume.spatial.min.js`  |   388,707 bytes | 120,919 bytes |     380 KiB (389,120 bytes) | 413 bytes |
+
+The increase is reachable product behavior: deterministic family-aware level-of-detail generation,
+closed recipe validation, compact previews, explicit data plans, and capability-driven layout,
+input, motion, color, and resource policies. These APIs are documented and consumed by the public
+Statground manuals, so removing them from an entry point or hiding them in an uncounted chunk would
+break the published contract.
+
 When an entry grows, run the graph boundary check first. Raise a budget only when the remaining
 increase is attributable to required reachable behavior or public API, then record the measured
 bytes and rationale in the release change record.

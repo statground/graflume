@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:graflume:edge-cases:1",
+  "$id": "urn:graflume:edge-cases:2",
   "title": "Graflume canonical-family edge-case examples",
   "type": "object",
   "additionalProperties": false,
@@ -16,7 +16,7 @@
   ],
   "properties": {
     "$schema": { "const": "../schema/graflume.edge-cases.schema.json" },
-    "schemaVersion": { "const": 1 },
+    "schemaVersion": { "const": 2 },
     "verifiedAt": { "type": "string", "format": "date" },
     "sourceCatalog": {
       "type": "object",
@@ -47,8 +47,8 @@
     },
     "recipeCatalog": {
       "type": "array",
-      "minItems": 11,
-      "maxItems": 11,
+      "minItems": 18,
+      "maxItems": 18,
       "uniqueItems": true,
       "items": { "$ref": "#/$defs/recipeCatalogEntry" }
     },
@@ -62,6 +62,11 @@
   },
   "$defs": {
     "nonEmpty": { "type": "string", "minLength": 1 },
+    "stringArray": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/nonEmpty" }
+    },
     "stringList": {
       "type": "array",
       "minItems": 1,
@@ -82,43 +87,622 @@
     "recipeCatalogEntry": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "shape", "summary"],
+      "required": ["id", "shape", "summary", "reductionMethod", "previewMethod", "parameterKeys"],
       "properties": {
         "id": { "$ref": "#/$defs/recipeId" },
-        "shape": { "$ref": "#/$defs/recipeShape" },
-        "summary": { "$ref": "#/$defs/nonEmpty" }
+        "shape": { "enum": ["rows", "surface-grid", "volume-grid", "rows-or-vector-set"] },
+        "summary": { "$ref": "#/$defs/nonEmpty" },
+        "reductionMethod": { "$ref": "#/$defs/reductionMethod" },
+        "previewMethod": { "$ref": "#/$defs/previewMethod" },
+        "parameterKeys": { "$ref": "#/$defs/stringList" }
       }
     },
     "recipeId": {
       "enum": [
-        "row-sequence-v1",
-        "interval-sequence-v1",
-        "ohlcv-sequence-v1",
-        "relationship-edges-v1",
-        "hierarchy-nodes-v1",
-        "grid-2d-v1",
-        "ternary-composition-v1",
-        "venn-membership-v1",
-        "surface-grid-v1",
-        "volume-grid-v1",
-        "spatial-vector-v1"
+        "time-signal",
+        "categorical-events",
+        "clustered-points",
+        "interval-sequence",
+        "ohlcv-sequence",
+        "motion-trajectories",
+        "geo-events",
+        "relationship-edges",
+        "hierarchy-nodes",
+        "text-corpus",
+        "multivariate-observations",
+        "grid-2d",
+        "ternary-composition",
+        "smith-sweep",
+        "venn-membership",
+        "surface-grid",
+        "volume-grid",
+        "spatial-vector"
       ]
     },
-    "recipeShape": {
-      "enum": ["rows", "surface-grid", "volume-grid", "vector-set"]
+    "recipeShape": { "enum": ["rows", "surface-grid", "volume-grid", "vector-set"] },
+    "recipeParameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "family",
+        "scenario",
+        "valuePolicy",
+        "valueFields",
+        "positiveFields",
+        "nullableFields"
+      ],
+      "properties": {
+        "family": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+        "scenario": { "enum": ["range", "structure", "volume"] },
+        "valuePolicy": { "$ref": "#/$defs/nonEmpty" },
+        "valueFields": { "$ref": "#/$defs/stringArray" },
+        "positiveFields": { "$ref": "#/$defs/stringArray" },
+        "nullableFields": { "$ref": "#/$defs/stringArray" },
+        "seriesCount": { "type": "integer", "minimum": 1, "maximum": 8 },
+        "dateCycleDays": { "type": "integer", "minimum": 1, "maximum": 100000 },
+        "explicitPerformance": { "type": "boolean" },
+        "geometry": { "$ref": "#/$defs/nonEmpty" },
+        "entityCount": { "type": "integer", "minimum": 1, "maximum": 50000 },
+        "frameCount": { "type": "integer", "minimum": 2, "maximum": 120 },
+        "topology": { "$ref": "#/$defs/nonEmpty" },
+        "nodeCount": { "type": "integer", "minimum": 2, "maximum": 5000 },
+        "categoryCount": { "type": "integer", "minimum": 2, "maximum": 5000 },
+        "mode": { "$ref": "#/$defs/nonEmpty" },
+        "dimensionCount": { "type": "integer", "minimum": 2, "maximum": 32 },
+        "rows": { "type": "integer", "minimum": 2, "maximum": 1024 },
+        "columns": { "type": "integer", "minimum": 2, "maximum": 1024 },
+        "aggregateSetCount": { "type": "integer", "minimum": 2, "maximum": 5 },
+        "preAggregate": { "type": "boolean" },
+        "dimensions": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": { "type": "integer", "minimum": 2, "maximum": 256 }
+        },
+        "maxSamples": { "type": "integer", "minimum": 1, "maximum": 4194304 },
+        "clusterCount": { "type": "integer", "minimum": 2, "maximum": 12 },
+        "wordCount": { "type": "integer", "minimum": 12, "maximum": 500 }
+      }
+    },
+    "cardinalityAxes": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "rows": { "type": "integer", "minimum": 2, "maximum": 1024 },
+        "columns": { "type": "integer", "minimum": 2, "maximum": 1024 },
+        "dimensions": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": { "type": "integer", "minimum": 2, "maximum": 256 }
+        },
+        "vectors": { "type": "integer", "minimum": 1, "maximum": 1000000 },
+        "entityCount": { "type": "integer", "minimum": 1, "maximum": 50000 },
+        "frameCount": { "type": "integer", "minimum": 2, "maximum": 120 },
+        "nodeCount": { "type": "integer", "minimum": 2, "maximum": 5000 },
+        "categoryCount": { "type": "integer", "minimum": 2, "maximum": 5000 },
+        "aggregateSetCount": { "type": "integer", "minimum": 2, "maximum": 5 }
+      }
+    },
+    "cardinality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceRows", "unit", "axes"],
+      "properties": {
+        "sourceRows": { "type": "integer", "minimum": 1, "maximum": 1000000 },
+        "unit": {
+          "enum": ["rows", "events", "edges", "nodes", "cells", "voxels", "vectors"]
+        },
+        "axes": { "$ref": "#/$defs/cardinalityAxes" }
+      }
+    },
+    "reductionStage": { "enum": ["source", "pre-aggregate", "sample", "bin", "level-of-detail"] },
+    "reductionMethod": {
+      "enum": [
+        "time-bin-lttb",
+        "group-sum-top-k",
+        "stratified-cluster-sample",
+        "interval-window-sample",
+        "ohlcv-time-bins",
+        "entity-frame-strata",
+        "geohash-stratified-sample",
+        "community-edge-aggregation",
+        "hierarchy-level-of-detail",
+        "term-frequency-top-k",
+        "stratified-observation-sample",
+        "area-weighted-grid-downsample",
+        "simplex-stratified-sample",
+        "frequency-window-sample",
+        "set-intersection-aggregate",
+        "surface-grid-level-of-detail",
+        "volume-grid-level-of-detail",
+        "vector-grid-level-of-detail"
+      ]
+    },
+    "reduction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stage", "method"],
+      "properties": {
+        "stage": { "$ref": "#/$defs/reductionStage" },
+        "method": { "$ref": "#/$defs/reductionMethod" }
+      }
+    },
+    "outputBudget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resource", "maximum"],
+      "properties": {
+        "resource": {
+          "enum": [
+            "marks",
+            "line-points",
+            "bar-marks",
+            "combined-marks",
+            "radial-marks",
+            "point-marks",
+            "visible-rows",
+            "parallel-paths",
+            "set-intersections",
+            "spatial-elements",
+            "grid-points",
+            "sampled-voxels",
+            "vectors"
+          ]
+        },
+        "maximum": { "type": "integer", "minimum": 1, "maximum": 4194304 }
+      }
+    },
+    "previewMethod": {
+      "enum": [
+        "quantiles",
+        "top-groups",
+        "spatial-slice",
+        "trajectory-frames",
+        "hierarchy-focus",
+        "intersection-summary"
+      ]
+    },
+    "preview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "maximumRows"],
+      "properties": {
+        "method": { "$ref": "#/$defs/previewMethod" },
+        "maximumRows": { "type": "integer", "minimum": 1, "maximum": 12 }
+      }
+    },
+    "numericDomain": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": { "type": "number" }
+    },
+    "initialView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "zoom"],
+      "properties": {
+        "kind": { "enum": ["domain", "viewport", "camera", "slice"] },
+        "zoom": { "type": "number", "minimum": 0.01, "maximum": 100 },
+        "xDomain": { "$ref": "#/$defs/numericDomain" },
+        "yDomain": { "$ref": "#/$defs/numericDomain" },
+        "zDomain": { "$ref": "#/$defs/numericDomain" },
+        "frame": { "type": "integer", "minimum": 0 },
+        "sliceAxis": { "enum": ["x", "y", "z"] },
+        "sliceIndex": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "timeSignalRecipeParameters": {
+      "required": ["id", "parameters"],
+      "properties": {
+        "id": { "const": "time-signal" },
+        "parameters": {
+          "propertyNames": {
+            "enum": [
+              "family",
+              "scenario",
+              "valuePolicy",
+              "valueFields",
+              "positiveFields",
+              "nullableFields",
+              "seriesCount",
+              "dateCycleDays"
+            ]
+          }
+        }
+      }
+    },
+    "categoricalEventRecipeParameters": {
+      "required": ["id", "parameters"],
+      "properties": {
+        "id": { "const": "categorical-events" },
+        "parameters": {
+          "propertyNames": {
+            "enum": [
+              "family",
+              "scenario",
+              "valuePolicy",
+              "valueFields",
+              "positiveFields",
+              "nullableFields",
+              "categoryCount",
+              "explicitPerformance"
+            ]
+          }
+        }
+      }
+    },
+    "clusteredPointRecipeParameters": {
+      "required": ["id", "parameters"],
+      "properties": {
+        "id": { "const": "clustered-points" },
+        "parameters": {
+          "propertyNames": {
+            "enum": [
+              "family",
+              "scenario",
+              "valuePolicy",
+              "valueFields",
+              "positiveFields",
+              "nullableFields",
+              "clusterCount",
+              "explicitPerformance"
+            ]
+          }
+        }
+      }
+    },
+    "intervalRecipeParameters": {
+      "required": ["id", "parameters"],
+      "properties": {
+        "id": { "const": "interval-sequence" },
+        "parameters": {
+          "propertyNames": {
+            "enum": [
+              "family",
+              "scenario",
+              "valuePolicy",
+              "valueFields",
+              "positiveFields",
+              "nullableFields"
+            ]
+          }
+        }
+      }
+    },
+    "ohlcvRecipeParameters": {
+      "required": ["id", "parameters"],
+      "properties": {
+        "id": { "const": "ohlcv-sequence" },
+        "parameters": {
+          "propertyNames": {
+            "enum": [
+              "family",
+              "scenario",
+              "valuePolicy",
+              "valueFields",
+              "positiveFields",
+              "nullableFields",
+              "explicitPerformance"
+            ]
+          }
+        }
+      }
+    },
+    "motionRecipeParameters": {
+      "required": ["id", "parameters"],
+      "properties": {
+        "id": { "const": "motion-trajectories" },
+        "parameters": {
+          "propertyNames": {
+            "enum": [
+              "family",
+              "scenario",
+              "valuePolicy",
+              "valueFields",
+              "positiveFields",
+              "nullableFields",
+              "entityCount",
+              "frameCount",
+              "explicitPerformance"
+            ]
+          }
+        }
+      }
+    },
+    "geoRecipeParameters": {
+      "required": ["id", "parameters"],
+      "properties": {
+        "id": { "const": "geo-events" },
+        "parameters": {
+          "propertyNames": {
+            "enum": [
+              "family",
+              "scenario",
+              "valuePolicy",
+              "valueFields",
+              "positiveFields",
+              "nullableFields",
+              "geometry"
+            ]
+          }
+        }
+      }
+    },
+    "relationshipRecipeParameters": {
+      "required": ["id", "parameters"],
+      "properties": {
+        "id": { "const": "relationship-edges" },
+        "parameters": {
+          "propertyNames": {
+            "enum": [
+              "family",
+              "scenario",
+              "valuePolicy",
+              "valueFields",
+              "positiveFields",
+              "nullableFields",
+              "topology",
+              "nodeCount",
+              "categoryCount",
+              "explicitPerformance"
+            ]
+          }
+        }
+      }
+    },
+    "hierarchyRecipeParameters": {
+      "required": ["id", "parameters"],
+      "properties": {
+        "id": { "const": "hierarchy-nodes" },
+        "parameters": {
+          "propertyNames": {
+            "enum": [
+              "family",
+              "scenario",
+              "valuePolicy",
+              "valueFields",
+              "positiveFields",
+              "nullableFields",
+              "topology",
+              "nodeCount",
+              "explicitPerformance"
+            ]
+          }
+        }
+      }
+    },
+    "textRecipeParameters": {
+      "required": ["id", "parameters"],
+      "properties": {
+        "id": { "const": "text-corpus" },
+        "parameters": {
+          "propertyNames": {
+            "enum": [
+              "family",
+              "scenario",
+              "valuePolicy",
+              "valueFields",
+              "positiveFields",
+              "nullableFields",
+              "wordCount",
+              "explicitPerformance"
+            ]
+          }
+        }
+      }
+    },
+    "multivariateRecipeParameters": {
+      "required": ["id", "parameters"],
+      "properties": {
+        "id": { "const": "multivariate-observations" },
+        "parameters": {
+          "propertyNames": {
+            "enum": [
+              "family",
+              "scenario",
+              "valuePolicy",
+              "valueFields",
+              "positiveFields",
+              "nullableFields",
+              "mode",
+              "dimensionCount",
+              "explicitPerformance"
+            ]
+          }
+        }
+      }
+    },
+    "gridRecipeParameters": {
+      "required": ["id", "parameters"],
+      "properties": {
+        "id": { "const": "grid-2d" },
+        "parameters": {
+          "propertyNames": {
+            "enum": [
+              "family",
+              "scenario",
+              "valuePolicy",
+              "valueFields",
+              "positiveFields",
+              "nullableFields",
+              "rows",
+              "columns"
+            ]
+          }
+        }
+      }
+    },
+    "ternaryRecipeParameters": {
+      "required": ["id", "parameters"],
+      "properties": {
+        "id": { "const": "ternary-composition" },
+        "parameters": {
+          "propertyNames": {
+            "enum": [
+              "family",
+              "scenario",
+              "valuePolicy",
+              "valueFields",
+              "positiveFields",
+              "nullableFields"
+            ]
+          }
+        }
+      }
+    },
+    "smithRecipeParameters": {
+      "required": ["id", "parameters"],
+      "properties": {
+        "id": { "const": "smith-sweep" },
+        "parameters": {
+          "propertyNames": {
+            "enum": [
+              "family",
+              "scenario",
+              "valuePolicy",
+              "valueFields",
+              "positiveFields",
+              "nullableFields"
+            ]
+          }
+        }
+      }
+    },
+    "vennRecipeParameters": {
+      "required": ["id", "parameters"],
+      "properties": {
+        "id": { "const": "venn-membership" },
+        "parameters": {
+          "propertyNames": {
+            "enum": [
+              "family",
+              "scenario",
+              "valuePolicy",
+              "valueFields",
+              "positiveFields",
+              "nullableFields",
+              "aggregateSetCount",
+              "preAggregate"
+            ]
+          }
+        }
+      }
+    },
+    "surfaceRecipeParameters": {
+      "required": ["id", "parameters"],
+      "properties": {
+        "id": { "const": "surface-grid" },
+        "parameters": {
+          "propertyNames": {
+            "enum": [
+              "family",
+              "scenario",
+              "valuePolicy",
+              "valueFields",
+              "positiveFields",
+              "nullableFields",
+              "rows",
+              "columns"
+            ]
+          }
+        }
+      }
+    },
+    "volumeRecipeParameters": {
+      "required": ["id", "parameters"],
+      "properties": {
+        "id": { "const": "volume-grid" },
+        "parameters": {
+          "propertyNames": {
+            "enum": [
+              "family",
+              "scenario",
+              "valuePolicy",
+              "valueFields",
+              "positiveFields",
+              "nullableFields",
+              "dimensions",
+              "maxSamples"
+            ]
+          }
+        }
+      }
+    },
+    "vectorRecipeParameters": {
+      "required": ["id", "parameters"],
+      "properties": {
+        "id": { "const": "spatial-vector" },
+        "parameters": {
+          "propertyNames": {
+            "enum": [
+              "family",
+              "scenario",
+              "valuePolicy",
+              "valueFields",
+              "positiveFields",
+              "nullableFields",
+              "dimensions",
+              "maxSamples"
+            ]
+          }
+        }
+      }
     },
     "recipe": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "version", "seed", "shape", "rowCount", "parameters"],
+      "required": [
+        "id",
+        "version",
+        "seed",
+        "shape",
+        "parameters",
+        "cardinality",
+        "reduction",
+        "outputBudget",
+        "preview",
+        "initialView",
+        "expectedInvariants"
+      ],
       "properties": {
         "id": { "$ref": "#/$defs/recipeId" },
-        "version": { "const": 1 },
+        "version": { "const": 2 },
         "seed": { "type": "integer", "minimum": 1, "maximum": 4294967295 },
         "shape": { "$ref": "#/$defs/recipeShape" },
-        "rowCount": { "type": "integer", "minimum": 1, "maximum": 1000000 },
-        "parameters": { "$ref": "#/$defs/jsonObject" }
-      }
+        "parameters": { "$ref": "#/$defs/recipeParameters" },
+        "cardinality": { "$ref": "#/$defs/cardinality" },
+        "reduction": { "$ref": "#/$defs/reduction" },
+        "outputBudget": { "$ref": "#/$defs/outputBudget" },
+        "preview": { "$ref": "#/$defs/preview" },
+        "initialView": { "$ref": "#/$defs/initialView" },
+        "expectedInvariants": { "$ref": "#/$defs/stringList" }
+      },
+      "allOf": [
+        {
+          "oneOf": [
+            { "$ref": "#/$defs/timeSignalRecipeParameters" },
+            { "$ref": "#/$defs/categoricalEventRecipeParameters" },
+            { "$ref": "#/$defs/clusteredPointRecipeParameters" },
+            { "$ref": "#/$defs/intervalRecipeParameters" },
+            { "$ref": "#/$defs/ohlcvRecipeParameters" },
+            { "$ref": "#/$defs/motionRecipeParameters" },
+            { "$ref": "#/$defs/geoRecipeParameters" },
+            { "$ref": "#/$defs/relationshipRecipeParameters" },
+            { "$ref": "#/$defs/hierarchyRecipeParameters" },
+            { "$ref": "#/$defs/textRecipeParameters" },
+            { "$ref": "#/$defs/multivariateRecipeParameters" },
+            { "$ref": "#/$defs/gridRecipeParameters" },
+            { "$ref": "#/$defs/ternaryRecipeParameters" },
+            { "$ref": "#/$defs/smithRecipeParameters" },
+            { "$ref": "#/$defs/vennRecipeParameters" },
+            { "$ref": "#/$defs/surfaceRecipeParameters" },
+            { "$ref": "#/$defs/volumeRecipeParameters" },
+            { "$ref": "#/$defs/vectorRecipeParameters" }
+          ]
+        }
+      ]
     },
     "example": {
       "type": "object",
@@ -182,6 +766,30 @@
         "type": { "enum": ["quantitative", "ordinal", "temporal", "boolean"] }
       }
     },
+    "dataPlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recipeId",
+        "seed",
+        "sourceRows",
+        "derivedRows",
+        "renderedRows",
+        "renderedMaximum",
+        "reduction",
+        "budget"
+      ],
+      "properties": {
+        "recipeId": { "$ref": "#/$defs/recipeId" },
+        "seed": { "type": "integer", "minimum": 1, "maximum": 4294967295 },
+        "sourceRows": { "type": "integer", "minimum": 1, "maximum": 1000000 },
+        "derivedRows": { "type": "integer", "minimum": 1, "maximum": 4194304 },
+        "renderedRows": { "type": "integer", "minimum": 1, "maximum": 4194304 },
+        "renderedMaximum": { "type": "integer", "minimum": 1, "maximum": 4194304 },
+        "reduction": { "$ref": "#/$defs/reduction" },
+        "budget": { "$ref": "#/$defs/outputBudget" }
+      }
+    },
     "expectations": {
       "type": "object",
       "additionalProperties": false,
@@ -191,33 +799,22 @@
         "performanceProfile",
         "bounded",
         "outputBudget",
+        "dataPlan",
         "invariants",
         "handling"
       ],
       "properties": {
         "inputRows": { "type": "integer", "minimum": 1, "maximum": 1000000 },
         "tablePreviewRows": { "type": "integer", "minimum": 1, "maximum": 12 },
-        "performanceProfile": {
-          "enum": ["standard", "large", "ultra", "spatial-bounded"]
-        },
+        "performanceProfile": { "enum": ["standard", "large", "ultra", "spatial-bounded"] },
         "bounded": { "const": true },
-        "outputBudget": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["resource", "maximum"],
-          "properties": {
-            "resource": { "$ref": "#/$defs/nonEmpty" },
-            "maximum": { "type": "integer", "minimum": 1, "maximum": 4194304 }
-          }
-        },
+        "outputBudget": { "$ref": "#/$defs/outputBudget" },
+        "dataPlan": { "$ref": "#/$defs/dataPlan" },
         "invariants": { "$ref": "#/$defs/stringList" },
         "handling": { "$ref": "#/$defs/stringList" }
       }
     },
-    "jsonObject": {
-      "type": "object",
-      "additionalProperties": { "$ref": "#/$defs/jsonValue" }
-    },
+    "jsonObject": { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValue" } },
     "jsonValue": {
       "oneOf": [
         { "type": "null" },

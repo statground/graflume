@@ -44,20 +44,20 @@ import { smith } from 'graflume/complete';
 
 const data = [
   {
-    real: 0.15,
-    imaginary: -1.4,
+    real: 0.12,
+    imaginary: -1.376,
   },
   {
-    real: 0.35,
-    imaginary: -0.6,
+    real: 0.31,
+    imaginary: -1.265,
   },
   {
-    real: 0.8,
-    imaginary: 0,
+    real: 0.5,
+    imaginary: -1.108,
   },
   {
-    real: 1.5,
-    imaginary: 0.7,
+    real: 0.69,
+    imaginary: -0.912,
   },
 ];
 
@@ -65,20 +65,25 @@ smith('#chart', data, {
   x: {
     field: 'real',
     type: 'quantitative',
-    title: 'real',
+    title: 'Normalized resistance',
   },
   y: {
     field: 'imaginary',
     type: 'quantitative',
-    title: 'imaginary',
+    title: 'Normalized reactance',
   },
   title: {
     text: 'Smith chart',
     subtitle: 'smith family · default mode',
   },
   accessibility: {
-    label: 'Smith chart example',
-    description: 'A compiled smith chart example using the smith family.',
+    label: 'Smith chart: A monotonic frequency sweep passes through a visible resonance',
+    description:
+      'A monotonic frequency sweep passes through a visible resonance. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
+  },
+  axes: {
+    x: false,
+    y: false,
   },
   mark: {
     options: {
@@ -92,12 +97,12 @@ smith('#chart', data, {
       fields: [
         {
           field: 'real',
-          label: 'real',
+          label: 'Normalized resistance',
           format: 'number',
         },
         {
           field: 'imaginary',
-          label: 'imaginary',
+          label: 'Normalized reactance',
           format: 'number',
         },
       ],

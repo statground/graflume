@@ -48,24 +48,24 @@ import { graph } from 'graflume/complete';
 
 const data = [
   {
-    source: 'Input',
-    value: 9,
-    target: 'Compiler',
+    source: 'Collected',
+    value: 86,
+    target: 'Validated',
   },
   {
-    source: 'Compiler',
-    value: 8,
-    target: 'Scene',
+    source: 'Collected',
+    value: 14,
+    target: 'Review queue',
   },
   {
-    source: 'Scene',
-    value: 6,
-    target: 'Canvas',
+    source: 'Validated',
+    value: 58,
+    target: 'Aggregated',
   },
   {
-    source: 'Scene',
-    value: 4,
-    target: 'Vector',
+    source: 'Validated',
+    value: 28,
+    target: 'Exploration',
   },
 ];
 
@@ -73,20 +73,25 @@ graph('#chart', data, {
   x: {
     field: 'source',
     type: 'ordinal',
-    title: 'source',
+    title: 'Workflow node',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Interactions',
   },
   title: {
     text: 'Graph chart',
     subtitle: 'network family · node-link mode',
   },
   accessibility: {
-    label: 'Graph chart example',
-    description: 'A compiled graph chart example using the network family.',
+    label: 'Graph chart: Product workflows reveal the strongest paths and the bridge between teams',
+    description:
+      'Product workflows reveal the strongest paths and the bridge between teams. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
+  },
+  axes: {
+    x: false,
+    y: false,
   },
   mark: {
     fields: {
@@ -157,24 +162,24 @@ import { lines } from 'graflume/complete';
 
 const data = [
   {
-    source: 'Input',
-    value: 9,
-    target: 'Compiler',
+    source: 'Collected',
+    value: 86,
+    target: 'Validated',
   },
   {
-    source: 'Compiler',
-    value: 8,
-    target: 'Scene',
+    source: 'Collected',
+    value: 14,
+    target: 'Review queue',
   },
   {
-    source: 'Scene',
-    value: 6,
-    target: 'Canvas',
+    source: 'Validated',
+    value: 58,
+    target: 'Aggregated',
   },
   {
-    source: 'Scene',
-    value: 4,
-    target: 'Vector',
+    source: 'Validated',
+    value: 28,
+    target: 'Exploration',
   },
 ];
 
@@ -182,20 +187,26 @@ lines('#chart', data, {
   x: {
     field: 'source',
     type: 'ordinal',
-    title: 'source',
+    title: 'Workflow node',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Interactions',
   },
   title: {
     text: 'Connection lines',
     subtitle: 'network family · connections mode',
   },
   accessibility: {
-    label: 'Connection lines example',
-    description: 'A compiled connection lines example using the network family.',
+    label:
+      'Connection lines: Product workflows reveal the strongest paths and the bridge between teams',
+    description:
+      'Product workflows reveal the strongest paths and the bridge between teams. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
+  },
+  axes: {
+    x: false,
+    y: false,
   },
   mark: {
     fields: {
@@ -209,12 +220,12 @@ lines('#chart', data, {
       fields: [
         {
           field: 'source',
-          label: 'source',
+          label: 'Workflow node',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Interactions',
           format: 'number',
         },
         {
@@ -245,24 +256,24 @@ import { arcDiagram } from 'graflume/complete';
 
 const data = [
   {
-    source: 'Input',
-    value: 9,
-    target: 'Compiler',
+    source: 'Collected',
+    value: 86,
+    target: 'Validated',
   },
   {
-    source: 'Compiler',
-    value: 8,
-    target: 'Scene',
+    source: 'Collected',
+    value: 14,
+    target: 'Review queue',
   },
   {
-    source: 'Scene',
-    value: 6,
-    target: 'Canvas',
+    source: 'Validated',
+    value: 58,
+    target: 'Aggregated',
   },
   {
-    source: 'Scene',
-    value: 4,
-    target: 'Vector',
+    source: 'Validated',
+    value: 28,
+    target: 'Exploration',
   },
 ];
 
@@ -270,20 +281,21 @@ arcDiagram('#chart', data, {
   x: {
     field: 'source',
     type: 'ordinal',
-    title: 'source',
+    title: 'Workflow node',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Interactions',
   },
   title: {
     text: 'Arc diagram',
     subtitle: 'network family · arc-diagram mode',
   },
   accessibility: {
-    label: 'Arc diagram example',
-    description: 'A compiled arc diagram example using the network family.',
+    label: 'Arc diagram: Product workflows reveal the strongest paths and the bridge between teams',
+    description:
+      'Product workflows reveal the strongest paths and the bridge between teams. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   axes: {
     x: false,
@@ -302,12 +314,12 @@ arcDiagram('#chart', data, {
       fields: [
         {
           field: 'source',
-          label: 'source',
+          label: 'Workflow node',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Interactions',
           format: 'number',
         },
         {
@@ -338,24 +350,24 @@ import { networkGraph } from 'graflume/complete';
 
 const data = [
   {
-    source: 'Input',
-    value: 9,
-    target: 'Compiler',
+    source: 'Collected',
+    value: 86,
+    target: 'Validated',
   },
   {
-    source: 'Compiler',
-    value: 8,
-    target: 'Scene',
+    source: 'Collected',
+    value: 14,
+    target: 'Review queue',
   },
   {
-    source: 'Scene',
-    value: 6,
-    target: 'Canvas',
+    source: 'Validated',
+    value: 58,
+    target: 'Aggregated',
   },
   {
-    source: 'Scene',
-    value: 4,
-    target: 'Vector',
+    source: 'Validated',
+    value: 28,
+    target: 'Exploration',
   },
 ];
 
@@ -363,20 +375,22 @@ networkGraph('#chart', data, {
   x: {
     field: 'source',
     type: 'ordinal',
-    title: 'source',
+    title: 'Workflow node',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Interactions',
   },
   title: {
     text: 'Network graph',
     subtitle: 'network family · network-graph mode',
   },
   accessibility: {
-    label: 'Network graph example',
-    description: 'A compiled network graph example using the network family.',
+    label:
+      'Network graph: Product workflows reveal the strongest paths and the bridge between teams',
+    description:
+      'Product workflows reveal the strongest paths and the bridge between teams. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   axes: {
     x: false,

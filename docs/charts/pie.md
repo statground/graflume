@@ -47,20 +47,20 @@ import { donut } from 'graflume';
 
 const data = [
   {
-    category: 'Search',
-    value: 46,
+    category: 'Organic search',
+    value: 38,
   },
   {
     category: 'Direct',
-    value: 28,
+    value: 27,
   },
   {
-    category: 'Social',
-    value: 17,
+    category: 'Product referrals',
+    value: 18,
   },
   {
-    category: 'Other',
-    value: 9,
+    category: 'Community',
+    value: 11,
   },
 ];
 
@@ -68,20 +68,25 @@ donut('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Channel',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Share (%)',
   },
   title: {
     text: 'Donut chart',
     subtitle: 'pie family · donut mode',
   },
   accessibility: {
-    label: 'Donut chart example',
-    description: 'A compiled donut chart example using the pie family.',
+    label: 'Donut chart: Acquisition channels shown as a restrained five-part composition',
+    description:
+      'Acquisition channels shown as a restrained five-part composition. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
+  },
+  axes: {
+    x: false,
+    y: false,
   },
   mark: {
     options: {
@@ -95,12 +100,12 @@ donut('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Channel',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Share (%)',
           format: 'number',
         },
       ],
@@ -126,20 +131,20 @@ import { pie } from 'graflume';
 
 const data = [
   {
-    category: 'Search',
-    value: 46,
+    category: 'Organic search',
+    value: 38,
   },
   {
     category: 'Direct',
-    value: 28,
+    value: 27,
   },
   {
-    category: 'Social',
-    value: 17,
+    category: 'Product referrals',
+    value: 18,
   },
   {
-    category: 'Other',
-    value: 9,
+    category: 'Community',
+    value: 11,
   },
 ];
 
@@ -147,20 +152,25 @@ pie('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Channel',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Share (%)',
   },
   title: {
     text: 'Pie chart',
     subtitle: 'pie family · default mode',
   },
   accessibility: {
-    label: 'Pie chart example',
-    description: 'A compiled pie chart example using the pie family.',
+    label: 'Pie chart: Acquisition channels shown as a restrained five-part composition',
+    description:
+      'Acquisition channels shown as a restrained five-part composition. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
+  },
+  axes: {
+    x: false,
+    y: false,
   },
   mark: {},
   locale: 'en-US',
@@ -170,12 +180,12 @@ pie('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Channel',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Share (%)',
           format: 'number',
         },
       ],
@@ -201,24 +211,24 @@ import { variablePie } from 'graflume/complete';
 
 const data = [
   {
-    category: 'P1',
-    value: 24,
-    radius: 9,
+    category: 'Organic search',
+    value: 38,
+    radius: 34,
   },
   {
-    category: 'P2',
-    value: 29.916,
-    radius: 11,
+    category: 'Direct',
+    value: 27,
+    radius: 28,
   },
   {
-    category: 'P3',
-    value: 33.54,
-    radius: 13,
+    category: 'Product referrals',
+    value: 18,
+    radius: 23,
   },
   {
-    category: 'P4',
-    value: 33.72,
-    radius: 15,
+    category: 'Community',
+    value: 11,
+    radius: 18,
   },
 ];
 
@@ -226,20 +236,22 @@ variablePie('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Channel',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Share (%)',
   },
   title: {
     text: 'Variable radius pie chart',
     subtitle: 'pie family · variable-pie mode',
   },
   accessibility: {
-    label: 'Variable radius pie chart example',
-    description: 'A compiled variable radius pie chart example using the pie family.',
+    label:
+      'Variable radius pie chart: Acquisition channels shown as a restrained five-part composition',
+    description:
+      'Acquisition channels shown as a restrained five-part composition. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   axes: {
     x: false,
@@ -257,12 +269,12 @@ variablePie('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Channel',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Share (%)',
           format: 'number',
         },
         {

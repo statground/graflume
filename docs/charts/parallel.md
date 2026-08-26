@@ -45,22 +45,28 @@ import { parallel } from 'graflume/complete';
 
 const data = [
   {
-    name: 'Alpha',
+    name: 'Balanced',
     speed: 82,
-    quality: 74,
-    cost: 61,
+    quality: 84,
+    cost: 63,
   },
   {
-    name: 'Beta',
-    speed: 66,
-    quality: 88,
-    cost: 73,
+    name: 'Fast',
+    speed: 94,
+    quality: 72,
+    cost: 76,
   },
   {
-    name: 'Gamma',
-    speed: 91,
-    quality: 69,
-    cost: 54,
+    name: 'Precise',
+    speed: 69,
+    quality: 95,
+    cost: 71,
+  },
+  {
+    name: 'Efficient',
+    speed: 78,
+    quality: 86,
+    cost: 49,
   },
 ];
 
@@ -68,20 +74,25 @@ parallel('#chart', data, {
   x: {
     field: 'name',
     type: 'ordinal',
-    title: 'name',
+    title: 'Candidate',
   },
   y: {
     field: 'speed',
     type: 'quantitative',
-    title: 'speed',
+    title: 'Score',
   },
   title: {
     text: 'Parallel coordinates',
     subtitle: 'parallel family · default mode',
   },
   accessibility: {
-    label: 'Parallel coordinates example',
-    description: 'A compiled parallel coordinates example using the parallel family.',
+    label: 'Parallel coordinates: Release candidates balance speed, quality, and operating cost',
+    description:
+      'Release candidates balance speed, quality, and operating cost. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
+  },
+  axes: {
+    x: false,
+    y: false,
   },
   mark: {
     options: {
@@ -96,12 +107,12 @@ parallel('#chart', data, {
       fields: [
         {
           field: 'name',
-          label: 'name',
+          label: 'Candidate',
           format: 'auto',
         },
         {
           field: 'speed',
-          label: 'speed',
+          label: 'Score',
           format: 'number',
         },
         {
@@ -137,28 +148,28 @@ import { parallelCategories } from 'graflume/complete';
 
 const data = [
   {
-    region: 'East',
+    region: 'Asia',
     value: 1,
-    channel: 'Web',
-    outcome: 'Won',
+    channel: 'Organic',
+    outcome: 'Expanded',
   },
   {
-    region: 'East',
+    region: 'Asia',
     value: 1,
-    channel: 'Web',
-    outcome: 'Won',
+    channel: 'Community',
+    outcome: 'Expanded',
   },
   {
-    region: 'East',
+    region: 'Europe',
     value: 1,
-    channel: 'Store',
-    outcome: 'Lost',
+    channel: 'Organic',
+    outcome: 'Renewed',
   },
   {
-    region: 'West',
+    region: 'Europe',
     value: 1,
-    channel: 'Web',
-    outcome: 'Won',
+    channel: 'Partner',
+    outcome: 'Expanded',
   },
 ];
 
@@ -166,20 +177,26 @@ parallelCategories('#chart', data, {
   x: {
     field: 'region',
     type: 'ordinal',
-    title: 'region',
+    title: 'Region',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Path frequency',
   },
   title: {
     text: 'Parallel categories',
     subtitle: 'parallel family · categories mode',
   },
   accessibility: {
-    label: 'Parallel categories example',
-    description: 'A compiled parallel categories example using the parallel family.',
+    label:
+      'Parallel categories: Regional journeys connect acquisition channels to renewal outcomes',
+    description:
+      'Regional journeys connect acquisition channels to renewal outcomes. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
+  },
+  axes: {
+    x: false,
+    y: false,
   },
   mark: {
     options: {
@@ -194,12 +211,12 @@ parallelCategories('#chart', data, {
       fields: [
         {
           field: 'region',
-          label: 'region',
+          label: 'Region',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Path frequency',
           format: 'number',
         },
         {

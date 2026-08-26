@@ -279,6 +279,48 @@ test('spatial quick options forward ggplot through the shared spec base', () => 
   }
 });
 
+test('spatial adaptive profiles reflow default legends and expose stable host metadata', () => {
+  const webgl = fakeWebGL();
+  const environment = installDom(webgl);
+  try {
+    const target = environment.document.createElement('div');
+    const chart = createSpatial(
+      target,
+      {
+        legend: true,
+        layers: [
+          {
+            id: 'observations',
+            mark: { type: 'scatter' },
+            data: { positions: [[0, 0, 0]], labels: ['point'] },
+          },
+        ],
+      },
+      {
+        width: 184,
+        height: 224,
+        autoResize: false,
+        adaptive: { profiles: 'smartwatch' },
+      },
+    );
+    const wrapper = target.children[0];
+    const descendants = walk(wrapper);
+    const canvas = descendants.find(({ tagName }) => tagName === 'CANVAS');
+    const legend = descendants.find(({ dataset }) => dataset.graflumeSpatialLegend === 'true');
+    assert.deepEqual(chart.getAdaptiveState().profiles, ['smartwatch']);
+    assert.equal(chart.getAdaptiveState().viewport, 'micro');
+    assert.equal(chart.getAdaptiveState().input, 'coarse');
+    assert.equal(wrapper.dataset.graflumeAdaptive, '0.1');
+    assert.equal(wrapper.dataset.graflumeAdaptiveViewport, 'micro');
+    assert.equal(canvas.width, 184);
+    assert.ok(canvas.height < 224);
+    assert.ok(Number.parseFloat(legend.style.width) > 0);
+    chart.destroy();
+  } finally {
+    environment.restore();
+  }
+});
+
 test('localized labels keep the canvas name specific and replace renderer error copy', () => {
   const environment = installDom(null);
   try {

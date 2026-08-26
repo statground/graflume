@@ -51,23 +51,23 @@ import { polar } from 'graflume/complete';
 const data = [
   {
     angle: 0,
-    value: 56,
-    series: 'Alpha',
+    value: 57.76,
+    series: 'Daily cycle',
+  },
+  {
+    angle: 30,
+    value: 72.69,
+    series: 'Daily cycle',
   },
   {
     angle: 60,
-    value: 82,
-    series: 'Alpha',
+    value: 84.89,
+    series: 'Daily cycle',
   },
   {
-    angle: 120,
-    value: 67,
-    series: 'Alpha',
-  },
-  {
-    angle: 180,
-    value: 91,
-    series: 'Alpha',
+    angle: 90,
+    value: 85.28,
+    series: 'Daily cycle',
   },
 ];
 
@@ -75,20 +75,26 @@ polar('#chart', data, {
   x: {
     field: 'angle',
     type: 'quantitative',
-    title: 'angle',
+    title: 'Angle',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Activity index',
   },
   title: {
     text: 'Polar chart',
     subtitle: 'polar family · default mode',
   },
   accessibility: {
-    label: 'Polar chart example',
-    description: 'A compiled polar chart example using the polar family.',
+    label:
+      'Polar chart: A full-day usage cycle highlights recurring peaks without excess categories',
+    description:
+      'A full-day usage cycle highlights recurring peaks without excess categories. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
+  },
+  axes: {
+    x: false,
+    y: false,
   },
   mark: {
     fields: {
@@ -106,12 +112,12 @@ polar('#chart', data, {
       fields: [
         {
           field: 'angle',
-          label: 'angle',
+          label: 'Angle',
           format: 'number',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Activity index',
           format: 'number',
         },
         {
@@ -144,22 +150,22 @@ const data = [
   {
     indicator: 'Speed',
     value: 82,
-    series: 'Alpha',
+    series: 'Current',
   },
   {
-    indicator: 'Quality',
+    indicator: 'Clarity',
     value: 74,
-    series: 'Alpha',
+    series: 'Current',
   },
   {
-    indicator: 'Reach',
+    indicator: 'Coverage',
     value: 91,
-    series: 'Alpha',
+    series: 'Current',
   },
   {
-    indicator: 'Speed',
-    value: 66,
-    series: 'Beta',
+    indicator: 'Accessibility',
+    value: 79,
+    series: 'Current',
   },
 ];
 
@@ -167,20 +173,26 @@ radar('#chart', data, {
   x: {
     field: 'indicator',
     type: 'ordinal',
-    title: 'indicator',
+    title: 'Angle',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Activity index',
   },
   title: {
     text: 'Radar chart',
     subtitle: 'polar family · radar mode',
   },
   accessibility: {
-    label: 'Radar chart example',
-    description: 'A compiled radar chart example using the polar family.',
+    label:
+      'Radar chart: A full-day usage cycle highlights recurring peaks without excess categories',
+    description:
+      'A full-day usage cycle highlights recurring peaks without excess categories. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
+  },
+  axes: {
+    x: false,
+    y: false,
   },
   mark: {
     fields: {
@@ -194,12 +206,12 @@ radar('#chart', data, {
       fields: [
         {
           field: 'indicator',
-          label: 'indicator',
+          label: 'Angle',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Activity index',
           format: 'number',
         },
         {
@@ -231,23 +243,23 @@ import { polarLine } from 'graflume/complete';
 const data = [
   {
     angle: 0,
-    value: 56,
-    series: 'Alpha',
+    value: 57.76,
+    series: 'Daily cycle',
+  },
+  {
+    angle: 30,
+    value: 72.69,
+    series: 'Daily cycle',
   },
   {
     angle: 60,
-    value: 82,
-    series: 'Alpha',
+    value: 84.89,
+    series: 'Daily cycle',
   },
   {
-    angle: 120,
-    value: 67,
-    series: 'Alpha',
-  },
-  {
-    angle: 180,
-    value: 91,
-    series: 'Alpha',
+    angle: 90,
+    value: 85.28,
+    series: 'Daily cycle',
   },
 ];
 
@@ -255,20 +267,26 @@ polarLine('#chart', data, {
   x: {
     field: 'angle',
     type: 'quantitative',
-    title: 'angle',
+    title: 'Angle',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Activity index',
   },
   title: {
     text: 'Polar line chart',
     subtitle: 'polar family · line mode',
   },
   accessibility: {
-    label: 'Polar line chart example',
-    description: 'A compiled polar line chart example using the polar family.',
+    label:
+      'Polar line chart: A full-day usage cycle highlights recurring peaks without excess categories',
+    description:
+      'A full-day usage cycle highlights recurring peaks without excess categories. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
+  },
+  axes: {
+    x: false,
+    y: false,
   },
   mark: {
     fields: {
@@ -286,12 +304,12 @@ polarLine('#chart', data, {
       fields: [
         {
           field: 'angle',
-          label: 'angle',
+          label: 'Angle',
           format: 'number',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Activity index',
           format: 'number',
         },
         {
@@ -323,23 +341,23 @@ import { polarScatter } from 'graflume/complete';
 const data = [
   {
     angle: 0,
-    value: 56,
-    series: 'Alpha',
+    value: 57.76,
+    series: 'Daily cycle',
+  },
+  {
+    angle: 30,
+    value: 72.69,
+    series: 'Daily cycle',
   },
   {
     angle: 60,
-    value: 82,
-    series: 'Alpha',
+    value: 84.89,
+    series: 'Daily cycle',
   },
   {
-    angle: 120,
-    value: 67,
-    series: 'Alpha',
-  },
-  {
-    angle: 180,
-    value: 91,
-    series: 'Alpha',
+    angle: 90,
+    value: 85.28,
+    series: 'Daily cycle',
   },
 ];
 
@@ -347,20 +365,26 @@ polarScatter('#chart', data, {
   x: {
     field: 'angle',
     type: 'quantitative',
-    title: 'angle',
+    title: 'Angle',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Activity index',
   },
   title: {
     text: 'Polar scatter chart',
     subtitle: 'polar family · scatter mode',
   },
   accessibility: {
-    label: 'Polar scatter chart example',
-    description: 'A compiled polar scatter chart example using the polar family.',
+    label:
+      'Polar scatter chart: A full-day usage cycle highlights recurring peaks without excess categories',
+    description:
+      'A full-day usage cycle highlights recurring peaks without excess categories. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
+  },
+  axes: {
+    x: false,
+    y: false,
   },
   mark: {
     fields: {
@@ -378,12 +402,12 @@ polarScatter('#chart', data, {
       fields: [
         {
           field: 'angle',
-          label: 'angle',
+          label: 'Angle',
           format: 'number',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Activity index',
           format: 'number',
         },
         {
@@ -415,23 +439,23 @@ import { polarBar } from 'graflume/complete';
 const data = [
   {
     angle: 0,
-    value: 56,
-    series: 'Alpha',
+    value: 57.76,
+    series: 'Daily cycle',
+  },
+  {
+    angle: 30,
+    value: 72.69,
+    series: 'Daily cycle',
   },
   {
     angle: 60,
-    value: 82,
-    series: 'Alpha',
+    value: 84.89,
+    series: 'Daily cycle',
   },
   {
-    angle: 120,
-    value: 67,
-    series: 'Alpha',
-  },
-  {
-    angle: 180,
-    value: 91,
-    series: 'Alpha',
+    angle: 90,
+    value: 85.28,
+    series: 'Daily cycle',
   },
 ];
 
@@ -439,20 +463,26 @@ polarBar('#chart', data, {
   x: {
     field: 'angle',
     type: 'quantitative',
-    title: 'angle',
+    title: 'Angle',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Activity index',
   },
   title: {
     text: 'Polar bar chart',
     subtitle: 'polar family · bar mode',
   },
   accessibility: {
-    label: 'Polar bar chart example',
-    description: 'A compiled polar bar chart example using the polar family.',
+    label:
+      'Polar bar chart: A full-day usage cycle highlights recurring peaks without excess categories',
+    description:
+      'A full-day usage cycle highlights recurring peaks without excess categories. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
+  },
+  axes: {
+    x: false,
+    y: false,
   },
   mark: {
     fields: {
@@ -470,12 +500,12 @@ polarBar('#chart', data, {
       fields: [
         {
           field: 'angle',
-          label: 'angle',
+          label: 'Angle',
           format: 'number',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Activity index',
           format: 'number',
         },
         {

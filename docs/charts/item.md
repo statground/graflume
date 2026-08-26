@@ -44,20 +44,20 @@ import { itemChart } from 'graflume/complete';
 
 const data = [
   {
-    category: 'P1',
-    value: 24,
+    category: 'Organic search',
+    value: 38,
   },
   {
-    category: 'P2',
-    value: 29.916,
+    category: 'Direct',
+    value: 27,
   },
   {
-    category: 'P3',
-    value: 33.54,
+    category: 'Product referrals',
+    value: 18,
   },
   {
-    category: 'P4',
-    value: 33.72,
+    category: 'Community',
+    value: 11,
   },
 ];
 
@@ -65,20 +65,22 @@ itemChart('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Channel',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Share (%)',
   },
   title: {
     text: 'Item chart',
     subtitle: 'item family · default mode',
   },
   accessibility: {
-    label: 'Item chart example',
-    description: 'A compiled item chart example using the item family.',
+    label:
+      'Item chart: One hundred marks translate acquisition share into an immediate countable view',
+    description:
+      'One hundred marks translate acquisition share into an immediate countable view. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   axes: {
     x: false,
@@ -91,12 +93,12 @@ itemChart('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Channel',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Share (%)',
           format: 'number',
         },
       ],

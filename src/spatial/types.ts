@@ -1,4 +1,5 @@
 import type { SemanticFocusStore } from '../interaction/semantic-focus-store.js';
+import type { AdaptiveOptions } from '../adaptive/capabilities.js';
 
 export type SpatialVec3 = readonly [number, number, number];
 export type SpatialColor =
@@ -432,6 +433,8 @@ export interface SpatialCreateOptions {
   readonly width?: number;
   readonly height?: number;
   readonly pixelRatio?: number;
+  /** Capability-driven responsive/display/input adaptation; enabled by default. */
+  readonly adaptive?: boolean | AdaptiveOptions;
   /** Runtime-only shared focus store; authored linkedFocus stays function-free. */
   readonly focusStore?: SemanticFocusStore;
 }

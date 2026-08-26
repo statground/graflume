@@ -484,6 +484,55 @@ test('keyboard navigation prevents browser defaults only when the view changes',
   }
 });
 
+test('adaptive runtime adds bounded large-data inspection zoom and reflows without mutating ChartSpec', () => {
+  const environment = installEnvironment();
+  const { registry, target, renderers } = createHarness(environment.document);
+  const spec = {
+    data: [
+      { category: 'A', value: 10 },
+      { category: 'B', value: 14 },
+      { category: 'C', value: 12 },
+    ],
+    mark: 'bar',
+    x: 'category',
+    y: 'value',
+  };
+  const chart = new Chart(target, spec, registry, {
+    width: 800,
+    height: 400,
+    autoResize: false,
+    adaptive: { largeDataThreshold: 2 },
+  });
+
+  try {
+    const renderer = renderers[0];
+    assert.equal(chart.getSpec(), spec);
+    assert.equal(chart.getAdaptiveState().largeData, true);
+    assert.equal(chart.getViewState().enabled, true);
+    assert.equal(renderer.host.dataset.graflumeAdaptiveLargeData, 'true');
+    assert.notEqual(byControl(renderer.host, 'zoom-in'), undefined);
+    assert.notEqual(byControl(renderer.host, 'reset'), undefined);
+
+    chart.zoomBy(100);
+    assert.equal(chart.getViewState().zoom, 6);
+
+    const changes = [];
+    chart.on('adaptivechange', ({ state, previous }) => changes.push({ state, previous }));
+    chart.resize(184, 224);
+    assert.equal(chart.getAdaptiveState().viewport, 'micro');
+    assert.ok(chart.getAdaptiveState().profiles.includes('zoom-reflow'));
+    assert.equal(renderer.host.dataset.graflumeAdaptiveViewport, 'micro');
+    assert.equal(renderer.host.style['--graflume-control-target'], '36px');
+    assert.equal(changes.length, 1);
+    assert.equal(changes[0].previous.viewport, 'wide');
+    assert.equal(changes[0].state.viewport, 'micro');
+    assert.equal(chart.getSpec(), spec);
+  } finally {
+    chart.destroy();
+    environment.restore();
+  }
+});
+
 test('drag and two-touch pinch transition, cancel, reset stale click suppression, and clean up', () => {
   const environment = installEnvironment();
   const { registry, target, renderers } = createHarness(environment.document);

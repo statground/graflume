@@ -50,20 +50,20 @@ import { pointAndFigure } from 'graflume/complete';
 
 const data = [
   {
-    date: '2026-01-01',
-    close: 25,
+    date: '2025-01-01',
+    close: 95.1,
   },
   {
-    date: '2026-02-01',
-    close: 22,
+    date: '2025-01-02',
+    close: 96.418,
   },
   {
-    date: '2026-03-01',
-    close: 27,
+    date: '2025-01-03',
+    close: 97.464,
   },
   {
-    date: '2026-04-01',
-    close: 24,
+    date: '2025-01-04',
+    close: 98.163,
   },
 ];
 
@@ -71,20 +71,22 @@ pointAndFigure('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'close',
     type: 'quantitative',
-    title: 'close',
+    title: 'Price',
   },
   title: {
     text: 'Point and figure chart',
     subtitle: 'price-blocks family · point-and-figure mode',
   },
   accessibility: {
-    label: 'Point and figure chart example',
-    description: 'A compiled point and figure chart example using the price-blocks family.',
+    label:
+      'Point and figure chart: A coherent price path reveals regimes without fabricated independent bars',
+    description:
+      'A coherent price path reveals regimes without fabricated independent bars. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   locale: 'en-US',
   interaction: {
@@ -93,12 +95,12 @@ pointAndFigure('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'close',
-          label: 'close',
+          label: 'Price',
           format: 'number',
         },
       ],
@@ -124,20 +126,20 @@ import { renko } from 'graflume/complete';
 
 const data = [
   {
-    date: '2026-01-01',
-    close: 25,
+    date: '2025-01-01',
+    close: 95.1,
   },
   {
-    date: '2026-02-01',
-    close: 22,
+    date: '2025-01-02',
+    close: 96.418,
   },
   {
-    date: '2026-03-01',
-    close: 27,
+    date: '2025-01-03',
+    close: 97.464,
   },
   {
-    date: '2026-04-01',
-    close: 24,
+    date: '2025-01-04',
+    close: 98.163,
   },
 ];
 
@@ -145,20 +147,21 @@ renko('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'close',
     type: 'quantitative',
-    title: 'close',
+    title: 'Price',
   },
   title: {
     text: 'Renko chart',
     subtitle: 'price-blocks family · renko mode',
   },
   accessibility: {
-    label: 'Renko chart example',
-    description: 'A compiled renko chart example using the price-blocks family.',
+    label: 'Renko chart: A coherent price path reveals regimes without fabricated independent bars',
+    description:
+      'A coherent price path reveals regimes without fabricated independent bars. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   locale: 'en-US',
   interaction: {
@@ -182,12 +185,12 @@ renko('#chart', data, {
         },
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'close',
-          label: 'close',
+          label: 'Price',
           format: 'number',
         },
       ],
@@ -213,20 +216,20 @@ import { kagi } from 'graflume/complete';
 
 const data = [
   {
-    date: '2026-01-01',
-    close: 25,
+    date: '2025-01-01',
+    close: 95.1,
   },
   {
-    date: '2026-02-01',
-    close: 22,
+    date: '2025-01-02',
+    close: 96.418,
   },
   {
-    date: '2026-03-01',
-    close: 27,
+    date: '2025-01-03',
+    close: 97.464,
   },
   {
-    date: '2026-04-01',
-    close: 24,
+    date: '2025-01-04',
+    close: 98.163,
   },
 ];
 
@@ -234,20 +237,21 @@ kagi('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'close',
     type: 'quantitative',
-    title: 'close',
+    title: 'Price',
   },
   title: {
     text: 'Kagi chart',
     subtitle: 'price-blocks family · kagi mode',
   },
   accessibility: {
-    label: 'Kagi chart example',
-    description: 'A compiled kagi chart example using the price-blocks family.',
+    label: 'Kagi chart: A coherent price path reveals regimes without fabricated independent bars',
+    description:
+      'A coherent price path reveals regimes without fabricated independent bars. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   locale: 'en-US',
   interaction: {
@@ -271,12 +275,12 @@ kagi('#chart', data, {
         },
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'close',
-          label: 'close',
+          label: 'Price',
           format: 'number',
         },
       ],
@@ -302,20 +306,20 @@ import { threeLineBreak } from 'graflume/complete';
 
 const data = [
   {
-    date: '2026-01-01',
-    close: 25,
+    date: '2025-01-01',
+    close: 95.1,
   },
   {
-    date: '2026-02-01',
-    close: 22,
+    date: '2025-01-02',
+    close: 96.418,
   },
   {
-    date: '2026-03-01',
-    close: 27,
+    date: '2025-01-03',
+    close: 97.464,
   },
   {
-    date: '2026-04-01',
-    close: 24,
+    date: '2025-01-04',
+    close: 98.163,
   },
 ];
 
@@ -323,20 +327,22 @@ threeLineBreak('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'close',
     type: 'quantitative',
-    title: 'close',
+    title: 'Price',
   },
   title: {
     text: 'Three line break chart',
     subtitle: 'price-blocks family · three-line-break mode',
   },
   accessibility: {
-    label: 'Three line break chart example',
-    description: 'A compiled three line break chart example using the price-blocks family.',
+    label:
+      'Three line break chart: A coherent price path reveals regimes without fabricated independent bars',
+    description:
+      'A coherent price path reveals regimes without fabricated independent bars. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   locale: 'en-US',
   interaction: {
@@ -360,12 +366,12 @@ threeLineBreak('#chart', data, {
         },
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'close',
-          label: 'close',
+          label: 'Price',
           format: 'number',
         },
       ],
@@ -391,20 +397,20 @@ import { rangeBars } from 'graflume/complete';
 
 const data = [
   {
-    date: '2026-01-01',
-    close: 25,
+    date: '2025-01-01',
+    close: 95.1,
   },
   {
-    date: '2026-02-01',
-    close: 22,
+    date: '2025-01-02',
+    close: 96.418,
   },
   {
-    date: '2026-03-01',
-    close: 27,
+    date: '2025-01-03',
+    close: 97.464,
   },
   {
-    date: '2026-04-01',
-    close: 24,
+    date: '2025-01-04',
+    close: 98.163,
   },
 ];
 
@@ -412,20 +418,22 @@ rangeBars('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'close',
     type: 'quantitative',
-    title: 'close',
+    title: 'Price',
   },
   title: {
     text: 'Range bars chart',
     subtitle: 'price-blocks family · range-bars mode',
   },
   accessibility: {
-    label: 'Range bars chart example',
-    description: 'A compiled range bars chart example using the price-blocks family.',
+    label:
+      'Range bars chart: A coherent price path reveals regimes without fabricated independent bars',
+    description:
+      'A coherent price path reveals regimes without fabricated independent bars. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   locale: 'en-US',
   interaction: {
@@ -449,12 +457,12 @@ rangeBars('#chart', data, {
         },
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'close',
-          label: 'close',
+          label: 'Price',
           format: 'number',
         },
       ],

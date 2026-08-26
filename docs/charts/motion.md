@@ -44,31 +44,31 @@ import { motion } from 'graflume';
 
 const data = [
   {
-    x: 12,
-    y: 42,
-    size: 20,
-    group: 'A',
+    x: 14,
+    y: 38,
+    size: 28,
+    group: 'Starter',
     time: '2025',
   },
   {
-    x: 19,
-    y: 46,
-    size: 20,
-    group: 'A',
+    x: 21,
+    y: 42,
+    size: 28,
+    group: 'Starter',
     time: '2026',
   },
   {
-    x: 24,
-    y: 55,
-    size: 85,
-    group: 'B',
+    x: 20,
+    y: 45,
+    size: 34,
+    group: 'Starter',
     time: '2025',
   },
   {
-    x: 32,
-    y: 59,
-    size: 85,
-    group: 'B',
+    x: 28,
+    y: 49,
+    size: 34,
+    group: 'Starter',
     time: '2026',
   },
 ];
@@ -77,20 +77,21 @@ motion('#chart', data, {
   x: {
     field: 'x',
     type: 'quantitative',
-    title: 'x',
+    title: 'Engagement score',
   },
   y: {
     field: 'y',
     type: 'quantitative',
-    title: 'y',
+    title: 'Satisfaction score',
   },
   title: {
     text: 'Motion chart',
     subtitle: 'motion family · default mode',
   },
   accessibility: {
-    label: 'Motion chart example',
-    description: 'A compiled motion chart example using the motion family.',
+    label: 'Motion chart: Customer segments move from the 2025 baseline to their 2026 position',
+    description:
+      'Customer segments move from the 2025 baseline to their 2026 position. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -109,12 +110,12 @@ motion('#chart', data, {
       fields: [
         {
           field: 'x',
-          label: 'x',
+          label: 'Engagement score',
           format: 'number',
         },
         {
           field: 'y',
-          label: 'y',
+          label: 'Satisfaction score',
           format: 'number',
         },
         {

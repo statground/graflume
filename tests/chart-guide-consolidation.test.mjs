@@ -154,8 +154,8 @@ test('parallel categories guide keeps every categorical dimension in its runnabl
   const section = block.slice(block.indexOf('<a id="variant-parallel-categories"></a>'));
 
   assert.match(section, /\*\*Required example fields:\*\* `region`, `value`, `channel`, `outcome`/);
-  assert.match(section, /channel: 'Web'/);
-  assert.match(section, /outcome: 'Won'/);
+  assert.match(section, /channel: 'Organic'/);
+  assert.match(section, /outcome: 'Expanded'/);
   assert.match(
     section,
     /categorical stages and the frequency of each complete path must be compared/,

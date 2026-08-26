@@ -50,32 +50,32 @@ import { candlestick } from 'graflume';
 
 const data = [
   {
-    date: '2026-01-01',
-    close: 25,
-    open: 22,
-    high: 33,
-    low: 14,
+    date: '2025-01-01',
+    close: 95.1,
+    open: 94,
+    high: 96.3,
+    low: 92.9,
   },
   {
-    date: '2026-02-01',
-    close: 22,
-    open: 23,
-    high: 34.1,
-    low: 14.8,
+    date: '2025-01-02',
+    close: 96.418,
+    open: 95.8,
+    high: 97.698,
+    low: 94.61,
   },
   {
-    date: '2026-03-01',
-    close: 27,
-    open: 24,
-    high: 35.2,
-    low: 15.6,
+    date: '2025-01-03',
+    close: 97.464,
+    open: 97.379,
+    high: 98.824,
+    low: 96.099,
   },
   {
-    date: '2026-04-01',
-    close: 24,
-    open: 25,
-    high: 36.3,
-    low: 16.4,
+    date: '2025-01-04',
+    close: 98.163,
+    open: 98.562,
+    high: 100.002,
+    low: 96.793,
   },
 ];
 
@@ -83,20 +83,22 @@ candlestick('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'close',
     type: 'quantitative',
-    title: 'close',
+    title: 'Price',
   },
   title: {
     text: 'Candlestick chart',
     subtitle: 'candlestick family · default mode',
   },
   accessibility: {
-    label: 'Candlestick chart example',
-    description: 'A compiled candlestick chart example using the candlestick family.',
+    label:
+      'Candlestick chart: A coherent daily market path with open, high, low, close, and volume',
+    description:
+      'A coherent daily market path with open, high, low, close, and volume. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -113,12 +115,12 @@ candlestick('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'close',
-          label: 'close',
+          label: 'Price',
           format: 'number',
         },
         {
@@ -160,32 +162,32 @@ import { heikinAshi } from 'graflume/complete';
 
 const data = [
   {
-    date: '2026-01-01',
-    close: 25,
-    open: 22,
-    high: 33,
-    low: 14,
+    date: '2025-01-01',
+    close: 95.1,
+    open: 94,
+    high: 96.3,
+    low: 92.9,
   },
   {
-    date: '2026-02-01',
-    close: 22,
-    open: 23,
-    high: 34.1,
-    low: 14.8,
+    date: '2025-01-02',
+    close: 96.418,
+    open: 95.8,
+    high: 97.698,
+    low: 94.61,
   },
   {
-    date: '2026-03-01',
-    close: 27,
-    open: 24,
-    high: 35.2,
-    low: 15.6,
+    date: '2025-01-03',
+    close: 97.464,
+    open: 97.379,
+    high: 98.824,
+    low: 96.099,
   },
   {
-    date: '2026-04-01',
-    close: 24,
-    open: 25,
-    high: 36.3,
-    low: 16.4,
+    date: '2025-01-04',
+    close: 98.163,
+    open: 98.562,
+    high: 100.002,
+    low: 96.793,
   },
 ];
 
@@ -193,20 +195,22 @@ heikinAshi('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'close',
     type: 'quantitative',
-    title: 'close',
+    title: 'Price',
   },
   title: {
     text: 'Heikin-Ashi chart',
     subtitle: 'candlestick family · heikin-ashi mode',
   },
   accessibility: {
-    label: 'Heikin-Ashi chart example',
-    description: 'A compiled heikin-ashi chart example using the candlestick family.',
+    label:
+      'Heikin-Ashi chart: A coherent daily market path with open, high, low, close, and volume',
+    description:
+      'A coherent daily market path with open, high, low, close, and volume. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -226,12 +230,12 @@ heikinAshi('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'close',
-          label: 'close',
+          label: 'Price',
           format: 'number',
         },
         {
@@ -273,32 +277,32 @@ import { highLowClose } from 'graflume/complete';
 
 const data = [
   {
-    date: '2026-01-01',
-    close: 25,
-    open: 22,
-    high: 33,
-    low: 14,
+    date: '2025-01-01',
+    close: 95.1,
+    open: 94,
+    high: 96.3,
+    low: 92.9,
   },
   {
-    date: '2026-02-01',
-    close: 22,
-    open: 23,
-    high: 34.1,
-    low: 14.8,
+    date: '2025-01-02',
+    close: 96.418,
+    open: 95.8,
+    high: 97.698,
+    low: 94.61,
   },
   {
-    date: '2026-03-01',
-    close: 27,
-    open: 24,
-    high: 35.2,
-    low: 15.6,
+    date: '2025-01-03',
+    close: 97.464,
+    open: 97.379,
+    high: 98.824,
+    low: 96.099,
   },
   {
-    date: '2026-04-01',
-    close: 24,
-    open: 25,
-    high: 36.3,
-    low: 16.4,
+    date: '2025-01-04',
+    close: 98.163,
+    open: 98.562,
+    high: 100.002,
+    low: 96.793,
   },
 ];
 
@@ -306,20 +310,22 @@ highLowClose('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'close',
     type: 'quantitative',
-    title: 'close',
+    title: 'Price',
   },
   title: {
     text: 'High-low-close chart',
     subtitle: 'candlestick family · high-low-close mode',
   },
   accessibility: {
-    label: 'High-low-close chart example',
-    description: 'A compiled high-low-close chart example using the candlestick family.',
+    label:
+      'High-low-close chart: A coherent daily market path with open, high, low, close, and volume',
+    description:
+      'A coherent daily market path with open, high, low, close, and volume. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -339,12 +345,12 @@ highLowClose('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'close',
-          label: 'close',
+          label: 'Price',
           format: 'number',
         },
         {
@@ -386,32 +392,32 @@ import { hollowCandlestick } from 'graflume/complete';
 
 const data = [
   {
-    date: '2026-01-01',
-    close: 25,
-    open: 22,
-    high: 33,
-    low: 14,
+    date: '2025-01-01',
+    close: 95.1,
+    open: 94,
+    high: 96.3,
+    low: 92.9,
   },
   {
-    date: '2026-02-01',
-    close: 22,
-    open: 23,
-    high: 34.1,
-    low: 14.8,
+    date: '2025-01-02',
+    close: 96.418,
+    open: 95.8,
+    high: 97.698,
+    low: 94.61,
   },
   {
-    date: '2026-03-01',
-    close: 27,
-    open: 24,
-    high: 35.2,
-    low: 15.6,
+    date: '2025-01-03',
+    close: 97.464,
+    open: 97.379,
+    high: 98.824,
+    low: 96.099,
   },
   {
-    date: '2026-04-01',
-    close: 24,
-    open: 25,
-    high: 36.3,
-    low: 16.4,
+    date: '2025-01-04',
+    close: 98.163,
+    open: 98.562,
+    high: 100.002,
+    low: 96.793,
   },
 ];
 
@@ -419,20 +425,22 @@ hollowCandlestick('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'close',
     type: 'quantitative',
-    title: 'close',
+    title: 'Price',
   },
   title: {
     text: 'Hollow candlestick chart',
     subtitle: 'candlestick family · hollow-candlestick mode',
   },
   accessibility: {
-    label: 'Hollow candlestick chart example',
-    description: 'A compiled hollow candlestick chart example using the candlestick family.',
+    label:
+      'Hollow candlestick chart: A coherent daily market path with open, high, low, close, and volume',
+    description:
+      'A coherent daily market path with open, high, low, close, and volume. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -452,12 +460,12 @@ hollowCandlestick('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'close',
-          label: 'close',
+          label: 'Price',
           format: 'number',
         },
         {
@@ -499,32 +507,32 @@ import { openHighLowClose } from 'graflume/complete';
 
 const data = [
   {
-    date: '2026-01-01',
-    close: 25,
-    open: 22,
-    high: 33,
-    low: 14,
+    date: '2025-01-01',
+    close: 95.1,
+    open: 94,
+    high: 96.3,
+    low: 92.9,
   },
   {
-    date: '2026-02-01',
-    close: 22,
-    open: 23,
-    high: 34.1,
-    low: 14.8,
+    date: '2025-01-02',
+    close: 96.418,
+    open: 95.8,
+    high: 97.698,
+    low: 94.61,
   },
   {
-    date: '2026-03-01',
-    close: 27,
-    open: 24,
-    high: 35.2,
-    low: 15.6,
+    date: '2025-01-03',
+    close: 97.464,
+    open: 97.379,
+    high: 98.824,
+    low: 96.099,
   },
   {
-    date: '2026-04-01',
-    close: 24,
-    open: 25,
-    high: 36.3,
-    low: 16.4,
+    date: '2025-01-04',
+    close: 98.163,
+    open: 98.562,
+    high: 100.002,
+    low: 96.793,
   },
 ];
 
@@ -532,20 +540,22 @@ openHighLowClose('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Trading day',
   },
   y: {
     field: 'close',
     type: 'quantitative',
-    title: 'close',
+    title: 'Price',
   },
   title: {
     text: 'Open-high-low-close chart',
     subtitle: 'candlestick family · open-high-low-close mode',
   },
   accessibility: {
-    label: 'Open-high-low-close chart example',
-    description: 'A compiled open-high-low-close chart example using the candlestick family.',
+    label:
+      'Open-high-low-close chart: A coherent daily market path with open, high, low, close, and volume',
+    description:
+      'A coherent daily market path with open, high, low, close, and volume. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -565,12 +575,12 @@ openHighLowClose('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Trading day',
           format: 'date',
         },
         {
           field: 'close',
-          label: 'close',
+          label: 'Price',
           format: 'number',
         },
         {

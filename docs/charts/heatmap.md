@@ -66,20 +66,21 @@ heatmap('#chart', data, {
   x: {
     field: 'x',
     type: 'quantitative',
-    title: 'x',
+    title: 'Horizontal bin',
   },
   y: {
     field: 'y',
     type: 'quantitative',
-    title: 'y',
+    title: 'Vertical bin',
   },
   title: {
     text: 'Heatmap',
     subtitle: 'heatmap family · default mode',
   },
   accessibility: {
-    label: 'Heatmap example',
-    description: 'A compiled heatmap example using the heatmap family.',
+    label: 'Heatmap: Two hotspots and a diagonal ridge form a purposeful density landscape',
+    description:
+      'Two hotspots and a diagonal ridge form a purposeful density landscape. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   locale: 'en-US',
   interaction: {
@@ -88,12 +89,12 @@ heatmap('#chart', data, {
       fields: [
         {
           field: 'x',
-          label: 'x',
+          label: 'Horizontal bin',
           format: 'number',
         },
         {
           field: 'y',
-          label: 'y',
+          label: 'Vertical bin',
           format: 'number',
         },
       ],
@@ -121,22 +122,22 @@ const data = [
   {
     x: 0,
     y: 0,
-    value: 10.43,
+    value: 19.342,
   },
   {
     x: 1,
     y: 0,
-    value: 22.607,
+    value: 23.692,
   },
   {
     x: 2,
     y: 0,
-    value: 32.821,
+    value: 30.375,
   },
   {
     x: 3,
     y: 0,
-    value: 27.908,
+    value: 35.875,
   },
 ];
 
@@ -144,20 +145,21 @@ tileMap('#chart', data, {
   x: {
     field: 'x',
     type: 'quantitative',
-    title: 'x',
+    title: 'Horizontal bin',
   },
   y: {
     field: 'y',
     type: 'quantitative',
-    title: 'y',
+    title: 'Vertical bin',
   },
   title: {
     text: 'Tile map',
     subtitle: 'heatmap family · tile-map mode',
   },
   accessibility: {
-    label: 'Tile map example',
-    description: 'A compiled tile map example using the heatmap family.',
+    label: 'Tile map: Two hotspots and a diagonal ridge form a purposeful density landscape',
+    description:
+      'Two hotspots and a diagonal ridge form a purposeful density landscape. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   axes: {
     x: false,
@@ -175,12 +177,12 @@ tileMap('#chart', data, {
       fields: [
         {
           field: 'x',
-          label: 'x',
+          label: 'Horizontal bin',
           format: 'number',
         },
         {
           field: 'y',
-          label: 'y',
+          label: 'Vertical bin',
           format: 'number',
         },
         {

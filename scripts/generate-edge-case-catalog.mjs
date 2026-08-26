@@ -15,7 +15,7 @@ const outputPath = path.join(root, 'catalog/graflume.edge-cases.json');
 const publicCatalog = JSON.parse(await readFile(publicCatalogPath, 'utf8'));
 const catalog = buildEdgeCaseCatalog(publicCatalog);
 
-assert.equal(catalog.schemaVersion, 1);
+assert.equal(catalog.schemaVersion, 2);
 assert.equal(catalog.totals.canonicalFamilies, 44);
 assert.equal(catalog.totals.profiles, 3);
 assert.equal(catalog.totals.examples, 132);

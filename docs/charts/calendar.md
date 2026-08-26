@@ -44,20 +44,20 @@ import { calendar } from 'graflume';
 
 const data = [
   {
-    date: '2026-01-01',
-    value: 0,
+    date: '2025-01-01',
+    value: 59,
   },
   {
-    date: '2026-01-02',
-    value: 13,
+    date: '2025-01-02',
+    value: 60,
   },
   {
-    date: '2026-01-03',
-    value: 26,
+    date: '2025-01-03',
+    value: 61,
   },
   {
-    date: '2026-01-04',
-    value: 39,
+    date: '2025-01-04',
+    value: 45,
   },
 ];
 
@@ -65,20 +65,26 @@ calendar('#chart', data, {
   x: {
     field: 'date',
     type: 'temporal',
-    title: 'date',
+    title: 'Date',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Daily sessions',
   },
   title: {
     text: 'Calendar chart',
     subtitle: 'calendar family · default mode',
   },
   accessibility: {
-    label: 'Calendar chart example',
-    description: 'A compiled calendar chart example using the calendar family.',
+    label:
+      'Calendar chart: A complete year of daily activity with weekday rhythm and a release lift',
+    description:
+      'A complete year of daily activity with weekday rhythm and a release lift. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
+  },
+  axes: {
+    x: false,
+    y: false,
   },
   locale: 'en-US',
   interaction: {
@@ -87,12 +93,12 @@ calendar('#chart', data, {
       fields: [
         {
           field: 'date',
-          label: 'date',
+          label: 'Date',
           format: 'date',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Daily sessions',
           format: 'number',
         },
       ],

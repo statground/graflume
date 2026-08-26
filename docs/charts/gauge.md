@@ -50,22 +50,10 @@ import { gauge } from 'graflume';
 
 const data = [
   {
-    category: 'P1',
-    value: 24,
-    previous: 20,
-    target: 29,
-  },
-  {
-    category: 'P2',
-    value: 29.916,
-    previous: 20.8,
-    target: 30,
-  },
-  {
-    category: 'P3',
-    value: 33.54,
-    previous: 21.6,
-    target: 31,
+    category: 'Reliability',
+    value: 99.93,
+    previous: 99.84,
+    target: 99.9,
   },
 ];
 
@@ -73,20 +61,25 @@ gauge('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Service metric',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Percent',
   },
   title: {
     text: 'Gauge chart',
     subtitle: 'gauge family · default mode',
   },
   accessibility: {
-    label: 'Gauge chart example',
-    description: 'A compiled gauge chart example using the gauge family.',
+    label: 'Gauge chart: Service reliability compared with its target and previous value',
+    description:
+      'Service reliability compared with its target and previous value. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
+  },
+  axes: {
+    x: false,
+    y: false,
   },
   mark: {
     fields: {
@@ -106,12 +99,12 @@ gauge('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Service metric',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Percent',
           format: 'number',
         },
         {
@@ -147,22 +140,10 @@ import { gaugeNumber } from 'graflume';
 
 const data = [
   {
-    category: 'P1',
-    value: 24,
-    previous: 20,
-    target: 29,
-  },
-  {
-    category: 'P2',
-    value: 29.916,
-    previous: 20.8,
-    target: 30,
-  },
-  {
-    category: 'P3',
-    value: 33.54,
-    previous: 21.6,
-    target: 31,
+    category: 'Reliability',
+    value: 99.93,
+    previous: 99.84,
+    target: 99.9,
   },
 ];
 
@@ -170,20 +151,25 @@ gaugeNumber('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Service metric',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Percent',
   },
   title: {
     text: 'Number indicator',
     subtitle: 'gauge family · number mode',
   },
   accessibility: {
-    label: 'Number indicator example',
-    description: 'A compiled number indicator example using the gauge family.',
+    label: 'Number indicator: Service reliability compared with its target and previous value',
+    description:
+      'Service reliability compared with its target and previous value. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
+  },
+  axes: {
+    x: false,
+    y: false,
   },
   mark: {
     fields: {
@@ -203,12 +189,12 @@ gaugeNumber('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Service metric',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Percent',
           format: 'number',
         },
         {
@@ -244,22 +230,10 @@ import { gaugeDelta } from 'graflume';
 
 const data = [
   {
-    category: 'P1',
-    value: 24,
-    previous: 20,
-    target: 29,
-  },
-  {
-    category: 'P2',
-    value: 29.916,
-    previous: 20.8,
-    target: 30,
-  },
-  {
-    category: 'P3',
-    value: 33.54,
-    previous: 21.6,
-    target: 31,
+    category: 'Reliability',
+    value: 99.93,
+    previous: 99.84,
+    target: 99.9,
   },
 ];
 
@@ -267,20 +241,25 @@ gaugeDelta('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Service metric',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Percent',
   },
   title: {
     text: 'Delta indicator',
     subtitle: 'gauge family · delta mode',
   },
   accessibility: {
-    label: 'Delta indicator example',
-    description: 'A compiled delta indicator example using the gauge family.',
+    label: 'Delta indicator: Service reliability compared with its target and previous value',
+    description:
+      'Service reliability compared with its target and previous value. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
+  },
+  axes: {
+    x: false,
+    y: false,
   },
   mark: {
     fields: {
@@ -300,12 +279,12 @@ gaugeDelta('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Service metric',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Percent',
           format: 'number',
         },
         {
@@ -341,22 +320,10 @@ import { gaugeBullet } from 'graflume';
 
 const data = [
   {
-    category: 'P1',
-    value: 24,
-    previous: 20,
-    target: 29,
-  },
-  {
-    category: 'P2',
-    value: 29.916,
-    previous: 20.8,
-    target: 30,
-  },
-  {
-    category: 'P3',
-    value: 33.54,
-    previous: 21.6,
-    target: 31,
+    category: 'Reliability',
+    value: 99.93,
+    previous: 99.84,
+    target: 99.9,
   },
 ];
 
@@ -364,20 +331,25 @@ gaugeBullet('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Service metric',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Percent',
   },
   title: {
     text: 'Bullet gauge',
     subtitle: 'gauge family · bullet mode',
   },
   accessibility: {
-    label: 'Bullet gauge example',
-    description: 'A compiled bullet gauge example using the gauge family.',
+    label: 'Bullet gauge: Service reliability compared with its target and previous value',
+    description:
+      'Service reliability compared with its target and previous value. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
+  },
+  axes: {
+    x: false,
+    y: false,
   },
   mark: {
     fields: {
@@ -397,12 +369,12 @@ gaugeBullet('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Service metric',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Percent',
           format: 'number',
         },
         {
@@ -438,20 +410,8 @@ import { solidGauge } from 'graflume/complete';
 
 const data = [
   {
-    category: 'P1',
-    value: 24,
-  },
-  {
-    category: 'P2',
-    value: 29.916,
-  },
-  {
-    category: 'P3',
-    value: 33.54,
-  },
-  {
-    category: 'P4',
-    value: 33.72,
+    category: 'Reliability',
+    value: 99.93,
   },
 ];
 
@@ -459,20 +419,21 @@ solidGauge('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Service metric',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Percent',
   },
   title: {
     text: 'Solid gauge',
     subtitle: 'gauge family · solid-gauge mode',
   },
   accessibility: {
-    label: 'Solid gauge example',
-    description: 'A compiled solid gauge example using the gauge family.',
+    label: 'Solid gauge: Service reliability compared with its target and previous value',
+    description:
+      'Service reliability compared with its target and previous value. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   axes: {
     x: false,
@@ -491,12 +452,12 @@ solidGauge('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Service metric',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Percent',
           format: 'number',
         },
       ],

@@ -44,24 +44,24 @@ import { sankey } from 'graflume';
 
 const data = [
   {
-    source: 'Input',
-    value: 9,
-    target: 'Compiler',
+    source: 'Collected',
+    value: 86,
+    target: 'Validated',
   },
   {
-    source: 'Compiler',
-    value: 8,
-    target: 'Scene',
+    source: 'Collected',
+    value: 14,
+    target: 'Review queue',
   },
   {
-    source: 'Scene',
-    value: 6,
-    target: 'Canvas',
+    source: 'Validated',
+    value: 58,
+    target: 'Aggregated',
   },
   {
-    source: 'Scene',
-    value: 4,
-    target: 'Vector',
+    source: 'Validated',
+    value: 28,
+    target: 'Exploration',
   },
 ];
 
@@ -69,20 +69,25 @@ sankey('#chart', data, {
   x: {
     field: 'source',
     type: 'ordinal',
-    title: 'source',
+    title: 'Pipeline stage',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Records',
   },
   title: {
     text: 'Sankey diagram',
     subtitle: 'flow family · default mode',
   },
   accessibility: {
-    label: 'Sankey diagram example',
-    description: 'A compiled sankey diagram example using the flow family.',
+    label: 'Sankey diagram: Validated data branches into reports, alerts, models, and exports',
+    description:
+      'Validated data branches into reports, alerts, models, and exports. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
+  },
+  axes: {
+    x: false,
+    y: false,
   },
   mark: {
     fields: {
@@ -96,12 +101,12 @@ sankey('#chart', data, {
       fields: [
         {
           field: 'source',
-          label: 'source',
+          label: 'Pipeline stage',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Records',
           format: 'number',
         },
         {
