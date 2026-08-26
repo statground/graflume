@@ -137,6 +137,13 @@ test('176 manual examples preserve exact mode order, APIs, runtimes, references,
     );
     assert.equal(example.demonstrates[0], mode.id, `${mode.id} demonstrates itself first`);
     assert.equal(new Set(example.demonstrates).size, example.demonstrates.length, mode.id);
+    assert.ok(example.summary.startsWith(`${mode.name}: `), `${mode.id} named summary`);
+    assert.ok(example.summary.length >= mode.name.length + 24, `${mode.id} authored story`);
+    assert.doesNotMatch(
+      example.summary,
+      /is an executable|executable .* mode of the/i,
+      `${mode.id} avoids catalog boilerplate`,
+    );
     const [sourcePath] = example.sourceRef.split('#');
     await access(new URL(`../${sourcePath}`, import.meta.url));
   }

@@ -69,21 +69,22 @@ scatterMatrix('#chart', data, {
   x: {
     field: 'speed',
     type: 'quantitative',
-    title: 'Build metric',
+    title: 'Release metric',
   },
   y: {
     field: 'quality',
     type: 'quantitative',
-    title: 'Build metric',
+    title: 'Release metric',
   },
   title: {
     text: 'Scatter matrix',
     subtitle: 'scatter-matrix family · default mode',
   },
   accessibility: {
-    label: 'Scatter matrix: Release builds expose correlations among speed, quality, and cost',
+    label:
+      'Scatter matrix: Named release candidates expose correlations among speed, quality, and cost',
     description:
-      'Release builds expose correlations among speed, quality, and cost. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
+      'Named release candidates expose correlations among speed, quality, and cost. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   axes: {
     x: false,
@@ -101,12 +102,12 @@ scatterMatrix('#chart', data, {
       fields: [
         {
           field: 'speed',
-          label: 'Build metric',
+          label: 'Release metric',
           format: 'number',
         },
         {
           field: 'quality',
-          label: 'Build metric',
+          label: 'Release metric',
           format: 'number',
         },
         {

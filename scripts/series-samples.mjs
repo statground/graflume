@@ -147,16 +147,16 @@ const grid = Array.from({ length: 96 }, (_, index) => {
 });
 
 const points = [
-  { name: 'Starter 1', x: 14, y: 38, size: 28, group: 'Starter', z: 7 },
-  { name: 'Starter 2', x: 20, y: 45, size: 34, group: 'Starter', z: 10 },
-  { name: 'Starter 3', x: 25, y: 41, size: 31, group: 'Starter', z: 12 },
-  { name: 'Growth 1', x: 38, y: 57, size: 64, group: 'Growth', z: 15 },
-  { name: 'Growth 2', x: 45, y: 63, size: 78, group: 'Growth', z: 18 },
-  { name: 'Growth 3', x: 50, y: 55, size: 70, group: 'Growth', z: 21 },
-  { name: 'Scale 1', x: 64, y: 72, size: 112, group: 'Scale', z: 25 },
-  { name: 'Scale 2', x: 72, y: 79, size: 128, group: 'Scale', z: 28 },
-  { name: 'Scale 3', x: 78, y: 70, size: 118, group: 'Scale', z: 31 },
-  { name: 'Efficient outlier', x: 61, y: 88, size: 52, group: 'Opportunity', z: 34 },
+  { name: 'Atlas Lab', x: 14, y: 38, size: 28, group: 'Starter', z: 7 },
+  { name: 'Beacon Co', x: 20, y: 45, size: 34, group: 'Starter', z: 10 },
+  { name: 'Civic Data', x: 25, y: 41, size: 31, group: 'Starter', z: 12 },
+  { name: 'Delta Ops', x: 38, y: 57, size: 64, group: 'Growth', z: 15 },
+  { name: 'Ember Labs', x: 45, y: 63, size: 78, group: 'Growth', z: 18 },
+  { name: 'Foundry BI', x: 50, y: 55, size: 70, group: 'Growth', z: 21 },
+  { name: 'Harbor AI', x: 64, y: 72, size: 112, group: 'Scale', z: 25 },
+  { name: 'Lattice Co', x: 72, y: 79, size: 128, group: 'Scale', z: 28 },
+  { name: 'Meridian', x: 78, y: 70, size: 118, group: 'Scale', z: 31 },
+  { name: 'Northstar', x: 61, y: 88, size: 52, group: 'Opportunity', z: 34 },
 ];
 
 const timeline = [
@@ -295,10 +295,12 @@ const words = [
 const observations = Array.from({ length: 72 }, (_, index) => {
   const cohort = index < 36 ? 'Before launch' : 'After launch';
   const local = index % 36;
-  const wave = Math.sin(local * 0.58) * 5.4 + Math.cos(local * 0.19) * 2.8;
-  const value = 42 + (cohort === 'After launch' ? 11 : 0) + wave + (local % 7) * 0.9;
+  const region = ['Seoul', 'Tokyo', 'Singapore', 'Paris', 'New York', 'Sydney'][local % 6];
+  const waveNumber = Math.floor(local / 6) + 1;
+  const movement = Math.sin(local * 0.58) * 5.4 + Math.cos(local * 0.19) * 2.8;
+  const value = 42 + (cohort === 'After launch' ? 11 : 0) + movement + (local % 7) * 0.9;
   return {
-    sample: `S${String(index + 1).padStart(3, '0')}`,
+    sample: `${region} · ${cohort === 'Before launch' ? 'baseline' : 'post-launch'} · W${waveNumber}`,
     series: cohort,
     value: Number(value.toFixed(3)),
     weight: 1 + (index % 4) * 0.25,
@@ -501,9 +503,9 @@ const familyStories = {
     yTitle: 'Normalized reactance',
   },
   'scatter-matrix': {
-    subtitle: 'Release builds expose correlations among speed, quality, and cost',
-    xTitle: 'Build metric',
-    yTitle: 'Build metric',
+    subtitle: 'Named release candidates expose correlations among speed, quality, and cost',
+    xTitle: 'Release metric',
+    yTitle: 'Release metric',
   },
   carpet: {
     subtitle: 'A warped coordinate surface retains two peaks and its underlying topology',
@@ -549,6 +551,16 @@ const familyStories = {
     subtitle: 'Every indicator is calculated from the same coherent OHLCV market history',
     xTitle: 'Trading day',
     yTitle: 'Indicator value',
+  },
+  vega: {
+    subtitle: 'Monthly active teams rendered through a portable declarative adapter',
+    xTitle: 'Month',
+    yTitle: 'Active teams',
+  },
+  custom: {
+    subtitle: 'Named customer teams rendered as circles and diamonds with direct labels',
+    xTitle: 'Engagement score',
+    yTitle: 'Satisfaction score',
   },
 };
 
@@ -891,10 +903,14 @@ export function seriesSampleSpec(entry) {
       'imaginary',
     );
   } else if (mark === 'scatter-matrix') {
+    const releaseTrains = ['Aurora', 'Beacon', 'Cinder', 'Delta', 'Ember', 'Fjord'];
+    const releaseRegions = ['Seoul', 'Paris', 'Austin'];
     spec = base(
       { type: mark, options: { dimensions: ['speed', 'quality', 'cost'] } },
       Array.from({ length: 18 }, (_, index) => ({
-        name: `Build ${String(index + 1).padStart(2, '0')}`,
+        name: `${releaseTrains[Math.floor(index / releaseRegions.length)]} · ${releaseRegions[index % releaseRegions.length]}`,
+        train: releaseTrains[Math.floor(index / releaseRegions.length)],
+        region: releaseRegions[index % releaseRegions.length],
         speed: Number((61 + index * 1.5 + Math.sin(index * 0.7) * 8).toFixed(2)),
         quality: Number((68 + index * 1.1 + Math.cos(index * 0.55) * 7).toFixed(2)),
         cost: Number((82 - index * 1.25 + Math.sin(index * 0.42) * 5).toFixed(2)),

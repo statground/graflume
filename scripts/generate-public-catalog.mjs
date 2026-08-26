@@ -501,6 +501,7 @@ function spatialQuickParts(mode) {
   assert.equal(type, mode.mark, `${mode.id} sample mark`);
   if (markMode !== undefined) assert.equal(markMode, mode.mode, `${mode.id} sample mode`);
   return {
+    story: spec.title,
     data: jsonClone(layer.data, `${mode.id}.data`),
     options: jsonClone(
       {
@@ -533,8 +534,6 @@ for (const family of families) {
 }
 
 const manualExamples = modes.map((mode) => {
-  const family =
-    mode.familyId === null ? undefined : families.find(({ id }) => id === mode.familyId);
   const parts =
     mode.renderer === 'webgl'
       ? spatialQuickParts(mode)
@@ -573,12 +572,9 @@ const manualExamples = modes.map((mode) => {
           ...new Set(parts.tableData.flatMap((row) => Object.keys(row))),
         ])
       : manualFields(parts.spec, parts.tableData);
-  const summary =
-    family === undefined
-      ? `${mode.name} is an executable compatibility adapter.`
-      : mode.renderer === 'webgl'
-        ? mode.name
-        : `${mode.name} is the executable ${mode.mode} mode of the ${family.name} family.`;
+  const story = mode.renderer === 'webgl' ? parts.story : parts.spec.title.subtitle;
+  assert.ok(typeof story === 'string' && story.length >= 22, `${mode.id} product story`);
+  const summary = `${mode.name}: ${story}${/[.!?]$/.test(story) ? '' : '.'}`;
   return {
     id: mode.id,
     familyId: mode.familyId,

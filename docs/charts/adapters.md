@@ -62,21 +62,22 @@ vegaChart('#chart', data, {
   x: {
     field: 'category',
     type: 'ordinal',
-    title: 'category',
+    title: 'Engagement score',
   },
   y: {
     field: 'value',
     type: 'quantitative',
-    title: 'value',
+    title: 'Satisfaction score',
   },
   title: {
     text: 'Portable adapter chart',
     subtitle: 'custom family · adapter mode',
   },
   accessibility: {
-    label: 'Portable adapter chart: A focused, executable portable adapter chart example',
+    label:
+      'Portable adapter chart: Named customer teams rendered as circles and diamonds with direct labels',
     description:
-      'A focused, executable portable adapter chart example. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
+      'Named customer teams rendered as circles and diamonds with direct labels. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     options: {
@@ -91,12 +92,12 @@ vegaChart('#chart', data, {
       fields: [
         {
           field: 'category',
-          label: 'category',
+          label: 'Engagement score',
           format: 'auto',
         },
         {
           field: 'value',
-          label: 'value',
+          label: 'Satisfaction score',
           format: 'number',
         },
       ],
@@ -126,28 +127,28 @@ const data = [
     y: 38,
     shape: 'circle',
     size: 28,
-    label: 'Starter 1',
+    label: 'Atlas Lab',
   },
   {
     x: 20,
     y: 45,
     shape: 'diamond',
     size: 34,
-    label: 'Starter 2',
+    label: 'Beacon Co',
   },
   {
     x: 25,
     y: 41,
     shape: 'circle',
     size: 31,
-    label: 'Starter 3',
+    label: 'Civic Data',
   },
   {
     x: 38,
     y: 57,
     shape: 'diamond',
     size: 64,
-    label: 'Growth 1',
+    label: 'Delta Ops',
   },
 ];
 
@@ -155,21 +156,22 @@ custom('#chart', data, {
   x: {
     field: 'x',
     type: 'quantitative',
-    title: 'x',
+    title: 'Engagement score',
   },
   y: {
     field: 'y',
     type: 'quantitative',
-    title: 'y',
+    title: 'Satisfaction score',
   },
   title: {
     text: 'Declarative custom chart',
     subtitle: 'custom family · default mode',
   },
   accessibility: {
-    label: 'Declarative custom chart: A focused, executable declarative custom chart example',
+    label:
+      'Declarative custom chart: Named customer teams rendered as circles and diamonds with direct labels',
     description:
-      'A focused, executable declarative custom chart example. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
+      'Named customer teams rendered as circles and diamonds with direct labels. The example uses curated, deterministic data and exposes its exact values in a semantic table.',
   },
   mark: {
     fields: {
@@ -185,12 +187,12 @@ custom('#chart', data, {
       fields: [
         {
           field: 'x',
-          label: 'x',
+          label: 'Engagement score',
           format: 'number',
         },
         {
           field: 'y',
-          label: 'y',
+          label: 'Satisfaction score',
           format: 'number',
         },
         {

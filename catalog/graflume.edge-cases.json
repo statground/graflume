@@ -16977,20 +16977,20 @@
         "x": {
           "field": "speed",
           "type": "quantitative",
-          "title": "Build metric"
+          "title": "Release metric"
         },
         "y": {
           "field": "quality",
           "type": "quantitative",
-          "title": "Build metric"
+          "title": "Release metric"
         },
         "title": {
           "text": "Scatter matrix",
           "subtitle": "edge case · range"
         },
         "accessibility": {
-          "label": "Scatter matrix: Release builds expose correlations among speed, quality, and cost",
-          "description": "Release builds expose correlations among speed, quality, and cost. The example uses curated, deterministic data and exposes its exact values in a semantic table."
+          "label": "Scatter matrix: Named release candidates expose correlations among speed, quality, and cost",
+          "description": "Named release candidates expose correlations among speed, quality, and cost. The example uses curated, deterministic data and exposes its exact values in a semantic table."
         },
         "axes": {
           "x": false,
@@ -17134,20 +17134,20 @@
         "x": {
           "field": "speed",
           "type": "quantitative",
-          "title": "Build metric"
+          "title": "Release metric"
         },
         "y": {
           "field": "quality",
           "type": "quantitative",
-          "title": "Build metric"
+          "title": "Release metric"
         },
         "title": {
           "text": "Scatter matrix",
           "subtitle": "edge case · structure"
         },
         "accessibility": {
-          "label": "Scatter matrix: Release builds expose correlations among speed, quality, and cost",
-          "description": "Release builds expose correlations among speed, quality, and cost. The example uses curated, deterministic data and exposes its exact values in a semantic table."
+          "label": "Scatter matrix: Named release candidates expose correlations among speed, quality, and cost",
+          "description": "Named release candidates expose correlations among speed, quality, and cost. The example uses curated, deterministic data and exposes its exact values in a semantic table."
         },
         "axes": {
           "x": false,
@@ -17396,20 +17396,20 @@
         "x": {
           "field": "speed",
           "type": "quantitative",
-          "title": "Build metric"
+          "title": "Release metric"
         },
         "y": {
           "field": "quality",
           "type": "quantitative",
-          "title": "Build metric"
+          "title": "Release metric"
         },
         "title": {
           "text": "Scatter matrix",
-          "subtitle": "Release builds expose correlations among speed, quality, and cost · 5,000 logical rows, screen-aware detail"
+          "subtitle": "Named release candidates expose correlations among speed, quality, and cost · 5,000 logical rows, screen-aware detail"
         },
         "accessibility": {
-          "label": "Scatter matrix: Release builds expose correlations among speed, quality, and cost",
-          "description": "Release builds expose correlations among speed, quality, and cost. The example uses curated, deterministic data and exposes its exact values in a semantic table."
+          "label": "Scatter matrix: Named release candidates expose correlations among speed, quality, and cost",
+          "description": "Named release candidates expose correlations among speed, quality, and cost. The example uses curated, deterministic data and exposes its exact values in a semantic table."
         },
         "axes": {
           "x": false,
@@ -23871,7 +23871,7 @@
           "w": 0,
           "magnitude": 0,
           "color": "#075985",
-          "label": "cyclone 1:1"
+          "label": "peripheral flow · south-west updraft"
         },
         {
           "x": -2,
@@ -23882,7 +23882,7 @@
           "w": 0,
           "magnitude": 1e-9,
           "color": "#0284c7",
-          "label": "cyclone 1:2"
+          "label": "peripheral flow · south-west updraft"
         },
         {
           "x": -1.5,
@@ -23893,7 +23893,7 @@
           "w": 0,
           "magnitude": 1414213.5623730952,
           "color": "#0284c7",
-          "label": "cyclone 1:3"
+          "label": "peripheral flow · south-west updraft"
         },
         {
           "x": -1,
@@ -23904,7 +23904,7 @@
           "w": 1,
           "magnitude": 1414213562373.0952,
           "color": "#06b6d4",
-          "label": "cyclone 1:4"
+          "label": "peripheral flow · south updraft"
         },
         {
           "x": 0,
@@ -23915,7 +23915,7 @@
           "w": -1e-9,
           "magnitude": 1.7320508075688772e-9,
           "color": "#06b6d4",
-          "label": "cyclone 1:6"
+          "label": "peripheral flow · south updraft"
         },
         {
           "x": 0.5,
@@ -23926,7 +23926,7 @@
           "w": -100,
           "magnitude": 1009.9504938362078,
           "color": "#06b6d4",
-          "label": "cyclone 1:7"
+          "label": "peripheral flow · south updraft"
         }
       ],
       "fields": [
@@ -24083,7 +24083,7 @@
           "w": -0.40625000772652975,
           "magnitude": 0.6449800667408706,
           "color": "#075985",
-          "label": "cyclone 1:1"
+          "label": "peripheral flow · south-west updraft"
         },
         {
           "x": -2,
@@ -24094,7 +24094,7 @@
           "w": -0.38437557265151684,
           "magnitude": 0.6881741254896024,
           "color": "#0284c7",
-          "label": "cyclone 1:2"
+          "label": "peripheral flow · south-west updraft"
         },
         {
           "x": -1.5,
@@ -24105,7 +24105,7 @@
           "w": -0.3374189577243045,
           "magnitude": 0.7346788553292001,
           "color": "#0284c7",
-          "label": "cyclone 1:3"
+          "label": "peripheral flow · south-west updraft"
         },
         {
           "x": -1,
@@ -24116,7 +24116,7 @@
           "w": -0.2568122262875265,
           "magnitude": 0.7787610897157327,
           "color": "#06b6d4",
-          "label": "cyclone 1:4"
+          "label": "peripheral flow · south updraft"
         },
         {
           "x": 0,
@@ -24127,7 +24127,7 @@
           "w": 0,
           "magnitude": 0.8236484987841264,
           "color": "#06b6d4",
-          "label": "cyclone 1:6"
+          "label": "peripheral flow · south updraft"
         },
         {
           "x": 0.5,
@@ -24138,7 +24138,7 @@
           "w": 0.14051223628159143,
           "magnitude": 0.811442820220365,
           "color": "#06b6d4",
-          "label": "cyclone 1:7"
+          "label": "peripheral flow · south updraft"
         }
       ],
       "fields": [

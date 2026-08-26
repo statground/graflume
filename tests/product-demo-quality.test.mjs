@@ -24,6 +24,38 @@ function representative(family) {
   return modes.find(({ quickApi }) => quickApi === family.quickApi) ?? modes[0];
 }
 
+function stringsIn(value, strings = []) {
+  if (typeof value === 'string') {
+    strings.push(value);
+  } else if (Array.isArray(value)) {
+    for (const item of value) stringsIn(item, strings);
+  } else if (value !== null && typeof value === 'object') {
+    for (const item of Object.values(value)) stringsIn(item, strings);
+  }
+  return strings;
+}
+
+function assertFiniteNumbers(value, path = 'data') {
+  if (typeof value === 'number') {
+    assert.ok(Number.isFinite(value), `${path} is finite`);
+  } else if (Array.isArray(value)) {
+    value.forEach((item, index) => assertFiniteNumbers(item, `${path}[${index}]`));
+  } else if (value !== null && typeof value === 'object') {
+    for (const [key, item] of Object.entries(value)) {
+      assertFiniteNumbers(item, `${path}.${key}`);
+    }
+  }
+}
+
+const placeholderLabels = [
+  /^(?:build|starter|growth|scale)\s+\d+$/i,
+  /^s\d{3}$/i,
+  /^(?:shell|cyclone)\s+\d+:\d+$/i,
+  /^arm\s+\d+\s*·\s*star\s+\d+$/i,
+  /^core star\s+\d+$/i,
+  /^helical flow\s+\d+$/i,
+];
+
 test('every Canvas mode uses a curated story and remains legible at product viewports', () => {
   assert.ok(fullVariantCatalog.length >= 168);
   for (const entry of fullVariantCatalog) {
@@ -67,6 +99,85 @@ test('every Canvas family representative avoids placeholder data', () => {
       }
     }
   }
+});
+
+test('all 176 ordinary examples use finite, bounded product fixtures without generator labels', () => {
+  const canvas = fullVariantCatalog.map((entry) => ({ id: entry.id, data: sample(entry).data }));
+  const spatial = Object.entries(spatialSampleSpecs).map(([id, spec]) => ({
+    id,
+    data: spec.layers.map((layer) => layer.data),
+  }));
+  const examples = [...canvas, ...spatial];
+
+  assert.equal(canvas.length, 168);
+  assert.equal(spatial.length, 8);
+  assert.equal(examples.length, 176);
+
+  for (const example of examples) {
+    assertFiniteNumbers(example.data, example.id);
+    for (const label of stringsIn(example.data)) {
+      for (const pattern of placeholderLabels) {
+        assert.doesNotMatch(label, pattern, `${example.id} product label ${label}`);
+      }
+    }
+  }
+
+  for (const example of canvas) {
+    assert.ok(example.data.length <= 365, `${example.id} keeps its ordinary fixture readable`);
+  }
+});
+
+test('named cohorts preserve the intended distributions and compact label density', () => {
+  const byId = new Map(fullVariantCatalog.map((entry) => [entry.id, entry]));
+  const bubble = sample(byId.get('bubble')).data;
+  assert.equal(new Set(bubble.map(({ name }) => name)).size, bubble.length);
+  assert.ok(bubble.every(({ name }) => name.length <= 12));
+  assert.deepEqual(
+    new Set(bubble.map(({ group }) => group)),
+    new Set(['Starter', 'Growth', 'Scale', 'Opportunity']),
+  );
+
+  const distribution = sample(byId.get('distribution')).data;
+  const before = distribution.filter(({ series }) => series === 'Before launch');
+  const after = distribution.filter(({ series }) => series === 'After launch');
+  const mean = (rows) => rows.reduce((sum, row) => sum + row.value, 0) / rows.length;
+  assert.equal(before.length, 36);
+  assert.equal(after.length, 36);
+  assert.ok(mean(after) - mean(before) > 8);
+  assert.equal(new Set(distribution.map(({ sample }) => sample)).size, distribution.length);
+
+  const matrix = sample(byId.get('scatter-matrix')).data;
+  assert.equal(new Set(matrix.map(({ name }) => name)).size, matrix.length);
+  assert.equal(new Set(matrix.map(({ train }) => train)).size, 6);
+  assert.equal(new Set(matrix.map(({ region }) => region)).size, 3);
+  for (const field of ['speed', 'quality', 'cost']) {
+    const values = matrix.map((row) => row[field]);
+    assert.ok(Math.max(...values) - Math.min(...values) >= 18, `${field} has a useful range`);
+  }
+});
+
+test('adapter stories and Spatial inspection labels are authored rather than generated', () => {
+  const byId = new Map(fullVariantCatalog.map((entry) => [entry.id, entry]));
+  for (const id of ['vega', 'custom']) {
+    const spec = sample(byId.get(id));
+    assert.doesNotMatch(spec.title.subtitle, /focused, executable/i);
+    assert.match(spec.title.subtitle, /(?:monthly active teams|named customer teams)/i);
+  }
+
+  const meshLabels = spatialSampleSpecs.mesh.layers[0].data.labels;
+  const coneLabels = spatialSampleSpecs['vector-cone'].layers[0].data.labels;
+  const streamLabels = spatialSampleSpecs.streamtube.layers[0].data.labels;
+  const scatterLabels = spatialSampleSpecs['spatial-scatter'].layers[0].data.labels;
+  assert.ok(new Set(meshLabels).size >= 30);
+  assert.ok(new Set(coneLabels).size >= 20);
+  assert.equal(new Set(streamLabels).size, streamLabels.length);
+  assert.ok(new Set(scatterLabels).size >= 12);
+
+  const globePoints = spatialSampleSpecs.globe.layers[0].data.points;
+  assert.equal(
+    new Set(globePoints.map(({ longitude, latitude }) => `${longitude}:${latitude}`)).size,
+    globePoints.length,
+  );
 });
 
 test('composition, uncertainty, market, hierarchy, and set fixtures preserve their meaning', () => {

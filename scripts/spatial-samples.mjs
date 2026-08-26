@@ -12,6 +12,23 @@ const violetFlow = [
   '#7c3aed',
 ];
 
+const compassDirections = [
+  'east',
+  'north-east',
+  'north',
+  'north-west',
+  'west',
+  'south-west',
+  'south',
+  'south-east',
+];
+
+function compassDirection(x, z) {
+  if (Math.hypot(x, z) < 1e-9) return 'central';
+  const amount = ((Math.atan2(z, x) / (Math.PI * 2)) * compassDirections.length + 8) % 8;
+  return compassDirections[Math.round(amount) % compassDirections.length];
+}
+
 function paletteColor(palette, amount) {
   const index = Math.max(
     0,
@@ -46,6 +63,7 @@ function shellMesh(rows = 25, columns = 36) {
   const triangles = [];
   const colors = [];
   const labels = [];
+  const verticalBands = ['lower rim', 'lower shell', 'equatorial shell', 'upper shell', 'crown'];
   for (let row = 0; row < rows; row += 1) {
     const vertical = row / (rows - 1);
     const height = -1.8 + vertical * 3.6;
@@ -60,7 +78,8 @@ function shellMesh(rows = 25, columns = 36) {
         Math.sin(angle) * radius,
       ]);
       colors.push(paletteColor(coolToWarm, vertical * 0.82 + (Math.sin(angle * 2) + 1) * 0.045));
-      labels.push(`shell ${row + 1}:${column + 1}`);
+      const band = verticalBands[Math.min(verticalBands.length - 1, Math.floor(vertical * 5))];
+      labels.push(`${band} · ${compassDirection(Math.cos(angle), Math.sin(angle))} facet`);
     }
   }
   for (let row = 0; row < rows - 1; row += 1) {
@@ -126,7 +145,15 @@ function cycloneVectors(side = 11) {
         (x / divisor) * swirl,
       ]);
       colors.push(paletteColor(coolToWarm, 1 - Math.min(1, radius / 3.6)));
-      labels.push(`cyclone ${depthIndex + 1}:${horizontalIndex + 1}`);
+      const band =
+        radius < 0.65
+          ? 'eye'
+          : radius < 1.45
+            ? 'inner eyewall'
+            : radius < 2.4
+              ? 'outer rainband'
+              : 'peripheral flow';
+      labels.push(`${band} · ${compassDirection(x, z)} updraft`);
     }
   }
   return { origins, vectors, colors, labels };
@@ -163,6 +190,7 @@ function galaxyScatter(arms = 3, pointsPerArm = 160, centerPoints = 96) {
   const sizes = [];
   const colors = [];
   const labels = [];
+  const armNames = ['Aurora cohort', 'Beacon cohort', 'Cinder cohort'];
   for (let arm = 0; arm < arms; arm += 1) {
     for (let index = 0; index < pointsPerArm; index += 1) {
       const amount = index / (pointsPerArm - 1);
@@ -179,7 +207,9 @@ function galaxyScatter(arms = 3, pointsPerArm = 160, centerPoints = 96) {
       values.push(amount);
       sizes.push(3 + (1 - amount) * 4 + deterministicNoise(index, arm + 4) * 2);
       colors.push(paletteColor(violetFlow, amount * 0.8 + arm * 0.06));
-      labels.push(`arm ${arm + 1} · star ${index + 1}`);
+      const band =
+        amount < 0.34 ? 'inner population' : amount < 0.68 ? 'mid population' : 'outer population';
+      labels.push(`${armNames[arm % armNames.length]} · ${band}`);
     }
   }
   for (let index = 0; index < centerPoints; index += 1) {
@@ -194,7 +224,8 @@ function galaxyScatter(arms = 3, pointsPerArm = 160, centerPoints = 96) {
     values.push(1);
     sizes.push(5 + deterministicNoise(index, 9) * 5);
     colors.push(index % 3 === 0 ? '#fef3c7' : '#fbbf24');
-    labels.push(`core star ${index + 1}`);
+    const coreBand = radius < 0.2 ? 'dense nucleus' : radius < 0.38 ? 'inner core' : 'outer core';
+    labels.push(`Core cohort · ${coreBand}`);
   }
   return { positions, values, sizes, colors, labels };
 }
@@ -210,6 +241,17 @@ const volumeData = multiLobeVolume();
 const cyclone = cycloneVectors();
 const streams = helicalStreamPaths();
 const galaxy = galaxyScatter();
+const helicalFlowNames = [
+  'Aurora spiral',
+  'Beacon spiral',
+  'Cobalt spiral',
+  'Delta spiral',
+  'Ember spiral',
+  'Fjord spiral',
+  'Harbor spiral',
+  'Indigo spiral',
+  'Juniper spiral',
+];
 
 export const spatialSampleSpecs = Object.freeze({
   surface: {
@@ -314,7 +356,7 @@ export const spatialSampleSpecs = Object.freeze({
         mark: { type: 'vector', mode: 'streamtube', radius: 0.045, segments: 8 },
         data: {
           paths: streams,
-          labels: streams.map((_, index) => `helical flow ${index + 1}`),
+          labels: streams.map((_, index) => helicalFlowNames[index % helicalFlowNames.length]),
           colors: violetFlow,
         },
       },
