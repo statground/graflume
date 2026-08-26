@@ -6,7 +6,7 @@ import {
   fullCatalog,
   fullVariantCatalog,
   resolveTechnicalIndicatorCapability,
-} from '../dist/graflume.complete.js';
+} from '../.tmp/src/complete.js';
 import { seriesSampleSpec } from '../scripts/series-samples.mjs';
 import { spatialSampleSpecs } from '../scripts/spatial-samples.mjs';
 
