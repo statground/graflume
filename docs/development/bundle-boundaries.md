@@ -80,15 +80,15 @@ The clean measured artifacts are:
 
 | Browser file               |    Raw minified | GNU gzip `-9` |                  Raw budget |  Headroom |
 | -------------------------- | --------------: | ------------: | --------------------------: | --------: |
-| `graflume.min.js`          | 1,111,134 bytes | 322,911 bytes | 1,086 KiB (1,112,064 bytes) | 930 bytes |
-| `graflume.complete.min.js` | 1,307,482 bytes | 379,238 bytes | 1,277 KiB (1,307,648 bytes) | 166 bytes |
-| `graflume.spatial.min.js`  |   388,707 bytes | 120,919 bytes |     380 KiB (389,120 bytes) | 413 bytes |
+| `graflume.min.js`          | 1,113,017 bytes | 323,645 bytes | 1,087 KiB (1,113,088 bytes) |  71 bytes |
+| `graflume.complete.min.js` | 1,309,365 bytes | 380,004 bytes | 1,279 KiB (1,309,696 bytes) | 331 bytes |
+| `graflume.spatial.min.js`  |   390,590 bytes | 121,663 bytes |     382 KiB (391,168 bytes) | 578 bytes |
 
 The increase is reachable product behavior: deterministic family-aware level-of-detail generation,
-closed recipe validation, compact previews, explicit data plans, and capability-driven layout,
-input, motion, color, and resource policies. These APIs are documented and consumed by the public
-Statground manuals, so removing them from an entry point or hiding them in an uncounted chunk would
-break the published contract.
+closed recipe validation, compact previews, named accounts, initiatives, regions, milestones and
+spatial flows, explicit data plans, and capability-driven layout, input, motion, color, and resource
+policies. These APIs are documented and consumed by the public Statground manuals, so removing them
+from an entry point or hiding them in an uncounted chunk would break the published contract.
 
 When an entry grows, run the graph boundary check first. Raise a budget only when the remaining
 increase is attributable to required reachable behavior or public API, then record the measured

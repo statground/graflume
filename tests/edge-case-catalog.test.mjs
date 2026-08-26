@@ -355,6 +355,29 @@ test('volume profiles remain recipes and declare deterministic renderer budgets'
   assert.deepEqual(examplesForFamily('volume')[2].recipe.parameters.dimensions, [64, 64, 64]);
 });
 
+test('volume previews use named product entities instead of generator placeholders', () => {
+  const placeholder =
+    /^(?:Observation \d+|Build \d+|entity-\d+|node-\d+|Flow sample \d+|Segment \d+|(?:Discover|Prepare|Model|Review|Publish|Monitor) \d+|[A-E](?:&[A-E])*)$/i;
+  for (const family of publicCatalog.families) {
+    const example = examplesForFamily(family.id)[2];
+    for (const row of example.tableData) {
+      for (const value of Object.values(row).flatMap((entry) =>
+        Array.isArray(entry) ? entry : [entry],
+      )) {
+        if (typeof value === 'string' && value.length > 0) {
+          assert.doesNotMatch(value, placeholder, `${example.id} product label ${value}`);
+        }
+      }
+    }
+  }
+  assert.ok(
+    examplesForFamily('annotation')[2].tableData.some(
+      (row) => typeof row.annotation === 'string' && row.annotation.length > 0,
+    ),
+    'annotation volume preview retains a named milestone',
+  );
+});
+
 test('all 18 public materializers are deterministic semantic LODs with catalog-identical previews', () => {
   assert.equal(PublicApi.materializeDemoRecipe, materializeDemoRecipe);
   assert.deepEqual(PublicApi.demoRecipeIds, demoRecipeIds);

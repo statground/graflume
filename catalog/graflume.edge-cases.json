@@ -712,6 +712,16 @@
           "angle": 39.933
         },
         {
+          "date": "2024-05-12",
+          "category": "2024-05",
+          "value": 58.27,
+          "target": 73.96,
+          "previous": 51.27,
+          "annotation": "Baseline approved",
+          "series": "Dashboards",
+          "angle": 64.854
+        },
+        {
           "date": "2024-06-11",
           "category": "2024-06",
           "value": 64.18,
@@ -800,16 +810,6 @@
           "annotation": "",
           "series": "Dashboards",
           "angle": 359.099
-        },
-        {
-          "date": "2025-12-31",
-          "category": "2025-12",
-          "value": 91.84,
-          "target": 92,
-          "previous": 86.61,
-          "annotation": "",
-          "series": "Dashboards",
-          "angle": 360
         }
       ],
       "fields": [
@@ -2217,70 +2217,70 @@
           "y": -4.557,
           "size": 14.29,
           "group": "Enterprise",
-          "label": "Observation 1"
+          "label": "Aurora Labs · Enterprise"
         },
         {
           "x": 42.596,
           "y": -3.007,
           "size": 10.24,
           "group": "Enterprise",
-          "label": "Observation 445"
+          "label": "Aurora Labs · Enterprise"
         },
         {
           "x": 22.7,
           "y": 23.502,
           "size": 15.49,
           "group": "Growth",
-          "label": "Observation 890"
+          "label": "Blue Harbor · Growth"
         },
         {
           "x": 29.113,
           "y": 24.318,
           "size": 14.58,
           "group": "Growth",
-          "label": "Observation 1334"
+          "label": "Blue Harbor · Growth"
         },
         {
           "x": 19.298,
           "y": 22.612,
           "size": 32.5,
           "group": "Growth",
-          "label": "Observation 1778"
+          "label": "Blue Harbor · Growth"
         },
         {
           "x": -37.848,
           "y": 27.328,
           "size": 11.19,
           "group": "Core",
-          "label": "Observation 2223"
+          "label": "Cedar Health · Core"
         },
         {
           "x": -22.349,
           "y": 32.082,
           "size": 27.22,
           "group": "Core",
-          "label": "Observation 2667"
+          "label": "Cedar Health · Core"
         },
         {
           "x": -18.738,
           "y": 29.469,
           "size": 35.01,
           "group": "Core",
-          "label": "Observation 3111"
+          "label": "Cedar Health · Core"
         },
         {
           "x": -44.427,
           "y": 3.089,
           "size": 27.48,
           "group": "Education",
-          "label": "Observation 3556"
+          "label": "Delta Works · Education"
         },
         {
           "x": -35.633,
           "y": -5.292,
           "size": 12.45,
           "group": "Education",
-          "label": "Observation 4000"
+          "label": "Delta Works · Education"
         }
       ],
       "fields": [
@@ -5488,8 +5488,8 @@
       },
       "tableData": [
         {
-          "id": "interval-1",
-          "category": "Discover 1",
+          "id": "atlas-migration-discover-apac",
+          "category": "Discover · Atlas migration · APAC",
           "start": "2024-01-01",
           "end": "2024-01-05",
           "low": 17.76,
@@ -5498,8 +5498,8 @@
           "progress": 56
         },
         {
-          "id": "interval-8",
-          "category": "Prepare 2",
+          "id": "iris-governance-prepare-apac",
+          "category": "Prepare · Iris governance · APAC",
           "start": "2024-01-04",
           "end": "2024-01-12",
           "low": 27.22,
@@ -5508,8 +5508,8 @@
           "progress": 58
         },
         {
-          "id": "interval-13",
-          "category": "Discover 3",
+          "id": "atlas-migration-discover-emea",
+          "category": "Discover · Atlas migration · EMEA",
           "start": "2024-01-05",
           "end": "2024-01-13",
           "low": 15.21,
@@ -5518,8 +5518,8 @@
           "progress": 88
         },
         {
-          "id": "interval-15",
-          "category": "Model 3",
+          "id": "compass-metrics-model-emea",
+          "category": "Model · Compass metrics · EMEA",
           "start": "2024-01-07",
           "end": "2024-01-14",
           "low": 38.29,
@@ -5528,8 +5528,8 @@
           "progress": 100
         },
         {
-          "id": "interval-22",
-          "category": "Review 4",
+          "id": "kepler-models-review-emea",
+          "category": "Review · Kepler models · EMEA",
           "start": "2024-01-10",
           "end": "2024-01-12",
           "low": 45.65,
@@ -5538,8 +5538,8 @@
           "progress": 23
         },
         {
-          "id": "interval-29",
-          "category": "Publish 5",
+          "id": "ember-forecast-publish-americas",
+          "category": "Publish · Ember forecast · Americas",
           "start": "2024-01-13",
           "end": "2024-01-20",
           "low": 61.38,
@@ -5548,8 +5548,8 @@
           "progress": 40
         },
         {
-          "id": "interval-30",
-          "category": "Monitor 5",
+          "id": "foundry-reports-monitor-americas",
+          "category": "Monitor · Foundry reports · Americas",
           "start": "2024-01-14",
           "end": "2024-01-24",
           "low": 67.8,
@@ -5558,8 +5558,8 @@
           "progress": 68
         },
         {
-          "id": "interval-36",
-          "category": "Monitor 6",
+          "id": "meridian-access-monitor-americas",
+          "category": "Monitor · Meridian access · Americas",
           "start": "2024-01-16",
           "end": "2024-01-19",
           "low": 64.42,
@@ -5568,8 +5568,8 @@
           "progress": 36
         },
         {
-          "id": "interval-43",
-          "category": "Discover 8",
+          "id": "harbor-alerts-discover-public-sector",
+          "category": "Discover · Harbor alerts · Public sector",
           "start": "2024-01-15",
           "end": "2024-01-26",
           "low": 18.16,
@@ -5578,8 +5578,8 @@
           "progress": 2
         },
         {
-          "id": "interval-50",
-          "category": "Prepare 9",
+          "id": "beacon-catalog-prepare-education",
+          "category": "Prepare · Beacon catalog · Education",
           "start": "2024-01-18",
           "end": "2024-01-25",
           "low": 27.38,
@@ -5588,8 +5588,8 @@
           "progress": 63
         },
         {
-          "id": "interval-57",
-          "category": "Model 10",
+          "id": "junction-exports-model-education",
+          "category": "Model · Junction exports · Education",
           "start": "2024-01-21",
           "end": "2024-01-28",
           "low": 35.86,
@@ -5598,8 +5598,8 @@
           "progress": 3
         },
         {
-          "id": "interval-64",
-          "category": "Review 11",
+          "id": "drift-monitor-review-research",
+          "category": "Review · Drift monitor · Research",
           "start": "2024-01-24",
           "end": "2024-02-04",
           "low": 49.57,
@@ -6511,84 +6511,84 @@
           "latitude": 38.3266,
           "value": 858.7,
           "category": "Seoul",
-          "label": "Seoul event 1"
+          "label": "Seoul · freshness monitor"
         },
         {
           "longitude": 106.32139,
           "latitude": -2.18573,
           "value": 163.9,
           "category": "Singapore",
-          "label": "Singapore event 268"
+          "label": "Singapore · forecast refresh"
         },
         {
           "longitude": 134.50105,
           "latitude": 36.58176,
           "value": 998.89,
           "category": "Tokyo",
-          "label": "Tokyo event 476"
+          "label": "Tokyo · quality review"
         },
         {
           "longitude": 1.58711,
           "latitude": 48.77457,
           "value": 905.46,
           "category": "Paris",
-          "label": "Paris event 534"
+          "label": "Paris · alert delivery"
         },
         {
           "longitude": -122.95953,
           "latitude": 34.02632,
           "value": 25.04,
           "category": "San Francisco",
-          "label": "San Francisco event 632"
+          "label": "San Francisco · quality review"
         },
         {
           "longitude": 129.7419,
           "latitude": 40.91398,
           "value": 469.49,
           "category": "Seoul",
-          "label": "Seoul event 801"
+          "label": "Seoul · catalog search"
         },
         {
           "longitude": 150.26764,
           "latitude": -32.87151,
           "value": 294.53,
           "category": "Sydney",
-          "label": "Sydney event 1067"
+          "label": "Sydney · dashboard session"
         },
         {
           "longitude": 6.49028,
           "latitude": 49.24069,
           "value": 179.18,
           "category": "Paris",
-          "label": "Paris event 1334"
+          "label": "Paris · quality review"
         },
         {
           "longitude": 29.71249,
           "latitude": -25.69999,
           "value": 160.79,
           "category": "Johannesburg",
-          "label": "Johannesburg event 1600"
+          "label": "Johannesburg · forecast refresh"
         },
         {
           "longitude": 152.66542,
           "latitude": -33.54303,
           "value": 924.27,
           "category": "Sydney",
-          "label": "Sydney event 1867"
+          "label": "Sydney · freshness monitor"
         },
         {
           "longitude": 5.79273,
           "latitude": 51.86691,
           "value": 958.89,
           "category": "London",
-          "label": "London event 2133"
+          "label": "London · catalog search"
         },
         {
           "longitude": 24.73856,
           "latitude": -26.50146,
           "value": 322.8,
           "category": "Johannesburg",
-          "label": "Johannesburg event 2400"
+          "label": "Johannesburg · alert delivery"
         }
       ],
       "fields": [
@@ -7015,7 +7015,7 @@
       },
       "tableData": [
         {
-          "name": "Build 1",
+          "name": "Atlas migration · APAC · Horizon",
           "category": "Enterprise",
           "series": "Current",
           "speed": 53.879,
@@ -7026,7 +7026,7 @@
           "previous": 78.447
         },
         {
-          "name": "Build 170",
+          "name": "Beacon catalog · Americas · Solstice",
           "category": "Public",
           "series": "Previous",
           "speed": 101.085,
@@ -7037,7 +7037,7 @@
           "previous": 125.024
         },
         {
-          "name": "Build 223",
+          "name": "Harbor alerts · APAC · Waypoint",
           "category": "Core",
           "series": "Current",
           "speed": 72.25,
@@ -7048,7 +7048,7 @@
           "previous": 95.749
         },
         {
-          "name": "Build 445",
+          "name": "Atlas migration · EMEA · Solstice",
           "category": "Public",
           "series": "Current",
           "speed": 93.526,
@@ -7059,7 +7059,7 @@
           "previous": 107.259
         },
         {
-          "name": "Build 656",
+          "name": "Iris governance · APAC · Northstar",
           "category": "Enterprise",
           "series": "Previous",
           "speed": 34.346,
@@ -7070,7 +7070,7 @@
           "previous": 62.684
         },
         {
-          "name": "Build 667",
+          "name": "Harbor alerts · EMEA · Northstar",
           "category": "Growth",
           "series": "Current",
           "speed": 86.067,
@@ -7081,7 +7081,7 @@
           "previous": 107.474
         },
         {
-          "name": "Build 889",
+          "name": "Atlas migration · Americas · Horizon",
           "category": "Education",
           "series": "Current",
           "speed": 72.524,
@@ -7092,7 +7092,7 @@
           "previous": 94.295
         },
         {
-          "name": "Build 1112",
+          "name": "Iris governance · Americas · Waypoint",
           "category": "Growth",
           "series": "Previous",
           "speed": 71.697,
@@ -7103,7 +7103,7 @@
           "previous": 90.603
         },
         {
-          "name": "Build 1334",
+          "name": "Beacon catalog · Public sector · Solstice",
           "category": "Education",
           "series": "Previous",
           "speed": 67.022,
@@ -7114,7 +7114,7 @@
           "previous": 82.172
         },
         {
-          "name": "Build 1556",
+          "name": "Iris governance · Public sector · Northstar",
           "category": "Enterprise",
           "series": "Previous",
           "speed": 62.079,
@@ -7125,7 +7125,7 @@
           "previous": 73.339
         },
         {
-          "name": "Build 1778",
+          "name": "Beacon catalog · Education · Horizon",
           "category": "Core",
           "series": "Previous",
           "speed": 74.846,
@@ -7136,7 +7136,7 @@
           "previous": 101.18
         },
         {
-          "name": "Build 2000",
+          "name": "Iris governance · Education · Waypoint",
           "category": "Public",
           "series": "Previous",
           "speed": 84.901,
@@ -7585,8 +7585,8 @@
       },
       "tableData": [
         {
-          "id": "interval-1",
-          "category": "Discover 1",
+          "id": "atlas-migration-discover-apac",
+          "category": "Discover · Atlas migration · APAC",
           "start": "2024-01-01",
           "end": "2024-01-06",
           "low": 17.54,
@@ -7595,8 +7595,8 @@
           "progress": 79
         },
         {
-          "id": "interval-8",
-          "category": "Prepare 2",
+          "id": "iris-governance-prepare-apac",
+          "category": "Prepare · Iris governance · APAC",
           "start": "2024-01-04",
           "end": "2024-01-13",
           "low": 28.9,
@@ -7605,8 +7605,8 @@
           "progress": 68
         },
         {
-          "id": "interval-15",
-          "category": "Model 3",
+          "id": "compass-metrics-model-emea",
+          "category": "Model · Compass metrics · EMEA",
           "start": "2024-01-07",
           "end": "2024-01-16",
           "low": 41.06,
@@ -7615,8 +7615,8 @@
           "progress": 83
         },
         {
-          "id": "interval-22",
-          "category": "Review 4",
+          "id": "kepler-models-review-emea",
+          "category": "Review · Kepler models · EMEA",
           "start": "2024-01-10",
           "end": "2024-01-13",
           "low": 49.32,
@@ -7625,8 +7625,8 @@
           "progress": 83
         },
         {
-          "id": "interval-29",
-          "category": "Publish 5",
+          "id": "ember-forecast-publish-americas",
+          "category": "Publish · Ember forecast · Americas",
           "start": "2024-01-13",
           "end": "2024-01-18",
           "low": 59.13,
@@ -7635,8 +7635,8 @@
           "progress": 57
         },
         {
-          "id": "interval-36",
-          "category": "Monitor 6",
+          "id": "meridian-access-monitor-americas",
+          "category": "Monitor · Meridian access · Americas",
           "start": "2024-01-16",
           "end": "2024-01-25",
           "low": 66.6,
@@ -7645,8 +7645,8 @@
           "progress": 6
         },
         {
-          "id": "interval-43",
-          "category": "Discover 8",
+          "id": "harbor-alerts-discover-public-sector",
+          "category": "Discover · Harbor alerts · Public sector",
           "start": "2024-01-15",
           "end": "2024-01-25",
           "low": 14.02,
@@ -7655,8 +7655,8 @@
           "progress": 24
         },
         {
-          "id": "interval-50",
-          "category": "Prepare 9",
+          "id": "beacon-catalog-prepare-education",
+          "category": "Prepare · Beacon catalog · Education",
           "start": "2024-01-18",
           "end": "2024-01-22",
           "low": 30.58,
@@ -7665,8 +7665,8 @@
           "progress": 60
         },
         {
-          "id": "interval-57",
-          "category": "Model 10",
+          "id": "junction-exports-model-education",
+          "category": "Model · Junction exports · Education",
           "start": "2024-01-21",
           "end": "2024-02-01",
           "low": 38.14,
@@ -7675,8 +7675,8 @@
           "progress": 5
         },
         {
-          "id": "interval-64",
-          "category": "Review 11",
+          "id": "drift-monitor-review-research",
+          "category": "Review · Drift monitor · Research",
           "start": "2024-01-24",
           "end": "2024-01-26",
           "low": 45.42,
@@ -8697,100 +8697,100 @@
       },
       "tableData": [
         {
-          "id": "entity-1",
+          "id": "Aurora Labs · APAC · Horizon",
           "x": 10.838,
           "y": 0,
           "size": 27.71,
           "group": "Enterprise",
-          "time": "Frame 01"
+          "time": "2026-W01"
         },
         {
-          "id": "entity-2",
+          "id": "Blue Harbor · APAC · Horizon",
           "x": 19.276,
           "y": 0.983,
           "size": 10.03,
           "group": "Growth",
-          "time": "Frame 01"
+          "time": "2026-W01"
         },
         {
-          "id": "entity-3",
+          "id": "Cedar Health · APAC · Horizon",
           "x": 21.446,
           "y": 2.104,
           "size": 22.06,
           "group": "Core",
-          "time": "Frame 01"
+          "time": "2026-W01"
         },
         {
-          "id": "entity-4",
+          "id": "Delta Works · APAC · Horizon",
           "x": 25.209,
           "y": 3.517,
           "size": 11.05,
           "group": "Education",
-          "time": "Frame 01"
+          "time": "2026-W01"
         },
         {
-          "id": "entity-5",
+          "id": "Evergreen Public · APAC · Horizon",
           "x": 33.549,
           "y": 5.754,
           "size": 12.12,
           "group": "Public",
-          "time": "Frame 01"
+          "time": "2026-W01"
         },
         {
-          "id": "entity-6",
+          "id": "Fieldnote Studio · APAC · Horizon",
           "x": 40.67,
           "y": 8.342,
           "size": 32.21,
           "group": "Research",
-          "time": "Frame 01"
+          "time": "2026-W01"
         },
         {
-          "id": "entity-7",
+          "id": "Granite Research · APAC · Horizon",
           "x": 11.865,
           "y": 4.552,
           "size": 9.34,
           "group": "Enterprise",
-          "time": "Frame 01"
+          "time": "2026-W01"
         },
         {
-          "id": "entity-8",
+          "id": "Helio Education · APAC · Horizon",
           "x": 19.677,
           "y": 7.081,
           "size": 32.35,
           "group": "Growth",
-          "time": "Frame 01"
+          "time": "2026-W01"
         },
         {
-          "id": "entity-9",
+          "id": "Indigo Systems · APAC · Horizon",
           "x": 21.992,
           "y": 8.728,
           "size": 19.03,
           "group": "Core",
-          "time": "Frame 01"
+          "time": "2026-W01"
         },
         {
-          "id": "entity-10",
+          "id": "Juniper Market · APAC · Horizon",
           "x": 25.591,
           "y": 10.921,
           "size": 28.39,
           "group": "Education",
-          "time": "Frame 01"
+          "time": "2026-W01"
         },
         {
-          "id": "entity-11",
+          "id": "Keystone Civic · APAC · Horizon",
           "x": 32.369,
           "y": 14.417,
           "size": 28.05,
           "group": "Public",
-          "time": "Frame 01"
+          "time": "2026-W01"
         },
         {
-          "id": "entity-12",
+          "id": "Lumen Analytics · APAC · Horizon",
           "x": 37.629,
           "y": 17.867,
           "size": 15.92,
           "group": "Research",
-          "time": "Frame 01"
+          "time": "2026-W01"
         }
       ],
       "fields": [
@@ -9267,76 +9267,76 @@
       },
       "tableData": [
         {
-          "id": "node-1",
+          "id": "statground",
           "parent": "",
           "value": 120000,
           "label": "Statground"
         },
         {
-          "id": "node-2",
-          "parent": "node-1",
+          "id": "horizon-apac-beacon-catalog",
+          "parent": "statground",
           "value": 24000,
-          "label": "Prepare 1"
+          "label": "Prepare · Beacon catalog · APAC · Horizon"
         },
         {
-          "id": "node-3",
-          "parent": "node-1",
+          "id": "horizon-apac-compass-metrics",
+          "parent": "statground",
           "value": 20000,
-          "label": "Prepare 2"
+          "label": "Prepare · Compass metrics · APAC · Horizon"
         },
         {
-          "id": "node-4",
-          "parent": "node-1",
+          "id": "horizon-apac-drift-monitor",
+          "parent": "statground",
           "value": 17143,
-          "label": "Prepare 3"
+          "label": "Prepare · Drift monitor · APAC · Horizon"
         },
         {
-          "id": "node-5",
-          "parent": "node-1",
+          "id": "horizon-apac-ember-forecast",
+          "parent": "statground",
           "value": 15000,
-          "label": "Prepare 4"
+          "label": "Prepare · Ember forecast · APAC · Horizon"
         },
         {
-          "id": "node-6",
-          "parent": "node-1",
+          "id": "horizon-apac-foundry-reports",
+          "parent": "statground",
           "value": 13333,
-          "label": "Prepare 5"
+          "label": "Prepare · Foundry reports · APAC · Horizon"
         },
         {
-          "id": "node-7",
-          "parent": "node-2",
+          "id": "horizon-apac-harbor-alerts",
+          "parent": "horizon-apac-beacon-catalog",
           "value": 9231,
-          "label": "Model 6"
+          "label": "Model · Harbor alerts · APAC · Horizon"
         },
         {
-          "id": "node-8",
-          "parent": "node-2",
+          "id": "horizon-apac-iris-governance",
+          "parent": "horizon-apac-beacon-catalog",
           "value": 8571,
-          "label": "Model 7"
+          "label": "Model · Iris governance · APAC · Horizon"
         },
         {
-          "id": "node-9",
-          "parent": "node-2",
+          "id": "horizon-apac-junction-exports",
+          "parent": "horizon-apac-beacon-catalog",
           "value": 8000,
-          "label": "Model 8"
+          "label": "Model · Junction exports · APAC · Horizon"
         },
         {
-          "id": "node-10",
-          "parent": "node-2",
+          "id": "horizon-apac-kepler-models",
+          "parent": "horizon-apac-beacon-catalog",
           "value": 7500,
-          "label": "Model 9"
+          "label": "Model · Kepler models · APAC · Horizon"
         },
         {
-          "id": "node-11",
-          "parent": "node-2",
+          "id": "horizon-apac-lantern-quality",
+          "parent": "horizon-apac-beacon-catalog",
           "value": 7059,
-          "label": "Model 10"
+          "label": "Model · Lantern quality · APAC · Horizon"
         },
         {
-          "id": "node-12",
-          "parent": "node-3",
+          "id": "horizon-apac-meridian-access",
+          "parent": "horizon-apac-compass-metrics",
           "value": 6667,
-          "label": "Model 11"
+          "label": "Model · Meridian access · APAC · Horizon"
         }
       ],
       "fields": [
@@ -9789,8 +9789,8 @@
       "tableData": [
         {
           "id": "edge-20",
-          "source": "Reports 2",
-          "target": "Governance 2",
+          "source": "Reports · EMEA",
+          "target": "Governance · EMEA",
           "value": 47.59,
           "community": "Research"
         },
@@ -9803,29 +9803,29 @@
         },
         {
           "id": "edge-25",
-          "source": "Publishing 2",
-          "target": "Validation 3",
+          "source": "Publishing · EMEA",
+          "target": "Validation · Americas",
           "value": 45.89,
           "community": "Analysis"
         },
         {
           "id": "edge-50",
-          "source": "Publishing 4",
-          "target": "Catalog 5",
+          "source": "Publishing · Public sector",
+          "target": "Catalog · Education",
           "value": 45.63,
           "community": "Research"
         },
         {
           "id": "edge-60",
-          "source": "Publishing 5",
-          "target": "Collection 6",
+          "source": "Publishing · Education",
+          "target": "Collection · Research",
           "value": 45.6,
           "community": "Data engineering"
         },
         {
           "id": "edge-12",
           "source": "Publishing",
-          "target": "Collection 2",
+          "target": "Collection · EMEA",
           "value": 45.31,
           "community": "Data engineering"
         },
@@ -9838,8 +9838,8 @@
         },
         {
           "id": "edge-34",
-          "source": "Governance 3",
-          "target": "Monitoring 3",
+          "source": "Governance · Americas",
+          "target": "Monitoring · Americas",
           "value": 42.59,
           "community": "Design"
         },
@@ -9852,15 +9852,15 @@
         },
         {
           "id": "edge-56",
-          "source": "Reports 5",
-          "target": "Governance 5",
+          "source": "Reports · Education",
+          "target": "Governance · Education",
           "value": 42.04,
           "community": "Research"
         },
         {
           "id": "edge-13",
           "source": "Publishing",
-          "target": "Validation 2",
+          "target": "Validation · EMEA",
           "value": 42,
           "community": "Analysis"
         },
@@ -10282,70 +10282,70 @@
           "y": 2.169,
           "size": 20.23,
           "group": "Enterprise",
-          "label": "Observation 1"
+          "label": "Aurora Labs · Enterprise"
         },
         {
           "x": 44.748,
           "y": -3.925,
           "size": 39.84,
           "group": "Enterprise",
-          "label": "Observation 445"
+          "label": "Aurora Labs · Enterprise"
         },
         {
           "x": 22.5,
           "y": 30.662,
           "size": 34.63,
           "group": "Growth",
-          "label": "Observation 890"
+          "label": "Blue Harbor · Growth"
         },
         {
           "x": 26.155,
           "y": 24.834,
           "size": 10.21,
           "group": "Growth",
-          "label": "Observation 1334"
+          "label": "Blue Harbor · Growth"
         },
         {
           "x": 19.249,
           "y": 28.64,
           "size": 37.76,
           "group": "Growth",
-          "label": "Observation 1778"
+          "label": "Blue Harbor · Growth"
         },
         {
           "x": -31.782,
           "y": 29.896,
           "size": 31.78,
           "group": "Core",
-          "label": "Observation 2223"
+          "label": "Cedar Health · Core"
         },
         {
           "x": -26.334,
           "y": 35.477,
           "size": 12.32,
           "group": "Core",
-          "label": "Observation 2667"
+          "label": "Cedar Health · Core"
         },
         {
           "x": -7.029,
           "y": 29.586,
           "size": 19.22,
           "group": "Core",
-          "label": "Observation 3111"
+          "label": "Cedar Health · Core"
         },
         {
           "x": -43.326,
           "y": -2.609,
           "size": 17.16,
           "group": "Education",
-          "label": "Observation 3556"
+          "label": "Delta Works · Education"
         },
         {
           "x": -38.524,
           "y": 3.711,
           "size": 6.31,
           "group": "Education",
-          "label": "Observation 4000"
+          "label": "Delta Works · Education"
         }
       ],
       "fields": [
@@ -10796,7 +10796,7 @@
       },
       "tableData": [
         {
-          "name": "Build 1",
+          "name": "Atlas migration · APAC · Horizon",
           "category": "Enterprise",
           "series": "Current",
           "speed": 62.702,
@@ -10807,7 +10807,7 @@
           "previous": 87.026
         },
         {
-          "name": "Build 556",
+          "name": "Drift monitor · Education · Waypoint",
           "category": "Enterprise",
           "series": "Previous",
           "speed": 59.135,
@@ -10818,7 +10818,7 @@
           "previous": 82.415
         },
         {
-          "name": "Build 1112",
+          "name": "Iris governance · Americas · Waypoint",
           "category": "Growth",
           "series": "Previous",
           "speed": 63.488,
@@ -10829,7 +10829,7 @@
           "previous": 76.903
         },
         {
-          "name": "Build 1667",
+          "name": "Lantern quality · APAC · Waypoint",
           "category": "Growth",
           "series": "Current",
           "speed": 75.122,
@@ -10840,7 +10840,7 @@
           "previous": 86.175
         },
         {
-          "name": "Build 1759",
+          "name": "Harbor alerts · Americas · Horizon",
           "category": "Education",
           "series": "Current",
           "speed": 100.434,
@@ -10851,7 +10851,7 @@
           "previous": 119.341
         },
         {
-          "name": "Build 2223",
+          "name": "Compass metrics · Research · Solstice",
           "category": "Core",
           "series": "Current",
           "speed": 68.84,
@@ -10862,7 +10862,7 @@
           "previous": 95.525
         },
         {
-          "name": "Build 2778",
+          "name": "Foundry reports · Public sector · Solstice",
           "category": "Core",
           "series": "Previous",
           "speed": 68.699,
@@ -10873,7 +10873,7 @@
           "previous": 92.334
         },
         {
-          "name": "Build 3334",
+          "name": "Kepler models · EMEA · Solstice",
           "category": "Education",
           "series": "Previous",
           "speed": 72.027,
@@ -10884,7 +10884,7 @@
           "previous": 88.4
         },
         {
-          "name": "Build 3889",
+          "name": "Atlas migration · APAC · Solstice",
           "category": "Education",
           "series": "Current",
           "speed": 74.193,
@@ -10895,7 +10895,7 @@
           "previous": 87.446
         },
         {
-          "name": "Build 4445",
+          "name": "Ember forecast · Education · Northstar",
           "category": "Public",
           "series": "Current",
           "speed": 84.455,
@@ -10906,7 +10906,7 @@
           "previous": 96.084
         },
         {
-          "name": "Build 4801",
+          "name": "Atlas migration · Education · Solstice",
           "category": "Enterprise",
           "series": "Current",
           "speed": 39.855,
@@ -10917,7 +10917,7 @@
           "previous": 60.444
         },
         {
-          "name": "Build 5000",
+          "name": "Iris governance · Americas · Northstar",
           "category": "Public",
           "series": "Previous",
           "speed": 93.009,
@@ -11805,58 +11805,58 @@
           "weight": 120000
         },
         {
-          "word": "Prepare 1",
+          "word": "Prepare · Beacon catalog · APAC · Horizon",
           "parent": "Statground",
           "weight": 24000
         },
         {
-          "word": "Prepare 2",
+          "word": "Prepare · Compass metrics · APAC · Horizon",
           "parent": "Statground",
           "weight": 20000
         },
         {
-          "word": "Prepare 3",
+          "word": "Prepare · Drift monitor · APAC · Horizon",
           "parent": "Statground",
           "weight": 17143
         },
         {
-          "word": "Prepare 4",
+          "word": "Prepare · Ember forecast · APAC · Horizon",
           "parent": "Statground",
           "weight": 15000
         },
         {
-          "word": "Prepare 5",
+          "word": "Prepare · Foundry reports · APAC · Horizon",
           "parent": "Statground",
           "weight": 13333
         },
         {
-          "word": "Model 6",
-          "parent": "Prepare 1",
+          "word": "Model · Harbor alerts · APAC · Horizon",
+          "parent": "Prepare · Beacon catalog · APAC · Horizon",
           "weight": 9231
         },
         {
-          "word": "Model 7",
-          "parent": "Prepare 1",
+          "word": "Model · Iris governance · APAC · Horizon",
+          "parent": "Prepare · Beacon catalog · APAC · Horizon",
           "weight": 8571
         },
         {
-          "word": "Model 8",
-          "parent": "Prepare 1",
+          "word": "Model · Junction exports · APAC · Horizon",
+          "parent": "Prepare · Beacon catalog · APAC · Horizon",
           "weight": 8000
         },
         {
-          "word": "Model 9",
-          "parent": "Prepare 1",
+          "word": "Model · Kepler models · APAC · Horizon",
+          "parent": "Prepare · Beacon catalog · APAC · Horizon",
           "weight": 7500
         },
         {
-          "word": "Model 10",
-          "parent": "Prepare 1",
+          "word": "Model · Lantern quality · APAC · Horizon",
+          "parent": "Prepare · Beacon catalog · APAC · Horizon",
           "weight": 7059
         },
         {
-          "word": "Model 11",
-          "parent": "Prepare 2",
+          "word": "Model · Meridian access · APAC · Horizon",
+          "parent": "Prepare · Compass metrics · APAC · Horizon",
           "weight": 6667
         }
       ],
@@ -14405,7 +14405,7 @@
       },
       "tableData": [
         {
-          "name": "Build 1",
+          "name": "Atlas migration · APAC · Horizon",
           "category": "Enterprise",
           "series": "Current",
           "speed": 63.973,
@@ -14416,7 +14416,7 @@
           "previous": 81.042
         },
         {
-          "name": "Build 2",
+          "name": "Beacon catalog · APAC · Horizon",
           "category": "Growth",
           "series": "Previous",
           "speed": 45.739,
@@ -14427,7 +14427,7 @@
           "previous": 67.759
         },
         {
-          "name": "Build 19",
+          "name": "Harbor alerts · EMEA · Horizon",
           "category": "Education",
           "series": "Current",
           "speed": 84.524,
@@ -14438,7 +14438,7 @@
           "previous": 101.996
         },
         {
-          "name": "Build 36",
+          "name": "Meridian access · Americas · Horizon",
           "category": "Enterprise",
           "series": "Previous",
           "speed": 65.723,
@@ -14449,7 +14449,7 @@
           "previous": 78.085
         },
         {
-          "name": "Build 54",
+          "name": "Foundry reports · Education · Horizon",
           "category": "Education",
           "series": "Previous",
           "speed": 73.697,
@@ -14460,7 +14460,7 @@
           "previous": 95.82
         },
         {
-          "name": "Build 72",
+          "name": "Meridian access · Research · Horizon",
           "category": "Growth",
           "series": "Previous",
           "speed": 65.092,
@@ -14471,7 +14471,7 @@
           "previous": 86.575
         },
         {
-          "name": "Build 74",
+          "name": "Beacon catalog · APAC · Northstar",
           "category": "Education",
           "series": "Previous",
           "speed": 97.243,
@@ -14482,7 +14482,7 @@
           "previous": 111.646
         },
         {
-          "name": "Build 89",
+          "name": "Ember forecast · EMEA · Northstar",
           "category": "Education",
           "series": "Current",
           "speed": 53.476,
@@ -14493,7 +14493,7 @@
           "previous": 73.562
         },
         {
-          "name": "Build 107",
+          "name": "Lantern quality · Americas · Northstar",
           "category": "Growth",
           "series": "Current",
           "speed": 73.599,
@@ -14504,7 +14504,7 @@
           "previous": 92.595
         },
         {
-          "name": "Build 125",
+          "name": "Ember forecast · Education · Northstar",
           "category": "Public",
           "series": "Current",
           "speed": 87.829,
@@ -14515,7 +14515,7 @@
           "previous": 100.361
         },
         {
-          "name": "Build 142",
+          "name": "Kepler models · Research · Northstar",
           "category": "Growth",
           "series": "Previous",
           "speed": 72.118,
@@ -14526,7 +14526,7 @@
           "previous": 96.344
         },
         {
-          "name": "Build 160",
+          "name": "Drift monitor · EMEA · Solstice",
           "category": "Public",
           "series": "Previous",
           "speed": 97.455,
@@ -17246,7 +17246,7 @@
       },
       "tableData": [
         {
-          "name": "Build 1",
+          "name": "Atlas migration · APAC · Horizon",
           "category": "Enterprise",
           "series": "Current",
           "speed": 63.923,
@@ -17257,7 +17257,7 @@
           "previous": 83.667
         },
         {
-          "name": "Build 45",
+          "name": "Junction exports · Public sector · Horizon",
           "category": "Public",
           "series": "Current",
           "speed": 96.328,
@@ -17268,7 +17268,7 @@
           "previous": 109.421
         },
         {
-          "name": "Build 90",
+          "name": "Foundry reports · EMEA · Northstar",
           "category": "Public",
           "series": "Previous",
           "speed": 78.786,
@@ -17279,7 +17279,7 @@
           "previous": 94.1
         },
         {
-          "name": "Build 134",
+          "name": "Beacon catalog · Research · Northstar",
           "category": "Education",
           "series": "Previous",
           "speed": 80.355,
@@ -17290,7 +17290,7 @@
           "previous": 95.725
         },
         {
-          "name": "Build 178",
+          "name": "Kepler models · Americas · Solstice",
           "category": "Core",
           "series": "Previous",
           "speed": 78.165,
@@ -17301,7 +17301,7 @@
           "previous": 101.62
         },
         {
-          "name": "Build 206",
+          "name": "Beacon catalog · Research · Solstice",
           "category": "Enterprise",
           "series": "Previous",
           "speed": 51.957,
@@ -17312,7 +17312,7 @@
           "previous": 60.677
         },
         {
-          "name": "Build 223",
+          "name": "Harbor alerts · APAC · Waypoint",
           "category": "Core",
           "series": "Current",
           "speed": 90.663,
@@ -17323,7 +17323,7 @@
           "previous": 104.297
         },
         {
-          "name": "Build 267",
+          "name": "Compass metrics · Education · Waypoint",
           "category": "Growth",
           "series": "Current",
           "speed": 73.646,
@@ -17334,7 +17334,7 @@
           "previous": 97.781
         },
         {
-          "name": "Build 295",
+          "name": "Harbor alerts · APAC · Horizon",
           "category": "Public",
           "series": "Current",
           "speed": 104.362,
@@ -17345,7 +17345,7 @@
           "previous": 117.717
         },
         {
-          "name": "Build 311",
+          "name": "Lantern quality · EMEA · Horizon",
           "category": "Enterprise",
           "series": "Current",
           "speed": 65.612,
@@ -17356,7 +17356,7 @@
           "previous": 84.086
         },
         {
-          "name": "Build 356",
+          "name": "Iris governance · Research · Horizon",
           "category": "Enterprise",
           "series": "Previous",
           "speed": 65.8,
@@ -17367,7 +17367,7 @@
           "previous": 76.647
         },
         {
-          "name": "Build 400",
+          "name": "Drift monitor · Public sector · Northstar",
           "category": "Public",
           "series": "Previous",
           "speed": 87.71,
@@ -19110,7 +19110,7 @@
           "radius": 23.59
         },
         {
-          "category": "Segment 6",
+          "category": "Partner ecosystem",
           "value": 10,
           "previous": 646.6,
           "target": 683.2,
@@ -20187,44 +20187,44 @@
       },
       "tableData": [
         {
-          "category": "A",
-          "sets": ["A"],
+          "category": "Analysis",
+          "sets": ["Analysis"],
           "size": 38643,
           "members": ["38,643 logical records"]
         },
         {
-          "category": "C",
-          "sets": ["C"],
+          "category": "Design",
+          "sets": ["Design"],
           "size": 35073,
           "members": ["35,073 logical records"]
         },
         {
-          "category": "B",
-          "sets": ["B"],
+          "category": "Engineering",
+          "sets": ["Engineering"],
           "size": 31484,
           "members": ["31,484 logical records"]
         },
         {
-          "category": "A&C",
-          "sets": ["A", "C"],
+          "category": "Analysis&Design",
+          "sets": ["Analysis", "Design"],
           "size": 15420,
           "members": ["15,420 logical records"]
         },
         {
-          "category": "A&B",
-          "sets": ["A", "B"],
+          "category": "Analysis&Engineering",
+          "sets": ["Analysis", "Engineering"],
           "size": 14411,
           "members": ["14,411 logical records"]
         },
         {
-          "category": "B&C",
-          "sets": ["B", "C"],
+          "category": "Engineering&Design",
+          "sets": ["Engineering", "Design"],
           "size": 13237,
           "members": ["13,237 logical records"]
         },
         {
-          "category": "A&B&C",
-          "sets": ["A", "B", "C"],
+          "category": "Analysis&Engineering&Design",
+          "sets": ["Analysis", "Engineering", "Design"],
           "size": 5250,
           "members": ["5,250 logical records"]
         }
@@ -24295,7 +24295,7 @@
           "w": 0.024586,
           "magnitude": 0.162243,
           "color": "#2563eb",
-          "label": "Flow sample 1"
+          "label": "lower south west flow"
         },
         {
           "x": 0,
@@ -24306,7 +24306,7 @@
           "w": 0.109655,
           "magnitude": 0.346106,
           "color": "#7c3aed",
-          "label": "Flow sample 308"
+          "label": "lower south central flow"
         },
         {
           "x": 1.71429,
@@ -24317,7 +24317,7 @@
           "w": 0.062307,
           "magnitude": 0.500759,
           "color": "#7c3aed",
-          "label": "Flow sample 614"
+          "label": "lower north east flow"
         },
         {
           "x": -0.57143,
@@ -24328,7 +24328,7 @@
           "w": 0.117993,
           "magnitude": 0.655819,
           "color": "#db2777",
-          "label": "Flow sample 921"
+          "label": "lower south west flow"
         },
         {
           "x": 1.42857,
@@ -24339,7 +24339,7 @@
           "w": 0.262104,
           "magnitude": 0.807535,
           "color": "#ea580c",
-          "label": "Flow sample 1228"
+          "label": "lower midline east flow"
         },
         {
           "x": -0.85714,
@@ -24350,7 +24350,7 @@
           "w": 0.203833,
           "magnitude": 0.783093,
           "color": "#059669",
-          "label": "Flow sample 1535"
+          "label": "middle north west flow"
         },
         {
           "x": 0.85714,
@@ -24361,7 +24361,7 @@
           "w": 0.086628,
           "magnitude": 0.761046,
           "color": "#059669",
-          "label": "Flow sample 1841"
+          "label": "middle south east flow"
         },
         {
           "x": -1.42857,
@@ -24372,7 +24372,7 @@
           "w": 0.073441,
           "magnitude": 0.767338,
           "color": "#0891b2",
-          "label": "Flow sample 2148"
+          "label": "upper midline west flow"
         },
         {
           "x": 0.57143,
@@ -24383,7 +24383,7 @@
           "w": 0.110491,
           "magnitude": 0.654511,
           "color": "#2563eb",
-          "label": "Flow sample 2455"
+          "label": "upper north east flow"
         },
         {
           "x": -1.71429,
@@ -24394,7 +24394,7 @@
           "w": 0.103606,
           "magnitude": 0.507555,
           "color": "#7c3aed",
-          "label": "Flow sample 2762"
+          "label": "upper south west flow"
         },
         {
           "x": 0,
@@ -24405,7 +24405,7 @@
           "w": 0.258014,
           "magnitude": 0.417536,
           "color": "#7c3aed",
-          "label": "Flow sample 3068"
+          "label": "upper north central flow"
         },
         {
           "x": 2,
@@ -24416,7 +24416,7 @@
           "w": 0.011701,
           "magnitude": 0.160795,
           "color": "#db2777",
-          "label": "Flow sample 3375"
+          "label": "upper north east flow"
         }
       ],
       "fields": [
