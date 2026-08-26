@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:graflume:catalog:1",
+  "$id": "urn:graflume:catalog:2",
   "title": "Graflume public catalog manifest",
   "type": "object",
   "additionalProperties": false,
@@ -13,6 +13,7 @@
     "currentLimitations",
     "families",
     "modes",
+    "manualExamples",
     "compatibilityIdentifiers",
     "themes",
     "samples",
@@ -30,7 +31,7 @@
   ],
   "properties": {
     "$schema": { "type": "string" },
-    "schemaVersion": { "const": 1 },
+    "schemaVersion": { "const": 2 },
     "package": { "$ref": "#/$defs/package" },
     "verifiedAt": { "type": "string", "format": "date" },
     "totals": { "$ref": "#/$defs/totals" },
@@ -38,6 +39,13 @@
     "currentLimitations": { "$ref": "#/$defs/currentLimitations" },
     "families": { "type": "array", "items": { "$ref": "#/$defs/family" } },
     "modes": { "type": "array", "items": { "$ref": "#/$defs/mode" } },
+    "manualExamples": {
+      "type": "array",
+      "minItems": 176,
+      "maxItems": 176,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/manualExample" }
+    },
     "compatibilityIdentifiers": {
       "type": "array",
       "items": { "$ref": "#/$defs/compatibility" }
@@ -293,6 +301,89 @@
         "manual": { "$ref": "#/$defs/nonEmpty" },
         "snapshot": { "$ref": "#/$defs/nonEmpty" }
       }
+    },
+    "manualExample": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "familyId",
+        "runtime",
+        "entryPoint",
+        "renderer",
+        "quickApi",
+        "portableMark",
+        "data",
+        "tableData",
+        "fields",
+        "options",
+        "summary",
+        "demonstrates",
+        "sourceRef"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmpty" },
+        "familyId": { "oneOf": [{ "$ref": "#/$defs/nonEmpty" }, { "type": "null" }] },
+        "runtime": { "enum": ["core", "spatial"] },
+        "entryPoint": { "$ref": "#/$defs/nonEmpty" },
+        "renderer": { "enum": ["canvas", "webgl"] },
+        "quickApi": { "$ref": "#/$defs/nonEmpty" },
+        "portableMark": { "$ref": "#/$defs/nonEmpty" },
+        "data": {
+          "oneOf": [
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/jsonObject" }
+            },
+            { "$ref": "#/$defs/jsonObject" }
+          ]
+        },
+        "tableData": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 128,
+          "items": { "$ref": "#/$defs/jsonObject" }
+        },
+        "fields": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/manualField" }
+        },
+        "options": { "$ref": "#/$defs/jsonObject" },
+        "summary": { "$ref": "#/$defs/nonEmpty" },
+        "demonstrates": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/nonEmpty" }
+        },
+        "sourceRef": { "$ref": "#/$defs/nonEmpty" }
+      }
+    },
+    "manualField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type"],
+      "properties": {
+        "name": { "$ref": "#/$defs/nonEmpty" },
+        "type": { "enum": ["quantitative", "ordinal", "temporal", "boolean"] }
+      }
+    },
+    "jsonObject": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/jsonValue" }
+    },
+    "jsonValue": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "boolean" },
+        { "type": "number" },
+        { "type": "string" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValue" } },
+        { "$ref": "#/$defs/jsonObject" }
+      ]
     },
     "runtimeCapabilities": {
       "type": "object",

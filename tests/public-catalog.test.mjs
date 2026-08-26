@@ -12,8 +12,13 @@ import {
   extractNodeTestNames,
   validateCapabilityTraceability,
 } from '../scripts/current-limitations-traceability.mjs';
+import { fieldsForSpec, quickOptions } from '../scripts/manual-example-helpers.mjs';
+import { seriesSampleSpec } from '../scripts/series-samples.mjs';
+import { spatialSampleSpecs } from '../scripts/spatial-samples.mjs';
 
 import * as Complete from '../.tmp/src/complete.js';
+import { flattenScene } from '../.tmp/src/scene/walk.js';
+import * as Spatial from '../.tmp/src/spatial.js';
 import {
   spatialCatalogBoundary,
   spatialChartFamilies,
@@ -65,6 +70,267 @@ test('public catalog is derived from the exact runtime family, mode, theme and i
   assert.equal(manifest.totals.presetsAndModes, 176);
   assert.equal(manifest.totals.compatibilityIdentifiers, 120);
   assert.equal(manifest.totals.themes, 17);
+});
+
+test('176 manual examples preserve exact mode order, APIs, runtimes, references, and claims', async () => {
+  assert.equal(manifest.schemaVersion, 2);
+  assert.equal(manifest.manualExamples.length, 176);
+  assert.deepEqual(
+    manifest.manualExamples.map(({ id }) => id),
+    manifest.modes.map(({ id }) => id),
+  );
+  assert.equal(new Set(manifest.manualExamples.map(({ id }) => id)).size, 176);
+  assert.deepEqual(
+    manifest.manualExamples.filter(({ familyId }) => familyId === null).map(({ id }) => id),
+    ['vega', 'custom'],
+  );
+  assert.equal(manifest.manualExamples.filter(({ familyId }) => familyId !== null).length, 174);
+  assert.equal(manifest.manualExamples.find(({ id }) => id === 'tiled-map')?.runtime, 'core');
+  assert.equal(manifest.manualExamples.find(({ id }) => id === 'globe')?.runtime, 'spatial');
+
+  for (let index = 0; index < manifest.modes.length; index += 1) {
+    const mode = manifest.modes[index];
+    const example = manifest.manualExamples[index];
+    assert.deepEqual(
+      {
+        id: example.id,
+        familyId: example.familyId,
+        entryPoint: example.entryPoint,
+        renderer: example.renderer,
+        quickApi: example.quickApi,
+        portableMark: example.portableMark,
+        sourceRef: example.sourceRef,
+      },
+      {
+        id: mode.id,
+        familyId: mode.familyId,
+        entryPoint: mode.entryPoint,
+        renderer: mode.renderer,
+        quickApi: mode.quickApi,
+        portableMark: mode.mark,
+        sourceRef: mode.exampleRef,
+      },
+      mode.id,
+    );
+    assert.equal(example.runtime, mode.renderer === 'webgl' ? 'spatial' : 'core', mode.id);
+    assert.equal(
+      typeof (example.runtime === 'spatial' ? Spatial : Complete)[example.quickApi],
+      'function',
+      `${mode.id} Quick API`,
+    );
+    assert.equal(example.demonstrates[0], mode.id, `${mode.id} demonstrates itself first`);
+    assert.equal(new Set(example.demonstrates).size, example.demonstrates.length, mode.id);
+    const [sourcePath] = example.sourceRef.split('#');
+    await access(new URL(`../${sourcePath}`, import.meta.url));
+  }
+
+  for (const family of manifest.families) {
+    const examples = manifest.manualExamples.filter(({ familyId }) => familyId === family.id);
+    const expected = examples.map(({ id }) => [id]);
+    family.supportedFeatures.forEach((claim, claimIndex) => {
+      if (examples.some(({ id }) => id === claim)) return;
+      expected[claimIndex % examples.length].push(claim);
+    });
+    assert.deepEqual(
+      examples.map(({ demonstrates }) => demonstrates),
+      expected,
+      `${family.id} supported-feature allocation`,
+    );
+    for (const claim of family.supportedFeatures) {
+      assert.equal(
+        examples.reduce(
+          (count, example) => count + Number(example.demonstrates.includes(claim)),
+          0,
+        ),
+        1,
+        `${family.id}: ${claim}`,
+      );
+    }
+  }
+  for (const adapter of manifest.manualExamples.filter(({ familyId }) => familyId === null)) {
+    assert.deepEqual(adapter.demonstrates, [adapter.id]);
+  }
+});
+
+test('manual example data, options, fields, and table rows are unique and JSON-safe', () => {
+  const allowedTypes = new Set(['quantitative', 'ordinal', 'temporal', 'boolean']);
+  const payloadSignatures = new Set();
+  const assertFiniteJson = (value, path) => {
+    if (typeof value === 'number') assert.ok(Number.isFinite(value), path);
+    if (Array.isArray(value)) {
+      value.forEach((item, index) => assertFiniteJson(item, `${path}[${index}]`));
+    } else if (value !== null && typeof value === 'object') {
+      Object.entries(value).forEach(([key, item]) => assertFiniteJson(item, `${path}.${key}`));
+    }
+  };
+
+  for (const example of manifest.manualExamples) {
+    assert.ok(
+      (Array.isArray(example.data) && example.data.length > 0) ||
+        (!Array.isArray(example.data) &&
+          example.data !== null &&
+          typeof example.data === 'object' &&
+          Object.keys(example.data).length > 0),
+      `${example.id} data`,
+    );
+    assert.ok(
+      example.options !== null &&
+        typeof example.options === 'object' &&
+        !Array.isArray(example.options),
+      `${example.id} options`,
+    );
+    assert.ok(example.tableData.length > 0 && example.tableData.length <= 128, example.id);
+    assert.ok(example.fields.length > 0, `${example.id} fields`);
+    assert.equal(
+      new Set(example.fields.map(({ name }) => name)).size,
+      example.fields.length,
+      `${example.id} field names`,
+    );
+    for (const field of example.fields) {
+      assert.ok(allowedTypes.has(field.type), `${example.id}.${field.name} type`);
+      assert.ok(
+        example.tableData.some((row) => Object.hasOwn(row, field.name)),
+        `${example.id}.${field.name} table coverage`,
+      );
+    }
+    for (const property of ['data', 'tableData', 'fields', 'options']) {
+      const serialized = JSON.stringify(example[property]);
+      assert.deepEqual(JSON.parse(serialized), example[property], `${example.id}.${property}`);
+      assertFiniteJson(example[property], `${example.id}.${property}`);
+    }
+    const signature = JSON.stringify([example.data, example.options, example.fields]);
+    assert.ok(!payloadSignatures.has(signature), `${example.id} executable payload is unique`);
+    payloadSignatures.add(signature);
+  }
+  assert.equal(payloadSignatures.size, 176);
+});
+
+test('Canvas manual examples are generated directly from seriesSampleSpec Quick semantics', () => {
+  const variantById = new Map(Complete.fullVariantCatalog.map((variant) => [variant.id, variant]));
+  for (const example of manifest.manualExamples.filter(({ runtime }) => runtime === 'core')) {
+    const variant = variantById.get(example.id);
+    assert.ok(variant, example.id);
+    const capability =
+      example.familyId === 'technical-indicator'
+        ? Complete.resolveTechnicalIndicatorCapability(example.id)
+        : null;
+    const spec = seriesSampleSpec({
+      ...variant,
+      ...(capability === null ? {} : { technicalIndicatorCapability: capability }),
+    });
+    assert.deepEqual(example.data, spec.data, `${example.id} data source`);
+    assert.deepEqual(example.options, JSON.parse(JSON.stringify(quickOptions(spec))), example.id);
+    assert.deepEqual(
+      example.fields.map(({ name }) => name),
+      [...fieldsForSpec(spec)],
+      `${example.id} fields`,
+    );
+  }
+});
+
+test('all 45 technical-indicator manual examples calculate past warm-up into geometry', () => {
+  const examples = manifest.manualExamples.filter(
+    ({ familyId }) => familyId === 'technical-indicator',
+  );
+  assert.equal(examples.length, 45);
+  for (const example of examples) {
+    const capability = Complete.resolveTechnicalIndicatorCapability(example.id);
+    assert.ok(capability, example.id);
+    assert.ok(example.data.length >= 96, `${example.id} OHLCV rows`);
+    for (const row of example.data) {
+      for (const field of ['value', 'open', 'high', 'low', 'close', 'volume']) {
+        assert.ok(Number.isFinite(row[field]), `${example.id}.${field}`);
+      }
+      assert.ok(row.high >= Math.max(row.open, row.close), `${example.id}.high`);
+      assert.ok(row.low <= Math.min(row.open, row.close), `${example.id}.low`);
+    }
+    assert.equal(example.options.mark.options.kind, capability.kind, example.id);
+    assert.equal(example.options.mark.options.calculate, true, example.id);
+    assert.deepEqual(example.options.mark.options.fields, capability.outputs, example.id);
+    for (const field of ['open', 'high', 'low', 'close', 'volume']) {
+      assert.equal(example.options.mark.fields[field], field, `${example.id}.${field} mapping`);
+    }
+
+    const { mark, ...chartOptions } = example.options;
+    const result = Complete.compile({
+      ...chartOptions,
+      data: example.data,
+      mark: { type: example.portableMark, ...mark },
+    });
+    const metadata = result.scene.metadata.technicalIndicators?.[0];
+    assert.equal(metadata?.id, capability.id, `${example.id} metadata`);
+    assert.ok(metadata.warmUpRows < example.data.length, `${example.id} warm-up`);
+    assert.ok(
+      flattenScene(result.scene.root).some(
+        (node) => typeof node.id === 'string' && node.id.startsWith('layer-'),
+      ),
+      `${example.id} mark geometry`,
+    );
+    for (const role of capability.outputs) {
+      const field = role === 'value' ? 'value' : (example.options.mark.fields[role] ?? role);
+      assert.ok(
+        example.tableData.some(
+          (row) => typeof row[field] === 'number' && Number.isFinite(row[field]),
+        ),
+        `${example.id}.${role} semantic output`,
+      );
+    }
+  }
+});
+
+test('all eight Spatial Quick examples split canonical sample data and options exactly', () => {
+  const examples = manifest.manualExamples.filter(({ runtime }) => runtime === 'spatial');
+  assert.deepEqual(
+    examples.map(({ id }) => id),
+    Object.keys(spatialSampleSpecs),
+  );
+  for (const example of examples) {
+    const spec = spatialSampleSpecs[example.id];
+    assert.equal(spec.layers.length, 1, example.id);
+    const [layer] = spec.layers;
+    const { layers: _layers, specVersion: _specVersion, ...chartOptions } = spec;
+    const { type, mode: _mode, ...markOptions } = layer.mark;
+    assert.equal(type, example.portableMark, example.id);
+    assert.deepEqual(example.data, JSON.parse(JSON.stringify(layer.data)), `${example.id} data`);
+    assert.deepEqual(
+      example.options,
+      JSON.parse(
+        JSON.stringify({
+          ...chartOptions,
+          ...(layer.id === undefined ? {} : { id: layer.id }),
+          ...markOptions,
+        }),
+      ),
+      `${example.id} Quick options`,
+    );
+    assert.ok(example.tableData.length > 0 && example.tableData.length <= 96, example.id);
+  }
+});
+
+test('catalog schema v2 requires closed manual example contracts', () => {
+  assert.equal(catalogSchema.$id, 'urn:graflume:catalog:2');
+  assert.equal(catalogSchema.properties.schemaVersion.const, 2);
+  assert.ok(catalogSchema.required.includes('manualExamples'));
+  assert.equal(catalogSchema.properties.manualExamples.minItems, 176);
+  assert.equal(catalogSchema.properties.manualExamples.maxItems, 176);
+  assert.equal(catalogSchema.$defs.manualExample.additionalProperties, false);
+  assert.equal(catalogSchema.$defs.manualField.additionalProperties, false);
+  assert.deepEqual(catalogSchema.$defs.manualExample.required, [
+    'id',
+    'familyId',
+    'runtime',
+    'entryPoint',
+    'renderer',
+    'quickApi',
+    'portableMark',
+    'data',
+    'tableData',
+    'fields',
+    'options',
+    'summary',
+    'demonstrates',
+    'sourceRef',
+  ]);
 });
 
 test('verified feature matrix closes current limitations without promoting research candidates', () => {

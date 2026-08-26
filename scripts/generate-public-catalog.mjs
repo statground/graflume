@@ -4,6 +4,10 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { format, resolveConfig } from 'prettier';
 
+import { fieldsForSpec, quickOptions } from './manual-example-helpers.mjs';
+import { seriesSampleSpec } from './series-samples.mjs';
+import { spatialSampleSpecs } from './spatial-samples.mjs';
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const check = process.argv.includes('--check');
 const write = process.argv.includes('--write') || !check;
@@ -266,12 +270,338 @@ const integratedSpatialModes = spatial.spatialCompatibilityModes.map((entry) => 
   transformSemantics: ['projection:spherical'],
   accessibilityFallback: 'bounded-semantic-table',
   performanceProfile: 'auto',
-  exampleRef: 'docs/spatial/globe.md',
+  exampleRef: 'docs/spatial/map-globe.md',
   ...introductionMetadata(entry),
 }));
 
 const modes = [...canvasModes, ...spatialModes, ...integratedSpatialModes];
 unique(modes, 'modes', ({ id }) => id);
+
+const manualTableRowLimit = 128;
+const spatialTableRowLimit = 96;
+const canvasVariantById = new Map(complete.fullVariantCatalog.map((entry) => [entry.id, entry]));
+
+function assertJsonSafe(value, label, seen = new Set(), objectProperty = false) {
+  if (value === undefined && objectProperty) return;
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return;
+  if (typeof value === 'number') {
+    assert.ok(Number.isFinite(value), `${label} contains a non-finite number`);
+    return;
+  }
+  assert.ok(typeof value === 'object', `${label} contains ${typeof value}`);
+  assert.ok(!seen.has(value), `${label} contains a cycle`);
+  seen.add(value);
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => assertJsonSafe(item, `${label}[${index}]`, seen));
+  } else {
+    assert.equal(
+      Object.getPrototypeOf(value),
+      Object.prototype,
+      `${label} contains a non-JSON object`,
+    );
+    for (const [key, item] of Object.entries(value)) {
+      assertJsonSafe(item, `${label}.${key}`, seen, true);
+    }
+  }
+  seen.delete(value);
+}
+
+function jsonClone(value, label) {
+  assertJsonSafe(value, label);
+  const source = JSON.stringify(value);
+  assert.notEqual(source, undefined, `${label} must serialize to JSON`);
+  const clone = JSON.parse(source);
+  assertJsonSafe(clone, label);
+  assert.equal(JSON.stringify(clone), source, `${label} must round-trip through JSON`);
+  return clone;
+}
+
+function encodingTypeForField(spec, field) {
+  const encodings = [spec.x, spec.y, ...(spec.layers ?? []).flatMap((layer) => [layer.x, layer.y])];
+  return encodings.find((encoding) => encoding?.field === field)?.type;
+}
+
+function inferFieldType(spec, rows, field) {
+  const encodingType = encodingTypeForField(spec, field);
+  if (['quantitative', 'ordinal', 'temporal'].includes(encodingType)) return encodingType;
+  const sample = rows.find((row) => row[field] !== null && row[field] !== undefined)?.[field];
+  if (typeof sample === 'number') return 'quantitative';
+  if (typeof sample === 'boolean') return 'boolean';
+  if (typeof sample === 'string' && /^\d{4}-\d{2}-\d{2}(?:T.*)?$/.test(sample)) {
+    return 'temporal';
+  }
+  return 'ordinal';
+}
+
+function manualFields(spec, rows, names = [...fieldsForSpec(spec)]) {
+  return names.map((name) => ({ name, type: inferFieldType(spec, rows, name) }));
+}
+
+function projectedTableRows(spec, sourceRows, limit = manualTableRowLimit) {
+  const fields = [...fieldsForSpec(spec)];
+  return sourceRows
+    .slice(0, limit)
+    .map((row) =>
+      Object.fromEntries(
+        fields.map((field) => [field, Object.hasOwn(row, field) ? row[field] : null]),
+      ),
+    );
+}
+
+function calculatedIndicatorTable(spec, capability) {
+  const rows = spec.data;
+  const markFields = spec.mark.fields ?? {};
+  const input = {};
+  for (const role of ['value', 'open', 'high', 'low', 'close', 'volume']) {
+    const field = role === 'value' ? spec.y.field : markFields[role];
+    if (field === undefined) continue;
+    input[role] = rows.map((row) => {
+      const value = row[field];
+      return typeof value === 'number' && Number.isFinite(value) ? value : null;
+    });
+  }
+  const calculation = complete.calculateTechnicalIndicator(
+    capability.kind,
+    input,
+    spec.mark.options,
+  );
+  const table = projectedTableRows(spec, rows);
+  for (const [role, values] of Object.entries(calculation.outputs)) {
+    const field = role === 'value' ? spec.y.field : (markFields[role] ?? role);
+    table.forEach((row, index) => {
+      row[field] = values[index] ?? null;
+    });
+  }
+  return table;
+}
+
+function evenlyBounded(rows, limit = spatialTableRowLimit) {
+  if (rows.length <= limit) return rows;
+  return Array.from(
+    { length: limit },
+    (_, index) => rows[Math.floor((index * (rows.length - 1)) / (limit - 1))],
+  );
+}
+
+function spatialTableRows(id, data) {
+  if (id === 'surface') {
+    return evenlyBounded(
+      data.z.map((z, index) => {
+        const row = Math.floor(index / data.columns);
+        const column = index % data.columns;
+        return {
+          row,
+          column,
+          x: data.x[column],
+          y: data.y[row],
+          z,
+          value: data.values?.[index] ?? z,
+        };
+      }),
+    );
+  }
+  if (id === 'mesh') {
+    return evenlyBounded(
+      data.positions.map(([x, y, z], index) => ({
+        vertex: index,
+        x,
+        y,
+        z,
+        ...(data.colors?.[index] === undefined ? {} : { color: data.colors[index] }),
+        ...(data.labels?.[index] === undefined ? {} : { label: data.labels[index] }),
+      })),
+    );
+  }
+  if (id === 'volume' || id === 'isosurface') {
+    const [columns, rows] = data.dimensions;
+    return evenlyBounded(
+      data.values.map((value, index) => {
+        const xIndex = index % columns;
+        const yIndex = Math.floor(index / columns) % rows;
+        const zIndex = Math.floor(index / (columns * rows));
+        return {
+          x: data.origin[0] + xIndex * data.spacing[0],
+          y: data.origin[1] + yIndex * data.spacing[1],
+          z: data.origin[2] + zIndex * data.spacing[2],
+          value,
+        };
+      }),
+    );
+  }
+  if (id === 'vector-cone') {
+    return evenlyBounded(
+      data.origins.map(([x, y, z], index) => {
+        const [u, v, w] = data.vectors[index];
+        return {
+          x,
+          y,
+          z,
+          u,
+          v,
+          w,
+          magnitude: Math.hypot(u, v, w),
+          ...(data.colors?.[index] === undefined ? {} : { color: data.colors[index] }),
+          ...(data.labels?.[index] === undefined ? {} : { label: data.labels[index] }),
+        };
+      }),
+    );
+  }
+  if (id === 'streamtube') {
+    return evenlyBounded(
+      data.paths.flatMap((path, pathIndex) =>
+        path.map(([x, y, z], pointIndex) => ({
+          path: pathIndex,
+          point: pointIndex,
+          x,
+          y,
+          z,
+          ...(data.colors?.[pathIndex] === undefined ? {} : { color: data.colors[pathIndex] }),
+          ...(data.labels?.[pathIndex] === undefined ? {} : { label: data.labels[pathIndex] }),
+        })),
+      ),
+    );
+  }
+  if (id === 'spatial-scatter') {
+    return evenlyBounded(
+      data.positions.map(([x, y, z], index) => ({
+        x,
+        y,
+        z,
+        ...(data.values?.[index] === undefined ? {} : { value: data.values[index] }),
+        ...(data.sizes?.[index] === undefined ? {} : { size: data.sizes[index] }),
+        ...(data.colors?.[index] === undefined ? {} : { color: data.colors[index] }),
+        ...(data.labels?.[index] === undefined ? {} : { label: data.labels[index] }),
+      })),
+    );
+  }
+  if (id === 'globe') {
+    return [
+      ...(data.points ?? []).map((point) => ({ kind: 'point', ...point })),
+      ...(data.routes ?? []).map((route) => ({
+        kind: 'route',
+        fromLongitude: route.from[0],
+        fromLatitude: route.from[1],
+        toLongitude: route.to[0],
+        toLatitude: route.to[1],
+        ...(route.value === undefined ? {} : { value: route.value }),
+        ...(route.label === undefined ? {} : { label: route.label }),
+      })),
+    ].slice(0, spatialTableRowLimit);
+  }
+  throw new Error(`Missing bounded Spatial table conversion for ${id}`);
+}
+
+function spatialQuickParts(mode) {
+  const spec = spatialSampleSpecs[mode.id];
+  assert.ok(spec, `missing spatialSampleSpecs entry for ${mode.id}`);
+  assert.equal(spec.layers.length, 1, `${mode.id} sample must have exactly one Quick API layer`);
+  const [layer] = spec.layers;
+  const { layers: _layers, specVersion: _specVersion, ...chartOptions } = spec;
+  const { type, mode: markMode, ...markOptions } = layer.mark;
+  assert.equal(type, mode.mark, `${mode.id} sample mark`);
+  if (markMode !== undefined) assert.equal(markMode, mode.mode, `${mode.id} sample mode`);
+  return {
+    data: jsonClone(layer.data, `${mode.id}.data`),
+    options: jsonClone(
+      {
+        ...chartOptions,
+        ...(layer.id === undefined ? {} : { id: layer.id }),
+        ...markOptions,
+      },
+      `${mode.id}.options`,
+    ),
+    tableData: jsonClone(spatialTableRows(mode.id, layer.data), `${mode.id}.tableData`),
+  };
+}
+
+const spatialModeIds = modes.filter(({ renderer }) => renderer === 'webgl').map(({ id }) => id);
+assert.deepEqual(
+  Object.keys(spatialSampleSpecs),
+  spatialModeIds,
+  'spatialSampleSpecs must cover the exact ordered WebGL mode set',
+);
+
+const demonstratesByMode = new Map(modes.map(({ id }) => [id, [id]]));
+for (const family of families) {
+  const familyModes = modes.filter(({ familyId }) => familyId === family.id);
+  assert.ok(familyModes.length > 0, `${family.id} must have executable manual examples`);
+  family.supportedFeatures.forEach((claim, index) => {
+    if (familyModes.some(({ id }) => id === claim)) return;
+    const demonstrates = demonstratesByMode.get(familyModes[index % familyModes.length].id);
+    if (!demonstrates.includes(claim)) demonstrates.push(claim);
+  });
+}
+
+const manualExamples = modes.map((mode) => {
+  const family =
+    mode.familyId === null ? undefined : families.find(({ id }) => id === mode.familyId);
+  const parts =
+    mode.renderer === 'webgl'
+      ? spatialQuickParts(mode)
+      : (() => {
+          const variant = canvasVariantById.get(mode.id);
+          assert.ok(variant, `missing Canvas runtime variant for ${mode.id}`);
+          const capability =
+            mode.familyId === 'technical-indicator'
+              ? complete.resolveTechnicalIndicatorCapability(mode.id)
+              : null;
+          if (mode.familyId === 'technical-indicator') {
+            assert.ok(capability, `missing calculated indicator capability for ${mode.id}`);
+          }
+          const spec = seriesSampleSpec({
+            ...variant,
+            ...(capability === null ? {} : { technicalIndicatorCapability: capability }),
+          });
+          assert.ok(Array.isArray(spec.data) && spec.data.length > 0, `${mode.id} Canvas data`);
+          const data = jsonClone(spec.data, `${mode.id}.data`);
+          const tableData = jsonClone(
+            capability === null
+              ? projectedTableRows(spec, spec.data)
+              : calculatedIndicatorTable(spec, capability),
+            `${mode.id}.tableData`,
+          );
+          return {
+            spec,
+            data,
+            options: jsonClone(quickOptions(spec), `${mode.id}.options`),
+            tableData,
+          };
+        })();
+  const fields =
+    mode.renderer === 'webgl'
+      ? manualFields({}, parts.tableData, [
+          ...new Set(parts.tableData.flatMap((row) => Object.keys(row))),
+        ])
+      : manualFields(parts.spec, parts.tableData);
+  const summary =
+    family === undefined
+      ? `${mode.name} is an executable compatibility adapter.`
+      : mode.renderer === 'webgl'
+        ? mode.name
+        : `${mode.name} is the executable ${mode.mode} mode of the ${family.name} family.`;
+  return {
+    id: mode.id,
+    familyId: mode.familyId,
+    runtime: mode.renderer === 'webgl' ? 'spatial' : 'core',
+    entryPoint: mode.entryPoint,
+    renderer: mode.renderer,
+    quickApi: mode.quickApi,
+    portableMark: mode.mark,
+    data: parts.data,
+    tableData: parts.tableData,
+    fields,
+    options: parts.options,
+    summary,
+    demonstrates: demonstratesByMode.get(mode.id),
+    sourceRef: mode.exampleRef,
+  };
+});
+unique(manualExamples, 'manual examples', ({ id }) => id);
+assert.deepEqual(
+  manualExamples.map(({ id }) => id),
+  modes.map(({ id }) => id),
+  'manual examples must preserve exact mode ordering',
+);
 
 const compatibilityIdentifiers = complete.seriesCompatibilityCatalog.map((entry) => ({
   id: entry.identifier,
@@ -320,7 +650,7 @@ for (const family of families) {
 
 const manifest = {
   $schema: '../schema/graflume.catalog.schema.json',
-  schemaVersion: 1,
+  schemaVersion: 2,
   package: {
     name: packageJson.name,
     version: packageJson.version,
@@ -361,6 +691,7 @@ const manifest = {
   },
   families,
   modes,
+  manualExamples,
   compatibilityIdentifiers,
   themes,
   samples,

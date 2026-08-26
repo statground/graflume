@@ -9,6 +9,7 @@ import {
   fullVariantCatalog,
   technicalIndicatorCapabilities,
 } from '../dist/graflume.complete.js';
+import { fieldsForSpec, pointEnabledOptions, quickOptions } from './manual-example-helpers.mjs';
 import { seriesSampleSpec } from './series-samples.mjs';
 
 const chartDirectory = new URL('../docs/charts/', import.meta.url);
@@ -286,28 +287,6 @@ function compactData(spec) {
     );
 }
 
-function quickOptions(spec) {
-  const { data: _data, mark, ...rest } = spec;
-  if (spec.layers !== undefined) return rest;
-  if (typeof mark === 'object' && mark !== null && !Array.isArray(mark)) {
-    const { type: _type, ...markOptions } = mark;
-    return Object.keys(markOptions).length > 0 ? { ...rest, mark: markOptions } : rest;
-  }
-  return rest;
-}
-
-function pointEnabledOptions(spec, options) {
-  const markType =
-    typeof spec.mark === 'object' && spec.mark !== null && !Array.isArray(spec.mark)
-      ? spec.mark.type
-      : spec.mark;
-  if (markType !== 'area' && markType !== 'stepped-area') return options;
-  return {
-    ...options,
-    mark: { ...(options.mark ?? {}), point: true },
-  };
-}
-
 function quickExample(variant) {
   const entrypoint = defaultQuickApis.has(variant.quickApi) ? 'graflume' : 'graflume/complete';
   const spec = seriesSampleSpec(variant);
@@ -336,31 +315,6 @@ function quickExample(variant) {
 const data = ${JSON.stringify(data, null, 2)};
 
 ${variant.quickApi}('#chart', data, ${JSON.stringify(options, null, 2)});`;
-}
-
-function addField(fields, value) {
-  if (typeof value === 'string' && value.length > 0) fields.add(value);
-}
-
-function fieldsFromMark(fields, mark) {
-  if (typeof mark !== 'object' || mark === null || Array.isArray(mark)) return;
-  for (const field of Object.values(mark.fields ?? {})) addField(fields, field);
-  for (const field of mark.options?.fields ?? []) addField(fields, field);
-  for (const field of mark.options?.columns ?? []) addField(fields, field);
-  for (const field of mark.options?.dimensions ?? []) addField(fields, field);
-}
-
-function fieldsForSpec(spec) {
-  const fields = new Set();
-  addField(fields, spec.x?.field);
-  addField(fields, spec.y?.field);
-  fieldsFromMark(fields, spec.mark);
-  for (const layer of spec.layers ?? []) {
-    addField(fields, layer.x?.field);
-    addField(fields, layer.y?.field);
-    fieldsFromMark(fields, layer.mark);
-  }
-  return fields;
 }
 
 function humanizeField(field) {

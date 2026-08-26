@@ -104,6 +104,27 @@ const words = [
   { word: 'Theme', weight: 47, parent: 'Portable' },
 ];
 
+function deterministicOhlcvRows(length = 128) {
+  return Array.from({ length }, (_, index) => {
+    const date = new Date(Date.UTC(2025, 0, index + 1)).toISOString().slice(0, 10);
+    const baseline = 92 + index * 0.18 + Math.sin(index * 0.31) * 4 + Math.cos(index * 0.09) * 2;
+    const open = baseline + Math.sin(index * 0.47) * 0.9;
+    const close = baseline + Math.cos(index * 0.37) * 1.1;
+    const high = Math.max(open, close) + 1.2 + (index % 5) * 0.08;
+    const low = Math.min(open, close) - 1.1 - (index % 4) * 0.09;
+    const number = (value) => Number(value.toFixed(4));
+    return {
+      date,
+      value: number(close),
+      open: number(open),
+      high: number(high),
+      low: number(low),
+      close: number(close),
+      volume: 950 + ((index * 47) % 613) + Math.round((Math.sin(index * 0.23) + 1) * 120),
+    };
+  });
+}
+
 function fieldType(field) {
   if (field === 'date' || field === 'start') return 'temporal';
   if (
@@ -538,13 +559,31 @@ export function seriesSampleSpec(entry) {
       'category',
     );
   } else if (mark === 'indicator') {
+    const capability = entry.technicalIndicatorCapability;
+    const calculated = familyId === 'technical-indicator' && capability !== undefined;
+    const calculatedFields = calculated
+      ? {
+          value: 'value',
+          middle: 'value',
+          open: 'open',
+          high: 'high',
+          low: 'low',
+          close: 'close',
+          volume: 'volume',
+          ...Object.fromEntries(
+            capability.outputs.filter((role) => role !== 'value').map((role) => [role, role]),
+          ),
+        }
+      : undefined;
     spec = base(
       {
         type: mark,
-        fields: { lower: 'lower', upper: 'upper' },
-        options: { kind: id === 'technical-indicator' ? 'sma' : id, fields: ['value', 'signal'] },
+        fields: calculated ? calculatedFields : { lower: 'lower', upper: 'upper' },
+        options: calculated
+          ? { kind: capability.kind, calculate: true, fields: [...capability.outputs] }
+          : { kind: id === 'technical-indicator' ? 'sma' : id, fields: ['value', 'signal'] },
       },
-      trend,
+      calculated ? deterministicOhlcvRows() : trend,
       'date',
       'value',
     );
@@ -615,6 +654,7 @@ export function seriesSampleRuntimeSource() {
     `const radar = ${JSON.stringify(radar)};`,
     `const boxSummary = ${JSON.stringify(boxSummary)};`,
     `const words = ${JSON.stringify(words)};`,
+    deterministicOhlcvRows.toString(),
     fieldType.toString(),
     base.toString(),
     seriesSampleSpec.toString(),

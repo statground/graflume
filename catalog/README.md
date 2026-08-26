@@ -5,6 +5,15 @@ documentation sites. It contains the exact runtime family, mode, compatibility,
 theme, representative sample, and current capability boundaries. Counts are
 derived from those arrays; consumers must not copy numeric totals by hand.
 
+Schema v2 adds `manualExamples`, an ordered one-to-one executable companion to
+`modes`. Every entry carries its exact Quick API, runtime, portable mark, inline
+data and options, a bounded semantic `tableData` fallback, typed fields, source
+reference, and deterministic `demonstrates` claims. Canonical-family claims are
+copied verbatim from `families[].supportedFeatures` and assigned exactly once
+across that family's modes; the `vega` and `custom` adapters remain executable
+entries with `familyId: null`. Consumers should filter those two adapters only
+when building canonical-family tabs, not discard them from the public catalog.
+
 A mode may carry an optional `introducedIn` release identifier copied directly
 from its runtime variant entry. This is provenance for release-aware discovery,
 not a new canonical-family boundary: missing metadata means the mode predates
