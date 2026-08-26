@@ -12886,27 +12886,6 @@
       },
       "tableData": [
         {
-          "id": "edge-146",
-          "source": "Monitoring 5",
-          "target": "Collaboration 10",
-          "value": 49.57,
-          "community": "Product"
-        },
-        {
-          "id": "edge-129",
-          "source": "Exploration 5",
-          "target": "Governance 9",
-          "value": 49.51,
-          "community": "Research"
-        },
-        {
-          "id": "edge-23",
-          "source": "Collaboration",
-          "target": "Exports 2",
-          "value": 48.86,
-          "community": "Analysis"
-        },
-        {
           "id": "edge-2",
           "source": "Collection",
           "target": "Catalog",
@@ -12914,60 +12893,81 @@
           "community": "Research"
         },
         {
-          "id": "edge-39",
-          "source": "Exploration 2",
-          "target": "Governance 3",
-          "value": 48.43,
+          "id": "edge-8",
+          "source": "Exploration",
+          "target": "Exports",
+          "value": 39.09,
+          "community": "Analysis"
+        },
+        {
+          "id": "edge-3",
+          "source": "Validation",
+          "target": "Exploration",
+          "value": 34.34,
+          "community": "Product"
+        },
+        {
+          "id": "edge-9",
+          "source": "Exploration",
+          "target": "Governance",
+          "value": 33.05,
           "community": "Research"
         },
         {
-          "id": "edge-124",
-          "source": "Validation 5",
-          "target": "Modeling 9",
-          "value": 48.01,
+          "id": "edge-13",
+          "source": "Reports",
+          "target": "Publishing",
+          "value": 31.07,
+          "community": "Operations"
+        },
+        {
+          "id": "edge-6",
+          "source": "Catalog",
+          "target": "Reports",
+          "value": 23.95,
+          "community": "Operations"
+        },
+        {
+          "id": "edge-12",
+          "source": "Modeling",
+          "target": "Monitoring",
+          "value": 23.54,
           "community": "Design"
         },
         {
-          "id": "edge-46",
-          "source": "Alerts 2",
-          "target": "Validation 4",
-          "value": 46.43,
-          "community": "Analysis"
-        },
-        {
-          "id": "edge-53",
-          "source": "Collaboration 2",
-          "target": "Exports 4",
-          "value": 45.87,
-          "community": "Analysis"
-        },
-        {
-          "id": "edge-71",
-          "source": "Modeling 3",
-          "target": "Collaboration 5",
-          "value": 45.33,
+          "id": "edge-11",
+          "source": "Modeling",
+          "target": "Collaboration",
+          "value": 22.28,
           "community": "Product"
         },
         {
-          "id": "edge-47",
-          "source": "Alerts 2",
-          "target": "Catalog 4",
-          "value": 44.85,
-          "community": "Research"
+          "id": "edge-5",
+          "source": "Collection",
+          "target": "Modeling",
+          "value": 14.09,
+          "community": "Design"
         },
         {
-          "id": "edge-92",
-          "source": "Collection 4",
-          "target": "Catalog 7",
-          "value": 44.22,
-          "community": "Research"
+          "id": "edge-4",
+          "source": "Validation",
+          "target": "Modeling",
+          "value": 12.08,
+          "community": "Design"
         },
         {
-          "id": "edge-108",
-          "source": "Exports 4",
-          "target": "Exploration 8",
-          "value": 42.65,
-          "community": "Product"
+          "id": "edge-1",
+          "source": "Collection",
+          "target": "Validation",
+          "value": 10.65,
+          "community": "Analysis"
+        },
+        {
+          "id": "edge-7",
+          "source": "Catalog",
+          "target": "Alerts",
+          "value": 5.36,
+          "community": "Data engineering"
         }
       ],
       "fields": [
@@ -13030,8 +13030,8 @@
           "recipeId": "relationship-edges",
           "seed": 1936084519,
           "sourceRows": 20000,
-          "derivedRows": 148,
-          "renderedRows": 148,
+          "derivedRows": 13,
+          "renderedRows": 13,
           "renderedMaximum": 8000,
           "reduction": {
             "stage": "pre-aggregate",

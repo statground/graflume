@@ -337,6 +337,11 @@ test('volume profiles remain recipes and declare deterministic renderer budgets'
   assert.equal(examplesForFamily('hierarchy')[2].expectations.outputBudget.maximum, 5_000);
   assert.equal(examplesForFamily('calendar')[2].recipe.cardinality.sourceRows, 60_000);
   assert.equal(examplesForFamily('calendar')[2].recipe.parameters.dateCycleDays, 3_000);
+  const network = materializeDemoRecipe(examplesForFamily('network')[2].recipe);
+  const networkNodes = new Set(network.data.flatMap((row) => [row.source, row.target]));
+  assert.equal(network.plan.sourceRows, 20_000);
+  assert.ok(networkNodes.size <= 12, 'network label LOD stays readable');
+  assert.equal(network.plan.derivedRows, network.data.length);
   assert.deepEqual(examplesForFamily('surface')[2].recipe.parameters, {
     family: 'surface',
     scenario: 'volume',
