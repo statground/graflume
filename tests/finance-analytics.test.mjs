@@ -326,6 +326,48 @@ test('complete compiler renders every advanced price-block mode with portable op
   }
 });
 
+test('default price-block analytics and compilation handle 150,000 financial rows without argument spread overflow', () => {
+  const rowCount = 150_000;
+  const largeInput = Array.from({ length: rowCount }, (_, index) => {
+    const previousIndex = Math.max(0, index - 1);
+    const open = 100 + (previousIndex / (rowCount - 1)) * 12;
+    const close = 100 + (index / (rowCount - 1)) * 12;
+    return {
+      time: index,
+      open,
+      high: close + 0.25,
+      low: open - 0.25,
+      close,
+      volume: 1,
+    };
+  });
+
+  const blocks = buildPriceBlocks(largeInput);
+  assert.ok(blocks.length > 0);
+  assert.ok(
+    blocks.every(
+      ({ low, high, provenance }) =>
+        Number.isFinite(low) &&
+        Number.isFinite(high) &&
+        Number.isFinite(provenance.sourceLow) &&
+        Number.isFinite(provenance.sourceHigh),
+    ),
+  );
+
+  const { scene } = compile({
+    width: 640,
+    height: 400,
+    data: largeInput,
+    performance: 'ultra',
+    mark: { type: 'renko' },
+    x: { field: 'time', type: 'temporal' },
+    y: { field: 'close', type: 'quantitative' },
+  });
+  const marks = flattenScene(scene.root).filter(({ id }) => id.includes(':renko:'));
+  assert.ok(marks.length > 0);
+  assert.ok(marks.length <= 8_000);
+});
+
 test('complete compiler renders left-side session profiles and explicit POC/VAH/VAL guides', () => {
   const { scene } = compile({
     width: 640,

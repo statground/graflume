@@ -45,6 +45,33 @@ function timeValue(value: unknown, fallback: number): number {
   return fallback;
 }
 
+function priceExtent(values: readonly { readonly low: number; readonly high: number }[]): {
+  readonly minimum: number;
+  readonly maximum: number;
+} {
+  const first = values[0]!;
+  let minimum = first.low;
+  let maximum = first.high;
+  for (let index = 1; index < values.length; index += 1) {
+    minimum = Math.min(minimum, values[index]!.low);
+    maximum = Math.max(maximum, values[index]!.high);
+  }
+  return { minimum, maximum };
+}
+
+function numericExtent(values: readonly number[]): {
+  readonly minimum: number;
+  readonly maximum: number;
+} {
+  let minimum = Number.POSITIVE_INFINITY;
+  let maximum = Number.NEGATIVE_INFINITY;
+  for (const value of values) {
+    minimum = Math.min(minimum, value);
+    maximum = Math.max(maximum, value);
+  }
+  return { minimum, maximum };
+}
+
 function financialRows(context: MarkCompileContext): FinancialBarInput[] {
   const { table, layer } = context;
   const openField = field(context, 'open', 'open');
@@ -140,8 +167,7 @@ export const compilePriceBlocksMark: MarkCompiler = (context) => {
   const blocks = buildPriceBlocks(financialRows(context), options);
   if (blocks.length === 0) return [];
   const { layer, plot, theme, performance } = context;
-  const minimum = Math.min(...blocks.map(({ low }) => low));
-  const maximum = Math.max(...blocks.map(({ high }) => high));
+  const { minimum, maximum } = priceExtent(blocks);
   const span = Math.max(Number.EPSILON, maximum - minimum);
   const width = plot.width / Math.max(1, blocks.length);
   const mapY = (value: number) => plot.y + plot.height - ((value - minimum) / span) * plot.height;
@@ -236,8 +262,9 @@ function volumeScope(context: MarkCompileContext): VolumeProfileScope {
       .domain()
       .map((value) => numericDataValue(value, context.layer.x.type === 'temporal'))
       .filter((value): value is number => value !== null);
-    const start = optionNumber(context, 'visibleStart') ?? Math.min(...domain);
-    const end = optionNumber(context, 'visibleEnd') ?? Math.max(...domain);
+    const extent = numericExtent(domain);
+    const start = optionNumber(context, 'visibleStart') ?? extent.minimum;
+    const end = optionNumber(context, 'visibleEnd') ?? extent.maximum;
     if (!Number.isFinite(start) || !Number.isFinite(end))
       throw new GraflumeError(
         'INVALID_SPEC',
@@ -314,7 +341,8 @@ export const compileAdvancedVolumeProfileMark: MarkCompiler = (context) => {
   const slotWidth = plot.width / profiles.length;
   const nodes: SceneNode[] = [];
   profiles.forEach((profile, profileIndex) => {
-    const maximum = Math.max(1, ...profile.rows.map(({ volume }) => volume));
+    let maximum = 1;
+    for (const row of profile.rows) maximum = Math.max(maximum, row.volume);
     const priceSpan = Math.max(Number.EPSILON, profile.priceHigh - profile.priceLow);
     const mapY = (value: number) =>
       plot.y + plot.height - ((value - profile.priceLow) / priceSpan) * plot.height;

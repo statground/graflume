@@ -18,6 +18,25 @@ function clamp(value: number, low: number, high: number): number {
   return Math.max(low, Math.min(high, value));
 }
 
+interface PriceExtentInput {
+  readonly low: number;
+  readonly high: number;
+}
+
+function priceExtent(values: readonly PriceExtentInput[]): {
+  readonly minimum: number;
+  readonly maximum: number;
+} {
+  const first = values[0]!;
+  let minimum = first.low;
+  let maximum = first.high;
+  for (let index = 1; index < values.length; index += 1) {
+    minimum = Math.min(minimum, values[index]!.low);
+    maximum = Math.max(maximum, values[index]!.high);
+  }
+  return { minimum, maximum };
+}
+
 export interface FinancialBarInput {
   readonly id?: string;
   readonly time: number;
@@ -116,14 +135,15 @@ function normalizeBars(input: readonly FinancialBarInput[]): FinancialBar[] {
 function provenance(bars: readonly FinancialBar[]): FinancialProvenance {
   const first = bars[0]!;
   const last = bars.at(-1)!;
+  const { minimum: sourceLow, maximum: sourceHigh } = priceExtent(bars);
   return {
     sourceIndexes: bars.map(({ sourceIndex }) => sourceIndex),
     sourceIds: bars.map(({ id }) => id),
     timeStart: first.time,
     timeEnd: last.time,
     sourceOpen: first.open,
-    sourceHigh: Math.max(...bars.map(({ high }) => high)),
-    sourceLow: Math.min(...bars.map(({ low }) => low)),
+    sourceHigh,
+    sourceLow,
     sourceClose: last.close,
     sourceVolume: bars.reduce((sum, { volume }) => sum + volume, 0),
   };
@@ -180,8 +200,7 @@ function sizingResolver(
 }
 
 function defaultSizing(bars: readonly FinancialBar[]): PriceBlockSizing {
-  const minimum = Math.min(...bars.map(({ low }) => low));
-  const maximum = Math.max(...bars.map(({ high }) => high));
+  const { minimum, maximum } = priceExtent(bars);
   return { mode: 'fixed', value: Math.max(Number.EPSILON, (maximum - minimum) / 12 || 1) };
 }
 
@@ -316,14 +335,12 @@ function buildLineBreak(bars: readonly FinancialBar[], options: PriceBlockOption
     const close = bars[index]!.close;
     const recent = output.slice(-lineCount);
     const previousClose = output.at(-1)?.close ?? bars[index - 1]!.close;
-    const upper =
-      recent.length === 0
-        ? previousClose
-        : Math.max(...recent.flatMap(({ open, close: end }) => [open, end]));
-    const lower =
-      recent.length === 0
-        ? previousClose
-        : Math.min(...recent.flatMap(({ open, close: end }) => [open, end]));
+    let upper = previousClose;
+    let lower = previousClose;
+    for (const line of recent) {
+      upper = Math.max(upper, line.open, line.close);
+      lower = Math.min(lower, line.open, line.close);
+    }
     if (close <= upper && close >= lower) continue;
     const direction = close > upper ? 'up' : 'down';
     const open = previousClose;
@@ -507,9 +524,10 @@ function groupProfileBars(
   return [...groups].map(([id, grouped]) => ({ id, bars: grouped }));
 }
 
-function resolveRowSize(bars: readonly FinancialBar[], rows: VolumeProfileRows): number {
-  const low = Math.min(...bars.map(({ low: value }) => value));
-  const high = Math.max(...bars.map(({ high: value }) => value));
+function resolveRowSize(
+  extent: { readonly minimum: number; readonly maximum: number },
+  rows: VolumeProfileRows,
+): number {
   if (rows.mode === 'size') return positive(rows.size, '$.rows.size');
   if (rows.mode === 'tick') {
     return (
@@ -517,7 +535,7 @@ function resolveRowSize(bars: readonly FinancialBar[], rows: VolumeProfileRows):
     );
   }
   const count = clamp(Math.floor(rows.count), 1, 10_000);
-  return Math.max(Number.EPSILON, (high - low) / count || 1);
+  return Math.max(Number.EPSILON, (extent.maximum - extent.minimum) / count || 1);
 }
 
 function valueArea(
@@ -552,9 +570,10 @@ function oneVolumeProfile(
   options: VolumeProfileOptions,
 ): VolumeProfile | null {
   if (bars.length === 0) return null;
-  const rowSize = resolveRowSize(bars, options.rows ?? { mode: 'count', count: 24 });
-  const minimum = Math.floor(Math.min(...bars.map(({ low }) => low)) / rowSize) * rowSize;
-  const maximum = Math.max(...bars.map(({ high }) => high));
+  const extent = priceExtent(bars);
+  const rowSize = resolveRowSize(extent, options.rows ?? { mode: 'count', count: 24 });
+  const minimum = Math.floor(extent.minimum / rowSize) * rowSize;
+  const maximum = extent.maximum;
   const count = clamp(Math.ceil((maximum - minimum) / rowSize) || 1, 1, 10_000);
   const volumes = Array.from({ length: count }, () => 0);
   const sources = Array.from({ length: count }, () => new Set<number>());
