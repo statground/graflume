@@ -19850,28 +19850,28 @@
       "tableData": [
         {
           "sets": ["Analysis"],
-          "size": 0,
+          "size": 1000000000000,
           "members": ["Cohort explorer", "Forecast review"]
         },
         {
           "sets": ["Engineering"],
-          "size": 1e-9,
+          "size": 1000000,
           "members": ["Runtime profiler", "Schema audit"]
         },
         {
           "sets": ["Design"],
-          "size": 1000000000000,
+          "size": 3,
           "members": ["Theme studio", "Layout review"]
         },
         {
           "sets": ["Analysis", "Engineering"],
-          "size": 3,
-          "members": ["Metric debugger"]
+          "size": 1e-9,
+          "members": []
         },
         {
           "sets": ["Analysis", "Design"],
-          "size": 1000000,
-          "members": ["Story dashboard"]
+          "size": 0,
+          "members": []
         },
         {
           "sets": ["Engineering", "Design"],

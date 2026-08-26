@@ -527,6 +527,17 @@ test('family mathematical invariants are visible in the range preview', () => {
     assert.ok(row.a >= 0 && row.b >= 0 && row.c >= 0, 'ternary nonnegative');
     assert.ok(row.a + row.b + row.c > 0, 'ternary positive total');
   }
+  const vennRows = examplesForFamily('venn')[0].tableData;
+  const vennSingletons = new Map(
+    vennRows.filter((row) => row.sets.length === 1).map((row) => [row.sets[0], row.size]),
+  );
+  for (const row of vennRows) {
+    assert.ok(row.members.length <= row.size, `venn ${row.sets.join('&')} members fit size`);
+    assert.ok(
+      row.sets.every((set) => row.size <= vennSingletons.get(set)),
+      `venn ${row.sets.join('&')} bounded intersection`,
+    );
+  }
   for (const familyId of [
     'pie',
     'hierarchy',

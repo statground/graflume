@@ -739,7 +739,13 @@ function rangePreview(familyId, example, definition) {
       setFields(rows, definition.valueFields, signedRange);
       return rows;
     case 'venn':
-      setFields(rows, definition.valueFields, [0, 1e-9, 1e12, 3, 1e6, 2]);
+      // Keep the extreme range while preserving the set invariant: every
+      // intersection must fit inside each participating singleton, and an
+      // illustrative members array can never contain more items than size.
+      setFields(rows, definition.valueFields, [1e12, 1e6, 3, 1e-9, 0, 2]);
+      rows.forEach((row) => {
+        if (Array.isArray(row.members) && row.members.length > row.size) row.members = [];
+      });
       return rows;
     default:
       setFields(
