@@ -1576,7 +1576,8 @@
           "valuePolicy": "signed",
           "valueFields": ["value"],
           "positiveFields": [],
-          "nullableFields": ["value"]
+          "nullableFields": ["value"],
+          "dateCycleDays": 3000
         }
       },
       "tableData": [
@@ -13572,9 +13573,9 @@
           "family": "technical-indicator",
           "scenario": "range",
           "valuePolicy": "ohlcv",
-          "valueFields": ["value", "open", "high", "low", "close"],
+          "valueFields": ["value", "signal", "open", "high", "low", "close"],
           "positiveFields": ["volume"],
-          "nullableFields": ["value"]
+          "nullableFields": ["value", "signal"]
         }
       },
       "tableData": [
@@ -13587,7 +13588,8 @@
           "close": 5.150000000000001e-10,
           "volume": 0,
           "lower": null,
-          "upper": null
+          "upper": null,
+          "signal": 4.995500000000001e-10
         },
         {
           "date": "2026-02-01",
@@ -13598,7 +13600,8 @@
           "close": 9.9e-7,
           "volume": 1,
           "lower": null,
-          "upper": null
+          "upper": null,
+          "signal": 9.603e-7
         },
         {
           "date": "2026-03-01",
@@ -13609,7 +13612,8 @@
           "close": 1.03,
           "volume": 1000,
           "lower": null,
-          "upper": null
+          "upper": null,
+          "signal": 0.9991
         },
         {
           "date": "2026-04-01",
@@ -13620,7 +13624,8 @@
           "close": 990,
           "volume": 1000000,
           "lower": null,
-          "upper": null
+          "upper": null,
+          "signal": 960.3
         },
         {
           "date": "2026-05-01",
@@ -13631,7 +13636,8 @@
           "close": 1030000,
           "volume": 1000000000,
           "lower": null,
-          "upper": null
+          "upper": null,
+          "signal": 999100
         },
         {
           "date": "2026-06-01",
@@ -13642,7 +13648,8 @@
           "close": 1980000000,
           "volume": 1000000000000,
           "lower": null,
-          "upper": null
+          "upper": null,
+          "signal": 1920600000
         }
       ],
       "fields": [
@@ -13681,6 +13688,10 @@
         {
           "name": "upper",
           "type": "quantitative"
+        },
+        {
+          "name": "signal",
+          "type": "quantitative"
         }
       ],
       "options": {
@@ -13695,7 +13706,7 @@
           "title": "value"
         },
         "title": {
-          "text": "Acceleration bands",
+          "text": "Technical indicator chart",
           "subtitle": "edge case · range"
         },
         "accessibility": {
@@ -13706,18 +13717,11 @@
           "fields": {
             "value": "value",
             "middle": "value",
-            "open": "open",
-            "high": "high",
-            "low": "low",
-            "close": "close",
-            "volume": "volume",
-            "lower": "lower",
-            "upper": "upper"
+            "signal": "signal"
           },
           "options": {
-            "kind": "abands",
-            "calculate": true,
-            "fields": ["value", "lower", "upper"]
+            "kind": "sma",
+            "fields": ["value", "signal"]
           }
         }
       },
@@ -13756,22 +13760,23 @@
           "family": "technical-indicator",
           "scenario": "structure",
           "valuePolicy": "ohlcv",
-          "valueFields": ["value", "open", "high", "low", "close"],
+          "valueFields": ["value", "signal", "open", "high", "low", "close"],
           "positiveFields": ["volume"],
-          "nullableFields": ["value"]
+          "nullableFields": ["value", "signal"]
         }
       },
       "tableData": [
         {
           "date": "2025-01-03",
-          "value": null,
+          "value": 97.4641,
           "open": 97.3786,
           "high": 98.8241,
           "low": 96.0986,
           "close": 97.4641,
           "volume": 1217,
           "lower": null,
-          "upper": null
+          "upper": null,
+          "signal": 94.540177
         },
         {
           "date": "2025-01-01",
@@ -13782,51 +13787,56 @@
           "close": null,
           "volume": 1070,
           "lower": null,
-          "upper": null
+          "upper": null,
+          "signal": null
         },
         {
           "date": "2025-01-04",
-          "value": null,
+          "value": 98.1631,
           "open": 98.5624,
           "high": 100.0024,
           "low": 96.7931,
           "close": 98.1631,
           "volume": 1287,
           "lower": null,
-          "upper": null
+          "upper": null,
+          "signal": 95.21820699999999
         },
         {
           "date": "2025-01-05",
-          "value": null,
+          "value": 98.4747,
           "open": 99.2322,
           "high": 100.7522,
           "low": 97.3747,
           "close": 98.4747,
           "volume": 1353,
           "lower": null,
-          "upper": null
+          "upper": null,
+          "signal": 95.520459
         },
         {
           "date": "2025-01-06",
-          "value": null,
+          "value": 98.3969,
           "open": 99.3404,
           "high": 100.5404,
           "low": 97.2069,
           "close": 98.3969,
           "volume": 1415,
           "lower": null,
-          "upper": null
+          "upper": null,
+          "signal": 95.444993
         },
         {
           "date": "2025-01-02",
-          "value": null,
+          "value": 96.4177,
           "open": 95.7997,
           "high": 97.6977,
           "low": 94.6097,
           "close": 96.4177,
           "volume": 1144,
           "lower": null,
-          "upper": null
+          "upper": null,
+          "signal": 93.52516899999999
         }
       ],
       "fields": [
@@ -13865,6 +13875,10 @@
         {
           "name": "upper",
           "type": "quantitative"
+        },
+        {
+          "name": "signal",
+          "type": "quantitative"
         }
       ],
       "options": {
@@ -13879,7 +13893,7 @@
           "title": "value"
         },
         "title": {
-          "text": "Acceleration bands",
+          "text": "Technical indicator chart",
           "subtitle": "edge case · structure"
         },
         "accessibility": {
@@ -13890,18 +13904,11 @@
           "fields": {
             "value": "value",
             "middle": "value",
-            "open": "open",
-            "high": "high",
-            "low": "low",
-            "close": "close",
-            "volume": "volume",
-            "lower": "lower",
-            "upper": "upper"
+            "signal": "signal"
           },
           "options": {
-            "kind": "abands",
-            "calculate": true,
-            "fields": ["value", "lower", "upper"]
+            "kind": "sma",
+            "fields": ["value", "signal"]
           }
         }
       },
@@ -13940,9 +13947,9 @@
           "family": "technical-indicator",
           "scenario": "volume",
           "valuePolicy": "ohlcv",
-          "valueFields": ["value", "open", "high", "low", "close"],
+          "valueFields": ["value", "signal", "open", "high", "low", "close"],
           "positiveFields": ["volume"],
-          "nullableFields": ["value"],
+          "nullableFields": ["value", "signal"],
           "explicitPerformance": true
         }
       },
@@ -13956,7 +13963,8 @@
           "close": 5.150000000000001e-10,
           "volume": 0,
           "lower": null,
-          "upper": null
+          "upper": null,
+          "signal": 4.995500000000001e-10
         },
         {
           "date": "2026-02-01",
@@ -13967,7 +13975,8 @@
           "close": 9.9e-7,
           "volume": 1,
           "lower": null,
-          "upper": null
+          "upper": null,
+          "signal": 9.603e-7
         },
         {
           "date": "2026-03-01",
@@ -13978,7 +13987,8 @@
           "close": 1.03,
           "volume": 1000,
           "lower": null,
-          "upper": null
+          "upper": null,
+          "signal": 0.9991
         },
         {
           "date": "2026-04-01",
@@ -13989,7 +13999,8 @@
           "close": 990,
           "volume": 1000000,
           "lower": null,
-          "upper": null
+          "upper": null,
+          "signal": 960.3
         },
         {
           "date": "2026-05-01",
@@ -14000,7 +14011,8 @@
           "close": 1030000,
           "volume": 1000000000,
           "lower": null,
-          "upper": null
+          "upper": null,
+          "signal": 999100
         },
         {
           "date": "2026-06-01",
@@ -14011,7 +14023,8 @@
           "close": 1980000000,
           "volume": 1000000000000,
           "lower": null,
-          "upper": null
+          "upper": null,
+          "signal": 1920600000
         }
       ],
       "fields": [
@@ -14050,6 +14063,10 @@
         {
           "name": "upper",
           "type": "quantitative"
+        },
+        {
+          "name": "signal",
+          "type": "quantitative"
         }
       ],
       "options": {
@@ -14064,7 +14081,7 @@
           "title": "value"
         },
         "title": {
-          "text": "Acceleration bands",
+          "text": "Technical indicator chart",
           "subtitle": "edge case · volume"
         },
         "accessibility": {
@@ -14075,18 +14092,11 @@
           "fields": {
             "value": "value",
             "middle": "value",
-            "open": "open",
-            "high": "high",
-            "low": "low",
-            "close": "close",
-            "volume": "volume",
-            "lower": "lower",
-            "upper": "upper"
+            "signal": "signal"
           },
           "options": {
-            "kind": "abands",
-            "calculate": true,
-            "fields": ["value", "lower", "upper"]
+            "kind": "sma",
+            "fields": ["value", "signal"]
           }
         },
         "performance": "ultra"

@@ -295,6 +295,8 @@ test('volume profiles remain recipes and declare deterministic renderer budgets'
 
   assert.equal(examplesForFamily('funnel')[2].recipe.rowCount, 130_000);
   assert.equal(examplesForFamily('hierarchy')[2].expectations.outputBudget.maximum, 5_000);
+  assert.equal(examplesForFamily('calendar')[2].recipe.rowCount, 60_000);
+  assert.equal(examplesForFamily('calendar')[2].recipe.parameters.dateCycleDays, 3_000);
   assert.deepEqual(examplesForFamily('surface')[2].recipe.parameters, {
     family: 'surface',
     scenario: 'volume',
@@ -306,6 +308,26 @@ test('volume profiles remain recipes and declare deterministic renderer budgets'
     columns: 257,
   });
   assert.deepEqual(examplesForFamily('volume')[2].recipe.parameters.dimensions, [64, 64, 64]);
+});
+
+test('technical-indicator edge cases use finite precomputed series without warm-up-only output', () => {
+  for (const example of examplesForFamily('technical-indicator')) {
+    assert.equal(example.options.mark.options.kind, 'sma', example.id);
+    assert.equal(Object.hasOwn(example.options.mark.options, 'calculate'), false, example.id);
+    assert.deepEqual(example.options.mark.options.fields, ['value', 'signal'], example.id);
+    assert.deepEqual(example.recipe.parameters.nullableFields, ['value', 'signal'], example.id);
+    assert.deepEqual(example.options.mark.fields, {
+      value: 'value',
+      middle: 'value',
+      signal: 'signal',
+    });
+    assert.ok(
+      example.tableData.some(
+        (row) => typeof row.value === 'number' && typeof row.signal === 'number',
+      ),
+      `${example.id} finite precomputed pair`,
+    );
+  }
 });
 
 test('spatial volume previews have a valid minimum 2 by 2 by 2 cardinality', () => {

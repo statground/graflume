@@ -37,6 +37,7 @@ export interface PieOptions {
 export interface PieSlice {
   readonly id: string;
   readonly label: string;
+  readonly sourceRows: readonly number[];
   readonly rawValue: number;
   readonly value: number;
   readonly proportion: number;
@@ -55,7 +56,7 @@ export function layoutPie(
 ): readonly PieSlice[] {
   const negative = options.negative ?? 'reject';
   const zero = options.zero ?? 'hide';
-  const values = data.flatMap((datum, index) => {
+  const normalized = data.flatMap((datum, index) => {
     const id = label(datum.id, `$.data[${index}].id`);
     const rawValue = finite(datum.value, `$.data[${index}].value`);
     if (rawValue < 0 && negative === 'reject')
@@ -69,11 +70,28 @@ export function layoutPie(
         rawValue,
         value: Math.abs(rawValue),
         inputIndex: index,
+        sourceRows: [index],
       },
     ];
   });
-  if (new Set(values.map(({ id }) => id)).size !== values.length)
-    throw new GraflumeError('INVALID_DATA', 'Pie ids must be unique.');
+  // Quick APIs use the semantic category as the slice id, so repeated source
+  // categories are folded deterministically before sorting and angle layout.
+  const aggregated = new Map<string, (typeof normalized)[number]>();
+  normalized.forEach((datum) => {
+    const existing = aggregated.get(datum.id);
+    aggregated.set(
+      datum.id,
+      existing === undefined
+        ? datum
+        : {
+            ...existing,
+            rawValue: existing.rawValue + datum.rawValue,
+            value: existing.value + datum.value,
+            sourceRows: [...existing.sourceRows, ...datum.sourceRows],
+          },
+    );
+  });
+  const values = [...aggregated.values()];
   if (options.sort === 'ascending')
     values.sort((a, b) => a.value - b.value || a.inputIndex - b.inputIndex);
   if (options.sort === 'descending')
@@ -124,6 +142,7 @@ export function layoutPie(
     return {
       id: datum.id,
       label: datum.label,
+      sourceRows: datum.sourceRows,
       rawValue: datum.rawValue,
       value: datum.value,
       proportion,

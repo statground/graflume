@@ -132,7 +132,7 @@ const policies = {
     structure: ['sparse', 'duplicate-key', 'out-of-order', 'null'],
     handling: ['missing-date-left-empty', 'stable-date-sort', 'duplicate-date-aggregated'],
     invariants: ['valid-calendar-date'],
-    volume: volume(60_000, 'large', 'bar-marks', 12_000),
+    volume: volume(60_000, 'large', 'bar-marks', 12_000, { dateCycleDays: 3_000 }),
   }),
   candlestick: policy({
     recipe: 'ohlcv-sequence-v1',
@@ -553,9 +553,9 @@ const policies = {
   'technical-indicator': policy({
     recipe: 'ohlcv-sequence-v1',
     range: 'ohlcv',
-    valueFields: ['value', 'open', 'high', 'low', 'close'],
+    valueFields: ['value', 'signal', 'open', 'high', 'low', 'close'],
     positiveFields: ['volume'],
-    nullableFields: ['value'],
+    nullableFields: ['value', 'signal'],
     structure: ['sparse', 'out-of-order', 'null', 'flat-run'],
     handling: ['stable-date-sort', 'missing-input-propagates-null', 'warm-up-output-null'],
     invariants: ['ohlcv-low-order', 'ohlcv-high-order', 'volume-nonnegative'],
@@ -747,7 +747,15 @@ function rangePreview(familyId, example, definition) {
     return rows;
   }
   switch (definition.range) {
-    case 'ohlcv':
+    case 'ohlcv': {
+      const result = ohlcvPreview(rows);
+      if (familyId === 'technical-indicator') {
+        result.forEach((row) => {
+          row.signal = row.close * 0.97;
+        });
+      }
+      return result;
+    }
     case 'positive-price':
     case 'price-volume':
       return ohlcvPreview(rows);
@@ -831,7 +839,12 @@ function structurePreview(familyId, example, definition) {
     if (rows.length > 2) rows[2] = clone(rows[0]);
   }
   if (familyId === 'technical-indicator') {
+    rows.forEach((row) => {
+      row.value = row.close;
+      row.signal = typeof row.close === 'number' ? row.close * 0.97 : null;
+    });
     rows[1].value = null;
+    rows[1].signal = null;
     rows[1].close = null;
   }
   return rows.slice(0, 12);
@@ -930,6 +943,20 @@ function optionsFor(example, familyId, profileId, definition) {
     if (options.mark && typeof options.mark === 'object') {
       options.mark.options = { ...(options.mark.options ?? {}), min: 0, max: 1e12 };
     }
+  }
+  if (familyId === 'technical-indicator') {
+    if (options.title && typeof options.title === 'object') {
+      options.title.text = 'Technical indicator chart';
+    }
+    options.y = { field: 'value', type: 'quantitative', title: 'value' };
+    options.mark = {
+      fields: {
+        value: 'value',
+        middle: 'value',
+        signal: 'signal',
+      },
+      options: { kind: 'sma', fields: ['value', 'signal'] },
+    };
   }
   if (profileId === 'volume' && example.runtime === 'core') {
     options.performance = definition.volume.parameters.explicitPerformance

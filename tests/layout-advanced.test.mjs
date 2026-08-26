@@ -105,6 +105,29 @@ test('pie compiler resolves negative/zero/minimum/sort/pad policy and dense rovi
   );
 });
 
+test('pie compiler exposes every source row after duplicate category aggregation', () => {
+  const { scene } = compile({
+    width: 720,
+    height: 420,
+    data: [
+      { id: 'A', label: 'First A', value: 2 },
+      { id: 'B', label: 'B', value: 5 },
+      { id: 'A', label: 'Later A', value: 3 },
+    ],
+    mark: { type: 'pie', fields: { id: 'id', label: 'label' } },
+    x: { field: 'id', type: 'nominal' },
+    y: { field: 'value', type: 'quantitative' },
+  });
+  const slices = flattenScene(scene.root).filter(({ id }) => id.includes(':slice:'));
+  assert.equal(slices.length, 2);
+  const aggregated = slices.find(({ datum }) => datum.familyInteraction.id === 'A');
+  assert.deepEqual(aggregated.datum.datum.sourceRows, [0, 2]);
+  assert.deepEqual(aggregated.datum.tooltip.sourceRowIndices, [0, 2]);
+  assert.equal(aggregated.datum.tooltip.sourceRowCount, 2);
+  assert.equal(aggregated.datum.tooltip.value, 5);
+  assert.equal(aggregated.datum.tooltip.label, 'First A');
+});
+
 test('radial and linear gauge render bands, custom ticks, targets, and exact accessible summaries', () => {
   for (const type of ['radial', 'linear']) {
     const { scene } = compile({

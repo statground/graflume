@@ -44,6 +44,29 @@ test('pie semantics cover zero/negative policies, minimum slices, sorting, paddi
   assert.equal(nextPieSlice(slices, 'tiny', 'next'), 'large');
 });
 
+test('pie semantics aggregate duplicate ids while preserving first-seen order and labels', () => {
+  const slices = layoutPie([
+    { id: 'alpha', label: 'Alpha first', value: 2 },
+    { id: 'beta', value: 5 },
+    { id: 'alpha', label: 'Alpha later', value: 3 },
+  ]);
+  assert.deepEqual(
+    slices.map(({ id, label, rawValue, value }) => ({ id, label, rawValue, value })),
+    [
+      { id: 'alpha', label: 'Alpha first', rawValue: 5, value: 5 },
+      { id: 'beta', label: 'beta', rawValue: 5, value: 5 },
+    ],
+  );
+  assert.deepEqual(
+    slices.map(({ proportion }) => proportion),
+    [0.5, 0.5],
+  );
+  assert.deepEqual(
+    slices.map(({ sourceRows }) => sourceRows),
+    [[0, 2], [1]],
+  );
+});
+
 test('timeline packs grouped overlap lanes, milestones, dependencies, clipping, duration and navigator', () => {
   const result = layoutTimeline(
     [

@@ -162,7 +162,7 @@ export const compileAdvancedPieMark: MarkCompiler = (context) => {
     const renderedStart = renderAngle(slice.startAngle);
     const renderedEnd = renderAngle(slice.endAngle);
     const middle = (renderedStart + renderedEnd) / 2;
-    const rowIndex = data.find(({ id }) => id === slice.id)?.rowIndex ?? index;
+    const rowIndex = slice.sourceRows[0] ?? index;
     const focused = runtimeFocusedSlice === slice.id;
     nodes.push({
       type: 'path',
@@ -177,6 +177,7 @@ export const compileAdvancedPieMark: MarkCompiler = (context) => {
             ...context.table.row(rowIndex),
             id: slice.id,
             label: slice.label,
+            sourceRows: [...slice.sourceRows],
             rawValue: slice.rawValue,
             value: slice.value,
             proportion: slice.proportion,
@@ -185,6 +186,9 @@ export const compileAdvancedPieMark: MarkCompiler = (context) => {
           },
           tooltip: {
             label: slice.label,
+            sourceRows: slice.sourceRows.join(', '),
+            sourceRowCount: slice.sourceRows.length,
+            sourceRowIndices: [...slice.sourceRows],
             rawValue: slice.rawValue,
             value: slice.value,
             proportion: slice.proportion,
