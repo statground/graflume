@@ -12,6 +12,7 @@ on:
       - 'tsconfig*.json'
       - 'scripts/**'
       - 'tests/**'
+      - 'catalog/**'
       - 'examples/**'
       - '.github/workflows/cdn-snapshot.yml'
   workflow_dispatch:
