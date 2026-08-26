@@ -58327,6 +58327,7 @@ void main() {
       'Product referrals',
       'Community',
       'Campaigns',
+      'Partner ecosystem',
     ];
     const funnelStageNames = [
       'Visited',
@@ -58367,6 +58368,45 @@ void main() {
       'Design',
       'Operations',
     ];
+    const accountNames = [
+      'Aurora Labs',
+      'Blue Harbor',
+      'Cedar Health',
+      'Delta Works',
+      'Evergreen Public',
+      'Fieldnote Studio',
+      'Granite Research',
+      'Helio Education',
+      'Indigo Systems',
+      'Juniper Market',
+      'Keystone Civic',
+      'Lumen Analytics',
+    ];
+    const initiativeNames = [
+      'Atlas migration',
+      'Beacon catalog',
+      'Compass metrics',
+      'Drift monitor',
+      'Ember forecast',
+      'Foundry reports',
+      'Harbor alerts',
+      'Iris governance',
+      'Junction exports',
+      'Kepler models',
+      'Lantern quality',
+      'Meridian access',
+    ];
+    const operatingRegions = ['APAC', 'EMEA', 'Americas', 'Public sector', 'Education', 'Research'];
+    const releaseTrainNames = ['Horizon', 'Northstar', 'Solstice', 'Waypoint'];
+    const regionalMetricNames = [
+      'freshness monitor',
+      'quality review',
+      'catalog search',
+      'forecast refresh',
+      'dashboard session',
+      'alert delivery',
+    ];
+    const vennSetNames = ['Analysis', 'Engineering', 'Design', 'Operations', 'Research'];
     const hubCoordinates = [
       [126.978, 37.5665, 'Seoul'],
       [-122.4194, 37.7749, 'San Francisco'],
@@ -58528,13 +58568,19 @@ void main() {
             incident +
             signed(recipe.seed, index, series) * 2.4;
           const day = Math.round(progress * daySpan);
+          const milestone = [
+            [0.18, 'Baseline approved'],
+            [0.48, 'Model launched'],
+            [0.72, 'Campaign lift'],
+            [0.9, 'Quarterly review'],
+          ].find(([position]) => Math.abs(progress - position) < 0.5 / Math.max(1, perSeries));
           rows.push({
             date: isoDate(day),
             category: isoDate(day).slice(0, 7),
             value: round(value, 2),
             target: round(70 + progress * 22 + series * 6, 2),
             previous: round(value - 4 - Math.sin(progress * 9) * 3, 2),
-            annotation: Math.abs(progress - 0.72) < 1 / Math.max(1, perSeries) ? 'Campaign lift' : '',
+            annotation: milestone?.[1] ?? '',
             series: seriesNames[series % seriesNames.length],
             angle: round(progress * 360, 3),
           });
@@ -58610,7 +58656,7 @@ void main() {
           y: round(y, 3),
           size: round(6 + unit(recipe.seed, index, 14) * 34, 2),
           group: segmentNames[cluster % segmentNames.length],
-          label: `Observation ${index + 1}`,
+          label: `${accountNames[index % accountNames.length]} · ${segmentNames[cluster % segmentNames.length]}`,
         };
       });
     }
@@ -58623,9 +58669,12 @@ void main() {
         const duration = 2 + Math.floor(unit(recipe.seed, index, 20) * 10);
         const low = round(18 + lane * 10 + signed(recipe.seed, index, 21) * 4, 2);
         const high = round(low + 5 + unit(recipe.seed, index, 22) * 16, 2);
+        const initiative = initiativeNames[index % initiativeNames.length];
+        const region =
+          operatingRegions[Math.floor(index / initiativeNames.length) % operatingRegions.length];
         return {
-          id: `interval-${index + 1}`,
-          category: `${phaseNames[lane]} ${Math.floor(index / phaseNames.length) + 1}`,
+          id: `${initiative.toLowerCase().replaceAll(' ', '-')}-${phaseNames[lane].toLowerCase()}-${region.toLowerCase().replaceAll(' ', '-')}`,
+          category: `${phaseNames[lane]} · ${initiative} · ${region}`,
           start: isoDate(startDay),
           end: isoDate(startDay + duration),
           low,
@@ -58703,13 +58752,21 @@ void main() {
           const baseAngle = (entity / Math.max(1, entities)) * Math.PI * 2;
           const radius = 25 + group * 5 + signed(recipe.seed, entity, 40) * 4;
           const angle = baseAngle + time * (0.8 + group * 0.17);
+          const account = accountNames[entity % accountNames.length];
+          const region =
+            operatingRegions[Math.floor(entity / accountNames.length) % operatingRegions.length];
+          const train =
+            releaseTrainNames[
+              Math.floor(entity / (accountNames.length * operatingRegions.length)) %
+                releaseTrainNames.length
+            ];
           rows.push({
-            id: `entity-${entity + 1}`,
+            id: `${account} · ${region} · ${train}`,
             x: round(Math.cos(angle) * radius + time * 24 - 12, 3),
             y: round(Math.sin(angle) * radius + Math.sin(time * Math.PI) * 9, 3),
             size: round(8 + unit(recipe.seed, entity, 41) * 26, 2),
             group: segmentNames[group],
-            time: `Frame ${String(frame + 1).padStart(2, '0')}`,
+            time: `2026-W${String(frame + 1).padStart(2, '0')}`,
           });
         }
       }
@@ -58730,7 +58787,7 @@ void main() {
           latitude: round(latitude, 5),
           value: round(25 + unit(recipe.seed, index, 54) * 975, 2),
           category: hub[2],
-          label: `${hub[2]} event ${index + 1}`,
+          label: `${hub[2]} · ${regionalMetricNames[index % regionalMetricNames.length]}`,
         };
       });
     }
@@ -58754,7 +58811,7 @@ void main() {
       const nodeLabel = (index) => {
         const base = relationshipNodeNames[index % relationshipNodeNames.length];
         const cohort = Math.floor(index / relationshipNodeNames.length);
-        return cohort === 0 ? base : `${base} ${cohort + 1}`;
+        return cohort === 0 ? base : `${base} · ${operatingRegions[cohort % operatingRegions.length]}`;
       };
       const rows = [];
       for (let index = 1; index < nodes && rows.length < limit; index += 1) {
@@ -58788,14 +58845,31 @@ void main() {
       for (let index = 0; index < limit; index += 1) {
         const parentIndex = index === 0 ? -1 : Math.floor((index - 1) / 5);
         const depth = index === 0 ? 0 : Math.floor(Math.log(index * 4 + 1) / Math.log(5));
-        const label = index === 0 ? 'Statground' : `${phaseNames[depth % phaseNames.length]} ${index}`;
+        const initiative = initiativeNames[index % initiativeNames.length];
+        const region =
+          operatingRegions[Math.floor(index / initiativeNames.length) % operatingRegions.length];
+        const train =
+          releaseTrainNames[
+            Math.floor(index / (initiativeNames.length * operatingRegions.length)) %
+              releaseTrainNames.length
+          ];
+        const label =
+          index === 0
+            ? 'Statground'
+            : `${phaseNames[depth % phaseNames.length]} · ${initiative} · ${region} · ${train}`;
         const value = Math.max(1, Math.round(120_000 / (1 + depth * 3 + (index % 17))));
+        const id =
+          index === 0
+            ? 'statground'
+            : `${train.toLowerCase()}-${region.toLowerCase().replaceAll(' ', '-')}-${initiative
+            .toLowerCase()
+            .replaceAll(' ', '-')}`;
         rows.push(
           family === 'word-tree'
             ? { word: label, parent: parentIndex < 0 ? '' : rows[parentIndex].word, weight: value }
             : {
-                id: `node-${index + 1}`,
-                parent: parentIndex < 0 ? '' : `node-${parentIndex + 1}`,
+                id,
+                parent: parentIndex < 0 ? '' : rows[parentIndex].id,
                 value,
                 label,
               },
@@ -58836,8 +58910,16 @@ void main() {
         const speed = 64 + cohort * 5 + latent * 8 + gaussian(recipe.seed, index, 82) * 2;
         const quality = 72 + cohort * 3 + latent * 5 + gaussian(recipe.seed, index, 84) * 4;
         const cost = 96 - cohort * 7 - latent * 4 + gaussian(recipe.seed, index, 86) * 5;
+        const initiative = initiativeNames[index % initiativeNames.length];
+        const region =
+          operatingRegions[Math.floor(index / initiativeNames.length) % operatingRegions.length];
+        const train =
+          releaseTrainNames[
+            Math.floor(index / (initiativeNames.length * operatingRegions.length)) %
+              releaseTrainNames.length
+          ];
         return {
-          name: `Build ${index + 1}`,
+          name: `${initiative} · ${region} · ${train}`,
           category: segmentNames[cohort],
           series: index % 2 === 0 ? 'Current' : 'Previous',
           speed: round(speed, 3),
@@ -58945,7 +59027,7 @@ void main() {
         let cardinality = sourceRows(recipe);
         for (let index = 0; index < setCount; index += 1) {
           if ((mask & (1 << index)) !== 0) {
-            names.push(String.fromCharCode(65 + index));
+            names.push(vennSetNames[index]);
             cardinality *= 0.36 + unit(recipe.seed, index, 110) * 0.1;
           }
         }
@@ -59072,7 +59154,10 @@ void main() {
         const z = (zIndex / (side - 1)) * 3 - 1.5;
         origins.push([round(x, 5), round(y, 5), round(z, 5)]);
         vectors.push(vectorComponents(x, y, z).map((value) => round(value, 6)));
-        labels.push(`Flow sample ${index + 1}`);
+        const eastWest = x < -0.35 ? 'west' : x > 0.35 ? 'east' : 'central';
+        const northSouth = y < -0.35 ? 'south' : y > 0.35 ? 'north' : 'midline';
+        const altitude = z < -0.3 ? 'lower' : z > 0.3 ? 'upper' : 'middle';
+        labels.push(`${altitude} ${northSouth} ${eastWest} flow`);
         colors.push(palette[index % palette.length]);
       }
       return { origins, vectors, labels, colors };
@@ -59186,7 +59271,21 @@ void main() {
           .slice(0, maximumRows)
           .map((row) => ({ ...row }));
       }
-      return spatialPreview(data, maximumRows);
+      const preview = spatialPreview(data, maximumRows);
+      if (
+        recipe.parameters.family === 'annotation' &&
+        Array.isArray(data) &&
+        !preview.some((row) => typeof row.annotation === 'string' && row.annotation.length > 0)
+      ) {
+        const milestone = data.find(
+          (row) => typeof row.annotation === 'string' && row.annotation.length > 0,
+        );
+        if (milestone !== undefined) {
+          preview[preview.length - 1] = { ...milestone };
+          preview.sort((left, right) => String(left.date).localeCompare(String(right.date)));
+        }
+      }
+      return preview;
     }
 
     const recipeKeys = [
