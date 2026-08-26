@@ -28,6 +28,9 @@ import {
 const manifest = JSON.parse(
   await readFile(new URL('../catalog/graflume.catalog.json', import.meta.url)),
 );
+const edgeCases = JSON.parse(
+  await readFile(new URL('../catalog/graflume.edge-cases.json', import.meta.url)),
+);
 const features = JSON.parse(
   await readFile(new URL('../catalog/graflume.features.json', import.meta.url)),
 );
@@ -40,6 +43,20 @@ const catalogSchema = JSON.parse(
 const currentLimitationSchema = JSON.parse(
   await readFile(new URL('../schema/graflume.current-limitations.schema.json', import.meta.url)),
 );
+
+test('edge cases remain a separate three-profile companion to public catalog v2', () => {
+  assert.equal(manifest.schemaVersion, 2);
+  assert.equal(manifest.manualExamples.length, manifest.modes.length);
+  assert.equal(Object.hasOwn(manifest, 'edgeCases'), false);
+  assert.equal(edgeCases.schemaVersion, 1);
+  assert.equal(edgeCases.sourceCatalog.schemaVersion, 2);
+  assert.equal(edgeCases.totals.canonicalFamilies, manifest.families.length);
+  assert.equal(edgeCases.totals.examples, manifest.families.length * 3);
+  assert.deepEqual(
+    edgeCases.profiles.map(({ id }) => id),
+    ['range', 'structure', 'volume'],
+  );
+});
 
 test('public catalog is derived from the exact runtime family, mode, theme and identifier sets', () => {
   const canvasFamilyIds = Complete.fullCatalog.map(({ id }) => id);

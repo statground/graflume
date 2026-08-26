@@ -1,0 +1,232 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:graflume:edge-cases:1",
+  "title": "Graflume canonical-family edge-case examples",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "verifiedAt",
+    "sourceCatalog",
+    "totals",
+    "profiles",
+    "recipeCatalog",
+    "examples"
+  ],
+  "properties": {
+    "$schema": { "const": "../schema/graflume.edge-cases.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "verifiedAt": { "type": "string", "format": "date" },
+    "sourceCatalog": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "schemaVersion"],
+      "properties": {
+        "path": { "const": "catalog/graflume.catalog.json" },
+        "schemaVersion": { "const": 2 }
+      }
+    },
+    "totals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["canonicalFamilies", "profiles", "examples", "tablePreviewRowLimit"],
+      "properties": {
+        "canonicalFamilies": { "const": 44 },
+        "profiles": { "const": 3 },
+        "examples": { "const": 132 },
+        "tablePreviewRowLimit": { "const": 12 }
+      }
+    },
+    "profiles": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/profile" }
+    },
+    "recipeCatalog": {
+      "type": "array",
+      "minItems": 11,
+      "maxItems": 11,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/recipeCatalogEntry" }
+    },
+    "examples": {
+      "type": "array",
+      "minItems": 132,
+      "maxItems": 132,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/example" }
+    }
+  },
+  "$defs": {
+    "nonEmpty": { "type": "string", "minLength": 1 },
+    "stringList": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/nonEmpty" }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "order", "name", "summary"],
+      "properties": {
+        "id": { "enum": ["range", "structure", "volume"] },
+        "order": { "type": "integer", "minimum": 0, "maximum": 2 },
+        "name": { "$ref": "#/$defs/nonEmpty" },
+        "summary": { "$ref": "#/$defs/nonEmpty" }
+      }
+    },
+    "recipeCatalogEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "shape", "summary"],
+      "properties": {
+        "id": { "$ref": "#/$defs/recipeId" },
+        "shape": { "$ref": "#/$defs/recipeShape" },
+        "summary": { "$ref": "#/$defs/nonEmpty" }
+      }
+    },
+    "recipeId": {
+      "enum": [
+        "row-sequence-v1",
+        "interval-sequence-v1",
+        "ohlcv-sequence-v1",
+        "relationship-edges-v1",
+        "hierarchy-nodes-v1",
+        "grid-2d-v1",
+        "ternary-composition-v1",
+        "venn-membership-v1",
+        "surface-grid-v1",
+        "volume-grid-v1",
+        "spatial-vector-v1"
+      ]
+    },
+    "recipeShape": {
+      "enum": ["rows", "surface-grid", "volume-grid", "vector-set"]
+    },
+    "recipe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "seed", "shape", "rowCount", "parameters"],
+      "properties": {
+        "id": { "$ref": "#/$defs/recipeId" },
+        "version": { "const": 1 },
+        "seed": { "type": "integer", "minimum": 1, "maximum": 4294967295 },
+        "shape": { "$ref": "#/$defs/recipeShape" },
+        "rowCount": { "type": "integer", "minimum": 1, "maximum": 1000000 },
+        "parameters": { "$ref": "#/$defs/jsonObject" }
+      }
+    },
+    "example": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "familyId",
+        "profileId",
+        "runtime",
+        "entryPoint",
+        "renderer",
+        "quickApi",
+        "portableMark",
+        "recipe",
+        "tableData",
+        "fields",
+        "options",
+        "summary",
+        "demonstrates",
+        "expectations",
+        "sourceRef"
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9-]+-(?:range|structure|volume)$" },
+        "familyId": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+        "profileId": { "enum": ["range", "structure", "volume"] },
+        "runtime": { "enum": ["core", "spatial"] },
+        "entryPoint": { "$ref": "#/$defs/nonEmpty" },
+        "renderer": { "enum": ["canvas", "webgl"] },
+        "quickApi": { "$ref": "#/$defs/nonEmpty" },
+        "portableMark": { "$ref": "#/$defs/nonEmpty" },
+        "recipe": { "$ref": "#/$defs/recipe" },
+        "tableData": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": { "$ref": "#/$defs/jsonObject" }
+        },
+        "fields": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/field" }
+        },
+        "options": { "$ref": "#/$defs/jsonObject" },
+        "summary": { "$ref": "#/$defs/nonEmpty" },
+        "demonstrates": { "$ref": "#/$defs/stringList" },
+        "expectations": { "$ref": "#/$defs/expectations" },
+        "sourceRef": {
+          "type": "string",
+          "pattern": "^scripts/edge-case-samples\\.mjs#family-[a-z0-9-]+$"
+        }
+      }
+    },
+    "field": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type"],
+      "properties": {
+        "name": { "$ref": "#/$defs/nonEmpty" },
+        "type": { "enum": ["quantitative", "ordinal", "temporal", "boolean"] }
+      }
+    },
+    "expectations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "inputRows",
+        "tablePreviewRows",
+        "performanceProfile",
+        "bounded",
+        "outputBudget",
+        "invariants",
+        "handling"
+      ],
+      "properties": {
+        "inputRows": { "type": "integer", "minimum": 1, "maximum": 1000000 },
+        "tablePreviewRows": { "type": "integer", "minimum": 1, "maximum": 12 },
+        "performanceProfile": {
+          "enum": ["standard", "large", "ultra", "spatial-bounded"]
+        },
+        "bounded": { "const": true },
+        "outputBudget": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["resource", "maximum"],
+          "properties": {
+            "resource": { "$ref": "#/$defs/nonEmpty" },
+            "maximum": { "type": "integer", "minimum": 1, "maximum": 4194304 }
+          }
+        },
+        "invariants": { "$ref": "#/$defs/stringList" },
+        "handling": { "$ref": "#/$defs/stringList" }
+      }
+    },
+    "jsonObject": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/jsonValue" }
+    },
+    "jsonValue": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "boolean" },
+        { "type": "number" },
+        { "type": "string" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValue" } },
+        { "$ref": "#/$defs/jsonObject" }
+      ]
+    }
+  }
+}
