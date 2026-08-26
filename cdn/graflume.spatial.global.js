@@ -12588,7 +12588,10 @@ void main() {
         4,
         5_000,
       );
-      const visualNodeLimit = family === 'chord' ? 12 : family === 'network' ? 120 : 64;
+      // A dense relationship source is pre-aggregated into a readable product
+      // workflow. Twelve named nodes keep labels legible at the manual's mobile
+      // and desktop viewports while every retained node remains inspectable.
+      const visualNodeLimit = family === 'chord' ? 12 : family === 'network' ? 12 : 64;
       const nodes = Math.min(requestedNodes, visualNodeLimit, Math.max(4, Math.floor(limit * 0.72)));
       const nodeLabel = (index) => {
         const base = relationshipNodeNames[index % relationshipNodeNames.length];
