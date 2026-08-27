@@ -590,6 +590,135 @@ var Graflume = (function (exports) {
         });
     }
 
+    const isoDateTimePattern = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,9}))?)?(Z|[+-]\d{2}:?\d{2})?$/i;
+    function validCalendarDate(year, month, day) {
+        const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+        const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        return month >= 1 && month <= 12 && day >= 1 && day <= days[month - 1];
+    }
+    /** Parse the portable temporal inputs accepted by scales, axes, and tooltips. */
+    function parseTemporalValue(value) {
+        if (value instanceof Date) {
+            return Number.isFinite(value.getTime()) ? { value, dateOnly: false } : null;
+        }
+        if (typeof value === 'number') {
+            const date = new Date(value);
+            return Number.isFinite(date.getTime()) ? { value: date, dateOnly: false } : null;
+        }
+        if (typeof value !== 'string')
+            return null;
+        const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+        if (match !== null) {
+            const year = Number(match[1]);
+            const month = Number(match[2]);
+            const day = Number(match[3]);
+            if (!validCalendarDate(year, month, day))
+                return null;
+            const date = new Date(0);
+            date.setUTCFullYear(year, month - 1, day);
+            date.setUTCHours(0, 0, 0, 0);
+            return { value: date, dateOnly: true };
+        }
+        const dateTime = isoDateTimePattern.exec(value);
+        // Date.parse accepts host-dependent prose and partial dates. The portable
+        // contract intentionally stops at the strict ISO grammar above.
+        if (dateTime === null)
+            return null;
+        const year = Number(dateTime[1]);
+        const month = Number(dateTime[2]);
+        const day = Number(dateTime[3]);
+        const hour = Number(dateTime[4]);
+        const minute = Number(dateTime[5]);
+        const second = dateTime[6] === undefined ? 0 : Number(dateTime[6]);
+        if (!validCalendarDate(year, month, day) || hour > 23 || minute > 59 || second > 59)
+            return null;
+        const zoneLessISO = dateTime[8] === undefined;
+        // Portable ISO datetimes without an offset use UTC instead of the host machine's zone.
+        const date = new Date(zoneLessISO ? `${value}Z` : value);
+        return Number.isFinite(date.getTime()) ? { value: date, dateOnly: false } : null;
+    }
+    /**
+     * Resolve a temporal input to epoch milliseconds. Portable callers keep `allowLegacy` false;
+     * explicitly temporal runtime paths may retain historical parseable-string compatibility while
+     * strict ISO values are still resolved first, making zone-less ISO datetimes deterministic UTC.
+     */
+    function temporalTimestamp(value, allowLegacy = false) {
+        const parsed = parseTemporalValue(value);
+        if (parsed !== null)
+            return parsed.value.getTime();
+        if (!allowLegacy || typeof value !== 'string')
+            return null;
+        const legacy = Date.parse(value);
+        return Number.isFinite(legacy) ? legacy : null;
+    }
+    /** Construct Intl formatting with deterministic UTC fallback for invalid locale/zone input. */
+    function safeDateTimeFormatter(locale, options) {
+        try {
+            return new Intl.DateTimeFormat(locale, options);
+        }
+        catch {
+            try {
+                return new Intl.DateTimeFormat(undefined, options);
+            }
+            catch {
+                const utcOptions = { ...options, timeZone: 'UTC' };
+                try {
+                    return new Intl.DateTimeFormat(locale, utcOptions);
+                }
+                catch {
+                    try {
+                        return new Intl.DateTimeFormat(undefined, utcOptions);
+                    }
+                    catch {
+                        return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeZone: 'UTC' });
+                    }
+                }
+            }
+        }
+    }
+    /** Format one temporal value without callbacks or executable format strings. */
+    function formatTemporalValue(value, format, locale) {
+        const parsed = parseTemporalValue(value);
+        if (parsed === null)
+            return null;
+        const options = {
+            // A calendar-only value has no instant. Keep it on the authored day.
+            timeZone: parsed.dateOnly && format.type === 'date' ? 'UTC' : format.timeZone || 'UTC',
+        };
+        if (format.type === 'time')
+            options.timeStyle = format.timeStyle;
+        else if (format.type === 'datetime') {
+            options.dateStyle = format.dateStyle;
+            options.timeStyle = format.timeStyle;
+        }
+        else
+            options.dateStyle = format.dateStyle;
+        return safeDateTimeFormatter(locale, options).format(parsed.value);
+    }
+    /** Resolve whether an authored value contains a calendar date only or an instant. */
+    function inferTemporalDisplayFormat(value) {
+        if (value instanceof Date)
+            return Number.isFinite(value.getTime()) ? 'datetime' : null;
+        if (typeof value !== 'string')
+            return null;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+            return parseTemporalValue(value) === null ? null : 'date';
+        }
+        // Automatic inference is intentionally strict. Human labels such as "2024"
+        // and "May 2026" remain categorical even though Date.parse accepts them.
+        if (!isoDateTimePattern.test(value)) {
+            return null;
+        }
+        return parseTemporalValue(value) === null ? null : 'datetime';
+    }
+    /** Stable text for semantic/accessibility surfaces that must never expose raw epoch values. */
+    function temporalISOText(value) {
+        const parsed = parseTemporalValue(value);
+        if (parsed === null)
+            return null;
+        return parsed.dateOnly && typeof value === 'string' ? value : parsed.value.toISOString();
+    }
+
     function isColumnarData(input) {
         return !Array.isArray(input);
     }
@@ -672,10 +801,8 @@ var Graflume = (function (exports) {
         }
         numericValue(rowIndex, field) {
             const value = this.value(rowIndex, field);
-            if (typeof value === 'string') {
-                const timestamp = Date.parse(value);
-                return Number.isFinite(timestamp) ? timestamp : null;
-            }
+            if (typeof value === 'string')
+                return temporalTimestamp(value, true);
             return finiteNumber(value);
         }
         extent(field, asTemporal = false) {
@@ -686,8 +813,7 @@ var Graflume = (function (exports) {
                 const raw = column[index];
                 let value;
                 if (asTemporal && typeof raw === 'string') {
-                    const timestamp = Date.parse(raw);
-                    value = Number.isFinite(timestamp) ? timestamp : null;
+                    value = temporalTimestamp(raw, true);
                 }
                 else {
                     value = finiteNumber(raw);
@@ -984,8 +1110,7 @@ var Graflume = (function (exports) {
             const number = Number(value);
             if (Number.isFinite(number))
                 return number;
-            const date = Date.parse(value);
-            return Number.isFinite(date) ? date : null;
+            return temporalTimestamp(value, true);
         }
         return null;
     }
@@ -1810,11 +1935,10 @@ var Graflume = (function (exports) {
             case 'timeUnit':
                 return rows.map((row) => {
                     const raw = row.value[transform.field];
-                    const date = raw instanceof Date
-                        ? new Date(raw)
-                        : new Date(typeof raw === 'number' || typeof raw === 'string' ? raw : Number.NaN);
+                    const timestamp = temporalTimestamp(raw, true);
+                    const date = timestamp === null ? undefined : new Date(timestamp);
                     let result = null;
-                    if (Number.isFinite(date.getTime())) {
+                    if (date !== undefined) {
                         const utc = transform.utc ?? true;
                         const value = (name) => date[`get${utc ? 'UTC' : ''}${name}`]();
                         result =
@@ -2237,7 +2361,7 @@ var Graflume = (function (exports) {
         const stripRight = position === 'right' ? right + strip : right;
         return x >= left && x <= stripRight && y >= plot.y && y <= bottom;
     }
-    function lowerBound(targets, channel, value) {
+    function lowerBound$1(targets, channel, value) {
         let low = 0;
         let high = targets.length;
         while (low < high) {
@@ -2251,7 +2375,7 @@ var Graflume = (function (exports) {
         return low;
     }
     function nearestCoordinate(index, pointer) {
-        const insertion = lowerBound(index.targets, index.channel, pointer);
+        const insertion = lowerBound$1(index.targets, index.channel, pointer);
         const before = index.targets[insertion - 1];
         const after = index.targets[insertion];
         if (before === undefined && after === undefined)
@@ -2280,7 +2404,7 @@ var Graflume = (function (exports) {
         const coordinate = nearestCoordinate(index, pointerPrimary);
         if (coordinate === null)
             return null;
-        const start = lowerBound(index.targets, index.channel, coordinate - coordinateEpsilon);
+        const start = lowerBound$1(index.targets, index.channel, coordinate - coordinateEpsilon);
         let best = null;
         let bestDistance = Number.POSITIVE_INFINITY;
         for (let cursor = start; cursor < index.targets.length; cursor += 1) {
@@ -6822,11 +6946,7 @@ var Graflume = (function (exports) {
         };
     }
     function timestamp$1(value, index) {
-        const resolved = value instanceof Date
-            ? value.getTime()
-            : typeof value === 'number'
-                ? value
-                : Date.parse(value ?? '');
+        const resolved = temporalTimestamp(value ?? null, true) ?? Number.NaN;
         if (!Number.isFinite(resolved)) {
             throw new GraflumeError('INVALID_SPEC', `Invalid session timestamp at row ${index}.`, {
                 path: '$.mark.options.session.timeField',
@@ -7187,13 +7307,24 @@ var Graflume = (function (exports) {
     }
 
     const UNSAFE_FIELDS = new Set(['__proto__', 'prototype', 'constructor']);
-    const TOOLTIP_FORMATS = new Set(['auto', 'number', 'integer', 'percent', 'date', 'datetime']);
+    const TOOLTIP_FORMATS = new Set([
+        'auto',
+        'number',
+        'integer',
+        'percent',
+        'date',
+        'time',
+        'datetime',
+    ]);
     const TOOLTIP_KEYS = new Set(['trigger', 'axis', 'title', 'fields']);
     const TOOLTIP_FIELD_KEYS = new Set([
         'field',
         'label',
         'format',
         'fractionDigits',
+        'dateStyle',
+        'timeStyle',
+        'timeZone',
         'prefix',
         'suffix',
     ]);
@@ -7588,7 +7719,7 @@ var Graflume = (function (exports) {
     const AXIS_NOTATIONS = new Set(['standard', 'compact', 'scientific', 'engineering']);
     const AXIS_CURRENCY_DISPLAYS = new Set(['symbol', 'narrowSymbol', 'code', 'name']);
     const AXIS_DATE_STYLES = new Set(['short', 'medium', 'long', 'full']);
-    const AXIS_TIME_STYLES = new Set(['short', 'medium', 'long']);
+    const AXIS_TIME_STYLES = new Set(['short', 'medium', 'long', 'full']);
     const THEME_CONTINUOUS_INTERPOLATIONS = new Set(['step', 'rgb', 'lab']);
     const THEME_SERIES_COLOR_MODES = new Set(['theme', 'series']);
     const THEME_PIE_DIRECTIONS = new Set(['clockwise', 'counterclockwise']);
@@ -8073,7 +8204,7 @@ var Graflume = (function (exports) {
             }
             if ((type === 'time' || type === 'utc') &&
                 value.domain.some((entry) => typeof entry !== 'number' &&
-                    (typeof entry !== 'string' || !Number.isFinite(Date.parse(entry))))) {
+                    (typeof entry !== 'string' || temporalTimestamp(entry, true) === null))) {
                 issues.push({
                     path: `${path}.domain`,
                     message: `${type} scale domain values must be finite epochs or parseable date strings.`,
@@ -8149,14 +8280,10 @@ var Graflume = (function (exports) {
             if ((type === 'time' || type === 'utc') &&
                 value.domain.length === 2 &&
                 value.domain
-                    .map((entry) => (typeof entry === 'number' ? entry : Date.parse(String(entry))))
+                    .map((entry) => temporalTimestamp(entry, true) ?? Number.NaN)
                     .every(Number.isFinite) &&
-                (typeof value.domain[0] === 'number'
-                    ? value.domain[0]
-                    : Date.parse(String(value.domain[0]))) ===
-                    (typeof value.domain[1] === 'number'
-                        ? value.domain[1]
-                        : Date.parse(String(value.domain[1])))) {
+                temporalTimestamp(value.domain[0], true) ===
+                    temporalTimestamp(value.domain[1], true)) {
                 issues.push({
                     path: `${path}.domain`,
                     message: `${type} scale domain endpoints must differ.`,
@@ -9469,6 +9596,29 @@ var Graflume = (function (exports) {
             issues.push({
                 path: `${path}.fractionDigits`,
                 message: 'Tooltip fractionDigits must be an integer from 0 to 6.',
+            });
+        }
+        if (value.dateStyle !== undefined &&
+            (typeof value.dateStyle !== 'string' ||
+                !['short', 'medium', 'long', 'full'].includes(value.dateStyle))) {
+            issues.push({
+                path: `${path}.dateStyle`,
+                message: 'Tooltip dateStyle must be "short", "medium", "long", or "full".',
+            });
+        }
+        if (value.timeStyle !== undefined &&
+            (typeof value.timeStyle !== 'string' ||
+                !['short', 'medium', 'long', 'full'].includes(value.timeStyle))) {
+            issues.push({
+                path: `${path}.timeStyle`,
+                message: 'Tooltip timeStyle must be "short", "medium", "long", or "full".',
+            });
+        }
+        if (value.timeZone !== undefined &&
+            (typeof value.timeZone !== 'string' || value.timeZone.trim() === '')) {
+            issues.push({
+                path: `${path}.timeZone`,
+                message: 'Tooltip timeZone must be a non-empty string.',
             });
         }
         for (const key of ['prefix', 'suffix']) {
@@ -11742,6 +11892,9 @@ var Graflume = (function (exports) {
             ...(typeof input === 'string' || input.fractionDigits === undefined
                 ? {}
                 : { fractionDigits: input.fractionDigits }),
+            dateStyle: typeof input === 'string' ? 'medium' : (input.dateStyle ?? 'medium'),
+            timeStyle: typeof input === 'string' ? 'short' : (input.timeStyle ?? 'short'),
+            timeZone: typeof input === 'string' ? 'UTC' : (input.timeZone ?? 'UTC'),
             prefix: typeof input === 'string' ? '' : (input.prefix ?? ''),
             suffix: typeof input === 'string' ? '' : (input.suffix ?? ''),
         };
@@ -12284,7 +12437,7 @@ var Graflume = (function (exports) {
                 return 'quantitative';
             if (typeof value === 'string' &&
                 /^\d{4}-\d{2}-\d{2}(?:T|$)/.test(value) &&
-                Number.isFinite(Date.parse(value))) {
+                parseTemporalValue(value) !== null) {
                 return 'temporal';
             }
             return 'nominal';
@@ -12689,9 +12842,24 @@ var Graflume = (function (exports) {
             ? text
             : `${characters.slice(0, Math.max(1, limit - 1)).join('')}\u2026`;
     }
-    function formatValue$1(value, locale) {
+    function formatValue$1(value, locale, type, axisFormat) {
         if (value === null || value === undefined)
             return '\u2014';
+        if (type === 'temporal' || value instanceof Date) {
+            const authoredType = axisFormat?.type;
+            const temporalType = authoredType === 'date' || authoredType === 'time' || authoredType === 'datetime'
+                ? authoredType
+                : (inferTemporalDisplayFormat(value) ?? 'datetime');
+            const formatted = formatTemporalValue(value, {
+                type: temporalType,
+                dateStyle: axisFormat?.dateStyle ?? 'medium',
+                timeStyle: axisFormat?.timeStyle ?? 'short',
+                timeZone: axisFormat?.timeZone ?? 'UTC',
+            }, locale);
+            if (formatted !== null) {
+                return `${axisFormat?.prefix ?? ''}${formatted}${axisFormat?.suffix ?? ''}`;
+            }
+        }
         if (value instanceof Date)
             return value.toISOString();
         if (typeof value === 'number' && Number.isFinite(value)) {
@@ -12822,16 +12990,191 @@ var Graflume = (function (exports) {
     function publicDatum(row) {
         return Object.fromEntries(Object.entries(row).filter(([field]) => !field.startsWith('__graflume_')));
     }
-    function channels(layer, row) {
+    function boundedInteger$8(value, fallback, minimum = 0) {
+        return typeof value === 'number' && Number.isInteger(value) && value >= minimum
+            ? value
+            : fallback;
+    }
+    function tableNodeDatum(item) {
+        return publicDatum({ ...item.datum, ...(item.tooltip ?? {}) });
+    }
+    function tableColumn(item) {
+        const datum = tableNodeDatum(item);
+        if (datum.kind !== 'table-header')
+            return null;
+        if (typeof datum.field !== 'string' || typeof datum.header !== 'string')
+            return null;
+        const column = boundedInteger$8(datum.column, -1);
+        if (column < 0)
+            return null;
         return {
-            x: { field: layer.layer.x.field, value: row[layer.layer.x.field] },
-            y: { field: layer.layer.y.field, value: row[layer.layer.y.field] },
+            column,
+            field: boundedText$1(datum.field, 120),
+            header: boundedText$1(datum.header, 240),
+        };
+    }
+    function tableCell(item) {
+        const datum = tableNodeDatum(item);
+        if (typeof datum.tableField !== 'string')
+            return null;
+        const row = boundedInteger$8(datum.tableRow, -1);
+        const column = boundedInteger$8(datum.tableColumn, -1);
+        if (row < 0 || column < 0)
+            return null;
+        const value = datum.cellValue;
+        const formatted = typeof datum.cellFormatted === 'string'
+            ? datum.cellFormatted
+            : typeof datum.formatted === 'string'
+                ? datum.formatted
+                : boundedText$1(value, 512);
+        return {
+            row,
+            column,
+            field: boundedText$1(datum.tableField, 120),
+            value,
+            formatted: boundedText$1(formatted, 512),
+            rowSpan: boundedInteger$8(datum.rowSpan, 1, 1),
+            columnSpan: boundedInteger$8(datum.columnSpan, 1, 1),
+        };
+    }
+    function tableCellBounds(item, cell, tableRow) {
+        if (cell.rowSpan <= 1)
+            return item.bounds;
+        const height = item.bounds.height / cell.rowSpan;
+        return {
+            x: item.bounds.x,
+            y: item.bounds.y + (tableRow - cell.row) * height,
+            width: item.bounds.width,
+            height,
+        };
+    }
+    function tableSemanticRows(layer, layerNodes, maxRows, locale) {
+        const columns = layerNodes
+            .map(tableColumn)
+            .filter((column) => column !== null)
+            .sort((left, right) => left.column - right.column);
+        const cells = layerNodes
+            .map((item) => ({ item, cell: tableCell(item) }))
+            .filter((entry) => entry.cell !== null)
+            .sort((left, right) => left.cell.row - right.cell.row || left.cell.column - right.cell.column);
+        if (cells.length === 0)
+            return null;
+        let totalRows = 0;
+        const visibleRowSet = new Set();
+        for (const { item, cell } of cells) {
+            totalRows = Math.max(totalRows, cell.row + cell.rowSpan, boundedInteger$8(tableNodeDatum(item).totalRows, cell.row + cell.rowSpan, 1));
+            const end = Math.min(cell.row + cell.rowSpan, cell.row + maxRows);
+            for (let row = cell.row; row < end && visibleRowSet.size < maxRows; row += 1) {
+                visibleRowSet.add(row);
+            }
+        }
+        const visibleRows = [...visibleRowSet].sort((left, right) => left - right);
+        const anchorsByRow = new Map();
+        const coveringByRow = new Map();
+        const finalVisibleRow = visibleRows[visibleRows.length - 1] ?? -1;
+        for (const entry of cells) {
+            if (visibleRowSet.has(entry.cell.row)) {
+                const anchors = anchorsByRow.get(entry.cell.row) ?? [];
+                anchors.push(entry);
+                anchorsByRow.set(entry.cell.row, anchors);
+            }
+            const end = Math.min(entry.cell.row + entry.cell.rowSpan, finalVisibleRow + 1);
+            for (let row = entry.cell.row; row < end; row += 1) {
+                if (!visibleRowSet.has(row))
+                    continue;
+                const covering = coveringByRow.get(row) ?? [];
+                covering.push(entry);
+                coveringByRow.set(row, covering);
+            }
+        }
+        return visibleRows.map((tableRow) => {
+            const anchors = anchorsByRow.get(tableRow) ?? [];
+            const covering = coveringByRow.get(tableRow) ?? [];
+            const representative = anchors[0] ?? covering[0];
+            const datum = Object.fromEntries(covering.map(({ cell }) => [cell.field, cell.value]));
+            const formattedValues = Object.fromEntries(covering.map(({ cell }) => [cell.field, cell.formatted]));
+            const bounds = covering
+                .map(({ item, cell }) => tableCellBounds(item, cell, tableRow))
+                .reduce(unionBounds, tableCellBounds(representative.item, representative.cell, tableRow));
+            const visible = covering.some(({ item }) => item.visible);
+            const label = boundedText$1(`${layer.layer.name}. Row ${tableRow + 1}. ${columns
+            .flatMap(({ field, header }) => {
+            const formatted = formattedValues[field];
+            return formatted === undefined ? [] : [`${header}: ${formatted}`];
+        })
+            .join('. ')}.`);
+            return {
+                id: `${layer.layer.id}:table-row:${tableRow}`,
+                viewId: 'plot',
+                layerId: layer.layer.id,
+                rowIndex: representative.item.rowIndex,
+                role: 'table',
+                channels: channels(layer, datum, locale),
+                datum,
+                lineage: lineageFor(layer, representative.item.rowIndex, false, representative.item.tooltip),
+                bounds,
+                visible: layer.layer.visible && visible,
+                label,
+                tableRow: {
+                    row: tableRow,
+                    totalRows,
+                    columns,
+                    cells: anchors.map(({ cell }) => cell),
+                    formattedValues,
+                },
+            };
+        });
+    }
+    function derivedSemanticDatum(layer, datum, tooltip) {
+        const row = publicDatum({ ...datum, ...tooltip });
+        if (layer.layer.mark.type !== 'timeline' || layer.xType !== 'temporal')
+            return row;
+        // Timeline keeps numeric start/end values in its public scene datum for API
+        // compatibility and authored date-only strings in its tooltip. The semantic
+        // sidecar is display-facing, so expose both derived bounds as real instants
+        // without changing either public contract.
+        return Object.fromEntries(Object.entries(row).map(([field, value]) => {
+            if (field !== 'start' && field !== 'end')
+                return [field, value];
+            return [field, parseTemporalValue(value)?.value ?? value];
+        }));
+    }
+    function channels(layer, row, locale) {
+        const xValue = row[layer.layer.x.field];
+        const yValue = row[layer.layer.y.field];
+        const xFormat = layer.layer.x.axis === false ? undefined : layer.layer.x.axis.format;
+        const yFormat = layer.layer.y.axis === false ? undefined : layer.layer.y.axis.format;
+        return {
+            x: {
+                field: layer.layer.x.field,
+                value: xValue,
+                type: layer.xType,
+                displayValue: formatValue$1(xValue, locale, layer.xType, xFormat),
+            },
+            y: {
+                field: layer.layer.y.field,
+                value: yValue,
+                type: layer.yType,
+                displayValue: formatValue$1(yValue, locale, layer.yType, yFormat),
+            },
         };
     }
     function semanticLabel(layer, row, locale) {
-        const x = channels(layer, row).x;
-        const y = channels(layer, row).y;
-        return boundedText$1(`${layer.layer.name}. ${layer.layer.x.title}: ${formatValue$1(x.value, locale)}. ${layer.layer.y.title}: ${formatValue$1(y.value, locale)}.`);
+        const x = channels(layer, row, locale).x;
+        const y = channels(layer, row, locale).y;
+        return boundedText$1(`${layer.layer.name}. ${layer.layer.x.title}: ${x.displayValue ?? formatValue$1(x.value, locale, x.type)}. ${layer.layer.y.title}: ${y.displayValue ?? formatValue$1(y.value, locale, y.type)}.`);
+    }
+    function accessibleValue(mark, field, value) {
+        const tableFormatted = mark.tableRow?.formattedValues[field];
+        if (tableFormatted !== undefined)
+            return tableFormatted;
+        const temporal = Object.values(mark.channels).some((channel) => channel?.field === field && channel.type === 'temporal');
+        const channelDisplay = Object.values(mark.channels).find((channel) => channel?.field === field)?.displayValue;
+        if (temporal && channelDisplay !== undefined)
+            return channelDisplay;
+        if (!temporal && !(value instanceof Date))
+            return value;
+        return temporalISOText(value) ?? value;
     }
     function lineageFor(layer, rowIndex, aggregate, tooltip) {
         const explicit = tooltip?.sourceRowIndices;
@@ -12874,6 +13217,11 @@ var Graflume = (function (exports) {
         const nodeData = collectNodeDatumBounds(root);
         const candidates = layers.map((layer) => {
             const layerNodes = nodeData.filter(({ layerId }) => layerId === layer.layer.id);
+            if (layer.layer.mark.type === 'table') {
+                const tableRows = tableSemanticRows(layer, layerNodes, maxRows, locale);
+                if (tableRows !== null)
+                    return tableRows;
+            }
             const rowBounds = new Map();
             for (const item of layerNodes) {
                 const current = rowBounds.get(item.rowIndex);
@@ -12894,7 +13242,7 @@ var Graflume = (function (exports) {
                     layerId: layer.layer.id,
                     rowIndex,
                     role: layer.layer.mark.type,
-                    channels: channels(layer, row),
+                    channels: channels(layer, row, locale),
                     datum,
                     lineage: lineageFor(layer, rowIndex, false),
                     bounds: measured?.bounds ?? mappedObservationBounds(layer, row),
@@ -12907,14 +13255,16 @@ var Graflume = (function (exports) {
                     break;
                 if (item.tooltip === undefined || !valuesDiffer(item.datum, item.tooltip))
                     continue;
-                const row = item.tooltip;
+                // Preserve source fields for accessible navigation while letting truthful
+                // compiler-derived values replace fields with the same name.
+                const row = derivedSemanticDatum(layer, item.datum, item.tooltip);
                 records.push({
                     id: `${item.nodeId}:derived`,
                     viewId: 'plot',
                     layerId: layer.layer.id,
                     rowIndex: item.rowIndex,
                     role: `${layer.layer.mark.type}-aggregate`,
-                    channels: channels(layer, row),
+                    channels: channels(layer, row, locale),
                     datum: row,
                     lineage: lineageFor(layer, item.rowIndex, true, item.tooltip),
                     bounds: item.bounds,
@@ -12949,6 +13299,15 @@ var Graflume = (function (exports) {
             role: mark.role,
             label: mark.label,
             values: Object.fromEntries(Object.entries(mark.datum).slice(0, tableColumnLimit)),
+            displayValues: Object.fromEntries(Object.entries(mark.datum)
+                .slice(0, tableColumnLimit)
+                .map(([field, value]) => {
+                const display = accessibleValue(mark, field, value);
+                return [
+                    field,
+                    display instanceof Date ? display.toISOString() : String(display ?? '\u2014'),
+                ];
+            })),
             visible: mark.visible,
         }));
     }
@@ -12979,13 +13338,7 @@ var Graflume = (function (exports) {
         return null;
     }
     function timestamp(value, path) {
-        const resolved = value instanceof Date
-            ? value.getTime()
-            : typeof value === 'number'
-                ? value
-                : typeof value === 'string'
-                    ? Date.parse(value)
-                    : Number.NaN;
+        const resolved = temporalTimestamp(value, true) ?? Number.NaN;
         if (!Number.isFinite(resolved)) {
             throw new GraflumeError('INVALID_DATA', `${path} must be a finite timestamp.`, { path });
         }
@@ -13391,7 +13744,7 @@ var Graflume = (function (exports) {
     function dateSet(values, path) {
         const output = new Set();
         (values ?? []).forEach((value, index) => {
-            if (!/^\d{4}-\d{2}-\d{2}$/u.test(value) || Number.isNaN(Date.parse(`${value}T00:00:00Z`)))
+            if (!/^\d{4}-\d{2}-\d{2}$/u.test(value) || parseTemporalValue(value) === null)
                 throw new GraflumeError('INVALID_SPEC', `${path}[${index}] must be YYYY-MM-DD.`);
             output.add(value);
         });
@@ -14726,7 +15079,9 @@ var Graflume = (function (exports) {
             const value = input instanceof Date
                 ? input.getTime()
                 : typeof input === 'string'
-                    ? Date.parse(input)
+                    ? this.kind === 'time' || this.kind === 'utc'
+                        ? (temporalTimestamp(input, true) ?? Number.NaN)
+                        : Date.parse(input)
                     : input;
             if (!Number.isFinite(value))
                 return Number.NaN;
@@ -14763,7 +15118,7 @@ var Graflume = (function (exports) {
         }
         #format(value, locale) {
             if (this.kind === 'time' || this.kind === 'utc') {
-                return new Intl.DateTimeFormat(locale, {
+                return safeDateTimeFormatter(locale, {
                     year: 'numeric',
                     month: 'short',
                     day: 'numeric',
@@ -14985,7 +15340,9 @@ var Graflume = (function (exports) {
             const value = input instanceof Date
                 ? input.getTime()
                 : typeof input === 'string'
-                    ? Date.parse(input)
+                    ? this.kind === 'time' || this.kind === 'utc'
+                        ? (temporalTimestamp(input, true) ?? Number.NaN)
+                        : Date.parse(input)
                     : input;
             if (!Number.isFinite(value))
                 return Number.NaN;
@@ -15028,7 +15385,7 @@ var Graflume = (function (exports) {
             return Array.from({ length: size + 1 }, (_, index) => {
                 const value = this.#transform.inverse(start + ((end - start) * index) / size);
                 const label = this.kind === 'time' || this.kind === 'utc'
-                    ? new Intl.DateTimeFormat(locale, {
+                    ? safeDateTimeFormatter(locale, {
                         year: 'numeric',
                         month: 'short',
                         day: 'numeric',
@@ -15257,7 +15614,7 @@ var Graflume = (function (exports) {
         if (type === 'ordinal' || type === 'quantile' || type === 'quantize' || type === 'threshold')
             return new DiscretePositionScale(type, spec, domain, numericRange(range, 1));
         const resolvedContinuousDomain = type === 'time' || type === 'utc'
-            ? domain.map((value) => (typeof value === 'number' ? value : Date.parse(value)))
+            ? domain.map((value) => typeof value === 'number' ? value : (temporalTimestamp(value, true) ?? Number.NaN))
             : domain;
         const pair = numericDomain$2(resolvedContinuousDomain);
         if (type === 'linear' || type === 'time' || type === 'utc') {
@@ -15458,8 +15815,7 @@ var Graflume = (function (exports) {
             const parsed = Number(value);
             if (Number.isFinite(parsed))
                 return parsed;
-            const date = Date.parse(value);
-            return Number.isFinite(date) ? date : null;
+            return temporalTimestamp(value, true);
         }
         return null;
     }
@@ -15474,11 +15830,11 @@ var Graflume = (function (exports) {
             if (!truthy(evaluateTransformExpression(condition.test, row)))
                 continue;
             if (condition.field !== undefined)
-                return { value: row[condition.field], literal: false };
+                return { value: row[condition.field], literal: false, field: condition.field };
             return { value: condition.value, literal: true };
         }
         if (spec.field !== undefined)
-            return { value: row[spec.field], literal: false };
+            return { value: row[spec.field], literal: false, field: spec.field };
         return { value: spec.value, literal: true };
     }
     function rawFrom(spec, row) {
@@ -15543,7 +15899,7 @@ var Graflume = (function (exports) {
             return false;
         return values.some((value) => typeof value === 'string' &&
             !Number.isFinite(Number(value)) &&
-            !Number.isFinite(Date.parse(value)));
+            parseTemporalValue(value) === null);
     }
     function defaultNumericRange(channel) {
         switch (channel) {
@@ -15760,10 +16116,21 @@ var Graflume = (function (exports) {
             return String(value);
         }
         tooltip(rowIndex) {
-            const value = this.raw('tooltip', rowIndex);
-            if (value === undefined || Array.isArray(value) || value instanceof Date)
+            const prepared = this.#prepare('tooltip');
+            if (prepared === undefined)
                 return undefined;
-            return { encoded: value };
+            const resolved = resolvedFrom(prepared.spec, this.context.table.row(rowIndex));
+            if (resolved.value === undefined || Array.isArray(resolved.value))
+                return undefined;
+            const parsed = prepared.spec.type === 'temporal' && typeof resolved.value === 'number'
+                ? parseTemporalValue(resolved.value)
+                : null;
+            const value = parsed?.value ?? resolved.value;
+            // `encoded` is the historical channel alias. Keep it while also exposing
+            // the authored field so configured and inferred tooltip fields agree.
+            return resolved.field === undefined
+                ? { encoded: value }
+                : { encoded: resolved.value, [resolved.field]: value };
         }
         groupKey(rowIndex) {
             return ['detail', 'color', 'fill', 'stroke', 'strokeDash', 'strokeWidth', 'opacity']
@@ -15930,11 +16297,16 @@ var Graflume = (function (exports) {
         }
         if (typeof value === 'number')
             return Number.isFinite(value) ? value : null;
-        if (temporal && typeof value === 'string') {
-            const timestamp = Date.parse(value);
-            return Number.isFinite(timestamp) ? timestamp : null;
-        }
+        if (temporal && typeof value === 'string')
+            return temporalTimestamp(value, true);
         return null;
+    }
+    /** Preserve authored ISO text while making numeric temporal values self-describing to display code. */
+    function temporalTooltipValue(value) {
+        const parsed = parseTemporalValue(value);
+        if (parsed === null)
+            return value;
+        return typeof value === 'string' ? value : parsed.value;
     }
     function themedPointFill(theme, seriesColor, fallback) {
         return theme.mark.pointColorMode === 'series' ? seriesColor : (theme.mark.pointFill ?? fallback);
@@ -16190,7 +16562,7 @@ var Graflume = (function (exports) {
         return {
             ...cleanRow(context.table.row(entry.rowIndex)),
             stackSeries: entry.series,
-            stackCategory: entry.category,
+            stackCategory: entry.categoryTemporal ? temporalTooltipValue(entry.category) : entry.category,
             stackValue: entry.source,
             stackStart: entry.start,
             stackEnd: entry.end,
@@ -16215,6 +16587,11 @@ var Graflume = (function (exports) {
         const stack = resolveSeriesStackSpec(context.layer);
         if (stack === null)
             return [];
+        const categoryTemporal = fields.category === context.layer.x.field
+            ? context.xType === 'temporal'
+            : fields.category === context.layer.y.field
+                ? context.yType === 'temporal'
+                : false;
         const groupedTotals = new Map();
         if (stack.offset === null) {
             for (let rowIndex = 0; rowIndex < context.table.length; rowIndex += 1) {
@@ -16273,6 +16650,7 @@ var Graflume = (function (exports) {
                 seriesIndex,
                 category,
                 categoryKey,
+                categoryTemporal,
                 source,
                 start,
                 end,
@@ -16567,7 +16945,7 @@ var Graflume = (function (exports) {
         return nodes;
     }
 
-    function finiteOption(value, fallback) {
+    function finiteOption$1(value, fallback) {
         return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
     }
     function stringValue$4(value) {
@@ -16616,7 +16994,7 @@ var Graflume = (function (exports) {
                 : context.plot.width / Math.max(3, grouped.size * 2));
             const nodes = [];
             [...grouped].forEach(([category, group], groupIndex) => {
-                const summary = rawBoxSummary(group.observations, finiteOption(layer.mark.options.whisker, 1.5));
+                const summary = rawBoxSummary(group.observations, finiteOption$1(layer.mark.options.whisker, 1.5));
                 const input = scaleInput(group.xValue);
                 if (summary === null || input === null)
                     return;
@@ -17737,8 +18115,8 @@ var Graflume = (function (exports) {
                                 datum: table.row(rowIndex),
                                 tooltip: {
                                     kind: 'histogram-bin',
-                                    binStart: bin.start,
-                                    binEnd: bin.end,
+                                    binStart: layer.x.type === 'temporal' ? temporalTooltipValue(bin.start) : bin.start,
+                                    binEnd: layer.x.type === 'temporal' ? temporalTooltipValue(bin.end) : bin.end,
                                     count: bin.count,
                                     weight: bin.weight,
                                     value: bin.value,
@@ -19666,7 +20044,7 @@ var Graflume = (function (exports) {
             (typeof optionWeightField === 'string' ? optionWeightField : undefined);
         const observations = [];
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
-            const value = numericDataValue(table.value(rowIndex, valueField), layer.x.type === 'temporal');
+            const value = numericDataValue(table.value(rowIndex, valueField), context.xType === 'temporal');
             const weight = weightField === undefined ? 1 : numericDataValue(table.value(rowIndex, weightField));
             if (value === null || weight === null || weight < 0)
                 continue;
@@ -19728,7 +20106,9 @@ var Graflume = (function (exports) {
                 type: 'circle',
                 ...datumBase$2(context, `${layer.id}:${complementary ? 'ccdf' : 'ecdf'}-point:${index}`, rowIndex, 1, {
                     kind: complementary ? 'ccdf-point' : 'ecdf-point',
-                    value: point.value,
+                    value: context.xType === 'temporal'
+                        ? temporalTooltipValue(table.value(rowIndex, valueField) ?? point.value)
+                        : point.value,
                     probability: point.probability,
                     weight: point.weight,
                     count: point.count,
@@ -20255,7 +20635,7 @@ var Graflume = (function (exports) {
         const seriesField = layer.mark.fields.series ?? layer.mark.fields.group;
         const groups = new Map();
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
-            const value = numericDataValue(table.value(rowIndex, valueField), layer.x.type === 'temporal');
+            const value = numericDataValue(table.value(rowIndex, valueField), context.xType === 'temporal');
             if (value === null)
                 continue;
             const weight = weightField === '' ? 1 : numericDataValue(table.value(rowIndex, weightField));
@@ -20333,8 +20713,8 @@ var Graflume = (function (exports) {
                         analyticsFamily: 'distribution',
                         analyticsMode: 'shared-histogram',
                         series: entry.label,
-                        binStart: bin.start,
-                        binEnd: bin.end,
+                        binStart: context.xType === 'temporal' ? temporalTooltipValue(bin.start) : bin.start,
+                        binEnd: context.xType === 'temporal' ? temporalTooltipValue(bin.end) : bin.end,
                         count: bin.counts[seriesIndex] ?? 0,
                         weight: bin.weights[seriesIndex] ?? 0,
                         value,
@@ -20495,7 +20875,7 @@ var Graflume = (function (exports) {
         const values = [];
         const sourceRows = [];
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
-            const value = numericDataValue(table.value(rowIndex, valueField), layer.x.type === 'temporal');
+            const value = numericDataValue(table.value(rowIndex, valueField), context.xType === 'temporal');
             if (value === null)
                 continue;
             values.push(value);
@@ -20513,7 +20893,9 @@ var Graflume = (function (exports) {
             const tooltip = {
                 analyticsFamily: 'distribution',
                 analyticsMode: mode,
-                value: point.value,
+                value: context.xType === 'temporal'
+                    ? temporalTooltipValue(table.value(rowIndex, valueField) ?? point.value)
+                    : point.value,
                 offset: point.offset,
                 seed,
                 selectionKey: `distribution:${layer.id}`,
@@ -20570,30 +20952,6 @@ var Graflume = (function (exports) {
             return new Intl.NumberFormat(undefined, options);
         }
     }
-    function dateFormatter$1(locale, options) {
-        try {
-            return new Intl.DateTimeFormat(locale, options);
-        }
-        catch {
-            try {
-                return new Intl.DateTimeFormat(undefined, options);
-            }
-            catch {
-                const utcOptions = { ...options, timeZone: 'UTC' };
-                try {
-                    return new Intl.DateTimeFormat(locale, utcOptions);
-                }
-                catch {
-                    try {
-                        return new Intl.DateTimeFormat(undefined, utcOptions);
-                    }
-                    catch {
-                        return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeZone: 'UTC' });
-                    }
-                }
-            }
-        }
-    }
     function finiteFractionDigits$1(value) {
         return value === undefined ? undefined : Math.max(0, Math.min(20, Math.trunc(value)));
     }
@@ -20602,27 +20960,6 @@ var Graflume = (function (exports) {
             return Number.isFinite(value) ? value : null;
         const parsed = Number(value);
         return value.trim() !== '' && Number.isFinite(parsed) ? parsed : null;
-    }
-    function dateValue(value) {
-        if (typeof value === 'number') {
-            const date = new Date(value);
-            return Number.isFinite(date.getTime()) ? { value: date, dateOnly: false } : null;
-        }
-        const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-        if (dateOnly !== null) {
-            const year = Number(dateOnly[1]);
-            const month = Number(dateOnly[2]);
-            const day = Number(dateOnly[3]);
-            const date = new Date(Date.UTC(year, month - 1, day));
-            if (date.getUTCFullYear() === year &&
-                date.getUTCMonth() === month - 1 &&
-                date.getUTCDate() === day) {
-                return { value: date, dateOnly: true };
-            }
-            return null;
-        }
-        const date = new Date(value);
-        return Number.isFinite(date.getTime()) ? { value: date, dateOnly: false } : null;
     }
     function formatNumber(value, format, locale) {
         const fractionDigits = finiteFractionDigits$1(format.fractionDigits);
@@ -20659,29 +20996,19 @@ var Graflume = (function (exports) {
             }).format(value);
         }
     }
-    function formatDate(parsed, format, locale) {
-        const options = {
-            timeZone: parsed.dateOnly && format.type === 'date' ? 'UTC' : format.timeZone || 'UTC',
-        };
-        if (format.type === 'time') {
-            options.timeStyle = format.timeStyle;
-        }
-        else if (format.type === 'datetime') {
-            options.dateStyle = format.dateStyle;
-            options.timeStyle = format.timeStyle;
-        }
-        else {
-            options.dateStyle = format.dateStyle;
-        }
-        return dateFormatter$1(locale, options).format(parsed.value);
-    }
     /** Format a scale tick without accepting callbacks or executable formatter expressions. */
     function formatAxisTick(tick, format, locale) {
         let value = tick.label;
         if (format.type === 'date' || format.type === 'time' || format.type === 'datetime') {
-            const date = dateValue(tick.value);
-            if (date !== null)
-                value = formatDate(date, format, locale);
+            if (parseTemporalValue(tick.value) !== null) {
+                value =
+                    formatTemporalValue(tick.value, {
+                        type: format.type,
+                        dateStyle: format.dateStyle,
+                        timeStyle: format.timeStyle,
+                        timeZone: format.timeZone,
+                    }, locale) ?? tick.label;
+            }
         }
         else if (format.type !== 'auto') {
             const numeric = numericValue$1(tick.value);
@@ -20779,24 +21106,14 @@ var Graflume = (function (exports) {
     }
     function explicitTickLabel(value, scale, locale) {
         if (scale.kind === 'time' || scale.kind === 'utc') {
-            const date = new Date(typeof value === 'number' ? value : Date.parse(value));
-            if (Number.isFinite(date.getTime())) {
-                try {
-                    return new Intl.DateTimeFormat(locale, {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        ...(scale.kind === 'utc' ? { timeZone: 'UTC' } : {}),
-                    }).format(date);
-                }
-                catch {
-                    return new Intl.DateTimeFormat(undefined, {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        ...(scale.kind === 'utc' ? { timeZone: 'UTC' } : {}),
-                    }).format(date);
-                }
+            const timestamp = temporalTimestamp(value, true);
+            if (timestamp !== null) {
+                return safeDateTimeFormatter(locale, {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    ...(scale.kind === 'utc' ? { timeZone: 'UTC' } : {}),
+                }).format(new Date(timestamp));
             }
         }
         if (!['band', 'point', 'ordinal'].includes(scale.kind) && typeof value === 'number') {
@@ -21407,7 +21724,7 @@ var Graflume = (function (exports) {
                 return 'quantitative';
             if (typeof value === 'string' &&
                 ISO_DATE_PREFIX.test(value) &&
-                Number.isFinite(Date.parse(value))) {
+                parseTemporalValue(value) !== null) {
                 return 'temporal';
             }
             return 'nominal';
@@ -21660,7 +21977,7 @@ var Graflume = (function (exports) {
     function temporalInput(value) {
         if (value instanceof Date)
             return value.getTime();
-        return typeof value === 'number' ? value : Date.parse(value);
+        return typeof value === 'number' ? value : (temporalTimestamp(value, true) ?? Number.NaN);
     }
     function tradingScale(layer, range, type, domainWindow) {
         let visible = [...visibleCandlestickBuckets(layer)];
@@ -21750,7 +22067,7 @@ var Graflume = (function (exports) {
                         label = new Intl.NumberFormat(locale, { maximumFractionDigits: 6 }).format(value);
                     else
                         try {
-                            label = new Intl.DateTimeFormat(locale, {
+                            label = safeDateTimeFormatter(locale, {
                                 year: 'numeric',
                                 month: 'short',
                                 day: 'numeric',
@@ -26027,8 +26344,7 @@ var Graflume = (function (exports) {
             return Number.isFinite(timestamp) ? timestamp : undefined;
         }
         if (type === 'temporal' && typeof value === 'string') {
-            const timestamp = Date.parse(value);
-            return Number.isFinite(timestamp) ? timestamp : undefined;
+            return temporalTimestamp(value, true) ?? undefined;
         }
         return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
     }
@@ -28012,19 +28328,26 @@ var Graflume = (function (exports) {
                 throw new GraflumeError('INVALID_SPEC', `Duplicate table formatter "${id}".`);
             this.#formatters.set(normalized, formatter);
         }
-        format(id, value, row, locale) {
+        format(id, value, row, locale, options) {
             const formatter = this.#formatters.get(id);
             if (formatter === undefined)
                 throw new GraflumeError('INVALID_SPEC', `Unknown table formatter "${id}".`);
-            return formatter(value, row, locale);
+            return formatter(value, row, locale, options);
         }
         ids() {
             return [...this.#formatters.keys()];
         }
     }
-    function tableDate(value) {
-        const date = value instanceof Date ? value : new Date(String(value));
-        return Number.isFinite(date.getTime()) ? date : null;
+    function tableTemporal(value, type, locale, options) {
+        if (!(value instanceof Date) && typeof value !== 'number' && typeof value !== 'string') {
+            return String(value ?? '');
+        }
+        return (formatTemporalValue(value, {
+            type,
+            dateStyle: options?.dateStyle ?? 'medium',
+            timeStyle: options?.timeStyle ?? 'medium',
+            timeZone: options?.timeZone ?? 'UTC',
+        }, locale) ?? String(value ?? ''));
     }
     /** Creates the locale-aware built-in registry used by compiled tables and custom runtimes. */
     function createTableFormatterRegistry() {
@@ -28039,22 +28362,9 @@ var Graflume = (function (exports) {
         registry.register('percent', (value, _row, locale) => typeof value === 'number'
             ? new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 2 }).format(value)
             : String(value ?? ''));
-        registry.register('date', (value, _row, locale) => {
-            const date = tableDate(value);
-            return date === null
-                ? String(value ?? '')
-                : new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeZone: 'UTC' }).format(date);
-        });
-        registry.register('datetime', (value, _row, locale) => {
-            const date = tableDate(value);
-            return date === null
-                ? String(value ?? '')
-                : new Intl.DateTimeFormat(locale, {
-                    dateStyle: 'medium',
-                    timeStyle: 'medium',
-                    timeZone: 'UTC',
-                }).format(date);
-        });
+        registry.register('date', (value, _row, locale, options) => tableTemporal(value, 'date', locale, options));
+        registry.register('time', (value, _row, locale, options) => tableTemporal(value, 'time', locale, options));
+        registry.register('datetime', (value, _row, locale, options) => tableTemporal(value, 'datetime', locale, options));
         registry.register('json', (value) => JSON.stringify(value));
         return registry;
     }
@@ -28152,6 +28462,119 @@ var Graflume = (function (exports) {
             ])),
         }));
     }
+    const maximumTableMerges = 2_048;
+    const maximumTableMergeSpan = 256;
+    function tableMergeInteger(value, fallback, path) {
+        const resolved = value === undefined ? fallback : value;
+        if (typeof resolved !== 'number' ||
+            !Number.isInteger(resolved) ||
+            resolved < 1 ||
+            resolved > maximumTableMergeSpan) {
+            throw new GraflumeError('INVALID_SPEC', `${path} must be an integer from 1 to ${maximumTableMergeSpan}.`, { path });
+        }
+        return resolved;
+    }
+    function tableMergeCellKey(row, column) {
+        return `${row}:${column}`;
+    }
+    function resolveTableMerges(rows, columns, frozenRows, frozenColumns, authored = [], repeated = []) {
+        if (authored.length > maximumTableMerges || repeated.length > columns.length) {
+            throw new GraflumeError('INVALID_SPEC', `Table merges are limited to ${maximumTableMerges} explicit regions and one repeated-value rule per column.`);
+        }
+        const merges = [];
+        authored.forEach((merge, index) => {
+            if (!Number.isInteger(merge.row) || merge.row < 0 || merge.row >= rows.length) {
+                throw new GraflumeError('INVALID_SPEC', `$.mark.options.merges[${index}].row must address a transformed table row.`, { path: `$.mark.options.merges[${index}].row` });
+            }
+            const column = typeof merge.column === 'string' ? columns.indexOf(merge.column) : merge.column;
+            if (!Number.isInteger(column) || column < 0 || column >= columns.length) {
+                throw new GraflumeError('INVALID_SPEC', `$.mark.options.merges[${index}].column must address a visible table column.`, { path: `$.mark.options.merges[${index}].column` });
+            }
+            const rowSpan = tableMergeInteger(merge.rowSpan, 1, `$.mark.options.merges[${index}].rowSpan`);
+            const columnSpan = tableMergeInteger(merge.columnSpan, 1, `$.mark.options.merges[${index}].columnSpan`);
+            if (rowSpan === 1 && columnSpan === 1) {
+                throw new GraflumeError('INVALID_SPEC', `$.mark.options.merges[${index}] must span more than one cell.`, { path: `$.mark.options.merges[${index}]` });
+            }
+            if (merge.row + rowSpan > rows.length || column + columnSpan > columns.length) {
+                throw new GraflumeError('INVALID_SPEC', `$.mark.options.merges[${index}] exceeds the transformed table bounds.`, { path: `$.mark.options.merges[${index}]` });
+            }
+            merges.push({ row: merge.row, column, rowSpan, columnSpan, automatic: false });
+        });
+        const repeatedFields = new Set();
+        repeated.forEach((rule, index) => {
+            const field = label(rule.field, `$.mark.options.mergeRepeats[${index}].field`);
+            if (repeatedFields.has(field)) {
+                throw new GraflumeError('INVALID_SPEC', `Duplicate repeated-value merge field "${field}".`, {
+                    path: `$.mark.options.mergeRepeats[${index}].field`,
+                });
+            }
+            repeatedFields.add(field);
+            const column = columns.indexOf(field);
+            if (column < 0) {
+                throw new GraflumeError('INVALID_SPEC', `Repeated-value merge field "${field}" is not a visible table column.`, { path: `$.mark.options.mergeRepeats[${index}].field` });
+            }
+            let start = 0;
+            while (start < rows.length) {
+                const value = rows[start][field];
+                let end = start + 1;
+                while (end < rows.length && Object.is(rows[end][field], value))
+                    end += 1;
+                if (end - start > 1 &&
+                    (rule.includeNull === true || (value !== null && value !== undefined))) {
+                    merges.push({
+                        row: start,
+                        column,
+                        rowSpan: end - start,
+                        columnSpan: 1,
+                        automatic: true,
+                    });
+                }
+                start = end;
+            }
+        });
+        if (merges.length > maximumTableMerges) {
+            throw new GraflumeError('INVALID_SPEC', `Resolved table merges are limited to ${maximumTableMerges} regions.`);
+        }
+        const occupied = new Map();
+        merges.forEach((merge, mergeIndex) => {
+            const crossesFrozenRows = merge.row < frozenRows && merge.row + merge.rowSpan > frozenRows;
+            const crossesFrozenColumns = merge.column < frozenColumns && merge.column + merge.columnSpan > frozenColumns;
+            if (crossesFrozenRows || crossesFrozenColumns) {
+                throw new GraflumeError('INVALID_SPEC', 'A table merge cannot cross a frozen row or column boundary.', { path: '$.mark.options.merges' });
+            }
+            for (let row = merge.row; row < merge.row + merge.rowSpan; row += 1) {
+                for (let column = merge.column; column < merge.column + merge.columnSpan; column += 1) {
+                    const key = tableMergeCellKey(row, column);
+                    if (occupied.has(key)) {
+                        throw new GraflumeError('INVALID_SPEC', `Table merge ${mergeIndex} overlaps another merged region at row ${row}, column ${column}.`, { path: '$.mark.options.merges' });
+                    }
+                    occupied.set(key, mergeIndex);
+                }
+            }
+        });
+        return merges;
+    }
+    function expandTableWindowForMerges(visible, merges, axis) {
+        const expanded = new Set(visible);
+        let changed = true;
+        while (changed) {
+            changed = false;
+            for (const merge of merges) {
+                const start = merge[axis];
+                const span = axis === 'row' ? merge.rowSpan : merge.columnSpan;
+                const intersects = Array.from({ length: span }, (_, index) => start + index).some((index) => expanded.has(index));
+                if (!intersects)
+                    continue;
+                for (let index = start; index < start + span; index += 1) {
+                    if (!expanded.has(index)) {
+                        expanded.add(index);
+                        changed = true;
+                    }
+                }
+            }
+        }
+        return [...expanded].sort((left, right) => left - right);
+    }
     /** Applies filter→group/pivot→sort→two-dimensional virtual windows with frozen regions. */
     function buildTableModel(rows, options = {}) {
         const sourceColumns = [
@@ -28188,20 +28611,24 @@ var Graflume = (function (exports) {
         const totalRows = output.length;
         const offset = clamp$5(Math.floor(options.window?.offset ?? 0), 0, totalRows);
         const limit = clamp$5(Math.floor(options.window?.limit ?? totalRows), 0, 100_000);
-        const columns = [
+        const availableColumns = [
             ...new Set([
                 ...schemaColumns,
                 ...output.flatMap((row) => Object.keys(row).filter((field) => !field.startsWith('__'))),
             ]),
         ];
+        const columns = options.columns === undefined
+            ? availableColumns
+            : [...new Set(options.columns)].filter((field) => availableColumns.includes(field));
         const frozenRows = clamp$5(Math.floor(options.frozenRows ?? 0), 0, totalRows);
         const frozenColumns = clamp$5(Math.floor(options.frozenColumns ?? 0), 0, columns.length);
-        const visibleIndices = [
+        const merges = resolveTableMerges(output, columns, frozenRows, frozenColumns, options.merges, options.mergeRepeats);
+        const visibleIndices = expandTableWindowForMerges([
             ...new Set([
                 ...Array.from({ length: frozenRows }, (_, index) => index),
                 ...Array.from({ length: Math.max(0, Math.min(totalRows, offset + limit) - offset) }, (_, index) => offset + index),
             ]),
-        ];
+        ], merges, 'row');
         const rowEntries = visibleIndices.map((index) => ({
             row: output[index],
             index,
@@ -28209,14 +28636,16 @@ var Graflume = (function (exports) {
         }));
         const columnOffset = clamp$5(Math.floor(options.columnWindow?.offset ?? 0), 0, columns.length);
         const columnLimit = clamp$5(Math.floor(options.columnWindow?.limit ?? columns.length), 0, 10_000);
-        const visibleColumnIndices = [
+        const visibleRowSet = new Set(visibleIndices);
+        const mergesInVisibleRows = merges.filter((merge) => Array.from({ length: merge.rowSpan }, (_, index) => merge.row + index).some((row) => visibleRowSet.has(row)));
+        const visibleColumnIndices = expandTableWindowForMerges([
             ...new Set([
                 ...Array.from({ length: frozenColumns }, (_, index) => index),
                 ...Array.from({
                     length: Math.max(0, Math.min(columns.length, columnOffset + columnLimit) - columnOffset),
                 }, (_, index) => columnOffset + index),
             ]),
-        ];
+        ], mergesInVisibleRows, 'column');
         const columnEntries = visibleColumnIndices.map((index) => ({
             field: columns[index],
             index,
@@ -28224,9 +28653,11 @@ var Graflume = (function (exports) {
         }));
         return {
             rows: rowEntries.map(({ row }) => row),
+            allRows: output,
             rowEntries,
             columns,
             columnEntries,
+            merges,
             totalRows,
             totalColumns: columns.length,
             window: { offset, limit, end: Math.min(totalRows, offset + limit) },
@@ -28702,13 +29133,7 @@ var Graflume = (function (exports) {
         throw new GraflumeError('INVALID_DATA', 'Streaming stable keys must be non-empty strings, finite numbers, booleans, or valid Dates.', { path });
     }
     function eventTimestamp(value, path) {
-        const timestamp = value instanceof Date
-            ? value.getTime()
-            : typeof value === 'number'
-                ? value
-                : typeof value === 'string'
-                    ? Date.parse(value)
-                    : Number.NaN;
+        const timestamp = temporalTimestamp(value, true) ?? Number.NaN;
         if (!Number.isFinite(timestamp)) {
             throw new GraflumeError('INVALID_DATA', 'Event time must be a finite epoch number, Date, or parseable date string.', { path });
         }
@@ -31701,7 +32126,7 @@ var Graflume = (function (exports) {
         };
     }
     function sessionTimestamp(value, index) {
-        const resolved = typeof value === 'number' ? value : Date.parse(value ?? '');
+        const resolved = temporalTimestamp(value ?? null, true) ?? Number.NaN;
         if (!Number.isFinite(resolved)) {
             throw new GraflumeError('INVALID_SPEC', `Invalid session timestamp at row ${index}.`, {
                 path: '$.mark.options.session.timeField',
@@ -33142,9 +33567,61 @@ var Graflume = (function (exports) {
         }
         return fields;
     }
-    function valueText(value) {
+    function nativeTableRows(index) {
+        const visible = index.filter(({ visible: markVisible }) => markVisible);
+        if (visible.length === 0 || visible.some(({ tableRow }) => tableRow === undefined))
+            return null;
+        if (new Set(visible.map(({ layerId }) => layerId)).size !== 1)
+            return null;
+        return [...visible].sort((left, right) => left.tableRow.row - right.tableRow.row);
+    }
+    function lowerBound(values, target) {
+        let low = 0;
+        let high = values.length;
+        while (low < high) {
+            const middle = low + Math.floor((high - low) / 2);
+            if (values[middle] < target)
+                low = middle + 1;
+            else
+                high = middle;
+        }
+        return low;
+    }
+    function windowedTableCellMap(allRows, renderedRows) {
+        const renderedTableRows = renderedRows.flatMap((row) => row.tableRow === undefined ? [] : [row.tableRow.row]);
+        const anchors = allRows.flatMap((row) => row.tableRow?.cells ?? []);
+        const cellsByRow = new Map();
+        for (const cell of anchors) {
+            const start = lowerBound(renderedTableRows, cell.row);
+            const end = lowerBound(renderedTableRows, cell.row + cell.rowSpan);
+            if (start >= end)
+                continue;
+            const row = renderedTableRows[start];
+            const cells = cellsByRow.get(row) ?? [];
+            cells.push({ cell, rowSpan: end - start });
+            cellsByRow.set(row, cells);
+        }
+        for (const cells of cellsByRow.values()) {
+            cells.sort((left, right) => left.cell.column - right.cell.column);
+        }
+        return cellsByRow;
+    }
+    function valueText(mark, field, value, locale) {
         if (value === null || value === undefined)
             return '\u2014';
+        const tableFormatted = mark.tableRow?.formattedValues[field];
+        if (tableFormatted !== undefined)
+            return tableFormatted;
+        const semanticChannel = Object.values(mark.channels).find((channel) => channel?.field === field);
+        const temporal = semanticChannel?.type === 'temporal';
+        if (temporal && semanticChannel.displayValue !== undefined)
+            return semanticChannel.displayValue;
+        if (temporal || value instanceof Date) {
+            const type = inferTemporalDisplayFormat(value) ?? 'datetime';
+            const formatted = formatTemporalValue(value, { type, dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' }, locale);
+            if (formatted !== null)
+                return formatted;
+        }
         return value instanceof Date ? value.toISOString() : String(value);
     }
     class AccessibilityMirrorController {
@@ -33163,7 +33640,7 @@ var Graflume = (function (exports) {
         focusSemanticId(id) {
             return this.#focusById?.(id) ?? false;
         }
-        sync(container, overlayHost, surface, index, spec, view, selectedKeys, actions) {
+        sync(container, overlayHost, surface, index, spec, view, selectedKeys, actions, locale) {
             if (spec.table === false && !spec.navigation && spec.linkedFocus === false) {
                 this.destroy();
                 return;
@@ -33231,11 +33708,15 @@ var Graflume = (function (exports) {
             table.append(caption);
             const head = ownerDocument.createElement('thead');
             const headRow = ownerDocument.createElement('tr');
-            const fields = rowFields(index);
-            for (const label of ['Layer', ...fields]) {
+            const tableRows = nativeTableRows(index);
+            const tableColumns = tableRows?.[0]?.tableRow?.columns ?? [];
+            const fields = tableRows === null ? rowFields(index) : tableColumns.map(({ field }) => field);
+            const columnLabels = tableRows === null ? fields : tableColumns.map(({ header }) => header);
+            for (const label of ['Layer', ...columnLabels]) {
                 const cell = ownerDocument.createElement('th');
                 cell.scope = 'col';
                 cell.textContent = label;
+                cell.setAttribute('dir', 'auto');
                 cell.style.textAlign = 'start';
                 cell.style.padding = spec.table === 'visible' ? '6px 8px' : '0';
                 headRow.append(cell);
@@ -33244,8 +33725,10 @@ var Graflume = (function (exports) {
             table.append(head);
             const body = ownerDocument.createElement('tbody');
             table.setAttribute('role', 'grid');
-            const navigableMarks = index.filter(({ visible }) => visible);
-            table.setAttribute('aria-rowcount', String(navigableMarks.length + 1));
+            const navigableMarks = tableRows ?? index.filter(({ visible }) => visible);
+            const logicalTableRows = tableRows?.[0]?.tableRow?.totalRows ?? navigableMarks.length;
+            table.setAttribute('aria-rowcount', String(logicalTableRows + 1));
+            table.setAttribute('aria-colcount', String(fields.length + 1));
             const explorerSpec = spec.explorer === false
                 ? { windowRows: Math.max(1, navigableMarks.length), overscanRows: 0, rowHeight: 32 }
                 : spec.explorer;
@@ -33281,6 +33764,7 @@ var Graflume = (function (exports) {
             };
             const renderWindow = (focusActive) => {
                 const rows = [];
+                const tableCells = tableRows === null ? null : windowedTableCellMap(navigableMarks, dataWindow.rows);
                 if (dataWindow.beforePixels > 0)
                     rows.push(spacer(dataWindow.beforePixels, 'before'));
                 dataWindow.rows.forEach((mark, windowIndex) => {
@@ -33288,21 +33772,45 @@ var Graflume = (function (exports) {
                     const row = ownerDocument.createElement('tr');
                     row.dataset.graflumeSemanticId = mark.id;
                     row.dataset.graflumeSemanticIndex = String(absoluteIndex);
-                    row.setAttribute('aria-rowindex', String(absoluteIndex + 2));
+                    if (mark.tableRow !== undefined) {
+                        row.dataset.graflumeTableRow = String(mark.tableRow.row);
+                    }
+                    row.setAttribute('aria-rowindex', String((mark.tableRow?.row ?? absoluteIndex) + 2));
                     row.setAttribute('aria-label', mark.label);
                     row.setAttribute('aria-selected', String(selected(mark, selectedKeys)));
                     row.tabIndex = spec.navigation && dataWindow.activeIndex === absoluteIndex ? 0 : -1;
                     const layerCell = ownerDocument.createElement('th');
                     layerCell.scope = 'row';
                     layerCell.textContent = mark.layerId;
+                    layerCell.setAttribute('dir', 'auto');
                     layerCell.style.textAlign = 'start';
                     layerCell.style.padding = spec.table === 'visible' ? '6px 8px' : '0';
                     row.append(layerCell);
-                    for (const field of fields) {
-                        const cell = ownerDocument.createElement('td');
-                        cell.textContent = valueText(mark.datum[field]);
-                        cell.style.padding = spec.table === 'visible' ? '6px 8px' : '0';
-                        row.append(cell);
+                    if (tableRows === null) {
+                        for (const field of fields) {
+                            const cell = ownerDocument.createElement('td');
+                            cell.textContent = valueText(mark, field, mark.datum[field], locale);
+                            cell.setAttribute('dir', 'auto');
+                            cell.style.padding = spec.table === 'visible' ? '6px 8px' : '0';
+                            row.append(cell);
+                        }
+                    }
+                    else {
+                        for (const { cell: tableCell, rowSpan } of tableCells?.get(mark.tableRow.row) ?? []) {
+                            const cell = ownerDocument.createElement('td');
+                            cell.dataset.graflumeTableRow = String(tableCell.row);
+                            cell.dataset.graflumeTableColumn = String(tableCell.column);
+                            cell.dataset.graflumeTableField = tableCell.field;
+                            cell.textContent = tableCell.formatted;
+                            cell.rowSpan = rowSpan;
+                            cell.colSpan = tableCell.columnSpan;
+                            cell.setAttribute('dir', 'auto');
+                            const header = tableColumns.find(({ column }) => column === tableCell.column)?.header;
+                            if (header !== undefined)
+                                cell.setAttribute('aria-label', `${header}: ${tableCell.formatted}`);
+                            cell.style.padding = spec.table === 'visible' ? '6px 8px' : '0';
+                            row.append(cell);
+                        }
                     }
                     row.addEventListener('focus', () => {
                         this.#focusedId = mark.id;
@@ -35381,9 +35889,16 @@ var Graflume = (function (exports) {
             .replace(/[-_]+/g, ' ')
             .replace(/^\w/, (letter) => letter.toUpperCase());
     }
-    function inferredFormat(field, layer) {
-        const encoding = layer?.x.field === field ? layer.x : layer?.y.field === field ? layer.y : undefined;
-        return encoding?.type === 'temporal' ? 'date' : 'auto';
+    function inferredFormat(field, layer, hit) {
+        const encoding = layer
+            ? Object.values(layer.encoding).find((candidate) => candidate.field === field)
+            : undefined;
+        const authored = hit === undefined ? undefined : datumValue(hit, field);
+        const inferred = inferTemporalDisplayFormat(authored);
+        if (encoding?.type === 'temporal')
+            return inferred ?? 'datetime';
+        // A finite number is not temporal evidence: 42 must stay 42, not January 1970.
+        return authored instanceof Date || typeof authored === 'string' ? (inferred ?? 'auto') : 'auto';
     }
     function inferredFields(hit, spec) {
         const layer = spec.layers.find(({ id }) => id === hit.layerId);
@@ -35394,7 +35909,10 @@ var Graflume = (function (exports) {
             fields.set(field, {
                 field,
                 label: label ?? humanizeField(field),
-                format: inferredFormat(field, layer),
+                format: inferredFormat(field, layer, hit),
+                dateStyle: 'medium',
+                timeStyle: 'short',
+                timeZone: 'UTC',
                 prefix: '',
                 suffix: '',
             });
@@ -35428,43 +35946,19 @@ var Graflume = (function (exports) {
             return new Intl.NumberFormat(undefined, options);
         }
     }
-    function dateFormatter(locale, options) {
-        try {
-            return new Intl.DateTimeFormat(locale, options);
-        }
-        catch {
-            return new Intl.DateTimeFormat(undefined, options);
-        }
-    }
-    function dateOnlyValue(value) {
-        if (typeof value !== 'string')
-            return null;
-        const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-        if (match === null)
-            return null;
-        const year = Number(match[1]);
-        const month = Number(match[2]);
-        const day = Number(match[3]);
-        const date = new Date(Date.UTC(year, month - 1, day));
-        return date.getUTCFullYear() === year &&
-            date.getUTCMonth() === month - 1 &&
-            date.getUTCDate() === day
-            ? date
-            : null;
-    }
     function formatValue(value, field, locale) {
         if (value === null || value === undefined)
             return '—';
         const fractionDigits = finiteFractionDigits(field.fractionDigits);
         let formatted;
-        if (field.format === 'date' || field.format === 'datetime') {
-            const dateOnly = field.format === 'date' ? dateOnlyValue(value) : null;
-            const date = dateOnly ?? (value instanceof Date ? value : new Date(String(value)));
-            formatted = Number.isFinite(date.getTime())
-                ? dateFormatter(locale, field.format === 'datetime'
-                    ? { dateStyle: 'medium', timeStyle: 'short' }
-                    : { dateStyle: 'medium', ...(dateOnly === null ? {} : { timeZone: 'UTC' }) }).format(date)
-                : String(value);
+        if (field.format === 'date' || field.format === 'time' || field.format === 'datetime') {
+            formatted =
+                formatTemporalValue(value, {
+                    type: field.format,
+                    dateStyle: field.dateStyle,
+                    timeStyle: field.timeStyle,
+                    timeZone: field.timeZone,
+                }, locale) ?? String(value);
         }
         else if (typeof value === 'number' && Number.isFinite(value)) {
             const options = field.format === 'percent'
@@ -35487,12 +35981,12 @@ var Graflume = (function (exports) {
         return boundedText(`${field.prefix}${formatted}${field.suffix}`);
     }
     function datumValue(hit, field) {
-        if (hit.tooltip !== undefined)
+        if (hit.tooltip !== undefined && hasOwn(hit.tooltip, field))
             return hit.tooltip[field];
         return hit.datum[field];
     }
     function hasDatumValue(hit, field) {
-        return hit.tooltip === undefined ? hasOwn(hit.datum, field) : hasOwn(hit.tooltip, field);
+        return hasOwn(hit.tooltip ?? {}, field) || hasOwn(hit.datum, field);
     }
     function resolveTooltipContent(hit, spec) {
         const configured = spec.interaction.tooltip;
@@ -35503,9 +35997,8 @@ var Graflume = (function (exports) {
         const rows = fields
             .filter((field) => hasDatumValue(hit, field.field))
             .map((field) => {
-            const format = field.format === 'auto' && inferredFormat(field.field, layer) === 'date'
-                ? 'date'
-                : field.format;
+            const inferred = inferredFormat(field.field, layer, hit);
+            const format = field.format === 'auto' && inferred !== 'auto' ? inferred : field.format;
             const resolvedField = format === field.format ? field : { ...field, format };
             return {
                 field: field.field,
@@ -36062,6 +36555,476 @@ var Graflume = (function (exports) {
         }
     }
 
+    const editorTypes = new Set([
+        'text',
+        'number',
+        'integer',
+        'date',
+        'datetime',
+        'boolean',
+        'select',
+    ]);
+    const maximumTablePatternLength = 256;
+    const maximumTablePatternQuantifiers = 24;
+    const maximumTablePatternRepeat = 10_000;
+    /**
+     * Validate the bounded regular-expression subset accepted by table cells.
+     *
+     * Native regular expressions stay data-only, Unicode-aware, and useful for
+     * anchored business identifiers. Backreferences, groups, alternation,
+     * unbounded quantifiers, nested/repeated quantifiers, excessive repetition,
+     * and controls are rejected before any authored pattern can reach RegExp.test().
+     */
+    function isSafeTableValidationPattern(value) {
+        if (typeof value !== 'string' ||
+            value.length === 0 ||
+            value.length > maximumTablePatternLength ||
+            /[\u0000-\u001f\u007f]/u.test(value)) {
+            return false;
+        }
+        try {
+            new RegExp(value, 'u');
+        }
+        catch {
+            return false;
+        }
+        let escaped = false;
+        let inClass = false;
+        let previousQuantifiable = false;
+        let previousClosedGroup = false;
+        let previousQuantifier = false;
+        let quantifiers = 0;
+        for (let index = 0; index < value.length; index += 1) {
+            const character = value[index];
+            if (escaped) {
+                if (!inClass && (/[1-9]/u.test(character) || character === 'k'))
+                    return false;
+                escaped = false;
+                previousQuantifiable = true;
+                previousClosedGroup = false;
+                previousQuantifier = false;
+                continue;
+            }
+            if (character === '\\') {
+                escaped = true;
+                continue;
+            }
+            if (inClass) {
+                if (character === ']') {
+                    inClass = false;
+                    previousQuantifiable = true;
+                    previousClosedGroup = false;
+                    previousQuantifier = false;
+                }
+                continue;
+            }
+            if (character === '[') {
+                inClass = true;
+                previousQuantifiable = false;
+                previousClosedGroup = false;
+                previousQuantifier = false;
+                continue;
+            }
+            if (character === '(' ||
+                character === ')' ||
+                character === '|' ||
+                character === '*' ||
+                character === '+') {
+                return false;
+            }
+            let quantifierEnd = index;
+            let maximumRepeat;
+            if (character === '{') {
+                const match = /^\{(\d+)(?:,(\d*))?\}/u.exec(value.slice(index));
+                if (match !== null) {
+                    quantifierEnd = index + match[0].length - 1;
+                    maximumRepeat =
+                        match[2] === '' ? maximumTablePatternRepeat + 1 : Number(match[2] ?? match[1]);
+                }
+            }
+            const quantifier = character === '?' || quantifierEnd > index;
+            if (quantifier) {
+                quantifiers += 1;
+                if (!previousQuantifiable ||
+                    previousClosedGroup ||
+                    previousQuantifier ||
+                    quantifiers > maximumTablePatternQuantifiers ||
+                    (maximumRepeat !== undefined && maximumRepeat > maximumTablePatternRepeat)) {
+                    return false;
+                }
+                previousQuantifiable = false;
+                previousClosedGroup = false;
+                previousQuantifier = true;
+                index = quantifierEnd;
+                continue;
+            }
+            previousQuantifiable = character !== '^' && character !== '$' && character !== '|';
+            previousClosedGroup = false;
+            previousQuantifier = false;
+        }
+        return !escaped && !inClass;
+    }
+    function dataValue(value) {
+        return (value === undefined ||
+            value === null ||
+            typeof value === 'string' ||
+            typeof value === 'boolean' ||
+            (typeof value === 'number' && Number.isFinite(value)) ||
+            (value instanceof Date && Number.isFinite(value.getTime())) ||
+            (Array.isArray(value) &&
+                value.every((entry) => entry === null ||
+                    typeof entry === 'string' ||
+                    typeof entry === 'boolean' ||
+                    (typeof entry === 'number' && Number.isFinite(entry)))));
+    }
+    function finiteOption(value) {
+        return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+    }
+    function integerOption(value) {
+        return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : undefined;
+    }
+    function cloneTableDataValue(value) {
+        if (value instanceof Date)
+            return new Date(value.getTime());
+        return Array.isArray(value) ? [...value] : value;
+    }
+    function cloneTableRows(rows) {
+        return rows.map((row) => Object.fromEntries(Object.entries(row).map(([field, value]) => {
+            assertSafeKey(field, `data.${field}`);
+            return [field, cloneTableDataValue(value)];
+        })));
+    }
+    function tableDataValuesEqual(left, right) {
+        if (left instanceof Date || right instanceof Date) {
+            return left instanceof Date && right instanceof Date && left.getTime() === right.getTime();
+        }
+        if (Array.isArray(left) || Array.isArray(right)) {
+            return (Array.isArray(left) &&
+                Array.isArray(right) &&
+                left.length === right.length &&
+                left.every((entry, index) => Object.is(entry, right[index])));
+        }
+        return Object.is(left, right);
+    }
+    function tableDataPatch(previous, next) {
+        if (previous.length !== next.length)
+            return null;
+        const cells = [];
+        for (let row = 0; row < previous.length; row += 1) {
+            const before = previous[row];
+            const after = next[row];
+            const fields = new Set([...Object.keys(before), ...Object.keys(after)]);
+            for (const field of fields) {
+                const previousPresent = Object.prototype.hasOwnProperty.call(before, field);
+                const nextPresent = Object.prototype.hasOwnProperty.call(after, field);
+                if (previousPresent === nextPresent && tableDataValuesEqual(before[field], after[field])) {
+                    continue;
+                }
+                cells.push({
+                    row,
+                    field,
+                    previous: cloneTableDataValue(before[field]),
+                    next: cloneTableDataValue(after[field]),
+                    previousPresent,
+                    nextPresent,
+                });
+            }
+        }
+        return { cells };
+    }
+    function applyTableDataPatch(rows, patch, direction) {
+        const output = cloneTableRows(rows);
+        for (const cell of patch.cells) {
+            const row = output[cell.row];
+            if (row === undefined)
+                continue;
+            const present = direction === 'undo' ? cell.previousPresent : cell.nextPresent;
+            const value = direction === 'undo' ? cell.previous : cell.next;
+            if (present)
+                row[cell.field] = cloneTableDataValue(value);
+            else
+                delete row[cell.field];
+        }
+        return output;
+    }
+    /** Bounded immutable cell-patch history; large source arrays are not retained per edit. */
+    class TableDataHistory {
+        #limit;
+        #baseline;
+        #current;
+        #past = [];
+        #future = [];
+        constructor(rows, limit = 100) {
+            this.#limit = Math.max(1, Math.min(1_000, Math.floor(limit)));
+            this.#baseline = cloneTableRows(rows);
+            this.#current = cloneTableRows(rows);
+        }
+        rows() {
+            return cloneTableRows(this.#current);
+        }
+        replace(rows) {
+            const next = cloneTableRows(rows);
+            const patch = tableDataPatch(this.#current, next);
+            if (patch === null) {
+                throw new RangeError('Table edit history cannot change the source row count.');
+            }
+            if (patch.cells.length === 0)
+                return false;
+            this.#past.push(patch);
+            if (this.#past.length > this.#limit)
+                this.#past.shift();
+            this.#current = next;
+            this.#future = [];
+            return true;
+        }
+        reset() {
+            const previous = cloneTableRows(this.#current);
+            if (!this.replace(this.#baseline))
+                return null;
+            return { previous, rows: this.rows() };
+        }
+        undo() {
+            const patch = this.#past.pop();
+            if (patch === undefined)
+                return null;
+            const previous = cloneTableRows(this.#current);
+            this.#future.push(patch);
+            this.#current = applyTableDataPatch(this.#current, patch, 'undo');
+            return { previous: cloneTableRows(previous), rows: this.rows() };
+        }
+        redo() {
+            const patch = this.#future.pop();
+            if (patch === undefined)
+                return null;
+            const previous = cloneTableRows(this.#current);
+            this.#past.push(patch);
+            this.#current = applyTableDataPatch(this.#current, patch, 'redo');
+            return { previous: cloneTableRows(previous), rows: this.rows() };
+        }
+    }
+    function editorConfig(value) {
+        const object = isPlainObject(value) ? value : undefined;
+        const type = object !== undefined &&
+            typeof object.type === 'string' &&
+            editorTypes.has(object.type)
+            ? object.type
+            : 'text';
+        const options = object !== undefined && Array.isArray(object.options)
+            ? object.options.filter(dataValue).map(cloneTableDataValue)
+            : [];
+        return { type, options };
+    }
+    function validationConfig(value) {
+        const object = isPlainObject(value) ? value : {};
+        const min = finiteOption(object.min);
+        const max = finiteOption(object.max);
+        const minLength = integerOption(object.minLength);
+        const maxLength = integerOption(object.maxLength);
+        if (object.pattern !== undefined && !isSafeTableValidationPattern(object.pattern)) {
+            throw new RangeError('Table validation pattern is invalid or outside the safe subset.');
+        }
+        return {
+            required: object.required === true,
+            ...(min === undefined ? {} : { min }),
+            ...(max === undefined ? {} : { max }),
+            ...(minLength === undefined ? {} : { minLength }),
+            ...(maxLength === undefined ? {} : { maxLength }),
+            ...(object.pattern === undefined ? {} : { pattern: object.pattern }),
+            values: Array.isArray(object.values)
+                ? object.values.filter(dataValue).map(cloneTableDataValue)
+                : [],
+        };
+    }
+    /** Read the closed portable editing contract without trusting unvalidated JSON. */
+    function tableEditingConfig(options) {
+        const editingValue = options.editing;
+        const editing = isPlainObject(editingValue) ? editingValue : undefined;
+        const enabled = editingValue !== false && editing?.enabled !== false;
+        const key = editing !== undefined && typeof editing.key === 'string' && editing.key.trim() !== ''
+            ? editing.key
+            : undefined;
+        if (key !== undefined)
+            assertSafeKey(key, '$.mark.options.editing.key');
+        const commit = editing?.commit === 'enter' || editing?.commit === 'blur' ? editing.commit : 'enter-or-blur';
+        const columns = new Map();
+        const visibleFields = [];
+        if (Array.isArray(options.columns)) {
+            for (const entry of options.columns) {
+                const object = isPlainObject(entry) ? entry : undefined;
+                const field = typeof entry === 'string' ? entry : object?.field;
+                if (typeof field !== 'string' || field === '' || columns.has(field))
+                    continue;
+                assertSafeKey(field, '$.mark.options.columns[].field');
+                const visible = object?.visible !== false;
+                const editor = editorConfig(object?.editor);
+                const validation = validationConfig(object?.validation);
+                const column = {
+                    field,
+                    visible,
+                    editable: object?.editable === true,
+                    editorAuthored: object?.editor !== undefined,
+                    editor,
+                    validation: {
+                        ...validation,
+                        values: validation.values.length > 0 ? validation.values : editor.options,
+                    },
+                };
+                columns.set(field, column);
+                if (visible)
+                    visibleFields.push(field);
+            }
+        }
+        return {
+            enabled,
+            ...(key === undefined ? {} : { key }),
+            commit,
+            columns,
+            ...(Array.isArray(options.columns) ? { visibleFields } : {}),
+        };
+    }
+    function tableColumnEditingForValue(column, value) {
+        if (column.editorAuthored)
+            return column;
+        const type = typeof value === 'number' ? 'number' : typeof value === 'boolean' ? 'boolean' : 'text';
+        return { ...column, editor: { ...column.editor, type } };
+    }
+    function projectRow(row, fields) {
+        const output = Object.create(null);
+        for (const field of fields) {
+            const value = row[field];
+            if (dataValue(value))
+                output[field] = cloneTableDataValue(value);
+        }
+        return output;
+    }
+    /** Materialize the full current table view; virtual windows are intentionally not export boundaries. */
+    function tableViewData(rows, state, visibleFields) {
+        const model = buildTableModel(rows, {
+            filters: state.filters,
+            sort: state.sort,
+            ...(state.group === null ? {} : { group: state.group }),
+            ...(state.pivot === null ? {} : { pivot: state.pivot }),
+            ...(visibleFields === undefined ? {} : { columns: visibleFields }),
+        });
+        return {
+            rows: model.allRows.map((row) => projectRow(row, model.columns)),
+            sourceIndices: model.allRows.map((row) => typeof row.__sourceIndex === 'number' && Number.isInteger(row.__sourceIndex)
+                ? row.__sourceIndex
+                : null),
+            editableSourceIndices: rows.map((_, index) => index),
+            fields: [...model.columns],
+            derived: state.group !== null || state.pivot !== null,
+        };
+    }
+    function comparable(value, type) {
+        if ((type === 'number' || type === 'integer') && typeof value === 'number')
+            return value;
+        if (type === 'date' || type === 'datetime') {
+            const parsed = parseTemporalValue(value);
+            return parsed === null ? null : parsed.value.getTime();
+        }
+        return null;
+    }
+    /** Validate already-typed programmatic values. UI string coercion happens at the overlay boundary. */
+    function validateTableCellValue(column, value) {
+        const empty = value === null || value === undefined || value === '';
+        if (column.validation.required && empty)
+            return { valid: false, reason: 'required' };
+        if (empty && !column.validation.required)
+            return { valid: true, reason: 'programmatic' };
+        const type = column.editor.type;
+        const typed = type === 'text'
+            ? typeof value === 'string'
+            : type === 'number'
+                ? typeof value === 'number' && Number.isFinite(value)
+                : type === 'integer'
+                    ? typeof value === 'number' && Number.isSafeInteger(value)
+                    : type === 'boolean'
+                        ? typeof value === 'boolean'
+                        : type === 'date'
+                            ? typeof value === 'string' && parseTemporalValue(value)?.dateOnly === true
+                            : type === 'datetime'
+                                ? ((value instanceof Date && Number.isFinite(value.getTime())) ||
+                                    typeof value === 'string') &&
+                                    parseTemporalValue(value)?.dateOnly === false
+                                : column.editor.options.some((candidate) => tableDataValuesEqual(candidate, value));
+        if (!typed)
+            return { valid: false, reason: 'invalid-type' };
+        const allowed = column.validation.values;
+        if (allowed.length > 0 && !allowed.some((candidate) => tableDataValuesEqual(candidate, value))) {
+            return { valid: false, reason: 'not-allowed' };
+        }
+        const numeric = comparable(value, type);
+        if (column.validation.min !== undefined && numeric !== null && numeric < column.validation.min) {
+            return { valid: false, reason: 'minimum' };
+        }
+        if (column.validation.max !== undefined && numeric !== null && numeric > column.validation.max) {
+            return { valid: false, reason: 'maximum' };
+        }
+        if (typeof value === 'string') {
+            if (column.validation.minLength !== undefined && value.length < column.validation.minLength) {
+                return { valid: false, reason: 'minimum-length' };
+            }
+            if (column.validation.maxLength !== undefined && value.length > column.validation.maxLength) {
+                return { valid: false, reason: 'maximum-length' };
+            }
+        }
+        if (column.validation.pattern !== undefined &&
+            (typeof value !== 'string' ||
+                !isSafeTableValidationPattern(column.validation.pattern) ||
+                value.length > 4_096 ||
+                !new RegExp(column.validation.pattern, 'u').test(value))) {
+            return { valid: false, reason: 'pattern' };
+        }
+        return { valid: true, reason: 'programmatic' };
+    }
+    function parseTableEditorValue(column, value, checked = false, selectedIndex = -1) {
+        switch (column.editor.type) {
+            case 'number':
+            case 'integer':
+                return value.trim() === '' ? null : Number(value);
+            case 'boolean':
+                return checked;
+            case 'select':
+                return selectedIndex >= 0 ? cloneTableDataValue(column.editor.options[selectedIndex]) : null;
+            default:
+                return value;
+        }
+    }
+    function portableValue$1(value) {
+        if (value === undefined)
+            return null;
+        if (value instanceof Date)
+            return value.toISOString();
+        return value;
+    }
+    function tableJSON(rows) {
+        return JSON.stringify(rows.map((row) => Object.fromEntries(Object.entries(row).map(([field, value]) => [field, portableValue$1(value)]))));
+    }
+    function csvText(value) {
+        if (value === null || value === undefined)
+            return '';
+        if (value instanceof Date)
+            return value.toISOString();
+        if (Array.isArray(value))
+            return JSON.stringify(value);
+        return String(value);
+    }
+    function csvCell(value) {
+        let text = csvText(value);
+        // Keep exports inert when opened by spreadsheet software.
+        if (typeof value === 'string' && /^[\t\r\n ]*[=+\-@]/u.test(text))
+            text = `'${text}`;
+        return /[",\r\n]/u.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+    }
+    function tableCSV(rows, fields) {
+        const columns = fields ?? [...new Set(rows.flatMap((row) => Object.keys(row)))];
+        const lines = [columns.map((field) => csvCell(field)).join(',')];
+        for (const row of rows)
+            lines.push(columns.map((field) => csvCell(row[field])).join(','));
+        return lines.join('\r\n');
+    }
+
     const PLAYBACK_TRANSITION_INTERVAL_GAP = 1;
     let canvasSemanticViewSequence = 0;
     function effectivePlaybackTransitionDuration(playback) {
@@ -36245,6 +37208,9 @@ var Graflume = (function (exports) {
                     ...node.datum,
                     nodeId: node.id,
                     familyInteraction: node.datum.familyInteraction,
+                    ...(node.type === 'rect'
+                        ? { bounds: { x: node.x, y: node.y, width: node.width, height: node.height } }
+                        : {}),
                 });
             }
         };
@@ -36336,6 +37302,9 @@ var Graflume = (function (exports) {
         #activeMarkLabelId = null;
         #markLabelGesture = null;
         #tableRuntime = new Map();
+        #tableDataHistory = new Map();
+        #tableEditor = null;
+        #preserveTableEditor = false;
         #networkRuntime = new Map();
         #flowRuntime = new Map();
         #navigatorRuntime = new Map();
@@ -36699,6 +37668,90 @@ var Graflume = (function (exports) {
             });
             return this;
         }
+        getTableData(layerId, mode = 'view') {
+            this.#assertAlive();
+            this.#requireFamilyLayer(layerId, ['table']);
+            if (mode === 'source')
+                return this.#tableSourceRows(layerId);
+            if (mode !== 'view') {
+                throw new GraflumeError('INVALID_DATA', 'Table data mode must be "view" or "source".');
+            }
+            return cloneTableRows(this.#resolvedTableView(layerId).rows);
+        }
+        setTableCellValue(layerId, target, field, value) {
+            return this.#setTableCellValue(layerId, target, field, value, 'programmatic');
+        }
+        resetTableData(layerId) {
+            this.#assertAlive();
+            this.#requireFamilyLayer(layerId, ['table']);
+            this.#destroyTableEditor();
+            const history = this.#tableDataHistory.get(layerId);
+            if (history === undefined)
+                return false;
+            const transition = history.reset();
+            if (transition === null)
+                return false;
+            try {
+                this.#applyTableDataTransition(layerId, transition, 'reset');
+            }
+            catch (error) {
+                history.undo();
+                throw error;
+            }
+            return true;
+        }
+        undoTableEdit(layerId) {
+            this.#assertAlive();
+            this.#requireFamilyLayer(layerId, ['table']);
+            this.#destroyTableEditor();
+            const history = this.#tableDataHistory.get(layerId);
+            if (history === undefined)
+                return false;
+            const transition = history.undo();
+            if (transition === null)
+                return false;
+            try {
+                this.#applyTableDataTransition(layerId, transition, 'undo');
+            }
+            catch (error) {
+                history.redo();
+                throw error;
+            }
+            return true;
+        }
+        redoTableEdit(layerId) {
+            this.#assertAlive();
+            this.#requireFamilyLayer(layerId, ['table']);
+            this.#destroyTableEditor();
+            const history = this.#tableDataHistory.get(layerId);
+            if (history === undefined)
+                return false;
+            const transition = history.redo();
+            if (transition === null)
+                return false;
+            try {
+                this.#applyTableDataTransition(layerId, transition, 'redo');
+            }
+            catch (error) {
+                history.undo();
+                throw error;
+            }
+            return true;
+        }
+        exportTableCSV(layerId, mode = 'view') {
+            this.#assertAlive();
+            this.#requireFamilyLayer(layerId, ['table']);
+            if (mode === 'source')
+                return tableCSV(this.#tableSourceRows(layerId));
+            if (mode !== 'view') {
+                throw new GraflumeError('INVALID_DATA', 'Table export mode must be "view" or "source".');
+            }
+            const view = this.#resolvedTableView(layerId);
+            return tableCSV(view.rows, view.fields);
+        }
+        exportTableJSON(layerId, mode = 'view') {
+            return tableJSON(this.getTableData(layerId, mode));
+        }
         getNetworkRuntimeState(layerId) {
             this.#assertAlive();
             this.#requireFamilyLayer(layerId, ['graph']);
@@ -37045,6 +38098,362 @@ var Graflume = (function (exports) {
                 throw new GraflumeError('INVALID_SPEC', `Layer "${layerId}" does not have an enabled navigator window.`);
             }
             return interaction;
+        }
+        #tableSourceRows(layerId) {
+            const layer = this.#requireFamilyLayer(layerId, ['table']);
+            return cloneTableRows(dataRows(layer.data));
+        }
+        #tableEditing(layerId) {
+            return tableEditingConfig(this.#layerOptions(layerId));
+        }
+        #resolvedTableView(layerId) {
+            const layer = this.#requireFamilyLayer(layerId, ['table']);
+            const transformed = executeTransformsWithNamedLineage(layer.data, layer.transform, `layer:${layer.id}`);
+            const editing = this.#tableEditing(layerId);
+            const state = this.getTableRuntimeState(layerId);
+            const view = tableViewData(transformed.data, state, editing.visibleFields);
+            const editableSourceCounts = new Map();
+            for (const sources of transformed.lineage.rowSources) {
+                if (sources.length !== 1)
+                    continue;
+                const sourceIndex = sources[0];
+                editableSourceCounts.set(sourceIndex, (editableSourceCounts.get(sourceIndex) ?? 0) + 1);
+            }
+            return {
+                ...view,
+                sourceIndices: view.sourceIndices.map((transformedIndex) => {
+                    if (transformedIndex === null)
+                        return null;
+                    const sources = transformed.lineage.rowSources[transformedIndex] ?? [];
+                    return sources.length === 1 ? sources[0] : null;
+                }),
+                editableSourceIndices: [...editableSourceCounts]
+                    .filter(([, count]) => count === 1)
+                    .map(([sourceIndex]) => sourceIndex),
+            };
+        }
+        #emitTableEdit(layerId, row, field, previousValue, newValue, valid, reason) {
+            this.#events.emit('tableeditchange', {
+                chart: this,
+                layerId,
+                row,
+                field,
+                previousValue: cloneTableDataValue(previousValue),
+                newValue: cloneTableDataValue(newValue),
+                valid,
+                reason,
+            });
+        }
+        #emitTableDataChange(layerId, reason) {
+            this.#events.emit('tablechange', {
+                chart: this,
+                layerId,
+                state: this.getTableRuntimeState(layerId),
+                reason,
+            });
+        }
+        #tableSpecWithSourceRows(layerId, rows) {
+            const data = cloneTableRows(rows);
+            if (this.#spec.layers === undefined) {
+                if (layerId !== 'layer-0') {
+                    throw new GraflumeError('INVALID_DATA', `Layer "${layerId}" was not found.`);
+                }
+                const { source: _source, ...spec } = this.#spec;
+                return { ...spec, data };
+            }
+            let matched = false;
+            const layers = this.#spec.layers.map((layer, index) => {
+                if ((layer.id ?? `layer-${index}`) !== layerId)
+                    return layer;
+                matched = true;
+                const { source: _source, ...sourceLayer } = layer;
+                return { ...sourceLayer, data };
+            });
+            if (!matched)
+                throw new GraflumeError('INVALID_DATA', `Layer "${layerId}" was not found.`);
+            return { ...this.#spec, layers };
+        }
+        #replaceTableSourceRows(layerId, rows) {
+            const previousSpec = this.#spec;
+            this.#spec = this.#tableSpecWithSourceRows(layerId, rows);
+            try {
+                this.render();
+            }
+            catch (error) {
+                this.#spec = previousSpec;
+                try {
+                    this.render();
+                }
+                catch {
+                    // Keep the original render failure authoritative after best-effort rollback.
+                }
+                throw error;
+            }
+        }
+        #setTableCellValue(layerId, target, field, value, successReason) {
+            this.#assertAlive();
+            this.#requireFamilyLayer(layerId, ['table']);
+            const editing = this.#tableEditing(layerId);
+            const view = this.#resolvedTableView(layerId);
+            const source = this.#tableSourceRows(layerId);
+            let row = typeof target === 'number' ? target : -1;
+            let sourceRow = null;
+            let failure = null;
+            if (!editing.enabled)
+                failure = 'editing-disabled';
+            else if (view.derived)
+                failure = 'derived-view-read-only';
+            const configuredColumn = editing.columns.get(field);
+            if (failure === null && (configuredColumn === undefined || !configuredColumn.editable)) {
+                failure = 'field-not-editable';
+            }
+            if (failure === null && typeof target === 'number') {
+                if (!Number.isInteger(target) || target < 0 || target >= view.rows.length) {
+                    failure = 'row-not-found';
+                }
+                else
+                    sourceRow = view.sourceIndices[target] ?? null;
+            }
+            else if (failure === null && typeof target !== 'number') {
+                if (editing.key === undefined)
+                    failure = 'row-not-found';
+                else {
+                    const sourceMatches = source.flatMap((candidate, index) => tableDataValuesEqual(candidate[editing.key], target.key) ? [index] : []);
+                    if (sourceMatches.length === 0)
+                        failure = 'row-not-found';
+                    else if (sourceMatches.length > 1)
+                        failure = 'duplicate-key';
+                    else {
+                        sourceRow = sourceMatches[0];
+                        if (!view.editableSourceIndices.includes(sourceRow)) {
+                            failure = 'source-row-unavailable';
+                        }
+                        const matches = view.sourceIndices.flatMap((candidate, index) => candidate === sourceRow ? [index] : []);
+                        if (failure === null && matches.length > 1)
+                            failure = 'source-row-unavailable';
+                        else if (failure === null && matches.length === 1) {
+                            row = matches[0];
+                        }
+                        else if (failure === null) {
+                            // A stable key addresses the authored source independently of the
+                            // current runtime filter. Event rows use the source index when no
+                            // current view index exists.
+                            row = sourceRow;
+                        }
+                    }
+                }
+            }
+            if (failure === null && sourceRow === null)
+                failure = 'source-row-unavailable';
+            const previousValue = sourceRow === null ? undefined : source[sourceRow]?.[field];
+            if (failure !== null || configuredColumn === undefined) {
+                this.#emitTableEdit(layerId, row, field, previousValue, value, false, failure ?? 'field-not-editable');
+                return false;
+            }
+            const column = tableColumnEditingForValue(configuredColumn, previousValue);
+            const validation = validateTableCellValue(column, value);
+            if (!validation.valid) {
+                this.#emitTableEdit(layerId, row, field, previousValue, value, false, validation.reason);
+                return false;
+            }
+            if (sourceRow === null || source[sourceRow] === undefined) {
+                this.#emitTableEdit(layerId, row, field, previousValue, value, false, 'source-row-unavailable');
+                return false;
+            }
+            if (tableDataValuesEqual(previousValue, value)) {
+                this.#emitTableEdit(layerId, row, field, previousValue, value, true, successReason);
+                return true;
+            }
+            const next = source.map((candidate, index) => index === sourceRow ? { ...candidate, [field]: cloneTableDataValue(value) } : candidate);
+            const history = this.#tableDataHistory.get(layerId) ??
+                (() => {
+                    const created = new TableDataHistory(source);
+                    this.#tableDataHistory.set(layerId, created);
+                    return created;
+                })();
+            this.#replaceTableSourceRows(layerId, next);
+            history.replace(next);
+            this.#emitTableDataChange(layerId, 'programmatic');
+            this.#emitTableEdit(layerId, row, field, previousValue, value, true, successReason);
+            return true;
+        }
+        #applyTableDataTransition(layerId, transition, reason) {
+            this.#replaceTableSourceRows(layerId, transition.rows);
+            this.#emitTableDataChange(layerId, reason === 'reset' ? 'reset' : 'programmatic');
+            const rowCount = Math.max(transition.previous.length, transition.rows.length);
+            for (let row = 0; row < rowCount; row += 1) {
+                const previous = transition.previous[row] ?? {};
+                const next = transition.rows[row] ?? {};
+                const fields = new Set([...Object.keys(previous), ...Object.keys(next)]);
+                for (const field of fields) {
+                    if (tableDataValuesEqual(previous[field], next[field]))
+                        continue;
+                    this.#emitTableEdit(layerId, row, field, previous[field], next[field], true, reason);
+                }
+            }
+        }
+        #openTableCellEditor(entry) {
+            const interaction = entry.familyInteraction;
+            if (interaction.kind !== 'table-cell' || entry.bounds === undefined)
+                return false;
+            const metadata = entry.datum;
+            if (metadata.editEnabled !== true ||
+                typeof metadata.sourceRowIndex !== 'number' ||
+                !Number.isInteger(metadata.sourceRowIndex)) {
+                return false;
+            }
+            const editing = this.#tableEditing(entry.layerId);
+            const configuredColumn = editing.columns.get(interaction.field);
+            if (!editing.enabled || configuredColumn === undefined || !configuredColumn.editable) {
+                return false;
+            }
+            const state = this.getTableRuntimeState(entry.layerId);
+            if (state.group !== null || state.pivot !== null)
+                return false;
+            const host = this.#renderer?.overlayHost?.();
+            const document = host?.ownerDocument;
+            if (host === null || host === undefined || document === undefined)
+                return false;
+            this.#destroyTableEditor();
+            const source = this.#tableSourceRows(entry.layerId);
+            const sourceRow = this.#resolvedTableView(entry.layerId).sourceIndices[interaction.row];
+            if (sourceRow === null || sourceRow === undefined)
+                return false;
+            const current = source[sourceRow]?.[interaction.field];
+            const column = tableColumnEditingForValue(configuredColumn, current);
+            const element = column.editor.type === 'select'
+                ? document.createElement('select')
+                : document.createElement('input');
+            element.className = 'graflume-table-editor';
+            element.setAttribute('aria-label', `Edit row ${interaction.row + 1}, ${interaction.field}`);
+            element.setAttribute('autocomplete', 'off');
+            if (column.validation.required)
+                element.setAttribute('required', '');
+            if (column.validation.min !== undefined)
+                element.setAttribute('min', String(column.validation.min));
+            if (column.validation.max !== undefined)
+                element.setAttribute('max', String(column.validation.max));
+            if (column.validation.pattern !== undefined)
+                element.setAttribute('pattern', column.validation.pattern);
+            if (element.tagName === 'SELECT') {
+                column.editor.options.forEach((value, index) => {
+                    const option = document.createElement('option');
+                    option.value = String(index);
+                    option.textContent = value instanceof Date ? value.toISOString() : String(value ?? '');
+                    element.append(option);
+                });
+                const selectedIndex = column.editor.options.findIndex((value) => tableDataValuesEqual(value, current));
+                element.selectedIndex = selectedIndex;
+            }
+            else {
+                const input = element;
+                input.type =
+                    column.editor.type === 'boolean'
+                        ? 'checkbox'
+                        : column.editor.type === 'datetime'
+                            ? 'datetime-local'
+                            : column.editor.type === 'integer' || column.editor.type === 'number'
+                                ? 'number'
+                                : column.editor.type;
+                if (column.editor.type === 'integer')
+                    input.step = '1';
+                if (column.editor.type === 'boolean')
+                    input.checked = current === true;
+                else if (current instanceof Date) {
+                    input.value =
+                        column.editor.type === 'date'
+                            ? current.toISOString().slice(0, 10)
+                            : current.toISOString().slice(0, 16);
+                }
+                else
+                    input.value = current === null || current === undefined ? '' : String(current);
+            }
+            const bounds = entry.bounds;
+            Object.assign(element.style, {
+                position: 'absolute',
+                boxSizing: 'border-box',
+                left: `${bounds.x * this.#view.zoom + this.#view.offsetX}px`,
+                top: `${bounds.y * this.#view.zoom + this.#view.offsetY}px`,
+                width: `${Math.max(28, bounds.width * this.#view.zoom)}px`,
+                height: `${Math.max(24, bounds.height * this.#view.zoom)}px`,
+                zIndex: '10020',
+                border: '2px solid #2563eb',
+                borderRadius: '4px',
+                background: '#ffffff',
+                color: '#111827',
+                font: 'inherit',
+                padding: column.editor.type === 'boolean' ? '4px' : '2px 6px',
+                outline: 'none',
+            });
+            const editor = {
+                layerId: entry.layerId,
+                row: interaction.row,
+                field: interaction.field,
+                column,
+                element,
+                closed: false,
+            };
+            const commit = () => {
+                if (editor.closed || this.#tableEditor !== editor)
+                    return;
+                const input = editor.element;
+                const select = editor.element;
+                const value = parseTableEditorValue(editor.column, editor.element.value, input.checked === true, editor.element.tagName === 'SELECT' ? select.selectedIndex : -1);
+                this.#preserveTableEditor = true;
+                let committed;
+                try {
+                    committed = this.#setTableCellValue(editor.layerId, editor.row, editor.field, value, 'overlay');
+                }
+                finally {
+                    this.#preserveTableEditor = false;
+                }
+                if (committed) {
+                    this.#destroyTableEditor(true);
+                }
+                else {
+                    editor.element.setAttribute('aria-invalid', 'true');
+                    editor.element.focus();
+                }
+            };
+            element.addEventListener('keydown', (event) => {
+                if (!(event instanceof KeyboardEvent))
+                    return;
+                if (event.key === 'Escape') {
+                    this.#destroyTableEditor(true);
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+                else if (event.key === 'Enter' && editing.commit !== 'blur') {
+                    commit();
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+            });
+            element.addEventListener('blur', () => {
+                if (editor.closed)
+                    return;
+                if (editing.commit === 'enter')
+                    this.#destroyTableEditor();
+                else
+                    commit();
+            });
+            host.append(element);
+            this.#tableEditor = editor;
+            element.focus();
+            if (element.tagName === 'INPUT' && column.editor.type === 'text') {
+                element.select?.();
+            }
+            return true;
+        }
+        #destroyTableEditor(focusSurface = false) {
+            const editor = this.#tableEditor;
+            if (editor === null)
+                return;
+            editor.closed = true;
+            editor.element.remove();
+            this.#tableEditor = null;
+            if (focusSurface)
+                this.#eventSurface?.focus();
         }
         #familyLayerRows(layerId) {
             const layer = this.#result?.spec.layers.find((candidate) => candidate.id === layerId);
@@ -37806,6 +39215,8 @@ var Graflume = (function (exports) {
         setSpec(spec) {
             this.#assertAlive();
             const normalized = normalizeSpec$1(spec);
+            this.#destroyTableEditor();
+            this.#tableDataHistory.clear();
             this.pause();
             this.#spec = spec;
             this.#incrementalStores.clear();
@@ -38403,6 +39814,8 @@ var Graflume = (function (exports) {
             return this.#renderEndpoint();
         }
         #renderEndpoint() {
+            if (!this.#preserveTableEditor)
+                this.#destroyTableEditor();
             const dimensions = this.#measure();
             const previousAdaptiveState = this.#adaptiveState;
             this.#adaptiveState = resolveAdaptiveProfile(detectBrowserAdaptiveEnvironment({
@@ -38563,6 +39976,8 @@ var Graflume = (function (exports) {
         destroy() {
             if (this.#destroyed)
                 return;
+            this.#destroyTableEditor();
+            this.#tableDataHistory.clear();
             const exitFullscreen = this.#isOwnFullscreen();
             this.#playing = false;
             this.#sceneTransition = null;
@@ -40202,6 +41617,13 @@ var Graflume = (function (exports) {
                     : tableEntries.find((candidate) => candidate.layerId === focus.layerId &&
                         candidate.familyInteraction.row === focus.row &&
                         candidate.familyInteraction.column === focus.column);
+                if (event.key === 'Enter' &&
+                    focus.kind === 'table-cell' &&
+                    entry !== undefined &&
+                    this.#openTableCellEditor(entry)) {
+                    event.preventDefault();
+                    return true;
+                }
                 if (entry !== undefined) {
                     this.#applyClickSelection({ ...entry, x: 0, y: 0, distance: 0 }, 'keyboard', 'keyboard');
                 }
@@ -40591,6 +42013,13 @@ var Graflume = (function (exports) {
                     column: interaction.column,
                     field: interaction.field,
                 }, 'pointer');
+                if (event.detail >= 2) {
+                    const refreshed = this.#familyEntries('table-cell').find((entry) => entry.layerId === hit.layerId &&
+                        entry.familyInteraction.row === interaction.row &&
+                        entry.familyInteraction.column === interaction.column);
+                    if (refreshed !== undefined && this.#openTableCellEditor(refreshed))
+                        return true;
+                }
                 return false;
             }
             if (interaction.kind === 'table-header') {
@@ -41128,7 +42557,7 @@ var Graflume = (function (exports) {
                     this.#focusSemanticMark(mark);
                     this.#publishLinkedFocus(mark);
                 },
-            });
+            }, result.spec.locale);
             this.#syncLinkedFocus();
         }
         #focusStore() {
@@ -41646,7 +43075,10 @@ var Graflume = (function (exports) {
     function textNode$4(context, id, x, y, text, options = {}) {
         return {
             type: 'text',
-            ...nodeBase(id, { zIndex: options.zIndex ?? context.layer.zIndex + 3 }),
+            ...nodeBase(id, {
+                zIndex: options.zIndex ?? context.layer.zIndex + 3,
+                ...(options.opacity === undefined ? {} : { opacity: options.opacity }),
+            }),
             x,
             y,
             text,
@@ -41654,6 +43086,7 @@ var Graflume = (function (exports) {
             fontFamily: context.theme.typography.fontFamily,
             fontSize: options.size ?? context.theme.typography.fontSize,
             fontWeight: options.weight ?? 600,
+            ...(options.style === undefined ? {} : { fontStyle: options.style }),
             align: options.align ?? 'center',
             baseline: options.baseline ?? 'middle',
             rotation: options.rotation ?? 0,
@@ -42113,10 +43546,17 @@ var Graflume = (function (exports) {
             const end = mapX(item.clippedEnd);
             const color = categoricalColor(context.theme, model.groups.findIndex(({ group }) => group === item.group), model.groups.length);
             centers.set(item.id, { x: item.milestone ? start : (start + end) / 2, y: y + height / 2 });
+            const rowIndex = data.findIndex(({ id }) => id === item.id);
+            const source = rowIndex < 0 ? {} : context.table.row(rowIndex);
+            const tooltipStart = context.xType === 'temporal'
+                ? temporalTooltipValue(source[startField] ?? item.start)
+                : item.start;
+            const tooltipEnd = context.xType === 'temporal' ? temporalTooltipValue(source[endField] ?? item.end) : item.end;
             const datum = {
                 layerId: context.layer.id,
-                rowIndex: data.findIndex(({ id }) => id === item.id),
+                rowIndex,
                 datum: {
+                    ...source,
                     id: item.id,
                     group: item.group,
                     lane: item.lane,
@@ -42132,8 +43572,8 @@ var Graflume = (function (exports) {
                     id: item.id,
                     group: item.group,
                     lane: item.lane,
-                    start: item.start,
-                    end: item.end,
+                    start: tooltipStart,
+                    end: tooltipEnd,
                     duration: item.duration,
                     visibleDuration: item.visibleDuration,
                     durationLabel: item.durationLabel,
@@ -42215,6 +43655,21 @@ var Graflume = (function (exports) {
         if (navigatorHeight > 0) {
             const y = context.plot.y + context.plot.height - navigatorHeight;
             const observedSpan = Math.max(Number.EPSILON, model.navigator.maximum - model.navigator.minimum);
+            const temporalNavigatorValue = (value) => {
+                const sourceRowIndex = data.findIndex(({ start, end }) => start === value || end === value);
+                if (sourceRowIndex < 0)
+                    return temporalTooltipValue(value);
+                const sourceField = data[sourceRowIndex].start === value ? startField : endField;
+                return temporalTooltipValue(context.table.value(sourceRowIndex, sourceField) ?? value);
+            };
+            const navigatorTooltip = context.xType === 'temporal'
+                ? {
+                    minimum: temporalNavigatorValue(model.navigator.minimum),
+                    maximum: temporalNavigatorValue(model.navigator.maximum),
+                    start: temporalNavigatorValue(model.navigator.start),
+                    end: temporalNavigatorValue(model.navigator.end),
+                }
+                : { ...model.navigator };
             nodes.push({
                 type: 'rect',
                 ...nodeBase(`${context.layer.id}:timeline-navigator-track`, {
@@ -42238,7 +43693,7 @@ var Graflume = (function (exports) {
                         layerId: context.layer.id,
                         rowIndex: 0,
                         datum: { ...model.navigator },
-                        tooltip: { ...model.navigator },
+                        tooltip: navigatorTooltip,
                         familyInteraction: {
                             kind: 'navigator-window',
                             family: 'timeline',
@@ -42272,6 +43727,727 @@ var Graflume = (function (exports) {
         return value !== null && typeof value === 'object' && !Array.isArray(value)
             ? Object.fromEntries(Object.entries(value))
             : undefined;
+    }
+    const tableStyleKeys = new Set([
+        'fill',
+        'textColor',
+        'stroke',
+        'lineWidth',
+        'fontWeight',
+        'fontStyle',
+        'opacity',
+        'align',
+    ]);
+    function invalidTableOption(path, message) {
+        throw new GraflumeError('INVALID_SPEC', message, { path });
+    }
+    function assertTableKeys(object, allowed, path) {
+        const unknown = Object.keys(object).find((key) => !allowed.has(key));
+        if (unknown !== undefined) {
+            invalidTableOption(`${path}.${unknown}`, `Unknown table option "${unknown}".`);
+        }
+    }
+    function tableField(value, path) {
+        if (typeof value !== 'string' || value.trim() === '' || value.length > 128) {
+            return invalidTableOption(path, `${path} must be a non-empty field name.`);
+        }
+        if (value === '__proto__' || value === 'prototype' || value === 'constructor') {
+            return invalidTableOption(path, `${path} uses a forbidden field name.`);
+        }
+        return value;
+    }
+    function tableNumber(value, path, minimum, maximum) {
+        if (value === undefined)
+            return undefined;
+        if (typeof value !== 'number' || !Number.isFinite(value) || value < minimum || value > maximum) {
+            return invalidTableOption(path, `${path} must be a finite number from ${minimum} to ${maximum}.`);
+        }
+        return value;
+    }
+    function tableColor(value, path) {
+        if (value === undefined)
+            return undefined;
+        if (typeof value !== 'string' ||
+            value.trim() === '' ||
+            value.length > 128 ||
+            /[;{}]/u.test(value) ||
+            /url\s*\(/iu.test(value)) {
+            return invalidTableOption(path, `${path} must be a safe, non-empty color string.`);
+        }
+        return value;
+    }
+    function tableStyle(value, path) {
+        if (value === undefined)
+            return {};
+        const object = safeObject(value);
+        if (object === undefined)
+            return invalidTableOption(path, `${path} must be an object.`);
+        assertTableKeys(object, tableStyleKeys, path);
+        const align = object.align;
+        if (align !== undefined && align !== 'left' && align !== 'center' && align !== 'right') {
+            return invalidTableOption(`${path}.align`, 'Table alignment must be left, center, or right.');
+        }
+        const fontStyle = object.fontStyle;
+        if (fontStyle !== undefined && fontStyle !== 'normal' && fontStyle !== 'italic') {
+            return invalidTableOption(`${path}.fontStyle`, 'Table fontStyle must be normal or italic.');
+        }
+        const fontWeight = object.fontWeight;
+        if (fontWeight !== undefined &&
+            !((typeof fontWeight === 'number' &&
+                Number.isInteger(fontWeight) &&
+                fontWeight >= 100 &&
+                fontWeight <= 900) ||
+                fontWeight === 'normal' ||
+                fontWeight === 'bold')) {
+            return invalidTableOption(`${path}.fontWeight`, 'Table fontWeight must be normal, bold, or an integer from 100 to 900.');
+        }
+        const fill = tableColor(object.fill, `${path}.fill`);
+        const textColor = tableColor(object.textColor, `${path}.textColor`);
+        const stroke = tableColor(object.stroke, `${path}.stroke`);
+        const lineWidth = tableNumber(object.lineWidth, `${path}.lineWidth`, 0, 16);
+        const opacity = tableNumber(object.opacity, `${path}.opacity`, 0, 1);
+        return {
+            ...(fill === undefined ? {} : { fill }),
+            ...(textColor === undefined ? {} : { textColor }),
+            ...(stroke === undefined ? {} : { stroke }),
+            ...(lineWidth === undefined ? {} : { lineWidth }),
+            ...(fontWeight === undefined ? {} : { fontWeight: fontWeight }),
+            ...(fontStyle === undefined ? {} : { fontStyle }),
+            ...(opacity === undefined ? {} : { opacity }),
+            ...(align === undefined ? {} : { align }),
+        };
+    }
+    function tableCellVisual(value, path) {
+        if (value === undefined)
+            return undefined;
+        const object = safeObject(value);
+        if (object === undefined || typeof object.type !== 'string') {
+            return invalidTableOption(path, `${path} must be a cell visual object with a type.`);
+        }
+        const type = object.type;
+        const extent = {
+            ...(tableNumber(object.min, `${path}.min`, -Number.MAX_VALUE, Number.MAX_VALUE) === undefined
+                ? {}
+                : { min: object.min }),
+            ...(tableNumber(object.max, `${path}.max`, -Number.MAX_VALUE, Number.MAX_VALUE) === undefined
+                ? {}
+                : { max: object.max }),
+        };
+        if (extent.min !== undefined && extent.max !== undefined && extent.max <= extent.min) {
+            return invalidTableOption(path, 'A table cell visual max must be greater than min.');
+        }
+        if (type === 'data-bar') {
+            assertTableKeys(object, new Set(['type', 'min', 'max', 'color', 'negativeColor']), path);
+            return {
+                type,
+                ...extent,
+                ...(tableColor(object.color, `${path}.color`) === undefined
+                    ? {}
+                    : { color: object.color }),
+                ...(tableColor(object.negativeColor, `${path}.negativeColor`) === undefined
+                    ? {}
+                    : { negativeColor: object.negativeColor }),
+            };
+        }
+        if (type === 'heatmap') {
+            assertTableKeys(object, new Set(['type', 'min', 'max', 'lowColor', 'highColor']), path);
+            return {
+                type,
+                ...extent,
+                ...(tableColor(object.lowColor, `${path}.lowColor`) === undefined
+                    ? {}
+                    : { lowColor: object.lowColor }),
+                ...(tableColor(object.highColor, `${path}.highColor`) === undefined
+                    ? {}
+                    : { highColor: object.highColor }),
+            };
+        }
+        if (type === 'progress') {
+            assertTableKeys(object, new Set(['type', 'min', 'max', 'color', 'trackColor']), path);
+            return {
+                type,
+                ...extent,
+                ...(tableColor(object.color, `${path}.color`) === undefined
+                    ? {}
+                    : { color: object.color }),
+                ...(tableColor(object.trackColor, `${path}.trackColor`) === undefined
+                    ? {}
+                    : { trackColor: object.trackColor }),
+            };
+        }
+        if (type === 'sparkline') {
+            assertTableKeys(object, new Set(['type', 'color', 'fill']), path);
+            return {
+                type,
+                ...(tableColor(object.color, `${path}.color`) === undefined
+                    ? {}
+                    : { color: object.color }),
+                ...(tableColor(object.fill, `${path}.fill`) === undefined
+                    ? {}
+                    : { fill: object.fill }),
+            };
+        }
+        if (type === 'status-badge') {
+            assertTableKeys(object, new Set(['type', 'colors', 'defaultColor']), path);
+            const colors = safeObject(object.colors);
+            if (colors === undefined) {
+                return invalidTableOption(`${path}.colors`, 'A status-badge visual requires a colors object.');
+            }
+            if (Object.keys(colors).length > 64) {
+                return invalidTableOption(`${path}.colors`, 'Status badge colors are limited to 64 values.');
+            }
+            const safeColors = Object.fromEntries(Object.entries(colors).map(([key, color]) => {
+                if (key.length > 128) {
+                    return invalidTableOption(`${path}.colors`, 'Status badge keys are limited to 128 characters.');
+                }
+                return [key, tableColor(color, `${path}.colors.${key}`)];
+            }));
+            return {
+                type,
+                colors: safeColors,
+                ...(tableColor(object.defaultColor, `${path}.defaultColor`) === undefined
+                    ? {}
+                    : { defaultColor: object.defaultColor }),
+            };
+        }
+        return invalidTableOption(`${path}.type`, `Unknown table cell visual "${type}".`);
+    }
+    function tableEditorValue(value, path) {
+        if (value === null ||
+            typeof value === 'string' ||
+            typeof value === 'boolean' ||
+            (typeof value === 'number' && Number.isFinite(value))) {
+            return value;
+        }
+        return invalidTableOption(path, `${path} must be a finite JSON scalar.`);
+    }
+    function tableEditor(value, path) {
+        if (value === undefined)
+            return undefined;
+        const object = safeObject(value);
+        if (object === undefined)
+            return invalidTableOption(path, `${path} must be an object.`);
+        assertTableKeys(object, new Set(['type', 'options']), path);
+        const type = object.type;
+        if (type !== 'text' &&
+            type !== 'number' &&
+            type !== 'integer' &&
+            type !== 'date' &&
+            type !== 'datetime' &&
+            type !== 'boolean' &&
+            type !== 'select') {
+            return invalidTableOption(`${path}.type`, 'Unknown table editor type.');
+        }
+        if (type === 'select') {
+            if (!Array.isArray(object.options) ||
+                object.options.length === 0 ||
+                object.options.length > 128) {
+                return invalidTableOption(`${path}.options`, 'A select table editor requires from 1 to 128 scalar options.');
+            }
+            return {
+                type,
+                options: object.options.map((entry, index) => tableEditorValue(entry, `${path}.options[${index}]`)),
+            };
+        }
+        if (object.options !== undefined) {
+            return invalidTableOption(`${path}.options`, 'Only a select table editor accepts options.');
+        }
+        return { type };
+    }
+    function tableValidation(value, path) {
+        if (value === undefined)
+            return undefined;
+        const object = safeObject(value);
+        if (object === undefined)
+            return invalidTableOption(path, `${path} must be an object.`);
+        assertTableKeys(object, new Set(['required', 'min', 'max', 'minLength', 'maxLength', 'pattern', 'values']), path);
+        if (object.required !== undefined && typeof object.required !== 'boolean') {
+            return invalidTableOption(`${path}.required`, 'Table validation required must be boolean.');
+        }
+        const min = tableNumber(object.min, `${path}.min`, -Number.MAX_VALUE, Number.MAX_VALUE);
+        const max = tableNumber(object.max, `${path}.max`, -Number.MAX_VALUE, Number.MAX_VALUE);
+        const minLength = tableNumber(object.minLength, `${path}.minLength`, 0, 100_000);
+        const maxLength = tableNumber(object.maxLength, `${path}.maxLength`, 0, 100_000);
+        if (min !== undefined && max !== undefined && max < min) {
+            return invalidTableOption(path, 'Table validation max cannot be smaller than min.');
+        }
+        if (minLength !== undefined && maxLength !== undefined && maxLength < minLength) {
+            return invalidTableOption(path, 'Table validation maxLength cannot be smaller than minLength.');
+        }
+        if (minLength !== undefined && !Number.isInteger(minLength)) {
+            return invalidTableOption(`${path}.minLength`, 'Table minLength must be an integer.');
+        }
+        if (maxLength !== undefined && !Number.isInteger(maxLength)) {
+            return invalidTableOption(`${path}.maxLength`, 'Table maxLength must be an integer.');
+        }
+        if (object.pattern !== undefined && !isSafeTableValidationPattern(object.pattern)) {
+            return invalidTableOption(`${path}.pattern`, 'Table validation pattern must use the bounded safe regular-expression subset.');
+        }
+        let values;
+        if (object.values !== undefined) {
+            if (!Array.isArray(object.values) || object.values.length > 128) {
+                return invalidTableOption(`${path}.values`, 'Table validation values are limited to 128 scalars.');
+            }
+            values = object.values.map((entry, index) => tableEditorValue(entry, `${path}.values[${index}]`));
+        }
+        return {
+            ...(object.required === undefined ? {} : { required: object.required }),
+            ...(min === undefined ? {} : { min }),
+            ...(max === undefined ? {} : { max }),
+            ...(minLength === undefined ? {} : { minLength }),
+            ...(maxLength === undefined ? {} : { maxLength }),
+            ...(object.pattern === undefined ? {} : { pattern: object.pattern }),
+            ...(values === undefined ? {} : { values }),
+        };
+    }
+    function tableColumnsOption(context) {
+        const raw = context.layer.mark.options.columns;
+        if (raw === undefined)
+            return [];
+        if (!Array.isArray(raw) || raw.length === 0 || raw.length > 128) {
+            return invalidTableOption('$.layers[].mark.options.columns', 'Table columns must be an array of from 1 to 128 field names or column definitions.');
+        }
+        const values = raw;
+        const columns = [];
+        const seen = new Set();
+        values.forEach((value, index) => {
+            const path = `$.layers[].mark.options.columns[${index}]`;
+            const object = safeObject(value);
+            const field = tableField(typeof value === 'string' ? value : object?.field, `${path}.field`);
+            if (seen.has(field))
+                return;
+            seen.add(field);
+            if (object !== undefined) {
+                assertTableKeys(object, new Set([
+                    'field',
+                    'header',
+                    'width',
+                    'minWidth',
+                    'maxWidth',
+                    'align',
+                    'formatter',
+                    'dateStyle',
+                    'timeStyle',
+                    'timeZone',
+                    'visible',
+                    'editable',
+                    'editor',
+                    'validation',
+                    'style',
+                    'visual',
+                ]), path);
+            }
+            const header = object?.header ?? field;
+            if (typeof header !== 'string' || header.trim() === '' || header.length > 256) {
+                invalidTableOption(`${path}.header`, 'A table column header must be non-empty.');
+            }
+            const align = object?.align ?? 'left';
+            if (align !== 'left' && align !== 'center' && align !== 'right') {
+                invalidTableOption(`${path}.align`, 'Table alignment must be left, center, or right.');
+            }
+            if (object?.formatter !== undefined && typeof object.formatter !== 'string') {
+                invalidTableOption(`${path}.formatter`, 'A table formatter must be a registered string id.');
+            }
+            const dateStyle = object?.dateStyle;
+            if (dateStyle !== undefined &&
+                dateStyle !== 'short' &&
+                dateStyle !== 'medium' &&
+                dateStyle !== 'long' &&
+                dateStyle !== 'full') {
+                invalidTableOption(`${path}.dateStyle`, 'Unknown table dateStyle.');
+            }
+            const timeStyle = object?.timeStyle;
+            if (timeStyle !== undefined &&
+                timeStyle !== 'short' &&
+                timeStyle !== 'medium' &&
+                timeStyle !== 'long' &&
+                timeStyle !== 'full') {
+                invalidTableOption(`${path}.timeStyle`, 'Unknown table timeStyle.');
+            }
+            if (object?.timeZone !== undefined &&
+                (typeof object.timeZone !== 'string' ||
+                    object.timeZone.trim() === '' ||
+                    object.timeZone.length > 128)) {
+                invalidTableOption(`${path}.timeZone`, 'A table timeZone must be a non-empty identifier.');
+            }
+            if (object?.visible !== undefined && typeof object.visible !== 'boolean') {
+                invalidTableOption(`${path}.visible`, 'Table column visibility must be boolean.');
+            }
+            if (object?.editable !== undefined && typeof object.editable !== 'boolean') {
+                invalidTableOption(`${path}.editable`, 'Table column editable must be boolean.');
+            }
+            const width = tableNumber(object?.width, `${path}.width`, 24, 2_048);
+            const minWidth = tableNumber(object?.minWidth, `${path}.minWidth`, 16, 2_048);
+            const maxWidth = tableNumber(object?.maxWidth, `${path}.maxWidth`, 16, 4_096);
+            if (minWidth !== undefined && maxWidth !== undefined && maxWidth < minWidth) {
+                invalidTableOption(path, 'A table column maxWidth cannot be smaller than minWidth.');
+            }
+            const editor = tableEditor(object?.editor, `${path}.editor`);
+            const validation = tableValidation(object?.validation, `${path}.validation`);
+            const visual = tableCellVisual(object?.visual, `${path}.visual`);
+            columns.push({
+                field,
+                header,
+                ...(width === undefined ? {} : { width }),
+                ...(minWidth === undefined ? {} : { minWidth }),
+                ...(maxWidth === undefined ? {} : { maxWidth }),
+                align,
+                ...(object?.formatter === undefined ? {} : { formatter: object.formatter }),
+                ...(dateStyle === undefined ? {} : { dateStyle }),
+                ...(timeStyle === undefined ? {} : { timeStyle }),
+                ...(object?.timeZone === undefined ? {} : { timeZone: object.timeZone }),
+                visible: object?.visible !== false,
+                editable: object?.editable === true,
+                ...(editor === undefined ? {} : { editor }),
+                ...(validation === undefined ? {} : { validation }),
+                style: tableStyle(object?.style, `${path}.style`),
+                ...(visual === undefined ? {} : { visual }),
+            });
+        });
+        return columns;
+    }
+    function tableEditingOption(context) {
+        const value = context.layer.mark.options.editing;
+        if (value === false)
+            return { enabled: false, commit: 'enter-or-blur' };
+        if (value === undefined || value === true) {
+            return { enabled: true, commit: 'enter-or-blur' };
+        }
+        const object = safeObject(value);
+        if (object === undefined) {
+            return invalidTableOption('$.layers[].mark.options.editing', 'Table editing must be boolean or an object.');
+        }
+        assertTableKeys(object, new Set(['enabled', 'key', 'commit']), '$.layers[].mark.options.editing');
+        if (object.enabled !== undefined && typeof object.enabled !== 'boolean') {
+            return invalidTableOption('$.layers[].mark.options.editing.enabled', 'Table editing enabled must be boolean.');
+        }
+        const commit = object.commit ?? 'enter-or-blur';
+        if (commit !== 'enter' && commit !== 'blur' && commit !== 'enter-or-blur') {
+            return invalidTableOption('$.layers[].mark.options.editing.commit', 'Table edit commit must be enter, blur, or enter-or-blur.');
+        }
+        return {
+            enabled: object.enabled !== false,
+            ...(object.key === undefined
+                ? {}
+                : { key: tableField(object.key, '$.layers[].mark.options.editing.key') }),
+            commit,
+        };
+    }
+    function tableCondition(value, path) {
+        const object = safeObject(value);
+        if (object === undefined || typeof object.operator !== 'string') {
+            return invalidTableOption(path, `${path} must declare a condition operator.`);
+        }
+        assertTableKeys(object, new Set(['field', 'operator', 'value']), path);
+        const operators = new Set([
+            'equals',
+            'not-equals',
+            'contains',
+            'starts-with',
+            'ends-with',
+            'greater',
+            'greater-or-equal',
+            'less',
+            'less-or-equal',
+            'between',
+            'in',
+            'is-null',
+            'not-null',
+        ]);
+        if (!operators.has(object.operator)) {
+            return invalidTableOption(`${path}.operator`, `Unknown table condition "${object.operator}".`);
+        }
+        const scalar = (entry) => entry === null ||
+            typeof entry === 'string' ||
+            typeof entry === 'boolean' ||
+            (typeof entry === 'number' && Number.isFinite(entry));
+        if (object.operator === 'is-null' || object.operator === 'not-null') {
+            if (object.value !== undefined) {
+                return invalidTableOption(`${path}.value`, `${object.operator} does not accept a comparison value.`);
+            }
+        }
+        else if (object.value === undefined) {
+            return invalidTableOption(`${path}.value`, `${object.operator} requires a comparison value.`);
+        }
+        if (object.operator === 'between') {
+            if (!Array.isArray(object.value) ||
+                object.value.length !== 2 ||
+                !object.value.every((entry) => typeof entry === 'number' && Number.isFinite(entry))) {
+                return invalidTableOption(`${path}.value`, 'The between condition requires two finite numbers.');
+            }
+        }
+        if (object.operator === 'in' &&
+            (!Array.isArray(object.value) ||
+                object.value.length === 0 ||
+                object.value.length > 128 ||
+                !object.value.every(scalar))) {
+            return invalidTableOption(`${path}.value`, 'The in condition requires from 1 to 128 scalar values.');
+        }
+        if (['greater', 'greater-or-equal', 'less', 'less-or-equal'].includes(object.operator) &&
+            (typeof object.value !== 'number' || !Number.isFinite(object.value))) {
+            return invalidTableOption(`${path}.value`, `${object.operator} requires a finite number.`);
+        }
+        if (['equals', 'not-equals', 'contains', 'starts-with', 'ends-with'].includes(object.operator) &&
+            !scalar(object.value)) {
+            return invalidTableOption(`${path}.value`, `${object.operator} requires a scalar value.`);
+        }
+        return {
+            ...(object.field === undefined ? {} : { field: tableField(object.field, `${path}.field`) }),
+            operator: object.operator,
+            ...(object.value === undefined ? {} : { value: object.value }),
+        };
+    }
+    function tableRule(value, path, target, requireCondition) {
+        const object = safeObject(value);
+        if (object === undefined)
+            return invalidTableOption(path, `${path} must be an object.`);
+        assertTableKeys(object, new Set(['target', 'row', 'field', 'when', 'style']), path);
+        const resolvedTarget = object.target ?? target;
+        if (resolvedTarget !== 'row' && resolvedTarget !== 'column' && resolvedTarget !== 'cell') {
+            return invalidTableOption(`${path}.target`, 'Table style target must be row, column, or cell.');
+        }
+        const row = object.row;
+        if (row !== undefined && (!Number.isInteger(row) || row < 0)) {
+            return invalidTableOption(`${path}.row`, 'Table style row must be a non-negative integer.');
+        }
+        if (requireCondition && object.when === undefined) {
+            return invalidTableOption(`${path}.when`, 'Conditional formatting requires a condition.');
+        }
+        return {
+            target: resolvedTarget,
+            ...(row === undefined ? {} : { row: row }),
+            ...(object.field === undefined ? {} : { field: tableField(object.field, `${path}.field`) }),
+            ...(object.when === undefined ? {} : { when: tableCondition(object.when, `${path}.when`) }),
+            style: tableStyle(object.style, `${path}.style`),
+        };
+    }
+    function tableStyleRules(context) {
+        const rules = [];
+        const collect = (option, target, requireCondition) => {
+            const value = context.layer.mark.options[option];
+            if (value === undefined)
+                return;
+            if (!Array.isArray(value) || value.length > 256) {
+                invalidTableOption(`$.layers[].mark.options.${option}`, `${option} must be an array of at most 256 rules.`);
+            }
+            value.forEach((entry, index) => rules.push(tableRule(entry, `$.layers[].mark.options.${option}[${index}]`, target, requireCondition)));
+        };
+        const columnStyles = context.layer.mark.options.columnStyles;
+        if (columnStyles !== undefined) {
+            const object = safeObject(columnStyles);
+            if (object === undefined || Object.keys(object).length > 128) {
+                invalidTableOption('$.layers[].mark.options.columnStyles', 'columnStyles must be an object with at most 128 fields.');
+            }
+            for (const [field, style] of Object.entries(object)) {
+                rules.push({
+                    target: 'column',
+                    field: tableField(field, '$.layers[].mark.options.columnStyles'),
+                    style: tableStyle(style, `$.layers[].mark.options.columnStyles.${field}`),
+                });
+            }
+        }
+        collect('rowStyles', 'row', false);
+        collect('cellStyles', 'cell', false);
+        collect('conditionalFormats', 'cell', true);
+        return rules;
+    }
+    function tableMatchesCondition(condition, row, defaultField) {
+        const value = row[condition.field ?? defaultField];
+        const expected = condition.value;
+        if (condition.operator === 'is-null')
+            return value === null || value === undefined;
+        if (condition.operator === 'not-null')
+            return value !== null && value !== undefined;
+        if (condition.operator === 'equals')
+            return Object.is(value, expected);
+        if (condition.operator === 'not-equals')
+            return !Object.is(value, expected);
+        if (condition.operator === 'in')
+            return expected.some((item) => Object.is(value, item));
+        if (condition.operator === 'contains')
+            return String(value ?? '')
+                .toLocaleLowerCase()
+                .includes(String(expected ?? '').toLocaleLowerCase());
+        if (condition.operator === 'starts-with')
+            return String(value ?? '')
+                .toLocaleLowerCase()
+                .startsWith(String(expected ?? '').toLocaleLowerCase());
+        if (condition.operator === 'ends-with')
+            return String(value ?? '')
+                .toLocaleLowerCase()
+                .endsWith(String(expected ?? '').toLocaleLowerCase());
+        const numeric = typeof value === 'number' ? value : Number(value);
+        if (!Number.isFinite(numeric))
+            return false;
+        if (condition.operator === 'between') {
+            const [minimum, maximum] = expected;
+            return numeric >= Math.min(minimum, maximum) && numeric <= Math.max(minimum, maximum);
+        }
+        const threshold = typeof expected === 'number' ? expected : Number(expected);
+        if (!Number.isFinite(threshold))
+            return false;
+        if (condition.operator === 'greater')
+            return numeric > threshold;
+        if (condition.operator === 'greater-or-equal')
+            return numeric >= threshold;
+        if (condition.operator === 'less')
+            return numeric < threshold;
+        return numeric <= threshold;
+    }
+    function resolvedTableStyle(base, column, row, rowIndex, rules) {
+        let style = { ...base, ...column.style };
+        for (const rule of rules) {
+            if (rule.row !== undefined && rule.row !== rowIndex)
+                continue;
+            if (rule.field !== undefined && rule.field !== column.field) {
+                if (rule.target === 'column' || rule.target === 'cell')
+                    continue;
+            }
+            if (rule.target === 'column' && rule.field === undefined)
+                continue;
+            if (rule.when !== undefined && !tableMatchesCondition(rule.when, row, column.field))
+                continue;
+            style = { ...style, ...rule.style };
+        }
+        return style;
+    }
+    function tableMergeOptions(context) {
+        const value = context.layer.mark.options.merges;
+        if (value === undefined)
+            return undefined;
+        if (!Array.isArray(value) || value.length > 2_048) {
+            return invalidTableOption('$.layers[].mark.options.merges', 'Table merges must be an array of at most 2048 regions.');
+        }
+        return value.map((entry, index) => {
+            const path = `$.layers[].mark.options.merges[${index}]`;
+            const object = safeObject(entry);
+            if (object === undefined)
+                return invalidTableOption(path, 'A table merge must be an object.');
+            assertTableKeys(object, new Set(['row', 'column', 'rowSpan', 'columnSpan']), path);
+            if (!Number.isInteger(object.row) || object.row < 0) {
+                return invalidTableOption(`${path}.row`, 'A table merge row must be a non-negative integer.');
+            }
+            if (typeof object.column !== 'string' && !Number.isInteger(object.column)) {
+                return invalidTableOption(`${path}.column`, 'A table merge column must be a field or integer.');
+            }
+            return {
+                row: object.row,
+                column: object.column,
+                ...(object.rowSpan === undefined ? {} : { rowSpan: object.rowSpan }),
+                ...(object.columnSpan === undefined ? {} : { columnSpan: object.columnSpan }),
+            };
+        });
+    }
+    function tableMergeRepeatOptions(context) {
+        const value = context.layer.mark.options.mergeRepeats;
+        if (value === undefined)
+            return undefined;
+        if (!Array.isArray(value) || value.length > 128) {
+            return invalidTableOption('$.layers[].mark.options.mergeRepeats', 'mergeRepeats must be an array of at most 128 fields.');
+        }
+        return value.map((entry, index) => {
+            if (typeof entry === 'string')
+                return { field: tableField(entry, `$.mergeRepeats[${index}]`) };
+            const path = `$.layers[].mark.options.mergeRepeats[${index}]`;
+            const object = safeObject(entry);
+            if (object === undefined)
+                return invalidTableOption(path, 'A repeated merge must be a field or object.');
+            assertTableKeys(object, new Set(['field', 'includeNull']), path);
+            if (object.includeNull !== undefined && typeof object.includeNull !== 'boolean') {
+                return invalidTableOption(`${path}.includeNull`, 'includeNull must be boolean.');
+            }
+            return {
+                field: tableField(object.field, `${path}.field`),
+                ...(object.includeNull === undefined ? {} : { includeNull: object.includeNull }),
+            };
+        });
+    }
+    function tableGridStyle(context) {
+        const value = context.layer.mark.options.grid;
+        if (value === false) {
+            return { rows: false, columns: false, color: context.theme.colors.grid, width: 0 };
+        }
+        if (value === undefined || value === true) {
+            return { rows: true, columns: true, color: context.theme.colors.grid, width: 0.65 };
+        }
+        const object = safeObject(value);
+        if (object === undefined) {
+            return invalidTableOption('$.layers[].mark.options.grid', 'Table grid must be boolean or an object.');
+        }
+        assertTableKeys(object, new Set(['rows', 'columns', 'color', 'width']), '$.layers[].mark.options.grid');
+        if (object.rows !== undefined && typeof object.rows !== 'boolean') {
+            return invalidTableOption('$.layers[].mark.options.grid.rows', 'Grid rows must be boolean.');
+        }
+        if (object.columns !== undefined && typeof object.columns !== 'boolean') {
+            return invalidTableOption('$.layers[].mark.options.grid.columns', 'Grid columns must be boolean.');
+        }
+        return {
+            rows: object.rows !== false,
+            columns: object.columns !== false,
+            color: tableColor(object.color, '$.layers[].mark.options.grid.color') ?? context.theme.colors.grid,
+            width: tableNumber(object.width, '$.layers[].mark.options.grid.width', 0, 8) ?? 0.65,
+        };
+    }
+    function tableGridNodes(id, geometry, grid, zIndex, edges = {}) {
+        if (grid.width <= 0)
+            return [];
+        const nodes = [];
+        const line = (suffix, x1, y1, x2, y2) => ({
+            type: 'line',
+            ...nodeBase(`${id}:grid-${suffix}`, { zIndex }),
+            x1,
+            y1,
+            x2,
+            y2,
+            stroke: grid.color,
+            lineWidth: grid.width,
+        });
+        if (grid.rows) {
+            if (edges.top === true) {
+                nodes.push(line('top', geometry.x, geometry.y, geometry.x + geometry.width, geometry.y));
+            }
+            nodes.push(line('bottom', geometry.x, geometry.y + geometry.height, geometry.x + geometry.width, geometry.y + geometry.height));
+        }
+        if (grid.columns) {
+            if (edges.left === true) {
+                nodes.push(line('left', geometry.x, geometry.y, geometry.x, geometry.y + geometry.height));
+            }
+            nodes.push(line('right', geometry.x + geometry.width, geometry.y, geometry.x + geometry.width, geometry.y + geometry.height));
+        }
+        return nodes;
+    }
+    function tableColumnWidths(columns, width) {
+        if (columns.length === 0)
+            return [];
+        const equal = width / columns.length;
+        const desired = columns.map((column) => Math.max(column.minWidth ?? 16, Math.min(column.maxWidth ?? 4_096, column.width ?? equal)));
+        const total = desired.reduce((sum, value) => sum + value, 0);
+        if (!(total > 0))
+            return columns.map(() => equal);
+        const scale = width / total;
+        return desired.map((value) => value * scale);
+    }
+    function tableText(value, width, fontSize) {
+        const characters = Array.from(value);
+        const budget = Math.max(1, Math.floor(width / Math.max(1, fontSize * 0.62)));
+        if (characters.length <= budget)
+            return value;
+        if (budget <= 1)
+            return '…';
+        return `${characters.slice(0, budget - 1).join('')}…`;
+    }
+    function tableNumericExtent(rows, field, visual) {
+        const values = rows
+            .map((row) => (typeof row[field] === 'number' ? row[field] : Number(row[field])))
+            .filter((value) => Number.isFinite(value));
+        let minimum = visual.min ?? (values.length === 0 ? 0 : Math.min(...values));
+        let maximum = visual.max ?? (values.length === 0 ? 1 : Math.max(...values));
+        if (minimum === maximum) {
+            const padding = Math.max(1, Math.abs(minimum) * 0.05);
+            minimum -= padding;
+            maximum += padding;
+        }
+        return [minimum, maximum];
     }
     function filtersOption(context) {
         const value = context.layer.mark.options.filters;
@@ -42307,7 +44483,19 @@ var Graflume = (function (exports) {
             return value;
         if (value instanceof Date)
             return value.toISOString();
+        if (Array.isArray(value) &&
+            value.every((entry) => entry === null ||
+                typeof entry === 'string' ||
+                typeof entry === 'number' ||
+                typeof entry === 'boolean')) {
+            return value;
+        }
         return JSON.stringify(value);
+    }
+    function portableTableDatum(row) {
+        return Object.fromEntries(Object.entries(row)
+            .filter(([field]) => !field.startsWith('__'))
+            .map(([field, value]) => [field, portableValue(value)]));
     }
     function sortOption(context) {
         const value = context.layer.mark.options.sort;
@@ -42361,20 +44549,169 @@ var Graflume = (function (exports) {
             op: object.op === 'count' || object.op === 'mean' ? object.op : 'sum',
         };
     }
-    /** Table compiler with filter/group/pivot/sort, virtual windows, frozen regions, and formatter registry. */
+    function tableVisualRatio(value, minimum, maximum) {
+        return Math.max(0, Math.min(1, (value - minimum) / Math.max(Number.EPSILON, maximum - minimum)));
+    }
+    function compileTableCellVisual(context, id, visual, rawValue, formatted, rows, field, geometry, padding, zIndex) {
+        if (visual === undefined)
+            return { nodes: [] };
+        const innerX = geometry.x + padding;
+        const innerY = geometry.y + Math.max(3, geometry.height * 0.2);
+        const innerWidth = Math.max(0, geometry.width - padding * 2);
+        const innerHeight = Math.max(2, geometry.height - Math.max(6, geometry.height * 0.4));
+        if (visual.type === 'status-badge') {
+            const color = visual.colors[String(rawValue ?? '')] ?? visual.defaultColor ?? context.theme.colors.focus;
+            const badgeWidth = Math.min(innerWidth, Math.max(18, formatted.length * Math.min(7, geometry.height * 0.24) + padding * 1.5));
+            return {
+                foreground: readableTextColor(color, '#ffffff', '#111827'),
+                nodes: [
+                    {
+                        type: 'rect',
+                        ...nodeBase(`${id}:status-badge`, { zIndex }),
+                        x: innerX,
+                        y: geometry.y + Math.max(2, geometry.height * 0.14),
+                        width: badgeWidth,
+                        height: Math.max(4, geometry.height * 0.72),
+                        fill: color,
+                        lineWidth: 0,
+                        cornerRadius: Math.min(10, geometry.height * 0.36),
+                    },
+                ],
+            };
+        }
+        if (visual.type === 'sparkline') {
+            if (!Array.isArray(rawValue))
+                return { nodes: [] };
+            const values = rawValue.filter((entry) => typeof entry === 'number' && Number.isFinite(entry));
+            if (values.length < 2 || innerWidth <= 4)
+                return { nodes: [] };
+            const minimum = Math.min(...values);
+            const maximum = Math.max(...values);
+            const range = Math.max(Number.EPSILON, maximum - minimum);
+            const sparkWidth = Math.max(4, innerWidth * 0.58);
+            const sparkX = geometry.x + geometry.width - padding - sparkWidth;
+            const points = values.map((value, index) => ({
+                x: sparkX + (index / Math.max(1, values.length - 1)) * sparkWidth,
+                y: innerY + innerHeight - ((value - minimum) / range) * innerHeight,
+            }));
+            const nodes = [];
+            if (visual.fill !== undefined) {
+                nodes.push({
+                    type: 'path',
+                    ...nodeBase(`${id}:sparkline-fill`, { zIndex }),
+                    points: [
+                        { x: points[0].x, y: innerY + innerHeight },
+                        ...points,
+                        { x: points[points.length - 1].x, y: innerY + innerHeight },
+                    ],
+                    closed: true,
+                    fill: visual.fill,
+                    lineWidth: 0,
+                });
+            }
+            nodes.push({
+                type: 'path',
+                ...nodeBase(`${id}:sparkline`, { zIndex: zIndex + 1 }),
+                points,
+                closed: false,
+                stroke: visual.color ?? context.theme.colors.focus,
+                lineWidth: 1.5,
+                lineCap: 'round',
+                lineJoin: 'round',
+            });
+            return { nodes };
+        }
+        const numeric = typeof rawValue === 'number' ? rawValue : Number(rawValue);
+        if (!Number.isFinite(numeric) || innerWidth <= 0)
+            return { nodes: [] };
+        const [minimum, maximum] = tableNumericExtent(rows, field, visual);
+        const ratio = tableVisualRatio(numeric, minimum, maximum);
+        if (visual.type === 'heatmap') {
+            return {
+                background: mixColor$1(visual.lowColor ?? context.theme.colors.surface, visual.highColor ?? context.theme.colors.focus, ratio),
+                nodes: [],
+            };
+        }
+        if (visual.type === 'progress') {
+            const trackColor = visual.trackColor ?? colorWithOpacity(context.theme.colors.axis, 0.14);
+            const color = visual.color ?? context.theme.colors.focus;
+            return {
+                nodes: [
+                    {
+                        type: 'rect',
+                        ...nodeBase(`${id}:progress-track`, { zIndex }),
+                        x: innerX,
+                        y: geometry.y + geometry.height - Math.max(5, geometry.height * 0.24) - 3,
+                        width: innerWidth,
+                        height: Math.max(3, geometry.height * 0.18),
+                        fill: trackColor,
+                        lineWidth: 0,
+                        cornerRadius: 3,
+                    },
+                    {
+                        type: 'rect',
+                        ...nodeBase(`${id}:progress`, { zIndex: zIndex + 1 }),
+                        x: innerX,
+                        y: geometry.y + geometry.height - Math.max(5, geometry.height * 0.24) - 3,
+                        width: innerWidth * ratio,
+                        height: Math.max(3, geometry.height * 0.18),
+                        fill: color,
+                        lineWidth: 0,
+                        cornerRadius: 3,
+                    },
+                ],
+            };
+        }
+        const zero = tableVisualRatio(0, minimum, maximum);
+        const start = Math.min(zero, ratio);
+        const end = Math.max(zero, ratio);
+        return {
+            nodes: [
+                {
+                    type: 'rect',
+                    ...nodeBase(`${id}:data-bar`, { zIndex, opacity: 0.26 }),
+                    x: innerX + innerWidth * start,
+                    y: innerY,
+                    width: Math.max(1, innerWidth * (end - start)),
+                    height: innerHeight,
+                    fill: numeric < 0
+                        ? (visual.negativeColor ??
+                            context.theme.colors.diverging[0] ??
+                            context.theme.colors.focus)
+                        : (visual.color ?? context.theme.colors.focus),
+                    lineWidth: 0,
+                    cornerRadius: Math.min(3, innerHeight / 2),
+                },
+            ],
+        };
+    }
+    /** Product table compiler with formatting, merges, cell visuals, and bounded interaction metadata. */
     const compileAdvancedTableMark = (context) => {
         const group = groupOption(context);
         const pivot = pivotOption(context);
         const filters = filtersOption(context);
         const sort = sortOption(context);
+        const authoredColumns = tableColumnsOption(context);
+        const explicitColumns = context.layer.mark.options.columns !== undefined;
+        const visibleAuthoredColumns = authoredColumns.filter(({ visible }) => visible);
+        const headerHeight = tableNumber(context.layer.mark.options.headerHeight, '$.layers[].mark.options.headerHeight', 20, 160) ?? 34;
+        const rowHeight = tableNumber(context.layer.mark.options.rowHeight, '$.layers[].mark.options.rowHeight', 18, 160) ?? 30;
+        const cellPadding = tableNumber(context.layer.mark.options.cellPadding, '$.layers[].mark.options.cellPadding', 0, 32) ?? 8;
+        const maximumVisibleRows = Math.max(0, Math.floor((context.plot.height - headerHeight) / rowHeight));
+        const requestedWindowLimit = numberOption$2(context, 'windowLimit');
+        const merges = tableMergeOptions(context);
+        const mergeRepeats = tableMergeRepeatOptions(context);
         const model = buildTableModel(Array.from({ length: context.table.length }, (_, index) => context.table.row(index)), {
             ...(filters === undefined ? {} : { filters }),
             ...(sort === undefined ? {} : { sort }),
             ...(group === undefined ? {} : { group }),
             ...(pivot === undefined ? {} : { pivot }),
+            ...(explicitColumns ? { columns: visibleAuthoredColumns.map(({ field }) => field) } : {}),
+            ...(merges === undefined ? {} : { merges }),
+            ...(mergeRepeats === undefined ? {} : { mergeRepeats }),
             window: {
                 offset: numberOption$2(context, 'windowOffset') ?? 0,
-                limit: numberOption$2(context, 'windowLimit') ?? Math.min(100, context.table.length),
+                limit: Math.min(requestedWindowLimit ?? maximumVisibleRows, maximumVisibleRows),
             },
             columnWindow: {
                 offset: numberOption$2(context, 'columnOffset') ?? 0,
@@ -42387,6 +44724,11 @@ var Graflume = (function (exports) {
             return [];
         const formatters = safeObject(context.layer.mark.options.formatters) ?? {};
         const registry = context.tableFormatters;
+        const rules = tableStyleRules(context);
+        const baseStyle = tableStyle(context.layer.mark.options.style, '$.layers[].mark.options.style');
+        const headerStyle = tableStyle(context.layer.mark.options.headerStyle, '$.layers[].mark.options.headerStyle');
+        const grid = tableGridStyle(context);
+        const editing = tableEditingOption(context);
         const runtimeFocusedCell = safeObject(context.layer.mark.options.runtimeFocusedCell);
         const focusedRow = runtimeFocusedCell !== undefined &&
             typeof runtimeFocusedCell.row === 'number' &&
@@ -42398,12 +44740,49 @@ var Graflume = (function (exports) {
             Number.isInteger(runtimeFocusedCell.column)
             ? runtimeFocusedCell.column
             : -1;
-        const rowCount = model.rowEntries.length + 1;
-        const rowHeight = context.plot.height / Math.max(2, rowCount);
-        const columnWidth = context.plot.width / model.columnEntries.length;
+        const authoredByField = new Map(visibleAuthoredColumns.map((column) => [column.field, column]));
+        const defaultColumn = (field) => ({
+            field,
+            header: field,
+            align: 'left',
+            visible: true,
+            editable: false,
+            style: {},
+        });
+        const displayedColumns = model.columnEntries.map(({ field }) => authoredByField.get(field) ?? defaultColumn(field));
+        const widths = tableColumnWidths(displayedColumns, context.plot.width);
+        let columnX = context.plot.x;
+        const columnGeometry = new Map();
+        model.columnEntries.forEach(({ index }, displayColumn) => {
+            const width = widths[displayColumn] ?? 0;
+            columnGeometry.set(index, { x: columnX, width, displayColumn });
+            columnX += width;
+        });
+        const rowGeometry = new Map();
+        model.rowEntries.forEach(({ index }, displayRow) => {
+            rowGeometry.set(index, {
+                y: context.plot.y + headerHeight + displayRow * rowHeight,
+                displayRow,
+            });
+        });
+        const mergeByCell = new Map();
+        model.merges.forEach((merge) => {
+            for (let row = merge.row; row < merge.row + merge.rowSpan; row += 1) {
+                for (let column = merge.column; column < merge.column + merge.columnSpan; column += 1) {
+                    mergeByCell.set(`${row}:${column}`, {
+                        ...merge,
+                        anchor: row === merge.row && column === merge.column,
+                    });
+                }
+            }
+        });
         const nodes = [];
         model.columnEntries.forEach(({ field: column, index: absoluteColumn, frozen }, displayColumn) => {
-            const x = context.plot.x + displayColumn * columnWidth;
+            const definition = displayedColumns[displayColumn] ?? defaultColumn(column);
+            const geometry = columnGeometry.get(absoluteColumn);
+            const align = headerStyle.align ?? definition.align;
+            const fontSize = Math.max(8, Math.min(12, headerHeight * 0.34));
+            const headerHasBorder = headerStyle.stroke !== undefined || headerStyle.lineWidth !== undefined;
             nodes.push({
                 type: 'rect',
                 ...nodeBase(`${context.layer.id}:table-header:${absoluteColumn}`, {
@@ -42412,10 +44791,18 @@ var Graflume = (function (exports) {
                     datum: {
                         layerId: context.layer.id,
                         rowIndex: 0,
-                        datum: { field: column, column: absoluteColumn, displayColumn, frozen },
+                        datum: {
+                            field: column,
+                            header: definition.header,
+                            column: absoluteColumn,
+                            displayColumn,
+                            frozen,
+                            editable: definition.editable && editing.enabled,
+                        },
                         tooltip: {
                             kind: 'table-header',
                             field: column,
+                            header: definition.header,
                             column: absoluteColumn,
                             displayColumn,
                             frozen,
@@ -42428,37 +44815,112 @@ var Graflume = (function (exports) {
                         },
                     },
                 }),
-                x,
+                x: geometry.x,
                 y: context.plot.y,
-                width: columnWidth,
-                height: rowHeight,
-                fill: frozen
-                    ? colorWithOpacity(context.theme.colors.focus, 0.2)
-                    : context.theme.colors.surface,
-                stroke: context.theme.colors.axis,
-                lineWidth: 0.7,
+                width: geometry.width,
+                height: headerHeight,
+                fill: headerStyle.fill ??
+                    (frozen ? colorWithOpacity(context.theme.colors.focus, 0.2) : context.theme.colors.surface),
+                ...(headerHasBorder ? { stroke: headerStyle.stroke ?? grid.color } : {}),
+                lineWidth: headerHasBorder ? (headerStyle.lineWidth ?? Math.max(0.7, grid.width)) : 0,
                 cornerRadius: 0,
             });
-            nodes.push(textNode$4(context, `${context.layer.id}:table-header-label:${absoluteColumn}`, x + 5, context.plot.y + rowHeight / 2, column, {
-                align: 'left',
-                size: Math.min(11, rowHeight * 0.42),
-                weight: 700,
+            if (!headerHasBorder) {
+                nodes.push(...tableGridNodes(`${context.layer.id}:table-grid-header:${absoluteColumn}`, { x: geometry.x, y: context.plot.y, width: geometry.width, height: headerHeight }, grid, context.layer.zIndex + (frozen ? 6 : 3), { top: true, left: displayColumn === 0 }));
+            }
+            const availableTextWidth = Math.max(1, geometry.width - cellPadding * 2);
+            const headerText = tableText(definition.header, availableTextWidth, fontSize);
+            const textX = align === 'center'
+                ? geometry.x + geometry.width / 2
+                : align === 'right'
+                    ? geometry.x + geometry.width - cellPadding
+                    : geometry.x + cellPadding;
+            nodes.push(textNode$4(context, `${context.layer.id}:table-header-label:${absoluteColumn}`, textX, context.plot.y + headerHeight / 2, headerText, {
+                align,
+                ...(headerStyle.textColor === undefined ? {} : { fill: headerStyle.textColor }),
+                size: fontSize,
+                weight: headerStyle.fontWeight ?? 700,
+                ...(headerStyle.fontStyle === undefined ? {} : { style: headerStyle.fontStyle }),
+                ...(headerStyle.opacity === undefined ? {} : { opacity: headerStyle.opacity }),
                 zIndex: context.layer.zIndex + 6,
             }));
         });
         model.rowEntries.forEach(({ row, index: absoluteRow, frozen: frozenRow }, rowIndex) => {
             model.columnEntries.forEach(({ field: column, index: absoluteColumn, frozen: frozenColumn }, displayColumn) => {
-                const x = context.plot.x + displayColumn * columnWidth;
-                const y = context.plot.y + (rowIndex + 1) * rowHeight;
+                const merge = mergeByCell.get(`${absoluteRow}:${absoluteColumn}`);
+                if (merge !== undefined && !merge.anchor)
+                    return;
+                const definition = displayedColumns[displayColumn] ?? defaultColumn(column);
+                const firstColumn = columnGeometry.get(absoluteColumn);
+                const firstRow = rowGeometry.get(absoluteRow);
+                const rowSpan = merge?.rowSpan ?? 1;
+                const columnSpan = merge?.columnSpan ?? 1;
+                const width = Array.from({ length: columnSpan }, (_value, index) => columnGeometry.get(absoluteColumn + index)?.width ?? 0).reduce((sum, value) => sum + value, 0);
+                const height = rowHeight * rowSpan;
+                const x = firstColumn.x;
+                const y = firstRow.y;
                 const frozen = frozenRow || frozenColumn;
                 const rawFormatter = formatters[column];
                 if (rawFormatter !== undefined && typeof rawFormatter !== 'string') {
                     throw new GraflumeError('INVALID_SPEC', `Table formatter for "${column}" must be a registered formatter id.`, { path: `$.layers[].mark.options.formatters.${column}` });
                 }
-                const formatter = rawFormatter ?? 'string';
-                const formatted = registry.format(formatter, row[column], row, context.locale);
+                const formatter = definition.formatter ?? rawFormatter ?? 'string';
+                const formatted = registry.format(formatter, row[column], row, context.locale, {
+                    ...(definition.dateStyle === undefined ? {} : { dateStyle: definition.dateStyle }),
+                    ...(definition.timeStyle === undefined ? {} : { timeStyle: definition.timeStyle }),
+                    ...(definition.timeZone === undefined ? {} : { timeZone: definition.timeZone }),
+                });
                 const value = portableValue(row[column]);
                 const focused = absoluteRow === focusedRow && absoluteColumn === focusedColumn;
+                const sourceRowIndex = typeof row.__sourceIndex === 'number' ? row.__sourceIndex : absoluteRow;
+                const editable = editing.enabled &&
+                    definition.editable &&
+                    group === undefined &&
+                    pivot === undefined &&
+                    typeof row.__sourceIndex === 'number';
+                const keyValue = editing.key === undefined ? undefined : portableValue(row[editing.key]);
+                const style = resolvedTableStyle(baseStyle, definition, row, absoluteRow, rules);
+                const visual = compileTableCellVisual(context, `${context.layer.id}:table-cell-visual:${absoluteRow}:${absoluteColumn}`, definition.visual, row[column], formatted, model.allRows, column, { x, y, width, height }, cellPadding, context.layer.zIndex + (frozen ? 5 : 2));
+                const editor = definition.editor ?? {
+                    type: typeof row[column] === 'number'
+                        ? 'number'
+                        : typeof row[column] === 'boolean'
+                            ? 'boolean'
+                            : 'text',
+                };
+                const sourceDatum = portableTableDatum(row);
+                const editMetadata = editable
+                    ? {
+                        editCommit: editing.commit,
+                        editEditorType: editor.type,
+                        ...(editor.options === undefined ? {} : { editEditorOptions: editor.options }),
+                        ...(editing.key === undefined
+                            ? {}
+                            : { editKeyField: editing.key, editKeyValue: keyValue }),
+                        ...(definition.validation?.required === undefined
+                            ? {}
+                            : { editRequired: definition.validation.required }),
+                        ...(definition.validation?.min === undefined
+                            ? {}
+                            : { editMin: definition.validation.min }),
+                        ...(definition.validation?.max === undefined
+                            ? {}
+                            : { editMax: definition.validation.max }),
+                        ...(definition.validation?.minLength === undefined
+                            ? {}
+                            : { editMinLength: definition.validation.minLength }),
+                        ...(definition.validation?.maxLength === undefined
+                            ? {}
+                            : { editMaxLength: definition.validation.maxLength }),
+                        ...(definition.validation?.pattern === undefined
+                            ? {}
+                            : { editPattern: definition.validation.pattern }),
+                        ...(definition.validation?.values === undefined
+                            ? {}
+                            : { editValues: definition.validation.values }),
+                    }
+                    : {};
+                const cellHasBorder = focused || style.stroke !== undefined || style.lineWidth !== undefined;
                 nodes.push({
                     type: 'rect',
                     ...nodeBase(`${context.layer.id}:table-cell:${absoluteRow}:${absoluteColumn}`, {
@@ -42466,7 +44928,7 @@ var Graflume = (function (exports) {
                         interactive: context.performance.enableHitTesting,
                         datum: {
                             layerId: context.layer.id,
-                            rowIndex: typeof row.__sourceIndex === 'number' ? row.__sourceIndex : absoluteRow,
+                            rowIndex: sourceRowIndex,
                             datum: {
                                 row: absoluteRow,
                                 displayRow: rowIndex,
@@ -42478,6 +44940,24 @@ var Graflume = (function (exports) {
                                 frozen,
                                 frozenRow,
                                 frozenColumn,
+                                editable,
+                                merged: merge !== undefined,
+                                anchorRow: merge?.row ?? absoluteRow,
+                                anchorColumn: merge?.column ?? absoluteColumn,
+                                rowSpan,
+                                columnSpan,
+                                // Source values intentionally win generic names such as `value`, `row`,
+                                // and `column`, so configured tooltips retain the complete authored row.
+                                ...sourceDatum,
+                                // Runtime-critical identities use reserved names and cannot be shadowed.
+                                sourceRowIndex,
+                                editEnabled: editable,
+                                ...editMetadata,
+                                tableRow: absoluteRow,
+                                tableColumn: absoluteColumn,
+                                tableField: column,
+                                cellValue: value,
+                                cellFormatted: formatted,
                             },
                             tooltip: {
                                 row: absoluteRow,
@@ -42487,10 +44967,20 @@ var Graflume = (function (exports) {
                                 value,
                                 formatted,
                                 formatter,
+                                editable,
+                                merged: merge !== undefined,
+                                rowSpan,
+                                columnSpan,
                                 frozen,
                                 frozenRow,
                                 frozenColumn,
                                 totalRows: model.totalRows,
+                                ...sourceDatum,
+                                tableRow: absoluteRow,
+                                tableColumn: absoluteColumn,
+                                tableField: column,
+                                cellValue: value,
+                                cellFormatted: formatted,
                             },
                             familyInteraction: {
                                 kind: 'table-cell',
@@ -42508,26 +44998,50 @@ var Graflume = (function (exports) {
                     }),
                     x,
                     y,
-                    width: columnWidth,
-                    height: rowHeight,
-                    fill: frozen
-                        ? colorWithOpacity(context.theme.colors.focus, 0.08)
-                        : rowIndex % 2 === 0
-                            ? context.theme.colors.background
-                            : context.theme.colors.surface,
-                    stroke: focused ? context.theme.colors.focus : context.theme.colors.axis,
-                    lineWidth: focused ? 2.5 : 0.45,
+                    width,
+                    height,
+                    fill: style.fill ??
+                        visual.background ??
+                        (frozen
+                            ? colorWithOpacity(context.theme.colors.focus, 0.08)
+                            : rowIndex % 2 === 0
+                                ? context.theme.colors.background
+                                : context.theme.colors.surface),
+                    ...(cellHasBorder
+                        ? { stroke: focused ? context.theme.colors.focus : (style.stroke ?? grid.color) }
+                        : {}),
+                    lineWidth: focused ? 2.5 : cellHasBorder ? (style.lineWidth ?? 0.7) : 0,
                     cornerRadius: 0,
                 });
-                nodes.push(textNode$4(context, `${context.layer.id}:table-cell-label:${absoluteRow}:${absoluteColumn}`, x + 5, y + rowHeight / 2, formatted, {
-                    align: 'left',
-                    size: Math.min(11, rowHeight * 0.38),
-                    zIndex: context.layer.zIndex + (frozen ? 5 : 2),
+                if (!cellHasBorder) {
+                    nodes.push(...tableGridNodes(`${context.layer.id}:table-grid-cell:${absoluteRow}:${absoluteColumn}`, { x, y, width, height }, grid, context.layer.zIndex + (frozen ? 6 : 3), { left: displayColumn === 0 }));
+                }
+                nodes.push(...visual.nodes);
+                const fontSize = Math.max(8, Math.min(12, rowHeight * 0.36));
+                const align = style.align ?? definition.align;
+                const visualTextReserve = definition.visual?.type === 'sparkline' ? width * 0.6 : 0;
+                const availableTextWidth = Math.max(1, width - cellPadding * 2 - visualTextReserve);
+                const renderedText = tableText(formatted, availableTextWidth, fontSize);
+                const textX = align === 'center'
+                    ? x + width / 2
+                    : align === 'right'
+                        ? x + width - cellPadding
+                        : x + cellPadding;
+                nodes.push(textNode$4(context, `${context.layer.id}:table-cell-label:${absoluteRow}:${absoluteColumn}`, textX, y + height / 2, renderedText, {
+                    align,
+                    ...((style.textColor ?? visual.foreground) === undefined
+                        ? {}
+                        : { fill: style.textColor ?? visual.foreground }),
+                    size: fontSize,
+                    weight: style.fontWeight ?? 500,
+                    ...(style.fontStyle === undefined ? {} : { style: style.fontStyle }),
+                    ...(style.opacity === undefined ? {} : { opacity: style.opacity }),
+                    zIndex: context.layer.zIndex + (frozen ? 7 : 4),
                 }));
             });
         });
         if (model.totalRows === 0) {
-            nodes.push(textNode$4(context, `${context.layer.id}:table-empty`, context.plot.x + context.plot.width / 2, context.plot.y + Math.min(context.plot.height - 12, rowHeight + 24), 'No matching rows', {
+            nodes.push(textNode$4(context, `${context.layer.id}:table-empty`, context.plot.x + context.plot.width / 2, context.plot.y + Math.min(context.plot.height - 12, headerHeight + rowHeight), 'No matching rows', {
                 fill: context.theme.colors.mutedText,
                 size: Math.min(12, context.theme.typography.fontSize),
                 weight: 500,
@@ -43548,9 +46062,10 @@ var Graflume = (function (exports) {
         const values = [];
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
             const rawDate = table.value(rowIndex, layer.x.field);
-            const date = rawDate instanceof Date ? rawDate : new Date(String(rawDate));
+            const timestamp = temporalTimestamp(rawDate, true);
+            const date = timestamp === null ? undefined : new Date(timestamp);
             const value = numericDataValue(table.value(rowIndex, layer.y.field));
-            if (!Number.isFinite(date.getTime()) || value === null)
+            if (date === undefined || value === null)
                 continue;
             values.push({ rowIndex, date, value });
         }
@@ -43579,7 +46094,10 @@ var Graflume = (function (exports) {
             if (!monthPositions.has(month))
                 monthPositions.set(month, week);
         });
-        const monthFormatter = new Intl.DateTimeFormat('en', { month: 'short', timeZone: 'UTC' });
+        const monthFormatter = safeDateTimeFormatter(context.locale, {
+            month: 'short',
+            timeZone: 'UTC',
+        });
         monthPositions.forEach((week, month) => {
             nodes.push(textNode$3(`${layer.id}:month:${month}`, originX + week * (cell + gap), plot.y + 7, monthFormatter.format(new Date(Date.UTC(calendarYear, month, 1))), context, { align: 'left', size: 9, weight: 650, fill: theme.colors.mutedText }));
         });
@@ -47188,6 +49706,8 @@ var Graflume = (function (exports) {
         const valueField = context.layer.mark.fields.value ?? context.layer.y.field;
         const weightField = context.layer.mark.fields.weight ?? 'weight';
         const idField = context.layer.mark.fields.id ?? 'id';
+        const sourceRowById = new Map();
+        const rawCategoryById = new Map();
         const previous = context.layer.mark.options.previousRanks;
         const previousRanks = previous !== null && typeof previous === 'object' && !Array.isArray(previous)
             ? Object.fromEntries(Object.entries(previous).flatMap(([key, value]) => typeof value === 'number' && Number.isFinite(value) ? [[key, value]] : []))
@@ -47195,9 +49715,20 @@ var Graflume = (function (exports) {
         const data = Array.from({ length: context.table.length }, (_, rowIndex) => {
             const rawId = context.table.has(idField) ? context.table.value(rowIndex, idField) : undefined;
             const rawCategory = context.table.value(rowIndex, categoryField);
+            const id = rawId === null || rawId === undefined ? `row-${rowIndex}` : String(rawId);
+            const category = rawCategory === null || rawCategory === undefined ? `row-${rowIndex}` : String(rawCategory);
+            if (!sourceRowById.has(id))
+                sourceRowById.set(id, rowIndex);
+            const categoryId = category.trim() || id;
+            if (!rawCategoryById.has(categoryId) &&
+                rawCategory !== null &&
+                rawCategory !== undefined &&
+                typeof rawCategory !== 'boolean' &&
+                (typeof rawCategory !== 'object' || rawCategory instanceof Date))
+                rawCategoryById.set(categoryId, rawCategory);
             return {
-                id: rawId === null || rawId === undefined ? `row-${rowIndex}` : String(rawId),
-                category: rawCategory === null || rawCategory === undefined ? `row-${rowIndex}` : String(rawCategory),
+                id,
+                category,
                 value: numericDataValue(context.table.value(rowIndex, valueField)) ?? 0,
                 weight: context.table.has(weightField)
                     ? (numericDataValue(context.table.value(rowIndex, weightField)) ?? 0)
@@ -47241,9 +49772,22 @@ var Graflume = (function (exports) {
             ...(themedWidthRatio === undefined ? {} : { barWidthRatio: themedWidthRatio }),
         });
         const nodes = [];
+        const categoryTemporal = categoryField === layer.x.field
+            ? context.xType === 'temporal'
+            : categoryField === layer.y.field
+                ? context.yType === 'temporal'
+                : false;
         displayed.forEach((row, index) => {
             const color = layer.mark.fill ?? categoricalColor(theme, index, displayed.length);
             const ratio = (row.value - minimum) / span;
+            const sourceRowIndex = row.sourceIds.flatMap((id) => {
+                const candidate = sourceRowById.get(id);
+                return candidate === undefined ? [] : [candidate];
+            })[0] ?? index;
+            const source = sourceRowIndex >= 0 && sourceRowIndex < context.table.length
+                ? context.table.row(sourceRowIndex)
+                : {};
+            const rawCategory = rawCategoryById.get(row.id) ?? row.id;
             const base = nodeBase(`${layer.id}:ranked-bar:${row.id}`, {
                 zIndex: layer.zIndex,
                 opacity: layer.mark.opacity,
@@ -47252,6 +49796,7 @@ var Graflume = (function (exports) {
                     layerId: layer.id,
                     rowIndex: index,
                     datum: {
+                        ...source,
                         id: row.id,
                         rank: row.rank,
                         previousRank: row.previousRank,
@@ -47260,7 +49805,7 @@ var Graflume = (function (exports) {
                         sourceIds: [...row.sourceIds],
                     },
                     tooltip: {
-                        category: row.id,
+                        category: categoryTemporal ? temporalTooltipValue(rawCategory) : row.id,
                         value: row.value,
                         rank: row.rank,
                         previousRank: row.previousRank,
@@ -47655,6 +50200,10 @@ var Graflume = (function (exports) {
             const opacity = bucket.extended && extendedHours === 'separate'
                 ? context.layer.mark.opacity * 0.45
                 : context.layer.mark.opacity;
+            const sourceRowIndex = bucket.sourceRows.at(-1) ?? visibleIndex;
+            const source = sourceRowIndex >= 0 && sourceRowIndex < context.table.length
+                ? context.table.row(sourceRowIndex)
+                : {};
             nodes.push({
                 type: 'line',
                 ...nodeBase(`${context.layer.id}:ohlc-wick:${bucket.tradingIndex}`, {
@@ -47676,10 +50225,14 @@ var Graflume = (function (exports) {
                     interactive: context.performance.enableHitTesting,
                     datum: {
                         layerId: context.layer.id,
-                        rowIndex: bucket.sourceRows.at(-1) ?? visibleIndex,
-                        datum: { ...bucket, sourceRows: [...bucket.sourceRows] },
+                        rowIndex: sourceRowIndex,
+                        datum: {
+                            ...source,
+                            ...bucket,
+                            sourceRows: [...bucket.sourceRows],
+                        },
                         tooltip: {
-                            time: bucket.time,
+                            time: temporalTooltipValue(bucket.time),
                             tradingIndex: bucket.tradingIndex,
                             open: bucket.open,
                             high: bucket.high,
@@ -47787,7 +50340,7 @@ var Graflume = (function (exports) {
             policy,
             zeroBaseline,
             interpolateCrossings: booleanOption(context, 'interpolateCrossings') !== false,
-            ...(context.layer.x.type === undefined ? {} : { keyType: context.layer.x.type }),
+            keyType: context.xType,
         });
         const nodes = [];
         points.forEach((point, index) => {
@@ -47817,6 +50370,13 @@ var Graflume = (function (exports) {
                     lineWidth: 0,
                 });
             }
+            const sourceRowIndex = point.sourceRows[0] ?? index;
+            const source = sourceRowIndex >= 0 && sourceRowIndex < context.table.length
+                ? context.table.row(sourceRowIndex)
+                : {};
+            const tooltipKey = context.xType === 'temporal'
+                ? temporalTooltipValue(point.crossing === true ? point.key : (source[context.layer.x.field] ?? point.key))
+                : point.key;
             nodes.push({
                 type: 'circle',
                 ...nodeBase(`${context.layer.id}:difference:${index}`, {
@@ -47824,8 +50384,9 @@ var Graflume = (function (exports) {
                     interactive: context.performance.enableHitTesting,
                     datum: {
                         layerId: context.layer.id,
-                        rowIndex: point.sourceRows[0] ?? index,
+                        rowIndex: sourceRowIndex,
                         datum: {
+                            ...source,
                             key: point.key,
                             baseline: point.baseline,
                             comparison: point.comparison,
@@ -47834,7 +50395,7 @@ var Graflume = (function (exports) {
                             sourceRows: [...point.sourceRows],
                         },
                         tooltip: {
-                            key: point.key,
+                            key: tooltipKey,
                             baseline: point.baseline,
                             comparison: point.comparison,
                             difference: point.difference,
@@ -47872,6 +50433,7 @@ var Graflume = (function (exports) {
         const orientation = stringOption(context, 'orientation') === 'horizontal' ? 'horizontal' : 'vertical';
         const categoryField = orientation === 'vertical' ? context.layer.x.field : context.layer.y.field;
         const valueField = orientation === 'vertical' ? context.layer.y.field : context.layer.x.field;
+        const categoryTemporal = orientation === 'vertical' ? context.xType === 'temporal' : context.yType === 'temporal';
         const groups = new Map();
         for (let rowIndex = 0; rowIndex < context.table.length; rowIndex += 1) {
             const rawKey = context.table.value(rowIndex, categoryField);
@@ -47965,6 +50527,7 @@ var Graflume = (function (exports) {
                         layerId: context.layer.id,
                         rowIndex: group.sourceRows[0] ?? groupIndex,
                         datum: {
+                            ...context.table.row(group.sourceRows[0] ?? groupIndex),
                             category: group.key,
                             estimate: interval.estimate,
                             low: interval.low,
@@ -47973,7 +50536,7 @@ var Graflume = (function (exports) {
                             sourceRows: [...group.sourceRows],
                         },
                         tooltip: {
-                            category: group.key,
+                            category: categoryTemporal ? temporalTooltipValue(group.key) : group.key,
                             estimate: interval.estimate,
                             low: interval.low,
                             high: interval.high,
@@ -48014,7 +50577,7 @@ var Graflume = (function (exports) {
             valueField: context.layer.y.field,
             duplicates,
             sort,
-            ...(context.layer.x.type === undefined ? {} : { keyType: context.layer.x.type }),
+            keyType: context.xType,
         });
         const scenePoints = points.flatMap((point) => {
             const key = scaleInput(point.key);
@@ -48043,6 +50606,13 @@ var Graflume = (function (exports) {
             const key = scaleInput(point.key);
             if (key === null)
                 return;
+            const sourceRowIndex = point.sourceRows[0] ?? index;
+            const source = sourceRowIndex >= 0 && sourceRowIndex < context.table.length
+                ? context.table.row(sourceRowIndex)
+                : {};
+            const tooltipKey = context.xType === 'temporal'
+                ? temporalTooltipValue(source[context.layer.x.field] ?? point.key)
+                : point.key;
             nodes.push({
                 type: 'circle',
                 ...nodeBase(`${context.layer.id}:ordered-line-point:${index}`, {
@@ -48050,10 +50620,15 @@ var Graflume = (function (exports) {
                     interactive: context.performance.enableHitTesting,
                     datum: {
                         layerId: context.layer.id,
-                        rowIndex: point.sourceRows[0] ?? index,
-                        datum: { key: point.key, value: point.value, sourceRows: [...point.sourceRows] },
-                        tooltip: {
+                        rowIndex: sourceRowIndex,
+                        datum: {
+                            ...source,
                             key: point.key,
+                            value: point.value,
+                            sourceRows: [...point.sourceRows],
+                        },
+                        tooltip: {
+                            key: tooltipKey,
                             value: point.value,
                             duplicates,
                             sort,
@@ -48121,6 +50696,8 @@ var Graflume = (function (exports) {
         const nodes = [];
         selectedIndices.forEach((index, selectedIndex) => {
             const step = steps[index];
+            const source = context.table.row(index);
+            const rawLabel = source[context.layer.x.field] ?? step.label ?? '';
             const start = mapY(step.start);
             const end = mapY(step.end);
             const x = centerFor(index);
@@ -48135,9 +50712,9 @@ var Graflume = (function (exports) {
                     datum: {
                         layerId: context.layer.id,
                         rowIndex: index,
-                        datum: { ...step },
+                        datum: { ...source, ...step },
                         tooltip: {
-                            label: step.label ?? '',
+                            label: context.xType === 'temporal' ? temporalTooltipValue(rawLabel) : (step.label ?? ''),
                             kind: step.kind,
                             value: step.value,
                             start: step.start,
