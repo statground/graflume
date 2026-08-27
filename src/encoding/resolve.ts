@@ -1,12 +1,12 @@
 import type { MarkCompileContext } from '../compiler/types.js';
 import { evaluateTransformExpression } from '../data/transforms.js';
+import { parseTemporalValue, temporalTimestamp } from '../format/temporal.js';
 import { createColorScale, createPositionScale } from '../scale/registry.js';
 import type { ColorScale, PositionScaleType, Scale } from '../scale/types.js';
 import type {
   DataRow,
   DataValue,
   EncodingChannel,
-  JsonPrimitive,
   NormalizedChannelEncodingSpec,
   ScaleType,
 } from '../spec/types.js';
@@ -30,8 +30,7 @@ function numeric(value: DataValue | readonly number[]): number | null {
   if (typeof value === 'string' && value.trim() !== '') {
     const parsed = Number(value);
     if (Number.isFinite(parsed)) return parsed;
-    const date = Date.parse(value);
-    return Number.isFinite(date) ? date : null;
+    return temporalTimestamp(value, true);
   }
   return null;
 }
@@ -49,15 +48,18 @@ function channelSpec(
 interface ResolvedEncodingValue {
   readonly value: DataValue | readonly number[];
   readonly literal: boolean;
+  readonly field?: string;
 }
 
 function resolvedFrom(spec: NormalizedChannelEncodingSpec, row: DataRow): ResolvedEncodingValue {
   for (const condition of spec.condition) {
     if (!truthy(evaluateTransformExpression(condition.test, row))) continue;
-    if (condition.field !== undefined) return { value: row[condition.field], literal: false };
+    if (condition.field !== undefined)
+      return { value: row[condition.field], literal: false, field: condition.field };
     return { value: condition.value, literal: true };
   }
-  if (spec.field !== undefined) return { value: row[spec.field], literal: false };
+  if (spec.field !== undefined)
+    return { value: row[spec.field], literal: false, field: spec.field };
   return { value: spec.value, literal: true };
 }
 
@@ -136,7 +138,7 @@ function isCategorical(
     (value) =>
       typeof value === 'string' &&
       !Number.isFinite(Number(value)) &&
-      !Number.isFinite(Date.parse(value)),
+      parseTemporalValue(value) === null,
   );
 }
 
@@ -385,10 +387,21 @@ export class EncodingResolver {
     return String(value);
   }
 
-  tooltip(rowIndex: number): Readonly<Record<string, JsonPrimitive>> | undefined {
-    const value = this.raw('tooltip', rowIndex);
-    if (value === undefined || Array.isArray(value) || value instanceof Date) return undefined;
-    return { encoded: value as JsonPrimitive };
+  tooltip(rowIndex: number): DataRow | undefined {
+    const prepared = this.#prepare('tooltip');
+    if (prepared === undefined) return undefined;
+    const resolved = resolvedFrom(prepared.spec, this.context.table.row(rowIndex));
+    if (resolved.value === undefined || Array.isArray(resolved.value)) return undefined;
+    const parsed =
+      prepared.spec.type === 'temporal' && typeof resolved.value === 'number'
+        ? parseTemporalValue(resolved.value)
+        : null;
+    const value = parsed?.value ?? resolved.value;
+    // `encoded` is the historical channel alias. Keep it while also exposing
+    // the authored field so configured and inferred tooltip fields agree.
+    return resolved.field === undefined
+      ? { encoded: value }
+      : { encoded: resolved.value, [resolved.field]: value };
   }
 
   groupKey(rowIndex: number): string {

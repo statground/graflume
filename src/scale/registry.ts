@@ -1,4 +1,5 @@
 import { GraflumeError } from '../core/errors.js';
+import { safeDateTimeFormatter, temporalTimestamp } from '../format/temporal.js';
 import type { ScaleSpec } from '../spec/types.js';
 import { mixColor } from '../theme/color.js';
 import { clamp as clampNumber } from '../utils/object.js';
@@ -267,7 +268,9 @@ class ContinuousScale implements Scale {
       input instanceof Date
         ? input.getTime()
         : typeof input === 'string'
-          ? Date.parse(input)
+          ? this.kind === 'time' || this.kind === 'utc'
+            ? (temporalTimestamp(input, true) ?? Number.NaN)
+            : Date.parse(input)
           : input;
     if (!Number.isFinite(value)) return Number.NaN;
     const outsideMathematicalDomain =
@@ -319,7 +322,7 @@ class ContinuousScale implements Scale {
       const value = this.#transform.inverse(start + ((end - start) * index) / size);
       const label =
         this.kind === 'time' || this.kind === 'utc'
-          ? new Intl.DateTimeFormat(locale, {
+          ? safeDateTimeFormatter(locale, {
               year: 'numeric',
               month: 'short',
               day: 'numeric',
@@ -591,7 +594,9 @@ export function createPositionScale(spec: ScaleSpec, options: PositionScaleOptio
     return new DiscretePositionScale(type, spec, domain, numericRange(range, 1));
   const resolvedContinuousDomain =
     type === 'time' || type === 'utc'
-      ? domain.map((value) => (typeof value === 'number' ? value : Date.parse(value)))
+      ? domain.map((value) =>
+          typeof value === 'number' ? value : (temporalTimestamp(value, true) ?? Number.NaN),
+        )
       : domain;
   const pair = numericDomain(resolvedContinuousDomain) as NumericPair;
   if (type === 'linear' || type === 'time' || type === 'utc') {

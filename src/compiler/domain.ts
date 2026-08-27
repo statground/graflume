@@ -1,4 +1,5 @@
 import { GraflumeError } from '../core/errors.js';
+import { safeDateTimeFormatter, temporalTimestamp } from '../format/temporal.js';
 import { summarizeNormalDistribution } from '../data/distribution.js';
 import {
   kernelDensity1d,
@@ -178,7 +179,7 @@ function visibleCandlestickBuckets(layer: PreparedLayerData): readonly OhlcBucke
 
 function temporalInput(value: number | string | Date): number {
   if (value instanceof Date) return value.getTime();
-  return typeof value === 'number' ? value : Date.parse(value);
+  return typeof value === 'number' ? value : (temporalTimestamp(value, true) ?? Number.NaN);
 }
 
 function tradingScale(
@@ -275,7 +276,7 @@ function tradingScale(
           label = new Intl.NumberFormat(locale, { maximumFractionDigits: 6 }).format(value);
         else
           try {
-            label = new Intl.DateTimeFormat(locale, {
+            label = safeDateTimeFormatter(locale, {
               year: 'numeric',
               month: 'short',
               day: 'numeric',

@@ -328,7 +328,7 @@ interaction: {
 }
 ```
 
-Supported formats are `auto`, `number`, `integer`, `percent`, `date`, and `datetime`. `fractionDigits`, `prefix`, and `suffix` remain declarative and serializable. Number and date output follows the chart `locale`; an ISO date-only string such as `2026-08-23` is treated as a calendar date and does not shift to the previous day in a western time zone. `percent` expects a ratio such as `0.42` and displays it as 42%.
+Supported formats are `auto`, `number`, `integer`, `percent`, `date`, `time`, and `datetime`. `dateStyle`, `timeStyle`, an IANA `timeZone`, `fractionDigits`, `prefix`, and `suffix` remain declarative and serializable. Number and temporal output follows the chart `locale`; an ISO date-only string such as `2026-08-23` is treated as a calendar date and does not shift to the previous day when `format: 'date'` is used in a western time zone. Portable JSON uses ISO strings or finite epoch-millisecond numbers; the JavaScript API also accepts `Date` objects. `percent` expects a ratio such as `0.42` and displays it as 42%.
 
 `trigger: 'mark'` is the default for `tooltip: true` and for tooltip objects that omit `trigger`. It requires the pointer to hit rendered datum geometry. Ordered charts may opt into `trigger: 'axis'` with `axis: 'x'`, `'x2'`, `'y'`, or `'y2'`. In axis mode, an exact rendered-mark hit still has priority; otherwise a pointer in the plot or corresponding bounded axis region selects the nearest actual compiled datum from layers bound to that axis. Graflume does not interpolate a synthetic row between observations. The axis fallback controls only tooltip presentation, so structured `hover` and `click` events retain their exact rendered-mark hit semantics.
 

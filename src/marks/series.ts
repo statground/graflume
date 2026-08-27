@@ -36,6 +36,7 @@ import {
   mappedContinuousColor,
   numericDataValue,
   scaleInput,
+  temporalTooltipValue,
   themedAreaFill,
   themedAreaStroke,
   themedPointFill,
@@ -453,7 +454,7 @@ function distributionObservations(context: MarkCompileContext): WeightedObservat
     (typeof optionWeightField === 'string' ? optionWeightField : undefined);
   const observations: WeightedObservation[] = [];
   for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
-    const value = numericDataValue(table.value(rowIndex, valueField), layer.x.type === 'temporal');
+    const value = numericDataValue(table.value(rowIndex, valueField), context.xType === 'temporal');
     const weight =
       weightField === undefined ? 1 : numericDataValue(table.value(rowIndex, weightField));
     if (value === null || weight === null || weight < 0) continue;
@@ -525,7 +526,10 @@ export const compileEmpiricalDistributionMark: MarkCompiler = (context) => {
           1,
           {
             kind: complementary ? 'ccdf-point' : 'ecdf-point',
-            value: point.value,
+            value:
+              context.xType === 'temporal'
+                ? temporalTooltipValue(table.value(rowIndex, valueField) ?? point.value)
+                : point.value,
             probability: point.probability,
             weight: point.weight,
             count: point.count,

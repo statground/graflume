@@ -757,6 +757,7 @@ export type {
   ChartSelectionState,
   ChartScatterMatrixChangeEvent,
   ChartTableChangeEvent,
+  ChartTableEditChangeEvent,
   ChartAnalyticSelectionChangeEvent,
   ChartAnalyticSelectionChangeReason,
   ChartDomainViewChangeEvent,
@@ -786,6 +787,13 @@ export type {
   ChartViewPoint,
   ChartViewState,
 } from './runtime/chart.js';
+export type {
+  TableCellTarget,
+  TableDataMode,
+  TableEditChangeReason,
+  TableEditCommit,
+  TableEditorType,
+} from './runtime/table-edit.js';
 export type {
   AdaptiveCapabilityCategory,
   AdaptiveCapabilityDefinition,

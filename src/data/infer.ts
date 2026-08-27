@@ -1,4 +1,5 @@
 import type { FieldType } from '../spec/types.js';
+import { parseTemporalValue } from '../format/temporal.js';
 import { DataTable } from './table.js';
 
 const ISO_DATE_PREFIX = /^\d{4}-\d{2}-\d{2}(?:T|$)/;
@@ -13,7 +14,7 @@ export function inferFieldType(table: DataTable, field: string): FieldType {
     if (
       typeof value === 'string' &&
       ISO_DATE_PREFIX.test(value) &&
-      Number.isFinite(Date.parse(value))
+      parseTemporalValue(value) !== null
     ) {
       return 'temporal';
     }

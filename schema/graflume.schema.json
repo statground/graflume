@@ -1674,11 +1674,12 @@
           "enum": ["short", "medium", "long", "full"]
         },
         "timeStyle": {
-          "enum": ["short", "medium", "long"]
+          "enum": ["short", "medium", "long", "full"]
         },
         "timeZone": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "\\S"
         },
         "prefix": {
           "type": "string"
@@ -2020,12 +2021,23 @@
               "type": "string"
             },
             "format": {
-              "enum": ["auto", "number", "integer", "percent", "date", "datetime"]
+              "enum": ["auto", "number", "integer", "percent", "date", "time", "datetime"]
             },
             "fractionDigits": {
               "type": "integer",
               "minimum": 0,
               "maximum": 6
+            },
+            "dateStyle": {
+              "enum": ["short", "medium", "long", "full"]
+            },
+            "timeStyle": {
+              "enum": ["short", "medium", "long", "full"]
+            },
+            "timeZone": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
             },
             "prefix": {
               "type": "string"

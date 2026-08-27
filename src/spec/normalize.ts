@@ -3,6 +3,7 @@ import { builtInTheme, defaultThemeId } from '../theme/defaults.js';
 import type { ThemeTokens } from '../theme/types.js';
 import { assertValidSpec } from './validate.js';
 import { materializeSpecDataflow } from '../data/dataflow.js';
+import { parseTemporalValue } from '../format/temporal.js';
 import { axisChannel, builtInAxisChannel, declaredAxisIds, defaultAxisPosition } from './axes.js';
 import type {
   AxisChannel,
@@ -118,6 +119,9 @@ function normalizeTooltipField(input: TooltipFieldInput): NormalizedTooltipField
     ...(typeof input === 'string' || input.fractionDigits === undefined
       ? {}
       : { fractionDigits: input.fractionDigits }),
+    dateStyle: typeof input === 'string' ? 'medium' : (input.dateStyle ?? 'medium'),
+    timeStyle: typeof input === 'string' ? 'short' : (input.timeStyle ?? 'short'),
+    timeZone: typeof input === 'string' ? 'UTC' : (input.timeZone ?? 'UTC'),
     prefix: typeof input === 'string' ? '' : (input.prefix ?? ''),
     suffix: typeof input === 'string' ? '' : (input.suffix ?? ''),
   };
@@ -775,7 +779,7 @@ function resolvedInputFieldType(
     if (
       typeof value === 'string' &&
       /^\d{4}-\d{2}-\d{2}(?:T|$)/.test(value) &&
-      Number.isFinite(Date.parse(value))
+      parseTemporalValue(value) !== null
     ) {
       return 'temporal';
     }

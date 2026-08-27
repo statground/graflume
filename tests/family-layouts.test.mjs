@@ -220,6 +220,44 @@ test('table formatter registry and keyboard grid navigation are closed and bound
   const builtins = createTableFormatterRegistry();
   assert.equal(builtins.format('number', 1234.5, {}, 'en-US'), '1,234.5');
   assert.equal(builtins.format('number', 1234.5, {}, 'de-DE'), '1.234,5');
+  const epoch = Date.UTC(2026, 0, 2, 12, 34, 56);
+  assert.equal(
+    builtins.format('date', epoch, {}, 'ko-KR', {
+      dateStyle: 'long',
+      timeZone: 'Asia/Seoul',
+    }),
+    new Intl.DateTimeFormat('ko-KR', {
+      dateStyle: 'long',
+      timeZone: 'Asia/Seoul',
+    }).format(new Date(epoch)),
+  );
+  assert.equal(
+    builtins.format('time', epoch, {}, 'en-US', {
+      timeStyle: 'short',
+      timeZone: 'Asia/Seoul',
+    }),
+    new Intl.DateTimeFormat('en-US', {
+      timeStyle: 'short',
+      timeZone: 'Asia/Seoul',
+    }).format(new Date(epoch)),
+  );
+  assert.equal(
+    builtins.format('datetime', epoch, {}, 'en-US', {
+      dateStyle: 'short',
+      timeStyle: 'long',
+      timeZone: 'UTC',
+    }),
+    new Intl.DateTimeFormat('en-US', {
+      dateStyle: 'short',
+      timeStyle: 'long',
+      timeZone: 'UTC',
+    }).format(new Date(epoch)),
+  );
+  assert.doesNotThrow(() =>
+    builtins.format('datetime', epoch, {}, 'invalid_locale', {
+      timeZone: 'Not/AZone',
+    }),
+  );
   assert.deepEqual(
     moveTableCell({ row: 4, column: 2 }, 'PageDown', { rows: 8, columns: 4, pageSize: 3 }),
     { row: 7, column: 2 },
@@ -228,6 +266,86 @@ test('table formatter registry and keyboard grid navigation are closed and bound
     row: 0,
     column: 0,
   });
+});
+
+test('table model keeps authored columns and expands virtual windows around safe explicit and repeated merges', () => {
+  const rows = [
+    { region: 'North', metric: 10, hidden: 'a' },
+    { region: 'North', metric: 20, hidden: 'b' },
+    { region: 'South', metric: 30, hidden: 'c' },
+  ];
+  const model = buildTableModel(rows, {
+    columns: ['region', 'metric'],
+    window: { offset: 1, limit: 1 },
+    columnWindow: { offset: 1, limit: 1 },
+    mergeRepeats: [{ field: 'region' }],
+    merges: [{ row: 2, column: 'region', columnSpan: 2 }],
+  });
+  assert.deepEqual(model.columns, ['region', 'metric']);
+  assert.deepEqual(
+    model.rowEntries.map(({ index }) => index),
+    [0, 1],
+    'touching one repeated-value cell keeps the whole merge in the row window',
+  );
+  assert.deepEqual(
+    model.columnEntries.map(({ index }) => index),
+    [1],
+    'an off-window merge does not expand the current column window',
+  );
+  assert.deepEqual(model.merges, [
+    { row: 2, column: 0, rowSpan: 1, columnSpan: 2, automatic: false },
+    { row: 0, column: 0, rowSpan: 2, columnSpan: 1, automatic: true },
+  ]);
+
+  const explicitVisible = buildTableModel(rows, {
+    columns: ['region', 'metric'],
+    window: { offset: 2, limit: 1 },
+    columnWindow: { offset: 1, limit: 1 },
+    merges: [{ row: 2, column: 'region', columnSpan: 2 }],
+  });
+  assert.deepEqual(
+    explicitVisible.columnEntries.map(({ index }) => index),
+    [0, 1],
+    'touching a merged column keeps the complete span visible',
+  );
+});
+
+test('table model rejects overlapping, out-of-bounds, and frozen-boundary merges', () => {
+  const rows = [
+    { group: 'A', value: 1 },
+    { group: 'A', value: 2 },
+    { group: 'B', value: 3 },
+  ];
+  assert.throws(
+    () =>
+      buildTableModel(rows, {
+        merges: [
+          { row: 0, column: 0, rowSpan: 2 },
+          { row: 1, column: 0, columnSpan: 2 },
+        ],
+      }),
+    /overlaps/u,
+  );
+  assert.throws(
+    () => buildTableModel(rows, { merges: [{ row: 2, column: 0, rowSpan: 2 }] }),
+    /bounds/u,
+  );
+  assert.throws(
+    () =>
+      buildTableModel(rows, {
+        frozenRows: 1,
+        merges: [{ row: 0, column: 0, rowSpan: 2 }],
+      }),
+    /frozen/u,
+  );
+  assert.throws(
+    () =>
+      buildTableModel(rows, {
+        mergeRepeats: [{ field: 'group' }],
+        frozenRows: 1,
+      }),
+    /frozen/u,
+  );
 });
 
 test('polar layout implements zero/direction/wrap, log/sqrt radius, angular bins and stacked normalized radial bars', () => {

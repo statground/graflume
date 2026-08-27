@@ -1,5 +1,6 @@
 import type { MarkCompiler, MarkCompileContext } from '../compiler/types.js';
 import { GraflumeError } from '../core/errors.js';
+import { temporalTimestamp } from '../format/temporal.js';
 import {
   buildPriceBlocks,
   buildVolumeProfiles,
@@ -19,7 +20,7 @@ import {
   selectBarCategoryIndices,
 } from './bar-layout.js';
 import { compileVolumeProfileMark } from './series.js';
-import { numericDataValue } from './utils.js';
+import { numericDataValue, temporalTooltipValue } from './utils.js';
 
 function optionString(context: MarkCompileContext, name: string): string | undefined {
   const value = context.layer.mark.options[name];
@@ -44,8 +45,8 @@ function timeValue(value: unknown, fallback: number): number {
   if (value instanceof Date) return value.getTime();
   if (typeof value === 'number' && Number.isFinite(value)) return value;
   if (typeof value === 'string') {
-    const parsed = Date.parse(value);
-    if (Number.isFinite(parsed)) return parsed;
+    const parsed = temporalTimestamp(value, true);
+    if (parsed !== null) return parsed;
   }
   return fallback;
 }
@@ -197,6 +198,21 @@ export const compilePriceBlocksMark: MarkCompiler = (context) => {
   const nodes: SceneNode[] = [];
   selectedIndices.forEach((index) => {
     const block = blocks[index]!;
+    const sourceRowIndex = block.provenance.sourceIndexes.at(-1) ?? index;
+    const source =
+      sourceRowIndex >= 0 && sourceRowIndex < context.table.length
+        ? context.table.row(sourceRowIndex)
+        : {};
+    const sourceStartIndex = block.provenance.sourceIndexes[0];
+    const sourceStart =
+      sourceStartIndex === undefined
+        ? block.provenance.timeStart
+        : (context.table.value(sourceStartIndex, context.layer.x.field) ??
+          block.provenance.timeStart);
+    const sourceEnd =
+      sourceRowIndex >= 0 && sourceRowIndex < context.table.length
+        ? (context.table.value(sourceRowIndex, context.layer.x.field) ?? block.provenance.timeEnd)
+        : block.provenance.timeEnd;
     const color = block.direction === 'up' ? risingColor : fallingColor;
     const base = nodeBase(`${layer.id}:${block.mode}:${index}`, {
       zIndex: layer.zIndex,
@@ -204,8 +220,9 @@ export const compilePriceBlocksMark: MarkCompiler = (context) => {
       interactive: performance.enableHitTesting,
       datum: {
         layerId: layer.id,
-        rowIndex: block.provenance.sourceIndexes.at(-1) ?? index,
+        rowIndex: sourceRowIndex,
         datum: {
+          ...source,
           id: block.id,
           mode: block.mode,
           open: block.open,
@@ -232,8 +249,14 @@ export const compilePriceBlocksMark: MarkCompiler = (context) => {
           sourceLow: block.provenance.sourceLow,
           sourceClose: block.provenance.sourceClose,
           sourceVolume: block.provenance.sourceVolume,
-          timeStart: block.provenance.timeStart,
-          timeEnd: block.provenance.timeEnd,
+          timeStart:
+            context.xType === 'temporal'
+              ? temporalTooltipValue(sourceStart)
+              : block.provenance.timeStart,
+          timeEnd:
+            context.xType === 'temporal'
+              ? temporalTooltipValue(sourceEnd)
+              : block.provenance.timeEnd,
           sourceIds: block.provenance.sourceIds.join(', '),
         },
       },
@@ -363,12 +386,27 @@ export const compileAdvancedVolumeProfileMark: MarkCompiler = (context) => {
   const slotWidth = plot.width / profiles.length;
   const nodes: SceneNode[] = [];
   profiles.forEach((profile, profileIndex) => {
+    const sourceStartIndex = profile.sourceIndexes[0];
+    const sourceEndIndex = profile.sourceIndexes.at(-1);
+    const authoredTimeStart =
+      sourceStartIndex === undefined
+        ? profile.timeStart
+        : (context.table.value(sourceStartIndex, context.layer.x.field) ?? profile.timeStart);
+    const authoredTimeEnd =
+      sourceEndIndex === undefined
+        ? profile.timeEnd
+        : (context.table.value(sourceEndIndex, context.layer.x.field) ?? profile.timeEnd);
     let maximum = 1;
     for (const row of profile.rows) maximum = Math.max(maximum, row.volume);
     const priceSpan = Math.max(Number.EPSILON, profile.priceHigh - profile.priceLow);
     const mapY = (value: number) =>
       plot.y + plot.height - ((value - profile.priceLow) / priceSpan) * plot.height;
     profile.rows.forEach((row) => {
+      const sourceRowIndex = row.sourceIndexes.at(-1) ?? row.index;
+      const source =
+        sourceRowIndex >= 0 && sourceRowIndex < context.table.length
+          ? context.table.row(sourceRowIndex)
+          : {};
       const width = (row.volume / maximum) * slotWidth * 0.88;
       const left = plot.x + profileIndex * slotWidth;
       const x = profile.placement === 'left' ? left : left + slotWidth - width;
@@ -387,10 +425,18 @@ export const compileAdvancedVolumeProfileMark: MarkCompiler = (context) => {
           interactive: performance.enableHitTesting,
           datum: {
             layerId: layer.id,
-            rowIndex: row.sourceIndexes.at(-1) ?? row.index,
-            datum: { ...row },
+            rowIndex: sourceRowIndex,
+            datum: { ...source, ...row },
             tooltip: {
               profile: profile.id,
+              timeStart:
+                context.xType === 'temporal'
+                  ? temporalTooltipValue(authoredTimeStart)
+                  : profile.timeStart,
+              timeEnd:
+                context.xType === 'temporal'
+                  ? temporalTooltipValue(authoredTimeEnd)
+                  : profile.timeEnd,
               priceLow: row.priceLow,
               priceHigh: row.priceHigh,
               volume: row.volume,

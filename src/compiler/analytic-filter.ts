@@ -1,4 +1,5 @@
 import { DataTable } from '../data/table.js';
+import { temporalTimestamp } from '../format/temporal.js';
 import type { DataLineage } from '../data/transforms.js';
 import {
   analyticSelectionPredicate,
@@ -32,8 +33,7 @@ function analyticValue(value: DataValue, type: FieldType): AnalyticDomainValue |
     return Number.isFinite(timestamp) ? timestamp : undefined;
   }
   if (type === 'temporal' && typeof value === 'string') {
-    const timestamp = Date.parse(value);
-    return Number.isFinite(timestamp) ? timestamp : undefined;
+    return temporalTimestamp(value, true) ?? undefined;
   }
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }

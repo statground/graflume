@@ -1,6 +1,7 @@
 import type { InspectionViewTransform } from '../renderer/types.js';
-import type { SemanticMark } from '../scene/semantic.js';
-import type { NormalizedAccessibilitySpec } from '../spec/types.js';
+import type { SemanticMark, SemanticTableCell } from '../scene/semantic.js';
+import type { DataValue, NormalizedAccessibilitySpec } from '../spec/types.js';
+import { formatTemporalValue, inferTemporalDisplayFormat } from '../format/temporal.js';
 import { VirtualDataExplorer, type ExplorerNavigationKey } from './virtual-data-explorer.js';
 
 export interface AccessibilityMirrorActions {
@@ -36,8 +37,69 @@ function rowFields(index: readonly SemanticMark[]): readonly string[] {
   return fields;
 }
 
-function valueText(value: unknown): string {
+function nativeTableRows(index: readonly SemanticMark[]): readonly SemanticMark[] | null {
+  const visible = index.filter(({ visible: markVisible }) => markVisible);
+  if (visible.length === 0 || visible.some(({ tableRow }) => tableRow === undefined)) return null;
+  if (new Set(visible.map(({ layerId }) => layerId)).size !== 1) return null;
+  return [...visible].sort((left, right) => left.tableRow!.row - right.tableRow!.row);
+}
+
+interface WindowedTableCell {
+  readonly cell: SemanticTableCell;
+  readonly rowSpan: number;
+}
+
+function lowerBound(values: readonly number[], target: number): number {
+  let low = 0;
+  let high = values.length;
+  while (low < high) {
+    const middle = low + Math.floor((high - low) / 2);
+    if (values[middle]! < target) low = middle + 1;
+    else high = middle;
+  }
+  return low;
+}
+
+function windowedTableCellMap(
+  allRows: readonly SemanticMark[],
+  renderedRows: readonly SemanticMark[],
+): ReadonlyMap<number, readonly WindowedTableCell[]> {
+  const renderedTableRows = renderedRows.flatMap((row) =>
+    row.tableRow === undefined ? [] : [row.tableRow.row],
+  );
+  const anchors = allRows.flatMap((row) => row.tableRow?.cells ?? []);
+  const cellsByRow = new Map<number, WindowedTableCell[]>();
+  for (const cell of anchors) {
+    const start = lowerBound(renderedTableRows, cell.row);
+    const end = lowerBound(renderedTableRows, cell.row + cell.rowSpan);
+    if (start >= end) continue;
+    const row = renderedTableRows[start]!;
+    const cells = cellsByRow.get(row) ?? [];
+    cells.push({ cell, rowSpan: end - start });
+    cellsByRow.set(row, cells);
+  }
+  for (const cells of cellsByRow.values()) {
+    cells.sort((left, right) => left.cell.column - right.cell.column);
+  }
+  return cellsByRow;
+}
+
+function valueText(mark: SemanticMark, field: string, value: DataValue, locale?: string): string {
   if (value === null || value === undefined) return '\u2014';
+  const tableFormatted = mark.tableRow?.formattedValues[field];
+  if (tableFormatted !== undefined) return tableFormatted;
+  const semanticChannel = Object.values(mark.channels).find((channel) => channel?.field === field);
+  const temporal = semanticChannel?.type === 'temporal';
+  if (temporal && semanticChannel.displayValue !== undefined) return semanticChannel.displayValue;
+  if (temporal || value instanceof Date) {
+    const type = inferTemporalDisplayFormat(value) ?? 'datetime';
+    const formatted = formatTemporalValue(
+      value,
+      { type, dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' },
+      locale,
+    );
+    if (formatted !== null) return formatted;
+  }
   return value instanceof Date ? value.toISOString() : String(value);
 }
 
@@ -69,6 +131,7 @@ export class AccessibilityMirrorController {
     view: InspectionViewTransform,
     selectedKeys: ReadonlySet<string>,
     actions: AccessibilityMirrorActions,
+    locale?: string,
   ): void {
     if (spec.table === false && !spec.navigation && spec.linkedFocus === false) {
       this.destroy();
@@ -137,11 +200,15 @@ export class AccessibilityMirrorController {
     table.append(caption);
     const head = ownerDocument.createElement('thead');
     const headRow = ownerDocument.createElement('tr');
-    const fields = rowFields(index);
-    for (const label of ['Layer', ...fields]) {
+    const tableRows = nativeTableRows(index);
+    const tableColumns = tableRows?.[0]?.tableRow?.columns ?? [];
+    const fields = tableRows === null ? rowFields(index) : tableColumns.map(({ field }) => field);
+    const columnLabels = tableRows === null ? fields : tableColumns.map(({ header }) => header);
+    for (const label of ['Layer', ...columnLabels]) {
       const cell = ownerDocument.createElement('th');
       cell.scope = 'col';
       cell.textContent = label;
+      cell.setAttribute('dir', 'auto');
       cell.style.textAlign = 'start';
       cell.style.padding = spec.table === 'visible' ? '6px 8px' : '0';
       headRow.append(cell);
@@ -150,8 +217,10 @@ export class AccessibilityMirrorController {
     table.append(head);
     const body = ownerDocument.createElement('tbody');
     table.setAttribute('role', 'grid');
-    const navigableMarks = index.filter(({ visible }) => visible);
-    table.setAttribute('aria-rowcount', String(navigableMarks.length + 1));
+    const navigableMarks = tableRows ?? index.filter(({ visible }) => visible);
+    const logicalTableRows = tableRows?.[0]?.tableRow?.totalRows ?? navigableMarks.length;
+    table.setAttribute('aria-rowcount', String(logicalTableRows + 1));
+    table.setAttribute('aria-colcount', String(fields.length + 1));
     const explorerSpec =
       spec.explorer === false
         ? { windowRows: Math.max(1, navigableMarks.length), overscanRows: 0, rowHeight: 32 }
@@ -188,27 +257,52 @@ export class AccessibilityMirrorController {
     };
     const renderWindow = (focusActive: boolean): void => {
       const rows: HTMLTableRowElement[] = [];
+      const tableCells =
+        tableRows === null ? null : windowedTableCellMap(navigableMarks, dataWindow.rows);
       if (dataWindow.beforePixels > 0) rows.push(spacer(dataWindow.beforePixels, 'before'));
       dataWindow.rows.forEach((mark, windowIndex) => {
         const absoluteIndex = dataWindow.start + windowIndex;
         const row = ownerDocument.createElement('tr');
         row.dataset.graflumeSemanticId = mark.id;
         row.dataset.graflumeSemanticIndex = String(absoluteIndex);
-        row.setAttribute('aria-rowindex', String(absoluteIndex + 2));
+        if (mark.tableRow !== undefined) {
+          row.dataset.graflumeTableRow = String(mark.tableRow.row);
+        }
+        row.setAttribute('aria-rowindex', String((mark.tableRow?.row ?? absoluteIndex) + 2));
         row.setAttribute('aria-label', mark.label);
         row.setAttribute('aria-selected', String(selected(mark, selectedKeys)));
         row.tabIndex = spec.navigation && dataWindow.activeIndex === absoluteIndex ? 0 : -1;
         const layerCell = ownerDocument.createElement('th');
         layerCell.scope = 'row';
         layerCell.textContent = mark.layerId;
+        layerCell.setAttribute('dir', 'auto');
         layerCell.style.textAlign = 'start';
         layerCell.style.padding = spec.table === 'visible' ? '6px 8px' : '0';
         row.append(layerCell);
-        for (const field of fields) {
-          const cell = ownerDocument.createElement('td');
-          cell.textContent = valueText(mark.datum[field]);
-          cell.style.padding = spec.table === 'visible' ? '6px 8px' : '0';
-          row.append(cell);
+        if (tableRows === null) {
+          for (const field of fields) {
+            const cell = ownerDocument.createElement('td');
+            cell.textContent = valueText(mark, field, mark.datum[field], locale);
+            cell.setAttribute('dir', 'auto');
+            cell.style.padding = spec.table === 'visible' ? '6px 8px' : '0';
+            row.append(cell);
+          }
+        } else {
+          for (const { cell: tableCell, rowSpan } of tableCells?.get(mark.tableRow!.row) ?? []) {
+            const cell = ownerDocument.createElement('td');
+            cell.dataset.graflumeTableRow = String(tableCell.row);
+            cell.dataset.graflumeTableColumn = String(tableCell.column);
+            cell.dataset.graflumeTableField = tableCell.field;
+            cell.textContent = tableCell.formatted;
+            cell.rowSpan = rowSpan;
+            cell.colSpan = tableCell.columnSpan;
+            cell.setAttribute('dir', 'auto');
+            const header = tableColumns.find(({ column }) => column === tableCell.column)?.header;
+            if (header !== undefined)
+              cell.setAttribute('aria-label', `${header}: ${tableCell.formatted}`);
+            cell.style.padding = spec.table === 'visible' ? '6px 8px' : '0';
+            row.append(cell);
+          }
         }
         row.addEventListener('focus', () => {
           this.#focusedId = mark.id;

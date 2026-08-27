@@ -1,4 +1,5 @@
 import type { DataValue } from '../spec/types.js';
+import { parseTemporalValue, temporalTimestamp } from '../format/temporal.js';
 import { continuousColor, mixColor } from '../theme/color.js';
 import type { ThemeTokens } from '../theme/types.js';
 
@@ -19,11 +20,15 @@ export function numericDataValue(value: DataValue, temporal = false): number | n
     return Number.isFinite(timestamp) ? timestamp : null;
   }
   if (typeof value === 'number') return Number.isFinite(value) ? value : null;
-  if (temporal && typeof value === 'string') {
-    const timestamp = Date.parse(value);
-    return Number.isFinite(timestamp) ? timestamp : null;
-  }
+  if (temporal && typeof value === 'string') return temporalTimestamp(value, true);
   return null;
+}
+
+/** Preserve authored ISO text while making numeric temporal values self-describing to display code. */
+export function temporalTooltipValue(value: DataValue): DataValue {
+  const parsed = parseTemporalValue(value);
+  if (parsed === null) return value;
+  return typeof value === 'string' ? value : parsed.value;
 }
 
 export function themedPointFill(theme: ThemeTokens, seriesColor: string, fallback: string): string {

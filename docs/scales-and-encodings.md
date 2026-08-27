@@ -114,6 +114,11 @@ rejected when a stack layout is active rather than silently replacing one of the
 An omitted scale type on a temporal Cartesian encoding resolves to `utc`. This portable default
 keeps date ticks and generated output identical across browser, server, and CI time zones. Request
 `scale: { type: 'time' }` explicitly when the host's civil-time zone is the intended contract.
+Strict ISO datetimes without `Z` or an offset are resolved as UTC before domain calculation and
+mapping, so a mark's position agrees with its axis and tooltip in every host time zone. Explicitly
+temporal runtime paths retain older parseable-date strings for compatibility, but portable specs
+should use ISO strings, finite epoch-millisecond numbers, or JavaScript `Date` values because only
+those inputs have deterministic cross-runtime semantics.
 
 Cartesian axes currently accept the continuous families above plus `band` and `point`. `ordinal`,
 `quantile`, `quantize`, and `threshold` are available to the standalone registry and compatible

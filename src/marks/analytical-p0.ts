@@ -46,7 +46,12 @@ import {
   compileTernaryMark as compileLegacyTernaryMark,
 } from './analytical-2d.js';
 import { compileItemMark as compileLegacyItemMark } from './series.js';
-import { mappedContinuousColor, numericDataValue, scaleInput } from './utils.js';
+import {
+  mappedContinuousColor,
+  numericDataValue,
+  scaleInput,
+  temporalTooltipValue,
+} from './utils.js';
 
 type JsonObject = Readonly<Record<string, JsonValue>>;
 
@@ -250,7 +255,7 @@ function compileSharedHistogram(context: MarkCompileContext): readonly SceneNode
   const seriesField = layer.mark.fields.series ?? layer.mark.fields.group;
   const groups = new Map<string, { label: string; observations: HistogramObservation[] }>();
   for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
-    const value = numericDataValue(table.value(rowIndex, valueField), layer.x.type === 'temporal');
+    const value = numericDataValue(table.value(rowIndex, valueField), context.xType === 'temporal');
     if (value === null) continue;
     const weight = weightField === '' ? 1 : numericDataValue(table.value(rowIndex, weightField));
     if (weight === null || weight < 0) continue;
@@ -343,8 +348,8 @@ function compileSharedHistogram(context: MarkCompileContext): readonly SceneNode
           analyticsFamily: 'distribution',
           analyticsMode: 'shared-histogram',
           series: entry.label,
-          binStart: bin.start,
-          binEnd: bin.end,
+          binStart: context.xType === 'temporal' ? temporalTooltipValue(bin.start) : bin.start,
+          binEnd: context.xType === 'temporal' ? temporalTooltipValue(bin.end) : bin.end,
           count: bin.counts[seriesIndex] ?? 0,
           weight: bin.weights[seriesIndex] ?? 0,
           value,
@@ -527,7 +532,7 @@ function compileRugStrip(context: MarkCompileContext, mode: 'rug' | 'strip'): re
   const values: number[] = [];
   const sourceRows: number[] = [];
   for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
-    const value = numericDataValue(table.value(rowIndex, valueField), layer.x.type === 'temporal');
+    const value = numericDataValue(table.value(rowIndex, valueField), context.xType === 'temporal');
     if (value === null) continue;
     values.push(value);
     sourceRows.push(rowIndex);
@@ -546,7 +551,10 @@ function compileRugStrip(context: MarkCompileContext, mode: 'rug' | 'strip'): re
     const tooltip: DataRow = {
       analyticsFamily: 'distribution',
       analyticsMode: mode,
-      value: point.value,
+      value:
+        context.xType === 'temporal'
+          ? temporalTooltipValue(table.value(rowIndex, valueField) ?? point.value)
+          : point.value,
       offset: point.offset,
       seed,
       selectionKey: `distribution:${layer.id}`,

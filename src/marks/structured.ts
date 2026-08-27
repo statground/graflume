@@ -1,4 +1,5 @@
 import type { MarkCompiler } from '../compiler/types.js';
+import { safeDateTimeFormatter, temporalTimestamp } from '../format/temporal.js';
 import { BandScale } from '../scale/band.js';
 import { nodeBase } from '../scene/factory.js';
 import type { LineNode, PathNode, Point, RectNode, SceneNode, TextNode } from '../scene/types.js';
@@ -74,9 +75,10 @@ export const compileCalendarMark: MarkCompiler = (context) => {
   const values: { rowIndex: number; date: Date; value: number }[] = [];
   for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
     const rawDate = table.value(rowIndex, layer.x.field);
-    const date = rawDate instanceof Date ? rawDate : new Date(String(rawDate));
+    const timestamp = temporalTimestamp(rawDate, true);
+    const date = timestamp === null ? undefined : new Date(timestamp);
     const value = numericDataValue(table.value(rowIndex, layer.y.field));
-    if (!Number.isFinite(date.getTime()) || value === null) continue;
+    if (date === undefined || value === null) continue;
     values.push({ rowIndex, date, value });
   }
   if (values.length === 0) return [];
@@ -109,7 +111,10 @@ export const compileCalendarMark: MarkCompiler = (context) => {
     const month = item.date.getUTCMonth();
     if (!monthPositions.has(month)) monthPositions.set(month, week);
   });
-  const monthFormatter = new Intl.DateTimeFormat('en', { month: 'short', timeZone: 'UTC' });
+  const monthFormatter = safeDateTimeFormatter(context.locale, {
+    month: 'short',
+    timeZone: 'UTC',
+  });
   monthPositions.forEach((week, month) => {
     nodes.push(
       textNode(

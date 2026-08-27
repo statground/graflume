@@ -19,6 +19,7 @@ import {
 import { GraflumeError } from '../core/errors.js';
 import { EventEmitter } from '../core/events.js';
 import { DataTable } from '../data/table.js';
+import { executeTransformsWithNamedLineage } from '../data/dataflow.js';
 import { moveTableCell, nextPieSlice } from '../data/family-layouts.js';
 import {
   IncrementalDataStore,
@@ -206,6 +207,26 @@ import type {
 import { toAccessibleRows, type AccessibleRow, type SemanticMark } from '../scene/semantic.js';
 import type { RuntimeRegistry } from './registry.js';
 import { RenderScheduler } from './scheduler.js';
+import {
+  TableDataHistory,
+  cloneTableDataValue,
+  cloneTableRows,
+  parseTableEditorValue,
+  tableCSV,
+  tableColumnEditingForValue,
+  tableDataValuesEqual,
+  tableEditingConfig,
+  tableJSON,
+  tableViewData,
+  validateTableCellValue,
+  type TableCellTarget,
+  type TableColumnEditing,
+  type TableDataMode,
+  type TableDataTransition,
+  type TableEditChangeReason,
+  type TableEditingConfig,
+  type TableViewData,
+} from './table-edit.js';
 
 export type ChartTarget = string | HTMLElement;
 
@@ -462,6 +483,17 @@ export interface ChartTableChangeEvent {
   readonly reason: 'pointer' | 'keyboard' | 'programmatic' | 'reset' | 'spec';
 }
 
+export interface ChartTableEditChangeEvent {
+  readonly chart: Chart;
+  readonly layerId: string;
+  readonly row: number;
+  readonly field: string;
+  readonly previousValue: DataValue;
+  readonly newValue: DataValue;
+  readonly valid: boolean;
+  readonly reason: TableEditChangeReason;
+}
+
 export interface ChartNetworkChangeEvent {
   readonly chart: Chart;
   readonly layerId: string;
@@ -531,6 +563,7 @@ export interface ChartEventMap {
   readonly marklabelchange: ChartMarkLabelChangeEvent;
   readonly familyfocuschange: ChartFamilyFocusChangeEvent;
   readonly tablechange: ChartTableChangeEvent;
+  readonly tableeditchange: ChartTableEditChangeEvent;
   readonly networkchange: ChartNetworkChangeEvent;
   readonly flowchange: ChartFlowChangeEvent;
   readonly navigatorchange: ChartNavigatorChangeEvent;
@@ -660,6 +693,16 @@ type FamilyPointerGesture =
 interface FamilySceneEntry extends DatumReference {
   readonly nodeId: string;
   readonly familyInteraction: FamilyDatumInteraction;
+  readonly bounds?: Rect;
+}
+
+interface ActiveTableEditor {
+  readonly layerId: string;
+  readonly row: number;
+  readonly field: string;
+  readonly column: TableColumnEditing;
+  readonly element: HTMLInputElement | HTMLSelectElement;
+  closed: boolean;
 }
 
 interface ActiveSceneTransition {
@@ -885,6 +928,9 @@ function familySceneEntries(root: SceneNode): readonly FamilySceneEntry[] {
         ...node.datum,
         nodeId: node.id,
         familyInteraction: node.datum.familyInteraction,
+        ...(node.type === 'rect'
+          ? { bounds: { x: node.x, y: node.y, width: node.width, height: node.height } }
+          : {}),
       });
     }
   };
@@ -986,6 +1032,9 @@ export class Chart {
   #activeMarkLabelId: string | null = null;
   #markLabelGesture: MarkLabelPointerGesture | null = null;
   readonly #tableRuntime = new Map<string, ChartTableRuntimeState>();
+  readonly #tableDataHistory = new Map<string, TableDataHistory>();
+  #tableEditor: ActiveTableEditor | null = null;
+  #preserveTableEditor = false;
   readonly #networkRuntime = new Map<string, ChartNetworkRuntimeState>();
   readonly #flowRuntime = new Map<string, ChartFlowRuntimeState>();
   readonly #navigatorRuntime = new Map<
@@ -1432,6 +1481,91 @@ export class Chart {
       reason: 'reset',
     });
     return this;
+  }
+
+  getTableData(layerId: string, mode: TableDataMode = 'view'): readonly DataRow[] {
+    this.#assertAlive();
+    this.#requireFamilyLayer(layerId, ['table']);
+    if (mode === 'source') return this.#tableSourceRows(layerId);
+    if (mode !== 'view') {
+      throw new GraflumeError('INVALID_DATA', 'Table data mode must be "view" or "source".');
+    }
+    return cloneTableRows(this.#resolvedTableView(layerId).rows);
+  }
+
+  setTableCellValue(
+    layerId: string,
+    target: TableCellTarget,
+    field: string,
+    value: DataValue,
+  ): boolean {
+    return this.#setTableCellValue(layerId, target, field, value, 'programmatic');
+  }
+
+  resetTableData(layerId: string): boolean {
+    this.#assertAlive();
+    this.#requireFamilyLayer(layerId, ['table']);
+    this.#destroyTableEditor();
+    const history = this.#tableDataHistory.get(layerId);
+    if (history === undefined) return false;
+    const transition = history.reset();
+    if (transition === null) return false;
+    try {
+      this.#applyTableDataTransition(layerId, transition, 'reset');
+    } catch (error) {
+      history.undo();
+      throw error;
+    }
+    return true;
+  }
+
+  undoTableEdit(layerId: string): boolean {
+    this.#assertAlive();
+    this.#requireFamilyLayer(layerId, ['table']);
+    this.#destroyTableEditor();
+    const history = this.#tableDataHistory.get(layerId);
+    if (history === undefined) return false;
+    const transition = history.undo();
+    if (transition === null) return false;
+    try {
+      this.#applyTableDataTransition(layerId, transition, 'undo');
+    } catch (error) {
+      history.redo();
+      throw error;
+    }
+    return true;
+  }
+
+  redoTableEdit(layerId: string): boolean {
+    this.#assertAlive();
+    this.#requireFamilyLayer(layerId, ['table']);
+    this.#destroyTableEditor();
+    const history = this.#tableDataHistory.get(layerId);
+    if (history === undefined) return false;
+    const transition = history.redo();
+    if (transition === null) return false;
+    try {
+      this.#applyTableDataTransition(layerId, transition, 'redo');
+    } catch (error) {
+      history.undo();
+      throw error;
+    }
+    return true;
+  }
+
+  exportTableCSV(layerId: string, mode: TableDataMode = 'view'): string {
+    this.#assertAlive();
+    this.#requireFamilyLayer(layerId, ['table']);
+    if (mode === 'source') return tableCSV(this.#tableSourceRows(layerId));
+    if (mode !== 'view') {
+      throw new GraflumeError('INVALID_DATA', 'Table export mode must be "view" or "source".');
+    }
+    const view = this.#resolvedTableView(layerId);
+    return tableCSV(view.rows, view.fields);
+  }
+
+  exportTableJSON(layerId: string, mode: TableDataMode = 'view'): string {
+    return tableJSON(this.getTableData(layerId, mode));
   }
 
   getNetworkRuntimeState(layerId: string): ChartNetworkRuntimeState {
@@ -1891,6 +2025,403 @@ export class Chart {
       );
     }
     return interaction;
+  }
+
+  #tableSourceRows(layerId: string): readonly DataRow[] {
+    const layer = this.#requireFamilyLayer(layerId, ['table']);
+    return cloneTableRows(dataRows(layer.data));
+  }
+
+  #tableEditing(layerId: string): TableEditingConfig {
+    return tableEditingConfig(this.#layerOptions(layerId));
+  }
+
+  #resolvedTableView(layerId: string): TableViewData {
+    const layer = this.#requireFamilyLayer(layerId, ['table']);
+    const transformed = executeTransformsWithNamedLineage(
+      layer.data,
+      layer.transform,
+      `layer:${layer.id}`,
+    );
+    const editing = this.#tableEditing(layerId);
+    const state = this.getTableRuntimeState(layerId);
+    const view = tableViewData(transformed.data, state, editing.visibleFields);
+    const editableSourceCounts = new Map<number, number>();
+    for (const sources of transformed.lineage.rowSources) {
+      if (sources.length !== 1) continue;
+      const sourceIndex = sources[0]!;
+      editableSourceCounts.set(sourceIndex, (editableSourceCounts.get(sourceIndex) ?? 0) + 1);
+    }
+    return {
+      ...view,
+      sourceIndices: view.sourceIndices.map((transformedIndex) => {
+        if (transformedIndex === null) return null;
+        const sources = transformed.lineage.rowSources[transformedIndex] ?? [];
+        return sources.length === 1 ? sources[0]! : null;
+      }),
+      editableSourceIndices: [...editableSourceCounts]
+        .filter(([, count]) => count === 1)
+        .map(([sourceIndex]) => sourceIndex),
+    };
+  }
+
+  #emitTableEdit(
+    layerId: string,
+    row: number,
+    field: string,
+    previousValue: DataValue,
+    newValue: DataValue,
+    valid: boolean,
+    reason: TableEditChangeReason,
+  ): void {
+    this.#events.emit('tableeditchange', {
+      chart: this,
+      layerId,
+      row,
+      field,
+      previousValue: cloneTableDataValue(previousValue),
+      newValue: cloneTableDataValue(newValue),
+      valid,
+      reason,
+    });
+  }
+
+  #emitTableDataChange(layerId: string, reason: ChartTableChangeEvent['reason']): void {
+    this.#events.emit('tablechange', {
+      chart: this,
+      layerId,
+      state: this.getTableRuntimeState(layerId),
+      reason,
+    });
+  }
+
+  #tableSpecWithSourceRows(layerId: string, rows: readonly DataRow[]): ChartSpec {
+    const data = cloneTableRows(rows);
+    if (this.#spec.layers === undefined) {
+      if (layerId !== 'layer-0') {
+        throw new GraflumeError('INVALID_DATA', `Layer "${layerId}" was not found.`);
+      }
+      const { source: _source, ...spec } = this.#spec;
+      return { ...spec, data };
+    }
+    let matched = false;
+    const layers = this.#spec.layers.map((layer, index) => {
+      if ((layer.id ?? `layer-${index}`) !== layerId) return layer;
+      matched = true;
+      const { source: _source, ...sourceLayer } = layer;
+      return { ...sourceLayer, data };
+    });
+    if (!matched) throw new GraflumeError('INVALID_DATA', `Layer "${layerId}" was not found.`);
+    return { ...this.#spec, layers };
+  }
+
+  #replaceTableSourceRows(layerId: string, rows: readonly DataRow[]): void {
+    const previousSpec = this.#spec;
+    this.#spec = this.#tableSpecWithSourceRows(layerId, rows);
+    try {
+      this.render();
+    } catch (error) {
+      this.#spec = previousSpec;
+      try {
+        this.render();
+      } catch {
+        // Keep the original render failure authoritative after best-effort rollback.
+      }
+      throw error;
+    }
+  }
+
+  #setTableCellValue(
+    layerId: string,
+    target: TableCellTarget,
+    field: string,
+    value: DataValue,
+    successReason: 'programmatic' | 'overlay',
+  ): boolean {
+    this.#assertAlive();
+    this.#requireFamilyLayer(layerId, ['table']);
+    const editing = this.#tableEditing(layerId);
+    const view = this.#resolvedTableView(layerId);
+    const source = this.#tableSourceRows(layerId);
+    let row = typeof target === 'number' ? target : -1;
+    let sourceRow: number | null = null;
+    let failure: TableEditChangeReason | null = null;
+
+    if (!editing.enabled) failure = 'editing-disabled';
+    else if (view.derived) failure = 'derived-view-read-only';
+    const configuredColumn = editing.columns.get(field);
+    if (failure === null && (configuredColumn === undefined || !configuredColumn.editable)) {
+      failure = 'field-not-editable';
+    }
+
+    if (failure === null && typeof target === 'number') {
+      if (!Number.isInteger(target) || target < 0 || target >= view.rows.length) {
+        failure = 'row-not-found';
+      } else sourceRow = view.sourceIndices[target] ?? null;
+    } else if (failure === null && typeof target !== 'number') {
+      if (editing.key === undefined) failure = 'row-not-found';
+      else {
+        const sourceMatches = source.flatMap((candidate, index) =>
+          tableDataValuesEqual(candidate[editing.key!], target.key) ? [index] : [],
+        );
+        if (sourceMatches.length === 0) failure = 'row-not-found';
+        else if (sourceMatches.length > 1) failure = 'duplicate-key';
+        else {
+          sourceRow = sourceMatches[0]!;
+          if (!view.editableSourceIndices.includes(sourceRow)) {
+            failure = 'source-row-unavailable';
+          }
+          const matches = view.sourceIndices.flatMap((candidate, index) =>
+            candidate === sourceRow ? [index] : [],
+          );
+          if (failure === null && matches.length > 1) failure = 'source-row-unavailable';
+          else if (failure === null && matches.length === 1) {
+            row = matches[0]!;
+          } else if (failure === null) {
+            // A stable key addresses the authored source independently of the
+            // current runtime filter. Event rows use the source index when no
+            // current view index exists.
+            row = sourceRow;
+          }
+        }
+      }
+    }
+    if (failure === null && sourceRow === null) failure = 'source-row-unavailable';
+
+    const previousValue = sourceRow === null ? undefined : source[sourceRow]?.[field];
+    if (failure !== null || configuredColumn === undefined) {
+      this.#emitTableEdit(
+        layerId,
+        row,
+        field,
+        previousValue,
+        value,
+        false,
+        failure ?? 'field-not-editable',
+      );
+      return false;
+    }
+    const column = tableColumnEditingForValue(configuredColumn, previousValue);
+    const validation = validateTableCellValue(column, value);
+    if (!validation.valid) {
+      this.#emitTableEdit(layerId, row, field, previousValue, value, false, validation.reason);
+      return false;
+    }
+    if (sourceRow === null || source[sourceRow] === undefined) {
+      this.#emitTableEdit(
+        layerId,
+        row,
+        field,
+        previousValue,
+        value,
+        false,
+        'source-row-unavailable',
+      );
+      return false;
+    }
+    if (tableDataValuesEqual(previousValue, value)) {
+      this.#emitTableEdit(layerId, row, field, previousValue, value, true, successReason);
+      return true;
+    }
+
+    const next = source.map((candidate, index) =>
+      index === sourceRow ? { ...candidate, [field]: cloneTableDataValue(value) } : candidate,
+    );
+    const history =
+      this.#tableDataHistory.get(layerId) ??
+      (() => {
+        const created = new TableDataHistory(source);
+        this.#tableDataHistory.set(layerId, created);
+        return created;
+      })();
+    this.#replaceTableSourceRows(layerId, next);
+    history.replace(next);
+    this.#emitTableDataChange(layerId, 'programmatic');
+    this.#emitTableEdit(layerId, row, field, previousValue, value, true, successReason);
+    return true;
+  }
+
+  #applyTableDataTransition(
+    layerId: string,
+    transition: TableDataTransition,
+    reason: 'undo' | 'redo' | 'reset',
+  ): void {
+    this.#replaceTableSourceRows(layerId, transition.rows);
+    this.#emitTableDataChange(layerId, reason === 'reset' ? 'reset' : 'programmatic');
+    const rowCount = Math.max(transition.previous.length, transition.rows.length);
+    for (let row = 0; row < rowCount; row += 1) {
+      const previous = transition.previous[row] ?? {};
+      const next = transition.rows[row] ?? {};
+      const fields = new Set([...Object.keys(previous), ...Object.keys(next)]);
+      for (const field of fields) {
+        if (tableDataValuesEqual(previous[field], next[field])) continue;
+        this.#emitTableEdit(layerId, row, field, previous[field], next[field], true, reason);
+      }
+    }
+  }
+
+  #openTableCellEditor(entry: FamilySceneEntry): boolean {
+    const interaction = entry.familyInteraction;
+    if (interaction.kind !== 'table-cell' || entry.bounds === undefined) return false;
+    const metadata = entry.datum;
+    if (
+      metadata.editEnabled !== true ||
+      typeof metadata.sourceRowIndex !== 'number' ||
+      !Number.isInteger(metadata.sourceRowIndex)
+    ) {
+      return false;
+    }
+    const editing = this.#tableEditing(entry.layerId);
+    const configuredColumn = editing.columns.get(interaction.field);
+    if (!editing.enabled || configuredColumn === undefined || !configuredColumn.editable) {
+      return false;
+    }
+    const state = this.getTableRuntimeState(entry.layerId);
+    if (state.group !== null || state.pivot !== null) return false;
+    const host = this.#renderer?.overlayHost?.();
+    const document = host?.ownerDocument;
+    if (host === null || host === undefined || document === undefined) return false;
+
+    this.#destroyTableEditor();
+    const source = this.#tableSourceRows(entry.layerId);
+    const sourceRow = this.#resolvedTableView(entry.layerId).sourceIndices[interaction.row];
+    if (sourceRow === null || sourceRow === undefined) return false;
+    const current = source[sourceRow]?.[interaction.field];
+    const column = tableColumnEditingForValue(configuredColumn, current);
+    const element =
+      column.editor.type === 'select'
+        ? document.createElement('select')
+        : document.createElement('input');
+    element.className = 'graflume-table-editor';
+    element.setAttribute('aria-label', `Edit row ${interaction.row + 1}, ${interaction.field}`);
+    element.setAttribute('autocomplete', 'off');
+    if (column.validation.required) element.setAttribute('required', '');
+    if (column.validation.min !== undefined)
+      element.setAttribute('min', String(column.validation.min));
+    if (column.validation.max !== undefined)
+      element.setAttribute('max', String(column.validation.max));
+    if (column.validation.pattern !== undefined)
+      element.setAttribute('pattern', column.validation.pattern);
+
+    if (element.tagName === 'SELECT') {
+      column.editor.options.forEach((value, index) => {
+        const option = document.createElement('option');
+        option.value = String(index);
+        option.textContent = value instanceof Date ? value.toISOString() : String(value ?? '');
+        element.append(option);
+      });
+      const selectedIndex = column.editor.options.findIndex((value) =>
+        tableDataValuesEqual(value, current),
+      );
+      (element as HTMLSelectElement).selectedIndex = selectedIndex;
+    } else {
+      const input = element as HTMLInputElement;
+      input.type =
+        column.editor.type === 'boolean'
+          ? 'checkbox'
+          : column.editor.type === 'datetime'
+            ? 'datetime-local'
+            : column.editor.type === 'integer' || column.editor.type === 'number'
+              ? 'number'
+              : column.editor.type;
+      if (column.editor.type === 'integer') input.step = '1';
+      if (column.editor.type === 'boolean') input.checked = current === true;
+      else if (current instanceof Date) {
+        input.value =
+          column.editor.type === 'date'
+            ? current.toISOString().slice(0, 10)
+            : current.toISOString().slice(0, 16);
+      } else input.value = current === null || current === undefined ? '' : String(current);
+    }
+
+    const bounds = entry.bounds;
+    Object.assign(element.style, {
+      position: 'absolute',
+      boxSizing: 'border-box',
+      left: `${bounds.x * this.#view.zoom + this.#view.offsetX}px`,
+      top: `${bounds.y * this.#view.zoom + this.#view.offsetY}px`,
+      width: `${Math.max(28, bounds.width * this.#view.zoom)}px`,
+      height: `${Math.max(24, bounds.height * this.#view.zoom)}px`,
+      zIndex: '10020',
+      border: '2px solid #2563eb',
+      borderRadius: '4px',
+      background: '#ffffff',
+      color: '#111827',
+      font: 'inherit',
+      padding: column.editor.type === 'boolean' ? '4px' : '2px 6px',
+      outline: 'none',
+    });
+    const editor: ActiveTableEditor = {
+      layerId: entry.layerId,
+      row: interaction.row,
+      field: interaction.field,
+      column,
+      element,
+      closed: false,
+    };
+    const commit = (): void => {
+      if (editor.closed || this.#tableEditor !== editor) return;
+      const input = editor.element as HTMLInputElement;
+      const select = editor.element as HTMLSelectElement;
+      const value = parseTableEditorValue(
+        editor.column,
+        editor.element.value,
+        input.checked === true,
+        editor.element.tagName === 'SELECT' ? select.selectedIndex : -1,
+      );
+      this.#preserveTableEditor = true;
+      let committed: boolean;
+      try {
+        committed = this.#setTableCellValue(
+          editor.layerId,
+          editor.row,
+          editor.field,
+          value,
+          'overlay',
+        );
+      } finally {
+        this.#preserveTableEditor = false;
+      }
+      if (committed) {
+        this.#destroyTableEditor(true);
+      } else {
+        editor.element.setAttribute('aria-invalid', 'true');
+        editor.element.focus();
+      }
+    };
+    element.addEventListener('keydown', (event) => {
+      if (!(event instanceof KeyboardEvent)) return;
+      if (event.key === 'Escape') {
+        this.#destroyTableEditor(true);
+        event.preventDefault();
+        event.stopPropagation();
+      } else if (event.key === 'Enter' && editing.commit !== 'blur') {
+        commit();
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    });
+    element.addEventListener('blur', () => {
+      if (editor.closed) return;
+      if (editing.commit === 'enter') this.#destroyTableEditor();
+      else commit();
+    });
+    host.append(element);
+    this.#tableEditor = editor;
+    element.focus();
+    if (element.tagName === 'INPUT' && column.editor.type === 'text') {
+      (element as HTMLInputElement).select?.();
+    }
+    return true;
+  }
+
+  #destroyTableEditor(focusSurface = false): void {
+    const editor = this.#tableEditor;
+    if (editor === null) return;
+    editor.closed = true;
+    editor.element.remove();
+    this.#tableEditor = null;
+    if (focusSurface) this.#eventSurface?.focus();
   }
 
   #familyLayerRows(layerId: string): readonly DataRow[] {
@@ -2731,6 +3262,8 @@ export class Chart {
   setSpec(spec: ChartSpec): this {
     this.#assertAlive();
     const normalized = normalizeSpec(spec);
+    this.#destroyTableEditor();
+    this.#tableDataHistory.clear();
     this.pause();
     this.#spec = spec;
     this.#incrementalStores.clear();
@@ -3427,6 +3960,7 @@ export class Chart {
   }
 
   #renderEndpoint(): this {
+    if (!this.#preserveTableEditor) this.#destroyTableEditor();
     const dimensions = this.#measure();
     const previousAdaptiveState = this.#adaptiveState;
     this.#adaptiveState = resolveAdaptiveProfile(
@@ -3625,6 +4159,8 @@ export class Chart {
 
   destroy(): void {
     if (this.#destroyed) return;
+    this.#destroyTableEditor();
+    this.#tableDataHistory.clear();
     const exitFullscreen = this.#isOwnFullscreen();
     this.#playing = false;
     this.#sceneTransition = null;
@@ -5431,6 +5967,15 @@ export class Chart {
                 candidate.familyInteraction.row === focus.row &&
                 candidate.familyInteraction.column === focus.column,
             );
+      if (
+        event.key === 'Enter' &&
+        focus.kind === 'table-cell' &&
+        entry !== undefined &&
+        this.#openTableCellEditor(entry)
+      ) {
+        event.preventDefault();
+        return true;
+      }
       if (entry !== undefined) {
         this.#applyClickSelection({ ...entry, x: 0, y: 0, distance: 0 }, 'keyboard', 'keyboard');
       }
@@ -5862,6 +6407,15 @@ export class Chart {
         },
         'pointer',
       );
+      if (event.detail >= 2) {
+        const refreshed = this.#familyEntries('table-cell').find(
+          (entry) =>
+            entry.layerId === hit.layerId &&
+            entry.familyInteraction.row === interaction.row &&
+            entry.familyInteraction.column === interaction.column,
+        );
+        if (refreshed !== undefined && this.#openTableCellEditor(refreshed)) return true;
+      }
       return false;
     }
     if (interaction.kind === 'table-header') {
@@ -6495,6 +7049,7 @@ export class Chart {
           this.#publishLinkedFocus(mark);
         },
       },
+      result.spec.locale,
     );
     this.#syncLinkedFocus();
   }

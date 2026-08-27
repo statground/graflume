@@ -47,7 +47,7 @@ import {
 } from './cartesian-extended.js';
 import { compileLineMark } from './line.js';
 import { compileCalendarMark } from './structured.js';
-import { numericDataValue, scaleInput } from './utils.js';
+import { numericDataValue, scaleInput, temporalTooltipValue } from './utils.js';
 
 function stringOption(context: MarkCompileContext, name: string): string | undefined {
   const value = context.layer.mark.options[name];
@@ -121,6 +121,8 @@ export const compileRankedBarMark: MarkCompiler = (context) => {
   const valueField = context.layer.mark.fields.value ?? context.layer.y.field;
   const weightField = context.layer.mark.fields.weight ?? 'weight';
   const idField = context.layer.mark.fields.id ?? 'id';
+  const sourceRowById = new Map<string, number>();
+  const rawCategoryById = new Map<string, string | number | Date>();
   const previous = context.layer.mark.options.previousRanks;
   const previousRanks =
     previous !== null && typeof previous === 'object' && !Array.isArray(previous)
@@ -133,10 +135,22 @@ export const compileRankedBarMark: MarkCompiler = (context) => {
   const data = Array.from({ length: context.table.length }, (_, rowIndex) => {
     const rawId = context.table.has(idField) ? context.table.value(rowIndex, idField) : undefined;
     const rawCategory = context.table.value(rowIndex, categoryField);
+    const id = rawId === null || rawId === undefined ? `row-${rowIndex}` : String(rawId);
+    const category =
+      rawCategory === null || rawCategory === undefined ? `row-${rowIndex}` : String(rawCategory);
+    if (!sourceRowById.has(id)) sourceRowById.set(id, rowIndex);
+    const categoryId = category.trim() || id;
+    if (
+      !rawCategoryById.has(categoryId) &&
+      rawCategory !== null &&
+      rawCategory !== undefined &&
+      typeof rawCategory !== 'boolean' &&
+      (typeof rawCategory !== 'object' || rawCategory instanceof Date)
+    )
+      rawCategoryById.set(categoryId, rawCategory as string | number | Date);
     return {
-      id: rawId === null || rawId === undefined ? `row-${rowIndex}` : String(rawId),
-      category:
-        rawCategory === null || rawCategory === undefined ? `row-${rowIndex}` : String(rawCategory),
+      id,
+      category,
       value: numericDataValue(context.table.value(rowIndex, valueField)) ?? 0,
       weight: context.table.has(weightField)
         ? (numericDataValue(context.table.value(rowIndex, weightField)) ?? 0)
@@ -185,9 +199,25 @@ export const compileRankedBarMark: MarkCompiler = (context) => {
     ...(themedWidthRatio === undefined ? {} : { barWidthRatio: themedWidthRatio }),
   });
   const nodes: SceneNode[] = [];
+  const categoryTemporal =
+    categoryField === layer.x.field
+      ? context.xType === 'temporal'
+      : categoryField === layer.y.field
+        ? context.yType === 'temporal'
+        : false;
   displayed.forEach((row, index) => {
     const color = layer.mark.fill ?? categoricalColor(theme, index, displayed.length);
     const ratio = (row.value - minimum) / span;
+    const sourceRowIndex =
+      row.sourceIds.flatMap((id) => {
+        const candidate = sourceRowById.get(id);
+        return candidate === undefined ? [] : [candidate];
+      })[0] ?? index;
+    const source =
+      sourceRowIndex >= 0 && sourceRowIndex < context.table.length
+        ? context.table.row(sourceRowIndex)
+        : {};
+    const rawCategory = rawCategoryById.get(row.id) ?? row.id;
     const base = nodeBase(`${layer.id}:ranked-bar:${row.id}`, {
       zIndex: layer.zIndex,
       opacity: layer.mark.opacity,
@@ -196,6 +226,7 @@ export const compileRankedBarMark: MarkCompiler = (context) => {
         layerId: layer.id,
         rowIndex: index,
         datum: {
+          ...source,
           id: row.id,
           rank: row.rank,
           previousRank: row.previousRank,
@@ -204,7 +235,7 @@ export const compileRankedBarMark: MarkCompiler = (context) => {
           sourceIds: [...row.sourceIds],
         },
         tooltip: {
-          category: row.id,
+          category: categoryTemporal ? temporalTooltipValue(rawCategory) : row.id,
           value: row.value,
           rank: row.rank,
           previousRank: row.previousRank,
@@ -650,6 +681,11 @@ export const compileAdvancedCandlestickMark: MarkCompiler = (context) => {
       bucket.extended && extendedHours === 'separate'
         ? context.layer.mark.opacity * 0.45
         : context.layer.mark.opacity;
+    const sourceRowIndex = bucket.sourceRows.at(-1) ?? visibleIndex;
+    const source =
+      sourceRowIndex >= 0 && sourceRowIndex < context.table.length
+        ? context.table.row(sourceRowIndex)
+        : {};
     nodes.push({
       type: 'line',
       ...nodeBase(`${context.layer.id}:ohlc-wick:${bucket.tradingIndex}`, {
@@ -671,10 +707,14 @@ export const compileAdvancedCandlestickMark: MarkCompiler = (context) => {
         interactive: context.performance.enableHitTesting,
         datum: {
           layerId: context.layer.id,
-          rowIndex: bucket.sourceRows.at(-1) ?? visibleIndex,
-          datum: { ...bucket, sourceRows: [...bucket.sourceRows] },
+          rowIndex: sourceRowIndex,
+          datum: {
+            ...source,
+            ...bucket,
+            sourceRows: [...bucket.sourceRows],
+          },
           tooltip: {
-            time: bucket.time,
+            time: temporalTooltipValue(bucket.time),
             tradingIndex: bucket.tradingIndex,
             open: bucket.open,
             high: bucket.high,
@@ -789,7 +829,7 @@ export const compileAdvancedDifferenceMark: MarkCompiler = (context) => {
     policy,
     zeroBaseline,
     interpolateCrossings: booleanOption(context, 'interpolateCrossings') !== false,
-    ...(context.layer.x.type === undefined ? {} : { keyType: context.layer.x.type }),
+    keyType: context.xType,
   });
   const nodes: SceneNode[] = [];
   points.forEach((point, index) => {
@@ -819,6 +859,17 @@ export const compileAdvancedDifferenceMark: MarkCompiler = (context) => {
         lineWidth: 0,
       });
     }
+    const sourceRowIndex = point.sourceRows[0] ?? index;
+    const source =
+      sourceRowIndex >= 0 && sourceRowIndex < context.table.length
+        ? context.table.row(sourceRowIndex)
+        : {};
+    const tooltipKey =
+      context.xType === 'temporal'
+        ? temporalTooltipValue(
+            point.crossing === true ? point.key : (source[context.layer.x.field] ?? point.key),
+          )
+        : point.key;
     nodes.push({
       type: 'circle',
       ...nodeBase(`${context.layer.id}:difference:${index}`, {
@@ -826,8 +877,9 @@ export const compileAdvancedDifferenceMark: MarkCompiler = (context) => {
         interactive: context.performance.enableHitTesting,
         datum: {
           layerId: context.layer.id,
-          rowIndex: point.sourceRows[0] ?? index,
+          rowIndex: sourceRowIndex,
           datum: {
+            ...source,
             key: point.key,
             baseline: point.baseline,
             comparison: point.comparison,
@@ -836,7 +888,7 @@ export const compileAdvancedDifferenceMark: MarkCompiler = (context) => {
             sourceRows: [...point.sourceRows],
           },
           tooltip: {
-            key: point.key,
+            key: tooltipKey,
             baseline: point.baseline,
             comparison: point.comparison,
             difference: point.difference,
@@ -876,6 +928,8 @@ export const compileEstimatedIntervalMark: MarkCompiler = (context) => {
     stringOption(context, 'orientation') === 'horizontal' ? 'horizontal' : 'vertical';
   const categoryField = orientation === 'vertical' ? context.layer.x.field : context.layer.y.field;
   const valueField = orientation === 'vertical' ? context.layer.y.field : context.layer.x.field;
+  const categoryTemporal =
+    orientation === 'vertical' ? context.xType === 'temporal' : context.yType === 'temporal';
   const groups = new Map<
     string,
     { key: string | number | Date; values: number[]; sourceRows: number[] }
@@ -976,6 +1030,7 @@ export const compileEstimatedIntervalMark: MarkCompiler = (context) => {
           layerId: context.layer.id,
           rowIndex: group.sourceRows[0] ?? groupIndex,
           datum: {
+            ...context.table.row(group.sourceRows[0] ?? groupIndex),
             category: group.key,
             estimate: interval.estimate,
             low: interval.low,
@@ -984,7 +1039,7 @@ export const compileEstimatedIntervalMark: MarkCompiler = (context) => {
             sourceRows: [...group.sourceRows],
           },
           tooltip: {
-            category: group.key,
+            category: categoryTemporal ? temporalTooltipValue(group.key) : group.key,
             estimate: interval.estimate,
             low: interval.low,
             high: interval.high,
@@ -1027,7 +1082,7 @@ export const compileOrderedLineMark: MarkCompiler = (context) => {
     valueField: context.layer.y.field,
     duplicates,
     sort,
-    ...(context.layer.x.type === undefined ? {} : { keyType: context.layer.x.type }),
+    keyType: context.xType,
   });
   const scenePoints: Point[] = points.flatMap((point) => {
     const key = scaleInput(point.key);
@@ -1053,6 +1108,15 @@ export const compileOrderedLineMark: MarkCompiler = (context) => {
   points.forEach((point, index) => {
     const key = scaleInput(point.key);
     if (key === null) return;
+    const sourceRowIndex = point.sourceRows[0] ?? index;
+    const source =
+      sourceRowIndex >= 0 && sourceRowIndex < context.table.length
+        ? context.table.row(sourceRowIndex)
+        : {};
+    const tooltipKey =
+      context.xType === 'temporal'
+        ? temporalTooltipValue(source[context.layer.x.field] ?? point.key)
+        : point.key;
     nodes.push({
       type: 'circle',
       ...nodeBase(`${context.layer.id}:ordered-line-point:${index}`, {
@@ -1060,10 +1124,15 @@ export const compileOrderedLineMark: MarkCompiler = (context) => {
         interactive: context.performance.enableHitTesting,
         datum: {
           layerId: context.layer.id,
-          rowIndex: point.sourceRows[0] ?? index,
-          datum: { key: point.key, value: point.value, sourceRows: [...point.sourceRows] },
-          tooltip: {
+          rowIndex: sourceRowIndex,
+          datum: {
+            ...source,
             key: point.key,
+            value: point.value,
+            sourceRows: [...point.sourceRows],
+          },
+          tooltip: {
+            key: tooltipKey,
             value: point.value,
             duplicates,
             sort,
@@ -1134,6 +1203,8 @@ export const compileSemanticWaterfallMark: MarkCompiler = (context) => {
   const nodes: SceneNode[] = [];
   selectedIndices.forEach((index, selectedIndex) => {
     const step = steps[index]!;
+    const source = context.table.row(index);
+    const rawLabel = source[context.layer.x.field] ?? step.label ?? '';
     const start = mapY(step.start);
     const end = mapY(step.end);
     const x = centerFor(index);
@@ -1149,9 +1220,10 @@ export const compileSemanticWaterfallMark: MarkCompiler = (context) => {
         datum: {
           layerId: context.layer.id,
           rowIndex: index,
-          datum: { ...step },
+          datum: { ...source, ...step },
           tooltip: {
-            label: step.label ?? '',
+            label:
+              context.xType === 'temporal' ? temporalTooltipValue(rawLabel) : (step.label ?? ''),
             kind: step.kind,
             value: step.value,
             start: step.start,

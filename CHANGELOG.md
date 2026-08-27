@@ -4,6 +4,18 @@ All notable changes to Graflume will be recorded here.
 
 ## Unreleased
 
+- Turn the Table family into a product-grade, function-free data-grid surface. Add declarative
+  column headers, widths, alignment and locale-aware temporal formatting; layered table/header/
+  row/column/cell styles; closed conditional formatting; explicit and repeated-value merges;
+  data-bar, heatmap, progress, sparkline and status-badge cells; typed editing and validation;
+  grouped summaries, pivoting, virtual windows and frozen regions. Expose immutable view/source
+  reads, validated keyed edits, bounded undo/redo/reset, edit events and CSV/JSON export with
+  spreadsheet-formula injection protection while preserving the caller's input rows.
+- Format finite epoch-millisecond values in native tooltips instead of exposing raw timestamps.
+  Extend the portable field contract with `time`, author-selected `dateStyle`, `timeStyle`, and
+  IANA `timeZone` options shared with chart `locale`; preserve ISO date-only calendar values,
+  infer date versus datetime for temporal encodings, and fall back safely for invalid locale or
+  time-zone input without allowing executable formatter callbacks.
 - Keep generated extreme-range transforms on quantitative Cartesian axes. In particular,
   horizontal Bar examples now apply `symlog` to the numeric x channel instead of attaching a
   continuous scale to the ordinal y channel, so every published edge-case recipe validates and

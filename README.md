@@ -266,8 +266,12 @@ or `y2`: an exact rendered-mark hit still wins, while other pointer positions in
 corresponding axis region resolve the nearest actual datum from layers bound to that axis without
 interpolation. This fallback changes only the tooltip; structured hover and click events continue
 to report exact rendered-mark hits. Tooltip content is rendered with DOM `textContent`; raw HTML
-and executable formatter callbacks are not part of the portable spec. Number and date formatting
-follows `locale`, and ISO date-only values retain their calendar date across browser time zones.
+and executable formatter callbacks are not part of the portable spec. Number, date, time, and
+datetime formatting follows `locale`. Each tooltip field can select `dateStyle`, `timeStyle`, and
+an IANA `timeZone`; numeric temporal values use epoch milliseconds, and ISO date-only values retain
+their calendar date across browser time zones. See the
+[tooltip value-formatting contract](docs/charts/interactions.md#tooltip-value-formatting) for the
+portable options and defaults.
 Axis lookup is pointer-only, so applications should keep a readable summary or data table available
 for exact values and keyboard access.
 

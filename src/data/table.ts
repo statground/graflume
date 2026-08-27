@@ -1,4 +1,5 @@
 import { GraflumeError } from '../core/errors.js';
+import { temporalTimestamp } from '../format/temporal.js';
 import type { ColumnarData, ColumnLike, DataInput, DataRow, DataValue } from '../spec/types.js';
 import { assertSafeKey, finiteNumber, ownValue } from '../utils/object.js';
 
@@ -100,10 +101,7 @@ export class DataTable {
 
   numericValue(rowIndex: number, field: string): number | null {
     const value = this.value(rowIndex, field);
-    if (typeof value === 'string') {
-      const timestamp = Date.parse(value);
-      return Number.isFinite(timestamp) ? timestamp : null;
-    }
+    if (typeof value === 'string') return temporalTimestamp(value, true);
     return finiteNumber(value);
   }
 
@@ -116,8 +114,7 @@ export class DataTable {
       const raw = column[index];
       let value: number | null;
       if (asTemporal && typeof raw === 'string') {
-        const timestamp = Date.parse(raw);
-        value = Number.isFinite(timestamp) ? timestamp : null;
+        value = temporalTimestamp(raw, true);
       } else {
         value = finiteNumber(raw);
       }

@@ -1,4 +1,5 @@
 import { GraflumeError } from '../core/errors.js';
+import { temporalTimestamp } from '../format/temporal.js';
 import type {
   AggregateFieldSpec,
   DataInput,
@@ -124,8 +125,7 @@ function numeric(value: unknown): number | null {
   if (typeof value === 'string' && value.trim() !== '') {
     const number = Number(value);
     if (Number.isFinite(number)) return number;
-    const date = Date.parse(value);
-    return Number.isFinite(date) ? date : null;
+    return temporalTimestamp(value, true);
   }
   return null;
 }
@@ -1069,12 +1069,10 @@ function apply(rows: readonly WorkingRow[], transform: TransformSpec): WorkingRo
     case 'timeUnit':
       return rows.map((row) => {
         const raw = row.value[transform.field];
-        const date =
-          raw instanceof Date
-            ? new Date(raw)
-            : new Date(typeof raw === 'number' || typeof raw === 'string' ? raw : Number.NaN);
+        const timestamp = temporalTimestamp(raw, true);
+        const date = timestamp === null ? undefined : new Date(timestamp);
         let result: DataValue = null;
-        if (Number.isFinite(date.getTime())) {
+        if (date !== undefined) {
           const utc = transform.utc ?? true;
           const value = (
             name: 'FullYear' | 'Month' | 'Date' | 'Day' | 'Hours' | 'Minutes' | 'Seconds',

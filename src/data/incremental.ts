@@ -1,4 +1,5 @@
 import { GraflumeError } from '../core/errors.js';
+import { temporalTimestamp } from '../format/temporal.js';
 import type { DataInput, DataRow, DataValue, StreamingMode, StreamingSpec } from '../spec/types.js';
 import { assertSafeKey, isPlainObject, ownValue } from '../utils/object.js';
 import { DataTable } from './table.js';
@@ -369,14 +370,7 @@ function stableKey(value: DataValue, path: string): string {
 }
 
 function eventTimestamp(value: DataValue, path: string): number {
-  const timestamp =
-    value instanceof Date
-      ? value.getTime()
-      : typeof value === 'number'
-        ? value
-        : typeof value === 'string'
-          ? Date.parse(value)
-          : Number.NaN;
+  const timestamp = temporalTimestamp(value, true) ?? Number.NaN;
   if (!Number.isFinite(timestamp)) {
     throw new GraflumeError(
       'INVALID_DATA',

@@ -1753,6 +1753,154 @@ test('Canvas native semantic table supports roving keys, focus ring, tooltip, an
   }
 });
 
+test('Canvas Table mirror uses one merge anchor and authored multilingual date-time text', () => {
+  const environment = installEnvironment();
+  const { registry, target } = createHarness(environment.document);
+  const data = [
+    { region: '서울', team: '분석팀', updated: '2026-08-27T15:30:00Z' },
+    { region: '서울', team: 'فريق البيانات', updated: '2026-08-28T01:15:00Z' },
+    { region: '부산', team: '검토 완료', updated: '2026-08-28T04:45:00Z' },
+  ];
+  const chart = new Chart(
+    target,
+    {
+      data,
+      mark: {
+        type: 'table',
+        options: {
+          columns: [
+            { field: 'region', header: '지역' },
+            { field: 'team', header: 'الفريق' },
+            {
+              field: 'updated',
+              header: '수정 시각',
+              formatter: 'datetime',
+              dateStyle: 'long',
+              timeStyle: 'short',
+              timeZone: 'Asia/Seoul',
+            },
+          ],
+          mergeRepeats: [{ field: 'region' }],
+          merges: [{ row: 2, column: 'team', columnSpan: 2 }],
+        },
+      },
+      x: 'region',
+      y: 'team',
+      locale: 'ko-KR',
+      accessibility: { table: 'visible', navigation: true, maxRows: 20 },
+    },
+    registry,
+    { width: 720, height: 400, autoResize: false },
+  );
+
+  try {
+    const mirror = walk(target).find(
+      ({ dataset }) => dataset.graflumeAccessibilityMirror === 'visible',
+    );
+    assert.notEqual(mirror, undefined);
+    const table = walk(mirror).find(({ dataset }) => dataset.graflumeAccessibilityTable === 'true');
+    assert.equal(table.getAttribute('aria-rowcount'), '4');
+    assert.equal(table.getAttribute('aria-colcount'), '4');
+    const rows = walk(mirror).filter(({ dataset }) => dataset.graflumeSemanticId !== undefined);
+    assert.equal(rows.length, 3);
+    assert.equal(new Set(rows.map(({ dataset }) => dataset.graflumeSemanticId)).size, 3);
+
+    const regionCells = walk(mirror).filter(
+      ({ dataset }) => dataset.graflumeTableField === 'region',
+    );
+    assert.deepEqual(
+      regionCells.map(({ textContent }) => textContent),
+      ['서울', '부산'],
+      'the second 서울 cell is covered by the first merge anchor',
+    );
+    assert.equal(regionCells[0].rowSpan, 2);
+    assert.equal(regionCells[0].colSpan, 1);
+    const horizontal = walk(mirror).find(
+      ({ dataset }) => dataset.graflumeTableField === 'team' && dataset.graflumeTableRow === '2',
+    );
+    assert.equal(horizontal.rowSpan, 1);
+    assert.equal(horizontal.colSpan, 2);
+    assert.equal(
+      walk(mirror).some(
+        ({ dataset }) =>
+          dataset.graflumeTableField === 'updated' && dataset.graflumeTableRow === '2',
+      ),
+      false,
+    );
+
+    const expected = new Intl.DateTimeFormat('ko-KR', {
+      dateStyle: 'long',
+      timeStyle: 'short',
+      timeZone: 'Asia/Seoul',
+    }).format(new Date(data[0].updated));
+    const firstUpdated = walk(mirror).find(
+      ({ dataset }) => dataset.graflumeTableField === 'updated' && dataset.graflumeTableRow === '0',
+    );
+    assert.equal(firstUpdated.textContent, expected);
+    assert.equal(firstUpdated.getAttribute('dir'), 'auto');
+    assert.ok(
+      walk(mirror).some(({ textContent, tagName }) => tagName === 'TH' && textContent === 'الفريق'),
+    );
+    assert.match(rows[1].getAttribute('aria-label'), /فريق البيانات/u);
+  } finally {
+    chart.destroy();
+    environment.restore();
+  }
+});
+
+test('Canvas Table explorer clips and re-anchors row spans inside its bounded DOM window', () => {
+  const environment = installEnvironment();
+  const { registry, target } = createHarness(environment.document);
+  const chart = new Chart(
+    target,
+    {
+      data: Array.from({ length: 30 }, (_value, index) => ({ region: '전체', value: index })),
+      mark: {
+        type: 'table',
+        options: {
+          columns: ['region', 'value'],
+          rowHeight: 18,
+          mergeRepeats: [{ field: 'region' }],
+        },
+      },
+      x: 'region',
+      y: 'value',
+      accessibility: {
+        table: 'visible',
+        navigation: true,
+        maxRows: 40,
+        explorer: { windowRows: 5, overscanRows: 0, rowHeight: 32 },
+      },
+    },
+    registry,
+    { width: 640, height: 720, autoResize: false },
+  );
+
+  try {
+    const mirror = walk(target).find(
+      ({ dataset }) => dataset.graflumeAccessibilityMirror === 'visible',
+    );
+    const materializedRows = () =>
+      walk(mirror).filter(({ dataset }) => dataset.graflumeSemanticId !== undefined);
+    const regionCells = () =>
+      walk(mirror).filter(({ dataset }) => dataset.graflumeTableField === 'region');
+    assert.equal(materializedRows().length, 5);
+    assert.equal(regionCells().length, 1);
+    assert.equal(regionCells()[0].rowSpan, 5);
+
+    mirror.scrollTop = 10 * 32;
+    mirror.dispatchEvent(new Event('scroll'));
+    assert.equal(materializedRows().length, 5);
+    assert.equal(materializedRows()[0].dataset.graflumeTableRow, '10');
+    assert.equal(regionCells().length, 1);
+    assert.equal(regionCells()[0].dataset.graflumeTableRow, '0');
+    assert.equal(regionCells()[0].rowSpan, 5);
+  } finally {
+    chart.destroy();
+    environment.restore();
+  }
+});
+
 test('Canvas semantic data explorer virtualizes large mirrors without truncating roving traversal', () => {
   const environment = installEnvironment();
   const { registry, target, renderers } = createHarness(environment.document);

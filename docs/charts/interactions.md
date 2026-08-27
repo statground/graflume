@@ -57,6 +57,61 @@ When keyboard navigation is enabled, Graflume makes the Canvas focusable. `+` or
 
 The renderer advertises inspection support separately. The built-in Canvas renderer supports it; a custom renderer may decline it, so integrations must not present renderer-specific controls as universally operational.
 
+## Tooltip value formatting
+
+Tooltip fields use a closed, function-free format contract. `format` accepts `auto`, `number`,
+`integer`, `percent`, `date`, `time`, or `datetime`. Temporal formats also accept `dateStyle`
+(`short`, `medium`, `long`, or `full`), `timeStyle` (`short`, `medium`, `long`, or `full`), and an IANA
+`timeZone`. The chart-level `locale` controls localized names, ordering, punctuation, and hour
+cycles.
+
+```ts
+import { timeline } from 'graflume';
+
+timeline('#schedule', rows, {
+  x: { field: 'start', type: 'temporal' },
+  y: { field: 'task', type: 'ordinal' },
+  mark: { fields: { end: 'end' } },
+  locale: 'ko-KR',
+  interaction: {
+    tooltip: {
+      fields: [
+        {
+          field: 'start',
+          label: '시작',
+          format: 'datetime',
+          dateStyle: 'long',
+          timeStyle: 'short',
+          timeZone: 'Asia/Seoul',
+        },
+        {
+          field: 'end',
+          label: '종료 시각',
+          format: 'time',
+          timeStyle: 'medium',
+          timeZone: 'Asia/Seoul',
+        },
+      ],
+    },
+  },
+});
+```
+
+`dateStyle` defaults to `medium`, `timeStyle` to `short`, and `timeZone` to portable `UTC`.
+ISO date/datetime strings and finite numeric epoch-millisecond values are supported in portable
+JSON; the JavaScript API additionally accepts `Date` objects. A date-only ISO string such as
+`2026-08-27` remains that calendar date with `format: 'date'` even in a western browser time zone.
+An ISO datetime without `Z` or an offset is interpreted as UTC for deterministic portable output;
+`timeZone` controls output presentation, not input parsing. An invalid locale or time zone falls
+back safely instead of stopping the chart.
+When a field is declared as a temporal encoding, `auto` chooses `date` for date-only values and
+`datetime` for ISO timestamps or `Date` values. Use an explicit format whenever application policy
+must be independent of the sample value.
+
+The portable spec never accepts formatter callbacks, arbitrary date-pattern code, expressions, or
+raw HTML. Applications that require a domain-specific textual value should materialize that safe
+string as a data field and list it in `fields`.
+
 ## Cartesian data-domain navigation
 
 `interaction.domainNavigation` changes the resolved x/x2/y/y2 domain and recompiles axes and marks. It is distinct from `interaction.navigation`, and enabling both is a validation error. Resolved continuous scales plus categorical band and point scales are supported. Categorical windows retain an ordered slice of the authored domain; arbitrary non-invertible ordinal, quantile, quantize, and threshold scales still fail closed. Map and Spatial navigation, resampling, and remote data-window requests remain separate contracts.
@@ -512,6 +567,12 @@ All rows below support inspection/reset, fullscreen, and PNG export when they us
 ## Accessibility and motion
 
 Every Canvas compile now includes a bounded renderer-neutral `scene.semanticIndex`. Each record carries the plot view, layer, mark role, x/y channel values, semantic datum, source-row lineage, clipped bounds, visibility, and a text label. `chart.getSemanticIndex()` returns that sidecar, `chart.toAccessibleRows()` produces table-ready rows, and `chart.getAccessibilityState()` reports the current mirror configuration. Line and area paths retain one semantic observation per retained source row even when visible point marks are disabled; compiler-derived aggregate tooltip rows are added with bounded provenance instead of being presented as an arbitrary representative row.
+
+Temporal x/y channels also carry their locale-aware display value. When an axis authors `date`,
+`time`, or `datetime`, the semantic label and native mirror use the same `dateStyle`, `timeStyle`,
+`timeZone`, prefix, and suffix; the raw value remains available separately in the semantic datum.
+Table rows use each column's own formatter, including its temporal styles and time zone. This keeps
+screen-reader output aligned with the visible presentation without replacing source values.
 
 The native mirror is opt-in:
 

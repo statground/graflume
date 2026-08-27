@@ -1,4 +1,5 @@
 import { GraflumeError } from '../core/errors.js';
+import { parseTemporalValue, temporalTimestamp } from '../format/temporal.js';
 import type { DataInput, DataRow, DataValue, FieldType } from '../spec/types.js';
 import { DataTable } from './table.js';
 
@@ -29,14 +30,7 @@ function finite(value: DataValue): number | null {
 }
 
 function timestamp(value: DataValue, path: string): number {
-  const resolved =
-    value instanceof Date
-      ? value.getTime()
-      : typeof value === 'number'
-        ? value
-        : typeof value === 'string'
-          ? Date.parse(value)
-          : Number.NaN;
+  const resolved = temporalTimestamp(value, true) ?? Number.NaN;
   if (!Number.isFinite(resolved)) {
     throw new GraflumeError('INVALID_DATA', `${path} must be a finite timestamp.`, { path });
   }
@@ -587,7 +581,7 @@ function civilDateKey(dayEpoch: number): string {
 function dateSet(values: readonly string[] | undefined, path: string): ReadonlySet<string> {
   const output = new Set<string>();
   (values ?? []).forEach((value, index) => {
-    if (!/^\d{4}-\d{2}-\d{2}$/u.test(value) || Number.isNaN(Date.parse(`${value}T00:00:00Z`)))
+    if (!/^\d{4}-\d{2}-\d{2}$/u.test(value) || parseTemporalValue(value) === null)
       throw new GraflumeError('INVALID_SPEC', `${path}[${index}] must be YYYY-MM-DD.`);
     output.add(value);
   });

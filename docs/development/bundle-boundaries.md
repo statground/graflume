@@ -137,3 +137,25 @@ does not introduce cross-entry implementation imports.
 The Spatial ceiling moves by one whole KiB because the new menu-level public API is required
 runtime behavior. All three ceilings remain below one KiB of raw headroom; compressed sizes remain
 transfer evidence rather than the gate.
+
+## 2026-08-28 temporal formatting and product Table audit
+
+The Canvas entry points now share strict date/time parsing and locale-aware formatting across axes,
+tooltips, semantic output, derived chart families, and Table cells. The default Table compiler adds
+declarative layout, layered and conditional styles, safe merges, five bounded in-cell visuals, typed
+editing metadata, and source-row provenance. The Canvas runtime adds immutable source/view reads,
+validated edits, bounded reset/undo/redo, native editing overlays, edit events, and formula-safe
+CSV/portable JSON export. These are public reachable contracts rather than optional documentation
+payloads, so they remain in both the default and complete bundles. The independent Spatial import
+graph is byte-identical.
+
+| Browser file               |    Raw minified | GNU gzip `-9` |                  Raw budget |    Headroom |
+| -------------------------- | --------------: | ------------: | --------------------------: | ----------: |
+| `graflume.min.js`          | 1,177,381 bytes | 342,546 bytes | 1,150 KiB (1,177,600 bytes) |   219 bytes |
+| `graflume.complete.min.js` | 1,375,243 bytes | 399,241 bytes | 1,344 KiB (1,376,256 bytes) | 1,013 bytes |
+| `graflume.spatial.min.js`  |   397,648 bytes | 123,779 bytes |     389 KiB (398,336 bytes) |   688 bytes |
+
+The default and complete raw artifacts grow by 50,297 and 50,935 bytes respectively from the
+control-visibility snapshot; Spatial grows by zero bytes. Each enforced ceiling is again the next
+whole KiB. Brotli was unavailable in the local verification environment, so this audit records raw
+and gzip evidence only and does not infer a Brotli result.

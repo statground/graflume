@@ -18,6 +18,7 @@ import { preservesReferenceBarRatio, resolveBarBandLayout } from './bar-layout.j
 import {
   numericDataValue,
   scaleInput,
+  temporalTooltipValue,
   themedAreaFill,
   themedAreaStroke,
   themedPointFill,
@@ -31,6 +32,7 @@ interface SeriesEntry {
   readonly seriesIndex: number;
   readonly category: number | string | Date;
   readonly categoryKey: string;
+  readonly categoryTemporal: boolean;
   readonly source: number;
   readonly start: number;
   readonly end: number;
@@ -68,7 +70,7 @@ function tooltipRow(
   return {
     ...cleanRow(context.table.row(entry.rowIndex)),
     stackSeries: entry.series,
-    stackCategory: entry.category,
+    stackCategory: entry.categoryTemporal ? temporalTooltipValue(entry.category) : entry.category,
     stackValue: entry.source,
     stackStart: entry.start,
     stackEnd: entry.end,
@@ -97,6 +99,12 @@ function seriesEntries(
 ): readonly SeriesEntry[] {
   const stack = resolveSeriesStackSpec(context.layer);
   if (stack === null) return [];
+  const categoryTemporal =
+    fields.category === context.layer.x.field
+      ? context.xType === 'temporal'
+      : fields.category === context.layer.y.field
+        ? context.yType === 'temporal'
+        : false;
   const groupedTotals = new Map<
     string,
     { absolute: number; positive: number; negative: number; net: number }
@@ -168,6 +176,7 @@ function seriesEntries(
       seriesIndex,
       category,
       categoryKey,
+      categoryTemporal,
       source,
       start,
       end,

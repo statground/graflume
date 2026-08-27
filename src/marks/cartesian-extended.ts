@@ -25,7 +25,13 @@ import {
 } from './bar-layout.js';
 import { compileLineMark } from './line.js';
 import { compilePointMark } from './point.js';
-import { numericDataValue, scaleInput, themedPointFill, themedPointStroke } from './utils.js';
+import {
+  numericDataValue,
+  scaleInput,
+  temporalTooltipValue,
+  themedPointFill,
+  themedPointStroke,
+} from './utils.js';
 
 function optionNumber(
   options: Readonly<Record<string, unknown>>,
@@ -315,8 +321,9 @@ export const compileHistogramMark: MarkCompiler = (context) => {
                 datum: table.row(rowIndex),
                 tooltip: {
                   kind: 'histogram-bin',
-                  binStart: bin.start,
-                  binEnd: bin.end,
+                  binStart:
+                    layer.x.type === 'temporal' ? temporalTooltipValue(bin.start) : bin.start,
+                  binEnd: layer.x.type === 'temporal' ? temporalTooltipValue(bin.end) : bin.end,
                   count: bin.count,
                   weight: bin.weight,
                   value: bin.value,

@@ -1,5 +1,6 @@
 import { clamp as clampNumber } from '../utils/object.js';
 import { GraflumeError } from '../core/errors.js';
+import { safeDateTimeFormatter, temporalTimestamp } from '../format/temporal.js';
 import type { PositionScaleDescriptor, Scale, ScaleOutOfBounds, Tick } from './types.js';
 
 function tickStep(start: number, stop: number, count: number): number {
@@ -95,7 +96,9 @@ export class LinearScale implements Scale {
       input instanceof Date
         ? input.getTime()
         : typeof input === 'string'
-          ? Date.parse(input)
+          ? this.kind === 'time' || this.kind === 'utc'
+            ? (temporalTimestamp(input, true) ?? Number.NaN)
+            : Date.parse(input)
           : input;
     if (!Number.isFinite(value)) return Number.NaN;
     const [domainStart, domainEnd] = this.#domain;
@@ -133,7 +136,7 @@ export class LinearScale implements Scale {
 
   #format(value: number, locale?: string): string {
     if (this.kind === 'time' || this.kind === 'utc') {
-      return new Intl.DateTimeFormat(locale, {
+      return safeDateTimeFormatter(locale, {
         year: 'numeric',
         month: 'short',
         day: 'numeric',

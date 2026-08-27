@@ -458,7 +458,7 @@ export interface AxisFormatSpec {
   readonly currency?: string;
   readonly currencyDisplay?: 'symbol' | 'narrowSymbol' | 'code' | 'name';
   readonly dateStyle?: 'short' | 'medium' | 'long' | 'full';
-  readonly timeStyle?: 'short' | 'medium' | 'long';
+  readonly timeStyle?: 'short' | 'medium' | 'long' | 'full';
   readonly timeZone?: string;
   readonly prefix?: string;
   readonly suffix?: string;
@@ -917,7 +917,8 @@ export interface MarkLabelSpec {
   readonly authoring?: boolean | MarkLabelAuthoringSpec;
 }
 
-export type TooltipValueFormat = 'auto' | 'number' | 'integer' | 'percent' | 'date' | 'datetime';
+export type TooltipValueFormat =
+  'auto' | 'number' | 'integer' | 'percent' | 'date' | 'time' | 'datetime';
 export type TooltipTrigger = 'mark' | 'axis';
 export type TooltipAxis = AxisId;
 
@@ -926,6 +927,9 @@ export interface TooltipFieldSpec {
   readonly label?: string;
   readonly format?: TooltipValueFormat;
   readonly fractionDigits?: number;
+  readonly dateStyle?: 'short' | 'medium' | 'long' | 'full';
+  readonly timeStyle?: 'short' | 'medium' | 'long' | 'full';
+  readonly timeZone?: string;
   readonly prefix?: string;
   readonly suffix?: string;
 }
@@ -1256,7 +1260,7 @@ export interface NormalizedAxisFormatSpec {
   readonly currency?: string;
   readonly currencyDisplay: 'symbol' | 'narrowSymbol' | 'code' | 'name';
   readonly dateStyle: 'short' | 'medium' | 'long' | 'full';
-  readonly timeStyle: 'short' | 'medium' | 'long';
+  readonly timeStyle: 'short' | 'medium' | 'long' | 'full';
   readonly timeZone: string;
   readonly prefix: string;
   readonly suffix: string;
@@ -1370,6 +1374,9 @@ export interface NormalizedTooltipFieldSpec {
   readonly label: string;
   readonly format: TooltipValueFormat;
   readonly fractionDigits?: number;
+  readonly dateStyle: 'short' | 'medium' | 'long' | 'full';
+  readonly timeStyle: 'short' | 'medium' | 'long' | 'full';
+  readonly timeZone: string;
   readonly prefix: string;
   readonly suffix: string;
 }

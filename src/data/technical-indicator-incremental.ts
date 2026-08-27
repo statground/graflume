@@ -1,4 +1,5 @@
 import { GraflumeError } from '../core/errors.js';
+import { temporalTimestamp } from '../format/temporal.js';
 import type { JsonValue } from '../spec/types.js';
 import {
   calculateTechnicalIndicator,
@@ -266,7 +267,7 @@ function sessionConfig(
 }
 
 function sessionTimestamp(value: number | string | null | undefined, index: number): number {
-  const resolved = typeof value === 'number' ? value : Date.parse(value ?? '');
+  const resolved = temporalTimestamp(value ?? null, true) ?? Number.NaN;
   if (!Number.isFinite(resolved)) {
     throw new GraflumeError('INVALID_SPEC', `Invalid session timestamp at row ${index}.`, {
       path: '$.mark.options.session.timeField',

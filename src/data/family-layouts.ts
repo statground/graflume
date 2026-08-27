@@ -1,4 +1,5 @@
 import { GraflumeError } from '../core/errors.js';
+import { formatTemporalValue } from '../format/temporal.js';
 
 function finite(value: unknown, path: string): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
@@ -423,11 +424,37 @@ export interface TablePivot {
   readonly op?: 'count' | 'sum' | 'mean';
 }
 
+export interface TableMerge {
+  /** Absolute row after filter, group/pivot, and sort have been applied. */
+  readonly row: number;
+  /** Absolute column index or authored field name. */
+  readonly column: number | string;
+  readonly rowSpan?: number;
+  readonly columnSpan?: number;
+}
+
+export interface TableMergeRepeat {
+  /** Merge consecutive equal values in this column vertically. */
+  readonly field: string;
+  readonly includeNull?: boolean;
+}
+
+export interface ResolvedTableMerge {
+  readonly row: number;
+  readonly column: number;
+  readonly rowSpan: number;
+  readonly columnSpan: number;
+  readonly automatic: boolean;
+}
+
 export interface TableModelOptions {
   readonly filters?: readonly TableFilter[];
   readonly sort?: readonly TableSort[];
   readonly group?: TableGroup;
   readonly pivot?: TablePivot;
+  readonly columns?: readonly string[];
+  readonly merges?: readonly TableMerge[];
+  readonly mergeRepeats?: readonly TableMergeRepeat[];
   readonly window?: { readonly offset?: number; readonly limit?: number };
   readonly columnWindow?: { readonly offset?: number; readonly limit?: number };
   readonly frozenRows?: number;
@@ -438,7 +465,14 @@ export type TableFormatter = (
   value: unknown,
   row: Readonly<Record<string, unknown>>,
   locale?: string,
+  options?: TableFormatterOptions,
 ) => string;
+
+export interface TableFormatterOptions {
+  readonly dateStyle?: 'short' | 'medium' | 'long' | 'full';
+  readonly timeStyle?: 'short' | 'medium' | 'long' | 'full';
+  readonly timeZone?: string;
+}
 
 export class TableFormatterRegistry {
   readonly #formatters = new Map<string, TableFormatter>();
@@ -455,11 +489,12 @@ export class TableFormatterRegistry {
     value: unknown,
     row: Readonly<Record<string, unknown>>,
     locale?: string,
+    options?: TableFormatterOptions,
   ): string {
     const formatter = this.#formatters.get(id);
     if (formatter === undefined)
       throw new GraflumeError('INVALID_SPEC', `Unknown table formatter "${id}".`);
-    return formatter(value, row, locale);
+    return formatter(value, row, locale, options);
   }
 
   ids(): readonly string[] {
@@ -467,9 +502,27 @@ export class TableFormatterRegistry {
   }
 }
 
-function tableDate(value: unknown): Date | null {
-  const date = value instanceof Date ? value : new Date(String(value));
-  return Number.isFinite(date.getTime()) ? date : null;
+function tableTemporal(
+  value: unknown,
+  type: 'date' | 'time' | 'datetime',
+  locale: string | undefined,
+  options: TableFormatterOptions | undefined,
+): string {
+  if (!(value instanceof Date) && typeof value !== 'number' && typeof value !== 'string') {
+    return String(value ?? '');
+  }
+  return (
+    formatTemporalValue(
+      value,
+      {
+        type,
+        dateStyle: options?.dateStyle ?? 'medium',
+        timeStyle: options?.timeStyle ?? 'medium',
+        timeZone: options?.timeZone ?? 'UTC',
+      },
+      locale,
+    ) ?? String(value ?? '')
+  );
 }
 
 /** Creates the locale-aware built-in registry used by compiled tables and custom runtimes. */
@@ -491,22 +544,15 @@ export function createTableFormatterRegistry(): TableFormatterRegistry {
       ? new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 2 }).format(value)
       : String(value ?? ''),
   );
-  registry.register('date', (value, _row, locale) => {
-    const date = tableDate(value);
-    return date === null
-      ? String(value ?? '')
-      : new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeZone: 'UTC' }).format(date);
-  });
-  registry.register('datetime', (value, _row, locale) => {
-    const date = tableDate(value);
-    return date === null
-      ? String(value ?? '')
-      : new Intl.DateTimeFormat(locale, {
-          dateStyle: 'medium',
-          timeStyle: 'medium',
-          timeZone: 'UTC',
-        }).format(date);
-  });
+  registry.register('date', (value, _row, locale, options) =>
+    tableTemporal(value, 'date', locale, options),
+  );
+  registry.register('time', (value, _row, locale, options) =>
+    tableTemporal(value, 'time', locale, options),
+  );
+  registry.register('datetime', (value, _row, locale, options) =>
+    tableTemporal(value, 'datetime', locale, options),
+  );
   registry.register('json', (value) => JSON.stringify(value));
   return registry;
 }
@@ -604,6 +650,182 @@ function pivotRows(rows: readonly Readonly<Record<string, unknown>>[], pivot: Ta
   }));
 }
 
+const maximumTableMerges = 2_048;
+const maximumTableMergeSpan = 256;
+
+function tableMergeInteger(value: unknown, fallback: number, path: string): number {
+  const resolved = value === undefined ? fallback : value;
+  if (
+    typeof resolved !== 'number' ||
+    !Number.isInteger(resolved) ||
+    resolved < 1 ||
+    resolved > maximumTableMergeSpan
+  ) {
+    throw new GraflumeError(
+      'INVALID_SPEC',
+      `${path} must be an integer from 1 to ${maximumTableMergeSpan}.`,
+      { path },
+    );
+  }
+  return resolved;
+}
+
+function tableMergeCellKey(row: number, column: number): string {
+  return `${row}:${column}`;
+}
+
+function resolveTableMerges(
+  rows: readonly Readonly<Record<string, unknown>>[],
+  columns: readonly string[],
+  frozenRows: number,
+  frozenColumns: number,
+  authored: readonly TableMerge[] = [],
+  repeated: readonly TableMergeRepeat[] = [],
+): readonly ResolvedTableMerge[] {
+  if (authored.length > maximumTableMerges || repeated.length > columns.length) {
+    throw new GraflumeError(
+      'INVALID_SPEC',
+      `Table merges are limited to ${maximumTableMerges} explicit regions and one repeated-value rule per column.`,
+    );
+  }
+  const merges: ResolvedTableMerge[] = [];
+  authored.forEach((merge, index) => {
+    if (!Number.isInteger(merge.row) || merge.row < 0 || merge.row >= rows.length) {
+      throw new GraflumeError(
+        'INVALID_SPEC',
+        `$.mark.options.merges[${index}].row must address a transformed table row.`,
+        { path: `$.mark.options.merges[${index}].row` },
+      );
+    }
+    const column = typeof merge.column === 'string' ? columns.indexOf(merge.column) : merge.column;
+    if (!Number.isInteger(column) || column < 0 || column >= columns.length) {
+      throw new GraflumeError(
+        'INVALID_SPEC',
+        `$.mark.options.merges[${index}].column must address a visible table column.`,
+        { path: `$.mark.options.merges[${index}].column` },
+      );
+    }
+    const rowSpan = tableMergeInteger(merge.rowSpan, 1, `$.mark.options.merges[${index}].rowSpan`);
+    const columnSpan = tableMergeInteger(
+      merge.columnSpan,
+      1,
+      `$.mark.options.merges[${index}].columnSpan`,
+    );
+    if (rowSpan === 1 && columnSpan === 1) {
+      throw new GraflumeError(
+        'INVALID_SPEC',
+        `$.mark.options.merges[${index}] must span more than one cell.`,
+        { path: `$.mark.options.merges[${index}]` },
+      );
+    }
+    if (merge.row + rowSpan > rows.length || column + columnSpan > columns.length) {
+      throw new GraflumeError(
+        'INVALID_SPEC',
+        `$.mark.options.merges[${index}] exceeds the transformed table bounds.`,
+        { path: `$.mark.options.merges[${index}]` },
+      );
+    }
+    merges.push({ row: merge.row, column, rowSpan, columnSpan, automatic: false });
+  });
+  const repeatedFields = new Set<string>();
+  repeated.forEach((rule, index) => {
+    const field = label(rule.field, `$.mark.options.mergeRepeats[${index}].field`);
+    if (repeatedFields.has(field)) {
+      throw new GraflumeError('INVALID_SPEC', `Duplicate repeated-value merge field "${field}".`, {
+        path: `$.mark.options.mergeRepeats[${index}].field`,
+      });
+    }
+    repeatedFields.add(field);
+    const column = columns.indexOf(field);
+    if (column < 0) {
+      throw new GraflumeError(
+        'INVALID_SPEC',
+        `Repeated-value merge field "${field}" is not a visible table column.`,
+        { path: `$.mark.options.mergeRepeats[${index}].field` },
+      );
+    }
+    let start = 0;
+    while (start < rows.length) {
+      const value = rows[start]![field];
+      let end = start + 1;
+      while (end < rows.length && Object.is(rows[end]![field], value)) end += 1;
+      if (
+        end - start > 1 &&
+        (rule.includeNull === true || (value !== null && value !== undefined))
+      ) {
+        merges.push({
+          row: start,
+          column,
+          rowSpan: end - start,
+          columnSpan: 1,
+          automatic: true,
+        });
+      }
+      start = end;
+    }
+  });
+  if (merges.length > maximumTableMerges) {
+    throw new GraflumeError(
+      'INVALID_SPEC',
+      `Resolved table merges are limited to ${maximumTableMerges} regions.`,
+    );
+  }
+  const occupied = new Map<string, number>();
+  merges.forEach((merge, mergeIndex) => {
+    const crossesFrozenRows = merge.row < frozenRows && merge.row + merge.rowSpan > frozenRows;
+    const crossesFrozenColumns =
+      merge.column < frozenColumns && merge.column + merge.columnSpan > frozenColumns;
+    if (crossesFrozenRows || crossesFrozenColumns) {
+      throw new GraflumeError(
+        'INVALID_SPEC',
+        'A table merge cannot cross a frozen row or column boundary.',
+        { path: '$.mark.options.merges' },
+      );
+    }
+    for (let row = merge.row; row < merge.row + merge.rowSpan; row += 1) {
+      for (let column = merge.column; column < merge.column + merge.columnSpan; column += 1) {
+        const key = tableMergeCellKey(row, column);
+        if (occupied.has(key)) {
+          throw new GraflumeError(
+            'INVALID_SPEC',
+            `Table merge ${mergeIndex} overlaps another merged region at row ${row}, column ${column}.`,
+            { path: '$.mark.options.merges' },
+          );
+        }
+        occupied.set(key, mergeIndex);
+      }
+    }
+  });
+  return merges;
+}
+
+function expandTableWindowForMerges(
+  visible: readonly number[],
+  merges: readonly ResolvedTableMerge[],
+  axis: 'row' | 'column',
+): readonly number[] {
+  const expanded = new Set(visible);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const merge of merges) {
+      const start = merge[axis];
+      const span = axis === 'row' ? merge.rowSpan : merge.columnSpan;
+      const intersects = Array.from({ length: span }, (_, index) => start + index).some((index) =>
+        expanded.has(index),
+      );
+      if (!intersects) continue;
+      for (let index = start; index < start + span; index += 1) {
+        if (!expanded.has(index)) {
+          expanded.add(index);
+          changed = true;
+        }
+      }
+    }
+  }
+  return [...expanded].sort((left, right) => left - right);
+}
+
 /** Applies filter→group/pivot→sort→two-dimensional virtual windows with frozen regions. */
 export function buildTableModel(
   rows: readonly Readonly<Record<string, unknown>>[],
@@ -645,23 +867,39 @@ export function buildTableModel(
   const totalRows = output.length;
   const offset = clamp(Math.floor(options.window?.offset ?? 0), 0, totalRows);
   const limit = clamp(Math.floor(options.window?.limit ?? totalRows), 0, 100_000);
-  const columns = [
+  const availableColumns = [
     ...new Set([
       ...schemaColumns,
       ...output.flatMap((row) => Object.keys(row).filter((field) => !field.startsWith('__'))),
     ]),
   ];
+  const columns =
+    options.columns === undefined
+      ? availableColumns
+      : [...new Set(options.columns)].filter((field) => availableColumns.includes(field));
   const frozenRows = clamp(Math.floor(options.frozenRows ?? 0), 0, totalRows);
   const frozenColumns = clamp(Math.floor(options.frozenColumns ?? 0), 0, columns.length);
-  const visibleIndices = [
-    ...new Set([
-      ...Array.from({ length: frozenRows }, (_, index) => index),
-      ...Array.from(
-        { length: Math.max(0, Math.min(totalRows, offset + limit) - offset) },
-        (_, index) => offset + index,
-      ),
-    ]),
-  ];
+  const merges = resolveTableMerges(
+    output,
+    columns,
+    frozenRows,
+    frozenColumns,
+    options.merges,
+    options.mergeRepeats,
+  );
+  const visibleIndices = expandTableWindowForMerges(
+    [
+      ...new Set([
+        ...Array.from({ length: frozenRows }, (_, index) => index),
+        ...Array.from(
+          { length: Math.max(0, Math.min(totalRows, offset + limit) - offset) },
+          (_, index) => offset + index,
+        ),
+      ]),
+    ],
+    merges,
+    'row',
+  );
   const rowEntries = visibleIndices.map((index) => ({
     row: output[index]!,
     index,
@@ -669,17 +907,30 @@ export function buildTableModel(
   }));
   const columnOffset = clamp(Math.floor(options.columnWindow?.offset ?? 0), 0, columns.length);
   const columnLimit = clamp(Math.floor(options.columnWindow?.limit ?? columns.length), 0, 10_000);
-  const visibleColumnIndices = [
-    ...new Set([
-      ...Array.from({ length: frozenColumns }, (_, index) => index),
-      ...Array.from(
-        {
-          length: Math.max(0, Math.min(columns.length, columnOffset + columnLimit) - columnOffset),
-        },
-        (_, index) => columnOffset + index,
-      ),
-    ]),
-  ];
+  const visibleRowSet = new Set(visibleIndices);
+  const mergesInVisibleRows = merges.filter((merge) =>
+    Array.from({ length: merge.rowSpan }, (_, index) => merge.row + index).some((row) =>
+      visibleRowSet.has(row),
+    ),
+  );
+  const visibleColumnIndices = expandTableWindowForMerges(
+    [
+      ...new Set([
+        ...Array.from({ length: frozenColumns }, (_, index) => index),
+        ...Array.from(
+          {
+            length: Math.max(
+              0,
+              Math.min(columns.length, columnOffset + columnLimit) - columnOffset,
+            ),
+          },
+          (_, index) => columnOffset + index,
+        ),
+      ]),
+    ],
+    mergesInVisibleRows,
+    'column',
+  );
   const columnEntries = visibleColumnIndices.map((index) => ({
     field: columns[index]!,
     index,
@@ -687,9 +938,11 @@ export function buildTableModel(
   }));
   return {
     rows: rowEntries.map(({ row }) => row),
+    allRows: output,
     rowEntries,
     columns,
     columnEntries,
+    merges,
     totalRows,
     totalColumns: columns.length,
     window: { offset, limit, end: Math.min(totalRows, offset + limit) },

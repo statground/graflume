@@ -1,4 +1,5 @@
 import { nodeBase } from '../scene/factory.js';
+import { safeDateTimeFormatter, temporalTimestamp } from '../format/temporal.js';
 import type { LineNode, SceneNode, TextNode } from '../scene/types.js';
 import type { Scale, Tick } from '../scale/types.js';
 import type {
@@ -151,23 +152,14 @@ function text(
 
 function explicitTickLabel(value: number | string, scale: Scale, locale?: string): string {
   if (scale.kind === 'time' || scale.kind === 'utc') {
-    const date = new Date(typeof value === 'number' ? value : Date.parse(value));
-    if (Number.isFinite(date.getTime())) {
-      try {
-        return new Intl.DateTimeFormat(locale, {
-          year: 'numeric',
-          month: 'short',
-          day: 'numeric',
-          ...(scale.kind === 'utc' ? { timeZone: 'UTC' } : {}),
-        }).format(date);
-      } catch {
-        return new Intl.DateTimeFormat(undefined, {
-          year: 'numeric',
-          month: 'short',
-          day: 'numeric',
-          ...(scale.kind === 'utc' ? { timeZone: 'UTC' } : {}),
-        }).format(date);
-      }
+    const timestamp = temporalTimestamp(value, true);
+    if (timestamp !== null) {
+      return safeDateTimeFormatter(locale, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        ...(scale.kind === 'utc' ? { timeZone: 'UTC' } : {}),
+      }).format(new Date(timestamp));
     }
   }
   if (!['band', 'point', 'ordinal'].includes(scale.kind) && typeof value === 'number') {

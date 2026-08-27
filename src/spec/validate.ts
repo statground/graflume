@@ -1,4 +1,5 @@
 import { GraflumeError } from '../core/errors.js';
+import { temporalTimestamp } from '../format/temporal.js';
 import { curveNames } from '../curve/registry.js';
 import { seriesStackModes } from '../data/series-stack.js';
 import {
@@ -32,13 +33,24 @@ export interface SpecIssue {
 }
 
 const UNSAFE_FIELDS = new Set(['__proto__', 'prototype', 'constructor']);
-const TOOLTIP_FORMATS = new Set(['auto', 'number', 'integer', 'percent', 'date', 'datetime']);
+const TOOLTIP_FORMATS = new Set([
+  'auto',
+  'number',
+  'integer',
+  'percent',
+  'date',
+  'time',
+  'datetime',
+]);
 const TOOLTIP_KEYS = new Set(['trigger', 'axis', 'title', 'fields']);
 const TOOLTIP_FIELD_KEYS = new Set([
   'field',
   'label',
   'format',
   'fractionDigits',
+  'dateStyle',
+  'timeStyle',
+  'timeZone',
   'prefix',
   'suffix',
 ]);
@@ -433,7 +445,7 @@ const AXIS_FONT_STYLES = new Set(['normal', 'italic']);
 const AXIS_NOTATIONS = new Set(['standard', 'compact', 'scientific', 'engineering']);
 const AXIS_CURRENCY_DISPLAYS = new Set(['symbol', 'narrowSymbol', 'code', 'name']);
 const AXIS_DATE_STYLES = new Set(['short', 'medium', 'long', 'full']);
-const AXIS_TIME_STYLES = new Set(['short', 'medium', 'long']);
+const AXIS_TIME_STYLES = new Set(['short', 'medium', 'long', 'full']);
 const THEME_CONTINUOUS_INTERPOLATIONS = new Set(['step', 'rgb', 'lab']);
 const THEME_SERIES_COLOR_MODES = new Set(['theme', 'series']);
 const THEME_PIE_DIRECTIONS = new Set(['clockwise', 'counterclockwise']);
@@ -1012,7 +1024,7 @@ function validateScale(value: unknown, path: string, issues: SpecIssue[]): void 
       value.domain.some(
         (entry) =>
           typeof entry !== 'number' &&
-          (typeof entry !== 'string' || !Number.isFinite(Date.parse(entry))),
+          (typeof entry !== 'string' || temporalTimestamp(entry, true) === null),
       )
     ) {
       issues.push({
@@ -1096,14 +1108,10 @@ function validateScale(value: unknown, path: string, issues: SpecIssue[]): void 
       (type === 'time' || type === 'utc') &&
       value.domain.length === 2 &&
       value.domain
-        .map((entry) => (typeof entry === 'number' ? entry : Date.parse(String(entry))))
+        .map((entry) => temporalTimestamp(entry as number | string, true) ?? Number.NaN)
         .every(Number.isFinite) &&
-      (typeof value.domain[0] === 'number'
-        ? value.domain[0]
-        : Date.parse(String(value.domain[0]))) ===
-        (typeof value.domain[1] === 'number'
-          ? value.domain[1]
-          : Date.parse(String(value.domain[1])))
+      temporalTimestamp(value.domain[0] as number | string, true) ===
+        temporalTimestamp(value.domain[1] as number | string, true)
     ) {
       issues.push({
         path: `${path}.domain`,
@@ -2661,6 +2669,35 @@ function validateTooltipField(value: unknown, path: string, issues: SpecIssue[])
     issues.push({
       path: `${path}.fractionDigits`,
       message: 'Tooltip fractionDigits must be an integer from 0 to 6.',
+    });
+  }
+  if (
+    value.dateStyle !== undefined &&
+    (typeof value.dateStyle !== 'string' ||
+      !['short', 'medium', 'long', 'full'].includes(value.dateStyle))
+  ) {
+    issues.push({
+      path: `${path}.dateStyle`,
+      message: 'Tooltip dateStyle must be "short", "medium", "long", or "full".',
+    });
+  }
+  if (
+    value.timeStyle !== undefined &&
+    (typeof value.timeStyle !== 'string' ||
+      !['short', 'medium', 'long', 'full'].includes(value.timeStyle))
+  ) {
+    issues.push({
+      path: `${path}.timeStyle`,
+      message: 'Tooltip timeStyle must be "short", "medium", "long", or "full".',
+    });
+  }
+  if (
+    value.timeZone !== undefined &&
+    (typeof value.timeZone !== 'string' || value.timeZone.trim() === '')
+  ) {
+    issues.push({
+      path: `${path}.timeZone`,
+      message: 'Tooltip timeZone must be a non-empty string.',
     });
   }
   for (const key of ['prefix', 'suffix'] as const) {

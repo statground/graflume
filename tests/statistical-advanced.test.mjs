@@ -363,7 +363,7 @@ test('candlestick compiler aggregates OHLCV, separates sessions, uses a gapless 
   assert.equal(navigatedBodies.length, 2);
   assert.deepEqual(
     tradingAxis.ticks(10).map(({ value }) => value),
-    navigatedBodies.map(({ datum }) => datum.tooltip.time),
+    navigatedBodies.map(({ datum }) => datum.tooltip.time.getTime()),
   );
   assert.ok(
     navigatedBodies.every(
@@ -375,9 +375,10 @@ test('candlestick compiler aggregates OHLCV, separates sessions, uses a gapless 
     Math.abs(tradingAxis.range()[1] - tradingAxis.range()[0]) / 2,
   );
   assert.deepEqual(tradingAxis.domain(), [
-    navigatedBodies[0].datum.tooltip.time,
-    navigatedBodies[1].datum.tooltip.time,
+    navigatedBodies[0].datum.tooltip.time.getTime(),
+    navigatedBodies[1].datum.tooltip.time.getTime(),
   ]);
+  assert.ok(navigatedBodies.every(({ datum }) => typeof datum.datum.time === 'number'));
 });
 
 test('difference compiler aligns baseline/comparison, applies percentage policy, and inserts exact crossings', () => {
@@ -420,7 +421,7 @@ test('difference compiler aligns baseline/comparison, applies percentage policy,
   );
   assert.equal(temporalPoints.length, 3);
   assert.equal(
-    temporalPoints.find(({ datum }) => datum.tooltip.crossing).datum.tooltip.key,
+    temporalPoints.find(({ datum }) => datum.tooltip.crossing).datum.tooltip.key.getTime(),
     Date.parse('2026-01-02'),
   );
 
@@ -660,13 +661,11 @@ test('line compiler enforces duplicate and implicit sort policy while retaining 
   const canonicalPoints = flattenScene(canonical.scene.root).filter(({ id }) =>
     id.includes(':ordered-line-point:'),
   );
-  assert.deepEqual(
-    canonicalPoints.map(({ datum }) => [datum.tooltip.key, datum.tooltip.value]),
-    [
-      [instant, 3],
-      [Date.parse('2026-01-02T00:00:00.000Z'), 2],
-    ],
-  );
+  assert.equal(canonicalPoints[0].datum.tooltip.key.getTime(), instant);
+  assert.equal(canonicalPoints[0].datum.tooltip.value, 3);
+  assert.equal(canonicalPoints[1].datum.tooltip.key, '2026-01-02T00:00:00.000Z');
+  assert.equal(canonicalPoints[1].datum.tooltip.value, 2);
+  assert.ok(canonicalPoints.every(({ datum }) => typeof datum.datum.key === 'number'));
   assert.equal(canonicalPoints[0].datum.tooltip.sourceRows, '0, 1, 2');
 });
 

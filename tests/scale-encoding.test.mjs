@@ -196,6 +196,54 @@ test('portable temporal encodings default to UTC while explicit time remains loc
   }
 });
 
+test('temporal domains and mapping parse zone-less ISO datetimes as portable UTC', () => {
+  const previous = process.env.TZ;
+  process.env.TZ = 'America/Los_Angeles';
+  try {
+    const start = Date.UTC(2026, 7, 28, 1);
+    const end = Date.UTC(2026, 7, 28, 3);
+    for (const type of ['time', 'utc']) {
+      const scale = createPositionScale(
+        {
+          type,
+          domain: ['2026-08-28T01:00:00', '2026-08-28T03:00:00'],
+          nice: false,
+        },
+        { type, domain: [start, end], range: [0, 100] },
+      );
+      assert.deepEqual(scale.domain(), [start, end]);
+      assert.equal(scale.map('2026-08-28T02:00:00'), 50);
+      assert.doesNotThrow(() => scale.ticks(2, 'invalid_locale'));
+    }
+
+    const compiled = compile({
+      data: [
+        { timestamp: '2026-08-28T01:00:00', value: 1 },
+        { timestamp: '2026-08-28T03:00:00', value: 2 },
+      ],
+      mark: 'line',
+      x: {
+        field: 'timestamp',
+        type: 'temporal',
+        scale: { type: 'utc', nice: false },
+      },
+      y: { field: 'value', type: 'quantitative' },
+    });
+    assert.deepEqual(compiled.coordinates.axes.x.domain(), [start, end]);
+    assert.throws(
+      () =>
+        createPositionScale(
+          { type: 'utc', domain: ['not-a-date', 'still-not-a-date'], nice: false },
+          { type: 'utc', domain: [start, end], range: [0, 100] },
+        ),
+      /finite numbers/,
+    );
+  } finally {
+    if (previous === undefined) delete process.env.TZ;
+    else process.env.TZ = previous;
+  }
+});
+
 test('scale constraints and out-of-bounds policies fail explicitly', () => {
   assert.throws(
     () => createPositionScale({ type: 'log' }, { type: 'log', domain: [0, 10], range: [0, 1] }),

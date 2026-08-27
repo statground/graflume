@@ -449,6 +449,45 @@ test('table compiler uses locale-aware built-ins, host formatters, and rejects u
   );
 });
 
+test('table compiler formats epoch milliseconds with authored temporal style and time zone', () => {
+  const observedAt = Date.UTC(2026, 6, 15, 4, 30, 0);
+  const { scene } = compile({
+    locale: 'ko-KR',
+    data: [{ id: 'event-1', observedAt }],
+    mark: {
+      type: 'table',
+      options: {
+        columns: [
+          'id',
+          {
+            field: 'observedAt',
+            formatter: 'datetime',
+            dateStyle: 'long',
+            timeStyle: 'short',
+            timeZone: 'Asia/Seoul',
+          },
+        ],
+      },
+    },
+    x: { field: 'id', type: 'nominal' },
+    y: { field: 'observedAt', type: 'temporal' },
+  });
+  const cell = flattenScene(scene.root).find(
+    ({ datum }) =>
+      datum?.familyInteraction?.kind === 'table-cell' &&
+      datum.familyInteraction.field === 'observedAt',
+  );
+  assert.equal(
+    cell.datum.tooltip.formatted,
+    new Intl.DateTimeFormat('ko-KR', {
+      dateStyle: 'long',
+      timeStyle: 'short',
+      timeZone: 'Asia/Seoul',
+    }).format(new Date(observedAt)),
+  );
+  assert.equal(cell.datum.datum.observedAt, observedAt);
+});
+
 test('table compiler pivots matrix rows before rendering', () => {
   const { scene } = compile({
     data: [
@@ -469,6 +508,351 @@ test('table compiler pivots matrix rows before rendering', () => {
   const cells = flattenScene(scene.root).filter(({ id }) => id.includes(':table-cell:'));
   assert.ok(cells.some(({ datum }) => datum.tooltip.column === 'Q1' && datum.tooltip.value === 30));
   assert.ok(cells.some(({ datum }) => datum.tooltip.column === 'Q2' && datum.tooltip.value === 20));
+});
+
+test('table compiler restores column and row sizing while supporting closed object column definitions', () => {
+  const { scene } = compile({
+    width: 760,
+    height: 420,
+    data: [
+      {
+        id: 'alpha',
+        value: 900,
+        status: 'Ready',
+        amount: 42,
+        target: 50,
+        trend: [31, 35, 34, 40, 42],
+      },
+      {
+        id: 'beta',
+        value: 700,
+        status: 'Review',
+        amount: 28,
+        target: 44,
+        trend: [34, 32, 30, 31, 28],
+      },
+    ],
+    mark: {
+      type: 'table',
+      options: {
+        headerHeight: 42,
+        rowHeight: 36,
+        cellPadding: 12,
+        grid: { color: '#cbd5e1', width: 1.2 },
+        editing: { key: 'id', commit: 'enter' },
+        columns: [
+          {
+            field: 'id',
+            header: 'Team',
+            width: 240,
+            editable: true,
+            editor: { type: 'text' },
+            validation: { pattern: '^[a-z]{1,24}$' },
+            style: { fontWeight: 700 },
+          },
+          {
+            field: 'status',
+            header: 'State',
+            width: 100,
+            visual: {
+              type: 'status-badge',
+              colors: { Ready: '#047857', Review: '#b45309' },
+            },
+          },
+          {
+            field: 'amount',
+            header: 'Actual',
+            width: 120,
+            align: 'right',
+            formatter: 'integer',
+            editable: true,
+            editor: { type: 'integer' },
+            validation: { required: true, min: 0, max: 100 },
+            visual: { type: 'data-bar', min: 0, max: 100, color: '#4f46e5' },
+          },
+          {
+            field: 'trend',
+            header: 'Trend',
+            width: 150,
+            formatter: 'json',
+            visual: { type: 'sparkline', color: '#0f766e', fill: '#ccfbf1' },
+          },
+          { field: 'target', header: 'Hidden target', visible: false },
+        ],
+      },
+    },
+    x: { field: 'id', type: 'nominal' },
+    y: { field: 'amount', type: 'quantitative' },
+  });
+  const nodes = flattenScene(scene.root);
+  const headers = nodes.filter(({ id }) => id.includes(':table-header:'));
+  const cells = nodes.filter(({ id }) => id.includes(':table-cell:'));
+  assert.equal(headers.length, 4);
+  assert.equal(cells.length, 8);
+  assert.equal(headers[0].height, 42);
+  assert.equal(cells[0].height, 36);
+  assert.ok(headers[0].width > headers[1].width);
+  assert.equal(headers[0].lineWidth, 0);
+  assert.equal(
+    nodes.find(({ id }) => id.includes(':table-grid-header:0:grid-bottom')).lineWidth,
+    1.2,
+  );
+  assert.equal(nodes.find(({ id }) => id.includes(':table-header-label:0')).text, 'Team');
+  assert.ok(!cells.some(({ datum }) => datum.tooltip.column === 'target'));
+  const amount = cells.find(
+    ({ datum }) => datum.tooltip.column === 'amount' && datum.tooltip.row === 0,
+  );
+  assert.equal(amount.datum.datum.id, 'alpha', 'source fields remain available to tooltips');
+  assert.equal(amount.datum.datum.value, 900, 'source fields win generic cell metadata names');
+  assert.equal(
+    amount.datum.tooltip.value,
+    900,
+    'configured tooltips receive the complete source row',
+  );
+  assert.equal(
+    amount.datum.datum.cellValue,
+    42,
+    'cell metadata remains available by reserved name',
+  );
+  assert.equal(amount.datum.datum.editEnabled, true);
+  assert.equal(amount.datum.datum.editCommit, 'enter');
+  assert.equal(amount.datum.datum.editEditorType, 'integer');
+  assert.equal(amount.datum.datum.editKeyField, 'id');
+  assert.equal(amount.datum.datum.editKeyValue, 'alpha');
+  assert.equal(amount.datum.datum.editRequired, true);
+  assert.equal(amount.datum.datum.editMin, 0);
+  assert.equal(amount.datum.datum.editMax, 100);
+  assert.equal(cells[0].datum.datum.editPattern, '^[a-z]{1,24}$');
+  assert.ok(nodes.some(({ id }) => id.includes(':data-bar')));
+  assert.ok(nodes.some(({ id }) => id.includes(':status-badge')));
+  assert.ok(nodes.some(({ id }) => id.endsWith(':sparkline')));
+});
+
+test('table compiler accepts bounded validation patterns and rejects unsafe regular expressions', () => {
+  const base = {
+    data: [{ id: 'SG-2026', amount: 1 }],
+    mark: {
+      type: 'table',
+      options: {
+        columns: [
+          {
+            field: 'id',
+            editable: true,
+            editor: { type: 'text' },
+            validation: { pattern: '^[A-Z]{2}-\\d{4}$' },
+          },
+          'amount',
+        ],
+      },
+    },
+    x: { field: 'id', type: 'nominal' },
+    y: { field: 'amount', type: 'quantitative' },
+  };
+  assert.doesNotThrow(() => compile(base));
+  for (const pattern of ['[', '^a+$', '^(a|b)$', '(a+)+$', '(?=a)a', '(a)\\1', 'a{1,10001}']) {
+    assert.throws(
+      () =>
+        compile({
+          ...base,
+          mark: {
+            ...base.mark,
+            options: {
+              columns: [
+                {
+                  field: 'id',
+                  editable: true,
+                  validation: { pattern },
+                },
+              ],
+            },
+          },
+        }),
+      /bounded safe regular-expression subset/u,
+    );
+  }
+});
+
+test('table compiler applies column, row, cell, and closed conditional styles in deterministic order', () => {
+  const { scene } = compile({
+    width: 640,
+    height: 320,
+    data: [
+      { item: 'Growth', status: 'Healthy', delta: 18, progress: 0.82 },
+      { item: 'Churn', status: 'Risk', delta: -12, progress: 0.31 },
+    ],
+    mark: {
+      type: 'table',
+      options: {
+        columns: [
+          { field: 'item', header: 'Metric' },
+          {
+            field: 'status',
+            visual: {
+              type: 'status-badge',
+              colors: { Healthy: '#047857', Risk: '#be123c' },
+            },
+          },
+          { field: 'delta', visual: { type: 'heatmap', min: -20, max: 20 } },
+          {
+            field: 'progress',
+            formatter: 'percent',
+            visual: { type: 'progress', min: 0, max: 1, color: '#4f46e5' },
+          },
+        ],
+        style: { textColor: '#334155' },
+        columnStyles: { delta: { fill: '#eef2ff' } },
+        rowStyles: [{ row: 1, style: { fill: '#fff7ed' } }],
+        cellStyles: [{ row: 0, field: 'item', style: { fill: '#ecfeff' } }],
+        conditionalFormats: [
+          {
+            target: 'cell',
+            field: 'delta',
+            when: { operator: 'less', value: 0 },
+            style: { fill: '#ffe4e6', textColor: '#9f1239', fontWeight: 700 },
+          },
+          {
+            target: 'row',
+            when: { field: 'status', operator: 'equals', value: 'Risk' },
+            style: { stroke: '#fb7185', lineWidth: 1.5 },
+          },
+        ],
+      },
+    },
+    x: { field: 'item', type: 'nominal' },
+    y: { field: 'delta', type: 'quantitative' },
+  });
+  const nodes = flattenScene(scene.root);
+  const cells = nodes.filter(({ id }) => id.includes(':table-cell:'));
+  const item = cells.find(
+    ({ datum }) => datum.tooltip.row === 0 && datum.tooltip.column === 'item',
+  );
+  const negative = cells.find(
+    ({ datum }) => datum.tooltip.row === 1 && datum.tooltip.column === 'delta',
+  );
+  assert.equal(item.fill, '#ecfeff');
+  assert.equal(negative.fill, '#ffe4e6');
+  assert.equal(negative.stroke, '#fb7185');
+  assert.equal(negative.lineWidth, 1.5);
+  const negativeLabel = nodes.find(({ id }) => id.includes(':table-cell-label:1:2'));
+  assert.equal(negativeLabel.fill, '#9f1239');
+  assert.equal(negativeLabel.fontWeight, 700);
+  assert.ok(nodes.some(({ id }) => id.endsWith(':progress-track')));
+  assert.ok(nodes.some(({ id }) => id.endsWith(':progress')));
+
+  const verticalGrid = flattenScene(
+    compile({
+      width: 480,
+      height: 240,
+      data: [{ item: 'Only', delta: 1 }],
+      mark: {
+        type: 'table',
+        options: { grid: { rows: false, columns: true, width: 2 } },
+      },
+      x: { field: 'item', type: 'nominal' },
+      y: { field: 'delta', type: 'quantitative' },
+    }).scene.root,
+  );
+  assert.ok(verticalGrid.some(({ id }) => id.endsWith(':grid-right')));
+  assert.ok(!verticalGrid.some(({ id }) => id.endsWith(':grid-bottom')));
+});
+
+test('table compiler renders explicit and repeated merges once with anchor span metadata', () => {
+  const { scene } = compile({
+    width: 600,
+    height: 320,
+    data: [
+      { region: 'North', metric: 'Revenue', value: 72 },
+      { region: 'North', metric: 'Margin', value: 48 },
+      { region: 'Summary', metric: 'All metrics', value: 120 },
+    ],
+    mark: {
+      type: 'table',
+      options: {
+        columns: ['region', 'metric', 'value'],
+        rowHeight: 40,
+        mergeRepeats: ['region'],
+        merges: [{ row: 2, column: 'region', columnSpan: 2 }],
+      },
+    },
+    x: { field: 'region', type: 'nominal' },
+    y: { field: 'value', type: 'quantitative' },
+  });
+  const cells = flattenScene(scene.root).filter(({ id }) => id.includes(':table-cell:'));
+  assert.equal(cells.length, 7, 'two covered cells are omitted from the nine-cell grid');
+  const repeated = cells.find(
+    ({ datum }) => datum.tooltip.row === 0 && datum.tooltip.column === 'region',
+  );
+  assert.equal(repeated.height, 80);
+  assert.equal(repeated.datum.datum.merged, true);
+  assert.equal(repeated.datum.datum.rowSpan, 2);
+  assert.equal(repeated.datum.datum.columnSpan, 1);
+  const explicit = cells.find(
+    ({ datum }) => datum.tooltip.row === 2 && datum.tooltip.column === 'region',
+  );
+  const ordinaryWidth = cells.find(
+    ({ datum }) => datum.tooltip.row === 0 && datum.tooltip.column === 'metric',
+  ).width;
+  assert.ok(explicit.width > ordinaryWidth);
+  assert.equal(explicit.datum.datum.columnSpan, 2);
+  assert.ok(
+    !cells.some(({ datum }) => datum.tooltip.row === 1 && datum.tooltip.column === 'region'),
+  );
+  assert.ok(
+    !cells.some(({ datum }) => datum.tooltip.row === 2 && datum.tooltip.column === 'metric'),
+  );
+});
+
+test('table compiler rejects unknown style, visual, condition, and unsafe merge contracts', () => {
+  const base = {
+    data: [
+      { id: 'a', value: 1 },
+      { id: 'b', value: 2 },
+    ],
+    x: { field: 'id', type: 'nominal' },
+    y: { field: 'value', type: 'quantitative' },
+  };
+  assert.throws(
+    () =>
+      compile({
+        ...base,
+        mark: { type: 'table', options: { columns: [{ field: 'id', style: { shadow: 1 } }] } },
+      }),
+    /Unknown table option "shadow"/u,
+  );
+  assert.throws(
+    () =>
+      compile({
+        ...base,
+        mark: {
+          type: 'table',
+          options: { columns: [{ field: 'value', visual: { type: 'meter' } }] },
+        },
+      }),
+    /Unknown table cell visual/u,
+  );
+  assert.throws(
+    () =>
+      compile({
+        ...base,
+        mark: {
+          type: 'table',
+          options: {
+            conditionalFormats: [
+              { when: { operator: 'matches', value: '.*' }, style: { fill: '#ffffff' } },
+            ],
+          },
+        },
+      }),
+    /Unknown table condition/u,
+  );
+  assert.throws(
+    () =>
+      compile({
+        ...base,
+        mark: { type: 'table', options: { merges: [{ row: 0, column: 0, rowSpan: 3 }] } },
+      }),
+    /bounds/u,
+  );
 });
 
 test('polar compiler supports zero/direction/wrap, nonlinear radius, bins, stack, and normalization', () => {

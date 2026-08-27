@@ -150,19 +150,165 @@ Graflume.table('#chart', data, {
 
 ## Portable ChartSpec mapping
 
-`mark.options.columns` is an ordered string array of data fields. Without it, x and y fields are shown.
+Without `mark.options.columns`, the table keeps every source field in first-seen order. A string array remains supported, and each entry can now be a closed object definition:
+
+```js
+mark: {
+  type: 'table',
+  options: {
+    headerHeight: 38,
+    rowHeight: 34,
+    cellPadding: 10,
+    grid: { rows: true, columns: true, color: '#cbd5e1', width: 1 },
+    columns: [
+      { field: 'team', header: 'Team', width: 180, align: 'left' },
+      {
+        field: 'revenue',
+        header: 'Revenue',
+        width: 140,
+        minWidth: 96,
+        maxWidth: 220,
+        align: 'right',
+        formatter: 'number',
+        editable: true,
+        editor: { type: 'number' },
+        validation: { required: true, min: 0 },
+        style: { fontWeight: 700 },
+        visual: { type: 'data-bar', min: 0, color: '#4f46e5' },
+      },
+      { field: 'internalId', visible: false },
+    ],
+  },
+}
+```
+
+The column order is authoritative. `visible: false` removes a column from the compiled table without modifying its source row. Target widths are normalized to the current plot width, while `minWidth` and `maxWidth` bound each column before the responsive fit. `headerHeight` accepts 20–160, `rowHeight` 18–160, and `cellPadding` 0–32 pixels.
 
 The same result can be created with `Graflume.create()` and `mark: { type: 'table' }`. Named `mark.fields` and `mark.options` values are function-free and JSON-serializable, so they remain portable across JavaScript, future Python/R/Java builders, and stored specs.
 
 ## Data, ordering, and missing values
 
-Theme-tinted headers, alternating row surfaces, subtle grid cells, and stronger type hierarchy are compiled to Scene primitives. Rows that fit in the plot are interactive.
+Theme-tinted headers, alternating row surfaces, subtle grid cells, and stronger type hierarchy are compiled to Scene primitives. The compiler derives a safe visible-row limit from `headerHeight`, `rowHeight`, and the plot height; an authored `windowLimit` is still honored up to that physical limit. Large tables therefore retain bounded Scene output.
 
-Rows keep source order unless the compiler must establish a deterministic temporal or hierarchy order. Unsafe field names are rejected, callbacks are forbidden in portable specs, and invalid or unmappable values are skipped rather than evaluated.
+Rows keep source order unless filter, group, pivot, or sort options transform them. Every cell retains the complete source row in its datum and tooltip payload, including fields that are not visible as columns. Grouped and pivoted cells retain the complete derived row. Cell metadata that could conflict with a source name is also available through `tableRow`, `tableColumn`, `tableField`, `cellValue`, and `cellFormatted`.
+
+Unsafe field names are rejected, callbacks are forbidden in portable specs, and invalid or unmappable values are skipped rather than evaluated.
 
 ## Styling and themes
 
-The mark uses shared `fill`, `stroke`, `opacity`, `lineWidth`, `radius`, and `cornerRadius` options where the geometry makes them meaningful. Default colors, text, grid, focus, and palettes come from the active design-token theme and switch at runtime.
+Default colors, text, grid, focus, and palettes come from the active design-token theme and switch at runtime. Table styles use this closed declaration:
+
+```js
+{
+  fill: '#ffffff',
+  textColor: '#0f172a',
+  stroke: '#cbd5e1',
+  lineWidth: 1,
+  fontWeight: 700, // or 'normal' / 'bold'
+  fontStyle: 'italic', // or 'normal'
+  opacity: 1,
+  align: 'right', // left / center / right
+}
+```
+
+Apply it at increasingly specific levels with `style`, a column definition's `style`, `columnStyles`, `rowStyles`, `cellStyles`, and `conditionalFormats`. Later, more specific declarations win:
+
+```js
+mark: {
+  type: 'table',
+  options: {
+    style: { textColor: '#334155' },
+    headerStyle: { fill: '#0f172a', textColor: '#ffffff', fontWeight: 700 },
+    columnStyles: {
+      revenue: { fill: '#eef2ff', align: 'right' },
+    },
+    rowStyles: [
+      { row: 0, style: { fill: '#f8fafc' } },
+    ],
+    cellStyles: [
+      { row: 2, field: 'status', style: { fill: '#fff7ed' } },
+    ],
+    conditionalFormats: [
+      {
+        target: 'cell',
+        field: 'variance',
+        when: { operator: 'less', value: 0 },
+        style: { fill: '#ffe4e6', textColor: '#9f1239', fontWeight: 700 },
+      },
+      {
+        target: 'row',
+        when: { field: 'status', operator: 'equals', value: 'Risk' },
+        style: { stroke: '#fb7185', lineWidth: 1.5 },
+      },
+    ],
+  },
+}
+```
+
+Conditions are data-only and bounded. Supported operators are `equals`, `not-equals`, `contains`, `starts-with`, `ends-with`, `greater`, `greater-or-equal`, `less`, `less-or-equal`, `between`, `in`, `is-null`, and `not-null`. Numeric operators require finite numbers, `between` requires exactly two finite numbers, and `in` accepts 1–128 scalar values. No expression strings, regular expressions, callbacks, raw CSS, or HTML are evaluated.
+
+`grid` can be `true`, `false`, or `{ rows, columns, color, width }`. A cell's explicit `stroke`/`lineWidth` and the focus ring take precedence over the grid token.
+
+## Cell visualizations
+
+Each object column can add one compact, renderer-neutral `visual`. Values remain available as text, so the visual does not replace exact-value or accessible output.
+
+| Type         | Declaration                                                | Behavior                                                                           |
+| ------------ | ---------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Data bar     | `{ type: 'data-bar', min?, max?, color?, negativeColor? }` | Draws a signed in-cell bar from the zero baseline.                                 |
+| Heatmap      | `{ type: 'heatmap', min?, max?, lowColor?, highColor? }`   | Interpolates a cell background across the column extent.                           |
+| Progress     | `{ type: 'progress', min?, max?, color?, trackColor? }`    | Adds a compact progress track while keeping the formatted value visible.           |
+| Sparkline    | `{ type: 'sparkline', color?, fill? }`                     | Draws a line from an array of at least two finite numbers.                         |
+| Status badge | `{ type: 'status-badge', colors, defaultColor? }`          | Maps up to 64 scalar status labels to safe colors and chooses readable badge text. |
+
+When `min` or `max` is omitted, numeric visuals use the transformed column extent. Equal-valued columns receive deterministic padding instead of dividing by zero. Explicit cell fill has precedence over a heatmap background.
+
+## Merged cells
+
+Use `merges` for deliberate rectangular regions and `mergeRepeats` for consecutive equal labels:
+
+```js
+mark: {
+  type: 'table',
+  options: {
+    columns: ['region', 'metric', 'value'],
+    mergeRepeats: ['region'],
+    merges: [
+      { row: 8, column: 'region', columnSpan: 2 },
+      { row: 10, column: 0, rowSpan: 2, columnSpan: 2 },
+    ],
+  },
+}
+```
+
+Merge coordinates are zero-based absolute positions after filter → group/pivot → sort, before virtual slicing. `column` accepts either an absolute visible-column index or a field name. `mergeRepeats` also accepts `{ field, includeNull }`; nulls are not merged unless explicitly enabled.
+
+The compiler rejects one-cell regions, out-of-bounds spans, overlaps, duplicate repeat rules, spans larger than 256 cells, more than 2,048 resolved regions, and any merge crossing a frozen row or column boundary. A virtual window expands just enough to include the complete merge that it intersects, ensuring a covered cell is never rendered without its anchor. Only the anchor emits geometry and carries `anchorRow`, `anchorColumn`, `rowSpan`, and `columnSpan` metadata.
+
+## Locale, date, and time formatting
+
+Built-in formatter ids are `string`, `number`, `integer`, `percent`, `date`, `time`, `datetime`, and `json`. They honor the chart `locale`. Temporal columns accept `Date`, ISO date/datetime strings, and numeric Unix epoch milliseconds directly; numeric values are never converted through `String(number)`.
+
+```js
+columns: [
+  {
+    field: 'observedAt',
+    header: 'Observed (Seoul)',
+    formatter: 'datetime',
+    dateStyle: 'long',
+    timeStyle: 'short',
+    timeZone: 'Asia/Seoul',
+  },
+  {
+    field: 'marketOpen',
+    formatter: 'time',
+    timeStyle: 'medium',
+    timeZone: 'America/New_York',
+  },
+];
+```
+
+`dateStyle` and `timeStyle` accept `short`, `medium`, `long`, or `full`. An invalid locale or time-zone identifier falls back safely and deterministically instead of stopping chart compilation. Hosts compiling with a `RuntimeRegistry` can add a formatter with `registry.registerTableFormatter(id, formatter)` and reference that id from a column's `formatter` or legacy `mark.options.formatters` map. An unknown id is rejected.
 
 ## Interaction and accessibility
 
@@ -195,22 +341,61 @@ chart.setTableRuntimeState('layer-0', {
 chart.on('tablechange', ({ state, reason }) => console.log(state, reason));
 ```
 
-Built-in formatter ids (`string`, `number`, `integer`, `percent`, `date`, `datetime`, and `json`) honor the chart `locale`; date formatters are deterministic in UTC. An unknown id is rejected instead of silently becoming `string`. Hosts compiling with a `RuntimeRegistry` can add a formatter with `registry.registerTableFormatter(id, formatter)` and reference that id from `mark.options.formatters`.
+## Editing, history, and export
+
+Editing is opt-in per column. `editing` can disable the feature globally or declare a stable key and commit policy. Group and pivot results remain read-only because one derived cell can represent multiple source rows.
+
+```js
+mark: {
+  type: 'table',
+  options: {
+    editing: { enabled: true, key: 'id', commit: 'enter-or-blur' },
+    columns: [
+      { field: 'id', editable: false },
+      {
+        field: 'score',
+        editable: true,
+        editor: { type: 'integer' },
+        validation: { required: true, min: 0, max: 100 },
+      },
+      {
+        field: 'status',
+        editable: true,
+        editor: { type: 'select', options: ['Ready', 'Review', 'Blocked'] },
+        validation: { values: ['Ready', 'Review', 'Blocked'] },
+      },
+    ],
+  },
+}
+```
+
+Editors are `text`, `number`, `integer`, `date`, `datetime`, `boolean`, or `select`. A `date` edit accepts only a real `YYYY-MM-DD` calendar date. A `datetime` edit accepts `Date` values or strict ISO datetimes; an ISO datetime without an offset is interpreted as UTC, while a date-only string remains date-only. Locale-dependent strings such as `May 1, 2026` are never passed to `Date.parse`.
+
+Validation supports `required`, `min`, `max`, `minLength`, `maxLength`, `pattern`, and a bounded scalar `values` allowlist. `pattern` is a Unicode regular expression of at most 256 characters. The safe subset rejects invalid expressions, controls, backreferences, groups, alternation, unbounded quantifiers, nested/repeated quantifiers, excessive quantifier counts, and repetitions above 10,000. Pattern inputs are capped at 4,096 characters before matching. This keeps validation portable and fail-closed; use anchored patterns such as `^[A-Z]{2}-\d{4}$` for identifiers. Double-click or press Enter on an editable cell to open the overlay editor. Esc cancels; `commit` chooses Enter, blur, or both. Invalid edits do not mutate source data and emit a `tableeditchange` reason.
+
+```js
+chart.setTableCellValue('layer-0', { key: 'team-a' }, 'score', 91);
+chart.undoTableEdit('layer-0');
+chart.redoTableEdit('layer-0');
+chart.resetTableData('layer-0');
+
+const currentView = chart.getTableData('layer-0', 'view');
+const sourceRows = chart.getTableData('layer-0', 'source');
+const csv = chart.exportTableCSV('layer-0', 'view');
+const json = chart.exportTableJSON('layer-0', 'source');
+
+chart.on('tableeditchange', ({ row, field, newValue, valid, reason }) => {
+  console.log({ row, field, newValue, valid, reason });
+});
+```
+
+Numeric edit targets are indices in the current filtered/sorted view. A `{ key }` target addresses the unique authored source row even when a runtime filter currently hides it; duplicate keys, group/pivot output, filtered-out rows from authored transforms, and one-to-many or many-to-one lineage fail closed. For an invisible key target, `tableeditchange.row` is the stable source index because no current view index exists.
+
+Compiled source cells expose `sourceRowIndex`, `editEnabled`, editor/validation metadata, and merged-anchor spans for hit testing and semantic integration. The runtime uses immutable source replacement with baseline/current copies and a bounded history of cell patches, rather than retaining a full row snapshot for every edit. Getters and exported rows are defensive copies.
 
 ## Performance profiles
 
-The same `standard`, `large`, `ultra`, and `auto` profiles apply. Complex layout marks currently favor deterministic bounded Scene output; aggregate or filter very large source data before rendering specialized diagrams.
-
-## Current limitations
-
-None remain in the audited P0/current-limitations boundary as of 2026-08-26. The `current-limitations-2026-08-26` implementation moved these former limitations into executable support:
-
-- interactive sort/filter/group/pivot controls
-- virtualization and frozen regions
-- cell-level keyboard grid navigation
-- formatter registry
-
-The separately cataloged P1/P2 research roadmap remains future work and is not presented as current runtime support. Exact implementation and test paths are recorded in [the completion evidence](../../catalog/graflume.current-limitations.evidence.json).
+The same `standard`, `large`, `ultra`, and `auto` profiles apply. Row and column virtualization, merge-aware window expansion, frozen regions, and bounded style/visual rules keep Scene size deterministic. Prefer a transformed view, grouping, filtering, or aggregation when the source contains more rows than a person can productively inspect at once; editing and export can still address the source/view distinction explicitly.
 
 ## Runnable example and regression coverage
 

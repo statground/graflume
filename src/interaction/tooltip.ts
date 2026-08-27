@@ -1,4 +1,5 @@
 import type { HitResult } from './hit-test.js';
+import { formatTemporalValue, inferTemporalDisplayFormat } from '../format/temporal.js';
 import type {
   DataValue,
   NormalizedChartSpec,
@@ -41,10 +42,17 @@ function humanizeField(field: string): string {
 function inferredFormat(
   field: string,
   layer: NormalizedChartSpec['layers'][number] | undefined,
+  hit?: HitResult,
 ): TooltipValueFormat {
-  const encoding: NormalizedEncodingSpec | undefined =
-    layer?.x.field === field ? layer.x : layer?.y.field === field ? layer.y : undefined;
-  return encoding?.type === 'temporal' ? 'date' : 'auto';
+  const encoding: NormalizedEncodingSpec | undefined = layer
+    ? (Object.values(layer.encoding).find((candidate) => candidate.field === field) as
+        NormalizedEncodingSpec | undefined)
+    : undefined;
+  const authored = hit === undefined ? undefined : datumValue(hit, field);
+  const inferred = inferTemporalDisplayFormat(authored);
+  if (encoding?.type === 'temporal') return inferred ?? 'datetime';
+  // A finite number is not temporal evidence: 42 must stay 42, not January 1970.
+  return authored instanceof Date || typeof authored === 'string' ? (inferred ?? 'auto') : 'auto';
 }
 
 function inferredFields(
@@ -58,7 +66,10 @@ function inferredFields(
     fields.set(field, {
       field,
       label: label ?? humanizeField(field),
-      format: inferredFormat(field, layer),
+      format: inferredFormat(field, layer, hit),
+      dateStyle: 'medium',
+      timeStyle: 'short',
+      timeZone: 'UTC',
       prefix: '',
       suffix: '',
     });
@@ -94,32 +105,6 @@ function numberFormatter(
   }
 }
 
-function dateFormatter(
-  locale: string | undefined,
-  options: Intl.DateTimeFormatOptions,
-): Intl.DateTimeFormat {
-  try {
-    return new Intl.DateTimeFormat(locale, options);
-  } catch {
-    return new Intl.DateTimeFormat(undefined, options);
-  }
-}
-
-function dateOnlyValue(value: DataValue): Date | null {
-  if (typeof value !== 'string') return null;
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (match === null) return null;
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  return date.getUTCFullYear() === year &&
-    date.getUTCMonth() === month - 1 &&
-    date.getUTCDate() === day
-    ? date
-    : null;
-}
-
 function formatValue(
   value: DataValue,
   field: NormalizedTooltipFieldSpec,
@@ -129,17 +114,18 @@ function formatValue(
   const fractionDigits = finiteFractionDigits(field.fractionDigits);
   let formatted: string;
 
-  if (field.format === 'date' || field.format === 'datetime') {
-    const dateOnly = field.format === 'date' ? dateOnlyValue(value) : null;
-    const date = dateOnly ?? (value instanceof Date ? value : new Date(String(value)));
-    formatted = Number.isFinite(date.getTime())
-      ? dateFormatter(
-          locale,
-          field.format === 'datetime'
-            ? { dateStyle: 'medium', timeStyle: 'short' }
-            : { dateStyle: 'medium', ...(dateOnly === null ? {} : { timeZone: 'UTC' }) },
-        ).format(date)
-      : String(value);
+  if (field.format === 'date' || field.format === 'time' || field.format === 'datetime') {
+    formatted =
+      formatTemporalValue(
+        value,
+        {
+          type: field.format,
+          dateStyle: field.dateStyle,
+          timeStyle: field.timeStyle,
+          timeZone: field.timeZone,
+        },
+        locale,
+      ) ?? String(value);
   } else if (typeof value === 'number' && Number.isFinite(value)) {
     const options: Intl.NumberFormatOptions =
       field.format === 'percent'
@@ -162,12 +148,12 @@ function formatValue(
 }
 
 function datumValue(hit: HitResult, field: string): DataValue {
-  if (hit.tooltip !== undefined) return hit.tooltip[field];
+  if (hit.tooltip !== undefined && hasOwn(hit.tooltip, field)) return hit.tooltip[field];
   return hit.datum[field];
 }
 
 function hasDatumValue(hit: HitResult, field: string): boolean {
-  return hit.tooltip === undefined ? hasOwn(hit.datum, field) : hasOwn(hit.tooltip, field);
+  return hasOwn(hit.tooltip ?? {}, field) || hasOwn(hit.datum, field);
 }
 
 export function resolveTooltipContent(hit: HitResult, spec: NormalizedChartSpec): TooltipContent {
@@ -178,10 +164,8 @@ export function resolveTooltipContent(hit: HitResult, spec: NormalizedChartSpec)
   const rows = fields
     .filter((field) => hasDatumValue(hit, field.field))
     .map((field) => {
-      const format =
-        field.format === 'auto' && inferredFormat(field.field, layer) === 'date'
-          ? 'date'
-          : field.format;
+      const inferred = inferredFormat(field.field, layer, hit);
+      const format = field.format === 'auto' && inferred !== 'auto' ? inferred : field.format;
       const resolvedField = format === field.format ? field : { ...field, format };
       return {
         field: field.field,
