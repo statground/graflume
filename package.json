@@ -111,6 +111,6 @@
     "rollup": "^4.62.4",
     "terser": "^5.49.2",
     "tslib": "^2.8.1",
-    "typescript": "^5.8.3"
+    "typescript": "^7.0.2"
   }
 }
