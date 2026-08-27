@@ -21668,9 +21668,9 @@ var Graflume = (function (exports) {
             ? undefined
             : mapScopeProperty(candidate.parentProperty, `${path}.parentProperty`);
         const parentValues = candidate.parentValues === undefined
-            ? Object.freeze([])
+            ? undefined
             : mapScopeValues(candidate.parentValues, `${path}.parentValues`);
-        if ((parentProperty === undefined) !== (parentValues.length === 0))
+        if ((parentProperty === undefined) !== (parentValues === undefined))
             throw new GraflumeError('INVALID_SPEC', `${path}.parentProperty and ${path}.parentValues must be provided together.`, { path });
         const caseSensitive = candidate.caseSensitive ?? false;
         if (typeof caseSensitive !== 'boolean')
@@ -21691,8 +21691,7 @@ var Graflume = (function (exports) {
             level,
             property,
             values,
-            ...(parentProperty === undefined ? {} : { parentProperty }),
-            parentValues,
+            ...(parentProperty === undefined ? {} : { parentProperty, parentValues: parentValues }),
             caseSensitive,
             unmatched,
             empty,
@@ -21723,7 +21722,7 @@ var Graflume = (function (exports) {
     function scopeGeoJsonFeatures(collection, scopeInput) {
         const scope = normalizeMapFeatureScope(scopeInput);
         const requested = requestedMapScopeKeys(scope.values, scope.caseSensitive);
-        const requestedParents = requestedMapScopeKeys(scope.parentValues, scope.caseSensitive);
+        const requestedParents = requestedMapScopeKeys(scope.parentValues ?? [], scope.caseSensitive);
         const matched = new Set();
         const matchedParents = new Set();
         const features = collection.features.filter((feature) => {
