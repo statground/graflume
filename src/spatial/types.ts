@@ -61,6 +61,24 @@ export interface SpatialControlLabels {
 }
 
 export interface SpatialControlsSpec {
+  /** Show the orbit-mode button. Omitted preserves the historical visible default. */
+  readonly orbit?: boolean;
+  /** Show the pan-mode button. Omitted preserves the historical visible default. */
+  readonly pan?: boolean;
+  /** Group visibility default for both zoom buttons. */
+  readonly zoom?: boolean;
+  /** Override visibility of the zoom-in button. */
+  readonly zoomIn?: boolean;
+  /** Override visibility of the zoom-out button. */
+  readonly zoomOut?: boolean;
+  /** Show the camera reset button. */
+  readonly reset?: boolean;
+  /** Show the perspective/orthographic projection toggle. */
+  readonly projection?: boolean;
+  /** Show the browser fullscreen button. */
+  readonly fullscreen?: boolean;
+  /** Show the PNG export button. */
+  readonly export?: boolean;
   readonly annotations?: boolean;
 }
 

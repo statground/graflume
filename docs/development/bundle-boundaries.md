@@ -117,3 +117,23 @@ raw minified artifacts remain the enforced gate.
 When an entry grows, run the graph boundary check first. Raise a budget only when the remaining
 increase is attributable to required reachable behavior or public API, then record the measured
 bytes and rationale in the release change record.
+
+## 2026-08-27 control-visibility audit
+
+Canvas now removes its compact toolbar when no requested menu can actually render. Spatial adds a
+closed, portable visibility contract for orbit, pan, grouped and per-direction zoom, reset,
+projection, fullscreen, PNG export, and annotations; an all-hidden configuration likewise creates
+no toolbar. The shared Canvas guard adds 175 raw bytes to the default and complete bundles. The
+Spatial schema, validation, resolution, and live `setSpec()` structure synchronization add 701 raw
+bytes to the independent Spatial bundle. The existing entry-boundary verifier confirms that this
+does not introduce cross-entry implementation imports.
+
+| Browser file               |    Raw minified | GNU gzip `-9` |                  Raw budget |  Headroom |
+| -------------------------- | --------------: | ------------: | --------------------------: | --------: |
+| `graflume.min.js`          | 1,127,084 bytes | 327,620 bytes | 1,101 KiB (1,127,424 bytes) | 340 bytes |
+| `graflume.complete.min.js` | 1,324,308 bytes | 384,236 bytes | 1,294 KiB (1,325,056 bytes) | 748 bytes |
+| `graflume.spatial.min.js`  |   397,648 bytes | 123,779 bytes |     389 KiB (398,336 bytes) | 688 bytes |
+
+The Spatial ceiling moves by one whole KiB because the new menu-level public API is required
+runtime behavior. All three ceilings remain below one KiB of raw headroom; compressed sizes remain
+transfer evidence rather than the gate.

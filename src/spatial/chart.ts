@@ -2114,7 +2114,9 @@ export class SpatialChart {
     ];
     if (this.#annotationControlVisible())
       definitions.splice(6, 0, ['annotations', labels.hideAnnotations, annotationIcon(true)]);
+    const visible = new Set(this.#visibleControlIds());
     for (const [id, label, graphic] of definitions) {
+      if (!visible.has(id)) continue;
       const button = document.createElement('button');
       button.type = 'button';
       button.dataset.graflumeSpatialControl = id;
@@ -2174,16 +2176,18 @@ export class SpatialChart {
   }
 
   #syncControlStructure(): void {
-    const controlsEnabled = this.#spec.interaction?.controls !== false;
-    if (!controlsEnabled) {
+    const visibleControlIds = this.#visibleControlIds();
+    if (visibleControlIds.length === 0) {
       this.#controls?.remove();
       this.#controls = null;
       this.#controlButtons.clear();
       return;
     }
+    const currentControlIds = [...this.#controlButtons.keys()];
     if (
       this.#controls !== null &&
-      this.#controlButtons.has('annotations') !== this.#annotationControlVisible()
+      (currentControlIds.length !== visibleControlIds.length ||
+        currentControlIds.some((id, index) => id !== visibleControlIds[index]))
     ) {
       this.#controls.remove();
       this.#controls = null;
@@ -2277,6 +2281,34 @@ export class SpatialChart {
 
   #annotationControlVisible(): boolean {
     return this.#annotationControlEnabled() && this.#annotations.length > 0;
+  }
+
+  #visibleControlIds(): string[] {
+    const controls = this.#spec.interaction?.controls;
+    if (controls === false) return [];
+    const visible = (key: keyof Exclude<typeof controls, boolean | undefined>): boolean =>
+      typeof controls !== 'object' || controls[key] !== false;
+    const zoomVisible =
+      typeof controls !== 'object' || controls.zoom === undefined || controls.zoom === true;
+    const ids: string[] = [];
+    if (visible('orbit')) ids.push('orbit');
+    if (visible('pan')) ids.push('pan');
+    if (
+      typeof controls !== 'object' ||
+      (controls.zoomIn === undefined ? zoomVisible : controls.zoomIn)
+    )
+      ids.push('zoom-in');
+    if (
+      typeof controls !== 'object' ||
+      (controls.zoomOut === undefined ? zoomVisible : controls.zoomOut)
+    )
+      ids.push('zoom-out');
+    if (visible('reset')) ids.push('reset');
+    if (visible('projection')) ids.push('projection');
+    if (this.#annotationControlVisible()) ids.push('annotations');
+    if (visible('fullscreen')) ids.push('fullscreen');
+    if (visible('export')) ids.push('png');
+    return ids;
   }
 
   #downloadPng(): void {

@@ -114,6 +114,8 @@ The desktop strip is 30 CSS pixels high and sits 6 pixels from the chart's top a
 
 A control does not enable the underlying capability. Pair zoom/reset controls with exactly one of `navigation` or `domainNavigation`, pair playback controls with a valid `playback` object, and set `controls.annotations: true` to expose callout visibility. The annotation button is omitted while no authored or runtime annotation exists; renderer, browser, or playback controls whose prerequisites are temporarily unavailable remain disabled.
 
+When every requested group is `false`, or annotations are the only requested group and no annotation exists, Graflume omits the toolbar itself. It never leaves an empty control surface over the chart. Adding or removing a runtime annotation creates or removes an annotation-only toolbar as needed.
+
 Fullscreen depends on the browser Fullscreen API and a live DOM target. Graflume requests fullscreen for the renderer overlay host, remeasures and renders at the temporary fullscreen size, and restores the ordinary measured dimensions after exit. PNG export depends on the active renderer exposing `toDataURL()`; the built-in Canvas renderer does, and the built-in control downloads `graflume-chart.png`. The exported image contains the current inspection transform but not DOM overlays such as the toolbar or tooltip. Neither action changes the underlying data specification.
 
 ## Legends, highlights, selection, and callouts

@@ -339,6 +339,15 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "orbit": { "type": "boolean" },
+        "pan": { "type": "boolean" },
+        "zoom": { "type": "boolean" },
+        "zoomIn": { "type": "boolean" },
+        "zoomOut": { "type": "boolean" },
+        "reset": { "type": "boolean" },
+        "projection": { "type": "boolean" },
+        "fullscreen": { "type": "boolean" },
+        "export": { "type": "boolean" },
         "annotations": { "type": "boolean" }
       }
     },

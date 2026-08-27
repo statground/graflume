@@ -422,6 +422,70 @@ test('availability distinguishes ready, context loss, and restored rendering', (
   }
 });
 
+test('spatial controls expose menu visibility and omit an empty toolbar', () => {
+  const environment = installDom(null);
+  try {
+    const target = environment.document.createElement('div');
+    const hiddenControls = {
+      orbit: false,
+      pan: false,
+      zoom: false,
+      reset: false,
+      projection: false,
+      fullscreen: false,
+      export: false,
+      annotations: false,
+    };
+    const chart = createSpatial(
+      target,
+      {
+        interaction: { controls: hiddenControls },
+        layers: [
+          {
+            mark: { type: 'scatter' },
+            data: { positions: [[0, 0, 0]], labels: ['A'] },
+          },
+        ],
+      },
+      { width: 480, height: 320, autoResize: false },
+    );
+    const toolbar = () =>
+      walk(target).find(({ dataset }) => dataset.graflumeSpatialControls === 'true');
+    const controlIds = () =>
+      walk(target)
+        .filter(({ dataset }) => dataset.graflumeSpatialControl !== undefined)
+        .map(({ dataset }) => dataset.graflumeSpatialControl);
+
+    assert.equal(toolbar(), undefined);
+    chart.setSpec({
+      ...chart.getSpec(),
+      interaction: {
+        controls: { ...hiddenControls, zoomIn: true, fullscreen: true },
+      },
+    });
+    assert.notEqual(toolbar(), undefined);
+    assert.deepEqual(controlIds(), ['zoom-in', 'fullscreen']);
+
+    chart.setSpec({
+      ...chart.getSpec(),
+      interaction: {
+        controls: { ...hiddenControls, annotations: true },
+      },
+    });
+    assert.equal(toolbar(), undefined);
+    chart.setAnnotations([
+      { id: 'note', target: { type: 'point', position: [0, 0, 0] }, text: 'Note' },
+    ]);
+    assert.notEqual(toolbar(), undefined);
+    assert.deepEqual(controlIds(), ['annotations']);
+    chart.setAnnotations([]);
+    assert.equal(toolbar(), undefined);
+    chart.destroy();
+  } finally {
+    environment.restore();
+  }
+});
+
 test('spatial legends, projected decorations, selection, and annotation APIs share transient lifecycle', () => {
   const environment = installDom(null);
   try {

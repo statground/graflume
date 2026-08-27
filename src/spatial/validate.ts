@@ -192,7 +192,18 @@ const CONTROL_LABEL_KEYS = new Set([
   'contextLost',
   'unavailable',
 ]);
-const CONTROLS_KEYS = new Set(['annotations']);
+const CONTROLS_KEYS = new Set([
+  'orbit',
+  'pan',
+  'zoom',
+  'zoomIn',
+  'zoomOut',
+  'reset',
+  'projection',
+  'fullscreen',
+  'export',
+  'annotations',
+]);
 const ACCESSIBILITY_KEYS = new Set([
   'description',
   'table',
@@ -1368,8 +1379,10 @@ function validateInteraction(value: unknown, path: string, issues: SpatialSpecIs
   }
   if (interaction.controls !== undefined && typeof interaction.controls !== 'boolean') {
     const controls = closedObject(interaction.controls, `${path}.controls`, CONTROLS_KEYS, issues);
-    if (controls !== undefined)
-      optionalBoolean(controls.annotations, `${path}.controls.annotations`, issues);
+    if (controls !== undefined) {
+      for (const key of CONTROLS_KEYS)
+        optionalBoolean(controls[key], `${path}.controls.${key}`, issues);
+    }
   }
   optionalEnum(interaction.wheel, `${path}.wheel`, new Set(['off', 'modifier', 'always']), issues);
   if (interaction.tooltip !== undefined && typeof interaction.tooltip !== 'boolean') {

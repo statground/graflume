@@ -722,7 +722,20 @@ test('spatial JSON schema is versioned and closes every object declaration', asy
     ),
     ['chart', 'toolbar', 'instructions', 'contextLost', 'unavailable'],
   );
-  assert.equal(schema.$defs.controls.properties.annotations.type, 'boolean');
+  for (const key of [
+    'orbit',
+    'pan',
+    'zoom',
+    'zoomIn',
+    'zoomOut',
+    'reset',
+    'projection',
+    'fullscreen',
+    'export',
+    'annotations',
+  ]) {
+    assert.equal(schema.$defs.controls.properties[key].type, 'boolean');
+  }
   assert.deepEqual(schema.$defs.interaction.properties.controls.oneOf, [
     { type: 'boolean' },
     { $ref: '#/$defs/controls' },
@@ -732,7 +745,7 @@ test('spatial JSON schema is versioned and closes every object declaration', asy
   assert.deepEqual(schema.$defs.controls.additionalProperties, false);
 });
 
-test('spatial annotation controls and localized visibility labels validate portably', () => {
+test('spatial menu visibility and localized annotation labels validate portably', () => {
   const base = {
     interaction: {
       controls: { annotations: true },
@@ -749,11 +762,14 @@ test('spatial annotation controls and localized visibility labels validate porta
   const issues = validateSpatialSpec({
     ...base,
     interaction: {
-      controls: { annotations: 'yes', html: true },
+      controls: { orbit: 'yes', zoomIn: 1, export: [], annotations: 'yes', html: true },
       labels: { showAnnotations: 1, hideAnnotations: () => 'unsafe' },
     },
   });
   const paths = new Set(issues.map(({ path }) => path));
+  assert.ok(paths.has('$.interaction.controls.orbit'));
+  assert.ok(paths.has('$.interaction.controls.zoomIn'));
+  assert.ok(paths.has('$.interaction.controls.export'));
   assert.ok(paths.has('$.interaction.controls.annotations'));
   assert.ok(paths.has('$.interaction.controls.html'));
   assert.ok(paths.has('$.interaction.labels.showAnnotations'));

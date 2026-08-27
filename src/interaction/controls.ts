@@ -199,6 +199,17 @@ function separator(document: Document): HTMLSpanElement {
   return element;
 }
 
+function hasRenderableControl(state: ControlsState): boolean {
+  return (
+    state.spec.zoom ||
+    state.spec.reset ||
+    state.spec.fullscreen ||
+    state.spec.export ||
+    (state.spec.annotations && state.annotationsAvailable) ||
+    state.spec.playback
+  );
+}
+
 export class ControlsController {
   #elements: Elements | null = null;
   #signature = '';
@@ -220,6 +231,10 @@ export class ControlsController {
   };
 
   sync(host: HTMLElement, state: ControlsState, actions: ControlsActions): void {
+    if (!hasRenderableControl(state)) {
+      this.destroy();
+      return;
+    }
     const signature = JSON.stringify({
       zoom: state.spec.zoom,
       reset: state.spec.reset,

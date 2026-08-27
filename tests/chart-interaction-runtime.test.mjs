@@ -757,6 +757,53 @@ test('compact controls share one document stylesheet until the final chart is de
   }
 });
 
+test('compact controls omit the entire toolbar when no menu can be rendered', () => {
+  const environment = installEnvironment();
+  const { registry, target, renderers } = createHarness(environment.document);
+  const spec = {
+    data: [{ category: 'A', value: 10 }],
+    mark: 'point',
+    x: 'category',
+    y: 'value',
+    interaction: { controls: { annotations: true } },
+  };
+  const chart = new Chart(target, spec, registry, {
+    width: 240,
+    height: 160,
+    autoResize: false,
+    adaptive: false,
+  });
+  const toolbar = () =>
+    walk(renderers[0].host).find((element) => element.dataset.graflumeControls === 'true');
+
+  try {
+    assert.equal(toolbar(), undefined);
+    assert.equal(
+      walk(environment.document.documentElement).some(
+        (element) => element.dataset.graflumeControlStyles === 'compact',
+      ),
+      false,
+    );
+    chart.addAnnotation({
+      target: { type: 'datum', rowIndex: 0 },
+      text: 'Visible control',
+    });
+    assert.notEqual(toolbar(), undefined);
+    assert.notEqual(byControl(renderers[0].host, 'annotations'), undefined);
+    chart.setAnnotations([]);
+    assert.equal(toolbar(), undefined);
+    assert.equal(
+      walk(environment.document.documentElement).some(
+        (element) => element.dataset.graflumeControlStyles === 'compact',
+      ),
+      false,
+    );
+  } finally {
+    chart.destroy();
+    environment.restore();
+  }
+});
+
 test('playback keeps its base spec, advances on the core clock, and controls stay accessible', async () => {
   const environment = installEnvironment();
   const { registry, target, renderers } = createHarness(environment.document);
