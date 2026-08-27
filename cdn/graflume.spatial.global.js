@@ -12355,6 +12355,97 @@ void main() {
       );
     }
 
+    function evidenceDigest(value, digest = 2_166_136_261) {
+      if (typeof value === 'number') {
+        invariant(Number.isFinite(value), 'processing evidence numbers must be finite');
+        const normalized = Object.is(value, -0) ? 0 : value;
+        return evidenceDigest(String(normalized), digest);
+      }
+      if (typeof value === 'string') {
+        let output = digest;
+        for (const character of value) {
+          output ^= character.codePointAt(0);
+          output = Math.imul(output, 16_777_619) >>> 0;
+        }
+        return output;
+      }
+      if (typeof value === 'boolean' || value === null) {
+        return evidenceDigest(String(value), digest);
+      }
+      if (Array.isArray(value)) {
+        return value.reduce((output, entry) => evidenceDigest(entry, output), digest);
+      }
+      invariant(
+        value !== null && typeof value === 'object',
+        'logical-row processing must return observable evidence',
+      );
+      let output = digest;
+      for (const [key, entry] of Object.entries(value)) {
+        output = evidenceDigest(key, output);
+        output = evidenceDigest(entry, output);
+      }
+      return output;
+    }
+
+    function processed(data, processing) {
+      return { ...processing, data };
+    }
+
+    /**
+     * Visit every logical input observation exactly once. Generators use this
+     * pass for their real aggregation or sampling work; sourceRows is therefore
+     * measured processing evidence, not only descriptive metadata.
+     */
+    function processLogicalRows(recipe, visitor) {
+      const count = sourceRows(recipe);
+      const boundaryIndices = new Set([0, Math.floor((count - 1) / 2), count - 1]);
+      const boundaryRows = [];
+      let generatedRows = 0;
+      let processedRows = 0;
+      let digest = 2_166_136_261;
+      for (let index = 0; index < count; index += 1) {
+        generatedRows += 1;
+        const contribution = visitor(index);
+        const contributionDigest = evidenceDigest(contribution);
+        const prefixBeforeDigest = digest;
+        digest = hash32(digest ^ contributionDigest ^ Math.imul(index + 1, 0x9e3779b1));
+        processedRows += 1;
+        if (boundaryIndices.has(index)) {
+          boundaryRows.push({
+            index,
+            contributionDigest: contributionDigest.toString(16).padStart(8, '0'),
+            prefixBeforeDigest: prefixBeforeDigest.toString(16).padStart(8, '0'),
+            prefixDigest: digest.toString(16).padStart(8, '0'),
+          });
+        }
+      }
+      return {
+        generatedRows,
+        processedRows,
+        processingEvidence: {
+          algorithm: 'logical-row-fnv1a32-v1',
+          digest: digest.toString(16).padStart(8, '0'),
+          boundaryRows,
+        },
+      };
+    }
+
+    function sampledLogicalRows(recipe, maximumRows, rowForIndex) {
+      const count = sourceRows(recipe);
+      const selected = evenlySpacedIndices(count, Math.min(count, maximumRows));
+      const rows = [];
+      let selectionIndex = 0;
+      const processing = processLogicalRows(recipe, (index) => {
+        const row = rowForIndex(index, count);
+        if (index === selected[selectionIndex]) {
+          rows.push(row);
+          selectionIndex += 1;
+        }
+        return row;
+      });
+      return processed(rows, processing);
+    }
+
     function evenlySpacedIndices(length, count) {
       if (count >= length) return Array.from({ length }, (_, index) => index);
       if (count <= 1) return [Math.floor((length - 1) / 2)];
@@ -12394,21 +12485,45 @@ void main() {
       const points = Math.max(seriesCount, materializationLimit(recipe, preferredPoints));
       const perSeries = Math.max(1, Math.floor(points / seriesCount));
       const daySpan = integer(parameter(recipe, 'dateCycleDays', 731), 731, 2, 100_000) - 1;
+      const source = sourceRows(recipe);
+      const bins = Array.from({ length: seriesCount * perSeries }, () => ({
+        count: 0,
+        value: 0,
+        target: 0,
+        previous: 0,
+        progress: 0,
+      }));
+      const processing = processLogicalRows(recipe, (sourceIndex) => {
+        const series = sourceIndex % seriesCount;
+        const observationIndex = Math.floor(sourceIndex / seriesCount);
+        const observationsInSeries = Math.ceil((source - series) / seriesCount);
+        const progress = observationsInSeries <= 1 ? 0 : observationIndex / (observationsInSeries - 1);
+        const season = Math.sin(progress * Math.PI * 8 + series * 0.8) * (10 + series * 2);
+        const longWave = Math.sin(progress * Math.PI * 2.2 + 0.4) * 7;
+        const incident = Math.exp(-((progress - 0.72) ** 2) / 0.0028) * 22;
+        const value =
+          58 +
+          series * 9 +
+          progress * 30 +
+          season +
+          longWave +
+          incident +
+          signed(recipe.seed, sourceIndex, series) * 2.4;
+        const binIndex = Math.min(perSeries - 1, Math.floor(progress * perSeries));
+        const bin = bins[series * perSeries + binIndex];
+        bin.count += 1;
+        bin.value += value;
+        bin.target += 70 + progress * 22 + series * 6;
+        bin.previous += value - 4 - Math.sin(progress * 9) * 3;
+        bin.progress += progress;
+        return { series, binIndex, progress, value };
+      });
       const rows = [];
       for (let series = 0; series < seriesCount; series += 1) {
         for (let index = 0; index < perSeries; index += 1) {
-          const progress = perSeries <= 1 ? 0 : index / (perSeries - 1);
-          const season = Math.sin(progress * Math.PI * 8 + series * 0.8) * (10 + series * 2);
-          const longWave = Math.sin(progress * Math.PI * 2.2 + 0.4) * 7;
-          const incident = Math.exp(-((progress - 0.72) ** 2) / 0.0028) * 22;
-          const value =
-            58 +
-            series * 9 +
-            progress * 30 +
-            season +
-            longWave +
-            incident +
-            signed(recipe.seed, index, series) * 2.4;
+          const bin = bins[series * perSeries + index];
+          if (bin.count === 0) continue;
+          const progress = bin.progress / bin.count;
           const day = Math.round(progress * daySpan);
           const milestone = [
             [0.18, 'Baseline approved'],
@@ -12419,16 +12534,16 @@ void main() {
           rows.push({
             date: isoDate(day),
             category: isoDate(day).slice(0, 7),
-            value: round(value, 2),
-            target: round(70 + progress * 22 + series * 6, 2),
-            previous: round(value - 4 - Math.sin(progress * 9) * 3, 2),
+            value: round(bin.value / bin.count, 2),
+            target: round(bin.target / bin.count, 2),
+            previous: round(bin.previous / bin.count, 2),
             annotation: milestone?.[1] ?? '',
             series: seriesNames[series % seriesNames.length],
             angle: round(progress * 360, 3),
           });
         }
       }
-      return rows;
+      return processed(rows, processing);
     }
 
     function categoricalEvents(recipe) {
@@ -12451,17 +12566,32 @@ void main() {
             : family === 'waterfall'
               ? revenueDriverNames
               : capabilityNames;
-      const rows = Array.from({ length: count }, (_, index) => {
+      const aggregates = Array.from({ length: count }, () => ({
+        count: 0,
+        value: 0,
+        previous: 0,
+        target: 0,
+        radius: 0,
+      }));
+      const processing = processLogicalRows(recipe, (sourceIndex) => {
+        const index = sourceIndex % count;
         const base = 1_600 / (1 + index * 0.23);
-        const value = Math.max(0, base * (0.84 + unit(recipe.seed, index, 1) * 0.32));
-        return {
-          category: index < labels.length ? labels[index] : `Segment ${index + 1}`,
-          value: round(value, 1),
-          previous: round(value * (0.82 + unit(recipe.seed, index, 2) * 0.2), 1),
-          target: round(value * (1.05 + unit(recipe.seed, index, 3) * 0.12), 1),
-          radius: round(18 + unit(recipe.seed, index, 4) * 34, 2),
-        };
+        const value = Math.max(0, base * (0.84 + unit(recipe.seed, sourceIndex, 1) * 0.32));
+        const aggregate = aggregates[index];
+        aggregate.count += 1;
+        aggregate.value += value;
+        aggregate.previous += value * (0.82 + unit(recipe.seed, sourceIndex, 2) * 0.2);
+        aggregate.target += value * (1.05 + unit(recipe.seed, sourceIndex, 3) * 0.12);
+        aggregate.radius += 18 + unit(recipe.seed, sourceIndex, 4) * 34;
+        return { categoryIndex: index, value, previous: aggregate.previous, target: aggregate.target };
       });
+      const rows = aggregates.map((aggregate, index) => ({
+        category: index < labels.length ? labels[index] : `Segment ${index + 1}`,
+        value: round(aggregate.value / aggregate.count, 1),
+        previous: round(aggregate.previous / aggregate.count, 1),
+        target: round(aggregate.target / aggregate.count, 1),
+        radius: round(aggregate.radius / aggregate.count, 2),
+      }));
       if (family === 'funnel') rows.sort((left, right) => right.value - left.value);
       if (family === 'waterfall') {
         rows.forEach((row, index) => {
@@ -12469,7 +12599,13 @@ void main() {
         });
       }
       if (family === 'gauge') {
-        rows[0] = { category: 'Reliability', value: 99.93, previous: 99.84, target: 99.9, radius: 34 };
+        rows[0] = {
+          category: 'Reliability',
+          value: round(99.82 + (rows[0].value / 1_600) * 0.12, 2),
+          previous: 99.84,
+          target: 99.9,
+          radius: 34,
+        };
       }
       if (family === 'item') {
         const total = rows.reduce((sum, row) => sum + row.value, 0);
@@ -12480,13 +12616,13 @@ void main() {
           allocated += row.value;
         });
       }
-      return rows;
+      return processed(rows, processing);
     }
 
     function clusteredPoints(recipe) {
       const count = materializationLimit(recipe, 4_000);
       const clusterCount = integer(parameter(recipe, 'clusterCount', 6), 6, 2, 12);
-      return Array.from({ length: count }, (_, index) => {
+      return sampledLogicalRows(recipe, count, (index) => {
         const cluster = index % clusterCount;
         const angle = (cluster / clusterCount) * Math.PI * 2;
         const centerX = Math.cos(angle) * 44;
@@ -12505,9 +12641,9 @@ void main() {
 
     function intervalSequence(recipe) {
       const count = materializationLimit(recipe, 64);
-      const rows = Array.from({ length: count }, (_, index) => {
+      return sampledLogicalRows(recipe, count, (index, logicalCount) => {
         const lane = index % phaseNames.length;
-        const startDay = Math.floor(index / phaseNames.length) * 2 + lane;
+        const startDay = Math.floor((index / Math.max(1, logicalCount - 1)) * 330) + lane;
         const duration = 2 + Math.floor(unit(recipe.seed, index, 20) * 10);
         const low = round(18 + lane * 10 + signed(recipe.seed, index, 21) * 4, 2);
         const high = round(low + 5 + unit(recipe.seed, index, 22) * 16, 2);
@@ -12515,7 +12651,7 @@ void main() {
         const region =
           operatingRegions[Math.floor(index / initiativeNames.length) % operatingRegions.length];
         return {
-          id: `${initiative.toLowerCase().replaceAll(' ', '-')}-${phaseNames[lane].toLowerCase()}-${region.toLowerCase().replaceAll(' ', '-')}`,
+          id: `${initiative.toLowerCase().replaceAll(' ', '-')}-${phaseNames[lane].toLowerCase()}-${region.toLowerCase().replaceAll(' ', '-')}-${index + 1}`,
           category: `${phaseNames[lane]} · ${initiative} · ${region}`,
           start: isoDate(startDay),
           end: isoDate(startDay + duration),
@@ -12525,7 +12661,6 @@ void main() {
           progress: Math.round(unit(recipe.seed, index, 23) * 100),
         };
       });
-      return rows;
     }
 
     function ohlcvSequence(recipe) {
@@ -12533,91 +12668,114 @@ void main() {
       const preferredCount = family === 'candlestick' ? 720 : family === 'price-blocks' ? 900 : 1_000;
       const count = materializationLimit(recipe, preferredCount);
       const source = sourceRows(recipe);
-      const binSize = Math.max(1, source / count);
-      const rows = [];
+      const aggregateBins = Array.from({ length: count }, () => ({
+        count: 0,
+        open: 0,
+        high: Number.NEGATIVE_INFINITY,
+        low: Number.POSITIVE_INFINITY,
+        close: 0,
+        volume: 0,
+      }));
       let previousClose = 118 + unit(recipe.seed, 0, 30) * 8;
-      for (let index = 0; index < count; index += 1) {
-        const trend = index / Math.max(1, count - 1);
+      const processing = processLogicalRows(recipe, (index) => {
         const open = previousClose;
-        const impulse = Math.sin(index * 0.11) * 1.3 + signed(recipe.seed, index, 31) * 2.1 + 0.035;
+        const impulse = Math.sin(index * 0.011) * 0.13 + signed(recipe.seed, index, 31) * 0.21 + 0.0035;
         const close = Math.max(1, open + impulse);
-        const spread = 0.6 + unit(recipe.seed, index, 32) * 2.8;
+        const spread = 0.06 + unit(recipe.seed, index, 32) * 0.28;
         const low = Math.max(
           0.01,
           Math.min(open, close) - spread * (0.45 + unit(recipe.seed, index, 33)),
         );
         const high = Math.max(open, close) + spread * (0.45 + unit(recipe.seed, index, 34));
-        const volume = Math.round((85_000 + unit(recipe.seed, index, 35) * 340_000) * binSize);
-        const middle = (open + high + low + close) / 4;
-        rows.push({
-          // Source rows represent intraday observations; each emitted row is one
-          // aggregate candle. Keep the displayed horizon realistic instead of
-          // stretching the logical event count across centuries.
-          date: isoDate(index),
-          open: round(open, 4),
-          high: round(high, 4),
-          low: round(low, 4),
-          close: round(close, 4),
-          value: round(close, 4),
-          price: round(middle, 4),
-          volume,
-          lower: round(close * (0.965 - trend * 0.003), 4),
-          upper: round(close * (1.035 + trend * 0.003), 4),
-          signal: round((open + close) / 2, 4),
-        });
+        const volume = Math.round(850 + unit(recipe.seed, index, 35) * 3_400);
+        const binIndex = Math.min(count - 1, Math.floor((index * count) / source));
+        const bin = aggregateBins[binIndex];
+        if (bin.count === 0) bin.open = open;
+        bin.count += 1;
+        bin.high = Math.max(bin.high, high);
+        bin.low = Math.min(bin.low, low);
+        bin.close = close;
+        bin.volume += volume;
         previousClose = close;
-      }
+        return { binIndex, open, high, low, close, volume };
+      });
+      const rows = aggregateBins.flatMap((bin, index) => {
+        if (bin.count === 0) return [];
+        const trend = index / Math.max(1, count - 1);
+        const middle = (bin.open + bin.high + bin.low + bin.close) / 4;
+        return [
+          {
+            // Each emitted candle aggregates a contiguous portion of the logical
+            // observation stream, keeping the displayed horizon readable.
+            date: isoDate(index),
+            open: round(bin.open, 4),
+            high: round(bin.high, 4),
+            low: round(bin.low, 4),
+            close: round(bin.close, 4),
+            value: round(bin.close, 4),
+            price: round(middle, 4),
+            volume: bin.volume,
+            lower: round(bin.close * (0.965 - trend * 0.003), 4),
+            upper: round(bin.close * (1.035 + trend * 0.003), 4),
+            signal: round((bin.open + bin.close) / 2, 4),
+          },
+        ];
+      });
       if (family === 'volume-profile') {
-        const bins = new Map();
+        const priceBins = new Map();
         for (const row of rows) {
           const price = Math.round(row.price / 2) * 2;
-          const current = bins.get(price) ?? { date: row.date, price, volume: 0 };
+          const current = priceBins.get(price) ?? { date: row.date, price, volume: 0 };
           current.volume += row.volume;
-          bins.set(price, current);
+          priceBins.set(price, current);
         }
-        return [...bins.values()].sort((left, right) => left.price - right.price);
+        return processed(
+          [...priceBins.values()].sort((left, right) => left.price - right.price),
+          processing,
+        );
       }
-      return rows;
+      return processed(rows, processing);
     }
 
     function motionTrajectories(recipe) {
       const desiredFrames = integer(parameter(recipe, 'frameCount', 20), 20, 2, 120);
       const desiredEntities = integer(parameter(recipe, 'entityCount', 5_000), 5_000, 1, 50_000);
       const limit = materializationLimit(recipe, 4_000);
-      const frames = Math.min(desiredFrames, Math.max(2, Math.floor(Math.sqrt(limit))));
-      const entities = Math.min(desiredEntities, Math.max(1, Math.floor(limit / frames)));
-      const rows = [];
-      for (let frame = 0; frame < frames; frame += 1) {
+      const frames = Math.min(desiredFrames, sourceRows(recipe));
+      const logicalEntities = Math.min(
+        desiredEntities,
+        Math.max(1, Math.ceil(sourceRows(recipe) / frames)),
+      );
+      return sampledLogicalRows(recipe, limit, (index) => {
+        const frame = Math.min(frames - 1, Math.floor(index / logicalEntities));
+        const entity = index % logicalEntities;
         const time = frame / Math.max(1, frames - 1);
-        for (let entity = 0; entity < entities; entity += 1) {
-          const group = entity % 6;
-          const baseAngle = (entity / Math.max(1, entities)) * Math.PI * 2;
-          const radius = 25 + group * 5 + signed(recipe.seed, entity, 40) * 4;
-          const angle = baseAngle + time * (0.8 + group * 0.17);
-          const account = accountNames[entity % accountNames.length];
-          const region =
-            operatingRegions[Math.floor(entity / accountNames.length) % operatingRegions.length];
-          const train =
-            releaseTrainNames[
-              Math.floor(entity / (accountNames.length * operatingRegions.length)) %
-                releaseTrainNames.length
-            ];
-          rows.push({
-            id: `${account} · ${region} · ${train}`,
-            x: round(Math.cos(angle) * radius + time * 24 - 12, 3),
-            y: round(Math.sin(angle) * radius + Math.sin(time * Math.PI) * 9, 3),
-            size: round(8 + unit(recipe.seed, entity, 41) * 26, 2),
-            group: segmentNames[group],
-            time: `2026-W${String(frame + 1).padStart(2, '0')}`,
-          });
-        }
-      }
-      return rows;
+        const group = entity % 6;
+        const baseAngle = (entity / Math.max(1, logicalEntities)) * Math.PI * 2;
+        const radius = 25 + group * 5 + signed(recipe.seed, entity, 40) * 4;
+        const angle = baseAngle + time * (0.8 + group * 0.17);
+        const account = accountNames[entity % accountNames.length];
+        const region =
+          operatingRegions[Math.floor(entity / accountNames.length) % operatingRegions.length];
+        const train =
+          releaseTrainNames[
+            Math.floor(entity / (accountNames.length * operatingRegions.length)) %
+              releaseTrainNames.length
+          ];
+        return {
+          id: `${account} · ${region} · ${train} · ${entity + 1}`,
+          x: round(Math.cos(angle) * radius + time * 24 - 12, 3),
+          y: round(Math.sin(angle) * radius + Math.sin(time * Math.PI) * 9, 3),
+          size: round(8 + unit(recipe.seed, entity, 41) * 26, 2),
+          group: segmentNames[group],
+          time: `2026-W${String(frame + 1).padStart(2, '0')}`,
+        };
+      });
     }
 
     function geoEvents(recipe) {
       const count = materializationLimit(recipe, 2_400);
-      return Array.from({ length: count }, (_, index) => {
+      return sampledLogicalRows(recipe, count, (index) => {
         const hub = hubCoordinates[index % hubCoordinates.length];
         const longitude = Math.max(
           -180,
@@ -12655,35 +12813,46 @@ void main() {
         const cohort = Math.floor(index / relationshipNodeNames.length);
         return cohort === 0 ? base : `${base} · ${operatingRegions[cohort % operatingRegions.length]}`;
       };
-      const rows = [];
-      for (let index = 1; index < nodes && rows.length < limit; index += 1) {
+      const templates = [];
+      for (let index = 1; index < nodes && templates.length < limit; index += 1) {
         const community = index % 12;
         const parent =
           family === 'flow' ? Math.max(0, index - 1 - (index % 3)) : Math.floor((index - 1) / 2);
-        rows.push({
-          id: `edge-${rows.length + 1}`,
+        templates.push({
+          id: `edge-${templates.length + 1}`,
           source: nodeLabel(parent),
           target: nodeLabel(index),
-          value: round(2 + unit(recipe.seed, index, 60) * 48, 2),
           community: relationshipCommunityNames[community % relationshipCommunityNames.length],
         });
-        if (family !== 'flow' && index > 3 && rows.length < limit && index % 4 === 0) {
-          rows.push({
-            id: `edge-${rows.length + 1}`,
+        if (family !== 'flow' && index > 3 && templates.length < limit && index % 4 === 0) {
+          templates.push({
+            id: `edge-${templates.length + 1}`,
             source: nodeLabel(Math.max(0, index - 4)),
             target: nodeLabel(index),
-            value: round(1 + unit(recipe.seed, index, 61) * 20, 2),
             community: relationshipCommunityNames[community % relationshipCommunityNames.length],
           });
         }
       }
-      return rows;
+      const aggregates = templates.map(() => ({ count: 0, value: 0 }));
+      const processing = processLogicalRows(recipe, (index) => {
+        const templateIndex = hash32(recipe.seed ^ index) % templates.length;
+        const aggregate = aggregates[templateIndex];
+        aggregate.count += 1;
+        const value = 2 + unit(recipe.seed, index, 60) * 48;
+        aggregate.value += value;
+        return { templateIndex, value };
+      });
+      const rows = templates.map((template, index) => ({
+        ...template,
+        value: round(aggregates[index].value / aggregates[index].count, 2),
+      }));
+      return processed(rows, processing);
     }
 
     function hierarchyNodes(recipe) {
       const family = stringValue(parameter(recipe, 'family', ''), 'hierarchy');
       const limit = materializationLimit(recipe, 240);
-      const rows = [];
+      const skeleton = [];
       for (let index = 0; index < limit; index += 1) {
         const parentIndex = index === 0 ? -1 : Math.floor((index - 1) / 5);
         const depth = index === 0 ? 0 : Math.floor(Math.log(index * 4 + 1) / Math.log(5));
@@ -12699,25 +12868,47 @@ void main() {
           index === 0
             ? 'Statground'
             : `${phaseNames[depth % phaseNames.length]} · ${initiative} · ${region} · ${train}`;
-        const value = Math.max(1, Math.round(120_000 / (1 + depth * 3 + (index % 17))));
         const id =
           index === 0
             ? 'statground'
             : `${train.toLowerCase()}-${region.toLowerCase().replaceAll(' ', '-')}-${initiative
             .toLowerCase()
             .replaceAll(' ', '-')}`;
+        skeleton.push({ id, label, parentIndex, depth });
+      }
+      const aggregates = skeleton.map(() => ({ count: 0, quality: 0 }));
+      const processing = processLogicalRows(recipe, (index) => {
+        const target = index < limit ? index : 1 + (hash32(recipe.seed ^ index) % (limit - 1));
+        const quality = 0.9 + unit(recipe.seed, index, 66) * 0.2;
+        aggregates[target].count += 1;
+        aggregates[target].quality += quality;
+        return { target, quality };
+      });
+      const rows = [];
+      for (let index = 0; index < skeleton.length; index += 1) {
+        const item = skeleton[index];
+        const aggregate = aggregates[index];
+        const quality = aggregate.quality / Math.max(1, aggregate.count);
+        const value = Math.max(
+          1,
+          Math.round((120_000 / (1 + item.depth * 3 + (index % 17))) * quality),
+        );
         rows.push(
           family === 'word-tree'
-            ? { word: label, parent: parentIndex < 0 ? '' : rows[parentIndex].word, weight: value }
+            ? {
+                word: item.label,
+                parent: item.parentIndex < 0 ? '' : rows[item.parentIndex].word,
+                weight: value,
+              }
             : {
-                id,
-                parent: parentIndex < 0 ? '' : rows[parentIndex].id,
+                id: item.id,
+                parent: item.parentIndex < 0 ? '' : rows[item.parentIndex].id,
                 value,
-                label,
+                label: item.label,
               },
         );
       }
-      return rows;
+      return processed(rows, processing);
     }
 
     function textCorpus(recipe) {
@@ -12725,14 +12916,24 @@ void main() {
         materializationLimit(recipe, 80),
         Math.max(12, integer(parameter(recipe, 'wordCount', 80), 80, 12, 80)),
       );
-      return Array.from({ length: count }, (_, index) => ({
-        word: index < corpusTerms.length ? corpusTerms[index] : `term-${index + 1}`,
-        weight: Math.max(
-          1,
-          Math.round((30_000 / (index + 8) ** 0.72) * (0.9 + unit(recipe.seed, index, 70) * 0.2)),
-        ),
+      const weights = Array.from({ length: count }, () => 0);
+      const processing = processLogicalRows(recipe, (index) => {
+        const termIndex =
+          index < count
+            ? index
+            : Math.min(count - 1, Math.floor(unit(recipe.seed, index, 70) ** 2 * count));
+        weights[termIndex] += 1;
+        return { termIndex, weight: weights[termIndex] };
+      });
+      const rows = weights.map((weight, index) => ({
+        word:
+          index < corpusTerms.length
+            ? corpusTerms[index]
+            : `${corpusTerms[index % corpusTerms.length]} ${regionalMetricNames[index % regionalMetricNames.length]}`,
+        weight: Math.max(1, weight),
         language: index % 5 === 0 ? 'ko' : 'mixed',
       }));
+      return processed(rows, processing);
     }
 
     function multivariateObservations(recipe) {
@@ -12746,7 +12947,7 @@ void main() {
               ? 5_000
               : 2_000;
       const count = materializationLimit(recipe, preferredCount);
-      return Array.from({ length: count }, (_, index) => {
+      return sampledLogicalRows(recipe, count, (index) => {
         const cohort = index % 5;
         const latent = gaussian(recipe.seed, index, 80);
         const speed = 64 + cohort * 5 + latent * 8 + gaussian(recipe.seed, index, 82) * 2;
@@ -12774,22 +12975,25 @@ void main() {
       });
     }
 
+    function sourceGridDimensions(recipe) {
+      const explicitRows = parameter(recipe, 'rows', recipe.cardinality?.axes?.rows);
+      const explicitColumns = parameter(recipe, 'columns', recipe.cardinality?.axes?.columns);
+      if (Number.isInteger(explicitRows) && Number.isInteger(explicitColumns)) {
+        return [integer(explicitRows, 2, 2, 1_024), integer(explicitColumns, 2, 2, 1_024)];
+      }
+      const rows = Math.max(1, Math.floor(Math.sqrt(sourceRows(recipe))));
+      return [rows, Math.ceil(sourceRows(recipe) / rows)];
+    }
+
     function gridDimensions(recipe, maximum) {
-      const sourceGridRows = integer(
-        parameter(recipe, 'rows', recipe.cardinality?.axes?.rows ?? 256),
-        256,
-        2,
-        1_024,
-      );
-      const sourceColumns = integer(
-        parameter(recipe, 'columns', recipe.cardinality?.axes?.columns ?? 256),
-        256,
-        2,
-        1_024,
-      );
+      const [sourceGridRows, sourceColumns] = sourceGridDimensions(recipe);
       const ratio = sourceColumns / sourceGridRows;
-      const rows = Math.max(2, Math.min(sourceGridRows, Math.floor(Math.sqrt(maximum / ratio))));
-      const columns = Math.max(2, Math.min(sourceColumns, Math.floor(maximum / rows)));
+      const minimum = sourceRows(recipe) >= 4 ? 2 : 1;
+      const rows = Math.max(minimum, Math.min(sourceGridRows, Math.floor(Math.sqrt(maximum / ratio))));
+      const columns = Math.max(
+        minimum,
+        Math.min(sourceColumns, Math.floor(maximum / Math.max(1, rows))),
+      );
       return [rows, columns];
     }
 
@@ -12804,13 +13008,33 @@ void main() {
       const family = stringValue(parameter(recipe, 'family', ''), 'heatmap');
       const preferredCells = family === 'image' ? 9_000 : family === 'contour' ? 6_400 : 3_600;
       const [rows, columns] = gridDimensions(recipe, materializationLimit(recipe, preferredCells));
+      const [sourceGridRows, sourceColumns] = sourceGridDimensions(recipe);
+      const aggregates = Array.from({ length: rows * columns }, () => ({ count: 0, value: 0 }));
+      const processing = processLogicalRows(recipe, (index) => {
+        const sourceRow = Math.floor(index / sourceColumns);
+        const sourceColumn = index % sourceColumns;
+        const x = sourceColumns <= 1 ? 0 : (sourceColumn / (sourceColumns - 1)) * 2 - 1;
+        const y = sourceGridRows <= 1 ? 0 : (sourceRow / (sourceGridRows - 1)) * 2 - 1;
+        const outputRow = Math.min(rows - 1, Math.floor((sourceRow * rows) / sourceGridRows));
+        const outputColumn = Math.min(
+          columns - 1,
+          Math.floor((sourceColumn * columns) / sourceColumns),
+        );
+        const aggregate = aggregates[outputRow * columns + outputColumn];
+        const value = fieldValue(x, y, recipe.seed, index);
+        aggregate.count += 1;
+        aggregate.value += value;
+        return { sourceRow, sourceColumn, outputRow, outputColumn, value };
+      });
       const output = [];
       for (let row = 0; row < rows; row += 1) {
         for (let column = 0; column < columns; column += 1) {
           const index = row * columns + column;
           const x = columns <= 1 ? 0 : (column / (columns - 1)) * 2 - 1;
           const y = rows <= 1 ? 0 : (row / (rows - 1)) * 2 - 1;
-          const value = fieldValue(x, y, recipe.seed, index);
+          const aggregate = aggregates[index];
+          if (aggregate.count === 0) continue;
+          const value = aggregate.value / aggregate.count;
           const normalized = Math.max(0, Math.min(1, (value + 28) / 126));
           output.push({
             row,
@@ -12828,12 +13052,12 @@ void main() {
           });
         }
       }
-      return output;
+      return processed(output, processing);
     }
 
     function ternaryComposition(recipe) {
       const count = materializationLimit(recipe, 1_500);
-      return Array.from({ length: count }, (_, index) => {
+      return sampledLogicalRows(recipe, count, (index) => {
         const rawA = 0.08 + unit(recipe.seed, index, 100) ** 1.4;
         const rawB = 0.08 + unit(recipe.seed, index, 101) ** 1.2;
         const rawC = 0.08 + unit(recipe.seed, index, 102) ** 1.6;
@@ -12849,8 +13073,8 @@ void main() {
 
     function smithSweep(recipe) {
       const count = materializationLimit(recipe, 800);
-      return Array.from({ length: count }, (_, index) => {
-        const t = count <= 1 ? 0 : index / (count - 1);
+      return sampledLogicalRows(recipe, count, (index, logicalCount) => {
+        const t = logicalCount <= 1 ? 0 : index / (logicalCount - 1);
         const frequency = 0.8 + t * 5.2;
         return {
           frequency: round(frequency, 6),
@@ -12862,21 +13086,23 @@ void main() {
 
     function vennMembership(recipe) {
       const setCount = integer(parameter(recipe, 'aggregateSetCount', 5), 5, 2, 5);
-      const rows = [];
       const combinations = 2 ** setCount - 1;
+      const counts = Array.from({ length: combinations + 1 }, () => 0);
+      const processing = processLogicalRows(recipe, (index) => {
+        const membership =
+          index < combinations ? index + 1 : 1 + (hash32(recipe.seed ^ index) % combinations);
+        for (let mask = 1; mask <= combinations; mask += 1) {
+          if ((membership & mask) === mask) counts[mask] += 1;
+        }
+        return { membership };
+      });
+      const rows = [];
       for (let mask = 1; mask <= combinations; mask += 1) {
         const names = [];
-        let cardinality = sourceRows(recipe);
         for (let index = 0; index < setCount; index += 1) {
-          if ((mask & (1 << index)) !== 0) {
-            names.push(vennSetNames[index]);
-            cardinality *= 0.36 + unit(recipe.seed, index, 110) * 0.1;
-          }
+          if ((mask & (1 << index)) !== 0) names.push(vennSetNames[index]);
         }
-        const size = Math.max(
-          0,
-          Math.floor(cardinality * (0.82 + unit(recipe.seed, mask, 111) * 0.16)),
-        );
+        const size = counts[mask];
         rows.push({
           category: names.join('&'),
           sets: names,
@@ -12884,36 +13110,59 @@ void main() {
           members: [`${size.toLocaleString('en-US')} logical records`],
         });
       }
-      return rows.sort((left, right) => right.size - left.size);
+      return processed(
+        rows.sort((left, right) => right.size - left.size),
+        processing,
+      );
     }
 
     function surfaceGrid(recipe) {
       const [rows, columns] = gridDimensions(recipe, materializationLimit(recipe, 262_144));
+      const [sourceGridRows, sourceColumns] = sourceGridDimensions(recipe);
       const x = Array.from({ length: columns }, (_, column) =>
         round((column / (columns - 1)) * 8 - 4, 5),
       );
       const y = Array.from({ length: rows }, (_, row) => round((row / (rows - 1)) * 6 - 3, 5));
+      const aggregates = Array.from({ length: rows * columns }, () => ({ count: 0, value: 0 }));
+      const processing = processLogicalRows(recipe, (index) => {
+        const sourceRow = Math.floor(index / sourceColumns);
+        const sourceColumn = index % sourceColumns;
+        const normalizedX = sourceColumns <= 1 ? 0 : (sourceColumn / (sourceColumns - 1)) * 2 - 1;
+        const normalizedY = sourceGridRows <= 1 ? 0 : (sourceRow / (sourceGridRows - 1)) * 2 - 1;
+        const outputRow = Math.min(rows - 1, Math.floor((sourceRow * rows) / sourceGridRows));
+        const outputColumn = Math.min(
+          columns - 1,
+          Math.floor((sourceColumn * columns) / sourceColumns),
+        );
+        const aggregate = aggregates[outputRow * columns + outputColumn];
+        const value = fieldValue(normalizedX, normalizedY, recipe.seed, index) / 24;
+        aggregate.count += 1;
+        aggregate.value += value;
+        return { sourceRow, sourceColumn, outputRow, outputColumn, value };
+      });
       const z = [];
       for (let row = 0; row < rows; row += 1) {
         for (let column = 0; column < columns; column += 1) {
-          const normalizedX = x[column] / 4;
-          const normalizedY = y[row] / 3;
-          z.push(
-            round(fieldValue(normalizedX, normalizedY, recipe.seed, row * columns + column) / 24, 5),
-          );
+          const aggregate = aggregates[row * columns + column];
+          z.push(round(aggregate.value / Math.max(1, aggregate.count), 5));
         }
       }
-      return { rows, columns, x, y, z, values: [...z] };
+      return processed({ rows, columns, x, y, z, values: [...z] }, processing);
     }
 
-    function volumeDimensions(recipe, maximum) {
+    function sourceVolumeDimensions(recipe) {
       const dimensions = Array.isArray(parameter(recipe, 'dimensions', undefined))
         ? parameter(recipe, 'dimensions', undefined)
         : recipe.cardinality?.axes?.dimensions;
-      const source =
-        Array.isArray(dimensions) && dimensions.length === 3
-          ? dimensions.map((value) => integer(value, 64, 2, 256))
-          : [64, 64, 64];
+      if (Array.isArray(dimensions) && dimensions.length === 3) {
+        return dimensions.map((value) => integer(value, 2, 2, 256));
+      }
+      const side = Math.max(2, Math.round(Math.cbrt(sourceRows(recipe))));
+      return [side, side, Math.max(2, Math.ceil(sourceRows(recipe) / (side * side)))];
+    }
+
+    function volumeDimensions(recipe, maximum) {
+      const source = sourceVolumeDimensions(recipe);
       const scale = Math.min(1, Math.cbrt(maximum / (source[0] * source[1] * source[2])));
       let output = source.map((value) => Math.max(2, Math.floor(value * scale)));
       while (output[0] * output[1] * output[2] > maximum) {
@@ -12923,33 +13172,49 @@ void main() {
       return output;
     }
 
+    function volumeFieldValue(nx, ny, nz) {
+      const lobeA = Math.exp(-((nx + 0.28) ** 2 * 5 + (ny - 0.15) ** 2 * 8 + (nz + 0.08) ** 2 * 6));
+      const lobeB = Math.exp(-((nx - 0.38) ** 2 * 10 + (ny + 0.3) ** 2 * 7 + (nz - 0.24) ** 2 * 11));
+      const ring = Math.exp(-((Math.hypot(nx, ny) - 0.54) ** 2) * 32 - nz * nz * 7);
+      return lobeA * 0.92 + lobeB * 0.78 + ring * 0.32;
+    }
+
     function volumeGrid(recipe) {
       const dimensions = volumeDimensions(recipe, materializationLimit(recipe, 262_144));
-      const values = [];
       const [width, height, depth] = dimensions;
-      for (let z = 0; z < depth; z += 1) {
-        for (let y = 0; y < height; y += 1) {
-          for (let x = 0; x < width; x += 1) {
-            const nx = (x / (width - 1)) * 2 - 1;
-            const ny = (y / (height - 1)) * 2 - 1;
-            const nz = (z / (depth - 1)) * 2 - 1;
-            const lobeA = Math.exp(
-              -((nx + 0.28) ** 2 * 5 + (ny - 0.15) ** 2 * 8 + (nz + 0.08) ** 2 * 6),
-            );
-            const lobeB = Math.exp(
-              -((nx - 0.38) ** 2 * 10 + (ny + 0.3) ** 2 * 7 + (nz - 0.24) ** 2 * 11),
-            );
-            const ring = Math.exp(-((Math.hypot(nx, ny) - 0.54) ** 2) * 32 - nz * nz * 7);
-            values.push(round(lobeA * 0.92 + lobeB * 0.78 + ring * 0.32, 6));
-          }
-        }
-      }
-      return {
-        dimensions,
-        values,
-        origin: [-1, -1, -1],
-        spacing: [2 / (width - 1), 2 / (height - 1), 2 / (depth - 1)],
-      };
+      const [sourceWidth, sourceHeight, sourceDepth] = sourceVolumeDimensions(recipe);
+      const aggregates = Array.from({ length: width * height * depth }, () => ({
+        count: 0,
+        value: 0,
+      }));
+      const processing = processLogicalRows(recipe, (index) => {
+        const sourceX = index % sourceWidth;
+        const sourceY = Math.floor(index / sourceWidth) % sourceHeight;
+        const sourceZ = Math.floor(index / (sourceWidth * sourceHeight));
+        const nx = sourceWidth <= 1 ? 0 : (sourceX / (sourceWidth - 1)) * 2 - 1;
+        const ny = sourceHeight <= 1 ? 0 : (sourceY / (sourceHeight - 1)) * 2 - 1;
+        const nz = sourceDepth <= 1 ? 0 : (sourceZ / (sourceDepth - 1)) * 2 - 1;
+        const x = Math.min(width - 1, Math.floor((sourceX * width) / sourceWidth));
+        const y = Math.min(height - 1, Math.floor((sourceY * height) / sourceHeight));
+        const z = Math.min(depth - 1, Math.floor((sourceZ * depth) / sourceDepth));
+        const aggregate = aggregates[z * width * height + y * width + x];
+        const value = volumeFieldValue(nx, ny, nz);
+        aggregate.count += 1;
+        aggregate.value += value;
+        return { sourceX, sourceY, sourceZ, x, y, z, value };
+      });
+      const values = aggregates.map((aggregate) =>
+        round(aggregate.value / Math.max(1, aggregate.count), 6),
+      );
+      return processed(
+        {
+          dimensions,
+          values,
+          origin: [-1, -1, -1],
+          spacing: [2 / (width - 1), 2 / (height - 1), 2 / (depth - 1)],
+        },
+        processing,
+      );
     }
 
     function vectorComponents(x, y, z) {
@@ -12959,50 +13224,52 @@ void main() {
 
     function spatialVector(recipe) {
       const maximum = materializationLimit(recipe, recipe.shape === 'rows' ? 625 : 3_375);
-      const side = Math.max(2, Math.floor(Math.cbrt(maximum)));
-      const count = Math.min(maximum, side ** 3);
       if (recipe.shape === 'rows') {
-        const rows = [];
-        const twoDimensionalSide = Math.max(2, Math.floor(Math.sqrt(maximum)));
-        for (let yIndex = 0; yIndex < twoDimensionalSide; yIndex += 1) {
-          for (let xIndex = 0; xIndex < twoDimensionalSide; xIndex += 1) {
-            if (rows.length >= maximum) break;
-            const x = (xIndex / (twoDimensionalSide - 1)) * 4 - 2;
-            const y = (yIndex / (twoDimensionalSide - 1)) * 4 - 2;
-            const [u, v] = vectorComponents(x, y, 0);
-            const magnitude = Math.hypot(u, v);
-            rows.push({
-              x: round(x, 5),
-              y: round(y, 5),
-              value: round(u, 6),
-              high: round(v, 6),
-              direction: round(((Math.atan2(v, u) * 180) / Math.PI + 360) % 360, 4),
-              magnitude: round(magnitude, 6),
-            });
-          }
-        }
-        return rows;
+        const sourceSide = Math.max(2, Math.ceil(Math.sqrt(sourceRows(recipe))));
+        return sampledLogicalRows(recipe, maximum, (index) => {
+          const xIndex = index % sourceSide;
+          const yIndex = Math.floor(index / sourceSide);
+          const x = (xIndex / (sourceSide - 1)) * 4 - 2;
+          const y = (yIndex / (sourceSide - 1)) * 4 - 2;
+          const [u, v] = vectorComponents(x, y, 0);
+          const magnitude = Math.hypot(u, v);
+          return {
+            x: round(x, 5),
+            y: round(y, 5),
+            value: round(u, 6),
+            high: round(v, 6),
+            direction: round(((Math.atan2(v, u) * 180) / Math.PI + 360) % 360, 4),
+            magnitude: round(magnitude, 6),
+          };
+        });
       }
-      const origins = [];
-      const vectors = [];
-      const labels = [];
-      const colors = [];
-      for (let index = 0; index < count; index += 1) {
-        const xIndex = index % side;
-        const yIndex = Math.floor(index / side) % side;
-        const zIndex = Math.floor(index / (side * side));
-        const x = (xIndex / (side - 1)) * 4 - 2;
-        const y = (yIndex / (side - 1)) * 4 - 2;
-        const z = (zIndex / (side - 1)) * 3 - 1.5;
-        origins.push([round(x, 5), round(y, 5), round(z, 5)]);
-        vectors.push(vectorComponents(x, y, z).map((value) => round(value, 6)));
+      const [sourceWidth, sourceHeight, sourceDepth] = sourceVolumeDimensions(recipe);
+      const sample = sampledLogicalRows(recipe, maximum, (index) => {
+        const xIndex = index % sourceWidth;
+        const yIndex = Math.floor(index / sourceWidth) % sourceHeight;
+        const zIndex = Math.floor(index / (sourceWidth * sourceHeight));
+        const x = (xIndex / (sourceWidth - 1)) * 4 - 2;
+        const y = (yIndex / (sourceHeight - 1)) * 4 - 2;
+        const z = (zIndex / (sourceDepth - 1)) * 3 - 1.5;
         const eastWest = x < -0.35 ? 'west' : x > 0.35 ? 'east' : 'central';
         const northSouth = y < -0.35 ? 'south' : y > 0.35 ? 'north' : 'midline';
         const altitude = z < -0.3 ? 'lower' : z > 0.3 ? 'upper' : 'middle';
-        labels.push(`${altitude} ${northSouth} ${eastWest} flow`);
-        colors.push(palette[index % palette.length]);
-      }
-      return { origins, vectors, labels, colors };
+        return {
+          origin: [round(x, 5), round(y, 5), round(z, 5)],
+          vector: vectorComponents(x, y, z).map((value) => round(value, 6)),
+          label: `${altitude} ${northSouth} ${eastWest} flow`,
+          color: palette[index % palette.length],
+        };
+      });
+      return processed(
+        {
+          origins: sample.data.map(({ origin }) => origin),
+          vectors: sample.data.map(({ vector }) => vector),
+          labels: sample.data.map(({ label }) => label),
+          colors: sample.data.map(({ color }) => color),
+        },
+        sample,
+      );
     }
 
     const generators = {
@@ -13293,6 +13560,51 @@ void main() {
         `cardinality.unit must equal ${expectedUnit}`,
       );
       closedObject(recipe.cardinality.axes, axesByRecipe[recipe.id], [], 'recipe.cardinality.axes');
+      for (const [key, axisValue] of Object.entries(recipe.cardinality.axes)) {
+        if (key === 'vectors') continue;
+        const parameterValue = parameter(recipe, key, undefined);
+        invariant(
+          JSON.stringify(parameterValue) === JSON.stringify(axisValue),
+          `cardinality.axes.${key} must match recipe.parameters.${key}`,
+        );
+      }
+      if (
+        Number.isInteger(recipe.cardinality.axes.entityCount) &&
+        Number.isInteger(recipe.cardinality.axes.frameCount)
+      ) {
+        invariant(
+          recipe.cardinality.axes.entityCount * recipe.cardinality.axes.frameCount ===
+            recipe.cardinality.sourceRows,
+          'motion axes must multiply to cardinality.sourceRows',
+        );
+      }
+      if (
+        Number.isInteger(recipe.cardinality.axes.rows) &&
+        Number.isInteger(recipe.cardinality.axes.columns)
+      ) {
+        invariant(
+          recipe.cardinality.axes.rows * recipe.cardinality.axes.columns ===
+            recipe.cardinality.sourceRows,
+          'grid axes must multiply to cardinality.sourceRows',
+        );
+      }
+      if (Array.isArray(recipe.cardinality.axes.dimensions)) {
+        invariant(
+          recipe.cardinality.axes.dimensions.length === 3 &&
+            recipe.cardinality.axes.dimensions.every(
+              (value) => Number.isInteger(value) && value >= 2,
+            ) &&
+            recipe.cardinality.axes.dimensions.reduce((total, value) => total * value, 1) ===
+              recipe.cardinality.sourceRows,
+          'volume dimensions must multiply to cardinality.sourceRows',
+        );
+      }
+      if (Number.isInteger(recipe.cardinality.axes.vectors)) {
+        invariant(
+          recipe.cardinality.axes.vectors === recipe.cardinality.sourceRows,
+          'vector axis must equal cardinality.sourceRows',
+        );
+      }
       closedObject(recipe.reduction, ['stage', 'method'], ['stage', 'method'], 'recipe.reduction');
       invariant(
         recipe.reduction.stage === stageByRecipe[recipe.id],
@@ -13361,6 +13673,39 @@ void main() {
       );
     }
 
+    function validateProcessingEvidence(materialization, logicalRows) {
+      invariant(
+        materialization.generatedRows === logicalRows,
+        `generated rows ${materialization.generatedRows} do not match source rows ${logicalRows}`,
+      );
+      invariant(
+        materialization.processedRows === logicalRows,
+        `processed rows ${materialization.processedRows} do not match source rows ${logicalRows}`,
+      );
+      const evidence = materialization.processingEvidence;
+      invariant(
+        evidence?.algorithm === 'logical-row-fnv1a32-v1' && /^[0-9a-f]{8}$/.test(evidence.digest),
+        'processing evidence digest is invalid',
+      );
+      const expectedBoundaries = [...new Set([0, Math.floor((logicalRows - 1) / 2), logicalRows - 1])];
+      invariant(
+        Array.isArray(evidence.boundaryRows) &&
+          evidence.boundaryRows.length === expectedBoundaries.length &&
+          evidence.boundaryRows.every(
+            (boundary, index) =>
+              boundary.index === expectedBoundaries[index] &&
+              /^[0-9a-f]{8}$/.test(boundary.contributionDigest) &&
+              /^[0-9a-f]{8}$/.test(boundary.prefixBeforeDigest) &&
+              /^[0-9a-f]{8}$/.test(boundary.prefixDigest),
+          ),
+        'processing evidence boundaries are invalid',
+      );
+      invariant(
+        evidence.boundaryRows.at(-1)?.prefixDigest === evidence.digest,
+        'last logical row must contribute to the final processing digest',
+      );
+    }
+
     /**
      * Materialize a closed Graflume demo recipe into deterministic, output-bounded data.
      * The logical source cardinality remains in the plan; generated data is a semantic LOD.
@@ -13368,7 +13713,10 @@ void main() {
     function materializeDemoRecipe$1(recipe) {
       validateRecipe(recipe);
       const definition = definitionById.get(recipe.id);
-      const data = generators[recipe.id](recipe);
+      const materialization = generators[recipe.id](recipe);
+      const data = materialization.data;
+      const logicalRows = sourceRows(recipe);
+      validateProcessingEvidence(materialization, logicalRows);
       const derivedRows = dataCardinality(data);
       const renderedMaximum = integer(recipe.outputBudget.maximum, 1, 1, 4_194_304);
       invariant(
@@ -13386,7 +13734,9 @@ void main() {
         plan: {
           recipeId: recipe.id,
           seed: recipe.seed,
-          sourceRows: sourceRows(recipe),
+          sourceRows: logicalRows,
+          generatedRows: materialization.generatedRows,
+          processedRows: materialization.processedRows,
           derivedRows,
           renderedRows: derivedRows,
           renderedMaximum,

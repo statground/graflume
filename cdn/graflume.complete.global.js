@@ -2825,7 +2825,7 @@ var Graflume = (function (exports) {
     function fail$4(message, path = '$.interaction.selection') {
         throw new GraflumeError('INCOMPATIBLE_SCALE', message, { path });
     }
-    function finite$d(value, label) {
+    function finite$e(value, label) {
         if (!Number.isFinite(value))
             fail$4(`${label} must be finite.`);
         return value;
@@ -2837,7 +2837,7 @@ var Graflume = (function (exports) {
         return scale;
     }
     function clampToRange(scale, pixel) {
-        finite$d(pixel, 'Pixel coordinate');
+        finite$e(pixel, 'Pixel coordinate');
         const range = scale.range();
         if (range.length === 0)
             fail$4(`Scale "${scale.kind}" has an empty range.`);
@@ -2877,8 +2877,8 @@ var Graflume = (function (exports) {
         return value;
     }
     function clampPixelToPlot(context, point) {
-        finite$d(point.x, 'Pixel x');
-        finite$d(point.y, 'Pixel y');
+        finite$e(point.x, 'Pixel x');
+        finite$e(point.y, 'Pixel y');
         return Object.freeze({
             x: Math.max(context.plot.x, Math.min(context.plot.x + context.plot.width, point.x)),
             y: Math.max(context.plot.y, Math.min(context.plot.y + context.plot.height, point.y)),
@@ -5346,7 +5346,7 @@ var Graflume = (function (exports) {
     function empty(length) {
         return Array.from({ length }).fill(null);
     }
-    function finite$c(value) {
+    function finite$d(value) {
         return typeof value === 'number' && Number.isFinite(value);
     }
     function simpleAverage$1(values, period) {
@@ -5355,12 +5355,12 @@ var Graflume = (function (exports) {
         let valid = 0;
         for (let index = 0; index < values.length; index += 1) {
             const value = values[index];
-            if (finite$c(value)) {
+            if (finite$d(value)) {
                 sum += value;
                 valid += 1;
             }
             const removed = values[index - period];
-            if (finite$c(removed)) {
+            if (finite$d(removed)) {
                 sum -= removed;
                 valid -= 1;
             }
@@ -5375,7 +5375,7 @@ var Graflume = (function (exports) {
         let seed = [];
         let previous = null;
         values.forEach((value, index) => {
-            if (!finite$c(value)) {
+            if (!finite$d(value)) {
                 seed = [];
                 previous = null;
                 return;
@@ -5401,12 +5401,12 @@ var Graflume = (function (exports) {
         let valid = 0;
         for (let index = 0; index < values.length; index += 1) {
             const value = values[index];
-            if (finite$c(value)) {
+            if (finite$d(value)) {
                 sum += value;
                 valid += 1;
             }
             const removed = values[index - period];
-            if (finite$c(removed)) {
+            if (finite$d(removed)) {
                 sum -= removed;
                 valid -= 1;
             }
@@ -5418,12 +5418,12 @@ var Graflume = (function (exports) {
     function rollingDeviation$1(values, averages, period) {
         return values.map((_, index) => {
             const average = averages[index];
-            if (!finite$c(average) || index + 1 < period)
+            if (!finite$d(average) || index + 1 < period)
                 return null;
             let sum = 0;
             for (let offset = index + 1 - period; offset <= index; offset += 1) {
                 const value = values[offset];
-                if (!finite$c(value))
+                if (!finite$d(value))
                     return null;
                 sum += Math.abs(value - average);
             }
@@ -5433,12 +5433,12 @@ var Graflume = (function (exports) {
     function rollingStandardDeviation(values, averages, period) {
         return values.map((_, index) => {
             const average = averages[index];
-            if (!finite$c(average) || index + 1 < period)
+            if (!finite$d(average) || index + 1 < period)
                 return null;
             let sum = 0;
             for (let offset = index + 1 - period; offset <= index; offset += 1) {
                 const value = values[offset];
-                if (!finite$c(value))
+                if (!finite$d(value))
                     return null;
                 sum += (value - average) ** 2;
             }
@@ -5452,7 +5452,7 @@ var Graflume = (function (exports) {
             let result = mode === 'minimum' ? Number.POSITIVE_INFINITY : Number.NEGATIVE_INFINITY;
             for (let offset = index + 1 - period; offset <= index; offset += 1) {
                 const value = values[offset];
-                if (!finite$c(value))
+                if (!finite$d(value))
                     return null;
                 result = mode === 'minimum' ? Math.min(result, value) : Math.max(result, value);
             }
@@ -5465,7 +5465,7 @@ var Graflume = (function (exports) {
         return close.map((value, index) => {
             const upper = highest[index];
             const lower = lowest[index];
-            if (!finite$c(value) || !finite$c(upper) || !finite$c(lower))
+            if (!finite$d(value) || !finite$d(upper) || !finite$d(lower))
                 return null;
             return upper === lower ? 0 : ((value - lower) / (upper - lower)) * 100;
         });
@@ -5475,7 +5475,7 @@ var Graflume = (function (exports) {
         let seed = [];
         let previous = null;
         values.forEach((value, index) => {
-            if (!finite$c(value)) {
+            if (!finite$d(value)) {
                 seed = [];
                 previous = null;
                 return;
@@ -5498,10 +5498,10 @@ var Graflume = (function (exports) {
     function trueRange$1(high, low, close) {
         return high.map((highValue, index) => {
             const lowValue = low[index];
-            if (!finite$c(highValue) || !finite$c(lowValue))
+            if (!finite$d(highValue) || !finite$d(lowValue))
                 return null;
             const previousClose = close[index - 1];
-            return !finite$c(previousClose)
+            return !finite$d(previousClose)
                 ? highValue - lowValue
                 : Math.max(highValue - lowValue, Math.abs(highValue - previousClose), Math.abs(lowValue - previousClose));
         });
@@ -5510,7 +5510,7 @@ var Graflume = (function (exports) {
         return high.map((highValue, index) => {
             const lowValue = low[index];
             const closeValue = close[index];
-            return finite$c(highValue) && finite$c(lowValue) && finite$c(closeValue)
+            return finite$d(highValue) && finite$d(lowValue) && finite$d(closeValue)
                 ? (highValue + lowValue + closeValue) / 3
                 : null;
         });
@@ -5518,25 +5518,25 @@ var Graflume = (function (exports) {
     function medianPrice(high, low) {
         return high.map((highValue, index) => {
             const lowValue = low[index];
-            return finite$c(highValue) && finite$c(lowValue) ? (highValue + lowValue) / 2 : null;
+            return finite$d(highValue) && finite$d(lowValue) ? (highValue + lowValue) / 2 : null;
         });
     }
     function pairDifference$1(left, right) {
         return left.map((value, index) => {
             const baseline = right[index];
-            return finite$c(value) && finite$c(baseline) ? value - baseline : null;
+            return finite$d(value) && finite$d(baseline) ? value - baseline : null;
         });
     }
     function accelerationBands$1(inputs, period, multiplier) {
         const rawUpper = inputs.high.map((high, index) => {
             const low = inputs.low[index];
-            if (!finite$c(high) || !finite$c(low) || high + low === 0)
+            if (!finite$d(high) || !finite$d(low) || high + low === 0)
                 return null;
             return high * (1 + (multiplier * (high - low)) / (high + low));
         });
         const rawLower = inputs.low.map((low, index) => {
             const high = inputs.high[index];
-            if (!finite$c(high) || !finite$c(low) || high + low === 0)
+            if (!finite$d(high) || !finite$d(low) || high + low === 0)
                 return null;
             return low * (1 - (multiplier * (high - low)) / (high + low));
         });
@@ -5560,7 +5560,7 @@ var Graflume = (function (exports) {
             for (let cursor = index - period; cursor <= index; cursor += 1) {
                 const high = inputs.high[cursor];
                 const low = inputs.low[cursor];
-                if (!finite$c(high) || !finite$c(low)) {
+                if (!finite$d(high) || !finite$d(low)) {
                     highIndex = -1;
                     break;
                 }
@@ -5586,8 +5586,8 @@ var Graflume = (function (exports) {
         return {
             outputs: {
                 value,
-                lower: value.map((middle, index) => finite$c(middle) && finite$c(deviation[index]) ? middle - deviations * deviation[index] : null),
-                upper: value.map((middle, index) => finite$c(middle) && finite$c(deviation[index]) ? middle + deviations * deviation[index] : null),
+                lower: value.map((middle, index) => finite$d(middle) && finite$d(deviation[index]) ? middle - deviations * deviation[index] : null),
+                upper: value.map((middle, index) => finite$d(middle) && finite$d(deviation[index]) ? middle + deviations * deviation[index] : null),
             },
             warmUpRows: period - 1,
         };
@@ -5599,7 +5599,7 @@ var Graflume = (function (exports) {
             const high = inputs.high[index];
             const low = inputs.low[index];
             const volume = inputs.volume[index];
-            if (!finite$c(close) || !finite$c(high) || !finite$c(low) || !finite$c(volume))
+            if (!finite$d(close) || !finite$d(high) || !finite$d(low) || !finite$d(volume))
                 return;
             const multiplier = high === low ? 0 : (close - low - (high - close)) / (high - low);
             cumulative += multiplier * volume;
@@ -5616,7 +5616,7 @@ var Graflume = (function (exports) {
                 value: typical.map((item, index) => {
                     const baseline = average[index];
                     const meanDeviation = deviation[index];
-                    if (!finite$c(item) || !finite$c(baseline) || !finite$c(meanDeviation))
+                    if (!finite$d(item) || !finite$d(baseline) || !finite$d(meanDeviation))
                         return null;
                     return meanDeviation === 0 ? 0 : (item - baseline) / (0.015 * meanDeviation);
                 }),
@@ -5629,7 +5629,7 @@ var Graflume = (function (exports) {
             const high = inputs.high[index];
             const low = inputs.low[index];
             const volume = inputs.volume[index];
-            if (!finite$c(close) || !finite$c(high) || !finite$c(low) || !finite$c(volume))
+            if (!finite$d(close) || !finite$d(high) || !finite$d(low) || !finite$d(volume))
                 return null;
             return (high === low ? 0 : (close - low - (high - close)) / (high - low)) * volume;
         });
@@ -5639,7 +5639,7 @@ var Graflume = (function (exports) {
             outputs: {
                 value: flowSum.map((value, index) => {
                     const volume = volumeSum[index];
-                    return finite$c(value) && finite$c(volume) && volume !== 0 ? value / volume : null;
+                    return finite$d(value) && finite$d(volume) && volume !== 0 ? value / volume : null;
                 }),
             },
             warmUpRows: period - 1,
@@ -5651,7 +5651,7 @@ var Graflume = (function (exports) {
         for (let index = 1; index < values.length; index += 1) {
             const value = values[index];
             const previous = values[index - 1];
-            if (!finite$c(value) || !finite$c(previous))
+            if (!finite$d(value) || !finite$d(previous))
                 continue;
             gains[index] = Math.max(0, value - previous);
             losses[index] = Math.max(0, previous - value);
@@ -5662,7 +5662,7 @@ var Graflume = (function (exports) {
             outputs: {
                 value: gainSum.map((gain, index) => {
                     const loss = lossSum[index];
-                    if (!finite$c(gain) || !finite$c(loss))
+                    if (!finite$d(gain) || !finite$d(loss))
                         return null;
                     return gain + loss === 0 ? 0 : ((gain - loss) / (gain + loss)) * 100;
                 }),
@@ -5679,7 +5679,7 @@ var Graflume = (function (exports) {
             const low = inputs.low[index];
             const previousHigh = inputs.high[index - 1];
             const previousLow = inputs.low[index - 1];
-            if (![high, low, previousHigh, previousLow].every(finite$c))
+            if (![high, low, previousHigh, previousLow].every(finite$d))
                 continue;
             const up = high - previousHigh;
             const down = previousLow - low;
@@ -5696,7 +5696,7 @@ var Graflume = (function (exports) {
             const range = averageRange[index - 1];
             const positive = averagePlus[index - 1];
             const negative = averageMinus[index - 1];
-            if (!finite$c(range) || !finite$c(positive) || !finite$c(negative) || range === 0)
+            if (!finite$d(range) || !finite$d(positive) || !finite$d(negative) || range === 0)
                 continue;
             plus[index] = (positive / range) * 100;
             minus[index] = (negative / range) * 100;
@@ -5714,11 +5714,11 @@ var Graflume = (function (exports) {
         const midpoint = (period) => {
             const high = rollingExtrema$1(inputs.high, period, 'maximum');
             const low = rollingExtrema$1(inputs.low, period, 'minimum');
-            return high.map((value, index) => finite$c(value) && finite$c(low[index]) ? (value + low[index]) / 2 : null);
+            return high.map((value, index) => finite$d(value) && finite$d(low[index]) ? (value + low[index]) / 2 : null);
         };
         const conversion = midpoint(conversionPeriod);
         const base = midpoint(basePeriod);
-        const spanA = conversion.map((value, index) => finite$c(value) && finite$c(base[index]) ? (value + base[index]) / 2 : null);
+        const spanA = conversion.map((value, index) => finite$d(value) && finite$d(base[index]) ? (value + base[index]) / 2 : null);
         const spanB = midpoint(spanPeriod);
         const value = empty(inputs.high.length);
         const lower = empty(inputs.high.length);
@@ -5726,7 +5726,7 @@ var Graflume = (function (exports) {
         spanA.forEach((leadingA, index) => {
             const leadingB = spanB[index];
             const target = index + displacement;
-            if (target >= value.length || !finite$c(leadingA) || !finite$c(leadingB))
+            if (target >= value.length || !finite$d(leadingA) || !finite$d(leadingB))
                 return;
             value[target] = leadingA;
             lower[target] = Math.min(leadingA, leadingB);
@@ -5746,8 +5746,8 @@ var Graflume = (function (exports) {
         return {
             outputs: {
                 value,
-                lower: value.map((middle, index) => finite$c(middle) && finite$c(atr[index]) ? middle - multiplier * atr[index] : null),
-                upper: value.map((middle, index) => finite$c(middle) && finite$c(atr[index]) ? middle + multiplier * atr[index] : null),
+                lower: value.map((middle, index) => finite$d(middle) && finite$d(atr[index]) ? middle - multiplier * atr[index] : null),
+                upper: value.map((middle, index) => finite$d(middle) && finite$d(atr[index]) ? middle + multiplier * atr[index] : null),
             },
             warmUpRows: Math.max(period, atrPeriod) - 1,
         };
@@ -5765,7 +5765,7 @@ var Graflume = (function (exports) {
                 inputs.volume[index],
             ];
             const previous = [inputs.high[index - 1], inputs.low[index - 1], inputs.close[index - 1]];
-            if (![...current, ...previous].every(finite$c)) {
+            if (![...current, ...previous].every(finite$d)) {
                 previousTrend = 0;
                 previousMovement = 0;
                 cumulativeMovement = 0;
@@ -5801,7 +5801,7 @@ var Graflume = (function (exports) {
             const price = typical[index];
             const previous = typical[index - 1];
             const volume = inputs.volume[index];
-            if (!finite$c(price) || !finite$c(previous) || !finite$c(volume))
+            if (!finite$d(price) || !finite$d(previous) || !finite$d(volume))
                 continue;
             const flow = price * volume;
             positive[index] = price > previous ? flow : 0;
@@ -5813,7 +5813,7 @@ var Graflume = (function (exports) {
             outputs: {
                 value: positiveSum.map((gain, index) => {
                     const loss = negativeSum[index];
-                    if (!finite$c(gain) || !finite$c(loss))
+                    if (!finite$d(gain) || !finite$d(loss))
                         return null;
                     if (loss === 0)
                         return gain === 0 ? 50 : 100;
@@ -5828,10 +5828,10 @@ var Graflume = (function (exports) {
         let balance = 0;
         inputs.close.forEach((close, index) => {
             const volume = inputs.volume[index];
-            if (!finite$c(close) || !finite$c(volume))
+            if (!finite$d(close) || !finite$d(volume))
                 return;
             const previous = inputs.close[index - 1];
-            if (index > 0 && finite$c(previous)) {
+            if (index > 0 && finite$d(previous)) {
                 if (close > previous)
                     balance += volume;
                 else if (close < previous)
@@ -5849,7 +5849,7 @@ var Graflume = (function (exports) {
             const high = inputs.high[index - 1];
             const low = inputs.low[index - 1];
             const close = inputs.close[index - 1];
-            if (!finite$c(high) || !finite$c(low) || !finite$c(close))
+            if (!finite$d(high) || !finite$d(low) || !finite$d(close))
                 continue;
             const pivot = (high + low + close) / 3;
             value[index] = pivot;
@@ -5866,7 +5866,7 @@ var Graflume = (function (exports) {
         const firstLow = inputs.low[0];
         const secondHigh = inputs.high[1];
         const secondLow = inputs.low[1];
-        if (![firstHigh, firstLow, secondHigh, secondLow].every(finite$c)) {
+        if (![firstHigh, firstLow, secondHigh, secondLow].every(finite$d)) {
             return { outputs: { value }, warmUpRows: 1 };
         }
         let rising = (secondHigh + secondLow) / 2 >= (firstHigh + firstLow) / 2;
@@ -5877,7 +5877,7 @@ var Graflume = (function (exports) {
         for (let index = 2; index < inputs.high.length; index += 1) {
             const high = inputs.high[index];
             const low = inputs.low[index];
-            if (!finite$c(high) || !finite$c(low))
+            if (!finite$d(high) || !finite$d(low))
                 continue;
             sar += factor * (extreme - sar);
             if (rising) {
@@ -5931,7 +5931,7 @@ var Graflume = (function (exports) {
             const low = inputs.low[index];
             const close = inputs.close[index];
             const range = atr[index];
-            if (!finite$c(high) || !finite$c(low) || !finite$c(close) || !finite$c(range))
+            if (!finite$d(high) || !finite$d(low) || !finite$d(close) || !finite$d(range))
                 continue;
             const middle = (high + low) / 2;
             const basicUpper = middle + parameters.multiplier * range;
@@ -5939,14 +5939,14 @@ var Graflume = (function (exports) {
             const previousClose = inputs.close[index - 1];
             finalUpper =
                 finalUpper === null ||
-                    !finite$c(previousClose) ||
+                    !finite$d(previousClose) ||
                     basicUpper < finalUpper ||
                     previousClose > finalUpper
                     ? basicUpper
                     : finalUpper;
             finalLower =
                 finalLower === null ||
-                    !finite$c(previousClose) ||
+                    !finite$d(previousClose) ||
                     basicLower > finalLower ||
                     previousClose < finalLower
                     ? basicLower
@@ -5969,7 +5969,7 @@ var Graflume = (function (exports) {
         let volumeTotal = 0;
         typical.forEach((price, index) => {
             const volume = inputs.volume[index];
-            if (!finite$c(price) || !finite$c(volume))
+            if (!finite$d(price) || !finite$d(volume))
                 return;
             weighted += price * volume;
             volumeTotal += volume;
@@ -5980,7 +5980,7 @@ var Graflume = (function (exports) {
     function zigzag$1(values, deviation) {
         const output = empty(values.length);
         const threshold = deviation / 100;
-        const firstIndex = values.findIndex(finite$c);
+        const firstIndex = values.findIndex(finite$d);
         if (firstIndex < 0)
             return { outputs: { value: output }, warmUpRows: 1 };
         let candidateIndex = firstIndex;
@@ -5989,7 +5989,7 @@ var Graflume = (function (exports) {
         output[firstIndex] = candidate;
         for (let index = firstIndex + 1; index < values.length; index += 1) {
             const value = values[index];
-            if (!finite$c(value))
+            if (!finite$d(value))
                 continue;
             if (direction >= 0) {
                 if (value >= candidate) {
@@ -6084,7 +6084,7 @@ var Graflume = (function (exports) {
                     outputs: {
                         value: average.map((baseline, index) => {
                             const source = inputs.value[index - shift];
-                            return finite$c(baseline) && finite$c(source) ? source - baseline : null;
+                            return finite$d(baseline) && finite$d(source) ? source - baseline : null;
                         }),
                     },
                     warmUpRows: parameters.period - 1,
@@ -6104,7 +6104,7 @@ var Graflume = (function (exports) {
                     outputs: {
                         value: atr.map((range, index) => {
                             const close = inputs.close[index];
-                            return finite$c(range) && finite$c(close) && close !== 0 ? (range / close) * 100 : null;
+                            return finite$d(range) && finite$d(close) && close !== 0 ? (range / close) * 100 : null;
                         }),
                     },
                     warmUpRows: parameters.period - 1,
@@ -6117,7 +6117,7 @@ var Graflume = (function (exports) {
                 const lower = rollingExtrema$1(inputs.low, parameters.period, 'minimum');
                 return {
                     outputs: {
-                        value: upper.map((high, index) => finite$c(high) && finite$c(lower[index]) ? (high + lower[index]) / 2 : null),
+                        value: upper.map((high, index) => finite$d(high) && finite$d(lower[index]) ? (high + lower[index]) / 2 : null),
                         lower,
                         upper,
                     },
@@ -6132,8 +6132,8 @@ var Graflume = (function (exports) {
                 return {
                     outputs: {
                         value,
-                        lower: value.map((item) => (finite$c(item) ? item * (1 - factor) : null)),
-                        upper: value.map((item) => (finite$c(item) ? item * (1 + factor) : null)),
+                        lower: value.map((item) => (finite$d(item) ? item * (1 - factor) : null)),
+                        upper: value.map((item) => (finite$d(item) ? item * (1 + factor) : null)),
                     },
                     warmUpRows: parameters.period - 1,
                 };
@@ -6151,7 +6151,7 @@ var Graflume = (function (exports) {
             case 'williamsr': {
                 const position = rollingRangePosition$1(inputs.high, inputs.low, inputs.close, parameters.period);
                 return {
-                    outputs: { value: position.map((item) => (finite$c(item) ? item - 100 : null)) },
+                    outputs: { value: position.map((item) => (finite$d(item) ? item - 100 : null)) },
                     warmUpRows: parameters.period - 1,
                 };
             }
@@ -12795,6 +12795,85 @@ var Graflume = (function (exports) {
             options: { ...mark.options },
         };
     }
+    function encodingField(input) {
+        return typeof input === 'string' ? input : input?.field;
+    }
+    function authoredFieldType(input) {
+        return typeof input === 'string' ? undefined : input?.type;
+    }
+    function resolvedInputFieldType(input, data) {
+        const authored = authoredFieldType(input);
+        if (authored !== undefined)
+            return authored;
+        const field = encodingField(input);
+        if (field === undefined)
+            return undefined;
+        const typeOfValue = (value) => {
+            if (value === null || value === undefined)
+                return null;
+            if (value instanceof Date)
+                return 'temporal';
+            if (typeof value === 'number')
+                return 'quantitative';
+            if (typeof value === 'string' &&
+                /^\d{4}-\d{2}-\d{2}(?:T|$)/.test(value) &&
+                Number.isFinite(Date.parse(value))) {
+                return 'temporal';
+            }
+            return 'nominal';
+        };
+        if (Array.isArray(data)) {
+            for (const row of data) {
+                const type = typeOfValue(row[field]);
+                if (type !== null)
+                    return type;
+            }
+            return 'nominal';
+        }
+        const column = data.columns[field];
+        if (column === undefined)
+            return undefined;
+        for (let index = 0; index < column.length; index += 1) {
+            const type = typeOfValue(column[index]);
+            if (type !== null)
+                return type;
+        }
+        return 'nominal';
+    }
+    /**
+     * Horizontal bars use a quantitative x axis and a categorical y axis. Authors
+     * commonly start from the vertical `x: category, y: value` form and then set
+     * only `orientation: 'horizontal'`. Treat that unambiguous combination as a
+     * request to transpose the positional channels, including interval endpoints,
+     * so a harmless orientation change cannot turn values into overlapping bands.
+     */
+    function orientHorizontalBarEncoding(data, legacyX, legacyY, input) {
+        const x = input?.x ?? legacyX;
+        const y = input?.y ?? legacyY;
+        const xType = resolvedInputFieldType(x, data);
+        const yType = resolvedInputFieldType(y, data);
+        const transpose = x !== undefined &&
+            y !== undefined &&
+            (xType === 'nominal' || xType === 'ordinal' || xType === 'temporal') &&
+            yType === 'quantitative';
+        if (!transpose)
+            return { x: legacyX, y: legacyY, encoding: input };
+        if (input === undefined) {
+            return { x: y, y: x, encoding: undefined };
+        }
+        const { x2, y2, ...channels } = input;
+        return {
+            x: legacyX,
+            y: legacyY,
+            encoding: {
+                ...channels,
+                x: y,
+                y: x,
+                ...(y2 === undefined ? {} : { x2: y2 }),
+                ...(x2 === undefined ? {} : { y2: x2 }),
+            },
+        };
+    }
     function resolveSpecializedEncoding(markType, input) {
         if (input === undefined)
             return undefined;
@@ -12834,8 +12913,11 @@ var Graflume = (function (exports) {
         }
         const markType = typeof layer.mark === 'string' ? layer.mark : layer.mark.type;
         const specialized = resolveSpecializedEncoding(markType, layer.encoding);
-        const encoding = normalizeEncodingMap(layer.x, layer.y, specialized, chartAxes, theme);
         const normalizedMark = normalizeMark(layer.mark);
+        const oriented = markType === 'bar' && normalizedMark.orientation === 'horizontal'
+            ? orientHorizontalBarEncoding(data, layer.x, layer.y, specialized)
+            : { x: layer.x, y: layer.y, encoding: specialized };
+        const encoding = normalizeEncodingMap(oriented.x, oriented.y, oriented.encoding, chartAxes, theme);
         const semanticFields = Object.fromEntries(['longitude', 'latitude', 'open', 'high', 'low', 'close', 'volume', 'angle', 'theta'].flatMap((channel) => {
             const field = encoding[channel]?.field;
             return field === undefined ? [] : [[channel, field]];
@@ -13417,7 +13499,7 @@ var Graflume = (function (exports) {
         const table = DataTable.from(input);
         return Array.from({ length: table.length }, (_, index) => table.row(index));
     }
-    function finite$b(value) {
+    function finite$c(value) {
         if (typeof value === 'number')
             return Number.isFinite(value) ? value : null;
         if (value instanceof Date)
@@ -13465,7 +13547,7 @@ var Graflume = (function (exports) {
             return rows.length;
         fieldName$1(weightField, '$.weightField');
         return rows.reduce((sum, row, index) => {
-            const weight = finite$b(row[weightField]);
+            const weight = finite$c(row[weightField]);
             if (weight === null || weight < 0) {
                 throw new GraflumeError('INVALID_DATA', `Weight at row ${index} must be a finite non-negative number.`, { path: `$.data[${index}].${weightField}` });
             }
@@ -13736,7 +13818,7 @@ var Graflume = (function (exports) {
             const date = civilDate(timestamp(row[dateField], `$.data[${rowIndex}].${dateField}`), timeZone);
             const key = dateKey(date);
             const bucket = grouped.get(key) ?? { date, values: [], sourceRows: [] };
-            const value = valueField === undefined ? 1 : finite$b(row[valueField]);
+            const value = valueField === undefined ? 1 : finite$c(row[valueField]);
             if (value !== null)
                 bucket.values.push(value);
             bucket.sourceRows.push(rowIndex);
@@ -13883,12 +13965,12 @@ var Graflume = (function (exports) {
         const points = rowsFrom$1(input)
             .map((row, rowIndex) => {
             const time = timestamp(row[timeField], `$.data[${rowIndex}].${timeField}`);
-            const price = priceField === undefined ? null : finite$b(row[priceField]);
-            const open = price ?? finite$b(row[openField]);
-            const high = price ?? finite$b(row[highField]);
-            const low = price ?? finite$b(row[lowField]);
-            const close = price ?? finite$b(row[closeField]);
-            const volume = volumeField === undefined ? 0 : (finite$b(row[volumeField]) ?? 0);
+            const price = priceField === undefined ? null : finite$c(row[priceField]);
+            const open = price ?? finite$c(row[openField]);
+            const high = price ?? finite$c(row[highField]);
+            const low = price ?? finite$c(row[lowField]);
+            const close = price ?? finite$c(row[closeField]);
+            const volume = volumeField === undefined ? 0 : (finite$c(row[volumeField]) ?? 0);
             if (open === null || high === null || low === null || close === null)
                 return null;
             const local = localTradingTime(time, timeZone);
@@ -13979,7 +14061,7 @@ var Graflume = (function (exports) {
             const groups = new Map();
             source.forEach((row, rowIndex) => {
                 const rawKey = row[keyField];
-                const value = finite$b(row[valueField]);
+                const value = finite$c(row[valueField]);
                 const series = row[seriesField];
                 if (rawKey === undefined || value === null || typeof series !== 'string')
                     return;
@@ -14017,8 +14099,8 @@ var Graflume = (function (exports) {
             const baselineField = fieldName$1(options.baselineField ?? '', '$.baselineField');
             const comparisonField = fieldName$1(options.comparisonField ?? '', '$.comparisonField');
             aligned = source.flatMap((row, rowIndex) => {
-                const baseline = finite$b(row[baselineField]);
-                const comparison = finite$b(row[comparisonField]);
+                const baseline = finite$c(row[baselineField]);
+                const comparison = finite$c(row[comparisonField]);
                 const rawKey = row[keyField];
                 if (baseline === null || comparison === null || rawKey === undefined)
                     return [];
@@ -14068,8 +14150,8 @@ var Graflume = (function (exports) {
                 previous.difference * point.difference < 0) {
                 const ratio = Math.abs(previous.difference) /
                     (Math.abs(previous.difference) + Math.abs(point.difference));
-                const numericPrevious = finite$b(previous.key);
-                const numericCurrent = finite$b(point.key);
+                const numericPrevious = finite$c(previous.key);
+                const numericCurrent = finite$c(point.key);
                 if (numericPrevious !== null && numericCurrent !== null) {
                     const key = numericPrevious + (numericCurrent - numericPrevious) * ratio;
                     const baseline = previous.baseline + (point.baseline - previous.baseline) * ratio;
@@ -14272,7 +14354,7 @@ var Graflume = (function (exports) {
         const duplicatePolicy = options.duplicates ?? 'error';
         const source = rowsFrom$1(input).flatMap((row, rowIndex) => {
             const rawKey = row[keyField];
-            const value = finite$b(row[valueField]);
+            const value = finite$c(row[valueField]);
             if (rawKey === undefined || value === null)
                 return [];
             const key = options.keyType === 'temporal'
@@ -14302,8 +14384,8 @@ var Graflume = (function (exports) {
             return { key: group[0].key, value, sourceRows: group.map(({ rowIndex }) => rowIndex) };
         });
         const compare = (left, right) => {
-            const a = finite$b(left.key);
-            const b = finite$b(right.key);
+            const a = finite$c(left.key);
+            const b = finite$c(right.key);
             return a !== null && b !== null
                 ? a - b
                 : String(left.key).localeCompare(String(right.key), 'en');
@@ -14419,7 +14501,7 @@ var Graflume = (function (exports) {
         return [...selected].sort((left, right) => left - right);
     }
 
-    function finite$a(value, path) {
+    function finite$b(value, path) {
         if (typeof value !== 'number' || !Number.isFinite(value)) {
             throw new GraflumeError('INVALID_DATA', `${path} must be a finite number.`, { path });
         }
@@ -14513,7 +14595,7 @@ var Graflume = (function (exports) {
                 path: '$.yExtents',
             });
         return input.values.flatMap((values, rowIndex) => values.map((rawValue, columnIndex) => {
-            const value = rawValue === null ? null : finite$a(rawValue, `$.values[${rowIndex}][${columnIndex}]`);
+            const value = rawValue === null ? null : finite$b(rawValue, `$.values[${rowIndex}][${columnIndex}]`);
             const xExtent = input.xExtents?.[columnIndex];
             const yExtent = input.yExtents?.[rowIndex];
             return {
@@ -14534,8 +14616,8 @@ var Graflume = (function (exports) {
                 return;
             if (start === undefined || end === undefined)
                 throw new GraflumeError('INVALID_DATA', `Heatmap ${axis} extents require both ${axis}0 and ${axis}1.`, { path: `$.data[${index}]` });
-            const low = finite$a(start, `$.data[${index}].${axis}0`);
-            const high = finite$a(end, `$.data[${index}].${axis}1`);
+            const low = finite$b(start, `$.data[${index}].${axis}0`);
+            const high = finite$b(end, `$.data[${index}].${axis}1`);
             if (high <= low)
                 throw new GraflumeError('INVALID_DATA', 'Heatmap cell extents must be ascending.', {
                     path: `$.data[${index}]`,
@@ -14564,7 +14646,7 @@ var Graflume = (function (exports) {
             if (byCell.has(key))
                 throw new GraflumeError('INVALID_DATA', `Duplicate heatmap cell at row ${index}.`);
             if (datum.value !== null)
-                finite$a(datum.value, `$.data[${index}].value`);
+                finite$b(datum.value, `$.data[${index}].value`);
             byCell.set(key, datum);
             matrix[rowIndex.get(identity$1(datum.row))][columnIndex.get(identity$1(datum.column))] =
                 datum.value;
@@ -14572,7 +14654,7 @@ var Graflume = (function (exports) {
         const numeric = data.flatMap(({ value }) => (value === null ? [] : [value]));
         const domain = numeric.length === 0 ? [0, 1] : [Math.min(...numeric), Math.max(...numeric)];
         const mode = options.color ?? 'sequential';
-        const midpoint = finite$a(options.midpoint ?? 0, '$.midpoint');
+        const midpoint = finite$b(options.midpoint ?? 0, '$.midpoint');
         const sorted = [...numeric].sort((a, b) => a - b);
         const columnExtents = inferredHeatmapExtents(data, 'x');
         const rowExtents = inferredHeatmapExtents(data, 'y');
@@ -14587,10 +14669,10 @@ var Graflume = (function (exports) {
             const value = datum?.value ?? null;
             const inferredX = columnExtents.get(identity$1(column));
             const inferredY = rowExtents.get(identity$1(row));
-            const x0 = datum?.x0 === undefined ? (inferredX?.[0] ?? c) : finite$a(datum.x0, `$.data[${r}].x0`);
-            const x1 = datum?.x1 === undefined ? (inferredX?.[1] ?? c + 1) : finite$a(datum.x1, `$.data[${r}].x1`);
-            const y0 = datum?.y0 === undefined ? (inferredY?.[0] ?? r) : finite$a(datum.y0, `$.data[${r}].y0`);
-            const y1 = datum?.y1 === undefined ? (inferredY?.[1] ?? r + 1) : finite$a(datum.y1, `$.data[${r}].y1`);
+            const x0 = datum?.x0 === undefined ? (inferredX?.[0] ?? c) : finite$b(datum.x0, `$.data[${r}].x0`);
+            const x1 = datum?.x1 === undefined ? (inferredX?.[1] ?? c + 1) : finite$b(datum.x1, `$.data[${r}].x1`);
+            const y0 = datum?.y0 === undefined ? (inferredY?.[0] ?? r) : finite$b(datum.y0, `$.data[${r}].y0`);
+            const y1 = datum?.y1 === undefined ? (inferredY?.[1] ?? r + 1) : finite$b(datum.y1, `$.data[${r}].y1`);
             if (x1 <= x0 || y1 <= y0)
                 throw new GraflumeError('INVALID_DATA', 'Heatmap cell extents must be ascending.');
             return {
@@ -14626,14 +14708,14 @@ var Graflume = (function (exports) {
             cell.value <= high);
     }
     function rasterDimensions(image) {
-        const width = Math.floor(finite$a(image.width, '$.width'));
-        const height = Math.floor(finite$a(image.height, '$.height'));
-        const channels = Math.floor(finite$a(image.channels, '$.channels'));
+        const width = Math.floor(finite$b(image.width, '$.width'));
+        const height = Math.floor(finite$b(image.height, '$.height'));
+        const channels = Math.floor(finite$b(image.channels, '$.channels'));
         if (width < 1 || height < 1 || channels < 1 || channels > 4)
             throw new GraflumeError('INVALID_DATA', 'Raster dimensions and channel count are invalid.');
         if (image.values.length !== width * height * channels)
             throw new GraflumeError('INVALID_DATA', 'Raster values length does not match dimensions.');
-        image.values.forEach((value, index) => finite$a(value, `$.values[${index}]`));
+        image.values.forEach((value, index) => finite$b(value, `$.values[${index}]`));
         return { width, height, channels };
     }
     function cubicWeight(value) {
@@ -14648,13 +14730,13 @@ var Graflume = (function (exports) {
     function sampleRaster(image, x, y, resampling = 'nearest') {
         const { width, height, channels } = rasterDimensions(image);
         const extent = image.extent ?? [0, width, 0, height];
-        extent.forEach((value, index) => finite$a(value, `$.extent[${index}]`));
+        extent.forEach((value, index) => finite$b(value, `$.extent[${index}]`));
         if (extent[1] === extent[0] || extent[3] === extent[2])
             throw new GraflumeError('INVALID_DATA', 'Raster extent must have non-zero width and height.');
         // Extents describe the outer pixel edges. Mapping the center of each output cell to
         // `index + 0.5` therefore lands exactly on an input pixel center at matching resolution.
-        const px = ((finite$a(x, '$.x') - extent[0]) / (extent[1] - extent[0])) * width - 0.5;
-        const normalizedY = ((finite$a(y, '$.y') - extent[2]) / (extent[3] - extent[2])) * height - 0.5;
+        const px = ((finite$b(x, '$.x') - extent[0]) / (extent[1] - extent[0])) * width - 0.5;
+        const normalizedY = ((finite$b(y, '$.y') - extent[2]) / (extent[3] - extent[2])) * height - 0.5;
         const py = (image.origin ?? 'upper') === 'upper' ? height - 1 - normalizedY : normalizedY;
         const valueAt = (column, row, channel) => image.values[(clamp$c(row, 0, height - 1) * width + clamp$c(column, 0, width - 1)) * channels + channel];
         if (resampling === 'nearest')
@@ -14695,8 +14777,8 @@ var Graflume = (function (exports) {
     function mapRasterColor(channels, options = {}) {
         if (channels.length < 1 || channels.length > 4)
             throw new GraflumeError('INVALID_DATA', 'Raster samples need one to four channels.');
-        channels.forEach((value, index) => finite$a(value, `$.channels[${index}]`));
-        const alpha = clamp$c(finite$a(options.alpha ?? 1, '$.alpha'), 0, 1);
+        channels.forEach((value, index) => finite$b(value, `$.channels[${index}]`));
+        const alpha = clamp$c(finite$b(options.alpha ?? 1, '$.alpha'), 0, 1);
         if (channels.length >= 3)
             return [
                 clamp$c(channels[0], 0, 255),
@@ -14705,8 +14787,8 @@ var Graflume = (function (exports) {
                 alpha * (channels.length === 4 ? clamp$c(channels[3], 0, 255) / 255 : 1),
             ];
         const window = options.window ?? [0, 255];
-        const windowLow = finite$a(window[0], '$.window[0]');
-        const windowHigh = finite$a(window[1], '$.window[1]');
+        const windowLow = finite$b(window[0], '$.window[0]');
+        const windowHigh = finite$b(window[1], '$.window[1]');
         if (windowHigh <= windowLow)
             throw new GraflumeError('INVALID_SPEC', 'Raster window must be finite and ascending.', {
                 path: '$.window',
@@ -14734,16 +14816,16 @@ var Graflume = (function (exports) {
     }
     /** Validates or normalizes constant-sum components and resolves barycentric coordinates, ticks and dual tooltips. */
     function projectTernary(data, options = {}) {
-        const target = finite$a(options.sum ?? 1, '$.sum');
+        const target = finite$b(options.sum ?? 1, '$.sum');
         if (target <= 0)
             throw new GraflumeError('INVALID_SPEC', '$.sum must be positive.');
-        const tolerance = Math.max(0, finite$a(options.tolerance ?? target * 1e-9, '$.tolerance'));
+        const tolerance = Math.max(0, finite$b(options.tolerance ?? target * 1e-9, '$.tolerance'));
         const format = options.format ?? ((value) => String(Number(value.toPrecision(6))));
         const points = data.map((datum, index) => {
             const raw = [
-                finite$a(datum.a, `$.data[${index}].a`),
-                finite$a(datum.b, `$.data[${index}].b`),
-                finite$a(datum.c, `$.data[${index}].c`),
+                finite$b(datum.a, `$.data[${index}].a`),
+                finite$b(datum.b, `$.data[${index}].b`),
+                finite$b(datum.c, `$.data[${index}].c`),
             ];
             if (raw.some((value) => value < 0))
                 throw new GraflumeError('INVALID_DATA', 'Ternary components must be non-negative.');
@@ -14781,14 +14863,14 @@ var Graflume = (function (exports) {
     }
     /** Converts S/reflection, Z and Y inputs to the Smith reflection plane with reference impedance and specialist labels. */
     function projectSmith(data, options = {}) {
-        const reference = finite$a(options.referenceImpedance ?? 50, '$.referenceImpedance');
+        const reference = finite$b(options.referenceImpedance ?? 50, '$.referenceImpedance');
         if (reference <= 0)
             throw new GraflumeError('INVALID_SPEC', '$.referenceImpedance must be positive.');
         const mode = options.mode ?? 'reflection';
         const points = data.map((datum, index) => {
             const input = {
-                real: finite$a(datum.real, `$.data[${index}].real`),
-                imaginary: finite$a(datum.imaginary, `$.data[${index}].imaginary`),
+                real: finite$b(datum.real, `$.data[${index}].real`),
+                imaginary: finite$b(datum.imaginary, `$.data[${index}].imaginary`),
             };
             let normalized;
             let openCircuit = false;
@@ -14880,8 +14962,8 @@ var Graflume = (function (exports) {
                 grid.mask.some((row) => row.length !== grid.a.length || row.some((value) => typeof value !== 'boolean'))))
             throw new GraflumeError('INVALID_DATA', 'Carpet mask dimensions must be b by a booleans.');
         const projected = points.map((point, index) => {
-            const a = finite$a(point.a, `$.points[${index}].a`);
-            const b = finite$a(point.b, `$.points[${index}].b`);
+            const a = finite$b(point.a, `$.points[${index}].a`);
+            const b = finite$b(point.b, `$.points[${index}].b`);
             const [a0, a1, fa] = bracket(grid.a, a, '$.grid.a');
             const [b0, b1, fb] = bracket(grid.b, b, '$.grid.b');
             const masked = [
@@ -14891,8 +14973,8 @@ var Graflume = (function (exports) {
                 grid.mask?.[b1]?.[a1],
             ].some((value) => value === false);
             const interpolate = (values) => {
-                const top = finite$a(values[b0][a0], '$.grid') * (1 - fa) + finite$a(values[b0][a1], '$.grid') * fa;
-                const bottom = finite$a(values[b1][a0], '$.grid') * (1 - fa) + finite$a(values[b1][a1], '$.grid') * fa;
+                const top = finite$b(values[b0][a0], '$.grid') * (1 - fa) + finite$b(values[b0][a1], '$.grid') * fa;
+                const bottom = finite$b(values[b1][a0], '$.grid') * (1 - fa) + finite$b(values[b1][a1], '$.grid') * fa;
                 return top * (1 - fb) + bottom * fb;
             };
             const x = interpolate(grid.x);
@@ -14915,14 +14997,14 @@ var Graflume = (function (exports) {
     }
     /** Expands waffle/isotype counts into grouped units with partial-unit and fill-direction semantics. */
     function layoutItems(groups, options = {}) {
-        const unit = finite$a(options.unit ?? 1, '$.unit');
+        const unit = finite$b(options.unit ?? 1, '$.unit');
         if (unit <= 0)
             throw new GraflumeError('INVALID_SPEC', '$.unit must be positive.');
         const columns = clamp$c(Math.floor(options.columns ?? 10), 1, 1_000);
         const expanded = [];
         groups.forEach((group, groupIndex) => {
             const id = text$1(group.id, `$.groups[${groupIndex}].id`);
-            const value = finite$a(group.value, `$.groups[${groupIndex}].value`);
+            const value = finite$b(group.value, `$.groups[${groupIndex}].value`);
             if (value < 0)
                 throw new GraflumeError('INVALID_DATA', 'Item values must be non-negative.');
             const exact = value / unit;
@@ -16240,6 +16322,132 @@ var Graflume = (function (exports) {
         return new EncodingResolver(context);
     }
 
+    function finite$a(value) {
+        return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+    }
+    function samplingChannel(values, length) {
+        let minimum = Number.POSITIVE_INFINITY;
+        let maximum = Number.NEGATIVE_INFINITY;
+        for (let index = 0; index < length; index += 1) {
+            const value = finite$a(values[index]);
+            minimum = Math.min(minimum, value);
+            maximum = Math.max(maximum, value);
+        }
+        return {
+            values,
+            first: finite$a(values[0]),
+            last: finite$a(values[length - 1]),
+            span: Math.max(1e-12, maximum - minimum),
+        };
+    }
+    function topologySalience(channels, index, length) {
+        const ratio = length <= 1 ? 0 : index / (length - 1);
+        return channels.reduce((score, channel) => {
+            const expected = channel.first + (channel.last - channel.first) * ratio;
+            return Math.max(score, Math.abs(finite$a(channel.values[index]) - expected) / channel.span);
+        }, 0);
+    }
+    /**
+     * Samples paired boundaries with one shared index set. Local extrema from the
+     * upper edge, lower edge, and band thickness each receive part of the budget;
+     * tight budgets retain the most topology-significant deviations plus endpoints.
+     */
+    function pairedAreaSampleIndices(upper, lower, target) {
+        const length = Math.min(upper.length, lower.length);
+        const budget = Math.min(length, Math.max(0, Math.floor(target)));
+        if (budget === 0)
+            return [];
+        if (length <= budget)
+            return Array.from({ length }, (_value, index) => index);
+        if (budget <= 2)
+            return exactStrideSampleIndices(length, budget);
+        const thickness = Array.from({ length }, (_value, index) => Math.abs(finite$a(upper[index]) - finite$a(lower[index])));
+        if (budget < 8) {
+            const selected = new Set([0, length - 1]);
+            const channels = [
+                samplingChannel(upper, length),
+                samplingChannel(lower, length),
+                samplingChannel(thickness, length),
+            ];
+            const candidates = Array.from({ length: Math.max(0, length - 2) }, (_value, offset) => {
+                const index = offset + 1;
+                return { index, salience: topologySalience(channels, index, length) };
+            }).sort((left, right) => right.salience - left.salience || left.index - right.index);
+            for (const { index } of candidates) {
+                if (selected.size >= budget)
+                    break;
+                selected.add(index);
+            }
+            return [...selected].sort((left, right) => left - right);
+        }
+        const channelBudget = Math.max(4, Math.floor((budget + 4) / 3));
+        const selected = new Set([0, length - 1]);
+        for (const values of [upper, lower, thickness]) {
+            for (const index of minMaxSampleIndices(values, channelBudget))
+                selected.add(index);
+        }
+        for (const index of exactStrideSampleIndices(length, budget)) {
+            if (selected.size >= budget)
+                break;
+            selected.add(index);
+        }
+        return [...selected].sort((left, right) => left - right);
+    }
+    /**
+     * Keeps an area series in plot order while retaining authored order as the
+     * stable tie-break for coincident x positions.
+     */
+    function orderAreaByX(values, position) {
+        return values
+            .map((value, index) => ({ value, index, x: position(value) }))
+            .sort((left, right) => {
+            const leftFinite = Number.isFinite(left.x);
+            const rightFinite = Number.isFinite(right.x);
+            if (leftFinite && rightFinite)
+                return left.x - right.x || left.index - right.index;
+            if (leftFinite)
+                return -1;
+            if (rightFinite)
+                return 1;
+            return left.index - right.index;
+        })
+            .map(({ value }) => value);
+    }
+    /**
+     * Builds a topology-safe Cartesian area polygon from aligned boundaries.
+     *
+     * Both boundaries are paired before ordering, so independent sorting or
+     * sampling can never join the last upper point to the first lower point. The
+     * visual upper/lower normalization also keeps crossed range inputs and signed
+     * baseline areas from producing bow-tie polygons.
+     */
+    function buildAreaTopology(upperBoundary, lowerBoundary) {
+        const count = Math.min(upperBoundary.length, lowerBoundary.length);
+        const pairs = orderAreaByX(Array.from({ length: count }, (_value, index) => {
+            const upper = upperBoundary[index];
+            const lower = lowerBoundary[index];
+            return {
+                index,
+                x: (upper.x + lower.x) / 2,
+                firstY: upper.y,
+                secondY: lower.y,
+            };
+        }).filter(({ x, firstY, secondY }) => Number.isFinite(x) && Number.isFinite(firstY) && Number.isFinite(secondY)), ({ x }) => x);
+        const upper = pairs.map(({ x, firstY, secondY }) => ({
+            x,
+            y: Math.min(firstY, secondY),
+        }));
+        const lower = pairs.map(({ x, firstY, secondY }) => ({
+            x,
+            y: Math.max(firstY, secondY),
+        }));
+        return {
+            upper,
+            lower,
+            polygon: [...upper, ...[...lower].reverse()],
+        };
+    }
+
     function scaleInput(value) {
         if (value === null ||
             value === undefined ||
@@ -16327,10 +16535,14 @@ var Graflume = (function (exports) {
     function curveNameForMark(options, fallback) {
         return resolveCurveName(options.curve, fallback);
     }
-    function collectCurveSegments(context, defaultMissing) {
+    function collectCurveSegments(context, defaultMissing, order = 'input', pairedBoundary = false) {
         const { table, layer, xScale, yScale, performance } = context;
         const encoding = createEncodingResolver(context);
         const missing = resolveMissingValuePolicy(layer.mark.options.missing, defaultMissing);
+        const mappedZero = pairedBoundary ? yScale.map(0) : Number.NaN;
+        const pairedBaseline = Number.isFinite(mappedZero)
+            ? mappedZero
+            : yScale.map(yScale.domain()[0] ?? 0);
         const rawSegments = [];
         const allIndices = encoding.orderedIndices(Array.from({ length: table.length }, (_value, index) => index));
         const grouped = new Map();
@@ -16340,7 +16552,13 @@ var Graflume = (function (exports) {
             indices.push(rowIndex);
             grouped.set(group, indices);
         }
-        for (const indices of grouped.values()) {
+        for (const groupedIndices of grouped.values()) {
+            const indices = order === 'x'
+                ? orderAreaByX(groupedIndices, (rowIndex) => {
+                    const input = scaleInput(table.value(rowIndex, layer.x.field));
+                    return input === null ? Number.NaN : xScale.map(input);
+                })
+                : groupedIndices;
             let current = [];
             const flush = () => {
                 if (current.length > 0)
@@ -16377,7 +16595,14 @@ var Graflume = (function (exports) {
                         flush();
                     continue;
                 }
-                current.push({ point: { x, y }, rowIndex, value: sourceValue ?? y });
+                const encodedLower = pairedBoundary ? encoding.position('y2', rowIndex) : null;
+                const lowerValue = encodedLower ?? pairedBaseline;
+                current.push({
+                    point: { x, y },
+                    rowIndex,
+                    value: sourceValue ?? y,
+                    ...(pairedBoundary && Number.isFinite(lowerValue) ? { lowerValue } : {}),
+                });
             }
             flush();
         }
@@ -16385,7 +16610,10 @@ var Graflume = (function (exports) {
         const retainedSegments = exactStrideSampleIndices(rawSegments.length, maximumPoints).flatMap((index) => (rawSegments[index] === undefined ? [] : [rawSegments[index]]));
         const budgets = allocateSegmentBudgets(retainedSegments.map(({ length }) => length), maximumPoints);
         return retainedSegments.map((segment, segmentIndex) => {
-            const indices = boundedSampleIndices(segment.map(({ value }) => value), budgets[segmentIndex] ?? 1);
+            const budget = budgets[segmentIndex] ?? 1;
+            const indices = pairedBoundary
+                ? pairedAreaSampleIndices(segment.map(({ point }) => point.y), segment.map(({ point, lowerValue }) => lowerValue ?? point.y), budget)
+                : boundedSampleIndices(segment.map(({ value }) => value), budget);
             return indices
                 .map((index) => segment[index])
                 .filter((entry) => entry !== undefined);
@@ -16413,6 +16641,70 @@ var Graflume = (function (exports) {
                     .filter((point) => point !== undefined),
             };
         });
+    }
+
+    /** Reference-style themes keep their authored bar ratio until the safety cap applies. */
+    function preservesReferenceBarRatio(themeName) {
+        return themeName === 'ggplot' || themeName === 'r-base' || themeName === 'matplotlib';
+    }
+    /** Pixel- and mark-budgeted, endpoint-preserving category selection for bar-like families. */
+    function selectBarCategoryIndices(options) {
+        const categoryCount = Math.max(0, Math.floor(options.categoryCount));
+        if (categoryCount === 0)
+            return [];
+        const marksPerCategory = Math.max(1, Math.floor(options.marksPerCategory ?? 1));
+        const groupCount = Math.max(1, Math.floor(options.groupCount ?? 1));
+        const markBudget = Math.max(1, Math.floor(options.maximumMarks / marksPerCategory));
+        const minimumClusterStride = Math.max(2, groupCount * 1.5);
+        const pixelBudget = Math.max(1, Math.floor(options.plotSpan / minimumClusterStride));
+        return exactStrideSampleIndices(categoryCount, Math.min(markBudget, pixelBudget));
+    }
+    function minimumPositiveGap(values) {
+        const sorted = [...new Set(values.filter(Number.isFinite))].sort((left, right) => left - right);
+        let gap = Number.POSITIVE_INFINITY;
+        for (let index = 1; index < sorted.length; index += 1) {
+            gap = Math.min(gap, sorted[index] - sorted[index - 1]);
+        }
+        return Number.isFinite(gap) && gap > 0 ? gap : null;
+    }
+    /**
+     * Resolve one collision-safe category band for bar-like marks.
+     *
+     * Band scales expose their exact category stride. Continuous/temporal category
+     * axes instead use the nearest rendered center distance, so irregular or dense
+     * categories cannot produce bars wider than the available lane. Grouped bars
+     * subdivide that same lane rather than independently estimating their width.
+     */
+    function resolveBarBandLayout(options) {
+        const groupCount = Math.max(1, Math.floor(options.groupCount ?? 1));
+        const visibleCategoryCount = Math.max(1, new Set(options.centers.filter(Number.isFinite)).size);
+        const fallbackStride = Math.max(Number.EPSILON, options.plotSpan /
+            Math.max(1, options.lodSampled === true ? visibleCategoryCount : Math.floor(options.categoryCount)));
+        const visibleStride = minimumPositiveGap(options.centers);
+        const categoryStride = options.scale instanceof BandScale
+            ? (visibleStride ??
+                (options.lodSampled === true
+                    ? Math.max(options.scale.step, fallbackStride)
+                    : options.scale.step))
+            : (visibleStride ?? fallbackStride);
+        const nativeBandRatio = options.scale instanceof BandScale && options.scale.step > 0
+            ? options.scale.bandwidth / options.scale.step
+            : 0.8;
+        const occupiedCategoryBand = Math.min(categoryStride, options.barWidthRatio === undefined ? categoryStride * nativeBandRatio : categoryStride);
+        const slot = occupiedCategoryBand / groupCount;
+        const authoredRatio = options.barWidthRatio ?? 0.74;
+        const ratio = Math.max(0, Math.min(options.preserveAuthoredRatio === true ? 1 : groupCount > 1 ? 0.82 : 0.92, authoredRatio));
+        const proportionalGap = options.preserveAuthoredRatio === true
+            ? slot * (1 - ratio)
+            : slot * (groupCount > 1 ? 0.18 : 0.08);
+        const maxThickness = Math.max(1, options.maxThickness ?? (groupCount > 1 ? 52 : 64));
+        const thickness = Math.max(Number.EPSILON, Math.min(maxThickness, categoryStride / groupCount, slot * ratio, slot - proportionalGap));
+        return {
+            slot,
+            thickness,
+            categoryStride,
+            gap: Math.max(0, slot - thickness),
+        };
     }
 
     function identityKey(value) {
@@ -16544,14 +16836,42 @@ var Graflume = (function (exports) {
         const subgroupCount = grouped ? seriesCount * externalCount : externalCount;
         const categoryCount = Math.max(1, new Set(entries.map(({ categoryKey }) => categoryKey)).size);
         const themedWidthRatio = theme.mark.barWidthRatio;
-        const indices = new Set(strideSampleIndices(entries.length, performance.maxBarMarks));
         const nodes = [];
         const entryByRow = new Map(entries.map((entry) => [entry.rowIndex, entry]));
+        const horizontal = layer.mark.orientation === 'horizontal';
+        const categorySpan = horizontal ? plot.height : plot.width;
+        const entriesByCategory = new Map();
+        for (const entry of entries) {
+            const category = entriesByCategory.get(entry.categoryKey) ?? [];
+            category.push(entry);
+            entriesByCategory.set(entry.categoryKey, category);
+        }
+        const categoryGroups = [...entriesByCategory.values()];
+        const largestCategory = Math.max(1, ...categoryGroups.map(({ length }) => length));
+        const minimumClusterStride = Math.max(2, subgroupCount * 1.5);
+        const categoryBudget = Math.max(1, Math.min(Math.floor(performance.maxBarMarks / largestCategory), Math.floor(categorySpan / minimumClusterStride)));
+        const selectedCategories = new Set(exactStrideSampleIndices(categoryGroups.length, categoryBudget).flatMap((index) => categoryGroups[index] === undefined ? [] : [categoryGroups[index][0].categoryKey]));
         const visibleEntries = encoding
-            .orderedIndices(entries.flatMap((entry, index) => (indices.has(index) ? [entry.rowIndex] : [])))
+            .orderedIndices(entries.flatMap((entry) => selectedCategories.has(entry.categoryKey) ? [entry.rowIndex] : []))
             .flatMap((rowIndex) => {
             const entry = entryByRow.get(rowIndex);
             return entry === undefined ? [] : [entry];
+        });
+        const categoryScale = horizontal ? yScale : xScale;
+        const preserveReferenceWidth = preservesReferenceBarRatio(theme.name);
+        const categoryCenters = visibleEntries
+            .map(({ category }) => categoryScale.map(category))
+            .filter(Number.isFinite);
+        const band = resolveBarBandLayout({
+            scale: categoryScale,
+            centers: categoryCenters,
+            plotSpan: horizontal ? plot.height : plot.width,
+            categoryCount,
+            groupCount: subgroupCount,
+            lodSampled: selectedCategories.size < categoryGroups.length,
+            maxThickness: subgroupCount > 1 ? 52 : 64,
+            preserveAuthoredRatio: preserveReferenceWidth,
+            ...(themedWidthRatio === undefined ? {} : { barWidthRatio: themedWidthRatio }),
         });
         visibleEntries.forEach((entry, drawIndex) => {
             const subgroupIndex = grouped ? externalIndex * seriesCount + entry.seriesIndex : externalIndex;
@@ -16569,11 +16889,8 @@ var Graflume = (function (exports) {
                 const end = xScale.map(entry.end);
                 if (![center, start, end].every(Number.isFinite))
                     return;
-                const slot = yScale instanceof BandScale
-                    ? (themedWidthRatio === undefined ? yScale.bandwidth : yScale.step) / subgroupCount
-                    : ((plot.height / categoryCount) * (themedWidthRatio === undefined ? 0.8 : 1)) /
-                        subgroupCount;
-                const size = Math.max(1, slot * (themedWidthRatio ?? 0.74));
+                const slot = band.slot;
+                const size = band.thickness;
                 const offset = (subgroupIndex - (subgroupCount - 1) / 2) * slot;
                 nodes.push({
                     type: 'rect',
@@ -16603,11 +16920,8 @@ var Graflume = (function (exports) {
             const end = yScale.map(entry.end);
             if (![center, start, end].every(Number.isFinite))
                 return;
-            const slot = xScale instanceof BandScale
-                ? (themedWidthRatio === undefined ? xScale.bandwidth : xScale.step) / subgroupCount
-                : ((plot.width / categoryCount) * (themedWidthRatio === undefined ? 0.8 : 1)) /
-                    subgroupCount;
-            const size = Math.max(1, slot * (themedWidthRatio ?? 0.74));
+            const slot = band.slot;
+            const size = band.thickness;
             const offset = (subgroupIndex - (subgroupCount - 1) / 2) * slot;
             nodes.push({
                 type: 'rect',
@@ -16636,10 +16950,7 @@ var Graflume = (function (exports) {
     function sampledEntries(entries, budget) {
         if (entries.length <= budget)
             return entries;
-        const target = Math.max(1, Math.floor(budget));
-        const indices = target < 4
-            ? exactStrideSampleIndices(entries.length, target)
-            : minMaxSampleIndices(entries.map(({ end }) => end), target);
+        const indices = pairedAreaSampleIndices(entries.map(({ end }) => end), entries.map(({ start }) => start), Math.max(1, Math.floor(budget)));
         return indices.flatMap((index) => (entries[index] === undefined ? [] : [entries[index]]));
     }
     function compileSeriesAreaMark(context) {
@@ -16671,14 +16982,15 @@ var Graflume = (function (exports) {
         const nodes = [];
         renderGroups.forEach((group, groupIndex) => {
             const entryByRow = new Map(group.entries.map((entry) => [entry.rowIndex, entry]));
-            const ordered = encoding.has('order')
+            const authored = encoding.has('order')
                 ? encoding
                     .orderedIndices(group.entries.map(({ rowIndex }) => rowIndex))
                     .flatMap((rowIndex) => {
                     const entry = entryByRow.get(rowIndex);
                     return entry === undefined ? [] : [entry];
                 })
-                : [...group.entries].sort((left, right) => xScale.map(left.category) - xScale.map(right.category));
+                : group.entries;
+            const ordered = orderAreaByX(authored, (entry) => xScale.map(entry.category));
             const pathBudget = Math.max(2, Math.floor(performance.maxLinePoints / Math.max(1, renderGroups.length)));
             const boundaryBudget = Math.max(1, Math.floor(pathBudget / 2));
             const source = sampledEntries(ordered, boundaryBudget);
@@ -16698,13 +17010,10 @@ var Graflume = (function (exports) {
             const interpolatedUpper = interpolateCurve(upperSource, curve, curveOptions);
             const interpolatedLower = interpolateCurve(lowerSource, curve, curveOptions);
             const commonLength = Math.min(interpolatedUpper.length, interpolatedLower.length);
-            const boundaryIndices = commonLength <= boundaryBudget
-                ? exactStrideSampleIndices(commonLength, commonLength)
-                : boundaryBudget < 4
-                    ? exactStrideSampleIndices(commonLength, boundaryBudget)
-                    : minMaxSampleIndices(Array.from({ length: commonLength }, (_value, index) => Math.abs(interpolatedUpper[index].y - interpolatedLower[index].y)), boundaryBudget);
+            const boundaryIndices = pairedAreaSampleIndices(interpolatedUpper.slice(0, commonLength).map(({ y }) => y), interpolatedLower.slice(0, commonLength).map(({ y }) => y), boundaryBudget);
             const upper = boundaryIndices.map((index) => interpolatedUpper[index]);
             const lower = boundaryIndices.map((index) => interpolatedLower[index]);
+            const topology = buildAreaTopology(upper, lower);
             const representative = source[0].rowIndex;
             const baseColor = seriesColor(context, group.seriesIndex, series.length);
             const color = encoding.color('color', representative, baseColor);
@@ -16732,7 +17041,7 @@ var Graflume = (function (exports) {
                     zIndex: layer.zIndex + groupIndex / Math.max(100, renderGroups.length * 10),
                     opacity: encoding.number('opacity', representative, layer.mark.opacity),
                 }),
-                points: [...upper, ...[...lower].reverse()],
+                points: topology.polygon,
                 closed: true,
                 fill: fillColor,
                 stroke: strokeColor,
@@ -18565,7 +18874,7 @@ var Graflume = (function (exports) {
         const encoding = createEncodingResolver(context);
         const curve = curveNameForMark(layer.mark.options, defaults.curve);
         const curveOptions = curveOptionsForMark(layer.mark.options);
-        const segments = interpolateSegments(collectCurveSegments(context, defaults.missing), curve, curveOptions, performance.maxLinePoints);
+        const segments = interpolateSegments(collectCurveSegments(context, defaults.missing, 'x', true), curve, curveOptions, performance.maxLinePoints);
         if (segments.length === 0)
             return [];
         const mappedZero = yScale.map(0);
@@ -18583,22 +18892,19 @@ var Graflume = (function (exports) {
                 ? seriesColor
                 : (layer.mark.stroke ??
                     themedAreaStroke(theme, seriesColor, theme.mark.lineColor ?? theme.mark.defaultColor ?? seriesColor)));
-            const lowerSource = segment.source.map(({ point, rowIndex }) => ({
-                x: point.x,
-                y: encoding.position('y2', rowIndex) ?? baseline,
-            }));
+            const interpolatedUpper = interpolateCurve(segment.source.map(({ point }) => point), curve, curveOptions);
             const interpolatedLower = encoding.has('y2')
-                ? interpolateCurve(lowerSource, curve, curveOptions)
-                : [
-                    { x: last.x, y: baseline },
-                    { x: first.x, y: baseline },
-                ];
-            const lower = interpolatedLower.length <= segment.points.length
-                ? interpolatedLower
-                : minMaxSampleIndices(interpolatedLower.map(({ y }) => y), segment.points.length)
-                    .map((index) => interpolatedLower[index])
-                    .filter((point) => point !== undefined);
-            const points = [...segment.points, ...[...lower].reverse()];
+                ? interpolateCurve(segment.source.map(({ point, rowIndex }) => ({
+                    x: point.x,
+                    y: encoding.position('y2', rowIndex) ?? baseline,
+                })), curve, curveOptions)
+                : interpolatedUpper.map(({ x }) => ({ x, y: baseline }));
+            const commonLength = Math.min(interpolatedUpper.length, interpolatedLower.length);
+            const boundaryBudget = Math.min(commonLength, segment.points.length);
+            const boundaryIndices = pairedAreaSampleIndices(interpolatedUpper.slice(0, commonLength).map(({ y }) => y), interpolatedLower.slice(0, commonLength).map(({ y }) => y), boundaryBudget);
+            const upper = boundaryIndices.map((index) => interpolatedUpper[index]);
+            const lower = boundaryIndices.map((index) => interpolatedLower[index]);
+            const topology = buildAreaTopology(upper, lower);
             const opacity = encoding.number('opacity', representative, layer.mark.opacity);
             const fillColor = encoding.color('fill', representative, encoding.has('color')
                 ? seriesColor
@@ -18612,7 +18918,7 @@ var Graflume = (function (exports) {
                     zIndex: layer.zIndex,
                     opacity,
                 }),
-                points,
+                points: topology.polygon,
                 closed: true,
                 fill: fillColor,
                 lineWidth: 0,
@@ -18625,7 +18931,7 @@ var Graflume = (function (exports) {
                         zIndex: layer.zIndex + 0.1,
                         opacity,
                     }),
-                    points: segment.points,
+                    points: upper,
                     closed: false,
                     stroke: strokeColor,
                     lineWidth,
@@ -18697,17 +19003,37 @@ var Graflume = (function (exports) {
         const { table, layer, xScale, yScale, color, theme, barGroup, performance, plot } = context;
         const encoding = createEncodingResolver(context);
         const themedWidthRatio = theme.mark.barWidthRatio;
+        const preserveReferenceWidth = preservesReferenceBarRatio(theme.name);
+        const categorySpan = layer.mark.orientation === 'horizontal' ? plot.height : plot.width;
+        const indices = encoding.orderedIndices(selectBarCategoryIndices({
+            categoryCount: table.length,
+            plotSpan: categorySpan,
+            maximumMarks: performance.maxBarMarks,
+            groupCount: barGroup.count,
+        }));
         if (layer.mark.orientation === 'horizontal') {
             const defaultBaseline = xScale.map(0);
-            const slotHeight = yScale instanceof BandScale
-                ? (themedWidthRatio === undefined ? yScale.bandwidth : yScale.step) /
-                    Math.max(1, barGroup.count)
-                : Math.max(1, ((plot.height / Math.max(1, table.length)) *
-                    (themedWidthRatio === undefined ? 0.8 : 1)) /
-                    Math.max(1, barGroup.count));
-            const barHeight = Math.max(1, slotHeight * (themedWidthRatio ?? 0.74));
+            const categoryCenters = indices.flatMap((rowIndex) => {
+                const input = scaleInput(table.value(rowIndex, layer.y.field));
+                if (input === null)
+                    return [];
+                const center = yScale.map(input);
+                return Number.isFinite(center) ? [center] : [];
+            });
+            const band = resolveBarBandLayout({
+                scale: yScale,
+                centers: categoryCenters,
+                plotSpan: plot.height,
+                categoryCount: new Set(categoryCenters).size,
+                groupCount: barGroup.count,
+                lodSampled: indices.length < table.length,
+                maxThickness: 64,
+                preserveAuthoredRatio: preserveReferenceWidth,
+                ...(themedWidthRatio === undefined ? {} : { barWidthRatio: themedWidthRatio }),
+            });
+            const slotHeight = band.slot;
+            const barHeight = band.thickness;
             const nodes = [];
-            const indices = encoding.orderedIndices(strideSampleIndices(table.length, performance.maxBarMarks));
             for (const rowIndex of indices) {
                 const xInput = scaleInput(table.value(rowIndex, layer.x.field));
                 const yInput = scaleInput(table.value(rowIndex, layer.y.field));
@@ -18763,13 +19089,26 @@ var Graflume = (function (exports) {
         }
         const defaultBaseline = yScale.map(0);
         const nodes = [];
-        const slotWidth = xScale instanceof BandScale
-            ? (themedWidthRatio === undefined ? xScale.bandwidth : xScale.step) /
-                Math.max(1, barGroup.count)
-            : Math.max(1, ((plot.width / Math.max(1, table.length)) * (themedWidthRatio === undefined ? 0.8 : 1)) /
-                Math.max(1, barGroup.count));
-        const barWidth = Math.max(1, slotWidth * (themedWidthRatio ?? 0.74));
-        const indices = encoding.orderedIndices(strideSampleIndices(table.length, performance.maxBarMarks));
+        const categoryCenters = indices.flatMap((rowIndex) => {
+            const input = scaleInput(table.value(rowIndex, layer.x.field));
+            if (input === null)
+                return [];
+            const center = xScale.map(input);
+            return Number.isFinite(center) ? [center] : [];
+        });
+        const band = resolveBarBandLayout({
+            scale: xScale,
+            centers: categoryCenters,
+            plotSpan: plot.width,
+            categoryCount: new Set(categoryCenters).size,
+            groupCount: barGroup.count,
+            lodSampled: indices.length < table.length,
+            maxThickness: 64,
+            preserveAuthoredRatio: preserveReferenceWidth,
+            ...(themedWidthRatio === undefined ? {} : { barWidthRatio: themedWidthRatio }),
+        });
+        const slotWidth = band.slot;
+        const barWidth = band.thickness;
         for (const rowIndex of indices) {
             const xInput = scaleInput(table.value(rowIndex, layer.x.field));
             const yInput = scaleInput(table.value(rowIndex, layer.y.field));
@@ -19159,11 +19498,31 @@ var Graflume = (function (exports) {
         const highField = layer.mark.fields.high ?? 'high';
         const lowField = layer.mark.fields.low ?? 'low';
         const closeField = layer.mark.fields.close ?? layer.y.field;
-        const width = Math.max(3, xScale instanceof BandScale
-            ? xScale.bandwidth * 0.58
-            : (plot.width / Math.max(1, table.length)) * 0.56);
+        const indices = selectBarCategoryIndices({
+            categoryCount: table.length,
+            plotSpan: plot.width,
+            maximumMarks: performance.maxBarMarks,
+            marksPerCategory: 2,
+        });
+        const centers = indices.flatMap((rowIndex) => {
+            const input = scaleInput(table.value(rowIndex, layer.x.field));
+            if (input === null)
+                return [];
+            const center = xScale.map(input);
+            return Number.isFinite(center) ? [center] : [];
+        });
+        const band = resolveBarBandLayout({
+            scale: xScale,
+            centers,
+            plotSpan: plot.width,
+            categoryCount: table.length,
+            lodSampled: indices.length < table.length,
+            barWidthRatio: 0.58,
+            maxThickness: 64,
+            preserveAuthoredRatio: preservesReferenceBarRatio(theme.name),
+        });
         const nodes = [];
-        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+        for (const rowIndex of indices) {
             const xInput = scaleInput(table.value(rowIndex, layer.x.field));
             const open = numericDataValue(table.value(rowIndex, openField));
             const high = numericDataValue(table.value(rowIndex, highField));
@@ -19206,9 +19565,9 @@ var Graflume = (function (exports) {
                     interactive: performance.enableHitTesting,
                     datum,
                 }),
-                x: x - width / 2,
+                x: x - band.thickness / 2,
                 y: Math.min(yOpen, yClose),
-                width,
+                width: band.thickness,
                 height: Math.max(1.5, Math.abs(yOpen - yClose)),
                 fill,
                 stroke: layer.mark.stroke ?? fill,
@@ -19420,52 +19779,70 @@ var Graflume = (function (exports) {
     };
     const compileWaterfallMark = (context) => {
         const { table, layer, xScale, yScale, theme, performance, plot } = context;
-        const width = Math.max(3, xScale instanceof BandScale
-            ? xScale.bandwidth * 0.62
-            : (plot.width / Math.max(1, table.length)) * 0.6);
-        const nodes = [];
+        const steps = [];
         let total = 0;
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
             const xInput = scaleInput(table.value(rowIndex, layer.x.field));
             const delta = numericDataValue(table.value(rowIndex, layer.y.field));
             if (xInput === null || delta === null)
                 continue;
-            const previous = total;
+            const start = total;
             total += delta;
-            const x = xScale.map(xInput);
-            const y1 = yScale.map(previous);
-            const y2 = yScale.map(total);
+            steps.push({ rowIndex, xInput, delta, start, end: total });
+        }
+        const selected = selectBarCategoryIndices({
+            categoryCount: steps.length,
+            plotSpan: plot.width,
+            maximumMarks: performance.maxBarMarks,
+            marksPerCategory: 2,
+        }).map((index) => ({ ...steps[index], stepIndex: index }));
+        const centers = selected.map(({ xInput }) => xScale.map(xInput)).filter(Number.isFinite);
+        const band = resolveBarBandLayout({
+            scale: xScale,
+            centers,
+            plotSpan: plot.width,
+            categoryCount: steps.length,
+            lodSampled: selected.length < steps.length,
+            barWidthRatio: 0.62,
+            maxThickness: 64,
+            preserveAuthoredRatio: preservesReferenceBarRatio(theme.name),
+        });
+        const nodes = [];
+        selected.forEach((step, selectedIndex) => {
+            const x = xScale.map(step.xInput);
+            const y1 = yScale.map(step.start);
+            const y2 = yScale.map(step.end);
             if (![x, y1, y2].every(Number.isFinite))
-                continue;
+                return;
             const fill = layer.mark.fill ??
-                (delta >= 0
+                (step.delta >= 0
                     ? (optionString$7(layer.mark.options, 'positiveColor') ?? categoricalColor(theme, 1, 4))
                     : (optionString$7(layer.mark.options, 'negativeColor') ?? categoricalColor(theme, 3, 4)));
             nodes.push({
                 type: 'rect',
-                ...nodeBase(`${layer.id}:waterfall:${rowIndex}`, {
+                ...nodeBase(`${layer.id}:waterfall:${step.rowIndex}`, {
                     zIndex: layer.zIndex,
                     opacity: layer.mark.opacity,
                     interactive: performance.enableHitTesting,
-                    datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) },
+                    datum: { layerId: layer.id, rowIndex: step.rowIndex, datum: table.row(step.rowIndex) },
                 }),
-                x: x - width / 2,
+                x: x - band.thickness / 2,
                 y: Math.min(y1, y2),
-                width,
+                width: band.thickness,
                 height: Math.max(1, Math.abs(y2 - y1)),
                 fill,
                 lineWidth: 0,
                 cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
             });
-            const nextInput = rowIndex + 1 < table.length ? scaleInput(table.value(rowIndex + 1, layer.x.field)) : null;
-            if (nextInput !== null) {
-                const nextX = xScale.map(nextInput);
+            const next = selected[selectedIndex + 1];
+            if (next !== undefined && next.stepIndex === step.stepIndex + 1) {
+                const nextX = xScale.map(next.xInput);
                 nodes.push({
                     type: 'line',
-                    ...nodeBase(`${layer.id}:connector:${rowIndex}`, { zIndex: layer.zIndex - 0.1 }),
-                    x1: x + width / 2,
+                    ...nodeBase(`${layer.id}:connector:${step.rowIndex}`, { zIndex: layer.zIndex - 0.1 }),
+                    x1: x + band.thickness / 2,
                     y1: y2,
-                    x2: nextX - width / 2,
+                    x2: nextX - band.thickness / 2,
                     y2,
                     stroke: theme.colors.axis,
                     lineWidth: 1,
@@ -19473,19 +19850,40 @@ var Graflume = (function (exports) {
                     lineCap: theme.mark.lineCap ?? 'round',
                 });
             }
-        }
+        });
         return nodes;
     };
     const compileDiffMark = (context) => {
         const { table, layer, xScale, yScale, theme, performance, plot } = context;
         const oldField = layer.mark.fields.old ?? 'old';
         const newField = layer.mark.fields.new ?? layer.y.field;
-        const width = Math.max(4, xScale instanceof BandScale
-            ? xScale.bandwidth * 0.64
-            : (plot.width / Math.max(1, table.length)) * 0.62);
+        const indices = selectBarCategoryIndices({
+            categoryCount: table.length,
+            plotSpan: plot.width,
+            maximumMarks: performance.maxBarMarks,
+            marksPerCategory: 3,
+        });
+        const centers = indices.flatMap((rowIndex) => {
+            const input = scaleInput(table.value(rowIndex, layer.x.field));
+            if (input === null)
+                return [];
+            const center = xScale.map(input);
+            return Number.isFinite(center) ? [center] : [];
+        });
+        const band = resolveBarBandLayout({
+            scale: xScale,
+            centers,
+            plotSpan: plot.width,
+            categoryCount: table.length,
+            lodSampled: indices.length < table.length,
+            barWidthRatio: 0.64,
+            maxThickness: 64,
+            preserveAuthoredRatio: preservesReferenceBarRatio(theme.name),
+        });
+        const width = band.thickness;
         const baseline = yScale.map(0);
         const nodes = [];
-        for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+        for (const rowIndex of indices) {
             const xInput = scaleInput(table.value(rowIndex, layer.x.field));
             const oldValue = numericDataValue(table.value(rowIndex, oldField));
             const newValue = numericDataValue(table.value(rowIndex, newField));
@@ -21141,7 +21539,8 @@ var Graflume = (function (exports) {
     }
     const compileSmoothMark = (context) => {
         const { layer, yScale, theme } = context;
-        const segments = interpolateSegments(collectCurveSegments(context, 'connect'), curveNameForMark(layer.mark.options, 'cardinal'), curveOptionsForMark(layer.mark.options), context.performance.maxLinePoints);
+        const area = layer.mark.options.area === true;
+        const segments = interpolateSegments(collectCurveSegments(context, 'connect', area ? 'x' : 'input'), curveNameForMark(layer.mark.options, 'cardinal'), curveOptionsForMark(layer.mark.options), context.performance.maxLinePoints);
         if (segments.length === 0)
             return [];
         const stroke = layer.mark.stroke ?? theme.mark.lineColor ?? theme.mark.defaultColor ?? context.color;
@@ -21153,14 +21552,15 @@ var Graflume = (function (exports) {
             if (first === undefined || last === undefined)
                 return;
             const suffix = segments.length === 1 ? '' : `:${segmentIndex}`;
-            if (layer.mark.options.area === true) {
+            if (area) {
+                const topology = buildAreaTopology(segment.points, segment.points.map(({ x }) => ({ x, y: baseline })));
                 nodes.push({
                     type: 'path',
                     ...nodeBase(`${layer.id}:smooth-area${suffix}`, {
                         zIndex: layer.zIndex,
                         opacity: layer.mark.opacity,
                     }),
-                    points: [{ x: first.x, y: baseline }, ...segment.points, { x: last.x, y: baseline }],
+                    points: topology.polygon,
                     closed: true,
                     fill: layer.mark.fill ?? themedAreaFill(theme, context.color, colorWithOpacity(stroke, 0.24)),
                     lineWidth: 0,
@@ -21212,7 +21612,7 @@ var Graflume = (function (exports) {
         return nodes;
     };
     const compileRangeMark = (context) => {
-        const { layer, table, xScale, yScale, theme, plot } = context;
+        const { layer, table, xScale, yScale, theme, plot, performance } = context;
         const lowField = layer.mark.fields.low ?? 'low';
         const highField = layer.mark.fields.high ?? 'high';
         const mode = optionString$5(layer.mark.options.mode, 'area');
@@ -21236,26 +21636,25 @@ var Graflume = (function (exports) {
             themedAreaStroke(theme, context.color, theme.mark.lineColor ?? context.color);
         const nodes = [];
         if (mode === 'area') {
-            const highPoints = rows.map((row) => ({ x: row.x, y: row.high }));
-            const lowPoints = rows.map((row) => ({ x: row.x, y: row.low })).reverse();
+            const orderedRows = orderAreaByX(rows, ({ x }) => x);
+            const highPoints = orderedRows.map((row) => ({ x: row.x, y: row.high }));
+            const lowPoints = orderedRows.map((row) => ({ x: row.x, y: row.low }));
             const smooth = layer.mark.options.smooth === true;
+            const topology = buildAreaTopology(smooth ? smoothPoints(highPoints) : highPoints, smooth ? smoothPoints(lowPoints) : lowPoints);
             nodes.push({
                 type: 'path',
                 ...nodeBase(`${layer.id}:range-band`, {
                     zIndex: layer.zIndex,
                     opacity: layer.mark.opacity,
                 }),
-                points: [
-                    ...(smooth ? smoothPoints(highPoints) : highPoints),
-                    ...(smooth ? smoothPoints(lowPoints) : lowPoints),
-                ],
+                points: topology.polygon,
                 closed: true,
                 fill: layer.mark.fill ?? themedAreaFill(theme, context.color, colorWithOpacity(stroke, 0.24)),
                 stroke,
                 lineWidth: layer.mark.lineWidth ?? 1.5,
                 lineJoin: theme.mark.lineJoin ?? 'round',
             });
-            for (const row of rows) {
+            for (const row of orderedRows) {
                 nodes.push({
                     type: 'circle',
                     ...datumBase$2(context, `${layer.id}:range-hit:${row.rowIndex}`, row.rowIndex, 1),
@@ -21269,25 +21668,40 @@ var Graflume = (function (exports) {
             }
             return nodes;
         }
-        const width = Math.max(5, xScale instanceof BandScale
-            ? xScale.bandwidth * 0.55
-            : (plot.width / Math.max(2, rows.length * 1.5)) * 0.55);
-        for (const row of rows) {
-            if (mode === 'column') {
+        if (mode === 'column') {
+            const selected = selectBarCategoryIndices({
+                categoryCount: rows.length,
+                plotSpan: plot.width,
+                maximumMarks: performance.maxBarMarks,
+            }).map((index) => rows[index]);
+            const preserveReferenceWidth = preservesReferenceBarRatio(theme.name);
+            const band = resolveBarBandLayout({
+                scale: xScale,
+                centers: selected.map(({ x }) => x),
+                plotSpan: plot.width,
+                categoryCount: rows.length,
+                lodSampled: selected.length < rows.length,
+                barWidthRatio: 0.55,
+                maxThickness: 64,
+                preserveAuthoredRatio: preserveReferenceWidth,
+            });
+            for (const row of selected) {
                 nodes.push({
                     type: 'rect',
                     ...datumBase$2(context, `${layer.id}:range-column:${row.rowIndex}`, row.rowIndex),
-                    x: row.x - width / 2,
+                    x: row.x - band.thickness / 2,
                     y: Math.min(row.low, row.high),
-                    width,
+                    width: band.thickness,
                     height: Math.max(1, Math.abs(row.low - row.high)),
                     fill: layer.mark.fill ?? colorWithOpacity(stroke, 0.72),
                     stroke,
                     lineWidth: layer.mark.lineWidth ?? 1,
                     cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
                 });
-                continue;
             }
+            return nodes;
+        }
+        for (const row of rows) {
             nodes.push({
                 type: 'line',
                 ...nodeBase(`${layer.id}:range-stem:${row.rowIndex}`, { zIndex: layer.zIndex }),
@@ -22679,12 +23093,28 @@ var Graflume = (function (exports) {
         });
     }
     const compileFinancialMark = (context) => {
-        const { layer, yScale, xScale, theme, plot } = context;
+        const { layer, yScale, xScale, theme, plot, performance } = context;
         const kind = optionString$5(layer.mark.options.kind, 'ohlc');
-        const rows = kind === 'heikin-ashi' ? heikinRows(financialRows$1(context)) : financialRows$1(context);
-        const width = Math.max(5, xScale instanceof BandScale
-            ? xScale.bandwidth * 0.56
-            : plot.width / Math.max(6, rows.length * 1.8));
+        // Path-dependent Heikin-Ashi values must be resolved over the complete input
+        // before visual LOD chooses which categories to emit.
+        const resolvedRows = kind === 'heikin-ashi' ? heikinRows(financialRows$1(context)) : financialRows$1(context);
+        const rows = selectBarCategoryIndices({
+            categoryCount: resolvedRows.length,
+            plotSpan: plot.width,
+            maximumMarks: performance.maxBarMarks,
+            marksPerCategory: kind === 'ohlc' ? 3 : 2,
+        }).map((index) => resolvedRows[index]);
+        const band = resolveBarBandLayout({
+            scale: xScale,
+            centers: rows.map(({ x }) => x),
+            plotSpan: plot.width,
+            categoryCount: resolvedRows.length,
+            lodSampled: rows.length < resolvedRows.length,
+            barWidthRatio: 0.56,
+            maxThickness: 64,
+            preserveAuthoredRatio: preservesReferenceBarRatio(theme.name),
+        });
+        const width = band.thickness;
         const nodes = [];
         for (const row of rows) {
             const high = yScale.map(row.high);
@@ -32982,12 +33412,29 @@ var Graflume = (function (exports) {
         const { layer, plot, theme, performance } = context;
         const { minimum, maximum } = priceExtent(blocks);
         const span = Math.max(Number.EPSILON, maximum - minimum);
-        const width = plot.width / Math.max(1, blocks.length);
+        const nativeStride = plot.width / Math.max(1, blocks.length);
+        const selectedIndices = selectBarCategoryIndices({
+            categoryCount: blocks.length,
+            plotSpan: plot.width,
+            maximumMarks: performance.maxBarMarks,
+        });
+        const centers = selectedIndices.map((index) => plot.x + index * nativeStride + nativeStride / 2);
+        const band = resolveBarBandLayout({
+            scale: context.xScale,
+            centers,
+            plotSpan: plot.width,
+            categoryCount: blocks.length,
+            lodSampled: selectedIndices.length < blocks.length,
+            barWidthRatio: 0.74,
+            maxThickness: 64,
+            preserveAuthoredRatio: preservesReferenceBarRatio(theme.name),
+        });
         const mapY = (value) => plot.y + plot.height - ((value - minimum) / span) * plot.height;
         const risingColor = theme.colors.palette[1] ?? context.color;
         const fallingColor = theme.colors.palette[3] ?? context.color;
         const nodes = [];
-        blocks.forEach((block, index) => {
+        selectedIndices.forEach((index) => {
+            const block = blocks[index];
             const color = block.direction === 'up' ? risingColor : fallingColor;
             const base = nodeBase(`${layer.id}:${block.mode}:${index}`, {
                 zIndex: layer.zIndex,
@@ -33029,7 +33476,7 @@ var Graflume = (function (exports) {
                     },
                 },
             });
-            const x = plot.x + index * width + width / 2;
+            const x = plot.x + index * nativeStride + nativeStride / 2;
             const open = mapY(block.open);
             const close = mapY(block.close);
             if (block.mode === 'kagi') {
@@ -33037,10 +33484,10 @@ var Graflume = (function (exports) {
                     type: 'path',
                     ...base,
                     points: [
-                        { x: x - width / 2, y: open },
+                        { x: x - Math.min(nativeStride, band.categoryStride) / 2, y: open },
                         { x, y: open },
                         { x, y: close },
-                        { x: x + width / 2, y: close },
+                        { x: x + Math.min(nativeStride, band.categoryStride) / 2, y: close },
                     ],
                     closed: false,
                     stroke: layer.mark.stroke ?? color,
@@ -33055,9 +33502,9 @@ var Graflume = (function (exports) {
             nodes.push({
                 type: 'rect',
                 ...base,
-                x: plot.x + index * width + 1,
+                x: x - band.thickness / 2,
                 y: Math.min(open, close),
-                width: Math.max(1.5, width - 2),
+                width: band.thickness,
                 height: Math.max(1.5, Math.abs(open - close)),
                 fill: layer.mark.fill ?? colorWithOpacity(color, 0.74),
                 stroke: layer.mark.stroke ?? color,
@@ -55849,8 +56296,30 @@ var Graflume = (function (exports) {
         const maximum = Math.max(0, ...rankedRows.map(({ value }) => value));
         const minimum = Math.min(0, ...rankedRows.map(({ value }) => value));
         const span = Math.max(Number.EPSILON, maximum - minimum);
-        const limit = Math.min(rankedRows.length, context.performance.maxBarMarks);
-        const displayed = rankedRows.slice(0, limit);
+        const horizontal = layer.mark.orientation === 'horizontal';
+        const categorySpan = horizontal ? plot.height : plot.width;
+        // Ranking semantics select the leading rows, while the shared bar budget
+        // decides how many complete bar-plus-label categories fit in the plot.
+        const displayedCount = selectBarCategoryIndices({
+            categoryCount: rankedRows.length,
+            plotSpan: categorySpan,
+            maximumMarks: performance.maxBarMarks,
+            marksPerCategory: 2,
+        }).length;
+        const displayed = rankedRows.slice(0, displayedCount);
+        const centers = displayed.map((_row, index) => (horizontal ? plot.y : plot.x) +
+            ((index + 0.5) / Math.max(1, displayed.length)) * categorySpan);
+        const themedWidthRatio = theme.mark.barWidthRatio;
+        const band = resolveBarBandLayout({
+            scale: horizontal ? context.yScale : context.xScale,
+            centers,
+            plotSpan: categorySpan,
+            categoryCount: rankedRows.length,
+            lodSampled: displayed.length < rankedRows.length,
+            maxThickness: 64,
+            preserveAuthoredRatio: preservesReferenceBarRatio(theme.name),
+            ...(themedWidthRatio === undefined ? {} : { barWidthRatio: themedWidthRatio }),
+        });
         const nodes = [];
         displayed.forEach((row, index) => {
             const color = layer.mark.fill ?? categoricalColor(theme, index, displayed.length);
@@ -55880,43 +56349,45 @@ var Graflume = (function (exports) {
                     },
                 },
             });
-            if (layer.mark.orientation === 'horizontal') {
-                const slot = plot.height / Math.max(1, displayed.length);
+            if (horizontal) {
+                const slot = band.slot;
+                const center = centers[index];
                 const zero = plot.x + ((0 - minimum) / span) * plot.width;
                 const end = plot.x + ratio * plot.width;
                 nodes.push({
                     type: 'rect',
                     ...base,
                     x: Math.min(zero, end),
-                    y: plot.y + index * slot + slot * 0.12,
+                    y: center - band.thickness / 2,
                     width: Math.max(0.5, Math.abs(end - zero)),
-                    height: Math.max(1, slot * 0.76),
+                    height: band.thickness,
                     fill: color,
                     lineWidth: 0,
                     cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
                 });
-                nodes.push(textNode(context, `${layer.id}:rank-label:${row.id}`, plot.x + 4, plot.y + (index + 0.5) * slot, `#${row.rank} ${row.id}`, {
+                nodes.push(textNode(context, `${layer.id}:rank-label:${row.id}`, plot.x + 4, center, `#${row.rank} ${row.id}`, {
                     align: 'left',
                     size: Math.min(12, slot * 0.36),
                     fill: readableTextColor(color, '#ffffff', '#0f172a'),
                 }));
             }
             else {
-                const slot = plot.width / Math.max(1, displayed.length);
+                const slot = band.slot;
+                const center = centers[index];
                 const zero = plot.y + plot.height - ((0 - minimum) / span) * plot.height;
                 const end = plot.y + plot.height - ratio * plot.height;
                 nodes.push({
                     type: 'rect',
                     ...base,
-                    x: plot.x + index * slot + slot * 0.12,
+                    x: center - band.thickness / 2,
                     y: Math.min(zero, end),
-                    width: Math.max(1, slot * 0.76),
+                    width: band.thickness,
                     height: Math.max(0.5, Math.abs(end - zero)),
                     fill: color,
                     lineWidth: 0,
                     cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
                 });
-                nodes.push(textNode(context, `${layer.id}:rank-label:${row.id}`, plot.x + (index + 0.5) * slot, Math.min(zero, end) - 8, `#${row.rank}`, {
+                nodes.push(textNode(context, `${layer.id}:rank-label:${row.id}`, center, Math.min(zero, end) - 8, `#${row.rank}`, {
                     size: Math.min(12, slot * 0.28),
                 }));
             }
@@ -56229,10 +56700,29 @@ var Graflume = (function (exports) {
         const span = Math.max(Number.EPSILON, maximum - minimum);
         const navigatorHeight = booleanOption(context, 'navigator') === false ? 0 : Math.min(28, context.plot.height * 0.13);
         const chartHeight = context.plot.height - navigatorHeight - (navigatorHeight > 0 ? 5 : 0);
-        const width = context.xScale.bandwidth || context.plot.width / visible.length;
+        const selectedIndices = selectBarCategoryIndices({
+            categoryCount: visible.length,
+            plotSpan: context.plot.width,
+            maximumMarks: context.performance.maxBarMarks,
+            marksPerCategory: 2,
+        });
+        const rendered = selectedIndices.map((index) => ({
+            bucket: visible[index],
+            visibleIndex: index,
+        }));
+        const band = resolveBarBandLayout({
+            scale: context.xScale,
+            centers: rendered.map(({ bucket }) => context.xScale.map(bucket.time)),
+            plotSpan: context.plot.width,
+            categoryCount: visible.length,
+            lodSampled: rendered.length < visible.length,
+            barWidthRatio: 0.62,
+            maxThickness: 64,
+            preserveAuthoredRatio: preservesReferenceBarRatio(context.theme.name),
+        });
         const mapY = (value) => context.plot.y + chartHeight - ((value - minimum) / span) * chartHeight;
         const nodes = [];
-        visible.forEach((bucket, index) => {
+        rendered.forEach(({ bucket, visibleIndex }) => {
             const x = context.xScale.map(bucket.time);
             const open = mapY(bucket.open);
             const close = mapY(bucket.close);
@@ -56266,7 +56756,7 @@ var Graflume = (function (exports) {
                     interactive: context.performance.enableHitTesting,
                     datum: {
                         layerId: context.layer.id,
-                        rowIndex: bucket.sourceRows.at(-1) ?? index,
+                        rowIndex: bucket.sourceRows.at(-1) ?? visibleIndex,
                         datum: { ...bucket, sourceRows: [...bucket.sourceRows] },
                         tooltip: {
                             time: bucket.time,
@@ -56281,9 +56771,9 @@ var Graflume = (function (exports) {
                         },
                     },
                 }),
-                x: x - width * 0.31,
+                x: x - band.thickness / 2,
                 y: Math.min(open, close),
-                width: Math.max(1.5, width * 0.62),
+                width: band.thickness,
                 height: Math.max(1.5, Math.abs(open - close)),
                 fill: context.layer.mark.fill ?? colorWithOpacity(color, 0.72),
                 stroke: context.layer.mark.stroke ?? color,
@@ -56684,12 +57174,36 @@ var Graflume = (function (exports) {
         const minimum = Math.min(0, ...steps.flatMap(({ start, end }) => [start, end]));
         const maximum = Math.max(0, ...steps.flatMap(({ start, end }) => [start, end]));
         const span = Math.max(Number.EPSILON, maximum - minimum);
-        const width = context.plot.width / Math.max(1, steps.length);
+        const selectedIndices = selectBarCategoryIndices({
+            categoryCount: steps.length,
+            plotSpan: context.plot.width,
+            maximumMarks: context.performance.maxBarMarks,
+            marksPerCategory: 2,
+        });
+        const centerFor = (index) => {
+            const input = scaleInput(context.table.value(index, context.layer.x.field));
+            const mapped = input === null ? Number.NaN : context.xScale.map(input);
+            return Number.isFinite(mapped)
+                ? mapped
+                : context.plot.x + ((index + 0.5) / Math.max(1, steps.length)) * context.plot.width;
+        };
+        const band = resolveBarBandLayout({
+            scale: context.xScale,
+            centers: selectedIndices.map(centerFor),
+            plotSpan: context.plot.width,
+            categoryCount: steps.length,
+            lodSampled: selectedIndices.length < steps.length,
+            barWidthRatio: 0.74,
+            maxThickness: 64,
+            preserveAuthoredRatio: preservesReferenceBarRatio(context.theme.name),
+        });
         const mapY = (value) => context.plot.y + context.plot.height - ((value - minimum) / span) * context.plot.height;
         const nodes = [];
-        steps.forEach((step, index) => {
+        selectedIndices.forEach((index, selectedIndex) => {
+            const step = steps[index];
             const start = mapY(step.start);
             const end = mapY(step.end);
+            const x = centerFor(index);
             const color = step.kind === 'subtotal' || step.kind === 'total'
                 ? context.theme.colors.focus
                 : categoricalColor(context.theme, step.change >= 0 ? 1 : 3, 4);
@@ -56712,24 +57226,26 @@ var Graflume = (function (exports) {
                         },
                     },
                 }),
-                x: context.plot.x + index * width + width * 0.13,
+                x: x - band.thickness / 2,
                 y: Math.min(start, end),
-                width: Math.max(1, width * 0.74),
+                width: band.thickness,
                 height: Math.max(1, Math.abs(start - end)),
                 fill: context.layer.mark.fill ?? colorWithOpacity(color, 0.78),
                 stroke: context.layer.mark.stroke ?? color,
                 lineWidth: context.layer.mark.lineWidth ?? 1,
                 cornerRadius: context.layer.mark.cornerRadius ?? context.theme.mark.barRadius,
             });
-            if (index < steps.length - 1) {
+            const nextIndex = selectedIndices[selectedIndex + 1];
+            if (nextIndex === index + 1) {
                 const connectorY = mapY(step.end);
+                const nextX = centerFor(nextIndex);
                 nodes.push({
                     type: 'line',
                     ...nodeBase(`${context.layer.id}:semantic-waterfall-connector:${index}`, {
                         zIndex: context.layer.zIndex - 1,
                     }),
-                    x1: context.plot.x + (index + 0.87) * width,
-                    x2: context.plot.x + (index + 1.13) * width,
+                    x1: x + band.thickness / 2,
+                    x2: nextX - band.thickness / 2,
                     y1: connectorY,
                     y2: connectorY,
                     stroke: context.theme.colors.axis,
@@ -58513,6 +59029,97 @@ void main() {
       );
     }
 
+    function evidenceDigest(value, digest = 2_166_136_261) {
+      if (typeof value === 'number') {
+        invariant(Number.isFinite(value), 'processing evidence numbers must be finite');
+        const normalized = Object.is(value, -0) ? 0 : value;
+        return evidenceDigest(String(normalized), digest);
+      }
+      if (typeof value === 'string') {
+        let output = digest;
+        for (const character of value) {
+          output ^= character.codePointAt(0);
+          output = Math.imul(output, 16_777_619) >>> 0;
+        }
+        return output;
+      }
+      if (typeof value === 'boolean' || value === null) {
+        return evidenceDigest(String(value), digest);
+      }
+      if (Array.isArray(value)) {
+        return value.reduce((output, entry) => evidenceDigest(entry, output), digest);
+      }
+      invariant(
+        value !== null && typeof value === 'object',
+        'logical-row processing must return observable evidence',
+      );
+      let output = digest;
+      for (const [key, entry] of Object.entries(value)) {
+        output = evidenceDigest(key, output);
+        output = evidenceDigest(entry, output);
+      }
+      return output;
+    }
+
+    function processed(data, processing) {
+      return { ...processing, data };
+    }
+
+    /**
+     * Visit every logical input observation exactly once. Generators use this
+     * pass for their real aggregation or sampling work; sourceRows is therefore
+     * measured processing evidence, not only descriptive metadata.
+     */
+    function processLogicalRows(recipe, visitor) {
+      const count = sourceRows(recipe);
+      const boundaryIndices = new Set([0, Math.floor((count - 1) / 2), count - 1]);
+      const boundaryRows = [];
+      let generatedRows = 0;
+      let processedRows = 0;
+      let digest = 2_166_136_261;
+      for (let index = 0; index < count; index += 1) {
+        generatedRows += 1;
+        const contribution = visitor(index);
+        const contributionDigest = evidenceDigest(contribution);
+        const prefixBeforeDigest = digest;
+        digest = hash32(digest ^ contributionDigest ^ Math.imul(index + 1, 0x9e3779b1));
+        processedRows += 1;
+        if (boundaryIndices.has(index)) {
+          boundaryRows.push({
+            index,
+            contributionDigest: contributionDigest.toString(16).padStart(8, '0'),
+            prefixBeforeDigest: prefixBeforeDigest.toString(16).padStart(8, '0'),
+            prefixDigest: digest.toString(16).padStart(8, '0'),
+          });
+        }
+      }
+      return {
+        generatedRows,
+        processedRows,
+        processingEvidence: {
+          algorithm: 'logical-row-fnv1a32-v1',
+          digest: digest.toString(16).padStart(8, '0'),
+          boundaryRows,
+        },
+      };
+    }
+
+    function sampledLogicalRows(recipe, maximumRows, rowForIndex) {
+      const count = sourceRows(recipe);
+      const selected = evenlySpacedIndices(count, Math.min(count, maximumRows));
+      const rows = [];
+      let selectionIndex = 0;
+      const processing = processLogicalRows(recipe, (index) => {
+        const row = rowForIndex(index, count);
+        if (index === selected[selectionIndex]) {
+          rows.push(row);
+          selectionIndex += 1;
+        }
+        return row;
+      });
+      return processed(rows, processing);
+    }
+
     function evenlySpacedIndices(length, count) {
       if (count >= length) return Array.from({ length }, (_, index) => index);
       if (count <= 1) return [Math.floor((length - 1) / 2)];
@@ -58552,21 +59159,45 @@ void main() {
       const points = Math.max(seriesCount, materializationLimit(recipe, preferredPoints));
       const perSeries = Math.max(1, Math.floor(points / seriesCount));
       const daySpan = integer(parameter(recipe, 'dateCycleDays', 731), 731, 2, 100_000) - 1;
+      const source = sourceRows(recipe);
+      const bins = Array.from({ length: seriesCount * perSeries }, () => ({
+        count: 0,
+        value: 0,
+        target: 0,
+        previous: 0,
+        progress: 0,
+      }));
+      const processing = processLogicalRows(recipe, (sourceIndex) => {
+        const series = sourceIndex % seriesCount;
+        const observationIndex = Math.floor(sourceIndex / seriesCount);
+        const observationsInSeries = Math.ceil((source - series) / seriesCount);
+        const progress = observationsInSeries <= 1 ? 0 : observationIndex / (observationsInSeries - 1);
+        const season = Math.sin(progress * Math.PI * 8 + series * 0.8) * (10 + series * 2);
+        const longWave = Math.sin(progress * Math.PI * 2.2 + 0.4) * 7;
+        const incident = Math.exp(-((progress - 0.72) ** 2) / 0.0028) * 22;
+        const value =
+          58 +
+          series * 9 +
+          progress * 30 +
+          season +
+          longWave +
+          incident +
+          signed(recipe.seed, sourceIndex, series) * 2.4;
+        const binIndex = Math.min(perSeries - 1, Math.floor(progress * perSeries));
+        const bin = bins[series * perSeries + binIndex];
+        bin.count += 1;
+        bin.value += value;
+        bin.target += 70 + progress * 22 + series * 6;
+        bin.previous += value - 4 - Math.sin(progress * 9) * 3;
+        bin.progress += progress;
+        return { series, binIndex, progress, value };
+      });
       const rows = [];
       for (let series = 0; series < seriesCount; series += 1) {
         for (let index = 0; index < perSeries; index += 1) {
-          const progress = perSeries <= 1 ? 0 : index / (perSeries - 1);
-          const season = Math.sin(progress * Math.PI * 8 + series * 0.8) * (10 + series * 2);
-          const longWave = Math.sin(progress * Math.PI * 2.2 + 0.4) * 7;
-          const incident = Math.exp(-((progress - 0.72) ** 2) / 0.0028) * 22;
-          const value =
-            58 +
-            series * 9 +
-            progress * 30 +
-            season +
-            longWave +
-            incident +
-            signed(recipe.seed, index, series) * 2.4;
+          const bin = bins[series * perSeries + index];
+          if (bin.count === 0) continue;
+          const progress = bin.progress / bin.count;
           const day = Math.round(progress * daySpan);
           const milestone = [
             [0.18, 'Baseline approved'],
@@ -58577,16 +59208,16 @@ void main() {
           rows.push({
             date: isoDate(day),
             category: isoDate(day).slice(0, 7),
-            value: round(value, 2),
-            target: round(70 + progress * 22 + series * 6, 2),
-            previous: round(value - 4 - Math.sin(progress * 9) * 3, 2),
+            value: round(bin.value / bin.count, 2),
+            target: round(bin.target / bin.count, 2),
+            previous: round(bin.previous / bin.count, 2),
             annotation: milestone?.[1] ?? '',
             series: seriesNames[series % seriesNames.length],
             angle: round(progress * 360, 3),
           });
         }
       }
-      return rows;
+      return processed(rows, processing);
     }
 
     function categoricalEvents(recipe) {
@@ -58609,17 +59240,32 @@ void main() {
             : family === 'waterfall'
               ? revenueDriverNames
               : capabilityNames;
-      const rows = Array.from({ length: count }, (_, index) => {
+      const aggregates = Array.from({ length: count }, () => ({
+        count: 0,
+        value: 0,
+        previous: 0,
+        target: 0,
+        radius: 0,
+      }));
+      const processing = processLogicalRows(recipe, (sourceIndex) => {
+        const index = sourceIndex % count;
         const base = 1_600 / (1 + index * 0.23);
-        const value = Math.max(0, base * (0.84 + unit(recipe.seed, index, 1) * 0.32));
-        return {
-          category: index < labels.length ? labels[index] : `Segment ${index + 1}`,
-          value: round(value, 1),
-          previous: round(value * (0.82 + unit(recipe.seed, index, 2) * 0.2), 1),
-          target: round(value * (1.05 + unit(recipe.seed, index, 3) * 0.12), 1),
-          radius: round(18 + unit(recipe.seed, index, 4) * 34, 2),
-        };
+        const value = Math.max(0, base * (0.84 + unit(recipe.seed, sourceIndex, 1) * 0.32));
+        const aggregate = aggregates[index];
+        aggregate.count += 1;
+        aggregate.value += value;
+        aggregate.previous += value * (0.82 + unit(recipe.seed, sourceIndex, 2) * 0.2);
+        aggregate.target += value * (1.05 + unit(recipe.seed, sourceIndex, 3) * 0.12);
+        aggregate.radius += 18 + unit(recipe.seed, sourceIndex, 4) * 34;
+        return { categoryIndex: index, value, previous: aggregate.previous, target: aggregate.target };
       });
+      const rows = aggregates.map((aggregate, index) => ({
+        category: index < labels.length ? labels[index] : `Segment ${index + 1}`,
+        value: round(aggregate.value / aggregate.count, 1),
+        previous: round(aggregate.previous / aggregate.count, 1),
+        target: round(aggregate.target / aggregate.count, 1),
+        radius: round(aggregate.radius / aggregate.count, 2),
+      }));
       if (family === 'funnel') rows.sort((left, right) => right.value - left.value);
       if (family === 'waterfall') {
         rows.forEach((row, index) => {
@@ -58627,7 +59273,13 @@ void main() {
         });
       }
       if (family === 'gauge') {
-        rows[0] = { category: 'Reliability', value: 99.93, previous: 99.84, target: 99.9, radius: 34 };
+        rows[0] = {
+          category: 'Reliability',
+          value: round(99.82 + (rows[0].value / 1_600) * 0.12, 2),
+          previous: 99.84,
+          target: 99.9,
+          radius: 34,
+        };
       }
       if (family === 'item') {
         const total = rows.reduce((sum, row) => sum + row.value, 0);
@@ -58638,13 +59290,13 @@ void main() {
           allocated += row.value;
         });
       }
-      return rows;
+      return processed(rows, processing);
     }
 
     function clusteredPoints(recipe) {
       const count = materializationLimit(recipe, 4_000);
       const clusterCount = integer(parameter(recipe, 'clusterCount', 6), 6, 2, 12);
-      return Array.from({ length: count }, (_, index) => {
+      return sampledLogicalRows(recipe, count, (index) => {
         const cluster = index % clusterCount;
         const angle = (cluster / clusterCount) * Math.PI * 2;
         const centerX = Math.cos(angle) * 44;
@@ -58663,9 +59315,9 @@ void main() {
 
     function intervalSequence(recipe) {
       const count = materializationLimit(recipe, 64);
-      const rows = Array.from({ length: count }, (_, index) => {
+      return sampledLogicalRows(recipe, count, (index, logicalCount) => {
         const lane = index % phaseNames.length;
-        const startDay = Math.floor(index / phaseNames.length) * 2 + lane;
+        const startDay = Math.floor((index / Math.max(1, logicalCount - 1)) * 330) + lane;
         const duration = 2 + Math.floor(unit(recipe.seed, index, 20) * 10);
         const low = round(18 + lane * 10 + signed(recipe.seed, index, 21) * 4, 2);
         const high = round(low + 5 + unit(recipe.seed, index, 22) * 16, 2);
@@ -58673,7 +59325,7 @@ void main() {
         const region =
           operatingRegions[Math.floor(index / initiativeNames.length) % operatingRegions.length];
         return {
-          id: `${initiative.toLowerCase().replaceAll(' ', '-')}-${phaseNames[lane].toLowerCase()}-${region.toLowerCase().replaceAll(' ', '-')}`,
+          id: `${initiative.toLowerCase().replaceAll(' ', '-')}-${phaseNames[lane].toLowerCase()}-${region.toLowerCase().replaceAll(' ', '-')}-${index + 1}`,
           category: `${phaseNames[lane]} · ${initiative} · ${region}`,
           start: isoDate(startDay),
           end: isoDate(startDay + duration),
@@ -58683,7 +59335,6 @@ void main() {
           progress: Math.round(unit(recipe.seed, index, 23) * 100),
         };
       });
-      return rows;
     }
 
     function ohlcvSequence(recipe) {
@@ -58691,91 +59342,114 @@ void main() {
       const preferredCount = family === 'candlestick' ? 720 : family === 'price-blocks' ? 900 : 1_000;
       const count = materializationLimit(recipe, preferredCount);
       const source = sourceRows(recipe);
-      const binSize = Math.max(1, source / count);
-      const rows = [];
+      const aggregateBins = Array.from({ length: count }, () => ({
+        count: 0,
+        open: 0,
+        high: Number.NEGATIVE_INFINITY,
+        low: Number.POSITIVE_INFINITY,
+        close: 0,
+        volume: 0,
+      }));
       let previousClose = 118 + unit(recipe.seed, 0, 30) * 8;
-      for (let index = 0; index < count; index += 1) {
-        const trend = index / Math.max(1, count - 1);
+      const processing = processLogicalRows(recipe, (index) => {
         const open = previousClose;
-        const impulse = Math.sin(index * 0.11) * 1.3 + signed(recipe.seed, index, 31) * 2.1 + 0.035;
+        const impulse = Math.sin(index * 0.011) * 0.13 + signed(recipe.seed, index, 31) * 0.21 + 0.0035;
         const close = Math.max(1, open + impulse);
-        const spread = 0.6 + unit(recipe.seed, index, 32) * 2.8;
+        const spread = 0.06 + unit(recipe.seed, index, 32) * 0.28;
         const low = Math.max(
           0.01,
           Math.min(open, close) - spread * (0.45 + unit(recipe.seed, index, 33)),
         );
         const high = Math.max(open, close) + spread * (0.45 + unit(recipe.seed, index, 34));
-        const volume = Math.round((85_000 + unit(recipe.seed, index, 35) * 340_000) * binSize);
-        const middle = (open + high + low + close) / 4;
-        rows.push({
-          // Source rows represent intraday observations; each emitted row is one
-          // aggregate candle. Keep the displayed horizon realistic instead of
-          // stretching the logical event count across centuries.
-          date: isoDate(index),
-          open: round(open, 4),
-          high: round(high, 4),
-          low: round(low, 4),
-          close: round(close, 4),
-          value: round(close, 4),
-          price: round(middle, 4),
-          volume,
-          lower: round(close * (0.965 - trend * 0.003), 4),
-          upper: round(close * (1.035 + trend * 0.003), 4),
-          signal: round((open + close) / 2, 4),
-        });
+        const volume = Math.round(850 + unit(recipe.seed, index, 35) * 3_400);
+        const binIndex = Math.min(count - 1, Math.floor((index * count) / source));
+        const bin = aggregateBins[binIndex];
+        if (bin.count === 0) bin.open = open;
+        bin.count += 1;
+        bin.high = Math.max(bin.high, high);
+        bin.low = Math.min(bin.low, low);
+        bin.close = close;
+        bin.volume += volume;
         previousClose = close;
-      }
+        return { binIndex, open, high, low, close, volume };
+      });
+      const rows = aggregateBins.flatMap((bin, index) => {
+        if (bin.count === 0) return [];
+        const trend = index / Math.max(1, count - 1);
+        const middle = (bin.open + bin.high + bin.low + bin.close) / 4;
+        return [
+          {
+            // Each emitted candle aggregates a contiguous portion of the logical
+            // observation stream, keeping the displayed horizon readable.
+            date: isoDate(index),
+            open: round(bin.open, 4),
+            high: round(bin.high, 4),
+            low: round(bin.low, 4),
+            close: round(bin.close, 4),
+            value: round(bin.close, 4),
+            price: round(middle, 4),
+            volume: bin.volume,
+            lower: round(bin.close * (0.965 - trend * 0.003), 4),
+            upper: round(bin.close * (1.035 + trend * 0.003), 4),
+            signal: round((bin.open + bin.close) / 2, 4),
+          },
+        ];
+      });
       if (family === 'volume-profile') {
-        const bins = new Map();
+        const priceBins = new Map();
         for (const row of rows) {
           const price = Math.round(row.price / 2) * 2;
-          const current = bins.get(price) ?? { date: row.date, price, volume: 0 };
+          const current = priceBins.get(price) ?? { date: row.date, price, volume: 0 };
           current.volume += row.volume;
-          bins.set(price, current);
+          priceBins.set(price, current);
         }
-        return [...bins.values()].sort((left, right) => left.price - right.price);
+        return processed(
+          [...priceBins.values()].sort((left, right) => left.price - right.price),
+          processing,
+        );
       }
-      return rows;
+      return processed(rows, processing);
     }
 
     function motionTrajectories(recipe) {
       const desiredFrames = integer(parameter(recipe, 'frameCount', 20), 20, 2, 120);
       const desiredEntities = integer(parameter(recipe, 'entityCount', 5_000), 5_000, 1, 50_000);
       const limit = materializationLimit(recipe, 4_000);
-      const frames = Math.min(desiredFrames, Math.max(2, Math.floor(Math.sqrt(limit))));
-      const entities = Math.min(desiredEntities, Math.max(1, Math.floor(limit / frames)));
-      const rows = [];
-      for (let frame = 0; frame < frames; frame += 1) {
+      const frames = Math.min(desiredFrames, sourceRows(recipe));
+      const logicalEntities = Math.min(
+        desiredEntities,
+        Math.max(1, Math.ceil(sourceRows(recipe) / frames)),
+      );
+      return sampledLogicalRows(recipe, limit, (index) => {
+        const frame = Math.min(frames - 1, Math.floor(index / logicalEntities));
+        const entity = index % logicalEntities;
         const time = frame / Math.max(1, frames - 1);
-        for (let entity = 0; entity < entities; entity += 1) {
-          const group = entity % 6;
-          const baseAngle = (entity / Math.max(1, entities)) * Math.PI * 2;
-          const radius = 25 + group * 5 + signed(recipe.seed, entity, 40) * 4;
-          const angle = baseAngle + time * (0.8 + group * 0.17);
-          const account = accountNames[entity % accountNames.length];
-          const region =
-            operatingRegions[Math.floor(entity / accountNames.length) % operatingRegions.length];
-          const train =
-            releaseTrainNames[
-              Math.floor(entity / (accountNames.length * operatingRegions.length)) %
-                releaseTrainNames.length
-            ];
-          rows.push({
-            id: `${account} · ${region} · ${train}`,
-            x: round(Math.cos(angle) * radius + time * 24 - 12, 3),
-            y: round(Math.sin(angle) * radius + Math.sin(time * Math.PI) * 9, 3),
-            size: round(8 + unit(recipe.seed, entity, 41) * 26, 2),
-            group: segmentNames[group],
-            time: `2026-W${String(frame + 1).padStart(2, '0')}`,
-          });
-        }
-      }
-      return rows;
+        const group = entity % 6;
+        const baseAngle = (entity / Math.max(1, logicalEntities)) * Math.PI * 2;
+        const radius = 25 + group * 5 + signed(recipe.seed, entity, 40) * 4;
+        const angle = baseAngle + time * (0.8 + group * 0.17);
+        const account = accountNames[entity % accountNames.length];
+        const region =
+          operatingRegions[Math.floor(entity / accountNames.length) % operatingRegions.length];
+        const train =
+          releaseTrainNames[
+            Math.floor(entity / (accountNames.length * operatingRegions.length)) %
+              releaseTrainNames.length
+          ];
+        return {
+          id: `${account} · ${region} · ${train} · ${entity + 1}`,
+          x: round(Math.cos(angle) * radius + time * 24 - 12, 3),
+          y: round(Math.sin(angle) * radius + Math.sin(time * Math.PI) * 9, 3),
+          size: round(8 + unit(recipe.seed, entity, 41) * 26, 2),
+          group: segmentNames[group],
+          time: `2026-W${String(frame + 1).padStart(2, '0')}`,
+        };
+      });
     }
 
     function geoEvents(recipe) {
       const count = materializationLimit(recipe, 2_400);
-      return Array.from({ length: count }, (_, index) => {
+      return sampledLogicalRows(recipe, count, (index) => {
         const hub = hubCoordinates[index % hubCoordinates.length];
         const longitude = Math.max(
           -180,
@@ -58813,35 +59487,46 @@ void main() {
         const cohort = Math.floor(index / relationshipNodeNames.length);
         return cohort === 0 ? base : `${base} · ${operatingRegions[cohort % operatingRegions.length]}`;
       };
-      const rows = [];
-      for (let index = 1; index < nodes && rows.length < limit; index += 1) {
+      const templates = [];
+      for (let index = 1; index < nodes && templates.length < limit; index += 1) {
         const community = index % 12;
         const parent =
           family === 'flow' ? Math.max(0, index - 1 - (index % 3)) : Math.floor((index - 1) / 2);
-        rows.push({
-          id: `edge-${rows.length + 1}`,
+        templates.push({
+          id: `edge-${templates.length + 1}`,
           source: nodeLabel(parent),
           target: nodeLabel(index),
-          value: round(2 + unit(recipe.seed, index, 60) * 48, 2),
           community: relationshipCommunityNames[community % relationshipCommunityNames.length],
         });
-        if (family !== 'flow' && index > 3 && rows.length < limit && index % 4 === 0) {
-          rows.push({
-            id: `edge-${rows.length + 1}`,
+        if (family !== 'flow' && index > 3 && templates.length < limit && index % 4 === 0) {
+          templates.push({
+            id: `edge-${templates.length + 1}`,
             source: nodeLabel(Math.max(0, index - 4)),
             target: nodeLabel(index),
-            value: round(1 + unit(recipe.seed, index, 61) * 20, 2),
             community: relationshipCommunityNames[community % relationshipCommunityNames.length],
           });
         }
       }
-      return rows;
+      const aggregates = templates.map(() => ({ count: 0, value: 0 }));
+      const processing = processLogicalRows(recipe, (index) => {
+        const templateIndex = hash32(recipe.seed ^ index) % templates.length;
+        const aggregate = aggregates[templateIndex];
+        aggregate.count += 1;
+        const value = 2 + unit(recipe.seed, index, 60) * 48;
+        aggregate.value += value;
+        return { templateIndex, value };
+      });
+      const rows = templates.map((template, index) => ({
+        ...template,
+        value: round(aggregates[index].value / aggregates[index].count, 2),
+      }));
+      return processed(rows, processing);
     }
 
     function hierarchyNodes(recipe) {
       const family = stringValue(parameter(recipe, 'family', ''), 'hierarchy');
       const limit = materializationLimit(recipe, 240);
-      const rows = [];
+      const skeleton = [];
       for (let index = 0; index < limit; index += 1) {
         const parentIndex = index === 0 ? -1 : Math.floor((index - 1) / 5);
         const depth = index === 0 ? 0 : Math.floor(Math.log(index * 4 + 1) / Math.log(5));
@@ -58857,25 +59542,47 @@ void main() {
           index === 0
             ? 'Statground'
             : `${phaseNames[depth % phaseNames.length]} · ${initiative} · ${region} · ${train}`;
-        const value = Math.max(1, Math.round(120_000 / (1 + depth * 3 + (index % 17))));
         const id =
           index === 0
             ? 'statground'
             : `${train.toLowerCase()}-${region.toLowerCase().replaceAll(' ', '-')}-${initiative
             .toLowerCase()
             .replaceAll(' ', '-')}`;
+        skeleton.push({ id, label, parentIndex, depth });
+      }
+      const aggregates = skeleton.map(() => ({ count: 0, quality: 0 }));
+      const processing = processLogicalRows(recipe, (index) => {
+        const target = index < limit ? index : 1 + (hash32(recipe.seed ^ index) % (limit - 1));
+        const quality = 0.9 + unit(recipe.seed, index, 66) * 0.2;
+        aggregates[target].count += 1;
+        aggregates[target].quality += quality;
+        return { target, quality };
+      });
+      const rows = [];
+      for (let index = 0; index < skeleton.length; index += 1) {
+        const item = skeleton[index];
+        const aggregate = aggregates[index];
+        const quality = aggregate.quality / Math.max(1, aggregate.count);
+        const value = Math.max(
+          1,
+          Math.round((120_000 / (1 + item.depth * 3 + (index % 17))) * quality),
+        );
         rows.push(
           family === 'word-tree'
-            ? { word: label, parent: parentIndex < 0 ? '' : rows[parentIndex].word, weight: value }
+            ? {
+                word: item.label,
+                parent: item.parentIndex < 0 ? '' : rows[item.parentIndex].word,
+                weight: value,
+              }
             : {
-                id,
-                parent: parentIndex < 0 ? '' : rows[parentIndex].id,
+                id: item.id,
+                parent: item.parentIndex < 0 ? '' : rows[item.parentIndex].id,
                 value,
-                label,
+                label: item.label,
               },
         );
       }
-      return rows;
+      return processed(rows, processing);
     }
 
     function textCorpus(recipe) {
@@ -58883,14 +59590,24 @@ void main() {
         materializationLimit(recipe, 80),
         Math.max(12, integer(parameter(recipe, 'wordCount', 80), 80, 12, 80)),
       );
-      return Array.from({ length: count }, (_, index) => ({
-        word: index < corpusTerms.length ? corpusTerms[index] : `term-${index + 1}`,
-        weight: Math.max(
-          1,
-          Math.round((30_000 / (index + 8) ** 0.72) * (0.9 + unit(recipe.seed, index, 70) * 0.2)),
-        ),
+      const weights = Array.from({ length: count }, () => 0);
+      const processing = processLogicalRows(recipe, (index) => {
+        const termIndex =
+          index < count
+            ? index
+            : Math.min(count - 1, Math.floor(unit(recipe.seed, index, 70) ** 2 * count));
+        weights[termIndex] += 1;
+        return { termIndex, weight: weights[termIndex] };
+      });
+      const rows = weights.map((weight, index) => ({
+        word:
+          index < corpusTerms.length
+            ? corpusTerms[index]
+            : `${corpusTerms[index % corpusTerms.length]} ${regionalMetricNames[index % regionalMetricNames.length]}`,
+        weight: Math.max(1, weight),
         language: index % 5 === 0 ? 'ko' : 'mixed',
       }));
+      return processed(rows, processing);
     }
 
     function multivariateObservations(recipe) {
@@ -58904,7 +59621,7 @@ void main() {
               ? 5_000
               : 2_000;
       const count = materializationLimit(recipe, preferredCount);
-      return Array.from({ length: count }, (_, index) => {
+      return sampledLogicalRows(recipe, count, (index) => {
         const cohort = index % 5;
         const latent = gaussian(recipe.seed, index, 80);
         const speed = 64 + cohort * 5 + latent * 8 + gaussian(recipe.seed, index, 82) * 2;
@@ -58932,22 +59649,25 @@ void main() {
       });
     }
 
+    function sourceGridDimensions(recipe) {
+      const explicitRows = parameter(recipe, 'rows', recipe.cardinality?.axes?.rows);
+      const explicitColumns = parameter(recipe, 'columns', recipe.cardinality?.axes?.columns);
+      if (Number.isInteger(explicitRows) && Number.isInteger(explicitColumns)) {
+        return [integer(explicitRows, 2, 2, 1_024), integer(explicitColumns, 2, 2, 1_024)];
+      }
+      const rows = Math.max(1, Math.floor(Math.sqrt(sourceRows(recipe))));
+      return [rows, Math.ceil(sourceRows(recipe) / rows)];
+    }
+
     function gridDimensions(recipe, maximum) {
-      const sourceGridRows = integer(
-        parameter(recipe, 'rows', recipe.cardinality?.axes?.rows ?? 256),
-        256,
-        2,
-        1_024,
-      );
-      const sourceColumns = integer(
-        parameter(recipe, 'columns', recipe.cardinality?.axes?.columns ?? 256),
-        256,
-        2,
-        1_024,
-      );
+      const [sourceGridRows, sourceColumns] = sourceGridDimensions(recipe);
       const ratio = sourceColumns / sourceGridRows;
-      const rows = Math.max(2, Math.min(sourceGridRows, Math.floor(Math.sqrt(maximum / ratio))));
-      const columns = Math.max(2, Math.min(sourceColumns, Math.floor(maximum / rows)));
+      const minimum = sourceRows(recipe) >= 4 ? 2 : 1;
+      const rows = Math.max(minimum, Math.min(sourceGridRows, Math.floor(Math.sqrt(maximum / ratio))));
+      const columns = Math.max(
+        minimum,
+        Math.min(sourceColumns, Math.floor(maximum / Math.max(1, rows))),
+      );
       return [rows, columns];
     }
 
@@ -58962,13 +59682,33 @@ void main() {
       const family = stringValue(parameter(recipe, 'family', ''), 'heatmap');
       const preferredCells = family === 'image' ? 9_000 : family === 'contour' ? 6_400 : 3_600;
       const [rows, columns] = gridDimensions(recipe, materializationLimit(recipe, preferredCells));
+      const [sourceGridRows, sourceColumns] = sourceGridDimensions(recipe);
+      const aggregates = Array.from({ length: rows * columns }, () => ({ count: 0, value: 0 }));
+      const processing = processLogicalRows(recipe, (index) => {
+        const sourceRow = Math.floor(index / sourceColumns);
+        const sourceColumn = index % sourceColumns;
+        const x = sourceColumns <= 1 ? 0 : (sourceColumn / (sourceColumns - 1)) * 2 - 1;
+        const y = sourceGridRows <= 1 ? 0 : (sourceRow / (sourceGridRows - 1)) * 2 - 1;
+        const outputRow = Math.min(rows - 1, Math.floor((sourceRow * rows) / sourceGridRows));
+        const outputColumn = Math.min(
+          columns - 1,
+          Math.floor((sourceColumn * columns) / sourceColumns),
+        );
+        const aggregate = aggregates[outputRow * columns + outputColumn];
+        const value = fieldValue(x, y, recipe.seed, index);
+        aggregate.count += 1;
+        aggregate.value += value;
+        return { sourceRow, sourceColumn, outputRow, outputColumn, value };
+      });
       const output = [];
       for (let row = 0; row < rows; row += 1) {
         for (let column = 0; column < columns; column += 1) {
           const index = row * columns + column;
           const x = columns <= 1 ? 0 : (column / (columns - 1)) * 2 - 1;
           const y = rows <= 1 ? 0 : (row / (rows - 1)) * 2 - 1;
-          const value = fieldValue(x, y, recipe.seed, index);
+          const aggregate = aggregates[index];
+          if (aggregate.count === 0) continue;
+          const value = aggregate.value / aggregate.count;
           const normalized = Math.max(0, Math.min(1, (value + 28) / 126));
           output.push({
             row,
@@ -58986,12 +59726,12 @@ void main() {
           });
         }
       }
-      return output;
+      return processed(output, processing);
     }
 
     function ternaryComposition(recipe) {
       const count = materializationLimit(recipe, 1_500);
-      return Array.from({ length: count }, (_, index) => {
+      return sampledLogicalRows(recipe, count, (index) => {
         const rawA = 0.08 + unit(recipe.seed, index, 100) ** 1.4;
         const rawB = 0.08 + unit(recipe.seed, index, 101) ** 1.2;
         const rawC = 0.08 + unit(recipe.seed, index, 102) ** 1.6;
@@ -59007,8 +59747,8 @@ void main() {
 
     function smithSweep(recipe) {
       const count = materializationLimit(recipe, 800);
-      return Array.from({ length: count }, (_, index) => {
-        const t = count <= 1 ? 0 : index / (count - 1);
+      return sampledLogicalRows(recipe, count, (index, logicalCount) => {
+        const t = logicalCount <= 1 ? 0 : index / (logicalCount - 1);
         const frequency = 0.8 + t * 5.2;
         return {
           frequency: round(frequency, 6),
@@ -59020,21 +59760,23 @@ void main() {
 
     function vennMembership(recipe) {
       const setCount = integer(parameter(recipe, 'aggregateSetCount', 5), 5, 2, 5);
-      const rows = [];
       const combinations = 2 ** setCount - 1;
+      const counts = Array.from({ length: combinations + 1 }, () => 0);
+      const processing = processLogicalRows(recipe, (index) => {
+        const membership =
+          index < combinations ? index + 1 : 1 + (hash32(recipe.seed ^ index) % combinations);
+        for (let mask = 1; mask <= combinations; mask += 1) {
+          if ((membership & mask) === mask) counts[mask] += 1;
+        }
+        return { membership };
+      });
+      const rows = [];
       for (let mask = 1; mask <= combinations; mask += 1) {
         const names = [];
-        let cardinality = sourceRows(recipe);
         for (let index = 0; index < setCount; index += 1) {
-          if ((mask & (1 << index)) !== 0) {
-            names.push(vennSetNames[index]);
-            cardinality *= 0.36 + unit(recipe.seed, index, 110) * 0.1;
-          }
+          if ((mask & (1 << index)) !== 0) names.push(vennSetNames[index]);
         }
-        const size = Math.max(
-          0,
-          Math.floor(cardinality * (0.82 + unit(recipe.seed, mask, 111) * 0.16)),
-        );
+        const size = counts[mask];
         rows.push({
           category: names.join('&'),
           sets: names,
@@ -59042,36 +59784,59 @@ void main() {
           members: [`${size.toLocaleString('en-US')} logical records`],
         });
       }
-      return rows.sort((left, right) => right.size - left.size);
+      return processed(
+        rows.sort((left, right) => right.size - left.size),
+        processing,
+      );
     }
 
     function surfaceGrid(recipe) {
       const [rows, columns] = gridDimensions(recipe, materializationLimit(recipe, 262_144));
+      const [sourceGridRows, sourceColumns] = sourceGridDimensions(recipe);
       const x = Array.from({ length: columns }, (_, column) =>
         round((column / (columns - 1)) * 8 - 4, 5),
       );
       const y = Array.from({ length: rows }, (_, row) => round((row / (rows - 1)) * 6 - 3, 5));
+      const aggregates = Array.from({ length: rows * columns }, () => ({ count: 0, value: 0 }));
+      const processing = processLogicalRows(recipe, (index) => {
+        const sourceRow = Math.floor(index / sourceColumns);
+        const sourceColumn = index % sourceColumns;
+        const normalizedX = sourceColumns <= 1 ? 0 : (sourceColumn / (sourceColumns - 1)) * 2 - 1;
+        const normalizedY = sourceGridRows <= 1 ? 0 : (sourceRow / (sourceGridRows - 1)) * 2 - 1;
+        const outputRow = Math.min(rows - 1, Math.floor((sourceRow * rows) / sourceGridRows));
+        const outputColumn = Math.min(
+          columns - 1,
+          Math.floor((sourceColumn * columns) / sourceColumns),
+        );
+        const aggregate = aggregates[outputRow * columns + outputColumn];
+        const value = fieldValue(normalizedX, normalizedY, recipe.seed, index) / 24;
+        aggregate.count += 1;
+        aggregate.value += value;
+        return { sourceRow, sourceColumn, outputRow, outputColumn, value };
+      });
       const z = [];
       for (let row = 0; row < rows; row += 1) {
         for (let column = 0; column < columns; column += 1) {
-          const normalizedX = x[column] / 4;
-          const normalizedY = y[row] / 3;
-          z.push(
-            round(fieldValue(normalizedX, normalizedY, recipe.seed, row * columns + column) / 24, 5),
-          );
+          const aggregate = aggregates[row * columns + column];
+          z.push(round(aggregate.value / Math.max(1, aggregate.count), 5));
         }
       }
-      return { rows, columns, x, y, z, values: [...z] };
+      return processed({ rows, columns, x, y, z, values: [...z] }, processing);
     }
 
-    function volumeDimensions(recipe, maximum) {
+    function sourceVolumeDimensions(recipe) {
       const dimensions = Array.isArray(parameter(recipe, 'dimensions', undefined))
         ? parameter(recipe, 'dimensions', undefined)
         : recipe.cardinality?.axes?.dimensions;
-      const source =
-        Array.isArray(dimensions) && dimensions.length === 3
-          ? dimensions.map((value) => integer(value, 64, 2, 256))
-          : [64, 64, 64];
+      if (Array.isArray(dimensions) && dimensions.length === 3) {
+        return dimensions.map((value) => integer(value, 2, 2, 256));
+      }
+      const side = Math.max(2, Math.round(Math.cbrt(sourceRows(recipe))));
+      return [side, side, Math.max(2, Math.ceil(sourceRows(recipe) / (side * side)))];
+    }
+
+    function volumeDimensions(recipe, maximum) {
+      const source = sourceVolumeDimensions(recipe);
       const scale = Math.min(1, Math.cbrt(maximum / (source[0] * source[1] * source[2])));
       let output = source.map((value) => Math.max(2, Math.floor(value * scale)));
       while (output[0] * output[1] * output[2] > maximum) {
@@ -59081,33 +59846,49 @@ void main() {
       return output;
     }
 
+    function volumeFieldValue(nx, ny, nz) {
+      const lobeA = Math.exp(-((nx + 0.28) ** 2 * 5 + (ny - 0.15) ** 2 * 8 + (nz + 0.08) ** 2 * 6));
+      const lobeB = Math.exp(-((nx - 0.38) ** 2 * 10 + (ny + 0.3) ** 2 * 7 + (nz - 0.24) ** 2 * 11));
+      const ring = Math.exp(-((Math.hypot(nx, ny) - 0.54) ** 2) * 32 - nz * nz * 7);
+      return lobeA * 0.92 + lobeB * 0.78 + ring * 0.32;
+    }
+
     function volumeGrid(recipe) {
       const dimensions = volumeDimensions(recipe, materializationLimit(recipe, 262_144));
-      const values = [];
       const [width, height, depth] = dimensions;
-      for (let z = 0; z < depth; z += 1) {
-        for (let y = 0; y < height; y += 1) {
-          for (let x = 0; x < width; x += 1) {
-            const nx = (x / (width - 1)) * 2 - 1;
-            const ny = (y / (height - 1)) * 2 - 1;
-            const nz = (z / (depth - 1)) * 2 - 1;
-            const lobeA = Math.exp(
-              -((nx + 0.28) ** 2 * 5 + (ny - 0.15) ** 2 * 8 + (nz + 0.08) ** 2 * 6),
-            );
-            const lobeB = Math.exp(
-              -((nx - 0.38) ** 2 * 10 + (ny + 0.3) ** 2 * 7 + (nz - 0.24) ** 2 * 11),
-            );
-            const ring = Math.exp(-((Math.hypot(nx, ny) - 0.54) ** 2) * 32 - nz * nz * 7);
-            values.push(round(lobeA * 0.92 + lobeB * 0.78 + ring * 0.32, 6));
-          }
-        }
-      }
-      return {
-        dimensions,
-        values,
-        origin: [-1, -1, -1],
-        spacing: [2 / (width - 1), 2 / (height - 1), 2 / (depth - 1)],
-      };
+      const [sourceWidth, sourceHeight, sourceDepth] = sourceVolumeDimensions(recipe);
+      const aggregates = Array.from({ length: width * height * depth }, () => ({
+        count: 0,
+        value: 0,
+      }));
+      const processing = processLogicalRows(recipe, (index) => {
+        const sourceX = index % sourceWidth;
+        const sourceY = Math.floor(index / sourceWidth) % sourceHeight;
+        const sourceZ = Math.floor(index / (sourceWidth * sourceHeight));
+        const nx = sourceWidth <= 1 ? 0 : (sourceX / (sourceWidth - 1)) * 2 - 1;
+        const ny = sourceHeight <= 1 ? 0 : (sourceY / (sourceHeight - 1)) * 2 - 1;
+        const nz = sourceDepth <= 1 ? 0 : (sourceZ / (sourceDepth - 1)) * 2 - 1;
+        const x = Math.min(width - 1, Math.floor((sourceX * width) / sourceWidth));
+        const y = Math.min(height - 1, Math.floor((sourceY * height) / sourceHeight));
+        const z = Math.min(depth - 1, Math.floor((sourceZ * depth) / sourceDepth));
+        const aggregate = aggregates[z * width * height + y * width + x];
+        const value = volumeFieldValue(nx, ny, nz);
+        aggregate.count += 1;
+        aggregate.value += value;
+        return { sourceX, sourceY, sourceZ, x, y, z, value };
+      });
+      const values = aggregates.map((aggregate) =>
+        round(aggregate.value / Math.max(1, aggregate.count), 6),
+      );
+      return processed(
+        {
+          dimensions,
+          values,
+          origin: [-1, -1, -1],
+          spacing: [2 / (width - 1), 2 / (height - 1), 2 / (depth - 1)],
+        },
+        processing,
+      );
     }
 
     function vectorComponents(x, y, z) {
@@ -59117,50 +59898,52 @@ void main() {
 
     function spatialVector(recipe) {
       const maximum = materializationLimit(recipe, recipe.shape === 'rows' ? 625 : 3_375);
-      const side = Math.max(2, Math.floor(Math.cbrt(maximum)));
-      const count = Math.min(maximum, side ** 3);
       if (recipe.shape === 'rows') {
-        const rows = [];
-        const twoDimensionalSide = Math.max(2, Math.floor(Math.sqrt(maximum)));
-        for (let yIndex = 0; yIndex < twoDimensionalSide; yIndex += 1) {
-          for (let xIndex = 0; xIndex < twoDimensionalSide; xIndex += 1) {
-            if (rows.length >= maximum) break;
-            const x = (xIndex / (twoDimensionalSide - 1)) * 4 - 2;
-            const y = (yIndex / (twoDimensionalSide - 1)) * 4 - 2;
-            const [u, v] = vectorComponents(x, y, 0);
-            const magnitude = Math.hypot(u, v);
-            rows.push({
-              x: round(x, 5),
-              y: round(y, 5),
-              value: round(u, 6),
-              high: round(v, 6),
-              direction: round(((Math.atan2(v, u) * 180) / Math.PI + 360) % 360, 4),
-              magnitude: round(magnitude, 6),
-            });
-          }
-        }
-        return rows;
+        const sourceSide = Math.max(2, Math.ceil(Math.sqrt(sourceRows(recipe))));
+        return sampledLogicalRows(recipe, maximum, (index) => {
+          const xIndex = index % sourceSide;
+          const yIndex = Math.floor(index / sourceSide);
+          const x = (xIndex / (sourceSide - 1)) * 4 - 2;
+          const y = (yIndex / (sourceSide - 1)) * 4 - 2;
+          const [u, v] = vectorComponents(x, y, 0);
+          const magnitude = Math.hypot(u, v);
+          return {
+            x: round(x, 5),
+            y: round(y, 5),
+            value: round(u, 6),
+            high: round(v, 6),
+            direction: round(((Math.atan2(v, u) * 180) / Math.PI + 360) % 360, 4),
+            magnitude: round(magnitude, 6),
+          };
+        });
       }
-      const origins = [];
-      const vectors = [];
-      const labels = [];
-      const colors = [];
-      for (let index = 0; index < count; index += 1) {
-        const xIndex = index % side;
-        const yIndex = Math.floor(index / side) % side;
-        const zIndex = Math.floor(index / (side * side));
-        const x = (xIndex / (side - 1)) * 4 - 2;
-        const y = (yIndex / (side - 1)) * 4 - 2;
-        const z = (zIndex / (side - 1)) * 3 - 1.5;
-        origins.push([round(x, 5), round(y, 5), round(z, 5)]);
-        vectors.push(vectorComponents(x, y, z).map((value) => round(value, 6)));
+      const [sourceWidth, sourceHeight, sourceDepth] = sourceVolumeDimensions(recipe);
+      const sample = sampledLogicalRows(recipe, maximum, (index) => {
+        const xIndex = index % sourceWidth;
+        const yIndex = Math.floor(index / sourceWidth) % sourceHeight;
+        const zIndex = Math.floor(index / (sourceWidth * sourceHeight));
+        const x = (xIndex / (sourceWidth - 1)) * 4 - 2;
+        const y = (yIndex / (sourceHeight - 1)) * 4 - 2;
+        const z = (zIndex / (sourceDepth - 1)) * 3 - 1.5;
         const eastWest = x < -0.35 ? 'west' : x > 0.35 ? 'east' : 'central';
         const northSouth = y < -0.35 ? 'south' : y > 0.35 ? 'north' : 'midline';
         const altitude = z < -0.3 ? 'lower' : z > 0.3 ? 'upper' : 'middle';
-        labels.push(`${altitude} ${northSouth} ${eastWest} flow`);
-        colors.push(palette[index % palette.length]);
-      }
-      return { origins, vectors, labels, colors };
+        return {
+          origin: [round(x, 5), round(y, 5), round(z, 5)],
+          vector: vectorComponents(x, y, z).map((value) => round(value, 6)),
+          label: `${altitude} ${northSouth} ${eastWest} flow`,
+          color: palette[index % palette.length],
+        };
+      });
+      return processed(
+        {
+          origins: sample.data.map(({ origin }) => origin),
+          vectors: sample.data.map(({ vector }) => vector),
+          labels: sample.data.map(({ label }) => label),
+          colors: sample.data.map(({ color }) => color),
+        },
+        sample,
+      );
     }
 
     const generators = {
@@ -59451,6 +60234,51 @@ void main() {
         `cardinality.unit must equal ${expectedUnit}`,
       );
       closedObject(recipe.cardinality.axes, axesByRecipe[recipe.id], [], 'recipe.cardinality.axes');
+      for (const [key, axisValue] of Object.entries(recipe.cardinality.axes)) {
+        if (key === 'vectors') continue;
+        const parameterValue = parameter(recipe, key, undefined);
+        invariant(
+          JSON.stringify(parameterValue) === JSON.stringify(axisValue),
+          `cardinality.axes.${key} must match recipe.parameters.${key}`,
+        );
+      }
+      if (
+        Number.isInteger(recipe.cardinality.axes.entityCount) &&
+        Number.isInteger(recipe.cardinality.axes.frameCount)
+      ) {
+        invariant(
+          recipe.cardinality.axes.entityCount * recipe.cardinality.axes.frameCount ===
+            recipe.cardinality.sourceRows,
+          'motion axes must multiply to cardinality.sourceRows',
+        );
+      }
+      if (
+        Number.isInteger(recipe.cardinality.axes.rows) &&
+        Number.isInteger(recipe.cardinality.axes.columns)
+      ) {
+        invariant(
+          recipe.cardinality.axes.rows * recipe.cardinality.axes.columns ===
+            recipe.cardinality.sourceRows,
+          'grid axes must multiply to cardinality.sourceRows',
+        );
+      }
+      if (Array.isArray(recipe.cardinality.axes.dimensions)) {
+        invariant(
+          recipe.cardinality.axes.dimensions.length === 3 &&
+            recipe.cardinality.axes.dimensions.every(
+              (value) => Number.isInteger(value) && value >= 2,
+            ) &&
+            recipe.cardinality.axes.dimensions.reduce((total, value) => total * value, 1) ===
+              recipe.cardinality.sourceRows,
+          'volume dimensions must multiply to cardinality.sourceRows',
+        );
+      }
+      if (Number.isInteger(recipe.cardinality.axes.vectors)) {
+        invariant(
+          recipe.cardinality.axes.vectors === recipe.cardinality.sourceRows,
+          'vector axis must equal cardinality.sourceRows',
+        );
+      }
       closedObject(recipe.reduction, ['stage', 'method'], ['stage', 'method'], 'recipe.reduction');
       invariant(
         recipe.reduction.stage === stageByRecipe[recipe.id],
@@ -59519,6 +60347,39 @@ void main() {
       );
     }
 
+    function validateProcessingEvidence(materialization, logicalRows) {
+      invariant(
+        materialization.generatedRows === logicalRows,
+        `generated rows ${materialization.generatedRows} do not match source rows ${logicalRows}`,
+      );
+      invariant(
+        materialization.processedRows === logicalRows,
+        `processed rows ${materialization.processedRows} do not match source rows ${logicalRows}`,
+      );
+      const evidence = materialization.processingEvidence;
+      invariant(
+        evidence?.algorithm === 'logical-row-fnv1a32-v1' && /^[0-9a-f]{8}$/.test(evidence.digest),
+        'processing evidence digest is invalid',
+      );
+      const expectedBoundaries = [...new Set([0, Math.floor((logicalRows - 1) / 2), logicalRows - 1])];
+      invariant(
+        Array.isArray(evidence.boundaryRows) &&
+          evidence.boundaryRows.length === expectedBoundaries.length &&
+          evidence.boundaryRows.every(
+            (boundary, index) =>
+              boundary.index === expectedBoundaries[index] &&
+              /^[0-9a-f]{8}$/.test(boundary.contributionDigest) &&
+              /^[0-9a-f]{8}$/.test(boundary.prefixBeforeDigest) &&
+              /^[0-9a-f]{8}$/.test(boundary.prefixDigest),
+          ),
+        'processing evidence boundaries are invalid',
+      );
+      invariant(
+        evidence.boundaryRows.at(-1)?.prefixDigest === evidence.digest,
+        'last logical row must contribute to the final processing digest',
+      );
+    }
+
     /**
      * Materialize a closed Graflume demo recipe into deterministic, output-bounded data.
      * The logical source cardinality remains in the plan; generated data is a semantic LOD.
@@ -59526,7 +60387,10 @@ void main() {
     function materializeDemoRecipe$1(recipe) {
       validateRecipe(recipe);
       const definition = definitionById.get(recipe.id);
-      const data = generators[recipe.id](recipe);
+      const materialization = generators[recipe.id](recipe);
+      const data = materialization.data;
+      const logicalRows = sourceRows(recipe);
+      validateProcessingEvidence(materialization, logicalRows);
       const derivedRows = dataCardinality(data);
       const renderedMaximum = integer(recipe.outputBudget.maximum, 1, 1, 4_194_304);
       invariant(
@@ -59544,7 +60408,9 @@ void main() {
         plan: {
           recipeId: recipe.id,
           seed: recipe.seed,
-          sourceRows: sourceRows(recipe),
+          sourceRows: logicalRows,
+          generatedRows: materialization.generatedRows,
+          processedRows: materialization.processedRows,
           derivedRows,
           renderedRows: derivedRows,
           renderedMaximum,
