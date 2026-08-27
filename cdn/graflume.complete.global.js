@@ -21603,7 +21603,1733 @@ var Graflume = (function (exports) {
         return countryCache;
     }
 
-    const WORLD_ASPECT_RATIO = 2;
+    const MAXIMUM_MAP_SCOPE_VALUES = 50_000;
+    const unsafeMapPropertyNames = new Set(['__proto__', 'prototype', 'constructor']);
+    function mapScopeProperty(value, path) {
+        if (typeof value !== 'string' || value.trim() === '' || value.length > 256)
+            throw new GraflumeError('INVALID_SPEC', `${path} must be a non-empty string up to 256 characters.`, {
+                path,
+            });
+        const property = value.trim();
+        if (property !== '$id' && unsafeMapPropertyNames.has(property))
+            throw new GraflumeError('INVALID_SPEC', `${path} is not a safe GeoJSON property.`, { path });
+        return property;
+    }
+    function mapScopeValues(value, path) {
+        if (!Array.isArray(value) || value.length === 0 || value.length > MAXIMUM_MAP_SCOPE_VALUES)
+            throw new GraflumeError('INVALID_SPEC', `${path} must contain from 1 to ${MAXIMUM_MAP_SCOPE_VALUES} string, number, or boolean values.`, { path });
+        const output = [];
+        const keys = new Set();
+        value.forEach((entry, index) => {
+            if (!(typeof entry === 'string' ||
+                (typeof entry === 'number' && Number.isFinite(entry)) ||
+                typeof entry === 'boolean'))
+                throw new GraflumeError('INVALID_SPEC', `${path}[${index}] must be a string, finite number, or boolean.`, { path: `${path}[${index}]` });
+            if (typeof entry === 'string' && entry.length > 512)
+                throw new GraflumeError('INVALID_SPEC', `${path}[${index}] is longer than 512 characters.`, {
+                    path: `${path}[${index}]`,
+                });
+            const key = `${typeof entry}:${String(entry)}`;
+            if (!keys.has(key)) {
+                keys.add(key);
+                output.push(entry);
+            }
+        });
+        return Object.freeze(output);
+    }
+    /** Validates and snapshots a closed map feature-scope object. */
+    function normalizeMapFeatureScope(value, path = '$.mapScope') {
+        if (value === null || typeof value !== 'object' || Array.isArray(value))
+            throw new GraflumeError('INVALID_SPEC', `${path} must be an object.`, { path });
+        const candidate = value;
+        const allowed = new Set([
+            'level',
+            'property',
+            'values',
+            'parentProperty',
+            'parentValues',
+            'caseSensitive',
+            'unmatched',
+            'empty',
+        ]);
+        const unknown = Object.keys(candidate).find((key) => !allowed.has(key));
+        if (unknown !== undefined)
+            throw new GraflumeError('INVALID_SPEC', `Unknown map scope property "${unknown}".`, {
+                path: `${path}.${unknown}`,
+            });
+        const level = candidate.level ?? 'feature';
+        if (level !== 'country' && level !== 'region' && level !== 'feature')
+            throw new GraflumeError('INVALID_SPEC', `${path}.level is unsupported.`, {
+                path: `${path}.level`,
+            });
+        const property = mapScopeProperty(candidate.property ?? '$id', `${path}.property`);
+        const values = mapScopeValues(candidate.values, `${path}.values`);
+        const parentProperty = candidate.parentProperty === undefined
+            ? undefined
+            : mapScopeProperty(candidate.parentProperty, `${path}.parentProperty`);
+        const parentValues = candidate.parentValues === undefined
+            ? Object.freeze([])
+            : mapScopeValues(candidate.parentValues, `${path}.parentValues`);
+        if ((parentProperty === undefined) !== (parentValues.length === 0))
+            throw new GraflumeError('INVALID_SPEC', `${path}.parentProperty and ${path}.parentValues must be provided together.`, { path });
+        const caseSensitive = candidate.caseSensitive ?? false;
+        if (typeof caseSensitive !== 'boolean')
+            throw new GraflumeError('INVALID_SPEC', `${path}.caseSensitive must be boolean.`, {
+                path: `${path}.caseSensitive`,
+            });
+        const unmatched = candidate.unmatched ?? 'error';
+        if (unmatched !== 'error' && unmatched !== 'ignore')
+            throw new GraflumeError('INVALID_SPEC', `${path}.unmatched is unsupported.`, {
+                path: `${path}.unmatched`,
+            });
+        const empty = candidate.empty ?? 'error';
+        if (empty !== 'error' && empty !== 'allow')
+            throw new GraflumeError('INVALID_SPEC', `${path}.empty is unsupported.`, {
+                path: `${path}.empty`,
+            });
+        return Object.freeze({
+            level,
+            property,
+            values,
+            ...(parentProperty === undefined ? {} : { parentProperty }),
+            parentValues,
+            caseSensitive,
+            unmatched,
+            empty,
+        });
+    }
+    function mapScopeComparable(value, caseSensitive) {
+        if (!(typeof value === 'string' ||
+            (typeof value === 'number' && Number.isFinite(value)) ||
+            typeof value === 'boolean'))
+            return null;
+        const text = `${typeof value}:${String(value).trim()}`;
+        return caseSensitive || typeof value !== 'string' ? text : text.toLocaleUpperCase('en-US');
+    }
+    function mapFeatureScopeValue(feature, property) {
+        return property === '$id' ? feature.id : feature.properties?.[property];
+    }
+    function requestedMapScopeKeys(values, caseSensitive) {
+        return new Set(values.flatMap((entry) => {
+            const value = mapScopeComparable(entry, caseSensitive);
+            return value === null ? [] : [value];
+        }));
+    }
+    /**
+     * Selects any number of features with bounded Set lookups. Requested values are
+     * matched exactly (case-insensitive for strings by default), source order is
+     * preserved, and partial or empty matches fail closed unless explicitly allowed.
+     */
+    function scopeGeoJsonFeatures(collection, scopeInput) {
+        const scope = normalizeMapFeatureScope(scopeInput);
+        const requested = requestedMapScopeKeys(scope.values, scope.caseSensitive);
+        const requestedParents = requestedMapScopeKeys(scope.parentValues, scope.caseSensitive);
+        const matched = new Set();
+        const matchedParents = new Set();
+        const features = collection.features.filter((feature) => {
+            const value = mapScopeComparable(mapFeatureScopeValue(feature, scope.property), scope.caseSensitive);
+            if (value === null || !requested.has(value))
+                return false;
+            if (scope.parentProperty === undefined) {
+                matched.add(value);
+                return true;
+            }
+            const parent = mapScopeComparable(mapFeatureScopeValue(feature, scope.parentProperty), scope.caseSensitive);
+            if (parent === null || !requestedParents.has(parent))
+                return false;
+            matched.add(value);
+            matchedParents.add(parent);
+            return true;
+        });
+        if (scope.unmatched === 'error') {
+            const missing = [...requested].filter((value) => !matched.has(value));
+            const missingParents = [...requestedParents].filter((value) => !matchedParents.has(value));
+            if (missing.length > 0 || missingParents.length > 0)
+                throw new GraflumeError('INVALID_DATA', `Map scope did not match ${missing.length + missingParents.length} requested value(s).`, {
+                    details: {
+                        missing: Object.freeze(missing),
+                        missingParents: Object.freeze(missingParents),
+                    },
+                });
+        }
+        if (features.length === 0 && scope.empty === 'error')
+            throw new GraflumeError('INVALID_DATA', 'Map scope selected no features.');
+        return Object.freeze({ type: 'FeatureCollection', features: Object.freeze(features) });
+    }
+    function finite$9(value, path) {
+        if (typeof value !== 'number' || !Number.isFinite(value)) {
+            throw new GraflumeError('INVALID_DATA', `${path} must be a finite number.`, { path });
+        }
+        return value;
+    }
+    function clamp$a(value, minimum, maximum) {
+        return Math.max(minimum, Math.min(maximum, value));
+    }
+    function longitude(value, path) {
+        const resolved = finite$9(value, path);
+        if (resolved < -540 || resolved > 540)
+            throw new GraflumeError('INVALID_DATA', `${path} is outside the supported longitude range.`);
+        return resolved;
+    }
+    function latitude(value, path) {
+        const resolved = finite$9(value, path);
+        if (resolved < -90 || resolved > 90)
+            throw new GraflumeError('INVALID_DATA', `${path} must be from -90 to 90.`);
+        return resolved;
+    }
+    function wrapLongitude(value) {
+        const finiteValue = longitude(value, '$.longitude');
+        return ((((finiteValue + 180) % 360) + 360) % 360) - 180;
+    }
+    function position$1(value, path) {
+        if (!Array.isArray(value) || value.length < 2)
+            throw new GraflumeError('INVALID_DATA', `${path} must be [longitude, latitude].`, { path });
+        return [longitude(value[0], `${path}[0]`), latitude(value[1], `${path}[1]`)];
+    }
+    function positions(value, depth, path) {
+        if (depth === 0)
+            return position$1(value, path);
+        if (!Array.isArray(value))
+            throw new GraflumeError('INVALID_DATA', `${path} must be an array.`, { path });
+        return value.map((entry, index) => positions(entry, depth - 1, `${path}[${index}]`));
+    }
+    function normalizeGeometry(value, path) {
+        if (typeof value !== 'object' || value === null || Array.isArray(value))
+            throw new GraflumeError('INVALID_DATA', `${path} must be a GeoJSON geometry.`);
+        const candidate = value;
+        if (candidate.type === 'GeometryCollection') {
+            if (!Array.isArray(candidate.geometries))
+                throw new GraflumeError('INVALID_DATA', `${path}.geometries must be an array.`, {
+                    path: `${path}.geometries`,
+                });
+            return {
+                type: 'GeometryCollection',
+                geometries: candidate.geometries.map((geometry, index) => normalizeGeometry(geometry, `${path}.geometries[${index}]`)),
+            };
+        }
+        const depth = new Map([
+            ['Point', 0],
+            ['MultiPoint', 1],
+            ['LineString', 1],
+            ['MultiLineString', 2],
+            ['Polygon', 2],
+            ['MultiPolygon', 3],
+        ]).get(String(candidate.type));
+        if (depth === undefined)
+            throw new GraflumeError('INVALID_DATA', `${path}.type is unsupported.`);
+        return {
+            type: candidate.type,
+            coordinates: positions(candidate.coordinates, depth, `${path}.coordinates`),
+        };
+    }
+    /** Validates GeoJSON and returns a closed, normalized FeatureCollection. */
+    function normalizeGeoJson(value) {
+        if (typeof value !== 'object' || value === null || Array.isArray(value))
+            throw new GraflumeError('INVALID_DATA', 'GeoJSON must be an object.');
+        const candidate = value;
+        const inputs = candidate.type === 'FeatureCollection'
+            ? Array.isArray(candidate.features)
+                ? candidate.features
+                : (() => {
+                    throw new GraflumeError('INVALID_DATA', '$.features must be an array.');
+                })()
+            : [
+                candidate.type === 'Feature'
+                    ? candidate
+                    : { type: 'Feature', geometry: candidate, properties: null },
+            ];
+        const features = inputs.map((entry, index) => {
+            if (typeof entry !== 'object' || entry === null || Array.isArray(entry))
+                throw new GraflumeError('INVALID_DATA', `$.features[${index}] must be an object.`);
+            const feature = entry;
+            if (feature.type !== 'Feature')
+                throw new GraflumeError('INVALID_DATA', `$.features[${index}].type must be Feature.`);
+            const properties = feature.properties == null
+                ? null
+                : typeof feature.properties === 'object' && !Array.isArray(feature.properties)
+                    ? feature.properties
+                    : (() => {
+                        throw new GraflumeError('INVALID_DATA', `$.features[${index}].properties must be an object or null.`);
+                    })();
+            return {
+                type: 'Feature',
+                ...(typeof feature.id === 'string' || typeof feature.id === 'number'
+                    ? { id: feature.id }
+                    : {}),
+                properties,
+                geometry: feature.geometry === null
+                    ? null
+                    : normalizeGeometry(feature.geometry, `$.features[${index}].geometry`),
+            };
+        });
+        return { type: 'FeatureCollection', features };
+    }
+    function decodedArcs(topology) {
+        const transform = topology.transform;
+        if (transform !== undefined) {
+            transform.scale.forEach((value, index) => finite$9(value, `$.transform.scale[${index}]`));
+            transform.translate.forEach((value, index) => finite$9(value, `$.transform.translate[${index}]`));
+        }
+        return topology.arcs.map((arc, arcIndex) => {
+            let x = 0;
+            let y = 0;
+            return arc.map((entry, pointIndex) => {
+                if (!Array.isArray(entry) || entry.length < 2)
+                    throw new GraflumeError('INVALID_DATA', `$.arcs[${arcIndex}][${pointIndex}] must be a pair.`);
+                if (transform === undefined)
+                    return position$1(entry, `$.arcs[${arcIndex}][${pointIndex}]`);
+                x += finite$9(entry[0], `$.arcs[${arcIndex}][${pointIndex}][0]`);
+                y += finite$9(entry[1], `$.arcs[${arcIndex}][${pointIndex}][1]`);
+                return position$1([
+                    x * transform.scale[0] + transform.translate[0],
+                    y * transform.scale[1] + transform.translate[1],
+                ], `$.arcs[${arcIndex}][${pointIndex}]`);
+            });
+        });
+    }
+    function topoArc(reference, arcs) {
+        const index = reference < 0 ? ~reference : reference;
+        const arc = arcs[index];
+        if (arc === undefined)
+            throw new GraflumeError('INVALID_DATA', `Topology references unknown arc ${reference}.`);
+        return reference < 0 ? [...arc].reverse() : [...arc];
+    }
+    function joinTopoArcs(references, arcs, path) {
+        if (!Array.isArray(references))
+            throw new GraflumeError('INVALID_DATA', `${path} must be an arc array.`);
+        const output = [];
+        references.forEach((reference, index) => {
+            if (!Number.isInteger(reference))
+                throw new GraflumeError('INVALID_DATA', `${path}[${index}] must be an integer.`);
+            const arc = topoArc(reference, arcs);
+            output.push(...(output.length === 0 ? arc : arc.slice(1)));
+        });
+        return output;
+    }
+    function topologyGeometry(object, arcs, path) {
+        if (object.type === 'GeometryCollection') {
+            if (!Array.isArray(object.geometries))
+                throw new GraflumeError('INVALID_DATA', `${path}.geometries must be an array.`);
+            return object.geometries.flatMap((geometry, index) => topologyGeometry(geometry, arcs, `${path}.geometries[${index}]`));
+        }
+        let geometry;
+        if (object.type === 'Point')
+            geometry = { type: 'Point', coordinates: position$1(object.coordinates, `${path}.coordinates`) };
+        else if (object.type === 'MultiPoint')
+            geometry = {
+                type: 'MultiPoint',
+                coordinates: positions(object.coordinates, 1, `${path}.coordinates`),
+            };
+        else if (object.type === 'LineString')
+            geometry = { type: 'LineString', coordinates: joinTopoArcs(object.arcs, arcs, `${path}.arcs`) };
+        else if (object.type === 'MultiLineString') {
+            if (!Array.isArray(object.arcs))
+                throw new GraflumeError('INVALID_DATA', `${path}.arcs must be an array.`);
+            geometry = {
+                type: 'MultiLineString',
+                coordinates: object.arcs.map((references, index) => joinTopoArcs(references, arcs, `${path}.arcs[${index}]`)),
+            };
+        }
+        else if (object.type === 'Polygon') {
+            if (!Array.isArray(object.arcs))
+                throw new GraflumeError('INVALID_DATA', `${path}.arcs must be an array.`);
+            geometry = {
+                type: 'Polygon',
+                coordinates: object.arcs.map((references, index) => joinTopoArcs(references, arcs, `${path}.arcs[${index}]`)),
+            };
+        }
+        else if (object.type === 'MultiPolygon') {
+            if (!Array.isArray(object.arcs))
+                throw new GraflumeError('INVALID_DATA', `${path}.arcs must be an array.`);
+            geometry = {
+                type: 'MultiPolygon',
+                coordinates: object.arcs.map((polygon, polygonIndex) => {
+                    if (!Array.isArray(polygon))
+                        throw new GraflumeError('INVALID_DATA', `${path}.arcs[${polygonIndex}] must be an array.`);
+                    return polygon.map((references, ringIndex) => joinTopoArcs(references, arcs, `${path}.arcs[${polygonIndex}][${ringIndex}]`));
+                }),
+            };
+        }
+        else
+            throw new GraflumeError('INVALID_DATA', `${path}.type is unsupported.`);
+        return [
+            {
+                type: 'Feature',
+                ...(object.id === undefined ? {} : { id: object.id }),
+                properties: object.properties ?? null,
+                geometry,
+            },
+        ];
+    }
+    /** Decodes delta/arcs/reversed-arcs TopoJSON into normalized GeoJSON features. */
+    function topologyToGeoJson(topology, objectName) {
+        if (topology.type !== 'Topology')
+            throw new GraflumeError('INVALID_DATA', 'Topology type must be Topology.');
+        const arcs = decodedArcs(topology);
+        const names = objectName === undefined ? Object.keys(topology.objects) : [objectName];
+        const features = names.flatMap((name) => {
+            const object = topology.objects[name];
+            if (object === undefined)
+                throw new GraflumeError('INVALID_SPEC', `Unknown topology object "${name}".`);
+            return topologyGeometry(object, arcs, `$.objects.${name}`);
+        });
+        return normalizeGeoJson({ type: 'FeatureCollection', features });
+    }
+    /** Closes and snapshots the mutable input used by the persistent map runtime. */
+    function normalizeMapProjection(value = {}, path = '$.projection') {
+        if (value === null || typeof value !== 'object' || Array.isArray(value))
+            throw new GraflumeError('INVALID_SPEC', `${path} must be an object.`, { path });
+        const unknown = Object.keys(value).find((key) => !['name', 'rotate', 'clip'].includes(key));
+        if (unknown !== undefined)
+            throw new GraflumeError('INVALID_SPEC', `Unknown map projection property "${unknown}".`, {
+                path: `${path}.${unknown}`,
+            });
+        const name = value.name ?? 'equirectangular';
+        if (!['equirectangular', 'mercator', 'orthographic'].includes(name))
+            throw new GraflumeError('INVALID_SPEC', `${path}.name is unsupported.`, {
+                path: `${path}.name`,
+            });
+        let rotate;
+        if (value.rotate !== undefined) {
+            if (!Array.isArray(value.rotate) || value.rotate.length !== 2)
+                throw new GraflumeError('INVALID_SPEC', `${path}.rotate must be [longitude, latitude].`, {
+                    path: `${path}.rotate`,
+                });
+            rotate = Object.freeze([
+                longitude(value.rotate[0], `${path}.rotate[0]`),
+                latitude(value.rotate[1], `${path}.rotate[1]`),
+            ]);
+        }
+        let clip;
+        if (value.clip !== undefined) {
+            if (!Array.isArray(value.clip) || value.clip.length !== 4)
+                throw new GraflumeError('INVALID_SPEC', `${path}.clip must be [west, south, east, north].`, {
+                    path: `${path}.clip`,
+                });
+            const west = longitude(value.clip[0], `${path}.clip[0]`);
+            const south = latitude(value.clip[1], `${path}.clip[1]`);
+            const east = longitude(value.clip[2], `${path}.clip[2]`);
+            const north = latitude(value.clip[3], `${path}.clip[3]`);
+            if (west > east || south > north)
+                throw new GraflumeError('INVALID_SPEC', `${path}.clip bounds must be ordered.`, {
+                    path: `${path}.clip`,
+                });
+            clip = Object.freeze([west, south, east, north]);
+        }
+        return Object.freeze({
+            name,
+            ...(rotate === undefined ? {} : { rotate }),
+            ...(clip === undefined ? {} : { clip }),
+        });
+    }
+    const ANTIMERIDIAN_EPSILON = 1e-9;
+    const WORLD_CLIP = Object.freeze([-180, -90, 180, 90]);
+    const ORTHOGRAPHIC_HORIZON_CLIP = Object.freeze([-90, -90, 90, 90]);
+    function projectionPosition(point, rotate) {
+        return [
+            wrapLongitude(longitude(point[0], '$.point[0]') + (rotate?.[0] ?? 0)),
+            clamp$a(latitude(point[1], '$.point[1]') + (rotate?.[1] ?? 0), -90, 90),
+        ];
+    }
+    function effectiveGeographicClip(clip) {
+        const west = Math.max(-180, clip[0]);
+        const south = Math.max(-90, clip[1]);
+        const east = Math.min(180, clip[2]);
+        const north = Math.min(90, clip[3]);
+        return west > east || south > north ? null : [west, south, east, north];
+    }
+    function effectiveProjectionClip(projection) {
+        const base = projection.name === 'orthographic' ? ORTHOGRAPHIC_HORIZON_CLIP : WORLD_CLIP;
+        const authored = projection.clip ?? WORLD_CLIP;
+        return effectiveGeographicClip([
+            Math.max(base[0], authored[0]),
+            Math.max(base[1], authored[1]),
+            Math.min(base[2], authored[2]),
+            Math.min(base[3], authored[3]),
+        ]);
+    }
+    function sameGeographicPosition(left, right) {
+        return Math.abs(left[0] - right[0]) <= 1e-10 && Math.abs(left[1] - right[1]) <= 1e-10;
+    }
+    function appendGeographicPosition(output, point) {
+        if (output.length === 0 || !sameGeographicPosition(output[output.length - 1], point))
+            output.push(point);
+    }
+    function projectionSafeLongitude(value) {
+        return Math.abs(value - 180) <= 1e-10 ? 180 - ANTIMERIDIAN_EPSILON : value;
+    }
+    /**
+     * Splits a wrapped geographic line at the antimeridian. Returned positions have already had
+     * projection rotation applied, so callers must project them without applying rotation again.
+     */
+    function splitAntimeridianLine(points) {
+        if (points.length === 0)
+            return [];
+        const paths = [];
+        let current = [points[0]];
+        for (let index = 1; index < points.length; index += 1) {
+            const previous = points[index - 1];
+            const next = points[index];
+            const delta = next[0] - previous[0];
+            if (Math.abs(delta) <= 180) {
+                appendGeographicPosition(current, next);
+                continue;
+            }
+            const crossesEast = delta < -180;
+            const unwrappedNext = next[0] + (crossesEast ? 360 : -360);
+            const boundary = crossesEast ? 180 : -180;
+            const denominator = unwrappedNext - previous[0];
+            const t = denominator === 0 ? 0 : (boundary - previous[0]) / denominator;
+            const latitudeAtBoundary = previous[1] + (next[1] - previous[1]) * t;
+            appendGeographicPosition(current, [
+                crossesEast ? 180 - ANTIMERIDIAN_EPSILON : -180,
+                latitudeAtBoundary,
+            ]);
+            if (current.length > 1)
+                paths.push(current);
+            current = [[crossesEast ? -180 : 180 - ANTIMERIDIAN_EPSILON, latitudeAtBoundary]];
+            appendGeographicPosition(current, next);
+        }
+        if (current.length > 1)
+            paths.push(current);
+        return paths;
+    }
+    function liangBarskySegment(start, end, clip) {
+        const dx = end[0] - start[0];
+        const dy = end[1] - start[1];
+        const p = [-dx, dx, -dy, dy];
+        const q = [start[0] - clip[0], clip[2] - start[0], start[1] - clip[1], clip[3] - start[1]];
+        let enter = 0;
+        let exit = 1;
+        for (let index = 0; index < 4; index += 1) {
+            const direction = p[index];
+            const distance = q[index];
+            if (Math.abs(direction) <= Number.EPSILON) {
+                if (distance < 0)
+                    return null;
+                continue;
+            }
+            const ratio = distance / direction;
+            if (direction < 0)
+                enter = Math.max(enter, ratio);
+            else
+                exit = Math.min(exit, ratio);
+            if (enter > exit)
+                return null;
+        }
+        const interpolate = (amount) => [
+            projectionSafeLongitude(start[0] + dx * amount),
+            start[1] + dy * amount,
+        ];
+        return [interpolate(enter), interpolate(exit)];
+    }
+    function clipLinePath(points, clip) {
+        const paths = [];
+        let current = [];
+        const flush = () => {
+            if (current.length > 1)
+                paths.push(current);
+            current = [];
+        };
+        for (let index = 1; index < points.length; index += 1) {
+            const segment = liangBarskySegment(points[index - 1], points[index], clip);
+            if (segment === null) {
+                flush();
+                continue;
+            }
+            if (current.length > 0 && !sameGeographicPosition(current[current.length - 1], segment[0]))
+                flush();
+            appendGeographicPosition(current, segment[0]);
+            appendGeographicPosition(current, segment[1]);
+        }
+        flush();
+        return paths;
+    }
+    /**
+     * Applies projection rotation/wrap, antimeridian splitting, and rectangular Liang-Barsky
+     * clipping. Orthographic paths are intersected with the visible hemisphere before projection,
+     * so a segment crossing the horizon keeps its exact boundary point instead of disappearing.
+     * Boundary intersections are retained and disjoint visible runs remain subpaths.
+     */
+    function clipMapLine(points, options = {}) {
+        const projection = normalizeMapProjection(options);
+        const split = splitAntimeridianLine(points.map((point) => projectionPosition(point, projection.rotate)));
+        if (projection.clip === undefined && projection.name !== 'orthographic')
+            return split;
+        const clip = effectiveProjectionClip(projection);
+        return clip === null ? [] : split.flatMap((path) => clipLinePath(path, clip));
+    }
+    function clipPolygonBoundary(input, boundary) {
+        if (input.length === 0)
+            return [];
+        const output = [];
+        let start = input[input.length - 1];
+        let startInside = boundary.inside(start);
+        for (const end of input) {
+            const endInside = boundary.inside(end);
+            if (endInside) {
+                if (!startInside)
+                    appendGeographicPosition(output, boundary.intersect(start, end));
+                appendGeographicPosition(output, end);
+            }
+            else if (startInside)
+                appendGeographicPosition(output, boundary.intersect(start, end));
+            start = end;
+            startInside = endInside;
+        }
+        if (output.length > 1 && sameGeographicPosition(output[0], output[output.length - 1]))
+            output.pop();
+        return output;
+    }
+    function sutherlandHodgmanRing(ring, clip) {
+        const verticalIntersection = (longitude) => (start, end) => {
+            const amount = (longitude - start[0]) / (end[0] - start[0]);
+            return [projectionSafeLongitude(longitude), start[1] + (end[1] - start[1]) * amount];
+        };
+        const horizontalIntersection = (latitude) => (start, end) => {
+            const amount = (latitude - start[1]) / (end[1] - start[1]);
+            return [projectionSafeLongitude(start[0] + (end[0] - start[0]) * amount), latitude];
+        };
+        const boundaries = [
+            { inside: ([lon]) => lon >= clip[0], intersect: verticalIntersection(clip[0]) },
+            { inside: ([lon]) => lon <= clip[2], intersect: verticalIntersection(clip[2]) },
+            { inside: ([, lat]) => lat >= clip[1], intersect: horizontalIntersection(clip[1]) },
+            { inside: ([, lat]) => lat <= clip[3], intersect: horizontalIntersection(clip[3]) },
+        ];
+        return boundaries.reduce(clipPolygonBoundary, [...ring]);
+    }
+    function unwrapPolygonRing(points) {
+        if (points.length === 0)
+            return [];
+        const output = [points[0]];
+        for (let index = 1; index < points.length; index += 1) {
+            const point = points[index];
+            const previous = output[output.length - 1];
+            let longitude = point[0];
+            while (longitude - previous[0] > 180)
+                longitude -= 360;
+            while (longitude - previous[0] < -180)
+                longitude += 360;
+            appendGeographicPosition(output, [longitude, point[1]]);
+        }
+        if (output.length > 1 && sameGeographicPosition(output[0], output[output.length - 1]))
+            output.pop();
+        return output;
+    }
+    /**
+     * Applies projection rotation/wrap and Sutherland-Hodgman clipping to a polygon ring. A ring
+     * crossing the antimeridian can return two scene-ready rings, one beside each world edge.
+     */
+    function clipMapPolygonRing(points, options = {}) {
+        const projection = normalizeMapProjection(options);
+        const clip = effectiveProjectionClip(projection);
+        if (clip === null)
+            return [];
+        const transformed = points.map((point) => projectionPosition(point, projection.rotate));
+        const ring = unwrapPolygonRing(transformed);
+        if (ring.length < 3)
+            return [];
+        const longitudes = ring.map(([lon]) => lon);
+        const minimumLongitude = Math.min(...longitudes);
+        const maximumLongitude = Math.max(...longitudes);
+        const minimumShift = Math.ceil((clip[0] - maximumLongitude) / 360);
+        const maximumShift = Math.floor((clip[2] - minimumLongitude) / 360);
+        const output = [];
+        const keys = new Set();
+        for (let shift = minimumShift; shift <= maximumShift; shift += 1) {
+            const shifted = ring.map(([lon, lat]) => [lon + shift * 360, lat]);
+            const clipped = sutherlandHodgmanRing(shifted, clip);
+            if (clipped.length < 3)
+                continue;
+            const normalized = clipped.map(([lon, lat]) => [projectionSafeLongitude(lon), lat]);
+            const key = normalized.map(([lon, lat]) => `${lon.toFixed(9)},${lat.toFixed(9)}`).join(';');
+            if (!keys.has(key)) {
+                keys.add(key);
+                output.push(normalized);
+            }
+        }
+        return output;
+    }
+    /** Projects longitude/latitude with rotation, clipping and back-face visibility. */
+    function projectMapPosition(point, options = {}) {
+        const projection = normalizeMapProjection(options);
+        let [lon, lat] = projectionPosition(point, projection.rotate);
+        const clip = projection.clip;
+        const insideClip = clip === undefined || (lon >= clip[0] && lon <= clip[2] && lat >= clip[1] && lat <= clip[3]);
+        const name = projection.name;
+        if (name === 'mercator') {
+            lat = clamp$a(lat, -85.05112878, 85.05112878);
+            return {
+                x: (lon + 180) / 360,
+                y: (1 - Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360)) / Math.PI) / 2,
+                visible: insideClip,
+            };
+        }
+        if (name === 'orthographic') {
+            const lambda = (lon * Math.PI) / 180;
+            const phi = (lat * Math.PI) / 180;
+            const cosine = Math.cos(phi) * Math.cos(lambda);
+            return {
+                x: 0.5 + Math.cos(phi) * Math.sin(lambda) * 0.5,
+                y: 0.5 - Math.sin(phi) * 0.5,
+                visible: insideClip && cosine >= 0,
+            };
+        }
+        return { x: (lon + 180) / 360, y: (90 - lat) / 180, visible: insideClip };
+    }
+    function forEachGeometryPosition(geometry, visit) {
+        if (geometry.type === 'GeometryCollection') {
+            geometry.geometries.forEach((entry) => forEachGeometryPosition(entry, visit));
+            return;
+        }
+        const depth = new Map([
+            ['Point', 0],
+            ['MultiPoint', 1],
+            ['LineString', 1],
+            ['MultiLineString', 2],
+            ['Polygon', 2],
+            ['MultiPolygon', 3],
+        ]).get(geometry.type);
+        const walk = (value, current) => {
+            if (current === 0) {
+                visit(value);
+                return;
+            }
+            value.forEach((entry) => walk(entry, current - 1));
+        };
+        walk(geometry.coordinates, depth);
+    }
+    /** Counts coordinate pairs without spreading large arrays onto the call stack. */
+    function mapFeaturePositionCount(collection) {
+        let count = 0;
+        for (const feature of collection.features) {
+            if (feature.geometry !== null)
+                forEachGeometryPosition(feature.geometry, () => (count += 1));
+        }
+        return count;
+    }
+    function simplifyPositions(positions, tolerance, minimum) {
+        if (tolerance <= 0 || positions.length <= minimum)
+            return positions;
+        const closed = positions.length > 1 &&
+            positions[0][0] === positions[positions.length - 1][0] &&
+            positions[0][1] === positions[positions.length - 1][1];
+        const source = closed ? positions.slice(0, -1) : positions;
+        if (source.length <= minimum)
+            return positions;
+        const output = [];
+        for (const point of source) {
+            const snapped = Object.freeze([
+                Math.round(point[0] / tolerance) * tolerance,
+                Math.round(point[1] / tolerance) * tolerance,
+            ]);
+            const previous = output[output.length - 1];
+            if (previous === undefined || previous[0] !== snapped[0] || previous[1] !== snapped[1])
+                output.push(snapped);
+        }
+        if (output.length > 1) {
+            const first = output[0];
+            const last = output[output.length - 1];
+            if (first[0] === last[0] && first[1] === last[1])
+                output.pop();
+        }
+        if (output.length < minimum)
+            return positions;
+        if (closed && output.length >= minimum)
+            output.push(output[0]);
+        return output.length >= minimum ? Object.freeze(output) : positions;
+    }
+    function simplifyMapGeometry(geometry, tolerance) {
+        if (geometry.type === 'GeometryCollection')
+            return Object.freeze({
+                type: 'GeometryCollection',
+                geometries: Object.freeze(geometry.geometries.map((entry) => simplifyMapGeometry(entry, tolerance))),
+            });
+        if (geometry.type === 'Point')
+            return geometry;
+        if (geometry.type === 'MultiPoint')
+            return geometry;
+        if (geometry.type === 'LineString')
+            return Object.freeze({
+                type: 'LineString',
+                coordinates: simplifyPositions(geometry.coordinates, tolerance, 2),
+            });
+        if (geometry.type === 'MultiLineString')
+            return Object.freeze({
+                type: 'MultiLineString',
+                coordinates: Object.freeze(geometry.coordinates.map((line) => simplifyPositions(line, tolerance, 2))),
+            });
+        if (geometry.type === 'Polygon')
+            return Object.freeze({
+                type: 'Polygon',
+                coordinates: Object.freeze(geometry.coordinates.map((ring) => simplifyPositions(ring, tolerance, 3))),
+            });
+        return Object.freeze({
+            type: 'MultiPolygon',
+            coordinates: Object.freeze(geometry.coordinates.map((polygon) => Object.freeze(polygon.map((ring) => simplifyPositions(ring, tolerance, 3))))),
+        });
+    }
+    function simplifyMapCollection(collection, tolerance) {
+        if (tolerance <= 0)
+            return collection;
+        return Object.freeze({
+            type: 'FeatureCollection',
+            features: Object.freeze(collection.features.map((feature) => feature.geometry === null
+                ? feature
+                : Object.freeze({
+                    ...feature,
+                    geometry: simplifyMapGeometry(feature.geometry, tolerance),
+                }))),
+        });
+    }
+    function mapDetailBudget(detail, maximum) {
+        if (detail === 'low')
+            return Math.min(maximum, 12_000);
+        if (detail === 'medium')
+            return Math.min(maximum, 35_000);
+        if (detail === 'high')
+            return Math.min(maximum, 100_000);
+        return maximum;
+    }
+    /**
+     * Deterministically reduces coordinate density while preserving every selected
+     * feature and source order. It never samples away a country or subdivision.
+     */
+    function prepareMapGeometry(collection, options = {}) {
+        const detail = options.detail ?? 'auto';
+        if (!['auto', 'low', 'medium', 'high', 'full'].includes(detail))
+            throw new GraflumeError('INVALID_SPEC', '$.detail is unsupported.', { path: '$.detail' });
+        const requestedMaximum = options.maximumPositions ?? 100_000;
+        if (!Number.isInteger(requestedMaximum) ||
+            requestedMaximum < 1_000 ||
+            requestedMaximum > 1_000_000)
+            throw new GraflumeError('INVALID_SPEC', '$.maximumPositions must be an integer from 1000 to 1000000.', { path: '$.maximumPositions' });
+        const sourcePositions = mapFeaturePositionCount(collection);
+        const maximumPositions = mapDetailBudget(detail, requestedMaximum);
+        if (detail === 'full' && sourcePositions > maximumPositions)
+            throw new GraflumeError('INVALID_DATA', `Full map detail contains ${sourcePositions} positions, above the ${maximumPositions} geometry budget.`);
+        if (detail === 'full' || sourcePositions <= maximumPositions)
+            return Object.freeze({
+                collection,
+                plan: Object.freeze({
+                    detail,
+                    sourceFeatures: collection.features.length,
+                    renderedFeatures: collection.features.length,
+                    sourcePositions,
+                    renderedPositions: sourcePositions,
+                    maximumPositions,
+                    tolerance: 0,
+                }),
+            });
+        const bounds = mapBounds(collection);
+        const span = Math.max(1e-9, bounds.east - bounds.west, bounds.north - bounds.south);
+        let tolerance = (span / Math.sqrt(maximumPositions)) *
+            Math.max(1, Math.sqrt(sourcePositions / maximumPositions)) *
+            0.2;
+        let prepared = simplifyMapCollection(collection, tolerance);
+        let renderedPositions = mapFeaturePositionCount(prepared);
+        for (let attempt = 0; attempt < 12 && renderedPositions > maximumPositions; attempt += 1) {
+            tolerance *= 1.75;
+            prepared = simplifyMapCollection(collection, tolerance);
+            renderedPositions = mapFeaturePositionCount(prepared);
+        }
+        if (renderedPositions > maximumPositions)
+            throw new GraflumeError('INVALID_DATA', `Map geometry cannot satisfy the ${maximumPositions} position budget without removing a feature or valid ring.`);
+        return Object.freeze({
+            collection: prepared,
+            plan: Object.freeze({
+                detail,
+                sourceFeatures: collection.features.length,
+                renderedFeatures: prepared.features.length,
+                sourcePositions,
+                renderedPositions,
+                maximumPositions,
+                tolerance,
+            }),
+        });
+    }
+    /** Computes geographic bounds, choosing the shorter dateline-wrapped span. */
+    function mapBounds(collection) {
+        const longitudes = [];
+        let south = Number.POSITIVE_INFINITY;
+        let north = Number.NEGATIVE_INFINITY;
+        collection.features.forEach(({ geometry }) => {
+            if (geometry === null)
+                return;
+            forEachGeometryPosition(geometry, ([longitude, latitude]) => {
+                longitudes.push(wrapLongitude(longitude));
+                south = Math.min(south, latitude);
+                north = Math.max(north, latitude);
+            });
+        });
+        if (longitudes.length === 0)
+            throw new GraflumeError('INVALID_DATA', 'Cannot fit an empty map source.');
+        longitudes.sort((a, b) => a - b);
+        let largestGap = -1;
+        let gapIndex = 0;
+        for (let index = 0; index < longitudes.length; index += 1) {
+            const current = longitudes[index];
+            const next = index + 1 < longitudes.length ? longitudes[index + 1] : longitudes[0] + 360;
+            if (next - current > largestGap) {
+                largestGap = next - current;
+                gapIndex = index;
+            }
+        }
+        const west = longitudes[(gapIndex + 1) % longitudes.length];
+        let east = longitudes[gapIndex];
+        if (east < west)
+            east += 360;
+        return { west, south, east, north };
+    }
+    /** Fits bounds into a viewport with padding using an explicit projection. */
+    function fitMapBounds(bounds, viewport, padding = 20, projection = 'mercator') {
+        const width = finite$9(viewport.width, '$.viewport.width');
+        const height = finite$9(viewport.height, '$.viewport.height');
+        if (width <= padding * 2 || height <= padding * 2)
+            throw new GraflumeError('INVALID_SPEC', 'Map viewport must exceed its padding.');
+        const west = longitude(bounds.west, '$.bounds.west');
+        const east = longitude(bounds.east, '$.bounds.east');
+        const south = latitude(bounds.south, '$.bounds.south');
+        const north = latitude(bounds.north, '$.bounds.north');
+        if (west > east || south > north)
+            throw new GraflumeError('INVALID_SPEC', '$.bounds must be ordered.');
+        const longitudeSpan = Math.min(360, east - west);
+        const centerLon = wrapLongitude((west + east) / 2);
+        const centerLat = (south + north) / 2;
+        const latitudeProjection = [
+            projectMapPosition([0, south], { name: projection }),
+            projectMapPosition([0, north], { name: projection }),
+        ];
+        const spanX = Math.max(1e-9, projection === 'orthographic'
+            ? longitudeSpan >= 180
+                ? 1
+                : Math.abs(projectMapPosition([longitudeSpan / 2, centerLat], { name: projection }).x -
+                    projectMapPosition([-longitudeSpan / 2, centerLat], { name: projection }).x)
+            : longitudeSpan / 360);
+        const spanY = Math.max(1e-9, Math.abs(latitudeProjection[1].y - latitudeProjection[0].y));
+        const scale = Math.min((width - padding * 2) / (width * spanX), (height - padding * 2) / (height * spanY));
+        return {
+            center: [centerLon, centerLat],
+            zoom: Math.log2(Math.max(scale, Number.EPSILON)),
+            bounds,
+        };
+    }
+    /** Great-circle route interpolation with dateline-safe spherical linear interpolation. */
+    function geodesicPath(start, end, segments = 64) {
+        const count = Math.floor(finite$9(segments, '$.segments'));
+        if (count < 1 || count > 10_000)
+            throw new GraflumeError('INVALID_SPEC', '$.segments must be from 1 to 10000.');
+        const vector = ([lon, lat]) => {
+            const lambda = (lon * Math.PI) / 180;
+            const phi = (lat * Math.PI) / 180;
+            return [
+                Math.cos(phi) * Math.cos(lambda),
+                Math.cos(phi) * Math.sin(lambda),
+                Math.sin(phi),
+            ];
+        };
+        const a = vector(start);
+        const b = vector(end);
+        const omega = Math.acos(clamp$a(a[0] * b[0] + a[1] * b[1] + a[2] * b[2], -1, 1));
+        return Array.from({ length: count + 1 }, (_, index) => {
+            const t = index / count;
+            const denominator = Math.sin(omega);
+            const left = omega < 1e-12 ? 1 - t : Math.sin((1 - t) * omega) / denominator;
+            const right = omega < 1e-12 ? t : Math.sin(t * omega) / denominator;
+            const x = a[0] * left + b[0] * right;
+            const y = a[1] * left + b[1] * right;
+            const z = a[2] * left + b[2] * right;
+            return [
+                wrapLongitude((Math.atan2(y, x) * 180) / Math.PI),
+                (Math.atan2(z, Math.hypot(x, y)) * 180) / Math.PI,
+            ];
+        });
+    }
+    /** Generates longitude/latitude graticules as ordinary map line features. */
+    function mapGraticule(step = [30, 30]) {
+        const lonStep = finite$9(step[0], '$.step[0]');
+        const latStep = finite$9(step[1], '$.step[1]');
+        if (lonStep <= 0 || latStep <= 0)
+            throw new GraflumeError('INVALID_SPEC', 'Graticule steps must be positive.');
+        const features = [];
+        for (let lon = -180; lon <= 180; lon += lonStep)
+            features.push({
+                type: 'Feature',
+                properties: { kind: 'longitude', value: lon },
+                geometry: {
+                    type: 'LineString',
+                    coordinates: Array.from({ length: 181 }, (_, index) => [lon, -90 + index]),
+                },
+            });
+        for (let lat = -90 + latStep; lat < 90; lat += latStep)
+            features.push({
+                type: 'Feature',
+                properties: { kind: 'latitude', value: lat },
+                geometry: {
+                    type: 'LineString',
+                    coordinates: Array.from({ length: 361 }, (_, index) => [-180 + index, lat]),
+                },
+            });
+        return { type: 'FeatureCollection', features };
+    }
+    /** Closed source/layer lifecycle with explicit ordering and visibility. */
+    class MapLayerRegistry {
+        #sources = new Map();
+        #layers = [];
+        #revision = 0;
+        addSource(id, source) {
+            const normalized = id.trim();
+            if (normalized === '' || this.#sources.has(normalized))
+                throw new GraflumeError('INVALID_SPEC', `Map source "${id}" is empty or already registered.`);
+            this.#sources.set(normalized, source);
+            this.#revision += 1;
+        }
+        removeSource(id) {
+            if (this.#layers.some(({ source }) => source === id))
+                throw new GraflumeError('INVALID_SPEC', `Map source "${id}" is still used by a layer.`);
+            if (!this.#sources.delete(id))
+                throw new GraflumeError('INVALID_SPEC', `Unknown map source "${id}".`);
+            this.#revision += 1;
+        }
+        addLayer(layer, before) {
+            if (this.#layers.some(({ id }) => id === layer.id))
+                throw new GraflumeError('INVALID_SPEC', `Duplicate map layer "${layer.id}".`);
+            if (!this.#sources.has(layer.source))
+                throw new GraflumeError('INVALID_SPEC', `Unknown map source "${layer.source}".`);
+            const index = before === undefined
+                ? this.#layers.length
+                : this.#layers.findIndex(({ id }) => id === before);
+            if (index < 0)
+                throw new GraflumeError('INVALID_SPEC', `Unknown before-layer "${before}".`);
+            this.#layers.splice(index, 0, Object.freeze({ ...layer }));
+            this.#revision += 1;
+        }
+        removeLayer(id) {
+            const index = this.#layers.findIndex((layer) => layer.id === id);
+            if (index < 0)
+                throw new GraflumeError('INVALID_SPEC', `Unknown map layer "${id}".`);
+            this.#layers.splice(index, 1);
+            this.#revision += 1;
+        }
+        setVisibility(id, visible) {
+            const index = this.#layers.findIndex((layer) => layer.id === id);
+            if (index < 0)
+                throw new GraflumeError('INVALID_SPEC', `Unknown map layer "${id}".`);
+            this.#layers[index] = Object.freeze({ ...this.#layers[index], visible });
+            this.#revision += 1;
+        }
+        source(id) {
+            return this.#sources.get(id) ?? null;
+        }
+        layer(id) {
+            return this.#layers.find((layer) => layer.id === id) ?? null;
+        }
+        snapshot() {
+            return Object.freeze({
+                revision: this.#revision,
+                sources: Object.freeze([...this.#sources.keys()]),
+                layers: Object.freeze(this.#layers.map((layer) => Object.freeze({ ...layer }))),
+                attributions: Object.freeze([
+                    ...new Set(this.#layers.flatMap(({ attribution }) => attribution === undefined ? [] : [attribution])),
+                ]),
+            });
+        }
+    }
+    const mapBoundaryText = (value, path, maximum = 256) => {
+        if (typeof value !== 'string' || value.trim() === '' || value.length > maximum)
+            throw new GraflumeError('INVALID_SPEC', `${path} must be a non-empty bounded string.`, {
+                path,
+            });
+        return value.trim();
+    };
+    function mapBoundaryLoopbackHost(hostname) {
+        const normalized = hostname.toLowerCase();
+        if (normalized === 'localhost' || normalized === '[::1]')
+            return true;
+        const parts = normalized.split('.');
+        return (parts.length === 4 &&
+            parts[0] === '127' &&
+            parts.every((part) => /^\d{1,3}$/u.test(part) && Number(part) <= 255));
+    }
+    function mapBoundaryURLAllowed(url) {
+        return (url.username === '' &&
+            url.password === '' &&
+            (url.protocol === 'https:' ||
+                (url.protocol === 'http:' && mapBoundaryLoopbackHost(url.hostname))));
+    }
+    function absoluteMapBoundaryURL(value, path) {
+        let parsed;
+        try {
+            parsed = new URL(value);
+        }
+        catch {
+            throw new GraflumeError('INVALID_SPEC', `${path} must be an absolute HTTPS URL or an explicit loopback HTTP URL.`, { path });
+        }
+        if (!mapBoundaryURLAllowed(parsed))
+            throw new GraflumeError('INVALID_SPEC', `${path} must use HTTPS; HTTP is allowed only for localhost, 127.0.0.0/8, or [::1], without credentials.`, { path });
+        return parsed;
+    }
+    function normalizeMapBoundarySource(value, path) {
+        if (value === null || typeof value !== 'object' || Array.isArray(value))
+            throw new GraflumeError('INVALID_SPEC', `${path} must be an object.`, { path });
+        const candidate = value;
+        const allowed = new Set([
+            'id',
+            'level',
+            'countries',
+            'url',
+            'sha256',
+            'byteLength',
+            'format',
+            'topologyObject',
+        ]);
+        const unknown = Object.keys(candidate).find((key) => !allowed.has(key));
+        if (unknown !== undefined)
+            throw new GraflumeError('INVALID_SPEC', `Unknown boundary source property "${unknown}".`, {
+                path: `${path}.${unknown}`,
+            });
+        const id = mapBoundaryText(candidate.id, `${path}.id`);
+        const level = candidate.level;
+        if (level !== 'country' && level !== 'region')
+            throw new GraflumeError('INVALID_SPEC', `${path}.level is unsupported.`, {
+                path: `${path}.level`,
+            });
+        const url = mapBoundaryText(candidate.url, `${path}.url`, 2_048);
+        let parsed;
+        try {
+            parsed = new URL(url, 'https://graflume.invalid/');
+        }
+        catch {
+            throw new GraflumeError('INVALID_SPEC', `${path}.url is invalid.`, { path: `${path}.url` });
+        }
+        if (parsed.origin !== 'https://graflume.invalid' && !mapBoundaryURLAllowed(parsed))
+            throw new GraflumeError('INVALID_SPEC', `${path}.url must be relative or HTTPS; HTTP is allowed only on an explicit loopback host.`, { path: `${path}.url` });
+        const sha256 = mapBoundaryText(candidate.sha256, `${path}.sha256`, 64).toLowerCase();
+        if (!/^[a-f0-9]{64}$/u.test(sha256))
+            throw new GraflumeError('INVALID_SPEC', `${path}.sha256 must be 64 hexadecimal characters.`, {
+                path: `${path}.sha256`,
+            });
+        const byteLength = candidate.byteLength;
+        if (!Number.isInteger(byteLength) ||
+            byteLength < 2 ||
+            byteLength > 1_000_000_000)
+            throw new GraflumeError('INVALID_SPEC', `${path}.byteLength is outside the supported range.`, {
+                path: `${path}.byteLength`,
+            });
+        const format = candidate.format;
+        if (format !== 'geojson' && format !== 'topojson')
+            throw new GraflumeError('INVALID_SPEC', `${path}.format is unsupported.`, {
+                path: `${path}.format`,
+            });
+        const topologyObject = candidate.topologyObject === undefined
+            ? undefined
+            : mapBoundaryText(candidate.topologyObject, `${path}.topologyObject`);
+        if (format === 'geojson' && topologyObject !== undefined)
+            throw new GraflumeError('INVALID_SPEC', `${path}.topologyObject is only valid for TopoJSON sources.`, { path: `${path}.topologyObject` });
+        let countries;
+        if (candidate.countries !== undefined) {
+            if (!Array.isArray(candidate.countries) ||
+                candidate.countries.length === 0 ||
+                candidate.countries.length > MAXIMUM_MAP_SCOPE_VALUES)
+                throw new GraflumeError('INVALID_SPEC', `${path}.countries has an invalid length.`, {
+                    path: `${path}.countries`,
+                });
+            countries = Object.freeze([
+                ...new Set(candidate.countries.map((entry, index) => mapBoundaryText(entry, `${path}.countries[${index}]`, 32).toUpperCase())),
+            ]);
+        }
+        return Object.freeze({
+            id,
+            level,
+            ...(countries === undefined ? {} : { countries }),
+            url,
+            sha256,
+            byteLength: byteLength,
+            format,
+            ...(topologyObject === undefined ? {} : { topologyObject }),
+        });
+    }
+    /** Validates a boundary-pack manifest without fetching any asset. */
+    function normalizeMapBoundaryManifest(value) {
+        if (value === null || typeof value !== 'object' || Array.isArray(value))
+            throw new GraflumeError('INVALID_SPEC', 'Map boundary manifest must be an object.');
+        const candidate = value;
+        const allowed = new Set(['schemaVersion', 'id', 'revision', 'attribution', 'sources']);
+        const unknown = Object.keys(candidate).find((key) => !allowed.has(key));
+        if (unknown !== undefined)
+            throw new GraflumeError('INVALID_SPEC', `Unknown map boundary manifest property "${unknown}".`);
+        if (candidate.schemaVersion !== '1')
+            throw new GraflumeError('INVALID_SPEC', 'Map boundary manifest schemaVersion must be "1".');
+        if (!Array.isArray(candidate.sources) ||
+            candidate.sources.length === 0 ||
+            candidate.sources.length > 4_096)
+            throw new GraflumeError('INVALID_SPEC', 'Map boundary manifest must contain from 1 to 4096 sources.');
+        const sources = Object.freeze(candidate.sources.map((source, index) => normalizeMapBoundarySource(source, `$.sources[${index}]`)));
+        if (new Set(sources.map(({ id }) => id)).size !== sources.length)
+            throw new GraflumeError('INVALID_SPEC', 'Map boundary manifest source ids must be unique.');
+        for (const level of ['country', 'region']) {
+            const levelSources = sources.filter((source) => source.level === level);
+            const globalSources = levelSources.filter(({ countries }) => countries === undefined);
+            if (globalSources.length > 1 || (globalSources.length === 1 && levelSources.length > 1))
+                throw new GraflumeError('INVALID_SPEC', `Boundary manifest level "${level}" must use either one global source or non-overlapping country shards.`);
+            const declared = new Set();
+            for (const source of levelSources) {
+                for (const country of source.countries ?? []) {
+                    if (declared.has(country))
+                        throw new GraflumeError('INVALID_SPEC', `Boundary manifest level "${level}" declares country "${country}" in multiple shards.`);
+                    declared.add(country);
+                }
+            }
+        }
+        return Object.freeze({
+            schemaVersion: '1',
+            id: mapBoundaryText(candidate.id, '$.id'),
+            revision: mapBoundaryText(candidate.revision, '$.revision'),
+            attribution: mapBoundaryText(candidate.attribution, '$.attribution', 1_024),
+            sources,
+        });
+    }
+    /** Selects the smallest declared shard set that covers a requested country list. */
+    function selectMapBoundarySources(manifestInput, selection) {
+        const manifest = normalizeMapBoundaryManifest(manifestInput);
+        if (selection.level !== 'country' && selection.level !== 'region')
+            throw new GraflumeError('INVALID_SPEC', '$.selection.level is unsupported.');
+        const countries = selection.countries ?? [];
+        if (countries.length > MAXIMUM_MAP_SCOPE_VALUES)
+            throw new GraflumeError('INVALID_SPEC', `$.selection.countries exceeds ${MAXIMUM_MAP_SCOPE_VALUES} entries.`);
+        const requested = new Set(countries.map((country, index) => mapBoundaryText(country, `$.selection.countries[${index}]`, 32).toUpperCase()));
+        const levelSources = manifest.sources.filter((source) => source.level === selection.level);
+        let explicitSources;
+        if (selection.sourceIds !== undefined) {
+            if (!Array.isArray(selection.sourceIds) ||
+                selection.sourceIds.length === 0 ||
+                selection.sourceIds.length > 4_096)
+                throw new GraflumeError('INVALID_SPEC', '$.selection.sourceIds must contain from 1 to 4096 source ids.');
+            const ids = [
+                ...new Set(selection.sourceIds.map((id, index) => mapBoundaryText(id, `$.selection.sourceIds[${index}]`))),
+            ];
+            const byId = new Map(manifest.sources.map((source) => [source.id, source]));
+            const missing = ids.filter((id) => !byId.has(id));
+            if (missing.length > 0)
+                throw new GraflumeError('INVALID_DATA', 'Boundary manifest does not contain every source id.', {
+                    details: { missing: Object.freeze(missing) },
+                });
+            explicitSources = Object.freeze(ids.map((id) => byId.get(id)));
+            if (explicitSources.some(({ level }) => level !== selection.level))
+                throw new GraflumeError('INVALID_SPEC', 'Every explicit boundary source id must match $.selection.level.');
+        }
+        const global = levelSources.find(({ countries: coverage }) => coverage === undefined);
+        const sources = explicitSources !== undefined
+            ? explicitSources
+            : requested.size === 0
+                ? levelSources
+                : global === undefined
+                    ? levelSources.filter(({ countries: coverage }) => coverage?.some((country) => requested.has(country)))
+                    : [global];
+        if (sources.length === 0)
+            throw new GraflumeError('INVALID_DATA', 'Boundary manifest has no source for the requested level and countries.');
+        if (requested.size > 0) {
+            const covered = new Set(sources.flatMap(({ countries: coverage }) => coverage ?? [...requested]));
+            const missing = [...requested].filter((country) => !covered.has(country));
+            if (missing.length > 0)
+                throw new GraflumeError('INVALID_DATA', 'Boundary manifest does not cover every requested country.', {
+                    details: { missing: Object.freeze(missing) },
+                });
+        }
+        return Object.freeze(sources);
+    }
+    const fetchMapBoundary = async (source, signal) => {
+        if (typeof fetch !== 'function')
+            throw new GraflumeError('UNSUPPORTED_RENDERER', 'Map boundary loading requires fetch or an injected MapBoundaryFetcher.');
+        const requestedURL = absoluteMapBoundaryURL(source.url, '$.source.url');
+        const response = await fetch(requestedURL.href, { signal });
+        if (response.url !== '' && !mapBoundaryURLAllowed(new URL(response.url)))
+            throw new GraflumeError('INVALID_DATA', 'Boundary source redirected to an unsafe URL.');
+        if (!response.ok)
+            throw new GraflumeError('INVALID_DATA', `Boundary source returned HTTP ${response.status}.`);
+        const mimeType = response.headers.get('content-type')?.split(';', 1)[0]?.trim();
+        return {
+            bytes: new Uint8Array(await response.arrayBuffer()),
+            ...(mimeType === undefined ? {} : { mimeType }),
+        };
+    };
+    /** Default HTTPS adapter used by MapBoundaryLoader.loadFromURL(). */
+    const fetchMapBoundaryManifest = async (url, signal) => {
+        if (typeof fetch !== 'function')
+            throw new GraflumeError('UNSUPPORTED_RENDERER', 'Map boundary manifest loading requires fetch or an injected manifestFetcher.');
+        const requestedURL = absoluteMapBoundaryURL(url, '$.manifestURL');
+        const response = await fetch(requestedURL.href, { signal });
+        if (response.url !== '' && !mapBoundaryURLAllowed(new URL(response.url)))
+            throw new GraflumeError('INVALID_DATA', 'Boundary manifest redirected to an unsafe URL.');
+        if (!response.ok)
+            throw new GraflumeError('INVALID_DATA', `Boundary manifest returned HTTP ${response.status}.`);
+        const mimeType = response.headers.get('content-type')?.split(';', 1)[0]?.trim();
+        return {
+            bytes: new Uint8Array(await response.arrayBuffer()),
+            ...(mimeType === undefined ? {} : { mimeType }),
+        };
+    };
+    const sha256MapBoundary = async (bytes) => {
+        if (globalThis.crypto?.subtle === undefined)
+            throw new GraflumeError('UNSUPPORTED_RENDERER', 'Boundary SHA-256 verification requires Web Crypto or an injected digest function.');
+        const stableBytes = new Uint8Array(bytes);
+        const digest = new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', stableBytes));
+        return [...digest].map((value) => value.toString(16).padStart(2, '0')).join('');
+    };
+    /** Lazy, integrity-checked, bounded loader for versioned external boundary packs. */
+    class MapBoundaryLoader {
+        #options;
+        #baseURL;
+        #fetcher;
+        #manifestFetcher;
+        #digest;
+        #cache = new Map();
+        constructor(options = {}) {
+            this.#fetcher = options.fetcher ?? fetchMapBoundary;
+            this.#manifestFetcher = options.manifestFetcher ?? fetchMapBoundaryManifest;
+            this.#digest = options.digest ?? sha256MapBoundary;
+            this.#options = {
+                maximumEntries: options.maximumEntries ?? 64,
+                maximumConcurrent: options.maximumConcurrent ?? 4,
+                maximumManifestBytes: options.maximumManifestBytes ?? 4 * 1024 * 1024,
+                maximumSourceBytes: options.maximumSourceBytes ?? 32 * 1024 * 1024,
+                maximumTotalBytes: options.maximumTotalBytes ?? 128 * 1024 * 1024,
+            };
+            if (options.baseURL !== undefined) {
+                const baseURL = mapBoundaryText(options.baseURL, '$.baseURL', 2_048);
+                const parsed = absoluteMapBoundaryURL(baseURL, '$.baseURL');
+                this.#baseURL = parsed.href;
+            }
+            const { maximumEntries, maximumConcurrent, maximumManifestBytes, maximumSourceBytes, maximumTotalBytes, } = this.#options;
+            if (!Number.isInteger(maximumEntries) || maximumEntries < 1 || maximumEntries > 1_024)
+                throw new GraflumeError('INVALID_SPEC', '$.maximumEntries must be from 1 to 1024.');
+            if (!Number.isInteger(maximumConcurrent) || maximumConcurrent < 1 || maximumConcurrent > 16)
+                throw new GraflumeError('INVALID_SPEC', '$.maximumConcurrent must be from 1 to 16.');
+            if (!Number.isInteger(maximumManifestBytes) ||
+                maximumManifestBytes < 1_024 ||
+                maximumManifestBytes > 16 * 1024 * 1024)
+                throw new GraflumeError('INVALID_SPEC', '$.maximumManifestBytes is outside the supported range.');
+            if (!Number.isInteger(maximumSourceBytes) ||
+                maximumSourceBytes < 1_024 ||
+                maximumSourceBytes > 256 * 1024 * 1024)
+                throw new GraflumeError('INVALID_SPEC', '$.maximumSourceBytes is outside the supported range.');
+            if (!Number.isInteger(maximumTotalBytes) ||
+                maximumTotalBytes < maximumSourceBytes ||
+                maximumTotalBytes > 512 * 1024 * 1024)
+                throw new GraflumeError('INVALID_SPEC', '$.maximumTotalBytes is outside the supported range.');
+        }
+        async load(manifestInput, selection, signal) {
+            const manifest = normalizeMapBoundaryManifest(manifestInput);
+            return this.#load(manifest, selection, signal, this.#baseURL);
+        }
+        /**
+         * Fetches a versioned manifest and resolves its relative shard URLs against
+         * that manifest URL, unless the loader was given an explicit baseURL.
+         */
+        async loadFromURL(manifestURL, selection, signal) {
+            const text = mapBoundaryText(manifestURL, '$.manifestURL', 2_048);
+            const parsedURL = absoluteMapBoundaryURL(text, '$.manifestURL');
+            const controller = new AbortController();
+            const abort = () => controller.abort(signal?.reason);
+            if (signal?.aborted === true)
+                controller.abort(signal.reason);
+            else
+                signal?.addEventListener('abort', abort, { once: true });
+            try {
+                const response = await this.#manifestFetcher(parsedURL.href, controller.signal);
+                if (!(response.bytes instanceof Uint8Array) ||
+                    response.bytes.length === 0 ||
+                    response.bytes.length > this.#options.maximumManifestBytes)
+                    throw new GraflumeError('INVALID_DATA', 'Boundary manifest response exceeds maximumManifestBytes or is empty.');
+                if (response.mimeType !== undefined &&
+                    !response.mimeType.toLowerCase().includes('json') &&
+                    response.mimeType.toLowerCase() !== 'application/octet-stream')
+                    throw new GraflumeError('INVALID_DATA', `Boundary manifest returned unsupported MIME ${response.mimeType}.`);
+                let parsed;
+                try {
+                    parsed = JSON.parse(new TextDecoder().decode(response.bytes));
+                }
+                catch {
+                    throw new GraflumeError('INVALID_DATA', 'Boundary manifest is not valid JSON.');
+                }
+                const manifest = normalizeMapBoundaryManifest(parsed);
+                return this.#load(manifest, selection, signal, this.#baseURL ?? parsedURL.href);
+            }
+            finally {
+                signal?.removeEventListener('abort', abort);
+            }
+        }
+        async #load(manifest, selection, signal, baseURL) {
+            const sources = selectMapBoundarySources(manifest, selection);
+            const totalBytes = sources.reduce((sum, source) => sum + source.byteLength, 0);
+            if (sources.some(({ byteLength }) => byteLength > this.#options.maximumSourceBytes))
+                throw new GraflumeError('INVALID_SPEC', 'A selected boundary source exceeds maximumSourceBytes.');
+            if (totalBytes > this.#options.maximumTotalBytes)
+                throw new GraflumeError('INVALID_SPEC', 'Selected boundary sources exceed maximumTotalBytes.');
+            const collections = new Array(sources.length);
+            let cursor = 0;
+            const worker = async () => {
+                while (cursor < sources.length) {
+                    const index = cursor++;
+                    collections[index] = await this.#loadSource(sources[index], signal, baseURL);
+                }
+            };
+            await Promise.all(Array.from({ length: Math.min(this.#options.maximumConcurrent, sources.length) }, () => worker()));
+            const collection = Object.freeze({
+                type: 'FeatureCollection',
+                features: Object.freeze(collections.flatMap(({ features }) => features)),
+            });
+            return Object.freeze({
+                collection,
+                manifestId: manifest.id,
+                revision: manifest.revision,
+                attribution: manifest.attribution,
+                sourceIds: Object.freeze(sources.map(({ id }) => id)),
+                byteLength: totalBytes,
+            });
+        }
+        clear() {
+            this.#cache.clear();
+        }
+        state() {
+            return Object.freeze({
+                cached: this.#cache.size,
+                maximumEntries: this.#options.maximumEntries,
+            });
+        }
+        async #loadSource(source, signal, baseURL) {
+            const key = `${source.id}:${source.sha256}:${source.format}:${source.topologyObject ?? ''}`;
+            const cached = this.#cache.get(key);
+            if (cached !== undefined) {
+                this.#cache.delete(key);
+                this.#cache.set(key, cached);
+                return cached;
+            }
+            const controller = new AbortController();
+            const abort = () => controller.abort(signal?.reason);
+            if (signal?.aborted === true)
+                controller.abort(signal.reason);
+            else
+                signal?.addEventListener('abort', abort, { once: true });
+            try {
+                let resolvedSource = source;
+                try {
+                    const resolvedURL = absoluteMapBoundaryURL(source.url, '$.source.url');
+                    resolvedSource = Object.freeze({ ...source, url: resolvedURL.href });
+                }
+                catch {
+                    if (baseURL === undefined)
+                        throw new GraflumeError('INVALID_SPEC', `Boundary source "${source.id}" uses a relative URL but the loader has no baseURL.`);
+                    const resolvedURL = new URL(source.url, baseURL);
+                    if (!mapBoundaryURLAllowed(resolvedURL))
+                        throw new GraflumeError('INVALID_SPEC', `Boundary source "${source.id}" resolves to an unsafe URL.`);
+                    resolvedSource = Object.freeze({ ...source, url: resolvedURL.href });
+                }
+                const response = await this.#fetcher(resolvedSource, controller.signal);
+                if (!(response.bytes instanceof Uint8Array) || response.bytes.length !== source.byteLength)
+                    throw new GraflumeError('INVALID_DATA', `Boundary source "${source.id}" byte length changed.`);
+                if (response.mimeType !== undefined &&
+                    !response.mimeType.toLowerCase().includes('json') &&
+                    response.mimeType.toLowerCase() !== 'application/octet-stream')
+                    throw new GraflumeError('INVALID_DATA', `Boundary source "${source.id}" returned unsupported MIME ${response.mimeType}.`);
+                const digest = (await this.#digest(response.bytes)).toLowerCase();
+                if (digest !== source.sha256)
+                    throw new GraflumeError('INVALID_DATA', `Boundary source "${source.id}" failed SHA-256 verification.`);
+                let parsed;
+                try {
+                    parsed = JSON.parse(new TextDecoder().decode(response.bytes));
+                }
+                catch {
+                    throw new GraflumeError('INVALID_DATA', `Boundary source "${source.id}" is not valid JSON.`);
+                }
+                const collection = source.format === 'topojson'
+                    ? topologyToGeoJson(parsed, source.topologyObject)
+                    : normalizeGeoJson(parsed);
+                this.#cache.set(key, collection);
+                while (this.#cache.size > this.#options.maximumEntries)
+                    this.#cache.delete(this.#cache.keys().next().value);
+                return collection;
+            }
+            finally {
+                signal?.removeEventListener('abort', abort);
+            }
+        }
+    }
+    function createMapBoundaryLoader(options = {}) {
+        return new MapBoundaryLoader(options);
+    }
+    function normalizeTile(tile) {
+        const z = Math.floor(finite$9(tile.z, '$.tile.z'));
+        const x = Math.floor(finite$9(tile.x, '$.tile.x'));
+        const y = Math.floor(finite$9(tile.y, '$.tile.y'));
+        if (z < 0 || z > 24)
+            throw new GraflumeError('INVALID_SPEC', 'Tile zoom must be from 0 to 24.');
+        const count = 2 ** z;
+        if (y < 0 || y >= count)
+            throw new GraflumeError('INVALID_SPEC', 'Tile y is outside the zoom pyramid.');
+        return { z, x: ((x % count) + count) % count, y };
+    }
+    function tileUrl(source, tile) {
+        const normalized = normalizeTile(tile);
+        if (!source.template.includes('{z}') ||
+            !source.template.includes('{x}') ||
+            !source.template.includes('{y}'))
+            throw new GraflumeError('INVALID_SPEC', 'Tile template must contain {z}, {x}, and {y}.');
+        const subdomains = source.subdomains ?? [];
+        const subdomain = subdomains.length === 0 ? '' : subdomains[(normalized.x + normalized.y) % subdomains.length];
+        return source.template
+            .replaceAll('{z}', String(normalized.z))
+            .replaceAll('{x}', String(normalized.x))
+            .replaceAll('{y}', String(normalized.y))
+            .replaceAll('{s}', subdomain);
+    }
+    /** Provider-backed tile loader with request deduplication, abort, bounded LRU cache, expiry and attribution. */
+    class MapTileManager {
+        #source;
+        #fetcher;
+        #maximumEntries;
+        #maximumConcurrent;
+        #cache = new Map();
+        #pending = new Map();
+        #controllers = new Map();
+        #destroyed = false;
+        constructor(source, fetcher, maximumEntries = 128, maximumConcurrent = 8) {
+            if (source.attribution.trim() === '')
+                throw new GraflumeError('INVALID_SPEC', 'Provider-backed tiles require attribution.');
+            this.#source = Object.freeze({ ...source });
+            this.#fetcher = fetcher;
+            this.#maximumEntries = Math.floor(finite$9(maximumEntries, '$.maximumEntries'));
+            if (this.#maximumEntries < 1 || this.#maximumEntries > 4_096)
+                throw new GraflumeError('INVALID_SPEC', '$.maximumEntries must be from 1 to 4096.');
+            this.#maximumConcurrent = Math.floor(finite$9(maximumConcurrent, '$.maximumConcurrent'));
+            if (this.#maximumConcurrent < 1 || this.#maximumConcurrent > 64)
+                throw new GraflumeError('INVALID_SPEC', '$.maximumConcurrent must be from 1 to 64.');
+        }
+        get attribution() {
+            return this.#source.attribution;
+        }
+        async load(tile, signal) {
+            if (this.#destroyed)
+                throw new GraflumeError('INVALID_DATA', 'Map tile manager has been destroyed.');
+            const url = tileUrl(this.#source, tile);
+            const cached = this.#cache.get(url);
+            if (cached !== undefined && (cached.expiresAt === undefined || cached.expiresAt > Date.now())) {
+                this.#cache.delete(url);
+                this.#cache.set(url, cached);
+                return cached;
+            }
+            this.#cache.delete(url);
+            const existing = this.#pending.get(url);
+            if (existing !== undefined)
+                return existing;
+            const controller = new AbortController();
+            const abort = () => controller.abort(signal?.reason);
+            if (signal?.aborted === true)
+                controller.abort(signal.reason);
+            else
+                signal?.addEventListener('abort', abort, { once: true });
+            const request = this.#fetcher(url, controller.signal)
+                .then((response) => {
+                if (!(response.bytes instanceof Uint8Array) ||
+                    response.bytes.length === 0 ||
+                    response.mimeType.trim() === '')
+                    throw new GraflumeError('INVALID_DATA', 'Tile provider returned an invalid response.');
+                const frozen = Object.freeze({ ...response, bytes: response.bytes.slice() });
+                this.#cache.set(url, frozen);
+                while (this.#cache.size > this.#maximumEntries)
+                    this.#cache.delete(this.#cache.keys().next().value);
+                return frozen;
+            })
+                .finally(() => {
+                signal?.removeEventListener('abort', abort);
+                this.#pending.delete(url);
+                this.#controllers.delete(url);
+            });
+            this.#pending.set(url, request);
+            this.#controllers.set(url, controller);
+            return request;
+        }
+        /** Loads a bounded tile set with stable output order and explicit concurrency. */
+        async loadMany(tiles, signal) {
+            if (tiles.length > this.#maximumEntries * 4)
+                throw new GraflumeError('INVALID_SPEC', `Tile batch has ${tiles.length} entries; the bounded limit is ${this.#maximumEntries * 4}.`);
+            const output = new Array(tiles.length);
+            let cursor = 0;
+            const worker = async () => {
+                while (cursor < tiles.length) {
+                    const index = cursor;
+                    cursor += 1;
+                    output[index] = await this.load(tiles[index], signal);
+                }
+            };
+            await Promise.all(Array.from({ length: Math.min(this.#maximumConcurrent, tiles.length) }, () => worker()));
+            return Object.freeze(output);
+        }
+        clear() {
+            this.#cache.clear();
+        }
+        /** Aborts every provider request and permanently releases this manager. */
+        destroy(reason = new DOMException('Map tile manager destroyed.', 'AbortError')) {
+            if (this.#destroyed)
+                return;
+            this.#destroyed = true;
+            for (const controller of this.#controllers.values())
+                controller.abort(reason);
+            this.#controllers.clear();
+            this.#pending.clear();
+            this.#cache.clear();
+        }
+        state() {
+            return Object.freeze({
+                cached: this.#cache.size,
+                pending: this.#pending.size,
+                maximumEntries: this.#maximumEntries,
+                maximumConcurrent: this.#maximumConcurrent,
+                destroyed: this.#destroyed,
+            });
+        }
+    }
+    /** Default browser/server fetch adapter with cache expiry derived from response headers. */
+    const fetchMapTile = async (url, signal) => {
+        if (typeof fetch !== 'function')
+            throw new GraflumeError('UNSUPPORTED_RENDERER', 'Provider-backed tiles require fetch or an injected TileFetcher.');
+        const response = await fetch(url, { signal });
+        if (!response.ok)
+            throw new GraflumeError('INVALID_DATA', `Tile provider returned HTTP ${response.status}.`);
+        const bytes = new Uint8Array(await response.arrayBuffer());
+        const mimeType = response.headers.get('content-type')?.split(';', 1)[0]?.trim() ?? '';
+        const cacheControl = response.headers.get('cache-control') ?? '';
+        const maxAge = /(?:^|,)\s*max-age=(\d+)/i.exec(cacheControl)?.[1];
+        return {
+            bytes,
+            mimeType,
+            ...(maxAge === undefined ? {} : { expiresAt: Date.now() + Number(maxAge) * 1_000 }),
+        };
+    };
+    function createMapTileManager(source, options = {}) {
+        return new MapTileManager(source, options.fetcher ?? fetchMapTile, options.maximumEntries, options.maximumConcurrent);
+    }
+    function cloneMapProjection(projection) {
+        return Object.freeze({
+            name: projection.name,
+            ...(projection.rotate === undefined
+                ? {}
+                : { rotate: Object.freeze([...projection.rotate]) }),
+            ...(projection.clip === undefined
+                ? {}
+                : {
+                    clip: Object.freeze([...projection.clip]),
+                }),
+        });
+    }
+    /**
+     * Persistent source/layer runtime that binds ordered layer state to real
+     * provider requests. It is renderer-neutral and can be shared by custom map
+     * controls, server prefetchers, or a Canvas chart lifecycle.
+     */
+    class MapRuntime {
+        layers = new MapLayerRegistry();
+        #options;
+        #managers = new Map();
+        #projection;
+        #revision = 0;
+        #destroyed = false;
+        constructor(options = {}) {
+            const { projection, ...tileOptions } = options;
+            this.#options = { ...tileOptions };
+            this.#projection = normalizeMapProjection(projection);
+        }
+        addSource(id, source) {
+            this.#assertAlive();
+            this.layers.addSource(id, source);
+            this.#revision += 1;
+            return this;
+        }
+        removeSource(id) {
+            this.#assertAlive();
+            this.layers.removeSource(id);
+            this.#managers.get(id)?.destroy();
+            this.#managers.delete(id);
+            this.#revision += 1;
+            return this;
+        }
+        addLayer(layer, before) {
+            this.#assertAlive();
+            this.layers.addLayer(layer, before);
+            this.#revision += 1;
+            return this;
+        }
+        removeLayer(id) {
+            this.#assertAlive();
+            this.layers.removeLayer(id);
+            this.#revision += 1;
+            return this;
+        }
+        setVisibility(id, visible) {
+            this.#assertAlive();
+            this.layers.setVisibility(id, visible);
+            this.#revision += 1;
+            return this;
+        }
+        getProjection() {
+            return cloneMapProjection(this.#projection);
+        }
+        setProjection(projection) {
+            this.#assertAlive();
+            const normalized = normalizeMapProjection(projection);
+            if (JSON.stringify(normalized) !== JSON.stringify(this.#projection)) {
+                this.#projection = normalized;
+                this.#revision += 1;
+            }
+            return this;
+        }
+        project(point) {
+            this.#assertAlive();
+            return projectMapPosition(point, this.#projection);
+        }
+        async loadLayerTiles(layerId, tiles, signal) {
+            this.#assertAlive();
+            const layer = this.layers.layer(layerId);
+            if (layer === null)
+                throw new GraflumeError('INVALID_SPEC', `Unknown map layer "${layerId}".`);
+            if (layer.visible === false)
+                return Object.freeze([]);
+            const source = this.layers.source(layer.source);
+            if (source === null || !('template' in source))
+                throw new GraflumeError('INVALID_SPEC', `Map layer "${layerId}" is not backed by a tile provider.`);
+            let manager = this.#managers.get(layer.source);
+            if (manager === undefined) {
+                manager = createMapTileManager(source, this.#options);
+                this.#managers.set(layer.source, manager);
+            }
+            return manager.loadMany(tiles, signal);
+        }
+        snapshot() {
+            return Object.freeze({
+                destroyed: this.#destroyed,
+                revision: this.#revision,
+                projection: cloneMapProjection(this.#projection),
+                registry: this.layers.snapshot(),
+                providers: Object.freeze(Object.fromEntries([...this.#managers].map(([id, manager]) => [id, manager.state()]))),
+            });
+        }
+        destroy(reason) {
+            if (this.#destroyed)
+                return;
+            this.#destroyed = true;
+            for (const manager of this.#managers.values())
+                manager.destroy(reason);
+            this.#managers.clear();
+        }
+        #assertAlive() {
+            if (this.#destroyed)
+                throw new GraflumeError('INVALID_DATA', 'Map runtime has been destroyed.');
+        }
+    }
+    function createMapRuntime(options = {}) {
+        return new MapRuntime(options);
+    }
+
     const DEFAULT_BASEMAP = 'natural-earth';
     function optionBoolean$2(context, name, fallback) {
         const value = context.layer.mark.options[name];
@@ -21617,15 +23343,17 @@ var Graflume = (function (exports) {
         const value = context.layer.mark.options[name];
         return typeof value === 'string' && value.trim() !== '' ? value : fallback;
     }
-    /**
-     * Returns the undistorted 2:1 equirectangular viewport centered inside a chart plot.
-     */
-    function geographicViewport(plot) {
-        const padding = Math.min(8, plot.width * 0.02, plot.height * 0.04);
+    function geographicViewport(plot, view) {
+        const padding = view?.padding === undefined
+            ? Math.min(8, plot.width * 0.02, plot.height * 0.04)
+            : Math.min(view.padding, plot.width * 0.45, plot.height * 0.45);
         const availableWidth = Math.max(1, plot.width - padding * 2);
         const availableHeight = Math.max(1, plot.height - padding * 2);
-        const width = Math.min(availableWidth, availableHeight * WORLD_ASPECT_RATIO);
-        const height = width / WORLD_ASPECT_RATIO;
+        const longitudeSpan = view?.bounds === undefined ? 360 : Math.max(1e-9, view.bounds.east - view.bounds.west);
+        const latitudeSpan = view?.bounds === undefined ? 180 : Math.max(1e-9, view.bounds.north - view.bounds.south);
+        const aspectRatio = longitudeSpan / latitudeSpan;
+        const width = Math.min(availableWidth, availableHeight * aspectRatio);
+        const height = width / aspectRatio;
         return {
             x: plot.x + (plot.width - width) / 2,
             y: plot.y + (plot.height - height) / 2,
@@ -21641,11 +23369,18 @@ var Graflume = (function (exports) {
             latitude >= -90 &&
             latitude <= 90);
     }
-    function projectGeographicPosition(plot, longitude, latitude) {
-        const viewport = geographicViewport(plot);
+    function projectGeographicPosition(plot, longitude, latitude, view) {
+        const viewport = geographicViewport(plot, view);
+        const bounds = view?.bounds ?? { west: -180, south: -90, east: 180, north: 90 };
+        let unwrappedLongitude = longitude;
+        while (unwrappedLongitude < bounds.west)
+            unwrappedLongitude += 360;
+        while (unwrappedLongitude > bounds.east && unwrappedLongitude - 360 >= bounds.west)
+            unwrappedLongitude -= 360;
         return {
-            x: viewport.x + ((longitude + 180) / 360) * viewport.width,
-            y: viewport.y + ((90 - latitude) / 180) * viewport.height,
+            x: viewport.x +
+                ((unwrappedLongitude - bounds.west) / (bounds.east - bounds.west)) * viewport.width,
+            y: viewport.y + ((bounds.north - latitude) / (bounds.north - bounds.south)) * viewport.height,
         };
     }
     function normalizedCountryKey(value) {
@@ -21656,6 +23391,17 @@ var Graflume = (function (exports) {
             .toUpperCase();
     }
     let countryIndex;
+    let exactCountryIndex;
+    const compatibilityCountryAliases = {
+        AMERICA: 'USA',
+        KOREA: 'KOR',
+        REPUBLICOFKOREA: 'KOR',
+        SOUTHKOREA: 'KOR',
+        대한민국: 'KOR',
+        UK: 'GBR',
+        UNITEDKINGDOM: 'GBR',
+        UNITEDSTATES: 'USA',
+    };
     function naturalEarthCountryIndex() {
         if (countryIndex !== undefined)
             return countryIndex;
@@ -21667,17 +23413,7 @@ var Graflume = (function (exports) {
                     index.set(key, country);
             }
         }
-        const aliases = {
-            AMERICA: 'USA',
-            KOREA: 'KOR',
-            REPUBLICOFKOREA: 'KOR',
-            SOUTHKOREA: 'KOR',
-            대한민국: 'KOR',
-            UK: 'GBR',
-            UNITEDKINGDOM: 'GBR',
-            UNITEDSTATES: 'USA',
-        };
-        for (const [alias, canonical] of Object.entries(aliases)) {
+        for (const [alias, canonical] of Object.entries(compatibilityCountryAliases)) {
             const country = index.get(canonical);
             if (country !== undefined)
                 index.set(normalizedCountryKey(alias), country);
@@ -21685,14 +23421,112 @@ var Graflume = (function (exports) {
         countryIndex = index;
         return index;
     }
-    function naturalEarthCountry(value) {
-        return naturalEarthCountryIndex().get(normalizedCountryKey(value));
+    function naturalEarthCountryExact(value) {
+        if (exactCountryIndex === undefined) {
+            const index = new Map();
+            for (const country of naturalEarthCountries110m())
+                for (const alias of country[7])
+                    if (!index.has(alias))
+                        index.set(alias, country);
+            for (const [alias, canonical] of Object.entries(compatibilityCountryAliases)) {
+                const country = naturalEarthCountryIndex().get(canonical);
+                if (country !== undefined && !index.has(alias))
+                    index.set(alias, country);
+            }
+            exactCountryIndex = index;
+        }
+        return exactCountryIndex.get(value);
     }
-    function projectedPolygon(plot, polygon) {
+    function naturalEarthCountry(value, caseSensitive = false) {
+        return caseSensitive
+            ? naturalEarthCountryExact(value)
+            : naturalEarthCountryIndex().get(normalizedCountryKey(value));
+    }
+    function naturalEarthCollection(countries) {
+        return {
+            type: 'FeatureCollection',
+            features: countries.map((country) => ({
+                type: 'Feature',
+                id: country[0],
+                properties: {
+                    id: country[0],
+                    iso2: country[1],
+                    iso3: country[2],
+                    numeric: country[3],
+                    name: country[4],
+                },
+                geometry: {
+                    type: 'MultiPolygon',
+                    coordinates: country[8],
+                },
+            })),
+        };
+    }
+    /** Resolves the built-in Admin-0 scope without loading or embedding subdivisions. */
+    function resolveGeographicMapView(context) {
+        const input = context.layer.mark.options.mapScope;
+        if (input === undefined)
+            return Object.freeze({
+                countries: naturalEarthCountries110m(),
+                scopeLevel: 'all',
+            });
+        const scope = normalizeMapFeatureScope(input);
+        if (scope.level !== 'country')
+            throw new GraflumeError('INVALID_SPEC', 'Built-in Natural Earth basemaps accept mapScope.level "country"; region scopes require loaded GeoJSON or TopoJSON.');
+        if (scope.parentProperty !== undefined)
+            throw new GraflumeError('INVALID_SPEC', 'Built-in country scope does not accept parentProperty or parentValues.');
+        const selected = [];
+        const missing = [];
+        for (const value of scope.values) {
+            const country = naturalEarthCountry(String(value), scope.caseSensitive);
+            if (country === undefined)
+                missing.push(String(value));
+            else if (!selected.some((entry) => entry[0] === country[0]))
+                selected.push(country);
+        }
+        if (missing.length > 0 && scope.unmatched === 'error')
+            throw new GraflumeError('INVALID_DATA', `Built-in country scope did not match ${missing.length} requested value(s).`, { details: { missing: Object.freeze(missing) } });
+        if (selected.length === 0 && scope.empty === 'error')
+            throw new GraflumeError('INVALID_DATA', 'Built-in country scope selected no countries.');
+        const scopeBounds = selected.length === 0 ? undefined : mapBounds(naturalEarthCollection(selected));
+        const authoredPadding = context.layer.mark.options.fitPadding;
+        if (authoredPadding !== undefined &&
+            (typeof authoredPadding !== 'number' ||
+                !Number.isFinite(authoredPadding) ||
+                authoredPadding < 0))
+            throw new GraflumeError('INVALID_SPEC', 'Map fitPadding must be a nonnegative finite number.');
+        const fit = context.layer.mark.options.fit;
+        if (fit !== undefined && typeof fit !== 'boolean')
+            throw new GraflumeError('INVALID_SPEC', 'Map fit must be boolean.');
+        return Object.freeze({
+            countries: Object.freeze(selected),
+            ...(scopeBounds === undefined ? {} : { scopeBounds }),
+            ...(scopeBounds === undefined || fit === false ? {} : { bounds: scopeBounds }),
+            scopeLevel: 'country',
+            padding: typeof authoredPadding === 'number' ? authoredPadding : 18,
+        });
+    }
+    function geographicPositionInView(longitude, latitude, view) {
+        if (view.scopeLevel === 'country' && view.countries.length === 0)
+            return false;
+        const bounds = view.scopeBounds ?? view.bounds;
+        if (bounds === undefined)
+            return isGeographicPosition(longitude, latitude);
+        let unwrapped = longitude;
+        while (unwrapped < bounds.west)
+            unwrapped += 360;
+        while (unwrapped > bounds.east && unwrapped - 360 >= bounds.west)
+            unwrapped -= 360;
+        return (unwrapped >= bounds.west &&
+            unwrapped <= bounds.east &&
+            latitude >= bounds.south &&
+            latitude <= bounds.north);
+    }
+    function projectedPolygon(plot, polygon, view) {
         const rings = polygon
             .map((ring) => ring
             .filter(([longitude, latitude]) => isGeographicPosition(longitude, latitude))
-            .map(([longitude, latitude]) => projectGeographicPosition(plot, longitude, latitude)))
+            .map(([longitude, latitude]) => projectGeographicPosition(plot, longitude, latitude, view)))
             .filter((ring) => ring.length >= 3);
         const points = rings[0];
         if (points === undefined)
@@ -21705,7 +23539,7 @@ var Graflume = (function (exports) {
     function countryPathNodes(context, country, options) {
         const nodes = [];
         country[8].forEach((polygon, polygonIndex) => {
-            const projected = projectedPolygon(context.plot, polygon);
+            const projected = projectedPolygon(context.plot, polygon, options.view);
             if (projected === null)
                 return;
             const hasDatum = options.rowIndex !== undefined && options.datum !== undefined;
@@ -21737,11 +23571,119 @@ var Graflume = (function (exports) {
         });
         return nodes;
     }
-    function worldBasemapNodes(context) {
+    function scopedGraticuleValues(minimum, maximum) {
+        const span = maximum - minimum;
+        const candidates = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 30, 45, 60, 90];
+        const step = candidates.find((candidate) => span / candidate <= 7) ?? 90;
+        const first = Math.ceil(minimum / step) * step;
+        const values = [];
+        for (let value = first; value <= maximum + step * 1e-9; value += step)
+            if (value > minimum + step * 1e-9 && value < maximum - step * 1e-9)
+                values.push(Number(value.toFixed(10)));
+        return values;
+    }
+    function builtInCountryLabelNodes(context, view) {
+        const input = context.layer.mark.options.labels;
+        if (input === undefined || input === false)
+            return [];
+        if (input !== true && (input === null || typeof input !== 'object' || Array.isArray(input)))
+            throw new GraflumeError('INVALID_SPEC', 'Map labels must be boolean or an options object.');
+        const options = input === true ? {} : input;
+        const allowed = new Set([
+            'field',
+            'longitudeField',
+            'latitudeField',
+            'maximum',
+            'fontSize',
+            'padding',
+            'collision',
+        ]);
+        const unknown = Object.keys(options).find((key) => !allowed.has(key));
+        if (unknown !== undefined)
+            throw new GraflumeError('INVALID_SPEC', `Unknown map labels property "${unknown}".`);
+        const field = typeof options.field === 'string' ? options.field : 'name';
+        if (!['id', 'iso2', 'iso3', 'numeric', 'name'].includes(field))
+            throw new GraflumeError('INVALID_SPEC', 'Built-in country labels.field must be id, iso2, iso3, numeric, or name.');
+        const boundedInteger = (value, fallback, minimum, maximum, name) => {
+            const resolved = value ?? fallback;
+            if (!Number.isInteger(resolved) ||
+                resolved < minimum ||
+                resolved > maximum)
+                throw new GraflumeError('INVALID_SPEC', `Map labels.${name} must be an integer from ${minimum} to ${maximum}.`);
+            return resolved;
+        };
+        const maximum = boundedInteger(options.maximum, 120, 1, 1_000, 'maximum');
+        const fontSize = boundedInteger(options.fontSize, 10, 6, 40, 'fontSize');
+        const padding = boundedInteger(options.padding, 3, 0, 24, 'padding');
+        const collision = options.collision ?? 'hide';
+        if (collision !== 'hide' && collision !== 'none')
+            throw new GraflumeError('INVALID_SPEC', 'Map labels.collision must be "hide" or "none".');
+        const viewport = geographicViewport(context.plot, view);
+        const capacity = Math.max(1, Math.floor((viewport.width * viewport.height) / 2_800));
+        const limit = Math.min(maximum, collision === 'none' ? maximum : capacity);
+        const fieldIndex = { id: 0, iso2: 1, iso3: 2, numeric: 3, name: 4 }[field];
+        const occupied = [];
+        const countries = [...view.countries].sort((left, right) => {
+            const area = (country) => country[8].reduce((sum, polygon) => sum +
+                polygon[0].reduce((value, point, index, ring) => {
+                    const next = ring[(index + 1) % ring.length];
+                    return value + point[0] * next[1] - next[0] * point[1];
+                }, 0), 0);
+            return Math.abs(area(right)) - Math.abs(area(left));
+        });
+        const nodes = [];
+        for (const country of countries) {
+            if (nodes.length >= limit)
+                break;
+            const point = projectGeographicPosition(context.plot, country[5], country[6], view);
+            if (point.x < viewport.x ||
+                point.x > viewport.x + viewport.width ||
+                point.y < viewport.y ||
+                point.y > viewport.y + viewport.height)
+                continue;
+            const text = String(country[fieldIndex] ?? country[4]);
+            const units = Array.from(text).reduce((sum, character) => sum +
+                (/\p{Extended_Pictographic}|\p{Script=Han}|\p{Script=Hangul}|\p{Script=Hiragana}|\p{Script=Katakana}/u.test(character)
+                    ? 1
+                    : 0.58), 0);
+            const width = Math.max(fontSize, units * fontSize);
+            const box = {
+                left: point.x - width / 2 - padding,
+                right: point.x + width / 2 + padding,
+                top: point.y - fontSize / 2 - padding,
+                bottom: point.y + fontSize / 2 + padding,
+            };
+            if (collision === 'hide' &&
+                occupied.some((entry) => box.left < entry.right &&
+                    box.right > entry.left &&
+                    box.top < entry.bottom &&
+                    box.bottom > entry.top))
+                continue;
+            occupied.push(box);
+            nodes.push({
+                type: 'text',
+                ...nodeBase(`${context.layer.id}:natural-earth:label:${country[0]}`, {
+                    zIndex: context.layer.zIndex + 6,
+                }),
+                x: point.x,
+                y: point.y,
+                text,
+                fill: context.theme.colors.text,
+                fontFamily: context.theme.typography.fontFamily,
+                fontSize,
+                fontWeight: 600,
+                align: 'center',
+                baseline: 'middle',
+                rotation: 0,
+            });
+        }
+        return nodes;
+    }
+    function worldBasemapNodes(context, view = resolveGeographicMapView(context)) {
         const { layer, plot, theme } = context;
         if (optionString$6(context, 'basemap', DEFAULT_BASEMAP) === 'none')
             return [];
-        const viewport = geographicViewport(plot);
+        const viewport = geographicViewport(plot, view);
         const oceanFill = optionString$6(context, 'oceanFill', mixColor$1(theme.colors.background, mappedContinuousColor(theme, 0), 0.2));
         const landFill = optionString$6(context, 'landFill', mixColor$1(theme.colors.surface, theme.colors.grid, theme.mode === 'dark' ? 0.3 : 0.48));
         const countryStroke = optionString$6(context, 'countryStroke', colorWithOpacity(theme.colors.axis, theme.mode === 'dark' ? 0.62 : 0.48));
@@ -21761,9 +23703,15 @@ var Graflume = (function (exports) {
             },
         ];
         if (optionBoolean$2(context, 'graticule', false)) {
-            for (let longitude = -120; longitude <= 120; longitude += 60) {
-                const top = projectGeographicPosition(plot, longitude, 90);
-                const bottom = projectGeographicPosition(plot, longitude, -90);
+            const longitudes = view.bounds === undefined
+                ? [-120, -60, 0, 60, 120]
+                : scopedGraticuleValues(view.bounds.west, view.bounds.east);
+            const latitudes = view.bounds === undefined
+                ? [-60, -30, 0, 30, 60]
+                : scopedGraticuleValues(view.bounds.south, view.bounds.north);
+            for (const longitude of longitudes) {
+                const top = projectGeographicPosition(plot, longitude, view.bounds?.north ?? 90, view);
+                const bottom = projectGeographicPosition(plot, longitude, view.bounds?.south ?? -90, view);
                 nodes.push({
                     type: 'line',
                     ...nodeBase(`${layer.id}:natural-earth:longitude:${longitude}`, {
@@ -21778,9 +23726,9 @@ var Graflume = (function (exports) {
                     lineWidth: 0.6,
                 });
             }
-            for (let latitude = -60; latitude <= 60; latitude += 30) {
-                const left = projectGeographicPosition(plot, -180, latitude);
-                const right = projectGeographicPosition(plot, 180, latitude);
+            for (const latitude of latitudes) {
+                const left = projectGeographicPosition(plot, view.bounds?.west ?? -180, latitude, view);
+                const right = projectGeographicPosition(plot, view.bounds?.east ?? 180, latitude, view);
                 nodes.push({
                     type: 'line',
                     ...nodeBase(`${layer.id}:natural-earth:latitude:${latitude}`, {
@@ -21796,15 +23744,17 @@ var Graflume = (function (exports) {
                 });
             }
         }
-        for (const country of naturalEarthCountries110m()) {
+        for (const country of view.countries) {
             nodes.push(...countryPathNodes(context, country, {
                 idPrefix: `${layer.id}:natural-earth:country`,
                 zIndex: layer.zIndex - 3,
                 fill: landFill,
                 stroke: countryStroke,
                 lineWidth: countryLineWidth,
+                view,
             }));
         }
+        nodes.push(...builtInCountryLabelNodes(context, view));
         if (optionBoolean$2(context, 'attribution', true)) {
             const attribution = {
                 type: 'text',
@@ -21827,7 +23777,7 @@ var Graflume = (function (exports) {
         }
         return nodes;
     }
-    function worldCountryOverlayNodes(context, country, rowIndex, fill) {
+    function worldCountryOverlayNodes(context, country, rowIndex, fill, view) {
         return countryPathNodes(context, country, {
             idPrefix: `${context.layer.id}:natural-earth:region`,
             zIndex: context.layer.zIndex,
@@ -21838,11 +23788,12 @@ var Graflume = (function (exports) {
             interactive: context.performance.enableHitTesting,
             rowIndex,
             datum: context.table.row(rowIndex),
+            ...(view === undefined ? {} : { view }),
         });
     }
 
     const TAU$2 = Math.PI * 2;
-    function clamp$a(value, minimum, maximum) {
+    function clamp$9(value, minimum, maximum) {
         return Math.max(minimum, Math.min(maximum, value));
     }
     function optionNumber$5(value, fallback) {
@@ -22123,7 +24074,7 @@ var Graflume = (function (exports) {
         if (summary === null)
             return [];
         const { mean, standardDeviation: sigma } = summary;
-        const samples = clamp$a(Math.floor(optionNumber$5(layer.mark.options.samples, 72)), 24, 160);
+        const samples = clamp$9(Math.floor(optionNumber$5(layer.mark.options.samples, 72)), 24, 160);
         const densities = Array.from({ length: samples + 1 }, (_, index) => {
             const xValue = summary.domainMinimum + ((summary.domainMaximum - summary.domainMinimum) * index) / samples;
             const density = normalDensity(xValue, summary);
@@ -22262,7 +24213,7 @@ var Graflume = (function (exports) {
         const observations = distributionObservations(context);
         const requestedBandwidth = layer.mark.options.bandwidth;
         const estimate = kernelDensity1d(observations, {
-            points: clamp$a(Math.floor(optionNumber$5(layer.mark.options.samples, 96)), 24, Math.min(512, context.performance.maxLinePoints)),
+            points: clamp$9(Math.floor(optionNumber$5(layer.mark.options.samples, 96)), 24, Math.min(512, context.performance.maxLinePoints)),
             ...(typeof requestedBandwidth === 'number' && requestedBandwidth > 0
                 ? { bandwidth: requestedBandwidth }
                 : {}),
@@ -22369,7 +24320,7 @@ var Graflume = (function (exports) {
         const width = Math.max(8, xScale instanceof BandScale
             ? xScale.bandwidth * 0.58
             : plot.width / Math.max(3, table.length * 1.8));
-        const ellipseHeight = clamp$a(width * 0.28, 4, 18);
+        const ellipseHeight = clamp$9(width * 0.28, 4, 18);
         const baseline = yScale.map(0);
         const nodes = [];
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
@@ -22501,7 +24452,7 @@ var Graflume = (function (exports) {
         }
         if (values.length === 0 || total <= 0)
             return [];
-        const count = clamp$a(Math.floor(optionNumber$5(layer.mark.options.items, 100)), 20, 400);
+        const count = clamp$9(Math.floor(optionNumber$5(layer.mark.options.items, 100)), 20, 400);
         const columns = Math.ceil(Math.sqrt((count * plot.width) / Math.max(1, plot.height)));
         const rows = Math.ceil(count / columns);
         const gap = 2;
@@ -22618,7 +24569,7 @@ var Graflume = (function (exports) {
             if (radius >= 18) {
                 nodes.push(textNode$7(context, `${layer.id}:packed-label:${item.rowIndex}`, position.x, position.y, item.label, {
                     fill: readableTextColor(color, '#ffffff', '#0f172a'),
-                    size: clamp$a(radius * 0.34, 9, 14),
+                    size: clamp$9(radius * 0.34, 9, 14),
                 }));
             }
         });
@@ -22758,7 +24709,7 @@ var Graflume = (function (exports) {
         const variant = optionString$5(layer.mark.options.variant, 'pyramid');
         const reverse = variant.includes('funnel');
         const depth = variant.includes('3d')
-            ? clamp$a(optionNumber$5(layer.mark.options.depth, 12), 4, 24)
+            ? clamp$9(optionNumber$5(layer.mark.options.depth, 12), 4, 24)
             : 0;
         const sorted = layer.mark.options.sort === false ? rows : rows.slice().sort((a, b) => b.value - a.value);
         const maximum = Math.max(1, ...sorted.map(({ value }) => value));
@@ -22767,8 +24718,8 @@ var Graflume = (function (exports) {
         const maxWidth = plot.width * 0.82;
         const nodes = [];
         sorted.forEach((row, index) => {
-            const currentRatio = clamp$a(row.value / maximum, 0.06, 1);
-            const nextRatio = clamp$a((sorted[index + 1]?.value ?? 0) / maximum, 0.03, 1);
+            const currentRatio = clamp$9(row.value / maximum, 0.06, 1);
+            const nextRatio = clamp$9((sorted[index + 1]?.value ?? 0) / maximum, 0.03, 1);
             const topRatio = reverse ? currentRatio : nextRatio;
             const bottomRatio = reverse ? nextRatio : currentRatio;
             const y1 = plot.y + index * height + 1;
@@ -22826,7 +24777,7 @@ var Graflume = (function (exports) {
             if (xValue === null || yValue === null || z === null)
                 continue;
             const ratio = extent === null || extent[1] === extent[0] ? 0.5 : (z - extent[0]) / (extent[1] - extent[0]);
-            const perspective = (ratio - 0.5) * clamp$a(optionNumber$5(layer.mark.options.perspective, 18), 0, 42);
+            const perspective = (ratio - 0.5) * clamp$9(optionNumber$5(layer.mark.options.perspective, 18), 0, 42);
             const x = xScale.map(xValue) + perspective;
             const y = yScale.map(yValue) - perspective * 0.55;
             const radius = (layer.mark.radius ?? 5) * (0.72 + ratio * 0.9);
@@ -22865,7 +24816,7 @@ var Graflume = (function (exports) {
         const cx = plot.x + plot.width / 2;
         const cy = plot.y + plot.height * 0.58;
         const outer = Math.min(plot.width, plot.height) * 0.38;
-        const thickness = clamp$a(optionNumber$5(layer.mark.options.thickness, outer * 0.18), 6, outer * 0.45);
+        const thickness = clamp$9(optionNumber$5(layer.mark.options.thickness, outer * 0.18), 6, outer * 0.45);
         const nodes = [
             {
                 type: 'path',
@@ -22881,7 +24832,7 @@ var Graflume = (function (exports) {
             const value = numericDataValue(table.value(rowIndex, layer.y.field));
             if (value === null)
                 continue;
-            const ratio = clamp$a((value - minimum) / Math.max(1e-9, maximum - minimum), 0, 1);
+            const ratio = clamp$9((value - minimum) / Math.max(1e-9, maximum - minimum), 0, 1);
             const ringOuter = outer - rowIndex * (thickness + 5);
             const ringInner = Math.max(4, ringOuter - thickness);
             const color = layer.mark.fill ?? paletteColor$1(context, rowIndex, table.length);
@@ -22896,7 +24847,7 @@ var Graflume = (function (exports) {
             });
             if (rowIndex === count - 1) {
                 nodes.push(textNode$7(context, `${layer.id}:solid-label`, cx, cy + outer * 0.2, `${Math.round(value)}`, {
-                    size: clamp$a(outer * 0.2, 16, 30),
+                    size: clamp$9(outer * 0.2, 16, 30),
                     weight: 700,
                 }));
             }
@@ -23126,7 +25077,7 @@ var Graflume = (function (exports) {
             if (xValue === null || yValue === null || speed === null || direction === null)
                 continue;
             const start = { x: xScale.map(xValue), y: yScale.map(yValue) };
-            const length = clamp$a(18 + speed * 0.35, 20, 44);
+            const length = clamp$9(18 + speed * 0.35, 20, 44);
             const angle = (direction * Math.PI) / 180 - Math.PI / 2;
             const end = pointOnCircle$1(start.x, start.y, length, angle);
             const stroke = layer.mark.stroke ?? context.color;
@@ -23141,7 +25092,7 @@ var Graflume = (function (exports) {
                 lineWidth: layer.mark.lineWidth ?? 2,
                 lineCap: 'round',
             });
-            const featherCount = clamp$a(Math.round(speed / 10), 1, 6);
+            const featherCount = clamp$9(Math.round(speed / 10), 1, 6);
             for (let feather = 0; feather < featherCount; feather += 1) {
                 const ratio = 0.32 + (feather / featherCount) * 0.58;
                 const anchor = {
@@ -23582,7 +25533,7 @@ var Graflume = (function (exports) {
                 nodes.push({
                     ...textNode$7(context, `${layer.id}:point-figure:${row.rowIndex}:${level}`, x, y, rising ? '×' : '○', {
                         fill: layer.mark.stroke ?? color,
-                        size: clamp$a(Math.min(cellWidth, cellHeight) * 0.82, 9, 22),
+                        size: clamp$9(Math.min(cellWidth, cellHeight) * 0.82, 9, 22),
                         weight: 700,
                     }),
                     ...datumBase$2(context, `${layer.id}:point-figure:${row.rowIndex}:${level}`, row.rowIndex),
@@ -23595,7 +25546,7 @@ var Graflume = (function (exports) {
         const { layer, table, plot, theme } = context;
         const priceField = layer.mark.fields.price ?? layer.y.field;
         const volumeField = layer.mark.fields.volume ?? 'volume';
-        const bins = clamp$a(Math.floor(optionNumber$5(layer.mark.options.bins, 12)), 4, 50);
+        const bins = clamp$9(Math.floor(optionNumber$5(layer.mark.options.bins, 12)), 4, 50);
         const priceExtent = table.has(priceField) ? table.extent(priceField) : null;
         if (priceExtent === null || !table.has(volumeField))
             return [];
@@ -23607,7 +25558,7 @@ var Graflume = (function (exports) {
             const volume = numericDataValue(table.value(rowIndex, volumeField));
             if (price === null || volume === null)
                 continue;
-            const bin = clamp$a(Math.floor(((price - priceExtent[0]) / span) * bins), 0, bins - 1);
+            const bin = clamp$9(Math.floor(((price - priceExtent[0]) / span) * bins), 0, bins - 1);
             totals[bin] = (totals[bin] ?? 0) + Math.max(0, volume);
             rowIndexes[bin] = rowIndex;
         }
@@ -23648,7 +25599,8 @@ var Graflume = (function (exports) {
         const valueField = layer.mark.fields.value;
         const valueExtent = valueField !== undefined && table.has(valueField) ? table.extent(valueField) : null;
         const flow = layer.mark.options.flow === true;
-        const nodes = worldBasemapNodes(context);
+        const view = resolveGeographicMapView(context);
+        const nodes = worldBasemapNodes(context, view);
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
             const longitude = numericDataValue(table.value(rowIndex, layer.x.field));
             const latitude = numericDataValue(table.value(rowIndex, layer.y.field));
@@ -23663,10 +25615,12 @@ var Graflume = (function (exports) {
                 longitude2 === null ||
                 latitude2 === null ||
                 !isGeographicPosition(longitude, latitude) ||
-                !isGeographicPosition(longitude2, latitude2))
+                !isGeographicPosition(longitude2, latitude2) ||
+                !geographicPositionInView(longitude, latitude, view) ||
+                !geographicPositionInView(longitude2, latitude2, view))
                 continue;
-            const start = projectGeographicPosition(plot, longitude, latitude);
-            const end = projectGeographicPosition(plot, longitude2, latitude2);
+            const start = projectGeographicPosition(plot, longitude, latitude, view);
+            const end = projectGeographicPosition(plot, longitude2, latitude2, view);
             const control = {
                 x: (start.x + end.x) / 2,
                 y: Math.min(start.y, end.y) - Math.abs(end.x - start.x) * 0.16,
@@ -23713,7 +25667,8 @@ var Graflume = (function (exports) {
         const { layer, table, plot, theme } = context;
         const valueField = layer.mark.fields.value ?? 'value';
         const extent = table.has(valueField) ? table.extent(valueField) : null;
-        const nodes = worldBasemapNodes(context);
+        const view = resolveGeographicMapView(context);
+        const nodes = worldBasemapNodes(context, view);
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
             const longitude = numericDataValue(table.value(rowIndex, layer.x.field));
             const latitude = numericDataValue(table.value(rowIndex, layer.y.field));
@@ -23723,9 +25678,10 @@ var Graflume = (function (exports) {
             if (longitude === null ||
                 latitude === null ||
                 value === null ||
-                !isGeographicPosition(longitude, latitude))
+                !isGeographicPosition(longitude, latitude) ||
+                !geographicPositionInView(longitude, latitude, view))
                 continue;
-            const point = projectGeographicPosition(plot, longitude, latitude);
+            const point = projectGeographicPosition(plot, longitude, latitude, view);
             const ratio = extent === null || extent[1] === extent[0]
                 ? 0.5
                 : (value - extent[0]) / (extent[1] - extent[0]);
@@ -23757,13 +25713,16 @@ var Graflume = (function (exports) {
     };
     const compileTiledMapMark = (context) => {
         const { layer, table, plot, theme } = context;
-        const nodes = worldBasemapNodes(context);
+        const view = resolveGeographicMapView(context);
+        const nodes = worldBasemapNodes(context, view);
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
             const longitude = numericDataValue(table.value(rowIndex, layer.x.field));
             const latitude = numericDataValue(table.value(rowIndex, layer.y.field));
             if (longitude === null || latitude === null || !isGeographicPosition(longitude, latitude))
                 continue;
-            const point = projectGeographicPosition(plot, longitude, latitude);
+            if (!geographicPositionInView(longitude, latitude, view))
+                continue;
+            const point = projectGeographicPosition(plot, longitude, latitude, view);
             const color = layer.mark.fill ?? paletteColor$1(context, rowIndex, table.length);
             nodes.push({
                 type: 'circle',
@@ -23790,7 +25749,7 @@ var Graflume = (function (exports) {
     });
 
     const TAU$1 = Math.PI * 2;
-    function clamp$9(value, minimum, maximum) {
+    function clamp$8(value, minimum, maximum) {
         return Math.max(minimum, Math.min(maximum, value));
     }
     function optionNumber$4(options, key, fallback) {
@@ -23873,7 +25832,7 @@ var Graflume = (function (exports) {
     }
     function byteChannel(value, fallback) {
         const numeric = numericDataValue(value);
-        return numeric === null ? fallback : Math.round(clamp$9(numeric, 0, 255));
+        return numeric === null ? fallback : Math.round(clamp$8(numeric, 0, 255));
     }
     /** A raster compiler that keeps every pixel portable as a data row. */
     const compileImageMark = (context) => {
@@ -23905,7 +25864,7 @@ var Graflume = (function (exports) {
         const cellHeight = yScale instanceof BandScale
             ? yScale.bandwidth
             : inferredCellSpan(yPositions, plot.height / Math.max(1, Math.sqrt(table.length)));
-        const gap = clamp$9(optionNumber$4(layer.mark.options, 'cellGap', 0), 0, 8);
+        const gap = clamp$8(optionNumber$4(layer.mark.options, 'cellGap', 0), 0, 8);
         const nodes = [];
         for (const { rowIndex, x, y } of sampledItems(rasterRows, context.performance.maxBarMarks)) {
             const explicit = colorField === undefined || !table.has(colorField)
@@ -23915,7 +25874,7 @@ var Graflume = (function (exports) {
             const green = table.has(greenField) ? byteChannel(table.value(rowIndex, greenField), 0) : 0;
             const blue = table.has(blueField) ? byteChannel(table.value(rowIndex, blueField), 0) : 0;
             const alpha = alphaField !== undefined && table.has(alphaField)
-                ? clamp$9(byteChannel(table.value(rowIndex, alphaField), 255) / 255, 0, 1)
+                ? clamp$8(byteChannel(table.value(rowIndex, alphaField), 255) / 255, 0, 1)
                 : 1;
             const fill = layer.mark.fill ?? explicit ?? `rgba(${red}, ${green}, ${blue}, ${alpha})`;
             nodes.push({
@@ -24035,7 +25994,7 @@ var Graflume = (function (exports) {
         const allViolins = [...groups].map(([name, values]) => ({ name, ...values }));
         if (allViolins.length === 0)
             return [];
-        const samples = clamp$9(Math.floor(optionNumber$4(layer.mark.options, 'samples', 56)), 20, 160);
+        const samples = clamp$8(Math.floor(optionNumber$4(layer.mark.options, 'samples', 56)), 20, 160);
         const maximumGroups = Math.max(1, Math.min(context.performance.maxBarMarks, Math.floor(context.performance.maxLinePoints / (2 * (samples + 1)))));
         const violins = sampledItems(allViolins, maximumGroups);
         const width = xScale instanceof BandScale
@@ -24130,8 +26089,8 @@ var Graflume = (function (exports) {
         const yExtent = table.extent(layer.y.field, layer.y.type === 'temporal');
         if (xExtent === null || yExtent === null)
             return [];
-        const requestedBinsX = clamp$9(Math.floor(optionNumber$4(layer.mark.options, 'binsX', 12)), 2, 80);
-        const requestedBinsY = clamp$9(Math.floor(optionNumber$4(layer.mark.options, 'binsY', 10)), 2, 80);
+        const requestedBinsX = clamp$8(Math.floor(optionNumber$4(layer.mark.options, 'binsX', 12)), 2, 80);
+        const requestedBinsY = clamp$8(Math.floor(optionNumber$4(layer.mark.options, 'binsY', 10)), 2, 80);
         const [binsX, binsY] = boundedGridDimensions(requestedBinsX, requestedBinsY, context.performance.maxBarMarks);
         const counts = Array.from({ length: binsY }, () => Array.from({ length: binsX }, () => 0));
         const rows = Array.from({ length: binsY }, () => Array.from({ length: binsX }, () => []));
@@ -24142,8 +26101,8 @@ var Graflume = (function (exports) {
             const y = numericDataValue(table.value(rowIndex, layer.y.field), layer.y.type === 'temporal');
             if (x === null || y === null)
                 continue;
-            const xBin = clamp$9(Math.floor(((x - xExtent[0]) / xSpan) * binsX), 0, binsX - 1);
-            const yBin = clamp$9(Math.floor(((y - yExtent[0]) / ySpan) * binsY), 0, binsY - 1);
+            const xBin = clamp$8(Math.floor(((x - xExtent[0]) / xSpan) * binsX), 0, binsX - 1);
+            const yBin = clamp$8(Math.floor(((y - yExtent[0]) / ySpan) * binsY), 0, binsY - 1);
             const rowCounts = counts[yBin];
             const rowRefs = rows[yBin];
             if (rowCounts === undefined || rowRefs === undefined)
@@ -24197,7 +26156,7 @@ var Graflume = (function (exports) {
             }
         }
         if (contours) {
-            const levelCount = clamp$9(Math.floor(optionNumber$4(layer.mark.options, 'levels', 6)), 2, 16);
+            const levelCount = clamp$8(Math.floor(optionNumber$4(layer.mark.options, 'levels', 6)), 2, 16);
             const levels = Array.from({ length: levelCount }, (_, index) => ((index + 1) / (levelCount + 1)) * maximum);
             extractIsolines(counts, centerPoints, levels, rows, {
                 maximumSegments: Math.floor(context.performance.maxLinePoints / 2),
@@ -24350,7 +26309,7 @@ var Graflume = (function (exports) {
                     return [];
                 return [
                     {
-                        point: circlePoint(cx, cy, radius * clamp$9(row.value / maximum, 0, 1), angle),
+                        point: circlePoint(cx, cy, radius * clamp$8(row.value / maximum, 0, 1), angle),
                         angle,
                         rowIndex: row.rowIndex,
                         value: row.value,
@@ -24365,9 +26324,9 @@ var Graflume = (function (exports) {
             const color = layer.mark.stroke ?? paletteColor(context, seriesIndex, series.length);
             if (mode === 'bar') {
                 const barSpan = optionNumber$4(layer.mark.options, 'barAngle', TAU$1 / Math.max(16, rows.length * 2));
-                const boundedBarSpan = clamp$9(barSpan, 0.000001, TAU$1);
+                const boundedBarSpan = clamp$8(barSpan, 0.000001, TAU$1);
                 rows.forEach((row) => {
-                    const outer = radius * clamp$9(row.value / maximum, 0, 1);
+                    const outer = radius * clamp$8(row.value / maximum, 0, 1);
                     nodes.push({
                         type: 'path',
                         ...datumBase$1(context, `${layer.id}:polar-bar:${row.rowIndex}`, row.rowIndex),
@@ -24668,7 +26627,7 @@ var Graflume = (function (exports) {
             .slice(0, 8);
         if (dimensions.length < 2)
             return [];
-        const gap = clamp$9(optionNumber$4(layer.mark.options, 'gap', 5), 0, 18);
+        const gap = clamp$8(optionNumber$4(layer.mark.options, 'gap', 5), 0, 18);
         const cellWidth = plot.width / dimensions.length;
         const cellHeight = plot.height / dimensions.length;
         const colorField = layer.mark.fields.color ?? layer.mark.fields.group;
@@ -24715,7 +26674,7 @@ var Graflume = (function (exports) {
                     for (const value of dimensionValues) {
                         if (!Number.isFinite(value))
                             continue;
-                        const bin = clamp$9(Math.floor(((value - xDimension.minimum) / (xDimension.maximum - xDimension.minimum || 1)) *
+                        const bin = clamp$8(Math.floor(((value - xDimension.minimum) / (xDimension.maximum - xDimension.minimum || 1)) *
                             bins.length), 0, bins.length - 1);
                         bins[bin] = (bins[bin] ?? 0) + 1;
                     }
@@ -24762,7 +26721,7 @@ var Graflume = (function (exports) {
                         ...datumBase$1(context, `${layer.id}:matrix-point:${row}:${column}:${rowIndex}`, rowIndex, 1),
                         cx: mapCell(xValue, xDimension, x + 3, width - 6),
                         cy: y + height - 3 - mapCell(yValue, yDimension, 0, height - 6),
-                        radius: clamp$9(layer.mark.radius ?? 2.2, 1, 6),
+                        radius: clamp$8(layer.mark.radius ?? 2.2, 1, 6),
                         fill: layer.mark.fill ??
                             colorWithOpacity(paletteColor(context, colorIndex, Math.max(1, colorKeys.length)), 0.72),
                         stroke: theme.colors.background,
@@ -24904,7 +26863,7 @@ var Graflume = (function (exports) {
                     const datum = indexed.get(a)?.get(b);
                     return datum === undefined ? null : position(datum);
                 }));
-                const levelCount = clamp$9(Math.floor(optionNumber$4(layer.mark.options, 'levels', 6)), 2, 16);
+                const levelCount = clamp$8(Math.floor(optionNumber$4(layer.mark.options, 'levels', 6)), 2, 16);
                 const levels = Array.from({ length: levelCount }, (_, index) => valueMinimum + ((index + 1) / (levelCount + 1)) * (valueMaximum - valueMinimum || 1));
                 const gridRows = bKeys.map((b) => aKeys.map((a) => indexed.get(a)?.get(b)?.rowIndex ?? null));
                 extractIsolines(gridValues, gridPoints, levels, gridRows, { maximumSegments }).forEach((segment, index) => {
@@ -24959,7 +26918,7 @@ var Graflume = (function (exports) {
         'carpet',
         'item',
     ]);
-    function clamp$8(value, minimum, maximum) {
+    function clamp$7(value, minimum, maximum) {
         return Math.max(minimum, Math.min(maximum, value));
     }
     function object$2(value) {
@@ -25123,7 +27082,7 @@ var Graflume = (function (exports) {
         const availableEntries = [...groups.values()].filter(({ observations }) => observations.length > 0);
         if (availableEntries.length === 0)
             return [];
-        const requestedBinCount = clamp$8(Math.floor(optionNumber$3(layer.mark.options, 'bins', 10)), 1, 100);
+        const requestedBinCount = clamp$7(Math.floor(optionNumber$3(layer.mark.options, 'bins', 10)), 1, 100);
         const seriesLimit = Math.max(1, Math.floor(context.performance.maxBarMarks / requestedBinCount));
         const entries = exactStrideSampleIndices(availableEntries.length, Math.min(seriesLimit, availableEntries.length)).map((index) => availableEntries[index]);
         const binCount = Math.min(requestedBinCount, Math.max(1, Math.floor(context.performance.maxBarMarks / entries.length)));
@@ -25718,8 +27677,8 @@ var Graflume = (function (exports) {
         if (raster === null)
             return compileImageMark(context);
         const maximum = Math.max(1, context.performance.maxBarMarks);
-        const requestedWidth = clamp$8(Math.floor(optionNumber$3(layer.mark.options, 'outputWidth', raster.width)), 1, 2_048);
-        const requestedHeight = clamp$8(Math.floor(optionNumber$3(layer.mark.options, 'outputHeight', raster.height)), 1, 2_048);
+        const requestedWidth = clamp$7(Math.floor(optionNumber$3(layer.mark.options, 'outputWidth', raster.width)), 1, 2_048);
+        const requestedHeight = clamp$7(Math.floor(optionNumber$3(layer.mark.options, 'outputHeight', raster.height)), 1, 2_048);
         const ratio = Math.min(1, Math.sqrt(maximum / (requestedWidth * requestedHeight)));
         const width = Math.max(1, Math.floor(requestedWidth * ratio));
         const height = Math.max(1, Math.floor(requestedHeight * ratio));
@@ -25822,7 +27781,7 @@ var Graflume = (function (exports) {
     }
     function ternaryTickFormatter(context, target) {
         const mode = optionChoice(context.layer.mark.options, 'tickFormat', ['auto', 'number', 'percent'], 'auto');
-        const digits = clamp$8(Math.floor(optionNumber$3(context.layer.mark.options, 'tickFractionDigits', mode === 'auto' ? 6 : 1)), mode === 'auto' ? 1 : 0, 6);
+        const digits = clamp$7(Math.floor(optionNumber$3(context.layer.mark.options, 'tickFractionDigits', mode === 'auto' ? 6 : 1)), mode === 'auto' ? 1 : 0, 6);
         return (value) => {
             if (mode === 'auto')
                 return String(Number(value.toPrecision(digits)));
@@ -26344,7 +28303,7 @@ var Graflume = (function (exports) {
         const cellCount = resolved.length;
         const cellWidth = plot.width / cellCount;
         const cellHeight = plot.height / cellCount;
-        const gap = clamp$8(optionNumber$3(layer.mark.options, 'gap', 5), 0, 18);
+        const gap = clamp$7(optionNumber$3(layer.mark.options, 'gap', 5), 0, 18);
         const linkedBrush = linkedScatterMatrixBrush(layer.mark.options.linkedBrush);
         const linkedBrushRows = new Set();
         if (linkedBrush !== null) {
@@ -26442,7 +28401,7 @@ var Graflume = (function (exports) {
                     value,
                     rowIndex,
                 }));
-                const bins = sharedHistogramBins([observations], clamp$8(Math.floor(optionNumber$3(layer.mark.options, 'bins', 10)), 2, 32));
+                const bins = sharedHistogramBins([observations], clamp$7(Math.floor(optionNumber$3(layer.mark.options, 'bins', 10)), 2, 32));
                 const maximum = Math.max(1, ...bins.map(({ counts }) => counts[0] ?? 0));
                 if (cell.kind === 'histogram') {
                     bins.forEach((bin, binIndex) => {
@@ -26489,7 +28448,7 @@ var Graflume = (function (exports) {
                         weight: 1,
                         rowIndex,
                     }));
-                    const lineBudget = clamp$8(Math.floor(context.performance.maxLinePoints / Math.max(1, cellCount)), 2, 256);
+                    const lineBudget = clamp$7(Math.floor(context.performance.maxLinePoints / Math.max(1, cellCount)), 2, 256);
                     let bandwidth = null;
                     let points;
                     if (cell.kind === 'ecdf') {
@@ -26586,14 +28545,14 @@ var Graflume = (function (exports) {
                 continue;
             }
             if (cell.kind === 'hexbin') {
-                const columns = clamp$8(Math.floor(optionNumber$3(layer.mark.options, 'hexColumns', 7)), 2, 24);
+                const columns = clamp$7(Math.floor(optionNumber$3(layer.mark.options, 'hexColumns', 7)), 2, 24);
                 const rowsCount = Math.max(2, Math.round((columns * height) / Math.max(1, width)));
                 const buckets = new Map();
                 pairedRows.forEach((rowIndex) => {
-                    const column = clamp$8(Math.floor(((xDimension.values.get(rowIndex) - xDimension.minimum) /
+                    const column = clamp$7(Math.floor(((xDimension.values.get(rowIndex) - xDimension.minimum) /
                         Math.max(Number.EPSILON, xDimension.maximum - xDimension.minimum)) *
                         columns), 0, columns - 1);
-                    const row = clamp$8(Math.floor(((yDimension.values.get(rowIndex) - yDimension.minimum) /
+                    const row = clamp$7(Math.floor(((yDimension.values.get(rowIndex) - yDimension.minimum) /
                         Math.max(Number.EPSILON, yDimension.maximum - yDimension.minimum)) *
                         rowsCount), 0, rowsCount - 1);
                     const key = `${row}:${column}`;
@@ -26652,7 +28611,7 @@ var Graflume = (function (exports) {
                     }),
                     cx: matrixValue(xDimension, xValue, x + 3, width - 6),
                     cy: y + height - matrixValue(yDimension, yValue, 3, height - 6),
-                    radius: clamp$8((layer.mark.radius ?? 2.2) + (linkedBrush !== null && selected ? 1 : 0), 1, 7),
+                    radius: clamp$7((layer.mark.radius ?? 2.2) + (linkedBrush !== null && selected ? 1 : 0), 1, 7),
                     fill: colorWithOpacity(layer.mark.fill ?? context.color, linkedBrush === null ? 0.72 : selected ? 0.94 : 0.1),
                     stroke: theme.colors.background,
                     lineWidth: 0.5,
@@ -26922,7 +28881,7 @@ var Graflume = (function (exports) {
         const mode = optionChoice(layer.mark.options, 'mode', ['waffle', 'isotype'], 'waffle');
         const partial = optionChoice(layer.mark.options, 'partial', ['fraction', 'round', 'floor', 'ceil'], 'fraction');
         const direction = optionChoice(layer.mark.options, 'direction', ['row', 'column', 'row-reverse', 'column-reverse'], 'row');
-        const requestedItems = clamp$8(Math.floor(optionNumber$3(layer.mark.options, 'items', 100)), 1, context.performance.maxPointMarks);
+        const requestedItems = clamp$7(Math.floor(optionNumber$3(layer.mark.options, 'items', 100)), 1, context.performance.maxPointMarks);
         const unit = typeof layer.mark.options.unit === 'number'
             ? optionNumber$3(layer.mark.options, 'unit', 1)
             : total / requestedItems;
@@ -26939,7 +28898,7 @@ var Graflume = (function (exports) {
         }
         const rowCount = Math.max(1, ...layout.units.map(({ row }) => row + 1));
         const columnCount = Math.max(1, ...layout.units.map(({ column }) => column + 1));
-        const gap = clamp$8(optionNumber$3(layer.mark.options, 'gap', 2), 0, 12);
+        const gap = clamp$7(optionNumber$3(layer.mark.options, 'gap', 2), 0, 12);
         const cellWidth = plot.width / columnCount;
         const cellHeight = plot.height / rowCount;
         const size = Math.max(1, Math.min(cellWidth, cellHeight) - gap);
@@ -27073,7 +29032,7 @@ var Graflume = (function (exports) {
         return `${characters.slice(0, maxLength - 1).join('')}…`;
     }
 
-    function position$1(context) {
+    function position(context) {
         const axisChannel = channel(context);
         if (context.axis === false)
             return defaultAxisPosition(context.id, axisChannel);
@@ -27348,7 +29307,7 @@ var Graflume = (function (exports) {
             return [];
         const nodes = [];
         const axisChannel = channel(context);
-        const axisPosition = position$1(context);
+        const axisPosition = position(context);
         const coordinate = axisCoordinate(plot, axisPosition, axis.offset);
         const sign = outwardSign(axisPosition);
         const prefix = `axis-${context.id}`;
@@ -27496,7 +29455,7 @@ var Graflume = (function (exports) {
         const resolvedTitle = titleText(context);
         if (resolvedTitle !== '') {
             const style = resolveTextStyle(axis.title.font, axis.title.color, theme, theme.colors.axisTitle ?? theme.colors.mutedText, theme.typography.axisTitleSize ?? theme.typography.fontSize, theme.typography.axisTitleWeight ?? 600);
-            const axisPosition = position$1(context);
+            const axisPosition = position(context);
             const titleAngle = axis.title.angle ?? (axisChannel === 'x' ? 0 : axisPosition === 'left' ? -90 : 90);
             const projected = projectedSize(estimatedTextWidth(resolvedTitle, style.fontSize), style.fontSize, titleAngle);
             const outwardTextExtent = axisChannel === 'x'
@@ -33129,19 +35088,19 @@ var Graflume = (function (exports) {
         });
     }
 
-    function finite$9(value, path) {
+    function finite$8(value, path) {
         if (typeof value !== 'number' || !Number.isFinite(value)) {
             throw new GraflumeError('INVALID_DATA', `${path} must be a finite number.`, { path });
         }
         return value;
     }
     function positive(value, path) {
-        const result = finite$9(value, path);
+        const result = finite$8(value, path);
         if (result <= 0)
             throw new GraflumeError('INVALID_DATA', `${path} must be greater than zero.`, { path });
         return result;
     }
-    function clamp$7(value, low, high) {
+    function clamp$6(value, low, high) {
         return Math.max(low, Math.min(high, value));
     }
     function priceExtent$1(values) {
@@ -33157,21 +35116,21 @@ var Graflume = (function (exports) {
     function normalizeBars(input) {
         return input
             .map((bar, sourceIndex) => {
-            const open = finite$9(bar.open, `$.data[${sourceIndex}].open`);
-            const high = finite$9(bar.high, `$.data[${sourceIndex}].high`);
-            const low = finite$9(bar.low, `$.data[${sourceIndex}].low`);
-            const close = finite$9(bar.close, `$.data[${sourceIndex}].close`);
+            const open = finite$8(bar.open, `$.data[${sourceIndex}].open`);
+            const high = finite$8(bar.high, `$.data[${sourceIndex}].high`);
+            const low = finite$8(bar.low, `$.data[${sourceIndex}].low`);
+            const close = finite$8(bar.close, `$.data[${sourceIndex}].close`);
             if (low > Math.min(open, close) || high < Math.max(open, close) || high < low) {
                 throw new GraflumeError('INVALID_DATA', `$.data[${sourceIndex}] has inconsistent OHLC bounds.`);
             }
             return {
                 id: bar.id?.trim() || `bar-${sourceIndex}`,
-                time: finite$9(bar.time, `$.data[${sourceIndex}].time`),
+                time: finite$8(bar.time, `$.data[${sourceIndex}].time`),
                 open,
                 high,
                 low,
                 close,
-                volume: Math.max(0, finite$9(bar.volume ?? 0, `$.data[${sourceIndex}].volume`)),
+                volume: Math.max(0, finite$8(bar.volume ?? 0, `$.data[${sourceIndex}].volume`)),
                 session: bar.session?.trim() || 'default',
                 sourceIndex,
             };
@@ -33227,7 +35186,7 @@ var Graflume = (function (exports) {
             const logStep = Math.log1p(positive(sizing.value, '$.sizing.value') / 100);
             return (_index, anchor, direction = 1) => Math.max(Number.EPSILON, anchor * (direction > 0 ? Math.expm1(logStep) : 1 - Math.exp(-logStep)));
         }
-        const period = clamp$7(Math.floor(sizing.period ?? 14), 1, 10_000);
+        const period = clamp$6(Math.floor(sizing.period ?? 14), 1, 10_000);
         const multiplier = positive(sizing.multiplier ?? 1, '$.sizing.multiplier');
         const atr = atrSeries(bars, period);
         return (index) => Math.max(Number.EPSILON, atr[index] * multiplier);
@@ -33356,7 +35315,7 @@ var Graflume = (function (exports) {
         return output;
     }
     function buildLineBreak(bars, options) {
-        const lineCount = clamp$7(Math.floor(options.lineBreaks ?? 3), 1, 100);
+        const lineCount = clamp$6(Math.floor(options.lineBreaks ?? 3), 1, 100);
         const output = [];
         for (let index = 1; index < bars.length; index += 1) {
             const close = bars[index].close;
@@ -33471,8 +35430,8 @@ var Graflume = (function (exports) {
             return [{ id: 'fixed', bars: [...bars] }];
         if (scope.mode === 'visible') {
             const [start, end] = scope.time;
-            const low = finite$9(Math.min(start, end), '$.scope.time[0]');
-            const high = finite$9(Math.max(start, end), '$.scope.time[1]');
+            const low = finite$8(Math.min(start, end), '$.scope.time[0]');
+            const high = finite$8(Math.max(start, end), '$.scope.time[1]');
             return [{ id: 'visible', bars: bars.filter(({ time }) => time >= low && time <= high) }];
         }
         const groups = new Map();
@@ -33490,9 +35449,9 @@ var Graflume = (function (exports) {
         if (rows.mode === 'size')
             return positive(rows.size, '$.rows.size');
         if (rows.mode === 'tick') {
-            return (positive(rows.tick, '$.rows.tick') * clamp$7(Math.floor(rows.ticksPerRow ?? 1), 1, 100_000));
+            return (positive(rows.tick, '$.rows.tick') * clamp$6(Math.floor(rows.ticksPerRow ?? 1), 1, 100_000));
         }
-        const count = clamp$7(Math.floor(rows.count), 1, 10_000);
+        const count = clamp$6(Math.floor(rows.count), 1, 10_000);
         return Math.max(Number.EPSILON, (extent.maximum - extent.minimum) / count || 1);
     }
     function valueArea(rows, target) {
@@ -33501,7 +35460,7 @@ var Graflume = (function (exports) {
             if (rows[index].volume > rows[poc].volume)
                 poc = index;
         const total = rows.reduce((sum, row) => sum + row.volume, 0);
-        const required = total * clamp$7(target, 0, 1);
+        const required = total * clamp$6(target, 0, 1);
         let cumulative = rows[poc]?.volume ?? 0;
         let low = poc;
         let high = poc;
@@ -33526,13 +35485,13 @@ var Graflume = (function (exports) {
         const rowSize = resolveRowSize(extent, options.rows ?? { mode: 'count', count: 24 });
         const minimum = Math.floor(extent.minimum / rowSize) * rowSize;
         const maximum = extent.maximum;
-        const count = clamp$7(Math.ceil((maximum - minimum) / rowSize) || 1, 1, 10_000);
+        const count = clamp$6(Math.ceil((maximum - minimum) / rowSize) || 1, 1, 10_000);
         const volumes = Array.from({ length: count }, () => 0);
         const sources = Array.from({ length: count }, () => new Set());
         const allocation = options.allocation ?? 'uniform-range';
         bars.forEach((bar) => {
             const add = (index, volume) => {
-                const bounded = clamp$7(index, 0, count - 1);
+                const bounded = clamp$6(index, 0, count - 1);
                 volumes[bounded] = (volumes[bounded] ?? 0) + volume;
                 sources[bounded].add(bar.sourceIndex);
             };
@@ -33541,8 +35500,8 @@ var Graflume = (function (exports) {
                 add(Math.floor((price - minimum) / rowSize), bar.volume);
                 return;
             }
-            const first = clamp$7(Math.floor((bar.low - minimum) / rowSize), 0, count - 1);
-            const last = clamp$7(Math.floor((bar.high - minimum) / rowSize), 0, count - 1);
+            const first = clamp$6(Math.floor((bar.low - minimum) / rowSize), 0, count - 1);
+            const last = clamp$6(Math.floor((bar.high - minimum) / rowSize), 0, count - 1);
             const touched = last - first + 1;
             for (let index = first; index <= last; index += 1)
                 add(index, bar.volume / touched);
@@ -34020,21 +35979,21 @@ var Graflume = (function (exports) {
         return nodes;
     };
 
-    function finite$8(value, path) {
+    function finite$7(value, path) {
         if (typeof value !== 'number' || !Number.isFinite(value)) {
             throw new GraflumeError('INVALID_DATA', `${path} must be a finite number.`, { path });
         }
         return value;
     }
-    function clamp$6(value, low, high) {
+    function clamp$5(value, low, high) {
         return Math.max(low, Math.min(high, value));
     }
     function isIrregular(field) {
         return 'points' in field;
     }
     function regularGrid(field) {
-        const width = Math.floor(finite$8(field.width, '$.width'));
-        const height = Math.floor(finite$8(field.height, '$.height'));
+        const width = Math.floor(finite$7(field.width, '$.width'));
+        const height = Math.floor(finite$7(field.height, '$.height'));
         if (width < 2 || height < 2 || field.values.length !== width * height) {
             throw new GraflumeError('INVALID_DATA', 'Regular scalar field needs at least 2x2 values matching width*height.');
         }
@@ -34049,11 +36008,11 @@ var Graflume = (function (exports) {
             if (field.mask?.[index] === false)
                 return null;
             const value = field.values[index];
-            return value === null ? null : finite$8(value, `$.values[${index}]`);
+            return value === null ? null : finite$7(value, `$.values[${index}]`);
         }));
         const points = Array.from({ length: height }, (_, row) => Array.from({ length: width }, (_, column) => ({
-            x: field.x === undefined ? column : finite$8(field.x[column], `$.x[${column}]`),
-            y: field.y === undefined ? row : finite$8(field.y[row], `$.y[${row}]`),
+            x: field.x === undefined ? column : finite$7(field.x[column], `$.x[${column}]`),
+            y: field.y === undefined ? row : finite$7(field.y[row], `$.y[${row}]`),
         })));
         const triangles = [];
         for (let row = 0; row < height - 1; row += 1) {
@@ -34073,7 +36032,7 @@ var Graflume = (function (exports) {
                     return {
                         x: points[r][c].x,
                         y: points[r][c].y,
-                        value: finite$8(value, `$.values[${index}]`),
+                        value: finite$7(value, `$.values[${index}]`),
                         source: index,
                     };
                 });
@@ -34088,9 +36047,9 @@ var Graflume = (function (exports) {
     }
     function irregularTriangles(field) {
         const points = field.points.map((point, index) => ({
-            x: finite$8(point.x, `$.points[${index}].x`),
-            y: finite$8(point.y, `$.points[${index}].y`),
-            value: finite$8(point.value, `$.points[${index}].value`),
+            x: finite$7(point.x, `$.points[${index}].x`),
+            y: finite$7(point.y, `$.points[${index}].y`),
+            value: finite$7(point.value, `$.points[${index}].value`),
             source: point.source ?? index,
         }));
         return field.triangles.map((triangle, index) => {
@@ -34111,7 +36070,7 @@ var Graflume = (function (exports) {
         });
     }
     function interpolateVertex(a, b, level) {
-        const ratio = a.value === b.value ? 0.5 : clamp$6((level - a.value) / (b.value - a.value), 0, 1);
+        const ratio = a.value === b.value ? 0.5 : clamp$5((level - a.value) / (b.value - a.value), 0, 1);
         return {
             x: a.x + (b.x - a.x) * ratio,
             y: a.y + (b.y - a.y) * ratio,
@@ -34150,7 +36109,7 @@ var Graflume = (function (exports) {
         }
         return area / 2;
     }
-    function pointInRing(point, ring) {
+    function pointInRing$1(point, ring) {
         let inside = false;
         for (let current = 0, previous = ring.length - 1; current < ring.length; previous = current, current += 1) {
             const a = ring[current];
@@ -34221,7 +36180,7 @@ var Graflume = (function (exports) {
         const ordered = rings.sort((a, b) => Math.abs(signedArea(b.points)) - Math.abs(signedArea(a.points)));
         const regions = [];
         ordered.forEach((ring) => {
-            const parent = regions.find((region) => pointInRing(ring.points[0], region.outer));
+            const parent = regions.find((region) => pointInRing$1(ring.points[0], region.outer));
             if (parent === undefined) {
                 regions.push({
                     low,
@@ -34286,7 +36245,7 @@ var Graflume = (function (exports) {
     }
     /** Extracts regular or triangulated irregular isolines and filled/banded polygon-hole topology. */
     function contourField(field, options = {}) {
-        const smoothing = clamp$6(Math.floor(options.smoothing ?? 0), 0, 4);
+        const smoothing = clamp$5(Math.floor(options.smoothing ?? 0), 0, 4);
         let triangles;
         let grid = null;
         let gridPoints = null;
@@ -34341,10 +36300,10 @@ var Graflume = (function (exports) {
         const points = [];
         let x = seed[0];
         let y = seed[1];
-        let step = finite$8(options.step ?? Math.max(bounds[2] - bounds[0], bounds[3] - bounds[1]) / 80, '$.step');
-        const tolerance = finite$8(options.tolerance ?? step * 0.05, '$.tolerance');
-        const maximumSteps = clamp$6(Math.floor(options.maximumSteps ?? 500), 1, 20_000);
-        const minimumMagnitude = Math.max(0, finite$8(options.minimumMagnitude ?? 1e-9, '$.minimumMagnitude'));
+        let step = finite$7(options.step ?? Math.max(bounds[2] - bounds[0], bounds[3] - bounds[1]) / 80, '$.step');
+        const tolerance = finite$7(options.tolerance ?? step * 0.05, '$.tolerance');
+        const maximumSteps = clamp$5(Math.floor(options.maximumSteps ?? 500), 1, 20_000);
+        const minimumMagnitude = Math.max(0, finite$7(options.minimumMagnitude ?? 1e-9, '$.minimumMagnitude'));
         const vectorAt = (px, py) => {
             const vector = nearestVector(field, px, py);
             if (vector === null)
@@ -34405,10 +36364,10 @@ var Graflume = (function (exports) {
         if (data.length === 0)
             return { vectors: [], streamlines: [], bounds: [0, 0, 1, 1] };
         const raw = data.map((datum, index) => {
-            const x = finite$8(datum.x, `$.data[${index}].x`);
-            const y = finite$8(datum.y, `$.data[${index}].y`);
-            const u = finite$8(datum.u, `$.data[${index}].u`);
-            const v = finite$8(datum.v, `$.data[${index}].v`);
+            const x = finite$7(datum.x, `$.data[${index}].x`);
+            const y = finite$7(datum.y, `$.data[${index}].y`);
+            const u = finite$7(datum.u, `$.data[${index}].u`);
+            const v = finite$7(datum.v, `$.data[${index}].v`);
             return {
                 id: datum.id?.trim() || `vector-${index}`,
                 x,
@@ -34434,8 +36393,8 @@ var Graflume = (function (exports) {
             Math.max(...raw.map(({ x }) => x)),
             Math.max(...raw.map(({ y }) => y)),
         ];
-        const columns = clamp$6(Math.floor(options.sample?.columns ?? Math.ceil(Math.sqrt(raw.length))), 1, 1_000);
-        const rows = clamp$6(Math.floor(options.sample?.rows ?? columns), 1, 1_000);
+        const columns = clamp$5(Math.floor(options.sample?.columns ?? Math.ceil(Math.sqrt(raw.length))), 1, 1_000);
+        const rows = clamp$5(Math.floor(options.sample?.rows ?? columns), 1, 1_000);
         const sampled = [];
         const sampledIds = new Set();
         for (let row = 0; row < rows; row += 1)
@@ -34853,7 +36812,7 @@ var Graflume = (function (exports) {
         return nodes;
     };
 
-    function finite$7(value, path) {
+    function finite$6(value, path) {
         if (typeof value !== 'number' || !Number.isFinite(value)) {
             throw new GraflumeError('INVALID_DATA', `${path} must be a finite number.`, { path });
         }
@@ -34865,7 +36824,7 @@ var Graflume = (function (exports) {
             throw new GraflumeError('INVALID_DATA', `${path} must be non-empty.`, { path });
         return normalized;
     }
-    function clamp$5(value, low, high) {
+    function clamp$4(value, low, high) {
         return Math.max(low, Math.min(high, value));
     }
     /** Resolves pie zero/negative, minimum-slice, sorting, padding and keyboard traversal semantics. */
@@ -34874,7 +36833,7 @@ var Graflume = (function (exports) {
         const zero = options.zero ?? 'hide';
         const normalized = data.flatMap((datum, index) => {
             const id = label(datum.id, `$.data[${index}].id`);
-            const rawValue = finite$7(datum.value, `$.data[${index}].value`);
+            const rawValue = finite$6(datum.value, `$.data[${index}].value`);
             if (rawValue < 0 && negative === 'reject')
                 throw new GraflumeError('INVALID_DATA', 'Negative pie values require an explicit policy.');
             if (rawValue < 0 && negative === 'hide')
@@ -34911,12 +36870,12 @@ var Graflume = (function (exports) {
             values.sort((a, b) => a.value - b.value || a.inputIndex - b.inputIndex);
         if (options.sort === 'descending')
             values.sort((a, b) => b.value - a.value || a.inputIndex - b.inputIndex);
-        const start = finite$7(options.startAngle ?? -Math.PI / 2, '$.startAngle');
-        const end = finite$7(options.endAngle ?? start + Math.PI * 2, '$.endAngle');
+        const start = finite$6(options.startAngle ?? -Math.PI / 2, '$.startAngle');
+        const end = finite$6(options.endAngle ?? start + Math.PI * 2, '$.endAngle');
         if (end <= start || end - start > Math.PI * 2 + 1e-9)
             throw new GraflumeError('INVALID_SPEC', 'Pie angle range must be ascending and at most one turn.');
-        const pad = clamp$5(finite$7(options.padAngle ?? 0, '$.padAngle'), 0, (end - start) / Math.max(1, values.length * 2));
-        const minimum = clamp$5(finite$7(options.minimumAngle ?? (zero === 'minimum' ? 0.01 : 0), '$.minimumAngle'), 0, (end - start) / Math.max(1, values.length));
+        const pad = clamp$4(finite$6(options.padAngle ?? 0, '$.padAngle'), 0, (end - start) / Math.max(1, values.length * 2));
+        const minimum = clamp$4(finite$6(options.minimumAngle ?? (zero === 'minimum' ? 0.01 : 0), '$.minimumAngle'), 0, (end - start) / Math.max(1, values.length));
         const available = end - start - pad * values.length;
         const rawTotal = values.reduce((sum, { value }) => sum + value, 0);
         const provisional = values.map(({ value }) => rawTotal === 0 ? 0 : (value / rawTotal) * available);
@@ -34968,8 +36927,8 @@ var Graflume = (function (exports) {
     function layoutTimeline(data, options = {}) {
         const normalized = data.map((datum, index) => {
             const id = label(datum.id, `$.data[${index}].id`);
-            const start = finite$7(datum.start, `$.data[${index}].start`);
-            const end = datum.end === undefined ? start : finite$7(datum.end, `$.data[${index}].end`);
+            const start = finite$6(datum.start, `$.data[${index}].start`);
+            const end = datum.end === undefined ? start : finite$6(datum.end, `$.data[${index}].end`);
             if (end < start)
                 throw new GraflumeError('INVALID_DATA', 'Timeline end must be at or after start.');
             return {
@@ -35068,15 +37027,15 @@ var Graflume = (function (exports) {
     }
     /** Builds radial/linear gauge bands, targets, custom ticks and an exact accessible numeric summary. */
     function gaugeModel(value, options = {}) {
-        const minimum = finite$7(options.minimum ?? 0, '$.minimum');
-        const maximum = finite$7(options.maximum ?? 100, '$.maximum');
+        const minimum = finite$6(options.minimum ?? 0, '$.minimum');
+        const maximum = finite$6(options.maximum ?? 100, '$.maximum');
         if (maximum <= minimum)
             throw new GraflumeError('INVALID_SPEC', 'Gauge maximum must exceed minimum.');
-        const current = finite$7(value, '$.value');
+        const current = finite$6(value, '$.value');
         const format = options.format ?? ((number) => String(Number(number.toPrecision(8))));
         const bands = (options.bands ?? []).map((band, index) => {
-            const from = finite$7(band.from, `$.bands[${index}].from`);
-            const to = finite$7(band.to, `$.bands[${index}].to`);
+            const from = finite$6(band.from, `$.bands[${index}].from`);
+            const to = finite$6(band.to, `$.bands[${index}].to`);
             if (to <= from || from < minimum || to > maximum)
                 throw new GraflumeError('INVALID_SPEC', 'Gauge bands must be ascending and inside the domain.');
             return { ...band, from, to };
@@ -35085,18 +37044,18 @@ var Graflume = (function (exports) {
             if (bands[index].from < bands[index - 1].to)
                 throw new GraflumeError('INVALID_SPEC', 'Gauge bands must not overlap.');
         const authoredTicks = typeof options.ticks === 'number' ? undefined : options.ticks;
-        const tickCount = clamp$5(Math.floor(typeof options.ticks === 'number' ? options.ticks : 5), 2, 50);
+        const tickCount = clamp$4(Math.floor(typeof options.ticks === 'number' ? options.ticks : 5), 2, 50);
         const ticks = authoredTicks === undefined
             ? Array.from({ length: tickCount }, (_, index) => minimum + ((maximum - minimum) * index) / (tickCount - 1))
-            : authoredTicks.map((tick, index) => finite$7(tick, `$.ticks[${index}]`));
-        const targets = (options.targets ?? []).map((target, index) => finite$7(target, `$.targets[${index}]`));
+            : authoredTicks.map((tick, index) => finite$6(tick, `$.ticks[${index}]`));
+        const targets = (options.targets ?? []).map((target, index) => finite$6(target, `$.targets[${index}]`));
         const activeBand = bands.find((band) => current >= band.from && current <= band.to) ?? null;
         return {
             type: options.type ?? 'radial',
             value: current,
             minimum,
             maximum,
-            position: clamp$5((current - minimum) / (maximum - minimum), 0, 1),
+            position: clamp$4((current - minimum) / (maximum - minimum), 0, 1),
             bands: bands.map((band) => ({
                 ...band,
                 start: (band.from - minimum) / (maximum - minimum),
@@ -35187,7 +37146,7 @@ var Graflume = (function (exports) {
         const numeric = typeof value === 'number' ? value : Number(value);
         if (!Number.isFinite(numeric))
             return false;
-        const threshold = finite$7(filter.value, `$.filters.${filter.field}.value`);
+        const threshold = finite$6(filter.value, `$.filters.${filter.field}.value`);
         if (filter.operator === 'greater')
             return numeric > threshold;
         if (filter.operator === 'greater-or-equal')
@@ -35404,8 +37363,8 @@ var Graflume = (function (exports) {
             return compareValues(left.__sourceIndex, right.__sourceIndex);
         });
         const totalRows = output.length;
-        const offset = clamp$5(Math.floor(options.window?.offset ?? 0), 0, totalRows);
-        const limit = clamp$5(Math.floor(options.window?.limit ?? totalRows), 0, 100_000);
+        const offset = clamp$4(Math.floor(options.window?.offset ?? 0), 0, totalRows);
+        const limit = clamp$4(Math.floor(options.window?.limit ?? totalRows), 0, 100_000);
         const availableColumns = [
             ...new Set([
                 ...schemaColumns,
@@ -35415,8 +37374,8 @@ var Graflume = (function (exports) {
         const columns = options.columns === undefined
             ? availableColumns
             : [...new Set(options.columns)].filter((field) => availableColumns.includes(field));
-        const frozenRows = clamp$5(Math.floor(options.frozenRows ?? 0), 0, totalRows);
-        const frozenColumns = clamp$5(Math.floor(options.frozenColumns ?? 0), 0, columns.length);
+        const frozenRows = clamp$4(Math.floor(options.frozenRows ?? 0), 0, totalRows);
+        const frozenColumns = clamp$4(Math.floor(options.frozenColumns ?? 0), 0, columns.length);
         const merges = resolveTableMerges(output, columns, frozenRows, frozenColumns, options.merges, options.mergeRepeats);
         const visibleIndices = expandTableWindowForMerges([
             ...new Set([
@@ -35429,8 +37388,8 @@ var Graflume = (function (exports) {
             index,
             frozen: index < frozenRows,
         }));
-        const columnOffset = clamp$5(Math.floor(options.columnWindow?.offset ?? 0), 0, columns.length);
-        const columnLimit = clamp$5(Math.floor(options.columnWindow?.limit ?? columns.length), 0, 10_000);
+        const columnOffset = clamp$4(Math.floor(options.columnWindow?.offset ?? 0), 0, columns.length);
+        const columnLimit = clamp$4(Math.floor(options.columnWindow?.limit ?? columns.length), 0, 10_000);
         const visibleRowSet = new Set(visibleIndices);
         const mergesInVisibleRows = merges.filter((merge) => Array.from({ length: merge.rowSpan }, (_, index) => merge.row + index).some((row) => visibleRowSet.has(row)));
         const visibleColumnIndices = expandTableWindowForMerges([
@@ -35469,8 +37428,8 @@ var Graflume = (function (exports) {
     }
     /** WAI-ARIA-grid style bounded keyboard cell navigation. */
     function moveTableCell(position, key, bounds) {
-        let row = clamp$5(Math.floor(position.row), 0, Math.max(0, bounds.rows - 1));
-        let column = clamp$5(Math.floor(position.column), 0, Math.max(0, bounds.columns - 1));
+        let row = clamp$4(Math.floor(position.row), 0, Math.max(0, bounds.rows - 1));
+        let column = clamp$4(Math.floor(position.column), 0, Math.max(0, bounds.columns - 1));
         if (key === 'ArrowUp')
             row -= 1;
         if (key === 'ArrowDown')
@@ -35488,8 +37447,8 @@ var Graflume = (function (exports) {
         if (key === 'PageDown')
             row += Math.max(1, Math.floor(bounds.pageSize ?? 10));
         return {
-            row: clamp$5(row, 0, Math.max(0, bounds.rows - 1)),
-            column: clamp$5(column, 0, Math.max(0, bounds.columns - 1)),
+            row: clamp$4(row, 0, Math.max(0, bounds.rows - 1)),
+            column: clamp$4(column, 0, Math.max(0, bounds.columns - 1)),
         };
     }
     /** Resolves zero/direction/wrap, radial transforms, angular bins and stacked/normalized radial bars. */
@@ -35497,7 +37456,7 @@ var Graflume = (function (exports) {
         const wrap = options.wrap ?? [0, 360];
         if (wrap[1] <= wrap[0])
             throw new GraflumeError('INVALID_SPEC', 'Polar wrap must be ascending.');
-        const bins = clamp$5(Math.floor(options.bins ?? Math.max(1, data.length)), 1, 720);
+        const bins = clamp$4(Math.floor(options.bins ?? Math.max(1, data.length)), 1, 720);
         const binWidth = (wrap[1] - wrap[0]) / bins;
         const normalizeAngle = (angle) => {
             const span = wrap[1] - wrap[0];
@@ -35508,15 +37467,15 @@ var Graflume = (function (exports) {
         const normalized = data.map((datum, index) => ({
             id: datum.id?.trim() || `polar-${index}`,
             series: datum.series?.trim() || 'series',
-            angle: normalizeAngle(finite$7(datum.angle, `$.data[${index}].angle`)),
-            value: finite$7(datum.value, `$.data[${index}].value`),
+            angle: normalizeAngle(finite$6(datum.angle, `$.data[${index}].angle`)),
+            value: finite$6(datum.value, `$.data[${index}].value`),
         }));
         if (options.radiusScale === 'log' && normalized.some(({ value }) => value <= 0)) {
             throw new GraflumeError('INVALID_DATA', 'Polar log radius requires positive values.');
         }
         const grouped = new Map();
         normalized.forEach((datum) => {
-            const bin = clamp$5(Math.floor(((((datum.angle - (options.zero ?? 0) - wrap[0]) % (wrap[1] - wrap[0])) +
+            const bin = clamp$4(Math.floor(((((datum.angle - (options.zero ?? 0) - wrap[0]) % (wrap[1] - wrap[0])) +
                 (wrap[1] - wrap[0])) %
                 (wrap[1] - wrap[0])) /
                 binWidth), 0, bins - 1);
@@ -35584,8 +37543,8 @@ var Graflume = (function (exports) {
             const contribution = options.aggregate === 'count'
                 ? 1
                 : options.aggregate === 'weighted-count'
-                    ? finite$7(datum.weight ?? 1, `$.data[${index}].weight`)
-                    : finite$7(datum.value ?? 0, `$.data[${index}].value`);
+                    ? finite$6(datum.weight ?? 1, `$.data[${index}].weight`)
+                    : finite$6(datum.value ?? 0, `$.data[${index}].value`);
             if (contribution < 0 && options.aggregate === 'weighted-count')
                 throw new GraflumeError('INVALID_DATA', 'Bar weights must be non-negative.');
             const bucket = grouped.get(category) ?? { value: 0, sourceIds: [] };
@@ -38444,7 +40403,7 @@ var Graflume = (function (exports) {
         });
     };
 
-    function finite$6(value, path) {
+    function finite$5(value, path) {
         if (typeof value !== 'number' || !Number.isFinite(value)) {
             throw new GraflumeError('INVALID_DATA', `${path} must be a finite number.`, { path });
         }
@@ -38457,7 +40416,7 @@ var Graflume = (function (exports) {
         }
         return normalized;
     }
-    function clamp$4(value, minimum, maximum) {
+    function clamp$3(value, minimum, maximum) {
         return Math.max(minimum, Math.min(maximum, value));
     }
     function seededRandom$1(seed) {
@@ -38479,7 +40438,7 @@ var Graflume = (function (exports) {
                     path: `$.data[${index}].id`,
                 });
             }
-            const value = datum.value === undefined ? 1 : finite$6(datum.value, `$.data[${index}].value`);
+            const value = datum.value === undefined ? 1 : finite$5(datum.value, `$.data[${index}].value`);
             if (value < 0) {
                 throw new GraflumeError('INVALID_DATA', 'Hierarchy values must be non-negative.', {
                     path: `$.data[${index}].value`,
@@ -38591,7 +40550,7 @@ var Graflume = (function (exports) {
             else {
                 node.y = 0.04 + ratio * 0.92;
             }
-            node.radius = clamp$4(Math.sqrt(node.aggregate) * 0.008, 0.007, 0.035);
+            node.radius = clamp$3(Math.sqrt(node.aggregate) * 0.008, 0.007, 0.035);
         });
     }
     function layoutCirclePack(nodes, padding) {
@@ -38668,7 +40627,7 @@ var Graflume = (function (exports) {
         });
         const mode = options.mode ?? 'circle-pack';
         if (mode === 'circle-pack')
-            layoutCirclePack(visible, clamp$4(options.padding ?? 0.004, 0, 0.05));
+            layoutCirclePack(visible, clamp$3(options.padding ?? 0.004, 0, 0.05));
         else
             layoutDendrogram(visible, mode === 'radial-tree');
         const query = options.query?.trim().toLocaleLowerCase() ?? '';
@@ -38737,7 +40696,7 @@ var Graflume = (function (exports) {
         const normalized = edges.map((edge, index) => {
             const source = nonEmpty(edge.source, `$.edges[${index}].source`);
             const target = nonEmpty(edge.target, `$.edges[${index}].target`);
-            const value = finite$6(edge.value, `$.edges[${index}].value`);
+            const value = finite$5(edge.value, `$.edges[${index}].value`);
             if (value < 0)
                 throw new GraflumeError('INVALID_DATA', 'Flow values must be non-negative.');
             for (const id of [source, target]) {
@@ -38894,8 +40853,8 @@ var Graflume = (function (exports) {
                 const amount = valueOf(id);
                 const authored = options.positions?.[id];
                 if (authored !== undefined) {
-                    finite$6(authored.x, `$.positions.${id}.x`);
-                    finite$6(authored.y, `$.positions.${id}.y`);
+                    finite$5(authored.x, `$.positions.${id}.x`);
+                    finite$5(authored.y, `$.positions.${id}.y`);
                 }
                 const input = sums.get(id).input;
                 const output = sums.get(id).output;
@@ -39022,7 +40981,7 @@ var Graflume = (function (exports) {
                     path: `$.matrix[${rowIndex}]`,
                 });
             return row.map((raw, columnIndex) => {
-                const value = finite$6(raw, `$.matrix[${rowIndex}][${columnIndex}]`);
+                const value = finite$5(raw, `$.matrix[${rowIndex}][${columnIndex}]`);
                 if (value < 0)
                     throw new GraflumeError('INVALID_DATA', 'Chord matrix values must be non-negative.', {
                         path: `$.matrix[${rowIndex}][${columnIndex}]`,
@@ -39039,7 +40998,7 @@ var Graflume = (function (exports) {
         const normalized = edges.map((edge, index) => {
             const source = nonEmpty(edge.source, `$.edges[${index}].source`);
             const target = nonEmpty(edge.target, `$.edges[${index}].target`);
-            const value = finite$6(edge.value, `$.edges[${index}].value`);
+            const value = finite$5(edge.value, `$.edges[${index}].value`);
             if (value < 0)
                 throw new GraflumeError('INVALID_DATA', 'Chord values must be non-negative.');
             for (const id of [source, target]) {
@@ -39099,7 +41058,7 @@ var Graflume = (function (exports) {
         const normalized = edges.map((edge, index) => {
             const source = nonEmpty(edge.source, `$.edges[${index}].source`);
             const target = nonEmpty(edge.target, `$.edges[${index}].target`);
-            const value = finite$6(edge.value, `$.edges[${index}].value`);
+            const value = finite$5(edge.value, `$.edges[${index}].value`);
             if (value < 0)
                 throw new GraflumeError('INVALID_DATA', 'Chord values must be non-negative.');
             for (const id of [source, target])
@@ -39129,7 +41088,7 @@ var Graflume = (function (exports) {
             totals.sort((a, b) => a.value - b.value || a.id.localeCompare(b.id));
         if (options.groupOrder === 'descending')
             totals.sort((a, b) => b.value - a.value || a.id.localeCompare(b.id));
-        const padding = clamp$4(options.padAngle ?? 0.02, 0, Math.PI / Math.max(1, totals.length));
+        const padding = clamp$3(options.padAngle ?? 0.02, 0, Math.PI / Math.max(1, totals.length));
         const totalValue = totals.reduce((sum, group) => sum + group.value, 0) || 1;
         const available = Math.PI * 2 - padding * totals.length;
         let angle = -Math.PI / 2;
@@ -39236,7 +41195,7 @@ var Graflume = (function (exports) {
     function funnelStages(data, options = {}) {
         const stages = data.map((stage, index) => {
             const id = nonEmpty(stage.id, `$.data[${index}].id`);
-            const value = finite$6(stage.value, `$.data[${index}].value`);
+            const value = finite$5(stage.value, `$.data[${index}].value`);
             if (value < 0)
                 throw new GraflumeError('INVALID_DATA', 'Funnel values must be non-negative.');
             return { ...stage, id, label: stage.label?.trim() || id, value, inputIndex: index };
@@ -39250,9 +41209,9 @@ var Graflume = (function (exports) {
             stages.sort((a, b) => (a.order ?? a.inputIndex) - (b.order ?? b.inputIndex));
         const first = stages[0]?.value ?? 0;
         const maximum = Math.max(first, ...stages.map(({ value }) => value), Number.EPSILON);
-        const neckWidth = clamp$4(options.neckWidth ?? 0.3, 0.02, 1);
-        const neckHeight = clamp$4(options.neckHeight ?? 0.25, 0, 1);
-        const labelGap = clamp$4(options.labelGap ?? 0.055, 0.01, 0.25);
+        const neckWidth = clamp$3(options.neckWidth ?? 0.3, 0.02, 1);
+        const neckHeight = clamp$3(options.neckHeight ?? 0.25, 0, 1);
+        const labelGap = clamp$3(options.labelGap ?? 0.055, 0.01, 0.25);
         const naturalLabels = stages.map((_, index) => (index + 0.5) / Math.max(1, stages.length));
         const effectiveLabelGap = stages.length <= 1 ? 0 : Math.min(labelGap, 1 / Math.max(1, stages.length - 1));
         const labelPositions = [...naturalLabels];
@@ -39269,7 +41228,7 @@ var Graflume = (function (exports) {
             const y0 = index / Math.max(1, stages.length);
             const y1 = (index + 1) / Math.max(1, stages.length);
             const width = (value, y) => y >= 1 - neckHeight ? neckWidth : Math.max(neckWidth, value / maximum);
-            const labelY = clamp$4(labelPositions[index] ?? (y0 + y1) / 2, 0, 1);
+            const labelY = clamp$3(labelPositions[index] ?? (y0 + y1) / 2, 0, 1);
             return {
                 id: stage.id,
                 label: stage.label,
@@ -39341,7 +41300,7 @@ var Graflume = (function (exports) {
                 const current = descriptor.type === 'log' ? Math.log(value) : value;
                 ratio = high === low ? 0.5 : (current - low) / (high - low);
             }
-            ratio = clamp$4(ratio, 0, 1);
+            ratio = clamp$3(ratio, 0, 1);
             return descriptor.axis.invert === true ? 1 - ratio : ratio;
         };
         const normalizedBrushes = brushes.map((brush, index) => {
@@ -39350,8 +41309,8 @@ var Graflume = (function (exports) {
             return {
                 field: brush.field,
                 extents: brush.extents.map((extent, extentIndex) => {
-                    const low = finite$6(extent[0], `$.brushes[${index}].extents[${extentIndex}][0]`);
-                    const high = finite$6(extent[1], `$.brushes[${index}].extents[${extentIndex}][1]`);
+                    const low = finite$5(extent[0], `$.brushes[${index}].extents[${extentIndex}][0]`);
+                    const high = finite$5(extent[1], `$.brushes[${index}].extents[${extentIndex}][1]`);
                     return [Math.min(low, high), Math.max(low, high)];
                 }),
             };
@@ -39559,7 +41518,7 @@ var Graflume = (function (exports) {
             (expectedCounts.get(3) ?? 0) === (expectedCounts.get(6) ?? 0);
         if (symmetric) {
             const evaluateDistance = (distance) => {
-                const bounded = clamp$4(distance, 0, bound);
+                const bounded = clamp$3(distance, 0, bound);
                 const candidate = [
                     { ...circles[0], x: 0, y: 0 },
                     { ...circles[1], x: bounded, y: 0 },
@@ -39604,9 +41563,9 @@ var Graflume = (function (exports) {
         const starts = [0, 0.5, 0.75, 1, 1.25, 1.5].map((factor) => initial.map((value) => value * factor));
         starts.push([bound, 0, bound], [0, 0, 0]);
         const constrain = ([secondX, thirdX, thirdY]) => [
-            clamp$4(secondX ?? 0, 0, bound),
-            clamp$4(thirdX ?? 0, -bound, bound),
-            clamp$4(thirdY ?? 0, 0, bound),
+            clamp$3(secondX ?? 0, 0, bound),
+            clamp$3(thirdX ?? 0, -bound, bound),
+            clamp$3(thirdY ?? 0, 0, bound),
         ];
         const evaluate = (position) => {
             const [secondX, thirdX, thirdY] = constrain(position);
@@ -39671,7 +41630,7 @@ var Graflume = (function (exports) {
                 }
             });
             if ('size' in datum) {
-                const size = finite$6(datum.size, `$.data[${index}].size`);
+                const size = finite$5(datum.size, `$.data[${index}].size`);
                 if (size < 0)
                     throw new GraflumeError('INVALID_DATA', 'Set intersection sizes must be non-negative.', {
                         path: `$.data[${index}].size`,
@@ -39761,8 +41720,8 @@ var Graflume = (function (exports) {
     }
     /** Returns the exact inside/outside circle signature for pointer-based region hit testing. */
     function hitSetRegion(circles, point) {
-        finite$6(point.x, '$.point.x');
-        finite$6(point.y, '$.point.y');
+        finite$5(point.x, '$.point.x');
+        finite$5(point.y, '$.point.y');
         return circles
             .filter((circle) => Math.hypot(point.x - circle.x, point.y - circle.y) <= circle.radius)
             .map(({ id }) => id);
@@ -39802,9 +41761,9 @@ var Graflume = (function (exports) {
         if (rootTokens.length === 0)
             throw new GraflumeError('INVALID_SPEC', '$.rootPhrase must contain a token.');
         const direction = options.direction ?? 'prefix';
-        const maximumDepth = clamp$4(Math.floor(options.maximumDepth ?? 6), 1, 32);
-        const minimumCount = clamp$4(Math.floor(options.minimumCount ?? 1), 1, Number.MAX_SAFE_INTEGER);
-        const maximumChildren = clamp$4(Math.floor(options.maximumChildren ?? 12), 1, 100);
+        const maximumDepth = clamp$3(Math.floor(options.maximumDepth ?? 6), 1, 32);
+        const minimumCount = clamp$3(Math.floor(options.minimumCount ?? 1), 1, Number.MAX_SAFE_INTEGER);
+        const maximumChildren = clamp$3(Math.floor(options.maximumChildren ?? 12), 1, 100);
         const counts = new Map();
         const rootKey = rootTokens.join(' ');
         counts.set(rootKey, {
@@ -39874,18 +41833,18 @@ var Graflume = (function (exports) {
     }
     /** Deterministic bounded spiral word-cloud layout with collision padding and allowed rotations. */
     function layoutWordCloud(texts, options = {}) {
-        const width = finite$6(options.width ?? 640, '$.width');
-        const height = finite$6(options.height ?? 360, '$.height');
+        const width = finite$5(options.width ?? 640, '$.width');
+        const height = finite$5(options.height ?? 360, '$.height');
         if (width <= 0 || height <= 0)
             throw new GraflumeError('INVALID_SPEC', 'Word-cloud dimensions must be positive.');
-        const padding = clamp$4(finite$6(options.padding ?? 2, '$.padding'), 0, 64);
+        const padding = clamp$3(finite$5(options.padding ?? 2, '$.padding'), 0, 64);
         const rotations = options.rotations ?? [0];
         if (rotations.length === 0 || rotations.some((value) => !Number.isFinite(value)))
             throw new GraflumeError('INVALID_SPEC', '$.rotations must contain finite angles.');
         const frequencies = new Map();
         texts.forEach((text) => tokenizeWords(text, options).forEach((token) => frequencies.set(token, (frequencies.get(token) ?? 0) + 1)));
-        const minimum = clamp$4(Math.floor(options.minimumFrequency ?? 1), 1, Number.MAX_SAFE_INTEGER);
-        const maximumWords = clamp$4(Math.floor(options.maximumWords ?? 200), 1, 2_000);
+        const minimum = clamp$3(Math.floor(options.minimumFrequency ?? 1), 1, Number.MAX_SAFE_INTEGER);
+        const maximumWords = clamp$3(Math.floor(options.maximumWords ?? 200), 1, 2_000);
         const words = [...frequencies]
             .filter(([, count]) => count >= minimum)
             .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
@@ -39939,7 +41898,7 @@ var Graflume = (function (exports) {
         return placements;
     }
 
-    function finite$5(value, path) {
+    function finite$4(value, path) {
         if (typeof value !== 'number' || !Number.isFinite(value)) {
             throw new GraflumeError('INVALID_DATA', `${path} must be a finite number.`, { path });
         }
@@ -39951,7 +41910,7 @@ var Graflume = (function (exports) {
             throw new GraflumeError('INVALID_DATA', `${path} must be non-empty.`, { path });
         return normalized;
     }
-    function clamp$3(value, minimum, maximum) {
+    function clamp$2(value, minimum, maximum) {
         return Math.max(minimum, Math.min(maximum, value));
     }
     function seededRandom(seed) {
@@ -40178,8 +42137,8 @@ var Graflume = (function (exports) {
                 const current = velocity.get(node.id);
                 current.x *= 0.72;
                 current.y *= 0.72;
-                node.x = clamp$3(node.x + clamp$3(current.x, -temperature, temperature), 0.03, 0.97);
-                node.y = clamp$3(node.y + clamp$3(current.y, -temperature, temperature), 0.03, 0.97);
+                node.x = clamp$2(node.x + clamp$2(current.x, -temperature, temperature), 0.03, 0.97);
+                node.y = clamp$2(node.y + clamp$2(current.y, -temperature, temperature), 0.03, 0.97);
             });
         }
     }
@@ -40233,14 +42192,14 @@ var Graflume = (function (exports) {
     function layoutNetwork(nodeInput, edgeInput, options = {}) {
         const nodes = nodeInput.map((node, index) => {
             const id = name(node.id, `$.nodes[${index}].id`);
-            const radius = finite$5(node.radius ?? 0.025, `$.nodes[${index}].radius`);
+            const radius = finite$4(node.radius ?? 0.025, `$.nodes[${index}].radius`);
             if (radius <= 0 || radius > 0.25)
                 throw new GraflumeError('INVALID_DATA', 'Network node radius must be in (0, 0.25].');
             const ports = (node.ports ?? []).map((port, portIndex) => ({
                 id: name(port.id, `$.nodes[${index}].ports[${portIndex}].id`),
                 ...(port.angle === undefined
                     ? {}
-                    : { angle: finite$5(port.angle, `$.nodes[${index}].ports[${portIndex}].angle`) }),
+                    : { angle: finite$4(port.angle, `$.nodes[${index}].ports[${portIndex}].angle`) }),
             }));
             if (new Set(ports.map(({ id }) => id)).size !== ports.length)
                 throw new GraflumeError('INVALID_DATA', `Network node "${id}" has duplicate ports.`);
@@ -40250,8 +42209,8 @@ var Graflume = (function (exports) {
                 group: node.group?.trim() || null,
                 radius,
                 ports,
-                x: node.x === undefined ? Number.NaN : finite$5(node.x, `$.nodes[${index}].x`),
-                y: node.y === undefined ? Number.NaN : finite$5(node.y, `$.nodes[${index}].y`),
+                x: node.x === undefined ? Number.NaN : finite$4(node.x, `$.nodes[${index}].x`),
+                y: node.y === undefined ? Number.NaN : finite$4(node.y, `$.nodes[${index}].y`),
                 pinned: node.pinned === true,
                 hiddenCount: 0,
             };
@@ -40304,7 +42263,7 @@ var Graflume = (function (exports) {
                 target,
                 sourcePort,
                 targetPort,
-                weight: finite$5(edge.weight ?? 1, `$.edges[${index}].weight`),
+                weight: finite$4(edge.weight ?? 1, `$.edges[${index}].weight`),
                 directed: edge.directed ?? options.directed ?? false,
             };
         });
@@ -40337,7 +42296,7 @@ var Graflume = (function (exports) {
             const iterations = Math.floor(options.iterations ?? 120);
             if (iterations < 0 || iterations > 2_000)
                 throw new GraflumeError('INVALID_SPEC', '$.iterations must be from 0 to 2000.');
-            layoutForce(visible.nodes, visible.edges, iterations, clamp$3(options.nodeSpacing ?? 0.08, 0.01, 0.4), options.seed ?? 1);
+            layoutForce(visible.nodes, visible.edges, iterations, clamp$2(options.nodeSpacing ?? 0.08, 0.01, 0.4), options.seed ?? 1);
         }
         if (order.length === 0)
             order = topologicalOrder(visible.nodes.map(({ id }) => id), visible.edges);
@@ -40402,15 +42361,15 @@ var Graflume = (function (exports) {
         if (polygon.length < 3)
             throw new GraflumeError('INVALID_SPEC', 'Network lasso needs at least three points.');
         polygon.forEach((point, index) => {
-            finite$5(point.x, `$.polygon[${index}].x`);
-            finite$5(point.y, `$.polygon[${index}].y`);
+            finite$4(point.x, `$.polygon[${index}].x`);
+            finite$4(point.y, `$.polygon[${index}].y`);
         });
         return result.nodes.filter(({ x, y }) => pointInPolygon({ x, y }, polygon)).map(({ id }) => id);
     }
     /** Returns a new serializable node array after drag/pin without mutating source data. */
     function moveNetworkNode(nodes, id, position, pin = true) {
-        const x = finite$5(position.x, '$.position.x');
-        const y = finite$5(position.y, '$.position.y');
+        const x = finite$4(position.x, '$.position.x');
+        const y = finite$4(position.y, '$.position.y');
         if (!nodes.some((node) => node.id === id))
             throw new GraflumeError('INVALID_SPEC', `Unknown network node "${id}".`);
         return nodes.map((node) => (node.id === id ? { ...node, x, y, pinned: pin } : { ...node }));
@@ -40508,13 +42467,15 @@ var Graflume = (function (exports) {
     };
     const compileGeoMark = (context) => {
         const { table, layer, plot, theme, performance } = context;
-        const nodes = worldBasemapNodes(context);
+        const view = resolveGeographicMapView(context);
+        const countryIds = new Set(view.countries.map((country) => country[0]));
+        const nodes = worldBasemapNodes(context, view);
         const rows = [];
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
             const region = String(table.value(rowIndex, layer.x.field) ?? '').trim();
             const value = numericDataValue(table.value(rowIndex, layer.y.field));
             const country = naturalEarthCountry(region);
-            if (country === undefined || value === null)
+            if (country === undefined || value === null || !countryIds.has(country[0]))
                 continue;
             rows.push({ rowIndex, value, country });
         }
@@ -40528,10 +42489,10 @@ var Graflume = (function (exports) {
             const fill = layer.mark.fill ??
                 themedPointFill(theme, context.color, theme.mark.defaultColor ?? theme.colors.focus);
             if (mode === 'choropleth') {
-                nodes.push(...worldCountryOverlayNodes(context, country, rowIndex, layer.mark.fill ?? mappedContinuousColor(theme, ratio, 'endpoints')));
+                nodes.push(...worldCountryOverlayNodes(context, country, rowIndex, layer.mark.fill ?? mappedContinuousColor(theme, ratio, 'endpoints'), view));
                 continue;
             }
-            const point = projectGeographicPosition(plot, country[5], country[6]);
+            const point = projectGeographicPosition(plot, country[5], country[6], view);
             const radius = 5 + Math.sqrt(Math.max(0, ratio)) * 12;
             nodes.push({
                 type: 'circle',
@@ -40564,7 +42525,8 @@ var Graflume = (function (exports) {
     };
     const compileMapMark = (context) => {
         const { table, layer, plot, theme, performance } = context;
-        const nodes = worldBasemapNodes(context);
+        const view = resolveGeographicMapView(context);
+        const nodes = worldBasemapNodes(context, view);
         const sizeField = layer.mark.fields.size;
         const extent = sizeField === undefined || !table.has(sizeField) ? null : table.extent(sizeField);
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
@@ -40572,11 +42534,13 @@ var Graflume = (function (exports) {
             const latitude = numericDataValue(table.value(rowIndex, layer.y.field));
             if (longitude === null || latitude === null || !isGeographicPosition(longitude, latitude))
                 continue;
+            if (!geographicPositionInView(longitude, latitude, view))
+                continue;
             const rawSize = sizeField === undefined ? null : numericDataValue(table.value(rowIndex, sizeField));
             const ratio = rawSize === null || extent === null || extent[1] === extent[0]
                 ? 0.5
                 : (rawSize - extent[0]) / (extent[1] - extent[0]);
-            const point = projectGeographicPosition(plot, longitude, latitude);
+            const point = projectGeographicPosition(plot, longitude, latitude, view);
             const radius = layer.mark.radius ?? 5 + Math.sqrt(Math.max(0, ratio)) * 10;
             const fill = layer.mark.fill ?? theme.colors.focus;
             nodes.push({
@@ -41313,7 +43277,7 @@ var Graflume = (function (exports) {
     };
 
     const TAU = Math.PI * 2;
-    function clamp$2(value, minimum, maximum) {
+    function clamp$1(value, minimum, maximum) {
         return Math.max(minimum, Math.min(maximum, value));
     }
     function stringValue$1(value) {
@@ -41357,7 +43321,7 @@ var Graflume = (function (exports) {
         return keys.some((key) => context.layer.mark.options[key] !== undefined);
     }
     function rowIndex(index, context) {
-        return clamp$2(Math.floor(index), 0, Math.max(0, context.table.length - 1));
+        return clamp$1(Math.floor(index), 0, Math.max(0, context.table.length - 1));
     }
     function publicRow(row) {
         return Object.fromEntries(Object.entries(row).filter(([field]) => !field.startsWith('__graflume_')));
@@ -42534,8 +44498,8 @@ var Graflume = (function (exports) {
             }));
             const brush = brushes.find(({ field }) => field === axis.field);
             brush?.extents.forEach((extent, extentIndex) => {
-                const low = clamp$2(Math.min(...extent), 0, 1);
-                const high = clamp$2(Math.max(...extent), 0, 1);
+                const low = clamp$1(Math.min(...extent), 0, 1);
+                const high = clamp$1(Math.max(...extent), 0, 1);
                 nodes.push({
                     type: 'rect',
                     ...nodeBase(`${layer.id}:parallel-brush:${axis.field}:${extentIndex}`, {
@@ -42868,7 +44832,7 @@ var Graflume = (function (exports) {
             };
             const label = textNode$2(context, `${layer.id}:word-tree-node:${item.id}`, position.x, position.y, item.token, {
                 fill: color,
-                size: clamp$2(10 + Math.sqrt(item.count) * 3, 10, 28),
+                size: clamp$1(10 + Math.sqrt(item.count) * 3, 10, 28),
                 weight: item.depth === 0 ? 800 : 650,
             });
             nodes.push({
@@ -45880,7 +47844,7 @@ var Graflume = (function (exports) {
             return `boolean:${value}`;
         throw new GraflumeError('INVALID_DATA', 'Virtual bar keys must be non-empty strings, finite numbers, booleans, or valid Dates.', { path });
     }
-    function finite$4(value, path) {
+    function finite$3(value, path) {
         if (typeof value !== 'number' || !Number.isFinite(value)) {
             throw new GraflumeError('INVALID_DATA', `${path} must be a finite number.`, { path });
         }
@@ -45983,11 +47947,11 @@ var Graflume = (function (exports) {
             return {
                 id: scalarKey$1(idValue, `$.barVirtualization.retained[${index}].${options.key}`),
                 category: categoryValue instanceof Date ? categoryValue.toISOString() : String(categoryValue ?? ''),
-                value: finite$4(ownValue(row, options.value), `$.barVirtualization.retained[${index}].${options.value}`),
+                value: finite$3(ownValue(row, options.value), `$.barVirtualization.retained[${index}].${options.value}`),
                 ...(options.weight === undefined
                     ? {}
                     : {
-                        weight: finite$4(ownValue(row, options.weight), `$.barVirtualization.retained[${index}].${options.weight}`),
+                        weight: finite$3(ownValue(row, options.weight), `$.barVirtualization.retained[${index}].${options.weight}`),
                     }),
             };
         }), {
@@ -46195,7 +48159,7 @@ var Graflume = (function (exports) {
         return new BarVirtualizationController(rows, options);
     }
 
-    function finite$3(value) {
+    function finite$2(value) {
         return typeof value === 'number' && Number.isFinite(value);
     }
     function averageState(state, name) {
@@ -46212,14 +48176,14 @@ var Graflume = (function (exports) {
     }
     function rollingSum(state, name, value, period) {
         const rolling = averageState(state, name);
-        if (finite$3(value)) {
+        if (finite$2(value)) {
             rolling.sum += value;
             rolling.valid += 1;
         }
         rolling.queue.push(value);
         if (rolling.queue.length > period) {
             const removed = rolling.queue.shift();
-            if (finite$3(removed)) {
+            if (finite$2(removed)) {
                 rolling.sum -= removed;
                 rolling.valid -= 1;
             }
@@ -46228,11 +48192,11 @@ var Graflume = (function (exports) {
     }
     function simpleAverage(state, name, value, period) {
         const sum = rollingSum(state, name, value, period);
-        return finite$3(sum) ? sum / period : null;
+        return finite$2(sum) ? sum / period : null;
     }
     function exponentialAverage(state, name, value, period) {
         const average = averageState(state, name);
-        if (!finite$3(value)) {
+        if (!finite$2(value)) {
             average.seed.length = 0;
             average.previous = null;
             return null;
@@ -46253,7 +48217,7 @@ var Graflume = (function (exports) {
     }
     function wilderAverage(state, name, value, period) {
         const average = averageState(state, name);
-        if (!finite$3(value)) {
+        if (!finite$2(value)) {
             average.seed.length = 0;
             average.previous = null;
             return null;
@@ -46280,20 +48244,20 @@ var Graflume = (function (exports) {
     }
     function weightedAverage(state, name, value, period) {
         const values = boundedWindow(state, name, value, period);
-        if (values.length < period || values.some((item) => !finite$3(item)))
+        if (values.length < period || values.some((item) => !finite$2(item)))
             return null;
         const denominator = (period * (period + 1)) / 2;
         return values.reduce((sum, item, index) => sum + item * (index + 1), 0) / denominator;
     }
     function rollingExtrema(state, name, value, period, mode) {
         const values = boundedWindow(state, name, value, period);
-        if (values.length < period || values.some((item) => !finite$3(item)))
+        if (values.length < period || values.some((item) => !finite$2(item)))
             return null;
         return mode === 'minimum' ? Math.min(...values) : Math.max(...values);
     }
     function rollingDeviation(state, name, value, average, period, squared) {
         const values = boundedWindow(state, name, value, period);
-        if (!finite$3(average) || values.length < period || values.some((item) => !finite$3(item))) {
+        if (!finite$2(average) || values.length < period || values.some((item) => !finite$2(item))) {
             return null;
         }
         const sum = values.reduce((total, item) => {
@@ -46304,7 +48268,7 @@ var Graflume = (function (exports) {
     }
     function regression(state, value, period) {
         const values = boundedWindow(state, 'regression', value, period);
-        if (values.length < period || values.some((item) => !finite$3(item))) {
+        if (values.length < period || values.some((item) => !finite$2(item))) {
             return { value: null, slope: null, intercept: null, angle: null };
         }
         const sumX = (period * (period - 1)) / 2;
@@ -46322,28 +48286,28 @@ var Graflume = (function (exports) {
         };
     }
     function pairDifference(left, right, percent = false) {
-        if (!finite$3(left) || !finite$3(right) || (percent && right === 0))
+        if (!finite$2(left) || !finite$2(right) || (percent && right === 0))
             return null;
         return percent ? ((left - right) / right) * 100 : left - right;
     }
     function typical(row) {
-        return finite$3(row.high) && finite$3(row.low) && finite$3(row.close)
+        return finite$2(row.high) && finite$2(row.low) && finite$2(row.close)
             ? (row.high + row.low + row.close) / 3
             : null;
     }
     function trueRange(state, row) {
         const previousClose = state.nullable.previousClose;
         state.nullable.previousClose = row.close;
-        if (!finite$3(row.high) || !finite$3(row.low))
+        if (!finite$2(row.high) || !finite$2(row.low))
             return null;
-        return !finite$3(previousClose)
+        return !finite$2(previousClose)
             ? row.high - row.low
             : Math.max(row.high - row.low, Math.abs(row.high - previousClose), Math.abs(row.low - previousClose));
     }
     function rollingRangePosition(state, prefix, row, period) {
         const high = rollingExtrema(state, `${prefix}:high`, row.high, period, 'maximum');
         const low = rollingExtrema(state, `${prefix}:low`, row.low, period, 'minimum');
-        if (!finite$3(row.close) || !finite$3(high) || !finite$3(low))
+        if (!finite$2(row.close) || !finite$2(high) || !finite$2(low))
             return null;
         return high === low ? 0 : ((row.close - low) / (high - low)) * 100;
     }
@@ -46358,7 +48322,7 @@ var Graflume = (function (exports) {
     function relativeStrength(state, value, period) {
         const previous = state.nullable.rsiPrevious;
         state.nullable.rsiPrevious = value;
-        if (!finite$3(value) || !finite$3(previous)) {
+        if (!finite$2(value) || !finite$2(previous)) {
             queue(state, 'rsi:gains').length = 0;
             queue(state, 'rsi:losses').length = 0;
             state.nullable.rsiAverageGain = null;
@@ -46370,7 +48334,7 @@ var Graflume = (function (exports) {
         const loss = Math.max(0, -change);
         let averageGain = state.nullable.rsiAverageGain;
         let averageLoss = state.nullable.rsiAverageLoss;
-        if (!finite$3(averageGain) || !finite$3(averageLoss)) {
+        if (!finite$2(averageGain) || !finite$2(averageLoss)) {
             const gains = queue(state, 'rsi:gains');
             const losses = queue(state, 'rsi:losses');
             gains.push(gain);
@@ -46421,7 +48385,7 @@ var Graflume = (function (exports) {
                 const first = exponentialAverage(state, 'dema:1', value, period);
                 const second = exponentialAverage(state, 'dema:2', first, period);
                 return {
-                    output: { value: finite$3(first) && finite$3(second) ? 2 * first - second : null },
+                    output: { value: finite$2(first) && finite$2(second) ? 2 * first - second : null },
                     patches: [],
                 };
             }
@@ -46433,7 +48397,7 @@ var Graflume = (function (exports) {
                 if (state.kind === 'tema') {
                     return {
                         output: {
-                            value: finite$3(first) && finite$3(second) && finite$3(third)
+                            value: finite$2(first) && finite$2(second) && finite$2(third)
                                 ? 3 * first - 3 * second + third
                                 : null,
                         },
@@ -46468,7 +48432,7 @@ var Graflume = (function (exports) {
                 const average = simpleAverage(state, 'disparity', value, period);
                 return {
                     output: {
-                        value: finite$3(value) && finite$3(average) && average !== 0 ? (value / average - 1) * 100 : null,
+                        value: finite$2(value) && finite$2(average) && average !== 0 ? (value / average - 1) * 100 : null,
                     },
                     patches: [],
                 };
@@ -46492,7 +48456,7 @@ var Graflume = (function (exports) {
         }
     }
     function moneyFlowVolume(row) {
-        if (!finite$3(row.close) || !finite$3(row.high) || !finite$3(row.low) || !finite$3(row.volume)) {
+        if (!finite$2(row.close) || !finite$2(row.high) || !finite$2(row.low) || !finite$2(row.volume)) {
             return null;
         }
         const multiplier = row.high === row.low
@@ -46505,7 +48469,7 @@ var Graflume = (function (exports) {
         switch (state.kind) {
             case 'abands': {
                 const multiplier = numeric$1(parameters, 'multiplier', 4);
-                const valid = finite$3(row.high) && finite$3(row.low) && row.high + row.low !== 0;
+                const valid = finite$2(row.high) && finite$2(row.low) && row.high + row.low !== 0;
                 const rawUpper = valid
                     ? row.high * (1 + (multiplier * (row.high - row.low)) / (row.high + row.low))
                     : null;
@@ -46522,7 +48486,7 @@ var Graflume = (function (exports) {
                 };
             }
             case 'ao': {
-                const median = finite$3(row.high) && finite$3(row.low) ? (row.high + row.low) / 2 : null;
+                const median = finite$2(row.high) && finite$2(row.low) ? (row.high + row.low) / 2 : null;
                 const fast = simpleAverage(state, 'ao:fast', median, parameters.fastPeriod);
                 const slow = simpleAverage(state, 'ao:slow', median, parameters.slowPeriod);
                 return { output: { value: pairDifference(fast, slow) }, patches: [] };
@@ -46535,8 +48499,8 @@ var Graflume = (function (exports) {
                 let down = null;
                 if (highs.length === period + 1 &&
                     lows.length === period + 1 &&
-                    highs.every(finite$3) &&
-                    lows.every(finite$3)) {
+                    highs.every(finite$2) &&
+                    lows.every(finite$2)) {
                     let highIndex = 0;
                     let lowIndex = 0;
                     highs.forEach((item, index) => {
@@ -46562,7 +48526,7 @@ var Graflume = (function (exports) {
                 return {
                     output: {
                         value: state.kind === 'natr'
-                            ? finite$3(average) && finite$3(row.close) && row.close !== 0
+                            ? finite$2(average) && finite$2(row.close) && row.close !== 0
                                 ? (average / row.close) * 100
                                 : null
                             : average,
@@ -46577,8 +48541,8 @@ var Graflume = (function (exports) {
                 return {
                     output: {
                         value: middle,
-                        lower: finite$3(middle) && finite$3(deviation) ? middle - multiplier * deviation : null,
-                        upper: finite$3(middle) && finite$3(deviation) ? middle + multiplier * deviation : null,
+                        lower: finite$2(middle) && finite$2(deviation) ? middle - multiplier * deviation : null,
+                        upper: finite$2(middle) && finite$2(deviation) ? middle + multiplier * deviation : null,
                     },
                     patches: [],
                 };
@@ -46589,7 +48553,7 @@ var Graflume = (function (exports) {
                 const deviation = rollingDeviation(state, 'cci:deviation', price, average, period, false);
                 return {
                     output: {
-                        value: finite$3(price) && finite$3(average) && finite$3(deviation)
+                        value: finite$2(price) && finite$2(average) && finite$2(deviation)
                             ? deviation === 0
                                 ? 0
                                 : (price - average) / (0.015 * deviation)
@@ -46601,7 +48565,7 @@ var Graflume = (function (exports) {
             case 'chaikin': {
                 const flow = moneyFlowVolume(row);
                 let line = null;
-                if (finite$3(flow)) {
+                if (finite$2(flow)) {
                     const cumulative = (state.numbers.chaikinCumulative ?? 0) + flow;
                     state.numbers.chaikinCumulative = cumulative;
                     line = cumulative;
@@ -46616,7 +48580,7 @@ var Graflume = (function (exports) {
                 const volumeSum = rollingSum(state, 'cmf:volume', row.volume, period);
                 return {
                     output: {
-                        value: finite$3(flowSum) && finite$3(volumeSum) && volumeSum !== 0 ? flowSum / volumeSum : null,
+                        value: finite$2(flowSum) && finite$2(volumeSum) && volumeSum !== 0 ? flowSum / volumeSum : null,
                     },
                     patches: [],
                 };
@@ -46624,14 +48588,14 @@ var Graflume = (function (exports) {
             case 'cmo': {
                 const previous = state.nullable.cmoPrevious;
                 state.nullable.cmoPrevious = row.value;
-                const valid = finite$3(row.value) && finite$3(previous);
+                const valid = finite$2(row.value) && finite$2(previous);
                 const gain = valid ? Math.max(0, row.value - previous) : null;
                 const loss = valid ? Math.max(0, previous - row.value) : null;
                 const gains = rollingSum(state, 'cmo:gains', gain, period);
                 const losses = rollingSum(state, 'cmo:losses', loss, period);
                 return {
                     output: {
-                        value: finite$3(gains) && finite$3(losses)
+                        value: finite$2(gains) && finite$2(losses)
                             ? gains + losses === 0
                                 ? 0
                                 : ((gains - losses) / (gains + losses)) * 100
@@ -46646,7 +48610,7 @@ var Graflume = (function (exports) {
                 const range = trueRange(state, row);
                 let positiveMovement = null;
                 let negativeMovement = null;
-                if (state.index > 0 && [row.high, row.low, previousHigh, previousLow].every(finite$3)) {
+                if (state.index > 0 && [row.high, row.low, previousHigh, previousLow].every(finite$2)) {
                     const up = row.high - previousHigh;
                     const down = previousLow - row.low;
                     positiveMovement = up > down && up > 0 ? up : 0;
@@ -46661,9 +48625,9 @@ var Graflume = (function (exports) {
                 let plus = null;
                 let minus = null;
                 let dx = null;
-                if (finite$3(averageRange) &&
-                    finite$3(averagePlus) &&
-                    finite$3(averageMinus) &&
+                if (finite$2(averageRange) &&
+                    finite$2(averagePlus) &&
+                    finite$2(averageMinus) &&
                     averageRange !== 0) {
                     plus = (averagePlus / averageRange) * 100;
                     minus = (averageMinus / averageRange) * 100;
@@ -46682,7 +48646,7 @@ var Graflume = (function (exports) {
                 if (values.length > shift)
                     values.shift();
                 return {
-                    output: { value: finite$3(average) && finite$3(source) ? source - average : null },
+                    output: { value: finite$2(average) && finite$2(source) ? source - average : null },
                     patches: [],
                 };
             }
@@ -46693,16 +48657,16 @@ var Graflume = (function (exports) {
                 const baseLow = rollingExtrema(state, 'ikh:base:low', row.low, parameters.basePeriod, 'minimum');
                 const spanHigh = rollingExtrema(state, 'ikh:span:high', row.high, parameters.spanPeriod, 'maximum');
                 const spanLow = rollingExtrema(state, 'ikh:span:low', row.low, parameters.spanPeriod, 'minimum');
-                const conversion = finite$3(conversionHigh) && finite$3(conversionLow)
+                const conversion = finite$2(conversionHigh) && finite$2(conversionLow)
                     ? (conversionHigh + conversionLow) / 2
                     : null;
-                const base = finite$3(baseHigh) && finite$3(baseLow) ? (baseHigh + baseLow) / 2 : null;
-                const spanA = finite$3(conversion) && finite$3(base) ? (conversion + base) / 2 : null;
-                const spanB = finite$3(spanHigh) && finite$3(spanLow) ? (spanHigh + spanLow) / 2 : null;
+                const base = finite$2(baseHigh) && finite$2(baseLow) ? (baseHigh + baseLow) / 2 : null;
+                const spanA = finite$2(conversion) && finite$2(base) ? (conversion + base) / 2 : null;
+                const spanB = finite$2(spanHigh) && finite$2(spanLow) ? (spanHigh + spanLow) / 2 : null;
                 const pending = state.pending[String(state.index)] ?? {};
                 delete state.pending[String(state.index)];
                 const displacement = parameters.displacement;
-                if (finite$3(spanA) && finite$3(spanB)) {
+                if (finite$2(spanA) && finite$2(spanB)) {
                     const target = String(state.index + displacement);
                     state.pending[target] = {
                         value: spanA,
@@ -46710,7 +48674,7 @@ var Graflume = (function (exports) {
                         upper: Math.max(spanA, spanB),
                     };
                 }
-                if (displacement === 0 && finite$3(spanA) && finite$3(spanB)) {
+                if (displacement === 0 && finite$2(spanA) && finite$2(spanB)) {
                     return {
                         output: {
                             value: spanA,
@@ -46740,8 +48704,8 @@ var Graflume = (function (exports) {
                 return {
                     output: {
                         value: middle,
-                        lower: finite$3(middle) && finite$3(range) ? middle - multiplier * range : null,
-                        upper: finite$3(middle) && finite$3(range) ? middle + multiplier * range : null,
+                        lower: finite$2(middle) && finite$2(range) ? middle - multiplier * range : null,
+                        upper: finite$2(middle) && finite$2(range) ? middle + multiplier * range : null,
                     },
                     patches: [],
                 };
@@ -46752,7 +48716,7 @@ var Graflume = (function (exports) {
                 const previousClose = state.nullable.klingerPreviousClose;
                 let force = null;
                 if (state.index > 0 &&
-                    [row.high, row.low, row.close, row.volume, previousHigh, previousLow, previousClose].every(finite$3)) {
+                    [row.high, row.low, row.close, row.volume, previousHigh, previousLow, previousClose].every(finite$2)) {
                     const previousTrend = state.numbers.klingerTrend ?? 0;
                     const currentSum = row.high + row.low + row.close;
                     const previousSum = previousHigh + previousLow + previousClose;
@@ -46788,14 +48752,14 @@ var Graflume = (function (exports) {
                 const price = typical(row);
                 const previous = state.nullable.mfiPrevious;
                 state.nullable.mfiPrevious = price;
-                const valid = finite$3(price) && finite$3(previous) && finite$3(row.volume);
+                const valid = finite$2(price) && finite$2(previous) && finite$2(row.volume);
                 const flow = valid ? price * row.volume : null;
                 const positive = valid ? (price > previous ? flow : 0) : null;
                 const negative = valid ? (price < previous ? flow : 0) : null;
                 const positiveSum = rollingSum(state, 'mfi:positive', positive, period);
                 const negativeSum = rollingSum(state, 'mfi:negative', negative, period);
                 let value = null;
-                if (finite$3(positiveSum) && finite$3(negativeSum)) {
+                if (finite$2(positiveSum) && finite$2(negativeSum)) {
                     value =
                         negativeSum === 0
                             ? positiveSum === 0
@@ -46808,9 +48772,9 @@ var Graflume = (function (exports) {
             case 'obv': {
                 const previous = state.nullable.obvPrevious;
                 let value = null;
-                if (finite$3(row.close) && finite$3(row.volume)) {
+                if (finite$2(row.close) && finite$2(row.volume)) {
                     let balance = state.numbers.obvBalance ?? 0;
-                    if (state.index > 0 && finite$3(previous)) {
+                    if (state.index > 0 && finite$2(previous)) {
                         if (row.close > previous)
                             balance += row.volume;
                         else if (row.close < previous)
@@ -46827,7 +48791,7 @@ var Graflume = (function (exports) {
                 const lower = rollingExtrema(state, 'pc:lower', row.low, period, 'minimum');
                 return {
                     output: {
-                        value: finite$3(upper) && finite$3(lower) ? (upper + lower) / 2 : null,
+                        value: finite$2(upper) && finite$2(lower) ? (upper + lower) / 2 : null,
                         lower,
                         upper,
                     },
@@ -46841,7 +48805,7 @@ var Graflume = (function (exports) {
                 state.nullable.pivotPreviousHigh = row.high;
                 state.nullable.pivotPreviousLow = row.low;
                 state.nullable.pivotPreviousClose = row.close;
-                if (!finite$3(previousHigh) || !finite$3(previousLow) || !finite$3(previousClose)) {
+                if (!finite$2(previousHigh) || !finite$2(previousLow) || !finite$2(previousClose)) {
                     return { output: { value: null, support: null, resistance: null }, patches: [] };
                 }
                 const value = (previousHigh + previousLow + previousClose) / 3;
@@ -46860,8 +48824,8 @@ var Graflume = (function (exports) {
                 return {
                     output: {
                         value,
-                        lower: finite$3(value) ? value * (1 - factor) : null,
-                        upper: finite$3(value) ? value * (1 + factor) : null,
+                        lower: finite$2(value) ? value * (1 - factor) : null,
+                        upper: finite$2(value) ? value * (1 + factor) : null,
                     },
                     patches: [],
                 };
@@ -46875,7 +48839,7 @@ var Graflume = (function (exports) {
                 if (state.index === 1) {
                     const firstHigh = state.nullable.psarFirstHigh;
                     const firstLow = state.nullable.psarFirstLow;
-                    if (![firstHigh, firstLow, row.high, row.low].every(finite$3)) {
+                    if (![firstHigh, firstLow, row.high, row.low].every(finite$2)) {
                         state.flags.psarDisabled = true;
                         return { output: { value: null }, patches: [] };
                     }
@@ -46896,7 +48860,7 @@ var Graflume = (function (exports) {
                 }
                 const previousHighs = queue(state, 'psar:high');
                 const previousLows = queue(state, 'psar:low');
-                if (state.flags.psarDisabled || !finite$3(row.high) || !finite$3(row.low)) {
+                if (state.flags.psarDisabled || !finite$2(row.high) || !finite$2(row.low)) {
                     boundedWindow(state, 'psar:high', row.high, 2);
                     boundedWindow(state, 'psar:low', row.low, 2);
                     return { output: { value: null }, patches: [] };
@@ -46953,7 +48917,7 @@ var Graflume = (function (exports) {
                 const previousClose = state.nullable.supertrendPreviousClose;
                 state.nullable.supertrendPreviousClose = row.close;
                 const range = wilderAverage(state, 'supertrend:atr', trueRange(state, row), parameters.atrPeriod);
-                if (!finite$3(row.high) || !finite$3(row.low) || !finite$3(row.close) || !finite$3(range)) {
+                if (!finite$2(row.high) || !finite$2(row.low) || !finite$2(row.close) || !finite$2(range)) {
                     return { output: { value: null, direction: null }, patches: [] };
                 }
                 const middle = (row.high + row.low) / 2;
@@ -46962,15 +48926,15 @@ var Graflume = (function (exports) {
                 let upper = state.nullable.supertrendUpper;
                 let lower = state.nullable.supertrendLower;
                 upper =
-                    !finite$3(upper) || !finite$3(previousClose) || basicUpper < upper || previousClose > upper
+                    !finite$2(upper) || !finite$2(previousClose) || basicUpper < upper || previousClose > upper
                         ? basicUpper
                         : upper;
                 lower =
-                    !finite$3(lower) || !finite$3(previousClose) || basicLower > lower || previousClose < lower
+                    !finite$2(lower) || !finite$2(previousClose) || basicLower > lower || previousClose < lower
                         ? basicLower
                         : lower;
                 let direction = state.nullable.supertrendDirection;
-                if (!finite$3(direction))
+                if (!finite$2(direction))
                     direction = row.close <= upper ? -1 : 1;
                 else if (direction < 0 && row.close > upper)
                     direction = 1;
@@ -46984,7 +48948,7 @@ var Graflume = (function (exports) {
             case 'vwap': {
                 const price = typical(row);
                 let value = null;
-                if (finite$3(price) && finite$3(row.volume)) {
+                if (finite$2(price) && finite$2(row.volume)) {
                     const weighted = (state.numbers.vwapWeighted ?? 0) + price * row.volume;
                     const volume = (state.numbers.vwapVolume ?? 0) + row.volume;
                     state.numbers.vwapWeighted = weighted;
@@ -46995,12 +48959,12 @@ var Graflume = (function (exports) {
             }
             case 'williamsr': {
                 const position = rollingRangePosition(state, 'williams', row, period);
-                return { output: { value: finite$3(position) ? position - 100 : null }, patches: [] };
+                return { output: { value: finite$2(position) ? position - 100 : null }, patches: [] };
             }
             case 'zigzag': {
                 const output = { value: null };
                 const patches = [];
-                if (!finite$3(row.value))
+                if (!finite$2(row.value))
                     return { output, patches };
                 if (!state.flags.zigzagStarted) {
                     state.flags.zigzagStarted = true;
@@ -47062,7 +49026,7 @@ var Graflume = (function (exports) {
             const previousHigh = state.nullable.sessionPivotHigh;
             const previousLow = state.nullable.sessionPivotLow;
             const previousClose = state.nullable.sessionPivotClose;
-            if (finite$3(previousHigh) && finite$3(previousLow) && finite$3(previousClose)) {
+            if (finite$2(previousHigh) && finite$2(previousLow) && finite$2(previousClose)) {
                 const pivot = (previousHigh + previousLow + previousClose) / 3;
                 state.nullable.sessionPivotValue = pivot;
                 state.nullable.sessionPivotSupport = 2 * pivot - previousHigh;
@@ -47077,13 +49041,13 @@ var Graflume = (function (exports) {
             state.nullable.sessionPivotLow = null;
             state.nullable.sessionPivotClose = null;
         }
-        if (finite$3(row.high)) {
-            state.nullable.sessionPivotHigh = finite$3(state.nullable.sessionPivotHigh)
+        if (finite$2(row.high)) {
+            state.nullable.sessionPivotHigh = finite$2(state.nullable.sessionPivotHigh)
                 ? Math.max(state.nullable.sessionPivotHigh, row.high)
                 : row.high;
         }
-        if (finite$3(row.low)) {
-            state.nullable.sessionPivotLow = finite$3(state.nullable.sessionPivotLow)
+        if (finite$2(row.low)) {
+            state.nullable.sessionPivotLow = finite$2(state.nullable.sessionPivotLow)
                 ? Math.min(state.nullable.sessionPivotLow, row.low)
                 : row.low;
         }
@@ -50148,7 +52112,7 @@ var Graflume = (function (exports) {
             ? value
             : null;
     }
-    function finite$2(value, path) {
+    function finite$1(value, path) {
         if (typeof value !== 'number' || !Number.isFinite(value)) {
             return fail(path, `${path} must be a finite number.`);
         }
@@ -50181,8 +52145,8 @@ var Graflume = (function (exports) {
         if (!Array.isArray(value) || value.length !== 2) {
             return fail(path, `${path} must contain two normalized numbers.`);
         }
-        const first = finite$2(value[0], `${path}[0]`);
-        const second = finite$2(value[1], `${path}[1]`);
+        const first = finite$1(value[0], `${path}[0]`);
+        const second = finite$1(value[1], `${path}[1]`);
         if (first < 0 || first > 1 || second < 0 || second > 1) {
             return fail(path, `${path} values must be inside the inclusive 0..1 range.`);
         }
@@ -50198,12 +52162,12 @@ var Graflume = (function (exports) {
         return ids;
     }
     function normalizeNavigatorRuntimeState(value, fallback, bounds) {
-        const minimum = bounds === undefined ? Number.NEGATIVE_INFINITY : finite$2(bounds.minimum, '$.minimum');
-        const maximum = bounds === undefined ? Number.POSITIVE_INFINITY : finite$2(bounds.maximum, '$.maximum');
+        const minimum = bounds === undefined ? Number.NEGATIVE_INFINITY : finite$1(bounds.minimum, '$.minimum');
+        const maximum = bounds === undefined ? Number.POSITIVE_INFINITY : finite$1(bounds.maximum, '$.maximum');
         if (minimum >= maximum)
             return fail('$.maximum', 'Navigator maximum must be greater than minimum.');
-        const start = Math.max(minimum, Math.min(maximum, finite$2(value.start ?? fallback.start, '$.start')));
-        const end = Math.max(minimum, Math.min(maximum, finite$2(value.end ?? fallback.end, '$.end')));
+        const start = Math.max(minimum, Math.min(maximum, finite$1(value.start ?? fallback.start, '$.start')));
+        const end = Math.max(minimum, Math.min(maximum, finite$1(value.end ?? fallback.end, '$.end')));
         if (end <= start)
             return fail('$.end', 'Navigator end must be greater than start.');
         return { start, end };
@@ -50256,7 +52220,7 @@ var Graflume = (function (exports) {
             domain = axis.domain.map((entry, domainIndex) => {
                 if (typeof entry === 'string')
                     return entry;
-                return finite$2(entry, `$.axes[${index}].domain[${domainIndex}]`);
+                return finite$1(entry, `$.axes[${index}].domain[${domainIndex}]`);
             });
         }
         if (axis.invert !== undefined && typeof axis.invert !== 'boolean') {
@@ -50354,7 +52318,7 @@ var Graflume = (function (exports) {
         return value.map((entry, index) => {
             if (typeof entry === 'string')
                 return entry;
-            return finite$2(entry, `${path}[${index}]`);
+            return finite$1(entry, `${path}[${index}]`);
         });
     }
     function normalizeHeatmapRuntimeState(value, fallback = { rows: [], columns: [] }) {
@@ -50364,8 +52328,8 @@ var Graflume = (function (exports) {
             if (!Array.isArray(rawValue) || rawValue.length !== 2) {
                 return fail('$.value', 'Heatmap value brush must contain two finite numbers.');
             }
-            const first = finite$2(rawValue[0], '$.value[0]');
-            const second = finite$2(rawValue[1], '$.value[1]');
+            const first = finite$1(rawValue[0], '$.value[0]');
+            const second = finite$1(rawValue[1], '$.value[1]');
             extent = [Math.min(first, second), Math.max(first, second)];
         }
         return {
@@ -50383,8 +52347,8 @@ var Graflume = (function (exports) {
             if (!Array.isArray(input) || input.length !== 2) {
                 return fail(path, `${path} must contain two finite numbers.`);
             }
-            const first = finite$2(input[0], `${path}[0]`);
-            const second = finite$2(input[1], `${path}[1]`);
+            const first = finite$1(input[0], `${path}[0]`);
+            const second = finite$1(input[1], `${path}[1]`);
             if (first === second)
                 return fail(path, `${path} must have a non-zero span.`);
             return [Math.min(first, second), Math.max(first, second)];
@@ -50746,19 +52710,19 @@ var Graflume = (function (exports) {
         offsetX: 0,
         offsetY: 0,
     };
-    function finite$1(value, fallback) {
+    function finite(value, fallback) {
         return Number.isFinite(value) ? value : fallback;
     }
     function constrainInspectionView(input, bounds) {
-        const minZoom = Math.max(1, finite$1(bounds.minZoom, 1));
-        const maxZoom = Math.max(minZoom, finite$1(bounds.maxZoom, 6));
-        const zoom = Math.max(minZoom, Math.min(maxZoom, finite$1(input.zoom, minZoom)));
-        const width = Math.max(1, finite$1(bounds.width, 1));
-        const height = Math.max(1, finite$1(bounds.height, 1));
+        const minZoom = Math.max(1, finite(bounds.minZoom, 1));
+        const maxZoom = Math.max(minZoom, finite(bounds.maxZoom, 6));
+        const zoom = Math.max(minZoom, Math.min(maxZoom, finite(input.zoom, minZoom)));
+        const width = Math.max(1, finite(bounds.width, 1));
+        const height = Math.max(1, finite(bounds.height, 1));
         return {
             zoom,
-            offsetX: Math.max(width - width * zoom, Math.min(0, finite$1(input.offsetX, 0))),
-            offsetY: Math.max(height - height * zoom, Math.min(0, finite$1(input.offsetY, 0))),
+            offsetX: Math.max(width - width * zoom, Math.min(0, finite(input.offsetX, 0))),
+            offsetY: Math.max(height - height * zoom, Math.min(0, finite(input.offsetY, 0))),
         };
     }
     function zoomInspectionView(current, factor, anchor, bounds) {
@@ -51205,7 +53169,7 @@ var Graflume = (function (exports) {
         }
     }
 
-    function clamp$1(value, minimum, maximum) {
+    function clamp(value, minimum, maximum) {
         return Math.max(minimum, Math.min(maximum, value));
     }
     function mix(from, to, progress) {
@@ -51214,7 +53178,7 @@ var Graflume = (function (exports) {
     function easeSceneProgress(progress, easing) {
         if (!Number.isFinite(progress))
             throw new RangeError('Scene transition progress must be finite.');
-        const value = clamp$1(progress, 0, 1);
+        const value = clamp(progress, 0, 1);
         return easing === 'ease-in-out' ? value * value * (3 - 2 * value) : value;
     }
     function mixRect(from, to, progress) {
@@ -51251,7 +53215,7 @@ var Graflume = (function (exports) {
         const parsed = Number.parseFloat(percentage ? value.slice(0, -1) : value);
         if (!Number.isFinite(parsed))
             return null;
-        return clamp$1(percentage ? (parsed / 100) * 255 : parsed, 0, 255);
+        return clamp(percentage ? (parsed / 100) * 255 : parsed, 0, 255);
     }
     function parseAlpha(input) {
         const value = input.trim();
@@ -51259,7 +53223,7 @@ var Graflume = (function (exports) {
         const parsed = Number.parseFloat(percentage ? value.slice(0, -1) : value);
         if (!Number.isFinite(parsed))
             return null;
-        return clamp$1(percentage ? parsed / 100 : parsed, 0, 1);
+        return clamp(percentage ? parsed / 100 : parsed, 0, 1);
     }
     function parseFunctionalColor(input) {
         const match = /^rgba?\((.*)\)$/i.exec(input.trim());
@@ -57386,992 +59350,6 @@ var Graflume = (function (exports) {
         }
     }
 
-    function finite(value, path) {
-        if (typeof value !== 'number' || !Number.isFinite(value)) {
-            throw new GraflumeError('INVALID_DATA', `${path} must be a finite number.`, { path });
-        }
-        return value;
-    }
-    function clamp(value, minimum, maximum) {
-        return Math.max(minimum, Math.min(maximum, value));
-    }
-    function longitude(value, path) {
-        const resolved = finite(value, path);
-        if (resolved < -540 || resolved > 540)
-            throw new GraflumeError('INVALID_DATA', `${path} is outside the supported longitude range.`);
-        return resolved;
-    }
-    function latitude(value, path) {
-        const resolved = finite(value, path);
-        if (resolved < -90 || resolved > 90)
-            throw new GraflumeError('INVALID_DATA', `${path} must be from -90 to 90.`);
-        return resolved;
-    }
-    function wrapLongitude(value) {
-        const finiteValue = longitude(value, '$.longitude');
-        return ((((finiteValue + 180) % 360) + 360) % 360) - 180;
-    }
-    function position(value, path) {
-        if (!Array.isArray(value) || value.length < 2)
-            throw new GraflumeError('INVALID_DATA', `${path} must be [longitude, latitude].`, { path });
-        return [longitude(value[0], `${path}[0]`), latitude(value[1], `${path}[1]`)];
-    }
-    function positions(value, depth, path) {
-        if (depth === 0)
-            return position(value, path);
-        if (!Array.isArray(value))
-            throw new GraflumeError('INVALID_DATA', `${path} must be an array.`, { path });
-        return value.map((entry, index) => positions(entry, depth - 1, `${path}[${index}]`));
-    }
-    function normalizeGeometry(value, path) {
-        if (typeof value !== 'object' || value === null || Array.isArray(value))
-            throw new GraflumeError('INVALID_DATA', `${path} must be a GeoJSON geometry.`);
-        const candidate = value;
-        if (candidate.type === 'GeometryCollection') {
-            if (!Array.isArray(candidate.geometries))
-                throw new GraflumeError('INVALID_DATA', `${path}.geometries must be an array.`, {
-                    path: `${path}.geometries`,
-                });
-            return {
-                type: 'GeometryCollection',
-                geometries: candidate.geometries.map((geometry, index) => normalizeGeometry(geometry, `${path}.geometries[${index}]`)),
-            };
-        }
-        const depth = new Map([
-            ['Point', 0],
-            ['MultiPoint', 1],
-            ['LineString', 1],
-            ['MultiLineString', 2],
-            ['Polygon', 2],
-            ['MultiPolygon', 3],
-        ]).get(String(candidate.type));
-        if (depth === undefined)
-            throw new GraflumeError('INVALID_DATA', `${path}.type is unsupported.`);
-        return {
-            type: candidate.type,
-            coordinates: positions(candidate.coordinates, depth, `${path}.coordinates`),
-        };
-    }
-    /** Validates GeoJSON and returns a closed, normalized FeatureCollection. */
-    function normalizeGeoJson(value) {
-        if (typeof value !== 'object' || value === null || Array.isArray(value))
-            throw new GraflumeError('INVALID_DATA', 'GeoJSON must be an object.');
-        const candidate = value;
-        const inputs = candidate.type === 'FeatureCollection'
-            ? Array.isArray(candidate.features)
-                ? candidate.features
-                : (() => {
-                    throw new GraflumeError('INVALID_DATA', '$.features must be an array.');
-                })()
-            : [
-                candidate.type === 'Feature'
-                    ? candidate
-                    : { type: 'Feature', geometry: candidate, properties: null },
-            ];
-        const features = inputs.map((entry, index) => {
-            if (typeof entry !== 'object' || entry === null || Array.isArray(entry))
-                throw new GraflumeError('INVALID_DATA', `$.features[${index}] must be an object.`);
-            const feature = entry;
-            if (feature.type !== 'Feature')
-                throw new GraflumeError('INVALID_DATA', `$.features[${index}].type must be Feature.`);
-            const properties = feature.properties == null
-                ? null
-                : typeof feature.properties === 'object' && !Array.isArray(feature.properties)
-                    ? feature.properties
-                    : (() => {
-                        throw new GraflumeError('INVALID_DATA', `$.features[${index}].properties must be an object or null.`);
-                    })();
-            return {
-                type: 'Feature',
-                ...(typeof feature.id === 'string' || typeof feature.id === 'number'
-                    ? { id: feature.id }
-                    : {}),
-                properties,
-                geometry: feature.geometry === null
-                    ? null
-                    : normalizeGeometry(feature.geometry, `$.features[${index}].geometry`),
-            };
-        });
-        return { type: 'FeatureCollection', features };
-    }
-    function decodedArcs(topology) {
-        const transform = topology.transform;
-        if (transform !== undefined) {
-            transform.scale.forEach((value, index) => finite(value, `$.transform.scale[${index}]`));
-            transform.translate.forEach((value, index) => finite(value, `$.transform.translate[${index}]`));
-        }
-        return topology.arcs.map((arc, arcIndex) => {
-            let x = 0;
-            let y = 0;
-            return arc.map((entry, pointIndex) => {
-                if (!Array.isArray(entry) || entry.length < 2)
-                    throw new GraflumeError('INVALID_DATA', `$.arcs[${arcIndex}][${pointIndex}] must be a pair.`);
-                if (transform === undefined)
-                    return position(entry, `$.arcs[${arcIndex}][${pointIndex}]`);
-                x += finite(entry[0], `$.arcs[${arcIndex}][${pointIndex}][0]`);
-                y += finite(entry[1], `$.arcs[${arcIndex}][${pointIndex}][1]`);
-                return position([
-                    x * transform.scale[0] + transform.translate[0],
-                    y * transform.scale[1] + transform.translate[1],
-                ], `$.arcs[${arcIndex}][${pointIndex}]`);
-            });
-        });
-    }
-    function topoArc(reference, arcs) {
-        const index = reference < 0 ? ~reference : reference;
-        const arc = arcs[index];
-        if (arc === undefined)
-            throw new GraflumeError('INVALID_DATA', `Topology references unknown arc ${reference}.`);
-        return reference < 0 ? [...arc].reverse() : [...arc];
-    }
-    function joinTopoArcs(references, arcs, path) {
-        if (!Array.isArray(references))
-            throw new GraflumeError('INVALID_DATA', `${path} must be an arc array.`);
-        const output = [];
-        references.forEach((reference, index) => {
-            if (!Number.isInteger(reference))
-                throw new GraflumeError('INVALID_DATA', `${path}[${index}] must be an integer.`);
-            const arc = topoArc(reference, arcs);
-            output.push(...(output.length === 0 ? arc : arc.slice(1)));
-        });
-        return output;
-    }
-    function topologyGeometry(object, arcs, path) {
-        if (object.type === 'GeometryCollection') {
-            if (!Array.isArray(object.geometries))
-                throw new GraflumeError('INVALID_DATA', `${path}.geometries must be an array.`);
-            return object.geometries.flatMap((geometry, index) => topologyGeometry(geometry, arcs, `${path}.geometries[${index}]`));
-        }
-        let geometry;
-        if (object.type === 'Point')
-            geometry = { type: 'Point', coordinates: position(object.coordinates, `${path}.coordinates`) };
-        else if (object.type === 'MultiPoint')
-            geometry = {
-                type: 'MultiPoint',
-                coordinates: positions(object.coordinates, 1, `${path}.coordinates`),
-            };
-        else if (object.type === 'LineString')
-            geometry = { type: 'LineString', coordinates: joinTopoArcs(object.arcs, arcs, `${path}.arcs`) };
-        else if (object.type === 'MultiLineString') {
-            if (!Array.isArray(object.arcs))
-                throw new GraflumeError('INVALID_DATA', `${path}.arcs must be an array.`);
-            geometry = {
-                type: 'MultiLineString',
-                coordinates: object.arcs.map((references, index) => joinTopoArcs(references, arcs, `${path}.arcs[${index}]`)),
-            };
-        }
-        else if (object.type === 'Polygon') {
-            if (!Array.isArray(object.arcs))
-                throw new GraflumeError('INVALID_DATA', `${path}.arcs must be an array.`);
-            geometry = {
-                type: 'Polygon',
-                coordinates: object.arcs.map((references, index) => joinTopoArcs(references, arcs, `${path}.arcs[${index}]`)),
-            };
-        }
-        else if (object.type === 'MultiPolygon') {
-            if (!Array.isArray(object.arcs))
-                throw new GraflumeError('INVALID_DATA', `${path}.arcs must be an array.`);
-            geometry = {
-                type: 'MultiPolygon',
-                coordinates: object.arcs.map((polygon, polygonIndex) => {
-                    if (!Array.isArray(polygon))
-                        throw new GraflumeError('INVALID_DATA', `${path}.arcs[${polygonIndex}] must be an array.`);
-                    return polygon.map((references, ringIndex) => joinTopoArcs(references, arcs, `${path}.arcs[${polygonIndex}][${ringIndex}]`));
-                }),
-            };
-        }
-        else
-            throw new GraflumeError('INVALID_DATA', `${path}.type is unsupported.`);
-        return [
-            {
-                type: 'Feature',
-                ...(object.id === undefined ? {} : { id: object.id }),
-                properties: object.properties ?? null,
-                geometry,
-            },
-        ];
-    }
-    /** Decodes delta/arcs/reversed-arcs TopoJSON into normalized GeoJSON features. */
-    function topologyToGeoJson(topology, objectName) {
-        if (topology.type !== 'Topology')
-            throw new GraflumeError('INVALID_DATA', 'Topology type must be Topology.');
-        const arcs = decodedArcs(topology);
-        const names = objectName === undefined ? Object.keys(topology.objects) : [objectName];
-        const features = names.flatMap((name) => {
-            const object = topology.objects[name];
-            if (object === undefined)
-                throw new GraflumeError('INVALID_SPEC', `Unknown topology object "${name}".`);
-            return topologyGeometry(object, arcs, `$.objects.${name}`);
-        });
-        return normalizeGeoJson({ type: 'FeatureCollection', features });
-    }
-    /** Closes and snapshots the mutable input used by the persistent map runtime. */
-    function normalizeMapProjection(value = {}, path = '$.projection') {
-        if (value === null || typeof value !== 'object' || Array.isArray(value))
-            throw new GraflumeError('INVALID_SPEC', `${path} must be an object.`, { path });
-        const unknown = Object.keys(value).find((key) => !['name', 'rotate', 'clip'].includes(key));
-        if (unknown !== undefined)
-            throw new GraflumeError('INVALID_SPEC', `Unknown map projection property "${unknown}".`, {
-                path: `${path}.${unknown}`,
-            });
-        const name = value.name ?? 'equirectangular';
-        if (!['equirectangular', 'mercator', 'orthographic'].includes(name))
-            throw new GraflumeError('INVALID_SPEC', `${path}.name is unsupported.`, {
-                path: `${path}.name`,
-            });
-        let rotate;
-        if (value.rotate !== undefined) {
-            if (!Array.isArray(value.rotate) || value.rotate.length !== 2)
-                throw new GraflumeError('INVALID_SPEC', `${path}.rotate must be [longitude, latitude].`, {
-                    path: `${path}.rotate`,
-                });
-            rotate = Object.freeze([
-                longitude(value.rotate[0], `${path}.rotate[0]`),
-                latitude(value.rotate[1], `${path}.rotate[1]`),
-            ]);
-        }
-        let clip;
-        if (value.clip !== undefined) {
-            if (!Array.isArray(value.clip) || value.clip.length !== 4)
-                throw new GraflumeError('INVALID_SPEC', `${path}.clip must be [west, south, east, north].`, {
-                    path: `${path}.clip`,
-                });
-            const west = longitude(value.clip[0], `${path}.clip[0]`);
-            const south = latitude(value.clip[1], `${path}.clip[1]`);
-            const east = longitude(value.clip[2], `${path}.clip[2]`);
-            const north = latitude(value.clip[3], `${path}.clip[3]`);
-            if (west > east || south > north)
-                throw new GraflumeError('INVALID_SPEC', `${path}.clip bounds must be ordered.`, {
-                    path: `${path}.clip`,
-                });
-            clip = Object.freeze([west, south, east, north]);
-        }
-        return Object.freeze({
-            name,
-            ...(rotate === undefined ? {} : { rotate }),
-            ...(clip === undefined ? {} : { clip }),
-        });
-    }
-    const ANTIMERIDIAN_EPSILON = 1e-9;
-    const WORLD_CLIP = Object.freeze([-180, -90, 180, 90]);
-    const ORTHOGRAPHIC_HORIZON_CLIP = Object.freeze([-90, -90, 90, 90]);
-    function projectionPosition(point, rotate) {
-        return [
-            wrapLongitude(longitude(point[0], '$.point[0]') + (rotate?.[0] ?? 0)),
-            clamp(latitude(point[1], '$.point[1]') + (rotate?.[1] ?? 0), -90, 90),
-        ];
-    }
-    function effectiveGeographicClip(clip) {
-        const west = Math.max(-180, clip[0]);
-        const south = Math.max(-90, clip[1]);
-        const east = Math.min(180, clip[2]);
-        const north = Math.min(90, clip[3]);
-        return west > east || south > north ? null : [west, south, east, north];
-    }
-    function effectiveProjectionClip(projection) {
-        const base = projection.name === 'orthographic' ? ORTHOGRAPHIC_HORIZON_CLIP : WORLD_CLIP;
-        const authored = projection.clip ?? WORLD_CLIP;
-        return effectiveGeographicClip([
-            Math.max(base[0], authored[0]),
-            Math.max(base[1], authored[1]),
-            Math.min(base[2], authored[2]),
-            Math.min(base[3], authored[3]),
-        ]);
-    }
-    function sameGeographicPosition(left, right) {
-        return Math.abs(left[0] - right[0]) <= 1e-10 && Math.abs(left[1] - right[1]) <= 1e-10;
-    }
-    function appendGeographicPosition(output, point) {
-        if (output.length === 0 || !sameGeographicPosition(output[output.length - 1], point))
-            output.push(point);
-    }
-    function projectionSafeLongitude(value) {
-        return Math.abs(value - 180) <= 1e-10 ? 180 - ANTIMERIDIAN_EPSILON : value;
-    }
-    /**
-     * Splits a wrapped geographic line at the antimeridian. Returned positions have already had
-     * projection rotation applied, so callers must project them without applying rotation again.
-     */
-    function splitAntimeridianLine(points) {
-        if (points.length === 0)
-            return [];
-        const paths = [];
-        let current = [points[0]];
-        for (let index = 1; index < points.length; index += 1) {
-            const previous = points[index - 1];
-            const next = points[index];
-            const delta = next[0] - previous[0];
-            if (Math.abs(delta) <= 180) {
-                appendGeographicPosition(current, next);
-                continue;
-            }
-            const crossesEast = delta < -180;
-            const unwrappedNext = next[0] + (crossesEast ? 360 : -360);
-            const boundary = crossesEast ? 180 : -180;
-            const denominator = unwrappedNext - previous[0];
-            const t = denominator === 0 ? 0 : (boundary - previous[0]) / denominator;
-            const latitudeAtBoundary = previous[1] + (next[1] - previous[1]) * t;
-            appendGeographicPosition(current, [
-                crossesEast ? 180 - ANTIMERIDIAN_EPSILON : -180,
-                latitudeAtBoundary,
-            ]);
-            if (current.length > 1)
-                paths.push(current);
-            current = [[crossesEast ? -180 : 180 - ANTIMERIDIAN_EPSILON, latitudeAtBoundary]];
-            appendGeographicPosition(current, next);
-        }
-        if (current.length > 1)
-            paths.push(current);
-        return paths;
-    }
-    function liangBarskySegment(start, end, clip) {
-        const dx = end[0] - start[0];
-        const dy = end[1] - start[1];
-        const p = [-dx, dx, -dy, dy];
-        const q = [start[0] - clip[0], clip[2] - start[0], start[1] - clip[1], clip[3] - start[1]];
-        let enter = 0;
-        let exit = 1;
-        for (let index = 0; index < 4; index += 1) {
-            const direction = p[index];
-            const distance = q[index];
-            if (Math.abs(direction) <= Number.EPSILON) {
-                if (distance < 0)
-                    return null;
-                continue;
-            }
-            const ratio = distance / direction;
-            if (direction < 0)
-                enter = Math.max(enter, ratio);
-            else
-                exit = Math.min(exit, ratio);
-            if (enter > exit)
-                return null;
-        }
-        const interpolate = (amount) => [
-            projectionSafeLongitude(start[0] + dx * amount),
-            start[1] + dy * amount,
-        ];
-        return [interpolate(enter), interpolate(exit)];
-    }
-    function clipLinePath(points, clip) {
-        const paths = [];
-        let current = [];
-        const flush = () => {
-            if (current.length > 1)
-                paths.push(current);
-            current = [];
-        };
-        for (let index = 1; index < points.length; index += 1) {
-            const segment = liangBarskySegment(points[index - 1], points[index], clip);
-            if (segment === null) {
-                flush();
-                continue;
-            }
-            if (current.length > 0 && !sameGeographicPosition(current[current.length - 1], segment[0]))
-                flush();
-            appendGeographicPosition(current, segment[0]);
-            appendGeographicPosition(current, segment[1]);
-        }
-        flush();
-        return paths;
-    }
-    /**
-     * Applies projection rotation/wrap, antimeridian splitting, and rectangular Liang-Barsky
-     * clipping. Orthographic paths are intersected with the visible hemisphere before projection,
-     * so a segment crossing the horizon keeps its exact boundary point instead of disappearing.
-     * Boundary intersections are retained and disjoint visible runs remain subpaths.
-     */
-    function clipMapLine(points, options = {}) {
-        const projection = normalizeMapProjection(options);
-        const split = splitAntimeridianLine(points.map((point) => projectionPosition(point, projection.rotate)));
-        if (projection.clip === undefined && projection.name !== 'orthographic')
-            return split;
-        const clip = effectiveProjectionClip(projection);
-        return clip === null ? [] : split.flatMap((path) => clipLinePath(path, clip));
-    }
-    function clipPolygonBoundary(input, boundary) {
-        if (input.length === 0)
-            return [];
-        const output = [];
-        let start = input[input.length - 1];
-        let startInside = boundary.inside(start);
-        for (const end of input) {
-            const endInside = boundary.inside(end);
-            if (endInside) {
-                if (!startInside)
-                    appendGeographicPosition(output, boundary.intersect(start, end));
-                appendGeographicPosition(output, end);
-            }
-            else if (startInside)
-                appendGeographicPosition(output, boundary.intersect(start, end));
-            start = end;
-            startInside = endInside;
-        }
-        if (output.length > 1 && sameGeographicPosition(output[0], output[output.length - 1]))
-            output.pop();
-        return output;
-    }
-    function sutherlandHodgmanRing(ring, clip) {
-        const verticalIntersection = (longitude) => (start, end) => {
-            const amount = (longitude - start[0]) / (end[0] - start[0]);
-            return [projectionSafeLongitude(longitude), start[1] + (end[1] - start[1]) * amount];
-        };
-        const horizontalIntersection = (latitude) => (start, end) => {
-            const amount = (latitude - start[1]) / (end[1] - start[1]);
-            return [projectionSafeLongitude(start[0] + (end[0] - start[0]) * amount), latitude];
-        };
-        const boundaries = [
-            { inside: ([lon]) => lon >= clip[0], intersect: verticalIntersection(clip[0]) },
-            { inside: ([lon]) => lon <= clip[2], intersect: verticalIntersection(clip[2]) },
-            { inside: ([, lat]) => lat >= clip[1], intersect: horizontalIntersection(clip[1]) },
-            { inside: ([, lat]) => lat <= clip[3], intersect: horizontalIntersection(clip[3]) },
-        ];
-        return boundaries.reduce(clipPolygonBoundary, [...ring]);
-    }
-    function unwrapPolygonRing(points) {
-        if (points.length === 0)
-            return [];
-        const output = [points[0]];
-        for (let index = 1; index < points.length; index += 1) {
-            const point = points[index];
-            const previous = output[output.length - 1];
-            let longitude = point[0];
-            while (longitude - previous[0] > 180)
-                longitude -= 360;
-            while (longitude - previous[0] < -180)
-                longitude += 360;
-            appendGeographicPosition(output, [longitude, point[1]]);
-        }
-        if (output.length > 1 && sameGeographicPosition(output[0], output[output.length - 1]))
-            output.pop();
-        return output;
-    }
-    /**
-     * Applies projection rotation/wrap and Sutherland-Hodgman clipping to a polygon ring. A ring
-     * crossing the antimeridian can return two scene-ready rings, one beside each world edge.
-     */
-    function clipMapPolygonRing(points, options = {}) {
-        const projection = normalizeMapProjection(options);
-        const clip = effectiveProjectionClip(projection);
-        if (clip === null)
-            return [];
-        const transformed = points.map((point) => projectionPosition(point, projection.rotate));
-        const ring = unwrapPolygonRing(transformed);
-        if (ring.length < 3)
-            return [];
-        const longitudes = ring.map(([lon]) => lon);
-        const minimumLongitude = Math.min(...longitudes);
-        const maximumLongitude = Math.max(...longitudes);
-        const minimumShift = Math.ceil((clip[0] - maximumLongitude) / 360);
-        const maximumShift = Math.floor((clip[2] - minimumLongitude) / 360);
-        const output = [];
-        const keys = new Set();
-        for (let shift = minimumShift; shift <= maximumShift; shift += 1) {
-            const shifted = ring.map(([lon, lat]) => [lon + shift * 360, lat]);
-            const clipped = sutherlandHodgmanRing(shifted, clip);
-            if (clipped.length < 3)
-                continue;
-            const normalized = clipped.map(([lon, lat]) => [projectionSafeLongitude(lon), lat]);
-            const key = normalized.map(([lon, lat]) => `${lon.toFixed(9)},${lat.toFixed(9)}`).join(';');
-            if (!keys.has(key)) {
-                keys.add(key);
-                output.push(normalized);
-            }
-        }
-        return output;
-    }
-    /** Projects longitude/latitude with rotation, clipping and back-face visibility. */
-    function projectMapPosition(point, options = {}) {
-        const projection = normalizeMapProjection(options);
-        let [lon, lat] = projectionPosition(point, projection.rotate);
-        const clip = projection.clip;
-        const insideClip = clip === undefined || (lon >= clip[0] && lon <= clip[2] && lat >= clip[1] && lat <= clip[3]);
-        const name = projection.name;
-        if (name === 'mercator') {
-            lat = clamp(lat, -85.05112878, 85.05112878);
-            return {
-                x: (lon + 180) / 360,
-                y: (1 - Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360)) / Math.PI) / 2,
-                visible: insideClip,
-            };
-        }
-        if (name === 'orthographic') {
-            const lambda = (lon * Math.PI) / 180;
-            const phi = (lat * Math.PI) / 180;
-            const cosine = Math.cos(phi) * Math.cos(lambda);
-            return {
-                x: 0.5 + Math.cos(phi) * Math.sin(lambda) * 0.5,
-                y: 0.5 - Math.sin(phi) * 0.5,
-                visible: insideClip && cosine >= 0,
-            };
-        }
-        return { x: (lon + 180) / 360, y: (90 - lat) / 180, visible: insideClip };
-    }
-    function geometryPositions(geometry) {
-        if (geometry.type === 'GeometryCollection')
-            return geometry.geometries.flatMap(geometryPositions);
-        const depth = new Map([
-            ['Point', 0],
-            ['MultiPoint', 1],
-            ['LineString', 1],
-            ['MultiLineString', 2],
-            ['Polygon', 2],
-            ['MultiPolygon', 3],
-        ]).get(geometry.type);
-        const flatten = (value, current) => current === 0
-            ? [value]
-            : value.flatMap((entry) => flatten(entry, current - 1));
-        return flatten(geometry.coordinates, depth);
-    }
-    /** Computes geographic bounds, choosing the shorter dateline-wrapped span. */
-    function mapBounds(collection) {
-        const points = collection.features.flatMap(({ geometry }) => geometry === null ? [] : geometryPositions(geometry));
-        if (points.length === 0)
-            throw new GraflumeError('INVALID_DATA', 'Cannot fit an empty map source.');
-        const latitudes = points.map(([, lat]) => lat);
-        const longitudes = points.map(([lon]) => wrapLongitude(lon)).sort((a, b) => a - b);
-        let largestGap = -1;
-        let gapIndex = 0;
-        for (let index = 0; index < longitudes.length; index += 1) {
-            const current = longitudes[index];
-            const next = index + 1 < longitudes.length ? longitudes[index + 1] : longitudes[0] + 360;
-            if (next - current > largestGap) {
-                largestGap = next - current;
-                gapIndex = index;
-            }
-        }
-        const west = longitudes[(gapIndex + 1) % longitudes.length];
-        let east = longitudes[gapIndex];
-        if (east < west)
-            east += 360;
-        return { west, south: Math.min(...latitudes), east, north: Math.max(...latitudes) };
-    }
-    /** Fits bounds into a viewport with padding using an explicit projection. */
-    function fitMapBounds(bounds, viewport, padding = 20, projection = 'mercator') {
-        const width = finite(viewport.width, '$.viewport.width');
-        const height = finite(viewport.height, '$.viewport.height');
-        if (width <= padding * 2 || height <= padding * 2)
-            throw new GraflumeError('INVALID_SPEC', 'Map viewport must exceed its padding.');
-        const west = longitude(bounds.west, '$.bounds.west');
-        const east = longitude(bounds.east, '$.bounds.east');
-        const south = latitude(bounds.south, '$.bounds.south');
-        const north = latitude(bounds.north, '$.bounds.north');
-        if (west > east || south > north)
-            throw new GraflumeError('INVALID_SPEC', '$.bounds must be ordered.');
-        const longitudeSpan = Math.min(360, east - west);
-        const centerLon = wrapLongitude((west + east) / 2);
-        const centerLat = (south + north) / 2;
-        const latitudeProjection = [
-            projectMapPosition([0, south], { name: projection }),
-            projectMapPosition([0, north], { name: projection }),
-        ];
-        const spanX = Math.max(1e-9, projection === 'orthographic'
-            ? longitudeSpan >= 180
-                ? 1
-                : Math.abs(projectMapPosition([longitudeSpan / 2, centerLat], { name: projection }).x -
-                    projectMapPosition([-longitudeSpan / 2, centerLat], { name: projection }).x)
-            : longitudeSpan / 360);
-        const spanY = Math.max(1e-9, Math.abs(latitudeProjection[1].y - latitudeProjection[0].y));
-        const scale = Math.min((width - padding * 2) / (width * spanX), (height - padding * 2) / (height * spanY));
-        return {
-            center: [centerLon, centerLat],
-            zoom: Math.log2(Math.max(scale, Number.EPSILON)),
-            bounds,
-        };
-    }
-    /** Great-circle route interpolation with dateline-safe spherical linear interpolation. */
-    function geodesicPath(start, end, segments = 64) {
-        const count = Math.floor(finite(segments, '$.segments'));
-        if (count < 1 || count > 10_000)
-            throw new GraflumeError('INVALID_SPEC', '$.segments must be from 1 to 10000.');
-        const vector = ([lon, lat]) => {
-            const lambda = (lon * Math.PI) / 180;
-            const phi = (lat * Math.PI) / 180;
-            return [
-                Math.cos(phi) * Math.cos(lambda),
-                Math.cos(phi) * Math.sin(lambda),
-                Math.sin(phi),
-            ];
-        };
-        const a = vector(start);
-        const b = vector(end);
-        const omega = Math.acos(clamp(a[0] * b[0] + a[1] * b[1] + a[2] * b[2], -1, 1));
-        return Array.from({ length: count + 1 }, (_, index) => {
-            const t = index / count;
-            const denominator = Math.sin(omega);
-            const left = omega < 1e-12 ? 1 - t : Math.sin((1 - t) * omega) / denominator;
-            const right = omega < 1e-12 ? t : Math.sin(t * omega) / denominator;
-            const x = a[0] * left + b[0] * right;
-            const y = a[1] * left + b[1] * right;
-            const z = a[2] * left + b[2] * right;
-            return [
-                wrapLongitude((Math.atan2(y, x) * 180) / Math.PI),
-                (Math.atan2(z, Math.hypot(x, y)) * 180) / Math.PI,
-            ];
-        });
-    }
-    /** Generates longitude/latitude graticules as ordinary map line features. */
-    function mapGraticule(step = [30, 30]) {
-        const lonStep = finite(step[0], '$.step[0]');
-        const latStep = finite(step[1], '$.step[1]');
-        if (lonStep <= 0 || latStep <= 0)
-            throw new GraflumeError('INVALID_SPEC', 'Graticule steps must be positive.');
-        const features = [];
-        for (let lon = -180; lon <= 180; lon += lonStep)
-            features.push({
-                type: 'Feature',
-                properties: { kind: 'longitude', value: lon },
-                geometry: {
-                    type: 'LineString',
-                    coordinates: Array.from({ length: 181 }, (_, index) => [lon, -90 + index]),
-                },
-            });
-        for (let lat = -90 + latStep; lat < 90; lat += latStep)
-            features.push({
-                type: 'Feature',
-                properties: { kind: 'latitude', value: lat },
-                geometry: {
-                    type: 'LineString',
-                    coordinates: Array.from({ length: 361 }, (_, index) => [-180 + index, lat]),
-                },
-            });
-        return { type: 'FeatureCollection', features };
-    }
-    /** Closed source/layer lifecycle with explicit ordering and visibility. */
-    class MapLayerRegistry {
-        #sources = new Map();
-        #layers = [];
-        #revision = 0;
-        addSource(id, source) {
-            const normalized = id.trim();
-            if (normalized === '' || this.#sources.has(normalized))
-                throw new GraflumeError('INVALID_SPEC', `Map source "${id}" is empty or already registered.`);
-            this.#sources.set(normalized, source);
-            this.#revision += 1;
-        }
-        removeSource(id) {
-            if (this.#layers.some(({ source }) => source === id))
-                throw new GraflumeError('INVALID_SPEC', `Map source "${id}" is still used by a layer.`);
-            if (!this.#sources.delete(id))
-                throw new GraflumeError('INVALID_SPEC', `Unknown map source "${id}".`);
-            this.#revision += 1;
-        }
-        addLayer(layer, before) {
-            if (this.#layers.some(({ id }) => id === layer.id))
-                throw new GraflumeError('INVALID_SPEC', `Duplicate map layer "${layer.id}".`);
-            if (!this.#sources.has(layer.source))
-                throw new GraflumeError('INVALID_SPEC', `Unknown map source "${layer.source}".`);
-            const index = before === undefined
-                ? this.#layers.length
-                : this.#layers.findIndex(({ id }) => id === before);
-            if (index < 0)
-                throw new GraflumeError('INVALID_SPEC', `Unknown before-layer "${before}".`);
-            this.#layers.splice(index, 0, Object.freeze({ ...layer }));
-            this.#revision += 1;
-        }
-        removeLayer(id) {
-            const index = this.#layers.findIndex((layer) => layer.id === id);
-            if (index < 0)
-                throw new GraflumeError('INVALID_SPEC', `Unknown map layer "${id}".`);
-            this.#layers.splice(index, 1);
-            this.#revision += 1;
-        }
-        setVisibility(id, visible) {
-            const index = this.#layers.findIndex((layer) => layer.id === id);
-            if (index < 0)
-                throw new GraflumeError('INVALID_SPEC', `Unknown map layer "${id}".`);
-            this.#layers[index] = Object.freeze({ ...this.#layers[index], visible });
-            this.#revision += 1;
-        }
-        source(id) {
-            return this.#sources.get(id) ?? null;
-        }
-        layer(id) {
-            return this.#layers.find((layer) => layer.id === id) ?? null;
-        }
-        snapshot() {
-            return Object.freeze({
-                revision: this.#revision,
-                sources: Object.freeze([...this.#sources.keys()]),
-                layers: Object.freeze(this.#layers.map((layer) => Object.freeze({ ...layer }))),
-                attributions: Object.freeze([
-                    ...new Set(this.#layers.flatMap(({ attribution }) => attribution === undefined ? [] : [attribution])),
-                ]),
-            });
-        }
-    }
-    function normalizeTile(tile) {
-        const z = Math.floor(finite(tile.z, '$.tile.z'));
-        const x = Math.floor(finite(tile.x, '$.tile.x'));
-        const y = Math.floor(finite(tile.y, '$.tile.y'));
-        if (z < 0 || z > 24)
-            throw new GraflumeError('INVALID_SPEC', 'Tile zoom must be from 0 to 24.');
-        const count = 2 ** z;
-        if (y < 0 || y >= count)
-            throw new GraflumeError('INVALID_SPEC', 'Tile y is outside the zoom pyramid.');
-        return { z, x: ((x % count) + count) % count, y };
-    }
-    function tileUrl(source, tile) {
-        const normalized = normalizeTile(tile);
-        if (!source.template.includes('{z}') ||
-            !source.template.includes('{x}') ||
-            !source.template.includes('{y}'))
-            throw new GraflumeError('INVALID_SPEC', 'Tile template must contain {z}, {x}, and {y}.');
-        const subdomains = source.subdomains ?? [];
-        const subdomain = subdomains.length === 0 ? '' : subdomains[(normalized.x + normalized.y) % subdomains.length];
-        return source.template
-            .replaceAll('{z}', String(normalized.z))
-            .replaceAll('{x}', String(normalized.x))
-            .replaceAll('{y}', String(normalized.y))
-            .replaceAll('{s}', subdomain);
-    }
-    /** Provider-backed tile loader with request deduplication, abort, bounded LRU cache, expiry and attribution. */
-    class MapTileManager {
-        #source;
-        #fetcher;
-        #maximumEntries;
-        #maximumConcurrent;
-        #cache = new Map();
-        #pending = new Map();
-        #controllers = new Map();
-        #destroyed = false;
-        constructor(source, fetcher, maximumEntries = 128, maximumConcurrent = 8) {
-            if (source.attribution.trim() === '')
-                throw new GraflumeError('INVALID_SPEC', 'Provider-backed tiles require attribution.');
-            this.#source = Object.freeze({ ...source });
-            this.#fetcher = fetcher;
-            this.#maximumEntries = Math.floor(finite(maximumEntries, '$.maximumEntries'));
-            if (this.#maximumEntries < 1 || this.#maximumEntries > 4_096)
-                throw new GraflumeError('INVALID_SPEC', '$.maximumEntries must be from 1 to 4096.');
-            this.#maximumConcurrent = Math.floor(finite(maximumConcurrent, '$.maximumConcurrent'));
-            if (this.#maximumConcurrent < 1 || this.#maximumConcurrent > 64)
-                throw new GraflumeError('INVALID_SPEC', '$.maximumConcurrent must be from 1 to 64.');
-        }
-        get attribution() {
-            return this.#source.attribution;
-        }
-        async load(tile, signal) {
-            if (this.#destroyed)
-                throw new GraflumeError('INVALID_DATA', 'Map tile manager has been destroyed.');
-            const url = tileUrl(this.#source, tile);
-            const cached = this.#cache.get(url);
-            if (cached !== undefined && (cached.expiresAt === undefined || cached.expiresAt > Date.now())) {
-                this.#cache.delete(url);
-                this.#cache.set(url, cached);
-                return cached;
-            }
-            this.#cache.delete(url);
-            const existing = this.#pending.get(url);
-            if (existing !== undefined)
-                return existing;
-            const controller = new AbortController();
-            const abort = () => controller.abort(signal?.reason);
-            if (signal?.aborted === true)
-                controller.abort(signal.reason);
-            else
-                signal?.addEventListener('abort', abort, { once: true });
-            const request = this.#fetcher(url, controller.signal)
-                .then((response) => {
-                if (!(response.bytes instanceof Uint8Array) ||
-                    response.bytes.length === 0 ||
-                    response.mimeType.trim() === '')
-                    throw new GraflumeError('INVALID_DATA', 'Tile provider returned an invalid response.');
-                const frozen = Object.freeze({ ...response, bytes: response.bytes.slice() });
-                this.#cache.set(url, frozen);
-                while (this.#cache.size > this.#maximumEntries)
-                    this.#cache.delete(this.#cache.keys().next().value);
-                return frozen;
-            })
-                .finally(() => {
-                signal?.removeEventListener('abort', abort);
-                this.#pending.delete(url);
-                this.#controllers.delete(url);
-            });
-            this.#pending.set(url, request);
-            this.#controllers.set(url, controller);
-            return request;
-        }
-        /** Loads a bounded tile set with stable output order and explicit concurrency. */
-        async loadMany(tiles, signal) {
-            if (tiles.length > this.#maximumEntries * 4)
-                throw new GraflumeError('INVALID_SPEC', `Tile batch has ${tiles.length} entries; the bounded limit is ${this.#maximumEntries * 4}.`);
-            const output = new Array(tiles.length);
-            let cursor = 0;
-            const worker = async () => {
-                while (cursor < tiles.length) {
-                    const index = cursor;
-                    cursor += 1;
-                    output[index] = await this.load(tiles[index], signal);
-                }
-            };
-            await Promise.all(Array.from({ length: Math.min(this.#maximumConcurrent, tiles.length) }, () => worker()));
-            return Object.freeze(output);
-        }
-        clear() {
-            this.#cache.clear();
-        }
-        /** Aborts every provider request and permanently releases this manager. */
-        destroy(reason = new DOMException('Map tile manager destroyed.', 'AbortError')) {
-            if (this.#destroyed)
-                return;
-            this.#destroyed = true;
-            for (const controller of this.#controllers.values())
-                controller.abort(reason);
-            this.#controllers.clear();
-            this.#pending.clear();
-            this.#cache.clear();
-        }
-        state() {
-            return Object.freeze({
-                cached: this.#cache.size,
-                pending: this.#pending.size,
-                maximumEntries: this.#maximumEntries,
-                maximumConcurrent: this.#maximumConcurrent,
-                destroyed: this.#destroyed,
-            });
-        }
-    }
-    /** Default browser/server fetch adapter with cache expiry derived from response headers. */
-    const fetchMapTile = async (url, signal) => {
-        if (typeof fetch !== 'function')
-            throw new GraflumeError('UNSUPPORTED_RENDERER', 'Provider-backed tiles require fetch or an injected TileFetcher.');
-        const response = await fetch(url, { signal });
-        if (!response.ok)
-            throw new GraflumeError('INVALID_DATA', `Tile provider returned HTTP ${response.status}.`);
-        const bytes = new Uint8Array(await response.arrayBuffer());
-        const mimeType = response.headers.get('content-type')?.split(';', 1)[0]?.trim() ?? '';
-        const cacheControl = response.headers.get('cache-control') ?? '';
-        const maxAge = /(?:^|,)\s*max-age=(\d+)/i.exec(cacheControl)?.[1];
-        return {
-            bytes,
-            mimeType,
-            ...(maxAge === undefined ? {} : { expiresAt: Date.now() + Number(maxAge) * 1_000 }),
-        };
-    };
-    function createMapTileManager(source, options = {}) {
-        return new MapTileManager(source, options.fetcher ?? fetchMapTile, options.maximumEntries, options.maximumConcurrent);
-    }
-    function cloneMapProjection(projection) {
-        return Object.freeze({
-            name: projection.name,
-            ...(projection.rotate === undefined
-                ? {}
-                : { rotate: Object.freeze([...projection.rotate]) }),
-            ...(projection.clip === undefined
-                ? {}
-                : {
-                    clip: Object.freeze([...projection.clip]),
-                }),
-        });
-    }
-    /**
-     * Persistent source/layer runtime that binds ordered layer state to real
-     * provider requests. It is renderer-neutral and can be shared by custom map
-     * controls, server prefetchers, or a Canvas chart lifecycle.
-     */
-    class MapRuntime {
-        layers = new MapLayerRegistry();
-        #options;
-        #managers = new Map();
-        #projection;
-        #revision = 0;
-        #destroyed = false;
-        constructor(options = {}) {
-            const { projection, ...tileOptions } = options;
-            this.#options = { ...tileOptions };
-            this.#projection = normalizeMapProjection(projection);
-        }
-        addSource(id, source) {
-            this.#assertAlive();
-            this.layers.addSource(id, source);
-            this.#revision += 1;
-            return this;
-        }
-        removeSource(id) {
-            this.#assertAlive();
-            this.layers.removeSource(id);
-            this.#managers.get(id)?.destroy();
-            this.#managers.delete(id);
-            this.#revision += 1;
-            return this;
-        }
-        addLayer(layer, before) {
-            this.#assertAlive();
-            this.layers.addLayer(layer, before);
-            this.#revision += 1;
-            return this;
-        }
-        removeLayer(id) {
-            this.#assertAlive();
-            this.layers.removeLayer(id);
-            this.#revision += 1;
-            return this;
-        }
-        setVisibility(id, visible) {
-            this.#assertAlive();
-            this.layers.setVisibility(id, visible);
-            this.#revision += 1;
-            return this;
-        }
-        getProjection() {
-            return cloneMapProjection(this.#projection);
-        }
-        setProjection(projection) {
-            this.#assertAlive();
-            const normalized = normalizeMapProjection(projection);
-            if (JSON.stringify(normalized) !== JSON.stringify(this.#projection)) {
-                this.#projection = normalized;
-                this.#revision += 1;
-            }
-            return this;
-        }
-        project(point) {
-            this.#assertAlive();
-            return projectMapPosition(point, this.#projection);
-        }
-        async loadLayerTiles(layerId, tiles, signal) {
-            this.#assertAlive();
-            const layer = this.layers.layer(layerId);
-            if (layer === null)
-                throw new GraflumeError('INVALID_SPEC', `Unknown map layer "${layerId}".`);
-            if (layer.visible === false)
-                return Object.freeze([]);
-            const source = this.layers.source(layer.source);
-            if (source === null || !('template' in source))
-                throw new GraflumeError('INVALID_SPEC', `Map layer "${layerId}" is not backed by a tile provider.`);
-            let manager = this.#managers.get(layer.source);
-            if (manager === undefined) {
-                manager = createMapTileManager(source, this.#options);
-                this.#managers.set(layer.source, manager);
-            }
-            return manager.loadMany(tiles, signal);
-        }
-        snapshot() {
-            return Object.freeze({
-                destroyed: this.#destroyed,
-                revision: this.#revision,
-                projection: cloneMapProjection(this.#projection),
-                registry: this.layers.snapshot(),
-                providers: Object.freeze(Object.fromEntries([...this.#managers].map(([id, manager]) => [id, manager.state()]))),
-            });
-        }
-        destroy(reason) {
-            if (this.#destroyed)
-                return;
-            this.#destroyed = true;
-            for (const manager of this.#managers.values())
-                manager.destroy(reason);
-            this.#managers.clear();
-        }
-        #assertAlive() {
-            if (this.#destroyed)
-                throw new GraflumeError('INVALID_DATA', 'Map runtime has been destroyed.');
-        }
-    }
-    function createMapRuntime(options = {}) {
-        return new MapRuntime(options);
-    }
-
     function stringOption$1(context, name) {
         const value = context.layer.mark.options[name];
         return typeof value === 'string' ? value : undefined;
@@ -58383,6 +59361,18 @@ var Graflume = (function (exports) {
     function booleanOption$1(context, name) {
         const value = context.layer.mark.options[name];
         return typeof value === 'boolean' ? value : undefined;
+    }
+    function geometryDetailOption(context) {
+        const value = context.layer.mark.options.geometryDetail;
+        if (value === undefined)
+            return 'auto';
+        if (value === 'auto' ||
+            value === 'low' ||
+            value === 'medium' ||
+            value === 'high' ||
+            value === 'full')
+            return value;
+        throw new GraflumeError('INVALID_SPEC', `Unsupported map geometryDetail "${String(value)}".`);
     }
     function numberArray(value, length) {
         return Array.isArray(value) &&
@@ -58488,6 +59478,358 @@ var Graflume = (function (exports) {
             ? undefined
             : feature.properties[field];
     }
+    function mapLabelSettings(context) {
+        const value = context.layer.mark.options.labels;
+        if (value === undefined || value === false)
+            return null;
+        if (value === true)
+            return { maximum: 120, fontSize: 10, padding: 3, collision: 'hide' };
+        if (value === null || typeof value !== 'object' || Array.isArray(value))
+            throw new GraflumeError('INVALID_SPEC', 'Map labels must be boolean or an options object.');
+        const candidate = value;
+        const allowed = new Set([
+            'field',
+            'longitudeField',
+            'latitudeField',
+            'maximum',
+            'fontSize',
+            'padding',
+            'collision',
+        ]);
+        const unknown = Object.keys(candidate).find((key) => !allowed.has(key));
+        if (unknown !== undefined)
+            throw new GraflumeError('INVALID_SPEC', `Unknown map labels property "${unknown}".`);
+        const field = candidate.field;
+        if (field !== undefined &&
+            (typeof field !== 'string' || field.trim() === '' || field.length > 256))
+            throw new GraflumeError('INVALID_SPEC', 'Map labels.field must be a non-empty string up to 256 characters.');
+        const integer = (input, fallback, minimum, maximum, path) => {
+            const output = input ?? fallback;
+            if (!Number.isInteger(output) || output < minimum || output > maximum)
+                throw new GraflumeError('INVALID_SPEC', `${path} must be an integer from ${minimum} to ${maximum}.`);
+            return output;
+        };
+        const collision = candidate.collision ?? 'hide';
+        if (collision !== 'hide' && collision !== 'none')
+            throw new GraflumeError('INVALID_SPEC', 'Map labels.collision must be "hide" or "none".');
+        const coordinateField = (name) => {
+            const coordinate = candidate[name];
+            if (coordinate !== undefined &&
+                (typeof coordinate !== 'string' || coordinate.trim() === '' || coordinate.length > 256))
+                throw new GraflumeError('INVALID_SPEC', `Map labels.${name} must be a non-empty string up to 256 characters.`);
+            return typeof coordinate === 'string' ? coordinate.trim() : undefined;
+        };
+        const longitudeField = coordinateField('longitudeField');
+        const latitudeField = coordinateField('latitudeField');
+        if ((longitudeField === undefined) !== (latitudeField === undefined))
+            throw new GraflumeError('INVALID_SPEC', 'Map labels.longitudeField and labels.latitudeField must be provided together.');
+        return {
+            ...(typeof field === 'string' ? { field: field.trim() } : {}),
+            ...(longitudeField === undefined ? {} : { longitudeField, latitudeField: latitudeField }),
+            maximum: integer(candidate.maximum, 120, 1, 1_000, 'Map labels.maximum'),
+            fontSize: integer(candidate.fontSize, 10, 6, 40, 'Map labels.fontSize'),
+            padding: integer(candidate.padding, 3, 0, 24, 'Map labels.padding'),
+            collision,
+        };
+    }
+    function polygonArea(points) {
+        let area = 0;
+        for (let index = 0; index < points.length; index += 1) {
+            const current = points[index];
+            const next = points[(index + 1) % points.length];
+            area += current[0] * next[1] - next[0] * current[1];
+        }
+        return Math.abs(area) / 2;
+    }
+    function unwrapLabelRing(points, referenceLongitude) {
+        if (points.length === 0)
+            return points;
+        const output = [points[0]];
+        for (const point of points.slice(1)) {
+            const previous = output[output.length - 1];
+            let longitude = point[0];
+            while (longitude - previous[0] > 180)
+                longitude -= 360;
+            while (longitude - previous[0] < -180)
+                longitude += 360;
+            output.push([longitude, point[1]]);
+        }
+        if (referenceLongitude !== undefined) {
+            const mean = output.reduce((sum, [longitude]) => sum + longitude, 0) / output.length;
+            let shift = 0;
+            while (mean + shift - referenceLongitude > 180)
+                shift -= 360;
+            while (mean + shift - referenceLongitude < -180)
+                shift += 360;
+            if (shift !== 0)
+                return output.map(([longitude, latitude]) => [longitude + shift, latitude]);
+        }
+        return output;
+    }
+    function polygonAnchor(points) {
+        let area = 0;
+        let longitude = 0;
+        let latitude = 0;
+        for (let index = 0; index < points.length; index += 1) {
+            const current = points[index];
+            const next = points[(index + 1) % points.length];
+            const cross = current[0] * next[1] - next[0] * current[1];
+            area += cross;
+            longitude += (current[0] + next[0]) * cross;
+            latitude += (current[1] + next[1]) * cross;
+        }
+        if (Math.abs(area) < 1e-12) {
+            const total = points.reduce((sum, point) => [sum[0] + point[0], sum[1] + point[1]], [0, 0]);
+            return [total[0] / points.length, total[1] / points.length];
+        }
+        return [longitude / (3 * area), latitude / (3 * area)];
+    }
+    function pointInRing(point, ring) {
+        let inside = false;
+        for (let index = 0, previous = ring.length - 1; index < ring.length; previous = index++) {
+            const current = ring[index];
+            const prior = ring[previous];
+            if (current[1] > point[1] !== prior[1] > point[1] &&
+                point[0] <
+                    ((prior[0] - current[0]) * (point[1] - current[1])) / (prior[1] - current[1]) + current[0])
+                inside = !inside;
+        }
+        return inside;
+    }
+    function pointSegmentDistance(point, start, end) {
+        const dx = end[0] - start[0];
+        const dy = end[1] - start[1];
+        const denominator = dx * dx + dy * dy;
+        const amount = denominator === 0
+            ? 0
+            : Math.max(0, Math.min(1, ((point[0] - start[0]) * dx + (point[1] - start[1]) * dy) / denominator));
+        return Math.hypot(point[0] - (start[0] + dx * amount), point[1] - (start[1] + dy * amount));
+    }
+    function polygonRepresentativePoint(outer, holes) {
+        const centroid = polygonAnchor(outer);
+        const inside = (point) => pointInRing(point, outer) && !holes.some((hole) => pointInRing(point, hole));
+        if (inside(centroid))
+            return centroid;
+        let west = outer[0][0];
+        let east = west;
+        let south = outer[0][1];
+        let north = south;
+        for (const [longitude, latitude] of outer) {
+            west = Math.min(west, longitude);
+            east = Math.max(east, longitude);
+            south = Math.min(south, latitude);
+            north = Math.max(north, latitude);
+        }
+        let best = null;
+        let bestDistance = -1;
+        for (let row = 0; row < 12; row += 1) {
+            for (let column = 0; column < 12; column += 1) {
+                const candidate = [
+                    west + ((column + 0.5) / 12) * (east - west),
+                    south + ((row + 0.5) / 12) * (north - south),
+                ];
+                if (!inside(candidate))
+                    continue;
+                const rings = [outer, ...holes];
+                let distance = Number.POSITIVE_INFINITY;
+                for (const ring of rings)
+                    for (let index = 0; index < ring.length; index += 1)
+                        distance = Math.min(distance, pointSegmentDistance(candidate, ring[index], ring[(index + 1) % ring.length]));
+                if (distance > bestDistance) {
+                    best = candidate;
+                    bestDistance = distance;
+                }
+            }
+        }
+        return best ?? outer[0];
+    }
+    function featureAnchor(feature, settings) {
+        if (feature.geometry === null)
+            return null;
+        const parts = geometryPaths(feature.geometry);
+        const polygons = parts
+            .filter((part) => part.kind === 'polygon')
+            .map((part) => {
+            const outer = unwrapLabelRing(part.outer);
+            const reference = outer.reduce((sum, [longitude]) => sum + longitude, 0) / outer.length;
+            return {
+                outer,
+                holes: part.holes.map((hole) => unwrapLabelRing(hole, reference)),
+            };
+        });
+        const largestArea = polygons.length === 0 ? 0 : Math.max(...polygons.map(({ outer }) => polygonArea(outer)));
+        const defaultLongitude = feature.properties?.LABEL_X ??
+            feature.properties?.label_x ??
+            feature.properties?.labelLongitude;
+        const defaultLatitude = feature.properties?.LABEL_Y ?? feature.properties?.label_y ?? feature.properties?.labelLatitude;
+        const longitude = settings.longitudeField === undefined
+            ? defaultLongitude
+            : feature.properties?.[settings.longitudeField];
+        const latitude = settings.latitudeField === undefined
+            ? defaultLatitude
+            : feature.properties?.[settings.latitudeField];
+        if (typeof longitude === 'number' &&
+            Number.isFinite(longitude) &&
+            typeof latitude === 'number' &&
+            Number.isFinite(latitude) &&
+            longitude >= -180 &&
+            longitude <= 180 &&
+            latitude >= -90 &&
+            latitude <= 90)
+            return { point: [longitude, latitude], area: largestArea };
+        if (polygons.length > 0) {
+            const largest = polygons.reduce((best, candidate) => polygonArea(candidate.outer) > polygonArea(best.outer) ? candidate : best);
+            return {
+                point: (() => {
+                    const [longitude, latitude] = polygonRepresentativePoint(largest.outer, largest.holes);
+                    return [wrapLongitude(longitude), latitude];
+                })(),
+                area: polygonArea(largest.outer),
+            };
+        }
+        const points = parts.flatMap((part) => (part.kind === 'polygon' ? part.outer : part.points));
+        const point = points[Math.floor(points.length / 2)];
+        return point === undefined ? null : { point, area: 0 };
+    }
+    function featureLabel(feature, field) {
+        const value = field === '$id'
+            ? feature.id
+            : field === undefined
+                ? (feature.properties?.name ??
+                    feature.properties?.NAME ??
+                    feature.properties?.name_en ??
+                    feature.properties?.NAME_EN ??
+                    feature.id)
+                : feature.properties?.[field];
+        if (typeof value !== 'string' && typeof value !== 'number')
+            return null;
+        const text = String(value).trim();
+        return text === '' ? null : text.slice(0, 120);
+    }
+    function mapFeatureLabelNodes(context, collection, settings, map) {
+        const capacity = Math.max(1, Math.floor((context.plot.width * context.plot.height) / 2_800));
+        const maximum = Math.min(settings.maximum, settings.collision === 'none' ? settings.maximum : capacity);
+        const occupied = [];
+        const candidates = collection.features.flatMap((feature, featureIndex) => {
+            const label = featureLabel(feature, settings.field);
+            const anchor = featureAnchor(feature, settings);
+            const point = anchor === null ? null : map(anchor.point);
+            return label === null ||
+                anchor === null ||
+                point === null ||
+                point.x < context.plot.x ||
+                point.x > context.plot.x + context.plot.width ||
+                point.y < context.plot.y ||
+                point.y > context.plot.y + context.plot.height
+                ? []
+                : [{ feature, featureIndex, label, point, area: anchor.area }];
+        });
+        candidates.sort((left, right) => right.area - left.area || left.featureIndex - right.featureIndex);
+        const nodes = [];
+        for (const candidate of candidates) {
+            if (nodes.length >= maximum)
+                break;
+            const widthUnits = Array.from(candidate.label).reduce((sum, character) => sum +
+                (/\p{Extended_Pictographic}|\p{Script=Han}|\p{Script=Hangul}|\p{Script=Hiragana}|\p{Script=Katakana}/u.test(character)
+                    ? 1
+                    : 0.58), 0);
+            const width = Math.max(settings.fontSize, widthUnits * settings.fontSize);
+            const box = {
+                left: candidate.point.x - width / 2 - settings.padding,
+                right: candidate.point.x + width / 2 + settings.padding,
+                top: candidate.point.y - settings.fontSize / 2 - settings.padding,
+                bottom: candidate.point.y + settings.fontSize / 2 + settings.padding,
+            };
+            if (settings.collision === 'hide' &&
+                occupied.some((entry) => box.left < entry.right &&
+                    box.right > entry.left &&
+                    box.top < entry.bottom &&
+                    box.bottom > entry.top))
+                continue;
+            occupied.push(box);
+            nodes.push({
+                type: 'text',
+                ...nodeBase(`${context.layer.id}:map-label:${candidate.featureIndex}`, {
+                    zIndex: context.layer.zIndex + 8,
+                }),
+                x: candidate.point.x,
+                y: candidate.point.y,
+                text: candidate.label,
+                fill: context.theme.colors.text,
+                fontFamily: context.theme.typography.fontFamily,
+                fontSize: settings.fontSize,
+                fontWeight: 600,
+                align: 'center',
+                baseline: 'middle',
+                rotation: 0,
+            });
+        }
+        return nodes;
+    }
+    function mapJoinKey(value, caseSensitive) {
+        if (!(typeof value === 'string' ||
+            (typeof value === 'number' && Number.isFinite(value)) ||
+            typeof value === 'boolean'))
+            return null;
+        const key = `${typeof value}:${String(value).trim()}`;
+        return caseSensitive || typeof value !== 'string' ? key : key.toLocaleUpperCase('en-US');
+    }
+    function mapFeatureJoin(context) {
+        const featureField = context.layer.mark.fields.featureKey;
+        const dataField = context.layer.mark.fields.dataKey;
+        if (featureField === undefined && dataField === undefined)
+            return null;
+        if (featureField === undefined || dataField === undefined)
+            throw new GraflumeError('INVALID_SPEC', 'Map feature joins require both mark.fields.featureKey and mark.fields.dataKey.');
+        if (!context.table.has(dataField))
+            throw new GraflumeError('INVALID_DATA', `Map data join field "${dataField}" is missing.`);
+        const caseSensitive = booleanOption$1(context, 'joinCaseSensitive') ?? false;
+        const duplicate = stringOption$1(context, 'joinDuplicate') ?? 'error';
+        if (duplicate !== 'error' && duplicate !== 'first' && duplicate !== 'last')
+            throw new GraflumeError('INVALID_SPEC', 'Map joinDuplicate must be "error", "first", or "last".');
+        const unmatched = stringOption$1(context, 'joinUnmatched') ?? 'show';
+        if (unmatched !== 'show' && unmatched !== 'hide' && unmatched !== 'error')
+            throw new GraflumeError('INVALID_SPEC', 'Map joinUnmatched must be "show", "hide", or "error".');
+        const valueField = context.layer.mark.fields.color;
+        if (valueField !== undefined && !context.table.has(valueField))
+            throw new GraflumeError('INVALID_DATA', `Map join color field "${valueField}" is missing.`);
+        const entries = new Map();
+        for (let rowIndex = 0; rowIndex < context.table.length; rowIndex += 1) {
+            const key = mapJoinKey(context.table.value(rowIndex, dataField), caseSensitive);
+            if (key === null)
+                continue;
+            const value = valueField === undefined ? null : numericDataValue(context.table.value(rowIndex, valueField));
+            if (entries.has(key)) {
+                if (duplicate === 'error')
+                    throw new GraflumeError('INVALID_DATA', `Map data join contains duplicate key "${key}".`);
+                if (duplicate === 'first')
+                    continue;
+            }
+            entries.set(key, { rowIndex, value });
+        }
+        const values = [...entries.values()].flatMap(({ value }) => (value === null ? [] : [value]));
+        let minimum = values[0] ?? 0;
+        let maximum = values[0] ?? 0;
+        for (const value of values) {
+            minimum = Math.min(minimum, value);
+            maximum = Math.max(maximum, value);
+        }
+        return {
+            featureField,
+            dataField,
+            ...(valueField === undefined ? {} : { valueField }),
+            entries,
+            minimum,
+            maximum,
+            unmatched,
+            caseSensitive,
+        };
+    }
+    function joinedMapFeature(feature, join) {
+        if (join === null)
+            return null;
+        return (join.entries.get(mapJoinKey(join.featureField === '$id' ? feature.id : feature.properties?.[join.featureField], join.caseSensitive) ?? '') ?? null);
+    }
     function densifyGeodesicLine(points, segments) {
         if (points.length < 2)
             return points;
@@ -58498,10 +59840,42 @@ var Graflume = (function (exports) {
     }
     /** GeoJSON/TopoJSON map compiler with lifecycle, fit/clip/projection, geodesics, and provider tiles. */
     const compileAdvancedMapMark = (context) => {
-        const collection = sourceCollection(context);
+        const source = sourceCollection(context);
         const tileSource = tileSourceOption(context);
-        if (collection === null && tileSource === null)
+        if (source === null && tileSource === null)
             return compileMapMark(context);
+        const scopeInput = context.layer.mark.options.mapScope;
+        if (source === null && scopeInput !== undefined)
+            throw new GraflumeError('INVALID_SPEC', 'Map feature scope requires GeoJSON or TopoJSON when a tile source is used.');
+        const scope = scopeInput === undefined ? undefined : normalizeMapFeatureScope(scopeInput);
+        const selected = source === null ? null : scope === undefined ? source : scopeGeoJsonFeatures(source, scope);
+        const join = mapFeatureJoin(context);
+        const unmatched = selected === null || join === null
+            ? []
+            : selected.features.filter((feature) => joinedMapFeature(feature, join) === null);
+        if (join?.unmatched === 'error' && unmatched.length > 0)
+            throw new GraflumeError('INVALID_DATA', `Map feature join left ${unmatched.length} selected feature(s) without data.`);
+        const visible = selected === null || join?.unmatched !== 'hide'
+            ? selected
+            : Object.freeze({
+                type: 'FeatureCollection',
+                features: Object.freeze(selected.features.filter((feature) => joinedMapFeature(feature, join) !== null)),
+            });
+        if (visible !== null && visible.features.length === 0)
+            throw new GraflumeError('INVALID_DATA', 'Map feature join selected no visible features.');
+        const maximumFeatures = numberOption$1(context, 'maximumFeatures') ?? 50_000;
+        if (!Number.isInteger(maximumFeatures) || maximumFeatures < 1 || maximumFeatures > 50_000)
+            throw new GraflumeError('INVALID_SPEC', 'Map maximumFeatures must be an integer from 1 to 50000.');
+        if (visible !== null && visible.features.length > maximumFeatures)
+            throw new GraflumeError('INVALID_DATA', `Map scope selected ${visible.features.length} features, above the ${maximumFeatures} feature budget.`);
+        const geometryBudget = numberOption$1(context, 'geometryBudget') ?? context.performance.maxLinePoints;
+        const prepared = visible === null
+            ? null
+            : prepareMapGeometry(visible, {
+                detail: geometryDetailOption(context),
+                maximumPositions: Math.max(1_000, Math.min(1_000_000, Math.floor(geometryBudget))),
+            });
+        const collection = prepared?.collection ?? null;
         const registry = new MapLayerRegistry();
         if (collection !== null)
             registry.addSource('features', collection);
@@ -58666,10 +60040,30 @@ var Graflume = (function (exports) {
         collection?.features.forEach((feature, featureIndex) => {
             if (feature.geometry === null)
                 return;
-            const value = propertyValue(feature, colorField);
-            const colorIndex = typeof value === 'number' ? Math.abs(Math.floor(value)) : featureIndex;
+            const joined = joinedMapFeature(feature, join);
+            const value = join === null ? propertyValue(feature, colorField) : joined?.value;
+            const numeric = typeof value === 'number' && Number.isFinite(value) ? value : null;
+            const colorIndex = numeric === null ? featureIndex : Math.abs(Math.floor(numeric));
+            const ratio = numeric === null || join === null || join.maximum === join.minimum
+                ? null
+                : (numeric - join.minimum) / (join.maximum - join.minimum);
+            const rawJoinKey = join === null
+                ? null
+                : join.featureField === '$id'
+                    ? feature.id
+                    : feature.properties?.[join.featureField];
+            const tooltipJoinKey = rawJoinKey === null ||
+                typeof rawJoinKey === 'string' ||
+                typeof rawJoinKey === 'number' ||
+                typeof rawJoinKey === 'boolean'
+                ? rawJoinKey
+                : rawJoinKey === undefined
+                    ? null
+                    : JSON.stringify(rawJoinKey).slice(0, 512);
             const color = context.layer.mark.fill ??
-                categoricalColor(context.theme, colorIndex, collection.features.length);
+                (ratio === null
+                    ? categoricalColor(context.theme, colorIndex, collection.features.length)
+                    : mappedContinuousColor(context.theme, ratio, 'endpoints'));
             geometryPaths(feature.geometry).forEach((path, pathIndex) => {
                 const geodesicApplied = booleanOption$1(context, 'geodesic') === true &&
                     path.kind === 'line' &&
@@ -58679,13 +60073,22 @@ var Graflume = (function (exports) {
                     : path.kind === 'polygon'
                         ? path.outer
                         : path.points;
+                const rowIndex = joined?.rowIndex ?? featureIndex;
+                const sourceDatum = joined === null ? null : context.table.row(joined.rowIndex);
                 const datum = {
                     layerId: context.layer.id,
-                    rowIndex: featureIndex,
+                    rowIndex,
                     datum: {
+                        ...(sourceDatum ?? {}),
                         featureIndex,
                         geometry: feature.geometry?.type ?? 'null',
                         properties: JSON.stringify(feature.properties),
+                        scope: scope?.level ?? 'all',
+                        selectedFeatures: collection.features.length,
+                        sourcePositions: prepared?.plan.sourcePositions ?? 0,
+                        renderedPositions: prepared?.plan.renderedPositions ?? 0,
+                        detail: prepared?.plan.detail ?? 'none',
+                        joinValue: numeric,
                     },
                     tooltip: {
                         featureIndex,
@@ -58699,6 +60102,12 @@ var Graflume = (function (exports) {
                         source: 'features',
                         layer: 'features',
                         holes: path.kind === 'polygon' ? path.holes.length : 0,
+                        ...(join === null
+                            ? {}
+                            : {
+                                joinKey: tooltipJoinKey,
+                                joinValue: numeric,
+                            }),
                     },
                 };
                 if (path.kind === 'point') {
@@ -58775,6 +60184,9 @@ var Graflume = (function (exports) {
                 }
             });
         });
+        const labels = mapLabelSettings(context);
+        if (collection !== null && labels !== null)
+            nodes.push(...mapFeatureLabelNodes(context, collection, labels, map));
         lifecycle.attributions.forEach((attribution, index) => nodes.push(textNode$1(context, `${context.layer.id}:map-attribution:${index}`, context.plot.x + context.plot.width - 4, context.plot.y + context.plot.height - 3 - index * 11, attribution, 'right')));
         return nodes;
     };
@@ -63736,7 +65148,9 @@ void main() {
     exports.IncrementalStreamRuntime = IncrementalStreamRuntime;
     exports.IncrementalTransformPipeline = IncrementalTransformPipeline;
     exports.LinkedViewStateStore = LinkedViewStateStore;
+    exports.MAXIMUM_MAP_SCOPE_VALUES = MAXIMUM_MAP_SCOPE_VALUES;
     exports.MAX_TECHNICAL_INDICATOR_ROWS = MAX_TECHNICAL_INDICATOR_ROWS;
+    exports.MapBoundaryLoader = MapBoundaryLoader;
     exports.MapLayerRegistry = MapLayerRegistry;
     exports.MapRuntime = MapRuntime;
     exports.MapTileManager = MapTileManager;
@@ -63841,6 +65255,7 @@ void main() {
     exports.createIncrementalStackPipeline = createIncrementalStackPipeline;
     exports.createIncrementalStreamRuntime = createIncrementalStreamRuntime;
     exports.createIncrementalTransformPipeline = createIncrementalTransformPipeline;
+    exports.createMapBoundaryLoader = createMapBoundaryLoader;
     exports.createMapRuntime = createMapRuntime;
     exports.createMapTileManager = createMapTileManager;
     exports.createPositionScale = createPositionScale;
@@ -63894,6 +65309,8 @@ void main() {
     exports.executeTransforms = executeTransforms;
     exports.executeTransformsWithNamedLineage = executeTransformsWithNamedLineage;
     exports.exponentialMovingAverage = exponentialMovingAverage;
+    exports.fetchMapBoundary = fetchMapBoundary;
+    exports.fetchMapBoundaryManifest = fetchMapBoundaryManifest;
     exports.fetchMapTile = fetchMapTile;
     exports.fitMapBounds = fitMapBounds;
     exports.flowMap = flowMap;
@@ -63967,6 +65384,7 @@ void main() {
     exports.map = map;
     exports.mapBounds = mapBounds;
     exports.mapBubble = mapBubble;
+    exports.mapFeaturePositionCount = mapFeaturePositionCount;
     exports.mapGraticule = mapGraticule;
     exports.mapLine = mapLine;
     exports.mapPoint = mapPoint;
@@ -64003,6 +65421,8 @@ void main() {
     exports.normalizeHeatmapRuntimeState = normalizeHeatmapRuntimeState;
     exports.normalizeHierarchyRuntimeState = normalizeHierarchyRuntimeState;
     exports.normalizeLinkedViewState = normalizeLinkedViewState;
+    exports.normalizeMapBoundaryManifest = normalizeMapBoundaryManifest;
+    exports.normalizeMapFeatureScope = normalizeMapFeatureScope;
     exports.normalizeNavigatorRuntimeState = normalizeNavigatorRuntimeState;
     exports.normalizeNetworkRuntimeState = normalizeNetworkRuntimeState;
     exports.normalizeParallelRuntimeState = normalizeParallelRuntimeState;
@@ -64042,6 +65462,7 @@ void main() {
     exports.polarScatter = polarScatter;
     exports.polygon = polygon;
     exports.positionScaleTypes = positionScaleTypes;
+    exports.prepareMapGeometry = prepareMapGeometry;
     exports.prepareOrderedSeries = prepareOrderedSeries;
     exports.previewAnalyticKeyboardSelection = previewAnalyticKeyboardSelection;
     exports.priceBlocks = priceBlocks;
@@ -64085,6 +65506,8 @@ void main() {
     exports.scatterMatrixPointerBrush = scatterMatrixPointerBrush;
     exports.scatterMatrixRuntimeOptions = scatterMatrixRuntimeOptions;
     exports.scatterWebGLRendererFactory = scatterWebGLRendererFactory;
+    exports.scopeGeoJsonFeatures = scopeGeoJsonFeatures;
+    exports.selectMapBoundarySources = selectMapBoundarySources;
     exports.selectNetworkNodes = selectNetworkNodes;
     exports.selectScatterMatrixRows = selectScatterMatrixRows;
     exports.selectionToPixels = selectionToPixels;
@@ -64096,6 +65519,7 @@ void main() {
     exports.seriesStackModes = seriesStackModes;
     exports.setMarkLabelOffset = setMarkLabelOffset;
     exports.setParallelBrushExtents = setParallelBrushExtents;
+    exports.sha256MapBoundary = sha256MapBoundary;
     exports.sharedHistogramBins = sharedHistogramBins;
     exports.simpleMovingAverage = simpleMovingAverage;
     exports.slowStochastic = slowStochastic;
