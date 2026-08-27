@@ -47186,6 +47186,14 @@ var Graflume = (function (exports) {
         element.setAttribute('aria-hidden', 'true');
         return element;
     }
+    function hasRenderableControl(state) {
+        return (state.spec.zoom ||
+            state.spec.reset ||
+            state.spec.fullscreen ||
+            state.spec.export ||
+            (state.spec.annotations && state.annotationsAvailable) ||
+            state.spec.playback);
+    }
     class ControlsController {
         #elements = null;
         #signature = '';
@@ -47207,6 +47215,10 @@ var Graflume = (function (exports) {
             toggle.focus();
         };
         sync(host, state, actions) {
+            if (!hasRenderableControl(state)) {
+                this.destroy();
+                return;
+            }
             const signature = JSON.stringify({
                 zoom: state.spec.zoom,
                 reset: state.spec.reset,

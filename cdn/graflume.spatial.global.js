@@ -4983,7 +4983,18 @@ var GraflumeSpatial = (function (exports) {
         'contextLost',
         'unavailable',
     ]);
-    const CONTROLS_KEYS = new Set(['annotations']);
+    const CONTROLS_KEYS = new Set([
+        'orbit',
+        'pan',
+        'zoom',
+        'zoomIn',
+        'zoomOut',
+        'reset',
+        'projection',
+        'fullscreen',
+        'export',
+        'annotations',
+    ]);
     const ACCESSIBILITY_KEYS = new Set([
         'description',
         'table',
@@ -5923,8 +5934,10 @@ var GraflumeSpatial = (function (exports) {
         }
         if (interaction.controls !== undefined && typeof interaction.controls !== 'boolean') {
             const controls = closedObject$1(interaction.controls, `${path}.controls`, CONTROLS_KEYS, issues);
-            if (controls !== undefined)
-                optionalBoolean(controls.annotations, `${path}.controls.annotations`, issues);
+            if (controls !== undefined) {
+                for (const key of CONTROLS_KEYS)
+                    optionalBoolean(controls[key], `${path}.controls.${key}`, issues);
+            }
         }
         optionalEnum(interaction.wheel, `${path}.wheel`, new Set(['off', 'modifier', 'always']), issues);
         if (interaction.tooltip !== undefined && typeof interaction.tooltip !== 'boolean') {
@@ -11547,7 +11560,10 @@ void main() {
             ];
             if (this.#annotationControlVisible())
                 definitions.splice(6, 0, ['annotations', labels.hideAnnotations, annotationIcon(true)]);
+            const visible = new Set(this.#visibleControlIds());
             for (const [id, label, graphic] of definitions) {
+                if (!visible.has(id))
+                    continue;
                 const button = document.createElement('button');
                 button.type = 'button';
                 button.dataset.graflumeSpatialControl = id;
@@ -11593,15 +11609,17 @@ void main() {
             this.#controls.style.right = `${Math.max(6, this.#width - this.#plotViewport.x - this.#plotViewport.width + 6)}px`;
         }
         #syncControlStructure() {
-            const controlsEnabled = this.#spec.interaction?.controls !== false;
-            if (!controlsEnabled) {
+            const visibleControlIds = this.#visibleControlIds();
+            if (visibleControlIds.length === 0) {
                 this.#controls?.remove();
                 this.#controls = null;
                 this.#controlButtons.clear();
                 return;
             }
+            const currentControlIds = [...this.#controlButtons.keys()];
             if (this.#controls !== null &&
-                this.#controlButtons.has('annotations') !== this.#annotationControlVisible()) {
+                (currentControlIds.length !== visibleControlIds.length ||
+                    currentControlIds.some((id, index) => id !== visibleControlIds[index]))) {
                 this.#controls.remove();
                 this.#controls = null;
                 this.#controlButtons.clear();
@@ -11698,6 +11716,35 @@ void main() {
         }
         #annotationControlVisible() {
             return this.#annotationControlEnabled() && this.#annotations.length > 0;
+        }
+        #visibleControlIds() {
+            const controls = this.#spec.interaction?.controls;
+            if (controls === false)
+                return [];
+            const visible = (key) => typeof controls !== 'object' || controls[key] !== false;
+            const zoomVisible = typeof controls !== 'object' || controls.zoom === undefined || controls.zoom === true;
+            const ids = [];
+            if (visible('orbit'))
+                ids.push('orbit');
+            if (visible('pan'))
+                ids.push('pan');
+            if (typeof controls !== 'object' ||
+                (controls.zoomIn === undefined ? zoomVisible : controls.zoomIn))
+                ids.push('zoom-in');
+            if (typeof controls !== 'object' ||
+                (controls.zoomOut === undefined ? zoomVisible : controls.zoomOut))
+                ids.push('zoom-out');
+            if (visible('reset'))
+                ids.push('reset');
+            if (visible('projection'))
+                ids.push('projection');
+            if (this.#annotationControlVisible())
+                ids.push('annotations');
+            if (visible('fullscreen'))
+                ids.push('fullscreen');
+            if (visible('export'))
+                ids.push('png');
+            return ids;
         }
         #downloadPng() {
             const anchor = document.createElement('a');
