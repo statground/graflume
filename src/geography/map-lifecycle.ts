@@ -56,7 +56,7 @@ export interface NormalizedMapFeatureScope {
   readonly property: string;
   readonly values: readonly MapScopeValue[];
   readonly parentProperty?: string;
-  readonly parentValues: readonly MapScopeValue[];
+  readonly parentValues?: readonly MapScopeValue[];
   readonly caseSensitive: boolean;
   readonly unmatched: 'error' | 'ignore';
   readonly empty: 'error' | 'allow';
@@ -150,9 +150,9 @@ export function normalizeMapFeatureScope(
       : mapScopeProperty(candidate.parentProperty, `${path}.parentProperty`);
   const parentValues =
     candidate.parentValues === undefined
-      ? Object.freeze([])
+      ? undefined
       : mapScopeValues(candidate.parentValues, `${path}.parentValues`);
-  if ((parentProperty === undefined) !== (parentValues.length === 0))
+  if ((parentProperty === undefined) !== (parentValues === undefined))
     throw new GraflumeError(
       'INVALID_SPEC',
       `${path}.parentProperty and ${path}.parentValues must be provided together.`,
@@ -177,8 +177,7 @@ export function normalizeMapFeatureScope(
     level,
     property,
     values,
-    ...(parentProperty === undefined ? {} : { parentProperty }),
-    parentValues,
+    ...(parentProperty === undefined ? {} : { parentProperty, parentValues: parentValues! }),
     caseSensitive,
     unmatched,
     empty,
@@ -223,7 +222,7 @@ export function scopeGeoJsonFeatures(
 ): GeoJsonFeatureCollection {
   const scope = normalizeMapFeatureScope(scopeInput);
   const requested = requestedMapScopeKeys(scope.values, scope.caseSensitive);
-  const requestedParents = requestedMapScopeKeys(scope.parentValues, scope.caseSensitive);
+  const requestedParents = requestedMapScopeKeys(scope.parentValues ?? [], scope.caseSensitive);
   const matched = new Set<string>();
   const matchedParents = new Set<string>();
   const features = collection.features.filter((feature) => {

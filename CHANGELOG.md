@@ -11,8 +11,10 @@ All notable changes to Graflume will be recorded here.
   parent constraints, dateline-safe automatic fit, overlay clipping, bounded coordinate detail,
   feature-to-row joins, and collision-aware labels across Map, Geo, Flow map, Map line,
   Geographic heatmap, and Tiled map. Keep non-loopback transport HTTPS-only while allowing
-  explicit localhost, 127.0.0.0/8, and [::1] HTTP development servers. The audited
-  default/complete/spatial bundles measure 1,210,642/1,408,636/397,648 raw minified bytes with
+  explicit localhost, 127.0.0.0/8, and [::1] HTTP development servers. Preserve parentless
+  scopes across repeated normalization so external-GeoJSON `map()` charts do not acquire an
+  invalid empty parent filter. The audited default/complete/spatial bundles measure
+  1,210,633/1,408,627/397,648 raw minified bytes with
   next-whole-KiB budgets of 1,183/1,376/389 KiB.
 - Turn the Table family into a product-grade, function-free data-grid surface. Add declarative
   column headers, widths, alignment and locale-aware temporal formatting; layered table/header/

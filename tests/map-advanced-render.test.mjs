@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { compile } from '../.tmp/src/complete.js';
+import { compile, map as createMap, registerRenderer } from '../.tmp/src/complete.js';
 import { hitTestScene } from '../.tmp/src/interaction/hit-test.js';
 import { CanvasRenderer } from '../.tmp/src/renderer/canvas.js';
 import { flattenScene } from '../.tmp/src/scene/walk.js';
@@ -115,6 +115,100 @@ const regionGeoJson = {
   })),
 };
 
+class QuickMapElement extends EventTarget {
+  constructor(ownerDocument) {
+    super();
+    this.ownerDocument = ownerDocument;
+    this.clientWidth = 760;
+    this.clientHeight = 460;
+    this.children = [];
+    this.dataset = {};
+    this.style = { setProperty() {} };
+    this.attributes = new Map();
+    this.parentElement = null;
+    this.hidden = false;
+    this.textContent = '';
+  }
+
+  append(...children) {
+    for (const child of children) {
+      child.parentElement = this;
+      this.children.push(child);
+    }
+  }
+
+  remove() {
+    if (this.parentElement === null) return;
+    this.parentElement.children = this.parentElement.children.filter((child) => child !== this);
+    this.parentElement = null;
+  }
+
+  setAttribute(name, value) {
+    this.attributes.set(name, String(value));
+  }
+
+  getAttribute(name) {
+    return this.attributes.get(name) ?? null;
+  }
+
+  removeAttribute(name) {
+    this.attributes.delete(name);
+  }
+
+  getBoundingClientRect() {
+    return { left: 0, top: 0, width: this.clientWidth, height: this.clientHeight };
+  }
+}
+
+class QuickMapDocument extends EventTarget {
+  constructor() {
+    super();
+    this.documentElement = new QuickMapElement(this);
+  }
+
+  createElement() {
+    return new QuickMapElement(this);
+  }
+}
+
+class QuickMapRenderer {
+  name = 'canvas';
+  capabilities = {
+    vector: false,
+    gpu: false,
+    worker: false,
+    exportFormats: ['image/png'],
+    inspectionViewport: true,
+  };
+  host = null;
+  scene = null;
+
+  mount(target) {
+    this.host = target.ownerDocument.createElement('div');
+    target.append(this.host);
+  }
+
+  resize() {}
+
+  render(scene) {
+    this.scene = scene;
+  }
+
+  surface() {
+    return this.host;
+  }
+
+  overlayHost() {
+    return this.host;
+  }
+
+  setInspectionView() {}
+
+  destroy() {
+    this.host?.remove();
+  }
+}
+
 function scopedRegionSpec(data, options = {}) {
   return {
     width: 760,
@@ -178,6 +272,65 @@ test('advanced map scopes and joins many regions across countries with auto-fit,
   const points = features.flatMap(pathPoints);
   assert.ok(Math.max(...points.map(({ x }) => x)) - Math.min(...points.map(({ x }) => x)) > 500);
   assert.equal(nodes.find((node) => node.id.includes(':map-attribution:')).text, 'Example regions');
+});
+
+test('map Quick API creates an advanced external GeoJSON view with a parentless scope', () => {
+  const renderers = [];
+  registerRenderer({
+    name: 'canvas',
+    capabilities: {
+      vector: false,
+      gpu: false,
+      worker: false,
+      exportFormats: ['image/png'],
+      inspectionViewport: true,
+    },
+    create() {
+      const renderer = new QuickMapRenderer();
+      renderers.push(renderer);
+      return renderer;
+    },
+  });
+  const document = new QuickMapDocument();
+  const target = new QuickMapElement(document);
+  const chart = createMap(
+    target,
+    [
+      { region: 'KR-11', score: 72, longitude: 127, latitude: 37 },
+      { region: 'JP-13', score: 91, longitude: 140, latitude: 35 },
+    ],
+    {
+      x: { field: 'longitude', type: 'quantitative' },
+      y: { field: 'latitude', type: 'quantitative' },
+      mark: {
+        fields: { featureKey: 'code', dataKey: 'region', color: 'score' },
+        options: {
+          geojson: regionGeoJson,
+          mapScope: {
+            level: 'region',
+            property: 'code',
+            values: ['KR-11', 'JP-13'],
+          },
+        },
+      },
+      create: { width: 760, height: 460, autoResize: false },
+    },
+  );
+
+  try {
+    const normalizedScope = chart.getSpec().mark.options.mapScope;
+    assert.equal(Object.hasOwn(normalizedScope, 'parentProperty'), false);
+    assert.equal(Object.hasOwn(normalizedScope, 'parentValues'), false);
+    assert.equal(
+      flattenScene(chart.getScene().root).filter(
+        (node) => node.type === 'path' && node.id.includes(':map-feature:'),
+      ).length,
+      2,
+    );
+    assert.equal(renderers[0].scene, chart.getScene());
+  } finally {
+    chart.destroy();
+  }
 });
 
 test('advanced map join policies fail closed or explicitly hide unmatched and duplicate data', () => {

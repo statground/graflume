@@ -131,6 +131,34 @@ test('map feature scope selects many country or region ids with parent constrain
   );
 });
 
+test('parentless map feature scope normalization is idempotent and omits parent-only fields', () => {
+  const first = normalizeMapFeatureScope({
+    level: 'region',
+    property: 'code',
+    values: ['KR-11', 'JP-13'],
+  });
+  assert.equal(Object.hasOwn(first, 'parentProperty'), false);
+  assert.equal(Object.hasOwn(first, 'parentValues'), false);
+  assert.deepEqual(normalizeMapFeatureScope(first), first);
+
+  const collection = normalizeGeoJson({
+    type: 'FeatureCollection',
+    features: [
+      {
+        type: 'Feature',
+        properties: { code: 'KR-11' },
+        geometry: { type: 'Point', coordinates: [127, 37] },
+      },
+      {
+        type: 'Feature',
+        properties: { code: 'JP-13' },
+        geometry: { type: 'Point', coordinates: [140, 35] },
+      },
+    ],
+  });
+  assert.equal(scopeGeoJsonFeatures(collection, first).features.length, 2);
+});
+
 test('map geometry detail preserves every feature, holes and closed rings while enforcing coordinate budgets', () => {
   const denseRing = Array.from({ length: 5_000 }, (_, index) => {
     const angle = (index / 5_000) * Math.PI * 2;
