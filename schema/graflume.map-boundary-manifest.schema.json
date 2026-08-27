@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://statground.github.io/graflume/schema/graflume.map-boundary-manifest.schema.json",
+  "title": "Graflume map boundary pack manifest",
+  "type": "object",
+  "required": ["schemaVersion", "id", "revision", "attribution", "sources"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": "1" },
+    "id": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "revision": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "attribution": { "type": "string", "minLength": 1, "maxLength": 1024 },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4096,
+      "items": { "$ref": "#/$defs/source" }
+    }
+  },
+  "$defs": {
+    "countryCode": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32
+    },
+    "source": {
+      "type": "object",
+      "required": ["id", "level", "url", "sha256", "byteLength", "format"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "level": { "enum": ["country", "region"] },
+        "countries": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 50000,
+          "items": { "$ref": "#/$defs/countryCode" }
+        },
+        "url": { "type": "string", "minLength": 1, "maxLength": 2048 },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[A-Fa-f0-9]{64}$"
+        },
+        "byteLength": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 1000000000
+        },
+        "format": { "enum": ["geojson", "topojson"] },
+        "topologyObject": { "type": "string", "minLength": 1, "maxLength": 256 }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["format"],
+            "properties": { "format": { "const": "geojson" } }
+          },
+          "then": { "not": { "required": ["topologyObject"] } }
+        }
+      ]
+    }
+  }
+}

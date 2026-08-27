@@ -38,6 +38,11 @@
     "./edge-cases-schema": "./schema/graflume.edge-cases.schema.json",
     "./adaptive-profiles": "./catalog/graflume.adaptive-profiles.json",
     "./adaptive-profiles-schema": "./schema/graflume.adaptive-profiles.schema.json",
+    "./geography/manifest": "./geography/natural-earth-10m/manifest.json",
+    "./geography/manifest-schema": "./schema/graflume.map-boundary-manifest.schema.json",
+    "./geography/catalog": "./geography/natural-earth-10m/catalog.json",
+    "./geography/countries": "./geography/natural-earth-10m/countries.geojson",
+    "./geography/regions/*": "./geography/natural-earth-10m/regions/*",
     "./package.json": "./package.json",
     "./complete": {
       "types": "./dist/complete.d.ts",
@@ -56,6 +61,7 @@
   "files": [
     "catalog",
     "dist",
+    "geography",
     "schema",
     "README.md",
     "THIRD_PARTY_NOTICES.md"
@@ -92,8 +98,9 @@
     "catalog:check": "node ./scripts/generate-public-catalog.mjs --check && node ./scripts/generate-edge-case-catalog.mjs --check && node ./scripts/generate-adaptive-profile-catalog.mjs --check",
     "limitations:check": "node ./scripts/close-current-limitations.mjs --check",
     "docs:links": "node ./scripts/check-doc-links.mjs",
-    "geography:update": "node ./scripts/generate-natural-earth-world.mjs",
-    "check": "npm run naming:check && npm run limitations:check && npm run typecheck && npm test && npm run build && npm run catalog:check && npm run docs:series-gallery:check && npm run docs:snapshots:check && npm run docs:theme-snapshots:check && npm run docs:links && npm run format:check && npm run package:check",
+    "geography:update": "node ./scripts/generate-natural-earth-world.mjs && node ./scripts/generate-natural-earth-admin1.mjs",
+    "geography:check": "node ./scripts/check-natural-earth-admin1-assets.mjs",
+    "check": "npm run naming:check && npm run limitations:check && npm run geography:check && npm run typecheck && npm test && npm run build && npm run catalog:check && npm run docs:series-gallery:check && npm run docs:snapshots:check && npm run docs:theme-snapshots:check && npm run docs:links && npm run format:check && npm run package:check",
     "build:verify": "node ./scripts/check-built-bundles.mjs",
     "naming:check": "node ./scripts/check-neutral-naming.mjs",
     "package:check": "npm pack --dry-run"

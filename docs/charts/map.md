@@ -846,26 +846,106 @@ For `geo`, `x` is a country identifier or name and `y` is its quantitative value
 
 The same result can be created with `Graflume.create()` and `mark: { type: 'map' }`. Named `mark.fields` and `mark.options` values are function-free and JSON-serializable, so they remain portable across JavaScript, future Python/R/Java builders, and stored specs.
 
+## Country and subdivision scopes
+
+`mark.options.mapScope` is the shared, function-free geographic selection contract. A built-in map can focus one country or any list of countries by id, ISO code, name, or documented alias. The selected countries are the only boundaries drawn, point/route/heat overlays outside the selected bounds are omitted, and the default camera fits the selected geometry. Set `fit: false` to retain world coordinates or change the nonnegative `fitPadding`.
+
+```js
+map('#chart', offices, {
+  x: { field: 'longitude', type: 'quantitative' },
+  y: { field: 'latitude', type: 'quantitative' },
+  mark: {
+    options: {
+      mapScope: {
+        level: 'country',
+        values: ['KR', 'JP', 'CN'],
+      },
+      labels: { field: 'iso2', collision: 'hide' },
+    },
+  },
+});
+```
+
+Country subdivisions are supplied as ordinary GeoJSON or TopoJSON rather than compiled into the JavaScript bundle. The published Natural Earth 1:10m boundary pack has a versioned closed manifest, one country source, and per-country subdivision shards. `MapBoundaryLoader` fetches only the selected shards, resolves relative URLs against the pinned manifest URL, verifies their declared byte lengths and SHA-256 digests, enforces byte/concurrency/cache bounds, and returns attribution with the merged collection. Production URLs must use HTTPS; explicit `localhost`, `127.0.0.0/8`, and `[::1]` HTTP URLs are accepted only for local development.
+
+```js
+import { createMapBoundaryLoader, map } from 'graflume';
+
+const loader = createMapBoundaryLoader();
+const boundaries = await loader.loadFromURL(
+  'https://cdn.jsdelivr.net/npm/graflume@0.1.0-alpha.0/geography/natural-earth-10m/manifest.json',
+  { level: 'region', countries: ['KR', 'JP'] },
+);
+
+const data = [
+  { region: 'KR-11', score: 92, longitude: 126.99, latitude: 37.54 },
+  { region: 'KR-26', score: 78, longitude: 129.08, latitude: 35.18 },
+  { region: 'JP-13', score: 88, longitude: 139.69, latitude: 35.69 },
+  { region: 'JP-27', score: 74, longitude: 135.5, latitude: 34.69 },
+];
+
+map('#chart', data, {
+  x: { field: 'longitude', type: 'quantitative' },
+  y: { field: 'latitude', type: 'quantitative' },
+  mark: {
+    fields: {
+      featureKey: 'isoSubdivision',
+      dataKey: 'region',
+      color: 'score',
+    },
+    options: {
+      geojson: boundaries.collection,
+      attribution: boundaries.attribution,
+      mapScope: {
+        level: 'region',
+        property: 'isoSubdivision',
+        values: ['KR-11', 'KR-26', 'JP-13', 'JP-27'],
+        parentProperty: 'countryCode',
+        parentValues: ['KR', 'JP'],
+      },
+      geometryDetail: 'auto',
+      labels: { field: 'name_ko', collision: 'hide' },
+    },
+  },
+});
+```
+
+Selection values are OR-ed, while an optional parent selection is AND-ed. Matching is case-insensitive for strings by default. Misspelled or empty selections fail closed unless `unmatched: "ignore"` or `empty: "allow"` is explicitly authored. Up to 50,000 scope values and 50,000 selected features are accepted; source order is preserved and no selected country or subdivision is sampled away.
+
+For arbitrary GeoJSON, `property` names the selected feature property and `$id` selects `Feature.id`. `mark.fields.featureKey` and `dataKey` create an explicit feature-to-row join; optional `fields.color` drives the continuous fill. Duplicate and unmatched join policies default to `error` and `show`, and can be changed with `joinDuplicate` and `joinUnmatched`. Labels use an explicit label coordinate when the boundary properties provide one, otherwise a hole-aware representative point; area priority and collision suppression keep dense multi-region views legible.
+
 ## Geographic options
 
 These options are stored under `mark.options` and apply to `map`, `geo`, `geo-line`, `geo-flow`, `geo-heatmap`, and `tiled-map` where relevant.
 
-| Option             | Accepted values                             | Default           | Effect                                                                                          |
-| ------------------ | ------------------------------------------- | ----------------- | ----------------------------------------------------------------------------------------------- |
-| `basemap`          | `"natural-earth"`, `"none"`                 | `"natural-earth"` | Draws the embedded world surface and country boundaries, or suppresses the complete background. |
-| `graticule`        | boolean                                     | `false`           | Draws five longitude and five latitude reference lines.                                         |
-| `attribution`      | boolean                                     | `true`            | Shows the compact `Natural Earth · 1:110m` source label.                                        |
-| `oceanFill`        | CSS color string                            | theme-derived     | Sets the world viewport background.                                                             |
-| `landFill`         | CSS color string                            | theme-derived     | Sets the unbound country fill.                                                                  |
-| `countryStroke`    | CSS color string                            | theme-derived     | Sets country boundary color.                                                                    |
-| `countryLineWidth` | finite number greater than or equal to zero | `0.55`            | Sets country boundary width in Canvas pixels.                                                   |
-| `mode`             | `"bubble"`, `"choropleth"`                  | `"bubble"`        | Selects center-point bubbles or country fills for the `geo` mark.                               |
+| Option              | Accepted values                                   | Default            | Effect                                                                                          |
+| ------------------- | ------------------------------------------------- | ------------------ | ----------------------------------------------------------------------------------------------- |
+| `basemap`           | `"natural-earth"`, `"none"`                       | `"natural-earth"`  | Draws the embedded world surface and country boundaries, or suppresses the complete background. |
+| `graticule`         | boolean                                           | `false`            | Draws five longitude and five latitude reference lines.                                         |
+| `attribution`       | boolean                                           | `true`             | Shows the compact `Natural Earth · 1:110m` source label.                                        |
+| `oceanFill`         | CSS color string                                  | theme-derived      | Sets the world viewport background.                                                             |
+| `landFill`          | CSS color string                                  | theme-derived      | Sets the unbound country fill.                                                                  |
+| `countryStroke`     | CSS color string                                  | theme-derived      | Sets country boundary color.                                                                    |
+| `countryLineWidth`  | finite number greater than or equal to zero       | `0.55`             | Sets country boundary width in Canvas pixels.                                                   |
+| `mode`              | `"bubble"`, `"choropleth"`                        | `"bubble"`         | Selects center-point bubbles or country fills for the `geo` mark.                               |
+| `mapScope`          | closed scope object                               | all features       | Selects one or many countries, subdivisions, or arbitrary features and drives automatic fit.    |
+| `fit`               | boolean                                           | `true` when scoped | Fits selected geometry; `false` retains the unscoped coordinate camera.                         |
+| `fitPadding`        | nonnegative finite number                         | `18` when scoped   | Reserves Canvas pixels around automatically fitted geometry.                                    |
+| `geometryDetail`    | `"auto"`, `"low"`, `"medium"`, `"high"`, `"full"` | `"auto"`           | Selects deterministic coordinate density for loaded GeoJSON/TopoJSON.                           |
+| `geometryBudget`    | integer from 1,000 to 1,000,000                   | profile-derived    | Bounds rendered coordinate pairs without dropping a selected feature or valid ring.             |
+| `maximumFeatures`   | integer from 1 to 50,000                          | `50,000`           | Fails before rendering when a loaded feature selection exceeds the authored safety budget.      |
+| `labels`            | boolean or closed label object                    | `false`            | Draws collision-aware country/feature labels with an optional property and label coordinates.   |
+| `joinCaseSensitive` | boolean                                           | `false`            | Controls string-key matching for explicit feature/data joins.                                   |
+| `joinDuplicate`     | `"error"`, `"first"`, `"last"`                    | `"error"`          | Chooses a bounded deterministic policy for duplicate data keys.                                 |
+| `joinUnmatched`     | `"show"`, `"hide"`, `"error"`                     | `"show"`           | Keeps, omits, or rejects selected boundary features without a joined data row.                  |
 
 `basemap: "none"` removes the ocean surface, country geometry, graticule, and attribution while preserving data points, bubbles, heat circles, or routes.
 
 ## Data, ordering, and missing values
 
-The generated basemap contains 177 Natural Earth v5.1.2 Admin-0 features at 1:110m resolution. It is compiled into the package and never fetched at runtime. Graflume projects it into a centered, undistorted 2:1 equirectangular viewport. Country polygons retain compound rings and use even-odd filling so holes remain visible. Natural Earth publishes this dataset in the public domain; the pinned source commit and checksum are recorded by the reproducible generator and third-party notice.
+The generated basemap contains 177 Natural Earth v5.1.2 Admin-0 features at 1:110m resolution. It is compiled into the package and never fetched at runtime. The optional versioned 1:10m pack catalogs 263 selectable country/map-unit entities (all 249 ISO 3166-1 entries, user-assigned XK, and 13 source/disputed map-unit entries) and 4,501 deduplicated principal subdivisions across 247 country shards, derived from 4,596 Natural Earth Admin-1 source features. Those counts describe this pinned pack, not a claim that every political or administrative interpretation is universal. The catalog records names, aliases, source status, boundary policy, and the countries that have no matching principal subdivision shard.
+
+Graflume projects boundaries into a centered equirectangular viewport and automatically fits a selected scope. Country polygons retain compound rings and use even-odd filling so holes remain visible. Natural Earth publishes this dataset in the public domain; pinned source commits and checksums are recorded by the reproducible generators, catalog, manifest, and third-party notice.
 
 Markers use a quiet halo plus an interactive foreground circle. Choropleth countries carry the matched source row for the same mark-level tooltip and data-event behavior. Unrecognized region names and nonnumeric or out-of-range coordinates are skipped rather than guessed.
 
@@ -883,11 +963,11 @@ The mark uses shared `fill`, `stroke`, `opacity`, `lineWidth`, `radius`, and `co
 
 Rendered datum shapes carry layer id, row index, and the original row for hover/click hit testing in the standard profile. The neutral basemap itself is noninteractive; choropleth overlays are interactive compound paths. Supply a concise `accessibility.label`, a useful `description`, and an adjacent text or table fallback. Canvas ARIA metadata does not replace keyboard-readable page content.
 
-The common inspection viewport can magnify and pan the complete rendered Canvas, including the title, basemap, and labels. It does not alter the equirectangular projection, fit a region, request higher-resolution boundaries, or load tiles. See [Common chart interactions](./interactions.md).
+The common inspection viewport can magnify and pan the complete rendered Canvas, including the title, basemap, and labels. `mapScope` and loaded boundary packs control the geographic fit independently; inspection still does not change the projection or request a different boundary shard. See [Common chart interactions](./interactions.md).
 
 ## Performance profiles
 
-The same `standard`, `large`, `ultra`, and `auto` profiles apply. Every visible basemap compiles the fixed 177-feature boundary dataset in addition to the source rows. Aggregate or filter very large point, route, and heat datasets before rendering; set `basemap: "none"` when a geographic background is unnecessary.
+The same `standard`, `large`, `ultra`, and `auto` profiles apply. An unscoped built-in basemap compiles the fixed 177-feature boundary dataset; a country scope compiles only selected built-in boundaries. Loaded boundary sources are lazy, integrity-checked, concurrency-bounded, and cached. Automatic geometry detail reduces coordinate density deterministically but never removes a selected feature, polygon ring, or hole; it fails when the requested budget cannot be met safely. Aggregate or filter very large point, route, and heat datasets before rendering; set `basemap: "none"` when a geographic background is unnecessary.
 
 ## Current limitations
 

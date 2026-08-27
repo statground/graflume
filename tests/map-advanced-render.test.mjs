@@ -89,6 +89,136 @@ test('map compiler renders GeoJSON lifecycle with fit, rotation, clipping, grati
 
 const pathPoints = (node) => [node.points, ...(node.subpaths ?? [])].flat();
 
+const regionGeoJson = {
+  type: 'FeatureCollection',
+  features: [
+    ['KR-11', 'KR', 'Seoul', 126, 36, 128, 38],
+    ['KR-26', 'KR', 'Busan', 128, 34, 130, 36],
+    ['JP-13', 'JP', 'Tokyo', 139, 34, 141, 36],
+    ['JP-27', 'JP', 'Osaka', 134, 33, 136, 35],
+  ].map(([code, country, name, west, south, east, north]) => ({
+    type: 'Feature',
+    id: code,
+    properties: { code, country, name },
+    geometry: {
+      type: 'Polygon',
+      coordinates: [
+        [
+          [west, south],
+          [east, south],
+          [east, north],
+          [west, north],
+          [west, south],
+        ],
+      ],
+    },
+  })),
+};
+
+function scopedRegionSpec(data, options = {}) {
+  return {
+    width: 760,
+    height: 460,
+    data,
+    mark: {
+      type: 'map',
+      fields: { featureKey: 'code', dataKey: 'region', color: 'score' },
+      options: {
+        geojson: regionGeoJson,
+        mapScope: {
+          level: 'region',
+          property: 'code',
+          values: ['kr-11', 'KR-26', 'JP-13', 'JP-27'],
+          parentProperty: 'country',
+          parentValues: ['KR', 'JP'],
+        },
+        geometryDetail: 'auto',
+        geometryBudget: 1_000,
+        labels: { field: 'name', collision: 'none', maximum: 10 },
+        attribution: 'Example regions',
+        ...options,
+      },
+    },
+    x: { field: 'longitude', type: 'quantitative' },
+    y: { field: 'latitude', type: 'quantitative' },
+  };
+}
+
+test('advanced map scopes and joins many regions across countries with auto-fit, labels, and LOD evidence', () => {
+  const { scene } = compile(
+    scopedRegionSpec([
+      { region: 'KR-11', score: 72, longitude: 127, latitude: 37 },
+      { region: 'kr-26', score: 58, longitude: 129, latitude: 35 },
+      { region: 'JP-13', score: 91, longitude: 140, latitude: 35 },
+      { region: 'JP-27', score: 64, longitude: 135, latitude: 34 },
+    ]),
+  );
+  const nodes = flattenScene(scene.root);
+  const features = nodes.filter(
+    (node) => node.type === 'path' && node.id.includes(':map-feature:'),
+  );
+  assert.equal(features.length, 4);
+  assert.deepEqual(
+    features.map(({ datum }) => datum.rowIndex),
+    [0, 1, 2, 3],
+  );
+  assert.ok(features.every(({ datum }) => datum.datum.scope === 'region'));
+  assert.ok(features.every(({ datum }) => datum.datum.selectedFeatures === 4));
+  assert.ok(features.every(({ datum }) => datum.datum.detail === 'auto'));
+  assert.ok(features.every(({ datum }) => datum.tooltip.joinKey !== null));
+  assert.ok(new Set(features.map(({ fill }) => fill)).size > 1, 'joined values drive color');
+  assert.deepEqual(
+    new Set(
+      nodes
+        .filter((node) => node.type === 'text' && node.id.includes(':map-label:'))
+        .map(({ text }) => text),
+    ),
+    new Set(['Seoul', 'Busan', 'Tokyo', 'Osaka']),
+  );
+  const points = features.flatMap(pathPoints);
+  assert.ok(Math.max(...points.map(({ x }) => x)) - Math.min(...points.map(({ x }) => x)) > 500);
+  assert.equal(nodes.find((node) => node.id.includes(':map-attribution:')).text, 'Example regions');
+});
+
+test('advanced map join policies fail closed or explicitly hide unmatched and duplicate data', () => {
+  const partial = [
+    { region: 'KR-11', score: 72, longitude: 127, latitude: 37 },
+    { region: 'JP-13', score: 91, longitude: 140, latitude: 35 },
+  ];
+  const hidden = compile(scopedRegionSpec(partial, { joinUnmatched: 'hide' }));
+  assert.equal(
+    flattenScene(hidden.scene.root).filter(
+      (node) => node.type === 'path' && node.id.includes(':map-feature:'),
+    ).length,
+    2,
+  );
+  assert.throws(
+    () => compile(scopedRegionSpec(partial, { joinUnmatched: 'error' })),
+    /without data/,
+  );
+  assert.throws(
+    () =>
+      compile(
+        scopedRegionSpec([
+          ...partial,
+          { region: 'KR-11', score: 1000, longitude: 127, latitude: 37 },
+        ]),
+      ),
+    /duplicate key/,
+  );
+  const last = compile(
+    scopedRegionSpec([...partial, { region: 'KR-11', score: 1000, longitude: 127, latitude: 37 }], {
+      joinDuplicate: 'last',
+      joinUnmatched: 'hide',
+    }),
+  );
+  const seoul = flattenScene(last.scene.root).find(
+    (node) => node.type === 'path' && node.datum?.tooltip?.joinKey === 'KR-11',
+  );
+  assert.equal(seoul.datum.rowIndex, 2);
+  assert.equal(seoul.datum.tooltip.joinValue, 1000);
+});
+
 test('map scene performs rectangular point, line, multiline, polygon, and multipolygon clipping', () => {
   const clippingSource = {
     type: 'FeatureCollection',
@@ -645,6 +775,7 @@ test('map scene fits the short dateline span and splits ordinary lines and polyg
         projection: 'equirectangular',
         fit: true,
         fitPadding: 24,
+        labels: { field: 'id', collision: 'none' },
       },
     },
     x: { field: 'longitude', type: 'quantitative' },
@@ -673,6 +804,11 @@ test('map scene fits the short dateline span and splits ordinary lines and polyg
         assert.ok(Math.abs(path[index].x - path[index - 1].x) < plot.width / 2);
   assert.equal(line.datum.tooltip.fitCenter, '-180, 0');
   assert.equal(polygon.datum.tooltip.fitCenter, '-180, 0');
+  const polygonLabel = flattenScene(compiled.scene.root).find(
+    (node) => node.type === 'text' && node.text === 'dateline-polygon',
+  );
+  assert.ok(polygonLabel.x >= plot.x && polygonLabel.x <= plot.x + plot.width);
+  assert.ok(polygonLabel.y >= plot.y && polygonLabel.y <= plot.y + plot.height);
 });
 
 test('map compiler recursively renders nested GeoJSON GeometryCollection members', () => {

@@ -55,6 +55,8 @@ test('the generated Natural Earth dataset is bounded, deterministic, and address
   assert.equal(naturalEarthCountry('KR')?.[2], 'KOR');
   assert.equal(naturalEarthCountry('South Korea')?.[2], 'KOR');
   assert.equal(naturalEarthCountry('대한민국')?.[2], 'KOR');
+  assert.equal(naturalEarthCountry('KR', true)?.[2], 'KOR');
+  assert.equal(naturalEarthCountry('kr', true), undefined);
   assert.equal(naturalEarthCountry('United States')?.[2], 'USA');
   assert.equal(naturalEarthCountry('UK')?.[2], 'GBR');
   assert.equal(naturalEarthCountry('not-a-country'), undefined);
@@ -167,4 +169,125 @@ test('geo keeps bubble compatibility and adds interactive compound choropleth co
     ),
   );
   assert.ok(regionPaths.some((node) => (node.subpaths?.length ?? 0) > 0));
+});
+
+test('built-in map scope auto-fits one or many countries, clips overlays, and lays out labels', () => {
+  const scoped = compile(
+    mapSpec(
+      {
+        type: 'map',
+        options: {
+          mapScope: { level: 'country', values: ['대한민국', 'JP', 'CHN'] },
+          labels: { field: 'iso2', collision: 'none', maximum: 10 },
+          graticule: true,
+        },
+      },
+      [
+        { longitude: 126.98, latitude: 37.57 },
+        { longitude: 139.69, latitude: 35.68 },
+        { longitude: -77.04, latitude: 38.9 },
+      ],
+    ),
+    dimensions,
+  );
+  const nodes = flattenScene(scoped.scene.root);
+  const countries = nodes.filter(
+    (node) => node.type === 'path' && node.id.includes(':natural-earth:country:'),
+  );
+  assert.deepEqual(
+    new Set(countries.map((node) => countryId(node))),
+    new Set(['KOR', 'JPN', 'CHN']),
+  );
+  assert.equal(nodes.filter((node) => node.id.includes(':map-point:')).length, 2);
+  assert.deepEqual(
+    new Set(
+      nodes
+        .filter((node) => node.type === 'text' && node.id.includes(':natural-earth:label:'))
+        .map(({ text }) => text),
+    ),
+    new Set(['KR', 'JP', 'CN']),
+  );
+  assert.ok(nodes.some((node) => node.id.includes(':natural-earth:longitude:')));
+
+  const oneCountry = compile(
+    mapSpec(
+      {
+        type: 'map',
+        options: { mapScope: { level: 'country', values: ['KOR'] } },
+      },
+      [{ longitude: 126.98, latitude: 37.57 }],
+    ),
+    dimensions,
+  );
+  const koreaPaths = flattenScene(oneCountry.scene.root).filter(
+    (node) => node.type === 'path' && node.id.includes(':natural-earth:country:'),
+  );
+  const xs = koreaPaths
+    .flatMap((node) => [node.points, ...(node.subpaths ?? [])])
+    .flatMap((path) => path.map(({ x }) => x));
+  assert.equal(new Set(koreaPaths.map((node) => countryId(node))).size, 1);
+  assert.ok(Math.max(...xs) - Math.min(...xs) > dimensions.width * 0.25, 'country is auto-fitted');
+
+  const worldCamera = compile(
+    mapSpec(
+      {
+        type: 'map',
+        options: { mapScope: { level: 'country', values: ['KOR'] }, fit: false },
+      },
+      [
+        { longitude: 126.98, latitude: 37.57 },
+        { longitude: -77.04, latitude: 38.9 },
+      ],
+    ),
+    dimensions,
+  );
+  assert.equal(
+    flattenScene(worldCamera.scene.root).filter((node) => node.id.includes(':map-point:')).length,
+    1,
+    'fit:false changes the camera but retains scope filtering',
+  );
+});
+
+test('country scope applies to geo choropleths and built-in subdivision requests fail honestly', () => {
+  const { scene } = compile(
+    mapSpec(
+      {
+        type: 'geo',
+        options: {
+          mode: 'choropleth',
+          basemap: 'none',
+          mapScope: { level: 'country', values: ['KOR', 'USA'] },
+        },
+      },
+      [
+        { region: 'KOR', value: 40 },
+        { region: 'USA', value: 90 },
+        { region: 'ZAF', value: 60 },
+      ],
+      'region',
+      'value',
+    ),
+    dimensions,
+  );
+  const regions = flattenScene(scene.root).filter(
+    (node) => node.type === 'path' && node.id.includes(':natural-earth:region:'),
+  );
+  assert.deepEqual(
+    new Set(regions.map((node) => countryId(node, 'region'))),
+    new Set(['KOR', 'USA']),
+  );
+  assert.throws(
+    () =>
+      compile(
+        mapSpec(
+          {
+            type: 'map',
+            options: { mapScope: { level: 'region', values: ['KR-11'] } },
+          },
+          [{ longitude: 127, latitude: 37.5 }],
+        ),
+        dimensions,
+      ),
+    /region scopes require loaded GeoJSON or TopoJSON/,
+  );
 });

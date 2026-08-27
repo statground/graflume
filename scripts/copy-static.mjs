@@ -10,3 +10,7 @@ await copyFile(
   new URL('../schema/graflume.spatial.schema.json', import.meta.url),
   new URL('graflume.spatial.schema.json', dist),
 );
+await copyFile(
+  new URL('../schema/graflume.map-boundary-manifest.schema.json', import.meta.url),
+  new URL('graflume.map-boundary-manifest.schema.json', dist),
+);

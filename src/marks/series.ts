@@ -28,8 +28,10 @@ import {
   interpolateSegments,
 } from './curve-series.js';
 import {
+  geographicPositionInView,
   isGeographicPosition,
   projectGeographicPosition,
+  resolveGeographicMapView,
   worldBasemapNodes,
 } from './geographic.js';
 import {
@@ -2313,7 +2315,8 @@ export const compileGeoLineMark: MarkCompiler = (context) => {
   const valueExtent =
     valueField !== undefined && table.has(valueField) ? table.extent(valueField) : null;
   const flow = layer.mark.options.flow === true;
-  const nodes = worldBasemapNodes(context);
+  const view = resolveGeographicMapView(context);
+  const nodes = worldBasemapNodes(context, view);
   for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
     const longitude = numericDataValue(table.value(rowIndex, layer.x.field));
     const latitude = numericDataValue(table.value(rowIndex, layer.y.field));
@@ -2329,11 +2332,13 @@ export const compileGeoLineMark: MarkCompiler = (context) => {
       longitude2 === null ||
       latitude2 === null ||
       !isGeographicPosition(longitude, latitude) ||
-      !isGeographicPosition(longitude2, latitude2)
+      !isGeographicPosition(longitude2, latitude2) ||
+      !geographicPositionInView(longitude, latitude, view) ||
+      !geographicPositionInView(longitude2, latitude2, view)
     )
       continue;
-    const start = projectGeographicPosition(plot, longitude, latitude);
-    const end = projectGeographicPosition(plot, longitude2, latitude2);
+    const start = projectGeographicPosition(plot, longitude, latitude, view);
+    const end = projectGeographicPosition(plot, longitude2, latitude2, view);
     const control = {
       x: (start.x + end.x) / 2,
       y: Math.min(start.y, end.y) - Math.abs(end.x - start.x) * 0.16,
@@ -2383,7 +2388,8 @@ export const compileGeoHeatmapMark: MarkCompiler = (context) => {
   const { layer, table, plot, theme } = context;
   const valueField = layer.mark.fields.value ?? 'value';
   const extent = table.has(valueField) ? table.extent(valueField) : null;
-  const nodes = worldBasemapNodes(context);
+  const view = resolveGeographicMapView(context);
+  const nodes = worldBasemapNodes(context, view);
   for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
     const longitude = numericDataValue(table.value(rowIndex, layer.x.field));
     const latitude = numericDataValue(table.value(rowIndex, layer.y.field));
@@ -2394,10 +2400,11 @@ export const compileGeoHeatmapMark: MarkCompiler = (context) => {
       longitude === null ||
       latitude === null ||
       value === null ||
-      !isGeographicPosition(longitude, latitude)
+      !isGeographicPosition(longitude, latitude) ||
+      !geographicPositionInView(longitude, latitude, view)
     )
       continue;
-    const point = projectGeographicPosition(plot, longitude, latitude);
+    const point = projectGeographicPosition(plot, longitude, latitude, view);
     const ratio =
       extent === null || extent[1] === extent[0]
         ? 0.5
@@ -2431,13 +2438,15 @@ export const compileGeoHeatmapMark: MarkCompiler = (context) => {
 
 export const compileTiledMapMark: MarkCompiler = (context) => {
   const { layer, table, plot, theme } = context;
-  const nodes: SceneNode[] = worldBasemapNodes(context);
+  const view = resolveGeographicMapView(context);
+  const nodes: SceneNode[] = worldBasemapNodes(context, view);
   for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
     const longitude = numericDataValue(table.value(rowIndex, layer.x.field));
     const latitude = numericDataValue(table.value(rowIndex, layer.y.field));
     if (longitude === null || latitude === null || !isGeographicPosition(longitude, latitude))
       continue;
-    const point = projectGeographicPosition(plot, longitude, latitude);
+    if (!geographicPositionInView(longitude, latitude, view)) continue;
+    const point = projectGeographicPosition(plot, longitude, latitude, view);
     const color = layer.mark.fill ?? paletteColor(context, rowIndex, table.length);
     nodes.push({
       type: 'circle',

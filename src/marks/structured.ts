@@ -6,8 +6,10 @@ import type { LineNode, PathNode, Point, RectNode, SceneNode, TextNode } from '.
 import { categoricalColor, colorWithOpacity, mixColor, readableTextColor } from '../theme/color.js';
 import {
   isGeographicPosition,
+  geographicPositionInView,
   naturalEarthCountry,
   projectGeographicPosition,
+  resolveGeographicMapView,
   worldBasemapNodes,
   worldCountryOverlayNodes,
 } from './geographic.js';
@@ -167,7 +169,9 @@ export const compileCalendarMark: MarkCompiler = (context) => {
 
 export const compileGeoMark: MarkCompiler = (context) => {
   const { table, layer, plot, theme, performance } = context;
-  const nodes: SceneNode[] = worldBasemapNodes(context);
+  const view = resolveGeographicMapView(context);
+  const countryIds = new Set(view.countries.map((country) => country[0]));
+  const nodes: SceneNode[] = worldBasemapNodes(context, view);
   const rows: {
     readonly rowIndex: number;
     readonly value: number;
@@ -177,7 +181,7 @@ export const compileGeoMark: MarkCompiler = (context) => {
     const region = String(table.value(rowIndex, layer.x.field) ?? '').trim();
     const value = numericDataValue(table.value(rowIndex, layer.y.field));
     const country = naturalEarthCountry(region);
-    if (country === undefined || value === null) continue;
+    if (country === undefined || value === null || !countryIds.has(country[0])) continue;
     rows.push({ rowIndex, value, country });
   }
   if (rows.length === 0) return nodes;
@@ -196,11 +200,12 @@ export const compileGeoMark: MarkCompiler = (context) => {
           country,
           rowIndex,
           layer.mark.fill ?? mappedContinuousColor(theme, ratio, 'endpoints'),
+          view,
         ),
       );
       continue;
     }
-    const point = projectGeographicPosition(plot, country[5], country[6]);
+    const point = projectGeographicPosition(plot, country[5], country[6], view);
     const radius = 5 + Math.sqrt(Math.max(0, ratio)) * 12;
     nodes.push({
       type: 'circle',
@@ -234,7 +239,8 @@ export const compileGeoMark: MarkCompiler = (context) => {
 
 export const compileMapMark: MarkCompiler = (context) => {
   const { table, layer, plot, theme, performance } = context;
-  const nodes: SceneNode[] = worldBasemapNodes(context);
+  const view = resolveGeographicMapView(context);
+  const nodes: SceneNode[] = worldBasemapNodes(context, view);
   const sizeField = layer.mark.fields.size;
   const extent = sizeField === undefined || !table.has(sizeField) ? null : table.extent(sizeField);
   for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
@@ -242,13 +248,14 @@ export const compileMapMark: MarkCompiler = (context) => {
     const latitude = numericDataValue(table.value(rowIndex, layer.y.field));
     if (longitude === null || latitude === null || !isGeographicPosition(longitude, latitude))
       continue;
+    if (!geographicPositionInView(longitude, latitude, view)) continue;
     const rawSize =
       sizeField === undefined ? null : numericDataValue(table.value(rowIndex, sizeField));
     const ratio =
       rawSize === null || extent === null || extent[1] === extent[0]
         ? 0.5
         : (rawSize - extent[0]) / (extent[1] - extent[0]);
-    const point = projectGeographicPosition(plot, longitude, latitude);
+    const point = projectGeographicPosition(plot, longitude, latitude, view);
     const radius = layer.mark.radius ?? 5 + Math.sqrt(Math.max(0, ratio)) * 10;
     const fill = layer.mark.fill ?? theme.colors.focus;
     nodes.push({

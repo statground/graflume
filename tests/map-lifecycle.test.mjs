@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import * as Graflume from '../.tmp/src/index.js';
@@ -11,13 +12,21 @@ import {
   mapBounds,
   mapGraticule,
   MapLayerRegistry,
+  MapBoundaryLoader,
   MapRuntime,
   MapTileManager,
+  createMapBoundaryLoader,
   createMapTileManager,
   createMapRuntime,
   fetchMapTile,
+  fetchMapBoundaryManifest,
   normalizeGeoJson,
+  normalizeMapBoundaryManifest,
+  normalizeMapFeatureScope,
+  prepareMapGeometry,
   projectMapPosition,
+  scopeGeoJsonFeatures,
+  selectMapBoundarySources,
   tileUrl,
   topologyToGeoJson,
   wrapLongitude,
@@ -30,9 +39,365 @@ test('map lifecycle and provider manager are part of the public Canvas entry poi
   assert.equal(Graflume.MapLayerRegistry, MapLayerRegistry);
   assert.equal(Graflume.MapTileManager, MapTileManager);
   assert.equal(Graflume.MapRuntime, MapRuntime);
+  assert.equal(Graflume.MapBoundaryLoader, MapBoundaryLoader);
+  assert.equal(Graflume.createMapBoundaryLoader, createMapBoundaryLoader);
+  assert.equal(Graflume.fetchMapBoundaryManifest, fetchMapBoundaryManifest);
+  assert.equal(Graflume.scopeGeoJsonFeatures, scopeGeoJsonFeatures);
   assert.equal(Graflume.createMapTileManager, createMapTileManager);
   assert.equal(Graflume.createMapRuntime, createMapRuntime);
   assert.equal(Graflume.fetchMapTile, fetchMapTile);
+});
+
+test('map scope and boundary manifest contracts are public in schema and package exports', async () => {
+  const [schema, manifestSchema, manifest, packageMetadata] = await Promise.all(
+    [
+      '../schema/graflume.schema.json',
+      '../schema/graflume.map-boundary-manifest.schema.json',
+      '../geography/natural-earth-10m/manifest.json',
+      '../package.json',
+    ].map(async (path) => JSON.parse(await readFile(new URL(path, import.meta.url), 'utf8'))),
+  );
+  assert.deepEqual(schema.$defs.mapScope.properties.level.enum, ['country', 'region', 'feature']);
+  assert.equal(schema.$defs.mapScope.properties.values.maxItems, 50_000);
+  assert.deepEqual(schema.$defs.markObject.properties.options.properties.geometryDetail.enum, [
+    'auto',
+    'low',
+    'medium',
+    'high',
+    'full',
+  ]);
+  assert.equal(manifestSchema.properties.schemaVersion.const, '1');
+  assert.equal(
+    packageMetadata.exports['./geography/manifest-schema'],
+    './schema/graflume.map-boundary-manifest.schema.json',
+  );
+  const normalized = normalizeMapBoundaryManifest(manifest);
+  assert.equal(normalized.sources.length, 248);
+  assert.deepEqual(
+    selectMapBoundarySources(normalized, { level: 'region', countries: ['KR', 'JP'] }).map(
+      ({ id }) => id,
+    ),
+    ['natural-earth-10m-regions-JP', 'natural-earth-10m-regions-KR'],
+  );
+});
+
+test('map feature scope selects many country or region ids with parent constraints and strict missing detection', () => {
+  const collection = normalizeGeoJson({
+    type: 'FeatureCollection',
+    features: Array.from({ length: 12_000 }, (_, index) => ({
+      type: 'Feature',
+      id: `R-${index}`,
+      properties: {
+        code: `R-${index}`,
+        country: index % 2 === 0 ? 'KR' : 'JP',
+      },
+      geometry: { type: 'Point', coordinates: [120 + (index % 40) * 0.1, 30 + (index % 20) * 0.1] },
+    })),
+  });
+  const values = Array.from({ length: 6_000 }, (_, index) => `r-${index * 2}`);
+  const scope = normalizeMapFeatureScope({
+    level: 'region',
+    property: 'code',
+    values,
+    parentProperty: 'country',
+    parentValues: ['kr'],
+  });
+  const selected = scopeGeoJsonFeatures(collection, scope);
+  assert.equal(selected.features.length, 6_000);
+  assert.equal(selected.features[0].id, 'R-0');
+  assert.equal(selected.features.at(-1).id, 'R-11998');
+  assert.throws(
+    () =>
+      scopeGeoJsonFeatures(collection, {
+        level: 'region',
+        property: 'code',
+        values: ['R-0', 'missing'],
+      }),
+    /did not match 1 requested value/,
+  );
+  assert.equal(
+    scopeGeoJsonFeatures(collection, {
+      level: 'region',
+      property: 'code',
+      values: ['missing'],
+      unmatched: 'ignore',
+      empty: 'allow',
+    }).features.length,
+    0,
+  );
+  assert.throws(
+    () => normalizeMapFeatureScope({ property: '__proto__', values: ['x'] }),
+    /safe GeoJSON property/,
+  );
+});
+
+test('map geometry detail preserves every feature, holes and closed rings while enforcing coordinate budgets', () => {
+  const denseRing = Array.from({ length: 5_000 }, (_, index) => {
+    const angle = (index / 5_000) * Math.PI * 2;
+    return [10 + Math.cos(angle) * 5, 40 + Math.sin(angle) * 5];
+  });
+  denseRing.push(denseRing[0]);
+  const collection = normalizeGeoJson({
+    type: 'FeatureCollection',
+    features: [
+      {
+        type: 'Feature',
+        id: 'dense',
+        properties: { name: 'Dense' },
+        geometry: {
+          type: 'Polygon',
+          coordinates: [
+            denseRing,
+            [
+              [9, 39],
+              [11, 39],
+              [11, 41],
+              [9, 41],
+              [9, 39],
+            ],
+          ],
+        },
+      },
+      {
+        type: 'Feature',
+        id: 'island',
+        properties: { name: 'Island' },
+        geometry: {
+          type: 'Polygon',
+          coordinates: [
+            [
+              [20, 30],
+              [20.01, 30],
+              [20.01, 30.01],
+              [20, 30],
+            ],
+          ],
+        },
+      },
+    ],
+  });
+  const prepared = prepareMapGeometry(collection, { detail: 'auto', maximumPositions: 1_000 });
+  assert.equal(prepared.collection.features.length, 2);
+  assert.ok(prepared.plan.renderedPositions <= 1_000);
+  assert.ok(prepared.plan.renderedPositions < prepared.plan.sourcePositions);
+  const polygon = prepared.collection.features[0].geometry;
+  assert.equal(polygon.type, 'Polygon');
+  assert.equal(polygon.coordinates.length, 2, 'hole remains a distinct ring');
+  assert.deepEqual(polygon.coordinates[0][0], polygon.coordinates[0].at(-1));
+  assert.equal(
+    prepared.collection.features[1].id,
+    'island',
+    'small features are never sampled away',
+  );
+  assert.throws(
+    () => prepareMapGeometry(collection, { detail: 'full', maximumPositions: 1_000 }),
+    /Full map detail contains/,
+  );
+});
+
+test('map bounds and coordinate counts remain stack-safe for high-position boundary sources', () => {
+  const coordinates = Array.from({ length: 180_000 }, (_, index) => [
+    120 + (index % 100) / 10,
+    30 + (index % 80) / 10,
+  ]);
+  const collection = normalizeGeoJson({ type: 'MultiPoint', coordinates });
+  assert.equal(Graflume.mapFeaturePositionCount(collection), 180_000);
+  assert.deepEqual(mapBounds(collection), {
+    west: 120,
+    south: 30,
+    east: 129.89999999999998,
+    north: 37.9,
+  });
+});
+
+test('versioned boundary loader resolves relative shards, verifies integrity and returns attribution evidence', async () => {
+  const encoded = new TextEncoder().encode(
+    JSON.stringify({
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          id: 'KR-11',
+          properties: { code: 'KR-11', country: 'KR' },
+          geometry: { type: 'Point', coordinates: [127, 37.5] },
+        },
+      ],
+    }),
+  );
+  const sha = 'a'.repeat(64);
+  const manifest = normalizeMapBoundaryManifest({
+    schemaVersion: '1',
+    id: 'boundaries',
+    revision: 'pinned-revision',
+    attribution: 'Boundary provider',
+    sources: [
+      {
+        id: 'regions-kr',
+        level: 'region',
+        countries: ['KR'],
+        url: './regions/KR.geojson',
+        sha256: sha,
+        byteLength: encoded.length,
+        format: 'geojson',
+      },
+      {
+        id: 'regions-jp',
+        level: 'region',
+        countries: ['JP'],
+        url: './regions/JP.geojson',
+        sha256: 'b'.repeat(64),
+        byteLength: encoded.length,
+        format: 'geojson',
+      },
+    ],
+  });
+  assert.deepEqual(
+    selectMapBoundarySources(manifest, { level: 'region', countries: ['kr'] }).map(({ id }) => id),
+    ['regions-kr'],
+  );
+  assert.deepEqual(
+    selectMapBoundarySources(manifest, {
+      level: 'region',
+      sourceIds: ['regions-jp'],
+    }).map(({ id }) => id),
+    ['regions-jp'],
+  );
+  assert.throws(
+    () =>
+      selectMapBoundarySources(manifest, {
+        level: 'region',
+        sourceIds: ['missing-source'],
+      }),
+    /does not contain every source id/,
+  );
+  const calls = [];
+  const loader = createMapBoundaryLoader({
+    baseURL: 'https://cdn.example/geography/natural-earth-10m/manifest.json',
+    digest: async () => sha,
+    fetcher: async (source) => {
+      calls.push(source.url);
+      return { bytes: encoded, mimeType: 'application/geo+json' };
+    },
+  });
+  const result = await loader.load(manifest, { level: 'region', countries: ['KR'] });
+  assert.equal(result.collection.features[0].id, 'KR-11');
+  assert.equal(result.attribution, 'Boundary provider');
+  assert.equal(result.revision, 'pinned-revision');
+  assert.deepEqual(result.sourceIds, ['regions-kr']);
+  assert.deepEqual(calls, ['https://cdn.example/geography/natural-earth-10m/regions/KR.geojson']);
+  await loader.load(manifest, { level: 'region', countries: ['KR'] });
+  assert.equal(calls.length, 1, 'verified source is reused from the bounded cache');
+  const remoteCalls = [];
+  const remoteLoader = createMapBoundaryLoader({
+    digest: async () => sha,
+    manifestFetcher: async (url) => {
+      remoteCalls.push(url);
+      return {
+        bytes: new TextEncoder().encode(JSON.stringify(manifest)),
+        mimeType: 'application/json',
+      };
+    },
+    fetcher: async (source) => {
+      remoteCalls.push(source.url);
+      return { bytes: encoded, mimeType: 'application/octet-stream' };
+    },
+  });
+  const remote = await remoteLoader.loadFromURL(
+    'https://cdn.example/releases/pinned/manifest.json',
+    { level: 'region', countries: ['KR'] },
+  );
+  assert.equal(remote.collection.features.length, 1);
+  assert.deepEqual(remoteCalls, [
+    'https://cdn.example/releases/pinned/manifest.json',
+    'https://cdn.example/releases/pinned/regions/KR.geojson',
+  ]);
+  await assert.rejects(
+    remoteLoader.loadFromURL('http://cdn.example/manifest.json', {
+      level: 'region',
+      countries: ['KR'],
+    }),
+    /HTTP is allowed only/,
+  );
+  const loopbackCalls = [];
+  const loopbackLoader = createMapBoundaryLoader({
+    baseURL: 'http://127.23.45.67:4173/packs/manifest.json',
+    digest: async () => sha,
+    fetcher: async (source) => {
+      loopbackCalls.push(source.url);
+      return { bytes: encoded, mimeType: 'application/geo+json' };
+    },
+  });
+  await loopbackLoader.load(manifest, { level: 'region', countries: ['KR'] });
+  assert.deepEqual(loopbackCalls, ['http://127.23.45.67:4173/packs/regions/KR.geojson']);
+  assert.doesNotThrow(() =>
+    createMapBoundaryLoader({ baseURL: 'http://[::1]:4173/packs/manifest.json' }),
+  );
+  assert.doesNotThrow(() =>
+    createMapBoundaryLoader({ baseURL: 'http://localhost:4173/packs/manifest.json' }),
+  );
+  for (const unsafe of [
+    'http://example.com/packs/manifest.json',
+    'http://192.168.1.12/packs/manifest.json',
+    'http://127.example.com/packs/manifest.json',
+    'http://user:password@127.0.0.1/packs/manifest.json',
+  ])
+    assert.throws(() => createMapBoundaryLoader({ baseURL: unsafe }), /HTTP is allowed only/);
+  const unsafeShardManifest = normalizeMapBoundaryManifest({
+    ...manifest,
+    sources: [
+      {
+        ...manifest.sources[0],
+        id: 'regions-kr-unsafe',
+        url: '//assets.example/regions/KR.geojson',
+      },
+    ],
+  });
+  await assert.rejects(
+    loopbackLoader.load(unsafeShardManifest, { level: 'region', countries: ['KR'] }),
+    /unsafe URL/,
+  );
+  assert.throws(
+    () =>
+      normalizeMapBoundaryManifest({
+        ...manifest,
+        sources: [...manifest.sources, { ...manifest.sources[0], id: 'duplicate-country' }],
+      }),
+    /multiple shards/,
+  );
+});
+
+test('the shipped Natural Earth pack loads and verifies multiple real principal-region shards', async () => {
+  const manifest = JSON.parse(
+    await readFile(
+      new URL('../geography/natural-earth-10m/manifest.json', import.meta.url),
+      'utf8',
+    ),
+  );
+  const loader = createMapBoundaryLoader({
+    baseURL: 'https://cdn.example/geography/natural-earth-10m/manifest.json',
+    fetcher: async (source) => ({
+      bytes: new Uint8Array(
+        await readFile(
+          new URL(
+            `../geography/natural-earth-10m/regions/${source.countries[0]}.geojson`,
+            import.meta.url,
+          ),
+        ),
+      ),
+      mimeType: 'application/geo+json',
+    }),
+  });
+  const result = await loader.load(manifest, { level: 'region', countries: ['KR', 'JP'] });
+  assert.equal(result.collection.features.length, 64);
+  assert.deepEqual(
+    new Set(result.collection.features.map(({ properties }) => properties.countryCode)),
+    new Set(['KR', 'JP']),
+  );
+  assert.deepEqual(result.sourceIds, [
+    'natural-earth-10m-regions-JP',
+    'natural-earth-10m-regions-KR',
+  ]);
+  assert.match(result.attribution, /Natural Earth/);
 });
 
 test('GeoJSON validation normalizes geometry, feature, and collection inputs', () => {

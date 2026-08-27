@@ -617,7 +617,12 @@
         "GeoJSON and TopoJSON",
         "general fit and clip policy",
         "flat geodesics",
-        "provider-backed tile lifecycle, cache and attribution"
+        "provider-backed tile lifecycle, cache and attribution",
+        "country, subdivision, and arbitrary-feature multi-selection",
+        "selection-aware automatic bounds and overlay clipping",
+        "versioned lazy boundary packs with byte-length and SHA-256 verification",
+        "bounded coordinate-detail preparation without feature or ring sampling",
+        "explicit feature-to-row joins and collision-aware geographic labels"
       ],
       "currentLimitations": [],
       "completedCurrentLimitations": [
@@ -166426,7 +166431,11 @@
         }
       },
       "summary": "Geographic heatmap: Regional adoption and routes connecting Statground teams around the world.",
-      "demonstrates": ["geo-heatmap", "bounded equirectangular viewport and coordinate validation"],
+      "demonstrates": [
+        "geo-heatmap",
+        "bounded equirectangular viewport and coordinate validation",
+        "country, subdivision, and arbitrary-feature multi-selection"
+      ],
       "sourceRef": "docs/charts/map.md#variant-geo-heatmap"
     },
     {
@@ -166589,7 +166598,11 @@
         }
       },
       "summary": "Map bubble chart: Regional adoption and routes connecting Statground teams around the world.",
-      "demonstrates": ["map-bubble", "embedded Natural Earth attribution toggle"],
+      "demonstrates": [
+        "map-bubble",
+        "embedded Natural Earth attribution toggle",
+        "selection-aware automatic bounds and overlay clipping"
+      ],
       "sourceRef": "docs/charts/map.md#variant-map-bubble"
     },
     {
@@ -166778,7 +166791,11 @@
         }
       },
       "summary": "Map line chart: Regional adoption and routes connecting Statground teams around the world.",
-      "demonstrates": ["map-line", "globe great-circle routes"],
+      "demonstrates": [
+        "map-line",
+        "globe great-circle routes",
+        "versioned lazy boundary packs with byte-length and SHA-256 verification"
+      ],
       "sourceRef": "docs/charts/map.md#variant-map-line"
     },
     {
@@ -166941,7 +166958,11 @@
         }
       },
       "summary": "Map point chart: Regional adoption and routes connecting Statground teams around the world.",
-      "demonstrates": ["map-point", "back-face occlusion and orbit"],
+      "demonstrates": [
+        "map-point",
+        "back-face occlusion and orbit",
+        "bounded coordinate-detail preparation without feature or ring sampling"
+      ],
       "sourceRef": "docs/charts/map.md#variant-map-point"
     },
     {
@@ -167092,7 +167113,11 @@
         }
       },
       "summary": "Tiled map: Regional adoption and routes connecting Statground teams around the world.",
-      "demonstrates": ["tiled-map", "source/layer/projection lifecycle"],
+      "demonstrates": [
+        "tiled-map",
+        "source/layer/projection lifecycle",
+        "explicit feature-to-row joins and collision-aware geographic labels"
+      ],
       "sourceRef": "docs/charts/map.md#variant-tiled-map"
     },
     {

@@ -4,3 +4,6 @@ node_modules
 package-lock.json
 docs/assets/charts/*.svg
 cdn/*.js
+geography/natural-earth-10m/*.json
+geography/natural-earth-10m/*.geojson
+geography/natural-earth-10m/regions/*.geojson

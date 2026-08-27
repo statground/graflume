@@ -3059,6 +3059,77 @@
         }
       ]
     },
+    "mapScopeValue": {
+      "oneOf": [{ "type": "string", "maxLength": 512 }, { "type": "number" }, { "type": "boolean" }]
+    },
+    "mapScope": {
+      "type": "object",
+      "required": ["values"],
+      "additionalProperties": false,
+      "properties": {
+        "level": { "enum": ["country", "region", "feature"] },
+        "property": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "not": { "enum": ["__proto__", "prototype", "constructor"] }
+        },
+        "values": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 50000,
+          "items": { "$ref": "#/$defs/mapScopeValue" }
+        },
+        "parentProperty": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "not": { "enum": ["__proto__", "prototype", "constructor"] }
+        },
+        "parentValues": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 50000,
+          "items": { "$ref": "#/$defs/mapScopeValue" }
+        },
+        "caseSensitive": { "type": "boolean" },
+        "unmatched": { "enum": ["error", "ignore"] },
+        "empty": { "enum": ["error", "allow"] }
+      },
+      "allOf": [
+        {
+          "if": { "required": ["parentProperty"] },
+          "then": { "required": ["parentValues"] }
+        },
+        {
+          "if": { "required": ["parentValues"] },
+          "then": { "required": ["parentProperty"] }
+        }
+      ]
+    },
+    "mapLabels": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "field": { "$ref": "#/$defs/fieldName" },
+        "longitudeField": { "$ref": "#/$defs/fieldName" },
+        "latitudeField": { "$ref": "#/$defs/fieldName" },
+        "maximum": { "type": "integer", "minimum": 1, "maximum": 1000 },
+        "fontSize": { "type": "integer", "minimum": 6, "maximum": 40 },
+        "padding": { "type": "integer", "minimum": 0, "maximum": 24 },
+        "collision": { "enum": ["hide", "none"] }
+      },
+      "allOf": [
+        {
+          "if": { "required": ["longitudeField"] },
+          "then": { "required": ["latitudeField"] }
+        },
+        {
+          "if": { "required": ["latitudeField"] },
+          "then": { "required": ["longitudeField"] }
+        }
+      ]
+    },
     "markObject": {
       "type": "object",
       "required": ["type"],
@@ -3149,6 +3220,28 @@
               "minimum": 1,
               "maximum": 64
             },
+            "mapScope": { "$ref": "#/$defs/mapScope" },
+            "geometryDetail": {
+              "enum": ["auto", "low", "medium", "high", "full"]
+            },
+            "geometryBudget": {
+              "type": "integer",
+              "minimum": 1000,
+              "maximum": 1000000
+            },
+            "maximumFeatures": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50000
+            },
+            "fit": { "type": "boolean" },
+            "fitPadding": { "type": "number", "minimum": 0 },
+            "labels": {
+              "oneOf": [{ "type": "boolean" }, { "$ref": "#/$defs/mapLabels" }]
+            },
+            "joinCaseSensitive": { "type": "boolean" },
+            "joinDuplicate": { "enum": ["error", "first", "last"] },
+            "joinUnmatched": { "enum": ["show", "hide", "error"] },
             "stack": {
               "description": "Function-free one-layer series layout for Area, Bar, and Theme river. A series field is required in mark.fields.series.",
               "oneOf": [

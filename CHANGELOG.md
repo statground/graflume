@@ -4,6 +4,16 @@ All notable changes to Graflume will be recorded here.
 
 ## Unreleased
 
+- Add a generic Map geography-scope engine for one or many countries, principal subdivisions, or
+  arbitrary GeoJSON features. Ship an optional versioned Natural Earth 1:10m pack with 263
+  selectable country/map-unit entities and 4,501 deduplicated Admin-1 regions in lazy per-country
+  shards; verify exact byte lengths and SHA-256 before caching. Add strict 50,000-value selection,
+  parent constraints, dateline-safe automatic fit, overlay clipping, bounded coordinate detail,
+  feature-to-row joins, and collision-aware labels across Map, Geo, Flow map, Map line,
+  Geographic heatmap, and Tiled map. Keep non-loopback transport HTTPS-only while allowing
+  explicit localhost, 127.0.0.0/8, and [::1] HTTP development servers. The audited
+  default/complete/spatial bundles measure 1,210,642/1,408,636/397,648 raw minified bytes with
+  next-whole-KiB budgets of 1,183/1,376/389 KiB.
 - Turn the Table family into a product-grade, function-free data-grid surface. Add declarative
   column headers, widths, alignment and locale-aware temporal formatting; layered table/header/
   row/column/cell styles; closed conditional formatting; explicit and repeated-value merges;

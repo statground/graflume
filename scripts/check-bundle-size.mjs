@@ -1,12 +1,12 @@
 import { stat } from 'node:fs/promises';
 
 const budgets = [
-  // 2026-08-28 measured raw minified bytes after the shared temporal formatter
-  // and product-grade Table compiler/runtime: 1,177,381 / 1,375,243 / 397,648.
+  // 2026-08-28 measured raw minified bytes after the shared temporal formatter,
+  // product-grade Table, and scoped-geography engine: 1,210,642 / 1,408,636 / 397,648.
   // Each ceiling is the next whole KiB, leaving less than one KiB of headroom.
   // See docs/development/bundle-boundaries.md for the import-graph audit.
-  ['graflume.min.js', 1_150 * 1024],
-  ['graflume.complete.min.js', 1_344 * 1024],
+  ['graflume.min.js', 1_183 * 1024],
+  ['graflume.complete.min.js', 1_376 * 1024],
   ['graflume.spatial.min.js', 389 * 1024],
 ];
 

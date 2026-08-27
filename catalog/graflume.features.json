@@ -344,7 +344,12 @@
         "GeoJSON and TopoJSON",
         "general fit and clip policy",
         "flat geodesics",
-        "provider-backed tile lifecycle, cache and attribution"
+        "provider-backed tile lifecycle, cache and attribution",
+        "country, subdivision, and arbitrary-feature multi-selection",
+        "selection-aware automatic bounds and overlay clipping",
+        "versioned lazy boundary packs with byte-length and SHA-256 verification",
+        "bounded coordinate-detail preparation without feature or ring sampling",
+        "explicit feature-to-row joins and collision-aware geographic labels"
       ],
       "p0": [],
       "p1": [

@@ -159,3 +159,26 @@ The default and complete raw artifacts grow by 50,297 and 50,935 bytes respectiv
 control-visibility snapshot; Spatial grows by zero bytes. Each enforced ceiling is again the next
 whole KiB. Brotli was unavailable in the local verification environment, so this audit records raw
 and gzip evidence only and does not infer a Brotli result.
+
+## 2026-08-28 scoped-geography audit
+
+The shared Canvas geography path now exposes function-free country, subdivision, and arbitrary
+feature scopes; dateline-aware automatic fit; bounded coordinate detail; explicit feature/data
+joins; and collision-aware labels. The public loader validates versioned manifests and performs
+bounded, lazy, byte-length- and SHA-256-verified boundary loading. These APIs remain reachable from
+the default entry point and are inherited by `graflume/complete`. The optional 31,619,754-byte
+Natural Earth boundary pack is package data, not JavaScript hidden from the size gate. It loads by
+selected country shard and is therefore recorded separately from executable bundle bytes. The
+Spatial import graph is byte-identical.
+
+| Browser file               |    Raw minified | GNU gzip `-9` |                  Raw budget |  Headroom |
+| -------------------------- | --------------: | ------------: | --------------------------: | --------: |
+| `graflume.min.js`          | 1,210,642 bytes | 352,262 bytes | 1,183 KiB (1,211,392 bytes) | 750 bytes |
+| `graflume.complete.min.js` | 1,408,636 bytes | 408,841 bytes | 1,376 KiB (1,409,024 bytes) | 388 bytes |
+| `graflume.spatial.min.js`  |   397,648 bytes | 123,779 bytes |     389 KiB (398,336 bytes) | 688 bytes |
+
+The default and complete executable artifacts grow by 33,261 and 33,393 bytes respectively from
+the product-Table snapshot; Spatial grows by zero bytes. The public scope normalizer, loader,
+geometry preparation, built-in-country camera, and advanced map join/label compiler account for
+the reachable increase. Every enforced ceiling is the next whole KiB, with less than one KiB of
+headroom; gzip remains transfer evidence rather than the gate.

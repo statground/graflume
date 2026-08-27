@@ -1,20 +1,26 @@
 import type { MarkCompiler, MarkCompileContext } from '../compiler/types.js';
+import { GraflumeError } from '../core/errors.js';
 import {
   clipMapLine,
   clipMapPolygonRing,
   fitMapBounds,
   geodesicPath,
   mapBounds,
+  normalizeMapFeatureScope,
   mapGraticule,
   MapLayerRegistry,
   normalizeGeoJson,
+  prepareMapGeometry,
   projectMapPosition,
+  scopeGeoJsonFeatures,
   tileUrl,
   topologyToGeoJson,
+  wrapLongitude,
   type GeoJsonFeature,
   type GeoJsonFeatureCollection,
   type GeoJsonGeometry,
   type GeographicPosition,
+  type MapGeometryDetail,
   type MapProjectionName,
   type TileCoordinate,
   type TileSourceDefinition,
@@ -24,6 +30,7 @@ import { nodeBase } from '../scene/factory.js';
 import type { Point, SceneNode, TextNode } from '../scene/types.js';
 import { categoricalColor, colorWithOpacity } from '../theme/color.js';
 import { compileMapMark } from './structured.js';
+import { mappedContinuousColor, numericDataValue } from './utils.js';
 
 function stringOption(context: MarkCompileContext, name: string): string | undefined {
   const value = context.layer.mark.options[name];
@@ -38,6 +45,20 @@ function numberOption(context: MarkCompileContext, name: string): number | undef
 function booleanOption(context: MarkCompileContext, name: string): boolean | undefined {
   const value = context.layer.mark.options[name];
   return typeof value === 'boolean' ? value : undefined;
+}
+
+function geometryDetailOption(context: MarkCompileContext): MapGeometryDetail {
+  const value = context.layer.mark.options.geometryDetail;
+  if (value === undefined) return 'auto';
+  if (
+    value === 'auto' ||
+    value === 'low' ||
+    value === 'medium' ||
+    value === 'high' ||
+    value === 'full'
+  )
+    return value;
+  throw new GraflumeError('INVALID_SPEC', `Unsupported map geometryDetail "${String(value)}".`);
 }
 
 function numberArray(value: unknown, length: number): number[] | undefined {
@@ -163,6 +184,486 @@ function propertyValue(feature: GeoJsonFeature, field: string | undefined): unkn
     : feature.properties[field];
 }
 
+interface MapLabelSettings {
+  readonly field?: string;
+  readonly longitudeField?: string;
+  readonly latitudeField?: string;
+  readonly maximum: number;
+  readonly fontSize: number;
+  readonly padding: number;
+  readonly collision: 'hide' | 'none';
+}
+
+function mapLabelSettings(context: MarkCompileContext): MapLabelSettings | null {
+  const value = context.layer.mark.options.labels;
+  if (value === undefined || value === false) return null;
+  if (value === true) return { maximum: 120, fontSize: 10, padding: 3, collision: 'hide' };
+  if (value === null || typeof value !== 'object' || Array.isArray(value))
+    throw new GraflumeError('INVALID_SPEC', 'Map labels must be boolean or an options object.');
+  const candidate = value as Readonly<Record<string, unknown>>;
+  const allowed = new Set([
+    'field',
+    'longitudeField',
+    'latitudeField',
+    'maximum',
+    'fontSize',
+    'padding',
+    'collision',
+  ]);
+  const unknown = Object.keys(candidate).find((key) => !allowed.has(key));
+  if (unknown !== undefined)
+    throw new GraflumeError('INVALID_SPEC', `Unknown map labels property "${unknown}".`);
+  const field = candidate.field;
+  if (
+    field !== undefined &&
+    (typeof field !== 'string' || field.trim() === '' || field.length > 256)
+  )
+    throw new GraflumeError(
+      'INVALID_SPEC',
+      'Map labels.field must be a non-empty string up to 256 characters.',
+    );
+  const integer = (
+    input: unknown,
+    fallback: number,
+    minimum: number,
+    maximum: number,
+    path: string,
+  ) => {
+    const output = input ?? fallback;
+    if (!Number.isInteger(output) || (output as number) < minimum || (output as number) > maximum)
+      throw new GraflumeError(
+        'INVALID_SPEC',
+        `${path} must be an integer from ${minimum} to ${maximum}.`,
+      );
+    return output as number;
+  };
+  const collision = candidate.collision ?? 'hide';
+  if (collision !== 'hide' && collision !== 'none')
+    throw new GraflumeError('INVALID_SPEC', 'Map labels.collision must be "hide" or "none".');
+  const coordinateField = (name: 'longitudeField' | 'latitudeField'): string | undefined => {
+    const coordinate = candidate[name];
+    if (
+      coordinate !== undefined &&
+      (typeof coordinate !== 'string' || coordinate.trim() === '' || coordinate.length > 256)
+    )
+      throw new GraflumeError(
+        'INVALID_SPEC',
+        `Map labels.${name} must be a non-empty string up to 256 characters.`,
+      );
+    return typeof coordinate === 'string' ? coordinate.trim() : undefined;
+  };
+  const longitudeField = coordinateField('longitudeField');
+  const latitudeField = coordinateField('latitudeField');
+  if ((longitudeField === undefined) !== (latitudeField === undefined))
+    throw new GraflumeError(
+      'INVALID_SPEC',
+      'Map labels.longitudeField and labels.latitudeField must be provided together.',
+    );
+  return {
+    ...(typeof field === 'string' ? { field: field.trim() } : {}),
+    ...(longitudeField === undefined ? {} : { longitudeField, latitudeField: latitudeField! }),
+    maximum: integer(candidate.maximum, 120, 1, 1_000, 'Map labels.maximum'),
+    fontSize: integer(candidate.fontSize, 10, 6, 40, 'Map labels.fontSize'),
+    padding: integer(candidate.padding, 3, 0, 24, 'Map labels.padding'),
+    collision,
+  };
+}
+
+function polygonArea(points: readonly GeographicPosition[]): number {
+  let area = 0;
+  for (let index = 0; index < points.length; index += 1) {
+    const current = points[index]!;
+    const next = points[(index + 1) % points.length]!;
+    area += current[0] * next[1] - next[0] * current[1];
+  }
+  return Math.abs(area) / 2;
+}
+
+function unwrapLabelRing(
+  points: readonly GeographicPosition[],
+  referenceLongitude?: number,
+): readonly GeographicPosition[] {
+  if (points.length === 0) return points;
+  const output: GeographicPosition[] = [points[0]!];
+  for (const point of points.slice(1)) {
+    const previous = output[output.length - 1]!;
+    let longitude = point[0];
+    while (longitude - previous[0] > 180) longitude -= 360;
+    while (longitude - previous[0] < -180) longitude += 360;
+    output.push([longitude, point[1]]);
+  }
+  if (referenceLongitude !== undefined) {
+    const mean = output.reduce((sum, [longitude]) => sum + longitude, 0) / output.length;
+    let shift = 0;
+    while (mean + shift - referenceLongitude > 180) shift -= 360;
+    while (mean + shift - referenceLongitude < -180) shift += 360;
+    if (shift !== 0) return output.map(([longitude, latitude]) => [longitude + shift, latitude]);
+  }
+  return output;
+}
+
+function polygonAnchor(points: readonly GeographicPosition[]): GeographicPosition {
+  let area = 0;
+  let longitude = 0;
+  let latitude = 0;
+  for (let index = 0; index < points.length; index += 1) {
+    const current = points[index]!;
+    const next = points[(index + 1) % points.length]!;
+    const cross = current[0] * next[1] - next[0] * current[1];
+    area += cross;
+    longitude += (current[0] + next[0]) * cross;
+    latitude += (current[1] + next[1]) * cross;
+  }
+  if (Math.abs(area) < 1e-12) {
+    const total = points.reduce(
+      (sum, point) => [sum[0] + point[0], sum[1] + point[1]] as GeographicPosition,
+      [0, 0] as GeographicPosition,
+    );
+    return [total[0] / points.length, total[1] / points.length];
+  }
+  return [longitude / (3 * area), latitude / (3 * area)];
+}
+
+function pointInRing(point: GeographicPosition, ring: readonly GeographicPosition[]): boolean {
+  let inside = false;
+  for (let index = 0, previous = ring.length - 1; index < ring.length; previous = index++) {
+    const current = ring[index]!;
+    const prior = ring[previous]!;
+    if (
+      current[1] > point[1] !== prior[1] > point[1] &&
+      point[0] <
+        ((prior[0] - current[0]) * (point[1] - current[1])) / (prior[1] - current[1]) + current[0]
+    )
+      inside = !inside;
+  }
+  return inside;
+}
+
+function pointSegmentDistance(
+  point: GeographicPosition,
+  start: GeographicPosition,
+  end: GeographicPosition,
+): number {
+  const dx = end[0] - start[0];
+  const dy = end[1] - start[1];
+  const denominator = dx * dx + dy * dy;
+  const amount =
+    denominator === 0
+      ? 0
+      : Math.max(
+          0,
+          Math.min(1, ((point[0] - start[0]) * dx + (point[1] - start[1]) * dy) / denominator),
+        );
+  return Math.hypot(point[0] - (start[0] + dx * amount), point[1] - (start[1] + dy * amount));
+}
+
+function polygonRepresentativePoint(
+  outer: readonly GeographicPosition[],
+  holes: readonly (readonly GeographicPosition[])[],
+): GeographicPosition {
+  const centroid = polygonAnchor(outer);
+  const inside = (point: GeographicPosition) =>
+    pointInRing(point, outer) && !holes.some((hole) => pointInRing(point, hole));
+  if (inside(centroid)) return centroid;
+  let west = outer[0]![0];
+  let east = west;
+  let south = outer[0]![1];
+  let north = south;
+  for (const [longitude, latitude] of outer) {
+    west = Math.min(west, longitude);
+    east = Math.max(east, longitude);
+    south = Math.min(south, latitude);
+    north = Math.max(north, latitude);
+  }
+  let best: GeographicPosition | null = null;
+  let bestDistance = -1;
+  for (let row = 0; row < 12; row += 1) {
+    for (let column = 0; column < 12; column += 1) {
+      const candidate = [
+        west + ((column + 0.5) / 12) * (east - west),
+        south + ((row + 0.5) / 12) * (north - south),
+      ] as GeographicPosition;
+      if (!inside(candidate)) continue;
+      const rings = [outer, ...holes];
+      let distance = Number.POSITIVE_INFINITY;
+      for (const ring of rings)
+        for (let index = 0; index < ring.length; index += 1)
+          distance = Math.min(
+            distance,
+            pointSegmentDistance(candidate, ring[index]!, ring[(index + 1) % ring.length]!),
+          );
+      if (distance > bestDistance) {
+        best = candidate;
+        bestDistance = distance;
+      }
+    }
+  }
+  return best ?? outer[0]!;
+}
+
+function featureAnchor(
+  feature: GeoJsonFeature,
+  settings: MapLabelSettings,
+): { readonly point: GeographicPosition; readonly area: number } | null {
+  if (feature.geometry === null) return null;
+  const parts = geometryPaths(feature.geometry);
+  const polygons = parts
+    .filter((part) => part.kind === 'polygon')
+    .map((part) => {
+      const outer = unwrapLabelRing(part.outer);
+      const reference = outer.reduce((sum, [longitude]) => sum + longitude, 0) / outer.length;
+      return {
+        outer,
+        holes: part.holes.map((hole) => unwrapLabelRing(hole, reference)),
+      };
+    });
+  const largestArea =
+    polygons.length === 0 ? 0 : Math.max(...polygons.map(({ outer }) => polygonArea(outer)));
+  const defaultLongitude =
+    feature.properties?.LABEL_X ??
+    feature.properties?.label_x ??
+    feature.properties?.labelLongitude;
+  const defaultLatitude =
+    feature.properties?.LABEL_Y ?? feature.properties?.label_y ?? feature.properties?.labelLatitude;
+  const longitude =
+    settings.longitudeField === undefined
+      ? defaultLongitude
+      : feature.properties?.[settings.longitudeField];
+  const latitude =
+    settings.latitudeField === undefined
+      ? defaultLatitude
+      : feature.properties?.[settings.latitudeField];
+  if (
+    typeof longitude === 'number' &&
+    Number.isFinite(longitude) &&
+    typeof latitude === 'number' &&
+    Number.isFinite(latitude) &&
+    longitude >= -180 &&
+    longitude <= 180 &&
+    latitude >= -90 &&
+    latitude <= 90
+  )
+    return { point: [longitude, latitude], area: largestArea };
+  if (polygons.length > 0) {
+    const largest = polygons.reduce((best, candidate) =>
+      polygonArea(candidate.outer) > polygonArea(best.outer) ? candidate : best,
+    );
+    return {
+      point: (() => {
+        const [longitude, latitude] = polygonRepresentativePoint(largest.outer, largest.holes);
+        return [wrapLongitude(longitude), latitude] as GeographicPosition;
+      })(),
+      area: polygonArea(largest.outer),
+    };
+  }
+  const points = parts.flatMap((part) => (part.kind === 'polygon' ? part.outer : part.points));
+  const point = points[Math.floor(points.length / 2)];
+  return point === undefined ? null : { point, area: 0 };
+}
+
+function featureLabel(feature: GeoJsonFeature, field: string | undefined): string | null {
+  const value =
+    field === '$id'
+      ? feature.id
+      : field === undefined
+        ? (feature.properties?.name ??
+          feature.properties?.NAME ??
+          feature.properties?.name_en ??
+          feature.properties?.NAME_EN ??
+          feature.id)
+        : feature.properties?.[field];
+  if (typeof value !== 'string' && typeof value !== 'number') return null;
+  const text = String(value).trim();
+  return text === '' ? null : text.slice(0, 120);
+}
+
+function mapFeatureLabelNodes(
+  context: MarkCompileContext,
+  collection: GeoJsonFeatureCollection,
+  settings: MapLabelSettings,
+  map: (position: GeographicPosition) => Point | null,
+): readonly TextNode[] {
+  const capacity = Math.max(1, Math.floor((context.plot.width * context.plot.height) / 2_800));
+  const maximum = Math.min(
+    settings.maximum,
+    settings.collision === 'none' ? settings.maximum : capacity,
+  );
+  const occupied: {
+    readonly left: number;
+    readonly top: number;
+    readonly right: number;
+    readonly bottom: number;
+  }[] = [];
+  const candidates = collection.features.flatMap((feature, featureIndex) => {
+    const label = featureLabel(feature, settings.field);
+    const anchor = featureAnchor(feature, settings);
+    const point = anchor === null ? null : map(anchor.point);
+    return label === null ||
+      anchor === null ||
+      point === null ||
+      point.x < context.plot.x ||
+      point.x > context.plot.x + context.plot.width ||
+      point.y < context.plot.y ||
+      point.y > context.plot.y + context.plot.height
+      ? []
+      : [{ feature, featureIndex, label, point, area: anchor.area }];
+  });
+  candidates.sort(
+    (left, right) => right.area - left.area || left.featureIndex - right.featureIndex,
+  );
+  const nodes: TextNode[] = [];
+  for (const candidate of candidates) {
+    if (nodes.length >= maximum) break;
+    const widthUnits = Array.from(candidate.label).reduce(
+      (sum, character) =>
+        sum +
+        (/\p{Extended_Pictographic}|\p{Script=Han}|\p{Script=Hangul}|\p{Script=Hiragana}|\p{Script=Katakana}/u.test(
+          character,
+        )
+          ? 1
+          : 0.58),
+      0,
+    );
+    const width = Math.max(settings.fontSize, widthUnits * settings.fontSize);
+    const box = {
+      left: candidate.point.x - width / 2 - settings.padding,
+      right: candidate.point.x + width / 2 + settings.padding,
+      top: candidate.point.y - settings.fontSize / 2 - settings.padding,
+      bottom: candidate.point.y + settings.fontSize / 2 + settings.padding,
+    };
+    if (
+      settings.collision === 'hide' &&
+      occupied.some(
+        (entry) =>
+          box.left < entry.right &&
+          box.right > entry.left &&
+          box.top < entry.bottom &&
+          box.bottom > entry.top,
+      )
+    )
+      continue;
+    occupied.push(box);
+    nodes.push({
+      type: 'text',
+      ...nodeBase(`${context.layer.id}:map-label:${candidate.featureIndex}`, {
+        zIndex: context.layer.zIndex + 8,
+      }),
+      x: candidate.point.x,
+      y: candidate.point.y,
+      text: candidate.label,
+      fill: context.theme.colors.text,
+      fontFamily: context.theme.typography.fontFamily,
+      fontSize: settings.fontSize,
+      fontWeight: 600,
+      align: 'center',
+      baseline: 'middle',
+      rotation: 0,
+    });
+  }
+  return nodes;
+}
+
+interface MapFeatureJoinEntry {
+  readonly rowIndex: number;
+  readonly value: number | null;
+}
+
+interface MapFeatureJoin {
+  readonly featureField: string;
+  readonly dataField: string;
+  readonly valueField?: string;
+  readonly entries: ReadonlyMap<string, MapFeatureJoinEntry>;
+  readonly minimum: number;
+  readonly maximum: number;
+  readonly unmatched: 'show' | 'hide' | 'error';
+  readonly caseSensitive: boolean;
+}
+
+function mapJoinKey(value: unknown, caseSensitive: boolean): string | null {
+  if (!(
+    typeof value === 'string' ||
+    (typeof value === 'number' && Number.isFinite(value)) ||
+    typeof value === 'boolean'
+  ))
+    return null;
+  const key = `${typeof value}:${String(value).trim()}`;
+  return caseSensitive || typeof value !== 'string' ? key : key.toLocaleUpperCase('en-US');
+}
+
+function mapFeatureJoin(context: MarkCompileContext): MapFeatureJoin | null {
+  const featureField = context.layer.mark.fields.featureKey;
+  const dataField = context.layer.mark.fields.dataKey;
+  if (featureField === undefined && dataField === undefined) return null;
+  if (featureField === undefined || dataField === undefined)
+    throw new GraflumeError(
+      'INVALID_SPEC',
+      'Map feature joins require both mark.fields.featureKey and mark.fields.dataKey.',
+    );
+  if (!context.table.has(dataField))
+    throw new GraflumeError('INVALID_DATA', `Map data join field "${dataField}" is missing.`);
+  const caseSensitive = booleanOption(context, 'joinCaseSensitive') ?? false;
+  const duplicate = stringOption(context, 'joinDuplicate') ?? 'error';
+  if (duplicate !== 'error' && duplicate !== 'first' && duplicate !== 'last')
+    throw new GraflumeError(
+      'INVALID_SPEC',
+      'Map joinDuplicate must be "error", "first", or "last".',
+    );
+  const unmatched = stringOption(context, 'joinUnmatched') ?? 'show';
+  if (unmatched !== 'show' && unmatched !== 'hide' && unmatched !== 'error')
+    throw new GraflumeError(
+      'INVALID_SPEC',
+      'Map joinUnmatched must be "show", "hide", or "error".',
+    );
+  const valueField = context.layer.mark.fields.color;
+  if (valueField !== undefined && !context.table.has(valueField))
+    throw new GraflumeError('INVALID_DATA', `Map join color field "${valueField}" is missing.`);
+  const entries = new Map<string, MapFeatureJoinEntry>();
+  for (let rowIndex = 0; rowIndex < context.table.length; rowIndex += 1) {
+    const key = mapJoinKey(context.table.value(rowIndex, dataField), caseSensitive);
+    if (key === null) continue;
+    const value =
+      valueField === undefined ? null : numericDataValue(context.table.value(rowIndex, valueField));
+    if (entries.has(key)) {
+      if (duplicate === 'error')
+        throw new GraflumeError('INVALID_DATA', `Map data join contains duplicate key "${key}".`);
+      if (duplicate === 'first') continue;
+    }
+    entries.set(key, { rowIndex, value });
+  }
+  const values = [...entries.values()].flatMap(({ value }) => (value === null ? [] : [value]));
+  let minimum = values[0] ?? 0;
+  let maximum = values[0] ?? 0;
+  for (const value of values) {
+    minimum = Math.min(minimum, value);
+    maximum = Math.max(maximum, value);
+  }
+  return {
+    featureField,
+    dataField,
+    ...(valueField === undefined ? {} : { valueField }),
+    entries,
+    minimum,
+    maximum,
+    unmatched,
+    caseSensitive,
+  };
+}
+
+function joinedMapFeature(
+  feature: GeoJsonFeature,
+  join: MapFeatureJoin | null,
+): MapFeatureJoinEntry | null {
+  if (join === null) return null;
+  return (
+    join.entries.get(
+      mapJoinKey(
+        join.featureField === '$id' ? feature.id : feature.properties?.[join.featureField],
+        join.caseSensitive,
+      ) ?? '',
+    ) ?? null
+  );
+}
+
 function densifyGeodesicLine(
   points: readonly GeographicPosition[],
   segments: number,
@@ -176,9 +677,60 @@ function densifyGeodesicLine(
 
 /** GeoJSON/TopoJSON map compiler with lifecycle, fit/clip/projection, geodesics, and provider tiles. */
 export const compileAdvancedMapMark: MarkCompiler = (context) => {
-  const collection = sourceCollection(context);
+  const source = sourceCollection(context);
   const tileSource = tileSourceOption(context);
-  if (collection === null && tileSource === null) return compileMapMark(context);
+  if (source === null && tileSource === null) return compileMapMark(context);
+  const scopeInput = context.layer.mark.options.mapScope;
+  if (source === null && scopeInput !== undefined)
+    throw new GraflumeError(
+      'INVALID_SPEC',
+      'Map feature scope requires GeoJSON or TopoJSON when a tile source is used.',
+    );
+  const scope = scopeInput === undefined ? undefined : normalizeMapFeatureScope(scopeInput);
+  const selected =
+    source === null ? null : scope === undefined ? source : scopeGeoJsonFeatures(source, scope);
+  const join = mapFeatureJoin(context);
+  const unmatched =
+    selected === null || join === null
+      ? []
+      : selected.features.filter((feature) => joinedMapFeature(feature, join) === null);
+  if (join?.unmatched === 'error' && unmatched.length > 0)
+    throw new GraflumeError(
+      'INVALID_DATA',
+      `Map feature join left ${unmatched.length} selected feature(s) without data.`,
+    );
+  const visible =
+    selected === null || join?.unmatched !== 'hide'
+      ? selected
+      : Object.freeze({
+          type: 'FeatureCollection' as const,
+          features: Object.freeze(
+            selected.features.filter((feature) => joinedMapFeature(feature, join) !== null),
+          ),
+        });
+  if (visible !== null && visible.features.length === 0)
+    throw new GraflumeError('INVALID_DATA', 'Map feature join selected no visible features.');
+  const maximumFeatures = numberOption(context, 'maximumFeatures') ?? 50_000;
+  if (!Number.isInteger(maximumFeatures) || maximumFeatures < 1 || maximumFeatures > 50_000)
+    throw new GraflumeError(
+      'INVALID_SPEC',
+      'Map maximumFeatures must be an integer from 1 to 50000.',
+    );
+  if (visible !== null && visible.features.length > maximumFeatures)
+    throw new GraflumeError(
+      'INVALID_DATA',
+      `Map scope selected ${visible.features.length} features, above the ${maximumFeatures} feature budget.`,
+    );
+  const geometryBudget =
+    numberOption(context, 'geometryBudget') ?? context.performance.maxLinePoints;
+  const prepared =
+    visible === null
+      ? null
+      : prepareMapGeometry(visible, {
+          detail: geometryDetailOption(context),
+          maximumPositions: Math.max(1_000, Math.min(1_000_000, Math.floor(geometryBudget))),
+        });
+  const collection = prepared?.collection ?? null;
   const registry = new MapLayerRegistry();
   if (collection !== null) registry.addSource('features', collection);
   if (tileSource !== null) registry.addSource('provider', tileSource);
@@ -342,11 +894,34 @@ export const compileAdvancedMapMark: MarkCompiler = (context) => {
   const colorField = context.layer.mark.fields.color;
   collection?.features.forEach((feature, featureIndex) => {
     if (feature.geometry === null) return;
-    const value = propertyValue(feature, colorField);
-    const colorIndex = typeof value === 'number' ? Math.abs(Math.floor(value)) : featureIndex;
+    const joined = joinedMapFeature(feature, join);
+    const value = join === null ? propertyValue(feature, colorField) : joined?.value;
+    const numeric = typeof value === 'number' && Number.isFinite(value) ? value : null;
+    const colorIndex = numeric === null ? featureIndex : Math.abs(Math.floor(numeric));
+    const ratio =
+      numeric === null || join === null || join.maximum === join.minimum
+        ? null
+        : (numeric - join.minimum) / (join.maximum - join.minimum);
+    const rawJoinKey =
+      join === null
+        ? null
+        : join.featureField === '$id'
+          ? feature.id
+          : feature.properties?.[join.featureField];
+    const tooltipJoinKey =
+      rawJoinKey === null ||
+      typeof rawJoinKey === 'string' ||
+      typeof rawJoinKey === 'number' ||
+      typeof rawJoinKey === 'boolean'
+        ? rawJoinKey
+        : rawJoinKey === undefined
+          ? null
+          : JSON.stringify(rawJoinKey).slice(0, 512);
     const color =
       context.layer.mark.fill ??
-      categoricalColor(context.theme, colorIndex, collection.features.length);
+      (ratio === null
+        ? categoricalColor(context.theme, colorIndex, collection.features.length)
+        : mappedContinuousColor(context.theme, ratio, 'endpoints'));
     geometryPaths(feature.geometry).forEach((path, pathIndex) => {
       const geodesicApplied =
         booleanOption(context, 'geodesic') === true &&
@@ -357,13 +932,22 @@ export const compileAdvancedMapMark: MarkCompiler = (context) => {
         : path.kind === 'polygon'
           ? path.outer
           : path.points;
+      const rowIndex = joined?.rowIndex ?? featureIndex;
+      const sourceDatum = joined === null ? null : context.table.row(joined.rowIndex);
       const datum = {
         layerId: context.layer.id,
-        rowIndex: featureIndex,
+        rowIndex,
         datum: {
+          ...(sourceDatum ?? {}),
           featureIndex,
           geometry: feature.geometry?.type ?? 'null',
           properties: JSON.stringify(feature.properties),
+          scope: scope?.level ?? 'all',
+          selectedFeatures: collection.features.length,
+          sourcePositions: prepared?.plan.sourcePositions ?? 0,
+          renderedPositions: prepared?.plan.renderedPositions ?? 0,
+          detail: prepared?.plan.detail ?? 'none',
+          joinValue: numeric,
         },
         tooltip: {
           featureIndex,
@@ -377,6 +961,12 @@ export const compileAdvancedMapMark: MarkCompiler = (context) => {
           source: 'features',
           layer: 'features',
           holes: path.kind === 'polygon' ? path.holes.length : 0,
+          ...(join === null
+            ? {}
+            : {
+                joinKey: tooltipJoinKey,
+                joinValue: numeric,
+              }),
         },
       };
       if (path.kind === 'point') {
@@ -450,6 +1040,9 @@ export const compileAdvancedMapMark: MarkCompiler = (context) => {
       }
     });
   });
+  const labels = mapLabelSettings(context);
+  if (collection !== null && labels !== null)
+    nodes.push(...mapFeatureLabelNodes(context, collection, labels, map));
   lifecycle.attributions.forEach((attribution, index) =>
     nodes.push(
       textNode(

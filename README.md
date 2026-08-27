@@ -9,6 +9,9 @@ Graflume is an experimental, CDN-first visualization engine built around a porta
 - 79 portable `ChartSpec` marks covering 41 Canvas 2D families and 168 compatible presets, plus 5 portable `SpatialSpec` marks covering 3 opt-in WebGL families and 7 spatial variants
 - 44 canonical families and 176 callable presets or modes in total, including one WebGL globe mode integrated into the existing Map family and 120 preserved public compatibility identifiers
 - Cartesian, radial, distribution, financial, interval, calendar, timeline/Gantt, table, hierarchy, flow, word, and statistical world-map Scenes backed by built-in Natural Earth 1:110m country boundaries
+- one-or-many country/subdivision scopes with automatic fit, explicit feature/data joins,
+  collision-aware labels, and an optional integrity-checked Natural Earth 1:10m pack whose
+  country and per-country principal-subdivision shards load only when selected
 - all 45 named technical-indicator presets calculated in-process from their declared numeric or OHLCV inputs, with formula provenance, session reset policy, overlay/panel metadata, synchronized-x-crosshair contracts, and bounded incremental/Worker execution
 - mixed layers such as bar + line + points on shared or independent `x`/`x2`/`y`/`y2` axes
 - row-oriented data and zero-copy `TypedArray` columnar input
@@ -436,6 +439,9 @@ use({
 ## Specification
 
 The machine-readable schema is in [`schema/graflume.schema.json`](schema/graflume.schema.json) and uses the stable identifier `urn:graflume:schema:0.1`.
+The lazy geography manifest uses the separate closed
+[`schema/graflume.map-boundary-manifest.schema.json`](schema/graflume.map-boundary-manifest.schema.json)
+contract; consumers can import it through `graflume/geography/manifest-schema`.
 
 Any change to the portable spec must update all three together:
 

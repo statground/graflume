@@ -287,6 +287,62 @@ for (const entry of seriesChartTypeCatalog) {
   });
 }
 
+test('country scope is shared by geographic line, flow, heat, and tiled-map series', () => {
+  const rows = [
+    {
+      longitude: 126.5,
+      latitude: 36.5,
+      longitude2: 128,
+      latitude2: 35.5,
+      value: 72,
+    },
+    {
+      longitude: -77,
+      latitude: 38.9,
+      longitude2: -74,
+      latitude2: 40.7,
+      value: 55,
+    },
+  ];
+  for (const mark of ['geo-line', 'geo-flow', 'geo-heatmap', 'tiled-map']) {
+    const fields =
+      mark === 'geo-line' || mark === 'geo-flow'
+        ? { longitude2: 'longitude2', latitude2: 'latitude2', value: 'value' }
+        : mark === 'geo-heatmap'
+          ? { value: 'value' }
+          : {};
+    const { scene } = compile(
+      base(
+        {
+          type: mark,
+          fields,
+          options: { mapScope: { level: 'country', values: ['KOR'] } },
+        },
+        rows,
+        'longitude',
+        'latitude',
+      ),
+      { width: 720, height: 440 },
+    );
+    const nodes = flattenScene(scene.root);
+    const countries = new Set(
+      nodes.flatMap((node) => {
+        const match = node.id.match(/:natural-earth:country:([^:]+):/u);
+        return match === null ? [] : [match[1]];
+      }),
+    );
+    assert.deepEqual(countries, new Set(['KOR']), `${mark} basemap`);
+    const interactive = nodes.filter(
+      (node) => node.interactive === true && node.datum?.rowIndex !== undefined,
+    );
+    assert.deepEqual(
+      new Set(interactive.map(({ datum }) => datum.rowIndex)),
+      new Set([0]),
+      `${mark} overlay`,
+    );
+  }
+});
+
 test('schema metadata matches the unified runtime catalog', async () => {
   const schema = JSON.parse(
     await readFile(new URL('../schema/graflume.schema.json', import.meta.url), 'utf8'),

@@ -2,7 +2,7 @@
 
 ## Natural Earth
 
-Graflume's built-in world basemap is generated from **Natural Earth Vector**, Admin-0 Countries at 1:110m, using the repository snapshot tagged `v5.1.2` (`f1890d9f152c896d250a77557a5751a93d494776`).
+Graflume's built-in world basemap is generated from **Natural Earth Vector**, Admin-0 Countries at 1:110m, using the repository snapshot tagged `v5.1.2` (`f1890d9f152c896d250a77557a5751a93d494776`). The optional lazy geography pack uses Admin-0 Map Units at 1:10m from the same snapshot and the Admin-1 States and Provinces 5.1.1 layer. It preserves every source feature before merging duplicate subdivision identifiers and applies coordinate quantization only; it does not download boundaries at chart-render time.
 
 Natural Earth raster and vector map data is in the public domain. It may be used, modified, and redistributed for personal, educational, and commercial purposes without permission or required attribution. Natural Earth provides the data without warranties concerning accuracy, content, or fitness for a particular use.
 
@@ -10,7 +10,7 @@ Natural Earth raster and vector map data is in the public domain. It may be used
 - Terms: <https://www.naturalearthdata.com/about/terms-of-use/>
 - Source: <https://github.com/nvkelso/natural-earth-vector>
 
-The built-in basemap is a small-scale statistical reference map. Country boundaries follow the source dataset's de facto boundary policy and must not be treated as legal or diplomatic authority.
+The built-in basemap and optional detailed packs are statistical reference maps. Country and subdivision boundaries follow the source dataset's de facto boundary policy and must not be treated as legal or diplomatic authority. The pack catalog distinguishes ISO 3166-1 entries, the commonly used `XK` user-assigned code, and source-defined or disputed map units rather than presenting all features as equally recognized states.
 
 ## ggplot2 and scales
 
