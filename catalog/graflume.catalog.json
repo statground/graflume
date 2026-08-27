@@ -5868,50 +5868,50 @@
       ],
       "tableData": [
         {
-          "category": "Insights",
-          "value": 86
+          "value": 86,
+          "category": "Insights"
         },
         {
-          "category": "Dashboards",
-          "value": 78
+          "value": 78,
+          "category": "Dashboards"
         },
         {
-          "category": "Reports",
-          "value": 69
+          "value": 69,
+          "category": "Reports"
         },
         {
-          "category": "Alerts",
-          "value": 61
+          "value": 61,
+          "category": "Alerts"
         },
         {
-          "category": "Models",
-          "value": 48
+          "value": 48,
+          "category": "Models"
         },
         {
-          "category": "Exports",
-          "value": 37
+          "value": 37,
+          "category": "Exports"
         }
       ],
       "fields": [
         {
-          "name": "category",
-          "type": "ordinal"
-        },
-        {
           "name": "value",
           "type": "quantitative"
+        },
+        {
+          "name": "category",
+          "type": "ordinal"
         }
       ],
       "options": {
         "x": {
-          "field": "category",
-          "type": "ordinal",
-          "title": "Capability"
-        },
-        "y": {
           "field": "value",
           "type": "quantitative",
           "title": "Adoption (%)"
+        },
+        "y": {
+          "field": "category",
+          "type": "ordinal",
+          "title": "Capability"
         },
         "title": {
           "text": "Bar chart",

@@ -69,8 +69,11 @@ test('area charts separate the translucent fill from the crisp top line', () => 
   assert.equal(area.fill, '#bfdbfe');
   assert.equal(area.stroke, undefined);
   assert.equal(area.opacity, 0.72);
-  assert.equal(area.points.length, trend.length + 2);
-  assert.equal(area.points.at(-1).y, area.points.at(-2).y);
+  assert.equal(area.points.length, trend.length * 2);
+  const upper = area.points.slice(0, trend.length);
+  const lower = area.points.slice(trend.length).reverse();
+  assert.ok(upper.every((point, index) => point.x === lower[index].x));
+  assert.ok(upper.every((point, index) => point.y <= lower[index].y));
   assert.equal(line.closed, false);
   assert.equal(line.stroke, '#2563eb');
   assert.equal(line.lineCap, 'round');

@@ -1,23 +1,20 @@
 import type { MarkCompileContext } from '../compiler/types.js';
 import { GraflumeError } from '../core/errors.js';
 import { interpolateCurve } from '../curve/registry.js';
-import {
-  exactStrideSampleIndices,
-  minMaxSampleIndices,
-  strideSampleIndices,
-} from '../data/sample.js';
+import { exactStrideSampleIndices, strideSampleIndices } from '../data/sample.js';
 import {
   preparedSeriesStackFields,
   resolveSeriesStackSpec,
   type SeriesStackFields,
 } from '../data/series-stack.js';
 import { createEncodingResolver, type EncodingResolver } from '../encoding/resolve.js';
-import { BandScale } from '../scale/band.js';
 import { nodeBase } from '../scene/factory.js';
 import type { CircleNode, PathNode, RectNode, SceneNode } from '../scene/types.js';
 import type { DataRow } from '../spec/types.js';
 import { categoricalColor, colorWithOpacity } from '../theme/color.js';
+import { buildAreaTopology, orderAreaByX, pairedAreaSampleIndices } from './area-topology.js';
 import { curveNameForMark, curveOptionsForMark } from './curve-series.js';
+import { preservesReferenceBarRatio, resolveBarBandLayout } from './bar-layout.js';
 import {
   numericDataValue,
   scaleInput,
@@ -204,15 +201,57 @@ export function compileSeriesBarMark(context: MarkCompileContext): readonly Scen
   const subgroupCount = grouped ? seriesCount * externalCount : externalCount;
   const categoryCount = Math.max(1, new Set(entries.map(({ categoryKey }) => categoryKey)).size);
   const themedWidthRatio = theme.mark.barWidthRatio;
-  const indices = new Set(strideSampleIndices(entries.length, performance.maxBarMarks));
   const nodes: RectNode[] = [];
   const entryByRow = new Map(entries.map((entry) => [entry.rowIndex, entry]));
+  const horizontal = layer.mark.orientation === 'horizontal';
+  const categorySpan = horizontal ? plot.height : plot.width;
+  const entriesByCategory = new Map<string, SeriesEntry[]>();
+  for (const entry of entries) {
+    const category = entriesByCategory.get(entry.categoryKey) ?? [];
+    category.push(entry);
+    entriesByCategory.set(entry.categoryKey, category);
+  }
+  const categoryGroups = [...entriesByCategory.values()];
+  const largestCategory = Math.max(1, ...categoryGroups.map(({ length }) => length));
+  const minimumClusterStride = Math.max(2, subgroupCount * 1.5);
+  const categoryBudget = Math.max(
+    1,
+    Math.min(
+      Math.floor(performance.maxBarMarks / largestCategory),
+      Math.floor(categorySpan / minimumClusterStride),
+    ),
+  );
+  const selectedCategories = new Set(
+    exactStrideSampleIndices(categoryGroups.length, categoryBudget).flatMap((index) =>
+      categoryGroups[index] === undefined ? [] : [categoryGroups[index]![0]!.categoryKey],
+    ),
+  );
   const visibleEntries = encoding
-    .orderedIndices(entries.flatMap((entry, index) => (indices.has(index) ? [entry.rowIndex] : [])))
+    .orderedIndices(
+      entries.flatMap((entry) =>
+        selectedCategories.has(entry.categoryKey) ? [entry.rowIndex] : [],
+      ),
+    )
     .flatMap((rowIndex) => {
       const entry = entryByRow.get(rowIndex);
       return entry === undefined ? [] : [entry];
     });
+  const categoryScale = horizontal ? yScale : xScale;
+  const preserveReferenceWidth = preservesReferenceBarRatio(theme.name);
+  const categoryCenters = visibleEntries
+    .map(({ category }) => categoryScale.map(category))
+    .filter(Number.isFinite);
+  const band = resolveBarBandLayout({
+    scale: categoryScale,
+    centers: categoryCenters,
+    plotSpan: horizontal ? plot.height : plot.width,
+    categoryCount,
+    groupCount: subgroupCount,
+    lodSampled: selectedCategories.size < categoryGroups.length,
+    maxThickness: subgroupCount > 1 ? 52 : 64,
+    preserveAuthoredRatio: preserveReferenceWidth,
+    ...(themedWidthRatio === undefined ? {} : { barWidthRatio: themedWidthRatio }),
+  });
 
   visibleEntries.forEach((entry, drawIndex) => {
     const subgroupIndex = grouped ? externalIndex * seriesCount + entry.seriesIndex : externalIndex;
@@ -237,12 +276,8 @@ export function compileSeriesBarMark(context: MarkCompileContext): readonly Scen
       const start = xScale.map(entry.start);
       const end = xScale.map(entry.end);
       if (![center, start, end].every(Number.isFinite)) return;
-      const slot =
-        yScale instanceof BandScale
-          ? (themedWidthRatio === undefined ? yScale.bandwidth : yScale.step) / subgroupCount
-          : ((plot.height / categoryCount) * (themedWidthRatio === undefined ? 0.8 : 1)) /
-            subgroupCount;
-      const size = Math.max(1, slot * (themedWidthRatio ?? 0.74));
+      const slot = band.slot;
+      const size = band.thickness;
       const offset = (subgroupIndex - (subgroupCount - 1) / 2) * slot;
       nodes.push({
         type: 'rect',
@@ -273,12 +308,8 @@ export function compileSeriesBarMark(context: MarkCompileContext): readonly Scen
     const start = yScale.map(entry.start);
     const end = yScale.map(entry.end);
     if (![center, start, end].every(Number.isFinite)) return;
-    const slot =
-      xScale instanceof BandScale
-        ? (themedWidthRatio === undefined ? xScale.bandwidth : xScale.step) / subgroupCount
-        : ((plot.width / categoryCount) * (themedWidthRatio === undefined ? 0.8 : 1)) /
-          subgroupCount;
-    const size = Math.max(1, slot * (themedWidthRatio ?? 0.74));
+    const slot = band.slot;
+    const size = band.thickness;
     const offset = (subgroupIndex - (subgroupCount - 1) / 2) * slot;
     nodes.push({
       type: 'rect',
@@ -308,14 +339,11 @@ export function compileSeriesBarMark(context: MarkCompileContext): readonly Scen
 
 function sampledEntries(entries: readonly SeriesEntry[], budget: number): readonly SeriesEntry[] {
   if (entries.length <= budget) return entries;
-  const target = Math.max(1, Math.floor(budget));
-  const indices =
-    target < 4
-      ? exactStrideSampleIndices(entries.length, target)
-      : minMaxSampleIndices(
-          entries.map(({ end }) => end),
-          target,
-        );
+  const indices = pairedAreaSampleIndices(
+    entries.map(({ end }) => end),
+    entries.map(({ start }) => start),
+    Math.max(1, Math.floor(budget)),
+  );
   return indices.flatMap((index) => (entries[index] === undefined ? [] : [entries[index]!]));
 }
 
@@ -351,16 +379,15 @@ export function compileSeriesAreaMark(context: MarkCompileContext): readonly Sce
   const nodes: SceneNode[] = [];
   renderGroups.forEach((group, groupIndex) => {
     const entryByRow = new Map(group.entries.map((entry) => [entry.rowIndex, entry]));
-    const ordered = encoding.has('order')
+    const authored = encoding.has('order')
       ? encoding
           .orderedIndices(group.entries.map(({ rowIndex }) => rowIndex))
           .flatMap((rowIndex) => {
             const entry = entryByRow.get(rowIndex);
             return entry === undefined ? [] : [entry];
           })
-      : [...group.entries].sort(
-          (left, right) => xScale.map(left.category) - xScale.map(right.category),
-        );
+      : group.entries;
+    const ordered = orderAreaByX(authored, (entry) => xScale.map(entry.category));
     const pathBudget = Math.max(
       2,
       Math.floor(performance.maxLinePoints / Math.max(1, renderGroups.length)),
@@ -386,19 +413,14 @@ export function compileSeriesAreaMark(context: MarkCompileContext): readonly Sce
     const interpolatedUpper = interpolateCurve(upperSource, curve, curveOptions);
     const interpolatedLower = interpolateCurve(lowerSource, curve, curveOptions);
     const commonLength = Math.min(interpolatedUpper.length, interpolatedLower.length);
-    const boundaryIndices =
-      commonLength <= boundaryBudget
-        ? exactStrideSampleIndices(commonLength, commonLength)
-        : boundaryBudget < 4
-          ? exactStrideSampleIndices(commonLength, boundaryBudget)
-          : minMaxSampleIndices(
-              Array.from({ length: commonLength }, (_value, index) =>
-                Math.abs(interpolatedUpper[index]!.y - interpolatedLower[index]!.y),
-              ),
-              boundaryBudget,
-            );
+    const boundaryIndices = pairedAreaSampleIndices(
+      interpolatedUpper.slice(0, commonLength).map(({ y }) => y),
+      interpolatedLower.slice(0, commonLength).map(({ y }) => y),
+      boundaryBudget,
+    );
     const upper = boundaryIndices.map((index) => interpolatedUpper[index]!);
     const lower = boundaryIndices.map((index) => interpolatedLower[index]!);
+    const topology = buildAreaTopology(upper, lower);
     const representative = source[0]!.rowIndex;
     const baseColor = seriesColor(context, group.seriesIndex, series.length);
     const color = encoding.color('color', representative, baseColor);
@@ -450,7 +472,7 @@ export function compileSeriesAreaMark(context: MarkCompileContext): readonly Sce
         zIndex: layer.zIndex + groupIndex / Math.max(100, renderGroups.length * 10),
         opacity: encoding.number('opacity', representative, layer.mark.opacity),
       }),
-      points: [...upper, ...[...lower].reverse()],
+      points: topology.polygon,
       closed: true,
       fill: fillColor,
       stroke: strokeColor,

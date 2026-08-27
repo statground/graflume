@@ -1,14 +1,13 @@
 import { stat } from 'node:fs/promises';
 
 const budgets = [
-  // 2026-08-27 measured raw minified bytes after the shared adaptive registry and public
-  // deterministic demo-recipe engine and named product fixtures:
-  // 1,113,017 / 1,309,365 / 390,590. Each ceiling is the
-  // next whole KiB, leaving less than
-  // one KiB of headroom. See docs/development/bundle-boundaries.md for the import-graph audit.
-  ['graflume.min.js', 1_087 * 1024],
-  ['graflume.complete.min.js', 1_279 * 1024],
-  ['graflume.spatial.min.js', 382 * 1024],
+  // 2026-08-27 measured raw minified bytes after row-cardinality evidence, topology-safe
+  // areas, and collision-safe bar-family layout: 1,126,909 / 1,324,133 / 396,947.
+  // Each ceiling is the next whole KiB, leaving less than one KiB of headroom.
+  // See docs/development/bundle-boundaries.md for the import-graph audit.
+  ['graflume.min.js', 1_101 * 1024],
+  ['graflume.complete.min.js', 1_294 * 1024],
+  ['graflume.spatial.min.js', 388 * 1024],
 ];
 
 for (const [name, budgetBytes] of budgets) {

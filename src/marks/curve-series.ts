@@ -9,12 +9,14 @@ import {
   type MissingValuePolicy,
 } from '../curve/registry.js';
 import type { Point } from '../scene/types.js';
+import { orderAreaByX, pairedAreaSampleIndices } from './area-topology.js';
 import { numericDataValue, scaleInput } from './utils.js';
 
 export interface CurveDatumPoint {
   readonly point: Point;
   readonly rowIndex: number;
   readonly value: number;
+  readonly lowerValue?: number;
 }
 
 export interface CurveSegment {
@@ -75,10 +77,16 @@ export function curveNameForMark(
 export function collectCurveSegments(
   context: MarkCompileContext,
   defaultMissing: MissingValuePolicy,
+  order: 'input' | 'x' = 'input',
+  pairedBoundary = false,
 ): readonly CurveDatumPoint[][] {
   const { table, layer, xScale, yScale, performance } = context;
   const encoding = createEncodingResolver(context);
   const missing = resolveMissingValuePolicy(layer.mark.options.missing, defaultMissing);
+  const mappedZero = pairedBoundary ? yScale.map(0) : Number.NaN;
+  const pairedBaseline = Number.isFinite(mappedZero)
+    ? mappedZero
+    : yScale.map(yScale.domain()[0] ?? 0);
   const rawSegments: CurveDatumPoint[][] = [];
   const allIndices = encoding.orderedIndices(
     Array.from({ length: table.length }, (_value, index) => index),
@@ -91,7 +99,14 @@ export function collectCurveSegments(
     grouped.set(group, indices);
   }
 
-  for (const indices of grouped.values()) {
+  for (const groupedIndices of grouped.values()) {
+    const indices =
+      order === 'x'
+        ? orderAreaByX(groupedIndices, (rowIndex) => {
+            const input = scaleInput(table.value(rowIndex, layer.x.field));
+            return input === null ? Number.NaN : xScale.map(input);
+          })
+        : groupedIndices;
     let current: CurveDatumPoint[] = [];
     const flush = (): void => {
       if (current.length > 0) rawSegments.push(current);
@@ -124,7 +139,14 @@ export function collectCurveSegments(
         if (missing !== 'connect') flush();
         continue;
       }
-      current.push({ point: { x, y }, rowIndex, value: sourceValue ?? y });
+      const encodedLower = pairedBoundary ? encoding.position('y2', rowIndex) : null;
+      const lowerValue = encodedLower ?? pairedBaseline;
+      current.push({
+        point: { x, y },
+        rowIndex,
+        value: sourceValue ?? y,
+        ...(pairedBoundary && Number.isFinite(lowerValue) ? { lowerValue } : {}),
+      });
     }
     flush();
   }
@@ -138,10 +160,17 @@ export function collectCurveSegments(
     maximumPoints,
   );
   return retainedSegments.map((segment, segmentIndex) => {
-    const indices = boundedSampleIndices(
-      segment.map(({ value }) => value),
-      budgets[segmentIndex] ?? 1,
-    );
+    const budget = budgets[segmentIndex] ?? 1;
+    const indices = pairedBoundary
+      ? pairedAreaSampleIndices(
+          segment.map(({ point }) => point.y),
+          segment.map(({ point, lowerValue }) => lowerValue ?? point.y),
+          budget,
+        )
+      : boundedSampleIndices(
+          segment.map(({ value }) => value),
+          budget,
+        );
     return indices
       .map((index) => segment[index])
       .filter((entry): entry is CurveDatumPoint => entry !== undefined);

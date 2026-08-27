@@ -14,7 +14,7 @@ across that family's modes; the `vega` and `custom` adapters remain executable
 entries with `familyId: null`. Consumers should filter those two adapters only
 when building canonical-family tabs, not discard them from the public catalog.
 
-`graflume.edge-cases.json` is a separate schema v1 companion for adversarial
+`graflume.edge-cases.json` is a separate schema v2 companion for adversarial
 manual examples. It does not add modes or alter the schema v2 one-to-one
 contract. Every one of the 44 canonical families owns exactly three ordered
 profiles: `range`, `structure`, and `volume`, for 132 examples in total.
@@ -23,11 +23,23 @@ The range profile stays inside family semantics while exercising large and
 small finite values, zero, and signed values where they are meaningful. The
 structure profile declares how missing, sparse, duplicate, and out-of-order
 input is handled, and omits cases that would make the chart mathematically
-misleading. The volume profile stores only a deterministic, versioned recipe,
-seed, logical row count, and output budget. It never embeds the generated large
-array. Each example includes at most 12 source-shaped `tableData` rows so a
-documentation host can explain the input without turning its HTML into a stress
-payload.
+misleading. The volume profile means high input-row cardinality, never merely a
+large numeric value. It stores a deterministic, versioned recipe, seed, logical
+row-like observation count, and output budget instead of embedding the generated
+large array. Its materialization plan proves that `generatedRows` and
+`processedRows` both equal `sourceRows` before family-specific aggregation,
+sampling, binning, or level of detail. `events`, `edges`, `nodes`, `cells`,
+`voxels`, and `vectors` are explicit row-like input units. Each example includes
+at most 12 source-shaped `tableData` rows for optional inspection; a documentation
+host may omit that preview for high-row-count examples and render only the
+bounded chart.
+
+Source tests also compute a deterministic internal contribution digest during
+the real reduction pass. They verify that the first, middle, and final logical
+observations each change the accumulator and that the final boundary contribution
+reaches the final digest across all 18 recipe types and 44 volume profiles. This
+test evidence is intentionally not serialized into the public catalog or runtime
+plan.
 
 The edge-case contract is generated from the public catalog family order and
 representative Quick APIs. Its invariant list is normative: non-negative

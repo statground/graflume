@@ -1,9 +1,12 @@
 import type { MarkCompiler } from '../compiler/types.js';
-import { strideSampleIndices } from '../data/sample.js';
 import { createEncodingResolver } from '../encoding/resolve.js';
-import { BandScale } from '../scale/band.js';
 import { nodeBase } from '../scene/factory.js';
 import type { RectNode } from '../scene/types.js';
+import {
+  preservesReferenceBarRatio,
+  resolveBarBandLayout,
+  selectBarCategoryIndices,
+} from './bar-layout.js';
 import { compileSeriesBarMark } from './stacked-series.js';
 import { scaleInput } from './utils.js';
 
@@ -13,23 +16,38 @@ export const compileBarMark: MarkCompiler = (context) => {
   const { table, layer, xScale, yScale, color, theme, barGroup, performance, plot } = context;
   const encoding = createEncodingResolver(context);
   const themedWidthRatio = theme.mark.barWidthRatio;
+  const preserveReferenceWidth = preservesReferenceBarRatio(theme.name);
+  const categorySpan = layer.mark.orientation === 'horizontal' ? plot.height : plot.width;
+  const indices = encoding.orderedIndices(
+    selectBarCategoryIndices({
+      categoryCount: table.length,
+      plotSpan: categorySpan,
+      maximumMarks: performance.maxBarMarks,
+      groupCount: barGroup.count,
+    }),
+  );
   if (layer.mark.orientation === 'horizontal') {
     const defaultBaseline = xScale.map(0);
-    const slotHeight =
-      yScale instanceof BandScale
-        ? (themedWidthRatio === undefined ? yScale.bandwidth : yScale.step) /
-          Math.max(1, barGroup.count)
-        : Math.max(
-            1,
-            ((plot.height / Math.max(1, table.length)) *
-              (themedWidthRatio === undefined ? 0.8 : 1)) /
-              Math.max(1, barGroup.count),
-          );
-    const barHeight = Math.max(1, slotHeight * (themedWidthRatio ?? 0.74));
+    const categoryCenters = indices.flatMap((rowIndex) => {
+      const input = scaleInput(table.value(rowIndex, layer.y.field));
+      if (input === null) return [];
+      const center = yScale.map(input);
+      return Number.isFinite(center) ? [center] : [];
+    });
+    const band = resolveBarBandLayout({
+      scale: yScale,
+      centers: categoryCenters,
+      plotSpan: plot.height,
+      categoryCount: new Set(categoryCenters).size,
+      groupCount: barGroup.count,
+      lodSampled: indices.length < table.length,
+      maxThickness: 64,
+      preserveAuthoredRatio: preserveReferenceWidth,
+      ...(themedWidthRatio === undefined ? {} : { barWidthRatio: themedWidthRatio }),
+    });
+    const slotHeight = band.slot;
+    const barHeight = band.thickness;
     const nodes: RectNode[] = [];
-    const indices = encoding.orderedIndices(
-      strideSampleIndices(table.length, performance.maxBarMarks),
-    );
 
     for (const rowIndex of indices) {
       const xInput = scaleInput(table.value(rowIndex, layer.x.field));
@@ -98,20 +116,25 @@ export const compileBarMark: MarkCompiler = (context) => {
 
   const defaultBaseline = yScale.map(0);
   const nodes: RectNode[] = [];
-  const slotWidth =
-    xScale instanceof BandScale
-      ? (themedWidthRatio === undefined ? xScale.bandwidth : xScale.step) /
-        Math.max(1, barGroup.count)
-      : Math.max(
-          1,
-          ((plot.width / Math.max(1, table.length)) * (themedWidthRatio === undefined ? 0.8 : 1)) /
-            Math.max(1, barGroup.count),
-        );
-  const barWidth = Math.max(1, slotWidth * (themedWidthRatio ?? 0.74));
-
-  const indices = encoding.orderedIndices(
-    strideSampleIndices(table.length, performance.maxBarMarks),
-  );
+  const categoryCenters = indices.flatMap((rowIndex) => {
+    const input = scaleInput(table.value(rowIndex, layer.x.field));
+    if (input === null) return [];
+    const center = xScale.map(input);
+    return Number.isFinite(center) ? [center] : [];
+  });
+  const band = resolveBarBandLayout({
+    scale: xScale,
+    centers: categoryCenters,
+    plotSpan: plot.width,
+    categoryCount: new Set(categoryCenters).size,
+    groupCount: barGroup.count,
+    lodSampled: indices.length < table.length,
+    maxThickness: 64,
+    preserveAuthoredRatio: preserveReferenceWidth,
+    ...(themedWidthRatio === undefined ? {} : { barWidthRatio: themedWidthRatio }),
+  });
+  const slotWidth = band.slot;
+  const barWidth = band.thickness;
 
   for (const rowIndex of indices) {
     const xInput = scaleInput(table.value(rowIndex, layer.x.field));

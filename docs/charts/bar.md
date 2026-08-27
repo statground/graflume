@@ -49,40 +49,40 @@ Use this preset when you need to compare values across discrete categories. Uses
 - **Quick API:** `horizontalBar()`
 - **Mode:** `horizontal`
 - **Portable mark:** `bar`
-- **Required example fields:** `category`, `value`
+- **Required example fields:** `value`, `category`
 
 ```js
 import { horizontalBar } from 'graflume';
 
 const data = [
   {
-    category: 'Insights',
     value: 86,
+    category: 'Insights',
   },
   {
-    category: 'Dashboards',
     value: 78,
+    category: 'Dashboards',
   },
   {
-    category: 'Reports',
     value: 69,
+    category: 'Reports',
   },
   {
-    category: 'Alerts',
     value: 61,
+    category: 'Alerts',
   },
 ];
 
 horizontalBar('#chart', data, {
   x: {
-    field: 'category',
-    type: 'ordinal',
-    title: 'Capability',
-  },
-  y: {
     field: 'value',
     type: 'quantitative',
     title: 'Adoption (%)',
+  },
+  y: {
+    field: 'category',
+    type: 'ordinal',
+    title: 'Capability',
   },
   title: {
     text: 'Bar chart',
@@ -103,14 +103,14 @@ horizontalBar('#chart', data, {
       title: 'Bar chart',
       fields: [
         {
-          field: 'category',
-          label: 'Capability',
-          format: 'auto',
-        },
-        {
           field: 'value',
           label: 'Adoption (%)',
           format: 'number',
+        },
+        {
+          field: 'category',
+          label: 'Capability',
+          format: 'auto',
         },
       ],
       trigger: 'axis',
@@ -854,11 +854,28 @@ Graflume.create('#chart', spec);
 ## Data behavior
 
 - Horizontal bars use quantitative x and categorical y; vertical columns use categorical x and quantitative y.
+- Setting `orientation: 'horizontal'` on the conventional `x: category, y: value` authoring form
+  automatically transposes those two positional encodings. Explicitly authored horizontal
+  `x: value, y: category` specs remain unchanged, including their portable serialization.
 - Both axes now support categorical, quantitative, or temporal scales when the selected mark can use them.
 - Bar domains include zero automatically, even when `scale.zero` is omitted.
 - Positive and negative values extend in opposite directions from the zero baseline.
 - Rows with missing or non-mappable x/y pairs are skipped.
 - Input category order is preserved unless an explicit categorical domain is supplied.
+
+## Automatic band layout
+
+Every ordinary, grouped, and stacked bar uses the same cross-axis band resolver. It derives the
+category stride from a band scale or from the nearest rendered centers, subdivides it by the layer
+and series group count, and leaves an inner gap before emitting geometry. Product themes cap a
+single bar at 64 CSS pixels and a grouped bar at 52 CSS pixels so a sparse chart does not turn into
+several oversized slabs. The ggplot, R base, and Matplotlib reference themes retain their authored
+width ratios whenever the shared maximum-thickness safety cap is not reached.
+
+When categories outnumber the available pixels, the compiler selects an evenly distributed,
+endpoint-preserving category subset. Grouped and stacked layouts select whole category groups, so
+LOD never leaves an isolated series segment behind. The sampled category stride then determines
+the rendered band width; horizontal and vertical charts follow the same non-overlap invariant.
 
 ## Grouped bars
 

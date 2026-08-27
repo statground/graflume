@@ -680,7 +680,7 @@ intervals('#chart', data, {
 
 ## Data contract
 
-Declare `low` and `high` in `mark.fields`. Choose area, column, dumbbell, or error presentation through the listed preset API and its function-free mark options. Missing required values skip only the affected row. Input order remains stable unless the selected layout documents a deterministic sort.
+Declare `low` and `high` in `mark.fields`. Choose area, column, dumbbell, or error presentation through the listed preset API and its function-free mark options. Missing required values skip only the affected row. Area and smooth-area bands sort valid rows by their resolved x position, interpolate both boundaries in the same direction, pair every retained sample, and reverse the lower boundary only when the final polygon is assembled. If a row supplies `low` above `high`, the Scene normalizes that pair to visual upper/lower positions instead of creating a self-crossing band. Column, dumbbell, and error modes retain their independent row semantics.
 
 ## Rendering and portability
 

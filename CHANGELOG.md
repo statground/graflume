@@ -4,6 +4,29 @@ All notable changes to Graflume will be recorded here.
 
 ## Unreleased
 
+- Make Cartesian bar bands collision-safe and orientation-aware. Horizontal bars now transpose the
+  unambiguous `x: category, y: value` authoring form automatically, while ordinary, grouped, and
+  stacked bars share one bounded thickness/gap contract with pixel-aware category LOD. Preserve
+  complete series groups during sampling, cap oversized product-theme bars, and keep ggplot, R base,
+  and Matplotlib reference-theme width ratios exact below the shared maximum-thickness cap. Apply
+  the same resolver to range columns, waterfalls, difference bars, candlestick/financial bodies,
+  and discrete price blocks after path-dependent or cumulative semantics have been resolved over
+  the complete input.
+- Define every `volume` edge profile by input-row cardinality rather than numeric magnitude. Make
+  all 44 family recipes generate and process at least 50,000 logical row-like observations before
+  bounded aggregation, sampling, binning, or level of detail; expose matching `generatedRows` and
+  `processedRows` evidence in the public plan; audit data-dependent first, middle, and last row
+  contributions with deterministic internal digests; and keep numeric extremes exclusive to
+  `range`. Together with the concurrent topology-safe Area and collision-safe bar-band compiler
+  work, the final default/complete/spatial bundles measure 1,126,909/1,324,133/396,947 minified
+  bytes (327,572/384,178/123,568 gzip-9 and 261,522/303,516/101,949 Brotli-11 bytes), with strict
+  next-whole-KiB budgets of 1,101/1,294/388 KiB.
+- Make every Cartesian Area polygon topology-safe. Order ordinary, stepped, smooth, range,
+  grouped/stacked/diverging, theme-river, and streamgraph boundaries by resolved x; apply gaps
+  after ordering; retain aligned upper/lower samples with paired upper, lower, and band-thickness
+  LOD extrema; normalize crossed range or signed-baseline pairs without changing authored tooltip
+  rows; and close corresponding endpoints so zero-baseline fills cannot render as bow-tie/X
+  polygons. Keep `encoding.order` as a duplicate-x tie-break while stack order owns series layers.
 - Replace placeholder-oriented catalog fixtures with curated product stories across all 168 Canvas modes and eight Spatial modes. Keep every example deterministic, meaningful at desktop and mobile sizes, and aligned with its family semantics, including coherent OHLCV history, exact Venn intersections with invariant-safe extreme previews, restrained compositions, uncertainty intervals, named workflows, and multi-lobe spatial fields. Give ordinary customer, cohort, release-candidate, shell, cyclone, flow, and spatial-population rows semantic inspection labels, guard globe locations against duplicate coordinates, and give both declarative adapters authored product narratives.
 - Add a closed public demo-recipe v2 API with 18 deterministic family-aware materializers, compact previews, explicit source/derived/rendered plans, and screen-budgeted level of detail for all 44 high-volume family examples. Pre-aggregate the 20,000-edge network story into at most twelve named workflow nodes so labels remain readable while hover and zoom retain inspection, and use named accounts, initiatives, regions, milestones, release trains, and spatial flows instead of generator placeholders. Export the same API from Canvas, complete, and Spatial bundles; reject unknown parameters and mismatched shape/resource contracts. Together with the shared adaptive registry, the audited default/complete/spatial bundles measure 1,113,017/1,309,365/390,590 minified bytes (323,645/380,004/121,663 gzip-9 bytes), with strict next-whole-KiB budgets of 1,087/1,279/382 KiB.
 - Add one capability-driven adaptive registry shared by Canvas and Spatial, with 23 extensible profiles covering fluid/mobile/watch/e-paper/monochrome/dot displays plus zoom, foldable, TV, print, forced-color, reduced-effects, coarse-input, keyboard/switch, low-resource, RTL, vertical-writing, assistive, no-script, XR, cutout, and virtual-keyboard environments. Expose resolved adaptive state and changes without user-agent detection, preserve authored interaction ownership, and enable bounded large-data inspection only where it is safe.

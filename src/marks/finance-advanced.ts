@@ -13,6 +13,11 @@ import {
 import { nodeBase } from '../scene/factory.js';
 import type { SceneNode } from '../scene/types.js';
 import { colorWithOpacity } from '../theme/color.js';
+import {
+  preservesReferenceBarRatio,
+  resolveBarBandLayout,
+  selectBarCategoryIndices,
+} from './bar-layout.js';
 import { compileVolumeProfileMark } from './series.js';
 import { numericDataValue } from './utils.js';
 
@@ -169,12 +174,29 @@ export const compilePriceBlocksMark: MarkCompiler = (context) => {
   const { layer, plot, theme, performance } = context;
   const { minimum, maximum } = priceExtent(blocks);
   const span = Math.max(Number.EPSILON, maximum - minimum);
-  const width = plot.width / Math.max(1, blocks.length);
+  const nativeStride = plot.width / Math.max(1, blocks.length);
+  const selectedIndices = selectBarCategoryIndices({
+    categoryCount: blocks.length,
+    plotSpan: plot.width,
+    maximumMarks: performance.maxBarMarks,
+  });
+  const centers = selectedIndices.map((index) => plot.x + index * nativeStride + nativeStride / 2);
+  const band = resolveBarBandLayout({
+    scale: context.xScale,
+    centers,
+    plotSpan: plot.width,
+    categoryCount: blocks.length,
+    lodSampled: selectedIndices.length < blocks.length,
+    barWidthRatio: 0.74,
+    maxThickness: 64,
+    preserveAuthoredRatio: preservesReferenceBarRatio(theme.name),
+  });
   const mapY = (value: number) => plot.y + plot.height - ((value - minimum) / span) * plot.height;
   const risingColor = theme.colors.palette[1] ?? context.color;
   const fallingColor = theme.colors.palette[3] ?? context.color;
   const nodes: SceneNode[] = [];
-  blocks.forEach((block, index) => {
+  selectedIndices.forEach((index) => {
+    const block = blocks[index]!;
     const color = block.direction === 'up' ? risingColor : fallingColor;
     const base = nodeBase(`${layer.id}:${block.mode}:${index}`, {
       zIndex: layer.zIndex,
@@ -216,7 +238,7 @@ export const compilePriceBlocksMark: MarkCompiler = (context) => {
         },
       },
     });
-    const x = plot.x + index * width + width / 2;
+    const x = plot.x + index * nativeStride + nativeStride / 2;
     const open = mapY(block.open);
     const close = mapY(block.close);
     if (block.mode === 'kagi') {
@@ -224,10 +246,10 @@ export const compilePriceBlocksMark: MarkCompiler = (context) => {
         type: 'path',
         ...base,
         points: [
-          { x: x - width / 2, y: open },
+          { x: x - Math.min(nativeStride, band.categoryStride) / 2, y: open },
           { x, y: open },
           { x, y: close },
-          { x: x + width / 2, y: close },
+          { x: x + Math.min(nativeStride, band.categoryStride) / 2, y: close },
         ],
         closed: false,
         stroke: layer.mark.stroke ?? color,
@@ -242,9 +264,9 @@ export const compilePriceBlocksMark: MarkCompiler = (context) => {
     nodes.push({
       type: 'rect',
       ...base,
-      x: plot.x + index * width + 1,
+      x: x - band.thickness / 2,
       y: Math.min(open, close),
-      width: Math.max(1.5, width - 2),
+      width: band.thickness,
       height: Math.max(1.5, Math.abs(open - close)),
       fill: layer.mark.fill ?? colorWithOpacity(color, 0.74),
       stroke: layer.mark.stroke ?? color,

@@ -640,13 +640,16 @@ export function seriesSampleSpec(entry) {
   ) {
     spec = base({ type: mark, point: mark === 'line' || mark === 'trendline' });
   } else if (mark === 'bar') {
+    const horizontal = id === 'bar';
     spec = base(
       {
         type: mark,
-        orientation: id === 'bar' ? 'horizontal' : 'vertical',
+        orientation: horizontal ? 'horizontal' : 'vertical',
         cornerRadius: 6,
       },
       productMetrics,
+      horizontal ? 'value' : 'category',
+      horizontal ? 'category' : 'value',
     );
   } else if (mark === 'boxplot') {
     spec = base(
@@ -1136,17 +1139,21 @@ export function seriesSampleSpec(entry) {
           xTitle: spec.x?.title ?? spec.x?.field ?? 'Category',
           yTitle: spec.y?.title ?? spec.y?.field ?? 'Value',
         });
+  const presentedStory =
+    mark === 'bar' && spec.mark?.orientation === 'horizontal'
+      ? { ...story, xTitle: story.yTitle, yTitle: story.xTitle }
+      : story;
   const presentedLayers = spec.layers?.map((layer) => ({
     ...layer,
-    ...(layer.x === undefined ? {} : { x: { ...layer.x, title: story.xTitle } }),
-    ...(layer.y === undefined ? {} : { y: { ...layer.y, title: story.yTitle } }),
+    ...(layer.x === undefined ? {} : { x: { ...layer.x, title: presentedStory.xTitle } }),
+    ...(layer.y === undefined ? {} : { y: { ...layer.y, title: presentedStory.yTitle } }),
   }));
   const hideAxes =
     axislessFamilies.includes(familyId) || ['map', 'radial', 'relationship'].includes(category);
   return {
     ...spec,
-    ...(spec.x === undefined ? {} : { x: { ...spec.x, title: story.xTitle } }),
-    ...(spec.y === undefined ? {} : { y: { ...spec.y, title: story.yTitle } }),
+    ...(spec.x === undefined ? {} : { x: { ...spec.x, title: presentedStory.xTitle } }),
+    ...(spec.y === undefined ? {} : { y: { ...spec.y, title: presentedStory.yTitle } }),
     ...(presentedLayers === undefined ? {} : { layers: presentedLayers }),
     title: { text: name, subtitle: story.subtitle },
     accessibility: {

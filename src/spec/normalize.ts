@@ -18,10 +18,13 @@ import type {
   ChartSpec,
   ChannelEncodingInput,
   DataInput,
+  DataValue,
+  ColumnarData,
   DecorationTargetSpec,
   EncodingInput,
   EncodingMap,
   EncodingChannel,
+  FieldType,
   LayerSpec,
   LegendItemSpec,
   LegendSpec,
@@ -749,6 +752,95 @@ function normalizeMark(input: MarkInput): NormalizedMarkSpec {
   };
 }
 
+function encodingField(input: EncodingInput | undefined): string | undefined {
+  return typeof input === 'string' ? input : input?.field;
+}
+
+function authoredFieldType(input: EncodingInput | undefined): FieldType | undefined {
+  return typeof input === 'string' ? undefined : input?.type;
+}
+
+function resolvedInputFieldType(
+  input: EncodingInput | undefined,
+  data: DataInput,
+): FieldType | undefined {
+  const authored = authoredFieldType(input);
+  if (authored !== undefined) return authored;
+  const field = encodingField(input);
+  if (field === undefined) return undefined;
+  const typeOfValue = (value: DataValue): FieldType | null => {
+    if (value === null || value === undefined) return null;
+    if (value instanceof Date) return 'temporal';
+    if (typeof value === 'number') return 'quantitative';
+    if (
+      typeof value === 'string' &&
+      /^\d{4}-\d{2}-\d{2}(?:T|$)/.test(value) &&
+      Number.isFinite(Date.parse(value))
+    ) {
+      return 'temporal';
+    }
+    return 'nominal';
+  };
+  if (Array.isArray(data)) {
+    for (const row of data) {
+      const type = typeOfValue(row[field]);
+      if (type !== null) return type;
+    }
+    return 'nominal';
+  }
+  const column = (data as ColumnarData).columns[field];
+  if (column === undefined) return undefined;
+  for (let index = 0; index < column.length; index += 1) {
+    const type = typeOfValue(column[index]);
+    if (type !== null) return type;
+  }
+  return 'nominal';
+}
+
+/**
+ * Horizontal bars use a quantitative x axis and a categorical y axis. Authors
+ * commonly start from the vertical `x: category, y: value` form and then set
+ * only `orientation: 'horizontal'`. Treat that unambiguous combination as a
+ * request to transpose the positional channels, including interval endpoints,
+ * so a harmless orientation change cannot turn values into overlapping bands.
+ */
+function orientHorizontalBarEncoding(
+  data: DataInput,
+  legacyX: EncodingInput | undefined,
+  legacyY: EncodingInput | undefined,
+  input: EncodingMap | undefined,
+): {
+  readonly x: EncodingInput | undefined;
+  readonly y: EncodingInput | undefined;
+  readonly encoding: EncodingMap | undefined;
+} {
+  const x = input?.x ?? legacyX;
+  const y = input?.y ?? legacyY;
+  const xType = resolvedInputFieldType(x as EncodingInput | undefined, data);
+  const yType = resolvedInputFieldType(y as EncodingInput | undefined, data);
+  const transpose =
+    x !== undefined &&
+    y !== undefined &&
+    (xType === 'nominal' || xType === 'ordinal' || xType === 'temporal') &&
+    yType === 'quantitative';
+  if (!transpose) return { x: legacyX, y: legacyY, encoding: input };
+  if (input === undefined) {
+    return { x: y as EncodingInput, y: x as EncodingInput, encoding: undefined };
+  }
+  const { x2, y2, ...channels } = input;
+  return {
+    x: legacyX,
+    y: legacyY,
+    encoding: {
+      ...channels,
+      x: y,
+      y: x,
+      ...(y2 === undefined ? {} : { x2: y2 }),
+      ...(x2 === undefined ? {} : { y2: x2 }),
+    },
+  };
+}
+
 function resolveSpecializedEncoding(
   markType: string,
   input: EncodingMap | undefined,
@@ -796,8 +888,18 @@ function normalizeLayer(
   }
   const markType = typeof layer.mark === 'string' ? layer.mark : layer.mark.type;
   const specialized = resolveSpecializedEncoding(markType, layer.encoding);
-  const encoding = normalizeEncodingMap(layer.x, layer.y, specialized, chartAxes, theme);
   const normalizedMark = normalizeMark(layer.mark);
+  const oriented =
+    markType === 'bar' && normalizedMark.orientation === 'horizontal'
+      ? orientHorizontalBarEncoding(data, layer.x, layer.y, specialized)
+      : { x: layer.x, y: layer.y, encoding: specialized };
+  const encoding = normalizeEncodingMap(
+    oriented.x,
+    oriented.y,
+    oriented.encoding,
+    chartAxes,
+    theme,
+  );
   const semanticFields = Object.fromEntries(
     ['longitude', 'latitude', 'open', 'high', 'low', 'close', 'volume', 'angle', 'theta'].flatMap(
       (channel) => {

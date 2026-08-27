@@ -20,11 +20,13 @@ export const edgeCaseProfiles = Object.freeze([
   Object.freeze({
     id: 'volume',
     order: 2,
-    name: 'High volume',
+    name: 'High row count',
     summary:
-      'Uses a deterministic compact recipe and an explicit output budget instead of embedding a large generated payload.',
+      'Processes every logical input row, then applies deterministic aggregation or sampling to stay within the renderer budget.',
   }),
 ]);
+
+export const minimumVolumeSourceRows = 50_000;
 
 export const edgeCaseRecipeCatalog = demoRecipeCatalog;
 
@@ -119,7 +121,7 @@ const policies = {
     structure: ['duplicate-key', 'null', 'high-cardinality'],
     handling: ['duplicate-category-aggregated', 'zero-and-null-slice-omitted', 'labels-budgeted'],
     invariants: ['slice-value-nonnegative'],
-    volume: volume(30_000, 'large', 'radial-marks', 20_000),
+    volume: volume(60_000, 'large', 'radial-marks', 20_000),
   }),
   timeline: policy({
     recipe: 'interval-sequence',
@@ -128,7 +130,7 @@ const policies = {
     structure: ['sparse', 'out-of-order', 'overlap'],
     handling: ['source-order-independent', 'overlap-retained', 'missing-interval-left-empty'],
     invariants: ['stable-interval-id', 'start-not-after-end', 'progress-closed-0-100'],
-    volume: volume(20_000, 'standard', 'bar-marks', 20_000),
+    volume: volume(60_000, 'large', 'bar-marks', 20_000),
   }),
   gauge: policy({
     recipe: 'categorical-events',
@@ -137,7 +139,7 @@ const policies = {
     structure: ['zero-baseline', 'domain-boundary'],
     handling: ['explicit-min-max-domain', 'reference-and-target-preserved'],
     invariants: ['value-inside-explicit-domain'],
-    volume: volume(6_000, 'ultra', 'bar-marks', 5_000, { explicitPerformance: true }),
+    volume: volume(60_000, 'ultra', 'bar-marks', 5_000, { explicitPerformance: true }),
   }),
   map: policy({
     recipe: 'geo-events',
@@ -224,7 +226,7 @@ const policies = {
       'negative-edge-forbidden',
     ],
     invariants: ['edge-weight-nonnegative', 'acyclic-flow'],
-    volume: volume(10_000, 'ultra', 'bar-marks', 5_000, {
+    volume: volume(60_000, 'ultra', 'bar-marks', 5_000, {
       topology: 'directed-acyclic',
       explicitPerformance: true,
     }),
@@ -273,7 +275,7 @@ const policies = {
       'duplicate-node-id-forbidden',
     ],
     invariants: ['stable-unique-node-id', 'weight-nonnegative'],
-    volume: volume(10_000, 'ultra', 'bar-marks', 5_000, { explicitPerformance: true }),
+    volume: volume(60_000, 'ultra', 'bar-marks', 5_000, { explicitPerformance: true }),
   }),
   polar: policy({
     recipe: 'time-signal',
@@ -292,7 +294,7 @@ const policies = {
     structure: ['duplicate-edge', 'out-of-order', 'self-loop', 'disconnected'],
     handling: ['stable-edge-id-preserved', 'directed-multiedge-retained', 'self-loop-retained'],
     invariants: ['edge-weight-nonnegative', 'stable-edge-identity'],
-    volume: volume(20_000, 'ultra', 'line-points', 8_000, {
+    volume: volume(60_000, 'ultra', 'line-points', 8_000, {
       nodeCount: 5_000,
       explicitPerformance: true,
     }),
@@ -304,7 +306,7 @@ const policies = {
     structure: ['duplicate-edge', 'self-loop', 'sparse'],
     handling: ['duplicate-pair-aggregated', 'asymmetric-flow-retained', 'zero-edge-omitted'],
     invariants: ['edge-weight-nonnegative'],
-    volume: volume(20_000, 'ultra', 'line-points', 8_000, {
+    volume: volume(60_000, 'ultra', 'line-points', 8_000, {
       categoryCount: 500,
       explicitPerformance: true,
     }),
@@ -331,7 +333,7 @@ const policies = {
       'categorical-path-count-aggregated',
     ],
     invariants: ['dimension-order-preserved'],
-    volume: volume(6_000, 'ultra', 'parallel-paths', 500, {
+    volume: volume(60_000, 'ultra', 'parallel-paths', 500, {
       mode: 'categories',
       explicitPerformance: true,
     }),
@@ -395,7 +397,7 @@ const policies = {
     structure: ['duplicate-row', 'null', 'constant-dimension', 'collinear'],
     handling: ['constant-domain-centered', 'null-row-omitted', 'coincident-point-retained'],
     invariants: ['dimension-order-preserved'],
-    volume: volume(5_000, 'ultra', 'point-marks', 8_000, {
+    volume: volume(60_000, 'ultra', 'point-marks', 8_000, {
       dimensionCount: 8,
       explicitPerformance: true,
     }),
@@ -408,7 +410,7 @@ const policies = {
     structure: ['sparse', 'duplicate-cell', 'out-of-order', 'null'],
     handling: ['warped-coordinate-preserved', 'duplicate-cell-aggregated', 'null-cell-left-empty'],
     invariants: ['finite-carpet-coordinate'],
-    volume: volume(16_384, 'standard', 'bar-marks', 16_384, { rows: 128, columns: 128 }),
+    volume: volume(65_536, 'large', 'bar-marks', 16_384, { rows: 256, columns: 256 }),
   }),
   contour: policy({
     recipe: 'grid-2d',
@@ -475,7 +477,7 @@ const policies = {
       'label-layout-budgeted',
     ],
     invariants: ['word-weight-nonnegative'],
-    volume: volume(10_000, 'ultra', 'bar-marks', 5_000, { explicitPerformance: true }),
+    volume: volume(60_000, 'ultra', 'bar-marks', 5_000, { explicitPerformance: true }),
   }),
   'price-blocks': policy({
     recipe: 'ohlcv-sequence',
@@ -556,6 +558,10 @@ function policy(input) {
 }
 
 function volume(rowCount, performanceProfile, resource, maximum, parameters = {}) {
+  assert.ok(
+    Number.isInteger(rowCount) && rowCount >= minimumVolumeSourceRows,
+    `volume recipes require at least ${minimumVolumeSourceRows.toLocaleString('en-US')} logical rows`,
+  );
   return { rowCount, performanceProfile, resource, maximum, parameters };
 }
 
@@ -1062,6 +1068,8 @@ function expectationsFor(profileId, definition, tableData, recipe) {
           recipeId: recipe.id,
           seed: recipe.seed,
           sourceRows: recipe.cardinality.sourceRows,
+          generatedRows: recipe.cardinality.sourceRows,
+          processedRows: recipe.cardinality.sourceRows,
           derivedRows: tableData.length,
           renderedRows: tableData.length,
           renderedMaximum: recipe.outputBudget.maximum,
@@ -1075,6 +1083,8 @@ function expectationsFor(profileId, definition, tableData, recipe) {
         : profileId === 'volume'
           ? [
               'deterministic-seed',
+              'full-source-row-generation',
+              'full-source-row-processing',
               'semantic-level-of-detail',
               'bounded-output',
               'lazy-materialization-after-consent',
@@ -1137,7 +1147,13 @@ export function buildEdgeCaseCatalog(publicCatalog) {
           ? rangeDemonstrates(definition)
           : profile.id === 'structure'
             ? ['irregular-structure', ...definition.structure]
-            : ['high-volume', 'deterministic-generation', 'bounded-rendering'];
+            : [
+                'high-row-cardinality',
+                'all-input-rows-generated',
+                'all-input-rows-processed',
+                'deterministic-generation',
+                'bounded-rendering',
+              ];
       examples.push({
         id: `${family.id}-${profile.id}`,
         familyId: family.id,

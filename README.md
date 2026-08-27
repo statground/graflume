@@ -38,8 +38,9 @@ Graflume is an experimental, CDN-first visualization engine built around a porta
   zoomed, foldable, remote, paged, forced-color, reduced-effect, low-resource, RTL, vertical-writing,
   assistive, no-script, XR, cutout, and virtual-keyboard environments without user-agent branching
 - standard/large/ultra performance profiles with bounded line, point, and bar rendering
-- deterministic product-quality demo data and 18 closed high-volume recipes that disclose logical,
-  derived, and rendered counts while preserving each chart family's semantics
+- deterministic product-quality demo data and 18 closed high-row-count recipes that actually
+  generate and process every logical observation before bounded aggregation or sampling, while
+  disclosing source, generated, processed, derived, and rendered counts
 - a DOM-free `compile()` path for wrappers, SSR pipelines, testing, and future language bindings
 
 The 2026-08-26 `current-limitations` completion release moved all 161/161 items that had been listed under the 44 family manuals' **Current limitations** boundary into executable, tested support. Its exact per-family capability, source, and test mapping is checked in at [`catalog/graflume.current-limitations.evidence.json`](catalog/graflume.current-limitations.evidence.json); the seven common foundations and all 44 families now have `supported` status with zero remaining P0/current-limitations items. This does not promote the separately researched candidate families or claim the P1/P2 roadmap. The same release adds executable `kagi()`, `threeLineBreak()`, and `rangeBars()` modes to the existing Price blocks family, without creating duplicate family cards.

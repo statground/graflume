@@ -18,6 +18,11 @@ import type {
 import { categoricalColor, colorWithOpacity, mixColor } from '../theme/color.js';
 import { compileAreaMark, compileAreaSeries } from './area.js';
 import { compileBarMark } from './bar.js';
+import {
+  preservesReferenceBarRatio,
+  resolveBarBandLayout,
+  selectBarCategoryIndices,
+} from './bar-layout.js';
 import { compileLineMark } from './line.js';
 import { compilePointMark } from './point.js';
 import { numericDataValue, scaleInput, themedPointFill, themedPointStroke } from './utils.js';
@@ -166,15 +171,31 @@ export const compileCandlestickMark: MarkCompiler = (context) => {
   const highField = layer.mark.fields.high ?? 'high';
   const lowField = layer.mark.fields.low ?? 'low';
   const closeField = layer.mark.fields.close ?? layer.y.field;
-  const width = Math.max(
-    3,
-    xScale instanceof BandScale
-      ? xScale.bandwidth * 0.58
-      : (plot.width / Math.max(1, table.length)) * 0.56,
-  );
+  const indices = selectBarCategoryIndices({
+    categoryCount: table.length,
+    plotSpan: plot.width,
+    maximumMarks: performance.maxBarMarks,
+    marksPerCategory: 2,
+  });
+  const centers = indices.flatMap((rowIndex) => {
+    const input = scaleInput(table.value(rowIndex, layer.x.field));
+    if (input === null) return [];
+    const center = xScale.map(input);
+    return Number.isFinite(center) ? [center] : [];
+  });
+  const band = resolveBarBandLayout({
+    scale: xScale,
+    centers,
+    plotSpan: plot.width,
+    categoryCount: table.length,
+    lodSampled: indices.length < table.length,
+    barWidthRatio: 0.58,
+    maxThickness: 64,
+    preserveAuthoredRatio: preservesReferenceBarRatio(theme.name),
+  });
   const nodes: SceneNode[] = [];
 
-  for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+  for (const rowIndex of indices) {
     const xInput = scaleInput(table.value(rowIndex, layer.x.field));
     const open = numericDataValue(table.value(rowIndex, openField));
     const high = numericDataValue(table.value(rowIndex, highField));
@@ -217,9 +238,9 @@ export const compileCandlestickMark: MarkCompiler = (context) => {
         interactive: performance.enableHitTesting,
         datum,
       }),
-      x: x - width / 2,
+      x: x - band.thickness / 2,
       y: Math.min(yOpen, yClose),
-      width,
+      width: band.thickness,
       height: Math.max(1.5, Math.abs(yOpen - yClose)),
       fill,
       stroke: layer.mark.stroke ?? fill,
@@ -437,55 +458,75 @@ export const compileTrendlineMark: MarkCompiler = (context) => {
 
 export const compileWaterfallMark: MarkCompiler = (context) => {
   const { table, layer, xScale, yScale, theme, performance, plot } = context;
-  const width = Math.max(
-    3,
-    xScale instanceof BandScale
-      ? xScale.bandwidth * 0.62
-      : (plot.width / Math.max(1, table.length)) * 0.6,
-  );
-  const nodes: SceneNode[] = [];
+  const steps: Array<{
+    readonly rowIndex: number;
+    readonly xInput: number | string | Date;
+    readonly delta: number;
+    readonly start: number;
+    readonly end: number;
+  }> = [];
   let total = 0;
   for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
     const xInput = scaleInput(table.value(rowIndex, layer.x.field));
     const delta = numericDataValue(table.value(rowIndex, layer.y.field));
     if (xInput === null || delta === null) continue;
-    const previous = total;
+    const start = total;
     total += delta;
-    const x = xScale.map(xInput);
-    const y1 = yScale.map(previous);
-    const y2 = yScale.map(total);
-    if (![x, y1, y2].every(Number.isFinite)) continue;
+    steps.push({ rowIndex, xInput, delta, start, end: total });
+  }
+  const selected = selectBarCategoryIndices({
+    categoryCount: steps.length,
+    plotSpan: plot.width,
+    maximumMarks: performance.maxBarMarks,
+    marksPerCategory: 2,
+  }).map((index) => ({ ...steps[index]!, stepIndex: index }));
+  const centers = selected.map(({ xInput }) => xScale.map(xInput)).filter(Number.isFinite);
+  const band = resolveBarBandLayout({
+    scale: xScale,
+    centers,
+    plotSpan: plot.width,
+    categoryCount: steps.length,
+    lodSampled: selected.length < steps.length,
+    barWidthRatio: 0.62,
+    maxThickness: 64,
+    preserveAuthoredRatio: preservesReferenceBarRatio(theme.name),
+  });
+  const nodes: SceneNode[] = [];
+  selected.forEach((step, selectedIndex) => {
+    const x = xScale.map(step.xInput);
+    const y1 = yScale.map(step.start);
+    const y2 = yScale.map(step.end);
+    if (![x, y1, y2].every(Number.isFinite)) return;
     const fill =
       layer.mark.fill ??
-      (delta >= 0
+      (step.delta >= 0
         ? (optionString(layer.mark.options, 'positiveColor') ?? categoricalColor(theme, 1, 4))
         : (optionString(layer.mark.options, 'negativeColor') ?? categoricalColor(theme, 3, 4)));
     nodes.push({
       type: 'rect',
-      ...nodeBase(`${layer.id}:waterfall:${rowIndex}`, {
+      ...nodeBase(`${layer.id}:waterfall:${step.rowIndex}`, {
         zIndex: layer.zIndex,
         opacity: layer.mark.opacity,
         interactive: performance.enableHitTesting,
-        datum: { layerId: layer.id, rowIndex, datum: table.row(rowIndex) },
+        datum: { layerId: layer.id, rowIndex: step.rowIndex, datum: table.row(step.rowIndex) },
       }),
-      x: x - width / 2,
+      x: x - band.thickness / 2,
       y: Math.min(y1, y2),
-      width,
+      width: band.thickness,
       height: Math.max(1, Math.abs(y2 - y1)),
       fill,
       lineWidth: 0,
       cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
     });
-    const nextInput =
-      rowIndex + 1 < table.length ? scaleInput(table.value(rowIndex + 1, layer.x.field)) : null;
-    if (nextInput !== null) {
-      const nextX = xScale.map(nextInput);
+    const next = selected[selectedIndex + 1];
+    if (next !== undefined && next.stepIndex === step.stepIndex + 1) {
+      const nextX = xScale.map(next.xInput);
       nodes.push({
         type: 'line',
-        ...nodeBase(`${layer.id}:connector:${rowIndex}`, { zIndex: layer.zIndex - 0.1 }),
-        x1: x + width / 2,
+        ...nodeBase(`${layer.id}:connector:${step.rowIndex}`, { zIndex: layer.zIndex - 0.1 }),
+        x1: x + band.thickness / 2,
         y1: y2,
-        x2: nextX - width / 2,
+        x2: nextX - band.thickness / 2,
         y2,
         stroke: theme.colors.axis,
         lineWidth: 1,
@@ -493,7 +534,7 @@ export const compileWaterfallMark: MarkCompiler = (context) => {
         lineCap: theme.mark.lineCap ?? 'round',
       });
     }
-  }
+  });
   return nodes;
 };
 
@@ -501,15 +542,32 @@ export const compileDiffMark: MarkCompiler = (context) => {
   const { table, layer, xScale, yScale, theme, performance, plot } = context;
   const oldField = layer.mark.fields.old ?? 'old';
   const newField = layer.mark.fields.new ?? layer.y.field;
-  const width = Math.max(
-    4,
-    xScale instanceof BandScale
-      ? xScale.bandwidth * 0.64
-      : (plot.width / Math.max(1, table.length)) * 0.62,
-  );
+  const indices = selectBarCategoryIndices({
+    categoryCount: table.length,
+    plotSpan: plot.width,
+    maximumMarks: performance.maxBarMarks,
+    marksPerCategory: 3,
+  });
+  const centers = indices.flatMap((rowIndex) => {
+    const input = scaleInput(table.value(rowIndex, layer.x.field));
+    if (input === null) return [];
+    const center = xScale.map(input);
+    return Number.isFinite(center) ? [center] : [];
+  });
+  const band = resolveBarBandLayout({
+    scale: xScale,
+    centers,
+    plotSpan: plot.width,
+    categoryCount: table.length,
+    lodSampled: indices.length < table.length,
+    barWidthRatio: 0.64,
+    maxThickness: 64,
+    preserveAuthoredRatio: preservesReferenceBarRatio(theme.name),
+  });
+  const width = band.thickness;
   const baseline = yScale.map(0);
   const nodes: SceneNode[] = [];
-  for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
+  for (const rowIndex of indices) {
     const xInput = scaleInput(table.value(rowIndex, layer.x.field));
     const oldValue = numericDataValue(table.value(rowIndex, oldField));
     const newValue = numericDataValue(table.value(rowIndex, newField));

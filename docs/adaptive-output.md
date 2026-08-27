@@ -127,9 +127,9 @@ Graflume.network('#chart', data, {
 });
 ```
 
-The 18 registered recipes do not repeat a small payload until it looks large. They use family-specific aggregation, time bins, stratified samples, graph or hierarchy level of detail, exact set intersections, spatial grids, and bounded vector fields. `previewRows` contains at most 12 semantic rows for a table fallback. `plan` discloses the logical input, derived data, rendered rows, reduction method, and renderer budget. Unknown parameters, incompatible shapes, invalid cardinality units, and mismatched output resources are rejected.
+The 18 registered recipes do not repeat a small payload or enlarge numeric values until it looks like a volume case. They deterministically generate and process every logical input observation, then use family-specific aggregation, time bins, stratified samples, graph or hierarchy level of detail, exact set intersections, spatial grids, and bounded vector fields. `events`, `edges`, `nodes`, `cells`, `voxels`, and `vectors` are row-like input units with explicit cardinality. `previewRows` contains at most 12 semantic rows for an optional table fallback; a product host may omit that table for a high-row-count example. `plan.generatedRows` and `plan.processedRows` must both equal `plan.sourceRows`, while the remaining fields disclose derived data, rendered rows, reduction method, and renderer budget. Unknown parameters, incompatible shapes, invalid cardinality units, mismatched grid products, and mismatched output resources are rejected.
 
-The source cardinality is explanatory runtime metadata. It never causes Graflume to invent missing rows.
+The `adaptive.environment.rowCount` hint is explanatory runtime metadata and never invents missing rows. A demo recipe is different: it is an explicit request to synthesize its declared logical observations and reduce them deterministically before rendering.
 
 ## Static and assistive fallbacks
 

@@ -602,11 +602,25 @@ Graflume.create('#chart', {
 ## Baseline and data behavior
 
 - The area mark always includes zero in the y domain.
-- Valid top-line points form a fill polygon closed to zero plus a separate open stroke path.
-- Input-row order determines the top-line order; data is not sorted automatically.
+- Valid top-line points form a fill polygon closed to zero plus a separate open stroke path. A
+  `y2` encoding instead supplies the paired lower boundary.
+- Area boundaries are ordered by their resolved screen-x position before interpolation. Temporal
+  and quantitative axes therefore render in ascending scale order even when input rows arrive out
+  of order; categorical axes follow the resolved scale domain. An `order` encoding remains a
+  stable tie-break for coincident x positions instead of being allowed to fold a polygon back over
+  itself.
+- The upper and lower boundaries share the same retained sample indices. Graflume joins matching
+  right endpoints, walks the lower boundary in reverse, and closes matching left endpoints. It
+  also normalizes crossed `y`/`y2` or signed-baseline pairs into visual upper/lower boundaries, so
+  the filled Scene path cannot become a bow-tie polygon.
 - `mark.options.missing: 'connect'` preserves the area default by omitting invalid pairs and bridging between the valid rows on either side.
-- `'gap'` creates independently baseline-closed fill and stroke segments. `'zero'` substitutes `0` only for a missing/invalid y value; an invalid x value still breaks the segment.
-- Min/max sampling uses the line-point performance budget.
+- `'gap'` creates independently baseline-closed fill and stroke segments after x ordering.
+  `'zero'` substitutes `0` only for a missing/invalid y value; an invalid x value still breaks the
+  segment.
+- Paired min/max sampling uses one line-point budget across the upper edge, lower edge, and band
+  thickness. A spike that exists only in `y2` therefore survives the same bounded LOD pass as a
+  spike in `y`; source rows and authored tooltip values remain unchanged even when the visual
+  boundaries are normalized.
 
 ## Grouped, stacked, and streamgraph series
 
@@ -626,9 +640,9 @@ Graflume.area('#chart', data, {
 });
 ```
 
-Wiggle rejects negative inputs rather than silently changing their sign. `themeRiver()` keeps its historical centered silhouette default; `streamgraph()` selects wiggle plus `insideOut`. Both now consume the same stack engine and expose exact source lineage, totals, series identity, and bounded per-row hit targets.
+Wiggle rejects negative inputs rather than silently changing their sign. `themeRiver()` keeps its historical centered silhouette default; `streamgraph()` selects wiggle plus `insideOut`. Both now consume the same stack engine, order every series boundary by resolved x, pair upper/lower samples before reversal, and expose exact source lineage, totals, series identity, and bounded per-row hit targets.
 
-The shared series renderer also consumes canonical `color`, `fill`, `stroke`, `opacity`, `strokeWidth`, `strokeDash`, `order`, and `detail` encodings. With `mark.point: true`, visible source points additionally consume `size`, `radius`, and `tooltip`; otherwise the renderer keeps bounded nearly transparent datum hit targets. Because the stack transform owns the lower boundary, `y2` with a series layout is a closed validation error instead of a silently ignored range. Use `mark.options.stack.order` for stack-layer order—`encoding.order` controls source/draw traversal.
+The shared series renderer also consumes canonical `color`, `fill`, `stroke`, `opacity`, `strokeWidth`, `strokeDash`, `order`, and `detail` encodings. With `mark.point: true`, visible source points additionally consume `size`, `radius`, and `tooltip`; otherwise the renderer keeps bounded nearly transparent datum hit targets. Because the stack transform owns the lower boundary, `y2` with a series layout is a closed validation error instead of a silently ignored range. Use `mark.options.stack.order` for stack-layer order. `encoding.order` is only a stable tie-break at coincident projected x positions; it cannot reverse the x traversal of an Area boundary or override stack/stream layer order.
 
 ## Curves, steps, and compatibility presets
 

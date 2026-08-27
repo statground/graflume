@@ -90,6 +90,30 @@ spatial flows, explicit data plans, and capability-driven layout, input, motion,
 policies. These APIs are documented and consumed by the public Statground manuals, so removing them
 from an entry point or hiding them in an uncounted chunk would break the published contract.
 
+## 2026-08-27 row-cardinality, area-topology, and bar-band audit
+
+The follow-up row-cardinality audit makes all 44 volume recipes process their complete logical input
+and publishes deterministic first/middle/last-row evidence. The Canvas compiler also adds shared
+topology-safe Area boundaries and one collision-safe, pixel-budgeted category-band resolver for
+ordinary, grouped, stacked, ranked, range-column, waterfall, difference, candlestick, financial,
+and price-block bodies. The reference-theme ratio check is shared rather than repeated at each
+compiler call site. Spatial grows only through the public shared recipe contract; Canvas mark
+implementations remain excluded by the existing graph-boundary checks.
+
+Measured against the immediately preceding clean artifacts, raw minified size changes by
+14,138/15,131/6,357 bytes before the shared reference-theme predicate deduplication. That
+deduplication removes 246/363 bytes from the default/complete raw artifacts. The final clean
+artifacts are:
+
+| Browser file               |    Raw minified | GNU gzip `-9` | Brotli `-q 11` |                  Raw budget |  Headroom |
+| -------------------------- | --------------: | ------------: | -------------: | --------------------------: | --------: |
+| `graflume.min.js`          | 1,126,909 bytes | 327,572 bytes |  261,522 bytes | 1,101 KiB (1,127,424 bytes) | 515 bytes |
+| `graflume.complete.min.js` | 1,324,133 bytes | 384,178 bytes |  303,516 bytes | 1,294 KiB (1,325,056 bytes) | 923 bytes |
+| `graflume.spatial.min.js`  |   396,947 bytes | 123,568 bytes |  101,949 bytes |     388 KiB (397,312 bytes) | 365 bytes |
+
+Each raw ceiling remains the next whole KiB. The compressed figures are transfer evidence only; the
+raw minified artifacts remain the enforced gate.
+
 When an entry grows, run the graph boundary check first. Raise a budget only when the remaining
 increase is attributable to required reachable behavior or public API, then record the measured
 bytes and rationale in the release change record.

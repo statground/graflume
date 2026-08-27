@@ -34,6 +34,11 @@ import type {
 import { categoricalColor, colorWithOpacity, readableTextColor } from '../theme/color.js';
 import { compileBarMark } from './bar.js';
 import {
+  preservesReferenceBarRatio,
+  resolveBarBandLayout,
+  selectBarCategoryIndices,
+} from './bar-layout.js';
+import {
   compileBubbleMark,
   compileCandlestickMark,
   compileDiffMark,
@@ -152,8 +157,33 @@ export const compileRankedBarMark: MarkCompiler = (context) => {
   const maximum = Math.max(0, ...rankedRows.map(({ value }) => value));
   const minimum = Math.min(0, ...rankedRows.map(({ value }) => value));
   const span = Math.max(Number.EPSILON, maximum - minimum);
-  const limit = Math.min(rankedRows.length, context.performance.maxBarMarks);
-  const displayed = rankedRows.slice(0, limit);
+  const horizontal = layer.mark.orientation === 'horizontal';
+  const categorySpan = horizontal ? plot.height : plot.width;
+  // Ranking semantics select the leading rows, while the shared bar budget
+  // decides how many complete bar-plus-label categories fit in the plot.
+  const displayedCount = selectBarCategoryIndices({
+    categoryCount: rankedRows.length,
+    plotSpan: categorySpan,
+    maximumMarks: performance.maxBarMarks,
+    marksPerCategory: 2,
+  }).length;
+  const displayed = rankedRows.slice(0, displayedCount);
+  const centers = displayed.map(
+    (_row, index) =>
+      (horizontal ? plot.y : plot.x) +
+      ((index + 0.5) / Math.max(1, displayed.length)) * categorySpan,
+  );
+  const themedWidthRatio = theme.mark.barWidthRatio;
+  const band = resolveBarBandLayout({
+    scale: horizontal ? context.yScale : context.xScale,
+    centers,
+    plotSpan: categorySpan,
+    categoryCount: rankedRows.length,
+    lodSampled: displayed.length < rankedRows.length,
+    maxThickness: 64,
+    preserveAuthoredRatio: preservesReferenceBarRatio(theme.name),
+    ...(themedWidthRatio === undefined ? {} : { barWidthRatio: themedWidthRatio }),
+  });
   const nodes: SceneNode[] = [];
   displayed.forEach((row, index) => {
     const color = layer.mark.fill ?? categoricalColor(theme, index, displayed.length);
@@ -183,17 +213,18 @@ export const compileRankedBarMark: MarkCompiler = (context) => {
         },
       },
     });
-    if (layer.mark.orientation === 'horizontal') {
-      const slot = plot.height / Math.max(1, displayed.length);
+    if (horizontal) {
+      const slot = band.slot;
+      const center = centers[index]!;
       const zero = plot.x + ((0 - minimum) / span) * plot.width;
       const end = plot.x + ratio * plot.width;
       nodes.push({
         type: 'rect',
         ...base,
         x: Math.min(zero, end),
-        y: plot.y + index * slot + slot * 0.12,
+        y: center - band.thickness / 2,
         width: Math.max(0.5, Math.abs(end - zero)),
-        height: Math.max(1, slot * 0.76),
+        height: band.thickness,
         fill: color,
         lineWidth: 0,
         cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
@@ -203,7 +234,7 @@ export const compileRankedBarMark: MarkCompiler = (context) => {
           context,
           `${layer.id}:rank-label:${row.id}`,
           plot.x + 4,
-          plot.y + (index + 0.5) * slot,
+          center,
           `#${row.rank} ${row.id}`,
           {
             align: 'left',
@@ -213,15 +244,16 @@ export const compileRankedBarMark: MarkCompiler = (context) => {
         ),
       );
     } else {
-      const slot = plot.width / Math.max(1, displayed.length);
+      const slot = band.slot;
+      const center = centers[index]!;
       const zero = plot.y + plot.height - ((0 - minimum) / span) * plot.height;
       const end = plot.y + plot.height - ratio * plot.height;
       nodes.push({
         type: 'rect',
         ...base,
-        x: plot.x + index * slot + slot * 0.12,
+        x: center - band.thickness / 2,
         y: Math.min(zero, end),
-        width: Math.max(1, slot * 0.76),
+        width: band.thickness,
         height: Math.max(0.5, Math.abs(end - zero)),
         fill: color,
         lineWidth: 0,
@@ -231,7 +263,7 @@ export const compileRankedBarMark: MarkCompiler = (context) => {
         textNode(
           context,
           `${layer.id}:rank-label:${row.id}`,
-          plot.x + (index + 0.5) * slot,
+          center,
           Math.min(zero, end) - 8,
           `#${row.rank}`,
           {
@@ -581,11 +613,30 @@ export const compileAdvancedCandlestickMark: MarkCompiler = (context) => {
   const navigatorHeight =
     booleanOption(context, 'navigator') === false ? 0 : Math.min(28, context.plot.height * 0.13);
   const chartHeight = context.plot.height - navigatorHeight - (navigatorHeight > 0 ? 5 : 0);
-  const width = context.xScale.bandwidth || context.plot.width / visible.length;
+  const selectedIndices = selectBarCategoryIndices({
+    categoryCount: visible.length,
+    plotSpan: context.plot.width,
+    maximumMarks: context.performance.maxBarMarks,
+    marksPerCategory: 2,
+  });
+  const rendered = selectedIndices.map((index) => ({
+    bucket: visible[index]!,
+    visibleIndex: index,
+  }));
+  const band = resolveBarBandLayout({
+    scale: context.xScale,
+    centers: rendered.map(({ bucket }) => context.xScale.map(bucket.time)),
+    plotSpan: context.plot.width,
+    categoryCount: visible.length,
+    lodSampled: rendered.length < visible.length,
+    barWidthRatio: 0.62,
+    maxThickness: 64,
+    preserveAuthoredRatio: preservesReferenceBarRatio(context.theme.name),
+  });
   const mapY = (value: number) =>
     context.plot.y + chartHeight - ((value - minimum) / span) * chartHeight;
   const nodes: SceneNode[] = [];
-  visible.forEach((bucket, index) => {
+  rendered.forEach(({ bucket, visibleIndex }) => {
     const x = context.xScale.map(bucket.time);
     const open = mapY(bucket.open);
     const close = mapY(bucket.close);
@@ -620,7 +671,7 @@ export const compileAdvancedCandlestickMark: MarkCompiler = (context) => {
         interactive: context.performance.enableHitTesting,
         datum: {
           layerId: context.layer.id,
-          rowIndex: bucket.sourceRows.at(-1) ?? index,
+          rowIndex: bucket.sourceRows.at(-1) ?? visibleIndex,
           datum: { ...bucket, sourceRows: [...bucket.sourceRows] },
           tooltip: {
             time: bucket.time,
@@ -635,9 +686,9 @@ export const compileAdvancedCandlestickMark: MarkCompiler = (context) => {
           },
         },
       }),
-      x: x - width * 0.31,
+      x: x - band.thickness / 2,
       y: Math.min(open, close),
-      width: Math.max(1.5, width * 0.62),
+      width: band.thickness,
       height: Math.max(1.5, Math.abs(open - close)),
       fill: context.layer.mark.fill ?? colorWithOpacity(color, 0.72),
       stroke: context.layer.mark.stroke ?? color,
@@ -1055,13 +1106,37 @@ export const compileSemanticWaterfallMark: MarkCompiler = (context) => {
   const minimum = Math.min(0, ...steps.flatMap(({ start, end }) => [start, end]));
   const maximum = Math.max(0, ...steps.flatMap(({ start, end }) => [start, end]));
   const span = Math.max(Number.EPSILON, maximum - minimum);
-  const width = context.plot.width / Math.max(1, steps.length);
+  const selectedIndices = selectBarCategoryIndices({
+    categoryCount: steps.length,
+    plotSpan: context.plot.width,
+    maximumMarks: context.performance.maxBarMarks,
+    marksPerCategory: 2,
+  });
+  const centerFor = (index: number): number => {
+    const input = scaleInput(context.table.value(index, context.layer.x.field));
+    const mapped = input === null ? Number.NaN : context.xScale.map(input);
+    return Number.isFinite(mapped)
+      ? mapped
+      : context.plot.x + ((index + 0.5) / Math.max(1, steps.length)) * context.plot.width;
+  };
+  const band = resolveBarBandLayout({
+    scale: context.xScale,
+    centers: selectedIndices.map(centerFor),
+    plotSpan: context.plot.width,
+    categoryCount: steps.length,
+    lodSampled: selectedIndices.length < steps.length,
+    barWidthRatio: 0.74,
+    maxThickness: 64,
+    preserveAuthoredRatio: preservesReferenceBarRatio(context.theme.name),
+  });
   const mapY = (value: number) =>
     context.plot.y + context.plot.height - ((value - minimum) / span) * context.plot.height;
   const nodes: SceneNode[] = [];
-  steps.forEach((step, index) => {
+  selectedIndices.forEach((index, selectedIndex) => {
+    const step = steps[index]!;
     const start = mapY(step.start);
     const end = mapY(step.end);
+    const x = centerFor(index);
     const color =
       step.kind === 'subtotal' || step.kind === 'total'
         ? context.theme.colors.focus
@@ -1085,24 +1160,26 @@ export const compileSemanticWaterfallMark: MarkCompiler = (context) => {
           },
         },
       }),
-      x: context.plot.x + index * width + width * 0.13,
+      x: x - band.thickness / 2,
       y: Math.min(start, end),
-      width: Math.max(1, width * 0.74),
+      width: band.thickness,
       height: Math.max(1, Math.abs(start - end)),
       fill: context.layer.mark.fill ?? colorWithOpacity(color, 0.78),
       stroke: context.layer.mark.stroke ?? color,
       lineWidth: context.layer.mark.lineWidth ?? 1,
       cornerRadius: context.layer.mark.cornerRadius ?? context.theme.mark.barRadius,
     });
-    if (index < steps.length - 1) {
+    const nextIndex = selectedIndices[selectedIndex + 1];
+    if (nextIndex === index + 1) {
       const connectorY = mapY(step.end);
+      const nextX = centerFor(nextIndex);
       nodes.push({
         type: 'line',
         ...nodeBase(`${context.layer.id}:semantic-waterfall-connector:${index}`, {
           zIndex: context.layer.zIndex - 1,
         }),
-        x1: context.plot.x + (index + 0.87) * width,
-        x2: context.plot.x + (index + 1.13) * width,
+        x1: x + band.thickness / 2,
+        x2: nextX - band.thickness / 2,
         y1: connectorY,
         y2: connectorY,
         stroke: context.theme.colors.axis,

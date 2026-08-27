@@ -15,6 +15,12 @@ import type { Point, SceneNode, TextNode } from '../scene/types.js';
 import type { DataRow, DataValue, JsonValue } from '../spec/types.js';
 import { resolveDistributionMode } from '../spec/distribution.js';
 import { categoricalColor, colorWithOpacity, mixColor, readableTextColor } from '../theme/color.js';
+import { buildAreaTopology, orderAreaByX } from './area-topology.js';
+import {
+  preservesReferenceBarRatio,
+  resolveBarBandLayout,
+  selectBarCategoryIndices,
+} from './bar-layout.js';
 import {
   collectCurveSegments,
   curveNameForMark,
@@ -162,8 +168,9 @@ function smoothPoints(points: readonly Point[], subdivisions = 8): Point[] {
 
 export const compileSmoothMark: MarkCompiler = (context) => {
   const { layer, yScale, theme } = context;
+  const area = layer.mark.options.area === true;
   const segments = interpolateSegments(
-    collectCurveSegments(context, 'connect'),
+    collectCurveSegments(context, 'connect', area ? 'x' : 'input'),
     curveNameForMark(layer.mark.options, 'cardinal'),
     curveOptionsForMark(layer.mark.options),
     context.performance.maxLinePoints,
@@ -178,14 +185,18 @@ export const compileSmoothMark: MarkCompiler = (context) => {
     const last = segment.points.at(-1);
     if (first === undefined || last === undefined) return;
     const suffix = segments.length === 1 ? '' : `:${segmentIndex}`;
-    if (layer.mark.options.area === true) {
+    if (area) {
+      const topology = buildAreaTopology(
+        segment.points,
+        segment.points.map(({ x }) => ({ x, y: baseline })),
+      );
       nodes.push({
         type: 'path',
         ...nodeBase(`${layer.id}:smooth-area${suffix}`, {
           zIndex: layer.zIndex,
           opacity: layer.mark.opacity,
         }),
-        points: [{ x: first.x, y: baseline }, ...segment.points, { x: last.x, y: baseline }],
+        points: topology.polygon,
         closed: true,
         fill:
           layer.mark.fill ?? themedAreaFill(theme, context.color, colorWithOpacity(stroke, 0.24)),
@@ -238,7 +249,7 @@ export const compileSmoothMark: MarkCompiler = (context) => {
 };
 
 export const compileRangeMark: MarkCompiler = (context) => {
-  const { layer, table, xScale, yScale, theme, plot } = context;
+  const { layer, table, xScale, yScale, theme, plot, performance } = context;
   const lowField = layer.mark.fields.low ?? 'low';
   const highField = layer.mark.fields.high ?? 'high';
   const mode = optionString(layer.mark.options.mode, 'area');
@@ -266,26 +277,28 @@ export const compileRangeMark: MarkCompiler = (context) => {
     themedAreaStroke(theme, context.color, theme.mark.lineColor ?? context.color);
   const nodes: SceneNode[] = [];
   if (mode === 'area') {
-    const highPoints = rows.map((row) => ({ x: row.x, y: row.high }));
-    const lowPoints = rows.map((row) => ({ x: row.x, y: row.low })).reverse();
+    const orderedRows = orderAreaByX(rows, ({ x }) => x);
+    const highPoints = orderedRows.map((row) => ({ x: row.x, y: row.high }));
+    const lowPoints = orderedRows.map((row) => ({ x: row.x, y: row.low }));
     const smooth = layer.mark.options.smooth === true;
+    const topology = buildAreaTopology(
+      smooth ? smoothPoints(highPoints) : highPoints,
+      smooth ? smoothPoints(lowPoints) : lowPoints,
+    );
     nodes.push({
       type: 'path',
       ...nodeBase(`${layer.id}:range-band`, {
         zIndex: layer.zIndex,
         opacity: layer.mark.opacity,
       }),
-      points: [
-        ...(smooth ? smoothPoints(highPoints) : highPoints),
-        ...(smooth ? smoothPoints(lowPoints) : lowPoints),
-      ],
+      points: topology.polygon,
       closed: true,
       fill: layer.mark.fill ?? themedAreaFill(theme, context.color, colorWithOpacity(stroke, 0.24)),
       stroke,
       lineWidth: layer.mark.lineWidth ?? 1.5,
       lineJoin: theme.mark.lineJoin ?? 'round',
     });
-    for (const row of rows) {
+    for (const row of orderedRows) {
       nodes.push({
         type: 'circle',
         ...datumBase(context, `${layer.id}:range-hit:${row.rowIndex}`, row.rowIndex, 1),
@@ -300,28 +313,40 @@ export const compileRangeMark: MarkCompiler = (context) => {
     return nodes;
   }
 
-  const width = Math.max(
-    5,
-    xScale instanceof BandScale
-      ? xScale.bandwidth * 0.55
-      : (plot.width / Math.max(2, rows.length * 1.5)) * 0.55,
-  );
-  for (const row of rows) {
-    if (mode === 'column') {
+  if (mode === 'column') {
+    const selected = selectBarCategoryIndices({
+      categoryCount: rows.length,
+      plotSpan: plot.width,
+      maximumMarks: performance.maxBarMarks,
+    }).map((index) => rows[index]!);
+    const preserveReferenceWidth = preservesReferenceBarRatio(theme.name);
+    const band = resolveBarBandLayout({
+      scale: xScale,
+      centers: selected.map(({ x }) => x),
+      plotSpan: plot.width,
+      categoryCount: rows.length,
+      lodSampled: selected.length < rows.length,
+      barWidthRatio: 0.55,
+      maxThickness: 64,
+      preserveAuthoredRatio: preserveReferenceWidth,
+    });
+    for (const row of selected) {
       nodes.push({
         type: 'rect',
         ...datumBase(context, `${layer.id}:range-column:${row.rowIndex}`, row.rowIndex),
-        x: row.x - width / 2,
+        x: row.x - band.thickness / 2,
         y: Math.min(row.low, row.high),
-        width,
+        width: band.thickness,
         height: Math.max(1, Math.abs(row.low - row.high)),
         fill: layer.mark.fill ?? colorWithOpacity(stroke, 0.72),
         stroke,
         lineWidth: layer.mark.lineWidth ?? 1,
         cornerRadius: layer.mark.cornerRadius ?? theme.mark.barRadius,
       });
-      continue;
     }
+    return nodes;
+  }
+  for (const row of rows) {
     nodes.push({
       type: 'line',
       ...nodeBase(`${layer.id}:range-stem:${row.rowIndex}`, { zIndex: layer.zIndex }),
@@ -2042,15 +2067,29 @@ function heikinRows(rows: readonly FinancialRow[]): FinancialRow[] {
 }
 
 export const compileFinancialMark: MarkCompiler = (context) => {
-  const { layer, yScale, xScale, theme, plot } = context;
+  const { layer, yScale, xScale, theme, plot, performance } = context;
   const kind = optionString(layer.mark.options.kind, 'ohlc');
-  const rows = kind === 'heikin-ashi' ? heikinRows(financialRows(context)) : financialRows(context);
-  const width = Math.max(
-    5,
-    xScale instanceof BandScale
-      ? xScale.bandwidth * 0.56
-      : plot.width / Math.max(6, rows.length * 1.8),
-  );
+  // Path-dependent Heikin-Ashi values must be resolved over the complete input
+  // before visual LOD chooses which categories to emit.
+  const resolvedRows =
+    kind === 'heikin-ashi' ? heikinRows(financialRows(context)) : financialRows(context);
+  const rows = selectBarCategoryIndices({
+    categoryCount: resolvedRows.length,
+    plotSpan: plot.width,
+    maximumMarks: performance.maxBarMarks,
+    marksPerCategory: kind === 'ohlc' ? 3 : 2,
+  }).map((index) => resolvedRows[index]!);
+  const band = resolveBarBandLayout({
+    scale: xScale,
+    centers: rows.map(({ x }) => x),
+    plotSpan: plot.width,
+    categoryCount: resolvedRows.length,
+    lodSampled: rows.length < resolvedRows.length,
+    barWidthRatio: 0.56,
+    maxThickness: 64,
+    preserveAuthoredRatio: preservesReferenceBarRatio(theme.name),
+  });
+  const width = band.thickness;
   const nodes: SceneNode[] = [];
   for (const row of rows) {
     const high = yScale.map(row.high);

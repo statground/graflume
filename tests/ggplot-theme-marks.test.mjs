@@ -27,7 +27,7 @@ test('ggplot applies ggplot2 geom defaults to the core Canvas marks', () => {
   assert.ok(bars.every((node) => node.stroke === undefined && node.lineWidth === 0));
   assert.ok(bars.every((node) => node.cornerRadius === 0));
   const categoryStep = bars[1].x + bars[1].width / 2 - (bars[0].x + bars[0].width / 2);
-  assert.ok(Math.abs(bars[0].width / categoryStep - 0.9) < 1e-10);
+  assert.ok(Math.abs(bars[0].width - Math.min(categoryStep * 0.9, 64)) < 1e-10);
 
   const pointChart = compile(themedSpec('point'));
   const points = flattenScene(pointChart.scene.root).filter((node) => node.id.includes(':point:'));

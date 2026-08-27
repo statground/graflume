@@ -7,7 +7,9 @@ import {
   edgeCaseFamilyPolicies,
   edgeCaseProfiles,
   edgeCaseRecipeCatalog,
+  minimumVolumeSourceRows,
 } from '../scripts/edge-case-samples.mjs';
+import { auditDemoRecipeProcessing } from '../.tmp/src/demo/recipes-engine.js';
 import { demoRecipeIds, materializeDemoRecipe } from '../.tmp/src/demo/recipes.js';
 import * as PublicApi from '../.tmp/src/index.js';
 import * as SpatialApi from '../.tmp/src/spatial.js';
@@ -293,11 +295,16 @@ test('volume profiles remain recipes and declare deterministic renderer budgets'
     const example = examplesForFamily(family.id)[2];
     assert.equal(example.profileId, 'volume');
     assert.deepEqual(example.demonstrates, [
-      'high-volume',
+      'high-row-cardinality',
+      'all-input-rows-generated',
+      'all-input-rows-processed',
       'deterministic-generation',
       'bounded-rendering',
     ]);
-    assert.ok(example.recipe.cardinality.sourceRows >= 5_000, `${example.id} logical input volume`);
+    assert.ok(
+      example.recipe.cardinality.sourceRows >= minimumVolumeSourceRows,
+      `${example.id} logical input row cardinality`,
+    );
     assert.ok(
       example.recipe.cardinality.sourceRows > example.tableData.length,
       `${example.id} compact preview`,
@@ -308,10 +315,22 @@ test('volume profiles remain recipes and declare deterministic renderer budgets'
     );
     assert.deepEqual(example.expectations.handling, [
       'deterministic-seed',
+      'full-source-row-generation',
+      'full-source-row-processing',
       'semantic-level-of-detail',
       'bounded-output',
       'lazy-materialization-after-consent',
     ]);
+    assert.equal(
+      example.expectations.dataPlan.generatedRows,
+      example.recipe.cardinality.sourceRows,
+      `${example.id} generated every logical row-like observation`,
+    );
+    assert.equal(
+      example.expectations.dataPlan.processedRows,
+      example.recipe.cardinality.sourceRows,
+      `${example.id} processed every logical row-like observation`,
+    );
     assert.ok(
       example.expectations.dataPlan.derivedRows <= example.expectations.dataPlan.renderedMaximum,
       `${example.id} materialized budget`,
@@ -339,7 +358,9 @@ test('volume profiles remain recipes and declare deterministic renderer budgets'
   assert.equal(examplesForFamily('calendar')[2].recipe.parameters.dateCycleDays, 3_000);
   const network = materializeDemoRecipe(examplesForFamily('network')[2].recipe);
   const networkNodes = new Set(network.data.flatMap((row) => [row.source, row.target]));
-  assert.equal(network.plan.sourceRows, 20_000);
+  assert.equal(network.plan.sourceRows, 60_000);
+  assert.equal(network.plan.generatedRows, network.plan.sourceRows);
+  assert.equal(network.plan.processedRows, network.plan.sourceRows);
   assert.ok(networkNodes.size <= 12, 'network label LOD stays readable');
   assert.equal(network.plan.derivedRows, network.data.length);
   assert.deepEqual(examplesForFamily('surface')[2].recipe.parameters, {
@@ -402,6 +423,8 @@ test('all 18 public materializers are deterministic semantic LODs with catalog-i
       example.recipe.cardinality.sourceRows,
       `${example.id} source cardinality`,
     );
+    assert.equal(first.plan.generatedRows, first.plan.sourceRows, `${example.id} generated rows`);
+    assert.equal(first.plan.processedRows, first.plan.sourceRows, `${example.id} processed rows`);
     assert.ok(first.plan.derivedRows <= first.plan.renderedMaximum, `${example.id} bounded LOD`);
     assert.equal(
       first.plan.renderedMaximum,
@@ -410,6 +433,98 @@ test('all 18 public materializers are deterministic semantic LODs with catalog-i
     );
   }
   assert.deepEqual([...usedRecipeIds].sort(), [...demoRecipeIds].sort());
+});
+
+test('all 18 recipes and 44 volume profiles prove first, middle, and last row work', () => {
+  assert.equal(Object.hasOwn(PublicApi, 'auditDemoRecipeProcessing'), false);
+  assert.equal(Object.hasOwn(SpatialApi, 'auditDemoRecipeProcessing'), false);
+  const auditedRecipeIds = new Set();
+  for (const family of publicCatalog.families) {
+    const example = examplesForFamily(family.id)[2];
+    const first = auditDemoRecipeProcessing(example.recipe);
+    const second = auditDemoRecipeProcessing(example.recipe);
+    assert.deepEqual(first, second, `${example.id} deterministic processing evidence`);
+    auditedRecipeIds.add(first.recipeId);
+    assert.equal(first.generatedRows, first.sourceRows, `${example.id} generated evidence`);
+    assert.equal(first.processedRows, first.sourceRows, `${example.id} processed evidence`);
+    const expectedIndices = [0, Math.floor((first.sourceRows - 1) / 2), first.sourceRows - 1];
+    assert.deepEqual(
+      first.processingEvidence.boundaryRows.map(({ index }) => index),
+      expectedIndices,
+      `${example.id} boundary indices`,
+    );
+    for (const boundary of first.processingEvidence.boundaryRows) {
+      assert.match(boundary.contributionDigest, /^[0-9a-f]{8}$/, `${example.id} contribution`);
+      assert.notEqual(
+        boundary.prefixBeforeDigest,
+        boundary.prefixDigest,
+        `${example.id} row ${boundary.index} changes the accumulator`,
+      );
+    }
+    assert.equal(
+      first.processingEvidence.boundaryRows.at(-1).prefixDigest,
+      first.processingEvidence.digest,
+      `${example.id} last row reaches final digest`,
+    );
+    assert.ok(
+      new Set(
+        first.processingEvidence.boundaryRows.map(({ contributionDigest }) => contributionDigest),
+      ).size >= 2,
+      `${example.id} boundary observations carry data-dependent evidence`,
+    );
+  }
+  assert.deepEqual([...auditedRecipeIds].sort(), [...demoRecipeIds].sort());
+});
+
+test('all 44 volume profiles separate row cardinality from extreme numeric range', () => {
+  const volumeExamples = catalog.examples.filter(({ profileId }) => profileId === 'volume');
+  assert.equal(volumeExamples.length, 44);
+  for (const example of volumeExamples) {
+    assert.ok(example.summary.includes('every logical input row'), `${example.id} row summary`);
+    assert.equal(
+      example.recipe.cardinality.sourceRows >= minimumVolumeSourceRows,
+      true,
+      `${example.id} minimum row cardinality`,
+    );
+    assert.equal(
+      example.recipe.cardinality.sourceRows,
+      example.expectations.dataPlan.generatedRows,
+      `${example.id} generated cardinality`,
+    );
+    assert.equal(
+      example.recipe.cardinality.sourceRows,
+      example.expectations.dataPlan.processedRows,
+      `${example.id} processed cardinality`,
+    );
+    assert.ok(
+      !example.demonstrates.some((claim) => claim.startsWith('extreme-')),
+      `${example.id} must not claim numeric extremes`,
+    );
+    const materialized = materializeDemoRecipe(example.recipe);
+    const numericValues = [];
+    const visit = (value) => {
+      if (typeof value === 'number') numericValues.push(value);
+      else if (Array.isArray(value)) value.forEach(visit);
+      else if (value !== null && typeof value === 'object') Object.values(value).forEach(visit);
+    };
+    visit(materialized.data);
+    assert.ok(
+      numericValues.every((value) => Number.isFinite(value) && Math.abs(value) < 1e9),
+      `${example.id} keeps numeric extremes in the range profile`,
+    );
+  }
+});
+
+test('numeric extreme claims and payloads remain exclusive to range profiles', () => {
+  for (const example of catalog.examples.filter(({ profileId }) => profileId !== 'range')) {
+    assert.ok(
+      !example.demonstrates.some((claim) => claim.startsWith('extreme-')),
+      `${example.id} extreme claim`,
+    );
+    for (const value of quantitativeValues(example)) {
+      assert.ok(Math.abs(value) < 1e9, `${example.id} ordinary numeric magnitude`);
+    }
+  }
 });
 
 test('materializer rejects irrelevant parameters and every mismatched closed-contract boundary', () => {
@@ -450,6 +565,39 @@ test('materializer rejects irrelevant parameters and every mismatched closed-con
   assert.throws(
     () => materializeDemoRecipe(mutate((recipe) => (recipe.outputBudget.resource = 'voxels'))),
     /outputBudget\.resource/,
+  );
+
+  const mismatched = (familyId, callback) => {
+    const recipe = structuredClone(examplesForFamily(familyId)[2].recipe);
+    callback(recipe);
+    return recipe;
+  };
+  assert.throws(
+    () =>
+      materializeDemoRecipe(
+        mismatched('heatmap', (recipe) => {
+          recipe.parameters.rows = 128;
+        }),
+      ),
+    /axes\.rows must match recipe\.parameters\.rows/,
+  );
+  assert.throws(
+    () =>
+      materializeDemoRecipe(
+        mismatched('volume', (recipe) => {
+          recipe.cardinality.axes.dimensions = [32, 64, 64];
+        }),
+      ),
+    /axes\.dimensions must match recipe\.parameters\.dimensions/,
+  );
+  assert.throws(
+    () =>
+      materializeDemoRecipe(
+        mismatched('spatial-vector', (recipe) => {
+          recipe.cardinality.axes.vectors -= 1;
+        }),
+      ),
+    /vector axis must equal cardinality\.sourceRows/,
   );
 });
 
@@ -602,6 +750,8 @@ test('schema and package exports publish the exact separate contract', () => {
   assert.equal(schema.$defs.recipe.allOf[0].oneOf.length, 18);
   assert.equal(schema.$defs.recipe.additionalProperties, false);
   assert.equal(schema.$defs.example.additionalProperties, false);
+  assert.ok(schema.$defs.dataPlan.required.includes('generatedRows'));
+  assert.ok(schema.$defs.dataPlan.required.includes('processedRows'));
   assert.equal(packageJson.exports['./edge-cases'], './catalog/graflume.edge-cases.json');
   assert.equal(
     packageJson.exports['./edge-cases-schema'],

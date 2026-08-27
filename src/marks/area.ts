@@ -1,7 +1,7 @@
 import type { MarkCompileContext, MarkCompiler } from '../compiler/types.js';
 import type { CurveName, MissingValuePolicy } from '../curve/registry.js';
 import { interpolateCurve } from '../curve/registry.js';
-import { minMaxSampleIndices, strideSampleIndices } from '../data/sample.js';
+import { strideSampleIndices } from '../data/sample.js';
 import { createEncodingResolver } from '../encoding/resolve.js';
 import { nodeBase } from '../scene/factory.js';
 import type { CircleNode, PathNode, Point, SceneNode } from '../scene/types.js';
@@ -12,6 +12,7 @@ import {
   curveOptionsForMark,
   interpolateSegments,
 } from './curve-series.js';
+import { buildAreaTopology, pairedAreaSampleIndices } from './area-topology.js';
 import { compileSeriesAreaMark } from './stacked-series.js';
 import { themedAreaFill, themedAreaStroke, themedPointFill, themedPointStroke } from './utils.js';
 
@@ -30,7 +31,7 @@ export function compileAreaSeries(
   const curve = curveNameForMark(layer.mark.options, defaults.curve);
   const curveOptions = curveOptionsForMark(layer.mark.options);
   const segments = interpolateSegments(
-    collectCurveSegments(context, defaults.missing),
+    collectCurveSegments(context, defaults.missing, 'x', true),
     curve,
     curveOptions,
     performance.maxLinePoints,
@@ -59,26 +60,31 @@ export function compileAreaSeries(
               theme.mark.lineColor ?? theme.mark.defaultColor ?? seriesColor,
             )),
     );
-    const lowerSource = segment.source.map(({ point, rowIndex }) => ({
-      x: point.x,
-      y: encoding.position('y2', rowIndex) ?? baseline,
-    }));
+    const interpolatedUpper = interpolateCurve(
+      segment.source.map(({ point }) => point),
+      curve,
+      curveOptions,
+    );
     const interpolatedLower = encoding.has('y2')
-      ? interpolateCurve(lowerSource, curve, curveOptions)
-      : [
-          { x: last.x, y: baseline },
-          { x: first.x, y: baseline },
-        ];
-    const lower =
-      interpolatedLower.length <= segment.points.length
-        ? interpolatedLower
-        : minMaxSampleIndices(
-            interpolatedLower.map(({ y }) => y),
-            segment.points.length,
-          )
-            .map((index) => interpolatedLower[index])
-            .filter((point): point is Point => point !== undefined);
-    const points: Point[] = [...segment.points, ...[...lower].reverse()];
+      ? interpolateCurve(
+          segment.source.map(({ point, rowIndex }) => ({
+            x: point.x,
+            y: encoding.position('y2', rowIndex) ?? baseline,
+          })),
+          curve,
+          curveOptions,
+        )
+      : interpolatedUpper.map(({ x }) => ({ x, y: baseline }));
+    const commonLength = Math.min(interpolatedUpper.length, interpolatedLower.length);
+    const boundaryBudget = Math.min(commonLength, segment.points.length);
+    const boundaryIndices = pairedAreaSampleIndices(
+      interpolatedUpper.slice(0, commonLength).map(({ y }) => y),
+      interpolatedLower.slice(0, commonLength).map(({ y }) => y),
+      boundaryBudget,
+    );
+    const upper = boundaryIndices.map((index) => interpolatedUpper[index]!);
+    const lower = boundaryIndices.map((index) => interpolatedLower[index]!);
+    const topology = buildAreaTopology(upper, lower);
     const opacity = encoding.number('opacity', representative, layer.mark.opacity);
     const fillColor = encoding.color(
       'fill',
@@ -104,7 +110,7 @@ export function compileAreaSeries(
         zIndex: layer.zIndex,
         opacity,
       }),
-      points,
+      points: topology.polygon,
       closed: true,
       fill: fillColor,
       lineWidth: 0,
@@ -117,7 +123,7 @@ export function compileAreaSeries(
           zIndex: layer.zIndex + 0.1,
           opacity,
         }),
-        points: segment.points,
+        points: upper,
         closed: false,
         stroke: strokeColor,
         lineWidth,
