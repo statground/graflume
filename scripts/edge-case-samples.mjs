@@ -885,10 +885,14 @@ function optionsFor(example, familyId, profileId, definition) {
       'carpet',
       'contour',
     ].includes(familyId) &&
-    options.y &&
-    typeof options.y === 'object'
+    ((options.y && typeof options.y === 'object' && options.y.type === 'quantitative') ||
+      (options.x && typeof options.x === 'object' && options.x.type === 'quantitative'))
   ) {
-    options.y.scale = { type: 'symlog', constant: 1 };
+    const quantitativeAxis =
+      options.y && typeof options.y === 'object' && options.y.type === 'quantitative'
+        ? options.y
+        : options.x;
+    quantitativeAxis.scale = { type: 'symlog', constant: 1 };
   }
   if (familyId === 'gauge' && profileId === 'range') {
     if (options.mark && typeof options.mark === 'object') {

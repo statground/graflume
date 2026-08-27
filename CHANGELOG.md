@@ -4,6 +4,10 @@ All notable changes to Graflume will be recorded here.
 
 ## Unreleased
 
+- Keep generated extreme-range transforms on quantitative Cartesian axes. In particular,
+  horizontal Bar examples now apply `symlog` to the numeric x channel instead of attaching a
+  continuous scale to the ordinal y channel, so every published edge-case recipe validates and
+  renders through the same pinned browser runtime.
 - Make Cartesian bar bands collision-safe and orientation-aware. Horizontal bars now transpose the
   unambiguous `x: category, y: value` authoring form automatically, while ordinary, grouped, and
   stacked bars share one bounded thickness/gap contract with pixel-aware category LOD. Preserve

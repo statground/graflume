@@ -1512,16 +1512,16 @@
         "x": {
           "field": "value",
           "type": "quantitative",
-          "title": "Adoption (%)"
-        },
-        "y": {
-          "field": "category",
-          "type": "ordinal",
-          "title": "Capability",
+          "title": "Adoption (%)",
           "scale": {
             "type": "symlog",
             "constant": 1
           }
+        },
+        "y": {
+          "field": "category",
+          "type": "ordinal",
+          "title": "Capability"
         },
         "title": {
           "text": "Bar chart",

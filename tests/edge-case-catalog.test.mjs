@@ -75,6 +75,26 @@ test('edge-case catalog is a deterministic companion without changing public cat
   });
 });
 
+test('range examples apply transformed scales only to quantitative Cartesian axes', () => {
+  for (const example of catalog.examples.filter(({ profileId }) => profileId === 'range')) {
+    for (const channel of ['x', 'y']) {
+      const encoding = example.options[channel];
+      if (encoding?.scale?.type === 'symlog') {
+        assert.equal(
+          encoding.type,
+          'quantitative',
+          `${example.id} ${channel} transformed scale type`,
+        );
+      }
+    }
+  }
+  const bar = examplesForFamily('bar')[0];
+  assert.equal(bar.options.x.type, 'quantitative');
+  assert.deepEqual(bar.options.x.scale, { type: 'symlog', constant: 1 });
+  assert.equal(bar.options.y.type, 'ordinal');
+  assert.equal(Object.hasOwn(bar.options.y, 'scale'), false);
+});
+
 test('44 canonical families own exact ordered range, structure, and volume examples', async () => {
   assert.deepEqual(
     catalog.profiles.map(({ id }) => id),
