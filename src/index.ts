@@ -28,6 +28,12 @@ import {
   positionScaleTypes,
 } from './scale/registry.js';
 export { executeTransforms, evaluateTransformExpression } from './data/transforms.js';
+export { attachDomainNavigator } from './interaction/domain-navigator.js';
+export type {
+  DomainNavigator,
+  DomainNavigatorLabels,
+  DomainNavigatorOptions,
+} from './interaction/domain-navigator.js';
 export {
   automaticScatterWebGLThreshold,
   dataInputRowCount,

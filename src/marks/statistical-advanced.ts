@@ -194,7 +194,7 @@ export const compileRankedBarMark: MarkCompiler = (context) => {
     plotSpan: categorySpan,
     categoryCount: rankedRows.length,
     lodSampled: displayed.length < rankedRows.length,
-    maxThickness: 64,
+    maxThickness: layer.mark.maxThickness ?? 64,
     preserveAuthoredRatio: preservesReferenceBarRatio(theme.name),
     ...(themedWidthRatio === undefined ? {} : { barWidthRatio: themedWidthRatio }),
   });

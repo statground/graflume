@@ -4,6 +4,17 @@ All notable changes to Graflume will be recorded here.
 
 ## Unreleased
 
+- Add the native `graflume/cartesian` ESM/browser entry for bar, line, area and point dashboards,
+  sharing the existing Canvas runtime without loading other mark catalogs. Add accessible
+  horizontal domain navigator controls for range selection, range dragging, area zoom, bounded
+  zoom history, original-spec/range restore and PNG download, with automatic chart-destroy cleanup.
+  Expose read-only coordinate-view bounds and a chart destroy event for runtime extensions.
+- Group bar layers on the same categorical axis even when their quantitative axes differ;
+  support a positive `mark.maxThickness` cap. Add visible-series shared axis tooltips with
+  a categorical shadow pointer, authored title field and locale-aware values. Preserve empty
+  categorical input without inventing rows when quantitative fallback domains are explicit.
+  Add optional `legend.align` to center or end-align outside legends along their plot edge.
+
 - Add a generic Map geography-scope engine for one or many countries, principal subdivisions, or
   arbitrary GeoJSON features. Ship an optional versioned Natural Earth 1:10m pack with 263
   selectable country/map-unit entities and 4,501 deduplicated Admin-1 regions in lazy per-country

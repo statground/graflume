@@ -376,6 +376,48 @@ function resolvedTitlePadding(
 }
 
 /** Compile any primary or secondary Cartesian axis into renderer-neutral Scene primitives. */
+/** Keep automatically selected category labels legible without changing tick/grid geometry. */
+function cullAutomaticCategoryLabels(nodes: SceneNode[], context: AxisCompileContext): SceneNode[] {
+  const axis = context.axis;
+  if (
+    axis === false ||
+    channel(context) !== 'x' ||
+    !['band', 'point'].includes(context.scale.kind) ||
+    axis.ticks.values !== undefined ||
+    axis.ticks.count !== undefined ||
+    axis.labels.angle !== undefined ||
+    axis.labels.orientation !== 'auto'
+  )
+    return nodes;
+  const labels = nodes.filter(
+    (node): node is TextNode =>
+      node.type === 'text' && node.id.startsWith(`axis-${context.id}:label:`),
+  );
+  if (labels.length < 2 || labels.some((node) => node.rotation !== 0)) return nodes;
+  const bounds = (node: TextNode) => {
+    const width = estimatedTextWidth(node.text, node.fontSize);
+    const left =
+      node.align === 'center'
+        ? node.x - width / 2
+        : node.align === 'right' || node.align === 'end'
+          ? node.x - width
+          : node.x;
+    return { left, right: left + width };
+  };
+  const ordered = [...labels].sort((left, right) => left.x - right.x);
+  const kept: TextNode[] = [];
+  for (const label of ordered) {
+    const current = bounds(label);
+    // Prefer the final endpoint over an automatically appended adjacent label.
+    if (label === ordered.at(-1)) {
+      while (kept.length > 1 && bounds(kept.at(-1)!).right + 4 > current.left) kept.pop();
+    }
+    if (kept.length === 0 || bounds(kept.at(-1)!).right + 4 <= current.left) kept.push(label);
+  }
+  const hidden = new Set(labels.filter((label) => !kept.includes(label)));
+  return nodes.filter((node) => node.type !== 'text' || !hidden.has(node));
+}
+
 export function compileAxis(context: AxisCompileContext): readonly SceneNode[] {
   const { axis, plot, theme } = context;
   if (axis === false || axis.visible === false) return [];
@@ -614,7 +656,7 @@ export function compileAxis(context: AxisCompileContext): readonly SceneNode[] {
     }
   }
 
-  return nodes;
+  return cullAutomaticCategoryLabels(nodes, context);
 }
 
 function estimatedTextWidth(value: string, fontSize: number): number {

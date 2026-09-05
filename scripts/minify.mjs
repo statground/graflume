@@ -2,6 +2,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { minify } from 'terser';
 
 const bundles = [
+  ['graflume.cartesian.global.js', 'graflume.cartesian.min.js'],
   ['graflume.global.js', 'graflume.min.js'],
   ['graflume.complete.global.js', 'graflume.complete.min.js'],
   ['graflume.spatial.global.js', 'graflume.spatial.min.js'],
@@ -17,7 +18,7 @@ for (const [inputName, outputName] of bundles) {
     mangle: true,
     sourceMap: {
       filename: outputName,
-      url: `${outputName}.map`,
+      ...(outputName === 'graflume.cartesian.min.js' ? {} : { url: `${outputName}.map` }),
     },
     format: {
       comments: /^!/,

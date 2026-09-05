@@ -32,6 +32,20 @@ Every image below is generated from the current compiled Scene rather than drawn
 | **[Lollipop chart](#variant-lollipop)**<br>[![Current Lollipop chart output](../assets/charts/lollipop.svg)](../assets/charts/lollipop.svg)                                             | **[Pictorial column chart](#variant-pictorial-column)**<br>[![Current Pictorial column chart output](../assets/charts/pictorial-column.svg)](../assets/charts/pictorial-column.svg) |
 | **[Variable width column chart](#variant-variable-width)**<br>[![Current Variable width column chart output](../assets/charts/variable-width.svg)](../assets/charts/variable-width.svg) |                                                                                                                                                                                     |
 
+## Grouped columns with separate value axes
+
+Set `mark: { type: 'bar', position: 'group', maxThickness: 28 }` on each layer. Layers sharing the
+same category axis and resolved domain occupy separate slots even when one uses `y` and another
+uses `y2`; each value axis keeps its own units and domain. Independent category axes keep their
+own lanes. The same rule applies to horizontal bars with a shared category `y` axis and separate
+value `x`/`x2` axes.
+
+`maxThickness` is an optional finite positive cap in CSS pixels before inspection zoom. It applies
+to ordinary, ranked, stacked, and grouped series bars; dense categories may produce thinner bars.
+Other mark families reject this property. Pair grouped layers with the [shared axis tooltip](./interactions.md#shared-axis-values-and-category-shadows)
+to show visible series together. When a metric has no finite data, supply an explicit fallback
+scale domain such as `[0, 1]`; empty data does not invent a plotted value.
+
 ## Type-by-type implementation
 
 The snippets are minimal runnable examples. Change `#chart` to the target element and expand the inline rows with your data. Each example opts into Graflume's safe text-only tooltip with a chart-specific title and ordered fields; number and date formatting follows the declared `locale`. This family uses `trigger: "axis"` with `axis: "x"`. An exact rendered-mark hit still has priority; otherwise Graflume selects the nearest actual datum on that axis without inventing an interpolated row. Pointer tooltip triggers remain a convenience; opt into `accessibility.table` and `accessibility.navigation` for the bounded native table and keyboard mark traversal, or provide a larger domain-specific table. The Quick API applies the preset defaults while keeping the resulting specification function-free and serializable.

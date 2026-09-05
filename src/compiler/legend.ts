@@ -447,16 +447,19 @@ function legendOrigin(
   height: number,
 ): { x: number; y: number } {
   const gap = 8;
+  const factor = model.spec.align === 'center' ? 0.5 : model.spec.align === 'end' ? 1 : 0;
+  const alignedX = plot.x + Math.max(0, plot.width - model.width) * factor;
+  const alignedY = plot.y + Math.max(0, plot.height - model.height) * factor;
   const origin = (() => {
     switch (model.spec.position) {
       case 'top':
-        return { x: plot.x, y: Math.max(gap, plot.y - model.height - gap) };
+        return { x: alignedX, y: Math.max(gap, plot.y - model.height - gap) };
       case 'right':
-        return { x: plot.x + plot.width + gap, y: plot.y };
+        return { x: plot.x + plot.width + gap, y: alignedY };
       case 'bottom':
-        return { x: plot.x, y: height - model.height - gap / 2 };
+        return { x: alignedX, y: height - model.height - gap / 2 };
       case 'left':
-        return { x: Math.max(gap, plot.x - model.width - gap), y: plot.y };
+        return { x: Math.max(gap, plot.x - model.width - gap), y: alignedY };
       case 'inside-top-left':
         return { x: plot.x + gap, y: plot.y + gap };
       case 'inside-bottom-left':

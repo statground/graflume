@@ -60,6 +60,9 @@ npm run check
 Build outputs:
 
 ```text
+dist/graflume.cartesian.js         focused native bar/line/area/point ESM
+dist/graflume.cartesian.global.js  focused readable browser global
+dist/graflume.cartesian.min.js     focused minified CDN bundle
 dist/graflume.js                   default ESM
 dist/graflume.global.js            default readable browser global
 dist/graflume.min.js               default minified CDN bundle
@@ -72,7 +75,16 @@ dist/graflume.spatial.min.js       opt-in spatial minified bundle
 dist/index.d.ts                    default TypeScript declarations
 dist/complete.d.ts                 complete-catalog declarations
 dist/spatial.d.ts                  spatial declarations
+dist/cartesian.d.ts                focused Cartesian declarations
 ```
+
+Use `graflume/cartesian` for dashboards needing only native bar, line, area and point marks.
+It exports `create`, `compile`, `createCartesianRegistry`, and `attachDomainNavigator`, with the
+same Canvas runtime, portable spec, independent axes, legends, shared tooltips and domain
+navigation. It omits Quick APIs and other mark compilers; unsupported marks fail explicitly.
+Its browser global is also `Graflume`, so select one Canvas entry for a page.
+See [domain navigator controls](docs/charts/interactions.md#domain-navigator-controls) for a
+range slider, area zoom, zoom history, restore and PNG download.
 
 ## CDN usage
 

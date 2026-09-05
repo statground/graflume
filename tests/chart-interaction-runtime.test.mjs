@@ -2382,6 +2382,14 @@ test('composed Chart routes pointer geometry and domain zoom through addressable
   try {
     const ids = chart.getCoordinateViewIds();
     assert.deepEqual(ids, ['hconcat-0', 'hconcat-1']);
+    const firstBounds = chart.getCoordinateViewBounds(ids[0]);
+    const secondBounds = chart.getCoordinateViewBounds(ids[1]);
+    assert.ok(Object.isFrozen(firstBounds));
+    assert.ok(secondBounds.x > firstBounds.x + firstBounds.width);
+    closeEnough(chart.pixelToDomain('x', secondBounds.x, ids[1]), 0);
+    closeEnough(chart.pixelToDomain('x', secondBounds.x + secondBounds.width, ids[1]), 10);
+    assert.throws(() => chart.getCoordinateViewBounds('missing-view'), /not found/);
+
     const firstFive = chart.domainToPixel('x', 5, ids[0]);
     const secondFive = chart.domainToPixel('x', 5, ids[1]);
     assert.ok(secondFive > firstFive);
@@ -3563,6 +3571,158 @@ test('technical indicator pointer crosshair synchronizes every pane and clears o
     );
   } finally {
     chart.destroy();
+    environment.restore();
+  }
+});
+
+test('shared tooltip and shadow follow domain windows, legend visibility and pointer cleanup', () => {
+  const environment = installEnvironment();
+  const { registry, target, renderers } = createHarness(environment.document);
+  const chart = new Chart(
+    target,
+    {
+      width: 'container',
+      height: 'container',
+      locale: 'ko-KR',
+      data: [
+        { label: 'First', visitors: 1234, pageviews: 98765 },
+        { label: 'Last', visitors: 50, pageviews: 800 },
+      ],
+      layers: ['visitors', 'pageviews'].map((field, index) => ({
+        id: field,
+        name: index === 0 ? '방문자' : '페이지 뷰',
+        mark: {
+          type: 'bar',
+          position: 'group',
+          maxThickness: 28,
+          fill: index === 0 ? '#6366F1' : '#B8DE29',
+        },
+        x: { field: 'label', type: 'ordinal' },
+        y: { field, type: 'quantitative', axisId: index === 0 ? 'y' : 'y2' },
+      })),
+      legend: { mode: 'layers', interactive: true },
+      interaction: {
+        tooltip: {
+          trigger: 'axis',
+          axis: 'x',
+          shared: true,
+          titleField: 'label',
+          pointer: 'shadow',
+        },
+        domainNavigation: { axes: ['x'] },
+      },
+    },
+    registry,
+    { autoResize: false },
+  );
+  try {
+    const renderer = renderers[0];
+    const hover = (label) => {
+      const bar = sceneNodes(chart.getScene().root).find(
+        (node) => node.type === 'rect' && node.datum?.datum.label === label,
+      );
+      renderer.chartSurface.dispatchEvent(
+        new FakePointerEvent('pointermove', {
+          clientX: bar.x + bar.width / 2,
+          clientY: bar.y + bar.height / 2,
+        }),
+      );
+    };
+    hover('First');
+    const tooltip = walk(renderer.host).find(({ dataset }) => dataset.graflumeTooltip === 'true');
+    const shadow = walk(renderer.host).find(
+      ({ dataset }) => dataset.graflumeAxisPointer === 'shadow',
+    );
+    assert.equal(tooltip.hidden, false);
+    assert.equal(shadow.hidden, false);
+    assert.ok(walk(tooltip).some((node) => node.textContent === '1,234'));
+    assert.ok(walk(tooltip).some((node) => node.textContent === '98,765'));
+    const visitorsId = chart.getLegendState().items.find((item) => item.layerId === 'visitors').id;
+    chart.setLegendItemVisible(visitorsId, false);
+    hover('First');
+    assert.equal(
+      walk(tooltip).some((node) => node.textContent === '1,234'),
+      false,
+    );
+    chart.setLegendItemVisible(visitorsId, true);
+    const hiddenId = chart.getLegendState().items.find((item) => item.layerId === 'pageviews').id;
+    chart.setLegendItemVisible(hiddenId, false);
+    hover('First');
+    assert.equal(
+      walk(tooltip).some((node) => node.textContent === '98,765'),
+      false,
+    );
+    chart.setDomainViewState({ version: 1, axes: { x: { start: 0.5, end: 1 } } });
+    hover('Last');
+    assert.ok(walk(tooltip).some((node) => node.textContent === 'Last'));
+    renderer.chartSurface.dispatchEvent(new FakePointerEvent('pointerleave', {}));
+    assert.equal(tooltip.hidden, true);
+    assert.equal(shadow.hidden, true);
+    chart.destroy();
+    assert.equal(shadow.parentElement, null);
+    assert.equal(tooltip.parentElement, null);
+  } finally {
+    chart.destroy();
+    environment.restore();
+  }
+});
+
+test('Chart destroy emits once after releasing renderer and permits listener reentry', () => {
+  const environment = installEnvironment();
+  const { registry, target, renderers } = createHarness(environment.document);
+  const chart = new Chart(
+    target,
+    { data: [{ x: 1, y: 2 }], mark: 'point', x: 'x', y: 'y' },
+    registry,
+    { autoResize: false },
+  );
+  let calls = 0;
+  chart.on('destroy', (event) => {
+    calls += 1;
+    assert.equal(event.chart, chart);
+    assert.equal(renderers[0].destroyed, true);
+    chart.destroy();
+  });
+  try {
+    chart.destroy();
+    chart.destroy();
+    assert.equal(calls, 1);
+    assert.equal(renderers[0].chartSurface.listenerCount(), 0);
+  } finally {
+    chart.destroy();
+    environment.restore();
+  }
+});
+
+test('empty Cartesian charts preserve zero rows through domain navigation and restore', () => {
+  const environment = installEnvironment();
+  const { registry, target } = createHarness(environment.document);
+  let chart;
+  try {
+    chart = new Chart(
+      target,
+      {
+        data: [],
+        mark: { type: 'bar' },
+        x: { field: 'date', type: 'nominal' },
+        y: { field: 'value', type: 'quantitative', scale: { domain: [0, 1] } },
+        interaction: { domainNavigation: { axes: ['x'] } },
+      },
+      registry,
+      { width: 720, height: 420, autoResize: false, adaptive: false },
+    );
+    for (const window of [
+      { start: 0, end: 1 },
+      { start: 0.4, end: 0.8 },
+    ]) {
+      chart.setDomainViewState({ version: 1, axes: { x: window } });
+      assert.equal(chart.getSpec().data.length, 0);
+      assert.equal(chart.getScene().metadata.rowCount, 0);
+    }
+    chart.resetDomainView();
+    assert.equal(chart.getSpec().data.length, 0);
+  } finally {
+    chart?.destroy();
     environment.restore();
   }
 });

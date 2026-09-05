@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 
+const browserParsers = new WeakMap();
+
 const additionalApis = [
   'polar',
   'polarLine',
@@ -70,6 +72,65 @@ function assertEntryDoesNotExpose(module, names, entry) {
 const defaultModule = await import(new URL('../dist/graflume.js', import.meta.url));
 const completeModule = await import(new URL('../dist/graflume.complete.js', import.meta.url));
 const spatialModule = await import(new URL('../dist/graflume.spatial.js', import.meta.url));
+const cartesianModule = await import(new URL('../dist/graflume.cartesian.js', import.meta.url));
+
+function assertCartesianEntry(entry) {
+  const portable = (value) => (browserParsers.get(entry) ?? JSON.parse)(JSON.stringify(value));
+  assert.deepEqual(Array.from(entry.capabilities().marks), ['area', 'bar', 'line', 'point']);
+  assert.deepEqual(Array.from(entry.capabilities().renderers), ['canvas']);
+  for (const name of ['create', 'compile', 'createCartesianRegistry', 'attachDomainNavigator']) {
+    assert.equal(typeof entry[name], 'function', `cartesian ${name}`);
+  }
+  assertEntryDoesNotExpose(
+    entry,
+    [...additionalApis, ...spatialOnlyApis, 'chartTypeCatalog'],
+    'cartesian',
+  );
+  const result = entry.compile(
+    portable({
+      data: [{ category: 'A', visitors: 12, views: 900 }],
+      layers: [
+        {
+          id: 'visitors',
+          mark: { type: 'bar', maxThickness: 28 },
+          x: { field: 'category', type: 'nominal' },
+          y: { field: 'visitors', type: 'quantitative' },
+        },
+        {
+          id: 'views',
+          mark: { type: 'bar', maxThickness: 28 },
+          x: { field: 'category', type: 'nominal' },
+          y: { field: 'views', type: 'quantitative', axisId: 'y2' },
+        },
+      ],
+      interaction: {
+        domainNavigation: { axes: ['x'] },
+        tooltip: {
+          trigger: 'axis',
+          axis: 'x',
+          shared: true,
+          pointer: 'shadow',
+          titleField: 'category',
+        },
+      },
+    }),
+    { width: 640, height: 420 },
+  );
+  assert.equal(result.scene.width, 640);
+  assert.throws(
+    () =>
+      entry.compile(
+        portable({
+          data: [{ category: 'A', value: 1 }],
+          mark: { type: 'pie' },
+          x: { field: 'category', type: 'nominal' },
+          y: { field: 'value', type: 'quantitative' },
+        }),
+      ),
+    /Unsupported mark/,
+  );
+}
+assertCartesianEntry(cartesianModule);
 
 assert.equal(defaultModule.chartTypeCatalog.length, 22);
 assert.equal(defaultModule.chartVariantCatalog.length, 42);
@@ -201,12 +262,15 @@ async function loadBrowserGlobal(filename, globalName = 'Graflume') {
     setTimeout,
   });
   vm.runInContext(code, context, { filename });
+  browserParsers.set(context[globalName], vm.runInContext('JSON.parse', context));
   return context[globalName];
 }
 
 const defaultGlobal = await loadBrowserGlobal('graflume.global.js');
 const completeGlobal = await loadBrowserGlobal('graflume.complete.global.js');
 const spatialGlobal = await loadBrowserGlobal('graflume.spatial.global.js', 'GraflumeSpatial');
+assertCartesianEntry(await loadBrowserGlobal('graflume.cartesian.global.js'));
+assertCartesianEntry(await loadBrowserGlobal('graflume.cartesian.min.js'));
 
 assert.ok(defaultGlobal);
 assert.ok(completeGlobal);
@@ -266,4 +330,6 @@ assertEntryDoesNotExpose(defaultGlobal, spatialOnlyApis, 'default global');
 assertEntryDoesNotExpose(completeGlobal, spatialOnlyApis, 'complete global');
 assertEntryDoesNotExpose(spatialGlobal, ['compile', 'create', ...additionalApis], 'spatial global');
 
-console.log('Verified default, complete, and spatial ESM/browser bundles and API boundaries.');
+console.log(
+  'Verified default, complete, spatial, and cartesian ESM/browser bundles and API boundaries.',
+);

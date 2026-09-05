@@ -8,6 +8,17 @@ export interface AxisTooltipTarget extends DatumReference {
   readonly x: number;
   readonly y: number;
   readonly order: number;
+  readonly color?: string;
+}
+
+export interface AxisTooltipHit extends HitResult {
+  readonly color?: string;
+}
+
+export interface SharedAxisTooltipHit {
+  readonly hits: readonly AxisTooltipHit[];
+  /** Nearest-category lane in untransformed scene coordinates. */
+  readonly pointer: Rect;
 }
 
 export interface AxisTooltipRegistration {
@@ -17,6 +28,7 @@ export interface AxisTooltipRegistration {
   readonly plot: Rect;
   readonly axisVisible: boolean;
   readonly axisStripSize: number;
+  readonly categoryStep?: number;
   readonly targets: readonly AxisTooltipTarget[];
 }
 
@@ -150,5 +162,76 @@ export function hitTestAxisTooltip(scene: Scene, x: number, y: number): HitResul
     x,
     y,
     distance: Math.abs(pointerPrimary - coordinate),
+  };
+}
+
+/** Resolve visible series at one actual coordinate without interpolating missing rows. */
+export function hitTestSharedAxisTooltip(
+  scene: Scene,
+  x: number,
+  y: number,
+): SharedAxisTooltipHit | null {
+  const index = indexByScene.get(scene);
+  if (
+    index === undefined ||
+    !scene.metadata.hitTestingEnabled ||
+    !insideActivationRegion(index, x, y)
+  )
+    return null;
+  const pointer = index.channel === 'x' ? x : y;
+  const coordinate = nearestCoordinate(index, pointer);
+  if (coordinate === null) return null;
+  const start = lowerBound(index.targets, index.channel, coordinate - coordinateEpsilon);
+  const byLayer = new Map<string, AxisTooltipTarget>();
+  let end = start;
+  for (; end < index.targets.length; end += 1) {
+    const target = index.targets[end]!;
+    if (Math.abs(primary(target, index.channel) - coordinate) > coordinateEpsilon) break;
+    // Index order already puts the uppermost target first for repeated layer geometry.
+    if (!byLayer.has(target.layerId)) byLayer.set(target.layerId, target);
+  }
+  const hits = [...byLayer.values()].map((target): AxisTooltipHit => ({
+    ...target,
+    x,
+    y,
+    distance: Math.abs(pointer - coordinate),
+  }));
+  if (hits.length === 0) return null;
+  const before = index.targets[start - 1];
+  const after = index.targets[end];
+  const horizontal = index.channel === 'x';
+  const plotStart = horizontal ? index.plot.x : index.plot.y;
+  const plotEnd = plotStart + (horizontal ? index.plot.width : index.plot.height);
+  const laneStart = Math.max(
+    plotStart,
+    index.categoryStep !== undefined
+      ? coordinate - index.categoryStep / 2
+      : before === undefined
+        ? plotStart
+        : (primary(before, index.channel) + coordinate) / 2,
+  );
+  const laneEnd = Math.min(
+    plotEnd,
+    index.categoryStep !== undefined
+      ? coordinate + index.categoryStep / 2
+      : after === undefined
+        ? plotEnd
+        : (primary(after, index.channel) + coordinate) / 2,
+  );
+  return {
+    hits,
+    pointer: horizontal
+      ? {
+          x: laneStart,
+          y: index.plot.y,
+          width: Math.max(0, laneEnd - laneStart),
+          height: index.plot.height,
+        }
+      : {
+          x: index.plot.x,
+          y: laneStart,
+          width: index.plot.width,
+          height: Math.max(0, laneEnd - laneStart),
+        },
   };
 }

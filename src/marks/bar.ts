@@ -41,7 +41,7 @@ export const compileBarMark: MarkCompiler = (context) => {
       categoryCount: new Set(categoryCenters).size,
       groupCount: barGroup.count,
       lodSampled: indices.length < table.length,
-      maxThickness: 64,
+      maxThickness: layer.mark.maxThickness ?? 64,
       preserveAuthoredRatio: preserveReferenceWidth,
       ...(themedWidthRatio === undefined ? {} : { barWidthRatio: themedWidthRatio }),
     });
@@ -129,7 +129,7 @@ export const compileBarMark: MarkCompiler = (context) => {
     categoryCount: new Set(categoryCenters).size,
     groupCount: barGroup.count,
     lodSampled: indices.length < table.length,
-    maxThickness: 64,
+    maxThickness: layer.mark.maxThickness ?? 64,
     preserveAuthoredRatio: preserveReferenceWidth,
     ...(themedWidthRatio === undefined ? {} : { barWidthRatio: themedWidthRatio }),
   });

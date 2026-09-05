@@ -1127,3 +1127,44 @@ test('explicit legend, highlight, annotation, and layer ids must be unique', () 
     3,
   );
 });
+
+test('outside legend alignment preserves default origin and centers or ends along the plot edge', () => {
+  for (const position of ['top', 'bottom', 'left', 'right']) {
+    const render = (align) =>
+      compile(
+        {
+          data: [{ category: 'A', value: 10 }],
+          mark: { type: 'bar' },
+          x: { field: 'category', type: 'nominal' },
+          y: { field: 'value', type: 'quantitative' },
+          legend: { position, ...(align === undefined ? {} : { align }) },
+        },
+        { width: 800, height: 600 },
+      );
+    const base = render();
+    const start = sceneLegendLayout(render('start').scene).bounds;
+    assert.deepEqual(sceneLegendLayout(base.scene).bounds, start);
+    const horizontal = position === 'top' || position === 'bottom';
+    const coordinate = horizontal ? 'x' : 'y';
+    const size = horizontal ? 'width' : 'height';
+    const plot = base.coordinates.plot;
+    for (const [align, factor] of [
+      ['center', 0.5],
+      ['end', 1],
+    ]) {
+      const result = render(align);
+      const legend = sceneLegendLayout(result.scene).bounds;
+      assert.equal(legend[coordinate], plot[coordinate] + (plot[size] - legend[size]) * factor);
+      assert.equal(result.spec.legend.align, align);
+    }
+  }
+  assert.ok(
+    validateSpec({
+      data: [{ x: 'A', y: 1 }],
+      mark: 'bar',
+      x: 'x',
+      y: 'y',
+      legend: { align: 'middle' },
+    }).some(({ path }) => path === '$.legend.align'),
+  );
+});

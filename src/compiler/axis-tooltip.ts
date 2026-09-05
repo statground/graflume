@@ -156,6 +156,14 @@ export function collectAxisTooltipTargets(
     }
     targets.push({
       ...node.datum,
+      ...('fill' in node &&
+      typeof node.fill === 'string' &&
+      node.fill !== 'none' &&
+      node.fill !== 'transparent'
+        ? { color: node.fill }
+        : 'stroke' in node && typeof node.stroke === 'string'
+          ? { color: node.stroke }
+          : {}),
       nodeId: `axis:${node.id}`,
       x,
       y,
@@ -166,6 +174,11 @@ export function collectAxisTooltipTargets(
   };
   for (const group of context.layerGroups) visit(group, 1);
 
+  const layerColors = new Map(
+    targets.flatMap((target) =>
+      target.color === undefined ? [] : [[target.layerId, target.color] as const],
+    ),
+  );
   for (const layerData of scales.layers) {
     if (!ROW_TARGET_MARKS.has(layerData.layer.mark.type)) continue;
     if ((channel === 'x' ? layerData.xAxisId : layerData.yAxisId) !== axis) continue;
@@ -182,6 +195,9 @@ export function collectAxisTooltipTargets(
         layerId: layerData.layer.id,
         rowIndex,
         datum,
+        ...(layerColors.has(layerData.layer.id)
+          ? { color: layerColors.get(layerData.layer.id)! }
+          : {}),
         nodeId: `axis:${layerData.layer.id}:row:${rowIndex}`,
         x: position.x,
         y: position.y,

@@ -481,3 +481,13 @@ Automatic label collision routing beyond the current auto tilt, spacing, and tru
 not implemented. Crosshair guides and facets remain
 separate future features. Legends, axis-aligned reference bands, and callouts use the shared
 [portable interaction contract](./interactions.md#legends-highlights-selection-and-callouts).
+
+Grouped bar layers can share a category axis while binding their quantitative encodings to
+separate value axes. Use `position: 'group'` for separate slots and `maxThickness` to cap each bar.
+The value domains remain independent. See [grouped columns](./bar.md#grouped-columns-with-separate-value-axes)
+and [shared axis values](./interactions.md#shared-axis-values-and-category-shadows) for the portable
+comparison and tooltip contract.
+
+Automatic horizontal category labels omit collisions, including a final endpoint crowded by its
+preceding tick. Tick marks and grid geometry remain intact. Explicit tick values/counts and
+explicit label angles/orientations remain authoritative.

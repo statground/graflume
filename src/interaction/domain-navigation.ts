@@ -196,7 +196,7 @@ export function domainForAxisWindow(
     }
     const domain = scale.domain();
     if (domain.length === 0) {
-      throw new GraflumeError('INCOMPATIBLE_SCALE', 'Navigable categorical domains are non-empty.');
+      return Object.freeze([]);
     }
     const start = Math.min(domain.length - 1, Math.floor(window.start * domain.length));
     const end = Math.max(start + 1, Math.min(domain.length, Math.ceil(window.end * domain.length)));

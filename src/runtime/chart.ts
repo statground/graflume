@@ -36,7 +36,7 @@ import {
   type StreamHistoryPage,
 } from '../data/stream-runtime.js';
 import { AutomaticWorkerRuntime, type WorkerRuntimeFactory } from '../data/worker-runtime.js';
-import { hitTestAxisTooltip } from '../interaction/axis-hit-test.js';
+import { hitTestAxisTooltip, hitTestSharedAxisTooltip } from '../interaction/axis-hit-test.js';
 import {
   AnalyticSelectionStore,
   analyticSelectionVersion,
@@ -166,7 +166,11 @@ import {
   type ResolvedPlaybackNamedFrame,
   type ResolvedPlaybackRange,
 } from '../interaction/playback.js';
-import { resolveTooltipContent, TooltipController } from '../interaction/tooltip.js';
+import {
+  resolveTooltipContent,
+  resolveSharedTooltipContent,
+  TooltipController,
+} from '../interaction/tooltip.js';
 import type { Renderer } from '../renderer/types.js';
 import { easeSceneProgress, interpolateScene } from '../scene/interpolate.js';
 import { normalizeSpec } from '../spec/normalize.js';
@@ -545,6 +549,7 @@ export interface ChartScatterMatrixChangeEvent {
 }
 
 export interface ChartEventMap {
+  readonly destroy: { readonly chart: Chart };
   readonly render: ChartRenderEvent;
   readonly hover: ChartPointerEvent;
   readonly click: ChartPointerEvent;
@@ -1254,6 +1259,16 @@ export class Chart {
   getCoordinateViewIds(): readonly string[] {
     this.#assertAlive();
     return this.#result?.coordinateViews.map(({ id }) => id) ?? [];
+  }
+
+  getCoordinateViewBounds(viewId?: string): Rect {
+    this.#assertAlive();
+    const view = this.#coordinateView(viewId);
+    return Object.freeze({
+      ...view.coordinates.plot,
+      x: view.coordinates.plot.x + view.offsetX,
+      y: view.coordinates.plot.y + view.offsetY,
+    });
   }
 
   #coordinateView(viewId?: string): CompileCoordinateView {
@@ -4202,8 +4217,12 @@ export class Chart {
     this.#renderer = null;
     this.#result = null;
     this.#displayScene = null;
-    this.#events.clear();
     this.#destroyed = true;
+    try {
+      this.#events.emit('destroy', { chart: this });
+    } finally {
+      this.#events.clear();
+    }
   }
 
   #configureInteraction(spec: NormalizedChartSpec, reset: boolean): void {
@@ -6354,6 +6373,13 @@ export class Chart {
                 distance: nearestFamily.distance,
               };
     const tooltipSpec = result.spec.interaction.tooltip;
+    const sharedAxis =
+      type === 'hover' &&
+      tooltipSpec !== false &&
+      tooltipSpec.trigger === 'axis' &&
+      (tooltipSpec.shared || tooltipSpec.pointer === 'shadow')
+        ? hitTestSharedAxisTooltip(scene, local.x, local.y)
+        : null;
     const tooltipLocal =
       type === 'hover' &&
       tooltipSpec !== false &&
@@ -6366,17 +6392,33 @@ export class Chart {
         ? null
         : { ...hit, x: screen.x, y: screen.y, distance: hit.distance * this.#view.zoom };
     const markHit = screenHit(markLocal);
-    const tooltipHit = screenHit(tooltipLocal);
+    const tooltipHit = screenHit(
+      tooltipSpec !== false && tooltipSpec.shared ? (sharedAxis?.hits[0] ?? null) : tooltipLocal,
+    );
     if (type === 'hover' && tooltipSpec !== false) {
       if (tooltipHit === null) this.#tooltip.hide();
-      else
-        this.#tooltip.show(
-          resolveTooltipContent(tooltipHit, result.spec),
-          tooltipHit,
-          sourceEvent,
-          surface,
-          this.#renderer?.overlayHost?.() ?? surface.parentElement ?? surface,
+      else {
+        const host = this.#renderer?.overlayHost?.() ?? surface.parentElement ?? surface;
+        const content = tooltipSpec.shared
+          ? resolveSharedTooltipContent(sharedAxis?.hits ?? [], result.spec)
+          : resolveTooltipContent(tooltipHit, result.spec);
+        this.#tooltip.show(content, tooltipHit, sourceEvent, surface, host);
+        const bounds =
+          tooltipSpec.pointer === 'shadow' && content.rows.length > 0
+            ? sharedAxis?.pointer
+            : undefined;
+        this.#tooltip.showPointer(
+          bounds === undefined
+            ? null
+            : {
+                x: bounds.x * this.#view.zoom + this.#view.offsetX,
+                y: bounds.y * this.#view.zoom + this.#view.offsetY,
+                width: bounds.width * this.#view.zoom,
+                height: bounds.height * this.#view.zoom,
+              },
+          host,
         );
+      }
     }
     if (type === 'click' && !this.#handleFamilyClick(familyLocal, sourceEvent)) {
       this.#applyClickSelection(markLocal);
@@ -7000,14 +7042,20 @@ export class Chart {
       y,
       distance: 0,
     };
+    const tooltip = result.spec.interaction.tooltip;
+    const local = inverseInspectionPoint(this.#view, { x, y });
+    const shared = tooltip.shared ? hitTestSharedAxisTooltip(result.scene, local.x, local.y) : null;
     this.#tooltip.showAt(
-      resolveTooltipContent(hit, result.spec),
+      tooltip.shared
+        ? resolveSharedTooltipContent(shared?.hits ?? [], result.spec)
+        : resolveTooltipContent(hit, result.spec),
       hit,
       hostBounds.left + x,
       hostBounds.top + y,
       surface,
       host,
     );
+    this.#tooltip.showPointer(null, host);
   }
 
   #syncAccessibilityMirror(): void {

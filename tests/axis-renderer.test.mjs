@@ -10,6 +10,7 @@ import { formatAxisTick, truncateAxisLabel } from '../.tmp/src/compiler/axis-for
 import { BandScale } from '../.tmp/src/scale/band.js';
 import { LinearScale } from '../.tmp/src/scale/linear.js';
 import { graflumeLight } from '../.tmp/src/theme/defaults.js';
+import { sceneNodeBounds } from '../.tmp/src/scene/bounds.js';
 
 const plot = { x: 56, y: 24, width: 320, height: 200 };
 
@@ -233,4 +234,44 @@ test('axis formatting is declarative, locale-aware and safe for invalid Intl opt
   );
   assert.equal(truncateAxisLabel('가나다라마바사', 4), '가나다…');
   assert.equal(truncateAxisLabel('📈growth', 2), '📈…');
+});
+
+test('automatic category labels avoid appended endpoint collisions while preserving ticks', () => {
+  const domain = Array.from(
+    { length: 18 },
+    (_, index) => `2026-09-${String(index + 1).padStart(2, '0')}`,
+  );
+  for (const reverse of [false, true]) {
+    const scale = new BandScale({ domain, range: reverse ? [998, 60] : [60, 998] });
+    const context = {
+      id: 'x',
+      axis: axis('bottom', { ticks: { size: 4 } }),
+      scale,
+      plot: { x: 60, y: 88, width: 938, height: 260 },
+      theme: graflumeLight,
+      title: '',
+    };
+    const nodes = compileAxis(context);
+    const labels = nodes
+      .filter((node) => node.type === 'text' && node.id.startsWith('axis-x:label:'))
+      .sort((a, b) => a.x - b.x);
+    assert.ok(labels.some((node) => node.text === domain[0]));
+    assert.ok(labels.some((node) => node.text === domain.at(-1)));
+    assert.ok(labels.length < scale.ticks(9).length);
+    for (let index = 1; index < labels.length; index += 1) {
+      const previous = sceneNodeBounds(labels[index - 1]);
+      const current = sceneNodeBounds(labels[index]);
+      assert.ok(
+        previous.x + previous.width <= current.x,
+        `${labels[index - 1].text} overlaps ${labels[index].text}`,
+      );
+    }
+    const tickCount = nodes.filter((node) => node.id.startsWith('axis-x:tick:')).length;
+    assert.equal(tickCount, scale.ticks(9).length);
+    const authored = compileAxis({ ...context, axis: axis('bottom', { ticks: { count: 9 } }) });
+    assert.equal(
+      authored.filter((node) => node.type === 'text' && node.id.startsWith('axis-x:label:')).length,
+      scale.ticks(9).length,
+    );
+  }
 });

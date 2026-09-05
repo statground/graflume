@@ -42,7 +42,15 @@ const TOOLTIP_FORMATS = new Set([
   'time',
   'datetime',
 ]);
-const TOOLTIP_KEYS = new Set(['trigger', 'axis', 'title', 'fields']);
+const TOOLTIP_KEYS = new Set([
+  'trigger',
+  'axis',
+  'title',
+  'titleField',
+  'shared',
+  'pointer',
+  'fields',
+]);
 const TOOLTIP_FIELD_KEYS = new Set([
   'field',
   'label',
@@ -156,6 +164,7 @@ const ACCESSIBILITY_EXPLORER_KEYS = new Set(['windowRows', 'overscanRows', 'rowH
 const ACCESSIBILITY_LINKED_FOCUS_KEYS = new Set(['group', 'key']);
 const ACCESSIBILITY_TABLE_MODES = new Set(['hidden', 'visible']);
 const LEGEND_KEYS = new Set([
+  'align',
   'visible',
   'mode',
   'position',
@@ -2547,6 +2556,24 @@ function validateMark(value: unknown, path: string, issues: SpecIssue[]): void {
     return;
   }
 
+  if (value.maxThickness !== undefined) {
+    if (
+      typeof value.maxThickness !== 'number' ||
+      !Number.isFinite(value.maxThickness) ||
+      value.maxThickness <= 0
+    ) {
+      issues.push({
+        path: `${path}.maxThickness`,
+        message: 'Maximum bar thickness must be a finite positive number.',
+      });
+    }
+    if (value.type !== 'bar') {
+      issues.push({
+        path: `${path}.maxThickness`,
+        message: 'Maximum thickness is only supported by bar marks.',
+      });
+    }
+  }
   if (value.fields !== undefined) {
     if (!isPlainObject(value.fields)) {
       issues.push({ path: `${path}.fields`, message: 'Mark fields must be an object.' });
@@ -2762,6 +2789,45 @@ function validateInteraction(value: unknown, path: string, issues: SpecIssue[]):
       }
       if (tooltip.title !== undefined && typeof tooltip.title !== 'string') {
         issues.push({ path: `${path}.tooltip.title`, message: 'Tooltip title must be a string.' });
+      }
+      if (
+        tooltip.titleField !== undefined &&
+        (typeof tooltip.titleField !== 'string' ||
+          tooltip.titleField.trim() === '' ||
+          UNSAFE_FIELDS.has(tooltip.titleField))
+      ) {
+        issues.push({
+          path: `${path}.tooltip.titleField`,
+          message: 'Tooltip title field must be a safe non-empty field name.',
+        });
+      }
+      if (tooltip.shared !== undefined && typeof tooltip.shared !== 'boolean') {
+        issues.push({
+          path: `${path}.tooltip.shared`,
+          message: 'Shared tooltip must be a boolean.',
+        });
+      }
+      if (
+        tooltip.pointer !== undefined &&
+        tooltip.pointer !== 'none' &&
+        tooltip.pointer !== 'shadow'
+      ) {
+        issues.push({
+          path: `${path}.tooltip.pointer`,
+          message: 'Tooltip pointer must be "none" or "shadow".',
+        });
+      }
+      if (trigger !== 'axis') {
+        if (tooltip.shared === true)
+          issues.push({
+            path: `${path}.tooltip.shared`,
+            message: 'Shared tooltips require an axis trigger.',
+          });
+        if (tooltip.pointer === 'shadow')
+          issues.push({
+            path: `${path}.tooltip.pointer`,
+            message: 'Shadow pointers require an axis trigger.',
+          });
       }
       if (tooltip.fields !== undefined) {
         if (
@@ -3559,6 +3625,12 @@ function validateLegend(value: unknown, path: string, issues: SpecIssue[]): void
     return;
   }
   validateUnknownKeys(value, LEGEND_KEYS, path, 'legend', issues);
+  if (value.align !== undefined && !['start', 'center', 'end'].includes(value.align as string)) {
+    issues.push({
+      path: `${path}.align`,
+      message: 'Legend alignment must be start, center, or end.',
+    });
+  }
   validateOptionalBoolean(value.visible, `${path}.visible`, 'Legend visibility', issues);
   validateOptionalBoolean(value.interactive, `${path}.interactive`, 'Legend interactive', issues);
   if (

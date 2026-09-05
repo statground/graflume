@@ -1,5 +1,10 @@
 # Chart guides
 
+For bar, line, area and point dashboards, `graflume/cartesian` provides a smaller native entry
+with the shared Canvas runtime. It adds no chart family or preset. The
+[domain navigator](./interactions.md#domain-navigator-controls) provides a range slider, area
+zoom, undo, restore and PNG export; other families continue to use the entries below.
+
 Graflume `0.1.0-alpha.0` exposes 41 distinct chart families through two package entrypoints. The default entrypoint contains 22 established families, while `graflume/complete` adds 11 advanced and 8 specialized families. The 165 documented presets include 117 public compatibility identifiers without duplicating the shared compiler, theme, Scene, Canvas renderer, interaction, or accessibility contracts.
 
 Every family below is implemented today. Direction, curve, depth, radius, glyph, layout, and indicator differences are presets inside one family instead of separate discovery entries. The shared [composition and resolve manual](../composition.md) documents layer, facet, repeat, concat, nested-grid, and inset views with their exact scale/axis/legend boundary. The [scale and encoding manual](../scales-and-encodings.md) documents the canonical channel map, legacy facade, mathematical scale registry, mark-by-channel support boundary, and explicit out-of-bounds behavior.

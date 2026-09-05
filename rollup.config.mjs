@@ -3,6 +3,12 @@ import typescript from '@rollup/plugin-typescript';
 const banner = '/*! Graflume v0.1.0-alpha.0 | https://github.com/statground/graflume */';
 
 const entryBoundaries = Object.freeze({
+  cartesian: [
+    /\/src\/(?:index|complete|spatial)\.ts$/,
+    /\/src\/runtime\/default-registry\.ts$/,
+    /\/src\/(?:spatial|catalog)\//,
+    /\/src\/marks\/(?:field-advanced|finance-advanced|layout-advanced)\.ts$/,
+  ],
   default: [
     /\/src\/complete\.ts$/,
     /\/src\/spatial(?:\.ts|\/)/,
@@ -86,6 +92,12 @@ function config(input, files, globalName = 'Graflume', boundary = 'default') {
 }
 
 export default [
+  config(
+    'src/cartesian.ts',
+    { module: 'dist/graflume.cartesian.js', global: 'dist/graflume.cartesian.global.js' },
+    'Graflume',
+    'cartesian',
+  ),
   config('src/index.ts', {
     module: 'dist/graflume.js',
     global: 'dist/graflume.global.js',

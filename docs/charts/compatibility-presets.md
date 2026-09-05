@@ -6,6 +6,10 @@ Use `resolveSeriesType(identifier)` from `graflume/complete` when an integration
 
 The two function-free adapter names are documented separately in [Adapters](./adapters.md).
 
+Native [grouped bars](./bar.md#grouped-columns-with-separate-value-axes) support separate value axes
+and a `maxThickness` cap. [Shared axis tooltips](./interactions.md#shared-axis-values-and-category-shadows)
+add visible-series values, datum titles, and category shadows without executable formatters.
+
 ## [Annotation chart](./annotation.md#integrated-presets)
 
 | Identifier           | Compatible name                                                  | Quick API             | Mode          | Portable mark |
@@ -378,3 +382,6 @@ The two function-free adapter names are documented separately in [Adapters](./ad
 | `zigzag`                                | [Zigzag indicator](./technical-indicator.md#variant-zigzag)                                                     | `zigzag()`                             | `zigzag`                                | `indicator`   |
 
 [Back to chart guides](./README.md)
+
+Outside legend alignment is an optional portable `legend.align` setting for the shared Canvas
+runtime (`start`, `center`, `end`); omitted alignment preserves existing plot-edge placement.

@@ -112,6 +112,24 @@ The portable spec never accepts formatter callbacks, arbitrary date-pattern code
 raw HTML. Applications that require a domain-specific textual value should materialize that safe
 string as a data field and list it in `fields`.
 
+### Shared axis values and category shadows
+
+Use `tooltip: { trigger: 'axis', axis: 'x', shared: true, titleField: 'label', pointer: 'shadow' }`
+for a grouped comparison. `shared` reports one actual encoded value per visible layer at the
+nearest axis coordinate, in specification order, with the rendered series color. Hidden legend
+layers and absent values are omitted; values are never interpolated. The output is bounded to
+12 series. The opposite position encoding supplies each value (`y` for an `x` tooltip). Matching
+`fields` declarations control its label and format; otherwise the explicit legend label or layer
+name and the encoding's axis format apply. Number formatting follows `locale`, including `ko-KR`.
+
+`titleField` reads a plain datum value, falling back to `title` or the chart title when absent.
+`pointer: 'shadow'` highlights the nearest category lane inside the plot; it also works with an
+ordinary axis tooltip. On continuous axes the lane extends to neighboring coordinate midpoints.
+Both shared values and the shadow require `trigger: 'axis'`; the default remains a single mark
+tooltip. Hover/click event hits keep their exact rendered-mark semantics. The DOM shadow is hidden
+on leave and removed on destroy; it is not part of exported PNG pixels. Shared values are also
+available through the native keyboard mirror. All options remain JSON-serializable and text-only.
+
 ## Cartesian data-domain navigation
 
 `interaction.domainNavigation` changes the resolved x/x2/y/y2 domain and recompiles axes and marks. It is distinct from `interaction.navigation`, and enabling both is a validation error. Resolved continuous scales plus categorical band and point scales are supported. Categorical windows retain an ordered slice of the authored domain; arbitrary non-invertible ordinal, quantile, quantize, and threshold scales still fail closed. Map and Spatial navigation, resampling, and remote data-window requests remain separate contracts.
@@ -609,3 +627,59 @@ Do not use autoplay as the only way to expose information. Host applications sho
 - [Map chart](./map.md)
 
 [Back to chart guides](./README.md)
+
+## Domain navigator controls
+
+`attachDomainNavigator(chart, options)` adds HTML controls to a rendered native Canvas chart.
+It is exported by the default, complete and focused `graflume/cartesian` entries. Enable
+`interaction.domainNavigation` for the horizontal axis before attaching it, and reserve at least
+72 pixels below the plot and space at the upper right for the controls. The navigator uses native
+scale domains, so wheel zoom, plot dragging, keyboard navigation and range inputs share one state.
+
+```js
+import { create, attachDomainNavigator } from 'graflume/cartesian';
+
+const target = document.querySelector('#chart');
+const chart = create(target, {
+  data: [
+    { day: 'Mon', visits: 12 },
+    { day: 'Tue', visits: 18 },
+  ],
+  mark: { type: 'bar', maxThickness: 28 },
+  x: { field: 'day', type: 'nominal' },
+  y: { field: 'visits', type: 'quantitative' },
+  padding: { top: 88, right: 64, bottom: 72, left: 60 },
+  interaction: { domainNavigation: { axes: ['x'], wheel: 'always' }, controls: false },
+});
+const navigator = attachDomainNavigator(chart, {
+  target,
+  axis: 'x',
+  initialWindow: { start: 0, end: 1 },
+  filename: 'visits.png',
+});
+```
+
+The range slider has independently labelled, keyboard-operable start/end inputs and a draggable
+selected interval. Area zoom captures horizontal plot rectangles; Escape leaves area selection.
+`zoomBack()` restores the preceding area-zoom window, with at most 64 history entries. `reset()`
+restores the spec captured at attachment, including legend visibility, and the initial window.
+PNG download uses the current Canvas image, including its title, axes, legend and marks; the HTML
+navigator and hover tooltip are outside that image. `destroy()` removes listeners and controls
+without destroying the chart; chart destruction invokes this cleanup automatically. Attaching a
+new navigator to the same chart replaces the old one.
+
+Options include `slider: false`, the individual `controls` switches (`boxZoom`, `back`, `reset`,
+`export`), and `labels` for every control/range accessible name. Omitted `controls` enables all
+four; a supplied object enables only its true switches. `initialWindow` uses normalized fractions
+and must respect the chart's `maxZoom`. A composed chart requires `viewId` to identify its leaf;
+only horizontal Cartesian axes are supported. Controls are DOM runtime state and are not embedded
+in portable `ChartSpec` JSON. The portable domain state remains available through
+`getDomainViewState()` / `setDomainViewState()`; `getCoordinateViewBounds(viewId?)` returns a frozen
+copy of the leaf plot rectangle in scene coordinates. The chart `destroy` event runs after the
+chart becomes unavailable and is intended for extension cleanup.
+
+Outside legends support `legend.align: 'start' | 'center' | 'end'`: top/bottom legends align
+horizontally within the plot width, and left/right legends align vertically within its height.
+The default is start, preserving existing layout; inside corner positions remain unchanged.
+The authored value survives normalization and JSON serialization. Use theme legend
+`surfaceOpacity: 0` and `borderWidth: 0` for an unboxed legend.

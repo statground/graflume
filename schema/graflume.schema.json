@@ -2055,6 +2055,15 @@
       "allOf": [
         {
           "if": {
+            "anyOf": [
+              { "required": ["shared"], "properties": { "shared": { "const": true } } },
+              { "required": ["pointer"], "properties": { "pointer": { "const": "shadow" } } }
+            ]
+          },
+          "then": { "required": ["trigger"], "properties": { "trigger": { "const": "axis" } } }
+        },
+        {
+          "if": {
             "required": ["trigger"],
             "properties": {
               "trigger": {
@@ -2090,6 +2099,9 @@
         "title": {
           "type": "string"
         },
+        "titleField": { "$ref": "#/$defs/fieldName" },
+        "shared": { "type": "boolean" },
+        "pointer": { "enum": ["none", "shadow"] },
         "fields": {
           "type": "array",
           "minItems": 1,
@@ -2556,6 +2568,7 @@
           ]
         },
         "orientation": { "enum": ["auto", "horizontal", "vertical"] },
+        "align": { "enum": ["start", "center", "end"] },
         "title": { "type": "string", "minLength": 1, "pattern": "\\S" },
         "field": {
           "type": "string",
@@ -3134,6 +3147,12 @@
       "type": "object",
       "required": ["type"],
       "additionalProperties": false,
+      "allOf": [
+        {
+          "if": { "required": ["maxThickness"] },
+          "then": { "properties": { "type": { "const": "bar" } } }
+        }
+      ],
       "properties": {
         "type": {
           "type": "string",
@@ -3162,6 +3181,11 @@
         "cornerRadius": {
           "type": "number",
           "minimum": 0
+        },
+        "maxThickness": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Maximum cross-axis bar thickness in CSS pixels. Bar marks only."
         },
         "point": {
           "type": "boolean"

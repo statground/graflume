@@ -156,6 +156,11 @@ test('pixel/domain coordinates round-trip continuous, reverse, log, and categori
   );
 
   assert.deepEqual(domainForAxisWindow(categorical.axes.x, { start: 1 / 3, end: 1 }), ['B', 'C']);
+  for (const type of ['band', 'point']) {
+    const empty = createPositionScale({ type }, { type, domain: [], range: [0, 100] });
+    assert.deepEqual(domainForAxisWindow(empty, { start: 0, end: 1 }), []);
+    assert.deepEqual(domainForAxisWindow(empty, { start: 0.4, end: 0.8 }), []);
+  }
 
   const ordinal = {
     ...categorical,

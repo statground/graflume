@@ -2,6 +2,7 @@ import { resolvePerformanceSettings } from '../data/performance.js';
 import { GraflumeError } from '../core/errors.js';
 import { materializeSpecDataflow } from '../data/dataflow.js';
 import { registerAxisTooltipIndex } from '../interaction/axis-hit-test.js';
+import { BandScale } from '../scale/band.js';
 import { compileAnalyticSelectionOverlay } from '../interaction/analytic-overlay.js';
 import {
   analyticSelectionVersion,
@@ -287,22 +288,19 @@ function compileUnitWithRegistry(
     compileAxis(axisContext(axis, layout.plot, theme, spec.locale)),
   );
 
-  const groupedBarLayers = new Map<string, readonly (typeof scales.layers)[number][]>();
-  for (const layerData of scales.layers) {
-    if (layerData.layer.mark.type !== 'bar' || layerData.layer.mark.position !== 'group') continue;
-    const key = `${layerData.layer.mark.orientation}:${layerData.xAxisId}:${layerData.yAxisId}`;
-    groupedBarLayers.set(
-      key,
-      scales.layers.filter(
-        (candidate) =>
-          candidate.layer.mark.type === 'bar' &&
-          candidate.layer.mark.position === 'group' &&
-          candidate.layer.mark.orientation === layerData.layer.mark.orientation &&
-          candidate.xAxisId === layerData.xAxisId &&
-          candidate.yAxisId === layerData.yAxisId,
-      ),
-    );
-  }
+  // A shared category lane groups bars even when their value axes use different units.
+  // Keep independent category axes and incompatible domains in separate groups.
+  const barCategoryKey = (data: (typeof scales.layers)[number]): string => {
+    const horizontal = data.layer.mark.orientation === 'horizontal';
+    const scale = horizontal ? data.yScale : data.xScale;
+    return JSON.stringify([
+      data.layer.mark.orientation,
+      horizontal ? data.yAxisId : data.xAxisId,
+      scale.kind,
+      scale.domain(),
+      scale.range(),
+    ]);
+  };
   const hiddenLegendItems = runtime.hiddenLegendItemIds ?? new Set<string>();
   const hiddenLayerIds = new Set(
     (legendModel?.items ?? [])
@@ -316,6 +314,19 @@ function compileUnitWithRegistry(
       )
       .map((item) => item.layerId!),
   );
+  const groupedBarLayers = new Map<string, (typeof scales.layers)[number][]>();
+  for (const layerData of scales.layers) {
+    if (
+      hiddenLayerIds.has(layerData.layer.id) ||
+      layerData.layer.mark.type !== 'bar' ||
+      layerData.layer.mark.position !== 'group'
+    )
+      continue;
+    const key = barCategoryKey(layerData);
+    const group = groupedBarLayers.get(key) ?? [];
+    group.push(layerData);
+    groupedBarLayers.set(key, group);
+  }
   const hiddenCategories =
     legendModel?.mode === 'categories' && legendModel.field !== undefined
       ? legendModel.items.filter(
@@ -358,7 +369,7 @@ function compileUnitWithRegistry(
   };
   const layerGroups: SceneNode[] = scales.layers.map((layerData, layerIndex) => {
     const color = categoricalColor(theme, layerIndex, scales.layers.length);
-    const barGroupKey = `${layerData.layer.mark.orientation}:${layerData.xAxisId}:${layerData.yAxisId}`;
+    const barGroupKey = barCategoryKey(layerData);
     const barLayers = groupedBarLayers.get(barGroupKey) ?? [];
     const barGroupIndex = barLayers.findIndex(({ layer }) => layer.id === layerData.layer.id);
     const compiler = registry.mark(layerData.layer.mark.type);
@@ -776,6 +787,7 @@ function compileUnitWithRegistry(
       plot: layout.plot,
       axisVisible,
       axisStripSize: Math.max(0, axisStripSize),
+      ...(activeAxis?.scale instanceof BandScale ? { categoryStep: activeAxis.scale.step } : {}),
       targets: collectAxisTooltipTargets({
         axis,
         channel: activeAxis?.channel ?? 'x',

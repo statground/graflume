@@ -1,13 +1,14 @@
 import { stat } from 'node:fs/promises';
 
 const budgets = [
-  // 2026-08-28 measured raw minified bytes after the shared temporal formatter,
-  // product-grade Table, and scoped-geography engine: 1,210,642 / 1,408,636 / 397,648.
-  // Each ceiling is the next whole KiB, leaving less than one KiB of headroom.
+  // 2026-09-05 native shared tooltips, bar grouping and domain controls.
+  // Raw minified bytes: default 1,227,387; complete 1,425,381; spatial 397,648;
+  // focused Cartesian 718,890. Each ceiling is the next whole KiB.
   // See docs/development/bundle-boundaries.md for the import-graph audit.
-  ['graflume.min.js', 1_183 * 1024],
-  ['graflume.complete.min.js', 1_376 * 1024],
+  ['graflume.min.js', 1_199 * 1024],
+  ['graflume.complete.min.js', 1_392 * 1024],
   ['graflume.spatial.min.js', 389 * 1024],
+  ['graflume.cartesian.min.js', 703 * 1024],
 ];
 
 for (const [name, budgetBytes] of budgets) {

@@ -1,4 +1,7 @@
 import type { HitResult } from './hit-test.js';
+import type { AxisTooltipHit } from './axis-hit-test.js';
+import type { Rect } from '../scene/types.js';
+import { axisChannel } from '../spec/axes.js';
 import { formatTemporalValue, inferTemporalDisplayFormat } from '../format/temporal.js';
 import type {
   DataValue,
@@ -13,6 +16,7 @@ export interface TooltipRow {
   readonly field: string;
   readonly label: string;
   readonly value: string;
+  readonly color?: string;
 }
 
 export interface TooltipContent {
@@ -175,18 +179,72 @@ export function resolveTooltipContent(hit: HitResult, spec: NormalizedChartSpec)
     });
   return {
     title: boundedText(
-      configured.title ?? spec.title?.text ?? humanizeField(layer?.mark.type ?? 'Datum'),
+      (configured.titleField === undefined ? undefined : datumValue(hit, configured.titleField)) ??
+        configured.title ??
+        spec.title?.text ??
+        humanizeField(layer?.mark.type ?? 'Datum'),
       120,
     ),
     rows,
   };
 }
 
+/** Shared axis tooltips retain series order and omit hidden or absent rendered rows. */
+export function resolveSharedTooltipContent(
+  hits: readonly AxisTooltipHit[],
+  spec: NormalizedChartSpec,
+): TooltipContent {
+  const tooltip = spec.interaction.tooltip;
+  if (tooltip === false || hits.length === 0) return { title: '', rows: [] };
+  const horizontal = axisChannel(tooltip.axis ?? 'x', spec.axes) === 'x';
+  const rows: TooltipRow[] = [];
+  for (const layer of spec.layers) {
+    const hit = hits.find((candidate) => candidate.layerId === layer.id);
+    if (hit === undefined) continue;
+    const encoding = horizontal ? layer.y : layer.x;
+    if (!hasDatumValue(hit, encoding.field)) continue;
+    const authored = tooltip.fields.find((field) => field.field === encoding.field);
+    const axisFormat = encoding.axis === false ? undefined : encoding.axis.format;
+    const allowedFormats = ['number', 'integer', 'percent', 'date', 'time', 'datetime'];
+    const inferred =
+      axisFormat !== undefined && allowedFormats.includes(axisFormat.type)
+        ? (axisFormat.type as TooltipValueFormat)
+        : inferredFormat(encoding.field, layer, hit);
+    const field: NormalizedTooltipFieldSpec = authored ?? {
+      field: encoding.field,
+      label: encoding.title,
+      format: inferred,
+      ...(axisFormat?.fractionDigits === undefined
+        ? {}
+        : { fractionDigits: axisFormat.fractionDigits }),
+      dateStyle: axisFormat?.dateStyle ?? 'medium',
+      timeStyle: axisFormat?.timeStyle ?? 'short',
+      timeZone: axisFormat?.timeZone ?? 'UTC',
+      prefix: axisFormat?.prefix ?? '',
+      suffix: axisFormat?.suffix ?? '',
+    };
+    const legendItem =
+      spec.legend === false
+        ? undefined
+        : spec.legend.items.find((item) => item.layerId === layer.id);
+    rows.push({
+      field: encoding.field,
+      label: boundedText(authored?.label ?? legendItem?.label ?? layer.name ?? encoding.title, 80),
+      value: formatValue(datumValue(hit, encoding.field), field, spec.locale),
+      ...(hit.color === undefined ? {} : { color: hit.color }),
+    });
+    if (rows.length === 12) break;
+  }
+  return { title: resolveTooltipContent(hits[0]!, spec).title, rows };
+}
+
 export class TooltipController {
   readonly #id = createId('graflume-tooltip');
   #element: HTMLDivElement | null = null;
+  #pointer: HTMLDivElement | null = null;
   #surface: HTMLElement | null = null;
   #nodeId = '';
+  #contentKey = '';
 
   show(
     content: TooltipContent,
@@ -212,8 +270,10 @@ export class TooltipController {
       return;
     }
     const element = this.#ensureElement(host);
-    if (this.#nodeId !== hit.nodeId) {
+    const contentKey = JSON.stringify(content);
+    if (this.#nodeId !== hit.nodeId || this.#contentKey !== contentKey) {
       this.#nodeId = hit.nodeId;
+      this.#contentKey = contentKey;
       this.#renderContent(element, content);
     }
     this.#surface = surface;
@@ -228,7 +288,9 @@ export class TooltipController {
 
   hide(): void {
     this.#nodeId = '';
+    this.#contentKey = '';
     if (this.#element !== null) this.#element.hidden = true;
+    if (this.#pointer !== null) this.#pointer.hidden = true;
     if (this.#surface !== null) {
       const describedBy = (this.#surface.getAttribute('aria-describedby') ?? '')
         .split(/\s+/)
@@ -243,6 +305,28 @@ export class TooltipController {
     this.hide();
     this.#element?.remove();
     this.#element = null;
+    this.#pointer?.remove();
+    this.#pointer = null;
+  }
+
+  showPointer(bounds: Rect | null, host: HTMLElement): void {
+    if (bounds === null) {
+      if (this.#pointer !== null) this.#pointer.hidden = true;
+      return;
+    }
+    if (this.#pointer === null) {
+      this.#pointer = host.ownerDocument.createElement('div');
+      this.#pointer.dataset.graflumeAxisPointer = 'shadow';
+      this.#pointer.setAttribute('aria-hidden', 'true');
+      this.#pointer.style.cssText =
+        'position:absolute;z-index:1;pointer-events:none;background:rgba(148,163,184,.18)';
+    }
+    if (this.#pointer.parentElement !== host) host.append(this.#pointer);
+    this.#pointer.hidden = false;
+    this.#pointer.style.left = `${bounds.x}px`;
+    this.#pointer.style.top = `${bounds.y}px`;
+    this.#pointer.style.width = `${bounds.width}px`;
+    this.#pointer.style.height = `${bounds.height}px`;
   }
 
   #ensureElement(host: HTMLElement): HTMLDivElement {
@@ -275,6 +359,17 @@ export class TooltipController {
       const term = ownerDocument.createElement('dt');
       term.textContent = row.label;
       term.style.cssText = 'margin:0;color:#cbd5e1';
+      if (row.color !== undefined) {
+        const swatch = ownerDocument.createElement('span');
+        swatch.setAttribute('aria-hidden', 'true');
+        swatch.style.cssText =
+          'display:inline-block;width:9px;height:9px;border-radius:50%;margin-inline-end:6px';
+        swatch.style.backgroundColor = row.color;
+        const label = ownerDocument.createElement('span');
+        label.textContent = row.label;
+        term.textContent = '';
+        term.replaceChildren(swatch, label);
+      }
       const detail = ownerDocument.createElement('dd');
       detail.textContent = row.value;
       detail.style.cssText =

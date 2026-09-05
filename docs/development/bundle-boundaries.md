@@ -1,14 +1,15 @@
 # Bundle boundaries and size budgets
 
-Graflume publishes three independent browser/module entry points. Bundle size is a release
+Graflume publishes four independent browser/module entry points. Bundle size is a release
 contract, but a passing byte limit must not be obtained by silently removing a documented public
 API or by moving required bytes into an uncounted runtime chunk.
 
-| Entry point         | Owns                                                                                                               | Must not import                                                         |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
-| `graflume`          | the 22 default Canvas families, shared public foundations, Canvas rendering, and the hybrid scatter WebGL renderer | complete-only catalogs/compilers and `src/spatial/*`                    |
-| `graflume/complete` | the default surface plus the 19 opt-in Canvas families                                                             | `src/spatial/*`                                                         |
-| `graflume/spatial`  | the independent Spatial/WebGL runtime and the Map globe mode                                                       | Canvas Quick API, compiler, mark, runtime, and renderer implementations |
+| Entry point          | Owns                                                                                                               | Must not import                                                         |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| `graflume/cartesian` | native bar, line, area and point Canvas marks with the shared compiler/runtime and domain controls                 | default/complete registries, other mark catalogs and Spatial            |
+| `graflume`           | the 22 default Canvas families, shared public foundations, Canvas rendering, and the hybrid scatter WebGL renderer | complete-only catalogs/compilers and `src/spatial/*`                    |
+| `graflume/complete`  | the default surface plus the 19 opt-in Canvas families                                                             | `src/spatial/*`                                                         |
+| `graflume/spatial`   | the independent Spatial/WebGL runtime and the Map globe mode                                                       | Canvas Quick API, compiler, mark, runtime, and renderer implementations |
 
 `rollup.config.mjs` enforces these boundaries against modules that contribute rendered bytes to an
 output chunk. It intentionally checks rendered modules instead of every parsed module: Rollup may
@@ -182,3 +183,25 @@ the product-Table snapshot; Spatial grows by zero bytes. The public scope normal
 geometry preparation, built-in-country camera, and advanced map join/label compiler account for
 the reachable increase. Every enforced ceiling is the next whole KiB, with less than one KiB of
 headroom; gzip remains transfer evidence rather than the gate.
+
+## 2026-09-05 native dashboard interaction audit
+
+The focused Cartesian entry registers only bar, line, area and point compilers. Its Rollup graph
+rejects the full registry, chart catalogs, complete-only and Spatial implementations. It shares
+native independent axes, legends, tooltips and navigation; it has no foreign renderer adapter or
+lazy executable chunks. Module and readable/minified browser tests compile a dual-axis chart and
+reject unsupported marks. Existing default and complete public APIs remain available.
+
+Shared visible-series axis tooltips, shadow pointers, independent-axis grouped bar slots, bounded
+bar thickness and DOM domain navigator controls add 16,745 raw bytes to each full Canvas entry.
+Spatial remains byte-identical. The focused entry lets small dashboards adopt these same features
+within their existing asset budgets. Raw budgets follow the next-whole-KiB method above.
+
+| Browser file                | Raw minified |  gzip-9 | Raw budget |
+| --------------------------- | -----------: | ------: | ---------: |
+| `graflume.min.js`           |    1,227,387 | 358,156 |  1,199 KiB |
+| `graflume.complete.min.js`  |    1,425,381 | 414,334 |  1,392 KiB |
+| `graflume.spatial.min.js`   |      397,648 | 124,022 |    389 KiB |
+| `graflume.cartesian.min.js` |      718,890 | 202,810 |    703 KiB |
+
+Transfer measurements use Python gzip at level 9 with a zero timestamp; raw bytes remain the gate.

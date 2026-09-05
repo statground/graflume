@@ -109,7 +109,7 @@ export function resolveBarBandLayout(options: BarBandLayoutOptions): BarBandLayo
     options.preserveAuthoredRatio === true
       ? slot * (1 - ratio)
       : slot * (groupCount > 1 ? 0.18 : 0.08);
-  const maxThickness = Math.max(1, options.maxThickness ?? (groupCount > 1 ? 52 : 64));
+  const maxThickness = Math.max(Number.EPSILON, options.maxThickness ?? (groupCount > 1 ? 52 : 64));
   const thickness = Math.max(
     Number.EPSILON,
     Math.min(maxThickness, categoryStride / groupCount, slot * ratio, slot - proportionalGap),

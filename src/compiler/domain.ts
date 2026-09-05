@@ -728,10 +728,14 @@ function categoricalDomain(
   for (const { layer, table } of layers) {
     const explicit = layer[axis].scale.domain;
     const rangeEncoding = axis === 'x' ? layer.encoding.x2 : layer.encoding.y2;
-    const values = explicit?.map(String) ?? [
-      ...table.unique(layer[axis].field),
-      ...(rangeEncoding?.field === undefined ? [] : table.unique(rangeEncoding.field)),
-    ];
+    const values =
+      explicit?.map(String) ??
+      (table.length === 0
+        ? []
+        : [
+            ...table.unique(layer[axis].field),
+            ...(rangeEncoding?.field === undefined ? [] : table.unique(rangeEncoding.field)),
+          ]);
     for (const value of values) {
       if (seen.has(value)) continue;
       seen.add(value);

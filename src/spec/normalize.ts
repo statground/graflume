@@ -142,6 +142,15 @@ function normalizeInteraction(input: ChartSpec['interaction']): NormalizedIntera
           ...(typeof tooltipInput === 'object' && tooltipInput.title !== undefined
             ? { title: tooltipInput.title }
             : {}),
+          ...(typeof tooltipInput === 'object' && tooltipInput.titleField !== undefined
+            ? { titleField: tooltipInput.titleField }
+            : {}),
+          ...(typeof tooltipInput === 'object' && tooltipInput.shared !== undefined
+            ? { shared: tooltipInput.shared }
+            : {}),
+          ...(typeof tooltipInput === 'object' && tooltipInput.pointer !== undefined
+            ? { pointer: tooltipInput.pointer }
+            : {}),
           fields:
             typeof tooltipInput === 'object'
               ? (tooltipInput.fields ?? []).map(normalizeTooltipField)
@@ -336,6 +345,7 @@ function normalizeLegend(input: ChartSpec['legend']): false | NormalizedLegendSp
     visible: legend.visible ?? true,
     mode: legend.mode ?? 'auto',
     position,
+    ...(legend.align === undefined ? {} : { align: legend.align }),
     orientation:
       legend.orientation === undefined || legend.orientation === 'auto'
         ? position === 'top' || position === 'bottom'
@@ -748,6 +758,7 @@ function normalizeMark(input: MarkInput): NormalizedMarkSpec {
     ...(mark.lineWidth === undefined ? {} : { lineWidth: mark.lineWidth }),
     ...(mark.radius === undefined ? {} : { radius: mark.radius }),
     ...(mark.cornerRadius === undefined ? {} : { cornerRadius: mark.cornerRadius }),
+    ...(mark.maxThickness === undefined ? {} : { maxThickness: mark.maxThickness }),
     point: mark.point ?? false,
     position: mark.position ?? 'overlay',
     orientation: mark.orientation ?? 'vertical',

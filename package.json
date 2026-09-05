@@ -26,6 +26,11 @@
   "unpkg": "./dist/graflume.min.js",
   "jsdelivr": "./dist/graflume.min.js",
   "exports": {
+    "./cartesian": {
+      "types": "./dist/cartesian.d.ts",
+      "import": "./dist/graflume.cartesian.js",
+      "default": "./dist/graflume.cartesian.js"
+    },
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/graflume.js",

@@ -621,6 +621,8 @@ export interface MarkSpec {
   readonly lineWidth?: number;
   readonly radius?: number;
   readonly cornerRadius?: number;
+  /** Maximum cross-axis bar thickness in CSS pixels, before inspection zoom. */
+  readonly maxThickness?: number;
   readonly point?: boolean;
   readonly position?: 'overlay' | 'group';
   readonly orientation?: 'vertical' | 'horizontal';
@@ -748,6 +750,8 @@ export interface LegendSpec {
   readonly visible?: boolean;
   readonly mode?: LegendMode;
   readonly position?: LegendPosition;
+  /** Alignment along the plot edge for outside legends; omitted preserves start alignment. */
+  readonly align?: 'start' | 'center' | 'end';
   readonly orientation?: 'auto' | 'horizontal' | 'vertical';
   readonly title?: string;
   /** Category field for categories/continuous legends. */
@@ -942,6 +946,12 @@ export interface TooltipSpec {
   /** Required when trigger is "axis" and invalid for mark-triggered tooltips. */
   readonly axis?: TooltipAxis;
   readonly title?: string;
+  /** Plain datum field used as the title; a missing value falls back to title. */
+  readonly titleField?: string;
+  /** One encoded value per visible series at the nearest axis coordinate. */
+  readonly shared?: boolean;
+  /** Highlight the nearest category lane; only valid with an axis trigger. */
+  readonly pointer?: 'none' | 'shadow';
   readonly fields?: readonly TooltipFieldInput[];
 }
 
@@ -1325,6 +1335,7 @@ export interface NormalizedMarkSpec {
   readonly lineWidth?: number;
   readonly radius?: number;
   readonly cornerRadius?: number;
+  readonly maxThickness?: number;
   readonly point: boolean;
   readonly position: 'overlay' | 'group';
   readonly orientation: 'vertical' | 'horizontal';
@@ -1359,6 +1370,7 @@ export interface NormalizedLegendSpec {
   readonly visible: boolean;
   readonly mode: LegendMode;
   readonly position: LegendPosition;
+  readonly align?: 'start' | 'center' | 'end';
   readonly orientation: 'horizontal' | 'vertical';
   readonly title?: string;
   readonly field?: string;
@@ -1385,6 +1397,9 @@ export interface NormalizedTooltipSpec {
   readonly trigger: TooltipTrigger;
   readonly axis?: TooltipAxis;
   readonly title?: string;
+  readonly titleField?: string;
+  readonly shared?: boolean;
+  readonly pointer?: 'none' | 'shadow';
   readonly fields: readonly NormalizedTooltipFieldSpec[];
 }
 

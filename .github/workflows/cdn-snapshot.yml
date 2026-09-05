@@ -59,6 +59,8 @@ jobs:
           cp dist/graflume.global.js cdn/graflume.global.js
           cp dist/graflume.complete.global.js cdn/graflume.complete.global.js
           cp dist/graflume.spatial.global.js cdn/graflume.spatial.global.js
+          cp dist/graflume.cartesian.global.js cdn/graflume.cartesian.global.js
+          cp dist/graflume.cartesian.min.js cdn/graflume.cartesian.min.js
           node - "$VERSION" "$SOURCE_SHA" <<'NODE'
           const fs = require('node:fs');
           const [version, sourceCommit] = process.argv.slice(2);
@@ -74,6 +76,8 @@ jobs:
                   default: './graflume.global.js',
                   complete: './graflume.complete.global.js',
                   spatial: './graflume.spatial.global.js',
+                  cartesian: './graflume.cartesian.global.js',
+                  cartesianMin: './graflume.cartesian.min.js',
                 },
               },
               null,
@@ -85,7 +89,7 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
 
-          git add cdn/graflume.global.js cdn/graflume.complete.global.js cdn/graflume.spatial.global.js cdn/manifest.json
+          git add cdn/graflume.global.js cdn/graflume.complete.global.js cdn/graflume.spatial.global.js cdn/graflume.cartesian.global.js cdn/graflume.cartesian.min.js cdn/manifest.json
           if ! git diff --cached --quiet; then
             git commit -m 'Build Graflume CDN snapshots [skip ci]'
           fi
@@ -94,6 +98,8 @@ jobs:
           DEFAULT_SRI="sha384-$(openssl dgst -sha384 -binary cdn/graflume.global.js | openssl base64 -A)"
           COMPLETE_SRI="sha384-$(openssl dgst -sha384 -binary cdn/graflume.complete.global.js | openssl base64 -A)"
           SPATIAL_SRI="sha384-$(openssl dgst -sha384 -binary cdn/graflume.spatial.global.js | openssl base64 -A)"
+          CARTESIAN_SRI="sha384-$(openssl dgst -sha384 -binary cdn/graflume.cartesian.min.js | openssl base64 -A)"
+          CARTESIAN_GLOBAL_SRI="sha384-$(openssl dgst -sha384 -binary cdn/graflume.cartesian.global.js | openssl base64 -A)"
 
           node scripts/pin-cdn-examples.mjs "$BUNDLE_SHA" "$DEFAULT_SRI" "$COMPLETE_SRI" "$SPATIAL_SRI"
           git add \
@@ -137,18 +143,23 @@ jobs:
           verify_bundle 'graflume.global.js' "$DEFAULT_SRI" /tmp/graflume.default.cdn.js
           verify_bundle 'graflume.complete.global.js' "$COMPLETE_SRI" /tmp/graflume.complete.cdn.js
           verify_bundle 'graflume.spatial.global.js' "$SPATIAL_SRI" /tmp/graflume.spatial.cdn.js
+          verify_bundle 'graflume.cartesian.global.js' "$CARTESIAN_GLOBAL_SRI" /tmp/graflume.cartesian.global.cdn.js
+          verify_bundle 'graflume.cartesian.min.js' "$CARTESIAN_SRI" /tmp/graflume.cartesian.min.cdn.js
 
           VERIFIED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           DEFAULT_URL="https://cdn.jsdelivr.net/gh/statground/graflume@${BUNDLE_SHA}/cdn/graflume.global.js"
           COMPLETE_URL="https://cdn.jsdelivr.net/gh/statground/graflume@${BUNDLE_SHA}/cdn/graflume.complete.global.js"
           SPATIAL_URL="https://cdn.jsdelivr.net/gh/statground/graflume@${BUNDLE_SHA}/cdn/graflume.spatial.global.js"
+          CARTESIAN_URL="https://cdn.jsdelivr.net/gh/statground/graflume@${BUNDLE_SHA}/cdn/graflume.cartesian.min.js"
           DEFAULT_BYTES="$(wc -c < /tmp/graflume.default.cdn.js | tr -d ' ')"
           COMPLETE_BYTES="$(wc -c < /tmp/graflume.complete.cdn.js | tr -d ' ')"
           SPATIAL_BYTES="$(wc -c < /tmp/graflume.spatial.cdn.js | tr -d ' ')"
+          CARTESIAN_BYTES="$(wc -c < /tmp/graflume.cartesian.min.cdn.js | tr -d ' ')"
           node - \
             "$SOURCE_SHA" "$BUNDLE_SHA" "$DEFAULT_URL" "$DEFAULT_SRI" "$DEFAULT_BYTES" \
             "$COMPLETE_URL" "$COMPLETE_SRI" "$COMPLETE_BYTES" \
-            "$SPATIAL_URL" "$SPATIAL_SRI" "$SPATIAL_BYTES" "$VERIFIED_AT" <<'NODE'
+            "$SPATIAL_URL" "$SPATIAL_SRI" "$SPATIAL_BYTES" \
+            "$CARTESIAN_URL" "$CARTESIAN_SRI" "$CARTESIAN_BYTES" "$VERIFIED_AT" <<'NODE'
           const fs = require('node:fs');
           const [
             sourceCommit,
@@ -162,6 +173,9 @@ jobs:
             spatialUrl,
             spatialIntegrity,
             spatialByteLength,
+            cartesianUrl,
+            cartesianIntegrity,
+            cartesianByteLength,
             verifiedAt,
           ] = process.argv.slice(2);
           fs.writeFileSync(
@@ -182,6 +196,11 @@ jobs:
                   cdnUrl: spatialUrl,
                   integrity: spatialIntegrity,
                   byteLength: Number(spatialByteLength),
+                },
+                cartesian: {
+                  cdnUrl: cartesianUrl,
+                  integrity: cartesianIntegrity,
+                  byteLength: Number(cartesianByteLength),
                 },
                 verifiedAt,
               },
