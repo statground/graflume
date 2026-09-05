@@ -1,6 +1,7 @@
 import { resolvePerformanceSettings } from '../data/performance.js';
 import { GraflumeError } from '../core/errors.js';
 import { materializeSpecDataflow } from '../data/dataflow.js';
+import { resolveSeriesStackSpec } from '../data/series-stack.js';
 import { registerAxisTooltipIndex } from '../interaction/axis-hit-test.js';
 import { BandScale } from '../scale/band.js';
 import { compileAnalyticSelectionOverlay } from '../interaction/analytic-overlay.js';
@@ -386,6 +387,19 @@ function compileUnitWithRegistry(
       barGroup: {
         count: barGroupIndex < 0 ? 1 : barLayers.length,
         index: Math.max(0, barGroupIndex),
+        ...(barGroupIndex < 0 || barLayers.length < 2
+          ? {}
+          : {
+              maxThickness: barLayers.reduce(
+                (maximum, { layer }) => Math.max(maximum, layer.mark.maxThickness ?? 64),
+                0,
+              ),
+              // Internal series subdivide an external peer lane. Compacting
+              // their slots independently can overlap a neighboring peer.
+              preserveSlots: barLayers.some(
+                ({ layer }) => resolveSeriesStackSpec(layer)?.offset === null,
+              ),
+            }),
       },
     });
     let children =

@@ -4,6 +4,16 @@ All notable changes to Graflume will be recorded here.
 
 ## Unreleased
 
+- Keep width-capped grouped bars compact and centered within sparse categories and zoomed views,
+  sharing peer-layer slot spacing even when individual width caps differ. Preserve dense-band
+  ratios and apply the correction to horizontal and grouped-series bars.
+  Preserve full external lanes when peer layers contain internal grouped series, avoiding
+  overlap between independently subdivided nested groups.
+- Measure legend labels with font-size-aware grapheme widths, separating Korean and other
+  non-Latin labels and their hit regions. Share sizing between wrapping and painting, preserve
+  fitting labels, and constrain ellipsis and text clipping to each item while retaining full
+  accessible labels and RTL alignment.
+
 - Add the native `graflume/cartesian` ESM/browser entry for bar, line, area and point dashboards,
   sharing the existing Canvas runtime without loading other mark catalogs. Add accessible
   horizontal domain navigator controls for range selection, range dragging, area zoom, bounded

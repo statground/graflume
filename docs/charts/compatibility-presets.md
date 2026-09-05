@@ -7,8 +7,12 @@ Use `resolveSeriesType(identifier)` from `graflume/complete` when an integration
 The two function-free adapter names are documented separately in [Adapters](./adapters.md).
 
 Native [grouped bars](./bar.md#grouped-columns-with-separate-value-axes) support separate value axes
-and a `maxThickness` cap. [Shared axis tooltips](./interactions.md#shared-axis-values-and-category-shadows)
-add visible-series values, datum titles, and category shadows without executable formatters.
+and a `maxThickness` cap, with compact, centered groups in sparse categories and zoomed views.
+Nested peer groups retain full external category lanes to keep their internal series separate.
+[Shared axis tooltips](./interactions.md#shared-axis-values-and-category-shadows) add visible-series
+values, datum titles, and category shadows without executable formatters. The shared
+[legend controls](./interactions.md) size non-Latin labels by font size and graphemes, separating
+each item's text and hit region while preserving RTL alignment and keyboard interaction.
 
 ## [Annotation chart](./annotation.md#integrated-presets)
 

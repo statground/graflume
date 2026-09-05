@@ -239,6 +239,46 @@ function continuousItems(
   ];
 }
 
+const legendLabelGap = 7;
+const legendItemGap = 8;
+
+function textGraphemes(text: string): readonly string[] {
+  try {
+    return [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text)].map(
+      ({ segment }) => segment,
+    );
+  } catch {
+    return Array.from(text);
+  }
+}
+
+/** Deterministic font-size-aware estimates keep compilation independent of a browser canvas. */
+function graphemeWidth(value: string, fontSize: number): number {
+  if (/^\p{Mark}+$/u.test(value)) return 0;
+  if (/^\s+$/u.test(value)) return fontSize * 0.35;
+  if (/\p{Extended_Pictographic}/u.test(value)) return fontSize * 1.25;
+  if (/[\p{Script=Han}\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(value))
+    return fontSize * 1.05;
+  if (/[\p{Script=Arabic}\p{Script=Hebrew}]/u.test(value)) return fontSize * 0.9;
+  if (/^[WMmw]$/u.test(value)) return fontSize * 0.95;
+  return fontSize * 0.6;
+}
+
+function textWidth(text: string, fontSize: number): number {
+  return textGraphemes(text).reduce((width, value) => width + graphemeWidth(value, fontSize), 0);
+}
+
+function legendItemWidth(item: NormalizedLegendItemSpec, theme: ThemeTokens): number {
+  const fontSize = theme.typography.legendLabelSize ?? theme.typography.fontSize;
+  return Math.max(
+    64,
+    Math.ceil(textWidth(item.label, fontSize)) +
+      (theme.legend?.swatchSize ?? 12) +
+      legendLabelGap +
+      8,
+  );
+}
+
 export function resolveLegendModel(
   spec: NormalizedChartSpec,
   theme: ThemeTokens,
@@ -276,8 +316,6 @@ export function resolveLegendModel(
       : (theme.typography.legendTitleSize ?? theme.typography.fontSize) + 8;
   const maxWidth = Math.max(1, availableWidth - 8);
   const maxHeight = Math.max(1, availableHeight - 8);
-  const swatchSize = theme.legend?.swatchSize ?? 12;
-  const horizontalItemPadding = swatchSize + 22;
   const direction =
     spec.locale !== undefined && /^(ar|fa|he|ur)(?:-|$)/i.test(spec.locale) ? 'rtl' : 'ltr';
   const categoryToggleableLayerIds = new Set(
@@ -293,7 +331,14 @@ export function resolveLegendModel(
       ...(field === undefined ? {} : { field }),
       width: Math.min(
         maxWidth,
-        Math.max(120, (legend.title?.length ?? 0) * 7 + (legend.title === undefined ? 0 : 24), 168),
+        Math.max(
+          120,
+          textWidth(
+            legend.title ?? '',
+            theme.typography.legendTitleSize ?? theme.typography.fontSize,
+          ) + (legend.title === undefined ? 0 : 24),
+          168,
+        ),
       ),
       height: Math.min(maxHeight, titleHeight + 42),
       direction,
@@ -302,7 +347,7 @@ export function resolveLegendModel(
   }
   if (legend.orientation === 'horizontal') {
     const totalWidth = items.reduce(
-      (sum, item) => sum + Math.max(64, item.label.length * 7 + horizontalItemPadding),
+      (sum, item, index) => sum + legendItemWidth(item, theme) + (index === 0 ? 0 : legendItemGap),
       0,
     );
     const modelWidth = Math.min(maxWidth, Math.max(96, totalWidth + 20));
@@ -310,25 +355,25 @@ export function resolveLegendModel(
     let rowWidth = 0;
     let rows = 1;
     for (const item of items) {
-      const itemWidth = Math.max(64, item.label.length * 7 + horizontalItemPadding);
-      if (rowWidth > 0 && rowWidth + itemWidth > usableWidth) {
+      const itemWidth = legendItemWidth(item, theme);
+      if (rowWidth > 0 && rowWidth + legendItemGap + itemWidth > usableWidth) {
         rows += 1;
         rowWidth = 0;
       }
-      rowWidth += itemWidth;
+      rowWidth += (rowWidth === 0 ? 0 : legendItemGap) + itemWidth;
     }
     const visibleRows = Math.max(1, Math.floor((maxHeight - titleHeight - 12) / 24));
     if (rows > visibleRows) {
       let usedRows = 1;
       rowWidth = 0;
       items = items.filter((item) => {
-        const itemWidth = Math.max(64, item.label.length * 7 + horizontalItemPadding);
-        if (rowWidth > 0 && rowWidth + itemWidth > usableWidth) {
+        const itemWidth = legendItemWidth(item, theme);
+        if (rowWidth > 0 && rowWidth + legendItemGap + itemWidth > usableWidth) {
           usedRows += 1;
           rowWidth = 0;
         }
         if (usedRows > visibleRows) return false;
-        rowWidth += itemWidth;
+        rowWidth += (rowWidth === 0 ? 0 : legendItemGap) + itemWidth;
         return true;
       });
       rows = visibleRows;
@@ -357,8 +402,13 @@ export function resolveLegendModel(
         220,
         Math.max(
           72,
-          legend.title === undefined ? 0 : legend.title.length * 7 + 20,
-          ...items.map((item) => item.label.length * 7 + swatchSize + 30),
+          legend.title === undefined
+            ? 0
+            : textWidth(
+                legend.title,
+                theme.typography.legendTitleSize ?? theme.typography.fontSize,
+              ) + 20,
+          ...items.map((item) => legendItemWidth(item, theme) + 12),
         ),
       ),
     ),
@@ -369,17 +419,15 @@ export function resolveLegendModel(
 }
 
 function truncateText(text: string, width: number, fontSize: number): string {
-  const maximum = Math.max(1, Math.floor(width / Math.max(5, fontSize * 0.58)));
-  let graphemes: readonly string[];
-  try {
-    graphemes = [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text)].map(
-      ({ segment }) => segment,
-    );
-  } catch {
-    graphemes = Array.from(text);
-  }
-  if (graphemes.length <= maximum) return text;
-  return `${graphemes.slice(0, Math.max(1, maximum - 1)).join('')}…`;
+  const graphemes = textGraphemes(text);
+  const widths = graphemes.map((value) => graphemeWidth(value, fontSize));
+  let measured = widths.reduce((total, value) => total + value, 0);
+  if (measured <= width) return text;
+  const suffix = graphemeWidth('…', fontSize);
+  if (suffix > width) return '';
+  let count = graphemes.length;
+  while (count > 0 && measured + suffix > width) measured -= widths[--count]!;
+  return `${graphemes.slice(0, count).join('')}…`;
 }
 
 export function legendExternalInsets(model: LegendModel | null): LayoutInsets {
@@ -516,7 +564,11 @@ export function compileLegend(
       ...nodeBase('legend:title', { zIndex: 502 }),
       x: model.direction === 'rtl' ? origin.x + model.width - inset : cursorX,
       y: cursorY,
-      text: truncateText(model.spec.title, model.width - inset * 2, theme.typography.fontSize),
+      text: truncateText(
+        model.spec.title,
+        model.width - inset * 2,
+        theme.typography.legendTitleSize ?? theme.typography.fontSize,
+      ),
       fill: theme.colors.text,
       fontFamily: theme.typography.fontFamily,
       fontSize: theme.typography.legendTitleSize ?? theme.typography.fontSize,
@@ -636,7 +688,7 @@ export function compileLegend(
   const swatchPointRadius = theme.legend?.pointRadius ?? 5;
   const swatchPointStrokeWidth = theme.legend?.pointStrokeWidth ?? 0;
   for (const [index, item] of model.items.entries()) {
-    const itemWidth = Math.max(64, item.label.length * 7 + swatchSize + 22);
+    const itemWidth = legendItemWidth(item, theme);
     if (
       model.spec.orientation === 'horizontal' &&
       cursorX > origin.x + 10 &&
@@ -702,14 +754,19 @@ export function compileLegend(
         cornerRadius: theme.legend?.swatchRadius ?? 3,
       });
     }
-    nodes.push({
+    const textX =
+      model.direction === 'rtl' ? swatchX - legendLabelGap : cursorX + swatchSize + legendLabelGap;
+    const textLeft = model.direction === 'rtl' ? bounds.x + 4 : textX;
+    const textRight = model.direction === 'rtl' ? textX : bounds.x + bounds.width - 4;
+    const labelWidth = Math.max(0, textRight - textLeft);
+    const label: TextNode = {
       type: 'text',
       ...nodeBase(`legend:item:${item.id}:label`, { zIndex: 502, opacity: visible ? 1 : 0.45 }),
-      x: model.direction === 'rtl' ? swatchX - 7 : cursorX + swatchSize + 7,
+      x: textX,
       y: cursorY + swatchSize / 2,
       text: truncateText(
         item.label,
-        Math.max(8, bounds.width - swatchSize - 14),
+        labelWidth,
         theme.typography.legendLabelSize ?? theme.typography.fontSize,
       ),
       fill: theme.colors.text,
@@ -719,10 +776,16 @@ export function compileLegend(
       align: model.direction === 'rtl' ? 'right' : 'left',
       baseline: 'middle',
       rotation: 0,
-    });
+    };
+    nodes.push(
+      group(`legend:item:${item.id}:text`, [label], {
+        zIndex: 502,
+        clip: { x: textLeft, y: origin.y, width: labelWidth, height: model.height },
+      }),
+    );
     const toggleable = legendItemToggleable(model, item);
     entries.push({ ...item, color, bounds, toggleable, visible });
-    if (model.spec.orientation === 'horizontal') cursorX += itemWidth;
+    if (model.spec.orientation === 'horizontal') cursorX += itemWidth + legendItemGap;
     else cursorY += 24;
   }
   return {

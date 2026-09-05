@@ -205,3 +205,21 @@ within their existing asset budgets. Raw budgets follow the next-whole-KiB metho
 | `graflume.cartesian.min.js` |      718,890 | 202,810 |    703 KiB |
 
 Transfer measurements use Python gzip at level 9 with a zero timestamp; raw bytes remain the gate.
+
+## 2026-09-05 grouped-bar and legend spacing correction
+
+Capped grouped bars now share compact category-centered slots, including peer layers with
+different width caps. Nested grouped-series peers retain their full category lanes to prevent
+unequal internal subdivisions from overlapping. Legend sizing and truncation share font-aware grapheme estimates, separated
+hit regions and bounded text clips. These shared Canvas fixes add 1,379 raw bytes to each Canvas
+entry; Spatial is byte-identical. The enforced import boundaries and public APIs remain intact.
+
+| Browser file                | Raw minified |  gzip-9 | Raw budget |
+| --------------------------- | -----------: | ------: | ---------: |
+| `graflume.min.js`           |    1,228,766 | 358,419 |  1,200 KiB |
+| `graflume.complete.min.js`  |    1,426,760 | 414,637 |  1,394 KiB |
+| `graflume.spatial.min.js`   |      397,648 | 124,022 |    389 KiB |
+| `graflume.cartesian.min.js` |      720,269 | 203,108 |    704 KiB |
+
+Each raw ceiling is the next whole KiB. MirType's separate 1,400,000-byte executable admin asset
+limit remains unchanged; compressed measurements use the same Python gzip method above.

@@ -260,3 +260,62 @@ test('legend-hidden bar layers release their category slot and visible layers re
     }
   }
 });
+
+test('capped sparse bar pairs stay compact and centered in each category at every zoom density', () => {
+  for (const horizontal of [false, true]) {
+    for (const count of [1, 4, 6, 18, 24]) {
+      const input = spec(
+        Array.from({ length: count }, (_, i) => ({
+          label: `Month ${i}`,
+          visitors: i + 1,
+          pageviews: (i + 1) * 100,
+        })),
+      );
+      if (horizontal) {
+        input.interaction.tooltip.axis = 'y';
+        input.layers = input.layers.map((layer, i) => ({
+          ...layer,
+          mark: { ...layer.mark, orientation: 'horizontal' },
+          x: { ...layer.y, axisId: i ? 'x2' : 'x' },
+          y: layer.x,
+        }));
+      }
+      for (const width of [600, 1062, 1600]) {
+        const result = compile(input, { width, height: 800 });
+        const cross = horizontal ? 'y' : 'x';
+        const size = horizontal ? 'height' : 'width';
+        for (let i = 0; i < count; i++) {
+          const pair = bars(result.scene)
+            .filter(({ datum }) => datum.rowIndex === i)
+            .sort((a, b) => a[cross] - b[cross]);
+          const gap = pair[1][cross] - pair[0][cross] - pair[0][size];
+          assert.ok(gap > 0 && gap < 10, `${count} categories: gap ${gap}`);
+          const middle =
+            (pair[0][cross] + pair[0][size] / 2 + pair[1][cross] + pair[1][size] / 2) / 2;
+          assert.ok(Math.abs(middle - result.coordinates.axes[cross].map(`Month ${i}`)) < 1e-8);
+          assert.ok(pair.every((bar) => bar[size] <= 28));
+        }
+      }
+    }
+  }
+});
+
+test('peer bar layers with different width caps retain ordered nonoverlapping shared slots', () => {
+  const input = spec();
+  input.layers = [8, 28, 12, 28].map((maxThickness, i) => ({
+    ...input.layers[i % 2],
+    id: `series-${i}`,
+    mark: { type: 'bar', position: 'group', maxThickness },
+  }));
+  const result = compile(input, { width: 1200, height: 440 });
+  const first = bars(result.scene).filter(({ datum }) => datum.rowIndex === 0);
+  const centers = first.map((bar) => bar.x + bar.width / 2);
+  for (let i = 1; i < first.length; i++) {
+    assert.ok(first[i].x >= first[i - 1].x + first[i - 1].width);
+    assert.ok(Math.abs(centers[i] - centers[i - 1] - (centers[1] - centers[0])) < 1e-8);
+  }
+  assert.ok(
+    Math.abs((centers[0] + centers.at(-1)) / 2 - result.coordinates.axes.x.map('2026-09-01')) <
+      1e-8,
+  );
+});

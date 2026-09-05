@@ -40,6 +40,12 @@ uses `y2`; each value axis keeps its own units and domain. Independent category 
 own lanes. The same rule applies to horizontal bars with a shared category `y` axis and separate
 value `x`/`x2` axes.
 
+Width-capped ordinary peer layers and a single internally grouped series layer keep their bars
+compact around each category center. When multiple peer layers include an internally grouped
+series layer, they retain their full external category lanes before subdividing into series.
+This preserves separation between nested groups; compact spacing across nested peer groups is
+not currently applied.
+
 `maxThickness` is an optional finite positive cap in CSS pixels before inspection zoom. It applies
 to ordinary, ranked, stacked, and grouped series bars; dense categories may produce thinner bars.
 Other mark families reject this property. Pair grouped layers with the [shared axis tooltip](./interactions.md#shared-axis-values-and-category-shadows)
@@ -1000,3 +1006,9 @@ The separately cataloged P1/P2 research roadmap remains future work and is not p
 - [series stack and indicator contract tests](../../tests/series-stack-indicator.test.mjs)
 
 [Back to chart guides](./README.md)
+
+For grouped bars, the maximum-thickness cap also bounds the within-category slot spacing.
+Sparse categories and zoomed views therefore keep compact, centered clusters; uncapped dense
+bands retain their proportional spacing. Peer layers share a slot cap even when their individual
+width caps differ, preserving series order and preventing overlaps. The same resolver applies to
+horizontal bars and grouped series. No portable spec or schema field changes are required.

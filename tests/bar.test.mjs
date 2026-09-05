@@ -703,3 +703,116 @@ test('dense candlestick, financial, and range-bar variants share collision-safe 
     ),
   );
 });
+
+test('sparse grouped-series bars pack capped widths around each category center', () => {
+  const data = ['June', 'July', 'August', 'September'].flatMap((month, i) =>
+    ['Visits', 'Views'].map((series, j) => ({ month, series, value: (i + 1) * (j + 1) * 10 })),
+  );
+  for (const orientation of ['vertical', 'horizontal']) {
+    const horizontal = orientation === 'horizontal';
+    const result = compile(
+      {
+        data,
+        mark: {
+          type: 'bar',
+          orientation,
+          maxThickness: 28,
+          fields: { series: 'series' },
+          options: { stack: 'grouped' },
+        },
+        x: { field: horizontal ? 'value' : 'month', type: horizontal ? 'quantitative' : 'ordinal' },
+        y: { field: horizontal ? 'month' : 'value', type: horizontal ? 'ordinal' : 'quantitative' },
+      },
+      { width: 1200, height: 800 },
+    );
+    const cross = horizontal ? 'y' : 'x';
+    const size = horizontal ? 'height' : 'width';
+    for (const month of ['June', 'July', 'August', 'September']) {
+      const pair = barRects(result.scene, ':series-bar:')
+        .filter(({ datum }) => datum.datum.month === month)
+        .sort((a, b) => a[cross] - b[cross]);
+      assert.equal(pair.length, 2);
+      const gap = pair[1][cross] - pair[0][cross] - pair[0][size];
+      assert.ok(gap > 0 && gap < 10);
+      assert.ok(pair.every((bar) => bar[size] > 0 && bar[size] <= 28));
+      assert.ok(
+        Math.abs(
+          (pair[0][cross] + pair[0][size] / 2 + pair[1][cross] + pair[1][size] / 2) / 2 -
+            result.coordinates.axes[cross].map(month),
+        ) < 1e-8,
+      );
+    }
+  }
+});
+
+test('nested grouped series keep separate external peer lanes under width caps', () => {
+  for (const orientation of ['vertical', 'horizontal']) {
+    const horizontal = orientation === 'horizontal';
+    for (const internalCounts of [
+      [1, 3, 1],
+      [1, 1, 5, 1],
+    ]) {
+      for (const categoryCount of [1, 4]) {
+        const categories = Array.from({ length: categoryCount }, (_, index) => `Month ${index}`);
+        for (const caps of [
+          internalCounts.map(() => 28),
+          internalCounts.map((_n, i) => (i % 2 ? 28 : 12)),
+        ]) {
+          const layers = internalCounts.map((count, layerIndex) => ({
+            id: `peer-${layerIndex}`,
+            data: categories.flatMap((category) =>
+              Array.from({ length: count }, (_, series) => ({
+                category,
+                series: `Series ${series}`,
+                value: 10 + series,
+              })),
+            ),
+            mark: {
+              type: 'bar',
+              orientation,
+              position: 'group',
+              maxThickness: caps[layerIndex],
+              ...(count > 1 ? { fields: { series: 'series' }, options: { stack: 'grouped' } } : {}),
+            },
+            x: {
+              field: horizontal ? 'value' : 'category',
+              type: horizontal ? 'quantitative' : 'ordinal',
+            },
+            y: {
+              field: horizontal ? 'category' : 'value',
+              type: horizontal ? 'ordinal' : 'quantitative',
+            },
+          }));
+          const { scene } = compile({ layers }, { width: 1200, height: 400 });
+          const rects = [...barRects(scene), ...barRects(scene, ':series-bar:')];
+          const fullCount = categoryCount * internalCounts.reduce((sum, count) => sum + count, 0);
+          assert.equal(rects.length, fullCount);
+          const size = horizontal ? 'height' : 'width';
+          for (const [layerIndex, cap] of caps.entries()) {
+            const peerRects = rects.filter(({ datum }) => datum.layerId === `peer-${layerIndex}`);
+            assert.ok(
+              peerRects.length > 0 &&
+                peerRects.every((rect) => rect[size] > 0 && rect[size] <= cap),
+            );
+            const represented = new Set(peerRects.map(({ datum }) => datum.datum.category));
+            for (const category of represented) {
+              assert.equal(
+                peerRects.filter(({ datum }) => datum.datum.category === category).length,
+                internalCounts[layerIndex],
+                'Every represented category retains all internal series',
+              );
+            }
+          }
+          for (const category of categories) {
+            const group = rects.filter(({ datum }) => datum.datum.category === category);
+            assertCrossAxisSeparated(
+              group,
+              orientation,
+              `${orientation} ${internalCounts} ${category}`,
+            );
+          }
+        }
+      }
+    }
+  }
+});

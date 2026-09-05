@@ -258,6 +258,10 @@ export function compileSeriesBarMark(context: MarkCompileContext): readonly Scen
     groupCount: subgroupCount,
     lodSampled: selectedCategories.size < categoryGroups.length,
     maxThickness: layer.mark.maxThickness ?? (subgroupCount > 1 ? 52 : 64),
+    ...(externalCount < 2 || barGroup.maxThickness === undefined
+      ? {}
+      : { groupMaxThickness: barGroup.maxThickness }),
+    ...(barGroup.preserveSlots === true ? { preserveGroupSlots: true } : {}),
     preserveAuthoredRatio: preserveReferenceWidth,
     ...(themedWidthRatio === undefined ? {} : { barWidthRatio: themedWidthRatio }),
   });

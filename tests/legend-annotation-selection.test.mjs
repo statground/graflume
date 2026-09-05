@@ -440,6 +440,133 @@ test('horizontal legends preserve fitting labels and ellipsize only constrained 
   assert.ok(legend.bounds.x >= 0 && legend.bounds.x + legend.bounds.width <= scene.width);
 });
 
+test('Korean legend labels retain their width and separated controls at authored font sizes', () => {
+  const labels = ['방문자 수', '페이지 뷰'];
+  const widths = [];
+  for (const fontSize of [12, 18]) {
+    const { scene } = compile(
+      {
+        data: [{ category: 'A', visitors: 12, pageviews: 30 }],
+        layers: [
+          { id: 'visitors', mark: 'bar', x: 'category', y: 'visitors' },
+          { id: 'pageviews', mark: 'bar', x: 'category', y: 'pageviews' },
+        ],
+        locale: 'ko-KR',
+        theme: { typography: { legendLabelSize: fontSize } },
+        legend: {
+          mode: 'layers',
+          position: 'top',
+          align: 'center',
+          interactive: true,
+          items: labels.map((label, index) => ({
+            id: `metric-${index}`,
+            layerId: index === 0 ? 'visitors' : 'pageviews',
+            label,
+          })),
+        },
+      },
+      { width: 640, height: 300 },
+    );
+    const legend = sceneLegendLayout(scene);
+    const flattened = nodes(scene.root);
+    assert.equal(legend.entries.length, 2);
+    const [first, second] = legend.entries;
+    assert.equal(first.bounds.y, second.bounds.y);
+    assert.ok(second.bounds.x - (first.bounds.x + first.bounds.width) >= 8);
+    for (const [index, entry] of legend.entries.entries()) {
+      const label = flattened.find(({ id }) => id === `legend:item:${entry.id}:label`);
+      const text = flattened.find(({ id }) => id === `legend:item:${entry.id}:text`);
+      assert.equal(label.text, labels[index]);
+      assert.equal(label.fontSize, fontSize);
+      assert.equal(entry.label, labels[index]);
+      assert.equal(entry.toggleable, true);
+      assert.ok(text.clip.width >= fontSize * 4, 'four Korean glyphs retain full-width space');
+      assert.ok(text.clip.x >= entry.bounds.x);
+      assert.ok(text.clip.x + text.clip.width <= entry.bounds.x + entry.bounds.width);
+      assert.ok(scene.accessibility.description.includes(labels[index]));
+    }
+    widths.push(first.bounds.width);
+  }
+  assert.ok(widths[1] > widths[0], 'larger legend typography reserves more horizontal space');
+});
+
+test('narrow Korean legends wrap complete items and clip grapheme-safe ellipsis within each control', () => {
+  const labels = ['방문자 수', '페이지 뷰', '가족 👩🏽‍💻 방문자 수를 설명하는 긴 범례 이름'];
+  const { scene } = compile(
+    {
+      data: [{ category: 'A', value: 12 }],
+      mark: 'bar',
+      x: 'category',
+      y: 'value',
+      theme: { typography: { legendLabelSize: 12 } },
+      legend: {
+        mode: 'layers',
+        position: 'top',
+        items: labels.map((label, index) => ({ id: `metric-${index}`, label })),
+      },
+    },
+    { width: 150, height: 300 },
+  );
+  const legend = sceneLegendLayout(scene);
+  const flattened = nodes(scene.root);
+  assert.equal(legend.entries.length, labels.length);
+  assert.equal(new Set(legend.entries.map(({ bounds }) => bounds.y)).size, labels.length);
+  for (const [index, entry] of legend.entries.entries()) {
+    const label = flattened.find(({ id }) => id === `legend:item:${entry.id}:label`);
+    const text = flattened.find(({ id }) => id === `legend:item:${entry.id}:text`);
+    assert.ok(entry.bounds.x >= legend.bounds.x);
+    assert.ok(entry.bounds.x + entry.bounds.width <= legend.bounds.x + legend.bounds.width);
+    assert.ok(entry.bounds.y + entry.bounds.height <= legend.bounds.y + legend.bounds.height);
+    assert.ok(text.clip.x >= entry.bounds.x);
+    assert.ok(text.clip.x + text.clip.width <= entry.bounds.x + entry.bounds.width);
+    assert.equal(entry.label, labels[index]);
+    assert.ok(scene.accessibility.description.includes(labels[index]));
+    if (index < 2) assert.equal(label.text, labels[index]);
+    else {
+      assert.ok(label.text.endsWith('…'));
+      assert.notEqual(label.text, labels[index]);
+      const original = [
+        ...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(labels[index]),
+      ].map(({ segment }) => segment);
+      const retained = label.text.slice(0, -1);
+      assert.ok(original.some((_value, end) => original.slice(0, end + 1).join('') === retained));
+    }
+  }
+});
+
+test('RTL legend labels preserve alignment and independent hit regions with non-Latin text', () => {
+  const labels = ['عدد الزوار', 'مشاهدات الصفحة'];
+  const { scene } = compile(
+    {
+      data: [{ category: 'A', value: 12 }],
+      mark: 'bar',
+      x: 'category',
+      y: 'value',
+      locale: 'ar',
+      theme: { typography: { legendLabelSize: 14 } },
+      legend: {
+        mode: 'layers',
+        position: 'top',
+        items: labels.map((label, index) => ({ id: `metric-${index}`, label })),
+      },
+    },
+    { width: 640, height: 300 },
+  );
+  const legend = sceneLegendLayout(scene);
+  const flattened = nodes(scene.root);
+  const [first, second] = legend.entries;
+  assert.ok(second.bounds.x - (first.bounds.x + first.bounds.width) >= 8);
+  for (const [index, entry] of legend.entries.entries()) {
+    const label = flattened.find(({ id }) => id === `legend:item:${entry.id}:label`);
+    const text = flattened.find(({ id }) => id === `legend:item:${entry.id}:text`);
+    const swatch = flattened.find(({ id }) => id === `legend:item:${entry.id}:swatch`);
+    assert.equal(label.align, 'right');
+    assert.equal(label.text, labels[index]);
+    assert.ok(text.clip.x >= entry.bounds.x);
+    assert.ok(text.clip.x + text.clip.width <= swatch.x - 7);
+  }
+});
+
 test('external bottom legends stay in their reserved rail in every built-in theme', () => {
   for (const { id: theme } of builtInThemeCatalog) {
     const { scene } = compile(

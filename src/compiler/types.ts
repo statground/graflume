@@ -11,6 +11,10 @@ export interface PlotArea extends Rect {}
 export interface BarGroupContext {
   readonly count: number;
   readonly index: number;
+  /** Shared cap keeps peer-layer slot centers aligned when individual widths differ. */
+  readonly maxThickness?: number;
+  /** Nested grouped series retain the shared external category lanes. */
+  readonly preserveSlots?: boolean;
 }
 
 export interface MarkCompileContext {

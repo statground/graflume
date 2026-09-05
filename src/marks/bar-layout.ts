@@ -12,6 +12,10 @@ export interface BarBandLayoutOptions {
   /** Expand sampled categorical bands across the distance between visible rows. */
   readonly lodSampled?: boolean;
   readonly maxThickness?: number;
+  /** Largest peer-layer cap; grouped slots must use the same spacing. */
+  readonly groupMaxThickness?: number;
+  /** Keep external peer lanes intact when any peer subdivides its lane into series. */
+  readonly preserveGroupSlots?: boolean;
   /** Keep a reference theme's authored ratio exact before the shared maximum-thickness cap. */
   readonly preserveAuthoredRatio?: boolean;
 }
@@ -96,7 +100,7 @@ export function resolveBarBandLayout(options: BarBandLayoutOptions): BarBandLayo
     categoryStride,
     options.barWidthRatio === undefined ? categoryStride * nativeBandRatio : categoryStride,
   );
-  const slot = occupiedCategoryBand / groupCount;
+  const availableSlot = occupiedCategoryBand / groupCount;
   const authoredRatio = options.barWidthRatio ?? 0.74;
   const ratio = Math.max(
     0,
@@ -105,11 +109,20 @@ export function resolveBarBandLayout(options: BarBandLayoutOptions): BarBandLayo
       authoredRatio,
     ),
   );
+  const maxThickness = Math.max(Number.EPSILON, options.maxThickness ?? (groupCount > 1 ? 52 : 64));
+  // A width cap must also constrain the cluster spacing. Otherwise sparse
+  // categories keep full-band offsets around very thin, widely separated bars.
+  const slot =
+    groupCount > 1 && ratio > 0 && options.preserveGroupSlots !== true
+      ? Math.min(
+          availableSlot,
+          Math.max(maxThickness, options.groupMaxThickness ?? maxThickness) / ratio,
+        )
+      : availableSlot;
   const proportionalGap =
     options.preserveAuthoredRatio === true
       ? slot * (1 - ratio)
       : slot * (groupCount > 1 ? 0.18 : 0.08);
-  const maxThickness = Math.max(Number.EPSILON, options.maxThickness ?? (groupCount > 1 ? 52 : 64));
   const thickness = Math.max(
     Number.EPSILON,
     Math.min(maxThickness, categoryStride / groupCount, slot * ratio, slot - proportionalGap),

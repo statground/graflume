@@ -42,6 +42,8 @@ export const compileBarMark: MarkCompiler = (context) => {
       groupCount: barGroup.count,
       lodSampled: indices.length < table.length,
       maxThickness: layer.mark.maxThickness ?? 64,
+      ...(barGroup.maxThickness === undefined ? {} : { groupMaxThickness: barGroup.maxThickness }),
+      ...(barGroup.preserveSlots === true ? { preserveGroupSlots: true } : {}),
       preserveAuthoredRatio: preserveReferenceWidth,
       ...(themedWidthRatio === undefined ? {} : { barWidthRatio: themedWidthRatio }),
     });
@@ -130,6 +132,8 @@ export const compileBarMark: MarkCompiler = (context) => {
     groupCount: barGroup.count,
     lodSampled: indices.length < table.length,
     maxThickness: layer.mark.maxThickness ?? 64,
+    ...(barGroup.maxThickness === undefined ? {} : { groupMaxThickness: barGroup.maxThickness }),
+    ...(barGroup.preserveSlots === true ? { preserveGroupSlots: true } : {}),
     preserveAuthoredRatio: preserveReferenceWidth,
     ...(themedWidthRatio === undefined ? {} : { barWidthRatio: themedWidthRatio }),
   });
