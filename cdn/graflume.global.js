@@ -26439,9 +26439,11 @@ var Graflume = (function (exports) {
         return (model.spec.interactive &&
             model.mode !== 'continuous' &&
             (model.mode === 'categories'
-                ? item.layerId === undefined
-                    ? model.categoryToggleableLayerIds.size > 0
-                    : model.categoryToggleableLayerIds.has(item.layerId)
+                ? item.value === undefined
+                    ? item.layerId !== undefined
+                    : item.layerId === undefined
+                        ? model.categoryToggleableLayerIds.size > 0
+                        : model.categoryToggleableLayerIds.has(item.layerId)
                 : item.layerId !== undefined));
     }
     function continuousItems(spec, legend) {
@@ -29033,6 +29035,1377 @@ var Graflume = (function (exports) {
             compile: compileWithRegistry,
             compileUnit: compileUnitWithRegistry,
         });
+    }
+
+    /** Import bounded R/SVG vector geometry into a Graflume Scene, never live markup. */
+    function sceneFromSVG(source, options = {}) {
+        if (typeof source !== 'string' ||
+            source.length > 8_000_000 ||
+            /<!DOCTYPE|<!ENTITY/i.test(source)) {
+            throw new Error('Invalid SVG document');
+        }
+        const document = new DOMParser().parseFromString(source, 'image/svg+xml');
+        const root = document.documentElement;
+        if (root.localName !== 'svg' || document.querySelector('parsererror'))
+            throw new Error('Invalid SVG document');
+        const numbers = (value) => (value?.match(/[-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?/g) ?? []).map(Number);
+        const viewBox = numbers(root.getAttribute('viewBox'));
+        const width = viewBox[2] ?? parseFloat(root.getAttribute('width') ?? '864');
+        const height = viewBox[3] ?? parseFloat(root.getAttribute('height') ?? '540');
+        if (!(width > 0 && width <= 32_768 && height > 0 && height <= 32_768))
+            throw new Error('Invalid SVG dimensions');
+        const limit = (value, fallback, cap) => {
+            if (value !== undefined && (!Number.isSafeInteger(value) || value < 1))
+                throw new Error('Invalid SVG budget');
+            return Math.min(value ?? fallback, cap);
+        };
+        const maxNodes = limit(options.maxNodes, 30_000, 50_000), maxPoints = limit(options.maxPoints, 250_000, 500_000);
+        const length = (raw, reference) => {
+            const match = raw
+                .trim()
+                .match(/^([-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?)(%|px|pt|pc|in|cm|mm)?$/);
+            if (match === null)
+                throw new Error('Unsupported SVG length');
+            const units = {
+                px: 1,
+                pt: 96 / 72,
+                pc: 16,
+                in: 96,
+                cm: 96 / 2.54,
+                mm: 96 / 25.4,
+            };
+            const value = Number(match[1]) * (match[2] === '%' ? reference / 100 : units[match[2] ?? 'px']);
+            if (!Number.isFinite(value))
+                throw new Error('Invalid SVG length');
+            return value;
+        };
+        const rules = [];
+        for (const sheet of Array.from(root.querySelectorAll('style'))) {
+            const css = sheet.textContent || '';
+            if (/@import|@font-face|url\s*\(/i.test(css))
+                throw new Error('External SVG styles are unsupported');
+            for (const match of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+                const probe = globalThis.document.createElement('span');
+                probe.style.cssText = match[2];
+                for (const selector of match[1].split(','))
+                    rules.push({ selector: selector.trim(), style: probe.style });
+            }
+        }
+        let nodeCount = 0, pointCount = 0;
+        const safeColor = (value, fallback) => {
+            if (!value || value === 'inherit')
+                return fallback;
+            if (value === 'none' || value === 'transparent')
+                return undefined;
+            if (/url\s*\(|[<>]|[\u0000-\u001f]/i.test(value))
+                throw new Error('External SVG paint is unsupported');
+            return value;
+        };
+        const alphaColor = (value, raw) => {
+            if (!value || raw === undefined)
+                return value;
+            const alpha = Number(raw);
+            if (!Number.isFinite(alpha) || alpha < 0 || alpha > 1)
+                throw new Error('Invalid SVG paint opacity');
+            if (alpha === 1)
+                return value;
+            const probe = globalThis.document.createElement('span');
+            probe.style.color = value;
+            probe.style.display = 'none';
+            if (!probe.style.color)
+                throw new Error('Invalid SVG color');
+            globalThis.document.documentElement.append(probe);
+            const color = getComputedStyle(probe).color;
+            probe.remove();
+            const channels = numbers(color);
+            if (!/^rgba?\(/i.test(color) || channels.length < 3)
+                throw new Error('Unsupported SVG alpha color');
+            return `rgba(${channels[0]},${channels[1]},${channels[2]},${(channels[3] ?? 1) * alpha})`;
+        };
+        const base = () => {
+            nodeCount++;
+            if (nodeCount > maxNodes)
+                throw new Error('SVG node limit exceeded');
+            return { id: `svg-${nodeCount}`, zIndex: nodeCount, opacity: 1, visible: true };
+        };
+        const point = (matrix, x, y) => {
+            pointCount++;
+            if (pointCount > maxPoints)
+                throw new Error('SVG point limit exceeded');
+            const value = new DOMPoint(x, y).matrixTransform(matrix);
+            if (![value.x, value.y].every(Number.isFinite))
+                throw new Error('Invalid SVG geometry');
+            return { x: value.x, y: value.y };
+        };
+        const visit = (node, parent, inherited, seen, inheritedDatum) => {
+            if (seen.size > 64 || seen.has(node))
+                throw new Error('Invalid recursive SVG reference');
+            const nextSeen = new Set(seen);
+            nextSeen.add(node);
+            const tag = node.localName;
+            if (['script', 'foreignObject', 'image', 'iframe', 'audio', 'video', 'animate', 'set'].includes(tag))
+                throw new Error('Active or raster SVG content is unsupported');
+            if (['defs', 'style', 'title', 'desc', 'metadata', 'clipPath'].includes(tag))
+                return [];
+            const style = { ...inherited };
+            delete style.opacity;
+            for (const key of [
+                'fill',
+                'stroke',
+                'stroke-width',
+                'stroke-dasharray',
+                'stroke-linecap',
+                'stroke-linejoin',
+                'fill-rule',
+                'fill-opacity',
+                'stroke-opacity',
+                'opacity',
+                'font-size',
+                'font-family',
+                'font-weight',
+                'font-style',
+                'text-anchor',
+                'display',
+                'visibility',
+            ]) {
+                for (const rule of rules) {
+                    try {
+                        if (node.matches(rule.selector) && rule.style.getPropertyValue(key))
+                            style[key] = rule.style.getPropertyValue(key);
+                    }
+                    catch (_) {
+                        throw new Error('Unsupported SVG selector');
+                    }
+                }
+                const value = node.style?.getPropertyValue(key) || node.getAttribute(key);
+                if (value)
+                    style[key] = value;
+            }
+            if (style.display === 'none' || style.visibility === 'hidden')
+                return [];
+            let matrix = parent;
+            const transforms = node.transform?.baseVal;
+            if (transforms?.numberOfItems) {
+                const m = transforms.consolidate()?.matrix;
+                if (m)
+                    matrix = parent.multiply(new DOMMatrix([m.a, m.b, m.c, m.d, m.e, m.f]));
+            }
+            const id = node.getAttribute('data-id') || node.getAttribute('data_id');
+            const tooltip = node.getAttribute('data-tooltip') ||
+                node.getAttribute('tooltip') ||
+                node.querySelector(':scope > title')?.textContent;
+            const datum = id || tooltip
+                ? {
+                    layerId: 'svg',
+                    rowIndex: nodeCount,
+                    datum: { id: id || '', tooltip: tooltip || '' },
+                    tooltip: { id: id || '', tooltip: tooltip || '' },
+                }
+                : inheritedDatum;
+            const common = {
+                ...base(),
+                opacity: Math.max(0, Math.min(1, Number(style.opacity ?? 1))),
+                ...(datum ? { interactive: true, datum } : {}),
+            };
+            const fill = alphaColor(safeColor(style.fill, '#000'), style['fill-opacity']), stroke = alphaColor(safeColor(style.stroke), style['stroke-opacity']);
+            const lineWidth = Math.max(0, length(style['stroke-width'] ?? '1', Math.hypot(width, height) / Math.SQRT2)) *
+                Math.hypot(matrix.a, matrix.b);
+            const paint = {
+                ...(fill ? { fill } : {}),
+                ...(stroke ? { stroke } : {}),
+                lineWidth,
+                dash: numbers(style['stroke-dasharray'] || null),
+            };
+            const num = (name, fallback = 0) => length(node.getAttribute(name) ?? String(fallback), ['x', 'x1', 'x2', 'cx', 'rx', 'width'].includes(name)
+                ? width
+                : ['y', 'y1', 'y2', 'cy', 'ry', 'height'].includes(name)
+                    ? height
+                    : Math.hypot(width, height) / Math.SQRT2);
+            if (tag === 'use') {
+                const href = node.getAttribute('href') || node.getAttributeNS('http://www.w3.org/1999/xlink', 'href');
+                if (!href || !/^#[^\s]+$/.test(href))
+                    throw new Error('External SVG references are unsupported');
+                const target = document.getElementById(href.slice(1));
+                if (!target)
+                    throw new Error('Missing SVG reference');
+                return [
+                    {
+                        ...common,
+                        type: 'group',
+                        children: visit(target, matrix.translate(num('x'), num('y')), style, nextSeen, datum),
+                    },
+                ];
+            }
+            if (['svg', 'g', 'symbol', 'a'].includes(tag)) {
+                const children = Array.from(node.children).flatMap((child) => visit(child, matrix, style, nextSeen, datum));
+                const group = { ...common, type: 'group', children };
+                const clip = node.getAttribute('clip-path')?.match(/^url\(#([^\s)]+)\)$/)?.[1];
+                if (clip) {
+                    const definition = document.getElementById(clip);
+                    const rect = definition?.querySelector('rect');
+                    if (rect) {
+                        if (matrix.b || matrix.c)
+                            throw new Error('Rotated SVG clips are unsupported');
+                        const p = point(matrix, Number(rect.getAttribute('x') || 0), Number(rect.getAttribute('y') || 0));
+                        return [
+                            {
+                                ...group,
+                                clip: {
+                                    x: p.x,
+                                    y: p.y,
+                                    width: Number(rect.getAttribute('width')) * Math.abs(matrix.a),
+                                    height: Number(rect.getAttribute('height')) * Math.abs(matrix.d),
+                                },
+                            },
+                        ];
+                    }
+                    const d = definition?.querySelector('path')?.getAttribute('d') || '';
+                    const sections = d.trim().split('Z');
+                    const outline = sections[0] ?? '';
+                    const commands = outline.match(/[ML]/g)?.join('');
+                    const values = numbers(outline);
+                    // Cairo appends an empty moveto at the rectangle origin after closing its clip.
+                    const tail = sections[1]?.trim() ?? '';
+                    const tailValues = numbers(tail);
+                    if (!/^[\s\d.,+eE\-MLZ]+$/.test(d) ||
+                        sections.length !== 2 ||
+                        (commands !== 'MLLL' && commands !== 'MLLLL') ||
+                        (tail !== '' &&
+                            (tail.match(/[ML]/g)?.join('') !== 'M' ||
+                                tailValues.length !== 2 ||
+                                tailValues[0] !== values[0] ||
+                                tailValues[1] !== values[1])) ||
+                        matrix.b ||
+                        matrix.c)
+                        throw new Error('Unsupported SVG clip');
+                    if (values.length === 10 && values[8] === values[0] && values[9] === values[1])
+                        values.splice(8, 2);
+                    if (values.length !== 8)
+                        throw new Error('Unsupported SVG clip');
+                    const xs = [values[0], values[2], values[4], values[6]], ys = [values[1], values[3], values[5], values[7]];
+                    if (new Set(xs).size !== 2 ||
+                        new Set(ys).size !== 2 ||
+                        xs.some((x, i) => x !== xs[(i + 1) % 4] && ys[i] !== ys[(i + 1) % 4]))
+                        throw new Error('Unsupported SVG clip');
+                    const a = point(matrix, Math.min(...xs), Math.min(...ys)), b = point(matrix, Math.max(...xs), Math.max(...ys));
+                    return [
+                        {
+                            ...group,
+                            clip: {
+                                x: Math.min(a.x, b.x),
+                                y: Math.min(a.y, b.y),
+                                width: Math.abs(b.x - a.x),
+                                height: Math.abs(b.y - a.y),
+                            },
+                        },
+                    ];
+                }
+                return [group];
+            }
+            if (tag === 'text') {
+                const p = point(matrix, num('x'), num('y'));
+                return [
+                    {
+                        ...common,
+                        type: 'text',
+                        ...p,
+                        text: node.textContent || '',
+                        fill: fill || 'transparent',
+                        fontFamily: style['font-family'] || 'sans-serif',
+                        fontSize: parseFloat(style['font-size'] || '12') * Math.hypot(matrix.a, matrix.b),
+                        fontWeight: style['font-weight'] || 'normal',
+                        fontStyle: style['font-style'] === 'italic' ? 'italic' : 'normal',
+                        align: style['text-anchor'] === 'middle'
+                            ? 'center'
+                            : style['text-anchor'] === 'end'
+                                ? 'right'
+                                : 'left',
+                        baseline: 'alphabetic',
+                        rotation: (Math.atan2(matrix.b, matrix.a) * 180) / Math.PI,
+                    },
+                ];
+            }
+            if (tag === 'line') {
+                const a = point(matrix, num('x1'), num('y1')), b = point(matrix, num('x2'), num('y2'));
+                return [
+                    {
+                        ...common,
+                        type: 'line',
+                        x1: a.x,
+                        y1: a.y,
+                        x2: b.x,
+                        y2: b.y,
+                        stroke: stroke || '#000',
+                        lineWidth,
+                        dash: paint.dash,
+                    },
+                ];
+            }
+            let paths = [], closed = false;
+            if (tag === 'rect') {
+                const x = num('x'), y = num('y'), w = num('width'), h = num('height');
+                closed = true;
+                paths = [
+                    [
+                        point(matrix, x, y),
+                        point(matrix, x + w, y),
+                        point(matrix, x + w, y + h),
+                        point(matrix, x, y + h),
+                    ],
+                ];
+            }
+            else if (tag === 'circle' || tag === 'ellipse') {
+                const cx = num('cx'), cy = num('cy'), rx = num(tag === 'circle' ? 'r' : 'rx'), ry = num(tag === 'circle' ? 'r' : 'ry');
+                closed = true;
+                paths = [
+                    Array.from({ length: 48 }, (_, i) => point(matrix, cx + rx * Math.cos((i * Math.PI) / 24), cy + ry * Math.sin((i * Math.PI) / 24))),
+                ];
+            }
+            else if (tag === 'polygon' || tag === 'polyline') {
+                const values = numbers(node.getAttribute('points'));
+                closed = tag === 'polygon';
+                paths = [
+                    Array.from({ length: Math.floor(values.length / 2) }, (_, i) => point(matrix, values[i * 2], values[i * 2 + 1])),
+                ];
+            }
+            else if (tag === 'path') {
+                const d = node.getAttribute('d') || '';
+                // Separate absolute moveto subpaths so glyph holes do not acquire connecting lines.
+                const segments = d.match(/[Mm][^Mm]*/g) || [];
+                let endpoint = { x: 0, y: 0 };
+                for (let segment of segments) {
+                    if (segment[0] === 'm') {
+                        const first = segment.match(/^m\s*([-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?)[\s,]*([-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?)/);
+                        if (!first)
+                            throw new Error('Invalid SVG moveto');
+                        const rest = segment.slice(first[0].length).trim().replace(/^,\s*/, '');
+                        segment = `M ${endpoint.x + Number(first[1])} ${endpoint.y + Number(first[2])} ${/^[-+.\d]/.test(rest) ? 'l ' : ''}${rest}`;
+                    }
+                    const path = globalThis.document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    path.setAttribute('d', segment);
+                    let length;
+                    try {
+                        length = path.getTotalLength();
+                    }
+                    catch (_) {
+                        throw new Error('Invalid SVG path');
+                    }
+                    if (!Number.isFinite(length) || length > 1_000_000)
+                        throw new Error('Invalid SVG path length');
+                    const count = Math.min(8192, Math.max(2, Math.ceil((length * Math.max(1, Math.hypot(matrix.a, matrix.b))) / 0.65)));
+                    paths.push(Array.from({ length: count + 1 }, (_, i) => {
+                        const p = path.getPointAtLength((length * i) / count);
+                        return point(matrix, p.x, p.y);
+                    }));
+                    endpoint = path.getPointAtLength(length);
+                    closed ||= /[zZ]\s*$/.test(segment);
+                }
+            }
+            else {
+                throw new Error(`Unsupported SVG geometry: ${tag}`);
+            }
+            return paths.length
+                ? [
+                    {
+                        ...common,
+                        ...paint,
+                        type: 'path',
+                        points: paths[0],
+                        ...(paths.length > 1 ? { subpaths: paths.slice(1) } : {}),
+                        closed,
+                        fillRule: style['fill-rule'] === 'evenodd' ? 'evenodd' : 'nonzero',
+                    },
+                ]
+                : [];
+        };
+        const matrix = new DOMMatrix().translate(-(viewBox[0] || 0), -(viewBox[1] || 0));
+        const nodes = visit(root, matrix, {}, new Set());
+        return {
+            width,
+            height,
+            background: '#fff',
+            root: { ...base(), type: 'group', children: nodes },
+            accessibility: {
+                label: options.title || root.querySelector('title')?.textContent || 'R chart',
+            },
+            semanticIndex: [],
+            metadata: {
+                rowCount: nodeCount,
+                renderedNodeCount: nodeCount,
+                performanceProfile: 'standard',
+                hitTestingEnabled: true,
+            },
+        };
+    }
+
+    const capabilities$2 = {
+        vector: false,
+        gpu: false,
+        worker: false,
+        exportFormats: ['image/png', 'image/jpeg', 'image/webp'],
+        inspectionViewport: true,
+    };
+    const maximumProviderTileRequests = 8;
+    const maximumDecodedProviderTiles = 128;
+    function tileSourceKey(source) {
+        return JSON.stringify([
+            source.type,
+            source.template,
+            source.attribution,
+            source.minimumZoom ?? null,
+            source.maximumZoom ?? null,
+            source.tileSize ?? null,
+            source.subdomains ?? [],
+        ]);
+    }
+    function providerTileKey(source, tile) {
+        return `${tileSourceKey(source)}\u0000${tileUrl(source, tile)}`;
+    }
+    function collectVisibleProviderTiles(node, output) {
+        if (!node.visible || node.opacity <= 0)
+            return;
+        if (node.type === 'rect' && node.providerTile !== undefined) {
+            const request = node.providerTile;
+            output.set(providerTileKey(request.source, request.tile), request);
+        }
+        if (node.type === 'group') {
+            for (const child of node.children)
+                collectVisibleProviderTiles(child, output);
+        }
+    }
+    async function decodeProviderTile(response) {
+        if (!response.mimeType.toLowerCase().startsWith('image/'))
+            return {};
+        const blob = new Blob([Uint8Array.from(response.bytes).buffer], { type: response.mimeType });
+        if (typeof createImageBitmap === 'function') {
+            const image = await createImageBitmap(blob);
+            return { image, dispose: () => image.close() };
+        }
+        if (typeof Image === 'undefined' ||
+            typeof URL === 'undefined' ||
+            typeof URL.createObjectURL !== 'function')
+            throw new Error('Provider raster tiles require createImageBitmap or Image support.');
+        const objectUrl = URL.createObjectURL(blob);
+        const image = new Image();
+        try {
+            await new Promise((resolve, reject) => {
+                image.addEventListener('load', () => resolve(), { once: true });
+                image.addEventListener('error', () => reject(new Error('Provider raster tile decode failed.')), {
+                    once: true,
+                });
+                image.src = objectUrl;
+            });
+            return { image, dispose: () => URL.revokeObjectURL(objectUrl) };
+        }
+        catch (error) {
+            URL.revokeObjectURL(objectUrl);
+            throw error;
+        }
+    }
+    function roundedRectPath(context, x, y, width, height, radius) {
+        const resolvedRadius = Math.max(0, Math.min(radius, Math.abs(width) / 2, Math.abs(height) / 2));
+        context.moveTo(x + resolvedRadius, y);
+        context.lineTo(x + width - resolvedRadius, y);
+        context.quadraticCurveTo(x + width, y, x + width, y + resolvedRadius);
+        context.lineTo(x + width, y + height - resolvedRadius);
+        context.quadraticCurveTo(x + width, y + height, x + width - resolvedRadius, y + height);
+        context.lineTo(x + resolvedRadius, y + height);
+        context.quadraticCurveTo(x, y + height, x, y + height - resolvedRadius);
+        context.lineTo(x, y + resolvedRadius);
+        context.quadraticCurveTo(x, y, x + resolvedRadius, y);
+    }
+    class CanvasRenderer {
+        name = 'canvas';
+        capabilities = capabilities$2;
+        #root = null;
+        #canvas = null;
+        #context = null;
+        #width = 0;
+        #height = 0;
+        #pixelRatio = 1;
+        #inspectionView = { zoom: 1, offsetX: 0, offsetY: 0 };
+        #tileManagers = new Map();
+        #tileImages = new Map();
+        #tileQueue = [];
+        #activeTileRequests = 0;
+        #tileGeneration = 0;
+        #visibleTileKeys = new Set();
+        #lastScene = null;
+        #destroyed = false;
+        mount(target, options) {
+            if (this.#root !== null)
+                this.destroy();
+            this.#destroyed = false;
+            const root = document.createElement('div');
+            root.dataset.graflumeRoot = 'true';
+            root.style.position = 'relative';
+            root.style.width = '100%';
+            root.style.height = '100%';
+            root.style.overflow = 'hidden';
+            const canvas = document.createElement('canvas');
+            canvas.dataset.graflumeSurface = 'canvas';
+            canvas.style.display = 'block';
+            canvas.style.width = `${options.width}px`;
+            canvas.style.height = `${options.height}px`;
+            canvas.setAttribute('role', 'img');
+            canvas.setAttribute('aria-label', options.ariaLabel);
+            if (options.ariaDescription !== undefined) {
+                canvas.setAttribute('aria-description', options.ariaDescription);
+            }
+            const context = canvas.getContext('2d');
+            if (context === null)
+                throw new Error('Canvas 2D context is unavailable.');
+            root.append(canvas);
+            target.append(root);
+            this.#root = root;
+            this.#canvas = canvas;
+            this.#context = context;
+            this.resize(options.width, options.height, options.pixelRatio);
+        }
+        resize(width, height, pixelRatio) {
+            if (this.#canvas === null || this.#context === null)
+                return;
+            this.#width = Math.max(1, width);
+            this.#height = Math.max(1, height);
+            this.#pixelRatio = Math.max(1, pixelRatio);
+            this.#canvas.width = Math.round(this.#width * this.#pixelRatio);
+            this.#canvas.height = Math.round(this.#height * this.#pixelRatio);
+            this.#canvas.style.width = `${this.#width}px`;
+            this.#canvas.style.height = `${this.#height}px`;
+            this.#context.setTransform(this.#pixelRatio, 0, 0, this.#pixelRatio, 0, 0);
+        }
+        render(scene) {
+            const context = this.#context;
+            if (context === null)
+                return;
+            this.#lastScene = scene;
+            this.#reconcileProviderTiles(scene.root);
+            this.#paint(scene);
+        }
+        #paint(scene) {
+            const context = this.#context;
+            if (context === null)
+                return;
+            context.save();
+            context.setTransform(this.#pixelRatio, 0, 0, this.#pixelRatio, 0, 0);
+            context.clearRect(0, 0, this.#width, this.#height);
+            context.fillStyle = scene.background;
+            context.fillRect(0, 0, scene.width, scene.height);
+            if (this.#inspectionView.zoom !== 1 ||
+                this.#inspectionView.offsetX !== 0 ||
+                this.#inspectionView.offsetY !== 0) {
+                context.translate(this.#inspectionView.offsetX, this.#inspectionView.offsetY);
+                context.scale(this.#inspectionView.zoom, this.#inspectionView.zoom);
+            }
+            this.#drawNode(context, scene.root);
+            context.restore();
+        }
+        surface() {
+            return this.#canvas;
+        }
+        overlayHost() {
+            return this.#root;
+        }
+        setInspectionView(transform) {
+            this.#inspectionView = transform;
+        }
+        toDataURL(type = 'image/png', quality) {
+            if (this.#canvas === null)
+                throw new Error('Renderer is not mounted.');
+            return this.#canvas.toDataURL(type, quality);
+        }
+        /** Observable provider state for diagnostics and deterministic host readiness checks. */
+        providerTileState() {
+            const states = [...this.#tileImages.values()];
+            return Object.freeze({
+                sources: this.#tileManagers.size,
+                loading: states.filter(({ status }) => status === 'queued' || status === 'loading').length,
+                ready: states.filter(({ status }) => status === 'ready').length,
+                failed: states.filter(({ status }) => status === 'failed').length,
+            });
+        }
+        destroy() {
+            this.#destroyed = true;
+            this.#tileGeneration += 1;
+            for (const state of this.#tileImages.values()) {
+                if (state.status === 'queued' || state.status === 'loading') {
+                    state.controller.abort(new DOMException('Canvas provider tile destroyed.', 'AbortError'));
+                }
+            }
+            for (const manager of this.#tileManagers.values())
+                manager.destroy();
+            this.#tileManagers.clear();
+            for (const state of this.#tileImages.values()) {
+                if (state.status === 'ready')
+                    state.dispose?.();
+            }
+            this.#tileImages.clear();
+            this.#tileQueue = [];
+            this.#activeTileRequests = 0;
+            this.#visibleTileKeys.clear();
+            this.#lastScene = null;
+            this.#root?.remove();
+            this.#root = null;
+            this.#canvas = null;
+            this.#context = null;
+            this.#inspectionView = { zoom: 1, offsetX: 0, offsetY: 0 };
+        }
+        #drawNode(context, node) {
+            if (!node.visible || node.opacity <= 0)
+                return;
+            context.save();
+            context.globalAlpha *= node.opacity;
+            switch (node.type) {
+                case 'group':
+                    this.#drawGroup(context, node);
+                    break;
+                case 'line':
+                    this.#drawLine(context, node);
+                    break;
+                case 'path':
+                    this.#drawPath(context, node);
+                    break;
+                case 'rect':
+                    this.#drawRect(context, node);
+                    break;
+                case 'circle':
+                    this.#drawCircle(context, node);
+                    break;
+                case 'text':
+                    this.#drawText(context, node);
+                    break;
+            }
+            context.restore();
+        }
+        #drawGroup(context, node) {
+            if (node.clip !== undefined) {
+                context.beginPath();
+                context.rect(node.clip.x, node.clip.y, node.clip.width, node.clip.height);
+                context.clip();
+            }
+            const children = [...node.children].sort((left, right) => left.zIndex - right.zIndex);
+            for (const child of children)
+                this.#drawNode(context, child);
+        }
+        #drawLine(context, node) {
+            context.beginPath();
+            context.moveTo(node.x1, node.y1);
+            context.lineTo(node.x2, node.y2);
+            context.strokeStyle = node.stroke;
+            context.lineWidth = node.lineWidth;
+            context.lineCap = node.lineCap ?? 'butt';
+            context.setLineDash(node.dash === undefined ? [] : [...node.dash]);
+            context.stroke();
+        }
+        #drawPath(context, node) {
+            const paths = [node.points, ...(node.subpaths ?? [])].filter((points) => points.length > 0);
+            if (paths.length === 0)
+                return;
+            context.beginPath();
+            for (const points of paths) {
+                const first = points[0];
+                if (first === undefined)
+                    continue;
+                context.moveTo(first.x, first.y);
+                for (let index = 1; index < points.length; index += 1) {
+                    const point = points[index];
+                    if (point !== undefined)
+                        context.lineTo(point.x, point.y);
+                }
+                if (node.closed)
+                    context.closePath();
+            }
+            context.setLineDash(node.dash === undefined ? [] : [...node.dash]);
+            context.lineCap = node.lineCap ?? 'round';
+            context.lineJoin = node.lineJoin ?? 'round';
+            if (node.fill !== undefined) {
+                context.fillStyle = node.fill;
+                context.fill(node.fillRule ?? 'nonzero');
+            }
+            if (node.stroke !== undefined && node.lineWidth > 0) {
+                context.strokeStyle = node.stroke;
+                context.lineWidth = node.lineWidth;
+                context.stroke();
+            }
+        }
+        #drawRect(context, node) {
+            context.beginPath();
+            roundedRectPath(context, node.x, node.y, node.width, node.height, node.cornerRadius);
+            context.closePath();
+            context.setLineDash(node.dash === undefined ? [] : [...node.dash]);
+            if (node.fill !== undefined) {
+                context.fillStyle = node.fill;
+                context.fill();
+            }
+            if (node.providerTile !== undefined) {
+                const image = this.#providerTileImage(node.providerTile.source, node.providerTile.tile);
+                if (image !== undefined)
+                    context.drawImage(image, node.x, node.y, node.width, node.height);
+            }
+            if (node.stroke !== undefined && node.lineWidth > 0) {
+                context.strokeStyle = node.stroke;
+                context.lineWidth = node.lineWidth;
+                context.stroke();
+            }
+        }
+        #providerTileImage(source, tile) {
+            const key = providerTileKey(source, tile);
+            const current = this.#tileImages.get(key);
+            if (current?.status === 'ready') {
+                this.#tileImages.delete(key);
+                this.#tileImages.set(key, current);
+                return current.image;
+            }
+            return undefined;
+        }
+        #reconcileProviderTiles(root) {
+            const visible = new Map();
+            collectVisibleProviderTiles(root, visible);
+            this.#visibleTileKeys = new Set(visible.keys());
+            for (const [key, state] of this.#tileImages) {
+                if (visible.has(key))
+                    continue;
+                if (state.status === 'queued' || state.status === 'loading') {
+                    state.controller.abort(new DOMException('Canvas provider tile left the visible scene.', 'AbortError'));
+                    this.#tileImages.delete(key);
+                }
+                else if (state.status === 'failed') {
+                    this.#tileImages.delete(key);
+                }
+            }
+            this.#tileQueue = this.#tileQueue.filter((key) => {
+                const state = this.#tileImages.get(key);
+                return visible.has(key) && state?.status === 'queued';
+            });
+            for (const [key, request] of visible) {
+                const current = this.#tileImages.get(key);
+                if (current?.status === 'ready') {
+                    this.#tileImages.delete(key);
+                    this.#tileImages.set(key, current);
+                }
+                else if (current === undefined) {
+                    const controller = new AbortController();
+                    this.#tileImages.set(key, { status: 'queued', request, controller });
+                    this.#tileQueue.push(key);
+                }
+            }
+            this.#drainProviderTileQueue();
+        }
+        #drainProviderTileQueue() {
+            while (!this.#destroyed &&
+                this.#activeTileRequests < maximumProviderTileRequests &&
+                this.#tileQueue.length > 0) {
+                const key = this.#tileQueue.shift();
+                const queued = this.#tileImages.get(key);
+                if (queued?.status !== 'queued' ||
+                    queued.controller.signal.aborted ||
+                    !this.#visibleTileKeys.has(key)) {
+                    if (queued?.status === 'queued')
+                        this.#tileImages.delete(key);
+                    continue;
+                }
+                const sourceKey = tileSourceKey(queued.request.source);
+                let manager = this.#tileManagers.get(sourceKey);
+                if (manager === undefined) {
+                    manager = new MapTileManager(queued.request.source, fetchMapTile);
+                    this.#tileManagers.set(sourceKey, manager);
+                }
+                const generation = this.#tileGeneration;
+                const controller = queued.controller;
+                const request = queued.request;
+                this.#tileImages.set(key, { ...queued, status: 'loading' });
+                this.#activeTileRequests += 1;
+                void manager
+                    .load(request.tile, controller.signal)
+                    .then(decodeProviderTile)
+                    .then((decoded) => {
+                    const current = this.#tileImages.get(key);
+                    if (this.#destroyed ||
+                        generation !== this.#tileGeneration ||
+                        controller.signal.aborted ||
+                        !this.#visibleTileKeys.has(key) ||
+                        current?.status !== 'loading' ||
+                        current.controller !== controller) {
+                        decoded.dispose?.();
+                        return;
+                    }
+                    this.#tileImages.delete(key);
+                    this.#tileImages.set(key, { status: 'ready', ...decoded });
+                    this.#evictDecodedProviderTiles();
+                    if (this.#lastScene !== null)
+                        this.#paint(this.#lastScene);
+                })
+                    .catch(() => {
+                    const current = this.#tileImages.get(key);
+                    if (!this.#destroyed &&
+                        generation === this.#tileGeneration &&
+                        current?.status === 'loading' &&
+                        current.controller === controller) {
+                        if (controller.signal.aborted || !this.#visibleTileKeys.has(key))
+                            this.#tileImages.delete(key);
+                        else
+                            this.#tileImages.set(key, { status: 'failed' });
+                    }
+                })
+                    .finally(() => {
+                    if (generation !== this.#tileGeneration)
+                        return;
+                    this.#activeTileRequests = Math.max(0, this.#activeTileRequests - 1);
+                    this.#drainProviderTileQueue();
+                });
+            }
+        }
+        #evictDecodedProviderTiles() {
+            let ready = [...this.#tileImages.values()].filter(({ status }) => status === 'ready').length;
+            if (ready <= maximumDecodedProviderTiles)
+                return;
+            for (const [key, state] of this.#tileImages) {
+                if (ready <= maximumDecodedProviderTiles)
+                    break;
+                if (state.status !== 'ready')
+                    continue;
+                this.#tileImages.delete(key);
+                state.dispose?.();
+                ready -= 1;
+            }
+        }
+        #drawCircle(context, node) {
+            context.beginPath();
+            context.arc(node.cx, node.cy, node.radius, 0, Math.PI * 2);
+            context.setLineDash(node.dash === undefined ? [] : [...node.dash]);
+            if (node.fill !== undefined) {
+                context.fillStyle = node.fill;
+                context.fill();
+            }
+            if (node.stroke !== undefined && node.lineWidth > 0) {
+                context.strokeStyle = node.stroke;
+                context.lineWidth = node.lineWidth;
+                context.stroke();
+            }
+        }
+        #drawText(context, node) {
+            context.translate(node.x, node.y);
+            context.rotate((node.rotation * Math.PI) / 180);
+            context.fillStyle = node.fill;
+            const fontStyle = node.fontStyle === undefined ? '' : `${node.fontStyle} `;
+            context.font = `${fontStyle}${node.fontWeight} ${node.fontSize}px ${node.fontFamily}`;
+            context.textAlign = node.align;
+            context.textBaseline = node.baseline;
+            context.fillText(node.text, 0, 0);
+        }
+    }
+    const canvasRendererFactory = {
+        name: 'canvas',
+        capabilities: capabilities$2,
+        create: () => new CanvasRenderer(),
+    };
+
+    const svgCapabilities = {
+        vector: true,
+        gpu: false,
+        worker: false,
+        exportFormats: ['image/svg+xml', 'image/png', 'image/jpeg', 'image/webp'],
+        inspectionViewport: true,
+    };
+    function xml(value) {
+        return String(value)
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&apos;');
+    }
+    function number(value) {
+        if (!Number.isFinite(value) || Math.abs(value) > 1e12)
+            throw new GraflumeError('INVALID_SPEC', 'SVG geometry must be finite and bounded.');
+        return String(value);
+    }
+    function paint(value) {
+        if (value === undefined)
+            return undefined;
+        // Paints never resolve URLs, CSS variables, external resources, or active content.
+        if (typeof value !== 'string' ||
+            value.length > 256 ||
+            !/^(?:#[\da-f]{3,8}|[a-z]+|(?:rgb|rgba|hsl|hsla|hwb|lab|lch|oklab|oklch)\([\d\s.,%+\-/]*\))$/i.test(value.trim())) {
+            throw new GraflumeError('INVALID_SPEC', 'SVG paint must be a literal color.');
+        }
+        return value;
+    }
+    function attributes(values) {
+        return Object.entries(values)
+            .filter(([, value]) => value !== undefined)
+            .map(([key, value]) => ` ${key}="${xml(value)}"`)
+            .join('');
+    }
+    /** Deterministic, resource-free SVG from actual compiled vector primitives. */
+    function sceneToSVG(scene) {
+        let hash = 2166136261;
+        for (const char of JSON.stringify(scene.root))
+            hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
+        const prefix = `graflume-${(hash >>> 0).toString(36)}`;
+        const defs = [];
+        let count = 0;
+        const visit = (node, depth) => {
+            if (++count > 100_000 || depth > 64)
+                throw new GraflumeError('INVALID_SPEC', 'SVG scene exceeds its node or depth budget.');
+            if (!node.visible || node.opacity <= 0)
+                return '';
+            const common = { 'data-scene-node': node.id, opacity: number(node.opacity) };
+            if (node.type === 'group') {
+                let clip;
+                if (node.clip !== undefined) {
+                    const id = `${prefix}-clip-${count}`;
+                    defs.push(`<clipPath id="${id}"><rect${attributes({ x: number(node.clip.x), y: number(node.clip.y), width: number(node.clip.width), height: number(node.clip.height) })}/></clipPath>`);
+                    clip = `url(#${id})`;
+                }
+                return `<g${attributes({ ...common, 'clip-path': clip })}>${[...node.children]
+                .sort((a, b) => a.zIndex - b.zIndex)
+                .map((child) => visit(child, depth + 1))
+                .join('')}</g>`;
+            }
+            if (node.type === 'text') {
+                const anchor = node.align === 'center'
+                    ? 'middle'
+                    : node.align === 'right' || node.align === 'end'
+                        ? 'end'
+                        : 'start';
+                const baseline = node.baseline === 'top' || node.baseline === 'hanging'
+                    ? 'text-before-edge'
+                    : node.baseline === 'middle'
+                        ? 'central'
+                        : node.baseline === 'bottom' || node.baseline === 'ideographic'
+                            ? 'text-after-edge'
+                            : 'alphabetic';
+                return `<text${attributes({ ...common, x: number(node.x), y: number(node.y), fill: paint(node.fill), 'font-family': node.fontFamily, 'font-size': number(node.fontSize), 'font-weight': node.fontWeight, 'font-style': node.fontStyle, 'text-anchor': anchor, 'dominant-baseline': baseline, transform: node.rotation === 0 ? undefined : `rotate(${number(node.rotation)} ${number(node.x)} ${number(node.y)})` })}>${xml(node.text)}</text>`;
+            }
+            const styles = {
+                ...common,
+                fill: node.type === 'line' ? 'none' : (paint(node.fill) ?? 'none'),
+                stroke: paint(node.stroke),
+                'stroke-width': number(node.lineWidth),
+                'stroke-dasharray': node.dash?.map(number).join(' '),
+            };
+            if (node.type === 'line')
+                return `<line${attributes({ ...styles, x1: number(node.x1), y1: number(node.y1), x2: number(node.x2), y2: number(node.y2), 'stroke-linecap': node.lineCap })}/>`;
+            if (node.type === 'circle')
+                return `<circle${attributes({ ...styles, cx: number(node.cx), cy: number(node.cy), r: number(node.radius) })}/>`;
+            if (node.type === 'rect') {
+                if (node.providerTile !== undefined)
+                    throw new GraflumeError('UNSUPPORTED_RENDERER', 'SVG snapshots do not capture externally loaded map tiles.');
+                return `<rect${attributes({ ...styles, x: number(node.x), y: number(node.y), width: number(node.width), height: number(node.height), rx: number(Math.max(0, Math.min(node.cornerRadius, Math.abs(node.width) / 2, Math.abs(node.height) / 2))) })}/>`;
+            }
+            if (node.type !== 'path')
+                throw new GraflumeError('INVALID_SPEC', 'Unknown SVG scene node.');
+            const d = [node.points, ...(node.subpaths ?? [])]
+                .filter((points) => points.length > 0)
+                .map((points) => points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${number(p.x)} ${number(p.y)}`).join(' ') +
+                (node.closed ? ' Z' : ''))
+                .join(' ');
+            return `<path${attributes({ ...styles, d, 'fill-rule': node.fillRule, 'stroke-linecap': node.lineCap, 'stroke-linejoin': node.lineJoin })}/>`;
+        };
+        const body = visit(scene.root, 0);
+        return `<svg xmlns="http://www.w3.org/2000/svg" width="${number(scene.width)}" height="${number(scene.height)}" viewBox="0 0 ${number(scene.width)} ${number(scene.height)}" role="img" aria-label="${xml(scene.accessibility.label)}"><title>${xml(scene.accessibility.label)}</title><desc>${xml(scene.accessibility.description ?? '')}</desc><defs>${defs.join('')}</defs><rect width="100%" height="100%" fill="${xml(paint(scene.background))}"/>${body}</svg>`;
+    }
+    /** Native SVG surface; PNG conversion is lazy and happens only when explicitly exported. */
+    class SVGRenderer {
+        name = 'svg';
+        capabilities = svgCapabilities;
+        #host = null;
+        #surface = null;
+        #scene = null;
+        #svg = '';
+        #view = { zoom: 1, offsetX: 0, offsetY: 0 };
+        #pixelRatio = 1;
+        #width = 1;
+        #height = 1;
+        mount(target, options) {
+            this.#host = target.ownerDocument.createElement('div');
+            this.#host.style.cssText = 'position:relative;max-width:100%;overflow:hidden;';
+            this.#surface = target.ownerDocument.createElement('div');
+            this.#surface.setAttribute('role', 'img');
+            this.#surface.setAttribute('aria-label', options.ariaLabel);
+            if (options.ariaDescription !== undefined)
+                this.#surface.setAttribute('aria-description', options.ariaDescription);
+            this.#surface.style.cssText = 'position:relative;overflow:hidden;touch-action:pan-y;';
+            this.#host.append(this.#surface);
+            target.append(this.#host);
+            this.resize(options.width, options.height, options.pixelRatio);
+        }
+        resize(width, height, pixelRatio) {
+            this.#width = width;
+            this.#height = height;
+            this.#pixelRatio = pixelRatio;
+            if (this.#host) {
+                this.#host.style.width = `${width}px`;
+                this.#host.style.height = `${height}px`;
+            }
+            if (this.#surface) {
+                this.#surface.style.width = `${width}px`;
+                this.#surface.style.height = `${height}px`;
+            }
+            this.setInspectionView(this.#view);
+        }
+        render(scene) {
+            this.restore(scene, sceneToSVG(scene));
+        }
+        /** Called only after snapshot canonical-SVG verification. */
+        restore(scene, svg) {
+            if (svg !== sceneToSVG(scene))
+                throw new GraflumeError('INVALID_SPEC', 'SVG must match its literal vector scene.');
+            this.#scene = scene;
+            this.#svg = svg;
+            if (this.#surface)
+                this.#surface.innerHTML = svg;
+            this.setInspectionView(this.#view);
+        }
+        surface() {
+            return this.#surface;
+        }
+        overlayHost() {
+            return this.#host;
+        }
+        setInspectionView(view) {
+            this.#view = { ...view };
+            const svg = this.#surface?.firstElementChild;
+            if (svg) {
+                svg.style.width = '100%';
+                svg.style.height = '100%';
+                svg.style.transformOrigin = '0 0';
+                svg.style.transform = `translate(${(view.offsetX * this.#width) / (this.#scene?.width ?? this.#width)}px,${(view.offsetY * this.#height) / (this.#scene?.height ?? this.#height)}px) scale(${view.zoom})`;
+            }
+        }
+        toDataURL(type = 'image/svg+xml', quality) {
+            if (type === 'image/svg+xml')
+                return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(this.#svg)}`;
+            if (this.#scene === null || this.#host === null)
+                throw new GraflumeError('UNSUPPORTED_RENDERER', 'SVG surface has no rendered scene.');
+            const renderer = new CanvasRenderer();
+            try {
+                renderer.mount(this.#host.ownerDocument.createElement('div'), {
+                    width: this.#scene.width,
+                    height: this.#scene.height,
+                    pixelRatio: this.#pixelRatio,
+                    ariaLabel: this.#scene.accessibility.label,
+                });
+                renderer.setInspectionView(this.#view);
+                renderer.render(this.#scene);
+                return renderer.toDataURL(type, quality);
+            }
+            finally {
+                renderer.destroy();
+            }
+        }
+        destroy() {
+            this.#host?.remove();
+            this.#host = null;
+            this.#surface = null;
+            this.#scene = null;
+            this.#svg = '';
+        }
+    }
+    const svgRendererFactory = {
+        name: 'svg',
+        capabilities: svgCapabilities,
+        create: () => new SVGRenderer(),
+    };
+
+    class ThemeRegistry {
+        #themes = new Map();
+        constructor() {
+            for (const entry of builtInThemeCatalog)
+                this.register(entry.tokens);
+        }
+        register(theme) {
+            if (theme.name.trim() === '') {
+                throw new GraflumeError('INVALID_SPEC', 'Theme name must not be empty.', {
+                    path: '$.theme.name',
+                });
+            }
+            this.#themes.set(theme.name, theme);
+        }
+        has(name) {
+            return this.#themes.has(name);
+        }
+        get(name) {
+            const theme = this.#themes.get(name);
+            if (theme === undefined) {
+                throw new GraflumeError('INVALID_SPEC', `Unknown theme "${name}".`, {
+                    path: '$.theme',
+                    details: { availableThemes: this.names() },
+                });
+            }
+            return theme;
+        }
+        names() {
+            return [...this.#themes.keys()].sort();
+        }
+        resolve(input) {
+            if (typeof input === 'string')
+                return this.get(input);
+            const baseName = input.extends ?? defaultThemeId;
+            const { extends: _extends, ...overrides } = input;
+            const merged = deepMerge(this.get(baseName), overrides);
+            return {
+                ...merged,
+                name: merged.name || `custom:${baseName}`,
+            };
+        }
+    }
+
+    const chartSnapshotSchema = 'graflume.chart-snapshot.v1';
+    const chartSnapshotLimits = Object.freeze({
+        bytes: 32 * 1024 * 1024,
+        values: 2_000_000,
+        depth: 64,
+        nodes: 100_000,
+        dimension: 32_768,
+    });
+    /** Deep copy a bounded function-free payload before accepting any persisted runtime data. */
+    function snapshotJSONCopy(input) {
+        let values = 0;
+        let bytes = 0;
+        const budget = (text) => {
+            bytes += new TextEncoder().encode(text).byteLength;
+            if (bytes > chartSnapshotLimits.bytes)
+                throw new GraflumeError('INVALID_SPEC', 'Chart snapshot exceeds its byte budget.');
+        };
+        const ancestors = new Set();
+        const copy = (value, depth) => {
+            if (++values > chartSnapshotLimits.values || depth > chartSnapshotLimits.depth)
+                throw new GraflumeError('INVALID_SPEC', 'Chart snapshot exceeds its value or depth budget.');
+            if (value === null || typeof value === 'boolean') {
+                budget(String(value));
+                return value;
+            }
+            if (typeof value === 'number') {
+                if (!Number.isFinite(value))
+                    throw new GraflumeError('INVALID_SPEC', 'Chart snapshot numbers must be finite.');
+                budget(String(value));
+                return value;
+            }
+            if (typeof value === 'string') {
+                if (value.length > chartSnapshotLimits.bytes)
+                    throw new GraflumeError('INVALID_SPEC', 'Chart snapshot string is too large.');
+                budget(JSON.stringify(value));
+                return value;
+            }
+            if (value === undefined)
+                return undefined;
+            if (value instanceof Date)
+                return copy(Date.prototype.toISOString.call(value), depth + 1);
+            if (typeof value !== 'object')
+                throw new GraflumeError('INVALID_SPEC', 'Chart snapshots must be function-free JSON.');
+            if (ancestors.has(value))
+                throw new GraflumeError('INVALID_SPEC', 'Chart snapshots must not contain cycles.');
+            ancestors.add(value);
+            budget('[]');
+            let output;
+            if (Array.isArray(value) || (ArrayBuffer.isView(value) && !(value instanceof DataView)))
+                output = Array.from(value, (v) => copy(v, depth + 1) ?? null);
+            else {
+                if (Object.getPrototypeOf(value) !== Object.prototype &&
+                    Object.getPrototypeOf(value) !== null)
+                    throw new GraflumeError('INVALID_SPEC', 'Chart snapshots require plain objects.');
+                const record = {};
+                for (const key of Object.keys(value)) {
+                    budget(JSON.stringify(key) + ':,');
+                    if (key === '__proto__' || key === 'constructor' || key === 'prototype')
+                        throw new GraflumeError('INVALID_SPEC', 'Unsafe chart snapshot key.');
+                    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+                    if (descriptor?.get || descriptor?.set)
+                        throw new GraflumeError('INVALID_SPEC', 'Chart snapshot accessors are not supported.');
+                    const child = copy(value[key], depth + 1);
+                    if (child !== undefined)
+                        record[key] = child;
+                }
+                output = record;
+            }
+            ancestors.delete(value);
+            return output;
+        };
+        const result = copy(input, 0);
+        if (new TextEncoder().encode(JSON.stringify(result)).byteLength > chartSnapshotLimits.bytes)
+            throw new GraflumeError('INVALID_SPEC', 'Chart snapshot exceeds its byte budget.');
+        return result;
+    }
+    function captureCoordinates(context, spec) {
+        const axes = {};
+        for (const [id, scale] of Object.entries(context.axes)) {
+            if (scale === undefined)
+                continue;
+            const encoding = spec.layers
+                .flatMap((layer) => [layer.x, layer.y])
+                .find((channel) => channel.axisId === id);
+            const categorical = scale.kind === 'band' || scale.kind === 'point' || scale.kind === 'ordinal';
+            axes[id] = {
+                descriptor: scale.descriptor,
+                options: encoding?.scale ?? {},
+                bandwidth: scale.bandwidth,
+                ...(categorical ? { positions: scale.domain().map((value) => scale.map(value)) } : {}),
+            };
+        }
+        return { ...context, axes };
+    }
+    function restoreCoordinates(context) {
+        const axes = {};
+        for (const [id, saved] of Object.entries(context.axes)) {
+            if (saved === undefined)
+                continue;
+            const { descriptor } = saved;
+            const scale = createPositionScale({
+                ...saved.options,
+                type: descriptor.type,
+                domain: descriptor.domain,
+                range: descriptor.range,
+                reverse: false,
+                nice: false,
+                outOfBounds: descriptor.outOfBounds,
+            }, { domain: descriptor.domain, range: descriptor.range });
+            if (saved.positions !== undefined) {
+                if (saved.positions.length !== descriptor.domain.length ||
+                    saved.positions.some((value) => !Number.isFinite(value)))
+                    throw new GraflumeError('INVALID_SPEC', 'Invalid snapshot categorical positions.');
+                const positions = saved.positions;
+                axes[id] = {
+                    kind: scale.kind,
+                    descriptor,
+                    bandwidth: saved.bandwidth,
+                    domain: () => descriptor.domain,
+                    range: () => descriptor.range,
+                    map: (value) => {
+                        const key = value instanceof Date ? value.toISOString() : String(value);
+                        const index = descriptor.domain.findIndex((candidate) => String(candidate) === key);
+                        return index < 0 ? Number.NaN : positions[index];
+                    },
+                    ticks: (count, locale) => scale.ticks(count, locale).map((tick) => ({
+                        ...tick,
+                        position: positions[descriptor.domain.findIndex((value) => value === tick.value)] ??
+                            tick.position,
+                    })),
+                };
+            }
+            else
+                axes[id] = scale;
+        }
+        return { ...context, axes };
+    }
+    function captureChartSnapshot(spec, renderSpec, result, state) {
+        const snapshot = snapshotJSONCopy({
+            schema: chartSnapshotSchema,
+            spec,
+            renderSpec,
+            scene: result.scene,
+            svg: sceneToSVG(result.scene),
+            theme: result.theme,
+            dataLineage: result.dataLineage,
+            coordinates: captureCoordinates(result.coordinates, result.spec),
+            coordinateViews: result.coordinateViews.map((view) => ({
+                ...view,
+                coordinates: captureCoordinates(view.coordinates, result.spec),
+            })),
+            legend: sceneLegendLayout(result.scene),
+            state,
+        });
+        return snapshot;
+    }
+    /** Import real vector primitives; callers supply truthful datum/semantic metadata, never bitmap substitutes. */
+    function snapshotFromScene(scene, options = {}) {
+        const spec = options.spec ?? {
+            data: [],
+            mark: 'point',
+            x: { field: 'x', type: 'quantitative' },
+            y: { field: 'y', type: 'quantitative' },
+            axes: { x: false, y: false },
+            renderer: 'svg',
+            theme: 'statistical-minimal',
+            interaction: {
+                tooltip: { title: scene.accessibility.label },
+                navigation: { minZoom: 1, maxZoom: 6 },
+                controls: { zoom: true, reset: true, fullscreen: true, export: true },
+            },
+        };
+        const normalized = normalizeSpec$1(spec);
+        if (normalized.interaction.domainNavigation !== false ||
+            normalized.interaction.selection !== false ||
+            normalized.interaction.playback !== false)
+            throw new GraflumeError('INVALID_SPEC', 'Imported scenes support inspection navigation; data-domain navigation, selection, and playback require a compiled data model.');
+        const coordinates = { plot: { x: 0, y: 0, width: scene.width, height: scene.height }, axes: {} };
+        const result = {
+            scene,
+            spec: normalized,
+            theme: new ThemeRegistry().resolve(normalized.theme),
+            dataLineage: {},
+            coordinates,
+            coordinateViews: [
+                {
+                    id: 'plot',
+                    label: scene.accessibility.label,
+                    bounds: coordinates.plot,
+                    offsetX: 0,
+                    offsetY: 0,
+                    coordinates,
+                },
+            ],
+        };
+        const snapshot = {
+            ...captureChartSnapshot(spec, spec, result, {
+                view: { zoom: 1, offsetX: 0, offsetY: 0 },
+                hiddenLegendItems: [],
+            }),
+            importedScene: true,
+        };
+        return restoreChartSnapshot(snapshot).snapshot;
+    }
+    /** Validates before mounting DOM; never compiles marks, runs transforms, or lays out a chart. */
+    function restoreChartSnapshot(input) {
+        try {
+            const snapshot = snapshotJSONCopy(input);
+            if (snapshot?.schema !== chartSnapshotSchema)
+                throw new Error('Unsupported snapshot schema.');
+            normalizeSpec$1(snapshot.spec);
+            const spec = normalizeSpec$1(snapshot.renderSpec);
+            for (const dimension of [snapshot.scene.width, snapshot.scene.height])
+                if (!Number.isFinite(dimension) || dimension < 1 || dimension > chartSnapshotLimits.dimension)
+                    throw new Error('Snapshot dimensions are out of range.');
+            if (!Array.isArray(snapshot.scene.semanticIndex) ||
+                !Array.isArray(snapshot.coordinateViews) ||
+                snapshot.coordinateViews.length > 64 ||
+                !Array.isArray(snapshot.state.hiddenLegendItems) ||
+                snapshot.state.hiddenLegendItems.some((id) => typeof id !== 'string'))
+                throw new Error('Invalid snapshot metadata.');
+            const view = snapshot.state.view;
+            if (!Number.isFinite(view.zoom) ||
+                view.zoom < 1 ||
+                view.zoom > 6 ||
+                !Number.isFinite(view.offsetX) ||
+                !Number.isFinite(view.offsetY))
+                throw new Error('Invalid snapshot inspection view.');
+            if (snapshot.state.domainView !== undefined)
+                normalizeDomainViewState(snapshot.state.domainView);
+            if (snapshot.state.analyticSelection !== undefined)
+                normalizeAnalyticSelectionState(snapshot.state.analyticSelection);
+            if (snapshot.state.annotations !== undefined)
+                normalizeSpec$1({ ...snapshot.spec, annotations: snapshot.state.annotations });
+            // Equality with a literal-only, escaped serializer prevents stored SVG injection.
+            if (typeof snapshot.svg !== 'string' || snapshot.svg !== sceneToSVG(snapshot.scene))
+                throw new Error('Snapshot SVG does not match its vector scene.');
+            const result = {
+                scene: snapshot.scene,
+                spec,
+                theme: snapshot.theme,
+                dataLineage: snapshot.dataLineage,
+                coordinates: restoreCoordinates(snapshot.coordinates),
+                coordinateViews: snapshot.coordinateViews.map((view) => ({
+                    ...view,
+                    coordinates: restoreCoordinates(view.coordinates),
+                })),
+            };
+            registerLegendLayout(result.scene, snapshot.legend);
+            return { snapshot, result };
+        }
+        catch {
+            throw new GraflumeError('INVALID_SPEC', 'Invalid or unsupported chart snapshot.');
+        }
     }
 
     const adaptiveContractVersion = '0.1';
@@ -39186,6 +40559,13 @@ var Graflume = (function (exports) {
         return JSON.stringify([target.layerId ?? null, rows, target.field ?? null, values]);
     }
     class Chart {
+        #renderSpec = null;
+        #importedScene = false;
+        /** Restore validates the persisted vector payload before touching the target DOM. */
+        static restore(target, input, registry, options = {}) {
+            const restored = restoreChartSnapshot(input);
+            return new Chart(target, restored.snapshot.spec, registry, options, restored);
+        }
         #target;
         #registry;
         #events = new EventEmitter();
@@ -39367,7 +40747,7 @@ var Graflume = (function (exports) {
             }
             this.#events.emit('fullscreenchange', { chart: this, active });
         };
-        constructor(target, spec, registry, options = {}) {
+        constructor(target, spec, registry, options = {}, restored) {
             this.#target = resolveTarget(target);
             canvasSemanticViewSequence += 1;
             this.#semanticViewId = `canvas-view-${canvasSemanticViewSequence}`;
@@ -39403,11 +40783,15 @@ var Graflume = (function (exports) {
             }
             try {
                 this.#configureEnvironmentListeners();
-                this.render();
+                if (restored === undefined)
+                    this.render();
+                else
+                    this.#restoreSnapshotSurface(restored);
                 this.#linkedViewUnregister =
                     options.linkedViewStore?.register(this.#semanticViewId, (change) => this.#applyLinkedViewState(change)) ?? null;
                 this.#configureResizeObserver();
-                this.#startAutoplay();
+                if (restored === undefined)
+                    this.#startAutoplay();
             }
             catch (error) {
                 try {
@@ -39431,6 +40815,85 @@ var Graflume = (function (exports) {
         }
         getScene() {
             return this.#result?.scene ?? null;
+        }
+        /** Capture the completed scene and interaction geometry; no compilation is performed. */
+        toSnapshot() {
+            this.#assertAlive();
+            if (this.#result === null)
+                throw new GraflumeError('INVALID_SPEC', 'A chart must be rendered before it can be saved.');
+            const snapshot = captureChartSnapshot(this.#spec, this.#renderSpec ?? this.#spec, this.#result, {
+                view: this.#view,
+                hiddenLegendItems: [...this.#hiddenLegendItems],
+                domainView: this.#domainView,
+                analyticSelection: this.#analyticSelection.get(),
+                selection: this.#selection,
+                annotations: this.#annotations,
+                annotationsVisible: this.#annotationsVisible,
+                markLabelPositions: this.#markLabels.positions(),
+            });
+            return this.#importedScene ? { ...snapshot, importedScene: true } : snapshot;
+        }
+        toSVG() {
+            this.#assertAlive();
+            if (this.#result === null)
+                throw new GraflumeError('INVALID_SPEC', 'A chart must be rendered before it can be exported.');
+            return sceneToSVG(this.#result.scene);
+        }
+        #restoreSnapshotSurface({ snapshot, result }) {
+            this.#renderSpec = snapshot.renderSpec;
+            this.#importedScene = snapshot.importedScene === true;
+            this.#result = result;
+            this.#displayScene = result.scene;
+            this.#view = { ...snapshot.state.view };
+            this.#hiddenLegendItems = new Set(snapshot.state.hiddenLegendItems);
+            if (snapshot.state.domainView !== undefined)
+                this.#domainView = snapshot.state.domainView;
+            if (snapshot.state.analyticSelection !== undefined)
+                this.#analyticSelection.set(snapshot.state.analyticSelection);
+            if (snapshot.state.selection !== undefined)
+                this.#selection = snapshot.state.selection.map(cloneDatumTarget);
+            if (snapshot.state.annotations !== undefined) {
+                this.#annotations = snapshot.state.annotations.map(cloneAnnotation);
+                this.#annotationHistory.reset(this.#annotations);
+            }
+            if (snapshot.state.annotationsVisible !== undefined)
+                this.#annotationsVisible = snapshot.state.annotationsVisible;
+            if (snapshot.state.markLabelPositions !== undefined)
+                this.#markLabels.replace(snapshot.state.markLabelPositions);
+            const renderer = new SVGRenderer();
+            this.#renderer = renderer;
+            this.#rendererName = 'svg';
+            const dimensions = this.#snapshotDimensions(result.scene);
+            renderer.mount(this.#target, {
+                ...dimensions,
+                pixelRatio: this.#pixelRatio(),
+                ariaLabel: result.scene.accessibility.label,
+                ...(result.scene.accessibility.description === undefined
+                    ? {}
+                    : { ariaDescription: result.scene.accessibility.description }),
+            });
+            renderer.restore(result.scene, snapshot.svg);
+            this.#constrainViewToScene();
+            renderer.setInspectionView(this.#view);
+            this.#syncSurfaceEvents();
+            this.#adaptiveState = resolveAdaptiveProfile(detectBrowserAdaptiveEnvironment({
+                ...dimensions,
+                rowCount: result.scene.metadata.rowCount,
+            }, this.#adaptiveOptions.environment), this.#adaptiveOptions);
+            const adaptiveHost = renderer.overlayHost();
+            if (adaptiveHost !== null)
+                applyAdaptiveSurface(adaptiveHost, renderer.surface(), this.#adaptiveState);
+            this.#syncControls();
+            this.#syncLegend();
+            this.#syncAccessibilityMirror();
+            this.#syncMarkLabelAccessibility();
+            this.#syncSelectionAccessibility();
+        }
+        #snapshotDimensions(scene) {
+            const width = this.#manualWidth ?? (this.#target.clientWidth || scene.width);
+            const height = this.#manualHeight ?? (this.#target.clientHeight || scene.height);
+            const fit = Math.min(1, Math.max(1, width) / scene.width, Math.max(1, height) / scene.height);
+            return { width: scene.width * fit, height: scene.height * fit };
         }
         domainToPixel(axis, value, viewId) {
             this.#assertAlive();
@@ -41165,6 +42628,7 @@ var Graflume = (function (exports) {
         setSpec(spec) {
             this.#assertAlive();
             const normalized = normalizeSpec$1(spec);
+            this.#importedScene = false;
             this.#destroyTableEditor();
             this.#tableDataHistory.clear();
             this.pause();
@@ -41760,6 +43224,13 @@ var Graflume = (function (exports) {
         }
         render() {
             this.#assertAlive();
+            if (this.#importedScene && this.#renderer !== null && this.#result !== null) {
+                const dimensions = this.#snapshotDimensions(this.#result.scene);
+                this.#renderer.resize(dimensions.width, dimensions.height, this.#pixelRatio());
+                this.#syncControls();
+                this.#syncLegend();
+                return this;
+            }
             this.#cancelSceneTransition();
             return this.#renderEndpoint();
         }
@@ -41788,6 +43259,7 @@ var Graflume = (function (exports) {
                 ? { ...playbackSpecInput, width: 'container', height: 'container' }
                 : playbackSpecInput;
             const effectiveSpec = adaptChartSpec(dimensionSpec, this.#adaptiveState);
+            this.#renderSpec = effectiveSpec;
             const analyticSelectionDraft = this.#analyticSelectionDraft();
             const result = compileWithRegistry(effectiveSpec, this.#registry, dimensions, {
                 hiddenLegendItemIds: this.#hiddenLegendItems,
@@ -44400,7 +45872,16 @@ var Graflume = (function (exports) {
                 this.#legend.destroy();
                 return;
             }
-            this.#legend.sync(host, sceneLegendLayout(result.scene), result.spec.legend, this.#view, {
+            const surfaceWidth = this.#renderer?.surface()?.getBoundingClientRect().width ?? result.scene.width;
+            const fit = this.#rendererName === 'svg' ? surfaceWidth / result.scene.width : 1;
+            const view = fit > 0 && fit !== 1
+                ? {
+                    zoom: this.#view.zoom * fit,
+                    offsetX: this.#view.offsetX * fit,
+                    offsetY: this.#view.offsetY * fit,
+                }
+                : this.#view;
+            this.#legend.sync(host, sceneLegendLayout(result.scene), result.spec.legend, view, {
                 setVisible: (id, visible) => this.#setLegendItemVisible(id, visible, 'toggle'),
             });
         }
@@ -52157,468 +53638,6 @@ var Graflume = (function (exports) {
         return nodes;
     };
 
-    const capabilities$2 = {
-        vector: false,
-        gpu: false,
-        worker: false,
-        exportFormats: ['image/png', 'image/jpeg', 'image/webp'],
-        inspectionViewport: true,
-    };
-    const maximumProviderTileRequests = 8;
-    const maximumDecodedProviderTiles = 128;
-    function tileSourceKey(source) {
-        return JSON.stringify([
-            source.type,
-            source.template,
-            source.attribution,
-            source.minimumZoom ?? null,
-            source.maximumZoom ?? null,
-            source.tileSize ?? null,
-            source.subdomains ?? [],
-        ]);
-    }
-    function providerTileKey(source, tile) {
-        return `${tileSourceKey(source)}\u0000${tileUrl(source, tile)}`;
-    }
-    function collectVisibleProviderTiles(node, output) {
-        if (!node.visible || node.opacity <= 0)
-            return;
-        if (node.type === 'rect' && node.providerTile !== undefined) {
-            const request = node.providerTile;
-            output.set(providerTileKey(request.source, request.tile), request);
-        }
-        if (node.type === 'group') {
-            for (const child of node.children)
-                collectVisibleProviderTiles(child, output);
-        }
-    }
-    async function decodeProviderTile(response) {
-        if (!response.mimeType.toLowerCase().startsWith('image/'))
-            return {};
-        const blob = new Blob([Uint8Array.from(response.bytes).buffer], { type: response.mimeType });
-        if (typeof createImageBitmap === 'function') {
-            const image = await createImageBitmap(blob);
-            return { image, dispose: () => image.close() };
-        }
-        if (typeof Image === 'undefined' ||
-            typeof URL === 'undefined' ||
-            typeof URL.createObjectURL !== 'function')
-            throw new Error('Provider raster tiles require createImageBitmap or Image support.');
-        const objectUrl = URL.createObjectURL(blob);
-        const image = new Image();
-        try {
-            await new Promise((resolve, reject) => {
-                image.addEventListener('load', () => resolve(), { once: true });
-                image.addEventListener('error', () => reject(new Error('Provider raster tile decode failed.')), {
-                    once: true,
-                });
-                image.src = objectUrl;
-            });
-            return { image, dispose: () => URL.revokeObjectURL(objectUrl) };
-        }
-        catch (error) {
-            URL.revokeObjectURL(objectUrl);
-            throw error;
-        }
-    }
-    function roundedRectPath(context, x, y, width, height, radius) {
-        const resolvedRadius = Math.max(0, Math.min(radius, Math.abs(width) / 2, Math.abs(height) / 2));
-        context.moveTo(x + resolvedRadius, y);
-        context.lineTo(x + width - resolvedRadius, y);
-        context.quadraticCurveTo(x + width, y, x + width, y + resolvedRadius);
-        context.lineTo(x + width, y + height - resolvedRadius);
-        context.quadraticCurveTo(x + width, y + height, x + width - resolvedRadius, y + height);
-        context.lineTo(x + resolvedRadius, y + height);
-        context.quadraticCurveTo(x, y + height, x, y + height - resolvedRadius);
-        context.lineTo(x, y + resolvedRadius);
-        context.quadraticCurveTo(x, y, x + resolvedRadius, y);
-    }
-    class CanvasRenderer {
-        name = 'canvas';
-        capabilities = capabilities$2;
-        #root = null;
-        #canvas = null;
-        #context = null;
-        #width = 0;
-        #height = 0;
-        #pixelRatio = 1;
-        #inspectionView = { zoom: 1, offsetX: 0, offsetY: 0 };
-        #tileManagers = new Map();
-        #tileImages = new Map();
-        #tileQueue = [];
-        #activeTileRequests = 0;
-        #tileGeneration = 0;
-        #visibleTileKeys = new Set();
-        #lastScene = null;
-        #destroyed = false;
-        mount(target, options) {
-            if (this.#root !== null)
-                this.destroy();
-            this.#destroyed = false;
-            const root = document.createElement('div');
-            root.dataset.graflumeRoot = 'true';
-            root.style.position = 'relative';
-            root.style.width = '100%';
-            root.style.height = '100%';
-            root.style.overflow = 'hidden';
-            const canvas = document.createElement('canvas');
-            canvas.dataset.graflumeSurface = 'canvas';
-            canvas.style.display = 'block';
-            canvas.style.width = `${options.width}px`;
-            canvas.style.height = `${options.height}px`;
-            canvas.setAttribute('role', 'img');
-            canvas.setAttribute('aria-label', options.ariaLabel);
-            if (options.ariaDescription !== undefined) {
-                canvas.setAttribute('aria-description', options.ariaDescription);
-            }
-            const context = canvas.getContext('2d');
-            if (context === null)
-                throw new Error('Canvas 2D context is unavailable.');
-            root.append(canvas);
-            target.append(root);
-            this.#root = root;
-            this.#canvas = canvas;
-            this.#context = context;
-            this.resize(options.width, options.height, options.pixelRatio);
-        }
-        resize(width, height, pixelRatio) {
-            if (this.#canvas === null || this.#context === null)
-                return;
-            this.#width = Math.max(1, width);
-            this.#height = Math.max(1, height);
-            this.#pixelRatio = Math.max(1, pixelRatio);
-            this.#canvas.width = Math.round(this.#width * this.#pixelRatio);
-            this.#canvas.height = Math.round(this.#height * this.#pixelRatio);
-            this.#canvas.style.width = `${this.#width}px`;
-            this.#canvas.style.height = `${this.#height}px`;
-            this.#context.setTransform(this.#pixelRatio, 0, 0, this.#pixelRatio, 0, 0);
-        }
-        render(scene) {
-            const context = this.#context;
-            if (context === null)
-                return;
-            this.#lastScene = scene;
-            this.#reconcileProviderTiles(scene.root);
-            this.#paint(scene);
-        }
-        #paint(scene) {
-            const context = this.#context;
-            if (context === null)
-                return;
-            context.save();
-            context.setTransform(this.#pixelRatio, 0, 0, this.#pixelRatio, 0, 0);
-            context.clearRect(0, 0, this.#width, this.#height);
-            context.fillStyle = scene.background;
-            context.fillRect(0, 0, scene.width, scene.height);
-            if (this.#inspectionView.zoom !== 1 ||
-                this.#inspectionView.offsetX !== 0 ||
-                this.#inspectionView.offsetY !== 0) {
-                context.translate(this.#inspectionView.offsetX, this.#inspectionView.offsetY);
-                context.scale(this.#inspectionView.zoom, this.#inspectionView.zoom);
-            }
-            this.#drawNode(context, scene.root);
-            context.restore();
-        }
-        surface() {
-            return this.#canvas;
-        }
-        overlayHost() {
-            return this.#root;
-        }
-        setInspectionView(transform) {
-            this.#inspectionView = transform;
-        }
-        toDataURL(type = 'image/png', quality) {
-            if (this.#canvas === null)
-                throw new Error('Renderer is not mounted.');
-            return this.#canvas.toDataURL(type, quality);
-        }
-        /** Observable provider state for diagnostics and deterministic host readiness checks. */
-        providerTileState() {
-            const states = [...this.#tileImages.values()];
-            return Object.freeze({
-                sources: this.#tileManagers.size,
-                loading: states.filter(({ status }) => status === 'queued' || status === 'loading').length,
-                ready: states.filter(({ status }) => status === 'ready').length,
-                failed: states.filter(({ status }) => status === 'failed').length,
-            });
-        }
-        destroy() {
-            this.#destroyed = true;
-            this.#tileGeneration += 1;
-            for (const state of this.#tileImages.values()) {
-                if (state.status === 'queued' || state.status === 'loading') {
-                    state.controller.abort(new DOMException('Canvas provider tile destroyed.', 'AbortError'));
-                }
-            }
-            for (const manager of this.#tileManagers.values())
-                manager.destroy();
-            this.#tileManagers.clear();
-            for (const state of this.#tileImages.values()) {
-                if (state.status === 'ready')
-                    state.dispose?.();
-            }
-            this.#tileImages.clear();
-            this.#tileQueue = [];
-            this.#activeTileRequests = 0;
-            this.#visibleTileKeys.clear();
-            this.#lastScene = null;
-            this.#root?.remove();
-            this.#root = null;
-            this.#canvas = null;
-            this.#context = null;
-            this.#inspectionView = { zoom: 1, offsetX: 0, offsetY: 0 };
-        }
-        #drawNode(context, node) {
-            if (!node.visible || node.opacity <= 0)
-                return;
-            context.save();
-            context.globalAlpha *= node.opacity;
-            switch (node.type) {
-                case 'group':
-                    this.#drawGroup(context, node);
-                    break;
-                case 'line':
-                    this.#drawLine(context, node);
-                    break;
-                case 'path':
-                    this.#drawPath(context, node);
-                    break;
-                case 'rect':
-                    this.#drawRect(context, node);
-                    break;
-                case 'circle':
-                    this.#drawCircle(context, node);
-                    break;
-                case 'text':
-                    this.#drawText(context, node);
-                    break;
-            }
-            context.restore();
-        }
-        #drawGroup(context, node) {
-            if (node.clip !== undefined) {
-                context.beginPath();
-                context.rect(node.clip.x, node.clip.y, node.clip.width, node.clip.height);
-                context.clip();
-            }
-            const children = [...node.children].sort((left, right) => left.zIndex - right.zIndex);
-            for (const child of children)
-                this.#drawNode(context, child);
-        }
-        #drawLine(context, node) {
-            context.beginPath();
-            context.moveTo(node.x1, node.y1);
-            context.lineTo(node.x2, node.y2);
-            context.strokeStyle = node.stroke;
-            context.lineWidth = node.lineWidth;
-            context.lineCap = node.lineCap ?? 'butt';
-            context.setLineDash(node.dash === undefined ? [] : [...node.dash]);
-            context.stroke();
-        }
-        #drawPath(context, node) {
-            const paths = [node.points, ...(node.subpaths ?? [])].filter((points) => points.length > 0);
-            if (paths.length === 0)
-                return;
-            context.beginPath();
-            for (const points of paths) {
-                const first = points[0];
-                if (first === undefined)
-                    continue;
-                context.moveTo(first.x, first.y);
-                for (let index = 1; index < points.length; index += 1) {
-                    const point = points[index];
-                    if (point !== undefined)
-                        context.lineTo(point.x, point.y);
-                }
-                if (node.closed)
-                    context.closePath();
-            }
-            context.setLineDash(node.dash === undefined ? [] : [...node.dash]);
-            context.lineCap = node.lineCap ?? 'round';
-            context.lineJoin = node.lineJoin ?? 'round';
-            if (node.fill !== undefined) {
-                context.fillStyle = node.fill;
-                context.fill(node.fillRule ?? 'nonzero');
-            }
-            if (node.stroke !== undefined && node.lineWidth > 0) {
-                context.strokeStyle = node.stroke;
-                context.lineWidth = node.lineWidth;
-                context.stroke();
-            }
-        }
-        #drawRect(context, node) {
-            context.beginPath();
-            roundedRectPath(context, node.x, node.y, node.width, node.height, node.cornerRadius);
-            context.closePath();
-            context.setLineDash(node.dash === undefined ? [] : [...node.dash]);
-            if (node.fill !== undefined) {
-                context.fillStyle = node.fill;
-                context.fill();
-            }
-            if (node.providerTile !== undefined) {
-                const image = this.#providerTileImage(node.providerTile.source, node.providerTile.tile);
-                if (image !== undefined)
-                    context.drawImage(image, node.x, node.y, node.width, node.height);
-            }
-            if (node.stroke !== undefined && node.lineWidth > 0) {
-                context.strokeStyle = node.stroke;
-                context.lineWidth = node.lineWidth;
-                context.stroke();
-            }
-        }
-        #providerTileImage(source, tile) {
-            const key = providerTileKey(source, tile);
-            const current = this.#tileImages.get(key);
-            if (current?.status === 'ready') {
-                this.#tileImages.delete(key);
-                this.#tileImages.set(key, current);
-                return current.image;
-            }
-            return undefined;
-        }
-        #reconcileProviderTiles(root) {
-            const visible = new Map();
-            collectVisibleProviderTiles(root, visible);
-            this.#visibleTileKeys = new Set(visible.keys());
-            for (const [key, state] of this.#tileImages) {
-                if (visible.has(key))
-                    continue;
-                if (state.status === 'queued' || state.status === 'loading') {
-                    state.controller.abort(new DOMException('Canvas provider tile left the visible scene.', 'AbortError'));
-                    this.#tileImages.delete(key);
-                }
-                else if (state.status === 'failed') {
-                    this.#tileImages.delete(key);
-                }
-            }
-            this.#tileQueue = this.#tileQueue.filter((key) => {
-                const state = this.#tileImages.get(key);
-                return visible.has(key) && state?.status === 'queued';
-            });
-            for (const [key, request] of visible) {
-                const current = this.#tileImages.get(key);
-                if (current?.status === 'ready') {
-                    this.#tileImages.delete(key);
-                    this.#tileImages.set(key, current);
-                }
-                else if (current === undefined) {
-                    const controller = new AbortController();
-                    this.#tileImages.set(key, { status: 'queued', request, controller });
-                    this.#tileQueue.push(key);
-                }
-            }
-            this.#drainProviderTileQueue();
-        }
-        #drainProviderTileQueue() {
-            while (!this.#destroyed &&
-                this.#activeTileRequests < maximumProviderTileRequests &&
-                this.#tileQueue.length > 0) {
-                const key = this.#tileQueue.shift();
-                const queued = this.#tileImages.get(key);
-                if (queued?.status !== 'queued' ||
-                    queued.controller.signal.aborted ||
-                    !this.#visibleTileKeys.has(key)) {
-                    if (queued?.status === 'queued')
-                        this.#tileImages.delete(key);
-                    continue;
-                }
-                const sourceKey = tileSourceKey(queued.request.source);
-                let manager = this.#tileManagers.get(sourceKey);
-                if (manager === undefined) {
-                    manager = new MapTileManager(queued.request.source, fetchMapTile);
-                    this.#tileManagers.set(sourceKey, manager);
-                }
-                const generation = this.#tileGeneration;
-                const controller = queued.controller;
-                const request = queued.request;
-                this.#tileImages.set(key, { ...queued, status: 'loading' });
-                this.#activeTileRequests += 1;
-                void manager
-                    .load(request.tile, controller.signal)
-                    .then(decodeProviderTile)
-                    .then((decoded) => {
-                    const current = this.#tileImages.get(key);
-                    if (this.#destroyed ||
-                        generation !== this.#tileGeneration ||
-                        controller.signal.aborted ||
-                        !this.#visibleTileKeys.has(key) ||
-                        current?.status !== 'loading' ||
-                        current.controller !== controller) {
-                        decoded.dispose?.();
-                        return;
-                    }
-                    this.#tileImages.delete(key);
-                    this.#tileImages.set(key, { status: 'ready', ...decoded });
-                    this.#evictDecodedProviderTiles();
-                    if (this.#lastScene !== null)
-                        this.#paint(this.#lastScene);
-                })
-                    .catch(() => {
-                    const current = this.#tileImages.get(key);
-                    if (!this.#destroyed &&
-                        generation === this.#tileGeneration &&
-                        current?.status === 'loading' &&
-                        current.controller === controller) {
-                        if (controller.signal.aborted || !this.#visibleTileKeys.has(key))
-                            this.#tileImages.delete(key);
-                        else
-                            this.#tileImages.set(key, { status: 'failed' });
-                    }
-                })
-                    .finally(() => {
-                    if (generation !== this.#tileGeneration)
-                        return;
-                    this.#activeTileRequests = Math.max(0, this.#activeTileRequests - 1);
-                    this.#drainProviderTileQueue();
-                });
-            }
-        }
-        #evictDecodedProviderTiles() {
-            let ready = [...this.#tileImages.values()].filter(({ status }) => status === 'ready').length;
-            if (ready <= maximumDecodedProviderTiles)
-                return;
-            for (const [key, state] of this.#tileImages) {
-                if (ready <= maximumDecodedProviderTiles)
-                    break;
-                if (state.status !== 'ready')
-                    continue;
-                this.#tileImages.delete(key);
-                state.dispose?.();
-                ready -= 1;
-            }
-        }
-        #drawCircle(context, node) {
-            context.beginPath();
-            context.arc(node.cx, node.cy, node.radius, 0, Math.PI * 2);
-            context.setLineDash(node.dash === undefined ? [] : [...node.dash]);
-            if (node.fill !== undefined) {
-                context.fillStyle = node.fill;
-                context.fill();
-            }
-            if (node.stroke !== undefined && node.lineWidth > 0) {
-                context.strokeStyle = node.stroke;
-                context.lineWidth = node.lineWidth;
-                context.stroke();
-            }
-        }
-        #drawText(context, node) {
-            context.translate(node.x, node.y);
-            context.rotate((node.rotation * Math.PI) / 180);
-            context.fillStyle = node.fill;
-            const fontStyle = node.fontStyle === undefined ? '' : `${node.fontStyle} `;
-            context.font = `${fontStyle}${node.fontWeight} ${node.fontSize}px ${node.fontFamily}`;
-            context.textAlign = node.align;
-            context.textBaseline = node.baseline;
-            context.fillText(node.text, 0, 0);
-        }
-    }
-    const canvasRendererFactory = {
-        name: 'canvas',
-        capabilities: capabilities$2,
-        create: () => new CanvasRenderer(),
-    };
-
     const capabilities$1 = {
         vector: false,
         gpu: true,
@@ -52971,49 +53990,6 @@ void main() {
 
     const pluginApiVersion = '0.1';
 
-    class ThemeRegistry {
-        #themes = new Map();
-        constructor() {
-            for (const entry of builtInThemeCatalog)
-                this.register(entry.tokens);
-        }
-        register(theme) {
-            if (theme.name.trim() === '') {
-                throw new GraflumeError('INVALID_SPEC', 'Theme name must not be empty.', {
-                    path: '$.theme.name',
-                });
-            }
-            this.#themes.set(theme.name, theme);
-        }
-        has(name) {
-            return this.#themes.has(name);
-        }
-        get(name) {
-            const theme = this.#themes.get(name);
-            if (theme === undefined) {
-                throw new GraflumeError('INVALID_SPEC', `Unknown theme "${name}".`, {
-                    path: '$.theme',
-                    details: { availableThemes: this.names() },
-                });
-            }
-            return theme;
-        }
-        names() {
-            return [...this.#themes.keys()].sort();
-        }
-        resolve(input) {
-            if (typeof input === 'string')
-                return this.get(input);
-            const baseName = input.extends ?? defaultThemeId;
-            const { extends: _extends, ...overrides } = input;
-            const merged = deepMerge(this.get(baseName), overrides);
-            return {
-                ...merged,
-                name: merged.name || `custom:${baseName}`,
-            };
-        }
-    }
-
     class RuntimeRegistry {
         themes = new ThemeRegistry();
         /** Built-in and host-registered formatter ids used by compiled table marks. */
@@ -53096,6 +54072,7 @@ void main() {
     function createDefaultRegistry() {
         const registry = new RuntimeRegistry();
         registry.registerRenderer(canvasRendererFactory);
+        registry.registerRenderer(svgRendererFactory);
         registry.registerRenderer(scatterWebGLRendererFactory);
         registry.registerMark('line', compileOrderedLineMark);
         registry.registerMark('bar', compileRankedBarMark);
@@ -55384,6 +56361,15 @@ void main() {
     function create(target, spec, options) {
         return new Chart(target, spec, defaultRegistry, options);
     }
+    /** Reconnect a completed SVG snapshot without initial compilation or mark layout. */
+    function restore(target, snapshot, options) {
+        return Chart.restore(target, snapshot, defaultRegistry, options);
+    }
+    /** Parse real SVG vector geometry and connect the normal chart inspection runtime. */
+    function fromSVG(target, source, options = {}) {
+        const scene = sceneFromSVG(source, options);
+        return restore(target, snapshotFromScene(scene, options.spec === undefined ? {} : { spec: options.spec }), options.create);
+    }
     function compile(spec, options) {
         return compileWithRegistry(spec, defaultRegistry, options);
     }
@@ -55588,6 +56574,7 @@ void main() {
     exports.MapTileManager = MapTileManager;
     exports.MarkLabelHistory = MarkLabelHistory;
     exports.RuntimeRegistry = RuntimeRegistry;
+    exports.SVGRenderer = SVGRenderer;
     exports.ScatterWebGLRenderer = ScatterWebGLRenderer;
     exports.SemanticFocusStore = SemanticFocusStore;
     exports.TableFormatterRegistry = TableFormatterRegistry;
@@ -55635,6 +56622,8 @@ void main() {
     exports.capabilities = capabilities;
     exports.cartesianAxisChannel = cartesianAxisChannel;
     exports.ccdf = ccdf;
+    exports.chartSnapshotLimits = chartSnapshotLimits;
+    exports.chartSnapshotSchema = chartSnapshotSchema;
     exports.chartTypeCatalog = chartTypeCatalog;
     exports.chartVariantCatalog = chartVariantCatalog;
     exports.chordEdgesToMatrix = chordEdgesToMatrix;
@@ -55705,6 +56694,7 @@ void main() {
     exports.fetchMapTile = fetchMapTile;
     exports.fitMapBounds = fitMapBounds;
     exports.flowRuntimeOptions = flowRuntimeOptions;
+    exports.fromSVG = fromSVG;
     exports.funnelStages = funnelStages;
     exports.gantt = gantt;
     exports.gauge = gauge;
@@ -55820,6 +56810,7 @@ void main() {
     exports.replayIncrementalData = replayIncrementalData;
     exports.resolveAdaptiveProfile = resolveAdaptiveProfile;
     exports.resolveScatterRendererDispatch = resolveScatterRendererDispatch;
+    exports.restore = restore;
     exports.restoreWorkerStreamRetentionRuntime = restoreWorkerStreamRetentionRuntime;
     exports.rugStrip = rugStrip;
     exports.sampleRaster = sampleRaster;
@@ -55829,6 +56820,8 @@ void main() {
     exports.scatterMatrixPointerBrush = scatterMatrixPointerBrush;
     exports.scatterMatrixRuntimeOptions = scatterMatrixRuntimeOptions;
     exports.scatterWebGLRendererFactory = scatterWebGLRendererFactory;
+    exports.sceneFromSVG = sceneFromSVG;
+    exports.sceneToSVG = sceneToSVG;
     exports.scopeGeoJsonFeatures = scopeGeoJsonFeatures;
     exports.selectMapBoundarySources = selectMapBoundarySources;
     exports.selectNetworkNodes = selectNetworkNodes;
@@ -55840,9 +56833,11 @@ void main() {
     exports.sha256MapBoundary = sha256MapBoundary;
     exports.sharedHistogramBins = sharedHistogramBins;
     exports.snapMarkLabelOffset = snapMarkLabelOffset;
+    exports.snapshotFromScene = snapshotFromScene;
     exports.specVersion = specVersion;
     exports.startAnalyticKeyboardGesture = startAnalyticKeyboardGesture;
     exports.steppedArea = steppedArea;
+    exports.svgRendererFactory = svgRendererFactory;
     exports.table = table;
     exports.tableRuntimeOptions = tableRuntimeOptions;
     exports.tileUrl = tileUrl;

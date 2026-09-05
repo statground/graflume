@@ -57,535 +57,404 @@ var Graflume = (function (exports) {
         });
     }
 
-    const family$2 = (id, name, quickApi, mark) => ({
-        id,
-        name,
-        quickApi,
-        mark,
-    });
-    const variant$1 = (id, name, quickApi, mark, familyId, mode = 'default') => ({ id, name, quickApi, mark, familyId, mode });
-    /** Distinct families added by the complete entrypoint. */
-    const additionalChartTypeCatalog = [
-        family$2('polar', 'Polar chart', 'polar', 'polar'),
-        family$2('network', 'Network chart', 'network', 'graph'),
-        family$2('chord', 'Chord diagram', 'chord', 'chord'),
-        family$2('funnel', 'Funnel chart', 'funnel', 'funnel'),
-        family$2('parallel', 'Parallel coordinates', 'parallel', 'parallel'),
-        family$2('heatmap', 'Heatmap', 'heatmap', 'heatmap'),
-        family$2('image', 'Raster image', 'image', 'image'),
-        family$2('ternary', 'Ternary chart', 'ternary', 'ternary'),
-        family$2('smith', 'Smith chart', 'smith', 'smith'),
-        family$2('scatter-matrix', 'Scatter matrix', 'scatterMatrix', 'scatter-matrix'),
-        family$2('carpet', 'Carpet chart', 'carpet', 'carpet'),
-    ];
-    /** Existing advanced names retained as compatible presets. */
-    const additionalChartVariantCatalog = [
-        variant$1('polar', 'Polar chart', 'polar', 'polar', 'polar'),
-        variant$1('radar', 'Radar chart', 'radar', 'radar', 'polar', 'radar'),
-        variant$1('polar-line', 'Polar line chart', 'polarLine', 'polar', 'polar', 'line'),
-        variant$1('polar-scatter', 'Polar scatter chart', 'polarScatter', 'polar', 'polar', 'scatter'),
-        variant$1('polar-bar', 'Polar bar chart', 'polarBar', 'polar', 'polar', 'bar'),
-        variant$1('tree', 'Tree chart', 'tree', 'tree', 'hierarchy', 'tree'),
-        variant$1('graph', 'Graph chart', 'graph', 'graph', 'network', 'node-link'),
-        variant$1('chord', 'Chord diagram', 'chord', 'chord', 'chord'),
-        variant$1('funnel', 'Funnel chart', 'funnel', 'funnel', 'funnel'),
-        variant$1('funnel-area', 'Funnel area chart', 'funnelArea', 'funnel', 'funnel', 'area'),
-        variant$1('parallel', 'Parallel coordinates', 'parallel', 'parallel', 'parallel'),
-        variant$1('parallel-categories', 'Parallel categories', 'parallelCategories', 'parallel', 'parallel', 'categories'),
-        variant$1('boxplot', 'Boxplot', 'boxplot', 'boxplot', 'distribution', 'boxplot'),
-        variant$1('effect-scatter', 'Effect scatter chart', 'effectScatter', 'effect-scatter', 'scatter', 'emphasis'),
-        variant$1('lines', 'Connection lines', 'lines', 'lines', 'network', 'connections'),
-        variant$1('heatmap', 'Heatmap', 'heatmap', 'heatmap', 'heatmap'),
-        variant$1('image', 'Raster image', 'image', 'image', 'image'),
-        variant$1('ternary', 'Ternary chart', 'ternary', 'ternary', 'ternary'),
-        variant$1('smith', 'Smith chart', 'smith', 'smith', 'smith'),
-        variant$1('scatter-matrix', 'Scatter matrix', 'scatterMatrix', 'scatter-matrix', 'scatter-matrix'),
-        variant$1('carpet', 'Carpet chart', 'carpet', 'carpet', 'carpet'),
-        variant$1('carpet-scatter', 'Carpet scatter overlay', 'carpetScatter', 'carpet', 'carpet', 'scatter'),
-        variant$1('carpet-contour', 'Carpet contour overlay', 'carpetContour', 'carpet', 'carpet', 'contour'),
-        variant$1('pictorial-bar', 'Pictorial bar chart', 'pictorialBar', 'pictorial-bar', 'bar', 'pictorial'),
-        variant$1('theme-river', 'Theme river chart', 'themeRiver', 'theme-river', 'area', 'stream'),
-        variant$1('sunburst', 'Sunburst chart', 'sunburst', 'sunburst', 'hierarchy', 'sunburst'),
-        variant$1('custom', 'Declarative custom chart', 'custom', 'custom', 'custom'),
-    ];
-
-    const family$1 = (id, name, quickApi, mark) => ({
-        id,
-        name,
-        quickApi,
-        mark,
-    });
-    const variant = (id, name, quickApi, mark, familyId, mode = 'default', metadata = {}) => ({ id, name, quickApi, mark, familyId, mode, ...metadata });
-    const researchFoundationsIntroduction = {
-        introducedIn: 'research-foundations-2026-08-25',
-    };
-    /** Established chart families shown in discovery surfaces. */
-    const chartTypeCatalog = [
-        family$1('annotation', 'Annotation chart', 'annotation', 'annotation'),
-        family$1('area', 'Area chart', 'area', 'area'),
-        family$1('bar', 'Bar chart', 'bar', 'bar'),
-        family$1('bubble', 'Bubble chart', 'bubble', 'bubble'),
-        family$1('calendar', 'Calendar chart', 'calendar', 'calendar'),
-        family$1('candlestick', 'Candlestick chart', 'candlestick', 'candlestick'),
-        family$1('combination', 'Combination chart', 'combo', 'multiple'),
-        family$1('difference', 'Difference chart', 'diff', 'diff'),
-        family$1('pie', 'Pie chart', 'pie', 'pie'),
-        family$1('timeline', 'Timeline and range chart', 'timeline', 'timeline'),
-        family$1('gauge', 'Gauge chart', 'gauge', 'gauge'),
-        family$1('map', 'Map chart', 'map', 'map'),
-        family$1('distribution', 'Distribution chart', 'distribution', 'distribution'),
-        family$1('interval', 'Interval chart', 'intervals', 'interval'),
-        family$1('line', 'Line chart', 'line', 'line'),
-        family$1('motion', 'Motion chart', 'motion', 'motion'),
-        family$1('hierarchy', 'Hierarchy chart', 'treemap', 'treemap'),
-        family$1('flow', 'Flow diagram', 'sankey', 'sankey'),
-        family$1('scatter', 'Scatter chart', 'scatter', 'point'),
-        family$1('table', 'Table chart', 'table', 'table'),
-        family$1('waterfall', 'Waterfall chart', 'waterfall', 'waterfall'),
-        family$1('word-tree', 'Word tree', 'wordTree', 'word-tree'),
-    ];
-    /** Existing Quick API names retained as compatible presets. */
-    const chartVariantCatalog = [
-        variant('annotation', 'Annotation chart', 'annotation', 'annotation', 'annotation'),
-        variant('annotated-timeline', 'Annotated timeline', 'annotatedTimeline', 'annotation', 'annotation', 'timeline'),
-        variant('area', 'Area chart', 'area', 'area', 'area'),
-        variant('bar', 'Bar chart', 'horizontalBar', 'bar', 'bar', 'horizontal'),
-        variant('bubble', 'Bubble chart', 'bubble', 'bubble', 'bubble'),
-        variant('calendar', 'Calendar chart', 'calendar', 'calendar', 'calendar'),
-        variant('candlestick', 'Candlestick chart', 'candlestick', 'candlestick', 'candlestick'),
-        variant('column', 'Column chart', 'column', 'bar', 'bar', 'vertical'),
-        variant('combo', 'Combo chart', 'combo', 'multiple', 'combination'),
-        variant('diff', 'Diff chart', 'diff', 'diff', 'difference'),
-        variant('donut', 'Donut chart', 'donut', 'pie', 'pie', 'donut'),
-        variant('gantt', 'Gantt chart', 'gantt', 'gantt', 'timeline', 'gantt'),
-        variant('gauge', 'Gauge chart', 'gauge', 'gauge', 'gauge'),
-        variant('gauge-number', 'Number indicator', 'gaugeNumber', 'gauge', 'gauge', 'number'),
-        variant('gauge-delta', 'Delta indicator', 'gaugeDelta', 'gauge', 'gauge', 'delta'),
-        variant('gauge-bullet', 'Bullet gauge', 'gaugeBullet', 'gauge', 'gauge', 'bullet'),
-        variant('geo', 'Geographic region chart', 'geo', 'geo', 'map', 'region'),
-        variant('distribution', 'Distribution chart', 'distribution', 'distribution', 'distribution', 'histogram'),
-        variant('histogram', 'Histogram', 'histogram', 'histogram', 'distribution', 'histogram'),
-        variant('ecdf', 'Empirical cumulative distribution', 'ecdf', 'distribution', 'distribution', 'ecdf', researchFoundationsIntroduction),
-        variant('ccdf', 'Complementary empirical distribution', 'ccdf', 'distribution', 'distribution', 'ccdf', researchFoundationsIntroduction),
-        variant('kde', 'Kernel density estimate', 'kde', 'distribution', 'distribution', 'kde', researchFoundationsIntroduction),
-        variant('histogram-2d', 'Bivariate histogram', 'histogram2d', 'distribution', 'distribution', 'histogram-2d'),
-        variant('histogram-2d-contour', 'Bivariate density contours', 'histogram2dContour', 'distribution', 'distribution', 'histogram-2d-contour'),
-        variant('violin', 'Violin chart', 'violin', 'distribution', 'distribution', 'violin'),
-        variant('intervals', 'Intervals', 'intervals', 'interval', 'interval'),
-        variant('line', 'Line chart', 'line', 'line', 'line'),
-        variant('map', 'Map', 'map', 'map', 'map'),
-        variant('motion', 'Motion chart', 'motion', 'motion', 'motion'),
-        variant('org', 'Organization chart', 'org', 'org', 'hierarchy', 'organization'),
-        variant('pie', 'Pie chart', 'pie', 'pie', 'pie'),
-        variant('sankey', 'Sankey diagram', 'sankey', 'sankey', 'flow'),
-        variant('scatter', 'Scatter chart', 'scatter', 'point', 'scatter'),
-        variant('stepped-area', 'Stepped area chart', 'steppedArea', 'stepped-area', 'area', 'stepped'),
-        variant('table', 'Table chart', 'table', 'table', 'table'),
-        variant('timeline', 'Timeline', 'timeline', 'timeline', 'timeline'),
-        variant('treemap', 'Tree map', 'treemap', 'treemap', 'hierarchy', 'treemap'),
-        variant('icicle', 'Icicle chart', 'icicle', 'treemap', 'hierarchy', 'icicle'),
-        variant('trendline', 'Trendline', 'trendline', 'trendline', 'line', 'trend'),
-        variant('vega', 'Portable adapter chart', 'vegaChart', 'vega', 'custom', 'adapter'),
-        variant('waterfall', 'Waterfall chart', 'waterfall', 'waterfall', 'waterfall'),
-        variant('word-tree', 'Word tree', 'wordTree', 'word-tree', 'word-tree'),
-    ];
-
-    const variantFamilyOverrides = {
-        'arc-diagram': 'network',
-        'area-range': 'interval',
-        'area-spline': 'area',
-        'area-spline-range': 'interval',
-        'bell-curve': 'distribution',
-        bullet: 'bar',
-        'column-pyramid': 'bar',
-        'column-range': 'interval',
-        cylinder: 'bar',
-        'dependency-wheel': 'chord',
-        dumbbell: 'interval',
-        'error-bar': 'interval',
-        'event-flags': 'annotation',
-        'funnel-3d': 'funnel',
-        'heikin-ashi': 'candlestick',
-        'high-low-close': 'candlestick',
-        'hollow-candlestick': 'candlestick',
-        kagi: 'price-blocks',
-        lollipop: 'bar',
-        'network-graph': 'network',
-        'open-high-low-close': 'candlestick',
-        'organization-network': 'hierarchy',
-        'packed-bubble': 'bubble',
-        pareto: 'combination',
-        'pictorial-column': 'bar',
-        polygon: 'area',
-        pyramid: 'funnel',
-        'pyramid-3d': 'funnel',
-        'scatter-3d': 'scatter',
-        'three-line-break': 'price-blocks',
-        'solid-gauge': 'gauge',
-        spline: 'line',
-        streamgraph: 'area',
-        'tile-map': 'heatmap',
-        'tree-graph': 'hierarchy',
-        'variable-pie': 'pie',
-        'variable-width': 'bar',
-        'range-bars': 'price-blocks',
-        vector: 'vector-field',
-        'volume-by-price': 'volume-profile',
-        'wind-barb': 'vector-field',
-        'x-range': 'timeline',
-    };
-    function familyIdFor(id, category) {
-        const override = variantFamilyOverrides[id];
-        if (override)
-            return override;
-        if (category === 'indicator')
-            return 'technical-indicator';
-        if (category === 'map')
-            return 'map';
-        if (id === 'point-and-figure' || id === 'renko')
-            return 'price-blocks';
-        return id;
-    }
-    const entry = (id, name, quickApi, mark, category, _legacyFamily = id) => {
-        const familyId = familyIdFor(id, category);
-        return {
-            id,
-            name,
-            quickApi,
-            mark,
-            category,
-            familyId,
-            mode: familyId === id ? 'default' : id,
-            canonicalFamily: familyId,
+    /** Import bounded R/SVG vector geometry into a Graflume Scene, never live markup. */
+    function sceneFromSVG(source, options = {}) {
+        if (typeof source !== 'string' ||
+            source.length > 8_000_000 ||
+            /<!DOCTYPE|<!ENTITY/i.test(source)) {
+            throw new Error('Invalid SVG document');
+        }
+        const document = new DOMParser().parseFromString(source, 'image/svg+xml');
+        const root = document.documentElement;
+        if (root.localName !== 'svg' || document.querySelector('parsererror'))
+            throw new Error('Invalid SVG document');
+        const numbers = (value) => (value?.match(/[-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?/g) ?? []).map(Number);
+        const viewBox = numbers(root.getAttribute('viewBox'));
+        const width = viewBox[2] ?? parseFloat(root.getAttribute('width') ?? '864');
+        const height = viewBox[3] ?? parseFloat(root.getAttribute('height') ?? '540');
+        if (!(width > 0 && width <= 32_768 && height > 0 && height <= 32_768))
+            throw new Error('Invalid SVG dimensions');
+        const limit = (value, fallback, cap) => {
+            if (value !== undefined && (!Number.isSafeInteger(value) || value < 1))
+                throw new Error('Invalid SVG budget');
+            return Math.min(value ?? fallback, cap);
         };
-    };
-    const currentLimitationsRelease = 'current-limitations-2026-08-26';
-    const currentReleaseEntry = (...args) => ({
-        ...entry(...args),
-        introducedIn: currentLimitationsRelease,
-    });
-    /**
-     * Specialized series that extend the established and advanced catalogs.
-     * Existing families are represented once and reused through canonical aliases.
-     */
-    const seriesChartVariantCatalog = [
-        entry('arc-diagram', 'Arc diagram', 'arcDiagram', 'arc-diagram', 'relationship'),
-        entry('area-range', 'Area range chart', 'areaRange', 'range', 'cartesian'),
-        entry('area-spline', 'Smooth area chart', 'areaSpline', 'smooth', 'cartesian'),
-        entry('area-spline-range', 'Smooth area range chart', 'areaSplineRange', 'range', 'cartesian'),
-        entry('bell-curve', 'Bell curve', 'bellCurve', 'distribution', 'distribution'),
-        entry('bullet', 'Bullet chart', 'bullet', 'bullet', 'cartesian'),
-        entry('column-pyramid', 'Column pyramid chart', 'columnPyramid', 'pyramid', 'cartesian'),
-        entry('column-range', 'Column range chart', 'columnRange', 'range', 'cartesian'),
-        entry('contour', 'Contour chart', 'contour', 'contour', 'distribution'),
-        entry('cylinder', 'Cylinder chart', 'cylinder', 'cylinder', 'cartesian'),
-        entry('dependency-wheel', 'Dependency wheel', 'dependencyWheel', 'chord', 'relationship', 'chord'),
-        entry('dumbbell', 'Dumbbell chart', 'dumbbell', 'range', 'cartesian'),
-        entry('error-bar', 'Error bar chart', 'errorBar', 'interval', 'cartesian', 'intervals'),
-        entry('funnel-3d', 'Depth funnel chart', 'funnel3d', 'pyramid', 'radial'),
-        entry('item', 'Item chart', 'itemChart', 'item', 'radial'),
-        entry('lollipop', 'Lollipop chart', 'lollipop', 'lollipop', 'cartesian'),
-        entry('network-graph', 'Network graph', 'networkGraph', 'graph', 'relationship', 'graph'),
-        entry('organization-network', 'Organization network', 'organizationNetwork', 'org', 'relationship', 'org'),
-        entry('packed-bubble', 'Packed bubble chart', 'packedBubble', 'packed-bubble', 'relationship'),
-        entry('pareto', 'Pareto chart', 'pareto', 'pareto', 'distribution'),
-        entry('pictorial-column', 'Pictorial column chart', 'pictorialColumn', 'pictorial-bar', 'cartesian', 'pictorial-bar'),
-        entry('polygon', 'Polygon chart', 'polygon', 'polygon', 'cartesian'),
-        entry('pyramid', 'Pyramid chart', 'pyramid', 'pyramid', 'radial'),
-        entry('pyramid-3d', 'Depth pyramid chart', 'pyramid3d', 'pyramid', 'radial', 'pyramid'),
-        entry('scatter-3d', 'Three-axis scatter chart', 'scatter3d', 'scatter-3d', 'cartesian'),
-        entry('solid-gauge', 'Solid gauge', 'solidGauge', 'solid-gauge', 'radial'),
-        entry('spline', 'Spline chart', 'spline', 'smooth', 'cartesian'),
-        entry('streamgraph', 'Streamgraph', 'streamgraph', 'theme-river', 'distribution', 'theme-river'),
-        entry('tile-map', 'Tile map', 'tileMap', 'tilemap', 'map'),
-        entry('tree-graph', 'Tree graph', 'treeGraph', 'tree', 'relationship', 'tree'),
-        entry('variable-pie', 'Variable radius pie chart', 'variablePie', 'variable-pie', 'radial'),
-        entry('variable-width', 'Variable width column chart', 'variableWidth', 'variwide', 'cartesian'),
-        entry('vector', 'Vector field chart', 'vector', 'vector', 'cartesian'),
-        entry('venn', 'Venn diagram', 'venn', 'venn', 'relationship'),
-        entry('wind-barb', 'Wind barb chart', 'windBarb', 'wind-barb', 'cartesian'),
-        entry('word-cloud', 'Word cloud', 'wordCloud', 'word-cloud', 'relationship'),
-        entry('x-range', 'Horizontal range chart', 'xRange', 'timeline', 'cartesian', 'timeline'),
-        entry('acceleration-bands', 'Acceleration bands', 'accelerationBands', 'indicator', 'indicator'),
-        entry('awesome-oscillator', 'Awesome oscillator', 'awesomeOscillator', 'indicator', 'indicator'),
-        entry('absolute-price-oscillator', 'Absolute price oscillator', 'absolutePriceOscillator', 'indicator', 'indicator'),
-        entry('aroon', 'Aroon indicator', 'aroon', 'indicator', 'indicator'),
-        entry('aroon-oscillator', 'Aroon oscillator', 'aroonOscillator', 'indicator', 'indicator'),
-        entry('average-true-range', 'Average true range', 'averageTrueRange', 'indicator', 'indicator'),
-        entry('volatility-bands', 'Volatility bands', 'volatilityBands', 'indicator', 'indicator'),
-        entry('commodity-channel-index', 'Commodity channel index', 'commodityChannelIndex', 'indicator', 'indicator'),
-        entry('chaikin-oscillator', 'Chaikin oscillator', 'chaikinOscillator', 'indicator', 'indicator'),
-        entry('chaikin-money-flow', 'Chaikin money flow', 'chaikinMoneyFlow', 'indicator', 'indicator'),
-        entry('chande-momentum-oscillator', 'Chande momentum oscillator', 'chandeMomentumOscillator', 'indicator', 'indicator'),
-        entry('double-exponential-average', 'Double exponential moving average', 'doubleExponentialMovingAverage', 'indicator', 'indicator'),
-        entry('disparity-index', 'Disparity index', 'disparityIndex', 'indicator', 'indicator'),
-        entry('directional-movement-index', 'Directional movement index', 'directionalMovementIndex', 'indicator', 'indicator'),
-        entry('detrended-price-oscillator', 'Detrended price oscillator', 'detrendedPriceOscillator', 'indicator', 'indicator'),
-        entry('exponential-moving-average', 'Exponential moving average', 'exponentialMovingAverage', 'indicator', 'indicator'),
-        entry('event-flags', 'Event flags', 'eventFlags', 'flags', 'financial'),
-        entry('heikin-ashi', 'Heikin-Ashi chart', 'heikinAshi', 'financial', 'financial'),
-        entry('high-low-close', 'High-low-close chart', 'highLowClose', 'financial', 'financial'),
-        entry('hollow-candlestick', 'Hollow candlestick chart', 'hollowCandlestick', 'financial', 'financial'),
-        entry('ichimoku-cloud', 'Ichimoku cloud', 'ichimokuCloud', 'indicator', 'indicator'),
-        entry('keltner-channels', 'Keltner channels', 'keltnerChannels', 'indicator', 'indicator'),
-        entry('klinger-oscillator', 'Klinger oscillator', 'klingerOscillator', 'indicator', 'indicator'),
-        entry('linear-regression', 'Linear regression', 'linearRegression', 'indicator', 'indicator'),
-        entry('linear-regression-angle', 'Linear regression angle', 'linearRegressionAngle', 'indicator', 'indicator'),
-        entry('linear-regression-intercept', 'Linear regression intercept', 'linearRegressionIntercept', 'indicator', 'indicator'),
-        entry('linear-regression-slope', 'Linear regression slope', 'linearRegressionSlope', 'indicator', 'indicator'),
-        entry('moving-average-convergence-divergence', 'Moving average convergence divergence', 'movingAverageConvergenceDivergence', 'indicator', 'indicator'),
-        entry('money-flow-index', 'Money flow index', 'moneyFlowIndex', 'indicator', 'indicator'),
-        entry('momentum', 'Momentum indicator', 'momentumIndicator', 'indicator', 'indicator'),
-        entry('normalized-average-true-range', 'Normalized average true range', 'normalizedAverageTrueRange', 'indicator', 'indicator'),
-        entry('on-balance-volume', 'On-balance volume', 'onBalanceVolume', 'indicator', 'indicator'),
-        entry('open-high-low-close', 'Open-high-low-close chart', 'openHighLowClose', 'financial', 'financial'),
-        entry('price-channel', 'Price channel', 'priceChannel', 'indicator', 'indicator'),
-        entry('pivot-points', 'Pivot points', 'pivotPoints', 'indicator', 'indicator'),
-        entry('point-and-figure', 'Point and figure chart', 'pointAndFigure', 'point-figure', 'financial'),
-        entry('percentage-price-oscillator', 'Percentage price oscillator', 'percentagePriceOscillator', 'indicator', 'indicator'),
-        entry('price-envelopes', 'Price envelopes', 'priceEnvelopes', 'indicator', 'indicator'),
-        entry('parabolic-stop-and-reverse', 'Parabolic stop and reverse', 'parabolicStopAndReverse', 'indicator', 'indicator'),
-        entry('renko', 'Renko chart', 'renko', 'renko', 'financial'),
-        currentReleaseEntry('kagi', 'Kagi chart', 'kagi', 'renko', 'financial'),
-        currentReleaseEntry('three-line-break', 'Three line break chart', 'threeLineBreak', 'renko', 'financial'),
-        currentReleaseEntry('range-bars', 'Range bars chart', 'rangeBars', 'renko', 'financial'),
-        entry('rate-of-change', 'Rate of change', 'rateOfChange', 'indicator', 'indicator'),
-        entry('relative-strength-index', 'Relative strength index', 'relativeStrengthIndex', 'indicator', 'indicator'),
-        entry('slow-stochastic', 'Slow stochastic oscillator', 'slowStochastic', 'indicator', 'indicator'),
-        entry('simple-moving-average', 'Simple moving average', 'simpleMovingAverage', 'indicator', 'indicator'),
-        entry('stochastic', 'Stochastic oscillator', 'stochastic', 'indicator', 'indicator'),
-        entry('supertrend', 'Supertrend', 'supertrend', 'indicator', 'indicator'),
-        entry('triple-exponential-average', 'Triple exponential moving average', 'tripleExponentialMovingAverage', 'indicator', 'indicator'),
-        entry('triple-exponential-oscillator', 'Triple exponential average oscillator', 'tripleExponentialAverageOscillator', 'indicator', 'indicator'),
-        entry('volume-by-price', 'Volume by price', 'volumeByPrice', 'volume-profile', 'financial'),
-        entry('volume-weighted-average-price', 'Volume weighted average price', 'volumeWeightedAveragePrice', 'indicator', 'indicator'),
-        entry('williams-range', 'Williams range', 'williamsRange', 'indicator', 'indicator'),
-        entry('weighted-moving-average', 'Weighted moving average', 'weightedMovingAverage', 'indicator', 'indicator'),
-        entry('zigzag', 'Zigzag indicator', 'zigzag', 'indicator', 'indicator'),
-        entry('flow-map', 'Flow map', 'flowMap', 'geo-flow', 'map'),
-        entry('geo-heatmap', 'Geographic heatmap', 'geoHeatmap', 'geo-heatmap', 'map'),
-        entry('map-bubble', 'Map bubble chart', 'mapBubble', 'map', 'map', 'map'),
-        entry('map-line', 'Map line chart', 'mapLine', 'geo-line', 'map'),
-        entry('map-point', 'Map point chart', 'mapPoint', 'map', 'map', 'map'),
-        entry('tiled-map', 'Tiled map', 'tiledMap', 'tiled-map', 'map'),
-    ];
-    const family = (id, name, quickApi, mark, category) => ({ id, name, quickApi, mark, category });
-    /** Specialized families that add a distinct data model or reading task. */
-    const seriesChartTypeCatalog = [
-        family('contour', 'Contour chart', 'contour', 'contour', 'distribution'),
-        family('item', 'Item chart', 'itemChart', 'item', 'radial'),
-        family('vector-field', 'Vector field chart', 'vectorField', 'vector', 'cartesian'),
-        family('venn', 'Venn diagram', 'venn', 'venn', 'relationship'),
-        family('word-cloud', 'Word cloud', 'wordCloud', 'word-cloud', 'relationship'),
-        family('price-blocks', 'Price blocks chart', 'priceBlocks', 'renko', 'financial'),
-        family('volume-profile', 'Volume profile chart', 'volumeProfile', 'volume-profile', 'financial'),
-        family('technical-indicator', 'Technical indicator chart', 'technicalIndicator', 'indicator', 'indicator'),
-    ];
-    const directFamilyByVariant = {
-        area: 'area',
-        bar: 'bar',
-        boxplot: 'distribution',
-        bubble: 'bubble',
-        candlestick: 'candlestick',
-        column: 'bar',
-        funnel: 'funnel',
-        gantt: 'timeline',
-        gauge: 'gauge',
-        heatmap: 'heatmap',
-        histogram: 'distribution',
-        line: 'line',
-        map: 'map',
-        pie: 'pie',
-        sankey: 'flow',
-        scatter: 'scatter',
-        sunburst: 'hierarchy',
-        timeline: 'timeline',
-        treemap: 'hierarchy',
-        trendline: 'line',
-        waterfall: 'waterfall',
-    };
-    const seriesFamilyByVariant = new Map(seriesChartVariantCatalog.map(({ id, familyId }) => [id, familyId]));
-    const compatibility = (identifier, variantId) => ({
-        identifier,
-        familyId: seriesFamilyByVariant.get(variantId) ?? directFamilyByVariant[variantId] ?? variantId,
-        variantId,
-    });
-    /** Public series identifiers and the single catalog family that implements each one. */
-    const seriesCompatibilityCatalog = [
-        compatibility('abands', 'acceleration-bands'),
-        compatibility('ao', 'awesome-oscillator'),
-        compatibility('apo', 'absolute-price-oscillator'),
-        compatibility('arcdiagram', 'arc-diagram'),
-        compatibility('area', 'area'),
-        compatibility('arearange', 'area-range'),
-        compatibility('areaspline', 'area-spline'),
-        compatibility('areasplinerange', 'area-spline-range'),
-        compatibility('aroon', 'aroon'),
-        compatibility('aroonoscillator', 'aroon-oscillator'),
-        compatibility('atr', 'average-true-range'),
-        compatibility('bar', 'bar'),
-        compatibility('bb', 'volatility-bands'),
-        compatibility('bellcurve', 'bell-curve'),
-        compatibility('boxplot', 'boxplot'),
-        compatibility('bubble', 'bubble'),
-        compatibility('bullet', 'bullet'),
-        compatibility('candlestick', 'candlestick'),
-        compatibility('cci', 'commodity-channel-index'),
-        compatibility('chaikin', 'chaikin-oscillator'),
-        compatibility('cmf', 'chaikin-money-flow'),
-        compatibility('cmo', 'chande-momentum-oscillator'),
-        compatibility('column', 'column'),
-        compatibility('columnpyramid', 'column-pyramid'),
-        compatibility('columnrange', 'column-range'),
-        compatibility('contour', 'contour'),
-        compatibility('cylinder', 'cylinder'),
-        compatibility('dema', 'double-exponential-average'),
-        compatibility('dependencywheel', 'dependency-wheel'),
-        compatibility('disparityindex', 'disparity-index'),
-        compatibility('dmi', 'directional-movement-index'),
-        compatibility('dpo', 'detrended-price-oscillator'),
-        compatibility('dumbbell', 'dumbbell'),
-        compatibility('ema', 'exponential-moving-average'),
-        compatibility('errorbar', 'error-bar'),
-        compatibility('flags', 'event-flags'),
-        compatibility('flowmap', 'flow-map'),
-        compatibility('funnel', 'funnel'),
-        compatibility('funnel3d', 'funnel-3d'),
-        compatibility('gantt', 'gantt'),
-        compatibility('gauge', 'gauge'),
-        compatibility('geoheatmap', 'geo-heatmap'),
-        compatibility('heatmap', 'heatmap'),
-        compatibility('heikinashi', 'heikin-ashi'),
-        compatibility('histogram', 'histogram'),
-        compatibility('hlc', 'high-low-close'),
-        compatibility('hollowcandlestick', 'hollow-candlestick'),
-        compatibility('ikh', 'ichimoku-cloud'),
-        compatibility('item', 'item'),
-        compatibility('keltnerchannels', 'keltner-channels'),
-        compatibility('kagi', 'kagi'),
-        compatibility('klinger', 'klinger-oscillator'),
-        compatibility('line', 'line'),
-        compatibility('linearregression', 'linear-regression'),
-        compatibility('linearregressionangle', 'linear-regression-angle'),
-        compatibility('linearregressionintercept', 'linear-regression-intercept'),
-        compatibility('linearregressionslope', 'linear-regression-slope'),
-        compatibility('lollipop', 'lollipop'),
-        compatibility('macd', 'moving-average-convergence-divergence'),
-        compatibility('map', 'map'),
-        compatibility('mapbubble', 'map-bubble'),
-        compatibility('mapline', 'map-line'),
-        compatibility('mappoint', 'map-point'),
-        compatibility('mfi', 'money-flow-index'),
-        compatibility('momentum', 'momentum'),
-        compatibility('natr', 'normalized-average-true-range'),
-        compatibility('networkgraph', 'network-graph'),
-        compatibility('obv', 'on-balance-volume'),
-        compatibility('ohlc', 'open-high-low-close'),
-        compatibility('organization', 'organization-network'),
-        compatibility('packedbubble', 'packed-bubble'),
-        compatibility('pareto', 'pareto'),
-        compatibility('pc', 'price-channel'),
-        compatibility('pictorial', 'pictorial-column'),
-        compatibility('pie', 'pie'),
-        compatibility('pivotpoints', 'pivot-points'),
-        compatibility('pointandfigure', 'point-and-figure'),
-        compatibility('polygon', 'polygon'),
-        compatibility('ppo', 'percentage-price-oscillator'),
-        compatibility('priceenvelopes', 'price-envelopes'),
-        compatibility('psar', 'parabolic-stop-and-reverse'),
-        compatibility('pyramid', 'pyramid'),
-        compatibility('pyramid3d', 'pyramid-3d'),
-        compatibility('renko', 'renko'),
-        compatibility('rangebars', 'range-bars'),
-        compatibility('roc', 'rate-of-change'),
-        compatibility('rsi', 'relative-strength-index'),
-        compatibility('sankey', 'sankey'),
-        compatibility('scatter', 'scatter'),
-        compatibility('scatter3d', 'scatter-3d'),
-        compatibility('slowstochastic', 'slow-stochastic'),
-        compatibility('sma', 'simple-moving-average'),
-        compatibility('solidgauge', 'solid-gauge'),
-        compatibility('spline', 'spline'),
-        compatibility('stochastic', 'stochastic'),
-        compatibility('streamgraph', 'streamgraph'),
-        compatibility('sunburst', 'sunburst'),
-        compatibility('supertrend', 'supertrend'),
-        compatibility('tema', 'triple-exponential-average'),
-        compatibility('tiledwebmap', 'tiled-map'),
-        compatibility('tilemap', 'tile-map'),
-        compatibility('timeline', 'timeline'),
-        compatibility('threelinebreak', 'three-line-break'),
-        compatibility('treegraph', 'tree-graph'),
-        compatibility('treemap', 'treemap'),
-        compatibility('trendline', 'trendline'),
-        compatibility('trix', 'triple-exponential-oscillator'),
-        compatibility('variablepie', 'variable-pie'),
-        compatibility('variwide', 'variable-width'),
-        compatibility('vbp', 'volume-by-price'),
-        compatibility('vector', 'vector'),
-        compatibility('venn', 'venn'),
-        compatibility('vwap', 'volume-weighted-average-price'),
-        compatibility('waterfall', 'waterfall'),
-        compatibility('williamsr', 'williams-range'),
-        compatibility('windbarb', 'wind-barb'),
-        compatibility('wma', 'weighted-moving-average'),
-        compatibility('wordcloud', 'word-cloud'),
-        compatibility('xrange', 'x-range'),
-        compatibility('zigzag', 'zigzag'),
-    ];
-    const seriesCompatibilityIds = seriesCompatibilityCatalog.map(({ identifier }) => identifier);
-    const compatibilityByIdentifier = new Map(seriesCompatibilityCatalog.map((item) => [item.identifier, item]));
-    function resolveSeriesType(identifier) {
-        const normalized = identifier
-            .trim()
-            .toLowerCase()
-            .replaceAll(/[^a-z0-9]/g, '');
-        return compatibilityByIdentifier.get(normalized);
-    }
-
-    const SETTINGS = {
-        standard: {
-            profile: 'standard',
-            maxLinePoints: 100_000,
-            maxPointMarks: 25_000,
-            maxBarMarks: 25_000,
-            enableHitTesting: true,
-            enableAnimation: true,
-        },
-        large: {
-            profile: 'large',
-            maxLinePoints: 30_000,
-            maxPointMarks: 20_000,
-            maxBarMarks: 12_000,
-            enableHitTesting: false,
-            enableAnimation: false,
-        },
-        ultra: {
-            profile: 'ultra',
-            maxLinePoints: 8_000,
-            maxPointMarks: 8_000,
-            maxBarMarks: 5_000,
-            enableHitTesting: false,
-            enableAnimation: false,
-        },
-    };
-    function resolvePerformanceSettings(preference, rowCount, viewportWidth) {
-        const profile = preference === 'auto'
-            ? rowCount < 50_000
-                ? 'standard'
-                : rowCount < 1_000_000
-                    ? 'large'
-                    : 'ultra'
-            : preference;
-        const base = SETTINGS[profile];
-        if (profile === 'standard')
-            return base;
-        const pointsPerPixel = profile === 'ultra' ? 2 : 4;
-        const minimum = profile === 'ultra' ? 2_000 : 10_000;
-        const pixelAwareLineLimit = Math.max(minimum, Math.round(viewportWidth * pointsPerPixel));
+        const maxNodes = limit(options.maxNodes, 30_000, 50_000), maxPoints = limit(options.maxPoints, 250_000, 500_000);
+        const length = (raw, reference) => {
+            const match = raw
+                .trim()
+                .match(/^([-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?)(%|px|pt|pc|in|cm|mm)?$/);
+            if (match === null)
+                throw new Error('Unsupported SVG length');
+            const units = {
+                px: 1,
+                pt: 96 / 72,
+                pc: 16,
+                in: 96,
+                cm: 96 / 2.54,
+                mm: 96 / 25.4,
+            };
+            const value = Number(match[1]) * (match[2] === '%' ? reference / 100 : units[match[2] ?? 'px']);
+            if (!Number.isFinite(value))
+                throw new Error('Invalid SVG length');
+            return value;
+        };
+        const rules = [];
+        for (const sheet of Array.from(root.querySelectorAll('style'))) {
+            const css = sheet.textContent || '';
+            if (/@import|@font-face|url\s*\(/i.test(css))
+                throw new Error('External SVG styles are unsupported');
+            for (const match of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+                const probe = globalThis.document.createElement('span');
+                probe.style.cssText = match[2];
+                for (const selector of match[1].split(','))
+                    rules.push({ selector: selector.trim(), style: probe.style });
+            }
+        }
+        let nodeCount = 0, pointCount = 0;
+        const safeColor = (value, fallback) => {
+            if (!value || value === 'inherit')
+                return fallback;
+            if (value === 'none' || value === 'transparent')
+                return undefined;
+            if (/url\s*\(|[<>]|[\u0000-\u001f]/i.test(value))
+                throw new Error('External SVG paint is unsupported');
+            return value;
+        };
+        const alphaColor = (value, raw) => {
+            if (!value || raw === undefined)
+                return value;
+            const alpha = Number(raw);
+            if (!Number.isFinite(alpha) || alpha < 0 || alpha > 1)
+                throw new Error('Invalid SVG paint opacity');
+            if (alpha === 1)
+                return value;
+            const probe = globalThis.document.createElement('span');
+            probe.style.color = value;
+            probe.style.display = 'none';
+            if (!probe.style.color)
+                throw new Error('Invalid SVG color');
+            globalThis.document.documentElement.append(probe);
+            const color = getComputedStyle(probe).color;
+            probe.remove();
+            const channels = numbers(color);
+            if (!/^rgba?\(/i.test(color) || channels.length < 3)
+                throw new Error('Unsupported SVG alpha color');
+            return `rgba(${channels[0]},${channels[1]},${channels[2]},${(channels[3] ?? 1) * alpha})`;
+        };
+        const base = () => {
+            nodeCount++;
+            if (nodeCount > maxNodes)
+                throw new Error('SVG node limit exceeded');
+            return { id: `svg-${nodeCount}`, zIndex: nodeCount, opacity: 1, visible: true };
+        };
+        const point = (matrix, x, y) => {
+            pointCount++;
+            if (pointCount > maxPoints)
+                throw new Error('SVG point limit exceeded');
+            const value = new DOMPoint(x, y).matrixTransform(matrix);
+            if (![value.x, value.y].every(Number.isFinite))
+                throw new Error('Invalid SVG geometry');
+            return { x: value.x, y: value.y };
+        };
+        const visit = (node, parent, inherited, seen, inheritedDatum) => {
+            if (seen.size > 64 || seen.has(node))
+                throw new Error('Invalid recursive SVG reference');
+            const nextSeen = new Set(seen);
+            nextSeen.add(node);
+            const tag = node.localName;
+            if (['script', 'foreignObject', 'image', 'iframe', 'audio', 'video', 'animate', 'set'].includes(tag))
+                throw new Error('Active or raster SVG content is unsupported');
+            if (['defs', 'style', 'title', 'desc', 'metadata', 'clipPath'].includes(tag))
+                return [];
+            const style = { ...inherited };
+            delete style.opacity;
+            for (const key of [
+                'fill',
+                'stroke',
+                'stroke-width',
+                'stroke-dasharray',
+                'stroke-linecap',
+                'stroke-linejoin',
+                'fill-rule',
+                'fill-opacity',
+                'stroke-opacity',
+                'opacity',
+                'font-size',
+                'font-family',
+                'font-weight',
+                'font-style',
+                'text-anchor',
+                'display',
+                'visibility',
+            ]) {
+                for (const rule of rules) {
+                    try {
+                        if (node.matches(rule.selector) && rule.style.getPropertyValue(key))
+                            style[key] = rule.style.getPropertyValue(key);
+                    }
+                    catch (_) {
+                        throw new Error('Unsupported SVG selector');
+                    }
+                }
+                const value = node.style?.getPropertyValue(key) || node.getAttribute(key);
+                if (value)
+                    style[key] = value;
+            }
+            if (style.display === 'none' || style.visibility === 'hidden')
+                return [];
+            let matrix = parent;
+            const transforms = node.transform?.baseVal;
+            if (transforms?.numberOfItems) {
+                const m = transforms.consolidate()?.matrix;
+                if (m)
+                    matrix = parent.multiply(new DOMMatrix([m.a, m.b, m.c, m.d, m.e, m.f]));
+            }
+            const id = node.getAttribute('data-id') || node.getAttribute('data_id');
+            const tooltip = node.getAttribute('data-tooltip') ||
+                node.getAttribute('tooltip') ||
+                node.querySelector(':scope > title')?.textContent;
+            const datum = id || tooltip
+                ? {
+                    layerId: 'svg',
+                    rowIndex: nodeCount,
+                    datum: { id: id || '', tooltip: tooltip || '' },
+                    tooltip: { id: id || '', tooltip: tooltip || '' },
+                }
+                : inheritedDatum;
+            const common = {
+                ...base(),
+                opacity: Math.max(0, Math.min(1, Number(style.opacity ?? 1))),
+                ...(datum ? { interactive: true, datum } : {}),
+            };
+            const fill = alphaColor(safeColor(style.fill, '#000'), style['fill-opacity']), stroke = alphaColor(safeColor(style.stroke), style['stroke-opacity']);
+            const lineWidth = Math.max(0, length(style['stroke-width'] ?? '1', Math.hypot(width, height) / Math.SQRT2)) *
+                Math.hypot(matrix.a, matrix.b);
+            const paint = {
+                ...(fill ? { fill } : {}),
+                ...(stroke ? { stroke } : {}),
+                lineWidth,
+                dash: numbers(style['stroke-dasharray'] || null),
+            };
+            const num = (name, fallback = 0) => length(node.getAttribute(name) ?? String(fallback), ['x', 'x1', 'x2', 'cx', 'rx', 'width'].includes(name)
+                ? width
+                : ['y', 'y1', 'y2', 'cy', 'ry', 'height'].includes(name)
+                    ? height
+                    : Math.hypot(width, height) / Math.SQRT2);
+            if (tag === 'use') {
+                const href = node.getAttribute('href') || node.getAttributeNS('http://www.w3.org/1999/xlink', 'href');
+                if (!href || !/^#[^\s]+$/.test(href))
+                    throw new Error('External SVG references are unsupported');
+                const target = document.getElementById(href.slice(1));
+                if (!target)
+                    throw new Error('Missing SVG reference');
+                return [
+                    {
+                        ...common,
+                        type: 'group',
+                        children: visit(target, matrix.translate(num('x'), num('y')), style, nextSeen, datum),
+                    },
+                ];
+            }
+            if (['svg', 'g', 'symbol', 'a'].includes(tag)) {
+                const children = Array.from(node.children).flatMap((child) => visit(child, matrix, style, nextSeen, datum));
+                const group = { ...common, type: 'group', children };
+                const clip = node.getAttribute('clip-path')?.match(/^url\(#([^\s)]+)\)$/)?.[1];
+                if (clip) {
+                    const definition = document.getElementById(clip);
+                    const rect = definition?.querySelector('rect');
+                    if (rect) {
+                        if (matrix.b || matrix.c)
+                            throw new Error('Rotated SVG clips are unsupported');
+                        const p = point(matrix, Number(rect.getAttribute('x') || 0), Number(rect.getAttribute('y') || 0));
+                        return [
+                            {
+                                ...group,
+                                clip: {
+                                    x: p.x,
+                                    y: p.y,
+                                    width: Number(rect.getAttribute('width')) * Math.abs(matrix.a),
+                                    height: Number(rect.getAttribute('height')) * Math.abs(matrix.d),
+                                },
+                            },
+                        ];
+                    }
+                    const d = definition?.querySelector('path')?.getAttribute('d') || '';
+                    const sections = d.trim().split('Z');
+                    const outline = sections[0] ?? '';
+                    const commands = outline.match(/[ML]/g)?.join('');
+                    const values = numbers(outline);
+                    // Cairo appends an empty moveto at the rectangle origin after closing its clip.
+                    const tail = sections[1]?.trim() ?? '';
+                    const tailValues = numbers(tail);
+                    if (!/^[\s\d.,+eE\-MLZ]+$/.test(d) ||
+                        sections.length !== 2 ||
+                        (commands !== 'MLLL' && commands !== 'MLLLL') ||
+                        (tail !== '' &&
+                            (tail.match(/[ML]/g)?.join('') !== 'M' ||
+                                tailValues.length !== 2 ||
+                                tailValues[0] !== values[0] ||
+                                tailValues[1] !== values[1])) ||
+                        matrix.b ||
+                        matrix.c)
+                        throw new Error('Unsupported SVG clip');
+                    if (values.length === 10 && values[8] === values[0] && values[9] === values[1])
+                        values.splice(8, 2);
+                    if (values.length !== 8)
+                        throw new Error('Unsupported SVG clip');
+                    const xs = [values[0], values[2], values[4], values[6]], ys = [values[1], values[3], values[5], values[7]];
+                    if (new Set(xs).size !== 2 ||
+                        new Set(ys).size !== 2 ||
+                        xs.some((x, i) => x !== xs[(i + 1) % 4] && ys[i] !== ys[(i + 1) % 4]))
+                        throw new Error('Unsupported SVG clip');
+                    const a = point(matrix, Math.min(...xs), Math.min(...ys)), b = point(matrix, Math.max(...xs), Math.max(...ys));
+                    return [
+                        {
+                            ...group,
+                            clip: {
+                                x: Math.min(a.x, b.x),
+                                y: Math.min(a.y, b.y),
+                                width: Math.abs(b.x - a.x),
+                                height: Math.abs(b.y - a.y),
+                            },
+                        },
+                    ];
+                }
+                return [group];
+            }
+            if (tag === 'text') {
+                const p = point(matrix, num('x'), num('y'));
+                return [
+                    {
+                        ...common,
+                        type: 'text',
+                        ...p,
+                        text: node.textContent || '',
+                        fill: fill || 'transparent',
+                        fontFamily: style['font-family'] || 'sans-serif',
+                        fontSize: parseFloat(style['font-size'] || '12') * Math.hypot(matrix.a, matrix.b),
+                        fontWeight: style['font-weight'] || 'normal',
+                        fontStyle: style['font-style'] === 'italic' ? 'italic' : 'normal',
+                        align: style['text-anchor'] === 'middle'
+                            ? 'center'
+                            : style['text-anchor'] === 'end'
+                                ? 'right'
+                                : 'left',
+                        baseline: 'alphabetic',
+                        rotation: (Math.atan2(matrix.b, matrix.a) * 180) / Math.PI,
+                    },
+                ];
+            }
+            if (tag === 'line') {
+                const a = point(matrix, num('x1'), num('y1')), b = point(matrix, num('x2'), num('y2'));
+                return [
+                    {
+                        ...common,
+                        type: 'line',
+                        x1: a.x,
+                        y1: a.y,
+                        x2: b.x,
+                        y2: b.y,
+                        stroke: stroke || '#000',
+                        lineWidth,
+                        dash: paint.dash,
+                    },
+                ];
+            }
+            let paths = [], closed = false;
+            if (tag === 'rect') {
+                const x = num('x'), y = num('y'), w = num('width'), h = num('height');
+                closed = true;
+                paths = [
+                    [
+                        point(matrix, x, y),
+                        point(matrix, x + w, y),
+                        point(matrix, x + w, y + h),
+                        point(matrix, x, y + h),
+                    ],
+                ];
+            }
+            else if (tag === 'circle' || tag === 'ellipse') {
+                const cx = num('cx'), cy = num('cy'), rx = num(tag === 'circle' ? 'r' : 'rx'), ry = num(tag === 'circle' ? 'r' : 'ry');
+                closed = true;
+                paths = [
+                    Array.from({ length: 48 }, (_, i) => point(matrix, cx + rx * Math.cos((i * Math.PI) / 24), cy + ry * Math.sin((i * Math.PI) / 24))),
+                ];
+            }
+            else if (tag === 'polygon' || tag === 'polyline') {
+                const values = numbers(node.getAttribute('points'));
+                closed = tag === 'polygon';
+                paths = [
+                    Array.from({ length: Math.floor(values.length / 2) }, (_, i) => point(matrix, values[i * 2], values[i * 2 + 1])),
+                ];
+            }
+            else if (tag === 'path') {
+                const d = node.getAttribute('d') || '';
+                // Separate absolute moveto subpaths so glyph holes do not acquire connecting lines.
+                const segments = d.match(/[Mm][^Mm]*/g) || [];
+                let endpoint = { x: 0, y: 0 };
+                for (let segment of segments) {
+                    if (segment[0] === 'm') {
+                        const first = segment.match(/^m\s*([-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?)[\s,]*([-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?)/);
+                        if (!first)
+                            throw new Error('Invalid SVG moveto');
+                        const rest = segment.slice(first[0].length).trim().replace(/^,\s*/, '');
+                        segment = `M ${endpoint.x + Number(first[1])} ${endpoint.y + Number(first[2])} ${/^[-+.\d]/.test(rest) ? 'l ' : ''}${rest}`;
+                    }
+                    const path = globalThis.document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    path.setAttribute('d', segment);
+                    let length;
+                    try {
+                        length = path.getTotalLength();
+                    }
+                    catch (_) {
+                        throw new Error('Invalid SVG path');
+                    }
+                    if (!Number.isFinite(length) || length > 1_000_000)
+                        throw new Error('Invalid SVG path length');
+                    const count = Math.min(8192, Math.max(2, Math.ceil((length * Math.max(1, Math.hypot(matrix.a, matrix.b))) / 0.65)));
+                    paths.push(Array.from({ length: count + 1 }, (_, i) => {
+                        const p = path.getPointAtLength((length * i) / count);
+                        return point(matrix, p.x, p.y);
+                    }));
+                    endpoint = path.getPointAtLength(length);
+                    closed ||= /[zZ]\s*$/.test(segment);
+                }
+            }
+            else {
+                throw new Error(`Unsupported SVG geometry: ${tag}`);
+            }
+            return paths.length
+                ? [
+                    {
+                        ...common,
+                        ...paint,
+                        type: 'path',
+                        points: paths[0],
+                        ...(paths.length > 1 ? { subpaths: paths.slice(1) } : {}),
+                        closed,
+                        fillRule: style['fill-rule'] === 'evenodd' ? 'evenodd' : 'nonzero',
+                    },
+                ]
+                : [];
+        };
+        const matrix = new DOMMatrix().translate(-(viewBox[0] || 0), -(viewBox[1] || 0));
+        const nodes = visit(root, matrix, {}, new Set());
         return {
-            ...base,
-            maxLinePoints: Math.min(base.maxLinePoints, pixelAwareLineLimit),
+            width,
+            height,
+            background: '#fff',
+            root: { ...base(), type: 'group', children: nodes },
+            accessibility: {
+                label: options.title || root.querySelector('title')?.textContent || 'R chart',
+            },
+            semanticIndex: [],
+            metadata: {
+                rowCount: nodeCount,
+                renderedNodeCount: nodeCount,
+                performanceProfile: 'standard',
+                hitTestingEnabled: true,
+            },
         };
     }
 
@@ -602,478 +471,6 @@ var Graflume = (function (exports) {
             if (options.details !== undefined)
                 this.details = options.details;
         }
-    }
-
-    const UNSAFE_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
-    function assertSafeKey(key, path = key) {
-        if (UNSAFE_KEYS.has(key)) {
-            throw new GraflumeError('UNSAFE_KEY', `Unsafe key "${key}" is not allowed.`, { path });
-        }
-    }
-    function isPlainObject(value) {
-        if (value === null || typeof value !== 'object')
-            return false;
-        const prototype = Object.getPrototypeOf(value);
-        return prototype === Object.prototype || prototype === null;
-    }
-    function deepMerge(base, override) {
-        const output = { ...base };
-        for (const [key, overrideValue] of Object.entries(override)) {
-            assertSafeKey(key);
-            if (overrideValue === undefined)
-                continue;
-            const baseValue = output[key];
-            if (isPlainObject(baseValue) && isPlainObject(overrideValue)) {
-                output[key] = deepMerge(baseValue, overrideValue);
-            }
-            else if (Array.isArray(overrideValue)) {
-                output[key] = [...overrideValue];
-            }
-            else {
-                output[key] = overrideValue;
-            }
-        }
-        return output;
-    }
-    function ownValue(record, key) {
-        assertSafeKey(key, `data.${key}`);
-        return Object.prototype.hasOwnProperty.call(record, key) ? record[key] : null;
-    }
-    function clamp$d(value, min, max) {
-        return Math.min(max, Math.max(min, value));
-    }
-    function finiteNumber(value) {
-        if (value instanceof Date) {
-            const timestamp = value.getTime();
-            return Number.isFinite(timestamp) ? timestamp : null;
-        }
-        if (typeof value !== 'number')
-            return null;
-        return Number.isFinite(value) ? value : null;
-    }
-
-    const unsafeFields$2 = new Set(['__proto__', 'prototype', 'constructor']);
-    const types = new Set([
-        'filter',
-        'sort',
-        'calculate',
-        'aggregate',
-        'joinaggregate',
-        'bin',
-        'bin2d',
-        'density1d',
-        'density2d',
-        'stack',
-        'window',
-        'regression',
-        'fold',
-        'flatten',
-        'pivot',
-        'impute',
-        'lookup',
-        'quantile',
-        'sample',
-        'resample',
-        'timeUnit',
-    ]);
-    const expressionOps = new Set([
-        'literal',
-        'field',
-        'not',
-        'negate',
-        'isValid',
-        'toNumber',
-        'toString',
-        'add',
-        'subtract',
-        'multiply',
-        'divide',
-        'modulo',
-        'equal',
-        'notEqual',
-        'lessThan',
-        'lessThanOrEqual',
-        'greaterThan',
-        'greaterThanOrEqual',
-        'and',
-        'or',
-        'if',
-        'coalesce',
-    ]);
-    function issue(issues, path, message) {
-        issues.push({ path, message });
-    }
-    function field$4(value, path, issues) {
-        if (typeof value !== 'string' || value.trim() === '' || unsafeFields$2.has(value)) {
-            issue(issues, path, 'Transform field must be a non-empty safe string.');
-            return false;
-        }
-        return true;
-    }
-    function fields(value, path, issues, allowEmpty = false) {
-        if (!Array.isArray(value) || (!allowEmpty && value.length === 0) || value.length > 256) {
-            issue(issues, path, `Transform fields must be ${allowEmpty ? 'an' : 'a non-empty'} array of at most 256 fields.`);
-            return false;
-        }
-        value.forEach((item, index) => field$4(item, `${path}[${index}]`, issues));
-        return true;
-    }
-    function tuple(value, length, path, issues) {
-        if (!Array.isArray(value) || value.length !== length) {
-            issue(issues, path, `Transform output must contain exactly ${length} field names.`);
-            return;
-        }
-        value.forEach((item, index) => field$4(item, `${path}[${index}]`, issues));
-    }
-    function expression(value, path, issues, depth = 0) {
-        if (depth > 32 ||
-            !isPlainObject(value) ||
-            typeof value.op !== 'string' ||
-            !expressionOps.has(value.op)) {
-            issue(issues, path, depth > 32
-                ? 'Transform expression exceeds 32 levels.'
-                : 'Invalid closed transform expression.');
-            return;
-        }
-        const op = value.op;
-        const allowed = op === 'literal'
-            ? ['op', 'value']
-            : op === 'field'
-                ? ['op', 'field']
-                : ['not', 'negate', 'isValid', 'toNumber', 'toString'].includes(op)
-                    ? ['op', 'value']
-                    : op === 'if'
-                        ? ['op', 'condition', 'then', 'else']
-                        : op === 'coalesce'
-                            ? ['op', 'values']
-                            : ['op', 'left', 'right'];
-        Object.keys(value).forEach((key) => {
-            if (!allowed.includes(key))
-                issue(issues, `${path}.${key}`, `Unknown ${op} expression property "${key}".`);
-        });
-        if (op === 'literal') {
-            const literal = value.value;
-            if (literal !== null && !['string', 'number', 'boolean'].includes(typeof literal))
-                issue(issues, `${path}.value`, 'Literal must be a JSON scalar.');
-            if (typeof literal === 'number' && !Number.isFinite(literal))
-                issue(issues, `${path}.value`, 'Literal number must be finite.');
-        }
-        else if (op === 'field')
-            field$4(value.field, `${path}.field`, issues);
-        else if (['not', 'negate', 'isValid', 'toNumber', 'toString'].includes(op))
-            expression(value.value, `${path}.value`, issues, depth + 1);
-        else if (op === 'if') {
-            expression(value.condition, `${path}.condition`, issues, depth + 1);
-            expression(value.then, `${path}.then`, issues, depth + 1);
-            expression(value.else, `${path}.else`, issues, depth + 1);
-        }
-        else if (op === 'coalesce') {
-            if (!Array.isArray(value.values) || value.values.length === 0 || value.values.length > 32)
-                issue(issues, `${path}.values`, 'Coalesce requires 1..32 expressions.');
-            else
-                value.values.forEach((item, index) => expression(item, `${path}.values[${index}]`, issues, depth + 1));
-        }
-        else {
-            expression(value.left, `${path}.left`, issues, depth + 1);
-            expression(value.right, `${path}.right`, issues, depth + 1);
-        }
-    }
-    function validateTransformExpression(value, path, issues) {
-        expression(value, path, issues);
-    }
-    function positive$1(value, path, issues, integer = false) {
-        if (typeof value !== 'number' ||
-            !Number.isFinite(value) ||
-            value <= 0 ||
-            (integer && !Number.isInteger(value)))
-            issue(issues, path, `Value must be a positive${integer ? ' integer' : ''}.`);
-    }
-    function groupby(value, path, issues) {
-        if (value !== undefined)
-            fields(value, path, issues, true);
-    }
-    function sort(value, path, issues) {
-        if (!Array.isArray(value) || value.length === 0 || value.length > 32) {
-            issue(issues, path, 'Sort must contain 1..32 field declarations.');
-            return;
-        }
-        value.forEach((item, index) => {
-            const itemPath = `${path}[${index}]`;
-            if (!isPlainObject(item)) {
-                issue(issues, itemPath, 'Sort field must be an object.');
-                return;
-            }
-            Object.keys(item).forEach((key) => {
-                if (!['field', 'order'].includes(key))
-                    issue(issues, `${itemPath}.${key}`, `Unknown sort property "${key}".`);
-            });
-            field$4(item.field, `${itemPath}.field`, issues);
-            if (item.order !== undefined && item.order !== 'ascending' && item.order !== 'descending')
-                issue(issues, `${itemPath}.order`, 'Sort order must be ascending or descending.');
-        });
-    }
-    const keys = {
-        filter: ['type', 'expr'],
-        sort: ['type', 'by'],
-        calculate: ['type', 'as', 'expr'],
-        aggregate: ['type', 'groupby', 'fields'],
-        joinaggregate: ['type', 'groupby', 'fields'],
-        bin: ['type', 'field', 'as', 'maxbins', 'step', 'extent'],
-        bin2d: ['type', 'x', 'y', 'as', 'maxbins'],
-        density1d: ['type', 'field', 'as', 'groupby', 'points', 'bandwidth'],
-        density2d: ['type', 'x', 'y', 'as', 'bins', 'bandwidth'],
-        stack: ['type', 'field', 'groupby', 'series', 'sort', 'as', 'offset', 'order'],
-        window: ['type', 'fields', 'groupby', 'sort', 'frame'],
-        regression: ['type', 'x', 'y', 'as', 'groupby'],
-        fold: ['type', 'fields', 'as'],
-        flatten: ['type', 'fields', 'as'],
-        pivot: ['type', 'field', 'value', 'groupby', 'op'],
-        impute: ['type', 'field', 'key', 'groupby', 'method', 'value'],
-        lookup: ['type', 'field', 'from', 'key', 'values', 'as', 'default'],
-        quantile: ['type', 'field', 'probs', 'as', 'groupby'],
-        sample: ['type', 'size', 'seed'],
-        resample: ['type', 'field', 'interval', 'groupby', 'method'],
-        timeUnit: ['type', 'field', 'unit', 'as', 'utc'],
-    };
-    function validateTransforms(value, path, issues) {
-        if (value === undefined)
-            return;
-        if (!Array.isArray(value) || value.length > 128) {
-            issue(issues, path, 'Transforms must be an ordered array of at most 128 entries.');
-            return;
-        }
-        value.forEach((transform, index) => {
-            const itemPath = `${path}[${index}]`;
-            if (!isPlainObject(transform) ||
-                typeof transform.type !== 'string' ||
-                !types.has(transform.type)) {
-                issue(issues, itemPath, 'Transform type is not supported.');
-                return;
-            }
-            const t = transform.type;
-            Object.keys(transform).forEach((key) => {
-                if (!keys[t].includes(key))
-                    issue(issues, `${itemPath}.${key}`, `Unknown ${t} transform property "${key}".`);
-            });
-            if (t === 'filter' || t === 'calculate')
-                expression(transform.expr, `${itemPath}.expr`, issues);
-            if (t === 'calculate')
-                field$4(transform.as, `${itemPath}.as`, issues);
-            if (t === 'sort')
-                sort(transform.by, `${itemPath}.by`, issues);
-            if (['aggregate', 'joinaggregate'].includes(t)) {
-                groupby(transform.groupby, `${itemPath}.groupby`, issues);
-                if (!Array.isArray(transform.fields) ||
-                    transform.fields.length === 0 ||
-                    transform.fields.length > 128)
-                    issue(issues, `${itemPath}.fields`, 'Aggregate fields must contain 1..128 entries.');
-                else
-                    transform.fields.forEach((entry, entryIndex) => {
-                        const entryPath = `${itemPath}.fields[${entryIndex}]`;
-                        if (!isPlainObject(entry)) {
-                            issue(issues, entryPath, 'Aggregate field must be an object.');
-                            return;
-                        }
-                        Object.keys(entry).forEach((key) => {
-                            if (!['op', 'field', 'weight', 'as'].includes(key))
-                                issue(issues, `${entryPath}.${key}`, `Unknown aggregate field property "${key}".`);
-                        });
-                        if (![
-                            'count',
-                            'valid',
-                            'missing',
-                            'sum',
-                            'mean',
-                            'weightedMean',
-                            'min',
-                            'max',
-                            'median',
-                            'variance',
-                            'stdev',
-                        ].includes(String(entry.op)))
-                            issue(issues, `${entryPath}.op`, 'Aggregate operation is not supported.');
-                        field$4(entry.as, `${entryPath}.as`, issues);
-                        if (entry.field !== undefined)
-                            field$4(entry.field, `${entryPath}.field`, issues);
-                        if (entry.weight !== undefined)
-                            field$4(entry.weight, `${entryPath}.weight`, issues);
-                        if (entry.op === 'weightedMean' &&
-                            (entry.field === undefined || entry.weight === undefined))
-                            issue(issues, entryPath, 'weightedMean requires field and weight.');
-                        if (!['count'].includes(String(entry.op)) && entry.field === undefined)
-                            issue(issues, `${entryPath}.field`, `${String(entry.op)} requires a field.`);
-                    });
-            }
-            for (const name of ['field', 'x', 'y', 'key', 'value'])
-                if (transform[name] !== undefined && !(['impute'].includes(t) && name === 'value'))
-                    field$4(transform[name], `${itemPath}.${name}`, issues);
-            groupby(transform.groupby, `${itemPath}.groupby`, issues);
-            if (transform.series !== undefined)
-                fields(transform.series, `${itemPath}.series`, issues, true);
-            if (transform.sort !== undefined)
-                sort(transform.sort, `${itemPath}.sort`, issues);
-            if (t === 'bin')
-                tuple(transform.as, 2, `${itemPath}.as`, issues);
-            if (t === 'bin2d')
-                tuple(transform.as, 5, `${itemPath}.as`, issues);
-            if (t === 'density1d' || t === 'regression' || t === 'fold' || t === 'quantile')
-                tuple(transform.as, 2, `${itemPath}.as`, issues);
-            if (t === 'density2d')
-                tuple(transform.as, 3, `${itemPath}.as`, issues);
-            if (t === 'stack')
-                tuple(transform.as, 2, `${itemPath}.as`, issues);
-            if (t === 'flatten' && transform.as !== undefined)
-                fields(transform.as, `${itemPath}.as`, issues);
-            if (t === 'fold' || t === 'flatten')
-                fields(transform.fields, `${itemPath}.fields`, issues);
-            if (t === 'lookup') {
-                fields(transform.values, `${itemPath}.values`, issues);
-                if (transform.as !== undefined)
-                    fields(transform.as, `${itemPath}.as`, issues);
-                if (!Array.isArray(transform.as) ||
-                    !Array.isArray(transform.values) ||
-                    transform.as.length !== transform.values.length) {
-                    if (transform.as !== undefined)
-                        issue(issues, `${itemPath}.as`, 'Lookup as must match values length.');
-                }
-                if (!Array.isArray(transform.from) && !isPlainObject(transform.from))
-                    issue(issues, `${itemPath}.from`, 'Lookup from must be inline data.');
-            }
-            if (t === 'window') {
-                if (!Array.isArray(transform.fields) || transform.fields.length === 0)
-                    issue(issues, `${itemPath}.fields`, 'Window fields are required.');
-                else
-                    transform.fields.forEach((entry, entryIndex) => {
-                        const entryPath = `${itemPath}.fields[${entryIndex}]`;
-                        if (!isPlainObject(entry)) {
-                            issue(issues, entryPath, 'Window field must be an object.');
-                            return;
-                        }
-                        Object.keys(entry).forEach((key) => {
-                            if (!['op', 'field', 'as', 'offset'].includes(key))
-                                issue(issues, `${entryPath}.${key}`, `Unknown window field property "${key}".`);
-                        });
-                        const op = String(entry.op);
-                        if (![
-                            'rowNumber',
-                            'rank',
-                            'denseRank',
-                            'lag',
-                            'lead',
-                            'sum',
-                            'mean',
-                            'min',
-                            'max',
-                            'count',
-                            'cumulativeSum',
-                            'movingAverage',
-                        ].includes(op))
-                            issue(issues, `${entryPath}.op`, 'Window operation is not supported.');
-                        field$4(entry.as, `${entryPath}.as`, issues);
-                        if (entry.field !== undefined)
-                            field$4(entry.field, `${entryPath}.field`, issues);
-                        if (!['rowNumber', 'rank', 'denseRank', 'count'].includes(op) &&
-                            entry.field === undefined)
-                            issue(issues, `${entryPath}.field`, `${op} requires a field.`);
-                        if (entry.offset !== undefined &&
-                            (typeof entry.offset !== 'number' ||
-                                !Number.isInteger(entry.offset) ||
-                                entry.offset < 0))
-                            issue(issues, `${entryPath}.offset`, 'Window offset must be a non-negative integer.');
-                    });
-            }
-            for (const name of ['maxbins', 'points', 'bandwidth', 'size', 'interval']) {
-                const current = transform[name];
-                if (current !== undefined && typeof current === 'number') {
-                    positive$1(current, `${itemPath}.${name}`, issues, ['maxbins', 'points', 'size'].includes(name));
-                    if (name === 'points' && current > 512)
-                        issue(issues, `${itemPath}.${name}`, 'density1d points must not exceed 512.');
-                }
-            }
-            if (t === 'quantile' && transform.probs !== undefined) {
-                if (!Array.isArray(transform.probs) ||
-                    transform.probs.length === 0 ||
-                    transform.probs.length > 512)
-                    issue(issues, `${itemPath}.probs`, 'Quantile probabilities must contain 1..512 values.');
-                else
-                    transform.probs.forEach((probability, probabilityIndex) => {
-                        if (typeof probability !== 'number' || probability < 0 || probability > 1)
-                            issue(issues, `${itemPath}.probs[${probabilityIndex}]`, 'Probability must be between 0 and 1.');
-                    });
-            }
-            if (t === 'stack') {
-                if (transform.offset !== undefined &&
-                    !['zero', 'normalize', 'expand', 'center', 'silhouette', 'wiggle'].includes(String(transform.offset)))
-                    issue(issues, `${itemPath}.offset`, 'Stack offset is not supported.');
-                if (transform.order !== undefined &&
-                    ![
-                        'input',
-                        'ascending',
-                        'descending',
-                        'sumAscending',
-                        'sumDescending',
-                        'insideOut',
-                    ].includes(String(transform.order)))
-                    issue(issues, `${itemPath}.order`, 'Stack order is not supported.');
-            }
-            if (t === 'pivot' &&
-                transform.op !== undefined &&
-                !['sum', 'mean', 'min', 'max', 'count', 'first'].includes(String(transform.op)))
-                issue(issues, `${itemPath}.op`, 'Pivot operation is not supported.');
-            if (t === 'impute' &&
-                transform.method !== undefined &&
-                !['value', 'mean', 'median', 'min', 'max'].includes(String(transform.method)))
-                issue(issues, `${itemPath}.method`, 'Impute method is not supported.');
-            if (t === 'resample' &&
-                transform.method !== undefined &&
-                !['linear', 'previous', 'next'].includes(String(transform.method)))
-                issue(issues, `${itemPath}.method`, 'Resample method is not supported.');
-            if (t === 'timeUnit') {
-                if (![
-                    'year',
-                    'quarter',
-                    'month',
-                    'week',
-                    'date',
-                    'day',
-                    'hours',
-                    'minutes',
-                    'seconds',
-                ].includes(String(transform.unit)))
-                    issue(issues, `${itemPath}.unit`, 'Time unit is not supported.');
-                if (transform.utc !== undefined && typeof transform.utc !== 'boolean')
-                    issue(issues, `${itemPath}.utc`, 'Time unit utc must be boolean.');
-            }
-            if (t === 'bin' &&
-                transform.extent !== undefined &&
-                (!Array.isArray(transform.extent) ||
-                    transform.extent.length !== 2 ||
-                    transform.extent.some((entry) => typeof entry !== 'number' || !Number.isFinite(entry))))
-                issue(issues, `${itemPath}.extent`, 'Bin extent must contain two finite numbers.');
-            for (const name of ['maxbins', 'bins', 'bandwidth', 'frame']) {
-                const current = transform[name];
-                if (Array.isArray(current)) {
-                    if (current.length !== 2)
-                        issue(issues, `${itemPath}.${name}`, `${name} must contain exactly two values.`);
-                    else if (name === 'frame')
-                        current.forEach((entry, entryIndex) => {
-                            if (entry !== null && !Number.isInteger(entry))
-                                issue(issues, `${itemPath}.${name}[${entryIndex}]`, 'Window frame values must be integers or null.');
-                        });
-                    else
-                        current.forEach((entry, entryIndex) => {
-                            if (typeof entry !== 'number' ||
-                                !Number.isFinite(entry) ||
-                                entry <= 0 ||
-                                (['maxbins', 'bins'].includes(name) && (!Number.isInteger(entry) || entry > 128)))
-                                issue(issues, `${itemPath}.${name}[${entryIndex}]`, `${name} values must be positive${['maxbins', 'bins'].includes(name) ? ' integers up to 128' : ''}.`);
-                        });
-                }
-            }
-            if (transform.seed !== undefined &&
-                (typeof transform.seed !== 'number' || !Number.isFinite(transform.seed)))
-                issue(issues, `${itemPath}.seed`, 'Sample seed must be finite.');
-        });
     }
 
     const isoDateTimePattern = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,9}))?)?(Z|[+-]\d{2}:?\d{2})?$/i;
@@ -1203,6 +600,54 @@ var Graflume = (function (exports) {
         if (parsed === null)
             return null;
         return parsed.dateOnly && typeof value === 'string' ? value : parsed.value.toISOString();
+    }
+
+    const UNSAFE_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
+    function assertSafeKey(key, path = key) {
+        if (UNSAFE_KEYS.has(key)) {
+            throw new GraflumeError('UNSAFE_KEY', `Unsafe key "${key}" is not allowed.`, { path });
+        }
+    }
+    function isPlainObject(value) {
+        if (value === null || typeof value !== 'object')
+            return false;
+        const prototype = Object.getPrototypeOf(value);
+        return prototype === Object.prototype || prototype === null;
+    }
+    function deepMerge(base, override) {
+        const output = { ...base };
+        for (const [key, overrideValue] of Object.entries(override)) {
+            assertSafeKey(key);
+            if (overrideValue === undefined)
+                continue;
+            const baseValue = output[key];
+            if (isPlainObject(baseValue) && isPlainObject(overrideValue)) {
+                output[key] = deepMerge(baseValue, overrideValue);
+            }
+            else if (Array.isArray(overrideValue)) {
+                output[key] = [...overrideValue];
+            }
+            else {
+                output[key] = overrideValue;
+            }
+        }
+        return output;
+    }
+    function ownValue(record, key) {
+        assertSafeKey(key, `data.${key}`);
+        return Object.prototype.hasOwnProperty.call(record, key) ? record[key] : null;
+    }
+    function clamp$d(value, min, max) {
+        return Math.min(max, Math.max(min, value));
+    }
+    function finiteNumber(value) {
+        if (value instanceof Date) {
+            const timestamp = value.getTime();
+            return Number.isFinite(timestamp) ? timestamp : null;
+        }
+        if (typeof value !== 'number')
+            return null;
+        return Number.isFinite(value) ? value : null;
     }
 
     function isColumnarData(input) {
@@ -1352,1573 +797,126 @@ var Graflume = (function (exports) {
         }
     }
 
-    function sorted$1(input) {
-        return input
-            .filter(({ value, weight }) => Number.isFinite(value) && Number.isFinite(weight) && weight >= 0)
-            .map((observation, index) => ({ observation, index }))
-            .sort((a, b) => a.observation.value - b.observation.value || a.index - b.index)
-            .map(({ observation }) => observation);
+    function union$2(left, right) {
+        if (left === null)
+            return right;
+        if (right === null)
+            return left;
+        const x = Math.min(left.x, right.x);
+        const y = Math.min(left.y, right.y);
+        const endX = Math.max(left.x + left.width, right.x + right.width);
+        const endY = Math.max(left.y + left.height, right.y + right.height);
+        return { x, y, width: endX - x, height: endY - y };
     }
-    function quantile$3(values, probability) {
-        const position = Math.max(0, Math.min(1, probability)) * (values.length - 1);
-        const lower = Math.floor(position);
-        const upper = Math.ceil(position);
-        const a = values[lower];
-        const b = values[upper];
-        return a + (b - a) * (position - lower);
-    }
-    function weightedQuantile(observations, probability) {
-        const totalWeight = observations.reduce((sum, observation) => sum + observation.weight, 0);
-        if (totalWeight <= 0)
-            return observations[0]?.value ?? 0;
-        const target = Math.max(0, Math.min(1, probability)) * totalWeight;
-        let cumulative = 0;
-        for (const observation of observations) {
-            cumulative += observation.weight;
-            if (cumulative >= target)
-                return observation.value;
-        }
-        return observations.at(-1)?.value ?? 0;
-    }
-    function weightedHistogram(input, options) {
-        const observations = sorted$1(input);
-        if (observations.length === 0)
-            return [];
-        const minimum = options.extent?.[0] ?? observations[0].value;
-        const maximum = options.extent?.[1] ?? observations.at(-1).value;
-        const bins = Math.max(1, Math.min(512, Math.trunc(options.bins)));
-        const span = maximum - minimum || 1;
-        const width = span / bins;
-        const accumulators = Array.from({ length: bins }, () => ({
-            weight: 0,
-            count: 0,
-            rows: [],
-        }));
-        for (const observation of observations) {
-            if (observation.value < minimum || observation.value > maximum)
-                continue;
-            const index = Math.min(bins - 1, Math.max(0, Math.floor(((observation.value - minimum) / span) * bins)));
-            const accumulator = accumulators[index];
-            accumulator.weight += observation.weight;
-            accumulator.count += 1;
-            accumulator.rows.push(observation.rowIndex);
-        }
-        const totalWeight = accumulators.reduce((sum, bin) => sum + bin.weight, 0);
-        let cumulativeWeight = 0;
-        return accumulators.map((bin, index) => {
-            cumulativeWeight += bin.weight;
-            const effectiveWeight = options.cumulative === true ? cumulativeWeight : bin.weight;
-            const normalization = options.normalization ?? 'count';
-            const value = normalization === 'probability'
-                ? totalWeight === 0
-                    ? 0
-                    : effectiveWeight / totalWeight
-                : normalization === 'density'
-                    ? totalWeight === 0
-                        ? 0
-                        : options.cumulative === true
-                            ? effectiveWeight / totalWeight
-                            : effectiveWeight / (totalWeight * width)
-                    : effectiveWeight;
-            return {
-                start: minimum + index * width,
-                end: minimum + (index + 1) * width,
-                value,
-                weight: bin.weight,
-                count: bin.count,
-                proportion: totalWeight === 0 ? 0 : bin.weight / totalWeight,
-                rowIndices: bin.rows,
-            };
-        });
-    }
-    function empiricalDistribution(input, complementary = false) {
-        const observations = sorted$1(input);
-        const totalWeight = observations.reduce((sum, observation) => sum + observation.weight, 0);
-        if (observations.length === 0 || totalWeight === 0)
-            return [];
-        const groups = new Map();
-        for (const observation of observations) {
-            const group = groups.get(observation.value) ?? [];
-            group.push(observation);
-            groups.set(observation.value, group);
-        }
-        let cumulative = 0;
-        return [...groups].map(([value, group]) => {
-            const weight = group.reduce((sum, observation) => sum + observation.weight, 0);
-            cumulative += weight;
-            return {
-                value,
-                probability: complementary
-                    ? Math.max(0, 1 - cumulative / totalWeight)
-                    : cumulative / totalWeight,
-                weight,
-                count: group.length,
-                rowIndices: group.map(({ rowIndex }) => rowIndex),
-            };
-        });
-    }
-    /** Gaussian KDE with a robust Silverman bandwidth and unit-integral density. */
-    function kernelDensity1d(input, options = {}) {
-        const observations = sorted$1(input).filter(({ weight }) => weight > 0);
-        if (observations.length === 0)
-            return { bandwidth: 1, points: [] };
-        const totalWeight = observations.reduce((sum, observation) => sum + observation.weight, 0);
-        const squaredWeight = observations.reduce((sum, observation) => sum + observation.weight ** 2, 0);
-        const effectiveSampleSize = Math.max(1, totalWeight ** 2 / squaredWeight);
-        const values = observations.map(({ value }) => value);
-        const mean = observations.reduce((sum, observation) => sum + observation.value * observation.weight, 0) /
-            totalWeight;
-        const varianceDenominator = totalWeight - squaredWeight / totalWeight;
-        const deviation = Math.sqrt(observations.reduce((sum, observation) => sum + observation.weight * (observation.value - mean) ** 2, 0) / Math.max(Number.EPSILON, varianceDenominator));
-        const iqr = weightedQuantile(observations, 0.75) - weightedQuantile(observations, 0.25);
-        const robustScale = Math.min(deviation || Number.POSITIVE_INFINITY, iqr > 0 ? iqr / 1.34 : Number.POSITIVE_INFINITY);
-        const fallback = (values.at(-1) - values[0]) / 6 || Math.abs(mean) * 0.1 || 1;
-        const automaticBandwidth = Math.max(Number.EPSILON, 0.9 * (Number.isFinite(robustScale) ? robustScale : fallback) * effectiveSampleSize ** -0.2);
-        const bandwidth = options.bandwidth !== undefined && Number.isFinite(options.bandwidth) && options.bandwidth > 0
-            ? options.bandwidth
-            : automaticBandwidth;
-        const extentStart = options.extent?.[0] ?? values[0] - bandwidth * 3;
-        const extentEnd = options.extent?.[1] ?? values.at(-1) + bandwidth * 3;
-        const minimum = Math.min(extentStart, extentEnd);
-        const maximum = Math.max(extentStart, extentEnd);
-        const count = Math.max(2, Math.min(512, Math.trunc(options.points ?? 96)));
-        const normalizer = bandwidth * Math.sqrt(2 * Math.PI) * totalWeight;
-        return {
-            bandwidth,
-            points: Array.from({ length: count }, (_, index) => {
-                const value = minimum + ((maximum - minimum || 1) * index) / (count - 1);
-                const density = observations.reduce((sum, observation) => {
-                    const z = (value - observation.value) / bandwidth;
-                    return sum + observation.weight * Math.exp(-0.5 * z * z);
-                }, 0) / normalizer;
-                return { value, density };
-            }),
-        };
-    }
-    function rawBoxSummary(input, whisker = 1.5) {
-        const observations = sorted$1(input);
-        if (observations.length === 0)
-            return null;
-        const values = observations.map(({ value }) => value);
-        const q1 = quantile$3(values, 0.25);
-        const median = quantile$3(values, 0.5);
-        const q3 = quantile$3(values, 0.75);
-        const iqr = q3 - q1;
-        const lowerFence = q1 - Math.max(0, whisker) * iqr;
-        const upperFence = q3 + Math.max(0, whisker) * iqr;
-        const inliers = observations.filter(({ value }) => value >= lowerFence && value <= upperFence);
-        const outliers = observations.filter(({ value }) => value < lowerFence || value > upperFence);
-        return {
-            minimum: values[0],
-            q1,
-            median,
-            q3,
-            maximum: values.at(-1),
-            lowerWhisker: inliers[0]?.value ?? values[0],
-            upperWhisker: inliers.at(-1)?.value ?? values.at(-1),
-            outliers,
-            rowIndices: observations.map(({ rowIndex }) => rowIndex),
-        };
-    }
-
-    const unsafeFields$1 = new Set(['__proto__', 'prototype', 'constructor']);
-    const maximumDerivedRows = 100_000;
-    const maximumKernelEvaluations = 10_000_000;
-    const maximumStackMatrixCells = 1_000_000;
-    const maximumWindowEvaluations = 10_000_000;
-    function enforceWorkBudget(count, limit, operation, path) {
-        if (!Number.isFinite(count) || count > limit) {
-            throw new GraflumeError('INVALID_DATA', `${operation} would require ${Number.isFinite(count) ? Math.ceil(count) : 'an unbounded number of'} derived operations; the deterministic limit is ${limit}.`, { path });
-        }
-    }
-    function safeField(field) {
-        if (field.trim() === '' || unsafeFields$1.has(field)) {
-            throw new GraflumeError('INVALID_SPEC', `Unsafe transform field "${field}".`, {
-                path: '$.transform',
-            });
-        }
-        return field;
-    }
-    function cloneRecord(row) {
-        const output = Object.create(null);
-        for (const [field, value] of Object.entries(row)) {
-            safeField(field);
-            output[field] = value;
-        }
-        return output;
-    }
-    function jsonSafe(value) {
-        if (value === null || typeof value === 'string' || typeof value === 'boolean')
-            return value;
-        if (typeof value === 'number')
-            return Number.isFinite(value) ? value : null;
-        if (value instanceof Date)
-            return value.toISOString();
-        if (ArrayBuffer.isView(value)) {
-            return Array.from(value, (entry) => jsonSafe(entry));
-        }
-        if (Array.isArray(value))
-            return value.map(jsonSafe);
-        if (typeof value === 'object' && value !== null) {
-            const output = Object.create(null);
-            for (const [key, child] of Object.entries(value)) {
-                safeField(key);
-                if (child !== undefined)
-                    output[key] = jsonSafe(child);
-            }
-            return output;
-        }
-        throw new GraflumeError('INVALID_SPEC', 'Transform lineage parameters must be JSON-safe.', {
-            path: '$.transform',
-        });
-    }
-    function inputRows(input) {
-        const table = DataTable.from(input);
-        return Array.from({ length: table.length }, (_, index) => ({
-            value: cloneRecord(table.row(index)),
-            sources: [index],
-        }));
-    }
-    function scalar(value) {
-        return value === undefined ||
-            value === null ||
-            value instanceof Date ||
-            ['string', 'number', 'boolean'].includes(typeof value)
-            ? value
-            : String(value);
-    }
-    function numeric$3(value) {
-        if (typeof value === 'number')
-            return Number.isFinite(value) ? value : null;
-        if (value instanceof Date)
-            return value.getTime();
-        if (typeof value === 'string' && value.trim() !== '') {
-            const number = Number(value);
-            if (Number.isFinite(number))
-                return number;
-            return temporalTimestamp(value, true);
-        }
-        return null;
-    }
-    function truthy$1(value) {
-        return value !== false && value !== null && value !== undefined && value !== 0 && value !== '';
-    }
-    function evaluate(expr, row) {
-        switch (expr.op) {
-            case 'literal':
-                return expr.value;
-            case 'field':
-                return row[safeField(expr.field)];
-            case 'not':
-                return !truthy$1(evaluate(expr.value, row));
-            case 'negate': {
-                const value = numeric$3(evaluate(expr.value, row));
-                return value === null ? null : -value;
-            }
-            case 'isValid': {
-                const value = evaluate(expr.value, row);
-                return (value !== null &&
-                    value !== undefined &&
-                    !(typeof value === 'number' && !Number.isFinite(value)));
-            }
-            case 'toNumber':
-                return numeric$3(evaluate(expr.value, row));
-            case 'toString': {
-                const value = evaluate(expr.value, row);
-                return value === null || value === undefined
-                    ? ''
-                    : value instanceof Date
-                        ? value.toISOString()
-                        : String(value);
-            }
-            case 'if':
-                return evaluate(truthy$1(evaluate(expr.condition, row)) ? expr.then : expr.else, row);
-            case 'coalesce': {
-                for (const item of expr.values) {
-                    const value = evaluate(item, row);
-                    if (value !== null && value !== undefined)
-                        return value;
-                }
-                return null;
-            }
-            default: {
-                const left = evaluate(expr.left, row);
-                if (expr.op === 'and' && !truthy$1(left))
-                    return false;
-                if (expr.op === 'or' && truthy$1(left))
-                    return true;
-                const right = evaluate(expr.right, row);
-                const a = numeric$3(left);
-                const b = numeric$3(right);
-                switch (expr.op) {
-                    case 'add':
-                        return a === null || b === null ? `${left ?? ''}${right ?? ''}` : a + b;
-                    case 'subtract':
-                        return a === null || b === null ? null : a - b;
-                    case 'multiply':
-                        return a === null || b === null ? null : a * b;
-                    case 'divide':
-                        return a === null || b === null || b === 0 ? null : a / b;
-                    case 'modulo':
-                        return a === null || b === null || b === 0 ? null : a % b;
-                    case 'equal':
-                        return Object.is(left, right);
-                    case 'notEqual':
-                        return !Object.is(left, right);
-                    case 'lessThan':
-                        return a !== null && b !== null ? a < b : String(left) < String(right);
-                    case 'lessThanOrEqual':
-                        return a !== null && b !== null ? a <= b : String(left) <= String(right);
-                    case 'greaterThan':
-                        return a !== null && b !== null ? a > b : String(left) > String(right);
-                    case 'greaterThanOrEqual':
-                        return a !== null && b !== null ? a >= b : String(left) >= String(right);
-                    case 'and':
-                        return truthy$1(right);
-                    case 'or':
-                        return truthy$1(right);
-                }
-            }
-        }
-    }
-    function keyOf(row, fields) {
-        return JSON.stringify(fields.map((field) => {
-            const value = row[safeField(field)];
-            return value instanceof Date ? { date: value.toISOString() } : (value ?? null);
-        }));
-    }
-    function compareValue(a, b) {
-        if (a === b)
-            return 0;
-        if (a === null || a === undefined)
-            return 1;
-        if (b === null || b === undefined)
-            return -1;
-        const an = numeric$3(a);
-        const bn = numeric$3(b);
-        if (an !== null && bn !== null)
-            return an - bn;
-        return String(a).localeCompare(String(b), 'en');
-    }
-    function sorted(rows, by) {
-        return rows
-            .map((row, index) => ({ row, index }))
-            .sort((a, b) => {
-            for (const sort of by) {
-                const result = compareValue(a.row.value[safeField(sort.field)], b.row.value[safeField(sort.field)]);
-                if (result !== 0)
-                    return sort.order === 'descending' ? -result : result;
-            }
-            return a.index - b.index;
-        })
-            .map(({ row }) => row);
-    }
-    function groups(rows, fields = []) {
-        const grouped = new Map();
-        for (const row of rows) {
-            const key = keyOf(row.value, fields);
-            const group = grouped.get(key) ?? [];
-            group.push(row);
-            grouped.set(key, group);
-        }
-        return [...grouped.values()];
-    }
-    function values(group, field) {
-        if (field === undefined)
-            return [];
-        return group.flatMap(({ value }) => {
-            const number = numeric$3(value[safeField(field)]);
-            return number === null ? [] : [number];
-        });
-    }
-    function quantileValue(input, probability) {
-        if (input.length === 0)
-            return null;
-        const ordered = [...input].sort((a, b) => a - b);
-        return quantileFromSorted(ordered, probability);
-    }
-    function quantileFromSorted(ordered, probability) {
-        if (ordered.length === 0)
-            return null;
-        const position = Math.max(0, Math.min(1, probability)) * (ordered.length - 1);
-        const low = Math.floor(position);
-        const high = Math.ceil(position);
-        const a = ordered[low];
-        const b = ordered[high];
-        return a + (b - a) * (position - low);
-    }
-    function aggregateValue(group, spec) {
-        const numbers = values(group, spec.field);
-        switch (spec.op) {
-            case 'count':
-                return group.length;
-            case 'valid':
-                return spec.field === undefined
-                    ? group.length
-                    : group.length - group.filter(({ value }) => value[spec.field] == null).length;
-            case 'missing':
-                return spec.field === undefined
-                    ? 0
-                    : group.filter(({ value }) => value[spec.field] == null).length;
-            case 'sum':
-                return numbers.reduce((sum, value) => sum + value, 0);
-            case 'mean':
-                return numbers.length === 0
-                    ? null
-                    : numbers.reduce((sum, value) => sum + value, 0) / numbers.length;
-            case 'weightedMean': {
-                if (spec.field === undefined || spec.weight === undefined)
-                    return null;
-                let weighted = 0;
-                let weights = 0;
-                for (const { value } of group) {
-                    const number = numeric$3(value[spec.field]);
-                    const weight = numeric$3(value[spec.weight]);
-                    if (number === null || weight === null)
-                        continue;
-                    weighted += number * weight;
-                    weights += weight;
-                }
-                return weights === 0 ? null : weighted / weights;
-            }
-            case 'min':
-                return numbers.length === 0
-                    ? null
-                    : numbers.reduce((minimum, value) => Math.min(minimum, value), Number.POSITIVE_INFINITY);
-            case 'max':
-                return numbers.length === 0
-                    ? null
-                    : numbers.reduce((maximum, value) => Math.max(maximum, value), Number.NEGATIVE_INFINITY);
-            case 'median':
-                return quantileValue(numbers, 0.5);
-            case 'variance': {
-                if (numbers.length < 2)
-                    return null;
-                const mean = numbers.reduce((sum, value) => sum + value, 0) / numbers.length;
-                return numbers.reduce((sum, value) => sum + (value - mean) ** 2, 0) / (numbers.length - 1);
-            }
-            case 'stdev': {
-                const variance = aggregateValue(group, { ...spec, op: 'variance' });
-                return typeof variance === 'number' ? Math.sqrt(variance) : null;
-            }
-        }
-    }
-    function aggregate(rows, transform) {
-        const groupby = transform.groupby ?? [];
-        return groups(rows, groupby).flatMap((group) => {
-            const aggregated = Object.create(null);
-            for (const field of groupby)
-                aggregated[field] = group[0]?.value[field];
-            for (const field of transform.fields)
-                aggregated[safeField(field.as)] = aggregateValue(group, field);
-            const sources = [...new Set(group.flatMap((row) => row.sources))].sort((a, b) => a - b);
-            if (transform.type === 'aggregate')
-                return [{ value: aggregated, sources }];
-            return group.map((row) => ({ value: { ...row.value, ...aggregated }, sources: row.sources }));
-        });
-    }
-    function extent$2(rows, field) {
-        const found = values(rows, field);
-        if (found.length === 0)
-            return null;
-        let minimum = Number.POSITIVE_INFINITY;
-        let maximum = Number.NEGATIVE_INFINITY;
-        for (const value of found) {
-            minimum = Math.min(minimum, value);
-            maximum = Math.max(maximum, value);
-        }
-        return [minimum, maximum];
-    }
-    function binStep(domain, maxbins) {
-        const span = Math.max(Number.EPSILON, domain[1] - domain[0]);
-        const raw = span / Math.max(1, maxbins);
-        const power = 10 ** Math.floor(Math.log10(raw));
-        const error = raw / power;
-        return (error >= 5 ? 5 : error >= 2 ? 2 : 1) * power;
-    }
-    function bin(rows, transform) {
-        const domain = transform.extent ?? extent$2(rows, transform.field);
-        if (domain === null)
-            return rows.map((row) => ({
-                ...row,
-                value: { ...row.value, [transform.as[0]]: null, [transform.as[1]]: null },
-            }));
-        const step = transform.step ?? binStep(domain, transform.maxbins ?? 10);
-        return rows.map((row) => {
-            const value = numeric$3(row.value[transform.field]);
-            const start = value === null ? null : Math.floor((value - domain[0]) / step) * step + domain[0];
-            return {
-                ...row,
-                value: {
-                    ...row.value,
-                    [transform.as[0]]: start,
-                    [transform.as[1]]: start === null ? null : start + step,
-                },
-            };
-        });
-    }
-    function density1d(rows, transform) {
-        let kernelEvaluations = 0;
-        return groups(rows, transform.groupby).flatMap((group) => {
-            const input = group.flatMap((row, index) => {
-                const value = numeric$3(row.value[transform.field]);
-                return value === null ? [] : [{ value, weight: 1, rowIndex: row.sources[0] ?? index }];
-            });
-            if (input.length === 0)
-                return [];
-            const pointCount = Math.max(2, transform.points ?? 64);
-            kernelEvaluations += input.length * pointCount;
-            enforceWorkBudget(kernelEvaluations, maximumKernelEvaluations, 'density1d', '$.transform[].points');
-            let minimum = Number.POSITIVE_INFINITY;
-            let maximum = Number.NEGATIVE_INFINITY;
-            for (const { value } of input) {
-                minimum = Math.min(minimum, value);
-                maximum = Math.max(maximum, value);
-            }
-            const estimate = kernelDensity1d(input, {
-                points: pointCount,
-                extent: [minimum, maximum],
-                ...(transform.bandwidth === undefined ? {} : { bandwidth: transform.bandwidth }),
-            });
-            const prefix = Object.create(null);
-            for (const field of transform.groupby ?? [])
-                prefix[field] = group[0]?.value[field];
-            const sources = [...new Set(group.flatMap((row) => row.sources))].sort((a, b) => a - b);
-            return estimate.points.map(({ value, density }) => ({
-                value: { ...prefix, [transform.as[0]]: value, [transform.as[1]]: density },
-                sources,
-            }));
-        });
-    }
-    function stack(rows, transform) {
-        const seriesFields = transform.series ?? [];
-        const buckets = groups(rows, transform.groupby);
-        const seriesTotals = new Map();
-        const seriesOrder = [];
-        for (const row of rows) {
-            const key = keyOf(row.value, seriesFields);
-            if (!seriesTotals.has(key))
-                seriesOrder.push(key);
-            seriesTotals.set(key, (seriesTotals.get(key) ?? 0) + (numeric$3(row.value[transform.field]) ?? 0));
-        }
-        if (transform.order === 'insideOut' || (transform.offset ?? 'zero') === 'wiggle') {
-            enforceWorkBudget(buckets.length * seriesOrder.length, maximumStackMatrixCells, 'Stack layout', '$.transform[].order');
-        }
-        const matrixSeriesOrder = [...seriesOrder];
-        const stackMatrix = transform.order === 'insideOut' || (transform.offset ?? 'zero') === 'wiggle'
-            ? (() => {
-                const seriesIndex = new Map(matrixSeriesOrder.map((key, index) => [key, index]));
-                return buckets.map((bucket) => {
-                    const totals = Array.from({ length: matrixSeriesOrder.length }, () => 0);
-                    for (const row of bucket) {
-                        const index = seriesIndex.get(keyOf(row.value, seriesFields));
-                        if (index === undefined)
-                            continue;
-                        totals[index] =
-                            totals[index] + Math.max(0, numeric$3(row.value[transform.field]) ?? 0);
-                    }
-                    return totals;
-                });
-            })()
-            : undefined;
-        if (transform.order === 'insideOut') {
-            const appearances = seriesOrder
-                .map((key, index) => {
-                let peakIndex = 0;
-                let peakValue = Number.NEGATIVE_INFINITY;
-                stackMatrix.forEach((bucket, bucketIndex) => {
-                    const value = bucket[index] ?? 0;
-                    if (value > peakValue) {
-                        peakValue = value;
-                        peakIndex = bucketIndex;
-                    }
-                });
-                return { key, index, peakIndex, total: seriesTotals.get(key) ?? 0 };
-            })
-                .sort((a, b) => a.peakIndex - b.peakIndex || a.index - b.index);
-            const top = [];
-            const bottom = [];
-            let topTotal = 0;
-            let bottomTotal = 0;
-            for (const series of appearances) {
-                if (topTotal < bottomTotal) {
-                    top.push(series.key);
-                    topTotal += series.total;
-                }
-                else {
-                    bottom.push(series.key);
-                    bottomTotal += series.total;
-                }
-            }
-            seriesOrder.splice(0, seriesOrder.length, ...bottom.reverse(), ...top);
-        }
-        else if (transform.order !== undefined && transform.order !== 'input') {
-            const sign = transform.order === 'descending' || transform.order === 'sumDescending' ? -1 : 1;
-            seriesOrder.sort((a, b) => sign * ((seriesTotals.get(a) ?? 0) - (seriesTotals.get(b) ?? 0)));
-        }
-        const orderedBuckets = buckets.map((bucket) => {
-            const authored = transform.sort === undefined ? [...bucket] : sorted(bucket, transform.sort);
-            if (seriesFields.length === 0)
-                return authored;
-            const seriesIndex = new Map(seriesOrder.map((key, index) => [key, index]));
-            return authored
-                .map((row, index) => ({ row, index }))
-                .sort((a, b) => (seriesIndex.get(keyOf(a.row.value, seriesFields)) ?? 0) -
-                (seriesIndex.get(keyOf(b.row.value, seriesFields)) ?? 0) || a.index - b.index)
-                .map(({ row }) => row);
-        });
-        const wiggleBaselines = Array.from({ length: orderedBuckets.length }, () => 0);
-        if ((transform.offset ?? 'zero') === 'wiggle' &&
-            rows.some((row) => (numeric$3(row.value[transform.field]) ?? 0) < 0)) {
-            throw new GraflumeError('INVALID_DATA', 'The wiggle stack offset requires non-negative values; use zero, normalize, or center for diverging data.', { path: '$.transform[].offset' });
-        }
-        if ((transform.offset ?? 'zero') === 'wiggle' && orderedBuckets.length > 1) {
-            let baseline = 0;
-            let minimum = 0;
-            const originalSeriesIndex = new Map(matrixSeriesOrder.map((key, index) => [key, index]));
-            const matrix = stackMatrix.map((bucket) => seriesOrder.map((key) => bucket[originalSeriesIndex.get(key) ?? 0] ?? 0));
-            for (let bucketIndex = 1; bucketIndex < matrix.length; bucketIndex += 1) {
-                const current = matrix[bucketIndex];
-                const previous = matrix[bucketIndex - 1];
-                const total = current.reduce((sum, value) => sum + value, 0);
-                let weightedSlope = 0;
-                let precedingSlope = 0;
-                for (let seriesIndex = 0; seriesIndex < current.length; seriesIndex += 1) {
-                    const slope = current[seriesIndex] - previous[seriesIndex];
-                    weightedSlope += (slope / 2 + precedingSlope) * current[seriesIndex];
-                    precedingSlope += slope;
-                }
-                baseline -= total === 0 ? 0 : weightedSlope / total;
-                wiggleBaselines[bucketIndex] = baseline;
-                minimum = Math.min(minimum, baseline);
-            }
-            for (let index = 0; index < wiggleBaselines.length; index += 1) {
-                wiggleBaselines[index] = wiggleBaselines[index] - minimum;
-            }
-        }
-        return orderedBuckets.flatMap((ordered, bucketIndex) => {
-            const positiveTotal = ordered.reduce((sum, row) => sum + Math.max(0, numeric$3(row.value[transform.field]) ?? 0), 0);
-            const negativeTotal = ordered.reduce((sum, row) => sum + Math.max(0, -(numeric$3(row.value[transform.field]) ?? 0)), 0);
-            const absoluteTotal = positiveTotal + negativeTotal;
-            const offset = transform.offset ?? 'zero';
-            const centered = offset === 'center' || offset === 'silhouette';
-            const normalized = offset === 'normalize' || offset === 'expand';
-            const baseline = centered
-                ? (negativeTotal - positiveTotal) / 2
-                : offset === 'wiggle'
-                    ? wiggleBaselines[bucketIndex]
+    function textBounds(node) {
+        const width = Math.max(node.fontSize * 0.6, Array.from(node.text).length * node.fontSize * 0.6);
+        const height = Math.max(1, node.fontSize * 1.2);
+        const left = node.align === 'center'
+            ? -width / 2
+            : node.align === 'right' || node.align === 'end'
+                ? -width
+                : 0;
+        const top = node.baseline === 'middle'
+            ? -height / 2
+            : node.baseline === 'bottom' || node.baseline === 'ideographic'
+                ? -height
+                : node.baseline === 'alphabetic'
+                    ? -height * 0.8
                     : 0;
-            let positiveCursor = baseline;
-            let negativeCursor = baseline;
-            return ordered.map((row) => {
-                let amount = numeric$3(row.value[transform.field]) ?? 0;
-                if (normalized)
-                    amount = absoluteTotal === 0 ? 0 : amount / absoluteTotal;
-                let start;
-                let end;
-                if (amount < 0) {
-                    end = negativeCursor;
-                    negativeCursor += amount;
-                    start = negativeCursor;
-                }
-                else {
-                    start = positiveCursor;
-                    positiveCursor += amount;
-                    end = positiveCursor;
-                }
-                return { ...row, value: { ...row.value, [transform.as[0]]: start, [transform.as[1]]: end } };
-            });
-        });
-    }
-    function frameRows(group, index, frame) {
-        const start = frame[0] === null ? 0 : Math.max(0, index + frame[0]);
-        const end = frame[1] === null ? group.length - 1 : Math.min(group.length - 1, index + frame[1]);
-        return start > end ? [] : group.slice(start, end + 1);
-    }
-    function frameLength(length, index, frame) {
-        const start = frame[0] === null ? 0 : Math.max(0, index + frame[0]);
-        const end = frame[1] === null ? length - 1 : Math.min(length - 1, index + frame[1]);
-        return Math.max(0, end - start + 1);
-    }
-    function windowValue(group, index, spec, frame) {
-        if (spec.op === 'rowNumber')
-            return index + 1;
-        if (spec.op === 'lag' || spec.op === 'lead') {
-            const direction = spec.op === 'lag' ? -1 : 1;
-            return group[index + direction * (spec.offset ?? 1)]?.value[spec.field ?? ''] ?? null;
-        }
-        if (spec.op === 'rank' || spec.op === 'denseRank')
-            return index + 1;
-        const selected = spec.op === 'cumulativeSum' ? group.slice(0, index + 1) : frameRows(group, index, frame);
-        if (spec.op === 'count')
-            return selected.length;
-        const input = values(selected, spec.field);
-        if (spec.op === 'sum' || spec.op === 'cumulativeSum')
-            return input.reduce((sum, value) => sum + value, 0);
-        if (spec.op === 'mean' || spec.op === 'movingAverage')
-            return input.length === 0 ? null : input.reduce((sum, value) => sum + value, 0) / input.length;
-        if (spec.op === 'min')
-            return input.length === 0
-                ? null
-                : input.reduce((minimum, value) => Math.min(minimum, value), Number.POSITIVE_INFINITY);
-        if (spec.op === 'max')
-            return input.length === 0
-                ? null
-                : input.reduce((maximum, value) => Math.max(maximum, value), Number.NEGATIVE_INFINITY);
-        return null;
-    }
-    function windowTransform(rows, transform) {
-        let windowEvaluations = 0;
-        return groups(rows, transform.groupby).flatMap((raw) => {
-            const group = transform.sort === undefined ? raw : sorted(raw, transform.sort);
-            const frame = transform.frame ?? [null, 0];
-            const aggregateFields = transform.fields.filter((field) => ['sum', 'mean', 'min', 'max', 'count', 'cumulativeSum', 'movingAverage'].includes(field.op));
-            for (const field of aggregateFields) {
-                for (let index = 0; index < group.length; index += 1) {
-                    windowEvaluations +=
-                        field.op === 'cumulativeSum' ? index + 1 : frameLength(group.length, index, frame);
-                }
-            }
-            enforceWorkBudget(windowEvaluations, maximumWindowEvaluations, 'window transform', '$.transform[].frame');
-            const rankKeys = transform.sort === undefined
-                ? group.map((_, index) => String(index))
-                : group.map((row) => keyOf(row.value, transform.sort.map(({ field }) => field)));
-            const ranks = [];
-            const denseRanks = [];
-            let dense = 0;
-            for (let index = 0; index < rankKeys.length; index += 1) {
-                if (index === 0 || rankKeys[index] !== rankKeys[index - 1])
-                    dense += 1;
-                ranks[index] =
-                    index === 0 || rankKeys[index] !== rankKeys[index - 1] ? index + 1 : ranks[index - 1];
-                denseRanks[index] = dense;
-            }
-            return group.map((row, index) => {
-                const value = { ...row.value };
-                for (const field of transform.fields) {
-                    if (field.op === 'rank')
-                        value[field.as] = ranks[index];
-                    else if (field.op === 'denseRank')
-                        value[field.as] = denseRanks[index];
-                    else
-                        value[field.as] = windowValue(group, index, field, frame);
-                }
-                return { ...row, value };
-            });
-        });
-    }
-    function regression$1(rows, transform) {
-        return groups(rows, transform.groupby).flatMap((group) => {
-            const pairs = group.flatMap((row) => {
-                const x = numeric$3(row.value[transform.x]);
-                const y = numeric$3(row.value[transform.y]);
-                return x === null || y === null ? [] : [{ x, y }];
-            });
-            if (pairs.length < 2)
-                return [];
-            const meanX = pairs.reduce((sum, pair) => sum + pair.x, 0) / pairs.length;
-            const meanY = pairs.reduce((sum, pair) => sum + pair.y, 0) / pairs.length;
-            const denominator = pairs.reduce((sum, pair) => sum + (pair.x - meanX) ** 2, 0);
-            const slope = denominator === 0
-                ? 0
-                : pairs.reduce((sum, pair) => sum + (pair.x - meanX) * (pair.y - meanY), 0) / denominator;
-            const intercept = meanY - slope * meanX;
-            const prefix = Object.create(null);
-            for (const field of transform.groupby ?? [])
-                prefix[field] = group[0]?.value[field];
-            const sources = [...new Set(group.flatMap((row) => row.sources))].sort((a, b) => a - b);
-            const xExtent = pairs.reduce(([minimum, maximum], { x }) => [Math.min(minimum, x), Math.max(maximum, x)], [Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]);
-            return xExtent.map((x) => ({
-                value: { ...prefix, [transform.as[0]]: x, [transform.as[1]]: intercept + slope * x },
-                sources,
-            }));
-        });
-    }
-    function pivotAggregate(rows, field, op) {
-        if (op === 'first')
-            return rows[0]?.value[field];
-        if (op === 'count')
-            return rows.length;
-        const input = values(rows, field);
-        if (input.length === 0)
-            return null;
-        if (op === 'sum')
-            return input.reduce((a, b) => a + b, 0);
-        if (op === 'mean')
-            return input.reduce((a, b) => a + b, 0) / input.length;
-        return op === 'min'
-            ? input.reduce((minimum, value) => Math.min(minimum, value), Number.POSITIVE_INFINITY)
-            : input.reduce((maximum, value) => Math.max(maximum, value), Number.NEGATIVE_INFINITY);
-    }
-    function impute(rows, transform) {
-        const keyValues = [
-            ...new Map(rows.map((row) => [JSON.stringify(row.value[transform.key]), row.value[transform.key]])).values(),
+        if (node.rotation === 0)
+            return { x: node.x + left, y: node.y + top, width, height };
+        const angle = (node.rotation * Math.PI) / 180;
+        const corners = [
+            [left, top],
+            [left + width, top],
+            [left + width, top + height],
+            [left, top + height],
         ];
-        return groups(rows, transform.groupby).flatMap((group) => {
-            const existing = new Map(group.map((row) => [JSON.stringify(row.value[transform.key]), row]));
-            const replacement = transform.method === undefined || transform.method === 'value'
-                ? (transform.value ?? null)
-                : aggregateValue(group, {
-                    op: transform.method === 'mean'
-                        ? 'mean'
-                        : transform.method === 'median'
-                            ? 'median'
-                            : transform.method,
-                    field: transform.field,
-                    as: transform.field,
-                });
-            return keyValues.map((key) => existing.get(JSON.stringify(key)) ?? {
-                value: {
-                    ...Object.fromEntries((transform.groupby ?? []).map((field) => [field, group[0]?.value[field]])),
-                    [transform.key]: key,
-                    [transform.field]: replacement,
-                },
-                sources: [],
-            });
-        });
-    }
-    function seeded(seed) {
-        let state = seed >>> 0;
-        return () => {
-            state = (state + 0x6d2b79f5) | 0;
-            let value = Math.imul(state ^ (state >>> 15), 1 | state);
-            value ^= value + Math.imul(value ^ (value >>> 7), 61 | value);
-            return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
-        };
-    }
-    function apply(rows, transform) {
-        switch (transform.type) {
-            case 'filter':
-                return rows.filter((row) => truthy$1(evaluate(transform.expr, row.value)));
-            case 'sort':
-                return sorted(rows, transform.by);
-            case 'calculate':
-                return rows.map((row) => ({
-                    ...row,
-                    value: { ...row.value, [safeField(transform.as)]: evaluate(transform.expr, row.value) },
-                }));
-            case 'aggregate':
-            case 'joinaggregate':
-                return aggregate(rows, transform);
-            case 'bin':
-                return bin(rows, transform);
-            case 'bin2d': {
-                const [x0, x1, y0, y1, count] = transform.as;
-                const xb = bin(rows, {
-                    field: transform.x,
-                    as: [x0, x1],
-                    maxbins: transform.maxbins?.[0] ?? 10,
-                });
-                const both = bin(xb, {
-                    field: transform.y,
-                    as: [y0, y1],
-                    maxbins: transform.maxbins?.[1] ?? 10,
-                });
-                return aggregate(both, {
-                    type: 'aggregate',
-                    groupby: [x0, x1, y0, y1],
-                    fields: [{ op: 'count', as: count }],
-                });
-            }
-            case 'density1d':
-                return density1d(rows, transform);
-            case 'density2d': {
-                const pairs = rows.flatMap((row) => {
-                    const x = numeric$3(row.value[transform.x]);
-                    const y = numeric$3(row.value[transform.y]);
-                    return x === null || y === null ? [] : [{ x, y }];
-                });
-                if (pairs.length === 0)
-                    return [];
-                const [xBins, yBins] = transform.bins ?? [32, 32];
-                enforceWorkBudget(pairs.length * xBins * yBins, maximumKernelEvaluations, 'density2d', '$.transform[].bins');
-                let xMin = Number.POSITIVE_INFINITY;
-                let xMax = Number.NEGATIVE_INFINITY;
-                let yMin = Number.POSITIVE_INFINITY;
-                let yMax = Number.NEGATIVE_INFINITY;
-                for (const pair of pairs) {
-                    xMin = Math.min(xMin, pair.x);
-                    xMax = Math.max(xMax, pair.x);
-                    yMin = Math.min(yMin, pair.y);
-                    yMax = Math.max(yMax, pair.y);
-                }
-                const deviation = (input) => {
-                    const mean = input.reduce((sum, value) => sum + value, 0) / input.length;
-                    return Math.sqrt(input.reduce((sum, value) => sum + (value - mean) ** 2, 0) /
-                        Math.max(1, input.length - 1));
-                };
-                const [bandwidthX, bandwidthY] = transform.bandwidth ?? [
-                    Math.max(Number.EPSILON, 1.06 *
-                        (deviation(pairs.map(({ x }) => x)) || (xMax - xMin) / 6 || 1) *
-                        pairs.length ** -0.2),
-                    Math.max(Number.EPSILON, 1.06 *
-                        (deviation(pairs.map(({ y }) => y)) || (yMax - yMin) / 6 || 1) *
-                        pairs.length ** -0.2),
-                ];
-                const factor = 1 / (2 * Math.PI * bandwidthX * bandwidthY * pairs.length);
-                const sources = [...new Set(rows.flatMap((row) => row.sources))].sort((a, b) => a - b);
-                return Array.from({ length: xBins * yBins }, (_, index) => {
-                    const xIndex = index % xBins;
-                    const yIndex = Math.floor(index / xBins);
-                    const x = xMin + ((xMax - xMin || 1) * xIndex) / Math.max(1, xBins - 1);
-                    const y = yMin + ((yMax - yMin || 1) * yIndex) / Math.max(1, yBins - 1);
-                    const density = pairs.reduce((sum, pair) => {
-                        const zx = (x - pair.x) / bandwidthX;
-                        const zy = (y - pair.y) / bandwidthY;
-                        return sum + Math.exp(-0.5 * (zx * zx + zy * zy));
-                    }, 0) * factor;
-                    return {
-                        value: { [transform.as[0]]: x, [transform.as[1]]: y, [transform.as[2]]: density },
-                        sources,
-                    };
-                });
-            }
-            case 'stack':
-                return stack(rows, transform);
-            case 'window':
-                return windowTransform(rows, transform);
-            case 'regression':
-                return regression$1(rows, transform);
-            case 'fold':
-                return rows.flatMap((row) => transform.fields.map((field) => ({
-                    ...row,
-                    value: { ...row.value, [transform.as[0]]: field, [transform.as[1]]: row.value[field] },
-                })));
-            case 'flatten':
-                return rows.flatMap((row) => {
-                    const arrays = transform.fields.map((field) => Array.isArray(row.value[field])
-                        ? row.value[field]
-                        : [row.value[field]]);
-                    const length = Math.max(0, ...arrays.map((array) => array.length));
-                    return Array.from({ length }, (_, index) => ({
-                        ...row,
-                        value: {
-                            ...row.value,
-                            ...Object.fromEntries(transform.fields.map((field, fieldIndex) => [
-                                transform.as?.[fieldIndex] ?? field,
-                                scalar(arrays[fieldIndex]?.[index]),
-                            ])),
-                        },
-                    }));
-                });
-            case 'pivot':
-                return groups(rows, transform.groupby).map((group) => {
-                    const output = Object.create(null);
-                    for (const field of transform.groupby ?? [])
-                        output[field] = group[0]?.value[field];
-                    for (const cell of groups(group, [transform.field])) {
-                        const column = String(cell[0]?.value[transform.field] ?? 'null');
-                        safeField(column);
-                        output[column] = pivotAggregate(cell, transform.value, transform.op ?? 'first');
-                    }
-                    return {
-                        value: output,
-                        sources: [...new Set(group.flatMap((row) => row.sources))].sort((a, b) => a - b),
-                    };
-                });
-            case 'impute':
-                return impute(rows, transform);
-            case 'lookup': {
-                const lookup = new Map(inputRows(transform.from).map((row) => [
-                    JSON.stringify(row.value[transform.key]),
-                    row.value,
-                ]));
-                return rows.map((row) => {
-                    const match = lookup.get(JSON.stringify(row.value[transform.field]));
-                    const additions = Object.fromEntries(transform.values.map((field, index) => [
-                        transform.as?.[index] ?? field,
-                        match?.[field] ?? transform.default ?? null,
-                    ]));
-                    return { ...row, value: { ...row.value, ...additions } };
-                });
-            }
-            case 'quantile':
-                return groups(rows, transform.groupby).flatMap((group) => {
-                    const input = values(group, transform.field).sort((a, b) => a - b);
-                    const sources = [...new Set(group.flatMap((row) => row.sources))].sort((a, b) => a - b);
-                    return (transform.probs ?? [0.25, 0.5, 0.75]).map((probability) => ({
-                        value: {
-                            ...Object.fromEntries((transform.groupby ?? []).map((field) => [field, group[0]?.value[field]])),
-                            [transform.as[0]]: probability,
-                            [transform.as[1]]: quantileFromSorted(input, probability),
-                        },
-                        sources,
-                    }));
-                });
-            case 'sample': {
-                if (transform.size >= rows.length)
-                    return [...rows];
-                const random = seeded(transform.seed ?? 0);
-                const reservoir = rows.slice(0, transform.size).map((row, index) => ({ row, index }));
-                for (let index = transform.size; index < rows.length; index += 1) {
-                    const selected = Math.floor(random() * (index + 1));
-                    if (selected < transform.size)
-                        reservoir[selected] = { row: rows[index], index };
-                }
-                return reservoir.sort((a, b) => a.index - b.index).map(({ row }) => row);
-            }
-            case 'resample': {
-                const output = [];
-                for (const group of groups(rows, transform.groupby)) {
-                    const ordered = sorted(group, [{ field: transform.field }]);
-                    const domain = extent$2(ordered, transform.field);
-                    if (domain === null)
-                        continue;
-                    const expected = Math.floor((domain[1] - domain[0]) / transform.interval) + 1;
-                    enforceWorkBudget(output.length + expected, maximumDerivedRows, 'resample', '$.transform[].interval');
-                    let cursor = 0;
-                    let before;
-                    for (let x = domain[0]; x <= domain[1] + transform.interval / 1e9; x += transform.interval) {
-                        while (cursor < ordered.length) {
-                            const row = ordered[cursor];
-                            const value = numeric$3(row.value[transform.field]);
-                            if (value === null) {
-                                cursor += 1;
-                                continue;
-                            }
-                            if (value >= x)
-                                break;
-                            before = row;
-                            cursor += 1;
-                        }
-                        const candidate = ordered[cursor];
-                        const candidateValue = candidate === undefined ? null : numeric$3(candidate.value[transform.field]);
-                        const after = candidateValue !== null && candidateValue >= x ? candidate : undefined;
-                        const exact = after !== undefined && candidateValue === x ? after : undefined;
-                        if (exact !== undefined) {
-                            output.push(exact);
-                            continue;
-                        }
-                        const method = transform.method ?? 'linear';
-                        const base = method === 'next' ? after : before;
-                        if (base === undefined)
-                            continue;
-                        const value = { ...base.value, [transform.field]: x };
-                        if (method === 'linear' && before !== undefined && after !== undefined) {
-                            const bx = numeric$3(before.value[transform.field]);
-                            const ax = numeric$3(after.value[transform.field]);
-                            const ratio = ax === bx ? 0 : (x - bx) / (ax - bx);
-                            for (const field of new Set([
-                                ...Object.keys(before.value),
-                                ...Object.keys(after.value),
-                            ])) {
-                                if (field === transform.field)
-                                    continue;
-                                const b = numeric$3(before.value[field]);
-                                const a = numeric$3(after.value[field]);
-                                if (b !== null && a !== null)
-                                    value[field] = b + (a - b) * ratio;
-                            }
-                        }
-                        output.push({
-                            value,
-                            sources: [...new Set([...(before?.sources ?? []), ...(after?.sources ?? [])])].sort((a, b) => a - b),
-                        });
-                    }
-                }
-                return output;
-            }
-            case 'timeUnit':
-                return rows.map((row) => {
-                    const raw = row.value[transform.field];
-                    const timestamp = temporalTimestamp(raw, true);
-                    const date = timestamp === null ? undefined : new Date(timestamp);
-                    let result = null;
-                    if (date !== undefined) {
-                        const utc = transform.utc ?? true;
-                        const value = (name) => date[`get${utc ? 'UTC' : ''}${name}`]();
-                        result =
-                            transform.unit === 'year'
-                                ? value('FullYear')
-                                : transform.unit === 'quarter'
-                                    ? Math.floor(value('Month') / 3) + 1
-                                    : transform.unit === 'month'
-                                        ? value('Month') + 1
-                                        : transform.unit === 'week'
-                                            ? Math.floor((Date.UTC(value('FullYear'), value('Month'), value('Date')) -
-                                                Date.UTC(value('FullYear'), 0, 1)) /
-                                                604800000) + 1
-                                            : transform.unit === 'date'
-                                                ? value('Date')
-                                                : transform.unit === 'day'
-                                                    ? value('Day')
-                                                    : transform.unit === 'hours'
-                                                        ? value('Hours')
-                                                        : transform.unit === 'minutes'
-                                                            ? value('Minutes')
-                                                            : value('Seconds');
-                    }
-                    return { ...row, value: { ...row.value, [transform.as]: result } };
-                });
-        }
-    }
-    function executeTransforms(input, transforms = [], options = {}) {
-        const issues = [];
-        validateTransforms(transforms, '$.transform', issues);
-        if (issues.length > 0) {
-            throw new GraflumeError('INVALID_SPEC', issues[0].message, {
-                path: issues[0].path,
-                details: { issues },
-            });
-        }
-        const source = inputRows(input);
-        let rows = source;
-        const steps = [];
-        transforms.forEach((transform, index) => {
-            const before = rows.length;
-            const aggregationCount = transform.type === 'aggregate' ||
-                transform.type === 'joinaggregate' ||
-                transform.type === 'stack'
-                ? groups(rows, transform.groupby).length
-                : undefined;
-            rows = apply(rows, transform);
-            const detail = transform.type !== 'stack'
-                ? undefined
-                : transform.offset === 'normalize' || transform.offset === 'expand'
-                    ? 'Diverging normalization uses each bucket total absolute magnitude.'
-                    : transform.offset === 'wiggle'
-                        ? 'Wiggle uses a non-negative streamgraph baseline and rejects negative values.'
-                        : undefined;
-            steps.push({
-                index,
-                type: transform.type,
-                inputRows: before,
-                outputRows: rows.length,
-                parameters: jsonSafe(transform),
-                ...(transform.type === 'sample' ? { seed: transform.seed ?? 0 } : {}),
-                ...(aggregationCount === undefined ? {} : { aggregationCount }),
-                ...(detail === undefined ? {} : { detail }),
-            });
-        });
-        const sourceId = options.sourceId ?? 'data';
-        return {
-            data: rows.map(({ value }) => ({ ...value })),
-            lineage: {
-                sourceId,
-                sourceRows: source.length,
-                outputRows: rows.length,
-                transforms: steps,
-                rowSources: rows.map(({ sources }) => sources),
-                summary: `${sourceId}: ${source.length} source rows, ${steps.length} ordered transforms, ${rows.length} output rows.${steps.flatMap(({ detail }) => (detail === undefined ? [] : [` ${detail}`])).join('')}`,
-            },
-        };
-    }
-    const evaluateTransformExpression = evaluate;
-
-    const maximumNamedSources = 128;
-    const maximumDataflowNodes = 256;
-    const unsafeNames = new Set(['__proto__', 'prototype', 'constructor']);
-    const lineageByOutput = new WeakMap();
-    function fail$5(message, path) {
-        throw new GraflumeError('INVALID_SPEC', message, { path });
-    }
-    function safeName(value, path) {
-        if (typeof value !== 'string' ||
-            value.trim() === '' ||
-            value.length > 128 ||
-            unsafeNames.has(value)) {
-            fail$5('Dataflow names must be non-empty safe strings no longer than 128 characters.', path);
-        }
-        return value;
-    }
-    function cloneRows$2(input) {
-        return input.map((row) => ({ ...row }));
-    }
-    function remapLineage(upstream, branch, nodeId) {
-        const offset = upstream.transforms.length;
-        const branchSteps = branch.transforms.map((step) => ({
-            ...step,
-            index: step.index + offset,
+        const points = corners.map(([x, y]) => ({
+            x: node.x + x * Math.cos(angle) - y * Math.sin(angle),
+            y: node.y + x * Math.sin(angle) + y * Math.cos(angle),
         }));
-        const rowSources = branch.rowSources.map((indices) => [...new Set(indices.flatMap((index) => upstream.rowSources[index] ?? []))].sort((left, right) => left - right));
-        const transforms = [...upstream.transforms, ...branchSteps];
-        return {
-            sourceId: upstream.sourceId,
-            sourceRows: upstream.sourceRows,
-            outputRows: branch.outputRows,
-            transforms,
-            rowSources,
-            summary: `${upstream.sourceId} -> ${nodeId}: ${upstream.sourceRows} source rows, ${transforms.length} ordered transforms, ${branch.outputRows} output rows.`,
-        };
+        const xs = points.map((point) => point.x);
+        const ys = points.map((point) => point.y);
+        const x = Math.min(...xs);
+        const y = Math.min(...ys);
+        return { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y };
     }
-    /** Preserve upstream source-row identity while applying a branch-local transform list. */
-    function executeTransformBranch(upstream, transforms, nodeId) {
-        const branch = executeTransforms(upstream.data, transforms, { sourceId: nodeId });
-        const result = {
-            data: cloneRows$2(branch.data),
-            lineage: remapLineage(upstream.lineage, branch.lineage, nodeId),
-        };
-        lineageByOutput.set(result.data, result.lineage);
-        return result;
-    }
-    /** Execute a layer-local branch without discarding named-DAG provenance. */
-    function executeTransformsWithNamedLineage(input, transforms, sourceId) {
-        const upstream = namedDataLineage(input);
-        return upstream === undefined
-            ? executeTransforms(input, transforms, { sourceId })
-            : executeTransformBranch({ data: input, lineage: upstream }, transforms, sourceId);
-    }
-    /** Return named-DAG lineage attached to a materialized data array, when present. */
-    function namedDataLineage(input) {
-        return lineageByOutput.get(input);
-    }
-    /** Execute one closed named transform graph with dependency memoization. */
-    class TransformDataflow {
-        #sources;
-        #nodes;
-        #cache = new Map();
-        #executionOrder = [];
-        #cacheHits = 0;
-        constructor(spec) {
-            if (!isPlainObject(spec))
-                fail$5('Dataflow must be an object.', '$.dataflow');
-            if (Object.keys(spec).some((key) => !['sources', 'nodes'].includes(key))) {
-                fail$5('Unknown dataflow property.', '$.dataflow');
-            }
-            if (!isPlainObject(spec.sources)) {
-                fail$5('Dataflow sources must be an object.', '$.dataflow.sources');
-            }
-            const sourceNames = Object.keys(spec.sources);
-            if (sourceNames.length === 0 || sourceNames.length > maximumNamedSources) {
-                fail$5(`Dataflow requires 1 to ${maximumNamedSources} named sources.`, '$.dataflow.sources');
-            }
-            for (const name of sourceNames)
-                safeName(name, `$.dataflow.sources.${name}`);
-            const nodes = spec.nodes ?? [];
-            if (!Array.isArray(nodes) || nodes.length > maximumDataflowNodes) {
-                fail$5(`Dataflow supports at most ${maximumDataflowNodes} nodes.`, '$.dataflow.nodes');
-            }
-            const byId = new Map();
-            nodes.forEach((node, index) => {
-                if (!isPlainObject(node))
-                    fail$5('Dataflow node must be an object.', `$.dataflow.nodes[${index}]`);
-                const id = safeName(node.id, `$.dataflow.nodes[${index}].id`);
-                safeName(node.source, `$.dataflow.nodes[${index}].source`);
-                if (Object.keys(node).some((key) => !['id', 'source', 'transform'].includes(key))) {
-                    fail$5('Unknown dataflow node property.', `$.dataflow.nodes[${index}]`);
-                }
-                if (!Array.isArray(node.transform)) {
-                    fail$5('Dataflow node transform must be an array.', `$.dataflow.nodes[${index}].transform`);
-                }
-                if (Object.hasOwn(spec.sources, id) || byId.has(id)) {
-                    fail$5(`Duplicate dataflow name "${id}".`, `$.dataflow.nodes[${index}].id`);
-                }
-                // Reuse the established transform validator and fail before any graph result is cached.
-                const transformIssues = [];
-                validateTransforms(node.transform, `$.dataflow.nodes[${index}].transform`, transformIssues);
-                if (transformIssues.length > 0) {
-                    const first = transformIssues[0];
-                    throw new GraflumeError('INVALID_SPEC', first.message, {
-                        path: first.path,
-                        details: { issues: transformIssues },
-                    });
-                }
-                byId.set(id, node);
-            });
-            this.#sources = spec.sources;
-            this.#nodes = byId;
-            this.#assertAcyclicAndClosed();
-        }
-        #assertAcyclicAndClosed() {
-            const visited = new Set();
-            const active = new Set();
-            const visit = (name) => {
-                if (Object.hasOwn(this.#sources, name) || visited.has(name))
-                    return;
-                const node = this.#nodes.get(name);
-                if (node === undefined)
-                    fail$5(`Unknown dataflow source or node "${name}".`, '$.dataflow.nodes');
-                if (active.has(name))
-                    fail$5(`Dataflow contains a cycle at "${name}".`, '$.dataflow.nodes');
-                active.add(name);
-                visit(node.source);
-                active.delete(name);
-                visited.add(name);
-            };
-            for (const name of this.#nodes.keys())
-                visit(name);
-        }
-        resolve(name) {
-            safeName(name, '$.data.source');
-            const cached = this.#cache.get(name);
-            if (cached !== undefined) {
-                this.#cacheHits += 1;
-                return cached;
-            }
-            let result;
-            if (Object.hasOwn(this.#sources, name)) {
-                result = executeTransforms(this.#sources[name], [], { sourceId: `source:${name}` });
-                result = { data: cloneRows$2(result.data), lineage: result.lineage };
-            }
-            else {
-                const node = this.#nodes.get(name);
-                if (node === undefined)
-                    fail$5(`Unknown dataflow source or node "${name}".`, '$.data.source');
-                result = executeTransformBranch(this.resolve(node.source), node.transform, `node:${node.id}`);
-            }
-            this.#cache.set(name, result);
-            this.#executionOrder.push(name);
-            lineageByOutput.set(result.data, result.lineage);
-            return result;
-        }
-        execute(targets = [...this.#nodes.keys()]) {
-            const requested = targets.length === 0 ? Object.keys(this.#sources) : targets;
-            const outputs = Object.fromEntries(requested.map((name) => [name, this.resolve(name)]));
-            return { outputs, state: this.state() };
-        }
-        state() {
-            return {
-                sourceCount: Object.keys(this.#sources).length,
-                nodeCount: this.#nodes.size,
-                cachedOutputs: [...this.#cache.keys()],
-                executionOrder: [...this.#executionOrder],
-                cacheHits: this.#cacheHits,
-            };
-        }
-        clearCache() {
-            this.#cache.clear();
-            this.#executionOrder.length = 0;
-            this.#cacheHits = 0;
-        }
-    }
-    function createTransformDataflow(spec) {
-        return new TransformDataflow(spec);
-    }
-    function executeTransformDataflow(spec, targets) {
-        return createTransformDataflow(spec).execute(targets);
-    }
-    function isNamedDataReference(value) {
-        return (isPlainObject(value) &&
-            Object.keys(value).length === 1 &&
-            typeof value.source === 'string' &&
-            value.source.trim() !== '');
-    }
-    /**
-     * Resolve all named data references before ordinary ChartSpec normalization.
-     * One graph instance is shared by every branch in the chart tree, so common
-     * ancestors execute once even when several layers or views consume them.
-     */
-    function materializeSpecDataflow(input) {
-        const containsDataflow = (spec) => {
-            if (!isPlainObject(spec))
-                return false;
-            const chart = spec;
-            return (chart.dataflow !== undefined ||
-                ['layer', 'hconcat', 'vconcat', 'concat'].some((key) => chart[key]?.some(containsDataflow)) ||
-                (chart.spec !== undefined && containsDataflow(chart.spec)) ||
-                (chart.inset !== undefined &&
-                    (containsDataflow(chart.inset.base) || containsDataflow(chart.inset.view))));
-        };
-        if (!containsDataflow(input))
-            return input;
-        const visit = (spec, inherited) => {
-            const localSpec = spec.dataflow;
-            const graph = localSpec === undefined ? inherited : createTransformDataflow(localSpec);
-            const resolveData = (value) => {
-                if (value === undefined)
-                    return undefined;
-                if (!isNamedDataReference(value))
-                    return value;
-                if (graph === undefined) {
-                    fail$5(`Named data reference "${value.source}" has no enclosing dataflow.`, '$.data.source');
-                }
-                return graph.resolve(value.source).data;
-            };
-            const output = { ...spec };
-            delete output.dataflow;
-            delete output.source;
-            if (spec.source !== undefined) {
-                if (spec.data !== undefined)
-                    fail$5('Use either inline data or a named source, not both.', '$.source');
-                if (graph === undefined)
-                    fail$5(`Named source "${spec.source}" has no enclosing dataflow.`, '$.source');
-                output.data = graph.resolve(spec.source).data;
-            }
-            else if (spec.data !== undefined)
-                output.data = resolveData(spec.data);
-            if (spec.layers !== undefined) {
-                output.layers = spec.layers.map((layer) => {
-                    const materialized = { ...layer };
-                    delete materialized.source;
-                    if (layer.source !== undefined) {
-                        if (layer.data !== undefined) {
-                            fail$5('Use either inline layer data or a named source, not both.', '$.layers[].source');
-                        }
-                        if (graph === undefined) {
-                            fail$5(`Named source "${layer.source}" has no enclosing dataflow.`, '$.layers[].source');
-                        }
-                        materialized.data = graph.resolve(layer.source).data;
-                    }
-                    else if (layer.data !== undefined)
-                        materialized.data = resolveData(layer.data);
-                    return materialized;
-                });
-            }
-            for (const key of ['layer', 'hconcat', 'vconcat', 'concat']) {
-                const children = spec[key];
-                if (children !== undefined)
-                    output[key] = children.map((child) => visit(child, graph));
-            }
-            if (spec.spec !== undefined)
-                output.spec = visit(spec.spec, graph);
-            if (spec.inset !== undefined) {
-                output.inset = {
-                    ...spec.inset,
-                    base: visit(spec.inset.base, graph),
-                    view: visit(spec.inset.view, graph),
+    function sceneNodeBounds(node) {
+        if (!node.visible || node.opacity <= 0)
+            return null;
+        switch (node.type) {
+            case 'circle':
+                return {
+                    x: node.cx - node.radius,
+                    y: node.cy - node.radius,
+                    width: node.radius * 2,
+                    height: node.radius * 2,
+                };
+            case 'rect':
+                return {
+                    x: Math.min(node.x, node.x + node.width),
+                    y: Math.min(node.y, node.y + node.height),
+                    width: Math.abs(node.width),
+                    height: Math.abs(node.height),
+                };
+            case 'line': {
+                const padding = Math.max(0.5, node.lineWidth / 2);
+                const x = Math.min(node.x1, node.x2) - padding;
+                const y = Math.min(node.y1, node.y2) - padding;
+                return {
+                    x,
+                    y,
+                    width: Math.abs(node.x2 - node.x1) + padding * 2,
+                    height: Math.abs(node.y2 - node.y1) + padding * 2,
                 };
             }
-            return output;
-        };
-        return visit(input);
-    }
-
-    const builtInAxisIds = Object.freeze(['x', 'x2', 'y', 'y2']);
-    const unsafeAxisIds = new Set(['__proto__', 'prototype', 'constructor']);
-    const safeAxisIdPattern = /^[A-Za-z][A-Za-z0-9_-]{0,63}$/u;
-    function isSafeAxisId(value) {
-        return typeof value === 'string' && safeAxisIdPattern.test(value) && !unsafeAxisIds.has(value);
-    }
-    function builtInAxisChannel(id) {
-        if (id === 'x' || id === 'x2')
-            return 'x';
-        if (id === 'y' || id === 'y2')
-            return 'y';
-        return undefined;
-    }
-    function axisChannel(id, axes = {}) {
-        return builtInAxisChannel(id) ?? (axes[id] === false ? undefined : axes[id]?.channel);
-    }
-    function defaultAxisPosition(id, channel) {
-        if (id === 'x2')
-            return 'top';
-        if (id === 'y2')
-            return 'right';
-        return channel === 'x' ? 'bottom' : 'left';
-    }
-    function axisPositionChannel(position) {
-        return position === 'top' || position === 'bottom' ? 'x' : 'y';
-    }
-    function declaredAxisIds(axes = {}) {
-        const ids = [...builtInAxisIds];
-        for (const id of Object.keys(axes))
-            if (!ids.includes(id))
-                ids.push(id);
-        return Object.freeze(ids);
-    }
-
-    const indexByScene = new WeakMap();
-    const coordinateEpsilon = 1e-6;
-    function primary(target, channel) {
-        return channel === 'x' ? target.x : target.y;
-    }
-    function perpendicular(target, channel) {
-        return channel === 'x' ? target.y : target.x;
-    }
-    function registerAxisTooltipIndex(scene, registration) {
-        const channel = registration.channel ?? builtInAxisChannel(registration.axis) ?? 'x';
-        const targets = registration.targets
-            .filter((target) => Number.isFinite(target.x) && Number.isFinite(target.y))
-            .sort((left, right) => {
-            const coordinate = primary(left, channel) - primary(right, channel);
-            if (Math.abs(coordinate) > coordinateEpsilon)
-                return coordinate;
-            if (left.order !== right.order)
-                return right.order - left.order;
-            return left.nodeId.localeCompare(right.nodeId);
-        });
-        indexByScene.set(scene, { ...registration, channel, targets });
-    }
-    function insideActivationRegion(index, x, y) {
-        const { plot, axis, channel, axisVisible, axisStripSize } = index;
-        const right = plot.x + plot.width;
-        const bottom = plot.y + plot.height;
-        const horizontal = channel === 'x';
-        const position = index.position ??
-            (horizontal ? (axis === 'x2' ? 'top' : 'bottom') : axis === 'y2' ? 'right' : 'left');
-        if (horizontal) {
-            const strip = axisVisible ? axisStripSize : 0;
-            const top = position === 'top' ? plot.y - strip : plot.y;
-            const stripBottom = position === 'bottom' ? bottom + strip : bottom;
-            return x >= plot.x && x <= right && y >= top && y <= stripBottom;
-        }
-        const strip = axisVisible ? axisStripSize : 0;
-        const left = position === 'left' ? plot.x - strip : plot.x;
-        const stripRight = position === 'right' ? right + strip : right;
-        return x >= left && x <= stripRight && y >= plot.y && y <= bottom;
-    }
-    function lowerBound$1(targets, channel, value) {
-        let low = 0;
-        let high = targets.length;
-        while (low < high) {
-            const middle = low + Math.floor((high - low) / 2);
-            const target = targets[middle];
-            if (target !== undefined && primary(target, channel) < value)
-                low = middle + 1;
-            else
-                high = middle;
-        }
-        return low;
-    }
-    function nearestCoordinate(index, pointer) {
-        const insertion = lowerBound$1(index.targets, index.channel, pointer);
-        const before = index.targets[insertion - 1];
-        const after = index.targets[insertion];
-        if (before === undefined && after === undefined)
-            return null;
-        if (before === undefined)
-            return primary(after, index.channel);
-        if (after === undefined)
-            return primary(before, index.channel);
-        const beforeCoordinate = primary(before, index.channel);
-        const afterCoordinate = primary(after, index.channel);
-        return pointer - beforeCoordinate <= afterCoordinate - pointer
-            ? beforeCoordinate
-            : afterCoordinate;
-    }
-    function hitTestAxisTooltip(scene, x, y) {
-        const index = indexByScene.get(scene);
-        if (index === undefined ||
-            index.targets.length === 0 ||
-            !scene.metadata.hitTestingEnabled ||
-            !insideActivationRegion(index, x, y)) {
-            return null;
-        }
-        const horizontal = index.channel === 'x';
-        const pointerPrimary = horizontal ? x : y;
-        const pointerPerpendicular = horizontal ? y : x;
-        const coordinate = nearestCoordinate(index, pointerPrimary);
-        if (coordinate === null)
-            return null;
-        const start = lowerBound$1(index.targets, index.channel, coordinate - coordinateEpsilon);
-        let best = null;
-        let bestDistance = Number.POSITIVE_INFINITY;
-        for (let cursor = start; cursor < index.targets.length; cursor += 1) {
-            const target = index.targets[cursor];
-            if (target === undefined)
-                continue;
-            if (Math.abs(primary(target, index.channel) - coordinate) > coordinateEpsilon)
-                break;
-            const distance = Math.abs(perpendicular(target, index.channel) - pointerPerpendicular);
-            if (distance < bestDistance - coordinateEpsilon ||
-                (Math.abs(distance - bestDistance) <= coordinateEpsilon &&
-                    (best === null || target.order > best.order))) {
-                best = target;
-                bestDistance = distance;
+            case 'path': {
+                const points = [node.points, ...(node.subpaths ?? [])].flat();
+                if (points.length === 0)
+                    return null;
+                const padding = Math.max(0, node.lineWidth / 2);
+                const xs = points.map((point) => point.x);
+                const ys = points.map((point) => point.y);
+                const x = Math.min(...xs) - padding;
+                const y = Math.min(...ys) - padding;
+                return {
+                    x,
+                    y,
+                    width: Math.max(...xs) - Math.min(...xs) + padding * 2,
+                    height: Math.max(...ys) - Math.min(...ys) + padding * 2,
+                };
+            }
+            case 'text':
+                return textBounds(node);
+            case 'group': {
+                let bounds = null;
+                for (const child of node.children)
+                    bounds = union$2(bounds, sceneNodeBounds(child));
+                if (bounds === null || node.clip === undefined)
+                    return bounds;
+                const x = Math.max(bounds.x, node.clip.x);
+                const y = Math.max(bounds.y, node.clip.y);
+                const endX = Math.min(bounds.x + bounds.width, node.clip.x + node.clip.width);
+                const endY = Math.min(bounds.y + bounds.height, node.clip.y + node.clip.height);
+                return endX < x || endY < y ? null : { x, y, width: endX - x, height: endY - y };
             }
         }
-        if (best === null)
-            return null;
-        return {
-            layerId: best.layerId,
-            rowIndex: best.rowIndex,
-            datum: best.datum,
-            ...(best.tooltip === undefined ? {} : { tooltip: best.tooltip }),
-            nodeId: best.nodeId,
-            x,
-            y,
-            distance: Math.abs(pointerPrimary - coordinate),
-        };
+    }
+    function nodePaint(node) {
+        if (node.type === 'rect' || node.type === 'circle' || node.type === 'path') {
+            return node.fill ?? node.stroke;
+        }
+        if (node.type === 'line')
+            return node.stroke;
+        if (node.type === 'text')
+            return node.fill;
+        for (const child of node.children) {
+            const paint = nodePaint(child);
+            if (paint !== undefined)
+                return paint;
+        }
+        return undefined;
     }
 
     function nodeBase(id, options = {}) {
@@ -2940,764 +938,4054 @@ var Graflume = (function (exports) {
         };
     }
 
-    function cartesianAxisChannel(context, axis) {
-        const channel = context.channels?.[axis] ?? builtInAxisChannel(axis);
-        if (channel === undefined)
-            fail$4(`Axis "${axis}" has no Cartesian channel.`, `$.axes.${axis}`);
-        return channel;
-    }
-    function fail$4(message, path = '$.interaction.selection') {
-        throw new GraflumeError('INCOMPATIBLE_SCALE', message, { path });
-    }
-    function finite$e(value, label) {
-        if (!Number.isFinite(value))
-            fail$4(`${label} must be finite.`);
-        return value;
-    }
-    function scaleFor$1(context, axis) {
-        const scale = context.axes[axis];
-        if (scale === undefined)
-            fail$4(`Axis "${axis}" is not resolved.`, `$.axes.${axis}`);
-        return scale;
-    }
-    function clampToRange(scale, pixel) {
-        finite$e(pixel, 'Pixel coordinate');
-        const range = scale.range();
-        if (range.length === 0)
-            fail$4(`Scale "${scale.kind}" has an empty range.`);
-        const minimum = Math.min(...range);
-        const maximum = Math.max(...range);
-        return Math.max(minimum, Math.min(maximum, pixel));
-    }
-    function nearestCategorical(scale, pixel) {
-        if (scale.kind !== 'band' && scale.kind !== 'point') {
-            fail$4(`Scale "${scale.kind}" has no single-valued inverse; analytic geometry supports invertible continuous, band, and point axes only.`);
+    function normalizedHex(color) {
+        const value = color.trim().replace(/^#/, '');
+        if (/^[0-9a-f]{3}$/i.test(value)) {
+            return value
+                .split('')
+                .map((channel) => `${channel}${channel}`)
+                .join('');
         }
-        const candidates = scale.domain().map((value) => {
-            const mapped = scale.map(value);
-            return { value, distance: Math.abs(mapped - pixel) };
+        return /^[0-9a-f]{6}$/i.test(value) ? value : null;
+    }
+    function hexColor(channels, uppercase = false) {
+        const value = `#${channels
+        .map((channelValue) => Math.round(Math.max(0, Math.min(255, channelValue)))
+        .toString(16)
+        .padStart(2, '0'))
+        .join('')}`;
+        return uppercase ? value.toUpperCase() : value;
+    }
+    function linearToSrgb(value) {
+        return value <= 0.0031308 ? 12.92 * value : 1.055 * value ** (1 / 2.4) - 0.055;
+    }
+    function srgbToLinear(value) {
+        return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+    }
+    /** Convert the polar CIELUV scale used by grDevices::hcl() into clipped sRGB. */
+    function hclColor(hue, chroma, luminance) {
+        const radians = (hue * Math.PI) / 180;
+        const u = Math.cos(radians) * chroma;
+        const v = Math.sin(radians) * chroma;
+        const referenceU = 0.19783000664283;
+        const referenceV = 0.46831999493879;
+        const y = ((luminance + 16) / 116) ** 3 ;
+        const uPrime = u / (13 * luminance) + referenceU;
+        const vPrime = v / (13 * luminance) + referenceV;
+        const x = (9 * y * uPrime) / (4 * vPrime);
+        const z = (y * (12 - 3 * uPrime - 20 * vPrime)) / (4 * vPrime);
+        const red = linearToSrgb(3.2404542 * x - 1.5371385 * y - 0.4985314 * z);
+        const green = linearToSrgb(-0.969266 * x + 1.8760108 * y + 0.041556 * z);
+        const blue = linearToSrgb(0.0556434 * x - 0.2040259 * y + 1.0572252 * z);
+        return hexColor([red * 255, green * 255, blue * 255], true);
+    }
+    /** Resolve a category colour while preserving fixed-palette behaviour for existing themes. */
+    function categoricalColor(theme, index, count) {
+        const paletteSize = Number.isFinite(count) ? Math.max(1, Math.floor(count)) : 1;
+        const paletteIndex = Number.isFinite(index) ? Math.floor(index) : 0;
+        const normalizedIndex = ((paletteIndex % paletteSize) + paletteSize) % paletteSize;
+        if (theme.colors.paletteMode === 'ggplot2-hue') {
+            return hclColor(15 + (360 * normalizedIndex) / paletteSize, 100, 65);
+        }
+        const palette = theme.colors.palette;
+        if (palette.length === 0)
+            return theme.colors.focus;
+        const fixedIndex = ((paletteIndex % palette.length) + palette.length) % palette.length;
+        return palette[fixedIndex] ?? theme.colors.focus;
+    }
+    function labFunction(value) {
+        const delta = 6 / 29;
+        return value > delta ** 3 ? Math.cbrt(value) : value / (3 * delta ** 2) + 4 / 29;
+    }
+    function inverseLabFunction(value) {
+        const delta = 6 / 29;
+        return value > delta ? value ** 3 : 3 * delta ** 2 * (value - 4 / 29);
+    }
+    function hexToLab(color) {
+        const hex = normalizedHex(color);
+        if (hex === null)
+            return null;
+        const red = srgbToLinear(channel$1(hex, 0) / 255);
+        const green = srgbToLinear(channel$1(hex, 1) / 255);
+        const blue = srgbToLinear(channel$1(hex, 2) / 255);
+        const x = (0.4124564 * red + 0.3575761 * green + 0.1804375 * blue) / 0.95047;
+        const y = 0.2126729 * red + 0.7151522 * green + 0.072175 * blue;
+        const z = (0.0193339 * red + 0.119192 * green + 0.9503041 * blue) / 1.08883;
+        const fx = labFunction(x);
+        const fy = labFunction(y);
+        const fz = labFunction(z);
+        return { l: 116 * fy - 16, a: 500 * (fx - fy), b: 200 * (fy - fz) };
+    }
+    function labToHex(color) {
+        const fy = (color.l + 16) / 116;
+        const fx = fy + color.a / 500;
+        const fz = fy - color.b / 200;
+        const x = 0.95047 * inverseLabFunction(fx);
+        const y = inverseLabFunction(fy);
+        const z = 1.08883 * inverseLabFunction(fz);
+        const red = linearToSrgb(3.2404542 * x - 1.5371385 * y - 0.4985314 * z);
+        const green = linearToSrgb(-0.969266 * x + 1.8760108 * y + 0.041556 * z);
+        const blue = linearToSrgb(0.0556434 * x - 0.2040259 * y + 1.0572252 * z);
+        return hexColor([red * 255, green * 255, blue * 255], true);
+    }
+    function mixLabColor(start, end, ratio) {
+        const startLab = hexToLab(start);
+        const endLab = hexToLab(end);
+        if (startLab === null || endLab === null)
+            return mixColor$1(start, end, ratio);
+        const bounded = Number.isFinite(ratio) ? Math.max(0, Math.min(1, ratio)) : 0;
+        return labToHex({
+            l: startLab.l + (endLab.l - startLab.l) * bounded,
+            a: startLab.a + (endLab.a - startLab.a) * bounded,
+            b: startLab.b + (endLab.b - startLab.b) * bounded,
         });
-        const nearest = candidates.reduce((best, candidate) => best === undefined || candidate.distance < best.distance ? candidate : best, undefined);
-        if (nearest === undefined)
-            fail$4(`Scale "${scale.kind}" has an empty domain.`);
-        return nearest.value;
     }
-    function domainToPixel(context, axis, value) {
-        const mapped = scaleFor$1(context, axis).map(value);
-        if (!Number.isFinite(mapped)) {
-            fail$4(`Value ${String(value)} cannot be mapped on axis "${axis}".`, `$.axes.${axis}`);
+    /** Resolve a continuous colour; an explicit interpolation token wins over palette defaults. */
+    function continuousColor(theme, ratio) {
+        const palette = theme.colors.sequential;
+        if (palette.length === 0)
+            return theme.colors.focus;
+        if (palette.length === 1)
+            return palette[0] ?? theme.colors.focus;
+        const bounded = Number.isFinite(ratio) ? Math.max(0, Math.min(1, ratio)) : 0;
+        if (theme.colors.paletteMode === 'ggplot2-hue' &&
+            theme.colors.continuousInterpolation === undefined) {
+            return mixLabColor(palette[0] ?? theme.colors.focus, palette[palette.length - 1] ?? theme.colors.focus, bounded);
         }
-        return mapped;
-    }
-    function pixelToDomain(context, axis, pixel) {
-        const scale = scaleFor$1(context, axis);
-        const bounded = clampToRange(scale, pixel);
-        if (scale.invert === undefined)
-            return nearestCategorical(scale, bounded);
-        const value = scale.invert(bounded);
-        if (typeof value === 'number' && !Number.isFinite(value)) {
-            fail$4(`Pixel ${pixel} cannot be inverted on axis "${axis}".`, `$.axes.${axis}`);
+        if (theme.colors.continuousInterpolation === 'rgb' ||
+            theme.colors.continuousInterpolation === 'lab') {
+            const scaled = bounded * (palette.length - 1);
+            const startIndex = Math.min(palette.length - 2, Math.floor(scaled));
+            const start = palette[startIndex] ?? theme.colors.focus;
+            const end = palette[startIndex + 1] ?? start;
+            const localRatio = scaled - startIndex;
+            return theme.colors.continuousInterpolation === 'lab'
+                ? mixLabColor(start, end, localRatio)
+                : mixColor$1(start, end, localRatio);
         }
-        return value;
+        if (theme.colors.continuousInterpolation === 'step') {
+            const index = Math.min(palette.length - 1, Math.floor(bounded * palette.length));
+            return palette[index] ?? theme.colors.focus;
+        }
+        return palette[Math.round(bounded * (palette.length - 1))] ?? theme.colors.focus;
     }
-    function clampPixelToPlot(context, point) {
-        finite$e(point.x, 'Pixel x');
-        finite$e(point.y, 'Pixel y');
-        return Object.freeze({
-            x: Math.max(context.plot.x, Math.min(context.plot.x + context.plot.width, point.x)),
-            y: Math.max(context.plot.y, Math.min(context.plot.y + context.plot.height, point.y)),
+    function channel$1(color, index) {
+        return Number.parseInt(color.slice(index * 2, index * 2 + 2), 16);
+    }
+    function mixColor$1(start, end, ratio) {
+        const startHex = normalizedHex(start);
+        const endHex = normalizedHex(end);
+        if (startHex === null || endHex === null)
+            return ratio < 0.5 ? start : end;
+        const bounded = Math.max(0, Math.min(1, ratio));
+        const channels = [0, 1, 2].map((index) => Math.round(channel$1(startHex, index) + (channel$1(endHex, index) - channel$1(startHex, index)) * bounded));
+        return `#${channels.map((value) => value.toString(16).padStart(2, '0')).join('')}`;
+    }
+    function colorWithOpacity(color, opacity) {
+        const hex = normalizedHex(color);
+        if (hex === null)
+            return color;
+        const alpha = Math.round(Math.max(0, Math.min(1, opacity)) * 255)
+            .toString(16)
+            .padStart(2, '0');
+        return `#${hex}${alpha}`;
+    }
+    function readableTextColor(color, light, dark) {
+        const hex = normalizedHex(color);
+        if (hex === null)
+            return light;
+        const linear = [0, 1, 2].map((index) => {
+            const value = channel$1(hex, index) / 255;
+            return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
         });
+        const luminance = 0.2126 * (linear[0] ?? 0) + 0.7152 * (linear[1] ?? 0) + 0.0722 * (linear[2] ?? 0);
+        return luminance > 0.42 ? dark : light;
     }
-    function pixelPointToDomain(context, point, axes = {}) {
-        const bounded = clampPixelToPlot(context, point);
-        const xAxis = axes.x ?? 'x';
-        const yAxis = axes.y ?? 'y';
-        return Object.freeze({
-            type: 'point',
-            xAxis,
-            yAxis,
-            x: pixelToDomain(context, xAxis, bounded.x),
-            y: pixelToDomain(context, yAxis, bounded.y),
-        });
+
+    const legendByScene = new WeakMap();
+    const categoricalMarks = new Set([
+        'pie',
+        'variable-pie',
+        'treemap',
+        'sunburst',
+        'packed-bubble',
+        'funnel',
+        'pyramid',
+        'venn',
+        'word-cloud',
+    ]);
+    const continuousMarks = new Set([
+        'heatmap',
+        'geo',
+        'geo-heatmap',
+        'map',
+        'contour',
+        'volume-profile',
+    ]);
+    const lineMarks = new Set([
+        'annotation',
+        'area',
+        'diff',
+        'line',
+        'lines',
+        'smooth',
+        'stepped-area',
+        'trendline',
+    ]);
+    const pointMarks = new Set([
+        'bubble',
+        'effect-scatter',
+        'item',
+        'lollipop',
+        'packed-bubble',
+        'point',
+        'scatter-3d',
+        'scatter-matrix',
+        'ternary',
+    ]);
+    /** Category filtering is safe only when a row owns independent geometry. */
+    const CATEGORY_LEGEND_TOGGLE_MARKS = new Set([
+        'bar',
+        'bubble',
+        'candlestick',
+        'calendar',
+        'cylinder',
+        'effect-scatter',
+        'financial',
+        'flags',
+        'funnel',
+        'gantt',
+        'heatmap',
+        'interval',
+        'item',
+        'lollipop',
+        'packed-bubble',
+        'pie',
+        'point',
+        'pictorial-bar',
+        'pyramid',
+        'range',
+        'scatter-3d',
+        'scatter-matrix',
+        'sunburst',
+        'ternary',
+        'timeline',
+        'tilemap',
+        'tiled-map',
+        'treemap',
+        'variable-pie',
+        'variwide',
+        'venn',
+        'waterfall',
+        'wind-barb',
+        'word-cloud',
+    ]);
+    function markSymbol(mark) {
+        if (mark !== undefined && lineMarks.has(mark))
+            return 'line';
+        if (mark !== undefined && pointMarks.has(mark))
+            return 'point';
+        return 'rect';
     }
-    function domainPointToPixel(context, point) {
-        if (point.x === undefined || point.y === undefined) {
-            fail$4('A domain point requires both x and y to map to pixels.');
+    function valueKey$1(value) {
+        return `${value === null ? 'null' : typeof value}:${String(value)}`;
+    }
+    function safeId(value) {
+        return value.replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'item';
+    }
+    /** Keep inferred category state stable across row reordering and slug collisions. */
+    function stableCategoryId(value) {
+        const canonical = JSON.stringify([value === null ? 'null' : typeof value, value]);
+        let encoded = '';
+        for (let index = 0; index < canonical.length; index += 1) {
+            encoded += canonical.charCodeAt(index).toString(16).padStart(4, '0');
         }
-        return Object.freeze({
-            x: domainToPixel(context, point.xAxis ?? 'x', point.x),
-            y: domainToPixel(context, point.yAxis ?? 'y', point.y),
-        });
+        return encoded;
     }
-    function continuousDomain(context, axis, pixel) {
-        const scale = scaleFor$1(context, axis);
-        if (scale.invert === undefined) {
-            fail$4(`Selection geometry on axis "${axis}" requires an invertible continuous scale; "${scale.kind}" is unsupported.`, `$.axes.${axis}`);
-        }
-        const value = pixelToDomain(context, axis, pixel);
-        if (typeof value !== 'number') {
-            fail$4(`Selection geometry on axis "${axis}" must invert to a number.`, `$.axes.${axis}`);
-        }
-        return value;
+    function autoMode(spec) {
+        if (spec.legend === false)
+            return 'layers';
+        if (spec.legend.mode !== 'auto')
+            return spec.legend.mode;
+        if (spec.layers.length > 1)
+            return 'layers';
+        const mark = spec.layers[0]?.mark.type;
+        if (mark !== undefined && continuousMarks.has(mark))
+            return 'continuous';
+        if (mark !== undefined && categoricalMarks.has(mark))
+            return 'categories';
+        return 'layers';
     }
-    function extent$1(start, end) {
-        return Object.freeze(start <= end ? [start, end] : [end, start]);
-    }
-    function categoricalExtent(scale, start, end) {
-        if (scale.kind !== 'band' && scale.kind !== 'point') {
-            fail$4(`Scale "${scale.kind}" cannot create a categorical brush extent.`);
-        }
-        const domain = scale.domain();
-        if (domain.length === 0)
-            fail$4(`Scale "${scale.kind}" has an empty domain.`);
-        const nearestIndex = (pixel) => {
-            let bestIndex = 0;
-            let bestDistance = Number.POSITIVE_INFINITY;
-            domain.forEach((value, index) => {
-                const distance = Math.abs(scale.map(value) - pixel);
-                if (distance < bestDistance) {
-                    bestIndex = index;
-                    bestDistance = distance;
-                }
+    function categoryItems(spec, legend) {
+        const layer = spec.layers.find((candidate) => candidate.id === legend.layerId) ?? spec.layers[0];
+        if (layer === undefined)
+            return [];
+        const field = legend.field ?? layer.x.field;
+        const table = DataTable.from(layer.data);
+        const seen = new Set();
+        const output = [];
+        for (let index = 0; index < table.length && output.length < legend.maxItems; index += 1) {
+            const raw = table.value(index, field);
+            if (raw === undefined ||
+                raw instanceof Date ||
+                (typeof raw === 'number' && !Number.isFinite(raw)))
+                continue;
+            const value = raw;
+            const key = valueKey$1(value);
+            if (seen.has(key))
+                continue;
+            seen.add(key);
+            output.push({
+                id: `category-${stableCategoryId(value)}`,
+                label: raw === null ? '—' : String(raw),
+                layerId: layer.id,
+                value,
+                symbol: markSymbol(layer.mark.type),
             });
-            return bestIndex;
-        };
-        const first = nearestIndex(start);
-        const last = nearestIndex(end);
-        return Object.freeze({
-            values: Object.freeze(domain.slice(Math.min(first, last), Math.max(first, last) + 1)),
-        });
-    }
-    function selectionExtent(context, axis, start, end) {
-        const scale = scaleFor$1(context, axis);
-        return scale.invert === undefined
-            ? categoricalExtent(scale, start, end)
-            : extent$1(continuousDomain(context, axis, start), continuousDomain(context, axis, end));
-    }
-    function categoricalHalfSpan(scale) {
-        if (scale.bandwidth > 0)
-            return scale.bandwidth / 2;
-        const positions = scale
-            .domain()
-            .map((value) => scale.map(value))
-            .sort((left, right) => left - right);
-        let minimum = Number.POSITIVE_INFINITY;
-        for (let index = 1; index < positions.length; index += 1) {
-            minimum = Math.min(minimum, Math.abs(positions[index] - positions[index - 1]));
         }
-        return Number.isFinite(minimum) ? minimum / 2 : 3;
+        return output;
     }
-    function extentToPixels(scale, value) {
-        if (Array.isArray(value)) {
-            return Object.freeze([scale.map(value[0]), scale.map(value[1])]);
-        }
-        const positions = value.values.map((entry) => scale.map(entry));
-        if (positions.some((entry) => !Number.isFinite(entry))) {
-            fail$4('Categorical brush values must exist in the resolved scale domain.');
-        }
-        const halfSpan = categoricalHalfSpan(scale);
-        return Object.freeze([Math.min(...positions) - halfSpan, Math.max(...positions) + halfSpan]);
-    }
-    function pixelRectangleToSelection(context, start, end, options = {}) {
-        const first = clampPixelToPlot(context, start);
-        const last = clampPixelToPlot(context, end);
-        const xAxis = options.xAxis ?? 'x';
-        const yAxis = options.yAxis ?? 'y';
-        return Object.freeze({
-            type: options.type ?? 'rectangle',
-            xAxis,
-            yAxis,
-            x: selectionExtent(context, xAxis, first.x, last.x),
-            y: selectionExtent(context, yAxis, first.y, last.y),
-        });
-    }
-    function pixelAxisToSelection(context, axis, start, end) {
-        const first = clampPixelToPlot(context, start);
-        const last = clampPixelToPlot(context, end);
-        const horizontal = cartesianAxisChannel(context, axis) === 'x';
-        return Object.freeze({
-            type: 'axis',
-            axis,
-            extent: selectionExtent(context, axis, horizontal ? first.x : first.y, horizontal ? last.x : last.y),
-        });
-    }
-    function pixelLassoToSelection(context, points, axes = {}) {
-        if (points.length < 3)
-            fail$4('A lasso gesture requires at least three points.');
-        if (points.length > 512)
-            fail$4('A lasso gesture exceeds the 512 point bound.');
-        const xAxis = axes.x ?? 'x';
-        const yAxis = axes.y ?? 'y';
-        const domainPoints = points.map((point) => {
-            const bounded = clampPixelToPlot(context, point);
-            return Object.freeze({
-                x: continuousDomain(context, xAxis, bounded.x),
-                y: continuousDomain(context, yAxis, bounded.y),
-            });
-        });
-        return Object.freeze({
-            type: 'lasso',
-            xAxis,
-            yAxis,
-            points: Object.freeze(domainPoints),
-        });
-    }
-    function selectionToPixels(context, selection) {
-        if (selection.type === 'point') {
-            if (selection.x === undefined || selection.y === undefined)
-                return [];
-            return [domainPointToPixel(context, selection)];
-        }
-        if (selection.type === 'interval' || selection.type === 'rectangle') {
-            const x = extentToPixels(scaleFor$1(context, selection.xAxis), selection.x);
-            const y = extentToPixels(scaleFor$1(context, selection.yAxis), selection.y);
-            return [
-                Object.freeze({
-                    x: x[0],
-                    y: y[0],
-                }),
-                Object.freeze({
-                    x: x[1],
-                    y: y[1],
-                }),
-            ];
-        }
-        if (selection.type === 'axis') {
-            const horizontal = cartesianAxisChannel(context, selection.axis) === 'x';
-            const [start, end] = extentToPixels(scaleFor$1(context, selection.axis), selection.extent);
-            return horizontal
-                ? [
-                    Object.freeze({ x: start, y: context.plot.y }),
-                    Object.freeze({ x: end, y: context.plot.y + context.plot.height }),
-                ]
-                : [
-                    Object.freeze({ x: context.plot.x, y: start }),
-                    Object.freeze({ x: context.plot.x + context.plot.width, y: end }),
-                ];
-        }
-        return selection.points.map((point) => Object.freeze({
-            x: domainToPixel(context, selection.xAxis, point.x),
-            y: domainToPixel(context, selection.yAxis, point.y),
+    function layerItems(spec) {
+        return spec.layers.map((layer, index) => ({
+            id: `layer-${safeId(layer.id)}-${index}`,
+            label: layer.name,
+            layerId: layer.id,
+            symbol: markSymbol(layer.mark.type),
         }));
     }
-
-    /** Compile completed domain selections into non-interactive, plot-clipped Scene nodes. */
-    function compileAnalyticSelectionOverlay(state, context, style, idPrefix = 'analytic-selection') {
-        const nodes = [];
-        state.selections.forEach((selection, index) => {
-            const points = selectionToPixels(context, selection);
-            if (selection.type === 'point') {
-                const point = points[0];
-                if (point === undefined)
-                    return;
-                nodes.push({
-                    type: 'circle',
-                    ...nodeBase(`${idPrefix}:${index}`, { zIndex: 760, opacity: style.opacity }),
-                    cx: point.x,
-                    cy: point.y,
-                    radius: style.radius,
-                    fill: style.fill,
-                    stroke: style.stroke,
-                    lineWidth: style.lineWidth,
-                    dash: style.dash,
-                });
-                return;
-            }
-            if (selection.type === 'lasso') {
-                nodes.push({
-                    type: 'path',
-                    ...nodeBase(`${idPrefix}:${index}`, { zIndex: 760, opacity: style.opacity }),
-                    points,
-                    closed: true,
-                    fill: style.fill,
-                    stroke: style.stroke,
-                    lineWidth: style.lineWidth,
-                    dash: style.dash,
-                    lineJoin: 'round',
-                });
-                return;
-            }
-            const first = points[0];
-            const last = points[1];
-            if (first === undefined || last === undefined)
-                return;
-            nodes.push({
-                type: 'rect',
-                ...nodeBase(`${idPrefix}:${index}`, { zIndex: 760, opacity: style.opacity }),
-                x: Math.min(first.x, last.x),
-                y: Math.min(first.y, last.y),
-                width: Math.abs(last.x - first.x),
-                height: Math.abs(last.y - first.y),
-                fill: style.fill,
-                stroke: style.stroke,
-                lineWidth: style.lineWidth,
-                dash: style.dash,
-                cornerRadius: 0,
-            });
-        });
-        return nodes.length === 0
-            ? []
-            : [group(`${idPrefix}:overlay`, nodes, { zIndex: 760, clip: context.plot })];
+    function legendItemToggleable(model, item) {
+        return (model.spec.interactive &&
+            model.mode !== 'continuous' &&
+            (model.mode === 'categories'
+                ? item.value === undefined
+                    ? item.layerId !== undefined
+                    : item.layerId === undefined
+                        ? model.categoryToggleableLayerIds.size > 0
+                        : model.categoryToggleableLayerIds.has(item.layerId)
+                : item.layerId !== undefined));
     }
-
-    const analyticSelectionVersion = 1;
-    const maximumAnalyticSelections = 64;
-    const maximumLassoPoints = 512;
-    const maximumCategoricalSelectionValues = 512;
-    function invalid$2(message) {
-        throw new GraflumeError('INVALID_SPEC', message, { path: '$.analyticSelection' });
-    }
-    function assertPlainObject$1(value, label) {
-        if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-            invalid$2(`${label} must be an object.`);
+    function continuousItems(spec, legend) {
+        const layer = spec.layers.find((candidate) => candidate.id === legend.layerId) ?? spec.layers[0];
+        if (layer === undefined)
+            return [];
+        const field = legend.field ?? layer.mark.fields.value ?? layer.y.field;
+        const table = DataTable.from(layer.data);
+        const extent = table.extent(field, false);
+        if (extent === null)
+            return [{ id: 'continuous-scale', label: field, layerId: layer.id, symbol: 'rect' }];
+        let formatter;
+        try {
+            formatter = new Intl.NumberFormat(spec.locale, { maximumFractionDigits: 6 });
         }
-    }
-    function assertClosedKeys$1(value, allowed, label) {
-        const allowedKeys = new Set(allowed);
-        const unknown = Object.keys(value).filter((key) => !allowedKeys.has(key));
-        if (unknown.length > 0)
-            invalid$2(`${label} contains unknown key "${unknown[0]}".`);
-    }
-    function canonicalNumber(value) {
-        return Object.is(value, -0) ? 0 : value;
-    }
-    function canonicalPrimitive(value) {
-        return typeof value === 'number' ? canonicalNumber(value) : value;
-    }
-    function domainValue(value, label) {
-        if (typeof value === 'number') {
-            if (!Number.isFinite(value))
-                invalid$2(`${label} must be finite.`);
-            return;
+        catch {
+            formatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 6 });
         }
-        if (typeof value !== 'string' || value.length === 0 || value.length > 4096) {
-            invalid$2(`${label} must be a finite number or a non-empty bounded string.`);
-        }
-    }
-    function orderedExtent(value) {
-        const start = canonicalNumber(value[0]);
-        const end = canonicalNumber(value[1]);
-        return Object.freeze(start <= end ? [start, end] : [end, start]);
-    }
-    function normalizeExtent(value, label) {
-        if (Array.isArray(value)) {
-            if (value.length !== 2 ||
-                value.some((entry) => typeof entry !== 'number' || !Number.isFinite(entry))) {
-                invalid$2(`${label} must contain exactly two finite numbers.`);
-            }
-            return orderedExtent(value);
-        }
-        assertPlainObject$1(value, label);
-        assertClosedKeys$1(value, ['values'], label);
-        if (!Array.isArray(value.values) ||
-            value.values.length === 0 ||
-            value.values.length > maximumCategoricalSelectionValues) {
-            invalid$2(`${label}.values must contain between 1 and ${maximumCategoricalSelectionValues} categorical identities.`);
-        }
-        const values = value.values.map((entry, index) => {
-            domainValue(entry, `${label}.values[${index}]`);
-            return typeof entry === 'number' ? canonicalNumber(entry) : entry;
-        });
-        if (new Set(values.map((entry) => `${typeof entry}:${String(entry)}`)).size !== values.length) {
-            invalid$2(`${label}.values must be unique.`);
-        }
-        return Object.freeze({ values: Object.freeze(values) });
-    }
-    function cloneTarget$2(target) {
-        const rows = target.rowIndex === undefined
-            ? undefined
-            : Array.isArray(target.rowIndex)
-                ? [...target.rowIndex].sort((left, right) => left - right)
-                : target.rowIndex;
-        const values = target.values === undefined
-            ? undefined
-            : [...target.values]
-                .map(canonicalPrimitive)
-                .sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
-        return Object.freeze({
-            type: 'datum',
-            ...(target.layerId === undefined ? {} : { layerId: target.layerId }),
-            ...(rows === undefined ? {} : { rowIndex: Array.isArray(rows) ? Object.freeze(rows) : rows }),
-            ...(target.field === undefined ? {} : { field: target.field }),
-            ...(Object.prototype.hasOwnProperty.call(target, 'value')
-                ? { value: canonicalPrimitive(target.value) }
-                : {}),
-            ...(values === undefined ? {} : { values: Object.freeze(values) }),
-        });
-    }
-    function validateTarget(target) {
-        assertPlainObject$1(target, 'Point target');
-        assertClosedKeys$1(target, ['type', 'layerId', 'rowIndex', 'field', 'value', 'values'], 'Point target');
-        const candidate = target;
-        if (candidate.type !== 'datum')
-            invalid$2('Point target.type must be "datum".');
-        if (candidate.layerId !== undefined &&
-            (typeof candidate.layerId !== 'string' ||
-                candidate.layerId.length === 0 ||
-                candidate.layerId.length > 4096)) {
-            invalid$2('Point target.layerId must be a non-empty bounded string.');
-        }
-        if (candidate.rowIndex !== undefined) {
-            const rows = Array.isArray(candidate.rowIndex) ? candidate.rowIndex : [candidate.rowIndex];
-            if (rows.length === 0 ||
-                rows.length > 1000 ||
-                rows.some((row) => !Number.isInteger(row) || row < 0)) {
-                invalid$2('Point target.rowIndex must contain bounded non-negative integers.');
-            }
-            if (new Set(rows).size !== rows.length)
-                invalid$2('Point target.rowIndex must be unique.');
-        }
-        if (candidate.field !== undefined &&
-            (typeof candidate.field !== 'string' ||
-                candidate.field.length === 0 ||
-                candidate.field.length > 4096 ||
-                candidate.field === '__proto__' ||
-                candidate.field === 'prototype' ||
-                candidate.field === 'constructor')) {
-            invalid$2('Point target.field must be a safe non-empty bounded string.');
-        }
-        const hasValue = Object.prototype.hasOwnProperty.call(candidate, 'value');
-        const hasValues = Object.prototype.hasOwnProperty.call(candidate, 'values');
-        if (candidate.field === undefined && (hasValue || hasValues)) {
-            invalid$2('Point target.field is required for value matching.');
-        }
-        if (candidate.field !== undefined && hasValue === hasValues) {
-            invalid$2('Point target field matching requires exactly one of value or values.');
-        }
-        if (hasValues && (!Array.isArray(candidate.values) || candidate.values.length === 0)) {
-            invalid$2('Point target values must be a non-empty array.');
-        }
-        const values = hasValues ? candidate.values : hasValue ? [candidate.value] : [];
-        if (values.length > 200)
-            invalid$2('Point target values exceed the 200 item bound.');
-        for (const value of values) {
-            if (value !== null &&
-                typeof value !== 'string' &&
-                typeof value !== 'boolean' &&
-                !(typeof value === 'number' && Number.isFinite(value))) {
-                invalid$2('Point target values must be JSON primitives with finite numbers.');
-            }
-        }
-        if (new Set(values.map((value) => JSON.stringify(canonicalPrimitive(value)))).size !==
-            values.length) {
-            invalid$2('Point target values must be unique.');
-        }
-        if (candidate.rowIndex === undefined && candidate.field === undefined) {
-            invalid$2('Point target requires rowIndex or field/value identity.');
-        }
-    }
-    function axisId(value, _orientation) {
-        if (!isSafeAxisId(value))
-            invalid$2('Selection axis must use the safe named-axis grammar.');
-    }
-    function normalizeSelection(selection) {
-        assertPlainObject$1(selection, 'Selection');
-        if (selection.type === 'point') {
-            assertClosedKeys$1(selection, ['type', 'xAxis', 'yAxis', 'x', 'y', 'target'], 'Point selection');
-            if (selection.x === undefined && selection.y === undefined && selection.target === undefined) {
-                invalid$2('Point selection requires x, y, or target identity.');
-            }
-            if (selection.x !== undefined)
-                domainValue(selection.x, 'Point x');
-            if (selection.y !== undefined)
-                domainValue(selection.y, 'Point y');
-            if (selection.xAxis !== undefined)
-                axisId(selection.xAxis);
-            if (selection.yAxis !== undefined)
-                axisId(selection.yAxis);
-            if (selection.target !== undefined)
-                validateTarget(selection.target);
-            return Object.freeze({
-                type: 'point',
-                ...(selection.xAxis === undefined ? {} : { xAxis: selection.xAxis }),
-                ...(selection.yAxis === undefined ? {} : { yAxis: selection.yAxis }),
-                ...(selection.x === undefined
-                    ? {}
-                    : { x: typeof selection.x === 'number' ? canonicalNumber(selection.x) : selection.x }),
-                ...(selection.y === undefined
-                    ? {}
-                    : { y: typeof selection.y === 'number' ? canonicalNumber(selection.y) : selection.y }),
-                ...(selection.target === undefined ? {} : { target: cloneTarget$2(selection.target) }),
-            });
-        }
-        if (selection.type === 'interval' || selection.type === 'rectangle') {
-            assertClosedKeys$1(selection, ['type', 'xAxis', 'yAxis', 'x', 'y'], `${selection.type} selection`);
-            axisId(selection.xAxis);
-            axisId(selection.yAxis);
-            return Object.freeze({
-                type: selection.type,
-                xAxis: selection.xAxis,
-                yAxis: selection.yAxis,
-                x: normalizeExtent(selection.x, 'Selection x extent'),
-                y: normalizeExtent(selection.y, 'Selection y extent'),
-            });
-        }
-        if (selection.type === 'axis') {
-            assertClosedKeys$1(selection, ['type', 'axis', 'extent'], 'Axis selection');
-            axisId(selection.axis);
-            return Object.freeze({
-                type: 'axis',
-                axis: selection.axis,
-                extent: normalizeExtent(selection.extent, 'Axis selection extent'),
-            });
-        }
-        if (selection.type === 'lasso') {
-            assertClosedKeys$1(selection, ['type', 'xAxis', 'yAxis', 'points'], 'Lasso selection');
-            axisId(selection.xAxis);
-            axisId(selection.yAxis);
-            if (!Array.isArray(selection.points) || selection.points.length < 3) {
-                invalid$2('Lasso selection requires at least three points.');
-            }
-            if (selection.points.length > maximumLassoPoints) {
-                invalid$2(`Lasso selection exceeds the ${maximumLassoPoints} point bound.`);
-            }
-            const points = selection.points.map((point, index) => {
-                assertPlainObject$1(point, `Lasso point ${index}`);
-                assertClosedKeys$1(point, ['x', 'y'], `Lasso point ${index}`);
-                if (typeof point.x !== 'number' ||
-                    typeof point.y !== 'number' ||
-                    !Number.isFinite(point.x) ||
-                    !Number.isFinite(point.y)) {
-                    invalid$2(`Lasso point ${index} must contain finite x and y values.`);
-                }
-                return Object.freeze({ x: canonicalNumber(point.x), y: canonicalNumber(point.y) });
-            });
-            return Object.freeze({
-                type: 'lasso',
-                xAxis: selection.xAxis,
-                yAxis: selection.yAxis,
-                points: Object.freeze(points),
-            });
-        }
-        invalid$2(`Unsupported analytic selection type: ${String(selection.type)}.`);
-    }
-    function stableTarget(target) {
-        if (target === undefined)
-            return null;
-        const rows = target.rowIndex === undefined
-            ? null
-            : Array.isArray(target.rowIndex)
-                ? [...target.rowIndex].sort((a, b) => a - b)
-                : [target.rowIndex];
-        const values = target.values ?? (target.value === undefined ? [] : [target.value]);
         return [
-            target.layerId ?? null,
-            rows,
-            target.field ?? null,
-            [...values].sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
+            {
+                id: 'continuous-min',
+                label: formatter.format(extent[0]),
+                layerId: layer.id,
+                value: extent[0],
+                symbol: 'rect',
+            },
+            {
+                id: 'continuous-max',
+                label: formatter.format(extent[1]),
+                layerId: layer.id,
+                value: extent[1],
+                symbol: 'rect',
+            },
         ];
     }
-    function analyticSelectionKey(selection) {
-        switch (selection.type) {
-            case 'point':
-                return JSON.stringify([
-                    'point',
-                    selection.xAxis ?? null,
-                    selection.x ?? null,
-                    selection.yAxis ?? null,
-                    selection.y ?? null,
-                    stableTarget(selection.target),
-                ]);
-            case 'interval':
-            case 'rectangle':
-                return JSON.stringify([
-                    selection.type,
-                    selection.xAxis,
-                    selection.x,
-                    selection.yAxis,
-                    selection.y,
-                ]);
-            case 'axis':
-                return JSON.stringify(['axis', selection.axis, selection.extent]);
-            case 'lasso':
-                return JSON.stringify(['lasso', selection.xAxis, selection.yAxis, selection.points]);
-        }
-    }
-    function normalizeAnalyticSelectionState(input) {
-        assertPlainObject$1(input, 'Analytic selection state');
-        assertClosedKeys$1(input, ['version', 'combine', 'selections'], 'Analytic selection state');
-        if (input.version !== analyticSelectionVersion) {
-            invalid$2(`Analytic selection state.version must be ${analyticSelectionVersion}.`);
-        }
-        if (input.combine !== 'union' && input.combine !== 'intersection') {
-            invalid$2('Analytic selection state.combine must be "union" or "intersection".');
-        }
-        if (!Array.isArray(input.selections) || input.selections.length > maximumAnalyticSelections) {
-            invalid$2(`Analytic selection state must contain at most ${maximumAnalyticSelections} selections.`);
-        }
-        const selections = input.selections.map(normalizeSelection);
-        const keys = selections.map(analyticSelectionKey);
-        if (new Set(keys).size !== keys.length)
-            invalid$2('Analytic selections must be unique.');
-        return Object.freeze({
-            version: analyticSelectionVersion,
-            combine: input.combine,
-            selections: Object.freeze(selections),
+    function resolveLegendModel(spec, theme, availableWidth = 640, availableHeight = 400) {
+        const legend = spec.legend;
+        if (legend === false || !legend.visible)
+            return null;
+        const mode = autoMode(spec);
+        const selectedLayer = spec.layers.find((candidate) => candidate.id === legend.layerId) ?? spec.layers[0];
+        const field = mode === 'categories'
+            ? (legend.field ?? selectedLayer?.x.field)
+            : mode === 'continuous'
+                ? (legend.field ?? selectedLayer?.mark.fields.value ?? selectedLayer?.y.field)
+                : undefined;
+        const inferred = legend.items.length > 0
+            ? legend.items
+            : mode === 'layers'
+                ? layerItems(spec)
+                : mode === 'categories'
+                    ? categoryItems(spec, legend)
+                    : continuousItems(spec, legend);
+        let items = inferred.slice(0, legend.maxItems).map((item) => {
+            if (item.symbol !== 'auto')
+                return item;
+            const layer = spec.layers.find((candidate) => candidate.id === item.layerId);
+            return { ...item, symbol: markSymbol(layer?.mark.type) };
         });
-    }
-    function emptyAnalyticSelectionState(combine = 'union') {
-        return normalizeAnalyticSelectionState({
-            version: analyticSelectionVersion,
-            combine,
-            selections: [],
-        });
-    }
-    function primitiveEqual(left, right) {
-        return typeof left === 'number' && typeof right === 'number'
-            ? Number.isFinite(left) && Object.is(left, right)
-            : Object.is(left, right);
-    }
-    function targetMatches(target, sample) {
-        if (target.layerId !== undefined && target.layerId !== sample.layerId)
-            return false;
-        if (target.rowIndex !== undefined) {
-            const rows = Array.isArray(target.rowIndex) ? target.rowIndex : [target.rowIndex];
-            if (sample.rowIndex === undefined || !rows.includes(sample.rowIndex))
-                return false;
+        if (items.length === 0)
+            return null;
+        const titleHeight = legend.title === undefined
+            ? 0
+            : (theme.typography.legendTitleSize ?? theme.typography.fontSize) + 8;
+        const maxWidth = Math.max(1, availableWidth - 8);
+        const maxHeight = Math.max(1, availableHeight - 8);
+        const swatchSize = theme.legend?.swatchSize ?? 12;
+        const horizontalItemPadding = swatchSize + 22;
+        const direction = spec.locale !== undefined && /^(ar|fa|he|ur)(?:-|$)/i.test(spec.locale) ? 'rtl' : 'ltr';
+        const categoryToggleableLayerIds = new Set(spec.layers
+            .filter((layer) => CATEGORY_LEGEND_TOGGLE_MARKS.has(layer.mark.type))
+            .map((layer) => layer.id));
+        if (mode === 'continuous' && items.length >= 2) {
+            return {
+                spec: legend,
+                mode,
+                items,
+                ...(field === undefined ? {} : { field }),
+                width: Math.min(maxWidth, Math.max(120, (legend.title?.length ?? 0) * 7 + (legend.title === undefined ? 0 : 24), 168)),
+                height: Math.min(maxHeight, titleHeight + 42),
+                direction,
+                categoryToggleableLayerIds,
+            };
         }
-        if (target.field !== undefined) {
-            const values = target.values ?? (target.value === undefined ? [] : [target.value]);
-            const actual = sample.datum?.[target.field];
-            if (!values.some((value) => primitiveEqual(actual, value)))
-                return false;
-        }
-        return target.rowIndex !== undefined || target.field !== undefined;
-    }
-    function inExtent(value, extent) {
-        if (Array.isArray(extent)) {
-            return (typeof value === 'number' &&
-                Number.isFinite(value) &&
-                value >= extent[0] &&
-                value <= extent[1]);
-        }
-        return extent.values.some((candidate) => Object.is(candidate, value));
-    }
-    function pointInPolygon$1(point, polygon) {
-        let inside = false;
-        for (let current = 0, previous = polygon.length - 1; current < polygon.length; previous = current++) {
-            const a = polygon[current];
-            const b = polygon[previous];
-            const crosses = a.y > point.y !== b.y > point.y;
-            const edgeX = ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y || Number.EPSILON) + a.x;
-            if (crosses && point.x < edgeX)
-                inside = !inside;
-        }
-        return inside;
-    }
-    function normalizedSelectionMatches(normalized, sample) {
-        if (normalized.selections.length === 0)
-            return false;
-        const matches = (selection) => {
-            switch (selection.type) {
-                case 'point': {
-                    if (selection.target !== undefined && !targetMatches(selection.target, sample))
-                        return false;
-                    if (selection.x !== undefined && !Object.is(sample[selection.xAxis ?? 'x'], selection.x))
-                        return false;
-                    if (selection.y !== undefined && !Object.is(sample[selection.yAxis ?? 'y'], selection.y))
-                        return false;
-                    return true;
+        if (legend.orientation === 'horizontal') {
+            const totalWidth = items.reduce((sum, item) => sum + Math.max(64, item.label.length * 7 + horizontalItemPadding), 0);
+            const modelWidth = Math.min(maxWidth, Math.max(96, totalWidth + 20));
+            const usableWidth = Math.max(48, modelWidth - 20);
+            let rowWidth = 0;
+            let rows = 1;
+            for (const item of items) {
+                const itemWidth = Math.max(64, item.label.length * 7 + horizontalItemPadding);
+                if (rowWidth > 0 && rowWidth + itemWidth > usableWidth) {
+                    rows += 1;
+                    rowWidth = 0;
                 }
-                case 'interval':
-                case 'rectangle':
-                    return (inExtent(sample[selection.xAxis], selection.x) &&
-                        inExtent(sample[selection.yAxis], selection.y));
-                case 'axis':
-                    return inExtent(sample[selection.axis], selection.extent);
-                case 'lasso': {
-                    const x = sample[selection.xAxis];
-                    const y = sample[selection.yAxis];
-                    return (typeof x === 'number' &&
-                        typeof y === 'number' &&
-                        pointInPolygon$1({ x, y }, selection.points));
-                }
+                rowWidth += itemWidth;
             }
+            const visibleRows = Math.max(1, Math.floor((maxHeight - titleHeight - 12) / 24));
+            if (rows > visibleRows) {
+                let usedRows = 1;
+                rowWidth = 0;
+                items = items.filter((item) => {
+                    const itemWidth = Math.max(64, item.label.length * 7 + horizontalItemPadding);
+                    if (rowWidth > 0 && rowWidth + itemWidth > usableWidth) {
+                        usedRows += 1;
+                        rowWidth = 0;
+                    }
+                    if (usedRows > visibleRows)
+                        return false;
+                    rowWidth += itemWidth;
+                    return true;
+                });
+                rows = visibleRows;
+            }
+            return {
+                spec: legend,
+                mode,
+                items,
+                ...(field === undefined ? {} : { field }),
+                width: modelWidth,
+                height: Math.min(maxHeight, titleHeight + rows * 24 + 12),
+                direction,
+                categoryToggleableLayerIds,
+            };
+        }
+        const maxVisibleItems = Math.max(1, Math.floor((maxHeight - titleHeight - 12) / 24));
+        items = items.slice(0, maxVisibleItems);
+        return {
+            spec: legend,
+            mode,
+            items,
+            ...(field === undefined ? {} : { field }),
+            width: Math.min(maxWidth, Math.min(220, Math.max(72, legend.title === undefined ? 0 : legend.title.length * 7 + 20, ...items.map((item) => item.label.length * 7 + swatchSize + 30)))),
+            height: Math.min(maxHeight, titleHeight + items.length * 24 + 12),
+            direction,
+            categoryToggleableLayerIds,
         };
-        return normalized.combine === 'union'
-            ? normalized.selections.some(matches)
-            : normalized.selections.every(matches);
     }
-    function analyticSelectionPredicate(state) {
-        const normalized = normalizeAnalyticSelectionState(state);
-        return (sample) => normalizedSelectionMatches(normalized, sample);
+    function truncateText(text, width, fontSize) {
+        const maximum = Math.max(1, Math.floor(width / Math.max(5, fontSize * 0.58)));
+        let graphemes;
+        try {
+            graphemes = [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text)].map(({ segment }) => segment);
+        }
+        catch {
+            graphemes = Array.from(text);
+        }
+        if (graphemes.length <= maximum)
+            return text;
+        return `${graphemes.slice(0, Math.max(1, maximum - 1)).join('')}…`;
     }
-    function analyticSelectionMatches(state, sample) {
-        return normalizedSelectionMatches(normalizeAnalyticSelectionState(state), sample);
+    function legendExternalInsets(model) {
+        const empty = { top: 0, right: 0, bottom: 0, left: 0 };
+        if (model === null)
+            return empty;
+        switch (model.spec.position) {
+            case 'top':
+                return { ...empty, top: model.height + 8 };
+            case 'right':
+                return { ...empty, right: model.width + 8 };
+            case 'bottom':
+                return { ...empty, bottom: model.height + 8 };
+            case 'left':
+                return { ...empty, left: model.width + 8 };
+            default:
+                return empty;
+        }
     }
-    class AnalyticSelectionStore {
-        #state;
-        constructor(initial = emptyAnalyticSelectionState()) {
-            this.#state = normalizeAnalyticSelectionState(initial);
+    function descendants$2(node) {
+        if (node.type !== 'group')
+            return [node];
+        return node.children.flatMap(descendants$2);
+    }
+    function itemPaint(item, index, mode, layerGroups, field, theme, itemCount) {
+        if (item.color !== undefined)
+            return item.color;
+        if (mode === 'continuous') {
+            return continuousColor(theme, index === 0 ? 0 : 1);
         }
-        get() {
-            return this.#state;
+        const groups = item.layerId === undefined
+            ? layerGroups
+            : layerGroups.filter((candidate) => candidate.id === `${item.layerId}:group`);
+        for (const group of groups) {
+            const nodes = descendants$2(group);
+            const matching = mode === 'categories' && field !== undefined && item.value !== undefined
+                ? nodes.find((node) => [node.datum?.tooltip, node.datum?.datum].some((datum) => datum !== undefined &&
+                    Object.prototype.hasOwnProperty.call(datum, field) &&
+                    valueKey$1(datum[field]) === valueKey$1(item.value)))
+                : nodes.find((node) => nodePaint(node) !== undefined);
+            const paint = matching === undefined ? undefined : nodePaint(matching);
+            if (paint !== undefined)
+                return paint;
         }
-        set(state) {
-            this.#state = normalizeAnalyticSelectionState(state);
-            return this.#state;
+        return categoricalColor(theme, index, Math.max(1, itemCount));
+    }
+    function legendOrigin(model, plot, width, height) {
+        const gap = 8;
+        const origin = (() => {
+            switch (model.spec.position) {
+                case 'top':
+                    return { x: plot.x, y: Math.max(gap, plot.y - model.height - gap) };
+                case 'right':
+                    return { x: plot.x + plot.width + gap, y: plot.y };
+                case 'bottom':
+                    return { x: plot.x, y: height - model.height - gap / 2 };
+                case 'left':
+                    return { x: Math.max(gap, plot.x - model.width - gap), y: plot.y };
+                case 'inside-top-left':
+                    return { x: plot.x + gap, y: plot.y + gap };
+                case 'inside-bottom-left':
+                    return { x: plot.x + gap, y: plot.y + plot.height - model.height - gap };
+                case 'inside-bottom-right':
+                    return {
+                        x: plot.x + plot.width - model.width - gap,
+                        y: plot.y + plot.height - model.height - gap,
+                    };
+                case 'inside-top-right':
+                default:
+                    return { x: plot.x + plot.width - model.width - gap, y: plot.y + gap };
+            }
+        })();
+        return {
+            x: Math.max(4, Math.min(Math.max(4, width - model.width - 4), origin.x)),
+            y: Math.max(4, Math.min(Math.max(4, height - model.height - 4), origin.y)),
+        };
+    }
+    function compileLegend(model, layerGroups, plot, width, height, theme, hiddenItems = new Set()) {
+        if (model === null)
+            return { nodes: [], layout: null };
+        const origin = legendOrigin(model, plot, width, height);
+        const background = {
+            type: 'rect',
+            ...nodeBase('legend:surface', {
+                zIndex: 500,
+                opacity: theme.legend?.surfaceOpacity ?? 0.94,
+            }),
+            x: origin.x,
+            y: origin.y,
+            width: model.width,
+            height: model.height,
+            fill: theme.colors.surface,
+            stroke: theme.legend?.borderColor ?? theme.colors.axis,
+            lineWidth: theme.legend?.borderWidth ?? 1,
+            cornerRadius: theme.legend?.cornerRadius ?? 8,
+        };
+        const nodes = [background];
+        const inset = Math.min(10, Math.max(0, model.width / 4));
+        let cursorX = origin.x + inset;
+        let cursorY = origin.y + 10;
+        if (model.spec.title !== undefined) {
+            nodes.push({
+                type: 'text',
+                ...nodeBase('legend:title', { zIndex: 502 }),
+                x: model.direction === 'rtl' ? origin.x + model.width - inset : cursorX,
+                y: cursorY,
+                text: truncateText(model.spec.title, model.width - inset * 2, theme.typography.fontSize),
+                fill: theme.colors.text,
+                fontFamily: theme.typography.fontFamily,
+                fontSize: theme.typography.legendTitleSize ?? theme.typography.fontSize,
+                fontWeight: theme.typography.legendTitleWeight ?? 700,
+                align: model.direction === 'rtl' ? 'right' : 'left',
+                baseline: 'top',
+                rotation: 0,
+            });
+            cursorY += (theme.typography.legendTitleSize ?? theme.typography.fontSize) + 8;
         }
-        clear(combine = this.#state.combine) {
-            this.#state = emptyAnalyticSelectionState(combine);
-            return this.#state;
+        const entries = [];
+        const field = model.field;
+        if (model.mode === 'continuous' && model.items.length >= 2) {
+            const scaleX = origin.x + inset;
+            const scaleWidth = Math.max(1, model.width - inset * 2);
+            const paletteSize = Math.max(1, Math.floor(theme.legend?.continuousSamples ??
+                (theme.colors.paletteMode === 'ggplot2-hue' ||
+                    theme.colors.continuousInterpolation !== undefined
+                    ? 16
+                    : theme.colors.sequential.length)));
+            const palette = model.spec.items.length > 0
+                ? model.items.map((item, index) => {
+                    return (item.color ?? continuousColor(theme, index / Math.max(1, model.items.length - 1)));
+                })
+                : Array.from({ length: paletteSize }, (_value, index) => continuousColor(theme, index / Math.max(1, paletteSize - 1)));
+            palette.forEach((paint, paletteIndex) => {
+                nodes.push({
+                    type: 'rect',
+                    ...nodeBase(`legend:scale:${paletteIndex}`, { zIndex: 501 }),
+                    x: scaleX + (scaleWidth * paletteIndex) / palette.length,
+                    y: cursorY,
+                    width: scaleWidth / palette.length + 0.5,
+                    height: 10,
+                    fill: paint,
+                    lineWidth: 0,
+                    cornerRadius: 0,
+                });
+            });
+            const endpoints = [model.items[0], model.items[model.items.length - 1]];
+            endpoints.forEach((item, index) => {
+                const color = itemPaint(item, index, model.mode, layerGroups, field, theme, model.items.length);
+                const left = index === 0;
+                nodes.push({
+                    type: 'text',
+                    ...nodeBase(`legend:item:${item.id}:label`, { zIndex: 502 }),
+                    x: model.direction === 'rtl'
+                        ? left
+                            ? scaleX + scaleWidth
+                            : scaleX
+                        : left
+                            ? scaleX
+                            : scaleX + scaleWidth,
+                    y: cursorY + 14,
+                    text: truncateText(item.label, scaleWidth / 2 - 4, theme.typography.legendLabelSize ?? theme.typography.fontSize),
+                    fill: theme.colors.mutedText,
+                    fontFamily: theme.typography.fontFamily,
+                    fontSize: theme.typography.legendLabelSize ?? theme.typography.fontSize,
+                    fontWeight: theme.typography.legendLabelWeight ?? 500,
+                    align: model.direction === 'rtl' ? (left ? 'right' : 'left') : left ? 'left' : 'right',
+                    baseline: 'top',
+                    rotation: 0,
+                });
+                entries.push({
+                    ...item,
+                    color,
+                    bounds: {
+                        x: left ? scaleX : scaleX + scaleWidth / 2,
+                        y: cursorY + 12,
+                        width: scaleWidth / 2,
+                        height: 20,
+                    },
+                    toggleable: false,
+                    visible: true,
+                });
+            });
+            return {
+                nodes: [
+                    group('legend:group', nodes, {
+                        zIndex: 500,
+                        clip: { ...origin, width: model.width, height: model.height },
+                    }),
+                ],
+                layout: {
+                    mode: model.mode,
+                    entries,
+                    bounds: { ...origin, width: model.width, height: model.height },
+                },
+            };
         }
-        apply(selection, update = 'replace') {
-            const normalized = normalizeSelection(selection);
-            if (update === 'replace') {
-                return this.set({
-                    version: analyticSelectionVersion,
-                    combine: this.#state.combine,
-                    selections: [normalized],
+        const swatchSize = theme.legend?.swatchSize ?? 12;
+        const lineSwatchLength = theme.legend?.swatchSize ?? 13;
+        const rtlSwatchInset = theme.legend?.swatchSize ?? 16;
+        const swatchLineWidth = theme.legend?.lineWidth ?? 2.5;
+        const swatchPointRadius = theme.legend?.pointRadius ?? 5;
+        const swatchPointStrokeWidth = theme.legend?.pointStrokeWidth ?? 0;
+        for (const [index, item] of model.items.entries()) {
+            const itemWidth = Math.max(64, item.label.length * 7 + swatchSize + 22);
+            if (model.spec.orientation === 'horizontal' &&
+                cursorX > origin.x + 10 &&
+                cursorX + itemWidth > origin.x + model.width - 10) {
+                cursorX = origin.x + 10;
+                cursorY += 24;
+            }
+            const bounds = {
+                x: cursorX - 4,
+                y: cursorY - 4,
+                width: model.spec.orientation === 'horizontal'
+                    ? Math.max(1, Math.min(itemWidth, origin.x + model.width - (cursorX - 4) - 6))
+                    : model.width - 12,
+                height: 22,
+            };
+            const visible = !hiddenItems.has(item.id);
+            const color = itemPaint(item, index, model.mode, layerGroups, field, theme, model.items.length);
+            const swatchX = model.direction === 'rtl' ? bounds.x + bounds.width - rtlSwatchInset : cursorX;
+            if (item.symbol === 'line') {
+                nodes.push({
+                    type: 'line',
+                    ...nodeBase(`legend:item:${item.id}:swatch`, {
+                        zIndex: 501,
+                        opacity: visible ? 1 : 0.28,
+                    }),
+                    x1: swatchX,
+                    y1: cursorY + swatchSize / 2,
+                    x2: swatchX + lineSwatchLength,
+                    y2: cursorY + swatchSize / 2,
+                    stroke: color,
+                    lineWidth: swatchLineWidth,
+                    lineCap: theme.legend?.lineCap ?? 'round',
                 });
             }
-            const existing = this.#state.selections.filter((candidate) => analyticSelectionKey(candidate) !== analyticSelectionKey(normalized));
-            return this.set({
-                version: analyticSelectionVersion,
-                combine: update,
-                selections: [...existing, normalized],
+            else if (item.symbol === 'point') {
+                nodes.push({
+                    type: 'circle',
+                    ...nodeBase(`legend:item:${item.id}:swatch`, {
+                        zIndex: 501,
+                        opacity: visible ? 1 : 0.28,
+                    }),
+                    cx: swatchX + swatchSize / 2,
+                    cy: cursorY + swatchSize / 2,
+                    radius: swatchPointRadius,
+                    fill: color,
+                    ...(swatchPointStrokeWidth === 0 ? {} : { stroke: color }),
+                    lineWidth: swatchPointStrokeWidth,
+                });
+            }
+            else {
+                nodes.push({
+                    type: 'rect',
+                    ...nodeBase(`legend:item:${item.id}:swatch`, {
+                        zIndex: 501,
+                        opacity: visible ? 1 : 0.28,
+                    }),
+                    x: swatchX,
+                    y: cursorY,
+                    width: swatchSize,
+                    height: swatchSize,
+                    fill: color,
+                    lineWidth: 0,
+                    cornerRadius: theme.legend?.swatchRadius ?? 3,
+                });
+            }
+            nodes.push({
+                type: 'text',
+                ...nodeBase(`legend:item:${item.id}:label`, { zIndex: 502, opacity: visible ? 1 : 0.45 }),
+                x: model.direction === 'rtl' ? swatchX - 7 : cursorX + swatchSize + 7,
+                y: cursorY + swatchSize / 2,
+                text: truncateText(item.label, Math.max(8, bounds.width - swatchSize - 14), theme.typography.legendLabelSize ?? theme.typography.fontSize),
+                fill: theme.colors.text,
+                fontFamily: theme.typography.fontFamily,
+                fontSize: theme.typography.legendLabelSize ?? theme.typography.fontSize,
+                fontWeight: theme.typography.legendLabelWeight ?? 500,
+                align: model.direction === 'rtl' ? 'right' : 'left',
+                baseline: 'middle',
+                rotation: 0,
             });
+            const toggleable = legendItemToggleable(model, item);
+            entries.push({ ...item, color, bounds, toggleable, visible });
+            if (model.spec.orientation === 'horizontal')
+                cursorX += itemWidth;
+            else
+                cursorY += 24;
         }
+        return {
+            nodes: [
+                group('legend:group', nodes, {
+                    zIndex: 500,
+                    clip: { ...origin, width: model.width, height: model.height },
+                }),
+            ],
+            layout: {
+                mode: model.mode,
+                entries,
+                bounds: { ...origin, width: model.width, height: model.height },
+            },
+        };
+    }
+    function registerLegendLayout(scene, layout) {
+        if (layout !== null)
+            legendByScene.set(scene, layout);
+    }
+    function sceneLegendLayout(scene) {
+        return legendByScene.get(scene) ?? null;
     }
 
-    function countSceneNodes(root) {
-        let count = 1;
-        for (const child of root.children) {
-            count += child.type === 'group' ? countSceneNodes(child) : 1;
+    const MAXIMUM_MAP_SCOPE_VALUES = 50_000;
+    const unsafeMapPropertyNames = new Set(['__proto__', 'prototype', 'constructor']);
+    function mapScopeProperty(value, path) {
+        if (typeof value !== 'string' || value.trim() === '' || value.length > 256)
+            throw new GraflumeError('INVALID_SPEC', `${path} must be a non-empty string up to 256 characters.`, {
+                path,
+            });
+        const property = value.trim();
+        if (property !== '$id' && unsafeMapPropertyNames.has(property))
+            throw new GraflumeError('INVALID_SPEC', `${path} is not a safe GeoJSON property.`, { path });
+        return property;
+    }
+    function mapScopeValues(value, path) {
+        if (!Array.isArray(value) || value.length === 0 || value.length > MAXIMUM_MAP_SCOPE_VALUES)
+            throw new GraflumeError('INVALID_SPEC', `${path} must contain from 1 to ${MAXIMUM_MAP_SCOPE_VALUES} string, number, or boolean values.`, { path });
+        const output = [];
+        const keys = new Set();
+        value.forEach((entry, index) => {
+            if (!(typeof entry === 'string' ||
+                (typeof entry === 'number' && Number.isFinite(entry)) ||
+                typeof entry === 'boolean'))
+                throw new GraflumeError('INVALID_SPEC', `${path}[${index}] must be a string, finite number, or boolean.`, { path: `${path}[${index}]` });
+            if (typeof entry === 'string' && entry.length > 512)
+                throw new GraflumeError('INVALID_SPEC', `${path}[${index}] is longer than 512 characters.`, {
+                    path: `${path}[${index}]`,
+                });
+            const key = `${typeof entry}:${String(entry)}`;
+            if (!keys.has(key)) {
+                keys.add(key);
+                output.push(entry);
+            }
+        });
+        return Object.freeze(output);
+    }
+    /** Validates and snapshots a closed map feature-scope object. */
+    function normalizeMapFeatureScope(value, path = '$.mapScope') {
+        if (value === null || typeof value !== 'object' || Array.isArray(value))
+            throw new GraflumeError('INVALID_SPEC', `${path} must be an object.`, { path });
+        const candidate = value;
+        const allowed = new Set([
+            'level',
+            'property',
+            'values',
+            'parentProperty',
+            'parentValues',
+            'caseSensitive',
+            'unmatched',
+            'empty',
+        ]);
+        const unknown = Object.keys(candidate).find((key) => !allowed.has(key));
+        if (unknown !== undefined)
+            throw new GraflumeError('INVALID_SPEC', `Unknown map scope property "${unknown}".`, {
+                path: `${path}.${unknown}`,
+            });
+        const level = candidate.level ?? 'feature';
+        if (level !== 'country' && level !== 'region' && level !== 'feature')
+            throw new GraflumeError('INVALID_SPEC', `${path}.level is unsupported.`, {
+                path: `${path}.level`,
+            });
+        const property = mapScopeProperty(candidate.property ?? '$id', `${path}.property`);
+        const values = mapScopeValues(candidate.values, `${path}.values`);
+        const parentProperty = candidate.parentProperty === undefined
+            ? undefined
+            : mapScopeProperty(candidate.parentProperty, `${path}.parentProperty`);
+        const parentValues = candidate.parentValues === undefined
+            ? undefined
+            : mapScopeValues(candidate.parentValues, `${path}.parentValues`);
+        if ((parentProperty === undefined) !== (parentValues === undefined))
+            throw new GraflumeError('INVALID_SPEC', `${path}.parentProperty and ${path}.parentValues must be provided together.`, { path });
+        const caseSensitive = candidate.caseSensitive ?? false;
+        if (typeof caseSensitive !== 'boolean')
+            throw new GraflumeError('INVALID_SPEC', `${path}.caseSensitive must be boolean.`, {
+                path: `${path}.caseSensitive`,
+            });
+        const unmatched = candidate.unmatched ?? 'error';
+        if (unmatched !== 'error' && unmatched !== 'ignore')
+            throw new GraflumeError('INVALID_SPEC', `${path}.unmatched is unsupported.`, {
+                path: `${path}.unmatched`,
+            });
+        const empty = candidate.empty ?? 'error';
+        if (empty !== 'error' && empty !== 'allow')
+            throw new GraflumeError('INVALID_SPEC', `${path}.empty is unsupported.`, {
+                path: `${path}.empty`,
+            });
+        return Object.freeze({
+            level,
+            property,
+            values,
+            ...(parentProperty === undefined ? {} : { parentProperty, parentValues: parentValues }),
+            caseSensitive,
+            unmatched,
+            empty,
+        });
+    }
+    function mapScopeComparable(value, caseSensitive) {
+        if (!(typeof value === 'string' ||
+            (typeof value === 'number' && Number.isFinite(value)) ||
+            typeof value === 'boolean'))
+            return null;
+        const text = `${typeof value}:${String(value).trim()}`;
+        return caseSensitive || typeof value !== 'string' ? text : text.toLocaleUpperCase('en-US');
+    }
+    function mapFeatureScopeValue(feature, property) {
+        return property === '$id' ? feature.id : feature.properties?.[property];
+    }
+    function requestedMapScopeKeys(values, caseSensitive) {
+        return new Set(values.flatMap((entry) => {
+            const value = mapScopeComparable(entry, caseSensitive);
+            return value === null ? [] : [value];
+        }));
+    }
+    /**
+     * Selects any number of features with bounded Set lookups. Requested values are
+     * matched exactly (case-insensitive for strings by default), source order is
+     * preserved, and partial or empty matches fail closed unless explicitly allowed.
+     */
+    function scopeGeoJsonFeatures(collection, scopeInput) {
+        const scope = normalizeMapFeatureScope(scopeInput);
+        const requested = requestedMapScopeKeys(scope.values, scope.caseSensitive);
+        const requestedParents = requestedMapScopeKeys(scope.parentValues ?? [], scope.caseSensitive);
+        const matched = new Set();
+        const matchedParents = new Set();
+        const features = collection.features.filter((feature) => {
+            const value = mapScopeComparable(mapFeatureScopeValue(feature, scope.property), scope.caseSensitive);
+            if (value === null || !requested.has(value))
+                return false;
+            if (scope.parentProperty === undefined) {
+                matched.add(value);
+                return true;
+            }
+            const parent = mapScopeComparable(mapFeatureScopeValue(feature, scope.parentProperty), scope.caseSensitive);
+            if (parent === null || !requestedParents.has(parent))
+                return false;
+            matched.add(value);
+            matchedParents.add(parent);
+            return true;
+        });
+        if (scope.unmatched === 'error') {
+            const missing = [...requested].filter((value) => !matched.has(value));
+            const missingParents = [...requestedParents].filter((value) => !matchedParents.has(value));
+            if (missing.length > 0 || missingParents.length > 0)
+                throw new GraflumeError('INVALID_DATA', `Map scope did not match ${missing.length + missingParents.length} requested value(s).`, {
+                    details: {
+                        missing: Object.freeze(missing),
+                        missingParents: Object.freeze(missingParents),
+                    },
+                });
+        }
+        if (features.length === 0 && scope.empty === 'error')
+            throw new GraflumeError('INVALID_DATA', 'Map scope selected no features.');
+        return Object.freeze({ type: 'FeatureCollection', features: Object.freeze(features) });
+    }
+    function finite$e(value, path) {
+        if (typeof value !== 'number' || !Number.isFinite(value)) {
+            throw new GraflumeError('INVALID_DATA', `${path} must be a finite number.`, { path });
+        }
+        return value;
+    }
+    function clamp$c(value, minimum, maximum) {
+        return Math.max(minimum, Math.min(maximum, value));
+    }
+    function longitude(value, path) {
+        const resolved = finite$e(value, path);
+        if (resolved < -540 || resolved > 540)
+            throw new GraflumeError('INVALID_DATA', `${path} is outside the supported longitude range.`);
+        return resolved;
+    }
+    function latitude(value, path) {
+        const resolved = finite$e(value, path);
+        if (resolved < -90 || resolved > 90)
+            throw new GraflumeError('INVALID_DATA', `${path} must be from -90 to 90.`);
+        return resolved;
+    }
+    function wrapLongitude(value) {
+        const finiteValue = longitude(value, '$.longitude');
+        return ((((finiteValue + 180) % 360) + 360) % 360) - 180;
+    }
+    function position$1(value, path) {
+        if (!Array.isArray(value) || value.length < 2)
+            throw new GraflumeError('INVALID_DATA', `${path} must be [longitude, latitude].`, { path });
+        return [longitude(value[0], `${path}[0]`), latitude(value[1], `${path}[1]`)];
+    }
+    function positions(value, depth, path) {
+        if (depth === 0)
+            return position$1(value, path);
+        if (!Array.isArray(value))
+            throw new GraflumeError('INVALID_DATA', `${path} must be an array.`, { path });
+        return value.map((entry, index) => positions(entry, depth - 1, `${path}[${index}]`));
+    }
+    function normalizeGeometry(value, path) {
+        if (typeof value !== 'object' || value === null || Array.isArray(value))
+            throw new GraflumeError('INVALID_DATA', `${path} must be a GeoJSON geometry.`);
+        const candidate = value;
+        if (candidate.type === 'GeometryCollection') {
+            if (!Array.isArray(candidate.geometries))
+                throw new GraflumeError('INVALID_DATA', `${path}.geometries must be an array.`, {
+                    path: `${path}.geometries`,
+                });
+            return {
+                type: 'GeometryCollection',
+                geometries: candidate.geometries.map((geometry, index) => normalizeGeometry(geometry, `${path}.geometries[${index}]`)),
+            };
+        }
+        const depth = new Map([
+            ['Point', 0],
+            ['MultiPoint', 1],
+            ['LineString', 1],
+            ['MultiLineString', 2],
+            ['Polygon', 2],
+            ['MultiPolygon', 3],
+        ]).get(String(candidate.type));
+        if (depth === undefined)
+            throw new GraflumeError('INVALID_DATA', `${path}.type is unsupported.`);
+        return {
+            type: candidate.type,
+            coordinates: positions(candidate.coordinates, depth, `${path}.coordinates`),
+        };
+    }
+    /** Validates GeoJSON and returns a closed, normalized FeatureCollection. */
+    function normalizeGeoJson(value) {
+        if (typeof value !== 'object' || value === null || Array.isArray(value))
+            throw new GraflumeError('INVALID_DATA', 'GeoJSON must be an object.');
+        const candidate = value;
+        const inputs = candidate.type === 'FeatureCollection'
+            ? Array.isArray(candidate.features)
+                ? candidate.features
+                : (() => {
+                    throw new GraflumeError('INVALID_DATA', '$.features must be an array.');
+                })()
+            : [
+                candidate.type === 'Feature'
+                    ? candidate
+                    : { type: 'Feature', geometry: candidate, properties: null },
+            ];
+        const features = inputs.map((entry, index) => {
+            if (typeof entry !== 'object' || entry === null || Array.isArray(entry))
+                throw new GraflumeError('INVALID_DATA', `$.features[${index}] must be an object.`);
+            const feature = entry;
+            if (feature.type !== 'Feature')
+                throw new GraflumeError('INVALID_DATA', `$.features[${index}].type must be Feature.`);
+            const properties = feature.properties == null
+                ? null
+                : typeof feature.properties === 'object' && !Array.isArray(feature.properties)
+                    ? feature.properties
+                    : (() => {
+                        throw new GraflumeError('INVALID_DATA', `$.features[${index}].properties must be an object or null.`);
+                    })();
+            return {
+                type: 'Feature',
+                ...(typeof feature.id === 'string' || typeof feature.id === 'number'
+                    ? { id: feature.id }
+                    : {}),
+                properties,
+                geometry: feature.geometry === null
+                    ? null
+                    : normalizeGeometry(feature.geometry, `$.features[${index}].geometry`),
+            };
+        });
+        return { type: 'FeatureCollection', features };
+    }
+    function decodedArcs(topology) {
+        const transform = topology.transform;
+        if (transform !== undefined) {
+            transform.scale.forEach((value, index) => finite$e(value, `$.transform.scale[${index}]`));
+            transform.translate.forEach((value, index) => finite$e(value, `$.transform.translate[${index}]`));
+        }
+        return topology.arcs.map((arc, arcIndex) => {
+            let x = 0;
+            let y = 0;
+            return arc.map((entry, pointIndex) => {
+                if (!Array.isArray(entry) || entry.length < 2)
+                    throw new GraflumeError('INVALID_DATA', `$.arcs[${arcIndex}][${pointIndex}] must be a pair.`);
+                if (transform === undefined)
+                    return position$1(entry, `$.arcs[${arcIndex}][${pointIndex}]`);
+                x += finite$e(entry[0], `$.arcs[${arcIndex}][${pointIndex}][0]`);
+                y += finite$e(entry[1], `$.arcs[${arcIndex}][${pointIndex}][1]`);
+                return position$1([
+                    x * transform.scale[0] + transform.translate[0],
+                    y * transform.scale[1] + transform.translate[1],
+                ], `$.arcs[${arcIndex}][${pointIndex}]`);
+            });
+        });
+    }
+    function topoArc(reference, arcs) {
+        const index = reference < 0 ? ~reference : reference;
+        const arc = arcs[index];
+        if (arc === undefined)
+            throw new GraflumeError('INVALID_DATA', `Topology references unknown arc ${reference}.`);
+        return reference < 0 ? [...arc].reverse() : [...arc];
+    }
+    function joinTopoArcs(references, arcs, path) {
+        if (!Array.isArray(references))
+            throw new GraflumeError('INVALID_DATA', `${path} must be an arc array.`);
+        const output = [];
+        references.forEach((reference, index) => {
+            if (!Number.isInteger(reference))
+                throw new GraflumeError('INVALID_DATA', `${path}[${index}] must be an integer.`);
+            const arc = topoArc(reference, arcs);
+            output.push(...(output.length === 0 ? arc : arc.slice(1)));
+        });
+        return output;
+    }
+    function topologyGeometry(object, arcs, path) {
+        if (object.type === 'GeometryCollection') {
+            if (!Array.isArray(object.geometries))
+                throw new GraflumeError('INVALID_DATA', `${path}.geometries must be an array.`);
+            return object.geometries.flatMap((geometry, index) => topologyGeometry(geometry, arcs, `${path}.geometries[${index}]`));
+        }
+        let geometry;
+        if (object.type === 'Point')
+            geometry = { type: 'Point', coordinates: position$1(object.coordinates, `${path}.coordinates`) };
+        else if (object.type === 'MultiPoint')
+            geometry = {
+                type: 'MultiPoint',
+                coordinates: positions(object.coordinates, 1, `${path}.coordinates`),
+            };
+        else if (object.type === 'LineString')
+            geometry = { type: 'LineString', coordinates: joinTopoArcs(object.arcs, arcs, `${path}.arcs`) };
+        else if (object.type === 'MultiLineString') {
+            if (!Array.isArray(object.arcs))
+                throw new GraflumeError('INVALID_DATA', `${path}.arcs must be an array.`);
+            geometry = {
+                type: 'MultiLineString',
+                coordinates: object.arcs.map((references, index) => joinTopoArcs(references, arcs, `${path}.arcs[${index}]`)),
+            };
+        }
+        else if (object.type === 'Polygon') {
+            if (!Array.isArray(object.arcs))
+                throw new GraflumeError('INVALID_DATA', `${path}.arcs must be an array.`);
+            geometry = {
+                type: 'Polygon',
+                coordinates: object.arcs.map((references, index) => joinTopoArcs(references, arcs, `${path}.arcs[${index}]`)),
+            };
+        }
+        else if (object.type === 'MultiPolygon') {
+            if (!Array.isArray(object.arcs))
+                throw new GraflumeError('INVALID_DATA', `${path}.arcs must be an array.`);
+            geometry = {
+                type: 'MultiPolygon',
+                coordinates: object.arcs.map((polygon, polygonIndex) => {
+                    if (!Array.isArray(polygon))
+                        throw new GraflumeError('INVALID_DATA', `${path}.arcs[${polygonIndex}] must be an array.`);
+                    return polygon.map((references, ringIndex) => joinTopoArcs(references, arcs, `${path}.arcs[${polygonIndex}][${ringIndex}]`));
+                }),
+            };
+        }
+        else
+            throw new GraflumeError('INVALID_DATA', `${path}.type is unsupported.`);
+        return [
+            {
+                type: 'Feature',
+                ...(object.id === undefined ? {} : { id: object.id }),
+                properties: object.properties ?? null,
+                geometry,
+            },
+        ];
+    }
+    /** Decodes delta/arcs/reversed-arcs TopoJSON into normalized GeoJSON features. */
+    function topologyToGeoJson(topology, objectName) {
+        if (topology.type !== 'Topology')
+            throw new GraflumeError('INVALID_DATA', 'Topology type must be Topology.');
+        const arcs = decodedArcs(topology);
+        const names = objectName === undefined ? Object.keys(topology.objects) : [objectName];
+        const features = names.flatMap((name) => {
+            const object = topology.objects[name];
+            if (object === undefined)
+                throw new GraflumeError('INVALID_SPEC', `Unknown topology object "${name}".`);
+            return topologyGeometry(object, arcs, `$.objects.${name}`);
+        });
+        return normalizeGeoJson({ type: 'FeatureCollection', features });
+    }
+    /** Closes and snapshots the mutable input used by the persistent map runtime. */
+    function normalizeMapProjection(value = {}, path = '$.projection') {
+        if (value === null || typeof value !== 'object' || Array.isArray(value))
+            throw new GraflumeError('INVALID_SPEC', `${path} must be an object.`, { path });
+        const unknown = Object.keys(value).find((key) => !['name', 'rotate', 'clip'].includes(key));
+        if (unknown !== undefined)
+            throw new GraflumeError('INVALID_SPEC', `Unknown map projection property "${unknown}".`, {
+                path: `${path}.${unknown}`,
+            });
+        const name = value.name ?? 'equirectangular';
+        if (!['equirectangular', 'mercator', 'orthographic'].includes(name))
+            throw new GraflumeError('INVALID_SPEC', `${path}.name is unsupported.`, {
+                path: `${path}.name`,
+            });
+        let rotate;
+        if (value.rotate !== undefined) {
+            if (!Array.isArray(value.rotate) || value.rotate.length !== 2)
+                throw new GraflumeError('INVALID_SPEC', `${path}.rotate must be [longitude, latitude].`, {
+                    path: `${path}.rotate`,
+                });
+            rotate = Object.freeze([
+                longitude(value.rotate[0], `${path}.rotate[0]`),
+                latitude(value.rotate[1], `${path}.rotate[1]`),
+            ]);
+        }
+        let clip;
+        if (value.clip !== undefined) {
+            if (!Array.isArray(value.clip) || value.clip.length !== 4)
+                throw new GraflumeError('INVALID_SPEC', `${path}.clip must be [west, south, east, north].`, {
+                    path: `${path}.clip`,
+                });
+            const west = longitude(value.clip[0], `${path}.clip[0]`);
+            const south = latitude(value.clip[1], `${path}.clip[1]`);
+            const east = longitude(value.clip[2], `${path}.clip[2]`);
+            const north = latitude(value.clip[3], `${path}.clip[3]`);
+            if (west > east || south > north)
+                throw new GraflumeError('INVALID_SPEC', `${path}.clip bounds must be ordered.`, {
+                    path: `${path}.clip`,
+                });
+            clip = Object.freeze([west, south, east, north]);
+        }
+        return Object.freeze({
+            name,
+            ...(rotate === undefined ? {} : { rotate }),
+            ...(clip === undefined ? {} : { clip }),
+        });
+    }
+    const ANTIMERIDIAN_EPSILON = 1e-9;
+    const WORLD_CLIP = Object.freeze([-180, -90, 180, 90]);
+    const ORTHOGRAPHIC_HORIZON_CLIP = Object.freeze([-90, -90, 90, 90]);
+    function projectionPosition(point, rotate) {
+        return [
+            wrapLongitude(longitude(point[0], '$.point[0]') + (rotate?.[0] ?? 0)),
+            clamp$c(latitude(point[1], '$.point[1]') + (rotate?.[1] ?? 0), -90, 90),
+        ];
+    }
+    function effectiveGeographicClip(clip) {
+        const west = Math.max(-180, clip[0]);
+        const south = Math.max(-90, clip[1]);
+        const east = Math.min(180, clip[2]);
+        const north = Math.min(90, clip[3]);
+        return west > east || south > north ? null : [west, south, east, north];
+    }
+    function effectiveProjectionClip(projection) {
+        const base = projection.name === 'orthographic' ? ORTHOGRAPHIC_HORIZON_CLIP : WORLD_CLIP;
+        const authored = projection.clip ?? WORLD_CLIP;
+        return effectiveGeographicClip([
+            Math.max(base[0], authored[0]),
+            Math.max(base[1], authored[1]),
+            Math.min(base[2], authored[2]),
+            Math.min(base[3], authored[3]),
+        ]);
+    }
+    function sameGeographicPosition(left, right) {
+        return Math.abs(left[0] - right[0]) <= 1e-10 && Math.abs(left[1] - right[1]) <= 1e-10;
+    }
+    function appendGeographicPosition(output, point) {
+        if (output.length === 0 || !sameGeographicPosition(output[output.length - 1], point))
+            output.push(point);
+    }
+    function projectionSafeLongitude(value) {
+        return Math.abs(value - 180) <= 1e-10 ? 180 - ANTIMERIDIAN_EPSILON : value;
+    }
+    /**
+     * Splits a wrapped geographic line at the antimeridian. Returned positions have already had
+     * projection rotation applied, so callers must project them without applying rotation again.
+     */
+    function splitAntimeridianLine(points) {
+        if (points.length === 0)
+            return [];
+        const paths = [];
+        let current = [points[0]];
+        for (let index = 1; index < points.length; index += 1) {
+            const previous = points[index - 1];
+            const next = points[index];
+            const delta = next[0] - previous[0];
+            if (Math.abs(delta) <= 180) {
+                appendGeographicPosition(current, next);
+                continue;
+            }
+            const crossesEast = delta < -180;
+            const unwrappedNext = next[0] + (crossesEast ? 360 : -360);
+            const boundary = crossesEast ? 180 : -180;
+            const denominator = unwrappedNext - previous[0];
+            const t = denominator === 0 ? 0 : (boundary - previous[0]) / denominator;
+            const latitudeAtBoundary = previous[1] + (next[1] - previous[1]) * t;
+            appendGeographicPosition(current, [
+                crossesEast ? 180 - ANTIMERIDIAN_EPSILON : -180,
+                latitudeAtBoundary,
+            ]);
+            if (current.length > 1)
+                paths.push(current);
+            current = [[crossesEast ? -180 : 180 - ANTIMERIDIAN_EPSILON, latitudeAtBoundary]];
+            appendGeographicPosition(current, next);
+        }
+        if (current.length > 1)
+            paths.push(current);
+        return paths;
+    }
+    function liangBarskySegment(start, end, clip) {
+        const dx = end[0] - start[0];
+        const dy = end[1] - start[1];
+        const p = [-dx, dx, -dy, dy];
+        const q = [start[0] - clip[0], clip[2] - start[0], start[1] - clip[1], clip[3] - start[1]];
+        let enter = 0;
+        let exit = 1;
+        for (let index = 0; index < 4; index += 1) {
+            const direction = p[index];
+            const distance = q[index];
+            if (Math.abs(direction) <= Number.EPSILON) {
+                if (distance < 0)
+                    return null;
+                continue;
+            }
+            const ratio = distance / direction;
+            if (direction < 0)
+                enter = Math.max(enter, ratio);
+            else
+                exit = Math.min(exit, ratio);
+            if (enter > exit)
+                return null;
+        }
+        const interpolate = (amount) => [
+            projectionSafeLongitude(start[0] + dx * amount),
+            start[1] + dy * amount,
+        ];
+        return [interpolate(enter), interpolate(exit)];
+    }
+    function clipLinePath(points, clip) {
+        const paths = [];
+        let current = [];
+        const flush = () => {
+            if (current.length > 1)
+                paths.push(current);
+            current = [];
+        };
+        for (let index = 1; index < points.length; index += 1) {
+            const segment = liangBarskySegment(points[index - 1], points[index], clip);
+            if (segment === null) {
+                flush();
+                continue;
+            }
+            if (current.length > 0 && !sameGeographicPosition(current[current.length - 1], segment[0]))
+                flush();
+            appendGeographicPosition(current, segment[0]);
+            appendGeographicPosition(current, segment[1]);
+        }
+        flush();
+        return paths;
+    }
+    /**
+     * Applies projection rotation/wrap, antimeridian splitting, and rectangular Liang-Barsky
+     * clipping. Orthographic paths are intersected with the visible hemisphere before projection,
+     * so a segment crossing the horizon keeps its exact boundary point instead of disappearing.
+     * Boundary intersections are retained and disjoint visible runs remain subpaths.
+     */
+    function clipMapLine(points, options = {}) {
+        const projection = normalizeMapProjection(options);
+        const split = splitAntimeridianLine(points.map((point) => projectionPosition(point, projection.rotate)));
+        if (projection.clip === undefined && projection.name !== 'orthographic')
+            return split;
+        const clip = effectiveProjectionClip(projection);
+        return clip === null ? [] : split.flatMap((path) => clipLinePath(path, clip));
+    }
+    function clipPolygonBoundary(input, boundary) {
+        if (input.length === 0)
+            return [];
+        const output = [];
+        let start = input[input.length - 1];
+        let startInside = boundary.inside(start);
+        for (const end of input) {
+            const endInside = boundary.inside(end);
+            if (endInside) {
+                if (!startInside)
+                    appendGeographicPosition(output, boundary.intersect(start, end));
+                appendGeographicPosition(output, end);
+            }
+            else if (startInside)
+                appendGeographicPosition(output, boundary.intersect(start, end));
+            start = end;
+            startInside = endInside;
+        }
+        if (output.length > 1 && sameGeographicPosition(output[0], output[output.length - 1]))
+            output.pop();
+        return output;
+    }
+    function sutherlandHodgmanRing(ring, clip) {
+        const verticalIntersection = (longitude) => (start, end) => {
+            const amount = (longitude - start[0]) / (end[0] - start[0]);
+            return [projectionSafeLongitude(longitude), start[1] + (end[1] - start[1]) * amount];
+        };
+        const horizontalIntersection = (latitude) => (start, end) => {
+            const amount = (latitude - start[1]) / (end[1] - start[1]);
+            return [projectionSafeLongitude(start[0] + (end[0] - start[0]) * amount), latitude];
+        };
+        const boundaries = [
+            { inside: ([lon]) => lon >= clip[0], intersect: verticalIntersection(clip[0]) },
+            { inside: ([lon]) => lon <= clip[2], intersect: verticalIntersection(clip[2]) },
+            { inside: ([, lat]) => lat >= clip[1], intersect: horizontalIntersection(clip[1]) },
+            { inside: ([, lat]) => lat <= clip[3], intersect: horizontalIntersection(clip[3]) },
+        ];
+        return boundaries.reduce(clipPolygonBoundary, [...ring]);
+    }
+    function unwrapPolygonRing(points) {
+        if (points.length === 0)
+            return [];
+        const output = [points[0]];
+        for (let index = 1; index < points.length; index += 1) {
+            const point = points[index];
+            const previous = output[output.length - 1];
+            let longitude = point[0];
+            while (longitude - previous[0] > 180)
+                longitude -= 360;
+            while (longitude - previous[0] < -180)
+                longitude += 360;
+            appendGeographicPosition(output, [longitude, point[1]]);
+        }
+        if (output.length > 1 && sameGeographicPosition(output[0], output[output.length - 1]))
+            output.pop();
+        return output;
+    }
+    /**
+     * Applies projection rotation/wrap and Sutherland-Hodgman clipping to a polygon ring. A ring
+     * crossing the antimeridian can return two scene-ready rings, one beside each world edge.
+     */
+    function clipMapPolygonRing(points, options = {}) {
+        const projection = normalizeMapProjection(options);
+        const clip = effectiveProjectionClip(projection);
+        if (clip === null)
+            return [];
+        const transformed = points.map((point) => projectionPosition(point, projection.rotate));
+        const ring = unwrapPolygonRing(transformed);
+        if (ring.length < 3)
+            return [];
+        const longitudes = ring.map(([lon]) => lon);
+        const minimumLongitude = Math.min(...longitudes);
+        const maximumLongitude = Math.max(...longitudes);
+        const minimumShift = Math.ceil((clip[0] - maximumLongitude) / 360);
+        const maximumShift = Math.floor((clip[2] - minimumLongitude) / 360);
+        const output = [];
+        const keys = new Set();
+        for (let shift = minimumShift; shift <= maximumShift; shift += 1) {
+            const shifted = ring.map(([lon, lat]) => [lon + shift * 360, lat]);
+            const clipped = sutherlandHodgmanRing(shifted, clip);
+            if (clipped.length < 3)
+                continue;
+            const normalized = clipped.map(([lon, lat]) => [projectionSafeLongitude(lon), lat]);
+            const key = normalized.map(([lon, lat]) => `${lon.toFixed(9)},${lat.toFixed(9)}`).join(';');
+            if (!keys.has(key)) {
+                keys.add(key);
+                output.push(normalized);
+            }
+        }
+        return output;
+    }
+    /** Projects longitude/latitude with rotation, clipping and back-face visibility. */
+    function projectMapPosition(point, options = {}) {
+        const projection = normalizeMapProjection(options);
+        let [lon, lat] = projectionPosition(point, projection.rotate);
+        const clip = projection.clip;
+        const insideClip = clip === undefined || (lon >= clip[0] && lon <= clip[2] && lat >= clip[1] && lat <= clip[3]);
+        const name = projection.name;
+        if (name === 'mercator') {
+            lat = clamp$c(lat, -85.05112878, 85.05112878);
+            return {
+                x: (lon + 180) / 360,
+                y: (1 - Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360)) / Math.PI) / 2,
+                visible: insideClip,
+            };
+        }
+        if (name === 'orthographic') {
+            const lambda = (lon * Math.PI) / 180;
+            const phi = (lat * Math.PI) / 180;
+            const cosine = Math.cos(phi) * Math.cos(lambda);
+            return {
+                x: 0.5 + Math.cos(phi) * Math.sin(lambda) * 0.5,
+                y: 0.5 - Math.sin(phi) * 0.5,
+                visible: insideClip && cosine >= 0,
+            };
+        }
+        return { x: (lon + 180) / 360, y: (90 - lat) / 180, visible: insideClip };
+    }
+    function forEachGeometryPosition(geometry, visit) {
+        if (geometry.type === 'GeometryCollection') {
+            geometry.geometries.forEach((entry) => forEachGeometryPosition(entry, visit));
+            return;
+        }
+        const depth = new Map([
+            ['Point', 0],
+            ['MultiPoint', 1],
+            ['LineString', 1],
+            ['MultiLineString', 2],
+            ['Polygon', 2],
+            ['MultiPolygon', 3],
+        ]).get(geometry.type);
+        const walk = (value, current) => {
+            if (current === 0) {
+                visit(value);
+                return;
+            }
+            value.forEach((entry) => walk(entry, current - 1));
+        };
+        walk(geometry.coordinates, depth);
+    }
+    /** Counts coordinate pairs without spreading large arrays onto the call stack. */
+    function mapFeaturePositionCount(collection) {
+        let count = 0;
+        for (const feature of collection.features) {
+            if (feature.geometry !== null)
+                forEachGeometryPosition(feature.geometry, () => (count += 1));
         }
         return count;
     }
-
-    const compositionOperators = [
-        'layer',
-        'facet',
-        'repeat',
-        'hconcat',
-        'vconcat',
-        'concat',
-        'inset',
-    ];
-    const maximumCompositionDepth = 4;
-    const maximumCompositionViews = 64;
-    const maximumCompositionLayers = 128;
-    const maximumLayerCompositionChildren = 16;
-    function presentCompositionOperators(input) {
-        return compositionOperators.filter((key) => input[key] !== undefined);
+    function simplifyPositions(positions, tolerance, minimum) {
+        if (tolerance <= 0 || positions.length <= minimum)
+            return positions;
+        const closed = positions.length > 1 &&
+            positions[0][0] === positions[positions.length - 1][0] &&
+            positions[0][1] === positions[positions.length - 1][1];
+        const source = closed ? positions.slice(0, -1) : positions;
+        if (source.length <= minimum)
+            return positions;
+        const output = [];
+        for (const point of source) {
+            const snapped = Object.freeze([
+                Math.round(point[0] / tolerance) * tolerance,
+                Math.round(point[1] / tolerance) * tolerance,
+            ]);
+            const previous = output[output.length - 1];
+            if (previous === undefined || previous[0] !== snapped[0] || previous[1] !== snapped[1])
+                output.push(snapped);
+        }
+        if (output.length > 1) {
+            const first = output[0];
+            const last = output[output.length - 1];
+            if (first[0] === last[0] && first[1] === last[1])
+                output.pop();
+        }
+        if (output.length < minimum)
+            return positions;
+        if (closed && output.length >= minimum)
+            output.push(output[0]);
+        return output.length >= minimum ? Object.freeze(output) : positions;
     }
-    function compositionKind(input) {
-        const operators = presentCompositionOperators(input);
-        return operators.length === 1 ? operators[0] : null;
+    function simplifyMapGeometry(geometry, tolerance) {
+        if (geometry.type === 'GeometryCollection')
+            return Object.freeze({
+                type: 'GeometryCollection',
+                geometries: Object.freeze(geometry.geometries.map((entry) => simplifyMapGeometry(entry, tolerance))),
+            });
+        if (geometry.type === 'Point')
+            return geometry;
+        if (geometry.type === 'MultiPoint')
+            return geometry;
+        if (geometry.type === 'LineString')
+            return Object.freeze({
+                type: 'LineString',
+                coordinates: simplifyPositions(geometry.coordinates, tolerance, 2),
+            });
+        if (geometry.type === 'MultiLineString')
+            return Object.freeze({
+                type: 'MultiLineString',
+                coordinates: Object.freeze(geometry.coordinates.map((line) => simplifyPositions(line, tolerance, 2))),
+            });
+        if (geometry.type === 'Polygon')
+            return Object.freeze({
+                type: 'Polygon',
+                coordinates: Object.freeze(geometry.coordinates.map((ring) => simplifyPositions(ring, tolerance, 3))),
+            });
+        return Object.freeze({
+            type: 'MultiPolygon',
+            coordinates: Object.freeze(geometry.coordinates.map((polygon) => Object.freeze(polygon.map((ring) => simplifyPositions(ring, tolerance, 3))))),
+        });
     }
-    function isCompositionSpec(input) {
-        return presentCompositionOperators(input).length > 0;
+    function simplifyMapCollection(collection, tolerance) {
+        if (tolerance <= 0)
+            return collection;
+        return Object.freeze({
+            type: 'FeatureCollection',
+            features: Object.freeze(collection.features.map((feature) => feature.geometry === null
+                ? feature
+                : Object.freeze({
+                    ...feature,
+                    geometry: simplifyMapGeometry(feature.geometry, tolerance),
+                }))),
+        });
     }
-    function resolveComposition(input, kind) {
-        const defaultMode = kind === 'layer' ? 'shared' : 'independent';
+    function mapDetailBudget(detail, maximum) {
+        if (detail === 'low')
+            return Math.min(maximum, 12_000);
+        if (detail === 'medium')
+            return Math.min(maximum, 35_000);
+        if (detail === 'high')
+            return Math.min(maximum, 100_000);
+        return maximum;
+    }
+    /**
+     * Deterministically reduces coordinate density while preserving every selected
+     * feature and source order. It never samples away a country or subdivision.
+     */
+    function prepareMapGeometry(collection, options = {}) {
+        const detail = options.detail ?? 'auto';
+        if (!['auto', 'low', 'medium', 'high', 'full'].includes(detail))
+            throw new GraflumeError('INVALID_SPEC', '$.detail is unsupported.', { path: '$.detail' });
+        const requestedMaximum = options.maximumPositions ?? 100_000;
+        if (!Number.isInteger(requestedMaximum) ||
+            requestedMaximum < 1_000 ||
+            requestedMaximum > 1_000_000)
+            throw new GraflumeError('INVALID_SPEC', '$.maximumPositions must be an integer from 1000 to 1000000.', { path: '$.maximumPositions' });
+        const sourcePositions = mapFeaturePositionCount(collection);
+        const maximumPositions = mapDetailBudget(detail, requestedMaximum);
+        if (detail === 'full' && sourcePositions > maximumPositions)
+            throw new GraflumeError('INVALID_DATA', `Full map detail contains ${sourcePositions} positions, above the ${maximumPositions} geometry budget.`);
+        if (detail === 'full' || sourcePositions <= maximumPositions)
+            return Object.freeze({
+                collection,
+                plan: Object.freeze({
+                    detail,
+                    sourceFeatures: collection.features.length,
+                    renderedFeatures: collection.features.length,
+                    sourcePositions,
+                    renderedPositions: sourcePositions,
+                    maximumPositions,
+                    tolerance: 0,
+                }),
+            });
+        const bounds = mapBounds(collection);
+        const span = Math.max(1e-9, bounds.east - bounds.west, bounds.north - bounds.south);
+        let tolerance = (span / Math.sqrt(maximumPositions)) *
+            Math.max(1, Math.sqrt(sourcePositions / maximumPositions)) *
+            0.2;
+        let prepared = simplifyMapCollection(collection, tolerance);
+        let renderedPositions = mapFeaturePositionCount(prepared);
+        for (let attempt = 0; attempt < 12 && renderedPositions > maximumPositions; attempt += 1) {
+            tolerance *= 1.75;
+            prepared = simplifyMapCollection(collection, tolerance);
+            renderedPositions = mapFeaturePositionCount(prepared);
+        }
+        if (renderedPositions > maximumPositions)
+            throw new GraflumeError('INVALID_DATA', `Map geometry cannot satisfy the ${maximumPositions} position budget without removing a feature or valid ring.`);
+        return Object.freeze({
+            collection: prepared,
+            plan: Object.freeze({
+                detail,
+                sourceFeatures: collection.features.length,
+                renderedFeatures: prepared.features.length,
+                sourcePositions,
+                renderedPositions,
+                maximumPositions,
+                tolerance,
+            }),
+        });
+    }
+    /** Computes geographic bounds, choosing the shorter dateline-wrapped span. */
+    function mapBounds(collection) {
+        const longitudes = [];
+        let south = Number.POSITIVE_INFINITY;
+        let north = Number.NEGATIVE_INFINITY;
+        collection.features.forEach(({ geometry }) => {
+            if (geometry === null)
+                return;
+            forEachGeometryPosition(geometry, ([longitude, latitude]) => {
+                longitudes.push(wrapLongitude(longitude));
+                south = Math.min(south, latitude);
+                north = Math.max(north, latitude);
+            });
+        });
+        if (longitudes.length === 0)
+            throw new GraflumeError('INVALID_DATA', 'Cannot fit an empty map source.');
+        longitudes.sort((a, b) => a - b);
+        let largestGap = -1;
+        let gapIndex = 0;
+        for (let index = 0; index < longitudes.length; index += 1) {
+            const current = longitudes[index];
+            const next = index + 1 < longitudes.length ? longitudes[index + 1] : longitudes[0] + 360;
+            if (next - current > largestGap) {
+                largestGap = next - current;
+                gapIndex = index;
+            }
+        }
+        const west = longitudes[(gapIndex + 1) % longitudes.length];
+        let east = longitudes[gapIndex];
+        if (east < west)
+            east += 360;
+        return { west, south, east, north };
+    }
+    /** Fits bounds into a viewport with padding using an explicit projection. */
+    function fitMapBounds(bounds, viewport, padding = 20, projection = 'mercator') {
+        const width = finite$e(viewport.width, '$.viewport.width');
+        const height = finite$e(viewport.height, '$.viewport.height');
+        if (width <= padding * 2 || height <= padding * 2)
+            throw new GraflumeError('INVALID_SPEC', 'Map viewport must exceed its padding.');
+        const west = longitude(bounds.west, '$.bounds.west');
+        const east = longitude(bounds.east, '$.bounds.east');
+        const south = latitude(bounds.south, '$.bounds.south');
+        const north = latitude(bounds.north, '$.bounds.north');
+        if (west > east || south > north)
+            throw new GraflumeError('INVALID_SPEC', '$.bounds must be ordered.');
+        const longitudeSpan = Math.min(360, east - west);
+        const centerLon = wrapLongitude((west + east) / 2);
+        const centerLat = (south + north) / 2;
+        const latitudeProjection = [
+            projectMapPosition([0, south], { name: projection }),
+            projectMapPosition([0, north], { name: projection }),
+        ];
+        const spanX = Math.max(1e-9, projection === 'orthographic'
+            ? longitudeSpan >= 180
+                ? 1
+                : Math.abs(projectMapPosition([longitudeSpan / 2, centerLat], { name: projection }).x -
+                    projectMapPosition([-longitudeSpan / 2, centerLat], { name: projection }).x)
+            : longitudeSpan / 360);
+        const spanY = Math.max(1e-9, Math.abs(latitudeProjection[1].y - latitudeProjection[0].y));
+        const scale = Math.min((width - padding * 2) / (width * spanX), (height - padding * 2) / (height * spanY));
         return {
-            scale: input?.scale ?? defaultMode,
-            axis: input?.axis ?? defaultMode,
-            legend: input?.legend ?? defaultMode,
-            colorbar: input?.colorbar ?? defaultMode,
+            center: [centerLon, centerLat],
+            zoom: Math.log2(Math.max(scale, Number.EPSILON)),
+            bounds,
         };
     }
+    /** Great-circle route interpolation with dateline-safe spherical linear interpolation. */
+    function geodesicPath(start, end, segments = 64) {
+        const count = Math.floor(finite$e(segments, '$.segments'));
+        if (count < 1 || count > 10_000)
+            throw new GraflumeError('INVALID_SPEC', '$.segments must be from 1 to 10000.');
+        const vector = ([lon, lat]) => {
+            const lambda = (lon * Math.PI) / 180;
+            const phi = (lat * Math.PI) / 180;
+            return [
+                Math.cos(phi) * Math.cos(lambda),
+                Math.cos(phi) * Math.sin(lambda),
+                Math.sin(phi),
+            ];
+        };
+        const a = vector(start);
+        const b = vector(end);
+        const omega = Math.acos(clamp$c(a[0] * b[0] + a[1] * b[1] + a[2] * b[2], -1, 1));
+        return Array.from({ length: count + 1 }, (_, index) => {
+            const t = index / count;
+            const denominator = Math.sin(omega);
+            const left = omega < 1e-12 ? 1 - t : Math.sin((1 - t) * omega) / denominator;
+            const right = omega < 1e-12 ? t : Math.sin(t * omega) / denominator;
+            const x = a[0] * left + b[0] * right;
+            const y = a[1] * left + b[1] * right;
+            const z = a[2] * left + b[2] * right;
+            return [
+                wrapLongitude((Math.atan2(y, x) * 180) / Math.PI),
+                (Math.atan2(z, Math.hypot(x, y)) * 180) / Math.PI,
+            ];
+        });
+    }
+    /** Generates longitude/latitude graticules as ordinary map line features. */
+    function mapGraticule(step = [30, 30]) {
+        const lonStep = finite$e(step[0], '$.step[0]');
+        const latStep = finite$e(step[1], '$.step[1]');
+        if (lonStep <= 0 || latStep <= 0)
+            throw new GraflumeError('INVALID_SPEC', 'Graticule steps must be positive.');
+        const features = [];
+        for (let lon = -180; lon <= 180; lon += lonStep)
+            features.push({
+                type: 'Feature',
+                properties: { kind: 'longitude', value: lon },
+                geometry: {
+                    type: 'LineString',
+                    coordinates: Array.from({ length: 181 }, (_, index) => [lon, -90 + index]),
+                },
+            });
+        for (let lat = -90 + latStep; lat < 90; lat += latStep)
+            features.push({
+                type: 'Feature',
+                properties: { kind: 'latitude', value: lat },
+                geometry: {
+                    type: 'LineString',
+                    coordinates: Array.from({ length: 361 }, (_, index) => [-180 + index, lat]),
+                },
+            });
+        return { type: 'FeatureCollection', features };
+    }
+    /** Closed source/layer lifecycle with explicit ordering and visibility. */
+    class MapLayerRegistry {
+        #sources = new Map();
+        #layers = [];
+        #revision = 0;
+        addSource(id, source) {
+            const normalized = id.trim();
+            if (normalized === '' || this.#sources.has(normalized))
+                throw new GraflumeError('INVALID_SPEC', `Map source "${id}" is empty or already registered.`);
+            this.#sources.set(normalized, source);
+            this.#revision += 1;
+        }
+        removeSource(id) {
+            if (this.#layers.some(({ source }) => source === id))
+                throw new GraflumeError('INVALID_SPEC', `Map source "${id}" is still used by a layer.`);
+            if (!this.#sources.delete(id))
+                throw new GraflumeError('INVALID_SPEC', `Unknown map source "${id}".`);
+            this.#revision += 1;
+        }
+        addLayer(layer, before) {
+            if (this.#layers.some(({ id }) => id === layer.id))
+                throw new GraflumeError('INVALID_SPEC', `Duplicate map layer "${layer.id}".`);
+            if (!this.#sources.has(layer.source))
+                throw new GraflumeError('INVALID_SPEC', `Unknown map source "${layer.source}".`);
+            const index = before === undefined
+                ? this.#layers.length
+                : this.#layers.findIndex(({ id }) => id === before);
+            if (index < 0)
+                throw new GraflumeError('INVALID_SPEC', `Unknown before-layer "${before}".`);
+            this.#layers.splice(index, 0, Object.freeze({ ...layer }));
+            this.#revision += 1;
+        }
+        removeLayer(id) {
+            const index = this.#layers.findIndex((layer) => layer.id === id);
+            if (index < 0)
+                throw new GraflumeError('INVALID_SPEC', `Unknown map layer "${id}".`);
+            this.#layers.splice(index, 1);
+            this.#revision += 1;
+        }
+        setVisibility(id, visible) {
+            const index = this.#layers.findIndex((layer) => layer.id === id);
+            if (index < 0)
+                throw new GraflumeError('INVALID_SPEC', `Unknown map layer "${id}".`);
+            this.#layers[index] = Object.freeze({ ...this.#layers[index], visible });
+            this.#revision += 1;
+        }
+        source(id) {
+            return this.#sources.get(id) ?? null;
+        }
+        layer(id) {
+            return this.#layers.find((layer) => layer.id === id) ?? null;
+        }
+        snapshot() {
+            return Object.freeze({
+                revision: this.#revision,
+                sources: Object.freeze([...this.#sources.keys()]),
+                layers: Object.freeze(this.#layers.map((layer) => Object.freeze({ ...layer }))),
+                attributions: Object.freeze([
+                    ...new Set(this.#layers.flatMap(({ attribution }) => attribution === undefined ? [] : [attribution])),
+                ]),
+            });
+        }
+    }
+    const mapBoundaryText = (value, path, maximum = 256) => {
+        if (typeof value !== 'string' || value.trim() === '' || value.length > maximum)
+            throw new GraflumeError('INVALID_SPEC', `${path} must be a non-empty bounded string.`, {
+                path,
+            });
+        return value.trim();
+    };
+    function mapBoundaryLoopbackHost(hostname) {
+        const normalized = hostname.toLowerCase();
+        if (normalized === 'localhost' || normalized === '[::1]')
+            return true;
+        const parts = normalized.split('.');
+        return (parts.length === 4 &&
+            parts[0] === '127' &&
+            parts.every((part) => /^\d{1,3}$/u.test(part) && Number(part) <= 255));
+    }
+    function mapBoundaryURLAllowed(url) {
+        return (url.username === '' &&
+            url.password === '' &&
+            (url.protocol === 'https:' ||
+                (url.protocol === 'http:' && mapBoundaryLoopbackHost(url.hostname))));
+    }
+    function absoluteMapBoundaryURL(value, path) {
+        let parsed;
+        try {
+            parsed = new URL(value);
+        }
+        catch {
+            throw new GraflumeError('INVALID_SPEC', `${path} must be an absolute HTTPS URL or an explicit loopback HTTP URL.`, { path });
+        }
+        if (!mapBoundaryURLAllowed(parsed))
+            throw new GraflumeError('INVALID_SPEC', `${path} must use HTTPS; HTTP is allowed only for localhost, 127.0.0.0/8, or [::1], without credentials.`, { path });
+        return parsed;
+    }
+    function normalizeMapBoundarySource(value, path) {
+        if (value === null || typeof value !== 'object' || Array.isArray(value))
+            throw new GraflumeError('INVALID_SPEC', `${path} must be an object.`, { path });
+        const candidate = value;
+        const allowed = new Set([
+            'id',
+            'level',
+            'countries',
+            'url',
+            'sha256',
+            'byteLength',
+            'format',
+            'topologyObject',
+        ]);
+        const unknown = Object.keys(candidate).find((key) => !allowed.has(key));
+        if (unknown !== undefined)
+            throw new GraflumeError('INVALID_SPEC', `Unknown boundary source property "${unknown}".`, {
+                path: `${path}.${unknown}`,
+            });
+        const id = mapBoundaryText(candidate.id, `${path}.id`);
+        const level = candidate.level;
+        if (level !== 'country' && level !== 'region')
+            throw new GraflumeError('INVALID_SPEC', `${path}.level is unsupported.`, {
+                path: `${path}.level`,
+            });
+        const url = mapBoundaryText(candidate.url, `${path}.url`, 2_048);
+        let parsed;
+        try {
+            parsed = new URL(url, 'https://graflume.invalid/');
+        }
+        catch {
+            throw new GraflumeError('INVALID_SPEC', `${path}.url is invalid.`, { path: `${path}.url` });
+        }
+        if (parsed.origin !== 'https://graflume.invalid' && !mapBoundaryURLAllowed(parsed))
+            throw new GraflumeError('INVALID_SPEC', `${path}.url must be relative or HTTPS; HTTP is allowed only on an explicit loopback host.`, { path: `${path}.url` });
+        const sha256 = mapBoundaryText(candidate.sha256, `${path}.sha256`, 64).toLowerCase();
+        if (!/^[a-f0-9]{64}$/u.test(sha256))
+            throw new GraflumeError('INVALID_SPEC', `${path}.sha256 must be 64 hexadecimal characters.`, {
+                path: `${path}.sha256`,
+            });
+        const byteLength = candidate.byteLength;
+        if (!Number.isInteger(byteLength) ||
+            byteLength < 2 ||
+            byteLength > 1_000_000_000)
+            throw new GraflumeError('INVALID_SPEC', `${path}.byteLength is outside the supported range.`, {
+                path: `${path}.byteLength`,
+            });
+        const format = candidate.format;
+        if (format !== 'geojson' && format !== 'topojson')
+            throw new GraflumeError('INVALID_SPEC', `${path}.format is unsupported.`, {
+                path: `${path}.format`,
+            });
+        const topologyObject = candidate.topologyObject === undefined
+            ? undefined
+            : mapBoundaryText(candidate.topologyObject, `${path}.topologyObject`);
+        if (format === 'geojson' && topologyObject !== undefined)
+            throw new GraflumeError('INVALID_SPEC', `${path}.topologyObject is only valid for TopoJSON sources.`, { path: `${path}.topologyObject` });
+        let countries;
+        if (candidate.countries !== undefined) {
+            if (!Array.isArray(candidate.countries) ||
+                candidate.countries.length === 0 ||
+                candidate.countries.length > MAXIMUM_MAP_SCOPE_VALUES)
+                throw new GraflumeError('INVALID_SPEC', `${path}.countries has an invalid length.`, {
+                    path: `${path}.countries`,
+                });
+            countries = Object.freeze([
+                ...new Set(candidate.countries.map((entry, index) => mapBoundaryText(entry, `${path}.countries[${index}]`, 32).toUpperCase())),
+            ]);
+        }
+        return Object.freeze({
+            id,
+            level,
+            ...(countries === undefined ? {} : { countries }),
+            url,
+            sha256,
+            byteLength: byteLength,
+            format,
+            ...(topologyObject === undefined ? {} : { topologyObject }),
+        });
+    }
+    /** Validates a boundary-pack manifest without fetching any asset. */
+    function normalizeMapBoundaryManifest(value) {
+        if (value === null || typeof value !== 'object' || Array.isArray(value))
+            throw new GraflumeError('INVALID_SPEC', 'Map boundary manifest must be an object.');
+        const candidate = value;
+        const allowed = new Set(['schemaVersion', 'id', 'revision', 'attribution', 'sources']);
+        const unknown = Object.keys(candidate).find((key) => !allowed.has(key));
+        if (unknown !== undefined)
+            throw new GraflumeError('INVALID_SPEC', `Unknown map boundary manifest property "${unknown}".`);
+        if (candidate.schemaVersion !== '1')
+            throw new GraflumeError('INVALID_SPEC', 'Map boundary manifest schemaVersion must be "1".');
+        if (!Array.isArray(candidate.sources) ||
+            candidate.sources.length === 0 ||
+            candidate.sources.length > 4_096)
+            throw new GraflumeError('INVALID_SPEC', 'Map boundary manifest must contain from 1 to 4096 sources.');
+        const sources = Object.freeze(candidate.sources.map((source, index) => normalizeMapBoundarySource(source, `$.sources[${index}]`)));
+        if (new Set(sources.map(({ id }) => id)).size !== sources.length)
+            throw new GraflumeError('INVALID_SPEC', 'Map boundary manifest source ids must be unique.');
+        for (const level of ['country', 'region']) {
+            const levelSources = sources.filter((source) => source.level === level);
+            const globalSources = levelSources.filter(({ countries }) => countries === undefined);
+            if (globalSources.length > 1 || (globalSources.length === 1 && levelSources.length > 1))
+                throw new GraflumeError('INVALID_SPEC', `Boundary manifest level "${level}" must use either one global source or non-overlapping country shards.`);
+            const declared = new Set();
+            for (const source of levelSources) {
+                for (const country of source.countries ?? []) {
+                    if (declared.has(country))
+                        throw new GraflumeError('INVALID_SPEC', `Boundary manifest level "${level}" declares country "${country}" in multiple shards.`);
+                    declared.add(country);
+                }
+            }
+        }
+        return Object.freeze({
+            schemaVersion: '1',
+            id: mapBoundaryText(candidate.id, '$.id'),
+            revision: mapBoundaryText(candidate.revision, '$.revision'),
+            attribution: mapBoundaryText(candidate.attribution, '$.attribution', 1_024),
+            sources,
+        });
+    }
+    /** Selects the smallest declared shard set that covers a requested country list. */
+    function selectMapBoundarySources(manifestInput, selection) {
+        const manifest = normalizeMapBoundaryManifest(manifestInput);
+        if (selection.level !== 'country' && selection.level !== 'region')
+            throw new GraflumeError('INVALID_SPEC', '$.selection.level is unsupported.');
+        const countries = selection.countries ?? [];
+        if (countries.length > MAXIMUM_MAP_SCOPE_VALUES)
+            throw new GraflumeError('INVALID_SPEC', `$.selection.countries exceeds ${MAXIMUM_MAP_SCOPE_VALUES} entries.`);
+        const requested = new Set(countries.map((country, index) => mapBoundaryText(country, `$.selection.countries[${index}]`, 32).toUpperCase()));
+        const levelSources = manifest.sources.filter((source) => source.level === selection.level);
+        let explicitSources;
+        if (selection.sourceIds !== undefined) {
+            if (!Array.isArray(selection.sourceIds) ||
+                selection.sourceIds.length === 0 ||
+                selection.sourceIds.length > 4_096)
+                throw new GraflumeError('INVALID_SPEC', '$.selection.sourceIds must contain from 1 to 4096 source ids.');
+            const ids = [
+                ...new Set(selection.sourceIds.map((id, index) => mapBoundaryText(id, `$.selection.sourceIds[${index}]`))),
+            ];
+            const byId = new Map(manifest.sources.map((source) => [source.id, source]));
+            const missing = ids.filter((id) => !byId.has(id));
+            if (missing.length > 0)
+                throw new GraflumeError('INVALID_DATA', 'Boundary manifest does not contain every source id.', {
+                    details: { missing: Object.freeze(missing) },
+                });
+            explicitSources = Object.freeze(ids.map((id) => byId.get(id)));
+            if (explicitSources.some(({ level }) => level !== selection.level))
+                throw new GraflumeError('INVALID_SPEC', 'Every explicit boundary source id must match $.selection.level.');
+        }
+        const global = levelSources.find(({ countries: coverage }) => coverage === undefined);
+        const sources = explicitSources !== undefined
+            ? explicitSources
+            : requested.size === 0
+                ? levelSources
+                : global === undefined
+                    ? levelSources.filter(({ countries: coverage }) => coverage?.some((country) => requested.has(country)))
+                    : [global];
+        if (sources.length === 0)
+            throw new GraflumeError('INVALID_DATA', 'Boundary manifest has no source for the requested level and countries.');
+        if (requested.size > 0) {
+            const covered = new Set(sources.flatMap(({ countries: coverage }) => coverage ?? [...requested]));
+            const missing = [...requested].filter((country) => !covered.has(country));
+            if (missing.length > 0)
+                throw new GraflumeError('INVALID_DATA', 'Boundary manifest does not cover every requested country.', {
+                    details: { missing: Object.freeze(missing) },
+                });
+        }
+        return Object.freeze(sources);
+    }
+    const fetchMapBoundary = async (source, signal) => {
+        if (typeof fetch !== 'function')
+            throw new GraflumeError('UNSUPPORTED_RENDERER', 'Map boundary loading requires fetch or an injected MapBoundaryFetcher.');
+        const requestedURL = absoluteMapBoundaryURL(source.url, '$.source.url');
+        const response = await fetch(requestedURL.href, { signal });
+        if (response.url !== '' && !mapBoundaryURLAllowed(new URL(response.url)))
+            throw new GraflumeError('INVALID_DATA', 'Boundary source redirected to an unsafe URL.');
+        if (!response.ok)
+            throw new GraflumeError('INVALID_DATA', `Boundary source returned HTTP ${response.status}.`);
+        const mimeType = response.headers.get('content-type')?.split(';', 1)[0]?.trim();
+        return {
+            bytes: new Uint8Array(await response.arrayBuffer()),
+            ...(mimeType === undefined ? {} : { mimeType }),
+        };
+    };
+    /** Default HTTPS adapter used by MapBoundaryLoader.loadFromURL(). */
+    const fetchMapBoundaryManifest = async (url, signal) => {
+        if (typeof fetch !== 'function')
+            throw new GraflumeError('UNSUPPORTED_RENDERER', 'Map boundary manifest loading requires fetch or an injected manifestFetcher.');
+        const requestedURL = absoluteMapBoundaryURL(url, '$.manifestURL');
+        const response = await fetch(requestedURL.href, { signal });
+        if (response.url !== '' && !mapBoundaryURLAllowed(new URL(response.url)))
+            throw new GraflumeError('INVALID_DATA', 'Boundary manifest redirected to an unsafe URL.');
+        if (!response.ok)
+            throw new GraflumeError('INVALID_DATA', `Boundary manifest returned HTTP ${response.status}.`);
+        const mimeType = response.headers.get('content-type')?.split(';', 1)[0]?.trim();
+        return {
+            bytes: new Uint8Array(await response.arrayBuffer()),
+            ...(mimeType === undefined ? {} : { mimeType }),
+        };
+    };
+    const sha256MapBoundary = async (bytes) => {
+        if (globalThis.crypto?.subtle === undefined)
+            throw new GraflumeError('UNSUPPORTED_RENDERER', 'Boundary SHA-256 verification requires Web Crypto or an injected digest function.');
+        const stableBytes = new Uint8Array(bytes);
+        const digest = new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', stableBytes));
+        return [...digest].map((value) => value.toString(16).padStart(2, '0')).join('');
+    };
+    /** Lazy, integrity-checked, bounded loader for versioned external boundary packs. */
+    class MapBoundaryLoader {
+        #options;
+        #baseURL;
+        #fetcher;
+        #manifestFetcher;
+        #digest;
+        #cache = new Map();
+        constructor(options = {}) {
+            this.#fetcher = options.fetcher ?? fetchMapBoundary;
+            this.#manifestFetcher = options.manifestFetcher ?? fetchMapBoundaryManifest;
+            this.#digest = options.digest ?? sha256MapBoundary;
+            this.#options = {
+                maximumEntries: options.maximumEntries ?? 64,
+                maximumConcurrent: options.maximumConcurrent ?? 4,
+                maximumManifestBytes: options.maximumManifestBytes ?? 4 * 1024 * 1024,
+                maximumSourceBytes: options.maximumSourceBytes ?? 32 * 1024 * 1024,
+                maximumTotalBytes: options.maximumTotalBytes ?? 128 * 1024 * 1024,
+            };
+            if (options.baseURL !== undefined) {
+                const baseURL = mapBoundaryText(options.baseURL, '$.baseURL', 2_048);
+                const parsed = absoluteMapBoundaryURL(baseURL, '$.baseURL');
+                this.#baseURL = parsed.href;
+            }
+            const { maximumEntries, maximumConcurrent, maximumManifestBytes, maximumSourceBytes, maximumTotalBytes, } = this.#options;
+            if (!Number.isInteger(maximumEntries) || maximumEntries < 1 || maximumEntries > 1_024)
+                throw new GraflumeError('INVALID_SPEC', '$.maximumEntries must be from 1 to 1024.');
+            if (!Number.isInteger(maximumConcurrent) || maximumConcurrent < 1 || maximumConcurrent > 16)
+                throw new GraflumeError('INVALID_SPEC', '$.maximumConcurrent must be from 1 to 16.');
+            if (!Number.isInteger(maximumManifestBytes) ||
+                maximumManifestBytes < 1_024 ||
+                maximumManifestBytes > 16 * 1024 * 1024)
+                throw new GraflumeError('INVALID_SPEC', '$.maximumManifestBytes is outside the supported range.');
+            if (!Number.isInteger(maximumSourceBytes) ||
+                maximumSourceBytes < 1_024 ||
+                maximumSourceBytes > 256 * 1024 * 1024)
+                throw new GraflumeError('INVALID_SPEC', '$.maximumSourceBytes is outside the supported range.');
+            if (!Number.isInteger(maximumTotalBytes) ||
+                maximumTotalBytes < maximumSourceBytes ||
+                maximumTotalBytes > 512 * 1024 * 1024)
+                throw new GraflumeError('INVALID_SPEC', '$.maximumTotalBytes is outside the supported range.');
+        }
+        async load(manifestInput, selection, signal) {
+            const manifest = normalizeMapBoundaryManifest(manifestInput);
+            return this.#load(manifest, selection, signal, this.#baseURL);
+        }
+        /**
+         * Fetches a versioned manifest and resolves its relative shard URLs against
+         * that manifest URL, unless the loader was given an explicit baseURL.
+         */
+        async loadFromURL(manifestURL, selection, signal) {
+            const text = mapBoundaryText(manifestURL, '$.manifestURL', 2_048);
+            const parsedURL = absoluteMapBoundaryURL(text, '$.manifestURL');
+            const controller = new AbortController();
+            const abort = () => controller.abort(signal?.reason);
+            if (signal?.aborted === true)
+                controller.abort(signal.reason);
+            else
+                signal?.addEventListener('abort', abort, { once: true });
+            try {
+                const response = await this.#manifestFetcher(parsedURL.href, controller.signal);
+                if (!(response.bytes instanceof Uint8Array) ||
+                    response.bytes.length === 0 ||
+                    response.bytes.length > this.#options.maximumManifestBytes)
+                    throw new GraflumeError('INVALID_DATA', 'Boundary manifest response exceeds maximumManifestBytes or is empty.');
+                if (response.mimeType !== undefined &&
+                    !response.mimeType.toLowerCase().includes('json') &&
+                    response.mimeType.toLowerCase() !== 'application/octet-stream')
+                    throw new GraflumeError('INVALID_DATA', `Boundary manifest returned unsupported MIME ${response.mimeType}.`);
+                let parsed;
+                try {
+                    parsed = JSON.parse(new TextDecoder().decode(response.bytes));
+                }
+                catch {
+                    throw new GraflumeError('INVALID_DATA', 'Boundary manifest is not valid JSON.');
+                }
+                const manifest = normalizeMapBoundaryManifest(parsed);
+                return this.#load(manifest, selection, signal, this.#baseURL ?? parsedURL.href);
+            }
+            finally {
+                signal?.removeEventListener('abort', abort);
+            }
+        }
+        async #load(manifest, selection, signal, baseURL) {
+            const sources = selectMapBoundarySources(manifest, selection);
+            const totalBytes = sources.reduce((sum, source) => sum + source.byteLength, 0);
+            if (sources.some(({ byteLength }) => byteLength > this.#options.maximumSourceBytes))
+                throw new GraflumeError('INVALID_SPEC', 'A selected boundary source exceeds maximumSourceBytes.');
+            if (totalBytes > this.#options.maximumTotalBytes)
+                throw new GraflumeError('INVALID_SPEC', 'Selected boundary sources exceed maximumTotalBytes.');
+            const collections = new Array(sources.length);
+            let cursor = 0;
+            const worker = async () => {
+                while (cursor < sources.length) {
+                    const index = cursor++;
+                    collections[index] = await this.#loadSource(sources[index], signal, baseURL);
+                }
+            };
+            await Promise.all(Array.from({ length: Math.min(this.#options.maximumConcurrent, sources.length) }, () => worker()));
+            const collection = Object.freeze({
+                type: 'FeatureCollection',
+                features: Object.freeze(collections.flatMap(({ features }) => features)),
+            });
+            return Object.freeze({
+                collection,
+                manifestId: manifest.id,
+                revision: manifest.revision,
+                attribution: manifest.attribution,
+                sourceIds: Object.freeze(sources.map(({ id }) => id)),
+                byteLength: totalBytes,
+            });
+        }
+        clear() {
+            this.#cache.clear();
+        }
+        state() {
+            return Object.freeze({
+                cached: this.#cache.size,
+                maximumEntries: this.#options.maximumEntries,
+            });
+        }
+        async #loadSource(source, signal, baseURL) {
+            const key = `${source.id}:${source.sha256}:${source.format}:${source.topologyObject ?? ''}`;
+            const cached = this.#cache.get(key);
+            if (cached !== undefined) {
+                this.#cache.delete(key);
+                this.#cache.set(key, cached);
+                return cached;
+            }
+            const controller = new AbortController();
+            const abort = () => controller.abort(signal?.reason);
+            if (signal?.aborted === true)
+                controller.abort(signal.reason);
+            else
+                signal?.addEventListener('abort', abort, { once: true });
+            try {
+                let resolvedSource = source;
+                try {
+                    const resolvedURL = absoluteMapBoundaryURL(source.url, '$.source.url');
+                    resolvedSource = Object.freeze({ ...source, url: resolvedURL.href });
+                }
+                catch {
+                    if (baseURL === undefined)
+                        throw new GraflumeError('INVALID_SPEC', `Boundary source "${source.id}" uses a relative URL but the loader has no baseURL.`);
+                    const resolvedURL = new URL(source.url, baseURL);
+                    if (!mapBoundaryURLAllowed(resolvedURL))
+                        throw new GraflumeError('INVALID_SPEC', `Boundary source "${source.id}" resolves to an unsafe URL.`);
+                    resolvedSource = Object.freeze({ ...source, url: resolvedURL.href });
+                }
+                const response = await this.#fetcher(resolvedSource, controller.signal);
+                if (!(response.bytes instanceof Uint8Array) || response.bytes.length !== source.byteLength)
+                    throw new GraflumeError('INVALID_DATA', `Boundary source "${source.id}" byte length changed.`);
+                if (response.mimeType !== undefined &&
+                    !response.mimeType.toLowerCase().includes('json') &&
+                    response.mimeType.toLowerCase() !== 'application/octet-stream')
+                    throw new GraflumeError('INVALID_DATA', `Boundary source "${source.id}" returned unsupported MIME ${response.mimeType}.`);
+                const digest = (await this.#digest(response.bytes)).toLowerCase();
+                if (digest !== source.sha256)
+                    throw new GraflumeError('INVALID_DATA', `Boundary source "${source.id}" failed SHA-256 verification.`);
+                let parsed;
+                try {
+                    parsed = JSON.parse(new TextDecoder().decode(response.bytes));
+                }
+                catch {
+                    throw new GraflumeError('INVALID_DATA', `Boundary source "${source.id}" is not valid JSON.`);
+                }
+                const collection = source.format === 'topojson'
+                    ? topologyToGeoJson(parsed, source.topologyObject)
+                    : normalizeGeoJson(parsed);
+                this.#cache.set(key, collection);
+                while (this.#cache.size > this.#options.maximumEntries)
+                    this.#cache.delete(this.#cache.keys().next().value);
+                return collection;
+            }
+            finally {
+                signal?.removeEventListener('abort', abort);
+            }
+        }
+    }
+    function createMapBoundaryLoader(options = {}) {
+        return new MapBoundaryLoader(options);
+    }
+    function normalizeTile(tile) {
+        const z = Math.floor(finite$e(tile.z, '$.tile.z'));
+        const x = Math.floor(finite$e(tile.x, '$.tile.x'));
+        const y = Math.floor(finite$e(tile.y, '$.tile.y'));
+        if (z < 0 || z > 24)
+            throw new GraflumeError('INVALID_SPEC', 'Tile zoom must be from 0 to 24.');
+        const count = 2 ** z;
+        if (y < 0 || y >= count)
+            throw new GraflumeError('INVALID_SPEC', 'Tile y is outside the zoom pyramid.');
+        return { z, x: ((x % count) + count) % count, y };
+    }
+    function tileUrl(source, tile) {
+        const normalized = normalizeTile(tile);
+        if (!source.template.includes('{z}') ||
+            !source.template.includes('{x}') ||
+            !source.template.includes('{y}'))
+            throw new GraflumeError('INVALID_SPEC', 'Tile template must contain {z}, {x}, and {y}.');
+        const subdomains = source.subdomains ?? [];
+        const subdomain = subdomains.length === 0 ? '' : subdomains[(normalized.x + normalized.y) % subdomains.length];
+        return source.template
+            .replaceAll('{z}', String(normalized.z))
+            .replaceAll('{x}', String(normalized.x))
+            .replaceAll('{y}', String(normalized.y))
+            .replaceAll('{s}', subdomain);
+    }
+    /** Provider-backed tile loader with request deduplication, abort, bounded LRU cache, expiry and attribution. */
+    class MapTileManager {
+        #source;
+        #fetcher;
+        #maximumEntries;
+        #maximumConcurrent;
+        #cache = new Map();
+        #pending = new Map();
+        #controllers = new Map();
+        #destroyed = false;
+        constructor(source, fetcher, maximumEntries = 128, maximumConcurrent = 8) {
+            if (source.attribution.trim() === '')
+                throw new GraflumeError('INVALID_SPEC', 'Provider-backed tiles require attribution.');
+            this.#source = Object.freeze({ ...source });
+            this.#fetcher = fetcher;
+            this.#maximumEntries = Math.floor(finite$e(maximumEntries, '$.maximumEntries'));
+            if (this.#maximumEntries < 1 || this.#maximumEntries > 4_096)
+                throw new GraflumeError('INVALID_SPEC', '$.maximumEntries must be from 1 to 4096.');
+            this.#maximumConcurrent = Math.floor(finite$e(maximumConcurrent, '$.maximumConcurrent'));
+            if (this.#maximumConcurrent < 1 || this.#maximumConcurrent > 64)
+                throw new GraflumeError('INVALID_SPEC', '$.maximumConcurrent must be from 1 to 64.');
+        }
+        get attribution() {
+            return this.#source.attribution;
+        }
+        async load(tile, signal) {
+            if (this.#destroyed)
+                throw new GraflumeError('INVALID_DATA', 'Map tile manager has been destroyed.');
+            const url = tileUrl(this.#source, tile);
+            const cached = this.#cache.get(url);
+            if (cached !== undefined && (cached.expiresAt === undefined || cached.expiresAt > Date.now())) {
+                this.#cache.delete(url);
+                this.#cache.set(url, cached);
+                return cached;
+            }
+            this.#cache.delete(url);
+            const existing = this.#pending.get(url);
+            if (existing !== undefined)
+                return existing;
+            const controller = new AbortController();
+            const abort = () => controller.abort(signal?.reason);
+            if (signal?.aborted === true)
+                controller.abort(signal.reason);
+            else
+                signal?.addEventListener('abort', abort, { once: true });
+            const request = this.#fetcher(url, controller.signal)
+                .then((response) => {
+                if (!(response.bytes instanceof Uint8Array) ||
+                    response.bytes.length === 0 ||
+                    response.mimeType.trim() === '')
+                    throw new GraflumeError('INVALID_DATA', 'Tile provider returned an invalid response.');
+                const frozen = Object.freeze({ ...response, bytes: response.bytes.slice() });
+                this.#cache.set(url, frozen);
+                while (this.#cache.size > this.#maximumEntries)
+                    this.#cache.delete(this.#cache.keys().next().value);
+                return frozen;
+            })
+                .finally(() => {
+                signal?.removeEventListener('abort', abort);
+                this.#pending.delete(url);
+                this.#controllers.delete(url);
+            });
+            this.#pending.set(url, request);
+            this.#controllers.set(url, controller);
+            return request;
+        }
+        /** Loads a bounded tile set with stable output order and explicit concurrency. */
+        async loadMany(tiles, signal) {
+            if (tiles.length > this.#maximumEntries * 4)
+                throw new GraflumeError('INVALID_SPEC', `Tile batch has ${tiles.length} entries; the bounded limit is ${this.#maximumEntries * 4}.`);
+            const output = new Array(tiles.length);
+            let cursor = 0;
+            const worker = async () => {
+                while (cursor < tiles.length) {
+                    const index = cursor;
+                    cursor += 1;
+                    output[index] = await this.load(tiles[index], signal);
+                }
+            };
+            await Promise.all(Array.from({ length: Math.min(this.#maximumConcurrent, tiles.length) }, () => worker()));
+            return Object.freeze(output);
+        }
+        clear() {
+            this.#cache.clear();
+        }
+        /** Aborts every provider request and permanently releases this manager. */
+        destroy(reason = new DOMException('Map tile manager destroyed.', 'AbortError')) {
+            if (this.#destroyed)
+                return;
+            this.#destroyed = true;
+            for (const controller of this.#controllers.values())
+                controller.abort(reason);
+            this.#controllers.clear();
+            this.#pending.clear();
+            this.#cache.clear();
+        }
+        state() {
+            return Object.freeze({
+                cached: this.#cache.size,
+                pending: this.#pending.size,
+                maximumEntries: this.#maximumEntries,
+                maximumConcurrent: this.#maximumConcurrent,
+                destroyed: this.#destroyed,
+            });
+        }
+    }
+    /** Default browser/server fetch adapter with cache expiry derived from response headers. */
+    const fetchMapTile = async (url, signal) => {
+        if (typeof fetch !== 'function')
+            throw new GraflumeError('UNSUPPORTED_RENDERER', 'Provider-backed tiles require fetch or an injected TileFetcher.');
+        const response = await fetch(url, { signal });
+        if (!response.ok)
+            throw new GraflumeError('INVALID_DATA', `Tile provider returned HTTP ${response.status}.`);
+        const bytes = new Uint8Array(await response.arrayBuffer());
+        const mimeType = response.headers.get('content-type')?.split(';', 1)[0]?.trim() ?? '';
+        const cacheControl = response.headers.get('cache-control') ?? '';
+        const maxAge = /(?:^|,)\s*max-age=(\d+)/i.exec(cacheControl)?.[1];
+        return {
+            bytes,
+            mimeType,
+            ...(maxAge === undefined ? {} : { expiresAt: Date.now() + Number(maxAge) * 1_000 }),
+        };
+    };
+    function createMapTileManager(source, options = {}) {
+        return new MapTileManager(source, options.fetcher ?? fetchMapTile, options.maximumEntries, options.maximumConcurrent);
+    }
+    function cloneMapProjection(projection) {
+        return Object.freeze({
+            name: projection.name,
+            ...(projection.rotate === undefined
+                ? {}
+                : { rotate: Object.freeze([...projection.rotate]) }),
+            ...(projection.clip === undefined
+                ? {}
+                : {
+                    clip: Object.freeze([...projection.clip]),
+                }),
+        });
+    }
+    /**
+     * Persistent source/layer runtime that binds ordered layer state to real
+     * provider requests. It is renderer-neutral and can be shared by custom map
+     * controls, server prefetchers, or a Canvas chart lifecycle.
+     */
+    class MapRuntime {
+        layers = new MapLayerRegistry();
+        #options;
+        #managers = new Map();
+        #projection;
+        #revision = 0;
+        #destroyed = false;
+        constructor(options = {}) {
+            const { projection, ...tileOptions } = options;
+            this.#options = { ...tileOptions };
+            this.#projection = normalizeMapProjection(projection);
+        }
+        addSource(id, source) {
+            this.#assertAlive();
+            this.layers.addSource(id, source);
+            this.#revision += 1;
+            return this;
+        }
+        removeSource(id) {
+            this.#assertAlive();
+            this.layers.removeSource(id);
+            this.#managers.get(id)?.destroy();
+            this.#managers.delete(id);
+            this.#revision += 1;
+            return this;
+        }
+        addLayer(layer, before) {
+            this.#assertAlive();
+            this.layers.addLayer(layer, before);
+            this.#revision += 1;
+            return this;
+        }
+        removeLayer(id) {
+            this.#assertAlive();
+            this.layers.removeLayer(id);
+            this.#revision += 1;
+            return this;
+        }
+        setVisibility(id, visible) {
+            this.#assertAlive();
+            this.layers.setVisibility(id, visible);
+            this.#revision += 1;
+            return this;
+        }
+        getProjection() {
+            return cloneMapProjection(this.#projection);
+        }
+        setProjection(projection) {
+            this.#assertAlive();
+            const normalized = normalizeMapProjection(projection);
+            if (JSON.stringify(normalized) !== JSON.stringify(this.#projection)) {
+                this.#projection = normalized;
+                this.#revision += 1;
+            }
+            return this;
+        }
+        project(point) {
+            this.#assertAlive();
+            return projectMapPosition(point, this.#projection);
+        }
+        async loadLayerTiles(layerId, tiles, signal) {
+            this.#assertAlive();
+            const layer = this.layers.layer(layerId);
+            if (layer === null)
+                throw new GraflumeError('INVALID_SPEC', `Unknown map layer "${layerId}".`);
+            if (layer.visible === false)
+                return Object.freeze([]);
+            const source = this.layers.source(layer.source);
+            if (source === null || !('template' in source))
+                throw new GraflumeError('INVALID_SPEC', `Map layer "${layerId}" is not backed by a tile provider.`);
+            let manager = this.#managers.get(layer.source);
+            if (manager === undefined) {
+                manager = createMapTileManager(source, this.#options);
+                this.#managers.set(layer.source, manager);
+            }
+            return manager.loadMany(tiles, signal);
+        }
+        snapshot() {
+            return Object.freeze({
+                destroyed: this.#destroyed,
+                revision: this.#revision,
+                projection: cloneMapProjection(this.#projection),
+                registry: this.layers.snapshot(),
+                providers: Object.freeze(Object.fromEntries([...this.#managers].map(([id, manager]) => [id, manager.state()]))),
+            });
+        }
+        destroy(reason) {
+            if (this.#destroyed)
+                return;
+            this.#destroyed = true;
+            for (const manager of this.#managers.values())
+                manager.destroy(reason);
+            this.#managers.clear();
+        }
+        #assertAlive() {
+            if (this.#destroyed)
+                throw new GraflumeError('INVALID_DATA', 'Map runtime has been destroyed.');
+        }
+    }
+    function createMapRuntime(options = {}) {
+        return new MapRuntime(options);
+    }
+
+    const capabilities$2 = {
+        vector: false,
+        gpu: false,
+        worker: false,
+        exportFormats: ['image/png', 'image/jpeg', 'image/webp'],
+        inspectionViewport: true,
+    };
+    const maximumProviderTileRequests = 8;
+    const maximumDecodedProviderTiles = 128;
+    function tileSourceKey(source) {
+        return JSON.stringify([
+            source.type,
+            source.template,
+            source.attribution,
+            source.minimumZoom ?? null,
+            source.maximumZoom ?? null,
+            source.tileSize ?? null,
+            source.subdomains ?? [],
+        ]);
+    }
+    function providerTileKey(source, tile) {
+        return `${tileSourceKey(source)}\u0000${tileUrl(source, tile)}`;
+    }
+    function collectVisibleProviderTiles(node, output) {
+        if (!node.visible || node.opacity <= 0)
+            return;
+        if (node.type === 'rect' && node.providerTile !== undefined) {
+            const request = node.providerTile;
+            output.set(providerTileKey(request.source, request.tile), request);
+        }
+        if (node.type === 'group') {
+            for (const child of node.children)
+                collectVisibleProviderTiles(child, output);
+        }
+    }
+    async function decodeProviderTile(response) {
+        if (!response.mimeType.toLowerCase().startsWith('image/'))
+            return {};
+        const blob = new Blob([Uint8Array.from(response.bytes).buffer], { type: response.mimeType });
+        if (typeof createImageBitmap === 'function') {
+            const image = await createImageBitmap(blob);
+            return { image, dispose: () => image.close() };
+        }
+        if (typeof Image === 'undefined' ||
+            typeof URL === 'undefined' ||
+            typeof URL.createObjectURL !== 'function')
+            throw new Error('Provider raster tiles require createImageBitmap or Image support.');
+        const objectUrl = URL.createObjectURL(blob);
+        const image = new Image();
+        try {
+            await new Promise((resolve, reject) => {
+                image.addEventListener('load', () => resolve(), { once: true });
+                image.addEventListener('error', () => reject(new Error('Provider raster tile decode failed.')), {
+                    once: true,
+                });
+                image.src = objectUrl;
+            });
+            return { image, dispose: () => URL.revokeObjectURL(objectUrl) };
+        }
+        catch (error) {
+            URL.revokeObjectURL(objectUrl);
+            throw error;
+        }
+    }
+    function roundedRectPath(context, x, y, width, height, radius) {
+        const resolvedRadius = Math.max(0, Math.min(radius, Math.abs(width) / 2, Math.abs(height) / 2));
+        context.moveTo(x + resolvedRadius, y);
+        context.lineTo(x + width - resolvedRadius, y);
+        context.quadraticCurveTo(x + width, y, x + width, y + resolvedRadius);
+        context.lineTo(x + width, y + height - resolvedRadius);
+        context.quadraticCurveTo(x + width, y + height, x + width - resolvedRadius, y + height);
+        context.lineTo(x + resolvedRadius, y + height);
+        context.quadraticCurveTo(x, y + height, x, y + height - resolvedRadius);
+        context.lineTo(x, y + resolvedRadius);
+        context.quadraticCurveTo(x, y, x + resolvedRadius, y);
+    }
+    class CanvasRenderer {
+        name = 'canvas';
+        capabilities = capabilities$2;
+        #root = null;
+        #canvas = null;
+        #context = null;
+        #width = 0;
+        #height = 0;
+        #pixelRatio = 1;
+        #inspectionView = { zoom: 1, offsetX: 0, offsetY: 0 };
+        #tileManagers = new Map();
+        #tileImages = new Map();
+        #tileQueue = [];
+        #activeTileRequests = 0;
+        #tileGeneration = 0;
+        #visibleTileKeys = new Set();
+        #lastScene = null;
+        #destroyed = false;
+        mount(target, options) {
+            if (this.#root !== null)
+                this.destroy();
+            this.#destroyed = false;
+            const root = document.createElement('div');
+            root.dataset.graflumeRoot = 'true';
+            root.style.position = 'relative';
+            root.style.width = '100%';
+            root.style.height = '100%';
+            root.style.overflow = 'hidden';
+            const canvas = document.createElement('canvas');
+            canvas.dataset.graflumeSurface = 'canvas';
+            canvas.style.display = 'block';
+            canvas.style.width = `${options.width}px`;
+            canvas.style.height = `${options.height}px`;
+            canvas.setAttribute('role', 'img');
+            canvas.setAttribute('aria-label', options.ariaLabel);
+            if (options.ariaDescription !== undefined) {
+                canvas.setAttribute('aria-description', options.ariaDescription);
+            }
+            const context = canvas.getContext('2d');
+            if (context === null)
+                throw new Error('Canvas 2D context is unavailable.');
+            root.append(canvas);
+            target.append(root);
+            this.#root = root;
+            this.#canvas = canvas;
+            this.#context = context;
+            this.resize(options.width, options.height, options.pixelRatio);
+        }
+        resize(width, height, pixelRatio) {
+            if (this.#canvas === null || this.#context === null)
+                return;
+            this.#width = Math.max(1, width);
+            this.#height = Math.max(1, height);
+            this.#pixelRatio = Math.max(1, pixelRatio);
+            this.#canvas.width = Math.round(this.#width * this.#pixelRatio);
+            this.#canvas.height = Math.round(this.#height * this.#pixelRatio);
+            this.#canvas.style.width = `${this.#width}px`;
+            this.#canvas.style.height = `${this.#height}px`;
+            this.#context.setTransform(this.#pixelRatio, 0, 0, this.#pixelRatio, 0, 0);
+        }
+        render(scene) {
+            const context = this.#context;
+            if (context === null)
+                return;
+            this.#lastScene = scene;
+            this.#reconcileProviderTiles(scene.root);
+            this.#paint(scene);
+        }
+        #paint(scene) {
+            const context = this.#context;
+            if (context === null)
+                return;
+            context.save();
+            context.setTransform(this.#pixelRatio, 0, 0, this.#pixelRatio, 0, 0);
+            context.clearRect(0, 0, this.#width, this.#height);
+            context.fillStyle = scene.background;
+            context.fillRect(0, 0, scene.width, scene.height);
+            if (this.#inspectionView.zoom !== 1 ||
+                this.#inspectionView.offsetX !== 0 ||
+                this.#inspectionView.offsetY !== 0) {
+                context.translate(this.#inspectionView.offsetX, this.#inspectionView.offsetY);
+                context.scale(this.#inspectionView.zoom, this.#inspectionView.zoom);
+            }
+            this.#drawNode(context, scene.root);
+            context.restore();
+        }
+        surface() {
+            return this.#canvas;
+        }
+        overlayHost() {
+            return this.#root;
+        }
+        setInspectionView(transform) {
+            this.#inspectionView = transform;
+        }
+        toDataURL(type = 'image/png', quality) {
+            if (this.#canvas === null)
+                throw new Error('Renderer is not mounted.');
+            return this.#canvas.toDataURL(type, quality);
+        }
+        /** Observable provider state for diagnostics and deterministic host readiness checks. */
+        providerTileState() {
+            const states = [...this.#tileImages.values()];
+            return Object.freeze({
+                sources: this.#tileManagers.size,
+                loading: states.filter(({ status }) => status === 'queued' || status === 'loading').length,
+                ready: states.filter(({ status }) => status === 'ready').length,
+                failed: states.filter(({ status }) => status === 'failed').length,
+            });
+        }
+        destroy() {
+            this.#destroyed = true;
+            this.#tileGeneration += 1;
+            for (const state of this.#tileImages.values()) {
+                if (state.status === 'queued' || state.status === 'loading') {
+                    state.controller.abort(new DOMException('Canvas provider tile destroyed.', 'AbortError'));
+                }
+            }
+            for (const manager of this.#tileManagers.values())
+                manager.destroy();
+            this.#tileManagers.clear();
+            for (const state of this.#tileImages.values()) {
+                if (state.status === 'ready')
+                    state.dispose?.();
+            }
+            this.#tileImages.clear();
+            this.#tileQueue = [];
+            this.#activeTileRequests = 0;
+            this.#visibleTileKeys.clear();
+            this.#lastScene = null;
+            this.#root?.remove();
+            this.#root = null;
+            this.#canvas = null;
+            this.#context = null;
+            this.#inspectionView = { zoom: 1, offsetX: 0, offsetY: 0 };
+        }
+        #drawNode(context, node) {
+            if (!node.visible || node.opacity <= 0)
+                return;
+            context.save();
+            context.globalAlpha *= node.opacity;
+            switch (node.type) {
+                case 'group':
+                    this.#drawGroup(context, node);
+                    break;
+                case 'line':
+                    this.#drawLine(context, node);
+                    break;
+                case 'path':
+                    this.#drawPath(context, node);
+                    break;
+                case 'rect':
+                    this.#drawRect(context, node);
+                    break;
+                case 'circle':
+                    this.#drawCircle(context, node);
+                    break;
+                case 'text':
+                    this.#drawText(context, node);
+                    break;
+            }
+            context.restore();
+        }
+        #drawGroup(context, node) {
+            if (node.clip !== undefined) {
+                context.beginPath();
+                context.rect(node.clip.x, node.clip.y, node.clip.width, node.clip.height);
+                context.clip();
+            }
+            const children = [...node.children].sort((left, right) => left.zIndex - right.zIndex);
+            for (const child of children)
+                this.#drawNode(context, child);
+        }
+        #drawLine(context, node) {
+            context.beginPath();
+            context.moveTo(node.x1, node.y1);
+            context.lineTo(node.x2, node.y2);
+            context.strokeStyle = node.stroke;
+            context.lineWidth = node.lineWidth;
+            context.lineCap = node.lineCap ?? 'butt';
+            context.setLineDash(node.dash === undefined ? [] : [...node.dash]);
+            context.stroke();
+        }
+        #drawPath(context, node) {
+            const paths = [node.points, ...(node.subpaths ?? [])].filter((points) => points.length > 0);
+            if (paths.length === 0)
+                return;
+            context.beginPath();
+            for (const points of paths) {
+                const first = points[0];
+                if (first === undefined)
+                    continue;
+                context.moveTo(first.x, first.y);
+                for (let index = 1; index < points.length; index += 1) {
+                    const point = points[index];
+                    if (point !== undefined)
+                        context.lineTo(point.x, point.y);
+                }
+                if (node.closed)
+                    context.closePath();
+            }
+            context.setLineDash(node.dash === undefined ? [] : [...node.dash]);
+            context.lineCap = node.lineCap ?? 'round';
+            context.lineJoin = node.lineJoin ?? 'round';
+            if (node.fill !== undefined) {
+                context.fillStyle = node.fill;
+                context.fill(node.fillRule ?? 'nonzero');
+            }
+            if (node.stroke !== undefined && node.lineWidth > 0) {
+                context.strokeStyle = node.stroke;
+                context.lineWidth = node.lineWidth;
+                context.stroke();
+            }
+        }
+        #drawRect(context, node) {
+            context.beginPath();
+            roundedRectPath(context, node.x, node.y, node.width, node.height, node.cornerRadius);
+            context.closePath();
+            context.setLineDash(node.dash === undefined ? [] : [...node.dash]);
+            if (node.fill !== undefined) {
+                context.fillStyle = node.fill;
+                context.fill();
+            }
+            if (node.providerTile !== undefined) {
+                const image = this.#providerTileImage(node.providerTile.source, node.providerTile.tile);
+                if (image !== undefined)
+                    context.drawImage(image, node.x, node.y, node.width, node.height);
+            }
+            if (node.stroke !== undefined && node.lineWidth > 0) {
+                context.strokeStyle = node.stroke;
+                context.lineWidth = node.lineWidth;
+                context.stroke();
+            }
+        }
+        #providerTileImage(source, tile) {
+            const key = providerTileKey(source, tile);
+            const current = this.#tileImages.get(key);
+            if (current?.status === 'ready') {
+                this.#tileImages.delete(key);
+                this.#tileImages.set(key, current);
+                return current.image;
+            }
+            return undefined;
+        }
+        #reconcileProviderTiles(root) {
+            const visible = new Map();
+            collectVisibleProviderTiles(root, visible);
+            this.#visibleTileKeys = new Set(visible.keys());
+            for (const [key, state] of this.#tileImages) {
+                if (visible.has(key))
+                    continue;
+                if (state.status === 'queued' || state.status === 'loading') {
+                    state.controller.abort(new DOMException('Canvas provider tile left the visible scene.', 'AbortError'));
+                    this.#tileImages.delete(key);
+                }
+                else if (state.status === 'failed') {
+                    this.#tileImages.delete(key);
+                }
+            }
+            this.#tileQueue = this.#tileQueue.filter((key) => {
+                const state = this.#tileImages.get(key);
+                return visible.has(key) && state?.status === 'queued';
+            });
+            for (const [key, request] of visible) {
+                const current = this.#tileImages.get(key);
+                if (current?.status === 'ready') {
+                    this.#tileImages.delete(key);
+                    this.#tileImages.set(key, current);
+                }
+                else if (current === undefined) {
+                    const controller = new AbortController();
+                    this.#tileImages.set(key, { status: 'queued', request, controller });
+                    this.#tileQueue.push(key);
+                }
+            }
+            this.#drainProviderTileQueue();
+        }
+        #drainProviderTileQueue() {
+            while (!this.#destroyed &&
+                this.#activeTileRequests < maximumProviderTileRequests &&
+                this.#tileQueue.length > 0) {
+                const key = this.#tileQueue.shift();
+                const queued = this.#tileImages.get(key);
+                if (queued?.status !== 'queued' ||
+                    queued.controller.signal.aborted ||
+                    !this.#visibleTileKeys.has(key)) {
+                    if (queued?.status === 'queued')
+                        this.#tileImages.delete(key);
+                    continue;
+                }
+                const sourceKey = tileSourceKey(queued.request.source);
+                let manager = this.#tileManagers.get(sourceKey);
+                if (manager === undefined) {
+                    manager = new MapTileManager(queued.request.source, fetchMapTile);
+                    this.#tileManagers.set(sourceKey, manager);
+                }
+                const generation = this.#tileGeneration;
+                const controller = queued.controller;
+                const request = queued.request;
+                this.#tileImages.set(key, { ...queued, status: 'loading' });
+                this.#activeTileRequests += 1;
+                void manager
+                    .load(request.tile, controller.signal)
+                    .then(decodeProviderTile)
+                    .then((decoded) => {
+                    const current = this.#tileImages.get(key);
+                    if (this.#destroyed ||
+                        generation !== this.#tileGeneration ||
+                        controller.signal.aborted ||
+                        !this.#visibleTileKeys.has(key) ||
+                        current?.status !== 'loading' ||
+                        current.controller !== controller) {
+                        decoded.dispose?.();
+                        return;
+                    }
+                    this.#tileImages.delete(key);
+                    this.#tileImages.set(key, { status: 'ready', ...decoded });
+                    this.#evictDecodedProviderTiles();
+                    if (this.#lastScene !== null)
+                        this.#paint(this.#lastScene);
+                })
+                    .catch(() => {
+                    const current = this.#tileImages.get(key);
+                    if (!this.#destroyed &&
+                        generation === this.#tileGeneration &&
+                        current?.status === 'loading' &&
+                        current.controller === controller) {
+                        if (controller.signal.aborted || !this.#visibleTileKeys.has(key))
+                            this.#tileImages.delete(key);
+                        else
+                            this.#tileImages.set(key, { status: 'failed' });
+                    }
+                })
+                    .finally(() => {
+                    if (generation !== this.#tileGeneration)
+                        return;
+                    this.#activeTileRequests = Math.max(0, this.#activeTileRequests - 1);
+                    this.#drainProviderTileQueue();
+                });
+            }
+        }
+        #evictDecodedProviderTiles() {
+            let ready = [...this.#tileImages.values()].filter(({ status }) => status === 'ready').length;
+            if (ready <= maximumDecodedProviderTiles)
+                return;
+            for (const [key, state] of this.#tileImages) {
+                if (ready <= maximumDecodedProviderTiles)
+                    break;
+                if (state.status !== 'ready')
+                    continue;
+                this.#tileImages.delete(key);
+                state.dispose?.();
+                ready -= 1;
+            }
+        }
+        #drawCircle(context, node) {
+            context.beginPath();
+            context.arc(node.cx, node.cy, node.radius, 0, Math.PI * 2);
+            context.setLineDash(node.dash === undefined ? [] : [...node.dash]);
+            if (node.fill !== undefined) {
+                context.fillStyle = node.fill;
+                context.fill();
+            }
+            if (node.stroke !== undefined && node.lineWidth > 0) {
+                context.strokeStyle = node.stroke;
+                context.lineWidth = node.lineWidth;
+                context.stroke();
+            }
+        }
+        #drawText(context, node) {
+            context.translate(node.x, node.y);
+            context.rotate((node.rotation * Math.PI) / 180);
+            context.fillStyle = node.fill;
+            const fontStyle = node.fontStyle === undefined ? '' : `${node.fontStyle} `;
+            context.font = `${fontStyle}${node.fontWeight} ${node.fontSize}px ${node.fontFamily}`;
+            context.textAlign = node.align;
+            context.textBaseline = node.baseline;
+            context.fillText(node.text, 0, 0);
+        }
+    }
+    const canvasRendererFactory = {
+        name: 'canvas',
+        capabilities: capabilities$2,
+        create: () => new CanvasRenderer(),
+    };
+
+    const svgCapabilities = {
+        vector: true,
+        gpu: false,
+        worker: false,
+        exportFormats: ['image/svg+xml', 'image/png', 'image/jpeg', 'image/webp'],
+        inspectionViewport: true,
+    };
+    function xml(value) {
+        return String(value)
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&apos;');
+    }
+    function number(value) {
+        if (!Number.isFinite(value) || Math.abs(value) > 1e12)
+            throw new GraflumeError('INVALID_SPEC', 'SVG geometry must be finite and bounded.');
+        return String(value);
+    }
+    function paint(value) {
+        if (value === undefined)
+            return undefined;
+        // Paints never resolve URLs, CSS variables, external resources, or active content.
+        if (typeof value !== 'string' ||
+            value.length > 256 ||
+            !/^(?:#[\da-f]{3,8}|[a-z]+|(?:rgb|rgba|hsl|hsla|hwb|lab|lch|oklab|oklch)\([\d\s.,%+\-/]*\))$/i.test(value.trim())) {
+            throw new GraflumeError('INVALID_SPEC', 'SVG paint must be a literal color.');
+        }
+        return value;
+    }
+    function attributes(values) {
+        return Object.entries(values)
+            .filter(([, value]) => value !== undefined)
+            .map(([key, value]) => ` ${key}="${xml(value)}"`)
+            .join('');
+    }
+    /** Deterministic, resource-free SVG from actual compiled vector primitives. */
+    function sceneToSVG(scene) {
+        let hash = 2166136261;
+        for (const char of JSON.stringify(scene.root))
+            hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
+        const prefix = `graflume-${(hash >>> 0).toString(36)}`;
+        const defs = [];
+        let count = 0;
+        const visit = (node, depth) => {
+            if (++count > 100_000 || depth > 64)
+                throw new GraflumeError('INVALID_SPEC', 'SVG scene exceeds its node or depth budget.');
+            if (!node.visible || node.opacity <= 0)
+                return '';
+            const common = { 'data-scene-node': node.id, opacity: number(node.opacity) };
+            if (node.type === 'group') {
+                let clip;
+                if (node.clip !== undefined) {
+                    const id = `${prefix}-clip-${count}`;
+                    defs.push(`<clipPath id="${id}"><rect${attributes({ x: number(node.clip.x), y: number(node.clip.y), width: number(node.clip.width), height: number(node.clip.height) })}/></clipPath>`);
+                    clip = `url(#${id})`;
+                }
+                return `<g${attributes({ ...common, 'clip-path': clip })}>${[...node.children]
+                .sort((a, b) => a.zIndex - b.zIndex)
+                .map((child) => visit(child, depth + 1))
+                .join('')}</g>`;
+            }
+            if (node.type === 'text') {
+                const anchor = node.align === 'center'
+                    ? 'middle'
+                    : node.align === 'right' || node.align === 'end'
+                        ? 'end'
+                        : 'start';
+                const baseline = node.baseline === 'top' || node.baseline === 'hanging'
+                    ? 'text-before-edge'
+                    : node.baseline === 'middle'
+                        ? 'central'
+                        : node.baseline === 'bottom' || node.baseline === 'ideographic'
+                            ? 'text-after-edge'
+                            : 'alphabetic';
+                return `<text${attributes({ ...common, x: number(node.x), y: number(node.y), fill: paint(node.fill), 'font-family': node.fontFamily, 'font-size': number(node.fontSize), 'font-weight': node.fontWeight, 'font-style': node.fontStyle, 'text-anchor': anchor, 'dominant-baseline': baseline, transform: node.rotation === 0 ? undefined : `rotate(${number(node.rotation)} ${number(node.x)} ${number(node.y)})` })}>${xml(node.text)}</text>`;
+            }
+            const styles = {
+                ...common,
+                fill: node.type === 'line' ? 'none' : (paint(node.fill) ?? 'none'),
+                stroke: paint(node.stroke),
+                'stroke-width': number(node.lineWidth),
+                'stroke-dasharray': node.dash?.map(number).join(' '),
+            };
+            if (node.type === 'line')
+                return `<line${attributes({ ...styles, x1: number(node.x1), y1: number(node.y1), x2: number(node.x2), y2: number(node.y2), 'stroke-linecap': node.lineCap })}/>`;
+            if (node.type === 'circle')
+                return `<circle${attributes({ ...styles, cx: number(node.cx), cy: number(node.cy), r: number(node.radius) })}/>`;
+            if (node.type === 'rect') {
+                if (node.providerTile !== undefined)
+                    throw new GraflumeError('UNSUPPORTED_RENDERER', 'SVG snapshots do not capture externally loaded map tiles.');
+                return `<rect${attributes({ ...styles, x: number(node.x), y: number(node.y), width: number(node.width), height: number(node.height), rx: number(Math.max(0, Math.min(node.cornerRadius, Math.abs(node.width) / 2, Math.abs(node.height) / 2))) })}/>`;
+            }
+            if (node.type !== 'path')
+                throw new GraflumeError('INVALID_SPEC', 'Unknown SVG scene node.');
+            const d = [node.points, ...(node.subpaths ?? [])]
+                .filter((points) => points.length > 0)
+                .map((points) => points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${number(p.x)} ${number(p.y)}`).join(' ') +
+                (node.closed ? ' Z' : ''))
+                .join(' ');
+            return `<path${attributes({ ...styles, d, 'fill-rule': node.fillRule, 'stroke-linecap': node.lineCap, 'stroke-linejoin': node.lineJoin })}/>`;
+        };
+        const body = visit(scene.root, 0);
+        return `<svg xmlns="http://www.w3.org/2000/svg" width="${number(scene.width)}" height="${number(scene.height)}" viewBox="0 0 ${number(scene.width)} ${number(scene.height)}" role="img" aria-label="${xml(scene.accessibility.label)}"><title>${xml(scene.accessibility.label)}</title><desc>${xml(scene.accessibility.description ?? '')}</desc><defs>${defs.join('')}</defs><rect width="100%" height="100%" fill="${xml(paint(scene.background))}"/>${body}</svg>`;
+    }
+    /** Native SVG surface; PNG conversion is lazy and happens only when explicitly exported. */
+    class SVGRenderer {
+        name = 'svg';
+        capabilities = svgCapabilities;
+        #host = null;
+        #surface = null;
+        #scene = null;
+        #svg = '';
+        #view = { zoom: 1, offsetX: 0, offsetY: 0 };
+        #pixelRatio = 1;
+        #width = 1;
+        #height = 1;
+        mount(target, options) {
+            this.#host = target.ownerDocument.createElement('div');
+            this.#host.style.cssText = 'position:relative;max-width:100%;overflow:hidden;';
+            this.#surface = target.ownerDocument.createElement('div');
+            this.#surface.setAttribute('role', 'img');
+            this.#surface.setAttribute('aria-label', options.ariaLabel);
+            if (options.ariaDescription !== undefined)
+                this.#surface.setAttribute('aria-description', options.ariaDescription);
+            this.#surface.style.cssText = 'position:relative;overflow:hidden;touch-action:pan-y;';
+            this.#host.append(this.#surface);
+            target.append(this.#host);
+            this.resize(options.width, options.height, options.pixelRatio);
+        }
+        resize(width, height, pixelRatio) {
+            this.#width = width;
+            this.#height = height;
+            this.#pixelRatio = pixelRatio;
+            if (this.#host) {
+                this.#host.style.width = `${width}px`;
+                this.#host.style.height = `${height}px`;
+            }
+            if (this.#surface) {
+                this.#surface.style.width = `${width}px`;
+                this.#surface.style.height = `${height}px`;
+            }
+            this.setInspectionView(this.#view);
+        }
+        render(scene) {
+            this.restore(scene, sceneToSVG(scene));
+        }
+        /** Called only after snapshot canonical-SVG verification. */
+        restore(scene, svg) {
+            if (svg !== sceneToSVG(scene))
+                throw new GraflumeError('INVALID_SPEC', 'SVG must match its literal vector scene.');
+            this.#scene = scene;
+            this.#svg = svg;
+            if (this.#surface)
+                this.#surface.innerHTML = svg;
+            this.setInspectionView(this.#view);
+        }
+        surface() {
+            return this.#surface;
+        }
+        overlayHost() {
+            return this.#host;
+        }
+        setInspectionView(view) {
+            this.#view = { ...view };
+            const svg = this.#surface?.firstElementChild;
+            if (svg) {
+                svg.style.width = '100%';
+                svg.style.height = '100%';
+                svg.style.transformOrigin = '0 0';
+                svg.style.transform = `translate(${(view.offsetX * this.#width) / (this.#scene?.width ?? this.#width)}px,${(view.offsetY * this.#height) / (this.#scene?.height ?? this.#height)}px) scale(${view.zoom})`;
+            }
+        }
+        toDataURL(type = 'image/svg+xml', quality) {
+            if (type === 'image/svg+xml')
+                return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(this.#svg)}`;
+            if (this.#scene === null || this.#host === null)
+                throw new GraflumeError('UNSUPPORTED_RENDERER', 'SVG surface has no rendered scene.');
+            const renderer = new CanvasRenderer();
+            try {
+                renderer.mount(this.#host.ownerDocument.createElement('div'), {
+                    width: this.#scene.width,
+                    height: this.#scene.height,
+                    pixelRatio: this.#pixelRatio,
+                    ariaLabel: this.#scene.accessibility.label,
+                });
+                renderer.setInspectionView(this.#view);
+                renderer.render(this.#scene);
+                return renderer.toDataURL(type, quality);
+            }
+            finally {
+                renderer.destroy();
+            }
+        }
+        destroy() {
+            this.#host?.remove();
+            this.#host = null;
+            this.#surface = null;
+            this.#scene = null;
+            this.#svg = '';
+        }
+    }
+    const svgRendererFactory = {
+        name: 'svg',
+        capabilities: svgCapabilities,
+        create: () => new SVGRenderer(),
+    };
+
+    class BandScale {
+        kind = 'band';
+        descriptor;
+        #domain;
+        #range;
+        #positions = new Map();
+        #outOfBounds;
+        step;
+        bandwidth;
+        constructor(options) {
+            this.#domain = Object.freeze([...options.domain]);
+            this.#range = Object.freeze(options.reverse === true ? [options.range[1], options.range[0]] : [...options.range]);
+            this.#outOfBounds = options.outOfBounds ?? 'unknown';
+            const paddingInner = clamp$d(options.paddingInner ?? 0.1, 0, 1);
+            const paddingOuter = Math.max(0, options.paddingOuter ?? 0.05);
+            const [start, end] = this.#range;
+            const direction = end >= start ? 1 : -1;
+            const span = Math.abs(end - start);
+            const denominator = Math.max(1, this.#domain.length - paddingInner + paddingOuter * 2);
+            const step = span / denominator;
+            this.step = step;
+            this.bandwidth = step * (1 - paddingInner);
+            this.#domain.forEach((value, index) => {
+                const position = start + direction * step * (paddingOuter + index);
+                this.#positions.set(value, position);
+            });
+            this.descriptor = Object.freeze({
+                type: this.kind,
+                domain: this.#domain,
+                range: this.#range,
+                reverse: options.reverse ?? false,
+                rangeDirection: end < start ? 'descending' : 'ascending',
+                outOfBounds: this.#outOfBounds,
+            });
+        }
+        domain() {
+            return this.#domain;
+        }
+        range() {
+            return this.#range;
+        }
+        map(input) {
+            const value = input instanceof Date ? input.toISOString() : String(input);
+            const position = this.#positions.get(value);
+            if (position !== undefined)
+                return position + this.bandwidth / 2;
+            if (this.#outOfBounds === 'error') {
+                throw new GraflumeError('INVALID_DATA', `Unknown band value: ${value}`, {
+                    path: '$.data',
+                });
+            }
+            return Number.NaN;
+        }
+        start(input) {
+            return this.map(input) - this.bandwidth / 2;
+        }
+        ticks(count) {
+            const domain = this.#range[1] < this.#range[0] ? [...this.#domain].reverse() : this.#domain;
+            const step = Math.max(1, Math.ceil(domain.length / Math.max(1, count)));
+            const ticks = [];
+            for (let index = 0; index < domain.length; index += step) {
+                const value = domain[index];
+                if (value === undefined)
+                    continue;
+                ticks.push({ value, label: value, position: this.map(value) });
+            }
+            const last = domain.at(-1);
+            if (last !== undefined && ticks.at(-1)?.value !== last) {
+                ticks.push({ value: last, label: last, position: this.map(last) });
+            }
+            return ticks;
+        }
+    }
+
+    function tickStep(start, stop, count) {
+        const span = Math.abs(stop - start);
+        if (span === 0 || count <= 0)
+            return 0;
+        const raw = span / count;
+        const power = Math.floor(Math.log10(raw));
+        const magnitude = 10 ** power;
+        const error = raw / magnitude;
+        const factor = error >= Math.sqrt(50) ? 10 : error >= Math.sqrt(10) ? 5 : error >= Math.sqrt(2) ? 2 : 1;
+        return factor * magnitude;
+    }
+    function niceDomain(domain, count = 5) {
+        let [start, stop] = domain;
+        if (start === stop) {
+            const delta = start === 0 ? 1 : Math.abs(start) * 0.05;
+            return [start - delta, stop + delta];
+        }
+        const step = tickStep(start, stop, count);
+        if (step === 0)
+            return domain;
+        const reverse = stop < start;
+        if (reverse)
+            [start, stop] = [stop, start];
+        const niceStart = Math.floor(start / step) * step;
+        const niceStop = Math.ceil(stop / step) * step;
+        return reverse ? [niceStop, niceStart] : [niceStart, niceStop];
+    }
+    class LinearScale {
+        kind;
+        bandwidth = 0;
+        descriptor;
+        #domain;
+        #range;
+        #outOfBounds;
+        constructor(options) {
+            this.kind = options.kind ?? 'linear';
+            this.#domain = Object.freeze([
+                ...(options.nice === false ? options.domain : niceDomain(options.domain)),
+            ]);
+            this.#range = Object.freeze(options.reverse === true ? [options.range[1], options.range[0]] : [...options.range]);
+            this.#outOfBounds = options.outOfBounds ?? (options.clamp === true ? 'clamp' : 'extrapolate');
+            this.descriptor = Object.freeze({
+                type: this.kind,
+                domain: this.#domain,
+                range: this.#range,
+                reverse: options.reverse ?? false,
+                rangeDirection: this.#range[1] < this.#range[0] ? 'descending' : 'ascending',
+                outOfBounds: this.#outOfBounds,
+            });
+        }
+        domain() {
+            return this.#domain;
+        }
+        range() {
+            return this.#range;
+        }
+        #ratio(value, start, end) {
+            const denominator = end - start;
+            let ratio = denominator === 0 ? 0.5 : (value - start) / denominator;
+            if (ratio < 0 || ratio > 1) {
+                if (this.#outOfBounds === 'unknown')
+                    return Number.NaN;
+                if (this.#outOfBounds === 'error') {
+                    throw new GraflumeError('INVALID_DATA', 'Scale input is outside the domain.', {
+                        path: '$.data',
+                    });
+                }
+                if (this.#outOfBounds === 'clamp')
+                    ratio = clamp$d(ratio, 0, 1);
+            }
+            return ratio;
+        }
+        map(input) {
+            const value = input instanceof Date
+                ? input.getTime()
+                : typeof input === 'string'
+                    ? this.kind === 'time' || this.kind === 'utc'
+                        ? (temporalTimestamp(input, true) ?? Number.NaN)
+                        : Date.parse(input)
+                    : input;
+            if (!Number.isFinite(value))
+                return Number.NaN;
+            const [domainStart, domainEnd] = this.#domain;
+            const [rangeStart, rangeEnd] = this.#range;
+            const ratio = this.#ratio(value, domainStart, domainEnd);
+            return rangeStart + ratio * (rangeEnd - rangeStart);
+        }
+        invert = (position) => {
+            const [domainStart, domainEnd] = this.#domain;
+            const [rangeStart, rangeEnd] = this.#range;
+            const ratio = this.#ratio(position, rangeStart, rangeEnd);
+            return domainStart + ratio * (domainEnd - domainStart);
+        };
+        ticks(count, locale) {
+            const [start, stop] = this.#domain;
+            const step = tickStep(start, stop, Math.max(1, count));
+            if (step === 0) {
+                const position = this.map(start);
+                return [{ value: start, label: this.#format(start, locale), position }];
+            }
+            const first = Math.ceil(Math.min(start, stop) / step) * step;
+            const last = Math.floor(Math.max(start, stop) / step) * step;
+            const values = [];
+            for (let value = first; value <= last + step / 2; value += step)
+                values.push(value);
+            if (stop < start)
+                values.reverse();
+            return values.map((value) => ({
+                value,
+                label: this.#format(value, locale),
+                position: this.map(value),
+            }));
+        }
+        #format(value, locale) {
+            if (this.kind === 'time' || this.kind === 'utc') {
+                return safeDateTimeFormatter(locale, {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    ...(this.kind === 'utc' ? { timeZone: 'UTC' } : {}),
+                }).format(new Date(value));
+            }
+            return new Intl.NumberFormat(locale, { maximumFractionDigits: 6 }).format(value);
+        }
+    }
+
+    function ordinalKey(value) {
+        return `${typeof value}:${String(value)}`;
+    }
+    function frozen(values) {
+        return Object.freeze([...values]);
+    }
+    function fail$5(message, path = '$.scale') {
+        throw new GraflumeError('INCOMPATIBLE_SCALE', message, { path });
+    }
+    function numericDomain$2(values, length = 2) {
+        if (values.length !== length ||
+            values.some((value) => typeof value !== 'number' || !Number.isFinite(value))) {
+            fail$5(`Scale domain must contain exactly ${length} finite numbers.`);
+        }
+        return values;
+    }
+    function numericRange(values, minimum = 2) {
+        if (values.length < minimum ||
+            values.some((value) => typeof value !== 'number' || !Number.isFinite(value))) {
+            fail$5(`Position scale range must contain at least ${minimum} finite numbers.`, '$.scale.range');
+        }
+        return values;
+    }
+    function numericRangePair(values) {
+        const range = numericRange(values, 2);
+        if (range.length !== 2) {
+            fail$5('Continuous, band, and point position ranges must contain exactly 2 numbers.', '$.scale.range');
+        }
+        return range;
+    }
+    function resolvedPolicy(spec, fallback) {
+        return spec.outOfBounds ?? (spec.clamp === true ? 'clamp' : fallback);
+    }
+    function normalizeRatio(value, domain, policy, path) {
+        const denominator = domain[1] - domain[0];
+        let ratio = denominator === 0 ? 0.5 : (value - domain[0]) / denominator;
+        if (ratio >= 0 && ratio <= 1)
+            return ratio;
+        if (policy === 'clamp')
+            return clamp$d(ratio, 0, 1);
+        if (policy === 'unknown')
+            return Number.NaN;
+        if (policy === 'error') {
+            throw new GraflumeError('INVALID_DATA', `Scale input ${value} is outside the domain.`, {
+                path,
+            });
+        }
+        return ratio;
+    }
+    function interpolateRange(range, ratio) {
+        if (!Number.isFinite(ratio))
+            return Number.NaN;
+        const scaled = ratio * (range.length - 1);
+        const index = Math.max(0, Math.min(range.length - 2, Math.floor(scaled)));
+        const start = range[index] ?? Number.NaN;
+        const end = range[index + 1] ?? start;
+        return start + (end - start) * (scaled - index);
+    }
+    function inverseNormal(probability) {
+        // Acklam's rational approximation; absolute error is below 1.2e-9 over (0, 1).
+        const a = [
+            -39.6968302866538, 220.946098424521, -275.928510446969, 138.357751867269, -30.6647980661472,
+            2.50662827745924,
+        ];
+        const b = [
+            -54.4760987982241, 161.585836858041, -155.698979859887, 66.8013118877197, -13.2806815528857,
+        ];
+        const c = [
+            -0.00778489400243029, -0.322396458041136, -2.40075827716184, -2.54973253934373,
+            4.37466414146497, 2.93816398269878,
+        ];
+        const d = [0.00778469570904146, 0.32246712907004, 2.445134137143, 3.75440866190742];
+        const low = 0.02425;
+        const high = 1 - low;
+        if (probability < low) {
+            const q = Math.sqrt(-2 * Math.log(probability));
+            return ((((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) /
+                ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1));
+        }
+        if (probability > high) {
+            const q = Math.sqrt(-2 * Math.log(1 - probability));
+            return (-(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) /
+                ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1));
+        }
+        const q = probability - 0.5;
+        const r = q * q;
+        return (((((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q) /
+            (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1));
+    }
+    function normalCdf(value) {
+        // Abramowitz-Stegun 7.1.26, sufficient for stable interactive inversion.
+        const sign = value < 0 ? -1 : 1;
+        const x = Math.abs(value) / Math.SQRT2;
+        const t = 1 / (1 + 0.3275911 * x);
+        const erf = 1 -
+            ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) *
+                t *
+                Math.exp(-x * x);
+        return 0.5 * (1 + sign * erf);
+    }
+    function transformFor(type, spec) {
+        const identity = (value) => value;
+        if (type === 'log') {
+            const base = spec.base ?? 10;
+            if (!(base > 0) || base === 1)
+                fail$5('Log scale base must be positive and not equal to 1.', '$.scale.base');
+            return {
+                forward: (value) => Math.log(value) / Math.log(base),
+                inverse: (value) => base ** value,
+                validate: ([start, end]) => {
+                    if (!(start > 0 && end > 0))
+                        fail$5('Log scale domain values must be greater than 0.', '$.scale.domain');
+                },
+            };
+        }
+        if (type === 'symlog') {
+            const constant = spec.constant ?? 1;
+            if (!(constant > 0))
+                fail$5('Symlog constant must be greater than 0.', '$.scale.constant');
+            return {
+                forward: (value) => Math.sign(value) * Math.log1p(Math.abs(value) / constant),
+                inverse: (value) => Math.sign(value) * Math.expm1(Math.abs(value)) * constant,
+                validate: () => undefined,
+            };
+        }
+        if (type === 'asinh') {
+            const constant = spec.constant ?? 1;
+            if (!(constant > 0))
+                fail$5('Asinh constant must be greater than 0.', '$.scale.constant');
+            return {
+                forward: (value) => Math.asinh(value / constant),
+                inverse: (value) => Math.sinh(value) * constant,
+                validate: () => undefined,
+            };
+        }
+        if (type === 'pow' || type === 'sqrt') {
+            const exponent = type === 'sqrt' ? 0.5 : (spec.exponent ?? 1);
+            if (!(exponent > 0))
+                fail$5('Power scale exponent must be greater than 0.', '$.scale.exponent');
+            return {
+                forward: (value) => Math.sign(value) * Math.abs(value) ** exponent,
+                inverse: (value) => Math.sign(value) * Math.abs(value) ** (1 / exponent),
+                validate: () => undefined,
+            };
+        }
+        if (type === 'logit') {
+            return {
+                forward: (value) => Math.log(value / (1 - value)),
+                inverse: (value) => 1 / (1 + Math.exp(-value)),
+                validate: ([start, end]) => {
+                    if (!(start > 0 && start < 1 && end > 0 && end < 1))
+                        fail$5('Logit scale domain values must be strictly between 0 and 1.', '$.scale.domain');
+                },
+            };
+        }
+        if (type === 'probit') {
+            return {
+                forward: inverseNormal,
+                inverse: normalCdf,
+                validate: ([start, end]) => {
+                    if (!(start > 0 && start < 1 && end > 0 && end < 1))
+                        fail$5('Probit scale domain values must be strictly between 0 and 1.', '$.scale.domain');
+                },
+            };
+        }
+        return {
+            forward: identity,
+            inverse: identity,
+            validate: ([start, end]) => {
+                if (type === 'probability' && !(start >= 0 && start <= 1 && end >= 0 && end <= 1)) {
+                    fail$5('Probability scale domain values must be between 0 and 1.', '$.scale.domain');
+                }
+            },
+        };
+    }
+    class ContinuousScale {
+        bandwidth = 0;
+        descriptor;
+        #domain;
+        #range;
+        #policy;
+        #transform;
+        constructor(type, spec, domain, range) {
+            this.kind = type;
+            this.#domain = frozen(domain);
+            this.#range = frozen(spec.reverse === true ? [...range].reverse() : range);
+            this.#policy = resolvedPolicy(spec, 'extrapolate');
+            this.#transform = transformFor(type, spec);
+            this.#transform.validate(this.#domain);
+            if (this.#domain[0] === this.#domain[1])
+                fail$5('Continuous scale domain endpoints must differ.', '$.scale.domain');
+            this.descriptor = Object.freeze({
+                type,
+                domain: this.#domain,
+                range: this.#range,
+                reverse: spec.reverse === true,
+                rangeDirection: this.#range.at(-1) < this.#range[0] ? 'descending' : 'ascending',
+                outOfBounds: this.#policy,
+            });
+        }
+        kind;
+        domain() {
+            return this.#domain;
+        }
+        range() {
+            return this.#range;
+        }
+        map(input) {
+            const value = input instanceof Date
+                ? input.getTime()
+                : typeof input === 'string'
+                    ? this.kind === 'time' || this.kind === 'utc'
+                        ? (temporalTimestamp(input, true) ?? Number.NaN)
+                        : Date.parse(input)
+                    : input;
+            if (!Number.isFinite(value))
+                return Number.NaN;
+            const outsideMathematicalDomain = (this.kind === 'log' && value <= 0) ||
+                (this.kind === 'probability' && !(value >= 0 && value <= 1)) ||
+                ((this.kind === 'logit' || this.kind === 'probit') && !(value > 0 && value < 1));
+            let supportedValue = value;
+            if (outsideMathematicalDomain) {
+                if (this.#policy === 'unknown')
+                    return Number.NaN;
+                if (this.#policy === 'clamp') {
+                    const minimum = Math.min(this.#domain[0], this.#domain[1]);
+                    const maximum = Math.max(this.#domain[0], this.#domain[1]);
+                    supportedValue = clamp$d(value, minimum, maximum);
+                }
+                else {
+                    throw new GraflumeError('INVALID_DATA', `Value ${value} is outside the mathematical domain of ${this.kind}; it cannot be extrapolated.`, { path: '$.data' });
+                }
+            }
+            const transformedDomain = [
+                this.#transform.forward(this.#domain[0]),
+                this.#transform.forward(this.#domain[1]),
+            ];
+            const ratio = normalizeRatio(this.#transform.forward(supportedValue), transformedDomain, this.#policy, '$.data');
+            return interpolateRange(this.#range, ratio);
+        }
+        invert = (position) => {
+            const rangePair = [this.#range[0], this.#range.at(-1)];
+            const ratio = normalizeRatio(position, rangePair, this.#policy, '$.position');
+            if (!Number.isFinite(ratio))
+                return Number.NaN;
+            const start = this.#transform.forward(this.#domain[0]);
+            const end = this.#transform.forward(this.#domain[1]);
+            return this.#transform.inverse(start + (end - start) * ratio);
+        };
+        ticks(count, locale) {
+            const size = Math.max(1, Math.floor(count));
+            const start = this.#transform.forward(this.#domain[0]);
+            const end = this.#transform.forward(this.#domain[1]);
+            return Array.from({ length: size + 1 }, (_, index) => {
+                const value = this.#transform.inverse(start + ((end - start) * index) / size);
+                const label = this.kind === 'time' || this.kind === 'utc'
+                    ? safeDateTimeFormatter(locale, {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        timeZone: this.kind === 'utc' ? 'UTC' : undefined,
+                    }).format(new Date(value))
+                    : new Intl.NumberFormat(locale, { maximumFractionDigits: 6 }).format(value);
+                return { value, label, position: this.map(value) };
+            });
+        }
+    }
+    class PointScale {
+        kind = 'point';
+        bandwidth = 0;
+        descriptor;
+        #domain;
+        #range;
+        #positions = new Map();
+        #policy;
+        constructor(spec, domain, range) {
+            this.#domain = frozen(domain);
+            this.#range = frozen(spec.reverse === true ? [range[1], range[0]] : range);
+            this.#policy = resolvedPolicy(spec, 'unknown');
+            if (this.#policy === 'clamp' || this.#policy === 'extrapolate') {
+                fail$5('Point scales support only error or unknown for unseen categories.', '$.scale.outOfBounds');
+            }
+            const padding = Math.max(0, spec.paddingOuter ?? 0.5);
+            const denominator = Math.max(1, this.#domain.length - 1 + padding * 2);
+            this.#domain.forEach((value, index) => this.#positions.set(value, this.#range[0] + ((this.#range[1] - this.#range[0]) * (index + padding)) / denominator));
+            this.descriptor = Object.freeze({
+                type: this.kind,
+                domain: this.#domain,
+                range: this.#range,
+                reverse: spec.reverse === true,
+                rangeDirection: this.#range[1] < this.#range[0] ? 'descending' : 'ascending',
+                outOfBounds: this.#policy,
+            });
+        }
+        domain() {
+            return this.#domain;
+        }
+        range() {
+            return this.#range;
+        }
+        map(input) {
+            const value = input instanceof Date ? input.toISOString() : String(input);
+            const mapped = this.#positions.get(value);
+            if (mapped !== undefined)
+                return mapped;
+            if (this.#policy === 'error')
+                throw new GraflumeError('INVALID_DATA', `Unknown point scale value: ${value}`, {
+                    path: '$.data',
+                });
+            return Number.NaN;
+        }
+        ticks(count) {
+            const domain = this.#range[1] < this.#range[0] ? [...this.#domain].reverse() : this.#domain;
+            const step = Math.max(1, Math.ceil(domain.length / Math.max(1, count)));
+            return domain
+                .filter((_value, index) => index % step === 0)
+                .map((value) => ({ value, label: value, position: this.map(value) }));
+        }
+    }
+    function quantile$3(sorted, probability) {
+        const index = (sorted.length - 1) * probability;
+        const lower = Math.floor(index);
+        const upper = Math.ceil(index);
+        const start = sorted[lower] ?? sorted[0] ?? Number.NaN;
+        const end = sorted[upper] ?? start;
+        return start + (end - start) * (index - lower);
+    }
+    class DiscretePositionScale {
+        kind;
+        bandwidth = 0;
+        descriptor;
+        #domain;
+        #range;
+        #policy;
+        #thresholds;
+        #ordinalIndices = new Map();
+        constructor(kind, spec, domain, range) {
+            this.kind = kind;
+            this.#domain = frozen(domain);
+            this.#range = frozen(spec.reverse === true ? [...range].reverse() : range);
+            this.#policy = resolvedPolicy(spec, kind === 'quantize' ? 'clamp' : 'unknown');
+            if (kind === 'ordinal' && (this.#policy === 'clamp' || this.#policy === 'extrapolate')) {
+                fail$5('Ordinal scales support only error or unknown for unseen categories.', '$.scale.outOfBounds');
+            }
+            if (kind === 'quantize' && this.#policy === 'extrapolate') {
+                fail$5('Quantize scales cannot extrapolate discrete range values.', '$.scale.outOfBounds');
+            }
+            if ((kind === 'quantile' || kind === 'threshold') &&
+                (spec.outOfBounds !== undefined || spec.clamp !== undefined)) {
+                fail$5(`${kind} scale bin semantics do not accept outOfBounds.`, '$.scale.outOfBounds');
+            }
+            if (kind === 'ordinal' && this.#range.length < 1)
+                fail$5('Ordinal scale requires at least one range value.', '$.scale.range');
+            if (kind === 'ordinal') {
+                this.#domain.forEach((value, index) => {
+                    const id = ordinalKey(value);
+                    if (!this.#ordinalIndices.has(id))
+                        this.#ordinalIndices.set(id, index);
+                });
+            }
+            if (kind !== 'ordinal' && this.#domain.some((value) => typeof value !== 'number'))
+                fail$5(`${kind} scale domain must be numeric.`, '$.scale.domain');
+            const authoredNumbers = this.#domain;
+            const numbers = [...authoredNumbers].sort((a, b) => a - b);
+            if (kind === 'quantile') {
+                if (numbers.length < 2) {
+                    fail$5('Quantile scale domain must contain at least 2 numeric samples.', '$.scale.domain');
+                }
+                this.#thresholds = frozen(Array.from({ length: Math.max(0, this.#range.length - 1) }, (_, index) => quantile$3(numbers, (index + 1) / this.#range.length)));
+            }
+            else if (kind === 'quantize') {
+                if (numbers.length !== 2 || numbers[0] === numbers[1])
+                    fail$5('Quantize scale requires two distinct numeric domain endpoints.', '$.scale.domain');
+                this.#thresholds = frozen(Array.from({ length: Math.max(0, this.#range.length - 1) }, (_, index) => numbers[0] + ((numbers[1] - numbers[0]) * (index + 1)) / this.#range.length));
+            }
+            else if (kind === 'threshold') {
+                if (authoredNumbers.some((value, index) => index > 0 && value <= authoredNumbers[index - 1])) {
+                    fail$5('Threshold scale domain must be strictly ascending.', '$.scale.domain');
+                }
+                if (this.#range.length !== numbers.length + 1)
+                    fail$5('Threshold scale range length must equal domain length + 1.', '$.scale.range');
+                this.#thresholds = frozen(authoredNumbers);
+            }
+            else
+                this.#thresholds = [];
+            this.descriptor = Object.freeze({
+                type: kind,
+                domain: this.#domain,
+                range: this.#range,
+                reverse: spec.reverse === true,
+                rangeDirection: this.#range.at(-1) < this.#range[0] ? 'descending' : 'ascending',
+                outOfBounds: this.#policy,
+            });
+        }
+        domain() {
+            return this.#domain;
+        }
+        range() {
+            return this.#range;
+        }
+        map(input) {
+            const value = input instanceof Date ? input.getTime() : input;
+            if (this.kind === 'ordinal') {
+                const index = this.#ordinalIndices.get(ordinalKey(value));
+                if (index !== undefined)
+                    return this.#range[index % this.#range.length];
+                if (this.#policy === 'error')
+                    throw new GraflumeError('INVALID_DATA', `Unknown ordinal scale value: ${String(value)}`, {
+                        path: '$.data',
+                    });
+                return Number.NaN;
+            }
+            const number = typeof value === 'number' ? value : Number(value);
+            if (!Number.isFinite(number))
+                return Number.NaN;
+            if (this.kind === 'quantize') {
+                const endpoints = this.#domain;
+                const minimum = Math.min(endpoints[0], endpoints[1]);
+                const maximum = Math.max(endpoints[0], endpoints[1]);
+                if (number < minimum || number > maximum) {
+                    if (this.#policy === 'unknown')
+                        return Number.NaN;
+                    if (this.#policy === 'error') {
+                        throw new GraflumeError('INVALID_DATA', `Quantize input ${number} is outside the domain.`, { path: '$.data' });
+                    }
+                }
+            }
+            let index = 0;
+            while (index < this.#thresholds.length && number >= this.#thresholds[index])
+                index += 1;
+            return this.#range[Math.min(index, this.#range.length - 1)] ?? Number.NaN;
+        }
+        ticks(_count, locale) {
+            if (this.kind === 'ordinal')
+                return this.#domain.map((value) => ({
+                    value,
+                    label: String(value),
+                    position: this.map(value),
+                }));
+            return this.#thresholds.map((value) => ({
+                value,
+                label: new Intl.NumberFormat(locale, { maximumFractionDigits: 6 }).format(value),
+                position: this.map(value),
+            }));
+        }
+    }
+    function createPositionScale(spec, options) {
+        if (spec.type !== undefined && options.type !== undefined && spec.type !== options.type) {
+            fail$5(`Scale type ${spec.type} conflicts with the requested position scale type ${options.type}.`, '$.scale.type');
+        }
+        const requestedType = spec.type ?? options.type ?? 'linear';
+        if (requestedType === 'sequential' ||
+            requestedType === 'diverging' ||
+            requestedType === 'cyclic') {
+            fail$5(`${requestedType} is a color scale and cannot produce positions.`, '$.scale.type');
+        }
+        const type = requestedType;
+        const domain = spec.domain ?? options.domain;
+        const range = spec.range === undefined ? options.range : numericRange(spec.range);
+        if (type === 'band') {
+            if (domain.some((value) => typeof value !== 'string'))
+                fail$5('Band scale domain must contain strings.', '$.scale.domain');
+            const pair = numericRangePair(range);
+            const policy = resolvedPolicy(spec, 'unknown');
+            if (policy === 'clamp' || policy === 'extrapolate') {
+                fail$5('Band scales support only error or unknown for unseen categories.', '$.scale.outOfBounds');
+            }
+            return new BandScale({
+                domain: domain,
+                range: [pair[0], pair.at(-1)],
+                ...(spec.paddingInner === undefined ? {} : { paddingInner: spec.paddingInner }),
+                ...(spec.paddingOuter === undefined ? {} : { paddingOuter: spec.paddingOuter }),
+                outOfBounds: policy,
+                ...(spec.reverse === undefined ? {} : { reverse: spec.reverse }),
+            });
+        }
+        if (type === 'point') {
+            if (domain.some((value) => typeof value !== 'string'))
+                fail$5('Point scale domain must contain strings.', '$.scale.domain');
+            const pair = numericRangePair(range);
+            return new PointScale(spec, domain, [pair[0], pair.at(-1)]);
+        }
+        if (type === 'ordinal' || type === 'quantile' || type === 'quantize' || type === 'threshold')
+            return new DiscretePositionScale(type, spec, domain, numericRange(range, 1));
+        const resolvedContinuousDomain = type === 'time' || type === 'utc'
+            ? domain.map((value) => typeof value === 'number' ? value : (temporalTimestamp(value, true) ?? Number.NaN))
+            : domain;
+        const pair = numericDomain$2(resolvedContinuousDomain);
+        if (type === 'linear' || type === 'time' || type === 'utc') {
+            const numeric = numericRangePair(range);
+            return new LinearScale({
+                domain: pair,
+                range: [numeric[0], numeric.at(-1)],
+                kind: type,
+                ...(spec.nice === undefined ? {} : { nice: spec.nice }),
+                outOfBounds: resolvedPolicy(spec, 'extrapolate'),
+                ...(spec.reverse === undefined ? {} : { reverse: spec.reverse }),
+            });
+        }
+        return new ContinuousScale(type, spec, pair, numericRangePair(range));
+    }
+    function interpolateColors(range, ratio) {
+        const bounded = clamp$d(ratio, 0, 1);
+        if (range.length === 1)
+            return range[0];
+        const scaled = bounded * (range.length - 1);
+        const index = Math.min(range.length - 2, Math.floor(scaled));
+        return mixColor$1(range[index], range[index + 1], scaled - index);
+    }
+    function interpolateCyclicColors(range, ratio) {
+        const wrapped = ((ratio % 1) + 1) % 1;
+        const scaled = wrapped * range.length;
+        const index = Math.floor(scaled) % range.length;
+        const next = (index + 1) % range.length;
+        return mixColor$1(range[index], range[next], scaled - Math.floor(scaled));
+    }
+    class RegisteredColorScale {
+        kind;
+        descriptor;
+        #domain;
+        #range;
+        #policy;
+        #ordinalIndices = new Map();
+        constructor(kind, spec, domain, range) {
+            this.kind = kind;
+            this.#domain = frozen(domain);
+            this.#range = frozen(spec.reverse === true ? [...range].reverse() : range);
+            this.#policy = resolvedPolicy(spec, kind === 'ordinal' ? 'unknown' : 'clamp');
+            if (kind === 'cyclic' && (spec.outOfBounds !== undefined || spec.clamp !== undefined)) {
+                fail$5('Cyclic scales always wrap and do not accept outOfBounds.', '$.scale.outOfBounds');
+            }
+            if (this.#policy === 'extrapolate' && kind !== 'cyclic') {
+                fail$5('Color scales do not extrapolate colors; use clamp, error, or unknown.', '$.scale.outOfBounds');
+            }
+            if (kind === 'ordinal' && this.#policy === 'clamp') {
+                fail$5('Ordinal color scales support only error or unknown for unseen categories.', '$.scale.outOfBounds');
+            }
+            if (kind === 'ordinal') {
+                this.#domain.forEach((value, index) => {
+                    const id = ordinalKey(value);
+                    if (!this.#ordinalIndices.has(id))
+                        this.#ordinalIndices.set(id, index);
+                });
+            }
+            if (this.#range.length === 0)
+                fail$5('Color scale requires at least one color in range.', '$.scale.range');
+            if (kind === 'sequential' && this.#range.length < 2)
+                fail$5('Sequential color scale requires at least 2 colors.', '$.scale.range');
+            if (kind === 'diverging' && this.#range.length < 3)
+                fail$5('Diverging color scale requires at least 3 colors.', '$.scale.range');
+            if (kind === 'cyclic' && this.#range.length < 2)
+                fail$5('Cyclic color scale requires at least 2 colors.', '$.scale.range');
+            if (kind === 'diverging')
+                numericDomain$2(domain, 3);
+            else if (kind !== 'ordinal')
+                numericDomain$2(domain);
+            if (kind === 'diverging') {
+                const [start, middle, end] = domain;
+                if (!(start < middle && middle < end)) {
+                    fail$5('Diverging color scale domain must be strictly ascending.', '$.scale.domain');
+                }
+            }
+            else if (kind !== 'ordinal') {
+                const [start, end] = domain;
+                if (start === end)
+                    fail$5(`${kind} color scale domain endpoints must differ.`, '$.scale.domain');
+            }
+            this.descriptor = Object.freeze({
+                type: kind,
+                domain: this.#domain,
+                range: this.#range,
+                reverse: spec.reverse === true,
+                outOfBounds: kind === 'cyclic' ? 'wrap' : this.#policy,
+            });
+        }
+        domain() {
+            return this.#domain;
+        }
+        range() {
+            return this.#range;
+        }
+        map(input) {
+            const value = input instanceof Date ? input.getTime() : input;
+            if (this.kind === 'ordinal') {
+                const index = this.#ordinalIndices.get(ordinalKey(value));
+                if (index !== undefined)
+                    return this.#range[index % this.#range.length];
+                if (this.#policy === 'error')
+                    throw new GraflumeError('INVALID_DATA', `Unknown ordinal color value: ${String(value)}`, {
+                        path: '$.data',
+                    });
+                return specUnknownColor(this.#policy);
+            }
+            const number = typeof value === 'number' ? value : Number(value);
+            if (!Number.isFinite(number))
+                return specUnknownColor(this.#policy);
+            if (this.kind === 'cyclic') {
+                const domain = this.#domain;
+                const span = domain[1] - domain[0];
+                const ratio = span === 0 ? 0 : ((((number - domain[0]) / span) % 1) + 1) % 1;
+                return interpolateCyclicColors(this.#range, ratio);
+            }
+            if (this.kind === 'diverging') {
+                const [start, middle, end] = this.#domain;
+                const ratio = number <= middle
+                    ? normalizeRatio(number, [start, middle], this.#policy, '$.data') / 2
+                    : 0.5 + normalizeRatio(number, [middle, end], this.#policy, '$.data') / 2;
+                return Number.isFinite(ratio)
+                    ? interpolateColors(this.#range, ratio)
+                    : specUnknownColor(this.#policy);
+            }
+            const ratio = normalizeRatio(number, this.#domain, this.#policy, '$.data');
+            return Number.isFinite(ratio)
+                ? interpolateColors(this.#range, ratio)
+                : specUnknownColor(this.#policy);
+        }
+    }
+    function specUnknownColor(policy) {
+        if (policy === 'error')
+            throw new GraflumeError('INVALID_DATA', 'Color scale input is outside the domain.', {
+                path: '$.data',
+            });
+        return 'transparent';
+    }
+    function createColorScale(spec, fallback) {
+        if (spec.type !== undefined &&
+            spec.type !== 'ordinal' &&
+            spec.type !== 'sequential' &&
+            spec.type !== 'diverging' &&
+            spec.type !== 'cyclic') {
+            fail$5(`${spec.type} is not a color registry scale.`, '$.scale.type');
+        }
+        const type = spec.type === 'sequential' || spec.type === 'diverging' || spec.type === 'cyclic'
+            ? spec.type
+            : 'ordinal';
+        const domain = spec.domain ?? fallback.domain;
+        const rawRange = spec.range ?? fallback.range;
+        if (rawRange.some((value) => typeof value !== 'string'))
+            fail$5('Color scale range must contain strings.', '$.scale.range');
+        return new RegisteredColorScale(type, spec, domain, rawRange);
+    }
+    const positionScaleTypes = Object.freeze([
+        'linear',
+        'log',
+        'symlog',
+        'asinh',
+        'pow',
+        'sqrt',
+        'time',
+        'utc',
+        'band',
+        'point',
+        'ordinal',
+        'quantile',
+        'quantize',
+        'threshold',
+        'probability',
+        'logit',
+        'probit',
+    ]);
+    const colorScaleTypes = Object.freeze([
+        'ordinal',
+        'sequential',
+        'diverging',
+        'cyclic',
+    ]);
 
     const version = '0.1.0-alpha.0';
     const specVersion = '0.1';
@@ -7837,6 +9125,1918 @@ var Graflume = (function (exports) {
             result: { data, lineage },
             calculation,
         };
+    }
+
+    const unsafeFields$2 = new Set(['__proto__', 'prototype', 'constructor']);
+    const types = new Set([
+        'filter',
+        'sort',
+        'calculate',
+        'aggregate',
+        'joinaggregate',
+        'bin',
+        'bin2d',
+        'density1d',
+        'density2d',
+        'stack',
+        'window',
+        'regression',
+        'fold',
+        'flatten',
+        'pivot',
+        'impute',
+        'lookup',
+        'quantile',
+        'sample',
+        'resample',
+        'timeUnit',
+    ]);
+    const expressionOps = new Set([
+        'literal',
+        'field',
+        'not',
+        'negate',
+        'isValid',
+        'toNumber',
+        'toString',
+        'add',
+        'subtract',
+        'multiply',
+        'divide',
+        'modulo',
+        'equal',
+        'notEqual',
+        'lessThan',
+        'lessThanOrEqual',
+        'greaterThan',
+        'greaterThanOrEqual',
+        'and',
+        'or',
+        'if',
+        'coalesce',
+    ]);
+    function issue(issues, path, message) {
+        issues.push({ path, message });
+    }
+    function field$4(value, path, issues) {
+        if (typeof value !== 'string' || value.trim() === '' || unsafeFields$2.has(value)) {
+            issue(issues, path, 'Transform field must be a non-empty safe string.');
+            return false;
+        }
+        return true;
+    }
+    function fields(value, path, issues, allowEmpty = false) {
+        if (!Array.isArray(value) || (!allowEmpty && value.length === 0) || value.length > 256) {
+            issue(issues, path, `Transform fields must be ${allowEmpty ? 'an' : 'a non-empty'} array of at most 256 fields.`);
+            return false;
+        }
+        value.forEach((item, index) => field$4(item, `${path}[${index}]`, issues));
+        return true;
+    }
+    function tuple(value, length, path, issues) {
+        if (!Array.isArray(value) || value.length !== length) {
+            issue(issues, path, `Transform output must contain exactly ${length} field names.`);
+            return;
+        }
+        value.forEach((item, index) => field$4(item, `${path}[${index}]`, issues));
+    }
+    function expression(value, path, issues, depth = 0) {
+        if (depth > 32 ||
+            !isPlainObject(value) ||
+            typeof value.op !== 'string' ||
+            !expressionOps.has(value.op)) {
+            issue(issues, path, depth > 32
+                ? 'Transform expression exceeds 32 levels.'
+                : 'Invalid closed transform expression.');
+            return;
+        }
+        const op = value.op;
+        const allowed = op === 'literal'
+            ? ['op', 'value']
+            : op === 'field'
+                ? ['op', 'field']
+                : ['not', 'negate', 'isValid', 'toNumber', 'toString'].includes(op)
+                    ? ['op', 'value']
+                    : op === 'if'
+                        ? ['op', 'condition', 'then', 'else']
+                        : op === 'coalesce'
+                            ? ['op', 'values']
+                            : ['op', 'left', 'right'];
+        Object.keys(value).forEach((key) => {
+            if (!allowed.includes(key))
+                issue(issues, `${path}.${key}`, `Unknown ${op} expression property "${key}".`);
+        });
+        if (op === 'literal') {
+            const literal = value.value;
+            if (literal !== null && !['string', 'number', 'boolean'].includes(typeof literal))
+                issue(issues, `${path}.value`, 'Literal must be a JSON scalar.');
+            if (typeof literal === 'number' && !Number.isFinite(literal))
+                issue(issues, `${path}.value`, 'Literal number must be finite.');
+        }
+        else if (op === 'field')
+            field$4(value.field, `${path}.field`, issues);
+        else if (['not', 'negate', 'isValid', 'toNumber', 'toString'].includes(op))
+            expression(value.value, `${path}.value`, issues, depth + 1);
+        else if (op === 'if') {
+            expression(value.condition, `${path}.condition`, issues, depth + 1);
+            expression(value.then, `${path}.then`, issues, depth + 1);
+            expression(value.else, `${path}.else`, issues, depth + 1);
+        }
+        else if (op === 'coalesce') {
+            if (!Array.isArray(value.values) || value.values.length === 0 || value.values.length > 32)
+                issue(issues, `${path}.values`, 'Coalesce requires 1..32 expressions.');
+            else
+                value.values.forEach((item, index) => expression(item, `${path}.values[${index}]`, issues, depth + 1));
+        }
+        else {
+            expression(value.left, `${path}.left`, issues, depth + 1);
+            expression(value.right, `${path}.right`, issues, depth + 1);
+        }
+    }
+    function validateTransformExpression(value, path, issues) {
+        expression(value, path, issues);
+    }
+    function positive$1(value, path, issues, integer = false) {
+        if (typeof value !== 'number' ||
+            !Number.isFinite(value) ||
+            value <= 0 ||
+            (integer && !Number.isInteger(value)))
+            issue(issues, path, `Value must be a positive${integer ? ' integer' : ''}.`);
+    }
+    function groupby(value, path, issues) {
+        if (value !== undefined)
+            fields(value, path, issues, true);
+    }
+    function sort(value, path, issues) {
+        if (!Array.isArray(value) || value.length === 0 || value.length > 32) {
+            issue(issues, path, 'Sort must contain 1..32 field declarations.');
+            return;
+        }
+        value.forEach((item, index) => {
+            const itemPath = `${path}[${index}]`;
+            if (!isPlainObject(item)) {
+                issue(issues, itemPath, 'Sort field must be an object.');
+                return;
+            }
+            Object.keys(item).forEach((key) => {
+                if (!['field', 'order'].includes(key))
+                    issue(issues, `${itemPath}.${key}`, `Unknown sort property "${key}".`);
+            });
+            field$4(item.field, `${itemPath}.field`, issues);
+            if (item.order !== undefined && item.order !== 'ascending' && item.order !== 'descending')
+                issue(issues, `${itemPath}.order`, 'Sort order must be ascending or descending.');
+        });
+    }
+    const keys = {
+        filter: ['type', 'expr'],
+        sort: ['type', 'by'],
+        calculate: ['type', 'as', 'expr'],
+        aggregate: ['type', 'groupby', 'fields'],
+        joinaggregate: ['type', 'groupby', 'fields'],
+        bin: ['type', 'field', 'as', 'maxbins', 'step', 'extent'],
+        bin2d: ['type', 'x', 'y', 'as', 'maxbins'],
+        density1d: ['type', 'field', 'as', 'groupby', 'points', 'bandwidth'],
+        density2d: ['type', 'x', 'y', 'as', 'bins', 'bandwidth'],
+        stack: ['type', 'field', 'groupby', 'series', 'sort', 'as', 'offset', 'order'],
+        window: ['type', 'fields', 'groupby', 'sort', 'frame'],
+        regression: ['type', 'x', 'y', 'as', 'groupby'],
+        fold: ['type', 'fields', 'as'],
+        flatten: ['type', 'fields', 'as'],
+        pivot: ['type', 'field', 'value', 'groupby', 'op'],
+        impute: ['type', 'field', 'key', 'groupby', 'method', 'value'],
+        lookup: ['type', 'field', 'from', 'key', 'values', 'as', 'default'],
+        quantile: ['type', 'field', 'probs', 'as', 'groupby'],
+        sample: ['type', 'size', 'seed'],
+        resample: ['type', 'field', 'interval', 'groupby', 'method'],
+        timeUnit: ['type', 'field', 'unit', 'as', 'utc'],
+    };
+    function validateTransforms(value, path, issues) {
+        if (value === undefined)
+            return;
+        if (!Array.isArray(value) || value.length > 128) {
+            issue(issues, path, 'Transforms must be an ordered array of at most 128 entries.');
+            return;
+        }
+        value.forEach((transform, index) => {
+            const itemPath = `${path}[${index}]`;
+            if (!isPlainObject(transform) ||
+                typeof transform.type !== 'string' ||
+                !types.has(transform.type)) {
+                issue(issues, itemPath, 'Transform type is not supported.');
+                return;
+            }
+            const t = transform.type;
+            Object.keys(transform).forEach((key) => {
+                if (!keys[t].includes(key))
+                    issue(issues, `${itemPath}.${key}`, `Unknown ${t} transform property "${key}".`);
+            });
+            if (t === 'filter' || t === 'calculate')
+                expression(transform.expr, `${itemPath}.expr`, issues);
+            if (t === 'calculate')
+                field$4(transform.as, `${itemPath}.as`, issues);
+            if (t === 'sort')
+                sort(transform.by, `${itemPath}.by`, issues);
+            if (['aggregate', 'joinaggregate'].includes(t)) {
+                groupby(transform.groupby, `${itemPath}.groupby`, issues);
+                if (!Array.isArray(transform.fields) ||
+                    transform.fields.length === 0 ||
+                    transform.fields.length > 128)
+                    issue(issues, `${itemPath}.fields`, 'Aggregate fields must contain 1..128 entries.');
+                else
+                    transform.fields.forEach((entry, entryIndex) => {
+                        const entryPath = `${itemPath}.fields[${entryIndex}]`;
+                        if (!isPlainObject(entry)) {
+                            issue(issues, entryPath, 'Aggregate field must be an object.');
+                            return;
+                        }
+                        Object.keys(entry).forEach((key) => {
+                            if (!['op', 'field', 'weight', 'as'].includes(key))
+                                issue(issues, `${entryPath}.${key}`, `Unknown aggregate field property "${key}".`);
+                        });
+                        if (![
+                            'count',
+                            'valid',
+                            'missing',
+                            'sum',
+                            'mean',
+                            'weightedMean',
+                            'min',
+                            'max',
+                            'median',
+                            'variance',
+                            'stdev',
+                        ].includes(String(entry.op)))
+                            issue(issues, `${entryPath}.op`, 'Aggregate operation is not supported.');
+                        field$4(entry.as, `${entryPath}.as`, issues);
+                        if (entry.field !== undefined)
+                            field$4(entry.field, `${entryPath}.field`, issues);
+                        if (entry.weight !== undefined)
+                            field$4(entry.weight, `${entryPath}.weight`, issues);
+                        if (entry.op === 'weightedMean' &&
+                            (entry.field === undefined || entry.weight === undefined))
+                            issue(issues, entryPath, 'weightedMean requires field and weight.');
+                        if (!['count'].includes(String(entry.op)) && entry.field === undefined)
+                            issue(issues, `${entryPath}.field`, `${String(entry.op)} requires a field.`);
+                    });
+            }
+            for (const name of ['field', 'x', 'y', 'key', 'value'])
+                if (transform[name] !== undefined && !(['impute'].includes(t) && name === 'value'))
+                    field$4(transform[name], `${itemPath}.${name}`, issues);
+            groupby(transform.groupby, `${itemPath}.groupby`, issues);
+            if (transform.series !== undefined)
+                fields(transform.series, `${itemPath}.series`, issues, true);
+            if (transform.sort !== undefined)
+                sort(transform.sort, `${itemPath}.sort`, issues);
+            if (t === 'bin')
+                tuple(transform.as, 2, `${itemPath}.as`, issues);
+            if (t === 'bin2d')
+                tuple(transform.as, 5, `${itemPath}.as`, issues);
+            if (t === 'density1d' || t === 'regression' || t === 'fold' || t === 'quantile')
+                tuple(transform.as, 2, `${itemPath}.as`, issues);
+            if (t === 'density2d')
+                tuple(transform.as, 3, `${itemPath}.as`, issues);
+            if (t === 'stack')
+                tuple(transform.as, 2, `${itemPath}.as`, issues);
+            if (t === 'flatten' && transform.as !== undefined)
+                fields(transform.as, `${itemPath}.as`, issues);
+            if (t === 'fold' || t === 'flatten')
+                fields(transform.fields, `${itemPath}.fields`, issues);
+            if (t === 'lookup') {
+                fields(transform.values, `${itemPath}.values`, issues);
+                if (transform.as !== undefined)
+                    fields(transform.as, `${itemPath}.as`, issues);
+                if (!Array.isArray(transform.as) ||
+                    !Array.isArray(transform.values) ||
+                    transform.as.length !== transform.values.length) {
+                    if (transform.as !== undefined)
+                        issue(issues, `${itemPath}.as`, 'Lookup as must match values length.');
+                }
+                if (!Array.isArray(transform.from) && !isPlainObject(transform.from))
+                    issue(issues, `${itemPath}.from`, 'Lookup from must be inline data.');
+            }
+            if (t === 'window') {
+                if (!Array.isArray(transform.fields) || transform.fields.length === 0)
+                    issue(issues, `${itemPath}.fields`, 'Window fields are required.');
+                else
+                    transform.fields.forEach((entry, entryIndex) => {
+                        const entryPath = `${itemPath}.fields[${entryIndex}]`;
+                        if (!isPlainObject(entry)) {
+                            issue(issues, entryPath, 'Window field must be an object.');
+                            return;
+                        }
+                        Object.keys(entry).forEach((key) => {
+                            if (!['op', 'field', 'as', 'offset'].includes(key))
+                                issue(issues, `${entryPath}.${key}`, `Unknown window field property "${key}".`);
+                        });
+                        const op = String(entry.op);
+                        if (![
+                            'rowNumber',
+                            'rank',
+                            'denseRank',
+                            'lag',
+                            'lead',
+                            'sum',
+                            'mean',
+                            'min',
+                            'max',
+                            'count',
+                            'cumulativeSum',
+                            'movingAverage',
+                        ].includes(op))
+                            issue(issues, `${entryPath}.op`, 'Window operation is not supported.');
+                        field$4(entry.as, `${entryPath}.as`, issues);
+                        if (entry.field !== undefined)
+                            field$4(entry.field, `${entryPath}.field`, issues);
+                        if (!['rowNumber', 'rank', 'denseRank', 'count'].includes(op) &&
+                            entry.field === undefined)
+                            issue(issues, `${entryPath}.field`, `${op} requires a field.`);
+                        if (entry.offset !== undefined &&
+                            (typeof entry.offset !== 'number' ||
+                                !Number.isInteger(entry.offset) ||
+                                entry.offset < 0))
+                            issue(issues, `${entryPath}.offset`, 'Window offset must be a non-negative integer.');
+                    });
+            }
+            for (const name of ['maxbins', 'points', 'bandwidth', 'size', 'interval']) {
+                const current = transform[name];
+                if (current !== undefined && typeof current === 'number') {
+                    positive$1(current, `${itemPath}.${name}`, issues, ['maxbins', 'points', 'size'].includes(name));
+                    if (name === 'points' && current > 512)
+                        issue(issues, `${itemPath}.${name}`, 'density1d points must not exceed 512.');
+                }
+            }
+            if (t === 'quantile' && transform.probs !== undefined) {
+                if (!Array.isArray(transform.probs) ||
+                    transform.probs.length === 0 ||
+                    transform.probs.length > 512)
+                    issue(issues, `${itemPath}.probs`, 'Quantile probabilities must contain 1..512 values.');
+                else
+                    transform.probs.forEach((probability, probabilityIndex) => {
+                        if (typeof probability !== 'number' || probability < 0 || probability > 1)
+                            issue(issues, `${itemPath}.probs[${probabilityIndex}]`, 'Probability must be between 0 and 1.');
+                    });
+            }
+            if (t === 'stack') {
+                if (transform.offset !== undefined &&
+                    !['zero', 'normalize', 'expand', 'center', 'silhouette', 'wiggle'].includes(String(transform.offset)))
+                    issue(issues, `${itemPath}.offset`, 'Stack offset is not supported.');
+                if (transform.order !== undefined &&
+                    ![
+                        'input',
+                        'ascending',
+                        'descending',
+                        'sumAscending',
+                        'sumDescending',
+                        'insideOut',
+                    ].includes(String(transform.order)))
+                    issue(issues, `${itemPath}.order`, 'Stack order is not supported.');
+            }
+            if (t === 'pivot' &&
+                transform.op !== undefined &&
+                !['sum', 'mean', 'min', 'max', 'count', 'first'].includes(String(transform.op)))
+                issue(issues, `${itemPath}.op`, 'Pivot operation is not supported.');
+            if (t === 'impute' &&
+                transform.method !== undefined &&
+                !['value', 'mean', 'median', 'min', 'max'].includes(String(transform.method)))
+                issue(issues, `${itemPath}.method`, 'Impute method is not supported.');
+            if (t === 'resample' &&
+                transform.method !== undefined &&
+                !['linear', 'previous', 'next'].includes(String(transform.method)))
+                issue(issues, `${itemPath}.method`, 'Resample method is not supported.');
+            if (t === 'timeUnit') {
+                if (![
+                    'year',
+                    'quarter',
+                    'month',
+                    'week',
+                    'date',
+                    'day',
+                    'hours',
+                    'minutes',
+                    'seconds',
+                ].includes(String(transform.unit)))
+                    issue(issues, `${itemPath}.unit`, 'Time unit is not supported.');
+                if (transform.utc !== undefined && typeof transform.utc !== 'boolean')
+                    issue(issues, `${itemPath}.utc`, 'Time unit utc must be boolean.');
+            }
+            if (t === 'bin' &&
+                transform.extent !== undefined &&
+                (!Array.isArray(transform.extent) ||
+                    transform.extent.length !== 2 ||
+                    transform.extent.some((entry) => typeof entry !== 'number' || !Number.isFinite(entry))))
+                issue(issues, `${itemPath}.extent`, 'Bin extent must contain two finite numbers.');
+            for (const name of ['maxbins', 'bins', 'bandwidth', 'frame']) {
+                const current = transform[name];
+                if (Array.isArray(current)) {
+                    if (current.length !== 2)
+                        issue(issues, `${itemPath}.${name}`, `${name} must contain exactly two values.`);
+                    else if (name === 'frame')
+                        current.forEach((entry, entryIndex) => {
+                            if (entry !== null && !Number.isInteger(entry))
+                                issue(issues, `${itemPath}.${name}[${entryIndex}]`, 'Window frame values must be integers or null.');
+                        });
+                    else
+                        current.forEach((entry, entryIndex) => {
+                            if (typeof entry !== 'number' ||
+                                !Number.isFinite(entry) ||
+                                entry <= 0 ||
+                                (['maxbins', 'bins'].includes(name) && (!Number.isInteger(entry) || entry > 128)))
+                                issue(issues, `${itemPath}.${name}[${entryIndex}]`, `${name} values must be positive${['maxbins', 'bins'].includes(name) ? ' integers up to 128' : ''}.`);
+                        });
+                }
+            }
+            if (transform.seed !== undefined &&
+                (typeof transform.seed !== 'number' || !Number.isFinite(transform.seed)))
+                issue(issues, `${itemPath}.seed`, 'Sample seed must be finite.');
+        });
+    }
+
+    function sorted$1(input) {
+        return input
+            .filter(({ value, weight }) => Number.isFinite(value) && Number.isFinite(weight) && weight >= 0)
+            .map((observation, index) => ({ observation, index }))
+            .sort((a, b) => a.observation.value - b.observation.value || a.index - b.index)
+            .map(({ observation }) => observation);
+    }
+    function quantile$2(values, probability) {
+        const position = Math.max(0, Math.min(1, probability)) * (values.length - 1);
+        const lower = Math.floor(position);
+        const upper = Math.ceil(position);
+        const a = values[lower];
+        const b = values[upper];
+        return a + (b - a) * (position - lower);
+    }
+    function weightedQuantile(observations, probability) {
+        const totalWeight = observations.reduce((sum, observation) => sum + observation.weight, 0);
+        if (totalWeight <= 0)
+            return observations[0]?.value ?? 0;
+        const target = Math.max(0, Math.min(1, probability)) * totalWeight;
+        let cumulative = 0;
+        for (const observation of observations) {
+            cumulative += observation.weight;
+            if (cumulative >= target)
+                return observation.value;
+        }
+        return observations.at(-1)?.value ?? 0;
+    }
+    function weightedHistogram(input, options) {
+        const observations = sorted$1(input);
+        if (observations.length === 0)
+            return [];
+        const minimum = options.extent?.[0] ?? observations[0].value;
+        const maximum = options.extent?.[1] ?? observations.at(-1).value;
+        const bins = Math.max(1, Math.min(512, Math.trunc(options.bins)));
+        const span = maximum - minimum || 1;
+        const width = span / bins;
+        const accumulators = Array.from({ length: bins }, () => ({
+            weight: 0,
+            count: 0,
+            rows: [],
+        }));
+        for (const observation of observations) {
+            if (observation.value < minimum || observation.value > maximum)
+                continue;
+            const index = Math.min(bins - 1, Math.max(0, Math.floor(((observation.value - minimum) / span) * bins)));
+            const accumulator = accumulators[index];
+            accumulator.weight += observation.weight;
+            accumulator.count += 1;
+            accumulator.rows.push(observation.rowIndex);
+        }
+        const totalWeight = accumulators.reduce((sum, bin) => sum + bin.weight, 0);
+        let cumulativeWeight = 0;
+        return accumulators.map((bin, index) => {
+            cumulativeWeight += bin.weight;
+            const effectiveWeight = options.cumulative === true ? cumulativeWeight : bin.weight;
+            const normalization = options.normalization ?? 'count';
+            const value = normalization === 'probability'
+                ? totalWeight === 0
+                    ? 0
+                    : effectiveWeight / totalWeight
+                : normalization === 'density'
+                    ? totalWeight === 0
+                        ? 0
+                        : options.cumulative === true
+                            ? effectiveWeight / totalWeight
+                            : effectiveWeight / (totalWeight * width)
+                    : effectiveWeight;
+            return {
+                start: minimum + index * width,
+                end: minimum + (index + 1) * width,
+                value,
+                weight: bin.weight,
+                count: bin.count,
+                proportion: totalWeight === 0 ? 0 : bin.weight / totalWeight,
+                rowIndices: bin.rows,
+            };
+        });
+    }
+    function empiricalDistribution(input, complementary = false) {
+        const observations = sorted$1(input);
+        const totalWeight = observations.reduce((sum, observation) => sum + observation.weight, 0);
+        if (observations.length === 0 || totalWeight === 0)
+            return [];
+        const groups = new Map();
+        for (const observation of observations) {
+            const group = groups.get(observation.value) ?? [];
+            group.push(observation);
+            groups.set(observation.value, group);
+        }
+        let cumulative = 0;
+        return [...groups].map(([value, group]) => {
+            const weight = group.reduce((sum, observation) => sum + observation.weight, 0);
+            cumulative += weight;
+            return {
+                value,
+                probability: complementary
+                    ? Math.max(0, 1 - cumulative / totalWeight)
+                    : cumulative / totalWeight,
+                weight,
+                count: group.length,
+                rowIndices: group.map(({ rowIndex }) => rowIndex),
+            };
+        });
+    }
+    /** Gaussian KDE with a robust Silverman bandwidth and unit-integral density. */
+    function kernelDensity1d(input, options = {}) {
+        const observations = sorted$1(input).filter(({ weight }) => weight > 0);
+        if (observations.length === 0)
+            return { bandwidth: 1, points: [] };
+        const totalWeight = observations.reduce((sum, observation) => sum + observation.weight, 0);
+        const squaredWeight = observations.reduce((sum, observation) => sum + observation.weight ** 2, 0);
+        const effectiveSampleSize = Math.max(1, totalWeight ** 2 / squaredWeight);
+        const values = observations.map(({ value }) => value);
+        const mean = observations.reduce((sum, observation) => sum + observation.value * observation.weight, 0) /
+            totalWeight;
+        const varianceDenominator = totalWeight - squaredWeight / totalWeight;
+        const deviation = Math.sqrt(observations.reduce((sum, observation) => sum + observation.weight * (observation.value - mean) ** 2, 0) / Math.max(Number.EPSILON, varianceDenominator));
+        const iqr = weightedQuantile(observations, 0.75) - weightedQuantile(observations, 0.25);
+        const robustScale = Math.min(deviation || Number.POSITIVE_INFINITY, iqr > 0 ? iqr / 1.34 : Number.POSITIVE_INFINITY);
+        const fallback = (values.at(-1) - values[0]) / 6 || Math.abs(mean) * 0.1 || 1;
+        const automaticBandwidth = Math.max(Number.EPSILON, 0.9 * (Number.isFinite(robustScale) ? robustScale : fallback) * effectiveSampleSize ** -0.2);
+        const bandwidth = options.bandwidth !== undefined && Number.isFinite(options.bandwidth) && options.bandwidth > 0
+            ? options.bandwidth
+            : automaticBandwidth;
+        const extentStart = options.extent?.[0] ?? values[0] - bandwidth * 3;
+        const extentEnd = options.extent?.[1] ?? values.at(-1) + bandwidth * 3;
+        const minimum = Math.min(extentStart, extentEnd);
+        const maximum = Math.max(extentStart, extentEnd);
+        const count = Math.max(2, Math.min(512, Math.trunc(options.points ?? 96)));
+        const normalizer = bandwidth * Math.sqrt(2 * Math.PI) * totalWeight;
+        return {
+            bandwidth,
+            points: Array.from({ length: count }, (_, index) => {
+                const value = minimum + ((maximum - minimum || 1) * index) / (count - 1);
+                const density = observations.reduce((sum, observation) => {
+                    const z = (value - observation.value) / bandwidth;
+                    return sum + observation.weight * Math.exp(-0.5 * z * z);
+                }, 0) / normalizer;
+                return { value, density };
+            }),
+        };
+    }
+    function rawBoxSummary(input, whisker = 1.5) {
+        const observations = sorted$1(input);
+        if (observations.length === 0)
+            return null;
+        const values = observations.map(({ value }) => value);
+        const q1 = quantile$2(values, 0.25);
+        const median = quantile$2(values, 0.5);
+        const q3 = quantile$2(values, 0.75);
+        const iqr = q3 - q1;
+        const lowerFence = q1 - Math.max(0, whisker) * iqr;
+        const upperFence = q3 + Math.max(0, whisker) * iqr;
+        const inliers = observations.filter(({ value }) => value >= lowerFence && value <= upperFence);
+        const outliers = observations.filter(({ value }) => value < lowerFence || value > upperFence);
+        return {
+            minimum: values[0],
+            q1,
+            median,
+            q3,
+            maximum: values.at(-1),
+            lowerWhisker: inliers[0]?.value ?? values[0],
+            upperWhisker: inliers.at(-1)?.value ?? values.at(-1),
+            outliers,
+            rowIndices: observations.map(({ rowIndex }) => rowIndex),
+        };
+    }
+
+    const unsafeFields$1 = new Set(['__proto__', 'prototype', 'constructor']);
+    const maximumDerivedRows = 100_000;
+    const maximumKernelEvaluations = 10_000_000;
+    const maximumStackMatrixCells = 1_000_000;
+    const maximumWindowEvaluations = 10_000_000;
+    function enforceWorkBudget(count, limit, operation, path) {
+        if (!Number.isFinite(count) || count > limit) {
+            throw new GraflumeError('INVALID_DATA', `${operation} would require ${Number.isFinite(count) ? Math.ceil(count) : 'an unbounded number of'} derived operations; the deterministic limit is ${limit}.`, { path });
+        }
+    }
+    function safeField(field) {
+        if (field.trim() === '' || unsafeFields$1.has(field)) {
+            throw new GraflumeError('INVALID_SPEC', `Unsafe transform field "${field}".`, {
+                path: '$.transform',
+            });
+        }
+        return field;
+    }
+    function cloneRecord(row) {
+        const output = Object.create(null);
+        for (const [field, value] of Object.entries(row)) {
+            safeField(field);
+            output[field] = value;
+        }
+        return output;
+    }
+    function jsonSafe(value) {
+        if (value === null || typeof value === 'string' || typeof value === 'boolean')
+            return value;
+        if (typeof value === 'number')
+            return Number.isFinite(value) ? value : null;
+        if (value instanceof Date)
+            return value.toISOString();
+        if (ArrayBuffer.isView(value)) {
+            return Array.from(value, (entry) => jsonSafe(entry));
+        }
+        if (Array.isArray(value))
+            return value.map(jsonSafe);
+        if (typeof value === 'object' && value !== null) {
+            const output = Object.create(null);
+            for (const [key, child] of Object.entries(value)) {
+                safeField(key);
+                if (child !== undefined)
+                    output[key] = jsonSafe(child);
+            }
+            return output;
+        }
+        throw new GraflumeError('INVALID_SPEC', 'Transform lineage parameters must be JSON-safe.', {
+            path: '$.transform',
+        });
+    }
+    function inputRows(input) {
+        const table = DataTable.from(input);
+        return Array.from({ length: table.length }, (_, index) => ({
+            value: cloneRecord(table.row(index)),
+            sources: [index],
+        }));
+    }
+    function scalar(value) {
+        return value === undefined ||
+            value === null ||
+            value instanceof Date ||
+            ['string', 'number', 'boolean'].includes(typeof value)
+            ? value
+            : String(value);
+    }
+    function numeric$3(value) {
+        if (typeof value === 'number')
+            return Number.isFinite(value) ? value : null;
+        if (value instanceof Date)
+            return value.getTime();
+        if (typeof value === 'string' && value.trim() !== '') {
+            const number = Number(value);
+            if (Number.isFinite(number))
+                return number;
+            return temporalTimestamp(value, true);
+        }
+        return null;
+    }
+    function truthy$1(value) {
+        return value !== false && value !== null && value !== undefined && value !== 0 && value !== '';
+    }
+    function evaluate(expr, row) {
+        switch (expr.op) {
+            case 'literal':
+                return expr.value;
+            case 'field':
+                return row[safeField(expr.field)];
+            case 'not':
+                return !truthy$1(evaluate(expr.value, row));
+            case 'negate': {
+                const value = numeric$3(evaluate(expr.value, row));
+                return value === null ? null : -value;
+            }
+            case 'isValid': {
+                const value = evaluate(expr.value, row);
+                return (value !== null &&
+                    value !== undefined &&
+                    !(typeof value === 'number' && !Number.isFinite(value)));
+            }
+            case 'toNumber':
+                return numeric$3(evaluate(expr.value, row));
+            case 'toString': {
+                const value = evaluate(expr.value, row);
+                return value === null || value === undefined
+                    ? ''
+                    : value instanceof Date
+                        ? value.toISOString()
+                        : String(value);
+            }
+            case 'if':
+                return evaluate(truthy$1(evaluate(expr.condition, row)) ? expr.then : expr.else, row);
+            case 'coalesce': {
+                for (const item of expr.values) {
+                    const value = evaluate(item, row);
+                    if (value !== null && value !== undefined)
+                        return value;
+                }
+                return null;
+            }
+            default: {
+                const left = evaluate(expr.left, row);
+                if (expr.op === 'and' && !truthy$1(left))
+                    return false;
+                if (expr.op === 'or' && truthy$1(left))
+                    return true;
+                const right = evaluate(expr.right, row);
+                const a = numeric$3(left);
+                const b = numeric$3(right);
+                switch (expr.op) {
+                    case 'add':
+                        return a === null || b === null ? `${left ?? ''}${right ?? ''}` : a + b;
+                    case 'subtract':
+                        return a === null || b === null ? null : a - b;
+                    case 'multiply':
+                        return a === null || b === null ? null : a * b;
+                    case 'divide':
+                        return a === null || b === null || b === 0 ? null : a / b;
+                    case 'modulo':
+                        return a === null || b === null || b === 0 ? null : a % b;
+                    case 'equal':
+                        return Object.is(left, right);
+                    case 'notEqual':
+                        return !Object.is(left, right);
+                    case 'lessThan':
+                        return a !== null && b !== null ? a < b : String(left) < String(right);
+                    case 'lessThanOrEqual':
+                        return a !== null && b !== null ? a <= b : String(left) <= String(right);
+                    case 'greaterThan':
+                        return a !== null && b !== null ? a > b : String(left) > String(right);
+                    case 'greaterThanOrEqual':
+                        return a !== null && b !== null ? a >= b : String(left) >= String(right);
+                    case 'and':
+                        return truthy$1(right);
+                    case 'or':
+                        return truthy$1(right);
+                }
+            }
+        }
+    }
+    function keyOf(row, fields) {
+        return JSON.stringify(fields.map((field) => {
+            const value = row[safeField(field)];
+            return value instanceof Date ? { date: value.toISOString() } : (value ?? null);
+        }));
+    }
+    function compareValue(a, b) {
+        if (a === b)
+            return 0;
+        if (a === null || a === undefined)
+            return 1;
+        if (b === null || b === undefined)
+            return -1;
+        const an = numeric$3(a);
+        const bn = numeric$3(b);
+        if (an !== null && bn !== null)
+            return an - bn;
+        return String(a).localeCompare(String(b), 'en');
+    }
+    function sorted(rows, by) {
+        return rows
+            .map((row, index) => ({ row, index }))
+            .sort((a, b) => {
+            for (const sort of by) {
+                const result = compareValue(a.row.value[safeField(sort.field)], b.row.value[safeField(sort.field)]);
+                if (result !== 0)
+                    return sort.order === 'descending' ? -result : result;
+            }
+            return a.index - b.index;
+        })
+            .map(({ row }) => row);
+    }
+    function groups(rows, fields = []) {
+        const grouped = new Map();
+        for (const row of rows) {
+            const key = keyOf(row.value, fields);
+            const group = grouped.get(key) ?? [];
+            group.push(row);
+            grouped.set(key, group);
+        }
+        return [...grouped.values()];
+    }
+    function values(group, field) {
+        if (field === undefined)
+            return [];
+        return group.flatMap(({ value }) => {
+            const number = numeric$3(value[safeField(field)]);
+            return number === null ? [] : [number];
+        });
+    }
+    function quantileValue(input, probability) {
+        if (input.length === 0)
+            return null;
+        const ordered = [...input].sort((a, b) => a - b);
+        return quantileFromSorted(ordered, probability);
+    }
+    function quantileFromSorted(ordered, probability) {
+        if (ordered.length === 0)
+            return null;
+        const position = Math.max(0, Math.min(1, probability)) * (ordered.length - 1);
+        const low = Math.floor(position);
+        const high = Math.ceil(position);
+        const a = ordered[low];
+        const b = ordered[high];
+        return a + (b - a) * (position - low);
+    }
+    function aggregateValue(group, spec) {
+        const numbers = values(group, spec.field);
+        switch (spec.op) {
+            case 'count':
+                return group.length;
+            case 'valid':
+                return spec.field === undefined
+                    ? group.length
+                    : group.length - group.filter(({ value }) => value[spec.field] == null).length;
+            case 'missing':
+                return spec.field === undefined
+                    ? 0
+                    : group.filter(({ value }) => value[spec.field] == null).length;
+            case 'sum':
+                return numbers.reduce((sum, value) => sum + value, 0);
+            case 'mean':
+                return numbers.length === 0
+                    ? null
+                    : numbers.reduce((sum, value) => sum + value, 0) / numbers.length;
+            case 'weightedMean': {
+                if (spec.field === undefined || spec.weight === undefined)
+                    return null;
+                let weighted = 0;
+                let weights = 0;
+                for (const { value } of group) {
+                    const number = numeric$3(value[spec.field]);
+                    const weight = numeric$3(value[spec.weight]);
+                    if (number === null || weight === null)
+                        continue;
+                    weighted += number * weight;
+                    weights += weight;
+                }
+                return weights === 0 ? null : weighted / weights;
+            }
+            case 'min':
+                return numbers.length === 0
+                    ? null
+                    : numbers.reduce((minimum, value) => Math.min(minimum, value), Number.POSITIVE_INFINITY);
+            case 'max':
+                return numbers.length === 0
+                    ? null
+                    : numbers.reduce((maximum, value) => Math.max(maximum, value), Number.NEGATIVE_INFINITY);
+            case 'median':
+                return quantileValue(numbers, 0.5);
+            case 'variance': {
+                if (numbers.length < 2)
+                    return null;
+                const mean = numbers.reduce((sum, value) => sum + value, 0) / numbers.length;
+                return numbers.reduce((sum, value) => sum + (value - mean) ** 2, 0) / (numbers.length - 1);
+            }
+            case 'stdev': {
+                const variance = aggregateValue(group, { ...spec, op: 'variance' });
+                return typeof variance === 'number' ? Math.sqrt(variance) : null;
+            }
+        }
+    }
+    function aggregate(rows, transform) {
+        const groupby = transform.groupby ?? [];
+        return groups(rows, groupby).flatMap((group) => {
+            const aggregated = Object.create(null);
+            for (const field of groupby)
+                aggregated[field] = group[0]?.value[field];
+            for (const field of transform.fields)
+                aggregated[safeField(field.as)] = aggregateValue(group, field);
+            const sources = [...new Set(group.flatMap((row) => row.sources))].sort((a, b) => a - b);
+            if (transform.type === 'aggregate')
+                return [{ value: aggregated, sources }];
+            return group.map((row) => ({ value: { ...row.value, ...aggregated }, sources: row.sources }));
+        });
+    }
+    function extent$2(rows, field) {
+        const found = values(rows, field);
+        if (found.length === 0)
+            return null;
+        let minimum = Number.POSITIVE_INFINITY;
+        let maximum = Number.NEGATIVE_INFINITY;
+        for (const value of found) {
+            minimum = Math.min(minimum, value);
+            maximum = Math.max(maximum, value);
+        }
+        return [minimum, maximum];
+    }
+    function binStep(domain, maxbins) {
+        const span = Math.max(Number.EPSILON, domain[1] - domain[0]);
+        const raw = span / Math.max(1, maxbins);
+        const power = 10 ** Math.floor(Math.log10(raw));
+        const error = raw / power;
+        return (error >= 5 ? 5 : error >= 2 ? 2 : 1) * power;
+    }
+    function bin(rows, transform) {
+        const domain = transform.extent ?? extent$2(rows, transform.field);
+        if (domain === null)
+            return rows.map((row) => ({
+                ...row,
+                value: { ...row.value, [transform.as[0]]: null, [transform.as[1]]: null },
+            }));
+        const step = transform.step ?? binStep(domain, transform.maxbins ?? 10);
+        return rows.map((row) => {
+            const value = numeric$3(row.value[transform.field]);
+            const start = value === null ? null : Math.floor((value - domain[0]) / step) * step + domain[0];
+            return {
+                ...row,
+                value: {
+                    ...row.value,
+                    [transform.as[0]]: start,
+                    [transform.as[1]]: start === null ? null : start + step,
+                },
+            };
+        });
+    }
+    function density1d(rows, transform) {
+        let kernelEvaluations = 0;
+        return groups(rows, transform.groupby).flatMap((group) => {
+            const input = group.flatMap((row, index) => {
+                const value = numeric$3(row.value[transform.field]);
+                return value === null ? [] : [{ value, weight: 1, rowIndex: row.sources[0] ?? index }];
+            });
+            if (input.length === 0)
+                return [];
+            const pointCount = Math.max(2, transform.points ?? 64);
+            kernelEvaluations += input.length * pointCount;
+            enforceWorkBudget(kernelEvaluations, maximumKernelEvaluations, 'density1d', '$.transform[].points');
+            let minimum = Number.POSITIVE_INFINITY;
+            let maximum = Number.NEGATIVE_INFINITY;
+            for (const { value } of input) {
+                minimum = Math.min(minimum, value);
+                maximum = Math.max(maximum, value);
+            }
+            const estimate = kernelDensity1d(input, {
+                points: pointCount,
+                extent: [minimum, maximum],
+                ...(transform.bandwidth === undefined ? {} : { bandwidth: transform.bandwidth }),
+            });
+            const prefix = Object.create(null);
+            for (const field of transform.groupby ?? [])
+                prefix[field] = group[0]?.value[field];
+            const sources = [...new Set(group.flatMap((row) => row.sources))].sort((a, b) => a - b);
+            return estimate.points.map(({ value, density }) => ({
+                value: { ...prefix, [transform.as[0]]: value, [transform.as[1]]: density },
+                sources,
+            }));
+        });
+    }
+    function stack(rows, transform) {
+        const seriesFields = transform.series ?? [];
+        const buckets = groups(rows, transform.groupby);
+        const seriesTotals = new Map();
+        const seriesOrder = [];
+        for (const row of rows) {
+            const key = keyOf(row.value, seriesFields);
+            if (!seriesTotals.has(key))
+                seriesOrder.push(key);
+            seriesTotals.set(key, (seriesTotals.get(key) ?? 0) + (numeric$3(row.value[transform.field]) ?? 0));
+        }
+        if (transform.order === 'insideOut' || (transform.offset ?? 'zero') === 'wiggle') {
+            enforceWorkBudget(buckets.length * seriesOrder.length, maximumStackMatrixCells, 'Stack layout', '$.transform[].order');
+        }
+        const matrixSeriesOrder = [...seriesOrder];
+        const stackMatrix = transform.order === 'insideOut' || (transform.offset ?? 'zero') === 'wiggle'
+            ? (() => {
+                const seriesIndex = new Map(matrixSeriesOrder.map((key, index) => [key, index]));
+                return buckets.map((bucket) => {
+                    const totals = Array.from({ length: matrixSeriesOrder.length }, () => 0);
+                    for (const row of bucket) {
+                        const index = seriesIndex.get(keyOf(row.value, seriesFields));
+                        if (index === undefined)
+                            continue;
+                        totals[index] =
+                            totals[index] + Math.max(0, numeric$3(row.value[transform.field]) ?? 0);
+                    }
+                    return totals;
+                });
+            })()
+            : undefined;
+        if (transform.order === 'insideOut') {
+            const appearances = seriesOrder
+                .map((key, index) => {
+                let peakIndex = 0;
+                let peakValue = Number.NEGATIVE_INFINITY;
+                stackMatrix.forEach((bucket, bucketIndex) => {
+                    const value = bucket[index] ?? 0;
+                    if (value > peakValue) {
+                        peakValue = value;
+                        peakIndex = bucketIndex;
+                    }
+                });
+                return { key, index, peakIndex, total: seriesTotals.get(key) ?? 0 };
+            })
+                .sort((a, b) => a.peakIndex - b.peakIndex || a.index - b.index);
+            const top = [];
+            const bottom = [];
+            let topTotal = 0;
+            let bottomTotal = 0;
+            for (const series of appearances) {
+                if (topTotal < bottomTotal) {
+                    top.push(series.key);
+                    topTotal += series.total;
+                }
+                else {
+                    bottom.push(series.key);
+                    bottomTotal += series.total;
+                }
+            }
+            seriesOrder.splice(0, seriesOrder.length, ...bottom.reverse(), ...top);
+        }
+        else if (transform.order !== undefined && transform.order !== 'input') {
+            const sign = transform.order === 'descending' || transform.order === 'sumDescending' ? -1 : 1;
+            seriesOrder.sort((a, b) => sign * ((seriesTotals.get(a) ?? 0) - (seriesTotals.get(b) ?? 0)));
+        }
+        const orderedBuckets = buckets.map((bucket) => {
+            const authored = transform.sort === undefined ? [...bucket] : sorted(bucket, transform.sort);
+            if (seriesFields.length === 0)
+                return authored;
+            const seriesIndex = new Map(seriesOrder.map((key, index) => [key, index]));
+            return authored
+                .map((row, index) => ({ row, index }))
+                .sort((a, b) => (seriesIndex.get(keyOf(a.row.value, seriesFields)) ?? 0) -
+                (seriesIndex.get(keyOf(b.row.value, seriesFields)) ?? 0) || a.index - b.index)
+                .map(({ row }) => row);
+        });
+        const wiggleBaselines = Array.from({ length: orderedBuckets.length }, () => 0);
+        if ((transform.offset ?? 'zero') === 'wiggle' &&
+            rows.some((row) => (numeric$3(row.value[transform.field]) ?? 0) < 0)) {
+            throw new GraflumeError('INVALID_DATA', 'The wiggle stack offset requires non-negative values; use zero, normalize, or center for diverging data.', { path: '$.transform[].offset' });
+        }
+        if ((transform.offset ?? 'zero') === 'wiggle' && orderedBuckets.length > 1) {
+            let baseline = 0;
+            let minimum = 0;
+            const originalSeriesIndex = new Map(matrixSeriesOrder.map((key, index) => [key, index]));
+            const matrix = stackMatrix.map((bucket) => seriesOrder.map((key) => bucket[originalSeriesIndex.get(key) ?? 0] ?? 0));
+            for (let bucketIndex = 1; bucketIndex < matrix.length; bucketIndex += 1) {
+                const current = matrix[bucketIndex];
+                const previous = matrix[bucketIndex - 1];
+                const total = current.reduce((sum, value) => sum + value, 0);
+                let weightedSlope = 0;
+                let precedingSlope = 0;
+                for (let seriesIndex = 0; seriesIndex < current.length; seriesIndex += 1) {
+                    const slope = current[seriesIndex] - previous[seriesIndex];
+                    weightedSlope += (slope / 2 + precedingSlope) * current[seriesIndex];
+                    precedingSlope += slope;
+                }
+                baseline -= total === 0 ? 0 : weightedSlope / total;
+                wiggleBaselines[bucketIndex] = baseline;
+                minimum = Math.min(minimum, baseline);
+            }
+            for (let index = 0; index < wiggleBaselines.length; index += 1) {
+                wiggleBaselines[index] = wiggleBaselines[index] - minimum;
+            }
+        }
+        return orderedBuckets.flatMap((ordered, bucketIndex) => {
+            const positiveTotal = ordered.reduce((sum, row) => sum + Math.max(0, numeric$3(row.value[transform.field]) ?? 0), 0);
+            const negativeTotal = ordered.reduce((sum, row) => sum + Math.max(0, -(numeric$3(row.value[transform.field]) ?? 0)), 0);
+            const absoluteTotal = positiveTotal + negativeTotal;
+            const offset = transform.offset ?? 'zero';
+            const centered = offset === 'center' || offset === 'silhouette';
+            const normalized = offset === 'normalize' || offset === 'expand';
+            const baseline = centered
+                ? (negativeTotal - positiveTotal) / 2
+                : offset === 'wiggle'
+                    ? wiggleBaselines[bucketIndex]
+                    : 0;
+            let positiveCursor = baseline;
+            let negativeCursor = baseline;
+            return ordered.map((row) => {
+                let amount = numeric$3(row.value[transform.field]) ?? 0;
+                if (normalized)
+                    amount = absoluteTotal === 0 ? 0 : amount / absoluteTotal;
+                let start;
+                let end;
+                if (amount < 0) {
+                    end = negativeCursor;
+                    negativeCursor += amount;
+                    start = negativeCursor;
+                }
+                else {
+                    start = positiveCursor;
+                    positiveCursor += amount;
+                    end = positiveCursor;
+                }
+                return { ...row, value: { ...row.value, [transform.as[0]]: start, [transform.as[1]]: end } };
+            });
+        });
+    }
+    function frameRows(group, index, frame) {
+        const start = frame[0] === null ? 0 : Math.max(0, index + frame[0]);
+        const end = frame[1] === null ? group.length - 1 : Math.min(group.length - 1, index + frame[1]);
+        return start > end ? [] : group.slice(start, end + 1);
+    }
+    function frameLength(length, index, frame) {
+        const start = frame[0] === null ? 0 : Math.max(0, index + frame[0]);
+        const end = frame[1] === null ? length - 1 : Math.min(length - 1, index + frame[1]);
+        return Math.max(0, end - start + 1);
+    }
+    function windowValue(group, index, spec, frame) {
+        if (spec.op === 'rowNumber')
+            return index + 1;
+        if (spec.op === 'lag' || spec.op === 'lead') {
+            const direction = spec.op === 'lag' ? -1 : 1;
+            return group[index + direction * (spec.offset ?? 1)]?.value[spec.field ?? ''] ?? null;
+        }
+        if (spec.op === 'rank' || spec.op === 'denseRank')
+            return index + 1;
+        const selected = spec.op === 'cumulativeSum' ? group.slice(0, index + 1) : frameRows(group, index, frame);
+        if (spec.op === 'count')
+            return selected.length;
+        const input = values(selected, spec.field);
+        if (spec.op === 'sum' || spec.op === 'cumulativeSum')
+            return input.reduce((sum, value) => sum + value, 0);
+        if (spec.op === 'mean' || spec.op === 'movingAverage')
+            return input.length === 0 ? null : input.reduce((sum, value) => sum + value, 0) / input.length;
+        if (spec.op === 'min')
+            return input.length === 0
+                ? null
+                : input.reduce((minimum, value) => Math.min(minimum, value), Number.POSITIVE_INFINITY);
+        if (spec.op === 'max')
+            return input.length === 0
+                ? null
+                : input.reduce((maximum, value) => Math.max(maximum, value), Number.NEGATIVE_INFINITY);
+        return null;
+    }
+    function windowTransform(rows, transform) {
+        let windowEvaluations = 0;
+        return groups(rows, transform.groupby).flatMap((raw) => {
+            const group = transform.sort === undefined ? raw : sorted(raw, transform.sort);
+            const frame = transform.frame ?? [null, 0];
+            const aggregateFields = transform.fields.filter((field) => ['sum', 'mean', 'min', 'max', 'count', 'cumulativeSum', 'movingAverage'].includes(field.op));
+            for (const field of aggregateFields) {
+                for (let index = 0; index < group.length; index += 1) {
+                    windowEvaluations +=
+                        field.op === 'cumulativeSum' ? index + 1 : frameLength(group.length, index, frame);
+                }
+            }
+            enforceWorkBudget(windowEvaluations, maximumWindowEvaluations, 'window transform', '$.transform[].frame');
+            const rankKeys = transform.sort === undefined
+                ? group.map((_, index) => String(index))
+                : group.map((row) => keyOf(row.value, transform.sort.map(({ field }) => field)));
+            const ranks = [];
+            const denseRanks = [];
+            let dense = 0;
+            for (let index = 0; index < rankKeys.length; index += 1) {
+                if (index === 0 || rankKeys[index] !== rankKeys[index - 1])
+                    dense += 1;
+                ranks[index] =
+                    index === 0 || rankKeys[index] !== rankKeys[index - 1] ? index + 1 : ranks[index - 1];
+                denseRanks[index] = dense;
+            }
+            return group.map((row, index) => {
+                const value = { ...row.value };
+                for (const field of transform.fields) {
+                    if (field.op === 'rank')
+                        value[field.as] = ranks[index];
+                    else if (field.op === 'denseRank')
+                        value[field.as] = denseRanks[index];
+                    else
+                        value[field.as] = windowValue(group, index, field, frame);
+                }
+                return { ...row, value };
+            });
+        });
+    }
+    function regression$1(rows, transform) {
+        return groups(rows, transform.groupby).flatMap((group) => {
+            const pairs = group.flatMap((row) => {
+                const x = numeric$3(row.value[transform.x]);
+                const y = numeric$3(row.value[transform.y]);
+                return x === null || y === null ? [] : [{ x, y }];
+            });
+            if (pairs.length < 2)
+                return [];
+            const meanX = pairs.reduce((sum, pair) => sum + pair.x, 0) / pairs.length;
+            const meanY = pairs.reduce((sum, pair) => sum + pair.y, 0) / pairs.length;
+            const denominator = pairs.reduce((sum, pair) => sum + (pair.x - meanX) ** 2, 0);
+            const slope = denominator === 0
+                ? 0
+                : pairs.reduce((sum, pair) => sum + (pair.x - meanX) * (pair.y - meanY), 0) / denominator;
+            const intercept = meanY - slope * meanX;
+            const prefix = Object.create(null);
+            for (const field of transform.groupby ?? [])
+                prefix[field] = group[0]?.value[field];
+            const sources = [...new Set(group.flatMap((row) => row.sources))].sort((a, b) => a - b);
+            const xExtent = pairs.reduce(([minimum, maximum], { x }) => [Math.min(minimum, x), Math.max(maximum, x)], [Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]);
+            return xExtent.map((x) => ({
+                value: { ...prefix, [transform.as[0]]: x, [transform.as[1]]: intercept + slope * x },
+                sources,
+            }));
+        });
+    }
+    function pivotAggregate(rows, field, op) {
+        if (op === 'first')
+            return rows[0]?.value[field];
+        if (op === 'count')
+            return rows.length;
+        const input = values(rows, field);
+        if (input.length === 0)
+            return null;
+        if (op === 'sum')
+            return input.reduce((a, b) => a + b, 0);
+        if (op === 'mean')
+            return input.reduce((a, b) => a + b, 0) / input.length;
+        return op === 'min'
+            ? input.reduce((minimum, value) => Math.min(minimum, value), Number.POSITIVE_INFINITY)
+            : input.reduce((maximum, value) => Math.max(maximum, value), Number.NEGATIVE_INFINITY);
+    }
+    function impute(rows, transform) {
+        const keyValues = [
+            ...new Map(rows.map((row) => [JSON.stringify(row.value[transform.key]), row.value[transform.key]])).values(),
+        ];
+        return groups(rows, transform.groupby).flatMap((group) => {
+            const existing = new Map(group.map((row) => [JSON.stringify(row.value[transform.key]), row]));
+            const replacement = transform.method === undefined || transform.method === 'value'
+                ? (transform.value ?? null)
+                : aggregateValue(group, {
+                    op: transform.method === 'mean'
+                        ? 'mean'
+                        : transform.method === 'median'
+                            ? 'median'
+                            : transform.method,
+                    field: transform.field,
+                    as: transform.field,
+                });
+            return keyValues.map((key) => existing.get(JSON.stringify(key)) ?? {
+                value: {
+                    ...Object.fromEntries((transform.groupby ?? []).map((field) => [field, group[0]?.value[field]])),
+                    [transform.key]: key,
+                    [transform.field]: replacement,
+                },
+                sources: [],
+            });
+        });
+    }
+    function seeded(seed) {
+        let state = seed >>> 0;
+        return () => {
+            state = (state + 0x6d2b79f5) | 0;
+            let value = Math.imul(state ^ (state >>> 15), 1 | state);
+            value ^= value + Math.imul(value ^ (value >>> 7), 61 | value);
+            return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+        };
+    }
+    function apply(rows, transform) {
+        switch (transform.type) {
+            case 'filter':
+                return rows.filter((row) => truthy$1(evaluate(transform.expr, row.value)));
+            case 'sort':
+                return sorted(rows, transform.by);
+            case 'calculate':
+                return rows.map((row) => ({
+                    ...row,
+                    value: { ...row.value, [safeField(transform.as)]: evaluate(transform.expr, row.value) },
+                }));
+            case 'aggregate':
+            case 'joinaggregate':
+                return aggregate(rows, transform);
+            case 'bin':
+                return bin(rows, transform);
+            case 'bin2d': {
+                const [x0, x1, y0, y1, count] = transform.as;
+                const xb = bin(rows, {
+                    field: transform.x,
+                    as: [x0, x1],
+                    maxbins: transform.maxbins?.[0] ?? 10,
+                });
+                const both = bin(xb, {
+                    field: transform.y,
+                    as: [y0, y1],
+                    maxbins: transform.maxbins?.[1] ?? 10,
+                });
+                return aggregate(both, {
+                    type: 'aggregate',
+                    groupby: [x0, x1, y0, y1],
+                    fields: [{ op: 'count', as: count }],
+                });
+            }
+            case 'density1d':
+                return density1d(rows, transform);
+            case 'density2d': {
+                const pairs = rows.flatMap((row) => {
+                    const x = numeric$3(row.value[transform.x]);
+                    const y = numeric$3(row.value[transform.y]);
+                    return x === null || y === null ? [] : [{ x, y }];
+                });
+                if (pairs.length === 0)
+                    return [];
+                const [xBins, yBins] = transform.bins ?? [32, 32];
+                enforceWorkBudget(pairs.length * xBins * yBins, maximumKernelEvaluations, 'density2d', '$.transform[].bins');
+                let xMin = Number.POSITIVE_INFINITY;
+                let xMax = Number.NEGATIVE_INFINITY;
+                let yMin = Number.POSITIVE_INFINITY;
+                let yMax = Number.NEGATIVE_INFINITY;
+                for (const pair of pairs) {
+                    xMin = Math.min(xMin, pair.x);
+                    xMax = Math.max(xMax, pair.x);
+                    yMin = Math.min(yMin, pair.y);
+                    yMax = Math.max(yMax, pair.y);
+                }
+                const deviation = (input) => {
+                    const mean = input.reduce((sum, value) => sum + value, 0) / input.length;
+                    return Math.sqrt(input.reduce((sum, value) => sum + (value - mean) ** 2, 0) /
+                        Math.max(1, input.length - 1));
+                };
+                const [bandwidthX, bandwidthY] = transform.bandwidth ?? [
+                    Math.max(Number.EPSILON, 1.06 *
+                        (deviation(pairs.map(({ x }) => x)) || (xMax - xMin) / 6 || 1) *
+                        pairs.length ** -0.2),
+                    Math.max(Number.EPSILON, 1.06 *
+                        (deviation(pairs.map(({ y }) => y)) || (yMax - yMin) / 6 || 1) *
+                        pairs.length ** -0.2),
+                ];
+                const factor = 1 / (2 * Math.PI * bandwidthX * bandwidthY * pairs.length);
+                const sources = [...new Set(rows.flatMap((row) => row.sources))].sort((a, b) => a - b);
+                return Array.from({ length: xBins * yBins }, (_, index) => {
+                    const xIndex = index % xBins;
+                    const yIndex = Math.floor(index / xBins);
+                    const x = xMin + ((xMax - xMin || 1) * xIndex) / Math.max(1, xBins - 1);
+                    const y = yMin + ((yMax - yMin || 1) * yIndex) / Math.max(1, yBins - 1);
+                    const density = pairs.reduce((sum, pair) => {
+                        const zx = (x - pair.x) / bandwidthX;
+                        const zy = (y - pair.y) / bandwidthY;
+                        return sum + Math.exp(-0.5 * (zx * zx + zy * zy));
+                    }, 0) * factor;
+                    return {
+                        value: { [transform.as[0]]: x, [transform.as[1]]: y, [transform.as[2]]: density },
+                        sources,
+                    };
+                });
+            }
+            case 'stack':
+                return stack(rows, transform);
+            case 'window':
+                return windowTransform(rows, transform);
+            case 'regression':
+                return regression$1(rows, transform);
+            case 'fold':
+                return rows.flatMap((row) => transform.fields.map((field) => ({
+                    ...row,
+                    value: { ...row.value, [transform.as[0]]: field, [transform.as[1]]: row.value[field] },
+                })));
+            case 'flatten':
+                return rows.flatMap((row) => {
+                    const arrays = transform.fields.map((field) => Array.isArray(row.value[field])
+                        ? row.value[field]
+                        : [row.value[field]]);
+                    const length = Math.max(0, ...arrays.map((array) => array.length));
+                    return Array.from({ length }, (_, index) => ({
+                        ...row,
+                        value: {
+                            ...row.value,
+                            ...Object.fromEntries(transform.fields.map((field, fieldIndex) => [
+                                transform.as?.[fieldIndex] ?? field,
+                                scalar(arrays[fieldIndex]?.[index]),
+                            ])),
+                        },
+                    }));
+                });
+            case 'pivot':
+                return groups(rows, transform.groupby).map((group) => {
+                    const output = Object.create(null);
+                    for (const field of transform.groupby ?? [])
+                        output[field] = group[0]?.value[field];
+                    for (const cell of groups(group, [transform.field])) {
+                        const column = String(cell[0]?.value[transform.field] ?? 'null');
+                        safeField(column);
+                        output[column] = pivotAggregate(cell, transform.value, transform.op ?? 'first');
+                    }
+                    return {
+                        value: output,
+                        sources: [...new Set(group.flatMap((row) => row.sources))].sort((a, b) => a - b),
+                    };
+                });
+            case 'impute':
+                return impute(rows, transform);
+            case 'lookup': {
+                const lookup = new Map(inputRows(transform.from).map((row) => [
+                    JSON.stringify(row.value[transform.key]),
+                    row.value,
+                ]));
+                return rows.map((row) => {
+                    const match = lookup.get(JSON.stringify(row.value[transform.field]));
+                    const additions = Object.fromEntries(transform.values.map((field, index) => [
+                        transform.as?.[index] ?? field,
+                        match?.[field] ?? transform.default ?? null,
+                    ]));
+                    return { ...row, value: { ...row.value, ...additions } };
+                });
+            }
+            case 'quantile':
+                return groups(rows, transform.groupby).flatMap((group) => {
+                    const input = values(group, transform.field).sort((a, b) => a - b);
+                    const sources = [...new Set(group.flatMap((row) => row.sources))].sort((a, b) => a - b);
+                    return (transform.probs ?? [0.25, 0.5, 0.75]).map((probability) => ({
+                        value: {
+                            ...Object.fromEntries((transform.groupby ?? []).map((field) => [field, group[0]?.value[field]])),
+                            [transform.as[0]]: probability,
+                            [transform.as[1]]: quantileFromSorted(input, probability),
+                        },
+                        sources,
+                    }));
+                });
+            case 'sample': {
+                if (transform.size >= rows.length)
+                    return [...rows];
+                const random = seeded(transform.seed ?? 0);
+                const reservoir = rows.slice(0, transform.size).map((row, index) => ({ row, index }));
+                for (let index = transform.size; index < rows.length; index += 1) {
+                    const selected = Math.floor(random() * (index + 1));
+                    if (selected < transform.size)
+                        reservoir[selected] = { row: rows[index], index };
+                }
+                return reservoir.sort((a, b) => a.index - b.index).map(({ row }) => row);
+            }
+            case 'resample': {
+                const output = [];
+                for (const group of groups(rows, transform.groupby)) {
+                    const ordered = sorted(group, [{ field: transform.field }]);
+                    const domain = extent$2(ordered, transform.field);
+                    if (domain === null)
+                        continue;
+                    const expected = Math.floor((domain[1] - domain[0]) / transform.interval) + 1;
+                    enforceWorkBudget(output.length + expected, maximumDerivedRows, 'resample', '$.transform[].interval');
+                    let cursor = 0;
+                    let before;
+                    for (let x = domain[0]; x <= domain[1] + transform.interval / 1e9; x += transform.interval) {
+                        while (cursor < ordered.length) {
+                            const row = ordered[cursor];
+                            const value = numeric$3(row.value[transform.field]);
+                            if (value === null) {
+                                cursor += 1;
+                                continue;
+                            }
+                            if (value >= x)
+                                break;
+                            before = row;
+                            cursor += 1;
+                        }
+                        const candidate = ordered[cursor];
+                        const candidateValue = candidate === undefined ? null : numeric$3(candidate.value[transform.field]);
+                        const after = candidateValue !== null && candidateValue >= x ? candidate : undefined;
+                        const exact = after !== undefined && candidateValue === x ? after : undefined;
+                        if (exact !== undefined) {
+                            output.push(exact);
+                            continue;
+                        }
+                        const method = transform.method ?? 'linear';
+                        const base = method === 'next' ? after : before;
+                        if (base === undefined)
+                            continue;
+                        const value = { ...base.value, [transform.field]: x };
+                        if (method === 'linear' && before !== undefined && after !== undefined) {
+                            const bx = numeric$3(before.value[transform.field]);
+                            const ax = numeric$3(after.value[transform.field]);
+                            const ratio = ax === bx ? 0 : (x - bx) / (ax - bx);
+                            for (const field of new Set([
+                                ...Object.keys(before.value),
+                                ...Object.keys(after.value),
+                            ])) {
+                                if (field === transform.field)
+                                    continue;
+                                const b = numeric$3(before.value[field]);
+                                const a = numeric$3(after.value[field]);
+                                if (b !== null && a !== null)
+                                    value[field] = b + (a - b) * ratio;
+                            }
+                        }
+                        output.push({
+                            value,
+                            sources: [...new Set([...(before?.sources ?? []), ...(after?.sources ?? [])])].sort((a, b) => a - b),
+                        });
+                    }
+                }
+                return output;
+            }
+            case 'timeUnit':
+                return rows.map((row) => {
+                    const raw = row.value[transform.field];
+                    const timestamp = temporalTimestamp(raw, true);
+                    const date = timestamp === null ? undefined : new Date(timestamp);
+                    let result = null;
+                    if (date !== undefined) {
+                        const utc = transform.utc ?? true;
+                        const value = (name) => date[`get${utc ? 'UTC' : ''}${name}`]();
+                        result =
+                            transform.unit === 'year'
+                                ? value('FullYear')
+                                : transform.unit === 'quarter'
+                                    ? Math.floor(value('Month') / 3) + 1
+                                    : transform.unit === 'month'
+                                        ? value('Month') + 1
+                                        : transform.unit === 'week'
+                                            ? Math.floor((Date.UTC(value('FullYear'), value('Month'), value('Date')) -
+                                                Date.UTC(value('FullYear'), 0, 1)) /
+                                                604800000) + 1
+                                            : transform.unit === 'date'
+                                                ? value('Date')
+                                                : transform.unit === 'day'
+                                                    ? value('Day')
+                                                    : transform.unit === 'hours'
+                                                        ? value('Hours')
+                                                        : transform.unit === 'minutes'
+                                                            ? value('Minutes')
+                                                            : value('Seconds');
+                    }
+                    return { ...row, value: { ...row.value, [transform.as]: result } };
+                });
+        }
+    }
+    function executeTransforms(input, transforms = [], options = {}) {
+        const issues = [];
+        validateTransforms(transforms, '$.transform', issues);
+        if (issues.length > 0) {
+            throw new GraflumeError('INVALID_SPEC', issues[0].message, {
+                path: issues[0].path,
+                details: { issues },
+            });
+        }
+        const source = inputRows(input);
+        let rows = source;
+        const steps = [];
+        transforms.forEach((transform, index) => {
+            const before = rows.length;
+            const aggregationCount = transform.type === 'aggregate' ||
+                transform.type === 'joinaggregate' ||
+                transform.type === 'stack'
+                ? groups(rows, transform.groupby).length
+                : undefined;
+            rows = apply(rows, transform);
+            const detail = transform.type !== 'stack'
+                ? undefined
+                : transform.offset === 'normalize' || transform.offset === 'expand'
+                    ? 'Diverging normalization uses each bucket total absolute magnitude.'
+                    : transform.offset === 'wiggle'
+                        ? 'Wiggle uses a non-negative streamgraph baseline and rejects negative values.'
+                        : undefined;
+            steps.push({
+                index,
+                type: transform.type,
+                inputRows: before,
+                outputRows: rows.length,
+                parameters: jsonSafe(transform),
+                ...(transform.type === 'sample' ? { seed: transform.seed ?? 0 } : {}),
+                ...(aggregationCount === undefined ? {} : { aggregationCount }),
+                ...(detail === undefined ? {} : { detail }),
+            });
+        });
+        const sourceId = options.sourceId ?? 'data';
+        return {
+            data: rows.map(({ value }) => ({ ...value })),
+            lineage: {
+                sourceId,
+                sourceRows: source.length,
+                outputRows: rows.length,
+                transforms: steps,
+                rowSources: rows.map(({ sources }) => sources),
+                summary: `${sourceId}: ${source.length} source rows, ${steps.length} ordered transforms, ${rows.length} output rows.${steps.flatMap(({ detail }) => (detail === undefined ? [] : [` ${detail}`])).join('')}`,
+            },
+        };
+    }
+    const evaluateTransformExpression = evaluate;
+
+    const maximumNamedSources = 128;
+    const maximumDataflowNodes = 256;
+    const unsafeNames = new Set(['__proto__', 'prototype', 'constructor']);
+    const lineageByOutput = new WeakMap();
+    function fail$4(message, path) {
+        throw new GraflumeError('INVALID_SPEC', message, { path });
+    }
+    function safeName(value, path) {
+        if (typeof value !== 'string' ||
+            value.trim() === '' ||
+            value.length > 128 ||
+            unsafeNames.has(value)) {
+            fail$4('Dataflow names must be non-empty safe strings no longer than 128 characters.', path);
+        }
+        return value;
+    }
+    function cloneRows$2(input) {
+        return input.map((row) => ({ ...row }));
+    }
+    function remapLineage(upstream, branch, nodeId) {
+        const offset = upstream.transforms.length;
+        const branchSteps = branch.transforms.map((step) => ({
+            ...step,
+            index: step.index + offset,
+        }));
+        const rowSources = branch.rowSources.map((indices) => [...new Set(indices.flatMap((index) => upstream.rowSources[index] ?? []))].sort((left, right) => left - right));
+        const transforms = [...upstream.transforms, ...branchSteps];
+        return {
+            sourceId: upstream.sourceId,
+            sourceRows: upstream.sourceRows,
+            outputRows: branch.outputRows,
+            transforms,
+            rowSources,
+            summary: `${upstream.sourceId} -> ${nodeId}: ${upstream.sourceRows} source rows, ${transforms.length} ordered transforms, ${branch.outputRows} output rows.`,
+        };
+    }
+    /** Preserve upstream source-row identity while applying a branch-local transform list. */
+    function executeTransformBranch(upstream, transforms, nodeId) {
+        const branch = executeTransforms(upstream.data, transforms, { sourceId: nodeId });
+        const result = {
+            data: cloneRows$2(branch.data),
+            lineage: remapLineage(upstream.lineage, branch.lineage, nodeId),
+        };
+        lineageByOutput.set(result.data, result.lineage);
+        return result;
+    }
+    /** Execute a layer-local branch without discarding named-DAG provenance. */
+    function executeTransformsWithNamedLineage(input, transforms, sourceId) {
+        const upstream = namedDataLineage(input);
+        return upstream === undefined
+            ? executeTransforms(input, transforms, { sourceId })
+            : executeTransformBranch({ data: input, lineage: upstream }, transforms, sourceId);
+    }
+    /** Return named-DAG lineage attached to a materialized data array, when present. */
+    function namedDataLineage(input) {
+        return lineageByOutput.get(input);
+    }
+    /** Execute one closed named transform graph with dependency memoization. */
+    class TransformDataflow {
+        #sources;
+        #nodes;
+        #cache = new Map();
+        #executionOrder = [];
+        #cacheHits = 0;
+        constructor(spec) {
+            if (!isPlainObject(spec))
+                fail$4('Dataflow must be an object.', '$.dataflow');
+            if (Object.keys(spec).some((key) => !['sources', 'nodes'].includes(key))) {
+                fail$4('Unknown dataflow property.', '$.dataflow');
+            }
+            if (!isPlainObject(spec.sources)) {
+                fail$4('Dataflow sources must be an object.', '$.dataflow.sources');
+            }
+            const sourceNames = Object.keys(spec.sources);
+            if (sourceNames.length === 0 || sourceNames.length > maximumNamedSources) {
+                fail$4(`Dataflow requires 1 to ${maximumNamedSources} named sources.`, '$.dataflow.sources');
+            }
+            for (const name of sourceNames)
+                safeName(name, `$.dataflow.sources.${name}`);
+            const nodes = spec.nodes ?? [];
+            if (!Array.isArray(nodes) || nodes.length > maximumDataflowNodes) {
+                fail$4(`Dataflow supports at most ${maximumDataflowNodes} nodes.`, '$.dataflow.nodes');
+            }
+            const byId = new Map();
+            nodes.forEach((node, index) => {
+                if (!isPlainObject(node))
+                    fail$4('Dataflow node must be an object.', `$.dataflow.nodes[${index}]`);
+                const id = safeName(node.id, `$.dataflow.nodes[${index}].id`);
+                safeName(node.source, `$.dataflow.nodes[${index}].source`);
+                if (Object.keys(node).some((key) => !['id', 'source', 'transform'].includes(key))) {
+                    fail$4('Unknown dataflow node property.', `$.dataflow.nodes[${index}]`);
+                }
+                if (!Array.isArray(node.transform)) {
+                    fail$4('Dataflow node transform must be an array.', `$.dataflow.nodes[${index}].transform`);
+                }
+                if (Object.hasOwn(spec.sources, id) || byId.has(id)) {
+                    fail$4(`Duplicate dataflow name "${id}".`, `$.dataflow.nodes[${index}].id`);
+                }
+                // Reuse the established transform validator and fail before any graph result is cached.
+                const transformIssues = [];
+                validateTransforms(node.transform, `$.dataflow.nodes[${index}].transform`, transformIssues);
+                if (transformIssues.length > 0) {
+                    const first = transformIssues[0];
+                    throw new GraflumeError('INVALID_SPEC', first.message, {
+                        path: first.path,
+                        details: { issues: transformIssues },
+                    });
+                }
+                byId.set(id, node);
+            });
+            this.#sources = spec.sources;
+            this.#nodes = byId;
+            this.#assertAcyclicAndClosed();
+        }
+        #assertAcyclicAndClosed() {
+            const visited = new Set();
+            const active = new Set();
+            const visit = (name) => {
+                if (Object.hasOwn(this.#sources, name) || visited.has(name))
+                    return;
+                const node = this.#nodes.get(name);
+                if (node === undefined)
+                    fail$4(`Unknown dataflow source or node "${name}".`, '$.dataflow.nodes');
+                if (active.has(name))
+                    fail$4(`Dataflow contains a cycle at "${name}".`, '$.dataflow.nodes');
+                active.add(name);
+                visit(node.source);
+                active.delete(name);
+                visited.add(name);
+            };
+            for (const name of this.#nodes.keys())
+                visit(name);
+        }
+        resolve(name) {
+            safeName(name, '$.data.source');
+            const cached = this.#cache.get(name);
+            if (cached !== undefined) {
+                this.#cacheHits += 1;
+                return cached;
+            }
+            let result;
+            if (Object.hasOwn(this.#sources, name)) {
+                result = executeTransforms(this.#sources[name], [], { sourceId: `source:${name}` });
+                result = { data: cloneRows$2(result.data), lineage: result.lineage };
+            }
+            else {
+                const node = this.#nodes.get(name);
+                if (node === undefined)
+                    fail$4(`Unknown dataflow source or node "${name}".`, '$.data.source');
+                result = executeTransformBranch(this.resolve(node.source), node.transform, `node:${node.id}`);
+            }
+            this.#cache.set(name, result);
+            this.#executionOrder.push(name);
+            lineageByOutput.set(result.data, result.lineage);
+            return result;
+        }
+        execute(targets = [...this.#nodes.keys()]) {
+            const requested = targets.length === 0 ? Object.keys(this.#sources) : targets;
+            const outputs = Object.fromEntries(requested.map((name) => [name, this.resolve(name)]));
+            return { outputs, state: this.state() };
+        }
+        state() {
+            return {
+                sourceCount: Object.keys(this.#sources).length,
+                nodeCount: this.#nodes.size,
+                cachedOutputs: [...this.#cache.keys()],
+                executionOrder: [...this.#executionOrder],
+                cacheHits: this.#cacheHits,
+            };
+        }
+        clearCache() {
+            this.#cache.clear();
+            this.#executionOrder.length = 0;
+            this.#cacheHits = 0;
+        }
+    }
+    function createTransformDataflow(spec) {
+        return new TransformDataflow(spec);
+    }
+    function executeTransformDataflow(spec, targets) {
+        return createTransformDataflow(spec).execute(targets);
+    }
+    function isNamedDataReference(value) {
+        return (isPlainObject(value) &&
+            Object.keys(value).length === 1 &&
+            typeof value.source === 'string' &&
+            value.source.trim() !== '');
+    }
+    /**
+     * Resolve all named data references before ordinary ChartSpec normalization.
+     * One graph instance is shared by every branch in the chart tree, so common
+     * ancestors execute once even when several layers or views consume them.
+     */
+    function materializeSpecDataflow(input) {
+        const containsDataflow = (spec) => {
+            if (!isPlainObject(spec))
+                return false;
+            const chart = spec;
+            return (chart.dataflow !== undefined ||
+                ['layer', 'hconcat', 'vconcat', 'concat'].some((key) => chart[key]?.some(containsDataflow)) ||
+                (chart.spec !== undefined && containsDataflow(chart.spec)) ||
+                (chart.inset !== undefined &&
+                    (containsDataflow(chart.inset.base) || containsDataflow(chart.inset.view))));
+        };
+        if (!containsDataflow(input))
+            return input;
+        const visit = (spec, inherited) => {
+            const localSpec = spec.dataflow;
+            const graph = localSpec === undefined ? inherited : createTransformDataflow(localSpec);
+            const resolveData = (value) => {
+                if (value === undefined)
+                    return undefined;
+                if (!isNamedDataReference(value))
+                    return value;
+                if (graph === undefined) {
+                    fail$4(`Named data reference "${value.source}" has no enclosing dataflow.`, '$.data.source');
+                }
+                return graph.resolve(value.source).data;
+            };
+            const output = { ...spec };
+            delete output.dataflow;
+            delete output.source;
+            if (spec.source !== undefined) {
+                if (spec.data !== undefined)
+                    fail$4('Use either inline data or a named source, not both.', '$.source');
+                if (graph === undefined)
+                    fail$4(`Named source "${spec.source}" has no enclosing dataflow.`, '$.source');
+                output.data = graph.resolve(spec.source).data;
+            }
+            else if (spec.data !== undefined)
+                output.data = resolveData(spec.data);
+            if (spec.layers !== undefined) {
+                output.layers = spec.layers.map((layer) => {
+                    const materialized = { ...layer };
+                    delete materialized.source;
+                    if (layer.source !== undefined) {
+                        if (layer.data !== undefined) {
+                            fail$4('Use either inline layer data or a named source, not both.', '$.layers[].source');
+                        }
+                        if (graph === undefined) {
+                            fail$4(`Named source "${layer.source}" has no enclosing dataflow.`, '$.layers[].source');
+                        }
+                        materialized.data = graph.resolve(layer.source).data;
+                    }
+                    else if (layer.data !== undefined)
+                        materialized.data = resolveData(layer.data);
+                    return materialized;
+                });
+            }
+            for (const key of ['layer', 'hconcat', 'vconcat', 'concat']) {
+                const children = spec[key];
+                if (children !== undefined)
+                    output[key] = children.map((child) => visit(child, graph));
+            }
+            if (spec.spec !== undefined)
+                output.spec = visit(spec.spec, graph);
+            if (spec.inset !== undefined) {
+                output.inset = {
+                    ...spec.inset,
+                    base: visit(spec.inset.base, graph),
+                    view: visit(spec.inset.view, graph),
+                };
+            }
+            return output;
+        };
+        return visit(input);
+    }
+
+    const compositionOperators = [
+        'layer',
+        'facet',
+        'repeat',
+        'hconcat',
+        'vconcat',
+        'concat',
+        'inset',
+    ];
+    const maximumCompositionDepth = 4;
+    const maximumCompositionViews = 64;
+    const maximumCompositionLayers = 128;
+    const maximumLayerCompositionChildren = 16;
+    function presentCompositionOperators(input) {
+        return compositionOperators.filter((key) => input[key] !== undefined);
+    }
+    function compositionKind(input) {
+        const operators = presentCompositionOperators(input);
+        return operators.length === 1 ? operators[0] : null;
+    }
+    function isCompositionSpec(input) {
+        return presentCompositionOperators(input).length > 0;
+    }
+    function resolveComposition(input, kind) {
+        const defaultMode = kind === 'layer' ? 'shared' : 'independent';
+        return {
+            scale: input?.scale ?? defaultMode,
+            axis: input?.axis ?? defaultMode,
+            legend: input?.legend ?? defaultMode,
+            colorbar: input?.colorbar ?? defaultMode,
+        };
+    }
+
+    const builtInAxisIds = Object.freeze(['x', 'x2', 'y', 'y2']);
+    const unsafeAxisIds = new Set(['__proto__', 'prototype', 'constructor']);
+    const safeAxisIdPattern = /^[A-Za-z][A-Za-z0-9_-]{0,63}$/u;
+    function isSafeAxisId(value) {
+        return typeof value === 'string' && safeAxisIdPattern.test(value) && !unsafeAxisIds.has(value);
+    }
+    function builtInAxisChannel(id) {
+        if (id === 'x' || id === 'x2')
+            return 'x';
+        if (id === 'y' || id === 'y2')
+            return 'y';
+        return undefined;
+    }
+    function axisChannel(id, axes = {}) {
+        return builtInAxisChannel(id) ?? (axes[id] === false ? undefined : axes[id]?.channel);
+    }
+    function defaultAxisPosition(id, channel) {
+        if (id === 'x2')
+            return 'top';
+        if (id === 'y2')
+            return 'right';
+        return channel === 'x' ? 'bottom' : 'left';
+    }
+    function axisPositionChannel(position) {
+        return position === 'top' || position === 'bottom' ? 'x' : 'y';
+    }
+    function declaredAxisIds(axes = {}) {
+        const ids = [...builtInAxisIds];
+        for (const id of Object.keys(axes))
+            if (!ids.includes(id))
+                ids.push(id);
+        return Object.freeze(ids);
     }
 
     const UNSAFE_FIELDS = new Set(['__proto__', 'prototype', 'constructor']);
@@ -13202,168 +16402,1840 @@ var Graflume = (function (exports) {
         return normalized;
     }
 
-    function normalizedHex(color) {
-        const value = color.trim().replace(/^#/, '');
-        if (/^[0-9a-f]{3}$/i.test(value)) {
-            return value
-                .split('')
-                .map((channel) => `${channel}${channel}`)
-                .join('');
+    class ThemeRegistry {
+        #themes = new Map();
+        constructor() {
+            for (const entry of builtInThemeCatalog)
+                this.register(entry.tokens);
         }
-        return /^[0-9a-f]{6}$/i.test(value) ? value : null;
-    }
-    function hexColor(channels, uppercase = false) {
-        const value = `#${channels
-        .map((channelValue) => Math.round(Math.max(0, Math.min(255, channelValue)))
-        .toString(16)
-        .padStart(2, '0'))
-        .join('')}`;
-        return uppercase ? value.toUpperCase() : value;
-    }
-    function linearToSrgb(value) {
-        return value <= 0.0031308 ? 12.92 * value : 1.055 * value ** (1 / 2.4) - 0.055;
-    }
-    function srgbToLinear(value) {
-        return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
-    }
-    /** Convert the polar CIELUV scale used by grDevices::hcl() into clipped sRGB. */
-    function hclColor(hue, chroma, luminance) {
-        const radians = (hue * Math.PI) / 180;
-        const u = Math.cos(radians) * chroma;
-        const v = Math.sin(radians) * chroma;
-        const referenceU = 0.19783000664283;
-        const referenceV = 0.46831999493879;
-        const y = ((luminance + 16) / 116) ** 3 ;
-        const uPrime = u / (13 * luminance) + referenceU;
-        const vPrime = v / (13 * luminance) + referenceV;
-        const x = (9 * y * uPrime) / (4 * vPrime);
-        const z = (y * (12 - 3 * uPrime - 20 * vPrime)) / (4 * vPrime);
-        const red = linearToSrgb(3.2404542 * x - 1.5371385 * y - 0.4985314 * z);
-        const green = linearToSrgb(-0.969266 * x + 1.8760108 * y + 0.041556 * z);
-        const blue = linearToSrgb(0.0556434 * x - 0.2040259 * y + 1.0572252 * z);
-        return hexColor([red * 255, green * 255, blue * 255], true);
-    }
-    /** Resolve a category colour while preserving fixed-palette behaviour for existing themes. */
-    function categoricalColor(theme, index, count) {
-        const paletteSize = Number.isFinite(count) ? Math.max(1, Math.floor(count)) : 1;
-        const paletteIndex = Number.isFinite(index) ? Math.floor(index) : 0;
-        const normalizedIndex = ((paletteIndex % paletteSize) + paletteSize) % paletteSize;
-        if (theme.colors.paletteMode === 'ggplot2-hue') {
-            return hclColor(15 + (360 * normalizedIndex) / paletteSize, 100, 65);
+        register(theme) {
+            if (theme.name.trim() === '') {
+                throw new GraflumeError('INVALID_SPEC', 'Theme name must not be empty.', {
+                    path: '$.theme.name',
+                });
+            }
+            this.#themes.set(theme.name, theme);
         }
-        const palette = theme.colors.palette;
-        if (palette.length === 0)
-            return theme.colors.focus;
-        const fixedIndex = ((paletteIndex % palette.length) + palette.length) % palette.length;
-        return palette[fixedIndex] ?? theme.colors.focus;
+        has(name) {
+            return this.#themes.has(name);
+        }
+        get(name) {
+            const theme = this.#themes.get(name);
+            if (theme === undefined) {
+                throw new GraflumeError('INVALID_SPEC', `Unknown theme "${name}".`, {
+                    path: '$.theme',
+                    details: { availableThemes: this.names() },
+                });
+            }
+            return theme;
+        }
+        names() {
+            return [...this.#themes.keys()].sort();
+        }
+        resolve(input) {
+            if (typeof input === 'string')
+                return this.get(input);
+            const baseName = input.extends ?? defaultThemeId;
+            const { extends: _extends, ...overrides } = input;
+            const merged = deepMerge(this.get(baseName), overrides);
+            return {
+                ...merged,
+                name: merged.name || `custom:${baseName}`,
+            };
+        }
     }
-    function labFunction(value) {
-        const delta = 6 / 29;
-        return value > delta ** 3 ? Math.cbrt(value) : value / (3 * delta ** 2) + 4 / 29;
+
+    const domainViewVersion = 1;
+    function invalid$2(message, path = '$.interaction.domainNavigation') {
+        throw new GraflumeError('INVALID_SPEC', message, { path });
     }
-    function inverseLabFunction(value) {
-        const delta = 6 / 29;
-        return value > delta ? value ** 3 : 3 * delta ** 2 * (value - 4 / 29);
+    function assertPlainObject$1(value, label) {
+        if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+            invalid$2(`${label} must be an object.`);
+        }
     }
-    function hexToLab(color) {
-        const hex = normalizedHex(color);
-        if (hex === null)
+    function assertClosedKeys$1(value, allowed, label) {
+        const allowedKeys = new Set(allowed);
+        const unknown = Object.keys(value).filter((key) => !allowedKeys.has(key));
+        if (unknown.length > 0)
+            invalid$2(`${label} contains unknown key "${unknown[0]}".`);
+    }
+    function normalizedWindow(input) {
+        assertPlainObject$1(input, 'Domain axis window');
+        assertClosedKeys$1(input, ['start', 'end'], 'Domain axis window');
+        if (!Number.isFinite(input.start) ||
+            !Number.isFinite(input.end) ||
+            input.start < 0 ||
+            input.end > 1 ||
+            input.start >= input.end) {
+            invalid$2('Domain axis windows require finite 0 <= start < end <= 1 values.');
+        }
+        return Object.freeze({ start: input.start, end: input.end });
+    }
+    function normalizeDomainViewState(input) {
+        assertPlainObject$1(input, 'Domain view state');
+        assertClosedKeys$1(input, ['version', 'axes'], 'Domain view state');
+        if (input.version !== domainViewVersion) {
+            invalid$2(`Domain view state.version must be ${domainViewVersion}.`);
+        }
+        assertPlainObject$1(input.axes, 'Domain view axes');
+        const axes = {};
+        for (const [axis, window] of Object.entries(input.axes)) {
+            if (!isSafeAxisId(axis)) {
+                invalid$2(`Unknown domain view axis "${axis}".`);
+            }
+            if (window !== undefined)
+                axes[axis] = normalizedWindow(window);
+        }
+        return Object.freeze({ version: domainViewVersion, axes: Object.freeze(axes) });
+    }
+    function emptyDomainViewState() {
+        return Object.freeze({ version: domainViewVersion, axes: Object.freeze({}) });
+    }
+    function domainAxisWindow(state, axis) {
+        const window = state.axes[axis];
+        return window === undefined ? Object.freeze({ start: 0, end: 1 }) : window;
+    }
+    function boundedWindow$1(start, width) {
+        const boundedWidth = Math.max(Number.EPSILON, Math.min(1, width));
+        const boundedStart = Math.max(0, Math.min(1 - boundedWidth, start));
+        return Object.freeze({ start: boundedStart, end: boundedStart + boundedWidth });
+    }
+    function withWindow(state, axis, window) {
+        const axes = { ...state.axes };
+        const normalized = normalizedWindow(window);
+        if (Math.abs(normalized.start) < 1e-12 && Math.abs(normalized.end - 1) < 1e-12) {
+            delete axes[axis];
+        }
+        else
+            axes[axis] = normalized;
+        return normalizeDomainViewState({ version: domainViewVersion, axes });
+    }
+    function zoomDomainAxisWindow(state, axis, factor, anchor, maxZoom) {
+        if (!Number.isFinite(factor) || factor <= 0)
+            invalid$2('Domain zoom factor must be positive.');
+        if (!Number.isFinite(anchor))
+            invalid$2('Domain zoom anchor must be finite.');
+        if (!Number.isFinite(maxZoom) || maxZoom < 1)
+            invalid$2('Domain maxZoom must be at least 1.');
+        const current = domainAxisWindow(state, axis);
+        const width = current.end - current.start;
+        const boundedAnchor = Math.max(current.start, Math.min(current.end, anchor));
+        const local = width === 0 ? 0.5 : (boundedAnchor - current.start) / width;
+        const nextWidth = Math.max(1 / maxZoom, Math.min(1, width / factor));
+        return withWindow(state, axis, boundedWindow$1(boundedAnchor - local * nextWidth, nextWidth));
+    }
+    function panDomainAxisWindow(state, axis, delta) {
+        if (!Number.isFinite(delta))
+            invalid$2('Domain pan delta must be finite.');
+        const current = domainAxisWindow(state, axis);
+        return withWindow(state, axis, boundedWindow$1(current.start + delta, current.end - current.start));
+    }
+    function scaleFor$1(context, axis) {
+        const scale = context.axes[axis];
+        if (scale === undefined)
+            invalid$2(`Axis "${axis}" is not resolved.`, `$.axes.${axis}`);
+        if (scale.invert === undefined && scale.kind !== 'band' && scale.kind !== 'point') {
+            throw new GraflumeError('INCOMPATIBLE_SCALE', `Axis "${axis}" cannot be navigated.`, {
+                path: `$.axes.${axis}`,
+            });
+        }
+        return scale;
+    }
+    function rangeRatio(scale, pixel) {
+        if (!Number.isFinite(pixel))
+            invalid$2('Domain navigation pixel must be finite.');
+        const range = scale.range();
+        const start = range[0];
+        const end = range.at(-1);
+        if (start === undefined || end === undefined || start === end) {
+            throw new GraflumeError('INCOMPATIBLE_SCALE', 'Navigable scale range must be non-empty.');
+        }
+        return Math.max(0, Math.min(1, (pixel - start) / (end - start)));
+    }
+    function zoomDomainAtPixel(state, context, axis, factor, pixel, maxZoom) {
+        const scale = scaleFor$1(context, axis);
+        const current = domainAxisWindow(state, axis);
+        const ratio = rangeRatio(scale, pixel);
+        const anchor = current.start + ratio * (current.end - current.start);
+        return zoomDomainAxisWindow(state, axis, factor, anchor, maxZoom);
+    }
+    function panDomainByPixels(state, context, axis, deltaPixels) {
+        const scale = scaleFor$1(context, axis);
+        if (!Number.isFinite(deltaPixels))
+            invalid$2('Domain pan pixel delta must be finite.');
+        const range = scale.range();
+        const start = range[0];
+        const end = range.at(-1);
+        if (start === undefined || end === undefined || start === end) {
+            throw new GraflumeError('INCOMPATIBLE_SCALE', 'Navigable scale range must be non-empty.');
+        }
+        const current = domainAxisWindow(state, axis);
+        // Grab-to-pan: dragging marks toward positive pixels reveals the preceding
+        // authored domain. A descending layout range naturally reverses this sign.
+        const delta = (-deltaPixels / (end - start)) * (current.end - current.start);
+        return panDomainAxisWindow(state, axis, delta);
+    }
+    function domainForAxisWindow(scale, window) {
+        if (scale.invert === undefined) {
+            if (scale.kind !== 'band' && scale.kind !== 'point') {
+                throw new GraflumeError('INCOMPATIBLE_SCALE', `Data-domain navigation cannot resolve the "${scale.kind}" scale.`);
+            }
+            const domain = scale.domain();
+            if (domain.length === 0) {
+                throw new GraflumeError('INCOMPATIBLE_SCALE', 'Navigable categorical domains are non-empty.');
+            }
+            const start = Math.min(domain.length - 1, Math.floor(window.start * domain.length));
+            const end = Math.max(start + 1, Math.min(domain.length, Math.ceil(window.end * domain.length)));
+            return Object.freeze(domain.slice(start, end));
+        }
+        const range = scale.range();
+        const start = range[0];
+        const end = range.at(-1);
+        if (start === undefined || end === undefined || start === end) {
+            throw new GraflumeError('INCOMPATIBLE_SCALE', 'Navigable scale range must be non-empty.');
+        }
+        const first = scale.invert(start + (end - start) * window.start);
+        const last = scale.invert(start + (end - start) * window.end);
+        if (typeof first !== 'number' ||
+            typeof last !== 'number' ||
+            !Number.isFinite(first) ||
+            !Number.isFinite(last) ||
+            first === last) {
+            throw new GraflumeError('INCOMPATIBLE_SCALE', `Data-domain navigation requires finite numeric endpoints from "${scale.kind}".`);
+        }
+        return Object.freeze([first, last]);
+    }
+    function domainViewIsIdentity(state) {
+        return Object.keys(state.axes).length === 0;
+    }
+
+    const analyticSelectionVersion = 1;
+    const maximumAnalyticSelections = 64;
+    const maximumLassoPoints = 512;
+    const maximumCategoricalSelectionValues = 512;
+    function invalid$1(message) {
+        throw new GraflumeError('INVALID_SPEC', message, { path: '$.analyticSelection' });
+    }
+    function assertPlainObject(value, label) {
+        if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+            invalid$1(`${label} must be an object.`);
+        }
+    }
+    function assertClosedKeys(value, allowed, label) {
+        const allowedKeys = new Set(allowed);
+        const unknown = Object.keys(value).filter((key) => !allowedKeys.has(key));
+        if (unknown.length > 0)
+            invalid$1(`${label} contains unknown key "${unknown[0]}".`);
+    }
+    function canonicalNumber(value) {
+        return Object.is(value, -0) ? 0 : value;
+    }
+    function canonicalPrimitive(value) {
+        return typeof value === 'number' ? canonicalNumber(value) : value;
+    }
+    function domainValue(value, label) {
+        if (typeof value === 'number') {
+            if (!Number.isFinite(value))
+                invalid$1(`${label} must be finite.`);
+            return;
+        }
+        if (typeof value !== 'string' || value.length === 0 || value.length > 4096) {
+            invalid$1(`${label} must be a finite number or a non-empty bounded string.`);
+        }
+    }
+    function orderedExtent(value) {
+        const start = canonicalNumber(value[0]);
+        const end = canonicalNumber(value[1]);
+        return Object.freeze(start <= end ? [start, end] : [end, start]);
+    }
+    function normalizeExtent(value, label) {
+        if (Array.isArray(value)) {
+            if (value.length !== 2 ||
+                value.some((entry) => typeof entry !== 'number' || !Number.isFinite(entry))) {
+                invalid$1(`${label} must contain exactly two finite numbers.`);
+            }
+            return orderedExtent(value);
+        }
+        assertPlainObject(value, label);
+        assertClosedKeys(value, ['values'], label);
+        if (!Array.isArray(value.values) ||
+            value.values.length === 0 ||
+            value.values.length > maximumCategoricalSelectionValues) {
+            invalid$1(`${label}.values must contain between 1 and ${maximumCategoricalSelectionValues} categorical identities.`);
+        }
+        const values = value.values.map((entry, index) => {
+            domainValue(entry, `${label}.values[${index}]`);
+            return typeof entry === 'number' ? canonicalNumber(entry) : entry;
+        });
+        if (new Set(values.map((entry) => `${typeof entry}:${String(entry)}`)).size !== values.length) {
+            invalid$1(`${label}.values must be unique.`);
+        }
+        return Object.freeze({ values: Object.freeze(values) });
+    }
+    function cloneTarget$2(target) {
+        const rows = target.rowIndex === undefined
+            ? undefined
+            : Array.isArray(target.rowIndex)
+                ? [...target.rowIndex].sort((left, right) => left - right)
+                : target.rowIndex;
+        const values = target.values === undefined
+            ? undefined
+            : [...target.values]
+                .map(canonicalPrimitive)
+                .sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
+        return Object.freeze({
+            type: 'datum',
+            ...(target.layerId === undefined ? {} : { layerId: target.layerId }),
+            ...(rows === undefined ? {} : { rowIndex: Array.isArray(rows) ? Object.freeze(rows) : rows }),
+            ...(target.field === undefined ? {} : { field: target.field }),
+            ...(Object.prototype.hasOwnProperty.call(target, 'value')
+                ? { value: canonicalPrimitive(target.value) }
+                : {}),
+            ...(values === undefined ? {} : { values: Object.freeze(values) }),
+        });
+    }
+    function validateTarget(target) {
+        assertPlainObject(target, 'Point target');
+        assertClosedKeys(target, ['type', 'layerId', 'rowIndex', 'field', 'value', 'values'], 'Point target');
+        const candidate = target;
+        if (candidate.type !== 'datum')
+            invalid$1('Point target.type must be "datum".');
+        if (candidate.layerId !== undefined &&
+            (typeof candidate.layerId !== 'string' ||
+                candidate.layerId.length === 0 ||
+                candidate.layerId.length > 4096)) {
+            invalid$1('Point target.layerId must be a non-empty bounded string.');
+        }
+        if (candidate.rowIndex !== undefined) {
+            const rows = Array.isArray(candidate.rowIndex) ? candidate.rowIndex : [candidate.rowIndex];
+            if (rows.length === 0 ||
+                rows.length > 1000 ||
+                rows.some((row) => !Number.isInteger(row) || row < 0)) {
+                invalid$1('Point target.rowIndex must contain bounded non-negative integers.');
+            }
+            if (new Set(rows).size !== rows.length)
+                invalid$1('Point target.rowIndex must be unique.');
+        }
+        if (candidate.field !== undefined &&
+            (typeof candidate.field !== 'string' ||
+                candidate.field.length === 0 ||
+                candidate.field.length > 4096 ||
+                candidate.field === '__proto__' ||
+                candidate.field === 'prototype' ||
+                candidate.field === 'constructor')) {
+            invalid$1('Point target.field must be a safe non-empty bounded string.');
+        }
+        const hasValue = Object.prototype.hasOwnProperty.call(candidate, 'value');
+        const hasValues = Object.prototype.hasOwnProperty.call(candidate, 'values');
+        if (candidate.field === undefined && (hasValue || hasValues)) {
+            invalid$1('Point target.field is required for value matching.');
+        }
+        if (candidate.field !== undefined && hasValue === hasValues) {
+            invalid$1('Point target field matching requires exactly one of value or values.');
+        }
+        if (hasValues && (!Array.isArray(candidate.values) || candidate.values.length === 0)) {
+            invalid$1('Point target values must be a non-empty array.');
+        }
+        const values = hasValues ? candidate.values : hasValue ? [candidate.value] : [];
+        if (values.length > 200)
+            invalid$1('Point target values exceed the 200 item bound.');
+        for (const value of values) {
+            if (value !== null &&
+                typeof value !== 'string' &&
+                typeof value !== 'boolean' &&
+                !(typeof value === 'number' && Number.isFinite(value))) {
+                invalid$1('Point target values must be JSON primitives with finite numbers.');
+            }
+        }
+        if (new Set(values.map((value) => JSON.stringify(canonicalPrimitive(value)))).size !==
+            values.length) {
+            invalid$1('Point target values must be unique.');
+        }
+        if (candidate.rowIndex === undefined && candidate.field === undefined) {
+            invalid$1('Point target requires rowIndex or field/value identity.');
+        }
+    }
+    function axisId(value, _orientation) {
+        if (!isSafeAxisId(value))
+            invalid$1('Selection axis must use the safe named-axis grammar.');
+    }
+    function normalizeSelection(selection) {
+        assertPlainObject(selection, 'Selection');
+        if (selection.type === 'point') {
+            assertClosedKeys(selection, ['type', 'xAxis', 'yAxis', 'x', 'y', 'target'], 'Point selection');
+            if (selection.x === undefined && selection.y === undefined && selection.target === undefined) {
+                invalid$1('Point selection requires x, y, or target identity.');
+            }
+            if (selection.x !== undefined)
+                domainValue(selection.x, 'Point x');
+            if (selection.y !== undefined)
+                domainValue(selection.y, 'Point y');
+            if (selection.xAxis !== undefined)
+                axisId(selection.xAxis);
+            if (selection.yAxis !== undefined)
+                axisId(selection.yAxis);
+            if (selection.target !== undefined)
+                validateTarget(selection.target);
+            return Object.freeze({
+                type: 'point',
+                ...(selection.xAxis === undefined ? {} : { xAxis: selection.xAxis }),
+                ...(selection.yAxis === undefined ? {} : { yAxis: selection.yAxis }),
+                ...(selection.x === undefined
+                    ? {}
+                    : { x: typeof selection.x === 'number' ? canonicalNumber(selection.x) : selection.x }),
+                ...(selection.y === undefined
+                    ? {}
+                    : { y: typeof selection.y === 'number' ? canonicalNumber(selection.y) : selection.y }),
+                ...(selection.target === undefined ? {} : { target: cloneTarget$2(selection.target) }),
+            });
+        }
+        if (selection.type === 'interval' || selection.type === 'rectangle') {
+            assertClosedKeys(selection, ['type', 'xAxis', 'yAxis', 'x', 'y'], `${selection.type} selection`);
+            axisId(selection.xAxis);
+            axisId(selection.yAxis);
+            return Object.freeze({
+                type: selection.type,
+                xAxis: selection.xAxis,
+                yAxis: selection.yAxis,
+                x: normalizeExtent(selection.x, 'Selection x extent'),
+                y: normalizeExtent(selection.y, 'Selection y extent'),
+            });
+        }
+        if (selection.type === 'axis') {
+            assertClosedKeys(selection, ['type', 'axis', 'extent'], 'Axis selection');
+            axisId(selection.axis);
+            return Object.freeze({
+                type: 'axis',
+                axis: selection.axis,
+                extent: normalizeExtent(selection.extent, 'Axis selection extent'),
+            });
+        }
+        if (selection.type === 'lasso') {
+            assertClosedKeys(selection, ['type', 'xAxis', 'yAxis', 'points'], 'Lasso selection');
+            axisId(selection.xAxis);
+            axisId(selection.yAxis);
+            if (!Array.isArray(selection.points) || selection.points.length < 3) {
+                invalid$1('Lasso selection requires at least three points.');
+            }
+            if (selection.points.length > maximumLassoPoints) {
+                invalid$1(`Lasso selection exceeds the ${maximumLassoPoints} point bound.`);
+            }
+            const points = selection.points.map((point, index) => {
+                assertPlainObject(point, `Lasso point ${index}`);
+                assertClosedKeys(point, ['x', 'y'], `Lasso point ${index}`);
+                if (typeof point.x !== 'number' ||
+                    typeof point.y !== 'number' ||
+                    !Number.isFinite(point.x) ||
+                    !Number.isFinite(point.y)) {
+                    invalid$1(`Lasso point ${index} must contain finite x and y values.`);
+                }
+                return Object.freeze({ x: canonicalNumber(point.x), y: canonicalNumber(point.y) });
+            });
+            return Object.freeze({
+                type: 'lasso',
+                xAxis: selection.xAxis,
+                yAxis: selection.yAxis,
+                points: Object.freeze(points),
+            });
+        }
+        invalid$1(`Unsupported analytic selection type: ${String(selection.type)}.`);
+    }
+    function stableTarget(target) {
+        if (target === undefined)
             return null;
-        const red = srgbToLinear(channel$1(hex, 0) / 255);
-        const green = srgbToLinear(channel$1(hex, 1) / 255);
-        const blue = srgbToLinear(channel$1(hex, 2) / 255);
-        const x = (0.4124564 * red + 0.3575761 * green + 0.1804375 * blue) / 0.95047;
-        const y = 0.2126729 * red + 0.7151522 * green + 0.072175 * blue;
-        const z = (0.0193339 * red + 0.119192 * green + 0.9503041 * blue) / 1.08883;
-        const fx = labFunction(x);
-        const fy = labFunction(y);
-        const fz = labFunction(z);
-        return { l: 116 * fy - 16, a: 500 * (fx - fy), b: 200 * (fy - fz) };
+        const rows = target.rowIndex === undefined
+            ? null
+            : Array.isArray(target.rowIndex)
+                ? [...target.rowIndex].sort((a, b) => a - b)
+                : [target.rowIndex];
+        const values = target.values ?? (target.value === undefined ? [] : [target.value]);
+        return [
+            target.layerId ?? null,
+            rows,
+            target.field ?? null,
+            [...values].sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
+        ];
     }
-    function labToHex(color) {
-        const fy = (color.l + 16) / 116;
-        const fx = fy + color.a / 500;
-        const fz = fy - color.b / 200;
-        const x = 0.95047 * inverseLabFunction(fx);
-        const y = inverseLabFunction(fy);
-        const z = 1.08883 * inverseLabFunction(fz);
-        const red = linearToSrgb(3.2404542 * x - 1.5371385 * y - 0.4985314 * z);
-        const green = linearToSrgb(-0.969266 * x + 1.8760108 * y + 0.041556 * z);
-        const blue = linearToSrgb(0.0556434 * x - 0.2040259 * y + 1.0572252 * z);
-        return hexColor([red * 255, green * 255, blue * 255], true);
+    function analyticSelectionKey(selection) {
+        switch (selection.type) {
+            case 'point':
+                return JSON.stringify([
+                    'point',
+                    selection.xAxis ?? null,
+                    selection.x ?? null,
+                    selection.yAxis ?? null,
+                    selection.y ?? null,
+                    stableTarget(selection.target),
+                ]);
+            case 'interval':
+            case 'rectangle':
+                return JSON.stringify([
+                    selection.type,
+                    selection.xAxis,
+                    selection.x,
+                    selection.yAxis,
+                    selection.y,
+                ]);
+            case 'axis':
+                return JSON.stringify(['axis', selection.axis, selection.extent]);
+            case 'lasso':
+                return JSON.stringify(['lasso', selection.xAxis, selection.yAxis, selection.points]);
+        }
     }
-    function mixLabColor(start, end, ratio) {
-        const startLab = hexToLab(start);
-        const endLab = hexToLab(end);
-        if (startLab === null || endLab === null)
-            return mixColor$1(start, end, ratio);
-        const bounded = Number.isFinite(ratio) ? Math.max(0, Math.min(1, ratio)) : 0;
-        return labToHex({
-            l: startLab.l + (endLab.l - startLab.l) * bounded,
-            a: startLab.a + (endLab.a - startLab.a) * bounded,
-            b: startLab.b + (endLab.b - startLab.b) * bounded,
+    function normalizeAnalyticSelectionState(input) {
+        assertPlainObject(input, 'Analytic selection state');
+        assertClosedKeys(input, ['version', 'combine', 'selections'], 'Analytic selection state');
+        if (input.version !== analyticSelectionVersion) {
+            invalid$1(`Analytic selection state.version must be ${analyticSelectionVersion}.`);
+        }
+        if (input.combine !== 'union' && input.combine !== 'intersection') {
+            invalid$1('Analytic selection state.combine must be "union" or "intersection".');
+        }
+        if (!Array.isArray(input.selections) || input.selections.length > maximumAnalyticSelections) {
+            invalid$1(`Analytic selection state must contain at most ${maximumAnalyticSelections} selections.`);
+        }
+        const selections = input.selections.map(normalizeSelection);
+        const keys = selections.map(analyticSelectionKey);
+        if (new Set(keys).size !== keys.length)
+            invalid$1('Analytic selections must be unique.');
+        return Object.freeze({
+            version: analyticSelectionVersion,
+            combine: input.combine,
+            selections: Object.freeze(selections),
         });
     }
-    /** Resolve a continuous colour; an explicit interpolation token wins over palette defaults. */
-    function continuousColor(theme, ratio) {
-        const palette = theme.colors.sequential;
-        if (palette.length === 0)
-            return theme.colors.focus;
-        if (palette.length === 1)
-            return palette[0] ?? theme.colors.focus;
-        const bounded = Number.isFinite(ratio) ? Math.max(0, Math.min(1, ratio)) : 0;
-        if (theme.colors.paletteMode === 'ggplot2-hue' &&
-            theme.colors.continuousInterpolation === undefined) {
-            return mixLabColor(palette[0] ?? theme.colors.focus, palette[palette.length - 1] ?? theme.colors.focus, bounded);
-        }
-        if (theme.colors.continuousInterpolation === 'rgb' ||
-            theme.colors.continuousInterpolation === 'lab') {
-            const scaled = bounded * (palette.length - 1);
-            const startIndex = Math.min(palette.length - 2, Math.floor(scaled));
-            const start = palette[startIndex] ?? theme.colors.focus;
-            const end = palette[startIndex + 1] ?? start;
-            const localRatio = scaled - startIndex;
-            return theme.colors.continuousInterpolation === 'lab'
-                ? mixLabColor(start, end, localRatio)
-                : mixColor$1(start, end, localRatio);
-        }
-        if (theme.colors.continuousInterpolation === 'step') {
-            const index = Math.min(palette.length - 1, Math.floor(bounded * palette.length));
-            return palette[index] ?? theme.colors.focus;
-        }
-        return palette[Math.round(bounded * (palette.length - 1))] ?? theme.colors.focus;
-    }
-    function channel$1(color, index) {
-        return Number.parseInt(color.slice(index * 2, index * 2 + 2), 16);
-    }
-    function mixColor$1(start, end, ratio) {
-        const startHex = normalizedHex(start);
-        const endHex = normalizedHex(end);
-        if (startHex === null || endHex === null)
-            return ratio < 0.5 ? start : end;
-        const bounded = Math.max(0, Math.min(1, ratio));
-        const channels = [0, 1, 2].map((index) => Math.round(channel$1(startHex, index) + (channel$1(endHex, index) - channel$1(startHex, index)) * bounded));
-        return `#${channels.map((value) => value.toString(16).padStart(2, '0')).join('')}`;
-    }
-    function colorWithOpacity(color, opacity) {
-        const hex = normalizedHex(color);
-        if (hex === null)
-            return color;
-        const alpha = Math.round(Math.max(0, Math.min(1, opacity)) * 255)
-            .toString(16)
-            .padStart(2, '0');
-        return `#${hex}${alpha}`;
-    }
-    function readableTextColor(color, light, dark) {
-        const hex = normalizedHex(color);
-        if (hex === null)
-            return light;
-        const linear = [0, 1, 2].map((index) => {
-            const value = channel$1(hex, index) / 255;
-            return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+    function emptyAnalyticSelectionState(combine = 'union') {
+        return normalizeAnalyticSelectionState({
+            version: analyticSelectionVersion,
+            combine,
+            selections: [],
         });
-        const luminance = 0.2126 * (linear[0] ?? 0) + 0.7152 * (linear[1] ?? 0) + 0.0722 * (linear[2] ?? 0);
-        return luminance > 0.42 ? dark : light;
+    }
+    function primitiveEqual(left, right) {
+        return typeof left === 'number' && typeof right === 'number'
+            ? Number.isFinite(left) && Object.is(left, right)
+            : Object.is(left, right);
+    }
+    function targetMatches(target, sample) {
+        if (target.layerId !== undefined && target.layerId !== sample.layerId)
+            return false;
+        if (target.rowIndex !== undefined) {
+            const rows = Array.isArray(target.rowIndex) ? target.rowIndex : [target.rowIndex];
+            if (sample.rowIndex === undefined || !rows.includes(sample.rowIndex))
+                return false;
+        }
+        if (target.field !== undefined) {
+            const values = target.values ?? (target.value === undefined ? [] : [target.value]);
+            const actual = sample.datum?.[target.field];
+            if (!values.some((value) => primitiveEqual(actual, value)))
+                return false;
+        }
+        return target.rowIndex !== undefined || target.field !== undefined;
+    }
+    function inExtent(value, extent) {
+        if (Array.isArray(extent)) {
+            return (typeof value === 'number' &&
+                Number.isFinite(value) &&
+                value >= extent[0] &&
+                value <= extent[1]);
+        }
+        return extent.values.some((candidate) => Object.is(candidate, value));
+    }
+    function pointInPolygon$1(point, polygon) {
+        let inside = false;
+        for (let current = 0, previous = polygon.length - 1; current < polygon.length; previous = current++) {
+            const a = polygon[current];
+            const b = polygon[previous];
+            const crosses = a.y > point.y !== b.y > point.y;
+            const edgeX = ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y || Number.EPSILON) + a.x;
+            if (crosses && point.x < edgeX)
+                inside = !inside;
+        }
+        return inside;
+    }
+    function normalizedSelectionMatches(normalized, sample) {
+        if (normalized.selections.length === 0)
+            return false;
+        const matches = (selection) => {
+            switch (selection.type) {
+                case 'point': {
+                    if (selection.target !== undefined && !targetMatches(selection.target, sample))
+                        return false;
+                    if (selection.x !== undefined && !Object.is(sample[selection.xAxis ?? 'x'], selection.x))
+                        return false;
+                    if (selection.y !== undefined && !Object.is(sample[selection.yAxis ?? 'y'], selection.y))
+                        return false;
+                    return true;
+                }
+                case 'interval':
+                case 'rectangle':
+                    return (inExtent(sample[selection.xAxis], selection.x) &&
+                        inExtent(sample[selection.yAxis], selection.y));
+                case 'axis':
+                    return inExtent(sample[selection.axis], selection.extent);
+                case 'lasso': {
+                    const x = sample[selection.xAxis];
+                    const y = sample[selection.yAxis];
+                    return (typeof x === 'number' &&
+                        typeof y === 'number' &&
+                        pointInPolygon$1({ x, y }, selection.points));
+                }
+            }
+        };
+        return normalized.combine === 'union'
+            ? normalized.selections.some(matches)
+            : normalized.selections.every(matches);
+    }
+    function analyticSelectionPredicate(state) {
+        const normalized = normalizeAnalyticSelectionState(state);
+        return (sample) => normalizedSelectionMatches(normalized, sample);
+    }
+    function analyticSelectionMatches(state, sample) {
+        return normalizedSelectionMatches(normalizeAnalyticSelectionState(state), sample);
+    }
+    class AnalyticSelectionStore {
+        #state;
+        constructor(initial = emptyAnalyticSelectionState()) {
+            this.#state = normalizeAnalyticSelectionState(initial);
+        }
+        get() {
+            return this.#state;
+        }
+        set(state) {
+            this.#state = normalizeAnalyticSelectionState(state);
+            return this.#state;
+        }
+        clear(combine = this.#state.combine) {
+            this.#state = emptyAnalyticSelectionState(combine);
+            return this.#state;
+        }
+        apply(selection, update = 'replace') {
+            const normalized = normalizeSelection(selection);
+            if (update === 'replace') {
+                return this.set({
+                    version: analyticSelectionVersion,
+                    combine: this.#state.combine,
+                    selections: [normalized],
+                });
+            }
+            const existing = this.#state.selections.filter((candidate) => analyticSelectionKey(candidate) !== analyticSelectionKey(normalized));
+            return this.set({
+                version: analyticSelectionVersion,
+                combine: update,
+                selections: [...existing, normalized],
+            });
+        }
+    }
+
+    const chartSnapshotSchema = 'graflume.chart-snapshot.v1';
+    const chartSnapshotLimits = Object.freeze({
+        bytes: 32 * 1024 * 1024,
+        values: 2_000_000,
+        depth: 64,
+        nodes: 100_000,
+        dimension: 32_768,
+    });
+    /** Deep copy a bounded function-free payload before accepting any persisted runtime data. */
+    function snapshotJSONCopy(input) {
+        let values = 0;
+        let bytes = 0;
+        const budget = (text) => {
+            bytes += new TextEncoder().encode(text).byteLength;
+            if (bytes > chartSnapshotLimits.bytes)
+                throw new GraflumeError('INVALID_SPEC', 'Chart snapshot exceeds its byte budget.');
+        };
+        const ancestors = new Set();
+        const copy = (value, depth) => {
+            if (++values > chartSnapshotLimits.values || depth > chartSnapshotLimits.depth)
+                throw new GraflumeError('INVALID_SPEC', 'Chart snapshot exceeds its value or depth budget.');
+            if (value === null || typeof value === 'boolean') {
+                budget(String(value));
+                return value;
+            }
+            if (typeof value === 'number') {
+                if (!Number.isFinite(value))
+                    throw new GraflumeError('INVALID_SPEC', 'Chart snapshot numbers must be finite.');
+                budget(String(value));
+                return value;
+            }
+            if (typeof value === 'string') {
+                if (value.length > chartSnapshotLimits.bytes)
+                    throw new GraflumeError('INVALID_SPEC', 'Chart snapshot string is too large.');
+                budget(JSON.stringify(value));
+                return value;
+            }
+            if (value === undefined)
+                return undefined;
+            if (value instanceof Date)
+                return copy(Date.prototype.toISOString.call(value), depth + 1);
+            if (typeof value !== 'object')
+                throw new GraflumeError('INVALID_SPEC', 'Chart snapshots must be function-free JSON.');
+            if (ancestors.has(value))
+                throw new GraflumeError('INVALID_SPEC', 'Chart snapshots must not contain cycles.');
+            ancestors.add(value);
+            budget('[]');
+            let output;
+            if (Array.isArray(value) || (ArrayBuffer.isView(value) && !(value instanceof DataView)))
+                output = Array.from(value, (v) => copy(v, depth + 1) ?? null);
+            else {
+                if (Object.getPrototypeOf(value) !== Object.prototype &&
+                    Object.getPrototypeOf(value) !== null)
+                    throw new GraflumeError('INVALID_SPEC', 'Chart snapshots require plain objects.');
+                const record = {};
+                for (const key of Object.keys(value)) {
+                    budget(JSON.stringify(key) + ':,');
+                    if (key === '__proto__' || key === 'constructor' || key === 'prototype')
+                        throw new GraflumeError('INVALID_SPEC', 'Unsafe chart snapshot key.');
+                    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+                    if (descriptor?.get || descriptor?.set)
+                        throw new GraflumeError('INVALID_SPEC', 'Chart snapshot accessors are not supported.');
+                    const child = copy(value[key], depth + 1);
+                    if (child !== undefined)
+                        record[key] = child;
+                }
+                output = record;
+            }
+            ancestors.delete(value);
+            return output;
+        };
+        const result = copy(input, 0);
+        if (new TextEncoder().encode(JSON.stringify(result)).byteLength > chartSnapshotLimits.bytes)
+            throw new GraflumeError('INVALID_SPEC', 'Chart snapshot exceeds its byte budget.');
+        return result;
+    }
+    function captureCoordinates(context, spec) {
+        const axes = {};
+        for (const [id, scale] of Object.entries(context.axes)) {
+            if (scale === undefined)
+                continue;
+            const encoding = spec.layers
+                .flatMap((layer) => [layer.x, layer.y])
+                .find((channel) => channel.axisId === id);
+            const categorical = scale.kind === 'band' || scale.kind === 'point' || scale.kind === 'ordinal';
+            axes[id] = {
+                descriptor: scale.descriptor,
+                options: encoding?.scale ?? {},
+                bandwidth: scale.bandwidth,
+                ...(categorical ? { positions: scale.domain().map((value) => scale.map(value)) } : {}),
+            };
+        }
+        return { ...context, axes };
+    }
+    function restoreCoordinates(context) {
+        const axes = {};
+        for (const [id, saved] of Object.entries(context.axes)) {
+            if (saved === undefined)
+                continue;
+            const { descriptor } = saved;
+            const scale = createPositionScale({
+                ...saved.options,
+                type: descriptor.type,
+                domain: descriptor.domain,
+                range: descriptor.range,
+                reverse: false,
+                nice: false,
+                outOfBounds: descriptor.outOfBounds,
+            }, { domain: descriptor.domain, range: descriptor.range });
+            if (saved.positions !== undefined) {
+                if (saved.positions.length !== descriptor.domain.length ||
+                    saved.positions.some((value) => !Number.isFinite(value)))
+                    throw new GraflumeError('INVALID_SPEC', 'Invalid snapshot categorical positions.');
+                const positions = saved.positions;
+                axes[id] = {
+                    kind: scale.kind,
+                    descriptor,
+                    bandwidth: saved.bandwidth,
+                    domain: () => descriptor.domain,
+                    range: () => descriptor.range,
+                    map: (value) => {
+                        const key = value instanceof Date ? value.toISOString() : String(value);
+                        const index = descriptor.domain.findIndex((candidate) => String(candidate) === key);
+                        return index < 0 ? Number.NaN : positions[index];
+                    },
+                    ticks: (count, locale) => scale.ticks(count, locale).map((tick) => ({
+                        ...tick,
+                        position: positions[descriptor.domain.findIndex((value) => value === tick.value)] ??
+                            tick.position,
+                    })),
+                };
+            }
+            else
+                axes[id] = scale;
+        }
+        return { ...context, axes };
+    }
+    function captureChartSnapshot(spec, renderSpec, result, state) {
+        const snapshot = snapshotJSONCopy({
+            schema: chartSnapshotSchema,
+            spec,
+            renderSpec,
+            scene: result.scene,
+            svg: sceneToSVG(result.scene),
+            theme: result.theme,
+            dataLineage: result.dataLineage,
+            coordinates: captureCoordinates(result.coordinates, result.spec),
+            coordinateViews: result.coordinateViews.map((view) => ({
+                ...view,
+                coordinates: captureCoordinates(view.coordinates, result.spec),
+            })),
+            legend: sceneLegendLayout(result.scene),
+            state,
+        });
+        return snapshot;
+    }
+    /** Import real vector primitives; callers supply truthful datum/semantic metadata, never bitmap substitutes. */
+    function snapshotFromScene(scene, options = {}) {
+        const spec = options.spec ?? {
+            data: [],
+            mark: 'point',
+            x: { field: 'x', type: 'quantitative' },
+            y: { field: 'y', type: 'quantitative' },
+            axes: { x: false, y: false },
+            renderer: 'svg',
+            theme: 'statistical-minimal',
+            interaction: {
+                tooltip: { title: scene.accessibility.label },
+                navigation: { minZoom: 1, maxZoom: 6 },
+                controls: { zoom: true, reset: true, fullscreen: true, export: true },
+            },
+        };
+        const normalized = normalizeSpec$1(spec);
+        if (normalized.interaction.domainNavigation !== false ||
+            normalized.interaction.selection !== false ||
+            normalized.interaction.playback !== false)
+            throw new GraflumeError('INVALID_SPEC', 'Imported scenes support inspection navigation; data-domain navigation, selection, and playback require a compiled data model.');
+        const coordinates = { plot: { x: 0, y: 0, width: scene.width, height: scene.height }, axes: {} };
+        const result = {
+            scene,
+            spec: normalized,
+            theme: new ThemeRegistry().resolve(normalized.theme),
+            dataLineage: {},
+            coordinates,
+            coordinateViews: [
+                {
+                    id: 'plot',
+                    label: scene.accessibility.label,
+                    bounds: coordinates.plot,
+                    offsetX: 0,
+                    offsetY: 0,
+                    coordinates,
+                },
+            ],
+        };
+        const snapshot = {
+            ...captureChartSnapshot(spec, spec, result, {
+                view: { zoom: 1, offsetX: 0, offsetY: 0 },
+                hiddenLegendItems: [],
+            }),
+            importedScene: true,
+        };
+        return restoreChartSnapshot(snapshot).snapshot;
+    }
+    /** Validates before mounting DOM; never compiles marks, runs transforms, or lays out a chart. */
+    function restoreChartSnapshot(input) {
+        try {
+            const snapshot = snapshotJSONCopy(input);
+            if (snapshot?.schema !== chartSnapshotSchema)
+                throw new Error('Unsupported snapshot schema.');
+            normalizeSpec$1(snapshot.spec);
+            const spec = normalizeSpec$1(snapshot.renderSpec);
+            for (const dimension of [snapshot.scene.width, snapshot.scene.height])
+                if (!Number.isFinite(dimension) || dimension < 1 || dimension > chartSnapshotLimits.dimension)
+                    throw new Error('Snapshot dimensions are out of range.');
+            if (!Array.isArray(snapshot.scene.semanticIndex) ||
+                !Array.isArray(snapshot.coordinateViews) ||
+                snapshot.coordinateViews.length > 64 ||
+                !Array.isArray(snapshot.state.hiddenLegendItems) ||
+                snapshot.state.hiddenLegendItems.some((id) => typeof id !== 'string'))
+                throw new Error('Invalid snapshot metadata.');
+            const view = snapshot.state.view;
+            if (!Number.isFinite(view.zoom) ||
+                view.zoom < 1 ||
+                view.zoom > 6 ||
+                !Number.isFinite(view.offsetX) ||
+                !Number.isFinite(view.offsetY))
+                throw new Error('Invalid snapshot inspection view.');
+            if (snapshot.state.domainView !== undefined)
+                normalizeDomainViewState(snapshot.state.domainView);
+            if (snapshot.state.analyticSelection !== undefined)
+                normalizeAnalyticSelectionState(snapshot.state.analyticSelection);
+            if (snapshot.state.annotations !== undefined)
+                normalizeSpec$1({ ...snapshot.spec, annotations: snapshot.state.annotations });
+            // Equality with a literal-only, escaped serializer prevents stored SVG injection.
+            if (typeof snapshot.svg !== 'string' || snapshot.svg !== sceneToSVG(snapshot.scene))
+                throw new Error('Snapshot SVG does not match its vector scene.');
+            const result = {
+                scene: snapshot.scene,
+                spec,
+                theme: snapshot.theme,
+                dataLineage: snapshot.dataLineage,
+                coordinates: restoreCoordinates(snapshot.coordinates),
+                coordinateViews: snapshot.coordinateViews.map((view) => ({
+                    ...view,
+                    coordinates: restoreCoordinates(view.coordinates),
+                })),
+            };
+            registerLegendLayout(result.scene, snapshot.legend);
+            return { snapshot, result };
+        }
+        catch {
+            throw new GraflumeError('INVALID_SPEC', 'Invalid or unsupported chart snapshot.');
+        }
+    }
+
+    const family$2 = (id, name, quickApi, mark) => ({
+        id,
+        name,
+        quickApi,
+        mark,
+    });
+    const variant$1 = (id, name, quickApi, mark, familyId, mode = 'default') => ({ id, name, quickApi, mark, familyId, mode });
+    /** Distinct families added by the complete entrypoint. */
+    const additionalChartTypeCatalog = [
+        family$2('polar', 'Polar chart', 'polar', 'polar'),
+        family$2('network', 'Network chart', 'network', 'graph'),
+        family$2('chord', 'Chord diagram', 'chord', 'chord'),
+        family$2('funnel', 'Funnel chart', 'funnel', 'funnel'),
+        family$2('parallel', 'Parallel coordinates', 'parallel', 'parallel'),
+        family$2('heatmap', 'Heatmap', 'heatmap', 'heatmap'),
+        family$2('image', 'Raster image', 'image', 'image'),
+        family$2('ternary', 'Ternary chart', 'ternary', 'ternary'),
+        family$2('smith', 'Smith chart', 'smith', 'smith'),
+        family$2('scatter-matrix', 'Scatter matrix', 'scatterMatrix', 'scatter-matrix'),
+        family$2('carpet', 'Carpet chart', 'carpet', 'carpet'),
+    ];
+    /** Existing advanced names retained as compatible presets. */
+    const additionalChartVariantCatalog = [
+        variant$1('polar', 'Polar chart', 'polar', 'polar', 'polar'),
+        variant$1('radar', 'Radar chart', 'radar', 'radar', 'polar', 'radar'),
+        variant$1('polar-line', 'Polar line chart', 'polarLine', 'polar', 'polar', 'line'),
+        variant$1('polar-scatter', 'Polar scatter chart', 'polarScatter', 'polar', 'polar', 'scatter'),
+        variant$1('polar-bar', 'Polar bar chart', 'polarBar', 'polar', 'polar', 'bar'),
+        variant$1('tree', 'Tree chart', 'tree', 'tree', 'hierarchy', 'tree'),
+        variant$1('graph', 'Graph chart', 'graph', 'graph', 'network', 'node-link'),
+        variant$1('chord', 'Chord diagram', 'chord', 'chord', 'chord'),
+        variant$1('funnel', 'Funnel chart', 'funnel', 'funnel', 'funnel'),
+        variant$1('funnel-area', 'Funnel area chart', 'funnelArea', 'funnel', 'funnel', 'area'),
+        variant$1('parallel', 'Parallel coordinates', 'parallel', 'parallel', 'parallel'),
+        variant$1('parallel-categories', 'Parallel categories', 'parallelCategories', 'parallel', 'parallel', 'categories'),
+        variant$1('boxplot', 'Boxplot', 'boxplot', 'boxplot', 'distribution', 'boxplot'),
+        variant$1('effect-scatter', 'Effect scatter chart', 'effectScatter', 'effect-scatter', 'scatter', 'emphasis'),
+        variant$1('lines', 'Connection lines', 'lines', 'lines', 'network', 'connections'),
+        variant$1('heatmap', 'Heatmap', 'heatmap', 'heatmap', 'heatmap'),
+        variant$1('image', 'Raster image', 'image', 'image', 'image'),
+        variant$1('ternary', 'Ternary chart', 'ternary', 'ternary', 'ternary'),
+        variant$1('smith', 'Smith chart', 'smith', 'smith', 'smith'),
+        variant$1('scatter-matrix', 'Scatter matrix', 'scatterMatrix', 'scatter-matrix', 'scatter-matrix'),
+        variant$1('carpet', 'Carpet chart', 'carpet', 'carpet', 'carpet'),
+        variant$1('carpet-scatter', 'Carpet scatter overlay', 'carpetScatter', 'carpet', 'carpet', 'scatter'),
+        variant$1('carpet-contour', 'Carpet contour overlay', 'carpetContour', 'carpet', 'carpet', 'contour'),
+        variant$1('pictorial-bar', 'Pictorial bar chart', 'pictorialBar', 'pictorial-bar', 'bar', 'pictorial'),
+        variant$1('theme-river', 'Theme river chart', 'themeRiver', 'theme-river', 'area', 'stream'),
+        variant$1('sunburst', 'Sunburst chart', 'sunburst', 'sunburst', 'hierarchy', 'sunburst'),
+        variant$1('custom', 'Declarative custom chart', 'custom', 'custom', 'custom'),
+    ];
+
+    const family$1 = (id, name, quickApi, mark) => ({
+        id,
+        name,
+        quickApi,
+        mark,
+    });
+    const variant = (id, name, quickApi, mark, familyId, mode = 'default', metadata = {}) => ({ id, name, quickApi, mark, familyId, mode, ...metadata });
+    const researchFoundationsIntroduction = {
+        introducedIn: 'research-foundations-2026-08-25',
+    };
+    /** Established chart families shown in discovery surfaces. */
+    const chartTypeCatalog = [
+        family$1('annotation', 'Annotation chart', 'annotation', 'annotation'),
+        family$1('area', 'Area chart', 'area', 'area'),
+        family$1('bar', 'Bar chart', 'bar', 'bar'),
+        family$1('bubble', 'Bubble chart', 'bubble', 'bubble'),
+        family$1('calendar', 'Calendar chart', 'calendar', 'calendar'),
+        family$1('candlestick', 'Candlestick chart', 'candlestick', 'candlestick'),
+        family$1('combination', 'Combination chart', 'combo', 'multiple'),
+        family$1('difference', 'Difference chart', 'diff', 'diff'),
+        family$1('pie', 'Pie chart', 'pie', 'pie'),
+        family$1('timeline', 'Timeline and range chart', 'timeline', 'timeline'),
+        family$1('gauge', 'Gauge chart', 'gauge', 'gauge'),
+        family$1('map', 'Map chart', 'map', 'map'),
+        family$1('distribution', 'Distribution chart', 'distribution', 'distribution'),
+        family$1('interval', 'Interval chart', 'intervals', 'interval'),
+        family$1('line', 'Line chart', 'line', 'line'),
+        family$1('motion', 'Motion chart', 'motion', 'motion'),
+        family$1('hierarchy', 'Hierarchy chart', 'treemap', 'treemap'),
+        family$1('flow', 'Flow diagram', 'sankey', 'sankey'),
+        family$1('scatter', 'Scatter chart', 'scatter', 'point'),
+        family$1('table', 'Table chart', 'table', 'table'),
+        family$1('waterfall', 'Waterfall chart', 'waterfall', 'waterfall'),
+        family$1('word-tree', 'Word tree', 'wordTree', 'word-tree'),
+    ];
+    /** Existing Quick API names retained as compatible presets. */
+    const chartVariantCatalog = [
+        variant('annotation', 'Annotation chart', 'annotation', 'annotation', 'annotation'),
+        variant('annotated-timeline', 'Annotated timeline', 'annotatedTimeline', 'annotation', 'annotation', 'timeline'),
+        variant('area', 'Area chart', 'area', 'area', 'area'),
+        variant('bar', 'Bar chart', 'horizontalBar', 'bar', 'bar', 'horizontal'),
+        variant('bubble', 'Bubble chart', 'bubble', 'bubble', 'bubble'),
+        variant('calendar', 'Calendar chart', 'calendar', 'calendar', 'calendar'),
+        variant('candlestick', 'Candlestick chart', 'candlestick', 'candlestick', 'candlestick'),
+        variant('column', 'Column chart', 'column', 'bar', 'bar', 'vertical'),
+        variant('combo', 'Combo chart', 'combo', 'multiple', 'combination'),
+        variant('diff', 'Diff chart', 'diff', 'diff', 'difference'),
+        variant('donut', 'Donut chart', 'donut', 'pie', 'pie', 'donut'),
+        variant('gantt', 'Gantt chart', 'gantt', 'gantt', 'timeline', 'gantt'),
+        variant('gauge', 'Gauge chart', 'gauge', 'gauge', 'gauge'),
+        variant('gauge-number', 'Number indicator', 'gaugeNumber', 'gauge', 'gauge', 'number'),
+        variant('gauge-delta', 'Delta indicator', 'gaugeDelta', 'gauge', 'gauge', 'delta'),
+        variant('gauge-bullet', 'Bullet gauge', 'gaugeBullet', 'gauge', 'gauge', 'bullet'),
+        variant('geo', 'Geographic region chart', 'geo', 'geo', 'map', 'region'),
+        variant('distribution', 'Distribution chart', 'distribution', 'distribution', 'distribution', 'histogram'),
+        variant('histogram', 'Histogram', 'histogram', 'histogram', 'distribution', 'histogram'),
+        variant('ecdf', 'Empirical cumulative distribution', 'ecdf', 'distribution', 'distribution', 'ecdf', researchFoundationsIntroduction),
+        variant('ccdf', 'Complementary empirical distribution', 'ccdf', 'distribution', 'distribution', 'ccdf', researchFoundationsIntroduction),
+        variant('kde', 'Kernel density estimate', 'kde', 'distribution', 'distribution', 'kde', researchFoundationsIntroduction),
+        variant('histogram-2d', 'Bivariate histogram', 'histogram2d', 'distribution', 'distribution', 'histogram-2d'),
+        variant('histogram-2d-contour', 'Bivariate density contours', 'histogram2dContour', 'distribution', 'distribution', 'histogram-2d-contour'),
+        variant('violin', 'Violin chart', 'violin', 'distribution', 'distribution', 'violin'),
+        variant('intervals', 'Intervals', 'intervals', 'interval', 'interval'),
+        variant('line', 'Line chart', 'line', 'line', 'line'),
+        variant('map', 'Map', 'map', 'map', 'map'),
+        variant('motion', 'Motion chart', 'motion', 'motion', 'motion'),
+        variant('org', 'Organization chart', 'org', 'org', 'hierarchy', 'organization'),
+        variant('pie', 'Pie chart', 'pie', 'pie', 'pie'),
+        variant('sankey', 'Sankey diagram', 'sankey', 'sankey', 'flow'),
+        variant('scatter', 'Scatter chart', 'scatter', 'point', 'scatter'),
+        variant('stepped-area', 'Stepped area chart', 'steppedArea', 'stepped-area', 'area', 'stepped'),
+        variant('table', 'Table chart', 'table', 'table', 'table'),
+        variant('timeline', 'Timeline', 'timeline', 'timeline', 'timeline'),
+        variant('treemap', 'Tree map', 'treemap', 'treemap', 'hierarchy', 'treemap'),
+        variant('icicle', 'Icicle chart', 'icicle', 'treemap', 'hierarchy', 'icicle'),
+        variant('trendline', 'Trendline', 'trendline', 'trendline', 'line', 'trend'),
+        variant('vega', 'Portable adapter chart', 'vegaChart', 'vega', 'custom', 'adapter'),
+        variant('waterfall', 'Waterfall chart', 'waterfall', 'waterfall', 'waterfall'),
+        variant('word-tree', 'Word tree', 'wordTree', 'word-tree', 'word-tree'),
+    ];
+
+    const variantFamilyOverrides = {
+        'arc-diagram': 'network',
+        'area-range': 'interval',
+        'area-spline': 'area',
+        'area-spline-range': 'interval',
+        'bell-curve': 'distribution',
+        bullet: 'bar',
+        'column-pyramid': 'bar',
+        'column-range': 'interval',
+        cylinder: 'bar',
+        'dependency-wheel': 'chord',
+        dumbbell: 'interval',
+        'error-bar': 'interval',
+        'event-flags': 'annotation',
+        'funnel-3d': 'funnel',
+        'heikin-ashi': 'candlestick',
+        'high-low-close': 'candlestick',
+        'hollow-candlestick': 'candlestick',
+        kagi: 'price-blocks',
+        lollipop: 'bar',
+        'network-graph': 'network',
+        'open-high-low-close': 'candlestick',
+        'organization-network': 'hierarchy',
+        'packed-bubble': 'bubble',
+        pareto: 'combination',
+        'pictorial-column': 'bar',
+        polygon: 'area',
+        pyramid: 'funnel',
+        'pyramid-3d': 'funnel',
+        'scatter-3d': 'scatter',
+        'three-line-break': 'price-blocks',
+        'solid-gauge': 'gauge',
+        spline: 'line',
+        streamgraph: 'area',
+        'tile-map': 'heatmap',
+        'tree-graph': 'hierarchy',
+        'variable-pie': 'pie',
+        'variable-width': 'bar',
+        'range-bars': 'price-blocks',
+        vector: 'vector-field',
+        'volume-by-price': 'volume-profile',
+        'wind-barb': 'vector-field',
+        'x-range': 'timeline',
+    };
+    function familyIdFor(id, category) {
+        const override = variantFamilyOverrides[id];
+        if (override)
+            return override;
+        if (category === 'indicator')
+            return 'technical-indicator';
+        if (category === 'map')
+            return 'map';
+        if (id === 'point-and-figure' || id === 'renko')
+            return 'price-blocks';
+        return id;
+    }
+    const entry = (id, name, quickApi, mark, category, _legacyFamily = id) => {
+        const familyId = familyIdFor(id, category);
+        return {
+            id,
+            name,
+            quickApi,
+            mark,
+            category,
+            familyId,
+            mode: familyId === id ? 'default' : id,
+            canonicalFamily: familyId,
+        };
+    };
+    const currentLimitationsRelease = 'current-limitations-2026-08-26';
+    const currentReleaseEntry = (...args) => ({
+        ...entry(...args),
+        introducedIn: currentLimitationsRelease,
+    });
+    /**
+     * Specialized series that extend the established and advanced catalogs.
+     * Existing families are represented once and reused through canonical aliases.
+     */
+    const seriesChartVariantCatalog = [
+        entry('arc-diagram', 'Arc diagram', 'arcDiagram', 'arc-diagram', 'relationship'),
+        entry('area-range', 'Area range chart', 'areaRange', 'range', 'cartesian'),
+        entry('area-spline', 'Smooth area chart', 'areaSpline', 'smooth', 'cartesian'),
+        entry('area-spline-range', 'Smooth area range chart', 'areaSplineRange', 'range', 'cartesian'),
+        entry('bell-curve', 'Bell curve', 'bellCurve', 'distribution', 'distribution'),
+        entry('bullet', 'Bullet chart', 'bullet', 'bullet', 'cartesian'),
+        entry('column-pyramid', 'Column pyramid chart', 'columnPyramid', 'pyramid', 'cartesian'),
+        entry('column-range', 'Column range chart', 'columnRange', 'range', 'cartesian'),
+        entry('contour', 'Contour chart', 'contour', 'contour', 'distribution'),
+        entry('cylinder', 'Cylinder chart', 'cylinder', 'cylinder', 'cartesian'),
+        entry('dependency-wheel', 'Dependency wheel', 'dependencyWheel', 'chord', 'relationship', 'chord'),
+        entry('dumbbell', 'Dumbbell chart', 'dumbbell', 'range', 'cartesian'),
+        entry('error-bar', 'Error bar chart', 'errorBar', 'interval', 'cartesian', 'intervals'),
+        entry('funnel-3d', 'Depth funnel chart', 'funnel3d', 'pyramid', 'radial'),
+        entry('item', 'Item chart', 'itemChart', 'item', 'radial'),
+        entry('lollipop', 'Lollipop chart', 'lollipop', 'lollipop', 'cartesian'),
+        entry('network-graph', 'Network graph', 'networkGraph', 'graph', 'relationship', 'graph'),
+        entry('organization-network', 'Organization network', 'organizationNetwork', 'org', 'relationship', 'org'),
+        entry('packed-bubble', 'Packed bubble chart', 'packedBubble', 'packed-bubble', 'relationship'),
+        entry('pareto', 'Pareto chart', 'pareto', 'pareto', 'distribution'),
+        entry('pictorial-column', 'Pictorial column chart', 'pictorialColumn', 'pictorial-bar', 'cartesian', 'pictorial-bar'),
+        entry('polygon', 'Polygon chart', 'polygon', 'polygon', 'cartesian'),
+        entry('pyramid', 'Pyramid chart', 'pyramid', 'pyramid', 'radial'),
+        entry('pyramid-3d', 'Depth pyramid chart', 'pyramid3d', 'pyramid', 'radial', 'pyramid'),
+        entry('scatter-3d', 'Three-axis scatter chart', 'scatter3d', 'scatter-3d', 'cartesian'),
+        entry('solid-gauge', 'Solid gauge', 'solidGauge', 'solid-gauge', 'radial'),
+        entry('spline', 'Spline chart', 'spline', 'smooth', 'cartesian'),
+        entry('streamgraph', 'Streamgraph', 'streamgraph', 'theme-river', 'distribution', 'theme-river'),
+        entry('tile-map', 'Tile map', 'tileMap', 'tilemap', 'map'),
+        entry('tree-graph', 'Tree graph', 'treeGraph', 'tree', 'relationship', 'tree'),
+        entry('variable-pie', 'Variable radius pie chart', 'variablePie', 'variable-pie', 'radial'),
+        entry('variable-width', 'Variable width column chart', 'variableWidth', 'variwide', 'cartesian'),
+        entry('vector', 'Vector field chart', 'vector', 'vector', 'cartesian'),
+        entry('venn', 'Venn diagram', 'venn', 'venn', 'relationship'),
+        entry('wind-barb', 'Wind barb chart', 'windBarb', 'wind-barb', 'cartesian'),
+        entry('word-cloud', 'Word cloud', 'wordCloud', 'word-cloud', 'relationship'),
+        entry('x-range', 'Horizontal range chart', 'xRange', 'timeline', 'cartesian', 'timeline'),
+        entry('acceleration-bands', 'Acceleration bands', 'accelerationBands', 'indicator', 'indicator'),
+        entry('awesome-oscillator', 'Awesome oscillator', 'awesomeOscillator', 'indicator', 'indicator'),
+        entry('absolute-price-oscillator', 'Absolute price oscillator', 'absolutePriceOscillator', 'indicator', 'indicator'),
+        entry('aroon', 'Aroon indicator', 'aroon', 'indicator', 'indicator'),
+        entry('aroon-oscillator', 'Aroon oscillator', 'aroonOscillator', 'indicator', 'indicator'),
+        entry('average-true-range', 'Average true range', 'averageTrueRange', 'indicator', 'indicator'),
+        entry('volatility-bands', 'Volatility bands', 'volatilityBands', 'indicator', 'indicator'),
+        entry('commodity-channel-index', 'Commodity channel index', 'commodityChannelIndex', 'indicator', 'indicator'),
+        entry('chaikin-oscillator', 'Chaikin oscillator', 'chaikinOscillator', 'indicator', 'indicator'),
+        entry('chaikin-money-flow', 'Chaikin money flow', 'chaikinMoneyFlow', 'indicator', 'indicator'),
+        entry('chande-momentum-oscillator', 'Chande momentum oscillator', 'chandeMomentumOscillator', 'indicator', 'indicator'),
+        entry('double-exponential-average', 'Double exponential moving average', 'doubleExponentialMovingAverage', 'indicator', 'indicator'),
+        entry('disparity-index', 'Disparity index', 'disparityIndex', 'indicator', 'indicator'),
+        entry('directional-movement-index', 'Directional movement index', 'directionalMovementIndex', 'indicator', 'indicator'),
+        entry('detrended-price-oscillator', 'Detrended price oscillator', 'detrendedPriceOscillator', 'indicator', 'indicator'),
+        entry('exponential-moving-average', 'Exponential moving average', 'exponentialMovingAverage', 'indicator', 'indicator'),
+        entry('event-flags', 'Event flags', 'eventFlags', 'flags', 'financial'),
+        entry('heikin-ashi', 'Heikin-Ashi chart', 'heikinAshi', 'financial', 'financial'),
+        entry('high-low-close', 'High-low-close chart', 'highLowClose', 'financial', 'financial'),
+        entry('hollow-candlestick', 'Hollow candlestick chart', 'hollowCandlestick', 'financial', 'financial'),
+        entry('ichimoku-cloud', 'Ichimoku cloud', 'ichimokuCloud', 'indicator', 'indicator'),
+        entry('keltner-channels', 'Keltner channels', 'keltnerChannels', 'indicator', 'indicator'),
+        entry('klinger-oscillator', 'Klinger oscillator', 'klingerOscillator', 'indicator', 'indicator'),
+        entry('linear-regression', 'Linear regression', 'linearRegression', 'indicator', 'indicator'),
+        entry('linear-regression-angle', 'Linear regression angle', 'linearRegressionAngle', 'indicator', 'indicator'),
+        entry('linear-regression-intercept', 'Linear regression intercept', 'linearRegressionIntercept', 'indicator', 'indicator'),
+        entry('linear-regression-slope', 'Linear regression slope', 'linearRegressionSlope', 'indicator', 'indicator'),
+        entry('moving-average-convergence-divergence', 'Moving average convergence divergence', 'movingAverageConvergenceDivergence', 'indicator', 'indicator'),
+        entry('money-flow-index', 'Money flow index', 'moneyFlowIndex', 'indicator', 'indicator'),
+        entry('momentum', 'Momentum indicator', 'momentumIndicator', 'indicator', 'indicator'),
+        entry('normalized-average-true-range', 'Normalized average true range', 'normalizedAverageTrueRange', 'indicator', 'indicator'),
+        entry('on-balance-volume', 'On-balance volume', 'onBalanceVolume', 'indicator', 'indicator'),
+        entry('open-high-low-close', 'Open-high-low-close chart', 'openHighLowClose', 'financial', 'financial'),
+        entry('price-channel', 'Price channel', 'priceChannel', 'indicator', 'indicator'),
+        entry('pivot-points', 'Pivot points', 'pivotPoints', 'indicator', 'indicator'),
+        entry('point-and-figure', 'Point and figure chart', 'pointAndFigure', 'point-figure', 'financial'),
+        entry('percentage-price-oscillator', 'Percentage price oscillator', 'percentagePriceOscillator', 'indicator', 'indicator'),
+        entry('price-envelopes', 'Price envelopes', 'priceEnvelopes', 'indicator', 'indicator'),
+        entry('parabolic-stop-and-reverse', 'Parabolic stop and reverse', 'parabolicStopAndReverse', 'indicator', 'indicator'),
+        entry('renko', 'Renko chart', 'renko', 'renko', 'financial'),
+        currentReleaseEntry('kagi', 'Kagi chart', 'kagi', 'renko', 'financial'),
+        currentReleaseEntry('three-line-break', 'Three line break chart', 'threeLineBreak', 'renko', 'financial'),
+        currentReleaseEntry('range-bars', 'Range bars chart', 'rangeBars', 'renko', 'financial'),
+        entry('rate-of-change', 'Rate of change', 'rateOfChange', 'indicator', 'indicator'),
+        entry('relative-strength-index', 'Relative strength index', 'relativeStrengthIndex', 'indicator', 'indicator'),
+        entry('slow-stochastic', 'Slow stochastic oscillator', 'slowStochastic', 'indicator', 'indicator'),
+        entry('simple-moving-average', 'Simple moving average', 'simpleMovingAverage', 'indicator', 'indicator'),
+        entry('stochastic', 'Stochastic oscillator', 'stochastic', 'indicator', 'indicator'),
+        entry('supertrend', 'Supertrend', 'supertrend', 'indicator', 'indicator'),
+        entry('triple-exponential-average', 'Triple exponential moving average', 'tripleExponentialMovingAverage', 'indicator', 'indicator'),
+        entry('triple-exponential-oscillator', 'Triple exponential average oscillator', 'tripleExponentialAverageOscillator', 'indicator', 'indicator'),
+        entry('volume-by-price', 'Volume by price', 'volumeByPrice', 'volume-profile', 'financial'),
+        entry('volume-weighted-average-price', 'Volume weighted average price', 'volumeWeightedAveragePrice', 'indicator', 'indicator'),
+        entry('williams-range', 'Williams range', 'williamsRange', 'indicator', 'indicator'),
+        entry('weighted-moving-average', 'Weighted moving average', 'weightedMovingAverage', 'indicator', 'indicator'),
+        entry('zigzag', 'Zigzag indicator', 'zigzag', 'indicator', 'indicator'),
+        entry('flow-map', 'Flow map', 'flowMap', 'geo-flow', 'map'),
+        entry('geo-heatmap', 'Geographic heatmap', 'geoHeatmap', 'geo-heatmap', 'map'),
+        entry('map-bubble', 'Map bubble chart', 'mapBubble', 'map', 'map', 'map'),
+        entry('map-line', 'Map line chart', 'mapLine', 'geo-line', 'map'),
+        entry('map-point', 'Map point chart', 'mapPoint', 'map', 'map', 'map'),
+        entry('tiled-map', 'Tiled map', 'tiledMap', 'tiled-map', 'map'),
+    ];
+    const family = (id, name, quickApi, mark, category) => ({ id, name, quickApi, mark, category });
+    /** Specialized families that add a distinct data model or reading task. */
+    const seriesChartTypeCatalog = [
+        family('contour', 'Contour chart', 'contour', 'contour', 'distribution'),
+        family('item', 'Item chart', 'itemChart', 'item', 'radial'),
+        family('vector-field', 'Vector field chart', 'vectorField', 'vector', 'cartesian'),
+        family('venn', 'Venn diagram', 'venn', 'venn', 'relationship'),
+        family('word-cloud', 'Word cloud', 'wordCloud', 'word-cloud', 'relationship'),
+        family('price-blocks', 'Price blocks chart', 'priceBlocks', 'renko', 'financial'),
+        family('volume-profile', 'Volume profile chart', 'volumeProfile', 'volume-profile', 'financial'),
+        family('technical-indicator', 'Technical indicator chart', 'technicalIndicator', 'indicator', 'indicator'),
+    ];
+    const directFamilyByVariant = {
+        area: 'area',
+        bar: 'bar',
+        boxplot: 'distribution',
+        bubble: 'bubble',
+        candlestick: 'candlestick',
+        column: 'bar',
+        funnel: 'funnel',
+        gantt: 'timeline',
+        gauge: 'gauge',
+        heatmap: 'heatmap',
+        histogram: 'distribution',
+        line: 'line',
+        map: 'map',
+        pie: 'pie',
+        sankey: 'flow',
+        scatter: 'scatter',
+        sunburst: 'hierarchy',
+        timeline: 'timeline',
+        treemap: 'hierarchy',
+        trendline: 'line',
+        waterfall: 'waterfall',
+    };
+    const seriesFamilyByVariant = new Map(seriesChartVariantCatalog.map(({ id, familyId }) => [id, familyId]));
+    const compatibility = (identifier, variantId) => ({
+        identifier,
+        familyId: seriesFamilyByVariant.get(variantId) ?? directFamilyByVariant[variantId] ?? variantId,
+        variantId,
+    });
+    /** Public series identifiers and the single catalog family that implements each one. */
+    const seriesCompatibilityCatalog = [
+        compatibility('abands', 'acceleration-bands'),
+        compatibility('ao', 'awesome-oscillator'),
+        compatibility('apo', 'absolute-price-oscillator'),
+        compatibility('arcdiagram', 'arc-diagram'),
+        compatibility('area', 'area'),
+        compatibility('arearange', 'area-range'),
+        compatibility('areaspline', 'area-spline'),
+        compatibility('areasplinerange', 'area-spline-range'),
+        compatibility('aroon', 'aroon'),
+        compatibility('aroonoscillator', 'aroon-oscillator'),
+        compatibility('atr', 'average-true-range'),
+        compatibility('bar', 'bar'),
+        compatibility('bb', 'volatility-bands'),
+        compatibility('bellcurve', 'bell-curve'),
+        compatibility('boxplot', 'boxplot'),
+        compatibility('bubble', 'bubble'),
+        compatibility('bullet', 'bullet'),
+        compatibility('candlestick', 'candlestick'),
+        compatibility('cci', 'commodity-channel-index'),
+        compatibility('chaikin', 'chaikin-oscillator'),
+        compatibility('cmf', 'chaikin-money-flow'),
+        compatibility('cmo', 'chande-momentum-oscillator'),
+        compatibility('column', 'column'),
+        compatibility('columnpyramid', 'column-pyramid'),
+        compatibility('columnrange', 'column-range'),
+        compatibility('contour', 'contour'),
+        compatibility('cylinder', 'cylinder'),
+        compatibility('dema', 'double-exponential-average'),
+        compatibility('dependencywheel', 'dependency-wheel'),
+        compatibility('disparityindex', 'disparity-index'),
+        compatibility('dmi', 'directional-movement-index'),
+        compatibility('dpo', 'detrended-price-oscillator'),
+        compatibility('dumbbell', 'dumbbell'),
+        compatibility('ema', 'exponential-moving-average'),
+        compatibility('errorbar', 'error-bar'),
+        compatibility('flags', 'event-flags'),
+        compatibility('flowmap', 'flow-map'),
+        compatibility('funnel', 'funnel'),
+        compatibility('funnel3d', 'funnel-3d'),
+        compatibility('gantt', 'gantt'),
+        compatibility('gauge', 'gauge'),
+        compatibility('geoheatmap', 'geo-heatmap'),
+        compatibility('heatmap', 'heatmap'),
+        compatibility('heikinashi', 'heikin-ashi'),
+        compatibility('histogram', 'histogram'),
+        compatibility('hlc', 'high-low-close'),
+        compatibility('hollowcandlestick', 'hollow-candlestick'),
+        compatibility('ikh', 'ichimoku-cloud'),
+        compatibility('item', 'item'),
+        compatibility('keltnerchannels', 'keltner-channels'),
+        compatibility('kagi', 'kagi'),
+        compatibility('klinger', 'klinger-oscillator'),
+        compatibility('line', 'line'),
+        compatibility('linearregression', 'linear-regression'),
+        compatibility('linearregressionangle', 'linear-regression-angle'),
+        compatibility('linearregressionintercept', 'linear-regression-intercept'),
+        compatibility('linearregressionslope', 'linear-regression-slope'),
+        compatibility('lollipop', 'lollipop'),
+        compatibility('macd', 'moving-average-convergence-divergence'),
+        compatibility('map', 'map'),
+        compatibility('mapbubble', 'map-bubble'),
+        compatibility('mapline', 'map-line'),
+        compatibility('mappoint', 'map-point'),
+        compatibility('mfi', 'money-flow-index'),
+        compatibility('momentum', 'momentum'),
+        compatibility('natr', 'normalized-average-true-range'),
+        compatibility('networkgraph', 'network-graph'),
+        compatibility('obv', 'on-balance-volume'),
+        compatibility('ohlc', 'open-high-low-close'),
+        compatibility('organization', 'organization-network'),
+        compatibility('packedbubble', 'packed-bubble'),
+        compatibility('pareto', 'pareto'),
+        compatibility('pc', 'price-channel'),
+        compatibility('pictorial', 'pictorial-column'),
+        compatibility('pie', 'pie'),
+        compatibility('pivotpoints', 'pivot-points'),
+        compatibility('pointandfigure', 'point-and-figure'),
+        compatibility('polygon', 'polygon'),
+        compatibility('ppo', 'percentage-price-oscillator'),
+        compatibility('priceenvelopes', 'price-envelopes'),
+        compatibility('psar', 'parabolic-stop-and-reverse'),
+        compatibility('pyramid', 'pyramid'),
+        compatibility('pyramid3d', 'pyramid-3d'),
+        compatibility('renko', 'renko'),
+        compatibility('rangebars', 'range-bars'),
+        compatibility('roc', 'rate-of-change'),
+        compatibility('rsi', 'relative-strength-index'),
+        compatibility('sankey', 'sankey'),
+        compatibility('scatter', 'scatter'),
+        compatibility('scatter3d', 'scatter-3d'),
+        compatibility('slowstochastic', 'slow-stochastic'),
+        compatibility('sma', 'simple-moving-average'),
+        compatibility('solidgauge', 'solid-gauge'),
+        compatibility('spline', 'spline'),
+        compatibility('stochastic', 'stochastic'),
+        compatibility('streamgraph', 'streamgraph'),
+        compatibility('sunburst', 'sunburst'),
+        compatibility('supertrend', 'supertrend'),
+        compatibility('tema', 'triple-exponential-average'),
+        compatibility('tiledwebmap', 'tiled-map'),
+        compatibility('tilemap', 'tile-map'),
+        compatibility('timeline', 'timeline'),
+        compatibility('threelinebreak', 'three-line-break'),
+        compatibility('treegraph', 'tree-graph'),
+        compatibility('treemap', 'treemap'),
+        compatibility('trendline', 'trendline'),
+        compatibility('trix', 'triple-exponential-oscillator'),
+        compatibility('variablepie', 'variable-pie'),
+        compatibility('variwide', 'variable-width'),
+        compatibility('vbp', 'volume-by-price'),
+        compatibility('vector', 'vector'),
+        compatibility('venn', 'venn'),
+        compatibility('vwap', 'volume-weighted-average-price'),
+        compatibility('waterfall', 'waterfall'),
+        compatibility('williamsr', 'williams-range'),
+        compatibility('windbarb', 'wind-barb'),
+        compatibility('wma', 'weighted-moving-average'),
+        compatibility('wordcloud', 'word-cloud'),
+        compatibility('xrange', 'x-range'),
+        compatibility('zigzag', 'zigzag'),
+    ];
+    const seriesCompatibilityIds = seriesCompatibilityCatalog.map(({ identifier }) => identifier);
+    const compatibilityByIdentifier = new Map(seriesCompatibilityCatalog.map((item) => [item.identifier, item]));
+    function resolveSeriesType(identifier) {
+        const normalized = identifier
+            .trim()
+            .toLowerCase()
+            .replaceAll(/[^a-z0-9]/g, '');
+        return compatibilityByIdentifier.get(normalized);
+    }
+
+    const SETTINGS = {
+        standard: {
+            profile: 'standard',
+            maxLinePoints: 100_000,
+            maxPointMarks: 25_000,
+            maxBarMarks: 25_000,
+            enableHitTesting: true,
+            enableAnimation: true,
+        },
+        large: {
+            profile: 'large',
+            maxLinePoints: 30_000,
+            maxPointMarks: 20_000,
+            maxBarMarks: 12_000,
+            enableHitTesting: false,
+            enableAnimation: false,
+        },
+        ultra: {
+            profile: 'ultra',
+            maxLinePoints: 8_000,
+            maxPointMarks: 8_000,
+            maxBarMarks: 5_000,
+            enableHitTesting: false,
+            enableAnimation: false,
+        },
+    };
+    function resolvePerformanceSettings(preference, rowCount, viewportWidth) {
+        const profile = preference === 'auto'
+            ? rowCount < 50_000
+                ? 'standard'
+                : rowCount < 1_000_000
+                    ? 'large'
+                    : 'ultra'
+            : preference;
+        const base = SETTINGS[profile];
+        if (profile === 'standard')
+            return base;
+        const pointsPerPixel = profile === 'ultra' ? 2 : 4;
+        const minimum = profile === 'ultra' ? 2_000 : 10_000;
+        const pixelAwareLineLimit = Math.max(minimum, Math.round(viewportWidth * pointsPerPixel));
+        return {
+            ...base,
+            maxLinePoints: Math.min(base.maxLinePoints, pixelAwareLineLimit),
+        };
+    }
+
+    const indexByScene = new WeakMap();
+    const coordinateEpsilon = 1e-6;
+    function primary(target, channel) {
+        return channel === 'x' ? target.x : target.y;
+    }
+    function perpendicular(target, channel) {
+        return channel === 'x' ? target.y : target.x;
+    }
+    function registerAxisTooltipIndex(scene, registration) {
+        const channel = registration.channel ?? builtInAxisChannel(registration.axis) ?? 'x';
+        const targets = registration.targets
+            .filter((target) => Number.isFinite(target.x) && Number.isFinite(target.y))
+            .sort((left, right) => {
+            const coordinate = primary(left, channel) - primary(right, channel);
+            if (Math.abs(coordinate) > coordinateEpsilon)
+                return coordinate;
+            if (left.order !== right.order)
+                return right.order - left.order;
+            return left.nodeId.localeCompare(right.nodeId);
+        });
+        indexByScene.set(scene, { ...registration, channel, targets });
+    }
+    function insideActivationRegion(index, x, y) {
+        const { plot, axis, channel, axisVisible, axisStripSize } = index;
+        const right = plot.x + plot.width;
+        const bottom = plot.y + plot.height;
+        const horizontal = channel === 'x';
+        const position = index.position ??
+            (horizontal ? (axis === 'x2' ? 'top' : 'bottom') : axis === 'y2' ? 'right' : 'left');
+        if (horizontal) {
+            const strip = axisVisible ? axisStripSize : 0;
+            const top = position === 'top' ? plot.y - strip : plot.y;
+            const stripBottom = position === 'bottom' ? bottom + strip : bottom;
+            return x >= plot.x && x <= right && y >= top && y <= stripBottom;
+        }
+        const strip = axisVisible ? axisStripSize : 0;
+        const left = position === 'left' ? plot.x - strip : plot.x;
+        const stripRight = position === 'right' ? right + strip : right;
+        return x >= left && x <= stripRight && y >= plot.y && y <= bottom;
+    }
+    function lowerBound$1(targets, channel, value) {
+        let low = 0;
+        let high = targets.length;
+        while (low < high) {
+            const middle = low + Math.floor((high - low) / 2);
+            const target = targets[middle];
+            if (target !== undefined && primary(target, channel) < value)
+                low = middle + 1;
+            else
+                high = middle;
+        }
+        return low;
+    }
+    function nearestCoordinate(index, pointer) {
+        const insertion = lowerBound$1(index.targets, index.channel, pointer);
+        const before = index.targets[insertion - 1];
+        const after = index.targets[insertion];
+        if (before === undefined && after === undefined)
+            return null;
+        if (before === undefined)
+            return primary(after, index.channel);
+        if (after === undefined)
+            return primary(before, index.channel);
+        const beforeCoordinate = primary(before, index.channel);
+        const afterCoordinate = primary(after, index.channel);
+        return pointer - beforeCoordinate <= afterCoordinate - pointer
+            ? beforeCoordinate
+            : afterCoordinate;
+    }
+    function hitTestAxisTooltip(scene, x, y) {
+        const index = indexByScene.get(scene);
+        if (index === undefined ||
+            index.targets.length === 0 ||
+            !scene.metadata.hitTestingEnabled ||
+            !insideActivationRegion(index, x, y)) {
+            return null;
+        }
+        const horizontal = index.channel === 'x';
+        const pointerPrimary = horizontal ? x : y;
+        const pointerPerpendicular = horizontal ? y : x;
+        const coordinate = nearestCoordinate(index, pointerPrimary);
+        if (coordinate === null)
+            return null;
+        const start = lowerBound$1(index.targets, index.channel, coordinate - coordinateEpsilon);
+        let best = null;
+        let bestDistance = Number.POSITIVE_INFINITY;
+        for (let cursor = start; cursor < index.targets.length; cursor += 1) {
+            const target = index.targets[cursor];
+            if (target === undefined)
+                continue;
+            if (Math.abs(primary(target, index.channel) - coordinate) > coordinateEpsilon)
+                break;
+            const distance = Math.abs(perpendicular(target, index.channel) - pointerPerpendicular);
+            if (distance < bestDistance - coordinateEpsilon ||
+                (Math.abs(distance - bestDistance) <= coordinateEpsilon &&
+                    (best === null || target.order > best.order))) {
+                best = target;
+                bestDistance = distance;
+            }
+        }
+        if (best === null)
+            return null;
+        return {
+            layerId: best.layerId,
+            rowIndex: best.rowIndex,
+            datum: best.datum,
+            ...(best.tooltip === undefined ? {} : { tooltip: best.tooltip }),
+            nodeId: best.nodeId,
+            x,
+            y,
+            distance: Math.abs(pointerPrimary - coordinate),
+        };
+    }
+
+    function cartesianAxisChannel(context, axis) {
+        const channel = context.channels?.[axis] ?? builtInAxisChannel(axis);
+        if (channel === undefined)
+            fail$3(`Axis "${axis}" has no Cartesian channel.`, `$.axes.${axis}`);
+        return channel;
+    }
+    function fail$3(message, path = '$.interaction.selection') {
+        throw new GraflumeError('INCOMPATIBLE_SCALE', message, { path });
+    }
+    function finite$c(value, label) {
+        if (!Number.isFinite(value))
+            fail$3(`${label} must be finite.`);
+        return value;
+    }
+    function scaleFor(context, axis) {
+        const scale = context.axes[axis];
+        if (scale === undefined)
+            fail$3(`Axis "${axis}" is not resolved.`, `$.axes.${axis}`);
+        return scale;
+    }
+    function clampToRange(scale, pixel) {
+        finite$c(pixel, 'Pixel coordinate');
+        const range = scale.range();
+        if (range.length === 0)
+            fail$3(`Scale "${scale.kind}" has an empty range.`);
+        const minimum = Math.min(...range);
+        const maximum = Math.max(...range);
+        return Math.max(minimum, Math.min(maximum, pixel));
+    }
+    function nearestCategorical(scale, pixel) {
+        if (scale.kind !== 'band' && scale.kind !== 'point') {
+            fail$3(`Scale "${scale.kind}" has no single-valued inverse; analytic geometry supports invertible continuous, band, and point axes only.`);
+        }
+        const candidates = scale.domain().map((value) => {
+            const mapped = scale.map(value);
+            return { value, distance: Math.abs(mapped - pixel) };
+        });
+        const nearest = candidates.reduce((best, candidate) => best === undefined || candidate.distance < best.distance ? candidate : best, undefined);
+        if (nearest === undefined)
+            fail$3(`Scale "${scale.kind}" has an empty domain.`);
+        return nearest.value;
+    }
+    function domainToPixel(context, axis, value) {
+        const mapped = scaleFor(context, axis).map(value);
+        if (!Number.isFinite(mapped)) {
+            fail$3(`Value ${String(value)} cannot be mapped on axis "${axis}".`, `$.axes.${axis}`);
+        }
+        return mapped;
+    }
+    function pixelToDomain(context, axis, pixel) {
+        const scale = scaleFor(context, axis);
+        const bounded = clampToRange(scale, pixel);
+        if (scale.invert === undefined)
+            return nearestCategorical(scale, bounded);
+        const value = scale.invert(bounded);
+        if (typeof value === 'number' && !Number.isFinite(value)) {
+            fail$3(`Pixel ${pixel} cannot be inverted on axis "${axis}".`, `$.axes.${axis}`);
+        }
+        return value;
+    }
+    function clampPixelToPlot(context, point) {
+        finite$c(point.x, 'Pixel x');
+        finite$c(point.y, 'Pixel y');
+        return Object.freeze({
+            x: Math.max(context.plot.x, Math.min(context.plot.x + context.plot.width, point.x)),
+            y: Math.max(context.plot.y, Math.min(context.plot.y + context.plot.height, point.y)),
+        });
+    }
+    function pixelPointToDomain(context, point, axes = {}) {
+        const bounded = clampPixelToPlot(context, point);
+        const xAxis = axes.x ?? 'x';
+        const yAxis = axes.y ?? 'y';
+        return Object.freeze({
+            type: 'point',
+            xAxis,
+            yAxis,
+            x: pixelToDomain(context, xAxis, bounded.x),
+            y: pixelToDomain(context, yAxis, bounded.y),
+        });
+    }
+    function domainPointToPixel(context, point) {
+        if (point.x === undefined || point.y === undefined) {
+            fail$3('A domain point requires both x and y to map to pixels.');
+        }
+        return Object.freeze({
+            x: domainToPixel(context, point.xAxis ?? 'x', point.x),
+            y: domainToPixel(context, point.yAxis ?? 'y', point.y),
+        });
+    }
+    function continuousDomain(context, axis, pixel) {
+        const scale = scaleFor(context, axis);
+        if (scale.invert === undefined) {
+            fail$3(`Selection geometry on axis "${axis}" requires an invertible continuous scale; "${scale.kind}" is unsupported.`, `$.axes.${axis}`);
+        }
+        const value = pixelToDomain(context, axis, pixel);
+        if (typeof value !== 'number') {
+            fail$3(`Selection geometry on axis "${axis}" must invert to a number.`, `$.axes.${axis}`);
+        }
+        return value;
+    }
+    function extent$1(start, end) {
+        return Object.freeze(start <= end ? [start, end] : [end, start]);
+    }
+    function categoricalExtent(scale, start, end) {
+        if (scale.kind !== 'band' && scale.kind !== 'point') {
+            fail$3(`Scale "${scale.kind}" cannot create a categorical brush extent.`);
+        }
+        const domain = scale.domain();
+        if (domain.length === 0)
+            fail$3(`Scale "${scale.kind}" has an empty domain.`);
+        const nearestIndex = (pixel) => {
+            let bestIndex = 0;
+            let bestDistance = Number.POSITIVE_INFINITY;
+            domain.forEach((value, index) => {
+                const distance = Math.abs(scale.map(value) - pixel);
+                if (distance < bestDistance) {
+                    bestIndex = index;
+                    bestDistance = distance;
+                }
+            });
+            return bestIndex;
+        };
+        const first = nearestIndex(start);
+        const last = nearestIndex(end);
+        return Object.freeze({
+            values: Object.freeze(domain.slice(Math.min(first, last), Math.max(first, last) + 1)),
+        });
+    }
+    function selectionExtent(context, axis, start, end) {
+        const scale = scaleFor(context, axis);
+        return scale.invert === undefined
+            ? categoricalExtent(scale, start, end)
+            : extent$1(continuousDomain(context, axis, start), continuousDomain(context, axis, end));
+    }
+    function categoricalHalfSpan(scale) {
+        if (scale.bandwidth > 0)
+            return scale.bandwidth / 2;
+        const positions = scale
+            .domain()
+            .map((value) => scale.map(value))
+            .sort((left, right) => left - right);
+        let minimum = Number.POSITIVE_INFINITY;
+        for (let index = 1; index < positions.length; index += 1) {
+            minimum = Math.min(minimum, Math.abs(positions[index] - positions[index - 1]));
+        }
+        return Number.isFinite(minimum) ? minimum / 2 : 3;
+    }
+    function extentToPixels(scale, value) {
+        if (Array.isArray(value)) {
+            return Object.freeze([scale.map(value[0]), scale.map(value[1])]);
+        }
+        const positions = value.values.map((entry) => scale.map(entry));
+        if (positions.some((entry) => !Number.isFinite(entry))) {
+            fail$3('Categorical brush values must exist in the resolved scale domain.');
+        }
+        const halfSpan = categoricalHalfSpan(scale);
+        return Object.freeze([Math.min(...positions) - halfSpan, Math.max(...positions) + halfSpan]);
+    }
+    function pixelRectangleToSelection(context, start, end, options = {}) {
+        const first = clampPixelToPlot(context, start);
+        const last = clampPixelToPlot(context, end);
+        const xAxis = options.xAxis ?? 'x';
+        const yAxis = options.yAxis ?? 'y';
+        return Object.freeze({
+            type: options.type ?? 'rectangle',
+            xAxis,
+            yAxis,
+            x: selectionExtent(context, xAxis, first.x, last.x),
+            y: selectionExtent(context, yAxis, first.y, last.y),
+        });
+    }
+    function pixelAxisToSelection(context, axis, start, end) {
+        const first = clampPixelToPlot(context, start);
+        const last = clampPixelToPlot(context, end);
+        const horizontal = cartesianAxisChannel(context, axis) === 'x';
+        return Object.freeze({
+            type: 'axis',
+            axis,
+            extent: selectionExtent(context, axis, horizontal ? first.x : first.y, horizontal ? last.x : last.y),
+        });
+    }
+    function pixelLassoToSelection(context, points, axes = {}) {
+        if (points.length < 3)
+            fail$3('A lasso gesture requires at least three points.');
+        if (points.length > 512)
+            fail$3('A lasso gesture exceeds the 512 point bound.');
+        const xAxis = axes.x ?? 'x';
+        const yAxis = axes.y ?? 'y';
+        const domainPoints = points.map((point) => {
+            const bounded = clampPixelToPlot(context, point);
+            return Object.freeze({
+                x: continuousDomain(context, xAxis, bounded.x),
+                y: continuousDomain(context, yAxis, bounded.y),
+            });
+        });
+        return Object.freeze({
+            type: 'lasso',
+            xAxis,
+            yAxis,
+            points: Object.freeze(domainPoints),
+        });
+    }
+    function selectionToPixels(context, selection) {
+        if (selection.type === 'point') {
+            if (selection.x === undefined || selection.y === undefined)
+                return [];
+            return [domainPointToPixel(context, selection)];
+        }
+        if (selection.type === 'interval' || selection.type === 'rectangle') {
+            const x = extentToPixels(scaleFor(context, selection.xAxis), selection.x);
+            const y = extentToPixels(scaleFor(context, selection.yAxis), selection.y);
+            return [
+                Object.freeze({
+                    x: x[0],
+                    y: y[0],
+                }),
+                Object.freeze({
+                    x: x[1],
+                    y: y[1],
+                }),
+            ];
+        }
+        if (selection.type === 'axis') {
+            const horizontal = cartesianAxisChannel(context, selection.axis) === 'x';
+            const [start, end] = extentToPixels(scaleFor(context, selection.axis), selection.extent);
+            return horizontal
+                ? [
+                    Object.freeze({ x: start, y: context.plot.y }),
+                    Object.freeze({ x: end, y: context.plot.y + context.plot.height }),
+                ]
+                : [
+                    Object.freeze({ x: context.plot.x, y: start }),
+                    Object.freeze({ x: context.plot.x + context.plot.width, y: end }),
+                ];
+        }
+        return selection.points.map((point) => Object.freeze({
+            x: domainToPixel(context, selection.xAxis, point.x),
+            y: domainToPixel(context, selection.yAxis, point.y),
+        }));
+    }
+
+    /** Compile completed domain selections into non-interactive, plot-clipped Scene nodes. */
+    function compileAnalyticSelectionOverlay(state, context, style, idPrefix = 'analytic-selection') {
+        const nodes = [];
+        state.selections.forEach((selection, index) => {
+            const points = selectionToPixels(context, selection);
+            if (selection.type === 'point') {
+                const point = points[0];
+                if (point === undefined)
+                    return;
+                nodes.push({
+                    type: 'circle',
+                    ...nodeBase(`${idPrefix}:${index}`, { zIndex: 760, opacity: style.opacity }),
+                    cx: point.x,
+                    cy: point.y,
+                    radius: style.radius,
+                    fill: style.fill,
+                    stroke: style.stroke,
+                    lineWidth: style.lineWidth,
+                    dash: style.dash,
+                });
+                return;
+            }
+            if (selection.type === 'lasso') {
+                nodes.push({
+                    type: 'path',
+                    ...nodeBase(`${idPrefix}:${index}`, { zIndex: 760, opacity: style.opacity }),
+                    points,
+                    closed: true,
+                    fill: style.fill,
+                    stroke: style.stroke,
+                    lineWidth: style.lineWidth,
+                    dash: style.dash,
+                    lineJoin: 'round',
+                });
+                return;
+            }
+            const first = points[0];
+            const last = points[1];
+            if (first === undefined || last === undefined)
+                return;
+            nodes.push({
+                type: 'rect',
+                ...nodeBase(`${idPrefix}:${index}`, { zIndex: 760, opacity: style.opacity }),
+                x: Math.min(first.x, last.x),
+                y: Math.min(first.y, last.y),
+                width: Math.abs(last.x - first.x),
+                height: Math.abs(last.y - first.y),
+                fill: style.fill,
+                stroke: style.stroke,
+                lineWidth: style.lineWidth,
+                dash: style.dash,
+                cornerRadius: 0,
+            });
+        });
+        return nodes.length === 0
+            ? []
+            : [group(`${idPrefix}:overlay`, nodes, { zIndex: 760, clip: context.plot })];
+    }
+
+    function countSceneNodes(root) {
+        let count = 1;
+        for (const child of root.children) {
+            count += child.type === 'group' ? countSceneNodes(child) : 1;
+        }
+        return count;
     }
 
     const provenanceLimit = 1_024;
@@ -13858,7 +18730,7 @@ var Graflume = (function (exports) {
         const table = DataTable.from(input);
         return Array.from({ length: table.length }, (_, index) => table.row(index));
     }
-    function finite$c(value) {
+    function finite$b(value) {
         if (typeof value === 'number')
             return Number.isFinite(value) ? value : null;
         if (value instanceof Date)
@@ -13885,7 +18757,7 @@ var Graflume = (function (exports) {
         }
         return value;
     }
-    function quantile$2(sorted, probability) {
+    function quantile$1(sorted, probability) {
         if (sorted.length === 0)
             return null;
         const position = Math.max(0, Math.min(1, probability)) * (sorted.length - 1);
@@ -13900,7 +18772,7 @@ var Graflume = (function (exports) {
             return rows.length;
         fieldName$1(weightField, '$.weightField');
         return rows.reduce((sum, row, index) => {
-            const weight = finite$c(row[weightField]);
+            const weight = finite$b(row[weightField]);
             if (weight === null || weight < 0) {
                 throw new GraflumeError('INVALID_DATA', `Weight at row ${index} must be a finite non-negative number.`, { path: `$.data[${index}].${weightField}` });
             }
@@ -14171,7 +19043,7 @@ var Graflume = (function (exports) {
             const date = civilDate(timestamp(row[dateField], `$.data[${rowIndex}].${dateField}`), timeZone);
             const key = dateKey(date);
             const bucket = grouped.get(key) ?? { date, values: [], sourceRows: [] };
-            const value = valueField === undefined ? 1 : finite$c(row[valueField]);
+            const value = valueField === undefined ? 1 : finite$b(row[valueField]);
             if (value !== null)
                 bucket.values.push(value);
             bucket.sourceRows.push(rowIndex);
@@ -14318,12 +19190,12 @@ var Graflume = (function (exports) {
         const points = rowsFrom$1(input)
             .map((row, rowIndex) => {
             const time = timestamp(row[timeField], `$.data[${rowIndex}].${timeField}`);
-            const price = priceField === undefined ? null : finite$c(row[priceField]);
-            const open = price ?? finite$c(row[openField]);
-            const high = price ?? finite$c(row[highField]);
-            const low = price ?? finite$c(row[lowField]);
-            const close = price ?? finite$c(row[closeField]);
-            const volume = volumeField === undefined ? 0 : (finite$c(row[volumeField]) ?? 0);
+            const price = priceField === undefined ? null : finite$b(row[priceField]);
+            const open = price ?? finite$b(row[openField]);
+            const high = price ?? finite$b(row[highField]);
+            const low = price ?? finite$b(row[lowField]);
+            const close = price ?? finite$b(row[closeField]);
+            const volume = volumeField === undefined ? 0 : (finite$b(row[volumeField]) ?? 0);
             if (open === null || high === null || low === null || close === null)
                 return null;
             const local = localTradingTime(time, timeZone);
@@ -14414,7 +19286,7 @@ var Graflume = (function (exports) {
             const groups = new Map();
             source.forEach((row, rowIndex) => {
                 const rawKey = row[keyField];
-                const value = finite$c(row[valueField]);
+                const value = finite$b(row[valueField]);
                 const series = row[seriesField];
                 if (rawKey === undefined || value === null || typeof series !== 'string')
                     return;
@@ -14452,8 +19324,8 @@ var Graflume = (function (exports) {
             const baselineField = fieldName$1(options.baselineField ?? '', '$.baselineField');
             const comparisonField = fieldName$1(options.comparisonField ?? '', '$.comparisonField');
             aligned = source.flatMap((row, rowIndex) => {
-                const baseline = finite$c(row[baselineField]);
-                const comparison = finite$c(row[comparisonField]);
+                const baseline = finite$b(row[baselineField]);
+                const comparison = finite$b(row[comparisonField]);
                 const rawKey = row[keyField];
                 if (baseline === null || comparison === null || rawKey === undefined)
                     return [];
@@ -14503,8 +19375,8 @@ var Graflume = (function (exports) {
                 previous.difference * point.difference < 0) {
                 const ratio = Math.abs(previous.difference) /
                     (Math.abs(previous.difference) + Math.abs(point.difference));
-                const numericPrevious = finite$c(previous.key);
-                const numericCurrent = finite$c(point.key);
+                const numericPrevious = finite$b(previous.key);
+                const numericCurrent = finite$b(point.key);
                 if (numericPrevious !== null && numericCurrent !== null) {
                     const key = numericPrevious + (numericCurrent - numericPrevious) * ratio;
                     const baseline = previous.baseline + (point.baseline - previous.baseline) * ratio;
@@ -14646,7 +19518,7 @@ var Graflume = (function (exports) {
             return null;
         const ordered = indexed.map(({ value }) => value);
         const mean = ordered.reduce((sum, value) => sum + value, 0) / ordered.length;
-        const median = quantile$2(ordered, 0.5);
+        const median = quantile$1(ordered, 0.5);
         const estimate = options.estimator === 'median' ? median : mean;
         const variance = ordered.length < 2
             ? 0
@@ -14670,7 +19542,7 @@ var Graflume = (function (exports) {
             [low, high] = [estimate - half, estimate + half];
         }
         else if (kind === 'IQR')
-            [low, high] = [quantile$2(ordered, 0.25), quantile$2(ordered, 0.75)];
+            [low, high] = [quantile$1(ordered, 0.25), quantile$1(ordered, 0.75)];
         else if (kind === 'HDI') {
             const windowLength = Math.max(1, Math.ceil(confidence * ordered.length));
             let start = 0;
@@ -14707,7 +19579,7 @@ var Graflume = (function (exports) {
         const duplicatePolicy = options.duplicates ?? 'error';
         const source = rowsFrom$1(input).flatMap((row, rowIndex) => {
             const rawKey = row[keyField];
-            const value = finite$c(row[valueField]);
+            const value = finite$b(row[valueField]);
             if (rawKey === undefined || value === null)
                 return [];
             const key = options.keyType === 'temporal'
@@ -14737,8 +19609,8 @@ var Graflume = (function (exports) {
             return { key: group[0].key, value, sourceRows: group.map(({ rowIndex }) => rowIndex) };
         });
         const compare = (left, right) => {
-            const a = finite$c(left.key);
-            const b = finite$c(right.key);
+            const a = finite$b(left.key);
+            const b = finite$b(right.key);
             return a !== null && b !== null
                 ? a - b
                 : String(left.key).localeCompare(String(right.key), 'en');
@@ -14854,13 +19726,13 @@ var Graflume = (function (exports) {
         return [...selected].sort((left, right) => left - right);
     }
 
-    function finite$b(value, path) {
+    function finite$a(value, path) {
         if (typeof value !== 'number' || !Number.isFinite(value)) {
             throw new GraflumeError('INVALID_DATA', `${path} must be a finite number.`, { path });
         }
         return value;
     }
-    function clamp$c(value, low, high) {
+    function clamp$b(value, low, high) {
         return Math.max(low, Math.min(high, value));
     }
     function text$1(value, path) {
@@ -14948,7 +19820,7 @@ var Graflume = (function (exports) {
                 path: '$.yExtents',
             });
         return input.values.flatMap((values, rowIndex) => values.map((rawValue, columnIndex) => {
-            const value = rawValue === null ? null : finite$b(rawValue, `$.values[${rowIndex}][${columnIndex}]`);
+            const value = rawValue === null ? null : finite$a(rawValue, `$.values[${rowIndex}][${columnIndex}]`);
             const xExtent = input.xExtents?.[columnIndex];
             const yExtent = input.yExtents?.[rowIndex];
             return {
@@ -14969,8 +19841,8 @@ var Graflume = (function (exports) {
                 return;
             if (start === undefined || end === undefined)
                 throw new GraflumeError('INVALID_DATA', `Heatmap ${axis} extents require both ${axis}0 and ${axis}1.`, { path: `$.data[${index}]` });
-            const low = finite$b(start, `$.data[${index}].${axis}0`);
-            const high = finite$b(end, `$.data[${index}].${axis}1`);
+            const low = finite$a(start, `$.data[${index}].${axis}0`);
+            const high = finite$a(end, `$.data[${index}].${axis}1`);
             if (high <= low)
                 throw new GraflumeError('INVALID_DATA', 'Heatmap cell extents must be ascending.', {
                     path: `$.data[${index}]`,
@@ -14999,7 +19871,7 @@ var Graflume = (function (exports) {
             if (byCell.has(key))
                 throw new GraflumeError('INVALID_DATA', `Duplicate heatmap cell at row ${index}.`);
             if (datum.value !== null)
-                finite$b(datum.value, `$.data[${index}].value`);
+                finite$a(datum.value, `$.data[${index}].value`);
             byCell.set(key, datum);
             matrix[rowIndex.get(identity$1(datum.row))][columnIndex.get(identity$1(datum.column))] =
                 datum.value;
@@ -15007,7 +19879,7 @@ var Graflume = (function (exports) {
         const numeric = data.flatMap(({ value }) => (value === null ? [] : [value]));
         const domain = numeric.length === 0 ? [0, 1] : [Math.min(...numeric), Math.max(...numeric)];
         const mode = options.color ?? 'sequential';
-        const midpoint = finite$b(options.midpoint ?? 0, '$.midpoint');
+        const midpoint = finite$a(options.midpoint ?? 0, '$.midpoint');
         const sorted = [...numeric].sort((a, b) => a - b);
         const columnExtents = inferredHeatmapExtents(data, 'x');
         const rowExtents = inferredHeatmapExtents(data, 'y');
@@ -15015,17 +19887,17 @@ var Graflume = (function (exports) {
             let upper = sorted.findIndex((current) => current > value);
             if (upper < 0)
                 upper = sorted.length;
-            return sorted.length <= 1 ? 0.5 : clamp$c((upper - 1) / (sorted.length - 1), 0, 1);
+            return sorted.length <= 1 ? 0.5 : clamp$b((upper - 1) / (sorted.length - 1), 0, 1);
         };
         const cells = rows.flatMap((row, r) => columns.map((column, c) => {
             const datum = byCell.get(`${identity$1(row)}\u0000${identity$1(column)}`);
             const value = datum?.value ?? null;
             const inferredX = columnExtents.get(identity$1(column));
             const inferredY = rowExtents.get(identity$1(row));
-            const x0 = datum?.x0 === undefined ? (inferredX?.[0] ?? c) : finite$b(datum.x0, `$.data[${r}].x0`);
-            const x1 = datum?.x1 === undefined ? (inferredX?.[1] ?? c + 1) : finite$b(datum.x1, `$.data[${r}].x1`);
-            const y0 = datum?.y0 === undefined ? (inferredY?.[0] ?? r) : finite$b(datum.y0, `$.data[${r}].y0`);
-            const y1 = datum?.y1 === undefined ? (inferredY?.[1] ?? r + 1) : finite$b(datum.y1, `$.data[${r}].y1`);
+            const x0 = datum?.x0 === undefined ? (inferredX?.[0] ?? c) : finite$a(datum.x0, `$.data[${r}].x0`);
+            const x1 = datum?.x1 === undefined ? (inferredX?.[1] ?? c + 1) : finite$a(datum.x1, `$.data[${r}].x1`);
+            const y0 = datum?.y0 === undefined ? (inferredY?.[0] ?? r) : finite$a(datum.y0, `$.data[${r}].y0`);
+            const y1 = datum?.y1 === undefined ? (inferredY?.[1] ?? r + 1) : finite$a(datum.y1, `$.data[${r}].y1`);
             if (x1 <= x0 || y1 <= y0)
                 throw new GraflumeError('INVALID_DATA', 'Heatmap cell extents must be ascending.');
             return {
@@ -15040,7 +19912,7 @@ var Graflume = (function (exports) {
                 y1,
                 colorPosition: value === null
                     ? null
-                    : clamp$c(mode === 'quantile'
+                    : clamp$b(mode === 'quantile'
                         ? quantilePosition(value)
                         : heatmapColorPosition(value, domain, mode, midpoint), 0, 1),
                 missingPattern: value === null ? (options.missing?.pattern ?? 'cross') : null,
@@ -15061,14 +19933,14 @@ var Graflume = (function (exports) {
             cell.value <= high);
     }
     function rasterDimensions(image) {
-        const width = Math.floor(finite$b(image.width, '$.width'));
-        const height = Math.floor(finite$b(image.height, '$.height'));
-        const channels = Math.floor(finite$b(image.channels, '$.channels'));
+        const width = Math.floor(finite$a(image.width, '$.width'));
+        const height = Math.floor(finite$a(image.height, '$.height'));
+        const channels = Math.floor(finite$a(image.channels, '$.channels'));
         if (width < 1 || height < 1 || channels < 1 || channels > 4)
             throw new GraflumeError('INVALID_DATA', 'Raster dimensions and channel count are invalid.');
         if (image.values.length !== width * height * channels)
             throw new GraflumeError('INVALID_DATA', 'Raster values length does not match dimensions.');
-        image.values.forEach((value, index) => finite$b(value, `$.values[${index}]`));
+        image.values.forEach((value, index) => finite$a(value, `$.values[${index}]`));
         return { width, height, channels };
     }
     function cubicWeight(value) {
@@ -15083,15 +19955,15 @@ var Graflume = (function (exports) {
     function sampleRaster(image, x, y, resampling = 'nearest') {
         const { width, height, channels } = rasterDimensions(image);
         const extent = image.extent ?? [0, width, 0, height];
-        extent.forEach((value, index) => finite$b(value, `$.extent[${index}]`));
+        extent.forEach((value, index) => finite$a(value, `$.extent[${index}]`));
         if (extent[1] === extent[0] || extent[3] === extent[2])
             throw new GraflumeError('INVALID_DATA', 'Raster extent must have non-zero width and height.');
         // Extents describe the outer pixel edges. Mapping the center of each output cell to
         // `index + 0.5` therefore lands exactly on an input pixel center at matching resolution.
-        const px = ((finite$b(x, '$.x') - extent[0]) / (extent[1] - extent[0])) * width - 0.5;
-        const normalizedY = ((finite$b(y, '$.y') - extent[2]) / (extent[3] - extent[2])) * height - 0.5;
+        const px = ((finite$a(x, '$.x') - extent[0]) / (extent[1] - extent[0])) * width - 0.5;
+        const normalizedY = ((finite$a(y, '$.y') - extent[2]) / (extent[3] - extent[2])) * height - 0.5;
         const py = (image.origin ?? 'upper') === 'upper' ? height - 1 - normalizedY : normalizedY;
-        const valueAt = (column, row, channel) => image.values[(clamp$c(row, 0, height - 1) * width + clamp$c(column, 0, width - 1)) * channels + channel];
+        const valueAt = (column, row, channel) => image.values[(clamp$b(row, 0, height - 1) * width + clamp$b(column, 0, width - 1)) * channels + channel];
         if (resampling === 'nearest')
             return Array.from({ length: channels }, (_, channel) => valueAt(Math.round(px), Math.round(py), channel));
         if (resampling === 'bilinear') {
@@ -15130,23 +20002,23 @@ var Graflume = (function (exports) {
     function mapRasterColor(channels, options = {}) {
         if (channels.length < 1 || channels.length > 4)
             throw new GraflumeError('INVALID_DATA', 'Raster samples need one to four channels.');
-        channels.forEach((value, index) => finite$b(value, `$.channels[${index}]`));
-        const alpha = clamp$c(finite$b(options.alpha ?? 1, '$.alpha'), 0, 1);
+        channels.forEach((value, index) => finite$a(value, `$.channels[${index}]`));
+        const alpha = clamp$b(finite$a(options.alpha ?? 1, '$.alpha'), 0, 1);
         if (channels.length >= 3)
             return [
-                clamp$c(channels[0], 0, 255),
-                clamp$c(channels[1], 0, 255),
-                clamp$c(channels[2], 0, 255),
-                alpha * (channels.length === 4 ? clamp$c(channels[3], 0, 255) / 255 : 1),
+                clamp$b(channels[0], 0, 255),
+                clamp$b(channels[1], 0, 255),
+                clamp$b(channels[2], 0, 255),
+                alpha * (channels.length === 4 ? clamp$b(channels[3], 0, 255) / 255 : 1),
             ];
         const window = options.window ?? [0, 255];
-        const windowLow = finite$b(window[0], '$.window[0]');
-        const windowHigh = finite$b(window[1], '$.window[1]');
+        const windowLow = finite$a(window[0], '$.window[0]');
+        const windowHigh = finite$a(window[1], '$.window[1]');
         if (windowHigh <= windowLow)
             throw new GraflumeError('INVALID_SPEC', 'Raster window must be finite and ascending.', {
                 path: '$.window',
             });
-        const position = clamp$c((channels[0] - windowLow) / (windowHigh - windowLow), 0, 1);
+        const position = clamp$b((channels[0] - windowLow) / (windowHigh - windowLow), 0, 1);
         const authoredColors = options.colormap ?? ['#000000', '#ffffff'];
         if (authoredColors.length === 0)
             throw new GraflumeError('INVALID_SPEC', 'Raster colormap must contain at least one color.', {
@@ -15169,16 +20041,16 @@ var Graflume = (function (exports) {
     }
     /** Validates or normalizes constant-sum components and resolves barycentric coordinates, ticks and dual tooltips. */
     function projectTernary(data, options = {}) {
-        const target = finite$b(options.sum ?? 1, '$.sum');
+        const target = finite$a(options.sum ?? 1, '$.sum');
         if (target <= 0)
             throw new GraflumeError('INVALID_SPEC', '$.sum must be positive.');
-        const tolerance = Math.max(0, finite$b(options.tolerance ?? target * 1e-9, '$.tolerance'));
+        const tolerance = Math.max(0, finite$a(options.tolerance ?? target * 1e-9, '$.tolerance'));
         const format = options.format ?? ((value) => String(Number(value.toPrecision(6))));
         const points = data.map((datum, index) => {
             const raw = [
-                finite$b(datum.a, `$.data[${index}].a`),
-                finite$b(datum.b, `$.data[${index}].b`),
-                finite$b(datum.c, `$.data[${index}].c`),
+                finite$a(datum.a, `$.data[${index}].a`),
+                finite$a(datum.b, `$.data[${index}].b`),
+                finite$a(datum.c, `$.data[${index}].c`),
             ];
             if (raw.some((value) => value < 0))
                 throw new GraflumeError('INVALID_DATA', 'Ternary components must be non-negative.');
@@ -15197,7 +20069,7 @@ var Graflume = (function (exports) {
                 tooltip: `raw (${raw.map(format).join(', ')}) · normalized (${normalized.map(format).join(', ')})`,
             };
         });
-        const tickCount = clamp$c(Math.floor(options.ticks ?? 5), 2, 20);
+        const tickCount = clamp$b(Math.floor(options.ticks ?? 5), 2, 20);
         const tickFormat = options.tickFormat ?? format;
         const ticks = Array.from({ length: tickCount + 1 }, (_, index) => ({
             value: (target * index) / tickCount,
@@ -15216,14 +20088,14 @@ var Graflume = (function (exports) {
     }
     /** Converts S/reflection, Z and Y inputs to the Smith reflection plane with reference impedance and specialist labels. */
     function projectSmith(data, options = {}) {
-        const reference = finite$b(options.referenceImpedance ?? 50, '$.referenceImpedance');
+        const reference = finite$a(options.referenceImpedance ?? 50, '$.referenceImpedance');
         if (reference <= 0)
             throw new GraflumeError('INVALID_SPEC', '$.referenceImpedance must be positive.');
         const mode = options.mode ?? 'reflection';
         const points = data.map((datum, index) => {
             const input = {
-                real: finite$b(datum.real, `$.data[${index}].real`),
-                imaginary: finite$b(datum.imaginary, `$.data[${index}].imaginary`),
+                real: finite$a(datum.real, `$.data[${index}].real`),
+                imaginary: finite$a(datum.imaginary, `$.data[${index}].imaginary`),
             };
             let normalized;
             let openCircuit = false;
@@ -15315,8 +20187,8 @@ var Graflume = (function (exports) {
                 grid.mask.some((row) => row.length !== grid.a.length || row.some((value) => typeof value !== 'boolean'))))
             throw new GraflumeError('INVALID_DATA', 'Carpet mask dimensions must be b by a booleans.');
         const projected = points.map((point, index) => {
-            const a = finite$b(point.a, `$.points[${index}].a`);
-            const b = finite$b(point.b, `$.points[${index}].b`);
+            const a = finite$a(point.a, `$.points[${index}].a`);
+            const b = finite$a(point.b, `$.points[${index}].b`);
             const [a0, a1, fa] = bracket(grid.a, a, '$.grid.a');
             const [b0, b1, fb] = bracket(grid.b, b, '$.grid.b');
             const masked = [
@@ -15326,8 +20198,8 @@ var Graflume = (function (exports) {
                 grid.mask?.[b1]?.[a1],
             ].some((value) => value === false);
             const interpolate = (values) => {
-                const top = finite$b(values[b0][a0], '$.grid') * (1 - fa) + finite$b(values[b0][a1], '$.grid') * fa;
-                const bottom = finite$b(values[b1][a0], '$.grid') * (1 - fa) + finite$b(values[b1][a1], '$.grid') * fa;
+                const top = finite$a(values[b0][a0], '$.grid') * (1 - fa) + finite$a(values[b0][a1], '$.grid') * fa;
+                const bottom = finite$a(values[b1][a0], '$.grid') * (1 - fa) + finite$a(values[b1][a1], '$.grid') * fa;
                 return top * (1 - fb) + bottom * fb;
             };
             const x = interpolate(grid.x);
@@ -15350,14 +20222,14 @@ var Graflume = (function (exports) {
     }
     /** Expands waffle/isotype counts into grouped units with partial-unit and fill-direction semantics. */
     function layoutItems(groups, options = {}) {
-        const unit = finite$b(options.unit ?? 1, '$.unit');
+        const unit = finite$a(options.unit ?? 1, '$.unit');
         if (unit <= 0)
             throw new GraflumeError('INVALID_SPEC', '$.unit must be positive.');
-        const columns = clamp$c(Math.floor(options.columns ?? 10), 1, 1_000);
+        const columns = clamp$b(Math.floor(options.columns ?? 10), 1, 1_000);
         const expanded = [];
         groups.forEach((group, groupIndex) => {
             const id = text$1(group.id, `$.groups[${groupIndex}].id`);
-            const value = finite$b(group.value, `$.groups[${groupIndex}].value`);
+            const value = finite$a(group.value, `$.groups[${groupIndex}].value`);
             if (value < 0)
                 throw new GraflumeError('INVALID_DATA', 'Item values must be non-negative.');
             const exact = value / unit;
@@ -15370,7 +20242,7 @@ var Graflume = (function (exports) {
                         : Math.ceil(exact);
             for (let index = 0; index < count; index += 1) {
                 const fraction = options.partial === 'fraction' || options.partial === undefined
-                    ? clamp$c(exact - index, 0, 1)
+                    ? clamp$b(exact - index, 0, 1)
                     : 1;
                 if (fraction <= 0)
                     continue;
@@ -15436,80 +20308,6 @@ var Graflume = (function (exports) {
         return { variables, cells };
     }
 
-    class BandScale {
-        kind = 'band';
-        descriptor;
-        #domain;
-        #range;
-        #positions = new Map();
-        #outOfBounds;
-        step;
-        bandwidth;
-        constructor(options) {
-            this.#domain = Object.freeze([...options.domain]);
-            this.#range = Object.freeze(options.reverse === true ? [options.range[1], options.range[0]] : [...options.range]);
-            this.#outOfBounds = options.outOfBounds ?? 'unknown';
-            const paddingInner = clamp$d(options.paddingInner ?? 0.1, 0, 1);
-            const paddingOuter = Math.max(0, options.paddingOuter ?? 0.05);
-            const [start, end] = this.#range;
-            const direction = end >= start ? 1 : -1;
-            const span = Math.abs(end - start);
-            const denominator = Math.max(1, this.#domain.length - paddingInner + paddingOuter * 2);
-            const step = span / denominator;
-            this.step = step;
-            this.bandwidth = step * (1 - paddingInner);
-            this.#domain.forEach((value, index) => {
-                const position = start + direction * step * (paddingOuter + index);
-                this.#positions.set(value, position);
-            });
-            this.descriptor = Object.freeze({
-                type: this.kind,
-                domain: this.#domain,
-                range: this.#range,
-                reverse: options.reverse ?? false,
-                rangeDirection: end < start ? 'descending' : 'ascending',
-                outOfBounds: this.#outOfBounds,
-            });
-        }
-        domain() {
-            return this.#domain;
-        }
-        range() {
-            return this.#range;
-        }
-        map(input) {
-            const value = input instanceof Date ? input.toISOString() : String(input);
-            const position = this.#positions.get(value);
-            if (position !== undefined)
-                return position + this.bandwidth / 2;
-            if (this.#outOfBounds === 'error') {
-                throw new GraflumeError('INVALID_DATA', `Unknown band value: ${value}`, {
-                    path: '$.data',
-                });
-            }
-            return Number.NaN;
-        }
-        start(input) {
-            return this.map(input) - this.bandwidth / 2;
-        }
-        ticks(count) {
-            const domain = this.#range[1] < this.#range[0] ? [...this.#domain].reverse() : this.#domain;
-            const step = Math.max(1, Math.ceil(domain.length / Math.max(1, count)));
-            const ticks = [];
-            for (let index = 0; index < domain.length; index += step) {
-                const value = domain[index];
-                if (value === undefined)
-                    continue;
-                ticks.push({ value, label: value, position: this.map(value) });
-            }
-            const last = domain.at(-1);
-            if (last !== undefined && ticks.at(-1)?.value !== last) {
-                ticks.push({ value: last, label: last, position: this.map(last) });
-            }
-            return ticks;
-        }
-    }
-
     /** Resolves canonical/default labels and unknown compatibility values to histogram mode. */
     function resolveDistributionMode(value) {
         if (value === 'box' || value === 'boxplot')
@@ -15535,799 +20333,6 @@ var Graflume = (function (exports) {
         }
         return 'histogram';
     }
-
-    function tickStep(start, stop, count) {
-        const span = Math.abs(stop - start);
-        if (span === 0 || count <= 0)
-            return 0;
-        const raw = span / count;
-        const power = Math.floor(Math.log10(raw));
-        const magnitude = 10 ** power;
-        const error = raw / magnitude;
-        const factor = error >= Math.sqrt(50) ? 10 : error >= Math.sqrt(10) ? 5 : error >= Math.sqrt(2) ? 2 : 1;
-        return factor * magnitude;
-    }
-    function niceDomain(domain, count = 5) {
-        let [start, stop] = domain;
-        if (start === stop) {
-            const delta = start === 0 ? 1 : Math.abs(start) * 0.05;
-            return [start - delta, stop + delta];
-        }
-        const step = tickStep(start, stop, count);
-        if (step === 0)
-            return domain;
-        const reverse = stop < start;
-        if (reverse)
-            [start, stop] = [stop, start];
-        const niceStart = Math.floor(start / step) * step;
-        const niceStop = Math.ceil(stop / step) * step;
-        return reverse ? [niceStop, niceStart] : [niceStart, niceStop];
-    }
-    class LinearScale {
-        kind;
-        bandwidth = 0;
-        descriptor;
-        #domain;
-        #range;
-        #outOfBounds;
-        constructor(options) {
-            this.kind = options.kind ?? 'linear';
-            this.#domain = Object.freeze([
-                ...(options.nice === false ? options.domain : niceDomain(options.domain)),
-            ]);
-            this.#range = Object.freeze(options.reverse === true ? [options.range[1], options.range[0]] : [...options.range]);
-            this.#outOfBounds = options.outOfBounds ?? (options.clamp === true ? 'clamp' : 'extrapolate');
-            this.descriptor = Object.freeze({
-                type: this.kind,
-                domain: this.#domain,
-                range: this.#range,
-                reverse: options.reverse ?? false,
-                rangeDirection: this.#range[1] < this.#range[0] ? 'descending' : 'ascending',
-                outOfBounds: this.#outOfBounds,
-            });
-        }
-        domain() {
-            return this.#domain;
-        }
-        range() {
-            return this.#range;
-        }
-        #ratio(value, start, end) {
-            const denominator = end - start;
-            let ratio = denominator === 0 ? 0.5 : (value - start) / denominator;
-            if (ratio < 0 || ratio > 1) {
-                if (this.#outOfBounds === 'unknown')
-                    return Number.NaN;
-                if (this.#outOfBounds === 'error') {
-                    throw new GraflumeError('INVALID_DATA', 'Scale input is outside the domain.', {
-                        path: '$.data',
-                    });
-                }
-                if (this.#outOfBounds === 'clamp')
-                    ratio = clamp$d(ratio, 0, 1);
-            }
-            return ratio;
-        }
-        map(input) {
-            const value = input instanceof Date
-                ? input.getTime()
-                : typeof input === 'string'
-                    ? this.kind === 'time' || this.kind === 'utc'
-                        ? (temporalTimestamp(input, true) ?? Number.NaN)
-                        : Date.parse(input)
-                    : input;
-            if (!Number.isFinite(value))
-                return Number.NaN;
-            const [domainStart, domainEnd] = this.#domain;
-            const [rangeStart, rangeEnd] = this.#range;
-            const ratio = this.#ratio(value, domainStart, domainEnd);
-            return rangeStart + ratio * (rangeEnd - rangeStart);
-        }
-        invert = (position) => {
-            const [domainStart, domainEnd] = this.#domain;
-            const [rangeStart, rangeEnd] = this.#range;
-            const ratio = this.#ratio(position, rangeStart, rangeEnd);
-            return domainStart + ratio * (domainEnd - domainStart);
-        };
-        ticks(count, locale) {
-            const [start, stop] = this.#domain;
-            const step = tickStep(start, stop, Math.max(1, count));
-            if (step === 0) {
-                const position = this.map(start);
-                return [{ value: start, label: this.#format(start, locale), position }];
-            }
-            const first = Math.ceil(Math.min(start, stop) / step) * step;
-            const last = Math.floor(Math.max(start, stop) / step) * step;
-            const values = [];
-            for (let value = first; value <= last + step / 2; value += step)
-                values.push(value);
-            if (stop < start)
-                values.reverse();
-            return values.map((value) => ({
-                value,
-                label: this.#format(value, locale),
-                position: this.map(value),
-            }));
-        }
-        #format(value, locale) {
-            if (this.kind === 'time' || this.kind === 'utc') {
-                return safeDateTimeFormatter(locale, {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric',
-                    ...(this.kind === 'utc' ? { timeZone: 'UTC' } : {}),
-                }).format(new Date(value));
-            }
-            return new Intl.NumberFormat(locale, { maximumFractionDigits: 6 }).format(value);
-        }
-    }
-
-    function ordinalKey(value) {
-        return `${typeof value}:${String(value)}`;
-    }
-    function frozen(values) {
-        return Object.freeze([...values]);
-    }
-    function fail$3(message, path = '$.scale') {
-        throw new GraflumeError('INCOMPATIBLE_SCALE', message, { path });
-    }
-    function numericDomain$2(values, length = 2) {
-        if (values.length !== length ||
-            values.some((value) => typeof value !== 'number' || !Number.isFinite(value))) {
-            fail$3(`Scale domain must contain exactly ${length} finite numbers.`);
-        }
-        return values;
-    }
-    function numericRange(values, minimum = 2) {
-        if (values.length < minimum ||
-            values.some((value) => typeof value !== 'number' || !Number.isFinite(value))) {
-            fail$3(`Position scale range must contain at least ${minimum} finite numbers.`, '$.scale.range');
-        }
-        return values;
-    }
-    function numericRangePair(values) {
-        const range = numericRange(values, 2);
-        if (range.length !== 2) {
-            fail$3('Continuous, band, and point position ranges must contain exactly 2 numbers.', '$.scale.range');
-        }
-        return range;
-    }
-    function resolvedPolicy(spec, fallback) {
-        return spec.outOfBounds ?? (spec.clamp === true ? 'clamp' : fallback);
-    }
-    function normalizeRatio(value, domain, policy, path) {
-        const denominator = domain[1] - domain[0];
-        let ratio = denominator === 0 ? 0.5 : (value - domain[0]) / denominator;
-        if (ratio >= 0 && ratio <= 1)
-            return ratio;
-        if (policy === 'clamp')
-            return clamp$d(ratio, 0, 1);
-        if (policy === 'unknown')
-            return Number.NaN;
-        if (policy === 'error') {
-            throw new GraflumeError('INVALID_DATA', `Scale input ${value} is outside the domain.`, {
-                path,
-            });
-        }
-        return ratio;
-    }
-    function interpolateRange(range, ratio) {
-        if (!Number.isFinite(ratio))
-            return Number.NaN;
-        const scaled = ratio * (range.length - 1);
-        const index = Math.max(0, Math.min(range.length - 2, Math.floor(scaled)));
-        const start = range[index] ?? Number.NaN;
-        const end = range[index + 1] ?? start;
-        return start + (end - start) * (scaled - index);
-    }
-    function inverseNormal(probability) {
-        // Acklam's rational approximation; absolute error is below 1.2e-9 over (0, 1).
-        const a = [
-            -39.6968302866538, 220.946098424521, -275.928510446969, 138.357751867269, -30.6647980661472,
-            2.50662827745924,
-        ];
-        const b = [
-            -54.4760987982241, 161.585836858041, -155.698979859887, 66.8013118877197, -13.2806815528857,
-        ];
-        const c = [
-            -0.00778489400243029, -0.322396458041136, -2.40075827716184, -2.54973253934373,
-            4.37466414146497, 2.93816398269878,
-        ];
-        const d = [0.00778469570904146, 0.32246712907004, 2.445134137143, 3.75440866190742];
-        const low = 0.02425;
-        const high = 1 - low;
-        if (probability < low) {
-            const q = Math.sqrt(-2 * Math.log(probability));
-            return ((((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) /
-                ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1));
-        }
-        if (probability > high) {
-            const q = Math.sqrt(-2 * Math.log(1 - probability));
-            return (-(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) /
-                ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1));
-        }
-        const q = probability - 0.5;
-        const r = q * q;
-        return (((((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q) /
-            (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1));
-    }
-    function normalCdf(value) {
-        // Abramowitz-Stegun 7.1.26, sufficient for stable interactive inversion.
-        const sign = value < 0 ? -1 : 1;
-        const x = Math.abs(value) / Math.SQRT2;
-        const t = 1 / (1 + 0.3275911 * x);
-        const erf = 1 -
-            ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) *
-                t *
-                Math.exp(-x * x);
-        return 0.5 * (1 + sign * erf);
-    }
-    function transformFor(type, spec) {
-        const identity = (value) => value;
-        if (type === 'log') {
-            const base = spec.base ?? 10;
-            if (!(base > 0) || base === 1)
-                fail$3('Log scale base must be positive and not equal to 1.', '$.scale.base');
-            return {
-                forward: (value) => Math.log(value) / Math.log(base),
-                inverse: (value) => base ** value,
-                validate: ([start, end]) => {
-                    if (!(start > 0 && end > 0))
-                        fail$3('Log scale domain values must be greater than 0.', '$.scale.domain');
-                },
-            };
-        }
-        if (type === 'symlog') {
-            const constant = spec.constant ?? 1;
-            if (!(constant > 0))
-                fail$3('Symlog constant must be greater than 0.', '$.scale.constant');
-            return {
-                forward: (value) => Math.sign(value) * Math.log1p(Math.abs(value) / constant),
-                inverse: (value) => Math.sign(value) * Math.expm1(Math.abs(value)) * constant,
-                validate: () => undefined,
-            };
-        }
-        if (type === 'asinh') {
-            const constant = spec.constant ?? 1;
-            if (!(constant > 0))
-                fail$3('Asinh constant must be greater than 0.', '$.scale.constant');
-            return {
-                forward: (value) => Math.asinh(value / constant),
-                inverse: (value) => Math.sinh(value) * constant,
-                validate: () => undefined,
-            };
-        }
-        if (type === 'pow' || type === 'sqrt') {
-            const exponent = type === 'sqrt' ? 0.5 : (spec.exponent ?? 1);
-            if (!(exponent > 0))
-                fail$3('Power scale exponent must be greater than 0.', '$.scale.exponent');
-            return {
-                forward: (value) => Math.sign(value) * Math.abs(value) ** exponent,
-                inverse: (value) => Math.sign(value) * Math.abs(value) ** (1 / exponent),
-                validate: () => undefined,
-            };
-        }
-        if (type === 'logit') {
-            return {
-                forward: (value) => Math.log(value / (1 - value)),
-                inverse: (value) => 1 / (1 + Math.exp(-value)),
-                validate: ([start, end]) => {
-                    if (!(start > 0 && start < 1 && end > 0 && end < 1))
-                        fail$3('Logit scale domain values must be strictly between 0 and 1.', '$.scale.domain');
-                },
-            };
-        }
-        if (type === 'probit') {
-            return {
-                forward: inverseNormal,
-                inverse: normalCdf,
-                validate: ([start, end]) => {
-                    if (!(start > 0 && start < 1 && end > 0 && end < 1))
-                        fail$3('Probit scale domain values must be strictly between 0 and 1.', '$.scale.domain');
-                },
-            };
-        }
-        return {
-            forward: identity,
-            inverse: identity,
-            validate: ([start, end]) => {
-                if (type === 'probability' && !(start >= 0 && start <= 1 && end >= 0 && end <= 1)) {
-                    fail$3('Probability scale domain values must be between 0 and 1.', '$.scale.domain');
-                }
-            },
-        };
-    }
-    class ContinuousScale {
-        bandwidth = 0;
-        descriptor;
-        #domain;
-        #range;
-        #policy;
-        #transform;
-        constructor(type, spec, domain, range) {
-            this.kind = type;
-            this.#domain = frozen(domain);
-            this.#range = frozen(spec.reverse === true ? [...range].reverse() : range);
-            this.#policy = resolvedPolicy(spec, 'extrapolate');
-            this.#transform = transformFor(type, spec);
-            this.#transform.validate(this.#domain);
-            if (this.#domain[0] === this.#domain[1])
-                fail$3('Continuous scale domain endpoints must differ.', '$.scale.domain');
-            this.descriptor = Object.freeze({
-                type,
-                domain: this.#domain,
-                range: this.#range,
-                reverse: spec.reverse === true,
-                rangeDirection: this.#range.at(-1) < this.#range[0] ? 'descending' : 'ascending',
-                outOfBounds: this.#policy,
-            });
-        }
-        kind;
-        domain() {
-            return this.#domain;
-        }
-        range() {
-            return this.#range;
-        }
-        map(input) {
-            const value = input instanceof Date
-                ? input.getTime()
-                : typeof input === 'string'
-                    ? this.kind === 'time' || this.kind === 'utc'
-                        ? (temporalTimestamp(input, true) ?? Number.NaN)
-                        : Date.parse(input)
-                    : input;
-            if (!Number.isFinite(value))
-                return Number.NaN;
-            const outsideMathematicalDomain = (this.kind === 'log' && value <= 0) ||
-                (this.kind === 'probability' && !(value >= 0 && value <= 1)) ||
-                ((this.kind === 'logit' || this.kind === 'probit') && !(value > 0 && value < 1));
-            let supportedValue = value;
-            if (outsideMathematicalDomain) {
-                if (this.#policy === 'unknown')
-                    return Number.NaN;
-                if (this.#policy === 'clamp') {
-                    const minimum = Math.min(this.#domain[0], this.#domain[1]);
-                    const maximum = Math.max(this.#domain[0], this.#domain[1]);
-                    supportedValue = clamp$d(value, minimum, maximum);
-                }
-                else {
-                    throw new GraflumeError('INVALID_DATA', `Value ${value} is outside the mathematical domain of ${this.kind}; it cannot be extrapolated.`, { path: '$.data' });
-                }
-            }
-            const transformedDomain = [
-                this.#transform.forward(this.#domain[0]),
-                this.#transform.forward(this.#domain[1]),
-            ];
-            const ratio = normalizeRatio(this.#transform.forward(supportedValue), transformedDomain, this.#policy, '$.data');
-            return interpolateRange(this.#range, ratio);
-        }
-        invert = (position) => {
-            const rangePair = [this.#range[0], this.#range.at(-1)];
-            const ratio = normalizeRatio(position, rangePair, this.#policy, '$.position');
-            if (!Number.isFinite(ratio))
-                return Number.NaN;
-            const start = this.#transform.forward(this.#domain[0]);
-            const end = this.#transform.forward(this.#domain[1]);
-            return this.#transform.inverse(start + (end - start) * ratio);
-        };
-        ticks(count, locale) {
-            const size = Math.max(1, Math.floor(count));
-            const start = this.#transform.forward(this.#domain[0]);
-            const end = this.#transform.forward(this.#domain[1]);
-            return Array.from({ length: size + 1 }, (_, index) => {
-                const value = this.#transform.inverse(start + ((end - start) * index) / size);
-                const label = this.kind === 'time' || this.kind === 'utc'
-                    ? safeDateTimeFormatter(locale, {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        timeZone: this.kind === 'utc' ? 'UTC' : undefined,
-                    }).format(new Date(value))
-                    : new Intl.NumberFormat(locale, { maximumFractionDigits: 6 }).format(value);
-                return { value, label, position: this.map(value) };
-            });
-        }
-    }
-    class PointScale {
-        kind = 'point';
-        bandwidth = 0;
-        descriptor;
-        #domain;
-        #range;
-        #positions = new Map();
-        #policy;
-        constructor(spec, domain, range) {
-            this.#domain = frozen(domain);
-            this.#range = frozen(spec.reverse === true ? [range[1], range[0]] : range);
-            this.#policy = resolvedPolicy(spec, 'unknown');
-            if (this.#policy === 'clamp' || this.#policy === 'extrapolate') {
-                fail$3('Point scales support only error or unknown for unseen categories.', '$.scale.outOfBounds');
-            }
-            const padding = Math.max(0, spec.paddingOuter ?? 0.5);
-            const denominator = Math.max(1, this.#domain.length - 1 + padding * 2);
-            this.#domain.forEach((value, index) => this.#positions.set(value, this.#range[0] + ((this.#range[1] - this.#range[0]) * (index + padding)) / denominator));
-            this.descriptor = Object.freeze({
-                type: this.kind,
-                domain: this.#domain,
-                range: this.#range,
-                reverse: spec.reverse === true,
-                rangeDirection: this.#range[1] < this.#range[0] ? 'descending' : 'ascending',
-                outOfBounds: this.#policy,
-            });
-        }
-        domain() {
-            return this.#domain;
-        }
-        range() {
-            return this.#range;
-        }
-        map(input) {
-            const value = input instanceof Date ? input.toISOString() : String(input);
-            const mapped = this.#positions.get(value);
-            if (mapped !== undefined)
-                return mapped;
-            if (this.#policy === 'error')
-                throw new GraflumeError('INVALID_DATA', `Unknown point scale value: ${value}`, {
-                    path: '$.data',
-                });
-            return Number.NaN;
-        }
-        ticks(count) {
-            const domain = this.#range[1] < this.#range[0] ? [...this.#domain].reverse() : this.#domain;
-            const step = Math.max(1, Math.ceil(domain.length / Math.max(1, count)));
-            return domain
-                .filter((_value, index) => index % step === 0)
-                .map((value) => ({ value, label: value, position: this.map(value) }));
-        }
-    }
-    function quantile$1(sorted, probability) {
-        const index = (sorted.length - 1) * probability;
-        const lower = Math.floor(index);
-        const upper = Math.ceil(index);
-        const start = sorted[lower] ?? sorted[0] ?? Number.NaN;
-        const end = sorted[upper] ?? start;
-        return start + (end - start) * (index - lower);
-    }
-    class DiscretePositionScale {
-        kind;
-        bandwidth = 0;
-        descriptor;
-        #domain;
-        #range;
-        #policy;
-        #thresholds;
-        #ordinalIndices = new Map();
-        constructor(kind, spec, domain, range) {
-            this.kind = kind;
-            this.#domain = frozen(domain);
-            this.#range = frozen(spec.reverse === true ? [...range].reverse() : range);
-            this.#policy = resolvedPolicy(spec, kind === 'quantize' ? 'clamp' : 'unknown');
-            if (kind === 'ordinal' && (this.#policy === 'clamp' || this.#policy === 'extrapolate')) {
-                fail$3('Ordinal scales support only error or unknown for unseen categories.', '$.scale.outOfBounds');
-            }
-            if (kind === 'quantize' && this.#policy === 'extrapolate') {
-                fail$3('Quantize scales cannot extrapolate discrete range values.', '$.scale.outOfBounds');
-            }
-            if ((kind === 'quantile' || kind === 'threshold') &&
-                (spec.outOfBounds !== undefined || spec.clamp !== undefined)) {
-                fail$3(`${kind} scale bin semantics do not accept outOfBounds.`, '$.scale.outOfBounds');
-            }
-            if (kind === 'ordinal' && this.#range.length < 1)
-                fail$3('Ordinal scale requires at least one range value.', '$.scale.range');
-            if (kind === 'ordinal') {
-                this.#domain.forEach((value, index) => {
-                    const id = ordinalKey(value);
-                    if (!this.#ordinalIndices.has(id))
-                        this.#ordinalIndices.set(id, index);
-                });
-            }
-            if (kind !== 'ordinal' && this.#domain.some((value) => typeof value !== 'number'))
-                fail$3(`${kind} scale domain must be numeric.`, '$.scale.domain');
-            const authoredNumbers = this.#domain;
-            const numbers = [...authoredNumbers].sort((a, b) => a - b);
-            if (kind === 'quantile') {
-                if (numbers.length < 2) {
-                    fail$3('Quantile scale domain must contain at least 2 numeric samples.', '$.scale.domain');
-                }
-                this.#thresholds = frozen(Array.from({ length: Math.max(0, this.#range.length - 1) }, (_, index) => quantile$1(numbers, (index + 1) / this.#range.length)));
-            }
-            else if (kind === 'quantize') {
-                if (numbers.length !== 2 || numbers[0] === numbers[1])
-                    fail$3('Quantize scale requires two distinct numeric domain endpoints.', '$.scale.domain');
-                this.#thresholds = frozen(Array.from({ length: Math.max(0, this.#range.length - 1) }, (_, index) => numbers[0] + ((numbers[1] - numbers[0]) * (index + 1)) / this.#range.length));
-            }
-            else if (kind === 'threshold') {
-                if (authoredNumbers.some((value, index) => index > 0 && value <= authoredNumbers[index - 1])) {
-                    fail$3('Threshold scale domain must be strictly ascending.', '$.scale.domain');
-                }
-                if (this.#range.length !== numbers.length + 1)
-                    fail$3('Threshold scale range length must equal domain length + 1.', '$.scale.range');
-                this.#thresholds = frozen(authoredNumbers);
-            }
-            else
-                this.#thresholds = [];
-            this.descriptor = Object.freeze({
-                type: kind,
-                domain: this.#domain,
-                range: this.#range,
-                reverse: spec.reverse === true,
-                rangeDirection: this.#range.at(-1) < this.#range[0] ? 'descending' : 'ascending',
-                outOfBounds: this.#policy,
-            });
-        }
-        domain() {
-            return this.#domain;
-        }
-        range() {
-            return this.#range;
-        }
-        map(input) {
-            const value = input instanceof Date ? input.getTime() : input;
-            if (this.kind === 'ordinal') {
-                const index = this.#ordinalIndices.get(ordinalKey(value));
-                if (index !== undefined)
-                    return this.#range[index % this.#range.length];
-                if (this.#policy === 'error')
-                    throw new GraflumeError('INVALID_DATA', `Unknown ordinal scale value: ${String(value)}`, {
-                        path: '$.data',
-                    });
-                return Number.NaN;
-            }
-            const number = typeof value === 'number' ? value : Number(value);
-            if (!Number.isFinite(number))
-                return Number.NaN;
-            if (this.kind === 'quantize') {
-                const endpoints = this.#domain;
-                const minimum = Math.min(endpoints[0], endpoints[1]);
-                const maximum = Math.max(endpoints[0], endpoints[1]);
-                if (number < minimum || number > maximum) {
-                    if (this.#policy === 'unknown')
-                        return Number.NaN;
-                    if (this.#policy === 'error') {
-                        throw new GraflumeError('INVALID_DATA', `Quantize input ${number} is outside the domain.`, { path: '$.data' });
-                    }
-                }
-            }
-            let index = 0;
-            while (index < this.#thresholds.length && number >= this.#thresholds[index])
-                index += 1;
-            return this.#range[Math.min(index, this.#range.length - 1)] ?? Number.NaN;
-        }
-        ticks(_count, locale) {
-            if (this.kind === 'ordinal')
-                return this.#domain.map((value) => ({
-                    value,
-                    label: String(value),
-                    position: this.map(value),
-                }));
-            return this.#thresholds.map((value) => ({
-                value,
-                label: new Intl.NumberFormat(locale, { maximumFractionDigits: 6 }).format(value),
-                position: this.map(value),
-            }));
-        }
-    }
-    function createPositionScale(spec, options) {
-        if (spec.type !== undefined && options.type !== undefined && spec.type !== options.type) {
-            fail$3(`Scale type ${spec.type} conflicts with the requested position scale type ${options.type}.`, '$.scale.type');
-        }
-        const requestedType = spec.type ?? options.type ?? 'linear';
-        if (requestedType === 'sequential' ||
-            requestedType === 'diverging' ||
-            requestedType === 'cyclic') {
-            fail$3(`${requestedType} is a color scale and cannot produce positions.`, '$.scale.type');
-        }
-        const type = requestedType;
-        const domain = spec.domain ?? options.domain;
-        const range = spec.range === undefined ? options.range : numericRange(spec.range);
-        if (type === 'band') {
-            if (domain.some((value) => typeof value !== 'string'))
-                fail$3('Band scale domain must contain strings.', '$.scale.domain');
-            const pair = numericRangePair(range);
-            const policy = resolvedPolicy(spec, 'unknown');
-            if (policy === 'clamp' || policy === 'extrapolate') {
-                fail$3('Band scales support only error or unknown for unseen categories.', '$.scale.outOfBounds');
-            }
-            return new BandScale({
-                domain: domain,
-                range: [pair[0], pair.at(-1)],
-                ...(spec.paddingInner === undefined ? {} : { paddingInner: spec.paddingInner }),
-                ...(spec.paddingOuter === undefined ? {} : { paddingOuter: spec.paddingOuter }),
-                outOfBounds: policy,
-                ...(spec.reverse === undefined ? {} : { reverse: spec.reverse }),
-            });
-        }
-        if (type === 'point') {
-            if (domain.some((value) => typeof value !== 'string'))
-                fail$3('Point scale domain must contain strings.', '$.scale.domain');
-            const pair = numericRangePair(range);
-            return new PointScale(spec, domain, [pair[0], pair.at(-1)]);
-        }
-        if (type === 'ordinal' || type === 'quantile' || type === 'quantize' || type === 'threshold')
-            return new DiscretePositionScale(type, spec, domain, numericRange(range, 1));
-        const resolvedContinuousDomain = type === 'time' || type === 'utc'
-            ? domain.map((value) => typeof value === 'number' ? value : (temporalTimestamp(value, true) ?? Number.NaN))
-            : domain;
-        const pair = numericDomain$2(resolvedContinuousDomain);
-        if (type === 'linear' || type === 'time' || type === 'utc') {
-            const numeric = numericRangePair(range);
-            return new LinearScale({
-                domain: pair,
-                range: [numeric[0], numeric.at(-1)],
-                kind: type,
-                ...(spec.nice === undefined ? {} : { nice: spec.nice }),
-                outOfBounds: resolvedPolicy(spec, 'extrapolate'),
-                ...(spec.reverse === undefined ? {} : { reverse: spec.reverse }),
-            });
-        }
-        return new ContinuousScale(type, spec, pair, numericRangePair(range));
-    }
-    function interpolateColors(range, ratio) {
-        const bounded = clamp$d(ratio, 0, 1);
-        if (range.length === 1)
-            return range[0];
-        const scaled = bounded * (range.length - 1);
-        const index = Math.min(range.length - 2, Math.floor(scaled));
-        return mixColor$1(range[index], range[index + 1], scaled - index);
-    }
-    function interpolateCyclicColors(range, ratio) {
-        const wrapped = ((ratio % 1) + 1) % 1;
-        const scaled = wrapped * range.length;
-        const index = Math.floor(scaled) % range.length;
-        const next = (index + 1) % range.length;
-        return mixColor$1(range[index], range[next], scaled - Math.floor(scaled));
-    }
-    class RegisteredColorScale {
-        kind;
-        descriptor;
-        #domain;
-        #range;
-        #policy;
-        #ordinalIndices = new Map();
-        constructor(kind, spec, domain, range) {
-            this.kind = kind;
-            this.#domain = frozen(domain);
-            this.#range = frozen(spec.reverse === true ? [...range].reverse() : range);
-            this.#policy = resolvedPolicy(spec, kind === 'ordinal' ? 'unknown' : 'clamp');
-            if (kind === 'cyclic' && (spec.outOfBounds !== undefined || spec.clamp !== undefined)) {
-                fail$3('Cyclic scales always wrap and do not accept outOfBounds.', '$.scale.outOfBounds');
-            }
-            if (this.#policy === 'extrapolate' && kind !== 'cyclic') {
-                fail$3('Color scales do not extrapolate colors; use clamp, error, or unknown.', '$.scale.outOfBounds');
-            }
-            if (kind === 'ordinal' && this.#policy === 'clamp') {
-                fail$3('Ordinal color scales support only error or unknown for unseen categories.', '$.scale.outOfBounds');
-            }
-            if (kind === 'ordinal') {
-                this.#domain.forEach((value, index) => {
-                    const id = ordinalKey(value);
-                    if (!this.#ordinalIndices.has(id))
-                        this.#ordinalIndices.set(id, index);
-                });
-            }
-            if (this.#range.length === 0)
-                fail$3('Color scale requires at least one color in range.', '$.scale.range');
-            if (kind === 'sequential' && this.#range.length < 2)
-                fail$3('Sequential color scale requires at least 2 colors.', '$.scale.range');
-            if (kind === 'diverging' && this.#range.length < 3)
-                fail$3('Diverging color scale requires at least 3 colors.', '$.scale.range');
-            if (kind === 'cyclic' && this.#range.length < 2)
-                fail$3('Cyclic color scale requires at least 2 colors.', '$.scale.range');
-            if (kind === 'diverging')
-                numericDomain$2(domain, 3);
-            else if (kind !== 'ordinal')
-                numericDomain$2(domain);
-            if (kind === 'diverging') {
-                const [start, middle, end] = domain;
-                if (!(start < middle && middle < end)) {
-                    fail$3('Diverging color scale domain must be strictly ascending.', '$.scale.domain');
-                }
-            }
-            else if (kind !== 'ordinal') {
-                const [start, end] = domain;
-                if (start === end)
-                    fail$3(`${kind} color scale domain endpoints must differ.`, '$.scale.domain');
-            }
-            this.descriptor = Object.freeze({
-                type: kind,
-                domain: this.#domain,
-                range: this.#range,
-                reverse: spec.reverse === true,
-                outOfBounds: kind === 'cyclic' ? 'wrap' : this.#policy,
-            });
-        }
-        domain() {
-            return this.#domain;
-        }
-        range() {
-            return this.#range;
-        }
-        map(input) {
-            const value = input instanceof Date ? input.getTime() : input;
-            if (this.kind === 'ordinal') {
-                const index = this.#ordinalIndices.get(ordinalKey(value));
-                if (index !== undefined)
-                    return this.#range[index % this.#range.length];
-                if (this.#policy === 'error')
-                    throw new GraflumeError('INVALID_DATA', `Unknown ordinal color value: ${String(value)}`, {
-                        path: '$.data',
-                    });
-                return specUnknownColor(this.#policy);
-            }
-            const number = typeof value === 'number' ? value : Number(value);
-            if (!Number.isFinite(number))
-                return specUnknownColor(this.#policy);
-            if (this.kind === 'cyclic') {
-                const domain = this.#domain;
-                const span = domain[1] - domain[0];
-                const ratio = span === 0 ? 0 : ((((number - domain[0]) / span) % 1) + 1) % 1;
-                return interpolateCyclicColors(this.#range, ratio);
-            }
-            if (this.kind === 'diverging') {
-                const [start, middle, end] = this.#domain;
-                const ratio = number <= middle
-                    ? normalizeRatio(number, [start, middle], this.#policy, '$.data') / 2
-                    : 0.5 + normalizeRatio(number, [middle, end], this.#policy, '$.data') / 2;
-                return Number.isFinite(ratio)
-                    ? interpolateColors(this.#range, ratio)
-                    : specUnknownColor(this.#policy);
-            }
-            const ratio = normalizeRatio(number, this.#domain, this.#policy, '$.data');
-            return Number.isFinite(ratio)
-                ? interpolateColors(this.#range, ratio)
-                : specUnknownColor(this.#policy);
-        }
-    }
-    function specUnknownColor(policy) {
-        if (policy === 'error')
-            throw new GraflumeError('INVALID_DATA', 'Color scale input is outside the domain.', {
-                path: '$.data',
-            });
-        return 'transparent';
-    }
-    function createColorScale(spec, fallback) {
-        if (spec.type !== undefined &&
-            spec.type !== 'ordinal' &&
-            spec.type !== 'sequential' &&
-            spec.type !== 'diverging' &&
-            spec.type !== 'cyclic') {
-            fail$3(`${spec.type} is not a color registry scale.`, '$.scale.type');
-        }
-        const type = spec.type === 'sequential' || spec.type === 'diverging' || spec.type === 'cyclic'
-            ? spec.type
-            : 'ordinal';
-        const domain = spec.domain ?? fallback.domain;
-        const rawRange = spec.range ?? fallback.range;
-        if (rawRange.some((value) => typeof value !== 'string'))
-            fail$3('Color scale range must contain strings.', '$.scale.range');
-        return new RegisteredColorScale(type, spec, domain, rawRange);
-    }
-    const positionScaleTypes = Object.freeze([
-        'linear',
-        'log',
-        'symlog',
-        'asinh',
-        'pow',
-        'sqrt',
-        'time',
-        'utc',
-        'band',
-        'point',
-        'ordinal',
-        'quantile',
-        'quantize',
-        'threshold',
-        'probability',
-        'logit',
-        'probit',
-    ]);
-    const colorScaleTypes = Object.freeze([
-        'ordinal',
-        'sequential',
-        'diverging',
-        'cyclic',
-    ]);
 
     const shapeRange = ['circle', 'square', 'diamond', 'triangle', 'cross'];
     const dashRange = [[], [7, 4], [2, 3], [10, 3, 2, 3], [1, 3]];
@@ -16689,21 +20694,21 @@ var Graflume = (function (exports) {
         return new EncodingResolver(context);
     }
 
-    function finite$a(value) {
+    function finite$9(value) {
         return typeof value === 'number' && Number.isFinite(value) ? value : 0;
     }
     function samplingChannel(values, length) {
         let minimum = Number.POSITIVE_INFINITY;
         let maximum = Number.NEGATIVE_INFINITY;
         for (let index = 0; index < length; index += 1) {
-            const value = finite$a(values[index]);
+            const value = finite$9(values[index]);
             minimum = Math.min(minimum, value);
             maximum = Math.max(maximum, value);
         }
         return {
             values,
-            first: finite$a(values[0]),
-            last: finite$a(values[length - 1]),
+            first: finite$9(values[0]),
+            last: finite$9(values[length - 1]),
             span: Math.max(1e-12, maximum - minimum),
         };
     }
@@ -16711,7 +20716,7 @@ var Graflume = (function (exports) {
         const ratio = length <= 1 ? 0 : index / (length - 1);
         return channels.reduce((score, channel) => {
             const expected = channel.first + (channel.last - channel.first) * ratio;
-            return Math.max(score, Math.abs(finite$a(channel.values[index]) - expected) / channel.span);
+            return Math.max(score, Math.abs(finite$9(channel.values[index]) - expected) / channel.span);
         }, 0);
     }
     /**
@@ -16728,7 +20733,7 @@ var Graflume = (function (exports) {
             return Array.from({ length }, (_value, index) => index);
         if (budget <= 2)
             return exactStrideSampleIndices(length, budget);
-        const thickness = Array.from({ length }, (_value, index) => Math.abs(finite$a(upper[index]) - finite$a(lower[index])));
+        const thickness = Array.from({ length }, (_value, index) => Math.abs(finite$9(upper[index]) - finite$9(lower[index])));
         if (budget < 8) {
             const selected = new Set([0, length - 1]);
             const channels = [
@@ -17479,7 +21484,7 @@ var Graflume = (function (exports) {
     }
 
     const TAU$3 = Math.PI * 2;
-    function clamp$b(value, min, max) {
+    function clamp$a(value, min, max) {
         return Math.max(min, Math.min(max, value));
     }
     function finiteOption$1(value, fallback) {
@@ -17596,7 +21601,7 @@ var Graflume = (function (exports) {
         const cy = plot.y + plot.height / 2;
         const radius = Math.max(16, Math.min(plot.width, plot.height) * 0.34);
         const nodes = [];
-        const rings = clamp$b(Math.floor(finiteOption$1(layer.mark.options.rings, 5)), 1, 8);
+        const rings = clamp$a(Math.floor(finiteOption$1(layer.mark.options.rings, 5)), 1, 8);
         const linePointBudget = Math.max(1, Math.floor(performance.maxLinePoints));
         const balancedSeriesLimit = Math.max(1, Math.floor(Math.sqrt(linePointBudget)));
         const plannedSeriesCount = Math.min(seriesNames.length, balancedSeriesLimit);
@@ -17647,7 +21652,7 @@ var Graflume = (function (exports) {
                 return;
             const color = themeColor(context, seriesIndex, retainedSeries.length);
             const points = categories.map((category, index) => {
-                const ratio = clamp$b((rows.get(category)?.value ?? 0) / maximum, 0, 1);
+                const ratio = clamp$a((rows.get(category)?.value ?? 0) / maximum, 0, 1);
                 return pointOnCircle$2(cx, cy, radius * ratio, -Math.PI / 2 + (index * TAU$3) / categories.length);
             });
             nodes.push({
@@ -17777,7 +21782,7 @@ var Graflume = (function (exports) {
                 lineJoin: 'round',
             });
         });
-        const cardWidth = clamp$b(plot.width / Math.max(3, Math.max(...levels.map((level) => level.length))), 66, 112);
+        const cardWidth = clamp$a(plot.width / Math.max(3, Math.max(...levels.map((level) => level.length))), 66, 112);
         const cardHeight = 30;
         items.forEach((item, index) => {
             const position = positions.get(item.id);
@@ -18023,7 +22028,7 @@ var Graflume = (function (exports) {
                     return;
                 // Scaling both dimensions by sqrt(value) keeps the visible stage area
                 // proportional while retaining a stable slot for labels and hit testing.
-                const scale = Math.sqrt(clamp$b(item.value / maxValue, 0.015, 1));
+                const scale = Math.sqrt(clamp$a(item.value / maxValue, 0.015, 1));
                 const width = plot.width * scale;
                 const height = Math.max(8, (stageHeight - 4) * scale);
                 const cx = plot.x + plot.width / 2;
@@ -18064,8 +22069,8 @@ var Graflume = (function (exports) {
             if (item === undefined)
                 return;
             const next = retainedItems[index + 1];
-            const topWidth = plot.width * clamp$b(item.value / maxValue, 0.08, 1);
-            const bottomWidth = plot.width * clamp$b((next?.value ?? item.value * 0.78) / maxValue, 0.06, 1);
+            const topWidth = plot.width * clamp$a(item.value / maxValue, 0.08, 1);
+            const bottomWidth = plot.width * clamp$a((next?.value ?? item.value * 0.78) / maxValue, 0.06, 1);
             const y1 = plot.y + index * stageHeight + 2;
             const y2 = plot.y + (index + 1) * stageHeight - 2;
             const cx = plot.x + plot.width / 2;
@@ -18301,7 +22306,7 @@ var Graflume = (function (exports) {
                         return;
                     ratio = dimension.values.length <= 1 ? 0.5 : index / (dimension.values.length - 1);
                 }
-                points.push({ x: xFor(dimensionIndex), y: plot.y + plot.height * (1 - clamp$b(ratio, 0, 1)) });
+                points.push({ x: xFor(dimensionIndex), y: plot.y + plot.height * (1 - clamp$a(ratio, 0, 1)) });
             });
             if (points.length !== dimensions.length)
                 continue;
@@ -18533,7 +22538,7 @@ var Graflume = (function (exports) {
             maxSize = Math.max(1, extent?.[1] ?? 1);
         }
         const nodes = [];
-        const ringCount = clamp$b(Math.floor(finiteOption$1(layer.mark.options.rings, 2)), 1, 4);
+        const ringCount = clamp$a(Math.floor(finiteOption$1(layer.mark.options.rings, 2)), 1, 4);
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
             const xValue = scaleInput(table.value(rowIndex, layer.x.field));
             const yValue = scaleInput(table.value(rowIndex, layer.y.field));
@@ -18582,7 +22587,7 @@ var Graflume = (function (exports) {
         const x2Field = layer.mark.fields.x2 ?? 'x2';
         const y2Field = layer.mark.fields.y2 ?? 'y2';
         const valueField = layer.mark.fields.value;
-        const curvature = clamp$b(finiteOption$1(layer.mark.options.curvature, 0.18), -1, 1);
+        const curvature = clamp$a(finiteOption$1(layer.mark.options.curvature, 0.18), -1, 1);
         const nodes = [];
         let maxValue = 1;
         if (valueField !== undefined && table.has(valueField))
@@ -18673,7 +22678,7 @@ var Graflume = (function (exports) {
             return [];
         const min = Math.min(...values);
         const max = Math.max(...values);
-        const cellGap = clamp$b(finiteOption$1(layer.mark.options.cellGap, 1), 0, 24);
+        const cellGap = clamp$a(finiteOption$1(layer.mark.options.cellGap, 1), 0, 24);
         const xCellPositions = xScale instanceof BandScale ? xScale.domain().map((value) => xScale.map(value)) : xPositions;
         const yCellPositions = yScale instanceof BandScale ? yScale.domain().map((value) => yScale.map(value)) : yPositions;
         const cellWidth = heatmapCellSpan(xCellPositions, xScale instanceof BandScale ? plot.width / Math.max(1, xScale.domain().length) : 18, cellGap);
@@ -18689,7 +22694,7 @@ var Graflume = (function (exports) {
             const y = yScale.map(yValue);
             if (!Number.isFinite(x) || !Number.isFinite(y))
                 continue;
-            const ratio = max === min ? 0.5 : clamp$b((value - min) / (max - min), 0, 1);
+            const ratio = max === min ? 0.5 : clamp$a((value - min) / (max - min), 0, 1);
             const seriesColor = encoding.color('color', rowIndex, mappedContinuousColor(theme, ratio));
             const color = encoding.color('fill', rowIndex, encoding.has('color') ? seriesColor : (layer.mark.fill ?? seriesColor));
             const x2 = encoding.position('x2', rowIndex);
@@ -18735,7 +22740,7 @@ var Graflume = (function (exports) {
     };
     const compilePictorialBarMark = (context) => {
         const { layer, table, xScale, yScale, plot, theme } = context;
-        const maxSymbols = clamp$b(Math.floor(finiteOption$1(layer.mark.options.maxSymbols, 12)), 2, 40);
+        const maxSymbols = clamp$a(Math.floor(finiteOption$1(layer.mark.options.maxSymbols, 12)), 2, 40);
         let maxAbs = 0;
         for (let rowIndex = 0; rowIndex < table.length; rowIndex += 1) {
             maxAbs = Math.max(maxAbs, Math.abs(numericDataValue(table.value(rowIndex, layer.y.field)) ?? 0));
@@ -18758,7 +22763,7 @@ var Graflume = (function (exports) {
             const step = Math.abs(end - zero) / count;
             const requestedSize = finiteOption$1(layer.mark.options.symbolSize, Number.NaN);
             const size = Number.isFinite(requestedSize)
-                ? clamp$b(Math.abs(requestedSize), 3, Math.max(3, band * 0.9))
+                ? clamp$a(Math.abs(requestedSize), 3, Math.max(3, band * 0.9))
                 : Math.max(3, Math.min(band * 0.62, step * 0.72, 18));
             const color = layer.mark.fill ?? themeColor(context, rowIndex, table.length);
             for (let index = 0; index < count; index += 1) {
@@ -18850,7 +22855,7 @@ var Graflume = (function (exports) {
         const cx = plot.x + plot.width / 2;
         const cy = plot.y + plot.height / 2;
         const outerRadius = Math.max(20, Math.min(plot.width, plot.height) * 0.42);
-        const innerHole = outerRadius * clamp$b(finiteOption$1(layer.mark.options.innerRadius, 0.12), 0, 0.7);
+        const innerHole = outerRadius * clamp$a(finiteOption$1(layer.mark.options.innerRadius, 0.12), 0, 0.7);
         const ringWidth = (outerRadius - innerHole) / Math.max(1, maxDepth + 1);
         const nodes = [];
         let colorIndex = 0;
@@ -19026,7 +23031,7 @@ var Graflume = (function (exports) {
                 table.has(labelField)) {
                 const label = stringValue$5(table.value(rowIndex, labelField));
                 if (label !== null && label !== '') {
-                    nodes.push(textNode$9(`${layer.id}:custom-label:${rowIndex}`, x, clamp$b(y - size / 2 - 8, context.plot.y + 8, context.plot.y + context.plot.height - 8), label, context, {
+                    nodes.push(textNode$9(`${layer.id}:custom-label:${rowIndex}`, x, clamp$a(y - size / 2 - 8, context.plot.y + 8, context.plot.y + context.plot.height - 8), label, context, {
                         fill: theme.colors.mutedText,
                         size: Math.max(9, theme.typography.fontSize - 1),
                         weight: 600,
@@ -21601,1732 +25606,6 @@ var Graflume = (function (exports) {
     function naturalEarthCountries110m() {
         countryCache ??= JSON.parse(serializedCountries);
         return countryCache;
-    }
-
-    const MAXIMUM_MAP_SCOPE_VALUES = 50_000;
-    const unsafeMapPropertyNames = new Set(['__proto__', 'prototype', 'constructor']);
-    function mapScopeProperty(value, path) {
-        if (typeof value !== 'string' || value.trim() === '' || value.length > 256)
-            throw new GraflumeError('INVALID_SPEC', `${path} must be a non-empty string up to 256 characters.`, {
-                path,
-            });
-        const property = value.trim();
-        if (property !== '$id' && unsafeMapPropertyNames.has(property))
-            throw new GraflumeError('INVALID_SPEC', `${path} is not a safe GeoJSON property.`, { path });
-        return property;
-    }
-    function mapScopeValues(value, path) {
-        if (!Array.isArray(value) || value.length === 0 || value.length > MAXIMUM_MAP_SCOPE_VALUES)
-            throw new GraflumeError('INVALID_SPEC', `${path} must contain from 1 to ${MAXIMUM_MAP_SCOPE_VALUES} string, number, or boolean values.`, { path });
-        const output = [];
-        const keys = new Set();
-        value.forEach((entry, index) => {
-            if (!(typeof entry === 'string' ||
-                (typeof entry === 'number' && Number.isFinite(entry)) ||
-                typeof entry === 'boolean'))
-                throw new GraflumeError('INVALID_SPEC', `${path}[${index}] must be a string, finite number, or boolean.`, { path: `${path}[${index}]` });
-            if (typeof entry === 'string' && entry.length > 512)
-                throw new GraflumeError('INVALID_SPEC', `${path}[${index}] is longer than 512 characters.`, {
-                    path: `${path}[${index}]`,
-                });
-            const key = `${typeof entry}:${String(entry)}`;
-            if (!keys.has(key)) {
-                keys.add(key);
-                output.push(entry);
-            }
-        });
-        return Object.freeze(output);
-    }
-    /** Validates and snapshots a closed map feature-scope object. */
-    function normalizeMapFeatureScope(value, path = '$.mapScope') {
-        if (value === null || typeof value !== 'object' || Array.isArray(value))
-            throw new GraflumeError('INVALID_SPEC', `${path} must be an object.`, { path });
-        const candidate = value;
-        const allowed = new Set([
-            'level',
-            'property',
-            'values',
-            'parentProperty',
-            'parentValues',
-            'caseSensitive',
-            'unmatched',
-            'empty',
-        ]);
-        const unknown = Object.keys(candidate).find((key) => !allowed.has(key));
-        if (unknown !== undefined)
-            throw new GraflumeError('INVALID_SPEC', `Unknown map scope property "${unknown}".`, {
-                path: `${path}.${unknown}`,
-            });
-        const level = candidate.level ?? 'feature';
-        if (level !== 'country' && level !== 'region' && level !== 'feature')
-            throw new GraflumeError('INVALID_SPEC', `${path}.level is unsupported.`, {
-                path: `${path}.level`,
-            });
-        const property = mapScopeProperty(candidate.property ?? '$id', `${path}.property`);
-        const values = mapScopeValues(candidate.values, `${path}.values`);
-        const parentProperty = candidate.parentProperty === undefined
-            ? undefined
-            : mapScopeProperty(candidate.parentProperty, `${path}.parentProperty`);
-        const parentValues = candidate.parentValues === undefined
-            ? undefined
-            : mapScopeValues(candidate.parentValues, `${path}.parentValues`);
-        if ((parentProperty === undefined) !== (parentValues === undefined))
-            throw new GraflumeError('INVALID_SPEC', `${path}.parentProperty and ${path}.parentValues must be provided together.`, { path });
-        const caseSensitive = candidate.caseSensitive ?? false;
-        if (typeof caseSensitive !== 'boolean')
-            throw new GraflumeError('INVALID_SPEC', `${path}.caseSensitive must be boolean.`, {
-                path: `${path}.caseSensitive`,
-            });
-        const unmatched = candidate.unmatched ?? 'error';
-        if (unmatched !== 'error' && unmatched !== 'ignore')
-            throw new GraflumeError('INVALID_SPEC', `${path}.unmatched is unsupported.`, {
-                path: `${path}.unmatched`,
-            });
-        const empty = candidate.empty ?? 'error';
-        if (empty !== 'error' && empty !== 'allow')
-            throw new GraflumeError('INVALID_SPEC', `${path}.empty is unsupported.`, {
-                path: `${path}.empty`,
-            });
-        return Object.freeze({
-            level,
-            property,
-            values,
-            ...(parentProperty === undefined ? {} : { parentProperty, parentValues: parentValues }),
-            caseSensitive,
-            unmatched,
-            empty,
-        });
-    }
-    function mapScopeComparable(value, caseSensitive) {
-        if (!(typeof value === 'string' ||
-            (typeof value === 'number' && Number.isFinite(value)) ||
-            typeof value === 'boolean'))
-            return null;
-        const text = `${typeof value}:${String(value).trim()}`;
-        return caseSensitive || typeof value !== 'string' ? text : text.toLocaleUpperCase('en-US');
-    }
-    function mapFeatureScopeValue(feature, property) {
-        return property === '$id' ? feature.id : feature.properties?.[property];
-    }
-    function requestedMapScopeKeys(values, caseSensitive) {
-        return new Set(values.flatMap((entry) => {
-            const value = mapScopeComparable(entry, caseSensitive);
-            return value === null ? [] : [value];
-        }));
-    }
-    /**
-     * Selects any number of features with bounded Set lookups. Requested values are
-     * matched exactly (case-insensitive for strings by default), source order is
-     * preserved, and partial or empty matches fail closed unless explicitly allowed.
-     */
-    function scopeGeoJsonFeatures(collection, scopeInput) {
-        const scope = normalizeMapFeatureScope(scopeInput);
-        const requested = requestedMapScopeKeys(scope.values, scope.caseSensitive);
-        const requestedParents = requestedMapScopeKeys(scope.parentValues ?? [], scope.caseSensitive);
-        const matched = new Set();
-        const matchedParents = new Set();
-        const features = collection.features.filter((feature) => {
-            const value = mapScopeComparable(mapFeatureScopeValue(feature, scope.property), scope.caseSensitive);
-            if (value === null || !requested.has(value))
-                return false;
-            if (scope.parentProperty === undefined) {
-                matched.add(value);
-                return true;
-            }
-            const parent = mapScopeComparable(mapFeatureScopeValue(feature, scope.parentProperty), scope.caseSensitive);
-            if (parent === null || !requestedParents.has(parent))
-                return false;
-            matched.add(value);
-            matchedParents.add(parent);
-            return true;
-        });
-        if (scope.unmatched === 'error') {
-            const missing = [...requested].filter((value) => !matched.has(value));
-            const missingParents = [...requestedParents].filter((value) => !matchedParents.has(value));
-            if (missing.length > 0 || missingParents.length > 0)
-                throw new GraflumeError('INVALID_DATA', `Map scope did not match ${missing.length + missingParents.length} requested value(s).`, {
-                    details: {
-                        missing: Object.freeze(missing),
-                        missingParents: Object.freeze(missingParents),
-                    },
-                });
-        }
-        if (features.length === 0 && scope.empty === 'error')
-            throw new GraflumeError('INVALID_DATA', 'Map scope selected no features.');
-        return Object.freeze({ type: 'FeatureCollection', features: Object.freeze(features) });
-    }
-    function finite$9(value, path) {
-        if (typeof value !== 'number' || !Number.isFinite(value)) {
-            throw new GraflumeError('INVALID_DATA', `${path} must be a finite number.`, { path });
-        }
-        return value;
-    }
-    function clamp$a(value, minimum, maximum) {
-        return Math.max(minimum, Math.min(maximum, value));
-    }
-    function longitude(value, path) {
-        const resolved = finite$9(value, path);
-        if (resolved < -540 || resolved > 540)
-            throw new GraflumeError('INVALID_DATA', `${path} is outside the supported longitude range.`);
-        return resolved;
-    }
-    function latitude(value, path) {
-        const resolved = finite$9(value, path);
-        if (resolved < -90 || resolved > 90)
-            throw new GraflumeError('INVALID_DATA', `${path} must be from -90 to 90.`);
-        return resolved;
-    }
-    function wrapLongitude(value) {
-        const finiteValue = longitude(value, '$.longitude');
-        return ((((finiteValue + 180) % 360) + 360) % 360) - 180;
-    }
-    function position$1(value, path) {
-        if (!Array.isArray(value) || value.length < 2)
-            throw new GraflumeError('INVALID_DATA', `${path} must be [longitude, latitude].`, { path });
-        return [longitude(value[0], `${path}[0]`), latitude(value[1], `${path}[1]`)];
-    }
-    function positions(value, depth, path) {
-        if (depth === 0)
-            return position$1(value, path);
-        if (!Array.isArray(value))
-            throw new GraflumeError('INVALID_DATA', `${path} must be an array.`, { path });
-        return value.map((entry, index) => positions(entry, depth - 1, `${path}[${index}]`));
-    }
-    function normalizeGeometry(value, path) {
-        if (typeof value !== 'object' || value === null || Array.isArray(value))
-            throw new GraflumeError('INVALID_DATA', `${path} must be a GeoJSON geometry.`);
-        const candidate = value;
-        if (candidate.type === 'GeometryCollection') {
-            if (!Array.isArray(candidate.geometries))
-                throw new GraflumeError('INVALID_DATA', `${path}.geometries must be an array.`, {
-                    path: `${path}.geometries`,
-                });
-            return {
-                type: 'GeometryCollection',
-                geometries: candidate.geometries.map((geometry, index) => normalizeGeometry(geometry, `${path}.geometries[${index}]`)),
-            };
-        }
-        const depth = new Map([
-            ['Point', 0],
-            ['MultiPoint', 1],
-            ['LineString', 1],
-            ['MultiLineString', 2],
-            ['Polygon', 2],
-            ['MultiPolygon', 3],
-        ]).get(String(candidate.type));
-        if (depth === undefined)
-            throw new GraflumeError('INVALID_DATA', `${path}.type is unsupported.`);
-        return {
-            type: candidate.type,
-            coordinates: positions(candidate.coordinates, depth, `${path}.coordinates`),
-        };
-    }
-    /** Validates GeoJSON and returns a closed, normalized FeatureCollection. */
-    function normalizeGeoJson(value) {
-        if (typeof value !== 'object' || value === null || Array.isArray(value))
-            throw new GraflumeError('INVALID_DATA', 'GeoJSON must be an object.');
-        const candidate = value;
-        const inputs = candidate.type === 'FeatureCollection'
-            ? Array.isArray(candidate.features)
-                ? candidate.features
-                : (() => {
-                    throw new GraflumeError('INVALID_DATA', '$.features must be an array.');
-                })()
-            : [
-                candidate.type === 'Feature'
-                    ? candidate
-                    : { type: 'Feature', geometry: candidate, properties: null },
-            ];
-        const features = inputs.map((entry, index) => {
-            if (typeof entry !== 'object' || entry === null || Array.isArray(entry))
-                throw new GraflumeError('INVALID_DATA', `$.features[${index}] must be an object.`);
-            const feature = entry;
-            if (feature.type !== 'Feature')
-                throw new GraflumeError('INVALID_DATA', `$.features[${index}].type must be Feature.`);
-            const properties = feature.properties == null
-                ? null
-                : typeof feature.properties === 'object' && !Array.isArray(feature.properties)
-                    ? feature.properties
-                    : (() => {
-                        throw new GraflumeError('INVALID_DATA', `$.features[${index}].properties must be an object or null.`);
-                    })();
-            return {
-                type: 'Feature',
-                ...(typeof feature.id === 'string' || typeof feature.id === 'number'
-                    ? { id: feature.id }
-                    : {}),
-                properties,
-                geometry: feature.geometry === null
-                    ? null
-                    : normalizeGeometry(feature.geometry, `$.features[${index}].geometry`),
-            };
-        });
-        return { type: 'FeatureCollection', features };
-    }
-    function decodedArcs(topology) {
-        const transform = topology.transform;
-        if (transform !== undefined) {
-            transform.scale.forEach((value, index) => finite$9(value, `$.transform.scale[${index}]`));
-            transform.translate.forEach((value, index) => finite$9(value, `$.transform.translate[${index}]`));
-        }
-        return topology.arcs.map((arc, arcIndex) => {
-            let x = 0;
-            let y = 0;
-            return arc.map((entry, pointIndex) => {
-                if (!Array.isArray(entry) || entry.length < 2)
-                    throw new GraflumeError('INVALID_DATA', `$.arcs[${arcIndex}][${pointIndex}] must be a pair.`);
-                if (transform === undefined)
-                    return position$1(entry, `$.arcs[${arcIndex}][${pointIndex}]`);
-                x += finite$9(entry[0], `$.arcs[${arcIndex}][${pointIndex}][0]`);
-                y += finite$9(entry[1], `$.arcs[${arcIndex}][${pointIndex}][1]`);
-                return position$1([
-                    x * transform.scale[0] + transform.translate[0],
-                    y * transform.scale[1] + transform.translate[1],
-                ], `$.arcs[${arcIndex}][${pointIndex}]`);
-            });
-        });
-    }
-    function topoArc(reference, arcs) {
-        const index = reference < 0 ? ~reference : reference;
-        const arc = arcs[index];
-        if (arc === undefined)
-            throw new GraflumeError('INVALID_DATA', `Topology references unknown arc ${reference}.`);
-        return reference < 0 ? [...arc].reverse() : [...arc];
-    }
-    function joinTopoArcs(references, arcs, path) {
-        if (!Array.isArray(references))
-            throw new GraflumeError('INVALID_DATA', `${path} must be an arc array.`);
-        const output = [];
-        references.forEach((reference, index) => {
-            if (!Number.isInteger(reference))
-                throw new GraflumeError('INVALID_DATA', `${path}[${index}] must be an integer.`);
-            const arc = topoArc(reference, arcs);
-            output.push(...(output.length === 0 ? arc : arc.slice(1)));
-        });
-        return output;
-    }
-    function topologyGeometry(object, arcs, path) {
-        if (object.type === 'GeometryCollection') {
-            if (!Array.isArray(object.geometries))
-                throw new GraflumeError('INVALID_DATA', `${path}.geometries must be an array.`);
-            return object.geometries.flatMap((geometry, index) => topologyGeometry(geometry, arcs, `${path}.geometries[${index}]`));
-        }
-        let geometry;
-        if (object.type === 'Point')
-            geometry = { type: 'Point', coordinates: position$1(object.coordinates, `${path}.coordinates`) };
-        else if (object.type === 'MultiPoint')
-            geometry = {
-                type: 'MultiPoint',
-                coordinates: positions(object.coordinates, 1, `${path}.coordinates`),
-            };
-        else if (object.type === 'LineString')
-            geometry = { type: 'LineString', coordinates: joinTopoArcs(object.arcs, arcs, `${path}.arcs`) };
-        else if (object.type === 'MultiLineString') {
-            if (!Array.isArray(object.arcs))
-                throw new GraflumeError('INVALID_DATA', `${path}.arcs must be an array.`);
-            geometry = {
-                type: 'MultiLineString',
-                coordinates: object.arcs.map((references, index) => joinTopoArcs(references, arcs, `${path}.arcs[${index}]`)),
-            };
-        }
-        else if (object.type === 'Polygon') {
-            if (!Array.isArray(object.arcs))
-                throw new GraflumeError('INVALID_DATA', `${path}.arcs must be an array.`);
-            geometry = {
-                type: 'Polygon',
-                coordinates: object.arcs.map((references, index) => joinTopoArcs(references, arcs, `${path}.arcs[${index}]`)),
-            };
-        }
-        else if (object.type === 'MultiPolygon') {
-            if (!Array.isArray(object.arcs))
-                throw new GraflumeError('INVALID_DATA', `${path}.arcs must be an array.`);
-            geometry = {
-                type: 'MultiPolygon',
-                coordinates: object.arcs.map((polygon, polygonIndex) => {
-                    if (!Array.isArray(polygon))
-                        throw new GraflumeError('INVALID_DATA', `${path}.arcs[${polygonIndex}] must be an array.`);
-                    return polygon.map((references, ringIndex) => joinTopoArcs(references, arcs, `${path}.arcs[${polygonIndex}][${ringIndex}]`));
-                }),
-            };
-        }
-        else
-            throw new GraflumeError('INVALID_DATA', `${path}.type is unsupported.`);
-        return [
-            {
-                type: 'Feature',
-                ...(object.id === undefined ? {} : { id: object.id }),
-                properties: object.properties ?? null,
-                geometry,
-            },
-        ];
-    }
-    /** Decodes delta/arcs/reversed-arcs TopoJSON into normalized GeoJSON features. */
-    function topologyToGeoJson(topology, objectName) {
-        if (topology.type !== 'Topology')
-            throw new GraflumeError('INVALID_DATA', 'Topology type must be Topology.');
-        const arcs = decodedArcs(topology);
-        const names = objectName === undefined ? Object.keys(topology.objects) : [objectName];
-        const features = names.flatMap((name) => {
-            const object = topology.objects[name];
-            if (object === undefined)
-                throw new GraflumeError('INVALID_SPEC', `Unknown topology object "${name}".`);
-            return topologyGeometry(object, arcs, `$.objects.${name}`);
-        });
-        return normalizeGeoJson({ type: 'FeatureCollection', features });
-    }
-    /** Closes and snapshots the mutable input used by the persistent map runtime. */
-    function normalizeMapProjection(value = {}, path = '$.projection') {
-        if (value === null || typeof value !== 'object' || Array.isArray(value))
-            throw new GraflumeError('INVALID_SPEC', `${path} must be an object.`, { path });
-        const unknown = Object.keys(value).find((key) => !['name', 'rotate', 'clip'].includes(key));
-        if (unknown !== undefined)
-            throw new GraflumeError('INVALID_SPEC', `Unknown map projection property "${unknown}".`, {
-                path: `${path}.${unknown}`,
-            });
-        const name = value.name ?? 'equirectangular';
-        if (!['equirectangular', 'mercator', 'orthographic'].includes(name))
-            throw new GraflumeError('INVALID_SPEC', `${path}.name is unsupported.`, {
-                path: `${path}.name`,
-            });
-        let rotate;
-        if (value.rotate !== undefined) {
-            if (!Array.isArray(value.rotate) || value.rotate.length !== 2)
-                throw new GraflumeError('INVALID_SPEC', `${path}.rotate must be [longitude, latitude].`, {
-                    path: `${path}.rotate`,
-                });
-            rotate = Object.freeze([
-                longitude(value.rotate[0], `${path}.rotate[0]`),
-                latitude(value.rotate[1], `${path}.rotate[1]`),
-            ]);
-        }
-        let clip;
-        if (value.clip !== undefined) {
-            if (!Array.isArray(value.clip) || value.clip.length !== 4)
-                throw new GraflumeError('INVALID_SPEC', `${path}.clip must be [west, south, east, north].`, {
-                    path: `${path}.clip`,
-                });
-            const west = longitude(value.clip[0], `${path}.clip[0]`);
-            const south = latitude(value.clip[1], `${path}.clip[1]`);
-            const east = longitude(value.clip[2], `${path}.clip[2]`);
-            const north = latitude(value.clip[3], `${path}.clip[3]`);
-            if (west > east || south > north)
-                throw new GraflumeError('INVALID_SPEC', `${path}.clip bounds must be ordered.`, {
-                    path: `${path}.clip`,
-                });
-            clip = Object.freeze([west, south, east, north]);
-        }
-        return Object.freeze({
-            name,
-            ...(rotate === undefined ? {} : { rotate }),
-            ...(clip === undefined ? {} : { clip }),
-        });
-    }
-    const ANTIMERIDIAN_EPSILON = 1e-9;
-    const WORLD_CLIP = Object.freeze([-180, -90, 180, 90]);
-    const ORTHOGRAPHIC_HORIZON_CLIP = Object.freeze([-90, -90, 90, 90]);
-    function projectionPosition(point, rotate) {
-        return [
-            wrapLongitude(longitude(point[0], '$.point[0]') + (rotate?.[0] ?? 0)),
-            clamp$a(latitude(point[1], '$.point[1]') + (rotate?.[1] ?? 0), -90, 90),
-        ];
-    }
-    function effectiveGeographicClip(clip) {
-        const west = Math.max(-180, clip[0]);
-        const south = Math.max(-90, clip[1]);
-        const east = Math.min(180, clip[2]);
-        const north = Math.min(90, clip[3]);
-        return west > east || south > north ? null : [west, south, east, north];
-    }
-    function effectiveProjectionClip(projection) {
-        const base = projection.name === 'orthographic' ? ORTHOGRAPHIC_HORIZON_CLIP : WORLD_CLIP;
-        const authored = projection.clip ?? WORLD_CLIP;
-        return effectiveGeographicClip([
-            Math.max(base[0], authored[0]),
-            Math.max(base[1], authored[1]),
-            Math.min(base[2], authored[2]),
-            Math.min(base[3], authored[3]),
-        ]);
-    }
-    function sameGeographicPosition(left, right) {
-        return Math.abs(left[0] - right[0]) <= 1e-10 && Math.abs(left[1] - right[1]) <= 1e-10;
-    }
-    function appendGeographicPosition(output, point) {
-        if (output.length === 0 || !sameGeographicPosition(output[output.length - 1], point))
-            output.push(point);
-    }
-    function projectionSafeLongitude(value) {
-        return Math.abs(value - 180) <= 1e-10 ? 180 - ANTIMERIDIAN_EPSILON : value;
-    }
-    /**
-     * Splits a wrapped geographic line at the antimeridian. Returned positions have already had
-     * projection rotation applied, so callers must project them without applying rotation again.
-     */
-    function splitAntimeridianLine(points) {
-        if (points.length === 0)
-            return [];
-        const paths = [];
-        let current = [points[0]];
-        for (let index = 1; index < points.length; index += 1) {
-            const previous = points[index - 1];
-            const next = points[index];
-            const delta = next[0] - previous[0];
-            if (Math.abs(delta) <= 180) {
-                appendGeographicPosition(current, next);
-                continue;
-            }
-            const crossesEast = delta < -180;
-            const unwrappedNext = next[0] + (crossesEast ? 360 : -360);
-            const boundary = crossesEast ? 180 : -180;
-            const denominator = unwrappedNext - previous[0];
-            const t = denominator === 0 ? 0 : (boundary - previous[0]) / denominator;
-            const latitudeAtBoundary = previous[1] + (next[1] - previous[1]) * t;
-            appendGeographicPosition(current, [
-                crossesEast ? 180 - ANTIMERIDIAN_EPSILON : -180,
-                latitudeAtBoundary,
-            ]);
-            if (current.length > 1)
-                paths.push(current);
-            current = [[crossesEast ? -180 : 180 - ANTIMERIDIAN_EPSILON, latitudeAtBoundary]];
-            appendGeographicPosition(current, next);
-        }
-        if (current.length > 1)
-            paths.push(current);
-        return paths;
-    }
-    function liangBarskySegment(start, end, clip) {
-        const dx = end[0] - start[0];
-        const dy = end[1] - start[1];
-        const p = [-dx, dx, -dy, dy];
-        const q = [start[0] - clip[0], clip[2] - start[0], start[1] - clip[1], clip[3] - start[1]];
-        let enter = 0;
-        let exit = 1;
-        for (let index = 0; index < 4; index += 1) {
-            const direction = p[index];
-            const distance = q[index];
-            if (Math.abs(direction) <= Number.EPSILON) {
-                if (distance < 0)
-                    return null;
-                continue;
-            }
-            const ratio = distance / direction;
-            if (direction < 0)
-                enter = Math.max(enter, ratio);
-            else
-                exit = Math.min(exit, ratio);
-            if (enter > exit)
-                return null;
-        }
-        const interpolate = (amount) => [
-            projectionSafeLongitude(start[0] + dx * amount),
-            start[1] + dy * amount,
-        ];
-        return [interpolate(enter), interpolate(exit)];
-    }
-    function clipLinePath(points, clip) {
-        const paths = [];
-        let current = [];
-        const flush = () => {
-            if (current.length > 1)
-                paths.push(current);
-            current = [];
-        };
-        for (let index = 1; index < points.length; index += 1) {
-            const segment = liangBarskySegment(points[index - 1], points[index], clip);
-            if (segment === null) {
-                flush();
-                continue;
-            }
-            if (current.length > 0 && !sameGeographicPosition(current[current.length - 1], segment[0]))
-                flush();
-            appendGeographicPosition(current, segment[0]);
-            appendGeographicPosition(current, segment[1]);
-        }
-        flush();
-        return paths;
-    }
-    /**
-     * Applies projection rotation/wrap, antimeridian splitting, and rectangular Liang-Barsky
-     * clipping. Orthographic paths are intersected with the visible hemisphere before projection,
-     * so a segment crossing the horizon keeps its exact boundary point instead of disappearing.
-     * Boundary intersections are retained and disjoint visible runs remain subpaths.
-     */
-    function clipMapLine(points, options = {}) {
-        const projection = normalizeMapProjection(options);
-        const split = splitAntimeridianLine(points.map((point) => projectionPosition(point, projection.rotate)));
-        if (projection.clip === undefined && projection.name !== 'orthographic')
-            return split;
-        const clip = effectiveProjectionClip(projection);
-        return clip === null ? [] : split.flatMap((path) => clipLinePath(path, clip));
-    }
-    function clipPolygonBoundary(input, boundary) {
-        if (input.length === 0)
-            return [];
-        const output = [];
-        let start = input[input.length - 1];
-        let startInside = boundary.inside(start);
-        for (const end of input) {
-            const endInside = boundary.inside(end);
-            if (endInside) {
-                if (!startInside)
-                    appendGeographicPosition(output, boundary.intersect(start, end));
-                appendGeographicPosition(output, end);
-            }
-            else if (startInside)
-                appendGeographicPosition(output, boundary.intersect(start, end));
-            start = end;
-            startInside = endInside;
-        }
-        if (output.length > 1 && sameGeographicPosition(output[0], output[output.length - 1]))
-            output.pop();
-        return output;
-    }
-    function sutherlandHodgmanRing(ring, clip) {
-        const verticalIntersection = (longitude) => (start, end) => {
-            const amount = (longitude - start[0]) / (end[0] - start[0]);
-            return [projectionSafeLongitude(longitude), start[1] + (end[1] - start[1]) * amount];
-        };
-        const horizontalIntersection = (latitude) => (start, end) => {
-            const amount = (latitude - start[1]) / (end[1] - start[1]);
-            return [projectionSafeLongitude(start[0] + (end[0] - start[0]) * amount), latitude];
-        };
-        const boundaries = [
-            { inside: ([lon]) => lon >= clip[0], intersect: verticalIntersection(clip[0]) },
-            { inside: ([lon]) => lon <= clip[2], intersect: verticalIntersection(clip[2]) },
-            { inside: ([, lat]) => lat >= clip[1], intersect: horizontalIntersection(clip[1]) },
-            { inside: ([, lat]) => lat <= clip[3], intersect: horizontalIntersection(clip[3]) },
-        ];
-        return boundaries.reduce(clipPolygonBoundary, [...ring]);
-    }
-    function unwrapPolygonRing(points) {
-        if (points.length === 0)
-            return [];
-        const output = [points[0]];
-        for (let index = 1; index < points.length; index += 1) {
-            const point = points[index];
-            const previous = output[output.length - 1];
-            let longitude = point[0];
-            while (longitude - previous[0] > 180)
-                longitude -= 360;
-            while (longitude - previous[0] < -180)
-                longitude += 360;
-            appendGeographicPosition(output, [longitude, point[1]]);
-        }
-        if (output.length > 1 && sameGeographicPosition(output[0], output[output.length - 1]))
-            output.pop();
-        return output;
-    }
-    /**
-     * Applies projection rotation/wrap and Sutherland-Hodgman clipping to a polygon ring. A ring
-     * crossing the antimeridian can return two scene-ready rings, one beside each world edge.
-     */
-    function clipMapPolygonRing(points, options = {}) {
-        const projection = normalizeMapProjection(options);
-        const clip = effectiveProjectionClip(projection);
-        if (clip === null)
-            return [];
-        const transformed = points.map((point) => projectionPosition(point, projection.rotate));
-        const ring = unwrapPolygonRing(transformed);
-        if (ring.length < 3)
-            return [];
-        const longitudes = ring.map(([lon]) => lon);
-        const minimumLongitude = Math.min(...longitudes);
-        const maximumLongitude = Math.max(...longitudes);
-        const minimumShift = Math.ceil((clip[0] - maximumLongitude) / 360);
-        const maximumShift = Math.floor((clip[2] - minimumLongitude) / 360);
-        const output = [];
-        const keys = new Set();
-        for (let shift = minimumShift; shift <= maximumShift; shift += 1) {
-            const shifted = ring.map(([lon, lat]) => [lon + shift * 360, lat]);
-            const clipped = sutherlandHodgmanRing(shifted, clip);
-            if (clipped.length < 3)
-                continue;
-            const normalized = clipped.map(([lon, lat]) => [projectionSafeLongitude(lon), lat]);
-            const key = normalized.map(([lon, lat]) => `${lon.toFixed(9)},${lat.toFixed(9)}`).join(';');
-            if (!keys.has(key)) {
-                keys.add(key);
-                output.push(normalized);
-            }
-        }
-        return output;
-    }
-    /** Projects longitude/latitude with rotation, clipping and back-face visibility. */
-    function projectMapPosition(point, options = {}) {
-        const projection = normalizeMapProjection(options);
-        let [lon, lat] = projectionPosition(point, projection.rotate);
-        const clip = projection.clip;
-        const insideClip = clip === undefined || (lon >= clip[0] && lon <= clip[2] && lat >= clip[1] && lat <= clip[3]);
-        const name = projection.name;
-        if (name === 'mercator') {
-            lat = clamp$a(lat, -85.05112878, 85.05112878);
-            return {
-                x: (lon + 180) / 360,
-                y: (1 - Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360)) / Math.PI) / 2,
-                visible: insideClip,
-            };
-        }
-        if (name === 'orthographic') {
-            const lambda = (lon * Math.PI) / 180;
-            const phi = (lat * Math.PI) / 180;
-            const cosine = Math.cos(phi) * Math.cos(lambda);
-            return {
-                x: 0.5 + Math.cos(phi) * Math.sin(lambda) * 0.5,
-                y: 0.5 - Math.sin(phi) * 0.5,
-                visible: insideClip && cosine >= 0,
-            };
-        }
-        return { x: (lon + 180) / 360, y: (90 - lat) / 180, visible: insideClip };
-    }
-    function forEachGeometryPosition(geometry, visit) {
-        if (geometry.type === 'GeometryCollection') {
-            geometry.geometries.forEach((entry) => forEachGeometryPosition(entry, visit));
-            return;
-        }
-        const depth = new Map([
-            ['Point', 0],
-            ['MultiPoint', 1],
-            ['LineString', 1],
-            ['MultiLineString', 2],
-            ['Polygon', 2],
-            ['MultiPolygon', 3],
-        ]).get(geometry.type);
-        const walk = (value, current) => {
-            if (current === 0) {
-                visit(value);
-                return;
-            }
-            value.forEach((entry) => walk(entry, current - 1));
-        };
-        walk(geometry.coordinates, depth);
-    }
-    /** Counts coordinate pairs without spreading large arrays onto the call stack. */
-    function mapFeaturePositionCount(collection) {
-        let count = 0;
-        for (const feature of collection.features) {
-            if (feature.geometry !== null)
-                forEachGeometryPosition(feature.geometry, () => (count += 1));
-        }
-        return count;
-    }
-    function simplifyPositions(positions, tolerance, minimum) {
-        if (tolerance <= 0 || positions.length <= minimum)
-            return positions;
-        const closed = positions.length > 1 &&
-            positions[0][0] === positions[positions.length - 1][0] &&
-            positions[0][1] === positions[positions.length - 1][1];
-        const source = closed ? positions.slice(0, -1) : positions;
-        if (source.length <= minimum)
-            return positions;
-        const output = [];
-        for (const point of source) {
-            const snapped = Object.freeze([
-                Math.round(point[0] / tolerance) * tolerance,
-                Math.round(point[1] / tolerance) * tolerance,
-            ]);
-            const previous = output[output.length - 1];
-            if (previous === undefined || previous[0] !== snapped[0] || previous[1] !== snapped[1])
-                output.push(snapped);
-        }
-        if (output.length > 1) {
-            const first = output[0];
-            const last = output[output.length - 1];
-            if (first[0] === last[0] && first[1] === last[1])
-                output.pop();
-        }
-        if (output.length < minimum)
-            return positions;
-        if (closed && output.length >= minimum)
-            output.push(output[0]);
-        return output.length >= minimum ? Object.freeze(output) : positions;
-    }
-    function simplifyMapGeometry(geometry, tolerance) {
-        if (geometry.type === 'GeometryCollection')
-            return Object.freeze({
-                type: 'GeometryCollection',
-                geometries: Object.freeze(geometry.geometries.map((entry) => simplifyMapGeometry(entry, tolerance))),
-            });
-        if (geometry.type === 'Point')
-            return geometry;
-        if (geometry.type === 'MultiPoint')
-            return geometry;
-        if (geometry.type === 'LineString')
-            return Object.freeze({
-                type: 'LineString',
-                coordinates: simplifyPositions(geometry.coordinates, tolerance, 2),
-            });
-        if (geometry.type === 'MultiLineString')
-            return Object.freeze({
-                type: 'MultiLineString',
-                coordinates: Object.freeze(geometry.coordinates.map((line) => simplifyPositions(line, tolerance, 2))),
-            });
-        if (geometry.type === 'Polygon')
-            return Object.freeze({
-                type: 'Polygon',
-                coordinates: Object.freeze(geometry.coordinates.map((ring) => simplifyPositions(ring, tolerance, 3))),
-            });
-        return Object.freeze({
-            type: 'MultiPolygon',
-            coordinates: Object.freeze(geometry.coordinates.map((polygon) => Object.freeze(polygon.map((ring) => simplifyPositions(ring, tolerance, 3))))),
-        });
-    }
-    function simplifyMapCollection(collection, tolerance) {
-        if (tolerance <= 0)
-            return collection;
-        return Object.freeze({
-            type: 'FeatureCollection',
-            features: Object.freeze(collection.features.map((feature) => feature.geometry === null
-                ? feature
-                : Object.freeze({
-                    ...feature,
-                    geometry: simplifyMapGeometry(feature.geometry, tolerance),
-                }))),
-        });
-    }
-    function mapDetailBudget(detail, maximum) {
-        if (detail === 'low')
-            return Math.min(maximum, 12_000);
-        if (detail === 'medium')
-            return Math.min(maximum, 35_000);
-        if (detail === 'high')
-            return Math.min(maximum, 100_000);
-        return maximum;
-    }
-    /**
-     * Deterministically reduces coordinate density while preserving every selected
-     * feature and source order. It never samples away a country or subdivision.
-     */
-    function prepareMapGeometry(collection, options = {}) {
-        const detail = options.detail ?? 'auto';
-        if (!['auto', 'low', 'medium', 'high', 'full'].includes(detail))
-            throw new GraflumeError('INVALID_SPEC', '$.detail is unsupported.', { path: '$.detail' });
-        const requestedMaximum = options.maximumPositions ?? 100_000;
-        if (!Number.isInteger(requestedMaximum) ||
-            requestedMaximum < 1_000 ||
-            requestedMaximum > 1_000_000)
-            throw new GraflumeError('INVALID_SPEC', '$.maximumPositions must be an integer from 1000 to 1000000.', { path: '$.maximumPositions' });
-        const sourcePositions = mapFeaturePositionCount(collection);
-        const maximumPositions = mapDetailBudget(detail, requestedMaximum);
-        if (detail === 'full' && sourcePositions > maximumPositions)
-            throw new GraflumeError('INVALID_DATA', `Full map detail contains ${sourcePositions} positions, above the ${maximumPositions} geometry budget.`);
-        if (detail === 'full' || sourcePositions <= maximumPositions)
-            return Object.freeze({
-                collection,
-                plan: Object.freeze({
-                    detail,
-                    sourceFeatures: collection.features.length,
-                    renderedFeatures: collection.features.length,
-                    sourcePositions,
-                    renderedPositions: sourcePositions,
-                    maximumPositions,
-                    tolerance: 0,
-                }),
-            });
-        const bounds = mapBounds(collection);
-        const span = Math.max(1e-9, bounds.east - bounds.west, bounds.north - bounds.south);
-        let tolerance = (span / Math.sqrt(maximumPositions)) *
-            Math.max(1, Math.sqrt(sourcePositions / maximumPositions)) *
-            0.2;
-        let prepared = simplifyMapCollection(collection, tolerance);
-        let renderedPositions = mapFeaturePositionCount(prepared);
-        for (let attempt = 0; attempt < 12 && renderedPositions > maximumPositions; attempt += 1) {
-            tolerance *= 1.75;
-            prepared = simplifyMapCollection(collection, tolerance);
-            renderedPositions = mapFeaturePositionCount(prepared);
-        }
-        if (renderedPositions > maximumPositions)
-            throw new GraflumeError('INVALID_DATA', `Map geometry cannot satisfy the ${maximumPositions} position budget without removing a feature or valid ring.`);
-        return Object.freeze({
-            collection: prepared,
-            plan: Object.freeze({
-                detail,
-                sourceFeatures: collection.features.length,
-                renderedFeatures: prepared.features.length,
-                sourcePositions,
-                renderedPositions,
-                maximumPositions,
-                tolerance,
-            }),
-        });
-    }
-    /** Computes geographic bounds, choosing the shorter dateline-wrapped span. */
-    function mapBounds(collection) {
-        const longitudes = [];
-        let south = Number.POSITIVE_INFINITY;
-        let north = Number.NEGATIVE_INFINITY;
-        collection.features.forEach(({ geometry }) => {
-            if (geometry === null)
-                return;
-            forEachGeometryPosition(geometry, ([longitude, latitude]) => {
-                longitudes.push(wrapLongitude(longitude));
-                south = Math.min(south, latitude);
-                north = Math.max(north, latitude);
-            });
-        });
-        if (longitudes.length === 0)
-            throw new GraflumeError('INVALID_DATA', 'Cannot fit an empty map source.');
-        longitudes.sort((a, b) => a - b);
-        let largestGap = -1;
-        let gapIndex = 0;
-        for (let index = 0; index < longitudes.length; index += 1) {
-            const current = longitudes[index];
-            const next = index + 1 < longitudes.length ? longitudes[index + 1] : longitudes[0] + 360;
-            if (next - current > largestGap) {
-                largestGap = next - current;
-                gapIndex = index;
-            }
-        }
-        const west = longitudes[(gapIndex + 1) % longitudes.length];
-        let east = longitudes[gapIndex];
-        if (east < west)
-            east += 360;
-        return { west, south, east, north };
-    }
-    /** Fits bounds into a viewport with padding using an explicit projection. */
-    function fitMapBounds(bounds, viewport, padding = 20, projection = 'mercator') {
-        const width = finite$9(viewport.width, '$.viewport.width');
-        const height = finite$9(viewport.height, '$.viewport.height');
-        if (width <= padding * 2 || height <= padding * 2)
-            throw new GraflumeError('INVALID_SPEC', 'Map viewport must exceed its padding.');
-        const west = longitude(bounds.west, '$.bounds.west');
-        const east = longitude(bounds.east, '$.bounds.east');
-        const south = latitude(bounds.south, '$.bounds.south');
-        const north = latitude(bounds.north, '$.bounds.north');
-        if (west > east || south > north)
-            throw new GraflumeError('INVALID_SPEC', '$.bounds must be ordered.');
-        const longitudeSpan = Math.min(360, east - west);
-        const centerLon = wrapLongitude((west + east) / 2);
-        const centerLat = (south + north) / 2;
-        const latitudeProjection = [
-            projectMapPosition([0, south], { name: projection }),
-            projectMapPosition([0, north], { name: projection }),
-        ];
-        const spanX = Math.max(1e-9, projection === 'orthographic'
-            ? longitudeSpan >= 180
-                ? 1
-                : Math.abs(projectMapPosition([longitudeSpan / 2, centerLat], { name: projection }).x -
-                    projectMapPosition([-longitudeSpan / 2, centerLat], { name: projection }).x)
-            : longitudeSpan / 360);
-        const spanY = Math.max(1e-9, Math.abs(latitudeProjection[1].y - latitudeProjection[0].y));
-        const scale = Math.min((width - padding * 2) / (width * spanX), (height - padding * 2) / (height * spanY));
-        return {
-            center: [centerLon, centerLat],
-            zoom: Math.log2(Math.max(scale, Number.EPSILON)),
-            bounds,
-        };
-    }
-    /** Great-circle route interpolation with dateline-safe spherical linear interpolation. */
-    function geodesicPath(start, end, segments = 64) {
-        const count = Math.floor(finite$9(segments, '$.segments'));
-        if (count < 1 || count > 10_000)
-            throw new GraflumeError('INVALID_SPEC', '$.segments must be from 1 to 10000.');
-        const vector = ([lon, lat]) => {
-            const lambda = (lon * Math.PI) / 180;
-            const phi = (lat * Math.PI) / 180;
-            return [
-                Math.cos(phi) * Math.cos(lambda),
-                Math.cos(phi) * Math.sin(lambda),
-                Math.sin(phi),
-            ];
-        };
-        const a = vector(start);
-        const b = vector(end);
-        const omega = Math.acos(clamp$a(a[0] * b[0] + a[1] * b[1] + a[2] * b[2], -1, 1));
-        return Array.from({ length: count + 1 }, (_, index) => {
-            const t = index / count;
-            const denominator = Math.sin(omega);
-            const left = omega < 1e-12 ? 1 - t : Math.sin((1 - t) * omega) / denominator;
-            const right = omega < 1e-12 ? t : Math.sin(t * omega) / denominator;
-            const x = a[0] * left + b[0] * right;
-            const y = a[1] * left + b[1] * right;
-            const z = a[2] * left + b[2] * right;
-            return [
-                wrapLongitude((Math.atan2(y, x) * 180) / Math.PI),
-                (Math.atan2(z, Math.hypot(x, y)) * 180) / Math.PI,
-            ];
-        });
-    }
-    /** Generates longitude/latitude graticules as ordinary map line features. */
-    function mapGraticule(step = [30, 30]) {
-        const lonStep = finite$9(step[0], '$.step[0]');
-        const latStep = finite$9(step[1], '$.step[1]');
-        if (lonStep <= 0 || latStep <= 0)
-            throw new GraflumeError('INVALID_SPEC', 'Graticule steps must be positive.');
-        const features = [];
-        for (let lon = -180; lon <= 180; lon += lonStep)
-            features.push({
-                type: 'Feature',
-                properties: { kind: 'longitude', value: lon },
-                geometry: {
-                    type: 'LineString',
-                    coordinates: Array.from({ length: 181 }, (_, index) => [lon, -90 + index]),
-                },
-            });
-        for (let lat = -90 + latStep; lat < 90; lat += latStep)
-            features.push({
-                type: 'Feature',
-                properties: { kind: 'latitude', value: lat },
-                geometry: {
-                    type: 'LineString',
-                    coordinates: Array.from({ length: 361 }, (_, index) => [-180 + index, lat]),
-                },
-            });
-        return { type: 'FeatureCollection', features };
-    }
-    /** Closed source/layer lifecycle with explicit ordering and visibility. */
-    class MapLayerRegistry {
-        #sources = new Map();
-        #layers = [];
-        #revision = 0;
-        addSource(id, source) {
-            const normalized = id.trim();
-            if (normalized === '' || this.#sources.has(normalized))
-                throw new GraflumeError('INVALID_SPEC', `Map source "${id}" is empty or already registered.`);
-            this.#sources.set(normalized, source);
-            this.#revision += 1;
-        }
-        removeSource(id) {
-            if (this.#layers.some(({ source }) => source === id))
-                throw new GraflumeError('INVALID_SPEC', `Map source "${id}" is still used by a layer.`);
-            if (!this.#sources.delete(id))
-                throw new GraflumeError('INVALID_SPEC', `Unknown map source "${id}".`);
-            this.#revision += 1;
-        }
-        addLayer(layer, before) {
-            if (this.#layers.some(({ id }) => id === layer.id))
-                throw new GraflumeError('INVALID_SPEC', `Duplicate map layer "${layer.id}".`);
-            if (!this.#sources.has(layer.source))
-                throw new GraflumeError('INVALID_SPEC', `Unknown map source "${layer.source}".`);
-            const index = before === undefined
-                ? this.#layers.length
-                : this.#layers.findIndex(({ id }) => id === before);
-            if (index < 0)
-                throw new GraflumeError('INVALID_SPEC', `Unknown before-layer "${before}".`);
-            this.#layers.splice(index, 0, Object.freeze({ ...layer }));
-            this.#revision += 1;
-        }
-        removeLayer(id) {
-            const index = this.#layers.findIndex((layer) => layer.id === id);
-            if (index < 0)
-                throw new GraflumeError('INVALID_SPEC', `Unknown map layer "${id}".`);
-            this.#layers.splice(index, 1);
-            this.#revision += 1;
-        }
-        setVisibility(id, visible) {
-            const index = this.#layers.findIndex((layer) => layer.id === id);
-            if (index < 0)
-                throw new GraflumeError('INVALID_SPEC', `Unknown map layer "${id}".`);
-            this.#layers[index] = Object.freeze({ ...this.#layers[index], visible });
-            this.#revision += 1;
-        }
-        source(id) {
-            return this.#sources.get(id) ?? null;
-        }
-        layer(id) {
-            return this.#layers.find((layer) => layer.id === id) ?? null;
-        }
-        snapshot() {
-            return Object.freeze({
-                revision: this.#revision,
-                sources: Object.freeze([...this.#sources.keys()]),
-                layers: Object.freeze(this.#layers.map((layer) => Object.freeze({ ...layer }))),
-                attributions: Object.freeze([
-                    ...new Set(this.#layers.flatMap(({ attribution }) => attribution === undefined ? [] : [attribution])),
-                ]),
-            });
-        }
-    }
-    const mapBoundaryText = (value, path, maximum = 256) => {
-        if (typeof value !== 'string' || value.trim() === '' || value.length > maximum)
-            throw new GraflumeError('INVALID_SPEC', `${path} must be a non-empty bounded string.`, {
-                path,
-            });
-        return value.trim();
-    };
-    function mapBoundaryLoopbackHost(hostname) {
-        const normalized = hostname.toLowerCase();
-        if (normalized === 'localhost' || normalized === '[::1]')
-            return true;
-        const parts = normalized.split('.');
-        return (parts.length === 4 &&
-            parts[0] === '127' &&
-            parts.every((part) => /^\d{1,3}$/u.test(part) && Number(part) <= 255));
-    }
-    function mapBoundaryURLAllowed(url) {
-        return (url.username === '' &&
-            url.password === '' &&
-            (url.protocol === 'https:' ||
-                (url.protocol === 'http:' && mapBoundaryLoopbackHost(url.hostname))));
-    }
-    function absoluteMapBoundaryURL(value, path) {
-        let parsed;
-        try {
-            parsed = new URL(value);
-        }
-        catch {
-            throw new GraflumeError('INVALID_SPEC', `${path} must be an absolute HTTPS URL or an explicit loopback HTTP URL.`, { path });
-        }
-        if (!mapBoundaryURLAllowed(parsed))
-            throw new GraflumeError('INVALID_SPEC', `${path} must use HTTPS; HTTP is allowed only for localhost, 127.0.0.0/8, or [::1], without credentials.`, { path });
-        return parsed;
-    }
-    function normalizeMapBoundarySource(value, path) {
-        if (value === null || typeof value !== 'object' || Array.isArray(value))
-            throw new GraflumeError('INVALID_SPEC', `${path} must be an object.`, { path });
-        const candidate = value;
-        const allowed = new Set([
-            'id',
-            'level',
-            'countries',
-            'url',
-            'sha256',
-            'byteLength',
-            'format',
-            'topologyObject',
-        ]);
-        const unknown = Object.keys(candidate).find((key) => !allowed.has(key));
-        if (unknown !== undefined)
-            throw new GraflumeError('INVALID_SPEC', `Unknown boundary source property "${unknown}".`, {
-                path: `${path}.${unknown}`,
-            });
-        const id = mapBoundaryText(candidate.id, `${path}.id`);
-        const level = candidate.level;
-        if (level !== 'country' && level !== 'region')
-            throw new GraflumeError('INVALID_SPEC', `${path}.level is unsupported.`, {
-                path: `${path}.level`,
-            });
-        const url = mapBoundaryText(candidate.url, `${path}.url`, 2_048);
-        let parsed;
-        try {
-            parsed = new URL(url, 'https://graflume.invalid/');
-        }
-        catch {
-            throw new GraflumeError('INVALID_SPEC', `${path}.url is invalid.`, { path: `${path}.url` });
-        }
-        if (parsed.origin !== 'https://graflume.invalid' && !mapBoundaryURLAllowed(parsed))
-            throw new GraflumeError('INVALID_SPEC', `${path}.url must be relative or HTTPS; HTTP is allowed only on an explicit loopback host.`, { path: `${path}.url` });
-        const sha256 = mapBoundaryText(candidate.sha256, `${path}.sha256`, 64).toLowerCase();
-        if (!/^[a-f0-9]{64}$/u.test(sha256))
-            throw new GraflumeError('INVALID_SPEC', `${path}.sha256 must be 64 hexadecimal characters.`, {
-                path: `${path}.sha256`,
-            });
-        const byteLength = candidate.byteLength;
-        if (!Number.isInteger(byteLength) ||
-            byteLength < 2 ||
-            byteLength > 1_000_000_000)
-            throw new GraflumeError('INVALID_SPEC', `${path}.byteLength is outside the supported range.`, {
-                path: `${path}.byteLength`,
-            });
-        const format = candidate.format;
-        if (format !== 'geojson' && format !== 'topojson')
-            throw new GraflumeError('INVALID_SPEC', `${path}.format is unsupported.`, {
-                path: `${path}.format`,
-            });
-        const topologyObject = candidate.topologyObject === undefined
-            ? undefined
-            : mapBoundaryText(candidate.topologyObject, `${path}.topologyObject`);
-        if (format === 'geojson' && topologyObject !== undefined)
-            throw new GraflumeError('INVALID_SPEC', `${path}.topologyObject is only valid for TopoJSON sources.`, { path: `${path}.topologyObject` });
-        let countries;
-        if (candidate.countries !== undefined) {
-            if (!Array.isArray(candidate.countries) ||
-                candidate.countries.length === 0 ||
-                candidate.countries.length > MAXIMUM_MAP_SCOPE_VALUES)
-                throw new GraflumeError('INVALID_SPEC', `${path}.countries has an invalid length.`, {
-                    path: `${path}.countries`,
-                });
-            countries = Object.freeze([
-                ...new Set(candidate.countries.map((entry, index) => mapBoundaryText(entry, `${path}.countries[${index}]`, 32).toUpperCase())),
-            ]);
-        }
-        return Object.freeze({
-            id,
-            level,
-            ...(countries === undefined ? {} : { countries }),
-            url,
-            sha256,
-            byteLength: byteLength,
-            format,
-            ...(topologyObject === undefined ? {} : { topologyObject }),
-        });
-    }
-    /** Validates a boundary-pack manifest without fetching any asset. */
-    function normalizeMapBoundaryManifest(value) {
-        if (value === null || typeof value !== 'object' || Array.isArray(value))
-            throw new GraflumeError('INVALID_SPEC', 'Map boundary manifest must be an object.');
-        const candidate = value;
-        const allowed = new Set(['schemaVersion', 'id', 'revision', 'attribution', 'sources']);
-        const unknown = Object.keys(candidate).find((key) => !allowed.has(key));
-        if (unknown !== undefined)
-            throw new GraflumeError('INVALID_SPEC', `Unknown map boundary manifest property "${unknown}".`);
-        if (candidate.schemaVersion !== '1')
-            throw new GraflumeError('INVALID_SPEC', 'Map boundary manifest schemaVersion must be "1".');
-        if (!Array.isArray(candidate.sources) ||
-            candidate.sources.length === 0 ||
-            candidate.sources.length > 4_096)
-            throw new GraflumeError('INVALID_SPEC', 'Map boundary manifest must contain from 1 to 4096 sources.');
-        const sources = Object.freeze(candidate.sources.map((source, index) => normalizeMapBoundarySource(source, `$.sources[${index}]`)));
-        if (new Set(sources.map(({ id }) => id)).size !== sources.length)
-            throw new GraflumeError('INVALID_SPEC', 'Map boundary manifest source ids must be unique.');
-        for (const level of ['country', 'region']) {
-            const levelSources = sources.filter((source) => source.level === level);
-            const globalSources = levelSources.filter(({ countries }) => countries === undefined);
-            if (globalSources.length > 1 || (globalSources.length === 1 && levelSources.length > 1))
-                throw new GraflumeError('INVALID_SPEC', `Boundary manifest level "${level}" must use either one global source or non-overlapping country shards.`);
-            const declared = new Set();
-            for (const source of levelSources) {
-                for (const country of source.countries ?? []) {
-                    if (declared.has(country))
-                        throw new GraflumeError('INVALID_SPEC', `Boundary manifest level "${level}" declares country "${country}" in multiple shards.`);
-                    declared.add(country);
-                }
-            }
-        }
-        return Object.freeze({
-            schemaVersion: '1',
-            id: mapBoundaryText(candidate.id, '$.id'),
-            revision: mapBoundaryText(candidate.revision, '$.revision'),
-            attribution: mapBoundaryText(candidate.attribution, '$.attribution', 1_024),
-            sources,
-        });
-    }
-    /** Selects the smallest declared shard set that covers a requested country list. */
-    function selectMapBoundarySources(manifestInput, selection) {
-        const manifest = normalizeMapBoundaryManifest(manifestInput);
-        if (selection.level !== 'country' && selection.level !== 'region')
-            throw new GraflumeError('INVALID_SPEC', '$.selection.level is unsupported.');
-        const countries = selection.countries ?? [];
-        if (countries.length > MAXIMUM_MAP_SCOPE_VALUES)
-            throw new GraflumeError('INVALID_SPEC', `$.selection.countries exceeds ${MAXIMUM_MAP_SCOPE_VALUES} entries.`);
-        const requested = new Set(countries.map((country, index) => mapBoundaryText(country, `$.selection.countries[${index}]`, 32).toUpperCase()));
-        const levelSources = manifest.sources.filter((source) => source.level === selection.level);
-        let explicitSources;
-        if (selection.sourceIds !== undefined) {
-            if (!Array.isArray(selection.sourceIds) ||
-                selection.sourceIds.length === 0 ||
-                selection.sourceIds.length > 4_096)
-                throw new GraflumeError('INVALID_SPEC', '$.selection.sourceIds must contain from 1 to 4096 source ids.');
-            const ids = [
-                ...new Set(selection.sourceIds.map((id, index) => mapBoundaryText(id, `$.selection.sourceIds[${index}]`))),
-            ];
-            const byId = new Map(manifest.sources.map((source) => [source.id, source]));
-            const missing = ids.filter((id) => !byId.has(id));
-            if (missing.length > 0)
-                throw new GraflumeError('INVALID_DATA', 'Boundary manifest does not contain every source id.', {
-                    details: { missing: Object.freeze(missing) },
-                });
-            explicitSources = Object.freeze(ids.map((id) => byId.get(id)));
-            if (explicitSources.some(({ level }) => level !== selection.level))
-                throw new GraflumeError('INVALID_SPEC', 'Every explicit boundary source id must match $.selection.level.');
-        }
-        const global = levelSources.find(({ countries: coverage }) => coverage === undefined);
-        const sources = explicitSources !== undefined
-            ? explicitSources
-            : requested.size === 0
-                ? levelSources
-                : global === undefined
-                    ? levelSources.filter(({ countries: coverage }) => coverage?.some((country) => requested.has(country)))
-                    : [global];
-        if (sources.length === 0)
-            throw new GraflumeError('INVALID_DATA', 'Boundary manifest has no source for the requested level and countries.');
-        if (requested.size > 0) {
-            const covered = new Set(sources.flatMap(({ countries: coverage }) => coverage ?? [...requested]));
-            const missing = [...requested].filter((country) => !covered.has(country));
-            if (missing.length > 0)
-                throw new GraflumeError('INVALID_DATA', 'Boundary manifest does not cover every requested country.', {
-                    details: { missing: Object.freeze(missing) },
-                });
-        }
-        return Object.freeze(sources);
-    }
-    const fetchMapBoundary = async (source, signal) => {
-        if (typeof fetch !== 'function')
-            throw new GraflumeError('UNSUPPORTED_RENDERER', 'Map boundary loading requires fetch or an injected MapBoundaryFetcher.');
-        const requestedURL = absoluteMapBoundaryURL(source.url, '$.source.url');
-        const response = await fetch(requestedURL.href, { signal });
-        if (response.url !== '' && !mapBoundaryURLAllowed(new URL(response.url)))
-            throw new GraflumeError('INVALID_DATA', 'Boundary source redirected to an unsafe URL.');
-        if (!response.ok)
-            throw new GraflumeError('INVALID_DATA', `Boundary source returned HTTP ${response.status}.`);
-        const mimeType = response.headers.get('content-type')?.split(';', 1)[0]?.trim();
-        return {
-            bytes: new Uint8Array(await response.arrayBuffer()),
-            ...(mimeType === undefined ? {} : { mimeType }),
-        };
-    };
-    /** Default HTTPS adapter used by MapBoundaryLoader.loadFromURL(). */
-    const fetchMapBoundaryManifest = async (url, signal) => {
-        if (typeof fetch !== 'function')
-            throw new GraflumeError('UNSUPPORTED_RENDERER', 'Map boundary manifest loading requires fetch or an injected manifestFetcher.');
-        const requestedURL = absoluteMapBoundaryURL(url, '$.manifestURL');
-        const response = await fetch(requestedURL.href, { signal });
-        if (response.url !== '' && !mapBoundaryURLAllowed(new URL(response.url)))
-            throw new GraflumeError('INVALID_DATA', 'Boundary manifest redirected to an unsafe URL.');
-        if (!response.ok)
-            throw new GraflumeError('INVALID_DATA', `Boundary manifest returned HTTP ${response.status}.`);
-        const mimeType = response.headers.get('content-type')?.split(';', 1)[0]?.trim();
-        return {
-            bytes: new Uint8Array(await response.arrayBuffer()),
-            ...(mimeType === undefined ? {} : { mimeType }),
-        };
-    };
-    const sha256MapBoundary = async (bytes) => {
-        if (globalThis.crypto?.subtle === undefined)
-            throw new GraflumeError('UNSUPPORTED_RENDERER', 'Boundary SHA-256 verification requires Web Crypto or an injected digest function.');
-        const stableBytes = new Uint8Array(bytes);
-        const digest = new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', stableBytes));
-        return [...digest].map((value) => value.toString(16).padStart(2, '0')).join('');
-    };
-    /** Lazy, integrity-checked, bounded loader for versioned external boundary packs. */
-    class MapBoundaryLoader {
-        #options;
-        #baseURL;
-        #fetcher;
-        #manifestFetcher;
-        #digest;
-        #cache = new Map();
-        constructor(options = {}) {
-            this.#fetcher = options.fetcher ?? fetchMapBoundary;
-            this.#manifestFetcher = options.manifestFetcher ?? fetchMapBoundaryManifest;
-            this.#digest = options.digest ?? sha256MapBoundary;
-            this.#options = {
-                maximumEntries: options.maximumEntries ?? 64,
-                maximumConcurrent: options.maximumConcurrent ?? 4,
-                maximumManifestBytes: options.maximumManifestBytes ?? 4 * 1024 * 1024,
-                maximumSourceBytes: options.maximumSourceBytes ?? 32 * 1024 * 1024,
-                maximumTotalBytes: options.maximumTotalBytes ?? 128 * 1024 * 1024,
-            };
-            if (options.baseURL !== undefined) {
-                const baseURL = mapBoundaryText(options.baseURL, '$.baseURL', 2_048);
-                const parsed = absoluteMapBoundaryURL(baseURL, '$.baseURL');
-                this.#baseURL = parsed.href;
-            }
-            const { maximumEntries, maximumConcurrent, maximumManifestBytes, maximumSourceBytes, maximumTotalBytes, } = this.#options;
-            if (!Number.isInteger(maximumEntries) || maximumEntries < 1 || maximumEntries > 1_024)
-                throw new GraflumeError('INVALID_SPEC', '$.maximumEntries must be from 1 to 1024.');
-            if (!Number.isInteger(maximumConcurrent) || maximumConcurrent < 1 || maximumConcurrent > 16)
-                throw new GraflumeError('INVALID_SPEC', '$.maximumConcurrent must be from 1 to 16.');
-            if (!Number.isInteger(maximumManifestBytes) ||
-                maximumManifestBytes < 1_024 ||
-                maximumManifestBytes > 16 * 1024 * 1024)
-                throw new GraflumeError('INVALID_SPEC', '$.maximumManifestBytes is outside the supported range.');
-            if (!Number.isInteger(maximumSourceBytes) ||
-                maximumSourceBytes < 1_024 ||
-                maximumSourceBytes > 256 * 1024 * 1024)
-                throw new GraflumeError('INVALID_SPEC', '$.maximumSourceBytes is outside the supported range.');
-            if (!Number.isInteger(maximumTotalBytes) ||
-                maximumTotalBytes < maximumSourceBytes ||
-                maximumTotalBytes > 512 * 1024 * 1024)
-                throw new GraflumeError('INVALID_SPEC', '$.maximumTotalBytes is outside the supported range.');
-        }
-        async load(manifestInput, selection, signal) {
-            const manifest = normalizeMapBoundaryManifest(manifestInput);
-            return this.#load(manifest, selection, signal, this.#baseURL);
-        }
-        /**
-         * Fetches a versioned manifest and resolves its relative shard URLs against
-         * that manifest URL, unless the loader was given an explicit baseURL.
-         */
-        async loadFromURL(manifestURL, selection, signal) {
-            const text = mapBoundaryText(manifestURL, '$.manifestURL', 2_048);
-            const parsedURL = absoluteMapBoundaryURL(text, '$.manifestURL');
-            const controller = new AbortController();
-            const abort = () => controller.abort(signal?.reason);
-            if (signal?.aborted === true)
-                controller.abort(signal.reason);
-            else
-                signal?.addEventListener('abort', abort, { once: true });
-            try {
-                const response = await this.#manifestFetcher(parsedURL.href, controller.signal);
-                if (!(response.bytes instanceof Uint8Array) ||
-                    response.bytes.length === 0 ||
-                    response.bytes.length > this.#options.maximumManifestBytes)
-                    throw new GraflumeError('INVALID_DATA', 'Boundary manifest response exceeds maximumManifestBytes or is empty.');
-                if (response.mimeType !== undefined &&
-                    !response.mimeType.toLowerCase().includes('json') &&
-                    response.mimeType.toLowerCase() !== 'application/octet-stream')
-                    throw new GraflumeError('INVALID_DATA', `Boundary manifest returned unsupported MIME ${response.mimeType}.`);
-                let parsed;
-                try {
-                    parsed = JSON.parse(new TextDecoder().decode(response.bytes));
-                }
-                catch {
-                    throw new GraflumeError('INVALID_DATA', 'Boundary manifest is not valid JSON.');
-                }
-                const manifest = normalizeMapBoundaryManifest(parsed);
-                return this.#load(manifest, selection, signal, this.#baseURL ?? parsedURL.href);
-            }
-            finally {
-                signal?.removeEventListener('abort', abort);
-            }
-        }
-        async #load(manifest, selection, signal, baseURL) {
-            const sources = selectMapBoundarySources(manifest, selection);
-            const totalBytes = sources.reduce((sum, source) => sum + source.byteLength, 0);
-            if (sources.some(({ byteLength }) => byteLength > this.#options.maximumSourceBytes))
-                throw new GraflumeError('INVALID_SPEC', 'A selected boundary source exceeds maximumSourceBytes.');
-            if (totalBytes > this.#options.maximumTotalBytes)
-                throw new GraflumeError('INVALID_SPEC', 'Selected boundary sources exceed maximumTotalBytes.');
-            const collections = new Array(sources.length);
-            let cursor = 0;
-            const worker = async () => {
-                while (cursor < sources.length) {
-                    const index = cursor++;
-                    collections[index] = await this.#loadSource(sources[index], signal, baseURL);
-                }
-            };
-            await Promise.all(Array.from({ length: Math.min(this.#options.maximumConcurrent, sources.length) }, () => worker()));
-            const collection = Object.freeze({
-                type: 'FeatureCollection',
-                features: Object.freeze(collections.flatMap(({ features }) => features)),
-            });
-            return Object.freeze({
-                collection,
-                manifestId: manifest.id,
-                revision: manifest.revision,
-                attribution: manifest.attribution,
-                sourceIds: Object.freeze(sources.map(({ id }) => id)),
-                byteLength: totalBytes,
-            });
-        }
-        clear() {
-            this.#cache.clear();
-        }
-        state() {
-            return Object.freeze({
-                cached: this.#cache.size,
-                maximumEntries: this.#options.maximumEntries,
-            });
-        }
-        async #loadSource(source, signal, baseURL) {
-            const key = `${source.id}:${source.sha256}:${source.format}:${source.topologyObject ?? ''}`;
-            const cached = this.#cache.get(key);
-            if (cached !== undefined) {
-                this.#cache.delete(key);
-                this.#cache.set(key, cached);
-                return cached;
-            }
-            const controller = new AbortController();
-            const abort = () => controller.abort(signal?.reason);
-            if (signal?.aborted === true)
-                controller.abort(signal.reason);
-            else
-                signal?.addEventListener('abort', abort, { once: true });
-            try {
-                let resolvedSource = source;
-                try {
-                    const resolvedURL = absoluteMapBoundaryURL(source.url, '$.source.url');
-                    resolvedSource = Object.freeze({ ...source, url: resolvedURL.href });
-                }
-                catch {
-                    if (baseURL === undefined)
-                        throw new GraflumeError('INVALID_SPEC', `Boundary source "${source.id}" uses a relative URL but the loader has no baseURL.`);
-                    const resolvedURL = new URL(source.url, baseURL);
-                    if (!mapBoundaryURLAllowed(resolvedURL))
-                        throw new GraflumeError('INVALID_SPEC', `Boundary source "${source.id}" resolves to an unsafe URL.`);
-                    resolvedSource = Object.freeze({ ...source, url: resolvedURL.href });
-                }
-                const response = await this.#fetcher(resolvedSource, controller.signal);
-                if (!(response.bytes instanceof Uint8Array) || response.bytes.length !== source.byteLength)
-                    throw new GraflumeError('INVALID_DATA', `Boundary source "${source.id}" byte length changed.`);
-                if (response.mimeType !== undefined &&
-                    !response.mimeType.toLowerCase().includes('json') &&
-                    response.mimeType.toLowerCase() !== 'application/octet-stream')
-                    throw new GraflumeError('INVALID_DATA', `Boundary source "${source.id}" returned unsupported MIME ${response.mimeType}.`);
-                const digest = (await this.#digest(response.bytes)).toLowerCase();
-                if (digest !== source.sha256)
-                    throw new GraflumeError('INVALID_DATA', `Boundary source "${source.id}" failed SHA-256 verification.`);
-                let parsed;
-                try {
-                    parsed = JSON.parse(new TextDecoder().decode(response.bytes));
-                }
-                catch {
-                    throw new GraflumeError('INVALID_DATA', `Boundary source "${source.id}" is not valid JSON.`);
-                }
-                const collection = source.format === 'topojson'
-                    ? topologyToGeoJson(parsed, source.topologyObject)
-                    : normalizeGeoJson(parsed);
-                this.#cache.set(key, collection);
-                while (this.#cache.size > this.#options.maximumEntries)
-                    this.#cache.delete(this.#cache.keys().next().value);
-                return collection;
-            }
-            finally {
-                signal?.removeEventListener('abort', abort);
-            }
-        }
-    }
-    function createMapBoundaryLoader(options = {}) {
-        return new MapBoundaryLoader(options);
-    }
-    function normalizeTile(tile) {
-        const z = Math.floor(finite$9(tile.z, '$.tile.z'));
-        const x = Math.floor(finite$9(tile.x, '$.tile.x'));
-        const y = Math.floor(finite$9(tile.y, '$.tile.y'));
-        if (z < 0 || z > 24)
-            throw new GraflumeError('INVALID_SPEC', 'Tile zoom must be from 0 to 24.');
-        const count = 2 ** z;
-        if (y < 0 || y >= count)
-            throw new GraflumeError('INVALID_SPEC', 'Tile y is outside the zoom pyramid.');
-        return { z, x: ((x % count) + count) % count, y };
-    }
-    function tileUrl(source, tile) {
-        const normalized = normalizeTile(tile);
-        if (!source.template.includes('{z}') ||
-            !source.template.includes('{x}') ||
-            !source.template.includes('{y}'))
-            throw new GraflumeError('INVALID_SPEC', 'Tile template must contain {z}, {x}, and {y}.');
-        const subdomains = source.subdomains ?? [];
-        const subdomain = subdomains.length === 0 ? '' : subdomains[(normalized.x + normalized.y) % subdomains.length];
-        return source.template
-            .replaceAll('{z}', String(normalized.z))
-            .replaceAll('{x}', String(normalized.x))
-            .replaceAll('{y}', String(normalized.y))
-            .replaceAll('{s}', subdomain);
-    }
-    /** Provider-backed tile loader with request deduplication, abort, bounded LRU cache, expiry and attribution. */
-    class MapTileManager {
-        #source;
-        #fetcher;
-        #maximumEntries;
-        #maximumConcurrent;
-        #cache = new Map();
-        #pending = new Map();
-        #controllers = new Map();
-        #destroyed = false;
-        constructor(source, fetcher, maximumEntries = 128, maximumConcurrent = 8) {
-            if (source.attribution.trim() === '')
-                throw new GraflumeError('INVALID_SPEC', 'Provider-backed tiles require attribution.');
-            this.#source = Object.freeze({ ...source });
-            this.#fetcher = fetcher;
-            this.#maximumEntries = Math.floor(finite$9(maximumEntries, '$.maximumEntries'));
-            if (this.#maximumEntries < 1 || this.#maximumEntries > 4_096)
-                throw new GraflumeError('INVALID_SPEC', '$.maximumEntries must be from 1 to 4096.');
-            this.#maximumConcurrent = Math.floor(finite$9(maximumConcurrent, '$.maximumConcurrent'));
-            if (this.#maximumConcurrent < 1 || this.#maximumConcurrent > 64)
-                throw new GraflumeError('INVALID_SPEC', '$.maximumConcurrent must be from 1 to 64.');
-        }
-        get attribution() {
-            return this.#source.attribution;
-        }
-        async load(tile, signal) {
-            if (this.#destroyed)
-                throw new GraflumeError('INVALID_DATA', 'Map tile manager has been destroyed.');
-            const url = tileUrl(this.#source, tile);
-            const cached = this.#cache.get(url);
-            if (cached !== undefined && (cached.expiresAt === undefined || cached.expiresAt > Date.now())) {
-                this.#cache.delete(url);
-                this.#cache.set(url, cached);
-                return cached;
-            }
-            this.#cache.delete(url);
-            const existing = this.#pending.get(url);
-            if (existing !== undefined)
-                return existing;
-            const controller = new AbortController();
-            const abort = () => controller.abort(signal?.reason);
-            if (signal?.aborted === true)
-                controller.abort(signal.reason);
-            else
-                signal?.addEventListener('abort', abort, { once: true });
-            const request = this.#fetcher(url, controller.signal)
-                .then((response) => {
-                if (!(response.bytes instanceof Uint8Array) ||
-                    response.bytes.length === 0 ||
-                    response.mimeType.trim() === '')
-                    throw new GraflumeError('INVALID_DATA', 'Tile provider returned an invalid response.');
-                const frozen = Object.freeze({ ...response, bytes: response.bytes.slice() });
-                this.#cache.set(url, frozen);
-                while (this.#cache.size > this.#maximumEntries)
-                    this.#cache.delete(this.#cache.keys().next().value);
-                return frozen;
-            })
-                .finally(() => {
-                signal?.removeEventListener('abort', abort);
-                this.#pending.delete(url);
-                this.#controllers.delete(url);
-            });
-            this.#pending.set(url, request);
-            this.#controllers.set(url, controller);
-            return request;
-        }
-        /** Loads a bounded tile set with stable output order and explicit concurrency. */
-        async loadMany(tiles, signal) {
-            if (tiles.length > this.#maximumEntries * 4)
-                throw new GraflumeError('INVALID_SPEC', `Tile batch has ${tiles.length} entries; the bounded limit is ${this.#maximumEntries * 4}.`);
-            const output = new Array(tiles.length);
-            let cursor = 0;
-            const worker = async () => {
-                while (cursor < tiles.length) {
-                    const index = cursor;
-                    cursor += 1;
-                    output[index] = await this.load(tiles[index], signal);
-                }
-            };
-            await Promise.all(Array.from({ length: Math.min(this.#maximumConcurrent, tiles.length) }, () => worker()));
-            return Object.freeze(output);
-        }
-        clear() {
-            this.#cache.clear();
-        }
-        /** Aborts every provider request and permanently releases this manager. */
-        destroy(reason = new DOMException('Map tile manager destroyed.', 'AbortError')) {
-            if (this.#destroyed)
-                return;
-            this.#destroyed = true;
-            for (const controller of this.#controllers.values())
-                controller.abort(reason);
-            this.#controllers.clear();
-            this.#pending.clear();
-            this.#cache.clear();
-        }
-        state() {
-            return Object.freeze({
-                cached: this.#cache.size,
-                pending: this.#pending.size,
-                maximumEntries: this.#maximumEntries,
-                maximumConcurrent: this.#maximumConcurrent,
-                destroyed: this.#destroyed,
-            });
-        }
-    }
-    /** Default browser/server fetch adapter with cache expiry derived from response headers. */
-    const fetchMapTile = async (url, signal) => {
-        if (typeof fetch !== 'function')
-            throw new GraflumeError('UNSUPPORTED_RENDERER', 'Provider-backed tiles require fetch or an injected TileFetcher.');
-        const response = await fetch(url, { signal });
-        if (!response.ok)
-            throw new GraflumeError('INVALID_DATA', `Tile provider returned HTTP ${response.status}.`);
-        const bytes = new Uint8Array(await response.arrayBuffer());
-        const mimeType = response.headers.get('content-type')?.split(';', 1)[0]?.trim() ?? '';
-        const cacheControl = response.headers.get('cache-control') ?? '';
-        const maxAge = /(?:^|,)\s*max-age=(\d+)/i.exec(cacheControl)?.[1];
-        return {
-            bytes,
-            mimeType,
-            ...(maxAge === undefined ? {} : { expiresAt: Date.now() + Number(maxAge) * 1_000 }),
-        };
-    };
-    function createMapTileManager(source, options = {}) {
-        return new MapTileManager(source, options.fetcher ?? fetchMapTile, options.maximumEntries, options.maximumConcurrent);
-    }
-    function cloneMapProjection(projection) {
-        return Object.freeze({
-            name: projection.name,
-            ...(projection.rotate === undefined
-                ? {}
-                : { rotate: Object.freeze([...projection.rotate]) }),
-            ...(projection.clip === undefined
-                ? {}
-                : {
-                    clip: Object.freeze([...projection.clip]),
-                }),
-        });
-    }
-    /**
-     * Persistent source/layer runtime that binds ordered layer state to real
-     * provider requests. It is renderer-neutral and can be shared by custom map
-     * controls, server prefetchers, or a Canvas chart lifecycle.
-     */
-    class MapRuntime {
-        layers = new MapLayerRegistry();
-        #options;
-        #managers = new Map();
-        #projection;
-        #revision = 0;
-        #destroyed = false;
-        constructor(options = {}) {
-            const { projection, ...tileOptions } = options;
-            this.#options = { ...tileOptions };
-            this.#projection = normalizeMapProjection(projection);
-        }
-        addSource(id, source) {
-            this.#assertAlive();
-            this.layers.addSource(id, source);
-            this.#revision += 1;
-            return this;
-        }
-        removeSource(id) {
-            this.#assertAlive();
-            this.layers.removeSource(id);
-            this.#managers.get(id)?.destroy();
-            this.#managers.delete(id);
-            this.#revision += 1;
-            return this;
-        }
-        addLayer(layer, before) {
-            this.#assertAlive();
-            this.layers.addLayer(layer, before);
-            this.#revision += 1;
-            return this;
-        }
-        removeLayer(id) {
-            this.#assertAlive();
-            this.layers.removeLayer(id);
-            this.#revision += 1;
-            return this;
-        }
-        setVisibility(id, visible) {
-            this.#assertAlive();
-            this.layers.setVisibility(id, visible);
-            this.#revision += 1;
-            return this;
-        }
-        getProjection() {
-            return cloneMapProjection(this.#projection);
-        }
-        setProjection(projection) {
-            this.#assertAlive();
-            const normalized = normalizeMapProjection(projection);
-            if (JSON.stringify(normalized) !== JSON.stringify(this.#projection)) {
-                this.#projection = normalized;
-                this.#revision += 1;
-            }
-            return this;
-        }
-        project(point) {
-            this.#assertAlive();
-            return projectMapPosition(point, this.#projection);
-        }
-        async loadLayerTiles(layerId, tiles, signal) {
-            this.#assertAlive();
-            const layer = this.layers.layer(layerId);
-            if (layer === null)
-                throw new GraflumeError('INVALID_SPEC', `Unknown map layer "${layerId}".`);
-            if (layer.visible === false)
-                return Object.freeze([]);
-            const source = this.layers.source(layer.source);
-            if (source === null || !('template' in source))
-                throw new GraflumeError('INVALID_SPEC', `Map layer "${layerId}" is not backed by a tile provider.`);
-            let manager = this.#managers.get(layer.source);
-            if (manager === undefined) {
-                manager = createMapTileManager(source, this.#options);
-                this.#managers.set(layer.source, manager);
-            }
-            return manager.loadMany(tiles, signal);
-        }
-        snapshot() {
-            return Object.freeze({
-                destroyed: this.#destroyed,
-                revision: this.#revision,
-                projection: cloneMapProjection(this.#projection),
-                registry: this.layers.snapshot(),
-                providers: Object.freeze(Object.fromEntries([...this.#managers].map(([id, manager]) => [id, manager.state()]))),
-            });
-        }
-        destroy(reason) {
-            if (this.#destroyed)
-                return;
-            this.#destroyed = true;
-            for (const manager of this.#managers.values())
-                manager.destroy(reason);
-            this.#managers.clear();
-        }
-        #assertAlive() {
-            if (this.#destroyed)
-                throw new GraflumeError('INVALID_DATA', 'Map runtime has been destroyed.');
-        }
-    }
-    function createMapRuntime(options = {}) {
-        return new MapRuntime(options);
     }
 
     const DEFAULT_BASEMAP = 'natural-earth';
@@ -29734,171 +32013,6 @@ var Graflume = (function (exports) {
         return 'nominal';
     }
 
-    const domainViewVersion = 1;
-    function invalid$1(message, path = '$.interaction.domainNavigation') {
-        throw new GraflumeError('INVALID_SPEC', message, { path });
-    }
-    function assertPlainObject(value, label) {
-        if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-            invalid$1(`${label} must be an object.`);
-        }
-    }
-    function assertClosedKeys(value, allowed, label) {
-        const allowedKeys = new Set(allowed);
-        const unknown = Object.keys(value).filter((key) => !allowedKeys.has(key));
-        if (unknown.length > 0)
-            invalid$1(`${label} contains unknown key "${unknown[0]}".`);
-    }
-    function normalizedWindow(input) {
-        assertPlainObject(input, 'Domain axis window');
-        assertClosedKeys(input, ['start', 'end'], 'Domain axis window');
-        if (!Number.isFinite(input.start) ||
-            !Number.isFinite(input.end) ||
-            input.start < 0 ||
-            input.end > 1 ||
-            input.start >= input.end) {
-            invalid$1('Domain axis windows require finite 0 <= start < end <= 1 values.');
-        }
-        return Object.freeze({ start: input.start, end: input.end });
-    }
-    function normalizeDomainViewState(input) {
-        assertPlainObject(input, 'Domain view state');
-        assertClosedKeys(input, ['version', 'axes'], 'Domain view state');
-        if (input.version !== domainViewVersion) {
-            invalid$1(`Domain view state.version must be ${domainViewVersion}.`);
-        }
-        assertPlainObject(input.axes, 'Domain view axes');
-        const axes = {};
-        for (const [axis, window] of Object.entries(input.axes)) {
-            if (!isSafeAxisId(axis)) {
-                invalid$1(`Unknown domain view axis "${axis}".`);
-            }
-            if (window !== undefined)
-                axes[axis] = normalizedWindow(window);
-        }
-        return Object.freeze({ version: domainViewVersion, axes: Object.freeze(axes) });
-    }
-    function emptyDomainViewState() {
-        return Object.freeze({ version: domainViewVersion, axes: Object.freeze({}) });
-    }
-    function domainAxisWindow(state, axis) {
-        const window = state.axes[axis];
-        return window === undefined ? Object.freeze({ start: 0, end: 1 }) : window;
-    }
-    function boundedWindow$1(start, width) {
-        const boundedWidth = Math.max(Number.EPSILON, Math.min(1, width));
-        const boundedStart = Math.max(0, Math.min(1 - boundedWidth, start));
-        return Object.freeze({ start: boundedStart, end: boundedStart + boundedWidth });
-    }
-    function withWindow(state, axis, window) {
-        const axes = { ...state.axes };
-        const normalized = normalizedWindow(window);
-        if (Math.abs(normalized.start) < 1e-12 && Math.abs(normalized.end - 1) < 1e-12) {
-            delete axes[axis];
-        }
-        else
-            axes[axis] = normalized;
-        return normalizeDomainViewState({ version: domainViewVersion, axes });
-    }
-    function zoomDomainAxisWindow(state, axis, factor, anchor, maxZoom) {
-        if (!Number.isFinite(factor) || factor <= 0)
-            invalid$1('Domain zoom factor must be positive.');
-        if (!Number.isFinite(anchor))
-            invalid$1('Domain zoom anchor must be finite.');
-        if (!Number.isFinite(maxZoom) || maxZoom < 1)
-            invalid$1('Domain maxZoom must be at least 1.');
-        const current = domainAxisWindow(state, axis);
-        const width = current.end - current.start;
-        const boundedAnchor = Math.max(current.start, Math.min(current.end, anchor));
-        const local = width === 0 ? 0.5 : (boundedAnchor - current.start) / width;
-        const nextWidth = Math.max(1 / maxZoom, Math.min(1, width / factor));
-        return withWindow(state, axis, boundedWindow$1(boundedAnchor - local * nextWidth, nextWidth));
-    }
-    function panDomainAxisWindow(state, axis, delta) {
-        if (!Number.isFinite(delta))
-            invalid$1('Domain pan delta must be finite.');
-        const current = domainAxisWindow(state, axis);
-        return withWindow(state, axis, boundedWindow$1(current.start + delta, current.end - current.start));
-    }
-    function scaleFor(context, axis) {
-        const scale = context.axes[axis];
-        if (scale === undefined)
-            invalid$1(`Axis "${axis}" is not resolved.`, `$.axes.${axis}`);
-        if (scale.invert === undefined && scale.kind !== 'band' && scale.kind !== 'point') {
-            throw new GraflumeError('INCOMPATIBLE_SCALE', `Axis "${axis}" cannot be navigated.`, {
-                path: `$.axes.${axis}`,
-            });
-        }
-        return scale;
-    }
-    function rangeRatio(scale, pixel) {
-        if (!Number.isFinite(pixel))
-            invalid$1('Domain navigation pixel must be finite.');
-        const range = scale.range();
-        const start = range[0];
-        const end = range.at(-1);
-        if (start === undefined || end === undefined || start === end) {
-            throw new GraflumeError('INCOMPATIBLE_SCALE', 'Navigable scale range must be non-empty.');
-        }
-        return Math.max(0, Math.min(1, (pixel - start) / (end - start)));
-    }
-    function zoomDomainAtPixel(state, context, axis, factor, pixel, maxZoom) {
-        const scale = scaleFor(context, axis);
-        const current = domainAxisWindow(state, axis);
-        const ratio = rangeRatio(scale, pixel);
-        const anchor = current.start + ratio * (current.end - current.start);
-        return zoomDomainAxisWindow(state, axis, factor, anchor, maxZoom);
-    }
-    function panDomainByPixels(state, context, axis, deltaPixels) {
-        const scale = scaleFor(context, axis);
-        if (!Number.isFinite(deltaPixels))
-            invalid$1('Domain pan pixel delta must be finite.');
-        const range = scale.range();
-        const start = range[0];
-        const end = range.at(-1);
-        if (start === undefined || end === undefined || start === end) {
-            throw new GraflumeError('INCOMPATIBLE_SCALE', 'Navigable scale range must be non-empty.');
-        }
-        const current = domainAxisWindow(state, axis);
-        // Grab-to-pan: dragging marks toward positive pixels reveals the preceding
-        // authored domain. A descending layout range naturally reverses this sign.
-        const delta = (-deltaPixels / (end - start)) * (current.end - current.start);
-        return panDomainAxisWindow(state, axis, delta);
-    }
-    function domainForAxisWindow(scale, window) {
-        if (scale.invert === undefined) {
-            if (scale.kind !== 'band' && scale.kind !== 'point') {
-                throw new GraflumeError('INCOMPATIBLE_SCALE', `Data-domain navigation cannot resolve the "${scale.kind}" scale.`);
-            }
-            const domain = scale.domain();
-            if (domain.length === 0) {
-                throw new GraflumeError('INCOMPATIBLE_SCALE', 'Navigable categorical domains are non-empty.');
-            }
-            const start = Math.min(domain.length - 1, Math.floor(window.start * domain.length));
-            const end = Math.max(start + 1, Math.min(domain.length, Math.ceil(window.end * domain.length)));
-            return Object.freeze(domain.slice(start, end));
-        }
-        const range = scale.range();
-        const start = range[0];
-        const end = range.at(-1);
-        if (start === undefined || end === undefined || start === end) {
-            throw new GraflumeError('INCOMPATIBLE_SCALE', 'Navigable scale range must be non-empty.');
-        }
-        const first = scale.invert(start + (end - start) * window.start);
-        const last = scale.invert(start + (end - start) * window.end);
-        if (typeof first !== 'number' ||
-            typeof last !== 'number' ||
-            !Number.isFinite(first) ||
-            !Number.isFinite(last) ||
-            first === last) {
-            throw new GraflumeError('INCOMPATIBLE_SCALE', `Data-domain navigation requires finite numeric endpoints from "${scale.kind}".`);
-        }
-        return Object.freeze([first, last]);
-    }
-    function domainViewIsIdentity(state) {
-        return Object.keys(state.axes).length === 0;
-    }
-
     const ADVANCED_CANDLESTICK_OPTIONS = Object.freeze([
         'aggregateIntervalMs',
         'timeZone',
@@ -30666,128 +32780,6 @@ var Graflume = (function (exports) {
         };
     }
 
-    function union$2(left, right) {
-        if (left === null)
-            return right;
-        if (right === null)
-            return left;
-        const x = Math.min(left.x, right.x);
-        const y = Math.min(left.y, right.y);
-        const endX = Math.max(left.x + left.width, right.x + right.width);
-        const endY = Math.max(left.y + left.height, right.y + right.height);
-        return { x, y, width: endX - x, height: endY - y };
-    }
-    function textBounds(node) {
-        const width = Math.max(node.fontSize * 0.6, Array.from(node.text).length * node.fontSize * 0.6);
-        const height = Math.max(1, node.fontSize * 1.2);
-        const left = node.align === 'center'
-            ? -width / 2
-            : node.align === 'right' || node.align === 'end'
-                ? -width
-                : 0;
-        const top = node.baseline === 'middle'
-            ? -height / 2
-            : node.baseline === 'bottom' || node.baseline === 'ideographic'
-                ? -height
-                : node.baseline === 'alphabetic'
-                    ? -height * 0.8
-                    : 0;
-        if (node.rotation === 0)
-            return { x: node.x + left, y: node.y + top, width, height };
-        const angle = (node.rotation * Math.PI) / 180;
-        const corners = [
-            [left, top],
-            [left + width, top],
-            [left + width, top + height],
-            [left, top + height],
-        ];
-        const points = corners.map(([x, y]) => ({
-            x: node.x + x * Math.cos(angle) - y * Math.sin(angle),
-            y: node.y + x * Math.sin(angle) + y * Math.cos(angle),
-        }));
-        const xs = points.map((point) => point.x);
-        const ys = points.map((point) => point.y);
-        const x = Math.min(...xs);
-        const y = Math.min(...ys);
-        return { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y };
-    }
-    function sceneNodeBounds(node) {
-        if (!node.visible || node.opacity <= 0)
-            return null;
-        switch (node.type) {
-            case 'circle':
-                return {
-                    x: node.cx - node.radius,
-                    y: node.cy - node.radius,
-                    width: node.radius * 2,
-                    height: node.radius * 2,
-                };
-            case 'rect':
-                return {
-                    x: Math.min(node.x, node.x + node.width),
-                    y: Math.min(node.y, node.y + node.height),
-                    width: Math.abs(node.width),
-                    height: Math.abs(node.height),
-                };
-            case 'line': {
-                const padding = Math.max(0.5, node.lineWidth / 2);
-                const x = Math.min(node.x1, node.x2) - padding;
-                const y = Math.min(node.y1, node.y2) - padding;
-                return {
-                    x,
-                    y,
-                    width: Math.abs(node.x2 - node.x1) + padding * 2,
-                    height: Math.abs(node.y2 - node.y1) + padding * 2,
-                };
-            }
-            case 'path': {
-                const points = [node.points, ...(node.subpaths ?? [])].flat();
-                if (points.length === 0)
-                    return null;
-                const padding = Math.max(0, node.lineWidth / 2);
-                const xs = points.map((point) => point.x);
-                const ys = points.map((point) => point.y);
-                const x = Math.min(...xs) - padding;
-                const y = Math.min(...ys) - padding;
-                return {
-                    x,
-                    y,
-                    width: Math.max(...xs) - Math.min(...xs) + padding * 2,
-                    height: Math.max(...ys) - Math.min(...ys) + padding * 2,
-                };
-            }
-            case 'text':
-                return textBounds(node);
-            case 'group': {
-                let bounds = null;
-                for (const child of node.children)
-                    bounds = union$2(bounds, sceneNodeBounds(child));
-                if (bounds === null || node.clip === undefined)
-                    return bounds;
-                const x = Math.max(bounds.x, node.clip.x);
-                const y = Math.max(bounds.y, node.clip.y);
-                const endX = Math.min(bounds.x + bounds.width, node.clip.x + node.clip.width);
-                const endY = Math.min(bounds.y + bounds.height, node.clip.y + node.clip.height);
-                return endX < x || endY < y ? null : { x, y, width: endX - x, height: endY - y };
-            }
-        }
-    }
-    function nodePaint(node) {
-        if (node.type === 'rect' || node.type === 'circle' || node.type === 'path') {
-            return node.fill ?? node.stroke;
-        }
-        if (node.type === 'line')
-            return node.stroke;
-        if (node.type === 'text')
-            return node.fill;
-        for (const child of node.children) {
-            const paint = nodePaint(child);
-            if (paint !== undefined)
-                return paint;
-        }
-        return undefined;
-    }
-
     function intersectionArea(left, right) {
         const width = Math.max(0, Math.min(left.x + left.width, right.x + right.width) - Math.max(left.x, right.x));
         const height = Math.max(0, Math.min(left.y + left.height, right.y + right.height) - Math.max(left.y, right.y));
@@ -31197,23 +33189,23 @@ var Graflume = (function (exports) {
         }
         return true;
     }
-    function descendants$2(node, ancestorVisible = true) {
+    function descendants$1(node, ancestorVisible = true) {
         const effectivelyVisible = ancestorVisible && node.visible && node.opacity > 0;
         if (!effectivelyVisible)
             return [];
         if (node.type !== 'group')
             return [node];
-        return node.children.flatMap((child) => descendants$2(child, effectivelyVisible));
+        return node.children.flatMap((child) => descendants$1(child, effectivelyVisible));
     }
     function nodesForTarget(target, layerGroups) {
         if (target.type === 'layer') {
             const groupNode = layerGroups.find((node) => node.id === `${target.layerId}:group`);
-            return groupNode === undefined ? [] : descendants$2(groupNode);
+            return groupNode === undefined ? [] : descendants$1(groupNode);
         }
         if (target.type !== 'datum')
             return [];
         return layerGroups
-            .flatMap((node) => descendants$2(node))
+            .flatMap((node) => descendants$1(node))
             .filter((node) => datumMatches(target, node));
     }
     function fallbackDatumBounds(target, scales, datumVisible) {
@@ -31518,7 +33510,7 @@ var Graflume = (function (exports) {
         const columns = 12;
         const rows = 8;
         const buckets = new Map();
-        for (const node of layerGroups.flatMap((layer) => descendants$2(layer))) {
+        for (const node of layerGroups.flatMap((layer) => descendants$1(layer))) {
             for (const bounds of localObstacleBounds(node, plot)) {
                 const clipped = clippedBounds(bounds, plot);
                 if (clipped === null)
@@ -31849,13 +33841,13 @@ var Graflume = (function (exports) {
         const endY = Math.max(left.y + left.height, right.y + right.height);
         return { x, y, width: endX - x, height: endY - y };
     }
-    function descendants$1(node, ancestorVisible = true) {
+    function descendants(node, ancestorVisible = true) {
         const visible = ancestorVisible && node.visible && node.opacity > 0;
         if (!visible)
             return [];
         if (node.type !== 'group')
             return [node];
-        return node.children.flatMap((child) => descendants$1(child, visible));
+        return node.children.flatMap((child) => descendants(child, visible));
     }
     function collectDatumGeometry(layerGroups, scales, maximum, locale) {
         const semantic = buildSemanticIndex(group('mark-labels:semantic-source', layerGroups), scales.layers, maximum, locale);
@@ -31868,7 +33860,7 @@ var Graflume = (function (exports) {
             }));
         }
         const byDatum = new Map();
-        for (const node of layerGroups.flatMap((candidate) => descendants$1(candidate))) {
+        for (const node of layerGroups.flatMap((candidate) => descendants(candidate))) {
             const reference = node.datum;
             if (reference === undefined)
                 continue;
@@ -32334,625 +34326,6 @@ var Graflume = (function (exports) {
             nodes: nodes.length === 0 ? [] : [group('mark-labels:overlay', nodes, { zIndex: 540 })],
             entries,
         };
-    }
-
-    const legendByScene = new WeakMap();
-    const categoricalMarks = new Set([
-        'pie',
-        'variable-pie',
-        'treemap',
-        'sunburst',
-        'packed-bubble',
-        'funnel',
-        'pyramid',
-        'venn',
-        'word-cloud',
-    ]);
-    const continuousMarks = new Set([
-        'heatmap',
-        'geo',
-        'geo-heatmap',
-        'map',
-        'contour',
-        'volume-profile',
-    ]);
-    const lineMarks = new Set([
-        'annotation',
-        'area',
-        'diff',
-        'line',
-        'lines',
-        'smooth',
-        'stepped-area',
-        'trendline',
-    ]);
-    const pointMarks = new Set([
-        'bubble',
-        'effect-scatter',
-        'item',
-        'lollipop',
-        'packed-bubble',
-        'point',
-        'scatter-3d',
-        'scatter-matrix',
-        'ternary',
-    ]);
-    /** Category filtering is safe only when a row owns independent geometry. */
-    const CATEGORY_LEGEND_TOGGLE_MARKS = new Set([
-        'bar',
-        'bubble',
-        'candlestick',
-        'calendar',
-        'cylinder',
-        'effect-scatter',
-        'financial',
-        'flags',
-        'funnel',
-        'gantt',
-        'heatmap',
-        'interval',
-        'item',
-        'lollipop',
-        'packed-bubble',
-        'pie',
-        'point',
-        'pictorial-bar',
-        'pyramid',
-        'range',
-        'scatter-3d',
-        'scatter-matrix',
-        'sunburst',
-        'ternary',
-        'timeline',
-        'tilemap',
-        'tiled-map',
-        'treemap',
-        'variable-pie',
-        'variwide',
-        'venn',
-        'waterfall',
-        'wind-barb',
-        'word-cloud',
-    ]);
-    function markSymbol(mark) {
-        if (mark !== undefined && lineMarks.has(mark))
-            return 'line';
-        if (mark !== undefined && pointMarks.has(mark))
-            return 'point';
-        return 'rect';
-    }
-    function valueKey$1(value) {
-        return `${value === null ? 'null' : typeof value}:${String(value)}`;
-    }
-    function safeId(value) {
-        return value.replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'item';
-    }
-    /** Keep inferred category state stable across row reordering and slug collisions. */
-    function stableCategoryId(value) {
-        const canonical = JSON.stringify([value === null ? 'null' : typeof value, value]);
-        let encoded = '';
-        for (let index = 0; index < canonical.length; index += 1) {
-            encoded += canonical.charCodeAt(index).toString(16).padStart(4, '0');
-        }
-        return encoded;
-    }
-    function autoMode(spec) {
-        if (spec.legend === false)
-            return 'layers';
-        if (spec.legend.mode !== 'auto')
-            return spec.legend.mode;
-        if (spec.layers.length > 1)
-            return 'layers';
-        const mark = spec.layers[0]?.mark.type;
-        if (mark !== undefined && continuousMarks.has(mark))
-            return 'continuous';
-        if (mark !== undefined && categoricalMarks.has(mark))
-            return 'categories';
-        return 'layers';
-    }
-    function categoryItems(spec, legend) {
-        const layer = spec.layers.find((candidate) => candidate.id === legend.layerId) ?? spec.layers[0];
-        if (layer === undefined)
-            return [];
-        const field = legend.field ?? layer.x.field;
-        const table = DataTable.from(layer.data);
-        const seen = new Set();
-        const output = [];
-        for (let index = 0; index < table.length && output.length < legend.maxItems; index += 1) {
-            const raw = table.value(index, field);
-            if (raw === undefined ||
-                raw instanceof Date ||
-                (typeof raw === 'number' && !Number.isFinite(raw)))
-                continue;
-            const value = raw;
-            const key = valueKey$1(value);
-            if (seen.has(key))
-                continue;
-            seen.add(key);
-            output.push({
-                id: `category-${stableCategoryId(value)}`,
-                label: raw === null ? '—' : String(raw),
-                layerId: layer.id,
-                value,
-                symbol: markSymbol(layer.mark.type),
-            });
-        }
-        return output;
-    }
-    function layerItems(spec) {
-        return spec.layers.map((layer, index) => ({
-            id: `layer-${safeId(layer.id)}-${index}`,
-            label: layer.name,
-            layerId: layer.id,
-            symbol: markSymbol(layer.mark.type),
-        }));
-    }
-    function legendItemToggleable(model, item) {
-        return (model.spec.interactive &&
-            model.mode !== 'continuous' &&
-            (model.mode === 'categories'
-                ? item.layerId === undefined
-                    ? model.categoryToggleableLayerIds.size > 0
-                    : model.categoryToggleableLayerIds.has(item.layerId)
-                : item.layerId !== undefined));
-    }
-    function continuousItems(spec, legend) {
-        const layer = spec.layers.find((candidate) => candidate.id === legend.layerId) ?? spec.layers[0];
-        if (layer === undefined)
-            return [];
-        const field = legend.field ?? layer.mark.fields.value ?? layer.y.field;
-        const table = DataTable.from(layer.data);
-        const extent = table.extent(field, false);
-        if (extent === null)
-            return [{ id: 'continuous-scale', label: field, layerId: layer.id, symbol: 'rect' }];
-        let formatter;
-        try {
-            formatter = new Intl.NumberFormat(spec.locale, { maximumFractionDigits: 6 });
-        }
-        catch {
-            formatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 6 });
-        }
-        return [
-            {
-                id: 'continuous-min',
-                label: formatter.format(extent[0]),
-                layerId: layer.id,
-                value: extent[0],
-                symbol: 'rect',
-            },
-            {
-                id: 'continuous-max',
-                label: formatter.format(extent[1]),
-                layerId: layer.id,
-                value: extent[1],
-                symbol: 'rect',
-            },
-        ];
-    }
-    function resolveLegendModel(spec, theme, availableWidth = 640, availableHeight = 400) {
-        const legend = spec.legend;
-        if (legend === false || !legend.visible)
-            return null;
-        const mode = autoMode(spec);
-        const selectedLayer = spec.layers.find((candidate) => candidate.id === legend.layerId) ?? spec.layers[0];
-        const field = mode === 'categories'
-            ? (legend.field ?? selectedLayer?.x.field)
-            : mode === 'continuous'
-                ? (legend.field ?? selectedLayer?.mark.fields.value ?? selectedLayer?.y.field)
-                : undefined;
-        const inferred = legend.items.length > 0
-            ? legend.items
-            : mode === 'layers'
-                ? layerItems(spec)
-                : mode === 'categories'
-                    ? categoryItems(spec, legend)
-                    : continuousItems(spec, legend);
-        let items = inferred.slice(0, legend.maxItems).map((item) => {
-            if (item.symbol !== 'auto')
-                return item;
-            const layer = spec.layers.find((candidate) => candidate.id === item.layerId);
-            return { ...item, symbol: markSymbol(layer?.mark.type) };
-        });
-        if (items.length === 0)
-            return null;
-        const titleHeight = legend.title === undefined
-            ? 0
-            : (theme.typography.legendTitleSize ?? theme.typography.fontSize) + 8;
-        const maxWidth = Math.max(1, availableWidth - 8);
-        const maxHeight = Math.max(1, availableHeight - 8);
-        const swatchSize = theme.legend?.swatchSize ?? 12;
-        const horizontalItemPadding = swatchSize + 22;
-        const direction = spec.locale !== undefined && /^(ar|fa|he|ur)(?:-|$)/i.test(spec.locale) ? 'rtl' : 'ltr';
-        const categoryToggleableLayerIds = new Set(spec.layers
-            .filter((layer) => CATEGORY_LEGEND_TOGGLE_MARKS.has(layer.mark.type))
-            .map((layer) => layer.id));
-        if (mode === 'continuous' && items.length >= 2) {
-            return {
-                spec: legend,
-                mode,
-                items,
-                ...(field === undefined ? {} : { field }),
-                width: Math.min(maxWidth, Math.max(120, (legend.title?.length ?? 0) * 7 + (legend.title === undefined ? 0 : 24), 168)),
-                height: Math.min(maxHeight, titleHeight + 42),
-                direction,
-                categoryToggleableLayerIds,
-            };
-        }
-        if (legend.orientation === 'horizontal') {
-            const totalWidth = items.reduce((sum, item) => sum + Math.max(64, item.label.length * 7 + horizontalItemPadding), 0);
-            const modelWidth = Math.min(maxWidth, Math.max(96, totalWidth + 20));
-            const usableWidth = Math.max(48, modelWidth - 20);
-            let rowWidth = 0;
-            let rows = 1;
-            for (const item of items) {
-                const itemWidth = Math.max(64, item.label.length * 7 + horizontalItemPadding);
-                if (rowWidth > 0 && rowWidth + itemWidth > usableWidth) {
-                    rows += 1;
-                    rowWidth = 0;
-                }
-                rowWidth += itemWidth;
-            }
-            const visibleRows = Math.max(1, Math.floor((maxHeight - titleHeight - 12) / 24));
-            if (rows > visibleRows) {
-                let usedRows = 1;
-                rowWidth = 0;
-                items = items.filter((item) => {
-                    const itemWidth = Math.max(64, item.label.length * 7 + horizontalItemPadding);
-                    if (rowWidth > 0 && rowWidth + itemWidth > usableWidth) {
-                        usedRows += 1;
-                        rowWidth = 0;
-                    }
-                    if (usedRows > visibleRows)
-                        return false;
-                    rowWidth += itemWidth;
-                    return true;
-                });
-                rows = visibleRows;
-            }
-            return {
-                spec: legend,
-                mode,
-                items,
-                ...(field === undefined ? {} : { field }),
-                width: modelWidth,
-                height: Math.min(maxHeight, titleHeight + rows * 24 + 12),
-                direction,
-                categoryToggleableLayerIds,
-            };
-        }
-        const maxVisibleItems = Math.max(1, Math.floor((maxHeight - titleHeight - 12) / 24));
-        items = items.slice(0, maxVisibleItems);
-        return {
-            spec: legend,
-            mode,
-            items,
-            ...(field === undefined ? {} : { field }),
-            width: Math.min(maxWidth, Math.min(220, Math.max(72, legend.title === undefined ? 0 : legend.title.length * 7 + 20, ...items.map((item) => item.label.length * 7 + swatchSize + 30)))),
-            height: Math.min(maxHeight, titleHeight + items.length * 24 + 12),
-            direction,
-            categoryToggleableLayerIds,
-        };
-    }
-    function truncateText(text, width, fontSize) {
-        const maximum = Math.max(1, Math.floor(width / Math.max(5, fontSize * 0.58)));
-        let graphemes;
-        try {
-            graphemes = [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text)].map(({ segment }) => segment);
-        }
-        catch {
-            graphemes = Array.from(text);
-        }
-        if (graphemes.length <= maximum)
-            return text;
-        return `${graphemes.slice(0, Math.max(1, maximum - 1)).join('')}…`;
-    }
-    function legendExternalInsets(model) {
-        const empty = { top: 0, right: 0, bottom: 0, left: 0 };
-        if (model === null)
-            return empty;
-        switch (model.spec.position) {
-            case 'top':
-                return { ...empty, top: model.height + 8 };
-            case 'right':
-                return { ...empty, right: model.width + 8 };
-            case 'bottom':
-                return { ...empty, bottom: model.height + 8 };
-            case 'left':
-                return { ...empty, left: model.width + 8 };
-            default:
-                return empty;
-        }
-    }
-    function descendants(node) {
-        if (node.type !== 'group')
-            return [node];
-        return node.children.flatMap(descendants);
-    }
-    function itemPaint(item, index, mode, layerGroups, field, theme, itemCount) {
-        if (item.color !== undefined)
-            return item.color;
-        if (mode === 'continuous') {
-            return continuousColor(theme, index === 0 ? 0 : 1);
-        }
-        const groups = item.layerId === undefined
-            ? layerGroups
-            : layerGroups.filter((candidate) => candidate.id === `${item.layerId}:group`);
-        for (const group of groups) {
-            const nodes = descendants(group);
-            const matching = mode === 'categories' && field !== undefined && item.value !== undefined
-                ? nodes.find((node) => [node.datum?.tooltip, node.datum?.datum].some((datum) => datum !== undefined &&
-                    Object.prototype.hasOwnProperty.call(datum, field) &&
-                    valueKey$1(datum[field]) === valueKey$1(item.value)))
-                : nodes.find((node) => nodePaint(node) !== undefined);
-            const paint = matching === undefined ? undefined : nodePaint(matching);
-            if (paint !== undefined)
-                return paint;
-        }
-        return categoricalColor(theme, index, Math.max(1, itemCount));
-    }
-    function legendOrigin(model, plot, width, height) {
-        const gap = 8;
-        const origin = (() => {
-            switch (model.spec.position) {
-                case 'top':
-                    return { x: plot.x, y: Math.max(gap, plot.y - model.height - gap) };
-                case 'right':
-                    return { x: plot.x + plot.width + gap, y: plot.y };
-                case 'bottom':
-                    return { x: plot.x, y: height - model.height - gap / 2 };
-                case 'left':
-                    return { x: Math.max(gap, plot.x - model.width - gap), y: plot.y };
-                case 'inside-top-left':
-                    return { x: plot.x + gap, y: plot.y + gap };
-                case 'inside-bottom-left':
-                    return { x: plot.x + gap, y: plot.y + plot.height - model.height - gap };
-                case 'inside-bottom-right':
-                    return {
-                        x: plot.x + plot.width - model.width - gap,
-                        y: plot.y + plot.height - model.height - gap,
-                    };
-                case 'inside-top-right':
-                default:
-                    return { x: plot.x + plot.width - model.width - gap, y: plot.y + gap };
-            }
-        })();
-        return {
-            x: Math.max(4, Math.min(Math.max(4, width - model.width - 4), origin.x)),
-            y: Math.max(4, Math.min(Math.max(4, height - model.height - 4), origin.y)),
-        };
-    }
-    function compileLegend(model, layerGroups, plot, width, height, theme, hiddenItems = new Set()) {
-        if (model === null)
-            return { nodes: [], layout: null };
-        const origin = legendOrigin(model, plot, width, height);
-        const background = {
-            type: 'rect',
-            ...nodeBase('legend:surface', {
-                zIndex: 500,
-                opacity: theme.legend?.surfaceOpacity ?? 0.94,
-            }),
-            x: origin.x,
-            y: origin.y,
-            width: model.width,
-            height: model.height,
-            fill: theme.colors.surface,
-            stroke: theme.legend?.borderColor ?? theme.colors.axis,
-            lineWidth: theme.legend?.borderWidth ?? 1,
-            cornerRadius: theme.legend?.cornerRadius ?? 8,
-        };
-        const nodes = [background];
-        const inset = Math.min(10, Math.max(0, model.width / 4));
-        let cursorX = origin.x + inset;
-        let cursorY = origin.y + 10;
-        if (model.spec.title !== undefined) {
-            nodes.push({
-                type: 'text',
-                ...nodeBase('legend:title', { zIndex: 502 }),
-                x: model.direction === 'rtl' ? origin.x + model.width - inset : cursorX,
-                y: cursorY,
-                text: truncateText(model.spec.title, model.width - inset * 2, theme.typography.fontSize),
-                fill: theme.colors.text,
-                fontFamily: theme.typography.fontFamily,
-                fontSize: theme.typography.legendTitleSize ?? theme.typography.fontSize,
-                fontWeight: theme.typography.legendTitleWeight ?? 700,
-                align: model.direction === 'rtl' ? 'right' : 'left',
-                baseline: 'top',
-                rotation: 0,
-            });
-            cursorY += (theme.typography.legendTitleSize ?? theme.typography.fontSize) + 8;
-        }
-        const entries = [];
-        const field = model.field;
-        if (model.mode === 'continuous' && model.items.length >= 2) {
-            const scaleX = origin.x + inset;
-            const scaleWidth = Math.max(1, model.width - inset * 2);
-            const paletteSize = Math.max(1, Math.floor(theme.legend?.continuousSamples ??
-                (theme.colors.paletteMode === 'ggplot2-hue' ||
-                    theme.colors.continuousInterpolation !== undefined
-                    ? 16
-                    : theme.colors.sequential.length)));
-            const palette = model.spec.items.length > 0
-                ? model.items.map((item, index) => {
-                    return (item.color ?? continuousColor(theme, index / Math.max(1, model.items.length - 1)));
-                })
-                : Array.from({ length: paletteSize }, (_value, index) => continuousColor(theme, index / Math.max(1, paletteSize - 1)));
-            palette.forEach((paint, paletteIndex) => {
-                nodes.push({
-                    type: 'rect',
-                    ...nodeBase(`legend:scale:${paletteIndex}`, { zIndex: 501 }),
-                    x: scaleX + (scaleWidth * paletteIndex) / palette.length,
-                    y: cursorY,
-                    width: scaleWidth / palette.length + 0.5,
-                    height: 10,
-                    fill: paint,
-                    lineWidth: 0,
-                    cornerRadius: 0,
-                });
-            });
-            const endpoints = [model.items[0], model.items[model.items.length - 1]];
-            endpoints.forEach((item, index) => {
-                const color = itemPaint(item, index, model.mode, layerGroups, field, theme, model.items.length);
-                const left = index === 0;
-                nodes.push({
-                    type: 'text',
-                    ...nodeBase(`legend:item:${item.id}:label`, { zIndex: 502 }),
-                    x: model.direction === 'rtl'
-                        ? left
-                            ? scaleX + scaleWidth
-                            : scaleX
-                        : left
-                            ? scaleX
-                            : scaleX + scaleWidth,
-                    y: cursorY + 14,
-                    text: truncateText(item.label, scaleWidth / 2 - 4, theme.typography.legendLabelSize ?? theme.typography.fontSize),
-                    fill: theme.colors.mutedText,
-                    fontFamily: theme.typography.fontFamily,
-                    fontSize: theme.typography.legendLabelSize ?? theme.typography.fontSize,
-                    fontWeight: theme.typography.legendLabelWeight ?? 500,
-                    align: model.direction === 'rtl' ? (left ? 'right' : 'left') : left ? 'left' : 'right',
-                    baseline: 'top',
-                    rotation: 0,
-                });
-                entries.push({
-                    ...item,
-                    color,
-                    bounds: {
-                        x: left ? scaleX : scaleX + scaleWidth / 2,
-                        y: cursorY + 12,
-                        width: scaleWidth / 2,
-                        height: 20,
-                    },
-                    toggleable: false,
-                    visible: true,
-                });
-            });
-            return {
-                nodes: [
-                    group('legend:group', nodes, {
-                        zIndex: 500,
-                        clip: { ...origin, width: model.width, height: model.height },
-                    }),
-                ],
-                layout: {
-                    mode: model.mode,
-                    entries,
-                    bounds: { ...origin, width: model.width, height: model.height },
-                },
-            };
-        }
-        const swatchSize = theme.legend?.swatchSize ?? 12;
-        const lineSwatchLength = theme.legend?.swatchSize ?? 13;
-        const rtlSwatchInset = theme.legend?.swatchSize ?? 16;
-        const swatchLineWidth = theme.legend?.lineWidth ?? 2.5;
-        const swatchPointRadius = theme.legend?.pointRadius ?? 5;
-        const swatchPointStrokeWidth = theme.legend?.pointStrokeWidth ?? 0;
-        for (const [index, item] of model.items.entries()) {
-            const itemWidth = Math.max(64, item.label.length * 7 + swatchSize + 22);
-            if (model.spec.orientation === 'horizontal' &&
-                cursorX > origin.x + 10 &&
-                cursorX + itemWidth > origin.x + model.width - 10) {
-                cursorX = origin.x + 10;
-                cursorY += 24;
-            }
-            const bounds = {
-                x: cursorX - 4,
-                y: cursorY - 4,
-                width: model.spec.orientation === 'horizontal'
-                    ? Math.max(1, Math.min(itemWidth, origin.x + model.width - (cursorX - 4) - 6))
-                    : model.width - 12,
-                height: 22,
-            };
-            const visible = !hiddenItems.has(item.id);
-            const color = itemPaint(item, index, model.mode, layerGroups, field, theme, model.items.length);
-            const swatchX = model.direction === 'rtl' ? bounds.x + bounds.width - rtlSwatchInset : cursorX;
-            if (item.symbol === 'line') {
-                nodes.push({
-                    type: 'line',
-                    ...nodeBase(`legend:item:${item.id}:swatch`, {
-                        zIndex: 501,
-                        opacity: visible ? 1 : 0.28,
-                    }),
-                    x1: swatchX,
-                    y1: cursorY + swatchSize / 2,
-                    x2: swatchX + lineSwatchLength,
-                    y2: cursorY + swatchSize / 2,
-                    stroke: color,
-                    lineWidth: swatchLineWidth,
-                    lineCap: theme.legend?.lineCap ?? 'round',
-                });
-            }
-            else if (item.symbol === 'point') {
-                nodes.push({
-                    type: 'circle',
-                    ...nodeBase(`legend:item:${item.id}:swatch`, {
-                        zIndex: 501,
-                        opacity: visible ? 1 : 0.28,
-                    }),
-                    cx: swatchX + swatchSize / 2,
-                    cy: cursorY + swatchSize / 2,
-                    radius: swatchPointRadius,
-                    fill: color,
-                    ...(swatchPointStrokeWidth === 0 ? {} : { stroke: color }),
-                    lineWidth: swatchPointStrokeWidth,
-                });
-            }
-            else {
-                nodes.push({
-                    type: 'rect',
-                    ...nodeBase(`legend:item:${item.id}:swatch`, {
-                        zIndex: 501,
-                        opacity: visible ? 1 : 0.28,
-                    }),
-                    x: swatchX,
-                    y: cursorY,
-                    width: swatchSize,
-                    height: swatchSize,
-                    fill: color,
-                    lineWidth: 0,
-                    cornerRadius: theme.legend?.swatchRadius ?? 3,
-                });
-            }
-            nodes.push({
-                type: 'text',
-                ...nodeBase(`legend:item:${item.id}:label`, { zIndex: 502, opacity: visible ? 1 : 0.45 }),
-                x: model.direction === 'rtl' ? swatchX - 7 : cursorX + swatchSize + 7,
-                y: cursorY + swatchSize / 2,
-                text: truncateText(item.label, Math.max(8, bounds.width - swatchSize - 14), theme.typography.legendLabelSize ?? theme.typography.fontSize),
-                fill: theme.colors.text,
-                fontFamily: theme.typography.fontFamily,
-                fontSize: theme.typography.legendLabelSize ?? theme.typography.fontSize,
-                fontWeight: theme.typography.legendLabelWeight ?? 500,
-                align: model.direction === 'rtl' ? 'right' : 'left',
-                baseline: 'middle',
-                rotation: 0,
-            });
-            const toggleable = legendItemToggleable(model, item);
-            entries.push({ ...item, color, bounds, toggleable, visible });
-            if (model.spec.orientation === 'horizontal')
-                cursorX += itemWidth;
-            else
-                cursorY += 24;
-        }
-        return {
-            nodes: [
-                group('legend:group', nodes, {
-                    zIndex: 500,
-                    clip: { ...origin, width: model.width, height: model.height },
-                }),
-            ],
-            layout: {
-                mode: model.mode,
-                entries,
-                bounds: { ...origin, width: model.width, height: model.height },
-            },
-        };
-    }
-    function registerLegendLayout(scene, layout) {
-        if (layout !== null)
-            legendByScene.set(scene, layout);
-    }
-    function sceneLegendLayout(scene) {
-        return legendByScene.get(scene) ?? null;
     }
 
     const compositionProperties = [
@@ -53821,6 +55194,13 @@ var Graflume = (function (exports) {
         return JSON.stringify([target.layerId ?? null, rows, target.field ?? null, values]);
     }
     class Chart {
+        #renderSpec = null;
+        #importedScene = false;
+        /** Restore validates the persisted vector payload before touching the target DOM. */
+        static restore(target, input, registry, options = {}) {
+            const restored = restoreChartSnapshot(input);
+            return new Chart(target, restored.snapshot.spec, registry, options, restored);
+        }
         #target;
         #registry;
         #events = new EventEmitter();
@@ -54002,7 +55382,7 @@ var Graflume = (function (exports) {
             }
             this.#events.emit('fullscreenchange', { chart: this, active });
         };
-        constructor(target, spec, registry, options = {}) {
+        constructor(target, spec, registry, options = {}, restored) {
             this.#target = resolveTarget(target);
             canvasSemanticViewSequence += 1;
             this.#semanticViewId = `canvas-view-${canvasSemanticViewSequence}`;
@@ -54038,11 +55418,15 @@ var Graflume = (function (exports) {
             }
             try {
                 this.#configureEnvironmentListeners();
-                this.render();
+                if (restored === undefined)
+                    this.render();
+                else
+                    this.#restoreSnapshotSurface(restored);
                 this.#linkedViewUnregister =
                     options.linkedViewStore?.register(this.#semanticViewId, (change) => this.#applyLinkedViewState(change)) ?? null;
                 this.#configureResizeObserver();
-                this.#startAutoplay();
+                if (restored === undefined)
+                    this.#startAutoplay();
             }
             catch (error) {
                 try {
@@ -54066,6 +55450,85 @@ var Graflume = (function (exports) {
         }
         getScene() {
             return this.#result?.scene ?? null;
+        }
+        /** Capture the completed scene and interaction geometry; no compilation is performed. */
+        toSnapshot() {
+            this.#assertAlive();
+            if (this.#result === null)
+                throw new GraflumeError('INVALID_SPEC', 'A chart must be rendered before it can be saved.');
+            const snapshot = captureChartSnapshot(this.#spec, this.#renderSpec ?? this.#spec, this.#result, {
+                view: this.#view,
+                hiddenLegendItems: [...this.#hiddenLegendItems],
+                domainView: this.#domainView,
+                analyticSelection: this.#analyticSelection.get(),
+                selection: this.#selection,
+                annotations: this.#annotations,
+                annotationsVisible: this.#annotationsVisible,
+                markLabelPositions: this.#markLabels.positions(),
+            });
+            return this.#importedScene ? { ...snapshot, importedScene: true } : snapshot;
+        }
+        toSVG() {
+            this.#assertAlive();
+            if (this.#result === null)
+                throw new GraflumeError('INVALID_SPEC', 'A chart must be rendered before it can be exported.');
+            return sceneToSVG(this.#result.scene);
+        }
+        #restoreSnapshotSurface({ snapshot, result }) {
+            this.#renderSpec = snapshot.renderSpec;
+            this.#importedScene = snapshot.importedScene === true;
+            this.#result = result;
+            this.#displayScene = result.scene;
+            this.#view = { ...snapshot.state.view };
+            this.#hiddenLegendItems = new Set(snapshot.state.hiddenLegendItems);
+            if (snapshot.state.domainView !== undefined)
+                this.#domainView = snapshot.state.domainView;
+            if (snapshot.state.analyticSelection !== undefined)
+                this.#analyticSelection.set(snapshot.state.analyticSelection);
+            if (snapshot.state.selection !== undefined)
+                this.#selection = snapshot.state.selection.map(cloneDatumTarget);
+            if (snapshot.state.annotations !== undefined) {
+                this.#annotations = snapshot.state.annotations.map(cloneAnnotation);
+                this.#annotationHistory.reset(this.#annotations);
+            }
+            if (snapshot.state.annotationsVisible !== undefined)
+                this.#annotationsVisible = snapshot.state.annotationsVisible;
+            if (snapshot.state.markLabelPositions !== undefined)
+                this.#markLabels.replace(snapshot.state.markLabelPositions);
+            const renderer = new SVGRenderer();
+            this.#renderer = renderer;
+            this.#rendererName = 'svg';
+            const dimensions = this.#snapshotDimensions(result.scene);
+            renderer.mount(this.#target, {
+                ...dimensions,
+                pixelRatio: this.#pixelRatio(),
+                ariaLabel: result.scene.accessibility.label,
+                ...(result.scene.accessibility.description === undefined
+                    ? {}
+                    : { ariaDescription: result.scene.accessibility.description }),
+            });
+            renderer.restore(result.scene, snapshot.svg);
+            this.#constrainViewToScene();
+            renderer.setInspectionView(this.#view);
+            this.#syncSurfaceEvents();
+            this.#adaptiveState = resolveAdaptiveProfile(detectBrowserAdaptiveEnvironment({
+                ...dimensions,
+                rowCount: result.scene.metadata.rowCount,
+            }, this.#adaptiveOptions.environment), this.#adaptiveOptions);
+            const adaptiveHost = renderer.overlayHost();
+            if (adaptiveHost !== null)
+                applyAdaptiveSurface(adaptiveHost, renderer.surface(), this.#adaptiveState);
+            this.#syncControls();
+            this.#syncLegend();
+            this.#syncAccessibilityMirror();
+            this.#syncMarkLabelAccessibility();
+            this.#syncSelectionAccessibility();
+        }
+        #snapshotDimensions(scene) {
+            const width = this.#manualWidth ?? (this.#target.clientWidth || scene.width);
+            const height = this.#manualHeight ?? (this.#target.clientHeight || scene.height);
+            const fit = Math.min(1, Math.max(1, width) / scene.width, Math.max(1, height) / scene.height);
+            return { width: scene.width * fit, height: scene.height * fit };
         }
         domainToPixel(axis, value, viewId) {
             this.#assertAlive();
@@ -55800,6 +57263,7 @@ var Graflume = (function (exports) {
         setSpec(spec) {
             this.#assertAlive();
             const normalized = normalizeSpec$1(spec);
+            this.#importedScene = false;
             this.#destroyTableEditor();
             this.#tableDataHistory.clear();
             this.pause();
@@ -56395,6 +57859,13 @@ var Graflume = (function (exports) {
         }
         render() {
             this.#assertAlive();
+            if (this.#importedScene && this.#renderer !== null && this.#result !== null) {
+                const dimensions = this.#snapshotDimensions(this.#result.scene);
+                this.#renderer.resize(dimensions.width, dimensions.height, this.#pixelRatio());
+                this.#syncControls();
+                this.#syncLegend();
+                return this;
+            }
             this.#cancelSceneTransition();
             return this.#renderEndpoint();
         }
@@ -56423,6 +57894,7 @@ var Graflume = (function (exports) {
                 ? { ...playbackSpecInput, width: 'container', height: 'container' }
                 : playbackSpecInput;
             const effectiveSpec = adaptChartSpec(dimensionSpec, this.#adaptiveState);
+            this.#renderSpec = effectiveSpec;
             const analyticSelectionDraft = this.#analyticSelectionDraft();
             const result = compileWithRegistry(effectiveSpec, this.#registry, dimensions, {
                 hiddenLegendItemIds: this.#hiddenLegendItems,
@@ -59035,7 +60507,16 @@ var Graflume = (function (exports) {
                 this.#legend.destroy();
                 return;
             }
-            this.#legend.sync(host, sceneLegendLayout(result.scene), result.spec.legend, this.#view, {
+            const surfaceWidth = this.#renderer?.surface()?.getBoundingClientRect().width ?? result.scene.width;
+            const fit = this.#rendererName === 'svg' ? surfaceWidth / result.scene.width : 1;
+            const view = fit > 0 && fit !== 1
+                ? {
+                    zoom: this.#view.zoom * fit,
+                    offsetX: this.#view.offsetX * fit,
+                    offsetY: this.#view.offsetY * fit,
+                }
+                : this.#view;
+            this.#legend.sync(host, sceneLegendLayout(result.scene), result.spec.legend, view, {
                 setVisible: (id, visible) => this.#setLegendItemVisible(id, visible, 'toggle'),
             });
         }
@@ -61292,468 +62773,6 @@ var Graflume = (function (exports) {
         return nodes;
     };
 
-    const capabilities$2 = {
-        vector: false,
-        gpu: false,
-        worker: false,
-        exportFormats: ['image/png', 'image/jpeg', 'image/webp'],
-        inspectionViewport: true,
-    };
-    const maximumProviderTileRequests = 8;
-    const maximumDecodedProviderTiles = 128;
-    function tileSourceKey(source) {
-        return JSON.stringify([
-            source.type,
-            source.template,
-            source.attribution,
-            source.minimumZoom ?? null,
-            source.maximumZoom ?? null,
-            source.tileSize ?? null,
-            source.subdomains ?? [],
-        ]);
-    }
-    function providerTileKey(source, tile) {
-        return `${tileSourceKey(source)}\u0000${tileUrl(source, tile)}`;
-    }
-    function collectVisibleProviderTiles(node, output) {
-        if (!node.visible || node.opacity <= 0)
-            return;
-        if (node.type === 'rect' && node.providerTile !== undefined) {
-            const request = node.providerTile;
-            output.set(providerTileKey(request.source, request.tile), request);
-        }
-        if (node.type === 'group') {
-            for (const child of node.children)
-                collectVisibleProviderTiles(child, output);
-        }
-    }
-    async function decodeProviderTile(response) {
-        if (!response.mimeType.toLowerCase().startsWith('image/'))
-            return {};
-        const blob = new Blob([Uint8Array.from(response.bytes).buffer], { type: response.mimeType });
-        if (typeof createImageBitmap === 'function') {
-            const image = await createImageBitmap(blob);
-            return { image, dispose: () => image.close() };
-        }
-        if (typeof Image === 'undefined' ||
-            typeof URL === 'undefined' ||
-            typeof URL.createObjectURL !== 'function')
-            throw new Error('Provider raster tiles require createImageBitmap or Image support.');
-        const objectUrl = URL.createObjectURL(blob);
-        const image = new Image();
-        try {
-            await new Promise((resolve, reject) => {
-                image.addEventListener('load', () => resolve(), { once: true });
-                image.addEventListener('error', () => reject(new Error('Provider raster tile decode failed.')), {
-                    once: true,
-                });
-                image.src = objectUrl;
-            });
-            return { image, dispose: () => URL.revokeObjectURL(objectUrl) };
-        }
-        catch (error) {
-            URL.revokeObjectURL(objectUrl);
-            throw error;
-        }
-    }
-    function roundedRectPath(context, x, y, width, height, radius) {
-        const resolvedRadius = Math.max(0, Math.min(radius, Math.abs(width) / 2, Math.abs(height) / 2));
-        context.moveTo(x + resolvedRadius, y);
-        context.lineTo(x + width - resolvedRadius, y);
-        context.quadraticCurveTo(x + width, y, x + width, y + resolvedRadius);
-        context.lineTo(x + width, y + height - resolvedRadius);
-        context.quadraticCurveTo(x + width, y + height, x + width - resolvedRadius, y + height);
-        context.lineTo(x + resolvedRadius, y + height);
-        context.quadraticCurveTo(x, y + height, x, y + height - resolvedRadius);
-        context.lineTo(x, y + resolvedRadius);
-        context.quadraticCurveTo(x, y, x + resolvedRadius, y);
-    }
-    class CanvasRenderer {
-        name = 'canvas';
-        capabilities = capabilities$2;
-        #root = null;
-        #canvas = null;
-        #context = null;
-        #width = 0;
-        #height = 0;
-        #pixelRatio = 1;
-        #inspectionView = { zoom: 1, offsetX: 0, offsetY: 0 };
-        #tileManagers = new Map();
-        #tileImages = new Map();
-        #tileQueue = [];
-        #activeTileRequests = 0;
-        #tileGeneration = 0;
-        #visibleTileKeys = new Set();
-        #lastScene = null;
-        #destroyed = false;
-        mount(target, options) {
-            if (this.#root !== null)
-                this.destroy();
-            this.#destroyed = false;
-            const root = document.createElement('div');
-            root.dataset.graflumeRoot = 'true';
-            root.style.position = 'relative';
-            root.style.width = '100%';
-            root.style.height = '100%';
-            root.style.overflow = 'hidden';
-            const canvas = document.createElement('canvas');
-            canvas.dataset.graflumeSurface = 'canvas';
-            canvas.style.display = 'block';
-            canvas.style.width = `${options.width}px`;
-            canvas.style.height = `${options.height}px`;
-            canvas.setAttribute('role', 'img');
-            canvas.setAttribute('aria-label', options.ariaLabel);
-            if (options.ariaDescription !== undefined) {
-                canvas.setAttribute('aria-description', options.ariaDescription);
-            }
-            const context = canvas.getContext('2d');
-            if (context === null)
-                throw new Error('Canvas 2D context is unavailable.');
-            root.append(canvas);
-            target.append(root);
-            this.#root = root;
-            this.#canvas = canvas;
-            this.#context = context;
-            this.resize(options.width, options.height, options.pixelRatio);
-        }
-        resize(width, height, pixelRatio) {
-            if (this.#canvas === null || this.#context === null)
-                return;
-            this.#width = Math.max(1, width);
-            this.#height = Math.max(1, height);
-            this.#pixelRatio = Math.max(1, pixelRatio);
-            this.#canvas.width = Math.round(this.#width * this.#pixelRatio);
-            this.#canvas.height = Math.round(this.#height * this.#pixelRatio);
-            this.#canvas.style.width = `${this.#width}px`;
-            this.#canvas.style.height = `${this.#height}px`;
-            this.#context.setTransform(this.#pixelRatio, 0, 0, this.#pixelRatio, 0, 0);
-        }
-        render(scene) {
-            const context = this.#context;
-            if (context === null)
-                return;
-            this.#lastScene = scene;
-            this.#reconcileProviderTiles(scene.root);
-            this.#paint(scene);
-        }
-        #paint(scene) {
-            const context = this.#context;
-            if (context === null)
-                return;
-            context.save();
-            context.setTransform(this.#pixelRatio, 0, 0, this.#pixelRatio, 0, 0);
-            context.clearRect(0, 0, this.#width, this.#height);
-            context.fillStyle = scene.background;
-            context.fillRect(0, 0, scene.width, scene.height);
-            if (this.#inspectionView.zoom !== 1 ||
-                this.#inspectionView.offsetX !== 0 ||
-                this.#inspectionView.offsetY !== 0) {
-                context.translate(this.#inspectionView.offsetX, this.#inspectionView.offsetY);
-                context.scale(this.#inspectionView.zoom, this.#inspectionView.zoom);
-            }
-            this.#drawNode(context, scene.root);
-            context.restore();
-        }
-        surface() {
-            return this.#canvas;
-        }
-        overlayHost() {
-            return this.#root;
-        }
-        setInspectionView(transform) {
-            this.#inspectionView = transform;
-        }
-        toDataURL(type = 'image/png', quality) {
-            if (this.#canvas === null)
-                throw new Error('Renderer is not mounted.');
-            return this.#canvas.toDataURL(type, quality);
-        }
-        /** Observable provider state for diagnostics and deterministic host readiness checks. */
-        providerTileState() {
-            const states = [...this.#tileImages.values()];
-            return Object.freeze({
-                sources: this.#tileManagers.size,
-                loading: states.filter(({ status }) => status === 'queued' || status === 'loading').length,
-                ready: states.filter(({ status }) => status === 'ready').length,
-                failed: states.filter(({ status }) => status === 'failed').length,
-            });
-        }
-        destroy() {
-            this.#destroyed = true;
-            this.#tileGeneration += 1;
-            for (const state of this.#tileImages.values()) {
-                if (state.status === 'queued' || state.status === 'loading') {
-                    state.controller.abort(new DOMException('Canvas provider tile destroyed.', 'AbortError'));
-                }
-            }
-            for (const manager of this.#tileManagers.values())
-                manager.destroy();
-            this.#tileManagers.clear();
-            for (const state of this.#tileImages.values()) {
-                if (state.status === 'ready')
-                    state.dispose?.();
-            }
-            this.#tileImages.clear();
-            this.#tileQueue = [];
-            this.#activeTileRequests = 0;
-            this.#visibleTileKeys.clear();
-            this.#lastScene = null;
-            this.#root?.remove();
-            this.#root = null;
-            this.#canvas = null;
-            this.#context = null;
-            this.#inspectionView = { zoom: 1, offsetX: 0, offsetY: 0 };
-        }
-        #drawNode(context, node) {
-            if (!node.visible || node.opacity <= 0)
-                return;
-            context.save();
-            context.globalAlpha *= node.opacity;
-            switch (node.type) {
-                case 'group':
-                    this.#drawGroup(context, node);
-                    break;
-                case 'line':
-                    this.#drawLine(context, node);
-                    break;
-                case 'path':
-                    this.#drawPath(context, node);
-                    break;
-                case 'rect':
-                    this.#drawRect(context, node);
-                    break;
-                case 'circle':
-                    this.#drawCircle(context, node);
-                    break;
-                case 'text':
-                    this.#drawText(context, node);
-                    break;
-            }
-            context.restore();
-        }
-        #drawGroup(context, node) {
-            if (node.clip !== undefined) {
-                context.beginPath();
-                context.rect(node.clip.x, node.clip.y, node.clip.width, node.clip.height);
-                context.clip();
-            }
-            const children = [...node.children].sort((left, right) => left.zIndex - right.zIndex);
-            for (const child of children)
-                this.#drawNode(context, child);
-        }
-        #drawLine(context, node) {
-            context.beginPath();
-            context.moveTo(node.x1, node.y1);
-            context.lineTo(node.x2, node.y2);
-            context.strokeStyle = node.stroke;
-            context.lineWidth = node.lineWidth;
-            context.lineCap = node.lineCap ?? 'butt';
-            context.setLineDash(node.dash === undefined ? [] : [...node.dash]);
-            context.stroke();
-        }
-        #drawPath(context, node) {
-            const paths = [node.points, ...(node.subpaths ?? [])].filter((points) => points.length > 0);
-            if (paths.length === 0)
-                return;
-            context.beginPath();
-            for (const points of paths) {
-                const first = points[0];
-                if (first === undefined)
-                    continue;
-                context.moveTo(first.x, first.y);
-                for (let index = 1; index < points.length; index += 1) {
-                    const point = points[index];
-                    if (point !== undefined)
-                        context.lineTo(point.x, point.y);
-                }
-                if (node.closed)
-                    context.closePath();
-            }
-            context.setLineDash(node.dash === undefined ? [] : [...node.dash]);
-            context.lineCap = node.lineCap ?? 'round';
-            context.lineJoin = node.lineJoin ?? 'round';
-            if (node.fill !== undefined) {
-                context.fillStyle = node.fill;
-                context.fill(node.fillRule ?? 'nonzero');
-            }
-            if (node.stroke !== undefined && node.lineWidth > 0) {
-                context.strokeStyle = node.stroke;
-                context.lineWidth = node.lineWidth;
-                context.stroke();
-            }
-        }
-        #drawRect(context, node) {
-            context.beginPath();
-            roundedRectPath(context, node.x, node.y, node.width, node.height, node.cornerRadius);
-            context.closePath();
-            context.setLineDash(node.dash === undefined ? [] : [...node.dash]);
-            if (node.fill !== undefined) {
-                context.fillStyle = node.fill;
-                context.fill();
-            }
-            if (node.providerTile !== undefined) {
-                const image = this.#providerTileImage(node.providerTile.source, node.providerTile.tile);
-                if (image !== undefined)
-                    context.drawImage(image, node.x, node.y, node.width, node.height);
-            }
-            if (node.stroke !== undefined && node.lineWidth > 0) {
-                context.strokeStyle = node.stroke;
-                context.lineWidth = node.lineWidth;
-                context.stroke();
-            }
-        }
-        #providerTileImage(source, tile) {
-            const key = providerTileKey(source, tile);
-            const current = this.#tileImages.get(key);
-            if (current?.status === 'ready') {
-                this.#tileImages.delete(key);
-                this.#tileImages.set(key, current);
-                return current.image;
-            }
-            return undefined;
-        }
-        #reconcileProviderTiles(root) {
-            const visible = new Map();
-            collectVisibleProviderTiles(root, visible);
-            this.#visibleTileKeys = new Set(visible.keys());
-            for (const [key, state] of this.#tileImages) {
-                if (visible.has(key))
-                    continue;
-                if (state.status === 'queued' || state.status === 'loading') {
-                    state.controller.abort(new DOMException('Canvas provider tile left the visible scene.', 'AbortError'));
-                    this.#tileImages.delete(key);
-                }
-                else if (state.status === 'failed') {
-                    this.#tileImages.delete(key);
-                }
-            }
-            this.#tileQueue = this.#tileQueue.filter((key) => {
-                const state = this.#tileImages.get(key);
-                return visible.has(key) && state?.status === 'queued';
-            });
-            for (const [key, request] of visible) {
-                const current = this.#tileImages.get(key);
-                if (current?.status === 'ready') {
-                    this.#tileImages.delete(key);
-                    this.#tileImages.set(key, current);
-                }
-                else if (current === undefined) {
-                    const controller = new AbortController();
-                    this.#tileImages.set(key, { status: 'queued', request, controller });
-                    this.#tileQueue.push(key);
-                }
-            }
-            this.#drainProviderTileQueue();
-        }
-        #drainProviderTileQueue() {
-            while (!this.#destroyed &&
-                this.#activeTileRequests < maximumProviderTileRequests &&
-                this.#tileQueue.length > 0) {
-                const key = this.#tileQueue.shift();
-                const queued = this.#tileImages.get(key);
-                if (queued?.status !== 'queued' ||
-                    queued.controller.signal.aborted ||
-                    !this.#visibleTileKeys.has(key)) {
-                    if (queued?.status === 'queued')
-                        this.#tileImages.delete(key);
-                    continue;
-                }
-                const sourceKey = tileSourceKey(queued.request.source);
-                let manager = this.#tileManagers.get(sourceKey);
-                if (manager === undefined) {
-                    manager = new MapTileManager(queued.request.source, fetchMapTile);
-                    this.#tileManagers.set(sourceKey, manager);
-                }
-                const generation = this.#tileGeneration;
-                const controller = queued.controller;
-                const request = queued.request;
-                this.#tileImages.set(key, { ...queued, status: 'loading' });
-                this.#activeTileRequests += 1;
-                void manager
-                    .load(request.tile, controller.signal)
-                    .then(decodeProviderTile)
-                    .then((decoded) => {
-                    const current = this.#tileImages.get(key);
-                    if (this.#destroyed ||
-                        generation !== this.#tileGeneration ||
-                        controller.signal.aborted ||
-                        !this.#visibleTileKeys.has(key) ||
-                        current?.status !== 'loading' ||
-                        current.controller !== controller) {
-                        decoded.dispose?.();
-                        return;
-                    }
-                    this.#tileImages.delete(key);
-                    this.#tileImages.set(key, { status: 'ready', ...decoded });
-                    this.#evictDecodedProviderTiles();
-                    if (this.#lastScene !== null)
-                        this.#paint(this.#lastScene);
-                })
-                    .catch(() => {
-                    const current = this.#tileImages.get(key);
-                    if (!this.#destroyed &&
-                        generation === this.#tileGeneration &&
-                        current?.status === 'loading' &&
-                        current.controller === controller) {
-                        if (controller.signal.aborted || !this.#visibleTileKeys.has(key))
-                            this.#tileImages.delete(key);
-                        else
-                            this.#tileImages.set(key, { status: 'failed' });
-                    }
-                })
-                    .finally(() => {
-                    if (generation !== this.#tileGeneration)
-                        return;
-                    this.#activeTileRequests = Math.max(0, this.#activeTileRequests - 1);
-                    this.#drainProviderTileQueue();
-                });
-            }
-        }
-        #evictDecodedProviderTiles() {
-            let ready = [...this.#tileImages.values()].filter(({ status }) => status === 'ready').length;
-            if (ready <= maximumDecodedProviderTiles)
-                return;
-            for (const [key, state] of this.#tileImages) {
-                if (ready <= maximumDecodedProviderTiles)
-                    break;
-                if (state.status !== 'ready')
-                    continue;
-                this.#tileImages.delete(key);
-                state.dispose?.();
-                ready -= 1;
-            }
-        }
-        #drawCircle(context, node) {
-            context.beginPath();
-            context.arc(node.cx, node.cy, node.radius, 0, Math.PI * 2);
-            context.setLineDash(node.dash === undefined ? [] : [...node.dash]);
-            if (node.fill !== undefined) {
-                context.fillStyle = node.fill;
-                context.fill();
-            }
-            if (node.stroke !== undefined && node.lineWidth > 0) {
-                context.strokeStyle = node.stroke;
-                context.lineWidth = node.lineWidth;
-                context.stroke();
-            }
-        }
-        #drawText(context, node) {
-            context.translate(node.x, node.y);
-            context.rotate((node.rotation * Math.PI) / 180);
-            context.fillStyle = node.fill;
-            const fontStyle = node.fontStyle === undefined ? '' : `${node.fontStyle} `;
-            context.font = `${fontStyle}${node.fontWeight} ${node.fontSize}px ${node.fontFamily}`;
-            context.textAlign = node.align;
-            context.textBaseline = node.baseline;
-            context.fillText(node.text, 0, 0);
-        }
-    }
-    const canvasRendererFactory = {
-        name: 'canvas',
-        capabilities: capabilities$2,
-        create: () => new CanvasRenderer(),
-    };
-
     const capabilities$1 = {
         vector: false,
         gpu: true,
@@ -62106,49 +63125,6 @@ void main() {
 
     const pluginApiVersion = '0.1';
 
-    class ThemeRegistry {
-        #themes = new Map();
-        constructor() {
-            for (const entry of builtInThemeCatalog)
-                this.register(entry.tokens);
-        }
-        register(theme) {
-            if (theme.name.trim() === '') {
-                throw new GraflumeError('INVALID_SPEC', 'Theme name must not be empty.', {
-                    path: '$.theme.name',
-                });
-            }
-            this.#themes.set(theme.name, theme);
-        }
-        has(name) {
-            return this.#themes.has(name);
-        }
-        get(name) {
-            const theme = this.#themes.get(name);
-            if (theme === undefined) {
-                throw new GraflumeError('INVALID_SPEC', `Unknown theme "${name}".`, {
-                    path: '$.theme',
-                    details: { availableThemes: this.names() },
-                });
-            }
-            return theme;
-        }
-        names() {
-            return [...this.#themes.keys()].sort();
-        }
-        resolve(input) {
-            if (typeof input === 'string')
-                return this.get(input);
-            const baseName = input.extends ?? defaultThemeId;
-            const { extends: _extends, ...overrides } = input;
-            const merged = deepMerge(this.get(baseName), overrides);
-            return {
-                ...merged,
-                name: merged.name || `custom:${baseName}`,
-            };
-        }
-    }
-
     class RuntimeRegistry {
         themes = new ThemeRegistry();
         /** Built-in and host-registered formatter ids used by compiled table marks. */
@@ -62231,6 +63207,7 @@ void main() {
     function createDefaultRegistry() {
         const registry = new RuntimeRegistry();
         registry.registerRenderer(canvasRendererFactory);
+        registry.registerRenderer(svgRendererFactory);
         registry.registerRenderer(scatterWebGLRendererFactory);
         registry.registerMark('line', compileOrderedLineMark);
         registry.registerMark('bar', compileRankedBarMark);
@@ -64640,6 +65617,14 @@ void main() {
     function create(target, spec, options) {
         return new Chart(target, spec, completeRegistry, options);
     }
+    /** Restores complete-entry marks without compiling the saved scene. */
+    function restore(target, snapshot, options) {
+        return Chart.restore(target, snapshot, completeRegistry, options);
+    }
+    function fromSVG(target, source, options = {}) {
+        const scene = sceneFromSVG(source, options);
+        return restore(target, snapshotFromScene(scene, options.spec === undefined ? {} : { spec: options.spec }), options.create);
+    }
     function compile(spec, options) {
         return compileWithRegistry(spec, completeRegistry, options);
     }
@@ -65155,6 +66140,7 @@ void main() {
     exports.MapTileManager = MapTileManager;
     exports.MarkLabelHistory = MarkLabelHistory;
     exports.RuntimeRegistry = RuntimeRegistry;
+    exports.SVGRenderer = SVGRenderer;
     exports.ScatterWebGLRenderer = ScatterWebGLRenderer;
     exports.SemanticFocusStore = SemanticFocusStore;
     exports.TableFormatterRegistry = TableFormatterRegistry;
@@ -65225,6 +66211,8 @@ void main() {
     exports.chaikinMoneyFlow = chaikinMoneyFlow;
     exports.chaikinOscillator = chaikinOscillator;
     exports.chandeMomentumOscillator = chandeMomentumOscillator;
+    exports.chartSnapshotLimits = chartSnapshotLimits;
+    exports.chartSnapshotSchema = chartSnapshotSchema;
     exports.chartTypeCatalog = chartTypeCatalog;
     exports.chartVariantCatalog = chartVariantCatalog;
     exports.chord = chord;
@@ -65314,6 +66302,7 @@ void main() {
     exports.fitMapBounds = fitMapBounds;
     exports.flowMap = flowMap;
     exports.flowRuntimeOptions = flowRuntimeOptions;
+    exports.fromSVG = fromSVG;
     exports.fullCatalog = fullCatalog;
     exports.fullVariantCatalog = fullVariantCatalog;
     exports.funnel = funnel;
@@ -65493,6 +66482,7 @@ void main() {
     exports.resolveSeriesType = resolveSeriesType;
     exports.resolveTechnicalIndicatorCapability = resolveTechnicalIndicatorCapability;
     exports.resolveTechnicalIndicatorPresentation = resolveTechnicalIndicatorPresentation;
+    exports.restore = restore;
     exports.restoreWorkerStreamRetentionRuntime = restoreWorkerStreamRetentionRuntime;
     exports.rugStrip = rugStrip;
     exports.runtimeCapabilities = runtimeCapabilities;
@@ -65505,6 +66495,8 @@ void main() {
     exports.scatterMatrixPointerBrush = scatterMatrixPointerBrush;
     exports.scatterMatrixRuntimeOptions = scatterMatrixRuntimeOptions;
     exports.scatterWebGLRendererFactory = scatterWebGLRendererFactory;
+    exports.sceneFromSVG = sceneFromSVG;
+    exports.sceneToSVG = sceneToSVG;
     exports.scopeGeoJsonFeatures = scopeGeoJsonFeatures;
     exports.selectMapBoundarySources = selectMapBoundarySources;
     exports.selectNetworkNodes = selectNetworkNodes;
@@ -65524,6 +66516,7 @@ void main() {
     exports.slowStochastic = slowStochastic;
     exports.smith = smith;
     exports.snapMarkLabelOffset = snapMarkLabelOffset;
+    exports.snapshotFromScene = snapshotFromScene;
     exports.solidGauge = solidGauge;
     exports.specVersion = specVersion;
     exports.spline = spline;
@@ -65533,6 +66526,7 @@ void main() {
     exports.streamgraph = streamgraph;
     exports.sunburst = sunburst;
     exports.supertrend = supertrend;
+    exports.svgRendererFactory = svgRendererFactory;
     exports.table = table;
     exports.tableRuntimeOptions = tableRuntimeOptions;
     exports.technicalIndicator = technicalIndicator;
