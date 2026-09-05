@@ -412,9 +412,9 @@ Quick API / ChartSpec / language builders
                   │
               Scene Graph
                   │
-       renderer registry / Canvas 2D
+       renderer registry / Canvas 2D · SVG
                   │
-     WebGL · WebGPU · SVG · server later
+       WebGL / WebGPU · server later
 ```
 
 `ChartSpec` remains portable and function-free. JavaScript-only escape hatches belong in explicit plugins rather than silently making the common spec impossible to serialize in Python, R, Java, notebooks, or AI tooling.

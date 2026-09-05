@@ -13,6 +13,8 @@ import {
 import type { MarkCompiler } from './compiler/types.js';
 import type { GraflumePlugin } from './core/plugin.js';
 import type { RendererFactory } from './renderer/types.js';
+import { sceneFromSVG, type SVGImportOptions } from './renderer/import-svg.js';
+import { snapshotFromScene } from './runtime/snapshot.js';
 import { Chart, type ChartCreateOptions, type ChartTarget } from './runtime/chart.js';
 import { createDefaultRegistry, defaultRegistry } from './runtime/default-registry.js';
 import type { RuntimeRegistry } from './runtime/registry.js';
@@ -336,6 +338,30 @@ export function create(target: ChartTarget, spec: ChartSpec, options?: ChartCrea
   return new Chart(target, spec, defaultRegistry, options);
 }
 
+/** Reconnect a completed SVG snapshot without initial compilation or mark layout. */
+export function restore(
+  target: ChartTarget,
+  snapshot: unknown,
+  options?: ChartCreateOptions,
+): Chart {
+  return Chart.restore(target, snapshot, defaultRegistry, options);
+}
+
+export type SVGChartOptions = SVGImportOptions & {
+  readonly spec?: ChartSpec;
+  readonly create?: ChartCreateOptions;
+};
+
+/** Parse real SVG vector geometry and connect the normal chart inspection runtime. */
+export function fromSVG(target: ChartTarget, source: string, options: SVGChartOptions = {}): Chart {
+  const scene = sceneFromSVG(source, options);
+  return restore(
+    target,
+    snapshotFromScene(scene, options.spec === undefined ? {} : { spec: options.spec }),
+    options.create,
+  );
+}
+
 export { curveNames, curveRegistry, interpolateCurve };
 export { colorScaleTypes, createColorScale, createPositionScale, positionScaleTypes };
 export { seriesStackModes } from './data/series-stack.js';
@@ -655,6 +681,11 @@ export { normalizeSpec } from './spec/normalize.js';
 export { DataTable } from './data/table.js';
 export { RuntimeRegistry } from './runtime/registry.js';
 export { CanvasRenderer, canvasRendererFactory } from './renderer/canvas.js';
+export { SVGRenderer, svgRendererFactory, sceneToSVG } from './renderer/svg.js';
+export { sceneFromSVG } from './renderer/import-svg.js';
+export type { SVGImportOptions } from './renderer/import-svg.js';
+export { chartSnapshotSchema, chartSnapshotLimits, snapshotFromScene } from './runtime/snapshot.js';
+export type { ChartSnapshot } from './runtime/snapshot.js';
 export {
   builtInThemeCatalog,
   defaultThemeId,

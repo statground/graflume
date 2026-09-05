@@ -4,6 +4,19 @@ All notable changes to Graflume will be recorded here.
 
 ## Unreleased
 
+- Allow explicit whole-layer switches alongside category switches in one category legend;
+  connected line/area layers can toggle without permitting ambiguous per-category filtering.
+
+- Add a native SVG renderer, `chart.toSVG()`, and versioned `chart.toSnapshot()` /
+  `restore()` persistence. Restoring reconnects saved vector geometry, tooltips, legends,
+  accessibility, inspection controls, and navigation state without initial mark compilation,
+  transforms, or layout. Explicit data/settings changes resume normal compilation. Snapshots
+  validate bounded JSON and canonical resource-free SVG before touching the DOM.
+- Add `snapshotFromScene()` for genuine imported vector primitives. Imported scenes keep
+  inspection and export without inventing data domains, statistical values, or a bitmap wrapper.
+- Add browser `sceneFromSVG()` / `fromSVG()` adapters for bounded SVG geometry and internal
+  glyph references, including original datum identifiers for host selection callbacks.
+
 - Add a generic Map geography-scope engine for one or many countries, principal subdivisions, or
   arbitrary GeoJSON features. Ship an optional versioned Natural Earth 1:10m pack with 263
   selectable country/map-unit entities and 4,501 deduplicated Admin-1 regions in lazy per-country

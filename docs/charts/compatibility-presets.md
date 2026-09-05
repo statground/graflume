@@ -6,6 +6,11 @@ Use `resolveSeriesType(identifier)` from `graflume/complete` when an integration
 
 The two function-free adapter names are documented separately in [Adapters](./adapters.md).
 
+All portable vector families also support the built-in `svg` renderer and
+[completed-chart snapshot restore](./interactions.md#save-and-reopen-a-completed-chart).
+The versioned snapshot contract is separate from ChartSpec 0.1; externally loaded map tiles
+and spatial GPU surfaces are not represented as portable SVG snapshots.
+
 ## [Annotation chart](./annotation.md#integrated-presets)
 
 | Identifier           | Compatible name                                                  | Quick API             | Mode          | Portable mark |

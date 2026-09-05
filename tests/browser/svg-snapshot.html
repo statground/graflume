@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><title>SVG snapshot browser contract</title>
+  <body>
+    <main id="chart" style="width: 300px"></main>
+    <pre id="report">Running</pre>
+    <script src="../../dist/graflume.complete.global.js"></script>
+    <script>
+      (() => {
+        const check = (condition, label) => {
+          if (!condition) throw new Error(label);
+        };
+        const flat = (n) => [n, ...(n.type === 'group' ? n.children.flatMap(flat) : [])];
+        const svg = (body) =>
+          `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="180">${body}</svg>`;
+        const parse = (body, options) => Graflume.sceneFromSVG(svg(body), options);
+        try {
+          const background = flat(
+            parse('<rect width="100%" height="100%" fill="white"/>').root,
+          ).find((n) => n.type === 'path');
+          check(
+            background.points[2].x === 300 && background.points[2].y === 180,
+            'svglite percentage background',
+          );
+          const text = flat(
+            parse('<g transform="rotate(35)"><text x="10" y="20">α</text></g>').root,
+          ).find((n) => n.type === 'text');
+          check(Math.abs(text.rotation - 35) < 1e-5, 'rotation uses degrees');
+          const paint = flat(
+            parse(
+              '<rect width="50" height="50" fill="red" fill-opacity="0.25" stroke="black" stroke-opacity="0.75"/>',
+            ).root,
+          ).find((n) => n.type === 'path');
+          check(
+            paint.fill === 'rgba(255,0,0,0.25)' && paint.stroke === 'rgba(0,0,0,0.75)',
+            'independent paint opacity',
+          );
+          const contours = flat(
+            parse(
+              '<path fill-rule="evenodd" d="M10 10 L100 10 L100 100 L10 100Z m20 20 l20 0 l0 20 l-20 0z"/>',
+            ).root,
+          ).find((n) => n.type === 'path');
+          check(
+            contours.subpaths.length === 1 && contours.subpaths[0][0].x === 30,
+            'glyph holes and relative moveto',
+          );
+          const clip = flat(
+            parse(
+              '<defs><clipPath id="c"><path d="M10 10 L90 10 L90 60 L10 60 Z M10 10"/></clipPath></defs><g clip-path="url(#c)"><rect width="100" height="100"/></g>',
+            ).root,
+          ).find((n) => n.clip)?.clip;
+          check(clip?.width === 80 && clip?.height === 50, 'Cairo empty moveto clip');
+          for (const options of [
+            { maxNodes: NaN },
+            { maxPoints: NaN },
+            { maxNodes: 0 },
+            { maxPoints: 1.5 },
+          ]) {
+            let rejected = false;
+            try {
+              parse('<circle r="10"/>', options);
+            } catch {
+              rejected = true;
+            }
+            check(rejected, 'invalid budgets reject');
+          }
+          for (const body of [
+            '<script>alert(1)<\/script>',
+            '<image href="https://example.invalid/a.png"/>',
+            '<use href="https://example.invalid/a.svg#x"/>',
+            '<defs><clipPath id="c"><circle r="10"/></clipPath></defs><g clip-path="url(#c)"><rect width="100" height="100"/></g>',
+          ]) {
+            let rejected = false;
+            try {
+              parse(body);
+            } catch {
+              rejected = true;
+            }
+            check(rejected, 'unsupported active, raster, external or clip content rejects');
+          }
+          const chart = Graflume.fromSVG(
+            '#chart',
+            svg('<circle cx="80" cy="70" r="20" fill="#2563eb" data-id="study-7"/>'),
+            { title: 'Vector study' },
+          );
+          const saved = JSON.parse(JSON.stringify(chart.toSnapshot()));
+          chart.destroy();
+          const restored = Graflume.restore('#chart', saved);
+          check(restored.toSVG() === saved.svg, 'exact vector restore');
+          restored.zoomBy(1.5);
+          check(restored.toSnapshot().state.view.zoom === 1.5, 'inspection state');
+          check(!document.querySelector('canvas'), 'no bitmap renderer during import or restore');
+          restored.destroy();
+          const target = document.querySelector('#chart');
+          target.style.width = '864px';
+          target.style.height = '90px';
+          const fitted = Graflume.restore(target, saved);
+          const surface = target.querySelector('[role="img"]');
+          check(surface.getBoundingClientRect().height === 90, 'restore fits bounded height');
+          check(surface.getBoundingClientRect().width === 150, 'restore preserves source aspect');
+          fitted.resize(100, 450);
+          check(surface.getBoundingClientRect().width === 100, 'imported resize fits width');
+          check(surface.getBoundingClientRect().height === 60, 'imported resize preserves aspect');
+          let selected;
+          fitted.on('click', ({ hit }) => {
+            selected = hit?.datum?.id;
+          });
+          const bounds = surface.getBoundingClientRect();
+          surface.dispatchEvent(
+            new PointerEvent('click', {
+              bubbles: true,
+              clientX: bounds.left + 80 / 3,
+              clientY: bounds.top + 70 / 3,
+            }),
+          );
+          check(selected === 'study-7', 'aspect-fit selection uses source coordinates');
+          fitted.destroy();
+          document.body.dataset.status = 'pass';
+          document.querySelector('#report').textContent =
+            'PASS: SVG import, sanitization, snapshot and inspection contracts';
+        } catch (error) {
+          document.body.dataset.status = 'fail';
+          document.querySelector('#report').textContent = String(error);
+          throw error;
+        }
+      })();
+    </script>
+  </body>
+</html>

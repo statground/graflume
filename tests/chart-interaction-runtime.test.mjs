@@ -9,6 +9,7 @@ import { createSemanticFocusStore } from '../.tmp/src/interaction/semantic-focus
 import { compileAdvancedGraphMark } from '../.tmp/src/marks/relationship-advanced.js';
 import { Chart } from '../.tmp/src/runtime/chart.js';
 import { createDefaultRegistry } from '../.tmp/src/runtime/default-registry.js';
+import { snapshotFromScene } from '../.tmp/src/runtime/snapshot.js';
 
 class TrackedEventTarget extends EventTarget {
   listeners = new Map();
@@ -360,6 +361,178 @@ function walk(element) {
 function sceneNodes(node) {
   return node.type === 'group' ? [node, ...node.children.flatMap(sceneNodes)] : [node];
 }
+
+test('completed SVG snapshot restores UI with zero compile calls and recompiles only after data or legend changes', () => {
+  const environment = installEnvironment();
+  const registry = createDefaultRegistry();
+  const original = registry.mark('bar');
+  let compilations = 0;
+  registry.registerMark('bar', (context) => {
+    compilations += 1;
+    return original(context);
+  });
+  const spec = {
+    renderer: 'svg',
+    width: 240,
+    height: 160,
+    data: [
+      { x: 'A', y: -12 },
+      { x: 'B', y: 8 },
+    ],
+    mark: 'bar',
+    x: { field: 'x', type: 'ordinal' },
+    y: { field: 'y', type: 'quantitative' },
+    legend: { mode: 'layers', interactive: true },
+    interaction: {
+      tooltip: true,
+      navigation: { minZoom: 1, maxZoom: 4 },
+      controls: { zoom: true, reset: true, export: true },
+    },
+    accessibility: { label: 'Saved signed values', navigation: true },
+  };
+  const first = new Chart(environment.document.createElement('main'), spec, registry, {
+    adaptive: false,
+    autoResize: false,
+  });
+  let restored;
+  try {
+    first.zoomBy(1.5);
+    const snapshot = JSON.parse(JSON.stringify(first.toSnapshot()));
+    const before = compilations;
+    restored = Chart.restore(environment.document.createElement('main'), snapshot, registry, {
+      adaptive: false,
+      autoResize: false,
+    });
+    assert.equal(compilations, before, 'restore must not compile any mark');
+    assert.equal(restored.toSVG(), snapshot.svg);
+    assert.deepEqual(restored.getLegendState(), first.getLegendState());
+    assert.equal(restored.toSnapshot().state.view.zoom, 1.5);
+    restored.zoomBy(1.25);
+    assert.equal(compilations, before, 'inspection zoom must reuse the saved scene');
+    const item = restored.getLegendState().items.find((entry) => entry.toggleable);
+    assert.ok(item);
+    restored.setLegendItemVisible(item.id, false);
+    assert.ok(compilations > before, 'explicit legend change can recompute visible data');
+    const beforeData = compilations;
+    restored.setData([{ x: 'C', y: 19 }]);
+    assert.ok(compilations > beforeData, 'new data recompiles');
+    assert.match(restored.toSVG(), /<svg/);
+  } finally {
+    first.destroy();
+    restored?.destroy();
+    environment.restore();
+  }
+});
+
+test('imported vector snapshot resizes and zooms without inventing a data compilation', () => {
+  const environment = installEnvironment();
+  const { registry, target } = createHarness(environment.document);
+  const source = new Chart(
+    target,
+    { width: 240, height: 160, data: [{ x: 1, y: 2 }], mark: 'point', x: 'x', y: 'y' },
+    registry,
+    { adaptive: false, autoResize: false },
+  );
+  let restored;
+  try {
+    const snapshot = snapshotFromScene(source.getScene());
+    registry.registerMark('point', () => {
+      throw new Error('Imported scene must not compile dummy data');
+    });
+    const restoredTarget = environment.document.createElement('main');
+    restoredTarget.clientWidth = 900;
+    restoredTarget.clientHeight = 80;
+    restored = Chart.restore(restoredTarget, snapshot, registry, {
+      adaptive: false,
+      autoResize: false,
+    });
+    const surface = walk(restoredTarget).find((element) => element.getAttribute('role') === 'img');
+    assert.equal(surface.style.height, '80px');
+    assert.equal(surface.style.width, '120px');
+    restored.resize(360, 240).zoomBy(1.5);
+    assert.equal(surface.style.width, '240px', 'never stretches source SVG');
+    assert.equal(surface.style.height, '160px');
+    assert.equal(restored.toSVG(), snapshot.svg);
+    assert.equal(restored.toSnapshot().importedScene, true);
+  } finally {
+    source.destroy();
+    restored?.destroy();
+    environment.restore();
+  }
+});
+
+test('mixed explicit category and whole-layer legend switches survive SVG snapshots', () => {
+  const environment = installEnvironment();
+  const { registry, target } = createHarness(environment.document);
+  const spec = {
+    layers: [
+      {
+        id: 'members',
+        data: [
+          { month: 'Jan', series: 'regular', n: 12 },
+          { month: 'Jan', series: 'associate', n: 8 },
+        ],
+        mark: { type: 'bar', fields: { series: 'series' }, options: { stack: 'stacked' } },
+        x: 'month',
+        y: 'n',
+      },
+      {
+        id: 'payments',
+        data: [
+          { month: 'Jan', amount: 20 },
+          { month: 'Feb', amount: 24 },
+        ],
+        mark: 'line',
+        x: 'month',
+        y: 'amount',
+      },
+    ],
+    legend: {
+      mode: 'categories',
+      field: 'series',
+      interactive: true,
+      items: [
+        { id: 'regular', label: 'Regular', layerId: 'members', value: 'regular' },
+        { id: 'associate', label: 'Associate', layerId: 'members', value: 'associate' },
+        { id: 'payments', label: 'Payments', layerId: 'payments' },
+      ],
+    },
+  };
+  const first = new Chart(target, spec, registry, { adaptive: false, autoResize: false });
+  let restored;
+  const all = (node) => [node, ...(node.type === 'group' ? node.children.flatMap(all) : [])];
+  const layer = (chart, id) => all(chart.getScene().root).find((node) => node.id === id + ':group');
+  try {
+    assert.equal(
+      first.getLegendState().items.every((item) => item.toggleable),
+      true,
+    );
+    first.setLegendItemVisible('associate', false);
+    first.setLegendItemVisible('payments', false);
+    assert.equal(layer(first, 'payments').visible, false);
+    assert.equal(layer(first, 'members').visible, true);
+    const bars = all(layer(first, 'members')).filter((node) => node.type === 'rect' && node.datum);
+    assert.ok(bars.some((node) => node.datum.datum.series === 'associate' && !node.visible));
+    assert.ok(bars.some((node) => node.datum.datum.series === 'regular' && node.visible));
+    const snapshot = JSON.parse(JSON.stringify(first.toSnapshot()));
+    restored = Chart.restore(environment.document.createElement('main'), snapshot, registry, {
+      adaptive: false,
+      autoResize: false,
+    });
+    assert.equal(layer(restored, 'payments').visible, false);
+    assert.deepEqual(restored.getLegendState(), first.getLegendState());
+    restored.setLegendItemVisible('payments', true);
+    assert.equal(layer(restored, 'payments').visible, true);
+    assert.equal(
+      restored.getLegendState().items.find((item) => item.id === 'associate').visible,
+      false,
+    );
+  } finally {
+    first.destroy();
+    restored?.destroy();
+    environment.restore();
+  }
+});
 
 function byAria(root, label) {
   return walk(root).find((element) => element.getAttribute('aria-label') === label);

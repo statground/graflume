@@ -234,20 +234,20 @@ All active axes can be categorical, quantitative, or temporal. Layers sharing an
 
 ## Common chart options
 
-| Option          | Current behavior                                              |
-| --------------- | ------------------------------------------------------------- |
-| `width`         | Number or `container`; defaults to responsive container width |
-| `height`        | Number or `container`; defaults to `400`                      |
-| `padding`       | One number or per-side values                                 |
-| `title`         | String or `{ text, subtitle, align }`                         |
-| `description`   | Fallback accessible description                               |
-| `theme`         | An id from `builtInThemeCatalog` or a custom theme override   |
-| `locale`        | Number/date formatting locale for axes                        |
-| `renderer`      | `auto` or a registered renderer name; Canvas 2D is built in   |
-| `performance`   | `auto`, `standard`, `large`, or `ultra`                       |
-| `interaction`   | Configure tooltips, inspection, controls, and opt-in playback |
-| `accessibility` | Canvas ARIA label and description                             |
-| `axes`          | Chart-level `x`/`x2`/`y`/`y2` axis defaults                   |
+| Option          | Current behavior                                                  |
+| --------------- | ----------------------------------------------------------------- |
+| `width`         | Number or `container`; defaults to responsive container width     |
+| `height`        | Number or `container`; defaults to `400`                          |
+| `padding`       | One number or per-side values                                     |
+| `title`         | String or `{ text, subtitle, align }`                             |
+| `description`   | Fallback accessible description                                   |
+| `theme`         | An id from `builtInThemeCatalog` or a custom theme override       |
+| `locale`        | Number/date formatting locale for axes                            |
+| `renderer`      | `auto`, built-in `canvas` or `svg`, or a registered renderer name |
+| `performance`   | `auto`, `standard`, `large`, or `ultra`                           |
+| `interaction`   | Configure tooltips, inspection, controls, and opt-in playback     |
+| `accessibility` | Canvas ARIA label and description                                 |
+| `axes`          | Chart-level `x`/`x2`/`y`/`y2` axis defaults                       |
 
 The Graflume light/dark defaults are x at the bottom, x2 at the top, y at the left, and y2 at the right, with only the primary y grid enabled. The `ggplot` profile enables primary x/y major and minor grids and hides their axis baselines. The `r-base` and `matplotlib` profiles disable grids and draw black axes, outward ticks, and a complete plot box, with their own typography and mark defaults. Chart-level settings are deeply merged with an encoding's `axis` override. See [Cartesian axes](./axes.md) for the complete function-free contract and runnable examples.
 
@@ -387,4 +387,4 @@ Bounded native data tables and individual Canvas mark traversal are opt-in throu
 - full map boundary/projection packages, force-directed large-network layout, multi-stage Sankey layout, implicit Word Tree tokenization, and complete Vega grammar conversion;
 - facets, concat, dashboards, linked views, and automatic cross-chart scale synchronization;
 - shared multi-series or advanced collision-aware tooltip routing, rendered crosshair guides, automatic data tables, and keyboard mark traversal; reusable Canvas mark-label collision routing and authoring, native mark-aware legends, and keyboard legend visibility controls are implemented;
-- built-in SVG and WebGPU renderer parity. The separate `graflume/spatial` entrypoint already provides WebGL spatial/3D rendering; it does not yet mix GPU layers into a normal Canvas `ChartSpec` scene.
+- WebGPU renderer parity. Native SVG vector rendering and [completed-chart snapshots](./interactions.md#save-and-reopen-a-completed-chart) are implemented; externally loaded map tiles remain Canvas-only. The separate `graflume/spatial` entrypoint already provides WebGL spatial/3D rendering; it does not yet mix GPU layers into a normal Canvas `ChartSpec` scene.

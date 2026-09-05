@@ -5,6 +5,9 @@ import {
   type QuickComboOptions,
 } from './api/quick.js';
 import { quickScatter } from './api/scatter-dispatch.js';
+import { sceneFromSVG } from './renderer/import-svg.js';
+import { snapshotFromScene } from './runtime/snapshot.js';
+import type { SVGChartOptions } from './index.js';
 import {
   additionalChartTypeCatalog,
   additionalChartVariantCatalog,
@@ -165,6 +168,24 @@ export function registerAdditionalMarks(registry: RuntimeRegistry = completeRegi
 
 export function create(target: ChartTarget, spec: ChartSpec, options?: ChartCreateOptions): Chart {
   return new Chart(target, spec, completeRegistry, options);
+}
+
+/** Restores complete-entry marks without compiling the saved scene. */
+export function restore(
+  target: ChartTarget,
+  snapshot: unknown,
+  options?: ChartCreateOptions,
+): Chart {
+  return Chart.restore(target, snapshot, completeRegistry, options);
+}
+
+export function fromSVG(target: ChartTarget, source: string, options: SVGChartOptions = {}): Chart {
+  const scene = sceneFromSVG(source, options);
+  return restore(
+    target,
+    snapshotFromScene(scene, options.spec === undefined ? {} : { spec: options.spec }),
+    options.create,
+  );
 }
 
 export function compile(spec: ChartSpec, options?: CompileOptions): CompileResult {

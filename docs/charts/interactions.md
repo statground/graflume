@@ -1,5 +1,92 @@
 # Common chart interactions
 
+## Save and reopen a completed chart
+
+The built-in `svg` renderer uses the same compiled vector Scene as Canvas. A completed chart
+can be saved as JSON and reopened with its existing geometry. Restore does not compile marks,
+execute data transforms, or calculate layout. It inserts verified SVG and reconnects the normal
+tooltip, legend, accessibility, inspection zoom, reset, fullscreen, and export controls.
+
+```js
+import { create, restore } from 'graflume/complete';
+
+const chart = create('#chart', {
+  renderer: 'svg',
+  theme: 'statistical-minimal',
+  data: [
+    { group: 'A', value: -12 },
+    { group: 'B', value: 8 },
+  ],
+  mark: 'bar',
+  x: { field: 'group', type: 'ordinal' },
+  y: { field: 'value', type: 'quantitative' },
+  legend: { mode: 'layers', interactive: true },
+  interaction: {
+    tooltip: true,
+    navigation: { minZoom: 1, maxZoom: 4 },
+    controls: { zoom: true, reset: true, fullscreen: true, export: true },
+  },
+});
+const savedJSON = JSON.stringify(chart.toSnapshot());
+const svg = chart.toSVG();
+chart.destroy();
+const reopened = restore('#chart', JSON.parse(savedJSON));
+// No initial compile or layout. Inspection zoom reuses the saved scene.
+reopened.zoomBy(1.25);
+// A real data/settings change uses the normal compiler again.
+reopened.setData([
+  { group: 'A', value: 17 },
+  { group: 'B', value: 21 },
+]);
+```
+
+Storage belongs to the host application. `graflume.chart-snapshot.v1` includes the authored and
+effective specifications, vector Scene, semantic/hit metadata, resolved coordinate scales,
+theme, legend layout, and interaction state. Date values become ISO strings; declare temporal
+field types when round-tripping dates. Typed columns become portable arrays. Snapshot APIs
+reject functions, accessors, unsafe object keys, cycles, non-finite numbers, unknown versions,
+and payloads above 32 MiB, two million JSON values, depth 64, or 100,000 Scene nodes. Scene
+dimensions are limited to 32,768 pixels. Restore compares stored SVG to canonical escaped
+output from its Scene; arbitrary scripts, event attributes, external paint URLs, image assets,
+and provider map tiles cannot enter the SVG surface. Failed validation leaves the target untouched.
+
+Inspection transforms and hidden legend items are retained, as are authored annotation,
+selection, and domain navigation state. Playback resumes paused, including under reduced
+motion. A same-size ResizeObserver notification does not recompile. Restoring into a narrower
+container fits the initial SVG to both available width and height, preserving its source aspect
+ratio and hit coordinates before any new layout. Explicit `create.width` / `create.height` or
+`resize(width, height)` dimensions bound imported vectors without stretching them. Later responsive resizing or explicit
+data/settings/legend changes may compile a new chart. Snapshot SVG exports the full vector
+scene; `toDataURL('image/png')` and the PNG button rasterize only when explicitly requested.
+
+`snapshotFromScene(scene, { spec? })` accepts actual `group`, `line`, `path`, `rect`, `circle`, and
+`text` primitives from an external vector adapter. It supplies the same validated snapshot
+contract and preserves imported geometry on resize. An adapter may provide truthful datum and
+semantic metadata for tooltips, but no data domains or statistical values are inferred from
+pixels. Imported scenes support inspection and export; Cartesian domain navigation, analytic
+selection, and playback require a structured data model. To change an imported drawing, the
+adapter supplies a new Scene. This API does not parse arbitrary SVG or substitute an embedded
+bitmap for a chart.
+
+In browsers, `fromSVG(target, svgText, { title?, maxNodes?, maxPoints?, spec?, create? })`
+combines the bounded `sceneFromSVG()` vector importer with `snapshotFromScene()` and `restore()`.
+It accepts supported SVG geometry and internal glyph references, never mounts the supplied
+markup, and rejects raster or active content and external references. Curves become bounded
+vector polylines; this is an SVG geometry adapter, not a complete SVG/CSS engine or an R
+statistical-data extractor. Preserve R calculations separately and prefer structured ChartSpec
+data for domain controls, exact statistical tooltips, or theme-driven recomputation.
+
+```js
+import { fromSVG } from 'graflume/complete';
+
+const imported = fromSVG('#chart', savedVectorSVG, { title: 'Study results' });
+const snapshot = imported.toSnapshot();
+imported.on('click', ({ hit }) => {
+  // Existing SVG data-id values are available to a host such as Shiny.
+  if (hit?.datum.id) console.log(hit.datum.id);
+});
+```
+
 Graflume keeps interaction portable by separating the chart specification from the browser controls that operate it. The built-in Canvas renderer supports legends, static highlights, point and domain-geometry selection, text-only callouts, reusable automatic mark labels with direct authoring, opt-in inspection or data-domain navigation, reset, fullscreen, PNG export, and discrete playback. The same contract is available to every one of the 41 chart families only where its coordinate semantics are real; unsupported scale and gesture combinations fail validation instead of falling back silently.
 
 ## Inspection viewport, not data zoom
@@ -226,6 +313,11 @@ const chart = create('#chart', {
 ```
 
 Legend items expose native keyboard-operable buttons when `interactive: true`. Layer items can toggle their complete compiled group. Category items are toggleable only for row-owned, independent geometry such as bars, heatmap cells, points, bubbles, pie/funnel/treemap partitions, intervals, and independent financial or glyph marks; Graflume filters the matching datum and every owned label or leader together. Connected or aggregate geometry such as line/area paths, density/violin shapes, motion trails, polar/radar paths, chord ribbons, and parallel-coordinate paths stays descriptive because removing one category would change the meaning of the whole compiled path. This capability follows the owning mark and cannot be bypassed by changing the legend glyph. A continuous scale is descriptive and is not a visibility switch. Hosts should inspect each item's resolved `toggleable` state rather than assuming that `interactive: true` makes every semantic item actionable. Hover and focus preserve the compact visual surface. `getLegendState()`, `setLegendItemVisible(id, visible)`, and `resetLegend()` expose the same transient state to the host, and `legendchange` reports `toggle`, `programmatic`, `reset`, or `spec` as its reason.
+
+An explicit `mode: 'categories'` legend may mix category items with whole-layer items. Supply
+`value` and `layerId` to filter one category; omit `value` and supply `layerId` to toggle that entire
+layer, including a connected line or area. For example, a stacked membership bar can share one
+legend with a payment line. A connected path's individual categories remain descriptive.
 
 Horizontal legends include their outer padding in responsive measurement. Labels that fit the available surface remain complete; only labels whose measured item still exceeds the constrained chart width receive an ellipsis. The full label remains available to the accessibility description in either case.
 

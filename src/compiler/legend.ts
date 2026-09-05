@@ -197,9 +197,11 @@ export function legendItemToggleable(model: LegendModel, item: NormalizedLegendI
     model.spec.interactive &&
     model.mode !== 'continuous' &&
     (model.mode === 'categories'
-      ? item.layerId === undefined
-        ? model.categoryToggleableLayerIds.size > 0
-        : model.categoryToggleableLayerIds.has(item.layerId)
+      ? item.value === undefined
+        ? item.layerId !== undefined
+        : item.layerId === undefined
+          ? model.categoryToggleableLayerIds.size > 0
+          : model.categoryToggleableLayerIds.has(item.layerId)
       : item.layerId !== undefined)
   );
 }

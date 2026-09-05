@@ -3,6 +3,8 @@ import {
   type CompileCoordinateView,
   type CompileResult,
 } from '../compiler/compile.js';
+import { SVGRenderer, sceneToSVG } from '../renderer/svg.js';
+import { captureChartSnapshot, restoreChartSnapshot, type ChartSnapshot } from './snapshot.js';
 import {
   adaptChartSpec,
   adaptiveMediaQueries,
@@ -966,6 +968,18 @@ function selectionKey(target: DatumTargetSpec): string {
 }
 
 export class Chart {
+  #renderSpec: ChartSpec | null = null;
+  #importedScene = false;
+  /** Restore validates the persisted vector payload before touching the target DOM. */
+  static restore(
+    target: ChartTarget,
+    input: unknown,
+    registry: RuntimeRegistry,
+    options: ChartCreateOptions = {},
+  ): Chart {
+    const restored = restoreChartSnapshot(input);
+    return new Chart(target, restored.snapshot.spec, registry, options, restored);
+  }
   readonly #target: HTMLElement;
   readonly #registry: RuntimeRegistry;
   readonly #events = new EventEmitter<ChartEventMap>();
@@ -1154,6 +1168,7 @@ export class Chart {
     spec: ChartSpec,
     registry: RuntimeRegistry,
     options: ChartCreateOptions = {},
+    restored?: ReturnType<typeof restoreChartSnapshot>,
   ) {
     this.#target = resolveTarget(target);
     canvasSemanticViewSequence += 1;
@@ -1197,13 +1212,14 @@ export class Chart {
     }
     try {
       this.#configureEnvironmentListeners();
-      this.render();
+      if (restored === undefined) this.render();
+      else this.#restoreSnapshotSurface(restored);
       this.#linkedViewUnregister =
         options.linkedViewStore?.register(this.#semanticViewId, (change) =>
           this.#applyLinkedViewState(change),
         ) ?? null;
       this.#configureResizeObserver();
-      this.#startAutoplay();
+      if (restored === undefined) this.#startAutoplay();
     } catch (error) {
       try {
         this.destroy();
@@ -1232,6 +1248,102 @@ export class Chart {
 
   getScene(): Scene | null {
     return this.#result?.scene ?? null;
+  }
+
+  /** Capture the completed scene and interaction geometry; no compilation is performed. */
+  toSnapshot(): ChartSnapshot {
+    this.#assertAlive();
+    if (this.#result === null)
+      throw new GraflumeError('INVALID_SPEC', 'A chart must be rendered before it can be saved.');
+    const snapshot = captureChartSnapshot(
+      this.#spec,
+      this.#renderSpec ?? this.#spec,
+      this.#result,
+      {
+        view: this.#view,
+        hiddenLegendItems: [...this.#hiddenLegendItems],
+        domainView: this.#domainView,
+        analyticSelection: this.#analyticSelection.get(),
+        selection: this.#selection,
+        annotations: this.#annotations,
+        annotationsVisible: this.#annotationsVisible,
+        markLabelPositions: this.#markLabels.positions(),
+      },
+    );
+    return this.#importedScene ? { ...snapshot, importedScene: true } : snapshot;
+  }
+
+  toSVG(): string {
+    this.#assertAlive();
+    if (this.#result === null)
+      throw new GraflumeError(
+        'INVALID_SPEC',
+        'A chart must be rendered before it can be exported.',
+      );
+    return sceneToSVG(this.#result.scene);
+  }
+
+  #restoreSnapshotSurface({ snapshot, result }: ReturnType<typeof restoreChartSnapshot>): void {
+    this.#renderSpec = snapshot.renderSpec;
+    this.#importedScene = snapshot.importedScene === true;
+    this.#result = result;
+    this.#displayScene = result.scene;
+    this.#view = { ...snapshot.state.view };
+    this.#hiddenLegendItems = new Set(snapshot.state.hiddenLegendItems);
+    if (snapshot.state.domainView !== undefined) this.#domainView = snapshot.state.domainView;
+    if (snapshot.state.analyticSelection !== undefined)
+      this.#analyticSelection.set(snapshot.state.analyticSelection);
+    if (snapshot.state.selection !== undefined)
+      this.#selection = snapshot.state.selection.map(cloneDatumTarget);
+    if (snapshot.state.annotations !== undefined) {
+      this.#annotations = snapshot.state.annotations.map(cloneAnnotation);
+      this.#annotationHistory.reset(this.#annotations);
+    }
+    if (snapshot.state.annotationsVisible !== undefined)
+      this.#annotationsVisible = snapshot.state.annotationsVisible;
+    if (snapshot.state.markLabelPositions !== undefined)
+      this.#markLabels.replace(snapshot.state.markLabelPositions);
+    const renderer = new SVGRenderer();
+    this.#renderer = renderer;
+    this.#rendererName = 'svg';
+    const dimensions = this.#snapshotDimensions(result.scene);
+    renderer.mount(this.#target, {
+      ...dimensions,
+      pixelRatio: this.#pixelRatio(),
+      ariaLabel: result.scene.accessibility.label,
+      ...(result.scene.accessibility.description === undefined
+        ? {}
+        : { ariaDescription: result.scene.accessibility.description }),
+    });
+    renderer.restore(result.scene, snapshot.svg);
+    this.#constrainViewToScene();
+    renderer.setInspectionView(this.#view);
+    this.#syncSurfaceEvents();
+    this.#adaptiveState = resolveAdaptiveProfile(
+      detectBrowserAdaptiveEnvironment(
+        {
+          ...dimensions,
+          rowCount: result.scene.metadata.rowCount,
+        },
+        this.#adaptiveOptions.environment,
+      ),
+      this.#adaptiveOptions,
+    );
+    const adaptiveHost = renderer.overlayHost();
+    if (adaptiveHost !== null)
+      applyAdaptiveSurface(adaptiveHost, renderer.surface(), this.#adaptiveState);
+    this.#syncControls();
+    this.#syncLegend();
+    this.#syncAccessibilityMirror();
+    this.#syncMarkLabelAccessibility();
+    this.#syncSelectionAccessibility();
+  }
+
+  #snapshotDimensions(scene: Scene): { width: number; height: number } {
+    const width = this.#manualWidth ?? (this.#target.clientWidth || scene.width);
+    const height = this.#manualHeight ?? (this.#target.clientHeight || scene.height);
+    const fit = Math.min(1, Math.max(1, width) / scene.width, Math.max(1, height) / scene.height);
+    return { width: scene.width * fit, height: scene.height * fit };
   }
 
   domainToPixel(axis: AxisId, value: number | string | Date, viewId?: string): number {
@@ -3262,6 +3374,7 @@ export class Chart {
   setSpec(spec: ChartSpec): this {
     this.#assertAlive();
     const normalized = normalizeSpec(spec);
+    this.#importedScene = false;
     this.#destroyTableEditor();
     this.#tableDataHistory.clear();
     this.pause();
@@ -3955,6 +4068,13 @@ export class Chart {
 
   render(): this {
     this.#assertAlive();
+    if (this.#importedScene && this.#renderer !== null && this.#result !== null) {
+      const dimensions = this.#snapshotDimensions(this.#result.scene);
+      this.#renderer.resize(dimensions.width, dimensions.height, this.#pixelRatio());
+      this.#syncControls();
+      this.#syncLegend();
+      return this;
+    }
     this.#cancelSceneTransition();
     return this.#renderEndpoint();
   }
@@ -3996,6 +4116,7 @@ export class Chart {
       ? { ...playbackSpecInput, width: 'container' as const, height: 'container' as const }
       : playbackSpecInput;
     const effectiveSpec = adaptChartSpec(dimensionSpec, this.#adaptiveState);
+    this.#renderSpec = effectiveSpec;
     const analyticSelectionDraft = this.#analyticSelectionDraft();
     const result = compileWithRegistry(effectiveSpec, this.#registry, dimensions, {
       hiddenLegendItemIds: this.#hiddenLegendItems,
@@ -6920,7 +7041,18 @@ export class Chart {
       this.#legend.destroy();
       return;
     }
-    this.#legend.sync(host, sceneLegendLayout(result.scene), result.spec.legend, this.#view, {
+    const surfaceWidth =
+      this.#renderer?.surface()?.getBoundingClientRect().width ?? result.scene.width;
+    const fit = this.#rendererName === 'svg' ? surfaceWidth / result.scene.width : 1;
+    const view =
+      fit > 0 && fit !== 1
+        ? {
+            zoom: this.#view.zoom * fit,
+            offsetX: this.#view.offsetX * fit,
+            offsetY: this.#view.offsetY * fit,
+          }
+        : this.#view;
+    this.#legend.sync(host, sceneLegendLayout(result.scene), result.spec.legend, view, {
       setVisible: (id, visible) => this.#setLegendItemVisible(id, visible, 'toggle'),
     });
   }

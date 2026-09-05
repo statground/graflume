@@ -37,12 +37,14 @@ import {
   compileTreemapMark,
 } from '../marks/structured.js';
 import { canvasRendererFactory } from '../renderer/canvas.js';
+import { svgRendererFactory } from '../renderer/svg.js';
 import { scatterWebGLRendererFactory } from '../renderer/scatter-webgl.js';
 import { RuntimeRegistry } from './registry.js';
 
 export function createDefaultRegistry(): RuntimeRegistry {
   const registry = new RuntimeRegistry();
   registry.registerRenderer(canvasRendererFactory);
+  registry.registerRenderer(svgRendererFactory);
   registry.registerRenderer(scatterWebGLRendererFactory);
   registry.registerMark('line', compileOrderedLineMark);
   registry.registerMark('bar', compileRankedBarMark);

@@ -1,5 +1,23 @@
 # Bundle boundaries and size budgets
 
+## SVG and completed-chart snapshots
+
+The 2026-09-05 build adds native SVG rendering, canonical resource-free SVG serialization,
+bounded SVG vector import, and versioned Scene snapshot restoration to the default and complete
+entries. The increase over the scoped-geography baseline is 22,733 / 22,752 / 0 raw bytes.
+The existing Rollup graph guard and built-module verification still pass; Spatial remains
+independent, and no API or required code is hidden in an uncounted runtime chunk.
+
+| Browser file               |    Raw minified | Gzip level 9, no timestamp |                  Raw budget |  Headroom |
+| -------------------------- | --------------: | -------------------------: | --------------------------: | --------: |
+| `graflume.min.js`          | 1,233,375 bytes |              360,123 bytes | 1,205 KiB (1,233,920 bytes) | 545 bytes |
+| `graflume.complete.min.js` | 1,431,388 bytes |              417,579 bytes | 1,398 KiB (1,431,552 bytes) | 164 bytes |
+| `graflume.spatial.min.js`  |   397,648 bytes |              124,022 bytes |     389 KiB (398,336 bytes) | 688 bytes |
+
+Each ceiling remains the next whole KiB. Snapshot and import limits apply to individual chart
+payloads and do not replace these bundle budgets. Browser regression coverage is available in
+`tests/browser/svg-snapshot.html` after building the distribution.
+
 Graflume publishes three independent browser/module entry points. Bundle size is a release
 contract, but a passing byte limit must not be obtained by silently removing a documented public
 API or by moving required bytes into an uncounted runtime chunk.
