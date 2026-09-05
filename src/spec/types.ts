@@ -488,6 +488,8 @@ export interface AxisLabelSpec {
   readonly align?: 'auto' | 'start' | 'center' | 'end';
   readonly padding?: number;
   readonly maxLength?: number;
+  /** Display labels keyed by the exact string form of a tick value; identity is unchanged. */
+  readonly values?: Readonly<Record<string, string>>;
   readonly color?: string;
   readonly font?: AxisFontSpec;
 }
@@ -1288,6 +1290,8 @@ export interface NormalizedAxisLabelSpec {
   readonly align: 'auto' | 'start' | 'center' | 'end';
   readonly padding?: number;
   readonly maxLength?: number;
+  /** Display labels keyed by the exact string form of a tick value; identity is unchanged. */
+  readonly values?: Readonly<Record<string, string>>;
   readonly color?: string;
   readonly font: NormalizedAxisFontSpec;
 }

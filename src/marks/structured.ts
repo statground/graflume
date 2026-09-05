@@ -459,22 +459,26 @@ function cubicPoint(
   };
 }
 
-function sankeyBandPoints(
+export function sankeyBandPoints(
   sourceX: number,
   sourceY: number,
   sourceHeight: number,
   targetX: number,
   targetY: number,
   targetHeight: number,
+  feedback = false,
+  feedbackSpace = Number.POSITIVE_INFINITY,
 ): Point[] {
-  const controlOffset = (targetX - sourceX) * 0.44;
+  const controlOffset = feedback
+    ? Math.min(feedbackSpace, Math.max(24, Math.abs(targetX - sourceX) * 0.44))
+    : (targetX - sourceX) * 0.44;
   const sample = (startY: number, endY: number): Point[] =>
     Array.from({ length: 13 }, (_, index) => {
       const ratio = index / 12;
       return cubicPoint(
         { x: sourceX, y: startY },
         { x: sourceX + controlOffset, y: startY },
-        { x: targetX - controlOffset, y: endY },
+        { x: targetX + (feedback ? controlOffset : -controlOffset), y: endY },
         { x: targetX, y: endY },
         ratio,
       );

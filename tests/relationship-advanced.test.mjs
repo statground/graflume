@@ -758,3 +758,45 @@ test('word-cloud compiler has deterministic tokenizer/ngram/seed/padding/rotatio
   assert.ok(first.every(({ datum }) => datum.tooltip.ngram === 2));
   assert.ok(first.some(({ text }) => text.includes(' ')));
 });
+
+test('default Sankey keeps shared identities in three stages with filled proportional ribbons', () => {
+  const spec = {
+    data: [
+      { source: 'Collected', target: 'Validated', value: 86 },
+      { source: 'Collected', target: 'Review', value: 14 },
+      { source: 'Validated', target: 'Aggregated', value: 58 },
+      { source: 'Validated', target: 'Exploration', value: 28 },
+    ],
+    mark: { type: 'sankey', fields: { target: 'target' } },
+    x: { field: 'source', type: 'nominal' },
+    y: { field: 'value', type: 'quantitative' },
+  };
+  const nodes = nodesFor(spec);
+  const blocks = nodes.filter(({ id }) => id.includes(':flow-node:'));
+  const bands = nodes.filter(({ id }) => id.includes(':flow-link:'));
+  assert.equal(blocks.length, 5);
+  assert.equal(new Set(blocks.map(({ x }) => x)).size, 3);
+  assert.equal(blocks.filter(({ datum }) => datum.tooltip.id === 'Validated').length, 1);
+  assert.equal(bands.length, 4);
+  for (const band of bands) {
+    assert.equal(band.closed, true);
+    assert.equal(band.points.length, 26);
+    assert.ok(band.fill);
+    assert.ok(band.points.every(({ x, y }) => Number.isFinite(x) && Number.isFinite(y)));
+    assert.ok(
+      Math.abs(band.points[25].y - band.points[0].y - (band.points[13].y - band.points[12].y)) <
+        1e-9,
+    );
+  }
+  assert.throws(
+    () =>
+      nodesFor({
+        ...spec,
+        data: [
+          { source: 'A', target: 'B', value: 1 },
+          { source: 'B', target: 'A', value: 1 },
+        ],
+      }),
+    /cycle/i,
+  );
+});

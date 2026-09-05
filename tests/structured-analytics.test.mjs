@@ -608,3 +608,30 @@ test('word cloud is seeded, padded, rotation-bounded and collision-free', () => 
     }
   }
 });
+
+test('flow bands conserve one value scale across unequal columns and leave actual node gaps', () => {
+  const flow = layoutFlow(
+    [
+      { source: 'Collected', target: 'Validated', value: 86 },
+      { source: 'Collected', target: 'Review', value: 14 },
+      { source: 'Validated', target: 'Aggregated', value: 58 },
+      { source: 'Validated', target: 'Exploration', value: 28 },
+    ],
+    { iterations: 0 },
+  );
+  assert.equal(flow.nodes.length, 5);
+  assert.equal(new Set(flow.nodes.map(({ x }) => x)).size, 3);
+  const unit = flow.links[0].height / flow.links[0].value;
+  for (const link of flow.links) assert.ok(Math.abs(link.height / link.value - unit) < 1e-12);
+  for (const node of flow.nodes) {
+    assert.ok(Math.abs(node.height / node.value - unit) < 1e-12);
+    assert.ok(node.y - node.height / 2 >= -1e-12);
+    assert.ok(node.y + node.height / 2 <= 1 + 1e-12);
+  }
+  const middle = flow.nodes.filter(({ column }) => column === 1).sort((a, b) => a.y - b.y);
+  assert.ok(middle[1].y - middle[1].height / 2 > middle[0].y + middle[0].height / 2);
+  assert.throws(
+    () => layoutFlow([{ source: 'a', target: 'b', value: 1 }], { nodePadding: 0.3 }),
+    /nodePadding/,
+  );
+});

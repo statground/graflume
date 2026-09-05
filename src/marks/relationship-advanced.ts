@@ -43,7 +43,7 @@ import {
   compileTreeMark,
 } from './advanced.js';
 import { compileVennMark, compileWordCloudMark } from './series.js';
-import { compileSankeyMark, compileWordTreeMark } from './structured.js';
+import { compileSankeyMark, compileWordTreeMark, sankeyBandPoints } from './structured.js';
 
 const TAU = Math.PI * 2;
 
@@ -515,7 +515,18 @@ export const compileAdvancedTreeMark: MarkCompiler = (context) => {
 };
 
 export const compileAdvancedSankeyMark: MarkCompiler = (context) => {
+  const sourceField = context.layer.mark.fields.source ?? context.layer.x.field;
+  const targetField = context.layer.mark.fields.target ?? 'target';
+  const sources = new Set(
+    Array.from({ length: context.table.length }, (_, index) =>
+      stringValue(fieldValue(context, index, sourceField)),
+    ),
+  );
+  const sharedNode = Array.from({ length: context.table.length }, (_, index) =>
+    stringValue(fieldValue(context, index, targetField)),
+  ).some((id) => id !== null && sources.has(id));
   if (
+    !sharedNode &&
     !hasAnyOption(context, [
       'alignment',
       'order',
@@ -527,13 +538,12 @@ export const compileAdvancedSankeyMark: MarkCompiler = (context) => {
       'balanceTolerance',
       'pathStart',
       'pathDirection',
+      'nodePadding',
     ])
   )
     return compileSankeyMark(context);
   if (context.table.length === 0) return [];
   const { layer, table, plot, theme } = context;
-  const sourceField = layer.mark.fields.source ?? layer.x.field;
-  const targetField = layer.mark.fields.target ?? 'target';
   const valueField = layer.mark.fields.value ?? layer.y.field;
   const idField = layer.mark.fields.id;
   const edges: FlowEdge[] = [];
@@ -568,6 +578,7 @@ export const compileAdvancedSankeyMark: MarkCompiler = (context) => {
     cycle: optionString(layer.mark.options.cycle, ['reject', 'allow'], 'reject'),
     positions: parsePositions(layer.mark.options.positions),
     balanceTolerance: optionNumber(layer.mark.options.balanceTolerance, 1e-9),
+    nodePadding: optionNumber(layer.mark.options.nodePadding, 0.025),
   });
   const pathStart =
     typeof layer.mark.options.pathStart === 'string' ? layer.mark.options.pathStart : undefined;
@@ -589,12 +600,32 @@ export const compileAdvancedSankeyMark: MarkCompiler = (context) => {
     nodeRows.set(edge.source, [...(nodeRows.get(edge.source) ?? []), index]);
     nodeRows.set(edge.target, [...(nodeRows.get(edge.target) ?? []), index]);
   });
-  const maxNode = Math.max(1, ...result.nodes.map(({ value }) => value));
+  const nodeWidth = Math.max(10, Math.min(18, plot.width * 0.035));
+  const feedbackSpace = result.cycles.length > 0 ? Math.min(32, plot.width * 0.12) : 0;
+  const flowWidth = Math.max(1, plot.width - nodeWidth - feedbackSpace);
+  const toFlowPlot = (point: Point): Point => ({
+    x: plot.x + nodeWidth / 2 + point.x * flowWidth,
+    y: plot.y + point.y * plot.height,
+  });
   const nodes: SceneNode[] = [];
   result.links.forEach((link, index) => {
+    if (link.value === 0) return;
     const sourceRow = edgeRows.get(link.id) ?? index;
     const selected = path.links.includes(link.id);
-    const points = link.path.map((point) => toPlot(context, point));
+    const source = toFlowPlot(link.path[0]!);
+    const target = toFlowPlot(link.path[link.path.length - 1]!);
+    const feedback = source.x >= target.x;
+    const height = link.height * plot.height;
+    const points = sankeyBandPoints(
+      source.x + nodeWidth / 2,
+      source.y - height / 2,
+      height,
+      target.x + (feedback ? nodeWidth / 2 : -nodeWidth / 2),
+      target.y - height / 2,
+      height,
+      feedback,
+      feedbackSpace,
+    );
     const color = palette(context, link.sourceOrder, result.nodes.length);
     nodes.push({
       type: 'path',
@@ -613,21 +644,21 @@ export const compileAdvancedSankeyMark: MarkCompiler = (context) => {
         ),
         selectedPath: selected,
         directed: true,
+        feedback,
         interaction: ['path', 'drag'],
         sourceRowIndices: [sourceRow],
       }),
       points,
-      closed: false,
-      stroke: colorWithOpacity(color, selected ? 0.95 : 0.5),
-      lineWidth: Math.max(2, link.thickness * 18),
+      closed: true,
+      fill: colorWithOpacity(layer.mark.fill ?? color, selected ? 0.8 : 0.28),
+      lineWidth: 0,
       lineCap: 'round',
       lineJoin: 'round',
     });
   });
-  const nodeWidth = Math.max(10, Math.min(18, plot.width * 0.035));
   result.nodes.forEach((item, index) => {
-    const center = toPlot(context, item);
-    const height = Math.max(12, (item.value / maxNode) * Math.min(70, plot.height * 0.24));
+    const center = toFlowPlot(item);
+    const height = item.height * plot.height;
     const rows = sourceRowsTooltip(nodeRows.get(item.id) ?? [0]);
     const sourceRow = rows[0] ?? 0;
     const selected = path.nodes.includes(item.id);
@@ -658,7 +689,7 @@ export const compileAdvancedSankeyMark: MarkCompiler = (context) => {
         kind: 'flow-node',
         id: item.id,
         position: { x: item.x, y: item.y },
-        plot: { ...plot },
+        plot: { x: plot.x + nodeWidth / 2, y: plot.y, width: flowWidth, height: plot.height },
       }),
       x: center.x - nodeWidth / 2,
       y: center.y - height / 2,
@@ -672,12 +703,12 @@ export const compileAdvancedSankeyMark: MarkCompiler = (context) => {
     const label = textNode(
       context,
       `${layer.id}:flow-label:${item.id}`,
-      center.x + nodeWidth / 2 + 5,
+      center.x + (item.x > 0.8 ? -nodeWidth / 2 - 5 : nodeWidth / 2 + 5),
       center.y,
       item.id,
       {
-        align: 'left',
-        fill: theme.colors.mutedText,
+        align: item.x > 0.8 ? 'right' : 'left',
+        fill: theme.colors.text,
         size: Math.max(9, theme.typography.fontSize - 1),
       },
     );

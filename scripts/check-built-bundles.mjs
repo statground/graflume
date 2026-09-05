@@ -266,4 +266,35 @@ assertEntryDoesNotExpose(defaultGlobal, spatialOnlyApis, 'default global');
 assertEntryDoesNotExpose(completeGlobal, spatialOnlyApis, 'complete global');
 assertEntryDoesNotExpose(spatialGlobal, ['compile', 'create', ...additionalApis], 'spatial global');
 
-console.log('Verified default, complete, and spatial ESM/browser bundles and API boundaries.');
+for (const [filename, reference, name] of [
+  ['graflume.min.js', defaultGlobal, 'Graflume'],
+  ['graflume.complete.min.js', completeGlobal, 'Graflume'],
+  ['graflume.spatial.min.js', spatialGlobal, 'GraflumeSpatial'],
+]) {
+  const minified = await loadBrowserGlobal(filename, name);
+  assert.deepEqual(
+    Object.keys(minified).sort(),
+    Object.keys(reference).sort(),
+    `${filename} public exports`,
+  );
+  if (name === 'Graflume') {
+    const flow = minified.layoutFlow([
+      { source: 'A', target: 'B', value: 42000 },
+      { source: 'B', target: 'C', value: 42000 },
+    ]);
+    assert.equal(flow.nodes.length, 3);
+    assert.equal(flow.links[0].height, flow.links[1].height);
+    for (const api of [
+      'create',
+      'compile',
+      'restore',
+      'snapshotFromScene',
+      'fromSVG',
+      'sceneFromSVG',
+    ])
+      assert.equal(typeof minified[api], 'function', `${filename} ${api}`);
+  }
+}
+console.log(
+  'Verified default, complete, and spatial ESM/browser/minified bundles and API boundaries.',
+);

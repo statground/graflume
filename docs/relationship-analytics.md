@@ -7,7 +7,8 @@ Scene, so Canvas, SVG, hit testing, semantic indexing, export, and stored specs
 share the same geometry and provenance.
 
 Existing simple specs keep their previous renderer. An advanced compiler is
-selected only when its documented fields or options are present.
+selected when its documented fields or options are present, or when a flow node
+appears as both a source and a target.
 
 ## Hierarchy (`tree`)
 
@@ -30,7 +31,21 @@ Use `fields.source`, `fields.target`, `fields.value`, and optional `fields.id`.
 The source and value fall back to `x` and `y`. Options are `alignment`
 (`left`, `right`, `center`, `justify`), `order`, bounded `iterations`, `cycle`
 (`reject` or `allow`), `balanceTolerance`, and serializable `positions` keyed by
-node id.
+node id. `nodePadding` is a fraction of diagram height from 0 through 0.25
+(default 0.025); crowded columns reduce the gap to reserve at least half the
+height for actual flow.
+
+Shared source/target IDs represent one node and select multi-stage layout automatically.
+Every stage uses one common value-to-height scale: equal link values have equal ribbon
+heights at both ends, and node height is the larger of its incoming and outgoing totals.
+Different totals retain explicit imbalance metadata; the layout does not invent or normalize
+missing transitions. Cycles are rejected unless `cycle: 'allow'` is authored; allowed backward
+links retain feedback metadata and curved return ribbons. Public `layoutFlow()` links expose
+`height` in normalized diagram coordinates alongside the legacy relative `thickness`.
+
+Use this family only for measured relationships in consistent units. Independent activity
+counts, mixed person/event totals, or values sorted by size do not establish transitions;
+show these as separate metrics, a table, or a clearly labeled comparison instead.
 
 Alignment has four deterministic column policies. `left` uses each node's
 longest distance from a source. `right` uses longest distance to a sink, so an

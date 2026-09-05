@@ -77,7 +77,7 @@ object accepts the same stroke options plus `count`, `spacing`, `size`, and `val
 `ticks.spacing` is the minimum on-screen separation in pixels; `ticks.values` supplies explicit
 number or string values.
 
-`labels` accepts `visible`, `orientation`, `angle`, `align`, `padding`, `maxLength`, `color`, and
+`labels` accepts `visible`, `orientation`, `angle`, `align`, `padding`, `maxLength`, `values`, `color`, and
 `font`. `padding` is the gap after the tick, while `maxLength` truncates long labels with an
 ellipsis. An axis title object accepts `text`, `visible`, `align`, `angle`, `padding`, `color`, and
 `font`; title `padding` is its outward distance from the axis line.
@@ -188,6 +188,40 @@ Format objects also accept `notation` (`standard`, `compact`, `scientific`, or `
 `currencyDisplay` (`symbol`, `narrowSymbol`, `code`, or `name`), `prefix`, and `suffix`.
 `fractionDigits` is an integer from 0 through 20. Formatting remains function-free; callback
 formatters, expressions, and raw HTML are not part of `ChartSpec`.
+
+## Counts, precision, and stable category identity
+
+For counts use `locale: 'en-US'` with `axes.y.format: { type: 'integer', useGrouping: true }`
+and tooltip fields such as `{ field: 'count', format: 'integer' }`: numeric `42000` displays
+as `42,000`. Keep numeric data numeric. Integer formatting is for counts, not p-values or effect
+sizes; keep automatic ticks or choose `scientific` and an appropriate precision for small values.
+Automatic axis formatting retains the scale's tick labels and never converts category strings
+or dates into numbers.
+
+Use stable category IDs when different records have the same readable name. A function-free
+`labels.values` object changes only displayed ticks, before `maxLength` truncation:
+
+```js
+const spec = {
+  data: [
+    { run: 'run-1001', seconds: 12 },
+    { run: 'run-1002', seconds: 18 },
+  ],
+  mark: 'bar',
+  x: { field: 'run', type: 'nominal' },
+  y: { field: 'seconds', type: 'quantitative' },
+  axes: {
+    x: { labels: { values: { 'run-1001': 'Build #42', 'run-1002': 'Build #42' } } },
+  },
+};
+```
+
+Both bars keep separate positions and original source-row IDs. Missing map entries retain their
+normal formatted labels; explicit empty strings hide only that tick's text. Keys use the exact
+string form of each tick value. Maps allow at most 10,000 entries, 256 characters per key, and
+2,048 characters per label. Reserved object keys (`__proto__`, `prototype`, `constructor`) are
+rejected. Encoding-level maps replace the chart-level map. Portable specs and
+completed-chart snapshots retain the mapping without executable callbacks.
 
 ## Horizontal, vertical, and angled labels
 

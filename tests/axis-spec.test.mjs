@@ -258,3 +258,19 @@ test('JSON Schema exposes dynamic named-axis binding, style, and format contract
   assert.equal(schema.$defs.axis.properties.ticks.$ref, '#/$defs/axisTicksOrBoolean');
   assert.equal(schema.$defs.tooltip.properties.axis.$ref, '#/$defs/axisId');
 });
+
+test('display label maps stay portable, copied, and bounded without changing category identity', () => {
+  const values = { 'run-1': 'repo #42', 'run-2': 'repo #42' };
+  const input = baseSpec({ axes: { x: { labels: { values } } } });
+  assert.deepEqual(validateSpec(input), []);
+  const normalized = normalizeSpec(input);
+  values['run-1'] = 'mutated';
+  assert.equal(normalized.axes.x.labels.values['run-1'], 'repo #42');
+  for (const invalid of [[], { a: 4 }, { a: 'a'.repeat(2049) }, { ['a'.repeat(257)]: 'label' }]) {
+    assert.ok(
+      validateSpec(baseSpec({ axes: { x: { labels: { values: invalid } } } })).some(
+        ({ path }) => path === '$.axes.x.labels.values',
+      ),
+    );
+  }
+});

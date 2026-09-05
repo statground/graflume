@@ -406,6 +406,7 @@ const AXIS_LABEL_KEYS = new Set([
   'align',
   'padding',
   'maxLength',
+  'values',
   'color',
   'font',
 ]);
@@ -1314,6 +1315,33 @@ function validateAxisLabels(value: unknown, path: string, issues: SpecIssue[]): 
       min: 1,
       max: 1000,
     });
+  }
+  if (value.values !== undefined) {
+    if (!isPlainObject(value.values) || Object.keys(value.values).length > 10000) {
+      issues.push({
+        path: `${path}.values`,
+        message: 'Axis label values must be an object with at most 10000 entries.',
+      });
+    } else {
+      for (const [key, descriptor] of Object.entries(
+        Object.getOwnPropertyDescriptors(value.values),
+      )) {
+        if (
+          UNSAFE_FIELDS.has(key) ||
+          key.length > 256 ||
+          !('value' in descriptor) ||
+          typeof descriptor.value !== 'string' ||
+          descriptor.value.length > 2048
+        ) {
+          issues.push({
+            path: `${path}.values`,
+            message:
+              'Axis label keys must contain at most 256 characters and display labels must be strings of at most 2048 characters.',
+          });
+          break;
+        }
+      }
+    }
   }
   validateOptionalString(value.color, `${path}.color`, 'Axis label color', issues, false);
   validateAxisFont(value.font, `${path}.font`, issues);

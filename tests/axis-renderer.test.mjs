@@ -234,3 +234,45 @@ test('axis formatting is declarative, locale-aware and safe for invalid Intl opt
   assert.equal(truncateAxisLabel('가나다라마바사', 4), '가나다…');
   assert.equal(truncateAxisLabel('📈growth', 2), '📈…');
 });
+
+test('duplicate display labels retain separate tick positions and map before truncation', () => {
+  const scale = new BandScale({
+    domain: ['run-1', 'run-2', '2026-09-05', 'constructor'],
+    range: [56, 376],
+  });
+  const nodes = compileAxis({
+    id: 'x',
+    axis: axis('bottom', {
+      ticks: { count: 4 },
+      labels: { values: { 'run-1': 'repo #42', 'run-2': 'repo #42' }, maxLength: 8 },
+    }),
+    scale,
+    plot,
+    theme: graflumeLight,
+    locale: 'en-US',
+    title: 'Run',
+  });
+  const labels = nodes.filter(({ id }) => id.startsWith('axis-x:label:'));
+  assert.equal(labels[0].text, 'repo #42');
+  assert.equal(labels[1].text, 'repo #42');
+  assert.notEqual(labels[0].x, labels[1].x);
+  assert.equal(labels[2].text, truncateAxisLabel('2026-09-05', 8));
+  assert.equal(labels[3].text, truncateAxisLabel('constructor', 8));
+});
+
+test('integer counts group thousands while automatic scientific ticks retain precision', () => {
+  const count = axis('left', { format: { type: 'integer', useGrouping: true } }).format;
+  assert.equal(
+    formatAxisTick({ value: 42000, label: '42000', position: 0 }, count, 'en-US'),
+    '42,000',
+  );
+  const automatic = axis('left').format;
+  assert.equal(
+    formatAxisTick({ value: 1e-8, label: '1e-8', position: 0 }, automatic, 'en-US'),
+    '1e-8',
+  );
+  assert.equal(
+    formatAxisTick({ value: '001200', label: '001200', position: 0 }, automatic, 'en-US'),
+    '001200',
+  );
+});

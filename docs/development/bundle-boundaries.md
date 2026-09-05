@@ -200,3 +200,19 @@ the product-Table snapshot; Spatial grows by zero bytes. The public scope normal
 geometry preparation, built-in-country camera, and advanced map join/label compiler account for
 the reachable increase. Every enforced ceiling is the next whole KiB, with less than one KiB of
 headroom; gzip remains transfer evidence rather than the gate.
+
+## 2026-09-05 shared-node flow and display-label audit
+
+The shared-node Sankey path now renders one identity per graph node and conserved filled bands;
+portable axis maps preserve distinct IDs behind repeated display labels. Both additions belong
+in the default and complete entry points. No dependency or entry-specific import boundary changed.
+
+| Browser file               |    Raw minified |       gzip -9 | Raw budget |  Headroom |
+| -------------------------- | --------------: | ------------: | ---------: | --------: |
+| `graflume.min.js`          | 1,235,147 bytes | 360,683 bytes |  1,207 KiB | 821 bytes |
+| `graflume.complete.min.js` | 1,433,242 bytes | 418,194 bytes |  1,400 KiB | 358 bytes |
+| `graflume.spatial.min.js`  |   397,648 bytes | 124,022 bytes |    389 KiB | 688 bytes |
+
+Default/complete grew by 1,772/1,854 raw minified bytes; Spatial is unchanged. Budgets remain
+at the next whole KiB. Minified browser globals now receive the same public-export boundary
+checks as unminified globals, including completed-chart restore and imported vector APIs.

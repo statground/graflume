@@ -359,6 +359,8 @@ export interface FlowLayoutOptions {
   readonly cycle?: 'reject' | 'allow';
   readonly positions?: Readonly<Record<string, { readonly x: number; readonly y: number }>>;
   readonly balanceTolerance?: number;
+  /** Gap between nodes as a fraction of the available diagram height. */
+  readonly nodePadding?: number;
 }
 
 export interface FlowLayoutNode {
@@ -382,6 +384,8 @@ export interface FlowLayoutLink extends FlowEdge {
   readonly sourceLinkOrder: number;
   readonly targetLinkOrder: number;
   readonly thickness: number;
+  /** Conserved band height in normalized diagram coordinates. */
+  readonly height: number;
   readonly path: readonly { readonly x: number; readonly y: number }[];
 }
 
@@ -536,6 +540,8 @@ export function layoutFlow(
   normalized.forEach(({ source, target, value }) => {
     sums.get(source)!.output += value;
     sums.get(target)!.input += value;
+    if (!Number.isFinite(sums.get(source)!.output) || !Number.isFinite(sums.get(target)!.input))
+      throw new GraflumeError('INVALID_DATA', 'Flow totals must remain finite.');
   });
   const grouped = new Map<number, string[]>();
   ids.forEach((id) => {
@@ -576,9 +582,23 @@ export function layoutFlow(
   const nodes: FlowLayoutNode[] = [];
   const positionById = new Map<string, FlowLayoutNode>();
   const tolerance = Math.max(0, options.balanceTolerance ?? 1e-9);
+  const requestedPadding = finite(options.nodePadding ?? 0.025, '$.nodePadding');
+  if (requestedPadding < 0 || requestedPadding > 0.25)
+    throw new GraflumeError('INVALID_SPEC', '$.nodePadding must be from 0 to 0.25.');
+  const largestColumn = Math.max(...[...grouped.values()].map((values) => values.length));
+  const padding = Math.min(requestedPadding, 0.5 / Math.max(1, largestColumn - 1));
+  const valueScale = Math.min(
+    ...[...grouped.values()].map((values) => {
+      const sum = values.reduce((total, id) => total + valueOf(id), 0);
+      if (!Number.isFinite(sum))
+        throw new GraflumeError('INVALID_DATA', 'Flow column totals must remain finite.');
+      return sum > 0 ? (1 - padding * (values.length - 1)) / sum : Number.POSITIVE_INFINITY;
+    }),
+  );
+  const scale = Number.isFinite(valueScale) ? valueScale : 0;
   grouped.forEach((values, column) => {
-    const total = values.reduce((sum, id) => sum + valueOf(id), 0) || 1;
-    let cursor = 0;
+    const totalHeight = values.reduce((sum, id) => sum + valueOf(id) * scale, 0);
+    let cursor = (1 - totalHeight - padding * (values.length - 1)) / 2;
     values.forEach((id, order) => {
       const amount = valueOf(id);
       const authored = options.positions?.[id];
@@ -593,14 +613,14 @@ export function layoutFlow(
         column,
         order,
         x: authored?.x ?? (maximumColumn === 0 ? 0.5 : column / maximumColumn),
-        y: authored?.y ?? (cursor + amount / 2) / total,
+        y: authored?.y ?? cursor + (amount * scale) / 2,
         input,
         output,
         value: amount,
-        height: amount / total,
+        height: amount * scale,
         balanced: input === 0 || output === 0 || Math.abs(input - output) <= tolerance,
       };
-      cursor += amount;
+      cursor += amount * scale + padding;
       nodes.push(node);
       positionById.set(id, node);
     });
@@ -650,6 +670,7 @@ export function layoutFlow(
       sourceLinkOrder,
       targetLinkOrder,
       thickness: edge.value / maximumValue,
+      height: edge.value * scale,
       path: [
         { x: source.x, y: sourceY },
         { x: middle, y: sourceY },

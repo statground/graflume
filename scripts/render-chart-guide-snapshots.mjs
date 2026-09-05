@@ -818,16 +818,19 @@ const snapshots = [
     expected: {},
     spec: {
       data: [
-        { source: 'Visits', target: 'Signup', value: 70 },
-        { source: 'Visits', target: 'Leave', value: 30 },
-        { source: 'Ads', target: 'Signup', value: 35 },
-        { source: 'Ads', target: 'Leave', value: 15 },
+        { source: 'Collected', target: 'Validated', value: 86 },
+        { source: 'Collected', target: 'Review queue', value: 14 },
+        { source: 'Validated', target: 'Aggregated', value: 58 },
+        { source: 'Validated', target: 'Exploration', value: 28 },
       ],
-      title: { text: 'Acquisition flow', subtitle: 'Source, target, and weighted links' },
+      title: {
+        text: 'Record processing flow',
+        subtitle: 'Shared nodes and measured weighted transitions',
+      },
       mark: { type: 'sankey', fields: { target: 'target' } },
       x: { field: 'source', type: 'nominal' },
       y: { field: 'value', type: 'quantitative' },
-      accessibility: { label: 'Acquisition Sankey diagram' },
+      accessibility: { label: 'Measured records across three processing stages' },
     },
   },
   {

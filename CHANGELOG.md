@@ -4,6 +4,13 @@ All notable changes to Graflume will be recorded here.
 
 ## Unreleased
 
+- Resolve shared Sankey source/target identities as genuine multi-stage nodes by default,
+  with one conserved value-to-height scale, filled ribbons, bounded node gaps, cycle rejection
+  and explicit feedback support. Independent aggregate counts are not inferred transitions.
+- Add portable `axes.*.labels.values` maps so repeated readable labels retain distinct source
+  IDs, tick positions, tooltip rows, and snapshot state. Document existing locale-aware grouped
+  count formats separately from automatic/scientific statistical precision.
+
 - Allow explicit whole-layer switches alongside category switches in one category legend;
   connected line/area layers can toggle without permitting ambiguous per-category filtering.
 

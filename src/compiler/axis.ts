@@ -218,7 +218,9 @@ function resolveTicks(context: AxisCompileContext): readonly ResolvedTick[] {
   return pruneTicksBySpacing(rawTicks, axis.ticks.spacing).map((tick) => ({
     ...tick,
     formattedLabel: truncateAxisLabel(
-      formatAxisTick(tick, axis.format, context.locale),
+      axis.labels.values !== undefined && Object.hasOwn(axis.labels.values, String(tick.value))
+        ? axis.labels.values[String(tick.value)]!
+        : formatAxisTick(tick, axis.format, context.locale),
       axis.labels.maxLength,
     ),
   }));

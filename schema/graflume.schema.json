@@ -1824,6 +1824,15 @@
           "minimum": 1,
           "maximum": 1000
         },
+        "values": {
+          "type": "object",
+          "maxProperties": 10000,
+          "propertyNames": {
+            "maxLength": 256,
+            "not": { "enum": ["__proto__", "prototype", "constructor"] }
+          },
+          "additionalProperties": { "type": "string", "maxLength": 2048 }
+        },
         "color": {
           "type": "string",
           "minLength": 1

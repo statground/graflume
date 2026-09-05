@@ -512,6 +512,7 @@ function normalizeAxisLabels(
     align: labels?.align ?? 'auto',
     ...(labels?.padding === undefined ? {} : { padding: labels.padding }),
     ...(labels?.maxLength === undefined ? {} : { maxLength: labels.maxLength }),
+    ...(labels?.values === undefined ? {} : { values: { ...labels.values } }),
     ...(labels?.color === undefined ? {} : { color: labels.color }),
     font: normalizeAxisFont(labels?.font),
   };
