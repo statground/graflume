@@ -1,18 +1,18 @@
 {
-  "sourceCommit": "1b5724b4804f28094a7170106e1ae0607b5f8818",
-  "bundleCommit": "e157f01ba9fb34153209c1611d6777d7c51a86aa",
-  "cdnUrl": "https://cdn.jsdelivr.net/gh/statground/graflume@e157f01ba9fb34153209c1611d6777d7c51a86aa/cdn/graflume.global.js",
-  "integrity": "sha384-o7+7zjM3sfOejr54QvnqyoZW8KcfP94ME2gZ/FLsoP6OEEh4Nks0xvIlXZn53A4Z",
-  "byteLength": 1238374,
+  "sourceCommit": "337c7a053c2670d192d425290381ad29a200cb08",
+  "bundleCommit": "034c4a6597473be062320c6e0dea5a1b9a241f95",
+  "cdnUrl": "https://cdn.jsdelivr.net/gh/statground/graflume@034c4a6597473be062320c6e0dea5a1b9a241f95/cdn/graflume.global.js",
+  "integrity": "sha384-w/WtxBlQJp5ggMMqEyD400SeNHpD6mVTXhOIZ56GXgNYcvDX3/9dEmO8oTut8H+A",
+  "byteLength": 2770265,
   "complete": {
-    "cdnUrl": "https://cdn.jsdelivr.net/gh/statground/graflume@e157f01ba9fb34153209c1611d6777d7c51a86aa/cdn/graflume.complete.global.js",
-    "integrity": "sha384-B8kHVrIc9DXalPxvZG3Sy5+HyPFL5i2Qn0ZrRJ2B9KOTUHUVwg2gCC2Mv+mrjrux",
-    "byteLength": 1436640
+    "cdnUrl": "https://cdn.jsdelivr.net/gh/statground/graflume@034c4a6597473be062320c6e0dea5a1b9a241f95/cdn/graflume.complete.global.js",
+    "integrity": "sha384-SCGFjmqvO0+U8G4ofBpRZ81lONMdVHHpINC7uY13xIbVzGERcgYrQEUqQ2/b1XEW",
+    "byteLength": 3250900
   },
   "spatial": {
-    "cdnUrl": "https://cdn.jsdelivr.net/gh/statground/graflume@e157f01ba9fb34153209c1611d6777d7c51a86aa/cdn/graflume.spatial.global.js",
+    "cdnUrl": "https://cdn.jsdelivr.net/gh/statground/graflume@034c4a6597473be062320c6e0dea5a1b9a241f95/cdn/graflume.spatial.global.js",
     "integrity": "sha384-GeKfFR8UQdYgW+ngbO+/UZpANgkgGXVTI41dngd+oSPkELEb8vlge8r1EmAlTa14",
     "byteLength": 733874
   },
-  "verifiedAt": "2026-09-06T04:35:04.670314+00:00"
+  "verifiedAt": "2026-09-06T04:42:41Z"
 }
