@@ -1048,7 +1048,9 @@ export const compileAdvancedGraphMark: MarkCompiler = (context) => {
       selected: selected.has(item.id),
       draggable: true,
       lassoEligible: true,
-      cycles: result.cycles.map((cycle) => cycle.join(' -> ')),
+      cycles: result.cycles.slice(0, 8).map((cycle) => cycle.join(' -> ')),
+      cycleCount: result.cycles.length,
+      cyclesTruncated: result.cycles.length > 8,
       topologicalOrder: result.topologicalOrder,
       interaction: ['drag', 'pin', 'collapse', 'lasso'],
       sourceRowIndices: sourceRows,
@@ -1093,13 +1095,27 @@ export const compileAdvancedGraphMark: MarkCompiler = (context) => {
         lineWidth: 1.5,
       });
     });
+    const labelSize = Math.max(9, theme.typography.fontSize - 1);
+    const fullLabel = input.labels.get(item.id) ?? item.id;
+    const characters = Array.from(fullLabel);
+    const maximumCharacters = Math.max(1, Math.floor((plot.width - 8) / labelSize));
+    const visibleLabel =
+      characters.length > maximumCharacters
+        ? characters.slice(0, Math.max(0, maximumCharacters - 1)).join('') + '…'
+        : fullLabel;
+    // Labels near a force boundary remain inside the same clipped plot as their node.
+    // The full source label always remains in the node tooltip and semantic metadata.
+    const halfWidth = Math.min(
+      plot.width / 2,
+      (Array.from(visibleLabel).length * labelSize) / 2 + 2,
+    );
     const label = textNode(
       context,
       `${layer.id}:network-label:${item.id}`,
-      center.x,
-      center.y + radius + 9,
-      input.labels.get(item.id) ?? item.id,
-      { fill: theme.colors.mutedText, size: Math.max(9, theme.typography.fontSize - 1) },
+      clamp(center.x, plot.x + halfWidth, plot.x + plot.width - halfWidth),
+      clamp(center.y + radius + 9, plot.y + labelSize, plot.y + plot.height - labelSize),
+      visibleLabel,
+      { fill: theme.colors.mutedText, size: labelSize },
     );
     nodes.push({ ...label, ...datumBase(context, label.id, sourceRow, 3, tooltip) });
   });
@@ -1976,19 +1992,7 @@ export const compileAdvancedWordTreeMark: MarkCompiler = (context) => {
 export const compileAdvancedWordCloudMark: MarkCompiler = (context) => {
   if (
     context.layer.mark.fields.text === undefined &&
-    !hasAnyOption(context, [
-      'tokenize',
-      'case',
-      'stopwords',
-      'ngram',
-      'stemming',
-      'locale',
-      'seed',
-      'padding',
-      'rotations',
-      'minimumFrequency',
-      'maximumWords',
-    ])
+    !hasAnyOption(context, ['tokenize', 'case', 'stopwords', 'ngram', 'stemming', 'locale'])
   )
     return compileWordCloudMark(context);
   if (context.table.length === 0) return [];
@@ -2008,10 +2012,13 @@ export const compileAdvancedWordCloudMark: MarkCompiler = (context) => {
     padding: optionNumber(layer.mark.options.padding, 2),
     rotations: rotations.length === 0 ? [0] : rotations,
     minimumFrequency: Math.floor(optionNumber(layer.mark.options.minimumFrequency, 1)),
-    maximumWords: Math.min(
-      context.performance.maxPointMarks,
-      Math.floor(optionNumber(layer.mark.options.maximumWords, 200)),
-    ),
+    maximumWords:
+      layer.mark.options.maximumWords === undefined
+        ? Math.min(context.performance.maxPointMarks, 200)
+        : (layer.mark.options.maximumWords as number),
+    ...(layer.mark.options.fontSizeRange === undefined
+      ? {}
+      : { fontSizeRange: layer.mark.options.fontSizeRange as [number, number] }),
   });
   return placements.map((placement, index) => {
     const sourceRows = sourceRowsTooltip(

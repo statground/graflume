@@ -41,6 +41,7 @@ const sharedFoundationApis = [
   'SemanticFocusStore',
   'TransformDataflow',
   'createMapTileManager',
+  'layoutWeightedWordCloud',
   'quickScatter',
   'resolveScatterRendererDispatch',
 ];

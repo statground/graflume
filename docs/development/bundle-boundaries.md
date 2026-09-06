@@ -216,3 +216,23 @@ in the default and complete entry points. No dependency or entry-specific import
 Default/complete grew by 1,772/1,854 raw minified bytes; Spatial is unchanged. Budgets remain
 at the next whole KiB. Minified browser globals now receive the same public-export boundary
 checks as unminified globals, including completed-chart restore and imported vector APIs.
+
+## 2026-09-06 complete word clouds and force networks
+
+The shared weighted word-cloud fitter retains all selected phrases, validates explicit budgets,
+and exposes deterministic complete geometry to SVG snapshots. Force graphs use relative weights,
+bounded collision relaxation, and cached cycle signatures; per-node cycle diagnostics are
+explicitly bounded while the public layout result and source edges remain complete.
+Default/complete import boundaries remain unchanged and Spatial bytes remain identical.
+
+| Browser file               |    Raw minified | Gzip level 9, no timestamp | Raw budget |  Headroom |
+| -------------------------- | --------------: | -------------------------: | ---------: | --------: |
+| `graflume.min.js`          | 1,238,374 bytes |              362,285 bytes |  1,210 KiB | 666 bytes |
+| `graflume.complete.min.js` | 1,436,640 bytes |              419,232 bytes |  1,403 KiB |  32 bytes |
+| `graflume.spatial.min.js`  |   397,648 bytes |              124,022 bytes |    389 KiB | 688 bytes |
+
+All ceilings are the next whole KiB. `tests/browser/word-cloud-density.html` exercises the actual
+minified complete runtime at desktop/mobile widths: 150 phrases, browser glyph bounds, original
+frequency tooltips, zero compile/layout on SVG restore, inspection zoom, isolated graph nodes,
+and exact edge preservation. The vocabulary is biomedical; test frequencies and connections are
+explicit synthetic layout fixtures, not a clinical dataset.

@@ -131,14 +131,57 @@ and emits count-sized nodes with source-row lineage. `tokenizeWords()` and
 `buildWordTree()` are public. The original pre-structured word/parent/weight
 mode remains the fallback.
 
+### Dense co-occurrence networks
+
+Use `mark.options.layout: 'force'` to opt into the force engine; a legacy graph
+with no layout options retains its simple circular presentation. A typical portable
+configuration is `{ layout: 'force', routing: 'straight', iterations: 240, seed: 1,
+nodeSpacing: 0.08 }`, with `fields.source`, `fields.target`, and `fields.weight`
+(or `fields.value`) mapped to the actual co-occurrence count. Layout attraction
+uses relative weights, so converting the count unit does not change geometry.
+Cooling, centering, and bounded collision relaxation prevent unpinned nodes from
+collapsing onto the same boundary point. Deliberately overlapping pinned positions
+remain authored choices; an overfull viewport still needs a smaller selected graph.
+
+Include separate node rows with `fields.node`, `fields.label`, and optional
+`fields.radius` to keep isolated terms without inventing edges. A blank label can
+reduce text density while retaining the node and its full tooltip. Groups and
+compound parents are explicit source fields, not inferred community meanings.
+Cycle diagnostics in each node tooltip include at most eight examples plus
+`cycleCount` and `cyclesTruncated`; `layoutNetwork()` retains the complete cycle
+result. This avoids repeating a large dense graph diagnostic in every saved node.
+The existing tooltip, drag/pin/lasso, inspection zoom, and saved SVG/runtime state
+remain available. Hover does not automatically filter a node's neighbors; a host
+can add that domain-specific interaction through chart events and its original data.
+
 ## Word cloud
 
-Set `fields.text` or a tokenizer option to enable raw-text layout. `case`,
-`stopwords`, `stemming`, `locale`, and `ngram` define tokens; `seed`, `padding`,
-`rotations`, `minimumFrequency`, and `maximumWords` define the deterministic,
-bounded layout. Placements expose token frequency, rotation, tokenizer state,
-and all contributing rows. `layoutWordCloud()` is public. The original
-precomputed word/weight mode remains the fallback.
+Precomputed `x: word, y: frequency` rows preserve phrases and original weights.
+`seed`, `padding`, `rotations`, `minimumFrequency`, `maximumWords`, and
+`fontSizeRange` are layout options; they do **not** enable tokenization. Set
+`fields.text` or an actual tokenizer option (`tokenize`, `case`, `stopwords`,
+`stemming`, `locale`, `ngram`) to count tokens from raw documents instead.
+
+Both modes pack every selected word using deterministic non-overlapping rectangles.
+The preferred `fontSizeRange` defaults to `[10, 64]`; when the complete selection
+needs more room, one common scale shrinks all fonts together. This preserves the
+relative font sizes and does not silently omit words that fail an initial layout.
+Dimensions with impossible padding raise an error instead of returning a partial
+cloud. Font-independent bounds include wide Unicode and wide Latin glyphs.
+
+`maximumWords` explicitly selects the highest weights. The default is 200 (or a
+lower automatic mark budget); an explicit integer from 1 to 2,000 overrides that
+automatic selection budget. Values above 2,000 raise an error. For larger corpora,
+select or paginate vocabulary in the host and show the selected range and full
+frequency table; never label a partial cloud as the complete corpus. A narrow
+viewport can require small type: increase chart height, reduce the selected count,
+or use inspection zoom and the accessible data table.
+
+`layoutWeightedWordCloud([{ word, frequency }], options)` is the public precomputed
+helper; `layoutWordCloud(texts, options)` tokenizes raw documents before using the
+same fitter. Tokenized placements expose frequency, rotation, tokenizer state,
+and all contributing rows. Precomputed placements retain each original source row.
+Saved SVG snapshots preserve exact geometry and inspection without redoing the fit.
 
 ## Interaction and provenance contract
 

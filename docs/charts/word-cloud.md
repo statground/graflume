@@ -270,3 +270,49 @@ The separately cataloged P1/P2 research roadmap remains future work and is not p
 - Snapshot generator: [`scripts/render-series-chart-snapshots.mjs`](../../scripts/render-series-chart-snapshots.mjs)
 - Catalog test: [`tests/series-chart-types.test.mjs`](../../tests/series-chart-types.test.mjs)
 - Complete CDN gallery: [`examples/cdn/series-chart-types.html`](../../examples/cdn/series-chart-types.html)
+
+## Complete precomputed vocabulary
+
+Use the existing `word-cloud` family with the original frequency column. Layout
+options preserve multi-word terms, punctuation, capitalization, and weights:
+
+```js
+const chart = Graflume.create('#chart', {
+  renderer: 'svg',
+  height: 700,
+  data: [
+    { word: 'breast cancer', frequency: 1200 },
+    { word: 'immunotherapy', frequency: 840 },
+    { word: 'quality of life', frequency: 310 },
+  ],
+  mark: {
+    type: 'word-cloud',
+    options: {
+      maximumWords: 150,
+      fontSizeRange: [10, 64],
+      rotations: [0],
+      padding: 2,
+      seed: 1,
+    },
+  },
+  x: { field: 'word', type: 'ordinal' },
+  y: { field: 'frequency', type: 'quantitative' },
+  axes: { x: false, y: false },
+  accessibility: { table: true, navigation: true },
+  interaction: { navigation: true, controls: { zoom: true, reset: true, export: true } },
+});
+const saved = chart.toSnapshot();
+// After reopening, reconnect the stored SVG and controls without another word layout.
+const reopened = Graflume.restore('#reopened-chart', saved);
+```
+
+All selected words fit together; fonts shrink uniformly when the dimensions require
+it. `fontSizeRange` is the preferred range before that common fit, not a promise
+that small words remain 10px on every screen. Prefer a taller chart for a large
+vocabulary, and retain the full frequency table and inspection zoom. The explicit
+selection budget is 1–2,000 words; larger requests fail clearly. For more words,
+paginate the host's selected vocabulary and label the visible range accurately.
+The default selection is 200, subject to an automatic lower mark budget.
+
+See [the shared word-cloud analytics contract](../relationship-analytics.md#word-cloud)
+for the weighted and raw-document helper APIs and tokenizer behavior.

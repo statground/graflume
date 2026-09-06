@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Complete word cloud and force network</title>
+  <style>
+    body {
+      margin: 16px;
+      font-family: system-ui;
+      color: #0f172a;
+    }
+    main {
+      max-width: 1120px;
+      margin: auto;
+    }
+    #cloud,
+    #network {
+      width: 100%;
+    }
+    pre {
+      white-space: pre-wrap;
+    }
+    h1 {
+      font-size: 22px;
+    }
+  </style>
+  <body>
+    <main>
+      <h1>150 biomedical keywords</h1>
+      <div id="cloud"></div>
+      <h1>Force layout with an isolated keyword</h1>
+      <div id="network"></div>
+      <pre id="report">Running</pre>
+    </main>
+    <script src="../../dist/graflume.complete.min.js"></script>
+    <script type="module">
+      import { biomedicalWords } from '../fixtures/biomedical-words.mjs';
+      const check = (condition, message) => {
+        if (!condition) throw Error(message);
+      };
+      const settle = () => new Promise((resolve) => setTimeout(resolve, 120));
+      const flat = (node) => [node, ...(node.type === 'group' ? node.children.flatMap(flat) : [])];
+      try {
+        let compilations = 0;
+        const compiler = Graflume.createRegistry().mark('word-cloud');
+        Graflume.registerMark('word-cloud', (context) => {
+          compilations++;
+          return compiler(context);
+        });
+        const target = document.querySelector('#cloud');
+        const spec = {
+          renderer: 'svg',
+          height: 700,
+          data: biomedicalWords,
+          mark: {
+            type: 'word-cloud',
+            options: {
+              maximumWords: 150,
+              fontSizeRange: [10, 64],
+              rotations: [0],
+              padding: 2,
+              seed: 1,
+            },
+          },
+          x: { field: 'word', type: 'ordinal' },
+          y: { field: 'frequency', type: 'quantitative' },
+          axes: { x: false, y: false },
+          interaction: {
+            navigation: true,
+            controls: { zoom: true, reset: true, export: true },
+            tooltip: {
+              fields: [
+                { field: 'word', label: 'Keyword' },
+                { field: 'frequency', label: 'Frequency', format: 'integer' },
+              ],
+            },
+          },
+        };
+        const first = Graflume.create(target, spec);
+        await settle();
+        const snapshot = JSON.parse(JSON.stringify(first.toSnapshot()));
+        const originalCompilations = compilations;
+        first.destroy();
+        const restored = Graflume.restore(target, snapshot);
+        await settle();
+        check(compilations === originalCompilations, 'restore must not compile or lay out words');
+        check(restored.toSVG() === snapshot.svg, 'restore preserves exact complete SVG');
+        const texts = [...target.querySelectorAll('text[data-scene-node*="word-cloud:"]')];
+        check(texts.length === 150, `expected 150 words, received ${texts.length}`);
+        const boxes = texts.map((text) => text.getBoundingClientRect());
+        let overlaps = 0;
+        for (let i = 0; i < boxes.length; i++)
+          for (let j = i + 1; j < boxes.length; j++) {
+            const a = boxes[i],
+              b = boxes[j];
+            if (
+              Math.min(a.right, b.right) - Math.max(a.left, b.left) > 0.1 &&
+              Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 0.1
+            )
+              overlaps++;
+          }
+        check(overlaps === 0, `${overlaps} real glyph bounds overlap`);
+        const dominant = texts.find((text) => text.textContent === 'cancer');
+        const rect = dominant.getBoundingClientRect();
+        target.querySelector('svg[role="img"]').dispatchEvent(
+          new PointerEvent('pointermove', {
+            bubbles: true,
+            clientX: rect.x + rect.width / 2,
+            clientY: rect.y + rect.height / 2,
+          }),
+        );
+        await settle();
+        check(
+          target.textContent.includes('12,000'),
+          'restored keyword tooltip keeps original grouped frequency',
+        );
+        restored.zoomBy(1.5);
+        check(restored.toSnapshot().state.view.zoom === 1.5, 'restored cloud supports zoom');
+        restored.resetView();
+        check(compilations === originalCompilations, 'inspection must not rerun layout');
+        const rows = biomedicalWords
+          .slice(0, 25)
+          .map(({ word }, index) => ({ id: word, label: index < 10 ? word : '', radius: 0.012 }));
+        const edges = [];
+        for (let source = 0; source < 24; source++)
+          for (let target = source + 1; target < 24; target++)
+            if (source % 6 === target % 6 || target - source === 1)
+              edges.push({
+                source: rows[source].id,
+                target: rows[target].id,
+                count: source % 6 === target % 6 ? 1000 : 30,
+              });
+        const network = Graflume.create('#network', {
+          renderer: 'svg',
+          height: 700,
+          data: [...rows, ...edges],
+          mark: {
+            type: 'graph',
+            stroke: '#94a3b8',
+            fields: {
+              node: 'id',
+              label: 'label',
+              radius: 'radius',
+              source: 'source',
+              target: 'target',
+              value: 'count',
+            },
+            options: {
+              layout: 'force',
+              routing: 'straight',
+              iterations: 240,
+              seed: 1,
+              nodeSpacing: 0.08,
+            },
+          },
+          x: { field: 'source', type: 'ordinal' },
+          y: { field: 'target', type: 'ordinal' },
+          axes: { x: false, y: false },
+          interaction: {
+            navigation: true,
+            controls: { zoom: true, reset: true, export: true },
+            tooltip: {
+              fields: [
+                { field: 'id', label: 'Keyword' },
+                { field: 'weight', label: 'Co-occurrence', format: 'integer' },
+              ],
+            },
+          },
+        });
+        await settle();
+        const nodes = flat(network.getScene().root).filter((node) =>
+          node.id.includes(':network-node:'),
+        );
+        check(nodes.length === 25, 'force layout preserves isolated node');
+        check(
+          flat(network.getScene().root).filter((node) => node.id.includes(':network-edge:'))
+            .length === edges.length,
+          'force layout preserves exact edges',
+        );
+        for (let i = 0; i < nodes.length; i++)
+          for (let j = i + 1; j < nodes.length; j++)
+            check(
+              Math.hypot(nodes[i].cx - nodes[j].cx, nodes[i].cy - nodes[j].cy) >=
+                nodes[i].radius + nodes[j].radius,
+              'force nodes overlap',
+            );
+        const graphPlot = nodes[0].datum.familyInteraction.plot;
+        const graphSurface = document
+          .querySelector('#network svg[role="img"]')
+          .getBoundingClientRect();
+        for (const label of document.querySelectorAll(
+          '#network text[data-scene-node*="network-label:"]',
+        )) {
+          if (!label.textContent) continue;
+          const bounds = label.getBoundingClientRect();
+          check(
+            bounds.left >= graphSurface.left + graphPlot.x - 1 &&
+              bounds.right <= graphSurface.left + graphPlot.x + graphPlot.width + 1 &&
+              bounds.bottom <= graphSurface.top + graphPlot.y + graphPlot.height + 1,
+            'network label clipped',
+          );
+        }
+        const savedNetwork = network.toSnapshot();
+        network.destroy();
+        const networkRestored = Graflume.restore('#network', savedNetwork);
+        check(
+          networkRestored.toSVG() === savedNetwork.svg,
+          'network restores deterministic geometry',
+        );
+        check(!document.querySelector('canvas'), 'actual vector output');
+        check(document.documentElement.scrollWidth <= innerWidth, 'no horizontal overflow');
+        window.cloudEvidence = {
+          words: texts.length,
+          overlaps,
+          compilations,
+          restoreCompilations: compilations - originalCompilations,
+          largestFont: parseFloat(dominant.getAttribute('font-size')),
+          smallestFont: Math.min(
+            ...texts.map((text) => parseFloat(text.getAttribute('font-size'))),
+          ),
+          nodes: nodes.length,
+          edges: edges.length,
+        };
+        document.body.dataset.status = 'pass';
+        document.querySelector('#report').textContent = JSON.stringify(
+          window.cloudEvidence,
+          null,
+          2,
+        );
+      } catch (error) {
+        document.body.dataset.status = 'fail';
+        document.querySelector('#report').textContent = String(error);
+        throw error;
+      }
+    </script>
+  </body>
+</html>

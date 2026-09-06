@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { biomedicalWords } from './fixtures/biomedical-words.mjs';
 
 import {
   analyzeSets,
@@ -12,6 +13,7 @@ import {
   layoutFlow,
   layoutHierarchy,
   layoutWordCloud,
+  layoutWeightedWordCloud,
   projectParallelRows,
   querySetRegion,
   tokenizeWords,
@@ -633,5 +635,59 @@ test('flow bands conserve one value scale across unequal columns and leave actua
   assert.throws(
     () => layoutFlow([{ source: 'a', target: 'b', value: 1 }], { nodePadding: 0.3 }),
     /nodePadding/,
+  );
+});
+
+test('weighted word cloud fits all 150 phrases at desktop and mobile widths without losing weights', () => {
+  assert.equal(biomedicalWords.length, 150);
+  assert.equal(layoutWeightedWordCloud([{ word: 'fractional weight', frequency: 0.25 }]).length, 1);
+  for (const width of [1120, 640, 300]) {
+    const options = { width, height: 700, maximumWords: 150, rotations: [0], seed: 21, padding: 2 };
+    const output = layoutWeightedWordCloud(biomedicalWords, options);
+    assert.equal(output.length, 150);
+    assert.deepEqual(output, layoutWeightedWordCloud(biomedicalWords, options));
+    assert.deepEqual(
+      output.map(({ word, frequency }) => ({ word, frequency })),
+      biomedicalWords,
+    );
+    assert.ok(output[0].fontSize > output.at(-1).fontSize * 4);
+    for (let left = 0; left < output.length; left += 1) {
+      const a = output[left];
+      assert.ok(a.x - a.width / 2 >= 0 && a.x + a.width / 2 <= width);
+      assert.ok(a.y - a.height / 2 >= 0 && a.y + a.height / 2 <= 700);
+      for (const b of output.slice(left + 1)) {
+        assert.ok(
+          Math.abs(a.x - b.x) * 2 >= a.width + b.width + 3.999999 ||
+            Math.abs(a.y - b.y) * 2 >= a.height + b.height + 3.999999,
+        );
+      }
+    }
+  }
+});
+
+test('word cloud has explicit bounded selection and reports impossible padding instead of partial output', () => {
+  const words = Array.from({ length: 2000 }, (_, index) => ({
+    word: `term ${index}`,
+    frequency: 2000 - index,
+  }));
+  assert.equal(
+    layoutWeightedWordCloud(words, { width: 1000, height: 1000, maximumWords: 2000 }).length,
+    2000,
+  );
+  assert.equal(layoutWeightedWordCloud(biomedicalWords, { maximumWords: 75 }).length, 75);
+  assert.throws(() => layoutWeightedWordCloud(words, { maximumWords: 2001 }), /maximumWords/);
+  assert.throws(() => layoutWeightedWordCloud(words, { maximumWords: 3.5 }), /maximumWords/);
+  assert.throws(
+    () => layoutWeightedWordCloud(words, { width: 1, height: 1, padding: 2 }),
+    /cannot fit/,
+  );
+  assert.throws(() => layoutWeightedWordCloud(words, { rotations: [] }), /rotations/);
+  assert.throws(() => layoutWeightedWordCloud(words, { fontSizeRange: [64, 10] }), /fontSizeRange/);
+  assert.throws(() => layoutWeightedWordCloud([{ word: 'risk', frequency: NaN }]), /finite/);
+  assert.equal(
+    layoutWordCloud([biomedicalWords.map(({ word }) => word.replaceAll(' ', '_')).join(' ')], {
+      maximumWords: 150,
+    }).length,
+    150,
   );
 });

@@ -132,6 +132,8 @@ function networkCycles(nodes: readonly string[], edges: readonly MutableNetworkE
     if (!directed && source !== target) outgoing.get(target)?.push(source);
   });
   const cycles: string[][] = [];
+  const cycleSignatures = new Set<string>();
+  const hasDirectedEdge = edges.some((edge) => edge.directed);
   const active = new Set<string>();
   const visited = new Set<string>();
   const path: string[] = [];
@@ -140,15 +142,17 @@ function networkCycles(nodes: readonly string[], edges: readonly MutableNetworkE
       const offset = path.indexOf(id);
       const cycle = [...path.slice(Math.max(0, offset)), id];
       const signature = [...new Set(cycle)].sort().join('\u0000');
-      if (!cycles.some((existing) => [...new Set(existing)].sort().join('\u0000') === signature))
+      if (!cycleSignatures.has(signature)) {
+        cycleSignatures.add(signature);
         cycles.push(cycle);
+      }
       return;
     }
     if (visited.has(id)) return;
     active.add(id);
     path.push(id);
     for (const next of outgoing.get(id) ?? [])
-      if (next !== parent || edges.some((edge) => edge.directed)) walk(next, id);
+      if (next !== parent || hasDirectedEdge) walk(next, id);
     path.pop();
     active.delete(id);
     visited.add(id);
@@ -325,9 +329,16 @@ function layoutForce(
     if (!Number.isFinite(node.y)) node.y = 0.1 + random() * 0.8;
   });
   const byId = new Map(nodes.map((node) => [node.id, node]));
-  const velocity = new Map(nodes.map(({ id }) => [id, { x: 0, y: 0 }]));
+  const ideal = Math.max(spacing * 2, 0.8 / Math.sqrt(Math.max(1, nodes.length)));
+  const maximumWeight = Math.max(Number.MIN_VALUE, ...edges.map(({ weight }) => weight));
+  const displacement = nodes.map(() => ({ x: 0, y: 0 }));
+  const indexById = new Map(nodes.map(({ id }, index) => [id, index]));
   for (let iteration = 0; iteration < iterations; iteration += 1) {
-    const temperature = 0.025 * (1 - iteration / Math.max(1, iterations));
+    const temperature = 0.04 * (1 - iteration / Math.max(1, iterations));
+    displacement.forEach((current) => {
+      current.x = 0;
+      current.y = 0;
+    });
     for (let left = 0; left < nodes.length; left += 1)
       for (let right = left + 1; right < nodes.length; right += 1) {
         const a = nodes[left]!;
@@ -336,36 +347,83 @@ function layoutForce(
         let dy = a.y - b.y;
         let distance = Math.hypot(dx, dy);
         if (distance < 1e-6) {
-          dx = (random() - 0.5) * 0.01;
-          dy = (random() - 0.5) * 0.01;
-          distance = Math.hypot(dx, dy);
+          const angle = random() * Math.PI * 2;
+          dx = Math.cos(angle) * 1e-4;
+          dy = Math.sin(angle) * 1e-4;
+          distance = 1e-4;
         }
-        const force = Math.min(0.02, (spacing * spacing) / (distance * distance));
-        velocity.get(a.id)!.x += (dx / distance) * force;
-        velocity.get(a.id)!.y += (dy / distance) * force;
-        velocity.get(b.id)!.x -= (dx / distance) * force;
-        velocity.get(b.id)!.y -= (dy / distance) * force;
+        const force = (ideal * ideal) / distance;
+        displacement[left]!.x += (dx / distance) * force;
+        displacement[left]!.y += (dy / distance) * force;
+        displacement[right]!.x -= (dx / distance) * force;
+        displacement[right]!.y -= (dy / distance) * force;
       }
     edges.forEach(({ source, target, weight }) => {
+      if (source === target || weight === 0) return;
       const a = byId.get(source)!;
       const b = byId.get(target)!;
       const dx = b.x - a.x;
       const dy = b.y - a.y;
       const distance = Math.max(1e-6, Math.hypot(dx, dy));
-      const force = (distance - spacing * 4) * 0.035 * Math.sqrt(Math.max(weight, 0.01));
-      velocity.get(a.id)!.x += (dx / distance) * force;
-      velocity.get(a.id)!.y += (dy / distance) * force;
-      velocity.get(b.id)!.x -= (dx / distance) * force;
-      velocity.get(b.id)!.y -= (dy / distance) * force;
+      // Layout depends on relative co-occurrence, not on arbitrary count units.
+      const force = ((distance * distance) / ideal) * Math.sqrt(weight / maximumWeight);
+      const left = displacement[indexById.get(source)!]!;
+      const right = displacement[indexById.get(target)!]!;
+      left.x += (dx / distance) * force;
+      left.y += (dy / distance) * force;
+      right.x -= (dx / distance) * force;
+      right.y -= (dy / distance) * force;
     });
-    nodes.forEach((node) => {
+    nodes.forEach((node, index) => {
       if (node.pinned) return;
-      const current = velocity.get(node.id)!;
-      current.x *= 0.72;
-      current.y *= 0.72;
-      node.x = clamp(node.x + clamp(current.x, -temperature, temperature), 0.03, 0.97);
-      node.y = clamp(node.y + clamp(current.y, -temperature, temperature), 0.03, 0.97);
+      const current = displacement[index]!;
+      current.x += (0.5 - node.x) * 0.4;
+      current.y += (0.5 - node.y) * 0.4;
+      const length = Math.max(1e-9, Math.hypot(current.x, current.y));
+      const step = Math.min(length, temperature) / length;
+      const margin = Math.max(0.03, node.radius);
+      node.x = clamp(node.x + current.x * step, margin, 1 - margin);
+      node.y = clamp(node.y + current.y * step, margin, 1 - margin);
     });
+  }
+  // Boundary clamping must not leave several weakly connected nodes at the same corner.
+  // Resolve available space deterministically, preserving every explicitly pinned position.
+  if (iterations === 0) return;
+  for (let pass = 0; pass < 256; pass += 1) {
+    let moved = false;
+    for (let left = 0; left < nodes.length; left += 1)
+      for (let right = left + 1; right < nodes.length; right += 1) {
+        const a = nodes[left]!;
+        const b = nodes[right]!;
+        if (a.pinned && b.pinned) continue;
+        let dx = b.x - a.x;
+        let dy = b.y - a.y;
+        let distance = Math.hypot(dx, dy);
+        const required = a.radius + b.radius + Math.min(spacing / 4, 0.02);
+        if (distance >= required - 1e-6) continue;
+        if (distance < 1e-9) {
+          const angle = random() * Math.PI * 2;
+          dx = Math.cos(angle);
+          dy = Math.sin(angle);
+          distance = 1;
+        } else {
+          dx /= distance;
+          dy /= distance;
+        }
+        const amount =
+          (required - Math.hypot(b.x - a.x, b.y - a.y)) / (a.pinned || b.pinned ? 1 : 2);
+        for (const [node, direction] of [
+          [a, -1],
+          [b, 1],
+        ] as const) {
+          if (node.pinned) continue;
+          const margin = Math.max(0.03, node.radius);
+          node.x = clamp(node.x + direction * dx * amount, margin, 1 - margin);
+          node.y = clamp(node.y + direction * dy * amount, margin, 1 - margin);
+        }
+        moved = true;
+      }
+    if (!moved) break;
   }
 }
 

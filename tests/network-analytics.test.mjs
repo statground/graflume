@@ -180,3 +180,81 @@ test('network validation explicitly enforces self-loop, multiedge, port, pin and
     /compound parent cycle detected: a -> b -> a/i,
   );
 });
+
+test('force networks keep weakly connected nodes apart and preserve relative count units', () => {
+  const nodes = Array.from({ length: 24 }, (_, index) => ({ id: String(index) }));
+  const edges = [];
+  for (let source = 0; source < nodes.length; source += 1)
+    for (let target = source + 1; target < nodes.length; target += 1)
+      if (source % 6 === target % 6 || target - source === 1)
+        edges.push({
+          source: String(source),
+          target: String(target),
+          weight: source % 6 === target % 6 ? 1000 : 30,
+        });
+  const options = { layout: 'force', iterations: 240, seed: 1, nodeSpacing: 0.08 };
+  const original = layoutNetwork(nodes, edges, options);
+  assert.deepEqual(original, layoutNetwork(nodes, edges, options));
+  const rescaled = layoutNetwork(
+    nodes,
+    edges.map((edge) => ({ ...edge, weight: edge.weight / 100000 })),
+    options,
+  );
+  for (let index = 0; index < nodes.length; index += 1) {
+    assert.ok(Math.abs(original.nodes[index].x - rescaled.nodes[index].x) < 0.002);
+    assert.ok(Math.abs(original.nodes[index].y - rescaled.nodes[index].y) < 0.002);
+  }
+  for (let left = 0; left < original.nodes.length; left += 1) {
+    const a = original.nodes[left];
+    for (const b of original.nodes.slice(left + 1))
+      assert.ok(
+        Math.hypot(a.x - b.x, a.y - b.y) >= a.radius + b.radius,
+        `${a.id} and ${b.id} overlap`,
+      );
+  }
+  const pinned = { id: '0', x: 0.2, y: 0.3, pinned: true };
+  const withIsolated = layoutNetwork(
+    [pinned, ...nodes.slice(1), { id: 'isolated' }],
+    edges,
+    options,
+  );
+  assert.equal(withIsolated.nodes.length, 25);
+  assert.equal(withIsolated.nodes.find((node) => node.id === '0').x, 0.2);
+  assert.equal(withIsolated.nodes.find((node) => node.id === '0').y, 0.3);
+  assert.equal(withIsolated.edges.length, edges.length);
+  assert.ok(withIsolated.nodes.every((node) => Number.isFinite(node.x) && Number.isFinite(node.y)));
+});
+
+test('100-node sparse and dense force graphs preserve topology without node collisions', () => {
+  for (const dense of [false, true]) {
+    const nodes = Array.from({ length: 100 }, (_, index) => ({
+      id: String(index),
+      radius: 0.009 + 0.014 * Math.sqrt(1 / (index + 1)),
+    }));
+    const edges = [];
+    for (let source = 0; source < 99; source += 1)
+      for (let target = source + 1; target < 99; target += 1)
+        if (
+          dense ? (source + target) % 3 === 0 : target === source + 1 || source % 10 === target % 10
+        )
+          edges.push({
+            source: String(source),
+            target: String(target),
+            weight: 1 + ((source + target) % 39),
+          });
+    const result = layoutNetwork(nodes, edges, {
+      layout: 'force',
+      iterations: 220,
+      nodeSpacing: 0.085,
+      seed: 1,
+    });
+    assert.equal(result.nodes.length, 100);
+    assert.equal(result.edges.length, edges.length);
+    assert.equal(result.nodes.filter((node) => node.id === '99').length, 1);
+    for (let left = 0; left < result.nodes.length; left += 1)
+      for (const b of result.nodes.slice(left + 1)) {
+        const a = result.nodes[left];
+        assert.ok(Math.hypot(a.x - b.x, a.y - b.y) >= a.radius + b.radius - 1e-6);
+      }
+  }
+});

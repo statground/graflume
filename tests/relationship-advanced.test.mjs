@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { biomedicalWords } from './fixtures/biomedical-words.mjs';
 
 import { compile } from '../.tmp/src/complete.js';
 import * as Graflume from '../.tmp/src/index.js';
@@ -26,6 +27,7 @@ test('relationship analytics and host editing helpers are public API', () => {
     'tokenizeWords',
     'buildWordTree',
     'layoutWordCloud',
+    'layoutWeightedWordCloud',
   ]) {
     assert.equal(typeof Graflume[name], 'function', name);
   }
@@ -799,4 +801,107 @@ test('default Sankey keeps shared identities in three stages with filled proport
       }),
     /cycle/i,
   );
+});
+
+test('precomputed word cloud layout options preserve complete phrases, weights, rows and all selected words', () => {
+  const spec = {
+    data: biomedicalWords,
+    mark: {
+      type: 'word-cloud',
+      options: {
+        maximumWords: 150,
+        seed: 9,
+        padding: 2,
+        rotations: [0],
+        fontSizeRange: [10, 64],
+      },
+    },
+    axes: { x: false, y: false },
+    x: { field: 'word', type: 'ordinal' },
+    y: { field: 'frequency', type: 'quantitative' },
+  };
+  for (const width of [1120, 390]) {
+    const nodes = nodesFor({ ...spec, width, height: 700 }).filter(({ id }) =>
+      id.includes(':word-cloud:'),
+    );
+    assert.equal(nodes.length, 150);
+    assert.ok(nodes.some(({ text }) => text === 'quality of life'));
+    for (const node of nodes)
+      assert.deepEqual(node.datum.datum, biomedicalWords[node.datum.rowIndex]);
+    assert.deepEqual(
+      nodes,
+      nodesFor({ ...spec, width, height: 700 }).filter(({ id }) => id.includes(':word-cloud:')),
+    );
+  }
+  assert.throws(
+    () => nodesFor({ ...spec, mark: { type: 'word-cloud', options: { maximumWords: 2001 } } }),
+    /maximumWords/,
+  );
+});
+
+test('network node tooltips bound repeated cycle diagnostics while preserving exact edges', () => {
+  const data = [];
+  for (let source = 0; source < 12; source += 1)
+    for (let target = source + 1; target < 12; target += 1)
+      data.push({ source: `term ${source}`, target: `term ${target}`, count: 1 });
+  const nodes = nodesFor({
+    data,
+    mark: {
+      type: 'graph',
+      fields: { source: 'source', target: 'target', value: 'count' },
+      options: { layout: 'force', seed: 1 },
+    },
+    x: { field: 'source', type: 'ordinal' },
+    y: { field: 'target', type: 'ordinal' },
+  });
+  assert.equal(nodes.filter((node) => node.id.includes(':network-edge:')).length, data.length);
+  for (const node of nodes.filter((node) => node.id.includes(':network-node:'))) {
+    assert.equal(node.datum.tooltip.cycles.length, 8);
+    assert.equal(node.datum.tooltip.cyclesTruncated, true);
+    assert.ok(node.datum.tooltip.cycleCount > 8);
+  }
+});
+
+test('force boundary labels stay inside the plot while full source names remain inspectable', () => {
+  const spec = {
+    width: 300,
+    height: 250,
+    axes: { x: false, y: false },
+    data: [
+      { id: 'left', label: 'breast cancer', x: 0, y: 1, pinned: true },
+      {
+        id: 'right',
+        label: 'extraordinarily long precomputed biomedical phrase',
+        x: 1,
+        y: 1,
+        pinned: true,
+      },
+    ],
+    mark: {
+      type: 'graph',
+      fields: {
+        node: 'id',
+        label: 'label',
+        nodeX: 'x',
+        nodeY: 'y',
+        pinned: 'pinned',
+        source: 'source',
+        target: 'target',
+      },
+      options: { layout: 'force' },
+    },
+    x: { field: 'id', type: 'ordinal' },
+    y: { field: 'id', type: 'ordinal' },
+  };
+  const nodes = nodesFor(spec);
+  const circle = nodes.find((node) => node.id.includes(':network-node:'));
+  const plot = circle.datum.familyInteraction.plot;
+  for (const label of nodes.filter((node) => node.id.includes(':network-label:'))) {
+    const half = (Array.from(label.text).length * label.fontSize) / 2;
+    assert.ok(label.x - half >= plot.x && label.x + half <= plot.x + plot.width);
+    assert.ok(label.y + label.fontSize <= plot.y + plot.height);
+  }
+  const right = nodes.find((node) => node.id.endsWith(':network-label:right'));
+  assert.ok(right.text.endsWith('…'));
+  assert.equal(right.datum.tooltip.label, spec.data[1].label);
 });

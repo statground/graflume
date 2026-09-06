@@ -1,13 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 
-const exactPhrase = String.fromCharCode(101, 67, 104, 97, 114, 116);
-const productName = String.fromCharCode(69, 67, 104, 97, 114, 116, 115);
-const restrictedNames = [
-  productName,
-  String.fromCharCode(104, 105, 103, 104, 99, 104, 97, 114, 116, 115),
-  String.fromCharCode(112, 108, 111, 116, 108, 121),
-];
+import { hasRestrictedPublicName } from './lib/neutral-names.mjs';
+
 const roots = new Set([
   '.github',
   'src',
@@ -48,10 +43,7 @@ for (const file of files) {
     file === 'docs/development/verified-feature-matrix.md'
       ? source.split('\n## Ecosystem inputs\n', 1)[0]
       : source;
-  if (
-    checkedSource.includes(exactPhrase) ||
-    restrictedNames.some((name) => checkedSource.toLowerCase().includes(name.toLowerCase()))
-  ) {
+  if (hasRestrictedPublicName(checkedSource)) {
     hits.push(file);
   }
 }

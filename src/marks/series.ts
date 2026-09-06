@@ -2,6 +2,7 @@ import type { MarkCompileContext, MarkCompiler } from '../compiler/types.js';
 import { interpolateCurve } from '../curve/registry.js';
 import { normalDensity, summarizeNormalDistribution } from '../data/distribution.js';
 import { contourThresholds, extractIsolines, type ContourSaddlePolicy } from '../data/contours.js';
+import { layoutWeightedWordCloud } from '../data/structured-analytics.js';
 import { exactStrideSampleIndices } from '../data/sample.js';
 import {
   empiricalDistribution,
@@ -1751,70 +1752,50 @@ export const compileWordCloudMark: MarkCompiler = (context) => {
       rows.push({ rowIndex, word, weight });
   }
   if (rows.length === 0) return [];
-  const minimum = Math.min(...rows.map(({ weight }) => weight));
-  const maximum = Math.max(...rows.map(({ weight }) => weight));
-  const cx = plot.x + plot.width / 2;
-  const cy = plot.y + plot.height / 2;
-  const nodes: SceneNode[] = [];
-  const placed: Array<{ left: number; right: number; top: number; bottom: number }> = [];
-  const visibleCount = Math.min(rows.length, 160, context.performance.maxPointMarks);
-  rows
+  const maximumWords =
+    layer.mark.options.maximumWords === undefined
+      ? Math.min(200, context.performance.maxPointMarks)
+      : (layer.mark.options.maximumWords as number);
+  const range = layer.mark.options.fontSizeRange as [number, number] | undefined;
+  const rotations =
+    layer.mark.options.rotations === undefined ? [0] : (layer.mark.options.rotations as number[]);
+  const placements = layoutWeightedWordCloud(
+    rows.map(({ word, weight }) => ({ word, frequency: weight })),
+    {
+      width: plot.width,
+      height: plot.height,
+      maximumWords,
+      seed: optionNumber(layer.mark.options.seed, 1),
+      padding: optionNumber(layer.mark.options.padding, 2),
+      minimumFrequency: optionNumber(layer.mark.options.minimumFrequency, Number.MIN_VALUE),
+      rotations,
+      ...(range === undefined ? {} : { fontSizeRange: range }),
+    },
+  );
+  const selected = rows
     .slice()
-    .sort((left, right) => right.weight - left.weight)
-    .slice(0, visibleCount)
-    .forEach((row, index) => {
-      const ratio = maximum === minimum ? 0.5 : (row.weight - minimum) / (maximum - minimum);
-      const size = 10 + ratio * 24;
-      const rotation = index % 5 === 0 ? -18 : index % 7 === 0 ? 18 : 0;
-      const textWidth = Math.max(size, row.word.length * size * 0.56);
-      const textHeight = size * 1.08;
-      const radians = (Math.abs(rotation) * Math.PI) / 180;
-      const width = textWidth * Math.cos(radians) + textHeight * Math.sin(radians);
-      const height = textWidth * Math.sin(radians) + textHeight * Math.cos(radians);
-      let x = cx;
-      let y = cy;
-      let found = false;
-      for (let attempt = 0; attempt < 1600; attempt += 1) {
-        const angle = attempt * 0.42 + index * 1.17;
-        const distance = 3.3 * Math.sqrt(attempt) * (1 + size / 40);
-        const candidateX = cx + Math.cos(angle) * distance;
-        const candidateY = cy + Math.sin(angle) * distance * 0.64;
-        const box = {
-          left: candidateX - width / 2 - 3,
-          right: candidateX + width / 2 + 3,
-          top: candidateY - height / 2 - 2,
-          bottom: candidateY + height / 2 + 2,
-        };
-        const inside =
-          box.left >= plot.x &&
-          box.right <= plot.x + plot.width &&
-          box.top >= plot.y &&
-          box.bottom <= plot.y + plot.height;
-        const free = placed.every(
-          (other) =>
-            box.right < other.left ||
-            box.left > other.right ||
-            box.bottom < other.top ||
-            box.top > other.bottom,
-        );
-        if (inside && free) {
-          x = candidateX;
-          y = candidateY;
-          placed.push(box);
-          found = true;
-          break;
-        }
-      }
-      if (!found) return;
-      const color = layer.mark.fill ?? paletteColor(context, index, visibleCount);
-      const node = textNode(context, `${layer.id}:word-cloud:${row.rowIndex}`, x, y, row.word, {
-        fill: color,
-        size,
-        weight: 520 + Math.round(ratio * 220),
-        rotation,
-      });
-      nodes.push({ ...node, ...datumBase(context, node.id, row.rowIndex, ratio) });
-    });
+    .sort((a, b) => b.weight - a.weight)
+    .filter(
+      ({ weight }) => weight >= optionNumber(layer.mark.options.minimumFrequency, Number.MIN_VALUE),
+    )
+    .slice(0, maximumWords);
+  const nodes: SceneNode[] = placements.map((placement, index) => {
+    const row = selected[index]!;
+    const node = textNode(
+      context,
+      `${layer.id}:word-cloud:${row.rowIndex}`,
+      plot.x + placement.x,
+      plot.y + placement.y,
+      row.word,
+      {
+        fill: layer.mark.fill ?? paletteColor(context, index, placements.length),
+        size: placement.fontSize,
+        weight: 600,
+        rotation: placement.rotation,
+      },
+    );
+    return { ...node, ...datumBase(context, node.id, row.rowIndex, index * 0.001) };
+  });
   return nodes;
 };
 

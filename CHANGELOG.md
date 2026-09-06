@@ -4,6 +4,17 @@ All notable changes to Graflume will be recorded here.
 
 ## Unreleased
 
+- Prevent force-network nodes from collapsing together at viewport boundaries. Attraction uses
+  relative edge weights, cooling and centering preserve topology, and bounded collision relaxation
+  keeps unpinned nodes apart while retaining pinned positions, isolated nodes, and exact edge counts.
+  Keep boundary labels inside the plot, retaining full names in tooltips when an ellipsis is needed.
+
+- Fit every selected word in precomputed and tokenized clouds using deterministic complete
+  packing instead of dropping failed spiral placements. Preserve original phrase weights when
+  setting layout options, expose `layoutWeightedWordCloud()` and preferred `fontSizeRange`,
+  and validate explicit budgets up to 2,000 words without a hidden 160-word cap. Uniform fitting,
+  wide-glyph bounds, exact SVG snapshots, and portable selection limits keep dense clouds honest.
+
 - Resolve shared Sankey source/target identities as genuine multi-stage nodes by default,
   with one conserved value-to-height scale, filled ribbons, bounded node gaps, cycle rejection
   and explicit feedback support. Independent aggregate counts are not inferred transitions.

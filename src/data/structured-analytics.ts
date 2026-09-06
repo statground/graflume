@@ -1958,11 +1958,16 @@ export interface WordCloudLayoutOptions extends WordTokenOptions {
   readonly rotations?: readonly number[];
   readonly minimumFrequency?: number;
   readonly maximumWords?: number;
+  /** Preferred font sizes before one uniform fit of the complete selected vocabulary. */
+  readonly fontSizeRange?: readonly [number, number];
 }
 
-export interface WordCloudPlacement {
+export interface WeightedWordCloudWord {
   readonly word: string;
   readonly frequency: number;
+}
+
+export interface WordCloudPlacement extends WeightedWordCloudWord {
   readonly x: number;
   readonly y: number;
   readonly width: number;
@@ -1971,81 +1976,223 @@ export interface WordCloudPlacement {
   readonly rotation: number;
 }
 
-/** Deterministic bounded spiral word-cloud layout with collision padding and allowed rotations. */
-export function layoutWordCloud(
-  texts: readonly string[],
+interface WordCloudBox {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+/** Conservative, deterministic font-independent bounds, including wide Unicode glyphs. */
+function wordCloudTextWidth(word: string): number {
+  return Array.from(word).reduce((width, character) => {
+    const code = character.codePointAt(0)!;
+    if (code >= 0x2e80) return width + 1.05;
+    if ('MWmw@%'.includes(character)) return width + 1;
+    if ("ilI.,:;!|' ".includes(character)) return width + 0.38;
+    return width + (character.toUpperCase() === character ? 0.76 : 0.65);
+  }, 0);
+}
+
+/**
+ * Pack complete precomputed vocabulary without tokenizing phrases or inventing frequencies.
+ * Font sizes shrink uniformly only when necessary; selected words are never silently dropped.
+ */
+export function layoutWeightedWordCloud(
+  input: readonly WeightedWordCloudWord[],
   options: WordCloudLayoutOptions = {},
 ): readonly WordCloudPlacement[] {
   const width = finite(options.width ?? 640, '$.width');
   const height = finite(options.height ?? 360, '$.height');
   if (width <= 0 || height <= 0)
     throw new GraflumeError('INVALID_SPEC', 'Word-cloud dimensions must be positive.');
-  const padding = clamp(finite(options.padding ?? 2, '$.padding'), 0, 64);
+  const padding = finite(options.padding ?? 2, '$.padding');
+  if (padding < 0 || padding > 64)
+    throw new GraflumeError('INVALID_SPEC', '$.padding must be from 0 to 64.');
   const rotations = options.rotations ?? [0];
-  if (rotations.length === 0 || rotations.some((value) => !Number.isFinite(value)))
-    throw new GraflumeError('INVALID_SPEC', '$.rotations must contain finite angles.');
-  const frequencies = new Map<string, number>();
-  texts.forEach((text) =>
-    tokenizeWords(text, options).forEach((token) =>
-      frequencies.set(token, (frequencies.get(token) ?? 0) + 1),
-    ),
-  );
-  const minimum = clamp(Math.floor(options.minimumFrequency ?? 1), 1, Number.MAX_SAFE_INTEGER);
-  const maximumWords = clamp(Math.floor(options.maximumWords ?? 200), 1, 2_000);
-  const words = [...frequencies]
-    .filter(([, count]) => count >= minimum)
-    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+  if (
+    !Array.isArray(rotations) ||
+    rotations.length === 0 ||
+    rotations.length > 64 ||
+    rotations.some((value) => !Number.isFinite(value))
+  )
+    throw new GraflumeError('INVALID_SPEC', '$.rotations must contain 1 to 64 finite angles.');
+  const minimum = finite(options.minimumFrequency ?? Number.MIN_VALUE, '$.minimumFrequency');
+  if (minimum <= 0) throw new GraflumeError('INVALID_SPEC', '$.minimumFrequency must be positive.');
+  const maximumWords = finite(options.maximumWords ?? 200, '$.maximumWords');
+  if (!Number.isInteger(maximumWords) || maximumWords < 1 || maximumWords > 2_000)
+    throw new GraflumeError('INVALID_SPEC', '$.maximumWords must be an integer from 1 to 2000.');
+  const range = options.fontSizeRange ?? [10, 64];
+  if (
+    !Array.isArray(range) ||
+    range.length !== 2 ||
+    range.some((value) => !Number.isFinite(value) || value <= 0 || value > 512) ||
+    range[0] > range[1]
+  )
+    throw new GraflumeError(
+      'INVALID_SPEC',
+      '$.fontSizeRange must contain two ascending positive sizes up to 512.',
+    );
+  const random = seededRandom(finite(options.seed ?? 1, '$.seed'));
+  const words = input
+    .map((row, index) => {
+      if (typeof row.word !== 'string' || row.word.trim() === '' || row.word.length > 2048)
+        throw new GraflumeError(
+          'INVALID_DATA',
+          `$.words[${index}].word must contain 1 to 2048 characters.`,
+        );
+      const frequency = finite(row.frequency, `$.words[${index}].frequency`);
+      if (frequency <= 0)
+        throw new GraflumeError('INVALID_DATA', 'Word-cloud frequencies must be positive.');
+      return { word: row.word, frequency, index };
+    })
+    .filter(({ frequency }) => frequency >= minimum)
+    .sort((a, b) => b.frequency - a.frequency || a.index - b.index)
     .slice(0, maximumWords);
   if (words.length === 0) return [];
-  const maximum = words[0]![1];
-  const minimumCount = words.at(-1)![1];
-  const random = seededRandom(options.seed ?? 1);
-  const spiralStep = Math.max(1.2, Math.min(width, height) / 90);
-  const placements: WordCloudPlacement[] = [];
-  const overlaps = (candidate: WordCloudPlacement) =>
-    placements.some(
-      (placed) =>
-        Math.abs(candidate.x - placed.x) * 2 < candidate.width + placed.width + padding * 2 &&
-        Math.abs(candidate.y - placed.y) * 2 < candidate.height + placed.height + padding * 2,
-    );
-  words.forEach(([word, frequency], wordIndex) => {
-    const ratio =
-      maximum === minimumCount ? 0.6 : (frequency - minimumCount) / (maximum - minimumCount);
-    let fontSize = 12 + Math.sqrt(Math.max(0, ratio)) * 42;
-    const rotation = rotations[Math.floor(random() * rotations.length)]!;
-    const radians = (rotation * Math.PI) / 180;
-    const cosine = Math.abs(Math.cos(radians));
-    const sine = Math.abs(Math.sin(radians));
-    for (let shrink = 0; shrink < 8; shrink += 1) {
-      const textWidth = Math.max(fontSize * 0.6, word.length * fontSize * 0.58);
-      const textHeight = fontSize * 1.15;
-      const boxWidth = textWidth * cosine + textHeight * sine;
-      const boxHeight = textWidth * sine + textHeight * cosine;
-      for (let step = 0; step < 4_000; step += 1) {
-        const angle = wordIndex * 0.37 + step * 0.31;
-        const radius = spiralStep * Math.sqrt(step);
-        const candidate: WordCloudPlacement = {
-          word,
-          frequency,
-          x: width / 2 + Math.cos(angle) * radius,
-          y: height / 2 + Math.sin(angle) * radius * 0.62,
-          width: boxWidth,
-          height: boxHeight,
-          fontSize,
-          rotation,
-        };
-        const inside =
-          candidate.x - boxWidth / 2 >= 0 &&
-          candidate.x + boxWidth / 2 <= width &&
-          candidate.y - boxHeight / 2 >= 0 &&
-          candidate.y + boxHeight / 2 <= height;
-        if (inside && !overlaps(candidate)) {
-          placements.push(candidate);
-          return;
+  const maximum = words[0]!.frequency;
+  const minimumCount = words.at(-1)!.frequency;
+  const prepared = words
+    .map(({ word, frequency }, index) => {
+      const ratio =
+        maximum === minimumCount ? 0.6 : (frequency - minimumCount) / (maximum - minimumCount);
+      const fontSize = range[0] + Math.sqrt(Math.max(0, ratio)) * (range[1] - range[0]);
+      const rotation = rotations[Math.floor(random() * rotations.length)]!;
+      const radians = (rotation * Math.PI) / 180;
+      const textWidth = Math.max(0.65, wordCloudTextWidth(word)) * fontSize;
+      const textHeight = fontSize * 1.3;
+      return {
+        word,
+        frequency,
+        fontSize,
+        rotation,
+        index,
+        width: textWidth * Math.abs(Math.cos(radians)) + textHeight * Math.abs(Math.sin(radians)),
+        height: textWidth * Math.abs(Math.sin(radians)) + textHeight * Math.abs(Math.cos(radians)),
+      };
+    })
+    .sort((a, b) => b.width * b.height - a.width * a.height || a.index - b.index);
+
+  // Non-overlapping guillotine free rectangles keep work quadratic, including 2,000 words.
+  const pack = (scale: number): readonly WordCloudPlacement[] | null => {
+    const free: WordCloudBox[] = [{ x: 0, y: 0, width, height }];
+    const output: Array<WordCloudPlacement & { index: number }> = [];
+    for (const word of prepared) {
+      const w = word.width * scale + padding * 2;
+      const h = word.height * scale + padding * 2;
+      let selected = -1;
+      let best = Infinity;
+      for (let index = 0; index < free.length; index += 1) {
+        const box = free[index]!;
+        if (w > box.width || h > box.height) continue;
+        const score = Math.min(box.width - w, box.height - h);
+        if (score < best) {
+          best = score;
+          selected = index;
         }
       }
-      fontSize *= 0.88;
+      if (selected < 0) return null;
+      const box = free.splice(selected, 1)[0]!;
+      // Place each block toward the center of its free rectangle and the whole cloud.
+      const left = box.x + box.width / 2 > width / 2;
+      const top = box.y + box.height / 2 > height / 2;
+      const first = output.length === 0;
+      const x = first ? (width - w) / 2 : left ? box.x : box.x + box.width - w;
+      const y = first ? (height - h) / 2 : top ? box.y : box.y + box.height - h;
+      const remainingWidth = box.width - w;
+      const remainingHeight = box.height - h;
+      if (first) {
+        if (y > 0) free.push({ x: 0, y: 0, width, height: y });
+        if (height - y - h > 0) free.push({ x: 0, y: y + h, width, height: height - y - h });
+        if (x > 0) free.push({ x: 0, y, width: x, height: h });
+        if (width - x - w > 0) free.push({ x: x + w, y, width: width - x - w, height: h });
+      } else if (remainingWidth > remainingHeight) {
+        if (remainingWidth > 0)
+          free.push({
+            x: left ? x + w : box.x,
+            y: box.y,
+            width: remainingWidth,
+            height: box.height,
+          });
+        if (remainingHeight > 0)
+          free.push({ x, y: top ? y + h : box.y, width: w, height: remainingHeight });
+      } else {
+        if (remainingHeight > 0)
+          free.push({
+            x: box.x,
+            y: top ? y + h : box.y,
+            width: box.width,
+            height: remainingHeight,
+          });
+        if (remainingWidth > 0)
+          free.push({ x: left ? x + w : box.x, y, width: remainingWidth, height: h });
+      }
+      output.push({
+        word: word.word,
+        frequency: word.frequency,
+        index: word.index,
+        x: x + w / 2,
+        y: y + h / 2,
+        width: word.width * scale,
+        height: word.height * scale,
+        fontSize: word.fontSize * scale,
+        rotation: word.rotation,
+      });
     }
-  });
-  return placements;
+    // Center the occupied bounds while keeping all original words and measured padding.
+    const left = Math.min(...output.map((word) => word.x - word.width / 2));
+    const right = Math.max(...output.map((word) => word.x + word.width / 2));
+    const top = Math.min(...output.map((word) => word.y - word.height / 2));
+    const bottom = Math.max(...output.map((word) => word.y + word.height / 2));
+    return output
+      .sort((a, b) => a.index - b.index)
+      .map(({ index: _index, ...word }) => ({
+        ...word,
+        x: word.x + (width - left - right) / 2,
+        y: word.y + (height - top - bottom) / 2,
+      }));
+  };
+  const original = pack(1);
+  if (original !== null) return original;
+  // The failed full-size layout is never returned as a misleading partial cloud.
+  let upper = 1;
+  let lower = 0.5;
+  let fitted = pack(lower);
+  for (let attempt = 0; fitted === null && attempt < 20; attempt += 1) {
+    upper = lower;
+    lower /= 2;
+    fitted = pack(lower);
+  }
+  if (fitted === null)
+    throw new GraflumeError(
+      'INVALID_SPEC',
+      'The complete word cloud cannot fit with this padding; increase its dimensions or reduce padding.',
+    );
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    const scale = (lower + upper) / 2;
+    const candidate = pack(scale);
+    if (candidate === null) upper = scale;
+    else {
+      lower = scale;
+      fitted = candidate;
+    }
+  }
+  return fitted;
+}
+
+/** Tokenize raw documents, then fit every selected token with its true occurrence count. */
+export function layoutWordCloud(
+  texts: readonly string[],
+  options: WordCloudLayoutOptions = {},
+): readonly WordCloudPlacement[] {
+  const frequencies = new Map<string, number>();
+  texts.forEach((text) =>
+    tokenizeWords(text, options).forEach((word) =>
+      frequencies.set(word, (frequencies.get(word) ?? 0) + 1),
+    ),
+  );
+  return layoutWeightedWordCloud(
+    [...frequencies].map(([word, frequency]) => ({ word, frequency })),
+    options,
+  );
 }
