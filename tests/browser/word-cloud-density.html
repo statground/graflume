@@ -102,6 +102,14 @@
         check(overlaps === 0, `${overlaps} real glyph bounds overlap`);
         const dominant = texts.find((text) => text.textContent === 'cancer');
         const rect = dominant.getBoundingClientRect();
+        const surfaceBounds = target.querySelector('svg[role="img"]').getBoundingClientRect();
+        check(
+          Math.abs(rect.x + rect.width / 2 - surfaceBounds.x - surfaceBounds.width / 2) <
+            surfaceBounds.width * 0.1 &&
+            Math.abs(rect.y + rect.height / 2 - surfaceBounds.y - surfaceBounds.height / 2) <
+              surfaceBounds.height * 0.1,
+          'the strongest keyword remains central after restoring the elliptical cloud',
+        );
         target.querySelector('svg[role="img"]').dispatchEvent(
           new PointerEvent('pointermove', {
             bubbles: true,

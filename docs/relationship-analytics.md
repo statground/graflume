@@ -162,7 +162,10 @@ Precomputed `x: word, y: frequency` rows preserve phrases and original weights.
 `fields.text` or an actual tokenizer option (`tokenize`, `case`, `stopwords`,
 `stemming`, `locale`, `ngram`) to count tokens from raw documents instead.
 
-Both modes pack every selected word using deterministic non-overlapping rectangles.
+Both modes place every selected word from the center outward inside an ellipse.
+Frequency order keeps the strongest terms in the core; smaller labels fill the
+surrounding space instead of forming rectangular shelves. Seeded positions and
+conservative padded text bounds keep placement deterministic and collision-free.
 The preferred `fontSizeRange` defaults to `[10, 64]`; when the complete selection
 needs more room, one common scale shrinks all fonts together. This preserves the
 relative font sizes and does not silently omit words that fail an initial layout.
@@ -182,6 +185,9 @@ helper; `layoutWordCloud(texts, options)` tokenizes raw documents before using t
 same fitter. Tokenized placements expose frequency, rotation, tokenizer state,
 and all contributing rows. Precomputed placements retain each original source row.
 Saved SVG snapshots preserve exact geometry and inspection without redoing the fit.
+ChartSpec, source-row provenance, and snapshot schemas are unchanged. Existing saved
+clouds keep their recorded layout; new or edited clouds use the centered ellipse.
+The search and collision bitmap are bounded for the existing 2,000-word limit.
 
 ## Interaction and provenance contract
 

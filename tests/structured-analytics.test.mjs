@@ -665,6 +665,58 @@ test('weighted word cloud fits all 150 phrases at desktop and mobile widths with
   }
 });
 
+test('weighted clouds put strongest terms in a centered elliptical core without rectangular shelves', () => {
+  for (const count of [150, 500]) {
+    const words = Array.from({ length: count }, (_, index) => ({
+      word:
+        index === 0
+          ? 'cancer'
+          : index === 1
+            ? 'breast'
+            : `${biomedicalWords[index % 150].word} ${index}`,
+      frequency: 50_000 / Math.pow(index + 1, 0.7),
+    }));
+    for (const width of [1000, 320]) {
+      const height = 700,
+        padding = 2;
+      const options = { width, height, maximumWords: count, padding, rotations: [0], seed: 21 };
+      const placed = layoutWeightedWordCloud(words, options);
+      assert.deepEqual(placed, layoutWeightedWordCloud(words, options));
+      assert.deepEqual(
+        placed.map(({ word, frequency }) => ({ word, frequency })),
+        words,
+      );
+      assert.equal(placed[0].x, width / 2);
+      assert.equal(placed[0].y, height / 2);
+      const radial = (word) =>
+        Math.hypot((word.x - width / 2) / (width / 2), (word.y - height / 2) / (height / 2));
+      const core = placed.slice(0, 10).reduce((sum, word) => sum + radial(word), 0) / 10;
+      const surrounding =
+        placed.slice(10).reduce((sum, word) => sum + radial(word), 0) / (count - 10);
+      assert.ok(
+        core < 0.5 && core < surrounding,
+        `strongest terms stay in the core: ${core} / ${surrounding}`,
+      );
+      for (let index = 0; index < placed.length; index++) {
+        const a = placed[index];
+        assert.equal(a.rotation, 0);
+        const farX = (Math.abs(a.x - width / 2) + a.width / 2 + padding) / (width / 2);
+        const farY = (Math.abs(a.y - height / 2) + a.height / 2 + padding) / (height / 2);
+        assert.ok(
+          farX * farX + farY * farY <= 1 + 1e-12,
+          `${a.word} stays inside the curved outline`,
+        );
+        for (const b of placed.slice(index + 1)) {
+          assert.ok(
+            Math.abs(a.x - b.x) * 2 >= a.width + b.width + 4 - 1e-9 ||
+              Math.abs(a.y - b.y) * 2 >= a.height + b.height + 4 - 1e-9,
+          );
+        }
+      }
+    }
+  }
+});
+
 test('word cloud has explicit bounded selection and reports impossible padding instead of partial output', () => {
   const words = Array.from({ length: 2000 }, (_, index) => ({
     word: `term ${index}`,

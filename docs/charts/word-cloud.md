@@ -237,7 +237,7 @@ Node, parent, source, target, set, or weight fields are declared explicitly. Inp
 
 ## Implemented rendering behavior
 
-Maps weight into type size and places words on a deterministic spiral. The output uses only groups, paths, lines, rectangles, circles, and text, so Canvas, snapshots, export adapters, and future renderers share the same geometry contract.
+Maps weight into type size and places the strongest terms centrally within a deterministic elliptical cloud. Smaller terms fill the surrounding space, with padded text bounds preventing overlap. The output uses only groups, paths, lines, rectangles, circles, and text, so Canvas, snapshots, export adapters, and future renderers share the same geometry contract.
 
 ## Styling
 
@@ -306,6 +306,8 @@ const saved = chart.toSnapshot();
 const reopened = Graflume.restore('#reopened-chart', saved);
 ```
 
+The strongest terms stay in the center of a natural elliptical outline, and smaller
+terms fill the space around them. `rotations: [0]` keeps every label horizontal.
 All selected words fit together; fonts shrink uniformly when the dimensions require
 it. `fontSizeRange` is the preferred range before that common fit, not a promise
 that small words remain 10px on every screen. Prefer a taller chart for a large

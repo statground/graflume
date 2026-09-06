@@ -4,6 +4,11 @@ All notable changes to Graflume will be recorded here.
 
 ## Unreleased
 
+- Place weighted and tokenized word clouds in an organic elliptical silhouette,
+  with the strongest terms in the center and smaller terms filling the surrounding space.
+  Seeded placement, padded collision checks, complete selection fitting, original weights,
+  and exact saved SVG restore remain intact; no new ChartSpec or snapshot fields are required.
+
 - Prevent force-network nodes from collapsing together at viewport boundaries. Attraction uses
   relative edge weights, cooling and centering preserve topology, and bounded collision relaxation
   keeps unpinned nodes apart while retaining pinned positions, isolated nodes, and exact edge counts.

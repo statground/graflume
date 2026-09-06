@@ -11,6 +11,11 @@ All portable vector families also support the built-in `svg` renderer and
 The versioned snapshot contract is separate from ChartSpec 0.1; externally loaded map tiles
 and spatial GPU surfaces are not represented as portable SVG snapshots.
 
+The [word-cloud family](./word-cloud.md#complete-precomputed-vocabulary) now places
+the strongest terms centrally in a seeded elliptical layout. Its existing weighted
+and tokenized inputs, selection limits, source data, and serialized schemas are unchanged;
+restored snapshots retain their previously saved geometry without another layout.
+
 ## [Annotation chart](./annotation.md#integrated-presets)
 
 | Identifier           | Compatible name                                                  | Quick API             | Mode          | Portable mark |

@@ -1976,13 +1976,6 @@ export interface WordCloudPlacement extends WeightedWordCloudWord {
   readonly rotation: number;
 }
 
-interface WordCloudBox {
-  readonly x: number;
-  readonly y: number;
-  readonly width: number;
-  readonly height: number;
-}
-
 /** Conservative, deterministic font-independent bounds, including wide Unicode glyphs. */
 function wordCloudTextWidth(word: string): number {
   return Array.from(word).reduce((width, character) => {
@@ -2052,105 +2045,118 @@ export function layoutWeightedWordCloud(
   if (words.length === 0) return [];
   const maximum = words[0]!.frequency;
   const minimumCount = words.at(-1)!.frequency;
-  const prepared = words
-    .map(({ word, frequency }, index) => {
-      const ratio =
-        maximum === minimumCount ? 0.6 : (frequency - minimumCount) / (maximum - minimumCount);
-      const fontSize = range[0] + Math.sqrt(Math.max(0, ratio)) * (range[1] - range[0]);
-      const rotation = rotations[Math.floor(random() * rotations.length)]!;
-      const radians = (rotation * Math.PI) / 180;
-      const textWidth = Math.max(0.65, wordCloudTextWidth(word)) * fontSize;
-      const textHeight = fontSize * 1.3;
-      return {
-        word,
-        frequency,
-        fontSize,
-        rotation,
-        index,
-        width: textWidth * Math.abs(Math.cos(radians)) + textHeight * Math.abs(Math.sin(radians)),
-        height: textWidth * Math.abs(Math.sin(radians)) + textHeight * Math.abs(Math.cos(radians)),
-      };
-    })
-    .sort((a, b) => b.width * b.height - a.width * a.height || a.index - b.index);
+  const prepared = words.map(({ word, frequency }, index) => {
+    const ratio =
+      maximum === minimumCount ? 0.6 : (frequency - minimumCount) / (maximum - minimumCount);
+    const fontSize = range[0] + Math.sqrt(Math.max(0, ratio)) * (range[1] - range[0]);
+    const rotation = rotations[Math.floor(random() * rotations.length)]!;
+    const radians = (rotation * Math.PI) / 180;
+    const textWidth = Math.max(0.65, wordCloudTextWidth(word)) * fontSize;
+    const textHeight = fontSize * 1.3;
+    return {
+      word,
+      frequency,
+      fontSize,
+      rotation,
+      index,
+      width: textWidth * Math.abs(Math.cos(radians)) + textHeight * Math.abs(Math.sin(radians)),
+      height: textWidth * Math.abs(Math.sin(radians)) + textHeight * Math.abs(Math.cos(radians)),
+    };
+  });
 
-  // Non-overlapping guillotine free rectangles keep work quadratic, including 2,000 words.
+  // Seeded sunflower candidates fill an ellipse from its center. Frequency order
+  // keeps the strongest terms in its core instead of placing long labels first.
+  const radiusX = width / 2;
+  const radiusY = height / 2;
+  const cell = Math.max(1, Math.max(width, height) / 1024);
+  const columns = Math.ceil(width / cell);
+  const rows = Math.ceil(height / cell);
+  const stride = Math.ceil(columns / 32);
+  const count = Math.min(32768, Math.max(4096, words.length * 24));
+  const candidateX = new Float64Array(count);
+  const candidateY = new Float64Array(count);
+  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+  const phase = random() * Math.PI * 2;
+  for (let index = 0; index < count; index += 1) {
+    const radius = Math.sqrt(index / (count - 1));
+    const angle = index * goldenAngle + phase;
+    candidateX[index] = radiusX * (1 + Math.cos(angle) * radius);
+    candidateY[index] = radiusY * (1 + Math.sin(angle) * radius);
+  }
   const pack = (scale: number): readonly WordCloudPlacement[] | null => {
-    const free: WordCloudBox[] = [{ x: 0, y: 0, width, height }];
-    const output: Array<WordCloudPlacement & { index: number }> = [];
+    // A bounded bitmap conservatively covers complete padded text rectangles.
+    // Candidate centers already covered by a word are skipped in later searches.
+    const occupied = new Uint32Array(rows * stride);
+    const available = new Uint8Array(count).fill(1);
+    const output: WordCloudPlacement[] = [];
     for (const word of prepared) {
-      const w = word.width * scale + padding * 2;
-      const h = word.height * scale + padding * 2;
-      let selected = -1;
-      let best = Infinity;
-      for (let index = 0; index < free.length; index += 1) {
-        const box = free[index]!;
-        if (w > box.width || h > box.height) continue;
-        const score = Math.min(box.width - w, box.height - h);
-        if (score < best) {
-          best = score;
-          selected = index;
+      const halfWidth = (word.width * scale) / 2 + padding;
+      const halfHeight = (word.height * scale) / 2 + padding;
+      if ((halfWidth / radiusX) ** 2 + (halfHeight / radiusY) ** 2 > 1) return null;
+      let found = false;
+      for (let index = 0; index < count; index += 1) {
+        if (!available[index]) continue;
+        const x = candidateX[index]!;
+        const y = candidateY[index]!;
+        // The furthest rectangle corner must remain inside the ellipse.
+        if (
+          ((Math.abs(x - radiusX) + halfWidth) / radiusX) ** 2 +
+            ((Math.abs(y - radiusY) + halfHeight) / radiusY) ** 2 >
+          1
+        )
+          continue;
+        const x0 = Math.max(0, Math.floor((x - halfWidth) / cell));
+        const x1 = Math.min(columns - 1, Math.floor((x + halfWidth) / cell));
+        const y0 = Math.max(0, Math.floor((y - halfHeight) / cell));
+        const y1 = Math.min(rows - 1, Math.floor((y + halfHeight) / cell));
+        const first = x0 >>> 5;
+        const last = x1 >>> 5;
+        const leftMask = 0xffffffff << (x0 & 31);
+        const rightMask = 0xffffffff >>> (31 - (x1 & 31));
+        let collision = false;
+        for (let row = y0; row <= y1 && !collision; row += 1) {
+          for (let column = first; column <= last; column += 1) {
+            const mask =
+              (column === first ? leftMask : 0xffffffff) &
+              (column === last ? rightMask : 0xffffffff);
+            if ((occupied[row * stride + column]! & mask) !== 0) {
+              collision = true;
+              break;
+            }
+          }
         }
+        if (collision) continue;
+        for (let row = y0; row <= y1; row += 1) {
+          for (let column = first; column <= last; column += 1) {
+            occupied[row * stride + column]! |=
+              (column === first ? leftMask : 0xffffffff) &
+              (column === last ? rightMask : 0xffffffff);
+          }
+        }
+        for (let candidate = 0; candidate < count; candidate += 1) {
+          if (
+            available[candidate] &&
+            Math.abs(candidateX[candidate]! - x) <= halfWidth &&
+            Math.abs(candidateY[candidate]! - y) <= halfHeight
+          )
+            available[candidate] = 0;
+        }
+        output.push({
+          word: word.word,
+          frequency: word.frequency,
+          x,
+          y,
+          width: word.width * scale,
+          height: word.height * scale,
+          fontSize: word.fontSize * scale,
+          rotation: word.rotation,
+        });
+        found = true;
+        break;
       }
-      if (selected < 0) return null;
-      const box = free.splice(selected, 1)[0]!;
-      // Place each block toward the center of its free rectangle and the whole cloud.
-      const left = box.x + box.width / 2 > width / 2;
-      const top = box.y + box.height / 2 > height / 2;
-      const first = output.length === 0;
-      const x = first ? (width - w) / 2 : left ? box.x : box.x + box.width - w;
-      const y = first ? (height - h) / 2 : top ? box.y : box.y + box.height - h;
-      const remainingWidth = box.width - w;
-      const remainingHeight = box.height - h;
-      if (first) {
-        if (y > 0) free.push({ x: 0, y: 0, width, height: y });
-        if (height - y - h > 0) free.push({ x: 0, y: y + h, width, height: height - y - h });
-        if (x > 0) free.push({ x: 0, y, width: x, height: h });
-        if (width - x - w > 0) free.push({ x: x + w, y, width: width - x - w, height: h });
-      } else if (remainingWidth > remainingHeight) {
-        if (remainingWidth > 0)
-          free.push({
-            x: left ? x + w : box.x,
-            y: box.y,
-            width: remainingWidth,
-            height: box.height,
-          });
-        if (remainingHeight > 0)
-          free.push({ x, y: top ? y + h : box.y, width: w, height: remainingHeight });
-      } else {
-        if (remainingHeight > 0)
-          free.push({
-            x: box.x,
-            y: top ? y + h : box.y,
-            width: box.width,
-            height: remainingHeight,
-          });
-        if (remainingWidth > 0)
-          free.push({ x: left ? x + w : box.x, y, width: remainingWidth, height: h });
-      }
-      output.push({
-        word: word.word,
-        frequency: word.frequency,
-        index: word.index,
-        x: x + w / 2,
-        y: y + h / 2,
-        width: word.width * scale,
-        height: word.height * scale,
-        fontSize: word.fontSize * scale,
-        rotation: word.rotation,
-      });
+      if (!found) return null;
     }
-    // Center the occupied bounds while keeping all original words and measured padding.
-    const left = Math.min(...output.map((word) => word.x - word.width / 2));
-    const right = Math.max(...output.map((word) => word.x + word.width / 2));
-    const top = Math.min(...output.map((word) => word.y - word.height / 2));
-    const bottom = Math.max(...output.map((word) => word.y + word.height / 2));
-    return output
-      .sort((a, b) => a.index - b.index)
-      .map(({ index: _index, ...word }) => ({
-        ...word,
-        x: word.x + (width - left - right) / 2,
-        y: word.y + (height - top - bottom) / 2,
-      }));
+    return output;
   };
   const original = pack(1);
   if (original !== null) return original;
@@ -2168,7 +2174,7 @@ export function layoutWeightedWordCloud(
       'INVALID_SPEC',
       'The complete word cloud cannot fit with this padding; increase its dimensions or reduce padding.',
     );
-  for (let attempt = 0; attempt < 12; attempt += 1) {
+  for (let attempt = 0; attempt < 7; attempt += 1) {
     const scale = (lower + upper) / 2;
     const candidate = pack(scale);
     if (candidate === null) upper = scale;
