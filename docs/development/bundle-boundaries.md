@@ -236,3 +236,21 @@ minified complete runtime at desktop/mobile widths: 150 phrases, browser glyph b
 frequency tooltips, zero compile/layout on SVG restore, inspection zoom, isolated graph nodes,
 and exact edge preservation. The vocabulary is biomedical; test frequencies and connections are
 explicit synthetic layout fixtures, not a clinical dataset.
+
+## 2026-09-06 embedded PNG/JPEG import
+
+Bounded image Scene nodes add literal PNG/JPEG validation, affine geometry, renderer-owned
+image decoding, SVG/Canvas serialization, and asynchronous export readiness. The browser's
+native decoders are used; no image package, remote loader, or hidden runtime chunk is added.
+The default and complete entries share the same Scene/renderer path. Spatial remains independent
+and its minified bytes are unchanged. Required APIs and existing chart families remain present.
+
+| Browser file               |    Raw minified | Gzip level 9, no timestamp | Raw budget |  Headroom |
+| -------------------------- | --------------: | -------------------------: | ---------: | --------: |
+| `graflume.min.js`          | 1,247,042 bytes |              365,378 bytes |   1218 KiB | 190 bytes |
+| `graflume.complete.min.js` | 1,445,431 bytes |              422,480 bytes |   1412 KiB | 457 bytes |
+| `graflume.spatial.min.js`  |   397,648 bytes |              124,022 bytes |    389 KiB | 688 bytes |
+
+The limits are the next whole KiB above measured output. The built-module import-graph checks
+still enforce separate default, complete, and Spatial entry points. Image payload budgets belong
+to each imported scene and do not replace these artifact limits.

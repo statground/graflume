@@ -35,6 +35,8 @@ export interface Renderer {
   /** Apply an inspection-only transform to the complete rendered chart surface. */
   setInspectionView?(transform: InspectionViewTransform): void;
   toDataURL?(type?: string, quality?: number): string;
+  /** Resolve once bounded embedded pixels are decoded; never fetch external resources. */
+  whenReady?(): Promise<void>;
   destroy(): void;
 }
 

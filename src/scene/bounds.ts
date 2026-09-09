@@ -1,3 +1,4 @@
+import { imageNodeBounds } from './image.js';
 import type { Rect, SceneNode, TextNode } from './types.js';
 
 function union(left: Rect | null, right: Rect | null): Rect | null {
@@ -49,6 +50,8 @@ function textBounds(node: TextNode): Rect {
 export function sceneNodeBounds(node: SceneNode): Rect | null {
   if (!node.visible || node.opacity <= 0) return null;
   switch (node.type) {
+    case 'image':
+      return imageNodeBounds(node);
     case 'circle':
       return {
         x: node.cx - node.radius,
@@ -111,6 +114,7 @@ export function unionSceneBounds(nodes: readonly SceneNode[]): Rect | null {
 }
 
 export function nodePaint(node: SceneNode): string | undefined {
+  if (node.type === 'image') return undefined;
   if (node.type === 'rect' || node.type === 'circle' || node.type === 'path') {
     return node.fill ?? node.stroke;
   }

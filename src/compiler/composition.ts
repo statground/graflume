@@ -1305,6 +1305,19 @@ function scopeNode(node: SceneNode, viewId: string, dx: number, dy: number): Sce
               ),
             }),
       };
+    case 'image':
+      return {
+        ...node,
+        ...scoped,
+        transform: [
+          node.transform[0],
+          node.transform[1],
+          node.transform[2],
+          node.transform[3],
+          node.transform[4] + dx,
+          node.transform[5] + dy,
+        ],
+      };
     case 'rect':
       return { ...node, ...scoped, x: node.x + dx, y: node.y + dy };
     case 'circle':

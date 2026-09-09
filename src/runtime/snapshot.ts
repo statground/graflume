@@ -51,7 +51,7 @@ export interface ChartSnapshot {
     readonly coordinates: SnapshotCoordinates;
   })[];
   readonly legend: LegendLayout | null;
-  /** Imported vector scenes have no inferred data model to recompile on resize. */
+  /** Imported scenes have no inferred data model to recompile on resize. */
   readonly importedScene?: boolean;
   readonly state: {
     readonly view: InspectionViewTransform;
@@ -227,7 +227,7 @@ export function captureChartSnapshot(
   return snapshot;
 }
 
-/** Import real vector primitives; callers supply truthful datum/semantic metadata, never bitmap substitutes. */
+/** Import literal scene geometry and embedded pixels; callers supply truthful datum/semantic metadata. */
 export function snapshotFromScene(
   scene: Scene,
   options: { readonly spec?: ChartSpec } = {},
@@ -322,7 +322,7 @@ export function restoreChartSnapshot(input: unknown): {
       normalizeSpec({ ...snapshot.spec, annotations: snapshot.state.annotations });
     // Equality with a literal-only, escaped serializer prevents stored SVG injection.
     if (typeof snapshot.svg !== 'string' || snapshot.svg !== sceneToSVG(snapshot.scene))
-      throw new Error('Snapshot SVG does not match its vector scene.');
+      throw new Error('Snapshot SVG does not match its scene.');
     const result: CompileResult = {
       scene: snapshot.scene,
       spec,

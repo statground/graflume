@@ -1142,6 +1142,7 @@ test('playback keeps its base spec, advances on the core clock, and controls sta
     assert.equal(byControl(renderer.host, 'playback-rate').value, '2');
 
     byAria(renderer.host, 'Download PNG').click();
+    await chart.whenReady();
     assert.equal(renderer.exportCalls, 1);
 
     const fullscreenEvents = [];

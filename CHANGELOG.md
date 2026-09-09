@@ -4,6 +4,12 @@ All notable changes to Graflume will be recorded here.
 
 ## Unreleased
 
+- Preserve bounded embedded PNG/JPEG pixels in SVG imports as native Scene image nodes, with
+  affine transforms, rectangular clips, snapshot restore, and Canvas raster export. Reject
+  external/active/animated sources before decoding. Add `chart.whenReady()` and
+  `toDataURLAsync()`; the PNG control awaits readiness and synchronous export reports pending
+  pixels explicitly. Imported images keep original colors and do not invent data semantics.
+
 - Place weighted and tokenized word clouds in an organic elliptical silhouette,
   with the strongest terms in the center and smaller terms filling the surrounding space.
   Seeded placement, padded collision checks, complete selection fitting, original weights,

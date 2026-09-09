@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><title>Embedded image snapshot and export contract</title>
+  <body>
+    <main id="chart" style="width: 320px; height: 240px"></main>
+    <pre id="report">Running</pre>
+    <script src="../../dist/graflume.complete.global.js"></script>
+    <script>
+      (async () => {
+        const checks = [];
+        const check = (value, label) => {
+          if (!value) throw Error(label);
+          checks.push(label);
+        };
+        const flat = (n) => [n, ...(n.type === 'group' ? n.children.flatMap(flat) : [])];
+        const data = document.createElement('canvas');
+        data.width = 64;
+        data.height = 32;
+        const ctx = data.getContext('2d');
+        ['#e11d48', '#10b981', '#2563eb', '#f59e0b'].forEach((color, i) => {
+          ctx.fillStyle = color;
+          ctx.fillRect((i % 2) * 32, Math.floor(i / 2) * 16, 32, 16);
+        });
+        const png = data.toDataURL('image/png'),
+          jpeg = data.toDataURL('image/jpeg', 0.95);
+        // JPEG EXIF orientation 6 rotates the encoded 64×32 pixels into a 32×64 image.
+        const jpegBinary = atob(jpeg.split(',')[1]);
+        const exif = String.fromCharCode(
+          ...[
+            255, 225, 0, 34, 69, 120, 105, 102, 0, 0, 73, 73, 42, 0, 8, 0, 0, 0, 1, 0, 18, 1, 3, 0,
+            1, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0,
+          ],
+        );
+        const oriented =
+          'data:image/jpeg;base64,' + btoa(jpegBinary.slice(0, 2) + exif + jpegBinary.slice(2));
+        const wrapper = (body) =>
+          `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="320" height="240"><rect width="320" height="240" fill="white"/>${body}</svg>`;
+        const image = (uri, attrs = '') =>
+          `<image x="30" y="40" width="160" height="100" xlink:href="${uri}" ${attrs}/>`;
+        async function pixels(uri) {
+          const img = new Image();
+          img.src = uri;
+          await img.decode();
+          const c = document.createElement('canvas');
+          c.width = 320;
+          c.height = 240;
+          c.getContext('2d').drawImage(img, 0, 0, 320, 240);
+          return c.getContext('2d').getImageData(0, 0, 320, 240).data;
+        }
+        const fixtures = [
+          ['png', image(png, 'preserveAspectRatio="none"')],
+          ['jpeg', image(jpeg, 'preserveAspectRatio="none"')],
+          ['jpeg-exif', image(oriented, 'preserveAspectRatio="xMidYMid meet"')],
+          [
+            'affine',
+            `<g transform="translate(70 0)"><g transform="rotate(21)">${image(png, 'transform="skewX(12)" preserveAspectRatio="none"')}</g></g>`,
+          ],
+          [
+            'clip',
+            `<defs><clipPath id="clip"><rect x="75" y="60" width="60" height="55"/></clipPath></defs><g clip-path="url(#clip)">${image(png, 'preserveAspectRatio="none"')}</g>`,
+          ],
+          [
+            'image-clip',
+            `<defs><clipPath id="clip"><rect x="75" y="60" width="60" height="55"/></clipPath></defs>${image(png, 'clip-path="url(#clip)" preserveAspectRatio="none"')}`,
+          ],
+          [
+            'negative-clip',
+            `<defs><clipPath id="clip"><rect x="75" y="60" width="60" height="55"/></clipPath></defs><g transform="translate(240 0) scale(-1 1)" clip-path="url(#clip)">${image(png, 'preserveAspectRatio="none"')}</g>`,
+          ],
+          ['meet', image(png, 'preserveAspectRatio="xMaxYMax meet"')],
+          ['slice', image(png, 'preserveAspectRatio="xMinYMid slice"')],
+          [
+            'opacity',
+            `<g opacity=".6">${image(png, 'opacity=".5" preserveAspectRatio="none"')}</g>`,
+          ],
+        ];
+        const metrics = [];
+        try {
+          for (const [name, body] of fixtures) {
+            const source = wrapper(body),
+              chart = Graflume.fromSVG('#chart', source, {
+                spec: {
+                  data: [],
+                  mark: 'point',
+                  x: 'x',
+                  y: 'y',
+                  axes: { x: false, y: false },
+                  theme: 'ggplot',
+                  interaction: {
+                    navigation: { minZoom: 1, maxZoom: 4 },
+                    controls: { zoom: true, reset: true, export: true },
+                  },
+                },
+              });
+            let pending = false;
+            try {
+              chart.toDataURL('image/png');
+            } catch (e) {
+              pending = /still decoding/.test(String(e));
+            }
+            check(pending, name + ' synchronous export waits explicitly');
+            const bitmap = await chart.toDataURLAsync('image/png');
+            const actual = await pixels(bitmap),
+              expected = await pixels(
+                'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(source),
+              );
+            let diff = 0,
+              changed = 0;
+            for (let i = 0; i < actual.length; i += 4) {
+              let pixelDiff = 0;
+              for (let j = 0; j < 3; j++) {
+                diff += Math.abs(actual[i + j] - expected[i + j]);
+                pixelDiff += Math.abs(actual[i + j] - expected[i + j]);
+              }
+              if (pixelDiff > 12) changed++;
+            }
+            const mean = diff / (320 * 240 * 3);
+            metrics.push({ name, mean, changed });
+            check(mean < 1.1, name + ' SVG/Canvas mean pixel difference ' + mean);
+            check(changed < 2000, name + ' bounded antialias differences ' + changed);
+            const snapshot = JSON.parse(JSON.stringify(chart.toSnapshot()));
+            check(
+              flat(snapshot.scene.root).filter((n) => n.type === 'image').length === 1,
+              name + ' native image scene',
+            );
+            chart.destroy();
+            const restored = Graflume.restore('#chart', snapshot);
+            let renders = 0;
+            restored.on('render', () => renders++);
+            await restored.whenReady();
+            check(restored.toSVG() === snapshot.svg, name + ' exact saved SVG');
+            check(
+              (await restored.toDataURLAsync('image/png')) === bitmap,
+              name + ' exact restored PNG',
+            );
+            check(renders === 0, name + ' restore no compiler render');
+            restored.zoomBy(1.5);
+            check(restored.toSnapshot().state.view.zoom === 1.5, name + ' zoom saved');
+            restored.destroy();
+          }
+          for (const attrs of [
+            'href="https://example.invalid/a.png"',
+            'href="data:image/svg+xml;base64,PHN2Zy8+"',
+            'href="data:image/png;base64,AAAA"',
+          ]) {
+            let rejected = false;
+            try {
+              Graflume.sceneFromSVG(wrapper('<image width="100" height="100" ' + attrs + '/>'));
+            } catch {
+              rejected = true;
+            }
+            check(rejected, 'unsafe embedded resource rejects ' + attrs.slice(0, 35));
+          }
+          for (const body of [
+            image(png, 'filter="url(#blur)"'),
+            image(png, 'style="filter:blur(2px)"'),
+            image(png, 'style="clip-path:inset(10px)"'),
+            '<g style="filter:blur(2px)">' + image(png) + '</g>',
+            image(png, 'clip-path="url(https://example.invalid/clip.svg#c)"'),
+            `<defs><clipPath id="c" clipPathUnits="objectBoundingBox"><rect width="1" height="1"/></clipPath></defs>${image(png, 'clip-path="url(#c)"')}`,
+          ]) {
+            let rejected = false;
+            try {
+              Graflume.sceneFromSVG(wrapper(body));
+            } catch {
+              rejected = true;
+            }
+            check(rejected, 'unsupported image filter/clip rejects');
+          }
+          const damaged = Uint8Array.from(atob(png.split(',')[1]), (c) => c.charCodeAt(0));
+          for (let i = 8; i < damaged.length - 12;) {
+            const size = new DataView(damaged.buffer).getUint32(i);
+            if (String.fromCharCode(...damaged.slice(i + 4, i + 8)) === 'IDAT') {
+              damaged[i + 8] = 0;
+              damaged[i + 9] = 0;
+              break;
+            }
+            i += size + 12;
+          }
+          const corruptURI = 'data:image/png;base64,' + btoa(String.fromCharCode(...damaged));
+          const corrupt = Graflume.fromSVG('#chart', wrapper(image(corruptURI)));
+          let failed = false;
+          try {
+            await corrupt.whenReady();
+          } catch {
+            failed = true;
+          }
+          check(failed, 'invalid compressed pixels reject readiness');
+          let failedExport = false;
+          try {
+            corrupt.toDataURL('image/png');
+          } catch {
+            failedExport = true;
+          }
+          check(failedExport, 'invalid compressed pixels cannot export blank');
+          corrupt.destroy();
+          const canvasHost = document.createElement('div');
+          document.body.append(canvasHost);
+          const canvasRenderer = new Graflume.CanvasRenderer();
+          canvasRenderer.mount(canvasHost, {
+            width: 320,
+            height: 240,
+            pixelRatio: 1,
+            ariaLabel: 'Embedded canvas pixels',
+          });
+          canvasRenderer.render(
+            Graflume.sceneFromSVG(wrapper(image(png, 'preserveAspectRatio="none"'))),
+          );
+          await canvasRenderer.whenReady();
+          const color = canvasHost
+            .querySelector('canvas')
+            .getContext('2d')
+            .getImageData(60, 60, 1, 1).data;
+          check(
+            color[0] === 225 && color[1] === 29 && color[2] === 72,
+            'Canvas display repaints after asynchronous decode',
+          );
+          canvasRenderer.destroy();
+          canvasHost.remove();
+          const originalBitmap = window.createImageBitmap;
+          window.createImageBitmap = undefined;
+          const fallback = Graflume.fromSVG('#chart', wrapper(image(oriented)));
+          await fallback.whenReady();
+          check(
+            (await fallback.toDataURLAsync('image/png')).startsWith('data:image/png'),
+            'HTML image decoder fallback supports oriented JPEG',
+          );
+          fallback.destroy();
+          window.createImageBitmap = originalBitmap;
+          let release,
+            closed = 0;
+          window.createImageBitmap = () =>
+            new Promise((resolve) => {
+              release = () =>
+                resolve({
+                  width: 64,
+                  height: 32,
+                  close() {
+                    closed++;
+                  },
+                });
+            });
+          const cancelled = Graflume.fromSVG('#chart', wrapper(image(png)));
+          const ready = cancelled.whenReady();
+          await Promise.resolve();
+          cancelled.destroy();
+          release();
+          let destroyed = false;
+          try {
+            await ready;
+          } catch (e) {
+            destroyed = /destroy/.test(String(e));
+          }
+          check(destroyed && closed === 1, 'destroy during image decode disposes and rejects');
+          window.createImageBitmap = originalBitmap;
+          const final = Graflume.fromSVG(
+            '#chart',
+            wrapper(
+              image(png, 'preserveAspectRatio="none"') +
+                '<path d="M20 170 L100 110 L230 170" stroke="#111827" stroke-width="4" fill="none"/>',
+            ),
+            {
+              title: 'Saved raster with vector overlay',
+              spec: {
+                data: [],
+                mark: 'point',
+                x: 'x',
+                y: 'y',
+                axes: { x: false, y: false },
+                theme: 'ggplot',
+                interaction: {
+                  navigation: { maxZoom: 4 },
+                  controls: { zoom: true, reset: true, export: true },
+                },
+              },
+            },
+          );
+          await final.whenReady();
+          window.imageTestChart = final;
+          document.body.dataset.status = 'pass';
+          window.testResults = { checks, metrics };
+          document.querySelector('#report').textContent = JSON.stringify(
+            window.testResults,
+            null,
+            2,
+          );
+        } catch (error) {
+          document.body.dataset.status = 'fail';
+          document.querySelector('#report').textContent =
+            String(error) + '\n' + JSON.stringify({ checks, metrics }, null, 2);
+          throw error;
+        }
+      })();
+    </script>
+  </body>
+</html>

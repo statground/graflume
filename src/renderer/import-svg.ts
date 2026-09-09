@@ -1,4 +1,6 @@
-import type { Scene, SceneNode, GroupNode, DatumReference } from '../scene/types.js';
+import { validateImageNode } from '../scene/image.js';
+import { sceneImages } from './embedded-images.js';
+import type { Scene, SceneNode, GroupNode, DatumReference, ImageNode } from '../scene/types.js';
 
 export interface SVGImportOptions {
   readonly title?: string;
@@ -6,7 +8,7 @@ export interface SVGImportOptions {
   readonly maxPoints?: number;
 }
 
-/** Import bounded R/SVG vector geometry into a Graflume Scene, never live markup. */
+/** Import bounded R/SVG geometry and embedded pixels into a Scene, never live markup. */
 export function sceneFromSVG(source: string, options: SVGImportOptions = {}): Scene {
   if (
     typeof source !== 'string' ||
@@ -102,6 +104,106 @@ export function sceneFromSVG(source: string, options: SVGImportOptions = {}): Sc
     if (![value.x, value.y].every(Number.isFinite)) throw new Error('Invalid SVG geometry');
     return { x: value.x, y: value.y };
   };
+  const clipGroup = (group: GroupNode, node: Element, matrix: DOMMatrix): SceneNode[] => {
+    const rawClip = node.getAttribute('clip-path');
+    const clip = rawClip?.match(/^url\(#([^\s)]+)\)$/)?.[1];
+    if (rawClip && rawClip !== 'none' && !clip) throw new Error('Unsupported SVG clip');
+    if (clip) {
+      const definition = document.getElementById(clip);
+      if (
+        !definition ||
+        definition.localName !== 'clipPath' ||
+        definition.hasAttribute('transform') ||
+        (definition.hasAttribute('clipPathUnits') &&
+          definition.getAttribute('clipPathUnits') !== 'userSpaceOnUse') ||
+        definition.children.length !== 1
+      )
+        throw new Error('Unsupported SVG clip');
+      const rect = definition.querySelector('rect');
+      if (rect) {
+        if (
+          matrix.b ||
+          matrix.c ||
+          rect.hasAttribute('transform') ||
+          Number(rect.getAttribute('rx') || 0) ||
+          Number(rect.getAttribute('ry') || 0)
+        )
+          throw new Error('Rotated or rounded SVG clips are unsupported');
+        const p = point(
+          matrix,
+          Number(rect.getAttribute('x') || 0),
+          Number(rect.getAttribute('y') || 0),
+        );
+        const clipWidth = Number(rect.getAttribute('width')),
+          clipHeight = Number(rect.getAttribute('height'));
+        if (!(clipWidth >= 0 && clipHeight >= 0)) throw new Error('Invalid SVG clip');
+        const q = point(
+          matrix,
+          Number(rect.getAttribute('x') || 0) + clipWidth,
+          Number(rect.getAttribute('y') || 0) + clipHeight,
+        );
+        return [
+          {
+            ...group,
+            clip: {
+              x: Math.min(p.x, q.x),
+              y: Math.min(p.y, q.y),
+              width: Math.abs(q.x - p.x),
+              height: Math.abs(q.y - p.y),
+            },
+          },
+        ];
+      }
+      const path = definition.querySelector('path');
+      if (path?.hasAttribute('transform')) throw new Error('Unsupported SVG clip');
+      const d = path?.getAttribute('d') || '';
+      const sections = d.trim().split('Z');
+      const outline = sections[0] ?? '';
+      const commands = outline.match(/[ML]/g)?.join('');
+      const values = numbers(outline);
+      // Cairo appends an empty moveto at the rectangle origin after closing its clip.
+      const tail = sections[1]?.trim() ?? '';
+      const tailValues = numbers(tail);
+      if (
+        !/^[\s\d.,+eE\-MLZ]+$/.test(d) ||
+        sections.length !== 2 ||
+        (commands !== 'MLLL' && commands !== 'MLLLL') ||
+        (tail !== '' &&
+          (tail.match(/[ML]/g)?.join('') !== 'M' ||
+            tailValues.length !== 2 ||
+            tailValues[0] !== values[0] ||
+            tailValues[1] !== values[1])) ||
+        matrix.b ||
+        matrix.c
+      )
+        throw new Error('Unsupported SVG clip');
+      if (values.length === 10 && values[8] === values[0] && values[9] === values[1])
+        values.splice(8, 2);
+      if (values.length !== 8) throw new Error('Unsupported SVG clip');
+      const xs = [values[0]!, values[2]!, values[4]!, values[6]!],
+        ys = [values[1]!, values[3]!, values[5]!, values[7]!];
+      if (
+        new Set(xs).size !== 2 ||
+        new Set(ys).size !== 2 ||
+        xs.some((x, i) => x !== xs[(i + 1) % 4] && ys[i] !== ys[(i + 1) % 4])
+      )
+        throw new Error('Unsupported SVG clip');
+      const a = point(matrix, Math.min(...xs), Math.min(...ys)),
+        b = point(matrix, Math.max(...xs), Math.max(...ys));
+      return [
+        {
+          ...group,
+          clip: {
+            x: Math.min(a.x, b.x),
+            y: Math.min(a.y, b.y),
+            width: Math.abs(b.x - a.x),
+            height: Math.abs(b.y - a.y),
+          },
+        },
+      ];
+    }
+    return [group];
+  };
   const visit = (
     node: Element,
     parent: DOMMatrix,
@@ -113,12 +215,8 @@ export function sceneFromSVG(source: string, options: SVGImportOptions = {}): Sc
     const nextSeen = new Set(seen);
     nextSeen.add(node);
     const tag = node.localName;
-    if (
-      ['script', 'foreignObject', 'image', 'iframe', 'audio', 'video', 'animate', 'set'].includes(
-        tag,
-      )
-    )
-      throw new Error('Active or raster SVG content is unsupported');
+    if (['script', 'foreignObject', 'iframe', 'audio', 'video', 'animate', 'set'].includes(tag))
+      throw new Error('Active SVG content is unsupported');
     if (['defs', 'style', 'title', 'desc', 'metadata', 'clipPath'].includes(tag)) return [];
     const style = { ...inherited };
     delete style.opacity;
@@ -151,6 +249,19 @@ export function sceneFromSVG(source: string, options: SVGImportOptions = {}): Sc
       }
       const value = (node as SVGElement).style?.getPropertyValue(key) || node.getAttribute(key);
       if (value) style[key] = value;
+    }
+    if (tag === 'image' || node.querySelector('image')) {
+      for (const key of ['filter', 'mask', 'mask-image', 'clip-path', 'transform']) {
+        const inline = (node as SVGElement).style?.getPropertyValue(key);
+        const authored = rules
+          .filter((rule) => node.matches(rule.selector))
+          .map((rule) => rule.style.getPropertyValue(key));
+        if (
+          [inline, ...authored].some((value) => value && value !== 'none') ||
+          (['filter', 'mask'].includes(key) && node.hasAttribute(key))
+        )
+          throw new Error('Unsupported SVG image effect');
+      }
     }
     if (style.display === 'none' || style.visibility === 'hidden') return [];
     let matrix = parent;
@@ -198,6 +309,33 @@ export function sceneFromSVG(source: string, options: SVGImportOptions = {}): Sc
             ? height
             : Math.hypot(width, height) / Math.SQRT2,
       );
+    if (tag === 'image') {
+      if (node.hasAttribute('filter') || node.hasAttribute('mask'))
+        throw new Error('Filtered SVG images are unsupported');
+      const href =
+        node.getAttribute('href') ||
+        node.getAttributeNS('http://www.w3.org/1999/xlink', 'href') ||
+        '';
+      let aspect = (node.getAttribute('preserveAspectRatio') || 'xMidYMid meet')
+        .trim()
+        .replace(/\s+/g, ' ');
+      if (/^x(?:Min|Mid|Max)Y(?:Min|Mid|Max)$/.test(aspect)) aspect += ' meet';
+      const image: ImageNode = {
+        ...common,
+        type: 'image',
+        dataURI: href.replace(/[\t\r\n ]/g, ''),
+        x: num('x'),
+        y: num('y'),
+        width: num('width'),
+        height: num('height'),
+        transform: [matrix.a, matrix.b, matrix.c, matrix.d, matrix.e, matrix.f],
+        preserveAspectRatio: aspect,
+      };
+      validateImageNode(image);
+      if (node.hasAttribute('clip-path'))
+        return clipGroup({ ...base(), type: 'group', children: [image] }, node, matrix);
+      return [image];
+    }
     if (tag === 'use') {
       const href =
         node.getAttribute('href') || node.getAttributeNS('http://www.w3.org/1999/xlink', 'href');
@@ -218,76 +356,7 @@ export function sceneFromSVG(source: string, options: SVGImportOptions = {}): Sc
         visit(child, matrix, style, nextSeen, datum),
       );
       const group: GroupNode = { ...common, type: 'group', children };
-      const clip = node.getAttribute('clip-path')?.match(/^url\(#([^\s)]+)\)$/)?.[1];
-      if (clip) {
-        const definition = document.getElementById(clip);
-        const rect = definition?.querySelector('rect');
-        if (rect) {
-          if (matrix.b || matrix.c) throw new Error('Rotated SVG clips are unsupported');
-          const p = point(
-            matrix,
-            Number(rect.getAttribute('x') || 0),
-            Number(rect.getAttribute('y') || 0),
-          );
-          return [
-            {
-              ...group,
-              clip: {
-                x: p.x,
-                y: p.y,
-                width: Number(rect.getAttribute('width')) * Math.abs(matrix.a),
-                height: Number(rect.getAttribute('height')) * Math.abs(matrix.d),
-              },
-            },
-          ];
-        }
-        const d = definition?.querySelector('path')?.getAttribute('d') || '';
-        const sections = d.trim().split('Z');
-        const outline = sections[0] ?? '';
-        const commands = outline.match(/[ML]/g)?.join('');
-        const values = numbers(outline);
-        // Cairo appends an empty moveto at the rectangle origin after closing its clip.
-        const tail = sections[1]?.trim() ?? '';
-        const tailValues = numbers(tail);
-        if (
-          !/^[\s\d.,+eE\-MLZ]+$/.test(d) ||
-          sections.length !== 2 ||
-          (commands !== 'MLLL' && commands !== 'MLLLL') ||
-          (tail !== '' &&
-            (tail.match(/[ML]/g)?.join('') !== 'M' ||
-              tailValues.length !== 2 ||
-              tailValues[0] !== values[0] ||
-              tailValues[1] !== values[1])) ||
-          matrix.b ||
-          matrix.c
-        )
-          throw new Error('Unsupported SVG clip');
-        if (values.length === 10 && values[8] === values[0] && values[9] === values[1])
-          values.splice(8, 2);
-        if (values.length !== 8) throw new Error('Unsupported SVG clip');
-        const xs = [values[0]!, values[2]!, values[4]!, values[6]!],
-          ys = [values[1]!, values[3]!, values[5]!, values[7]!];
-        if (
-          new Set(xs).size !== 2 ||
-          new Set(ys).size !== 2 ||
-          xs.some((x, i) => x !== xs[(i + 1) % 4] && ys[i] !== ys[(i + 1) % 4])
-        )
-          throw new Error('Unsupported SVG clip');
-        const a = point(matrix, Math.min(...xs), Math.min(...ys)),
-          b = point(matrix, Math.max(...xs), Math.max(...ys));
-        return [
-          {
-            ...group,
-            clip: {
-              x: Math.min(a.x, b.x),
-              y: Math.min(a.y, b.y),
-              width: Math.abs(b.x - a.x),
-              height: Math.abs(b.y - a.y),
-            },
-          },
-        ];
-      }
-      return [group];
+      return clipGroup(group, node, matrix);
     }
     if (tag === 'text') {
       const p = point(matrix, num('x'), num('y'));
@@ -425,7 +494,7 @@ export function sceneFromSVG(source: string, options: SVGImportOptions = {}): Sc
   };
   const matrix = new DOMMatrix().translate(-(viewBox[0] || 0), -(viewBox[1] || 0));
   const nodes = visit(root, matrix, {}, new Set());
-  return {
+  const scene: Scene = {
     width,
     height,
     background: '#fff',
@@ -441,4 +510,6 @@ export function sceneFromSVG(source: string, options: SVGImportOptions = {}): Sc
       hitTestingEnabled: true,
     },
   };
+  sceneImages(scene.root);
+  return scene;
 }

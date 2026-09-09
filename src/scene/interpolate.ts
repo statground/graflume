@@ -1,5 +1,6 @@
 import type {
   CircleNode,
+  ImageNode,
   GroupNode,
   LineNode,
   PathNode,
@@ -237,6 +238,11 @@ function samePathTopology(from: PathNode, to: PathNode): boolean {
 function nodeCompatible(from: SceneNode, to: SceneNode): boolean {
   if (from.type !== to.type) return false;
   switch (to.type) {
+    case 'image':
+      return (
+        (from as ImageNode).dataURI === to.dataURI &&
+        (from as ImageNode).preserveAspectRatio === to.preserveAspectRatio
+      );
     case 'group': {
       const previous = from as GroupNode;
       return (previous.clip === undefined) === (to.clip === undefined);
@@ -295,6 +301,20 @@ function interpolateCompatibleNode(
   options: SceneInterpolationOptions,
 ): SceneNode {
   switch (to.type) {
+    case 'image': {
+      const p = from as ImageNode;
+      return {
+        ...to,
+        ...baseTransition(p, to, progress),
+        x: mix(p.x, to.x, progress),
+        y: mix(p.y, to.y, progress),
+        width: mix(p.width, to.width, progress),
+        height: mix(p.height, to.height, progress),
+        transform: to.transform.map((v, i) =>
+          mix(p.transform[i]!, v, progress),
+        ) as unknown as ImageNode['transform'],
+      };
+    }
     case 'group': {
       const previous = from as GroupNode;
       return {

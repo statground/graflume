@@ -156,3 +156,12 @@ This mode is intended for bounded matrices and raster previews. Valid rows are s
 ## Verification
 
 The catalog fixture asserts one interactive RGB Scene cell per valid row and generates the committed SVG preview from compiled output.
+
+## Import an existing raster drawing
+
+For a completed SVG containing embedded PNG/JPEG pixels, use the
+[SVG image import and readiness API](./interactions.md#embedded-pngjpeg-pixels-in-imported-svg).
+It preserves actual captured pixels, transforms, clips, and vector overlays in a native Scene
+image node and portable snapshot. The `image()` chart family above continues to use structured
+color rows, so it retains true per-cell data and tooltips. Importing a bitmap does not recover
+those source values.

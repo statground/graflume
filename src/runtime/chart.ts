@@ -4278,6 +4278,23 @@ export class Chart {
     return this.#renderer.toDataURL(type, quality);
   }
 
+  /** Wait for embedded image resources without recompiling or rerunning analysis. */
+  async whenReady(): Promise<this> {
+    this.#assertAlive();
+    let renderer;
+    do {
+      renderer = this.#renderer;
+      await renderer?.whenReady?.();
+      this.#assertAlive();
+    } while (renderer !== this.#renderer);
+    return this;
+  }
+
+  async toDataURLAsync(type?: string, quality?: number): Promise<string> {
+    await this.whenReady();
+    return this.toDataURL(type, quality);
+  }
+
   destroy(): void {
     if (this.#destroyed) return;
     this.#destroyTableEditor();
@@ -7311,11 +7328,11 @@ export class Chart {
     this.#selectionLiveHost = null;
   }
 
-  #exportPng(): void {
+  async #exportPng(): Promise<void> {
     if (typeof document === 'undefined') return;
     try {
       const link = document.createElement('a');
-      link.href = this.toDataURL('image/png');
+      link.href = await this.toDataURLAsync('image/png');
       link.download = 'graflume-chart.png';
       link.hidden = true;
       document.body.append(link);

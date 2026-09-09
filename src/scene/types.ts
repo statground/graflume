@@ -195,7 +195,20 @@ export interface TextNode extends BaseNode {
   readonly rotation: number;
 }
 
-export type SceneNode = GroupNode | LineNode | PathNode | RectNode | CircleNode | TextNode;
+/** Bounded embedded pixels, with an affine transform from local image coordinates to Scene coordinates. */
+export interface ImageNode extends BaseNode {
+  readonly type: 'image';
+  readonly dataURI: string;
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+  readonly transform: readonly [number, number, number, number, number, number];
+  readonly preserveAspectRatio: string;
+}
+
+export type SceneNode =
+  GroupNode | LineNode | PathNode | RectNode | CircleNode | TextNode | ImageNode;
 
 /** Renderer-neutral label geometry used by pointer, keyboard, and host authoring APIs. */
 export interface MarkLabelSceneEntry {

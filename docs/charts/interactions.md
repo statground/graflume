@@ -2,7 +2,7 @@
 
 ## Save and reopen a completed chart
 
-The built-in `svg` renderer uses the same compiled vector Scene as Canvas. A completed chart
+The built-in `svg` renderer uses the same compiled Scene as Canvas. A completed chart
 can be saved as JSON and reopened with its existing geometry. Restore does not compile marks,
 execute data transforms, or calculate layout. It inserts verified SVG and reconnects the normal
 tooltip, legend, accessibility, inspection zoom, reset, fullscreen, and export controls.
@@ -41,37 +41,37 @@ reopened.setData([
 ```
 
 Storage belongs to the host application. `graflume.chart-snapshot.v1` includes the authored and
-effective specifications, vector Scene, semantic/hit metadata, resolved coordinate scales,
+effective specifications, Scene, semantic/hit metadata, resolved coordinate scales,
 theme, legend layout, and interaction state. Date values become ISO strings; declare temporal
 field types when round-tripping dates. Typed columns become portable arrays. Snapshot APIs
 reject functions, accessors, unsafe object keys, cycles, non-finite numbers, unknown versions,
 and payloads above 32 MiB, two million JSON values, depth 64, or 100,000 Scene nodes. Scene
 dimensions are limited to 32,768 pixels. Restore compares stored SVG to canonical escaped
-output from its Scene; arbitrary scripts, event attributes, external paint URLs, image assets,
-and provider map tiles cannot enter the SVG surface. Failed validation leaves the target untouched.
+output from its Scene; arbitrary scripts, event attributes, external paint URLs, externally loaded images,
+and provider map tiles cannot enter the SVG surface. Bounded literal PNG/JPEG data URIs use the
+validated embedded-image path below. Failed validation leaves the target untouched.
 
 Inspection transforms and hidden legend items are retained, as are authored annotation,
 selection, and domain navigation state. Playback resumes paused, including under reduced
 motion. A same-size ResizeObserver notification does not recompile. Restoring into a narrower
 container fits the initial SVG to both available width and height, preserving its source aspect
 ratio and hit coordinates before any new layout. Explicit `create.width` / `create.height` or
-`resize(width, height)` dimensions bound imported vectors without stretching them. Later responsive resizing or explicit
-data/settings/legend changes may compile a new chart. Snapshot SVG exports the full vector
-scene; `toDataURL('image/png')` and the PNG button rasterize only when explicitly requested.
+`resize(width, height)` dimensions bound imported drawings without stretching them. Later responsive resizing or explicit
+data/settings/legend changes may compile a new chart. Snapshot SVG exports the full scene, including its embedded pixels; `toDataURL('image/png')` and the PNG button rasterize only when explicitly requested.
 
-`snapshotFromScene(scene, { spec? })` accepts actual `group`, `line`, `path`, `rect`, `circle`, and
-`text` primitives from an external vector adapter. It supplies the same validated snapshot
+`snapshotFromScene(scene, { spec? })` accepts actual `group`, `line`, `path`, `rect`, `circle`,
+`text`, and validated `image` primitives from an external adapter. It supplies the same validated snapshot
 contract and preserves imported geometry on resize. An adapter may provide truthful datum and
 semantic metadata for tooltips, but no data domains or statistical values are inferred from
 pixels. Imported scenes support inspection and export; Cartesian domain navigation, analytic
 selection, and playback require a structured data model. To change an imported drawing, the
-adapter supplies a new Scene. This API does not parse arbitrary SVG or substitute an embedded
-bitmap for a chart.
+adapter supplies a new Scene. This API does not infer chart values or data domains from an image.
 
 In browsers, `fromSVG(target, svgText, { title?, maxNodes?, maxPoints?, spec?, create? })`
-combines the bounded `sceneFromSVG()` vector importer with `snapshotFromScene()` and `restore()`.
+combines the bounded `sceneFromSVG()` importer with `snapshotFromScene()` and `restore()`.
 It accepts supported SVG geometry and internal glyph references, never mounts the supplied
-markup, and rejects raster or active content and external references. Curves become bounded
+markup, and rejects active content and external references. Embedded PNG/JPEG image elements
+preserve actual raster pixels alongside vector geometry. Curves become bounded
 vector polylines; this is an SVG geometry adapter, not a complete SVG/CSS engine or an R
 statistical-data extractor. Preserve R calculations separately and prefer structured ChartSpec
 data for domain controls, exact statistical tooltips, or theme-driven recomputation.
@@ -79,13 +79,52 @@ data for domain controls, exact statistical tooltips, or theme-driven recomputat
 ```js
 import { fromSVG } from 'graflume/complete';
 
-const imported = fromSVG('#chart', savedVectorSVG, { title: 'Study results' });
+const imported = fromSVG('#chart', savedSVG, { title: 'Study results' });
 const snapshot = imported.toSnapshot();
 imported.on('click', ({ hit }) => {
   // Existing SVG data-id values are available to a host such as Shiny.
   if (hit?.datum.id) console.log(hit.datum.id);
 });
 ```
+
+### Embedded PNG/JPEG pixels in imported SVG
+
+Use `fromSVG()` for an existing drawing that contains raster content, such as an R `geom_raster`
+or a captured map basemap with vector overlays. Graflume imports each accepted `<image>` as a
+native Scene image node, preserving its affine transform, opacity, rectangular clip, and
+`preserveAspectRatio` alignment (`none`, `meet`, or `slice`). SVG export and JSON snapshot restore
+retain the literal pixel bytes. Canvas rendering and PNG/JPEG/WebP export decode the same bytes;
+no remote image request or statistical computation occurs.
+
+```js
+const imported = fromSVG('#chart', savedSVGWithEmbeddedPNG);
+const saved = imported.toSnapshot(); // Portable JSON is available immediately.
+await imported.whenReady(); // Wait only for bounded local image decoding.
+const png = await imported.toDataURLAsync('image/png');
+// After readiness, synchronous imported.toDataURL('image/png') is also safe.
+```
+
+`whenReady()` returns the chart after its current image resources are decoded. It rejects a
+corrupt image or a chart destroyed during decoding. The built-in PNG button uses the same async
+path. Synchronous raster export before decoding completes throws an explicit pending-resource
+error, so it cannot silently save missing pixels. SVG export does not require decoding.
+
+Only literal `data:image/png;base64,...` and `data:image/jpeg;base64,...` are accepted. Binary
+signatures and dimensions are checked before browser decoding: at most 4 MiB, 8 million pixels,
+and 8,192 pixels per dimension per image; 64 image nodes, 8 MiB of image bytes (including repeated occurrences), and
+16 million unique decoded pixels per scene. Repeated image nodes share decoded resources within
+one renderer, and resources are released on replacement or destruction. PNG animation and compressed ancillary metadata (`iCCP`, `zTXt`, `iTXt`), SVG data
+URIs, external image URLs, filters, masks, rounded/rotated clips, and object-bounding-box clip
+units are rejected. Existing snapshot limits also apply. A decoder failure remains an explicit
+error, with no alternate network fetch.
+
+A theme styles the chart controls and authored vector geometry; it does not recolor already
+captured image pixels. Raster content has no inferred per-pixel tooltips, selection values, or
+statistical data. Source-provided image `data-id` metadata can identify the image as a whole.
+ChartSpec 0.1 is unchanged. Scene image nodes are additive to `graflume.chart-snapshot.v1`;
+engines built before embedded-image support reject such snapshots and should be upgraded before
+opening them. The executable [browser contract](../../tests/browser/embedded-images.html) checks
+PNG/JPEG pixels, affine geometry, clips, save/restore, cancellation, and async raster export.
 
 Graflume keeps interaction portable by separating the chart specification from the browser controls that operate it. The built-in Canvas renderer supports legends, static highlights, point and domain-geometry selection, text-only callouts, reusable automatic mark labels with direct authoring, opt-in inspection or data-domain navigation, reset, fullscreen, PNG export, and discrete playback. The same contract is available to every one of the 41 chart families only where its coordinate semantics are real; unsupported scale and gesture combinations fail validation instead of falling back silently.
 

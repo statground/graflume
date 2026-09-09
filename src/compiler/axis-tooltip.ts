@@ -1,3 +1,4 @@
+import { imageNodeBounds } from '../scene/image.js';
 import { strideSampleIndices } from '../data/sample.js';
 import type { AxisTooltipTarget } from '../interaction/axis-hit-test.js';
 import type { Scale } from '../scale/types.js';
@@ -44,6 +45,10 @@ function anchor(node: Exclude<SceneNode, { readonly type: 'group' }>): {
   readonly y: number;
 } | null {
   switch (node.type) {
+    case 'image': {
+      const b = imageNodeBounds(node);
+      return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+    }
     case 'circle':
       return { x: node.cx, y: node.cy };
     case 'rect':
@@ -61,6 +66,8 @@ function anchor(node: Exclude<SceneNode, { readonly type: 'group' }>): {
 
 function bounds(node: Exclude<SceneNode, { readonly type: 'group' }>): Rect {
   switch (node.type) {
+    case 'image':
+      return imageNodeBounds(node);
     case 'circle':
       return {
         x: node.cx - node.radius,

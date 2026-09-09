@@ -7,7 +7,9 @@ import type {
   Scene,
   SceneNode,
   TextNode,
+  ImageNode,
 } from '../scene/types.js';
+import { EmbeddedImages } from './embedded-images.js';
 import {
   fetchMapTile,
   MapTileManager,
@@ -164,6 +166,14 @@ export class CanvasRenderer implements Renderer {
   #visibleTileKeys = new Set<string>();
   #lastScene: Scene | null = null;
   #destroyed = false;
+  readonly #images: EmbeddedImages;
+  readonly #ownsImages: boolean;
+  #unsubscribeImages: (() => void) | null = null;
+
+  constructor(images?: EmbeddedImages) {
+    this.#images = images ?? new EmbeddedImages();
+    this.#ownsImages = images === undefined;
+  }
 
   mount(target: HTMLElement, options: RendererMountOptions): void {
     if (this.#root !== null) this.destroy();
@@ -195,6 +205,9 @@ export class CanvasRenderer implements Renderer {
     this.#root = root;
     this.#canvas = canvas;
     this.#context = context;
+    this.#unsubscribeImages = this.#images.subscribe(() => {
+      if (!this.#destroyed && this.#lastScene) this.#paint(this.#lastScene);
+    });
     this.resize(options.width, options.height, options.pixelRatio);
   }
 
@@ -214,6 +227,7 @@ export class CanvasRenderer implements Renderer {
     const context = this.#context;
     if (context === null) return;
     this.#lastScene = scene;
+    this.#images.reconcile(scene.root);
     this.#reconcileProviderTiles(scene.root);
     this.#paint(scene);
   }
@@ -252,7 +266,12 @@ export class CanvasRenderer implements Renderer {
 
   toDataURL(type = 'image/png', quality?: number): string {
     if (this.#canvas === null) throw new Error('Renderer is not mounted.');
+    this.#images.assertReady();
     return this.#canvas.toDataURL(type, quality);
+  }
+
+  whenReady(): Promise<void> {
+    return this.#images.whenReady();
   }
 
   /** Observable provider state for diagnostics and deterministic host readiness checks. */
@@ -267,6 +286,9 @@ export class CanvasRenderer implements Renderer {
   }
 
   destroy(): void {
+    this.#unsubscribeImages?.();
+    this.#unsubscribeImages = null;
+    if (this.#ownsImages) this.#images.destroy();
     this.#destroyed = true;
     this.#tileGeneration += 1;
     for (const state of this.#tileImages.values()) {
@@ -315,9 +337,40 @@ export class CanvasRenderer implements Renderer {
       case 'text':
         this.#drawText(context, node);
         break;
+      case 'image':
+        this.#drawImage(context, node);
+        break;
     }
 
     context.restore();
+  }
+
+  #drawImage(context: CanvasRenderingContext2D, node: ImageNode): void {
+    const image = this.#images.get(node.dataURI);
+    if (!image) return;
+    context.transform(...node.transform);
+    let { x, y, width, height } = node;
+    if (node.preserveAspectRatio !== 'none') {
+      const info = this.#images.info(node.dataURI)!;
+      const [align, mode] = node.preserveAspectRatio.split(' ');
+      const scale = (mode === 'slice' ? Math.max : Math.min)(
+        width / info.width,
+        height / info.height,
+      );
+      const drawnWidth = info.width * scale,
+        drawnHeight = info.height * scale;
+      const factor = (value: string): number => (value === 'Min' ? 0 : value === 'Mid' ? 0.5 : 1);
+      if (mode === 'slice') {
+        context.beginPath();
+        context.rect(x, y, width, height);
+        context.clip();
+      }
+      x += (width - drawnWidth) * factor(align!.slice(1, 4));
+      y += (height - drawnHeight) * factor(align!.slice(5, 8));
+      width = drawnWidth;
+      height = drawnHeight;
+    }
+    context.drawImage(image, x, y, width, height);
   }
 
   #drawGroup(context: CanvasRenderingContext2D, node: GroupNode): void {

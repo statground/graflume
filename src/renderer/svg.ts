@@ -1,6 +1,7 @@
 import { GraflumeError } from '../core/errors.js';
 import type { Scene, SceneNode } from '../scene/types.js';
 import { CanvasRenderer } from './canvas.js';
+import { EmbeddedImages, sceneImages } from './embedded-images.js';
 import type {
   Renderer,
   RendererFactory,
@@ -50,8 +51,9 @@ function attributes(values: Record<string, unknown>): string {
     .join('');
 }
 
-/** Deterministic, resource-free SVG from actual compiled vector primitives. */
+/** Deterministic SVG containing literal scene geometry and bounded embedded PNG/JPEG pixels. */
 export function sceneToSVG(scene: Scene): string {
+  sceneImages(scene.root);
   let hash = 2166136261;
   for (const char of JSON.stringify(scene.root))
     hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
@@ -76,6 +78,9 @@ export function sceneToSVG(scene: Scene): string {
         .sort((a, b) => a.zIndex - b.zIndex)
         .map((child) => visit(child, depth + 1))
         .join('')}</g>`;
+    }
+    if (node.type === 'image') {
+      return `<image${attributes({ ...common, x: number(node.x), y: number(node.y), width: number(node.width), height: number(node.height), href: node.dataURI, preserveAspectRatio: node.preserveAspectRatio, transform: `matrix(${node.transform.map(number).join(' ')})` })}/>`;
     }
     if (node.type === 'text') {
       const anchor =
@@ -140,6 +145,7 @@ export class SVGRenderer implements Renderer {
   #pixelRatio = 1;
   #width = 1;
   #height = 1;
+  readonly #images = new EmbeddedImages();
   mount(target: HTMLElement, options: RendererMountOptions): void {
     this.#host = target.ownerDocument.createElement('div');
     this.#host.style.cssText = 'position:relative;max-width:100%;overflow:hidden;';
@@ -173,9 +179,10 @@ export class SVGRenderer implements Renderer {
   /** Called only after snapshot canonical-SVG verification. */
   restore(scene: Scene, svg: string): void {
     if (svg !== sceneToSVG(scene))
-      throw new GraflumeError('INVALID_SPEC', 'SVG must match its literal vector scene.');
+      throw new GraflumeError('INVALID_SPEC', 'SVG must match its literal scene.');
     this.#scene = scene;
     this.#svg = svg;
+    this.#images.reconcile(scene.root);
     if (this.#surface) this.#surface.innerHTML = svg;
     this.setInspectionView(this.#view);
   }
@@ -200,7 +207,8 @@ export class SVGRenderer implements Renderer {
       return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(this.#svg)}`;
     if (this.#scene === null || this.#host === null)
       throw new GraflumeError('UNSUPPORTED_RENDERER', 'SVG surface has no rendered scene.');
-    const renderer = new CanvasRenderer();
+    this.#images.assertReady();
+    const renderer = new CanvasRenderer(this.#images);
     try {
       renderer.mount(this.#host.ownerDocument.createElement('div'), {
         width: this.#scene.width,
@@ -215,7 +223,11 @@ export class SVGRenderer implements Renderer {
       renderer.destroy();
     }
   }
+  whenReady(): Promise<void> {
+    return this.#images.whenReady();
+  }
   destroy(): void {
+    this.#images.destroy();
     this.#host?.remove();
     this.#host = null;
     this.#surface = null;

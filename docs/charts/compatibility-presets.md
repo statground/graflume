@@ -8,6 +8,8 @@ The two function-free adapter names are documented separately in [Adapters](./ad
 
 All portable vector families also support the built-in `svg` renderer and
 [completed-chart snapshot restore](./interactions.md#save-and-reopen-a-completed-chart).
+Imported SVG also preserves bounded embedded PNG/JPEG pixels through native image Scene nodes,
+including async raster export; see [embedded-image limits](./interactions.md#embedded-pngjpeg-pixels-in-imported-svg).
 The versioned snapshot contract is separate from ChartSpec 0.1; externally loaded map tiles
 and spatial GPU surfaces are not represented as portable SVG snapshots.
 

@@ -208,6 +208,20 @@ function textDistance(node: TextNode, x: number, y: number): number {
 
 function nodeDistance(node: SceneNode, x: number, y: number): number {
   switch (node.type) {
+    case 'image': {
+      const [a, b, c, d, e, f] = node.transform;
+      const corners = [
+        [node.x, node.y],
+        [node.x + node.width, node.y],
+        [node.x + node.width, node.y + node.height],
+        [node.x, node.y + node.height],
+      ].map(([px, py]) => ({ x: a * px! + c * py! + e, y: b * px! + d * py! + f }));
+      return pathDistance(
+        { ...node, type: 'path', points: corners, closed: true, lineWidth: 0 },
+        x,
+        y,
+      );
+    }
     case 'circle':
       return Math.max(0, Math.hypot(x - node.cx, y - node.cy) - node.radius);
     case 'rect': {

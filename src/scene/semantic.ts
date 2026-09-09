@@ -1,3 +1,4 @@
+import { imageNodeBounds } from './image.js';
 import type { LayerData } from '../compiler/domain.js';
 import {
   formatTemporalValue,
@@ -155,6 +156,8 @@ function intersectBounds(bounds: Rect, clip: Rect): Rect {
 
 function nodeBounds(node: Exclude<SceneNode, { readonly type: 'group' }>): Rect {
   switch (node.type) {
+    case 'image':
+      return imageNodeBounds(node);
     case 'circle':
       return {
         x: node.cx - node.radius - node.lineWidth / 2,
