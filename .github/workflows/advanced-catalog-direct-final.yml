@@ -333,7 +333,7 @@ jobs:
           gh run watch "$run_id" --repo statground/graflume --exit-status
 
       - name: Upload final evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: advanced-chart-catalog-direct-final-evidence
           path: |
