@@ -197,7 +197,7 @@ jobs:
           PY
 
       - name: Set up Node.js 22
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v7.0.0
         with:
           node-version: 22
           cache: npm
@@ -255,7 +255,7 @@ jobs:
           PY
 
       - name: Validate exact final tree on Node.js 20
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v7.0.0
         with:
           node-version: 20
           cache: npm
@@ -268,7 +268,7 @@ jobs:
           npm run build
 
       - name: Validate exact final tree on Node.js 22
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v7.0.0
         with:
           node-version: 22
           cache: npm
@@ -285,7 +285,7 @@ jobs:
           git diff --check
 
       - name: Validate exact final tree on Node.js 24
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v7.0.0
         with:
           node-version: 24
           cache: npm
