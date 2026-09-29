@@ -22,7 +22,14 @@ import { GraflumeError } from '../core/errors.js';
 import { EventEmitter } from '../core/events.js';
 import { DataTable } from '../data/table.js';
 import { executeTransformsWithNamedLineage } from '../data/dataflow.js';
-import { moveTableCell, nextPieSlice } from '../data/family-layouts.js';
+import {
+  moveTableCell,
+  nextPieSlice,
+  resolveTableMerges,
+  type ResolvedTableMerge,
+  type TableMerge,
+  type TableMergeRepeat,
+} from '../data/family-layouts.js';
 import {
   IncrementalDataStore,
   incrementalContractsMatch,
@@ -211,22 +218,35 @@ import type { RuntimeRegistry } from './registry.js';
 import { RenderScheduler } from './scheduler.js';
 import {
   TableDataHistory,
+  cloneTableCellRange,
   cloneTableDataValue,
   cloneTableRows,
+  normalizeTableCellRange,
   parseTableEditorValue,
+  parseTableTSV,
+  parseTableTSVEditorValue,
   tableCSV,
+  tableCellRangeEqual,
   tableColumnEditingForValue,
   tableDataValuesEqual,
   tableEditingConfig,
   tableJSON,
+  tableTSV,
   tableViewData,
   validateTableCellValue,
+  type TableBatchEdit,
+  type TableBatchChangeEdit,
+  type TableBatchChangeReason,
+  type TableCellPosition,
+  type TableCellRange,
   type TableCellTarget,
   type TableColumnEditing,
   type TableDataMode,
   type TableDataTransition,
   type TableEditChangeReason,
   type TableEditingConfig,
+  type TablePasteReason,
+  type TablePasteResult,
   type TableViewData,
 } from './table-edit.js';
 
@@ -475,7 +495,7 @@ export type ChartFamilyFocusState =
 export interface ChartFamilyFocusChangeEvent {
   readonly chart: Chart;
   readonly state: ChartFamilyFocusState | null;
-  readonly reason: 'pointer' | 'keyboard' | 'programmatic' | 'clear' | 'spec';
+  readonly reason: 'pointer' | 'keyboard' | 'programmatic' | 'reset' | 'clear' | 'spec';
 }
 
 export interface ChartTableChangeEvent {
@@ -489,11 +509,31 @@ export interface ChartTableEditChangeEvent {
   readonly chart: Chart;
   readonly layerId: string;
   readonly row: number;
+  readonly sourceRowIndex: number | null;
   readonly field: string;
   readonly previousValue: DataValue;
   readonly newValue: DataValue;
   readonly valid: boolean;
   readonly reason: TableEditChangeReason;
+}
+
+export interface ChartTableRangeChangeEvent {
+  readonly chart: Chart;
+  readonly layerId: string;
+  readonly range: TableCellRange | null;
+  readonly reason: 'pointer' | 'keyboard' | 'programmatic' | 'reset' | 'clear' | 'spec';
+}
+
+export interface ChartTablePasteEvent extends TablePasteResult {
+  readonly chart: Chart;
+  readonly layerId: string;
+}
+
+export interface ChartTableBatchChangeEvent {
+  readonly chart: Chart;
+  readonly layerId: string;
+  readonly reason: TableBatchChangeReason;
+  readonly edits: readonly TableBatchChangeEdit[];
 }
 
 export interface ChartNetworkChangeEvent {
@@ -566,6 +606,9 @@ export interface ChartEventMap {
   readonly familyfocuschange: ChartFamilyFocusChangeEvent;
   readonly tablechange: ChartTableChangeEvent;
   readonly tableeditchange: ChartTableEditChangeEvent;
+  readonly tablerangechange: ChartTableRangeChangeEvent;
+  readonly tablepaste: ChartTablePasteEvent;
+  readonly tablebatchchange: ChartTableBatchChangeEvent;
   readonly networkchange: ChartNetworkChangeEvent;
   readonly flowchange: ChartFlowChangeEvent;
   readonly navigatorchange: ChartNavigatorChangeEvent;
@@ -859,6 +902,31 @@ function cloneTableRuntimeState(state: ChartTableRuntimeState): ChartTableRuntim
   };
 }
 
+function cloneTableBatchEdit(edit: TableBatchEdit): TableBatchEdit {
+  return {
+    ...edit,
+    previousValue: cloneTableDataValue(edit.previousValue),
+    newValue: cloneTableDataValue(edit.newValue),
+  };
+}
+
+function cloneTableBatchChangeEdit(edit: TableBatchChangeEdit): TableBatchChangeEdit {
+  return {
+    ...edit,
+    previousValue: cloneTableDataValue(edit.previousValue),
+    newValue: cloneTableDataValue(edit.newValue),
+  };
+}
+
+function cloneTablePasteResult(result: TablePasteResult): TablePasteResult {
+  return {
+    applied: result.applied,
+    reason: result.reason,
+    range: result.range === null ? null : cloneTableCellRange(result.range),
+    edits: result.edits.map(cloneTableBatchEdit),
+  };
+}
+
 function cloneNetworkRuntimeState(state: ChartNetworkRuntimeState): ChartNetworkRuntimeState {
   return {
     positions: Object.fromEntries(
@@ -1047,6 +1115,7 @@ export class Chart {
   #markLabelGesture: MarkLabelPointerGesture | null = null;
   readonly #tableRuntime = new Map<string, ChartTableRuntimeState>();
   readonly #tableDataHistory = new Map<string, TableDataHistory>();
+  readonly #tableRanges = new Map<string, TableCellRange>();
   #tableEditor: ActiveTableEditor | null = null;
   #preserveTableEditor = false;
   readonly #networkRuntime = new Map<string, ChartNetworkRuntimeState>();
@@ -1132,6 +1201,14 @@ export class Chart {
 
   readonly #keyDownListener = (event: Event): void => {
     if (event instanceof KeyboardEvent) this.#handleKeyDown(event);
+  };
+
+  readonly #copyListener = (event: Event): void => {
+    this.#handleTableCopy(event as ClipboardEvent);
+  };
+
+  readonly #pasteListener = (event: Event): void => {
+    this.#handleTablePaste(event as ClipboardEvent);
   };
 
   readonly #visibilityListener = (): void => {
@@ -1456,71 +1533,53 @@ export class Chart {
   }
 
   focusTableCell(layerId: string, row: number, column: number): this {
-    this.#assertAlive();
-    if (!Number.isInteger(row) || row < 0 || !Number.isInteger(column) || column < 0) {
-      throw new GraflumeError(
-        'INVALID_SPEC',
-        'Table cell row and column must be non-negative integers.',
-      );
-    }
-    const entries = this.#familyEntries('table-cell').filter(
-      (candidate) => candidate.layerId === layerId,
-    );
-    const first = entries[0]?.familyInteraction;
-    if (
-      first === undefined ||
-      first.kind !== 'table-cell' ||
-      row >= first.rows ||
-      column >= first.columns
-    ) {
-      throw new GraflumeError(
-        'INVALID_SPEC',
-        `Table cell (${row}, ${column}) is outside layer "${layerId}".`,
-      );
-    }
-    let state = this.getTableRuntimeState(layerId);
-    const frozenRows = this.#tableFrozenRows(layerId);
-    const frozenColumns = this.#tableFrozenColumns(layerId);
-    let nextState = state;
-    if (
-      row >= frozenRows &&
-      (row < state.windowOffset || row >= state.windowOffset + state.windowLimit)
-    ) {
-      const offset = Math.max(0, row - Math.max(0, state.windowLimit - 1));
-      nextState = normalizeTableRuntimeState({ windowOffset: offset }, nextState);
-    }
-    if (
-      column >= frozenColumns &&
-      (column < state.columnOffset || column >= state.columnOffset + state.columnLimit)
-    ) {
-      const offset = Math.max(0, column - Math.max(0, state.columnLimit - 1));
-      nextState = normalizeTableRuntimeState({ columnOffset: offset }, nextState);
-    }
-    if (nextState !== state) {
-      this.#setTableRuntimeState(layerId, nextState, 'programmatic', false);
-      state = nextState;
-    }
-    const field = this.#familyEntries('table-cell').find(
-      (candidate) =>
-        candidate.layerId === layerId &&
-        candidate.familyInteraction.row === row &&
-        candidate.familyInteraction.column === column,
-    )?.familyInteraction;
-    if (field === undefined || field.kind !== 'table-cell') {
-      throw new GraflumeError('INVALID_SPEC', `Table column ${column} was not found.`);
-    }
-    return this.#setFamilyFocus(
-      { kind: 'table-cell', layerId, row, column, field: field.field },
+    return this.#setTableRange(
+      layerId,
+      { anchor: { row, column }, focus: { row, column } },
       'programmatic',
     );
   }
 
+  getTableRange(layerId: string): TableCellRange | null {
+    this.#assertAlive();
+    this.#requireFamilyLayer(layerId, ['table']);
+    const range = this.#tableRanges.get(layerId);
+    return range === undefined ? null : cloneTableCellRange(range);
+  }
+
+  setTableRange(layerId: string, range: TableCellRange): this {
+    return this.#setTableRange(layerId, range, 'programmatic');
+  }
+
   clearFamilyFocus(): this {
     this.#assertAlive();
-    if (this.#familyFocus === null) return this;
+    if (this.#familyFocus === null && this.#tableRanges.size === 0) return this;
+    const previousFocus = this.#familyFocus;
+    const previousRanges = new Map(
+      [...this.#tableRanges].map(([layerId, range]) => [layerId, cloneTableCellRange(range)]),
+    );
+    const hadFocus = this.#familyFocus !== null;
+    const tableLayers = [...this.#tableRanges.keys()];
     this.#familyFocus = null;
-    this.render();
-    this.#events.emit('familyfocuschange', { chart: this, state: null, reason: 'clear' });
+    this.#tableRanges.clear();
+    try {
+      this.render();
+    } catch (error) {
+      this.#familyFocus = previousFocus;
+      for (const [layerId, range] of previousRanges) this.#tableRanges.set(layerId, range);
+      throw error;
+    }
+    if (hadFocus) {
+      this.#events.emit('familyfocuschange', { chart: this, state: null, reason: 'clear' });
+    }
+    for (const layerId of tableLayers) {
+      this.#events.emit('tablerangechange', {
+        chart: this,
+        layerId,
+        range: null,
+        reason: 'clear',
+      });
+    }
     return this;
   }
 
@@ -1586,6 +1645,7 @@ export class Chart {
     this.#requireFamilyLayer(layerId, ['table']);
     if (!this.#tableRuntime.delete(layerId)) return this;
     this.render();
+    this.#reconcileTableRange(layerId, 'reset');
     this.#events.emit('tablechange', {
       chart: this,
       layerId,
@@ -1678,6 +1738,126 @@ export class Chart {
 
   exportTableJSON(layerId: string, mode: TableDataMode = 'view'): string {
     return tableJSON(this.getTableData(layerId, mode));
+  }
+
+  exportTableTSV(layerId: string, range?: TableCellRange): string {
+    this.#assertAlive();
+    this.#requireFamilyLayer(layerId, ['table']);
+    const selected = range ?? this.#tableRanges.get(layerId);
+    if (selected === undefined) return '';
+    const view = this.#resolvedTableView(layerId);
+    const resolved = this.#validatedTableRange(layerId, selected, view);
+    const bounds = normalizeTableCellRange(resolved);
+    const fields = view.fields.slice(bounds.left, bounds.right + 1);
+    const rows = view.rows.slice(bounds.top, bounds.bottom + 1);
+    return tableTSV(rows, fields);
+  }
+
+  pasteTableTSV(layerId: string, text: string, start?: TableCellPosition): TablePasteResult {
+    this.#assertAlive();
+    this.#requireFamilyLayer(layerId, ['table']);
+    const selected = this.#tableRanges.get(layerId);
+    const position =
+      start ??
+      selected?.focus ??
+      (this.#familyFocus?.kind === 'table-cell' && this.#familyFocus.layerId === layerId
+        ? { row: this.#familyFocus.row, column: this.#familyFocus.column }
+        : undefined);
+    if (position === undefined) return this.#tablePasteFailure(layerId, 'no-selection', null);
+
+    let cells: readonly (readonly string[])[];
+    try {
+      cells = parseTableTSV(text);
+    } catch {
+      return this.#tablePasteFailure(layerId, 'invalid-tsv', {
+        anchor: position,
+        focus: position,
+      });
+    }
+    const view = this.#resolvedTableView(layerId);
+    const columnCount = cells[0]?.length ?? 0;
+    const range: TableCellRange = {
+      anchor: { ...position },
+      focus: {
+        row: position.row + cells.length - 1,
+        column: position.column + columnCount - 1,
+      },
+    };
+    try {
+      this.#boundedTableRange(layerId, range, view);
+    } catch {
+      return this.#tablePasteFailure(layerId, 'range-out-of-bounds', range);
+    }
+    if (this.#tableRangeIncludesCoveredMerge(layerId, range, view)) {
+      return this.#tablePasteFailure(layerId, 'merged-cell-read-only', range);
+    }
+
+    const editing = this.#tableEditing(layerId);
+    if (!editing.enabled) return this.#tablePasteFailure(layerId, 'editing-disabled', range);
+    if (view.derived) return this.#tablePasteFailure(layerId, 'derived-view-read-only', range);
+
+    const source = this.#tableSourceRows(layerId);
+    const editableSourceIndices = new Set(view.editableSourceIndices);
+    const edits: TableBatchEdit[] = [];
+    for (let rowOffset = 0; rowOffset < cells.length; rowOffset += 1) {
+      const viewRow = position.row + rowOffset;
+      const sourceRowIndex = view.sourceIndices[viewRow] ?? null;
+      if (
+        sourceRowIndex === null ||
+        !editableSourceIndices.has(sourceRowIndex) ||
+        source[sourceRowIndex] === undefined
+      ) {
+        return this.#tablePasteFailure(layerId, 'source-row-unavailable', range);
+      }
+      const row = cells[rowOffset]!;
+      for (let columnOffset = 0; columnOffset < row.length; columnOffset += 1) {
+        const column = position.column + columnOffset;
+        const field = view.fields[column]!;
+        const configured = editing.columns.get(field);
+        if (configured === undefined || !configured.editable) {
+          return this.#tablePasteFailure(layerId, 'field-not-editable', range);
+        }
+        const previousValue = source[sourceRowIndex]![field];
+        const columnEditing = tableColumnEditingForValue(configured, previousValue);
+        const newValue = parseTableTSVEditorValue(columnEditing, row[columnOffset]!);
+        const validation = validateTableCellValue(columnEditing, newValue);
+        if (!validation.valid) {
+          return this.#tablePasteFailure(layerId, validation.reason, range);
+        }
+        if (!tableDataValuesEqual(previousValue, newValue)) {
+          edits.push({
+            viewRow,
+            sourceRowIndex,
+            column,
+            field,
+            previousValue: cloneTableDataValue(previousValue),
+            newValue: cloneTableDataValue(newValue),
+          });
+        }
+      }
+    }
+
+    this.#setTableRange(layerId, range, 'programmatic');
+    if (edits.length > 0) {
+      const next = cloneTableRows(source) as Record<string, DataValue>[];
+      for (const edit of edits) {
+        next[edit.sourceRowIndex]![edit.field] = cloneTableDataValue(edit.newValue);
+      }
+      const history =
+        this.#tableDataHistory.get(layerId) ??
+        (() => {
+          const created = new TableDataHistory(source);
+          this.#tableDataHistory.set(layerId, created);
+          return created;
+        })();
+      this.#replaceTableSourceRows(layerId, next);
+      history.replace(next, true);
+      this.#emitTableDataChange(layerId, 'programmatic');
+      this.#emitTableBatchChange(layerId, 'paste', edits);
+    }
+    const result = cloneTablePasteResult({ applied: true, reason: 'paste', range, edits });
+    this.#emitTablePaste(layerId, result);
+    return cloneTablePasteResult(result);
   }
 
   getNetworkRuntimeState(layerId: string): ChartNetworkRuntimeState {
@@ -2148,6 +2328,281 @@ export class Chart {
     return tableEditingConfig(this.#layerOptions(layerId));
   }
 
+  #boundedTableRange(
+    layerId: string,
+    range: TableCellRange,
+    view: TableViewData = this.#resolvedTableView(layerId),
+  ): TableCellRange {
+    const candidate = range as TableCellRange | null | undefined;
+    for (const [name, position] of [
+      ['anchor', candidate?.anchor],
+      ['focus', candidate?.focus],
+    ] as const) {
+      if (
+        position === undefined ||
+        !Number.isInteger(position.row) ||
+        position.row < 0 ||
+        position.row >= view.rows.length ||
+        !Number.isInteger(position.column) ||
+        position.column < 0 ||
+        position.column >= view.fields.length
+      ) {
+        throw new GraflumeError(
+          'INVALID_SPEC',
+          position === undefined
+            ? `Table range ${name} is missing in layer "${layerId}".`
+            : `Table range ${name} (${position.row}, ${position.column}) is outside layer "${layerId}".`,
+        );
+      }
+    }
+    return cloneTableCellRange(range);
+  }
+
+  #resolvedTableMerges(layerId: string, view: TableViewData): readonly ResolvedTableMerge[] {
+    const options = this.#layerOptions(layerId);
+    const authored = Array.isArray(options.merges)
+      ? (options.merges as unknown as readonly TableMerge[])
+      : [];
+    const repeated = Array.isArray(options.mergeRepeats)
+      ? (options.mergeRepeats.map((entry) =>
+          typeof entry === 'string' ? { field: entry } : entry,
+        ) as unknown as readonly TableMergeRepeat[])
+      : [];
+    return resolveTableMerges(
+      view.rows,
+      view.fields,
+      Math.min(this.#tableFrozenRows(layerId), view.rows.length),
+      Math.min(this.#tableFrozenColumns(layerId), view.fields.length),
+      authored,
+      repeated,
+    );
+  }
+
+  #tableRangeIncludesCoveredMerge(
+    layerId: string,
+    range: TableCellRange,
+    view: TableViewData,
+  ): boolean {
+    const bounds = normalizeTableCellRange(range);
+    const intersects = (top: number, left: number, bottom: number, right: number): boolean =>
+      bounds.top <= bottom && bounds.bottom >= top && bounds.left <= right && bounds.right >= left;
+    return this.#resolvedTableMerges(layerId, view).some(
+      (merge) =>
+        (merge.rowSpan > 1 &&
+          intersects(
+            merge.row + 1,
+            merge.column,
+            merge.row + merge.rowSpan - 1,
+            merge.column + merge.columnSpan - 1,
+          )) ||
+        (merge.columnSpan > 1 &&
+          intersects(merge.row, merge.column + 1, merge.row, merge.column + merge.columnSpan - 1)),
+    );
+  }
+
+  #validatedTableRange(
+    layerId: string,
+    range: TableCellRange,
+    view: TableViewData = this.#resolvedTableView(layerId),
+  ): TableCellRange {
+    const bounded = this.#boundedTableRange(layerId, range, view);
+    if (this.#tableRangeIncludesCoveredMerge(layerId, bounded, view)) {
+      throw new GraflumeError(
+        'INVALID_SPEC',
+        `Table range in layer "${layerId}" includes a covered merged cell.`,
+      );
+    }
+    return bounded;
+  }
+
+  #reconcileTableRange(
+    layerId: string,
+    reason: Exclude<ChartTableRangeChangeEvent['reason'], 'clear'>,
+  ): void {
+    const previous = this.#tableRanges.get(layerId);
+    if (previous === undefined) return;
+    const view = this.#resolvedTableView(layerId);
+    let next =
+      view.rows.length === 0 || view.fields.length === 0
+        ? null
+        : {
+            anchor: {
+              row: Math.min(previous.anchor.row, view.rows.length - 1),
+              column: Math.min(previous.anchor.column, view.fields.length - 1),
+            },
+            focus: {
+              row: Math.min(previous.focus.row, view.rows.length - 1),
+              column: Math.min(previous.focus.column, view.fields.length - 1),
+            },
+          };
+    if (next !== null && this.#tableRangeIncludesCoveredMerge(layerId, next, view)) next = null;
+    const previousFocus = this.#familyFocus;
+    const nextFocus =
+      previousFocus?.kind === 'table-cell' && previousFocus.layerId === layerId
+        ? next === null
+          ? null
+          : {
+              kind: 'table-cell' as const,
+              layerId,
+              row: next.focus.row,
+              column: next.focus.column,
+              field: view.fields[next.focus.column]!,
+            }
+        : previousFocus;
+    const rangeChanged = !tableCellRangeEqual(previous, next);
+    const focusChanged = JSON.stringify(previousFocus) !== JSON.stringify(nextFocus);
+    if (!rangeChanged && !focusChanged) return;
+    if (next === null) {
+      this.#tableRanges.delete(layerId);
+    } else {
+      this.#tableRanges.set(layerId, cloneTableCellRange(next));
+    }
+    this.#familyFocus = nextFocus;
+    try {
+      this.render();
+    } catch (error) {
+      this.#tableRanges.set(layerId, previous);
+      this.#familyFocus = previousFocus;
+      throw error;
+    }
+    if (rangeChanged) {
+      this.#events.emit('tablerangechange', {
+        chart: this,
+        layerId,
+        range: next === null ? null : cloneTableCellRange(next),
+        reason,
+      });
+    }
+    if (focusChanged) {
+      this.#events.emit('familyfocuschange', {
+        chart: this,
+        state: this.#familyFocus === null ? null : { ...this.#familyFocus },
+        reason,
+      });
+    }
+  }
+
+  #setTableRange(
+    layerId: string,
+    range: TableCellRange,
+    reason: 'pointer' | 'keyboard' | 'programmatic',
+  ): this {
+    this.#assertAlive();
+    this.#requireFamilyLayer(layerId, ['table']);
+    const view = this.#resolvedTableView(layerId);
+    const selected = this.#validatedTableRange(layerId, range, view);
+    const previousRange = this.#tableRanges.get(layerId);
+    const previousRanges = new Map(
+      [...this.#tableRanges].map(([candidateLayerId, candidate]) => [
+        candidateLayerId,
+        cloneTableCellRange(candidate),
+      ]),
+    );
+    const clearedLayers = [...this.#tableRanges.keys()].filter(
+      (candidateLayerId) => candidateLayerId !== layerId,
+    );
+    const previousFocus = this.#familyFocus;
+    const previousRuntime = this.#tableRuntime.get(layerId);
+    let runtime = this.getTableRuntimeState(layerId);
+    const interaction = this.#familyEntries('table-cell').find(
+      (entry) => entry.layerId === layerId,
+    )?.familyInteraction;
+    const rowLimit =
+      interaction?.kind === 'table-cell' ? interaction.windowLimit : runtime.windowLimit;
+    const columnLimit =
+      interaction?.kind === 'table-cell' ? interaction.columnLimit : runtime.columnLimit;
+    const frozenRows = this.#tableFrozenRows(layerId);
+    const frozenColumns = this.#tableFrozenColumns(layerId);
+    if (
+      selected.focus.row >= frozenRows &&
+      (selected.focus.row < runtime.windowOffset ||
+        selected.focus.row >= runtime.windowOffset + rowLimit)
+    ) {
+      runtime = normalizeTableRuntimeState(
+        {
+          windowOffset:
+            selected.focus.row < runtime.windowOffset
+              ? selected.focus.row
+              : Math.max(0, selected.focus.row - Math.max(0, rowLimit - 1)),
+        },
+        runtime,
+      );
+    }
+    if (
+      selected.focus.column >= frozenColumns &&
+      (selected.focus.column < runtime.columnOffset ||
+        selected.focus.column >= runtime.columnOffset + columnLimit)
+    ) {
+      runtime = normalizeTableRuntimeState(
+        {
+          columnOffset:
+            selected.focus.column < runtime.columnOffset
+              ? selected.focus.column
+              : Math.max(0, selected.focus.column - Math.max(0, columnLimit - 1)),
+        },
+        runtime,
+      );
+    }
+    const runtimeChanged =
+      JSON.stringify(runtime) !== JSON.stringify(this.getTableRuntimeState(layerId));
+    const focus: ChartFamilyFocusState = {
+      kind: 'table-cell',
+      layerId,
+      row: selected.focus.row,
+      column: selected.focus.column,
+      field: view.fields[selected.focus.column]!,
+    };
+    const focusChanged = JSON.stringify(previousFocus) !== JSON.stringify(focus);
+    const rangeChanged = !tableCellRangeEqual(previousRange ?? null, selected);
+    if (!runtimeChanged && !focusChanged && !rangeChanged && clearedLayers.length === 0)
+      return this;
+
+    if (runtimeChanged) this.#tableRuntime.set(layerId, cloneTableRuntimeState(runtime));
+    this.#tableRanges.clear();
+    this.#tableRanges.set(layerId, cloneTableCellRange(selected));
+    this.#familyFocus = focus;
+    try {
+      this.render();
+    } catch (error) {
+      if (previousRuntime === undefined) this.#tableRuntime.delete(layerId);
+      else this.#tableRuntime.set(layerId, previousRuntime);
+      this.#tableRanges.clear();
+      for (const [candidateLayerId, candidate] of previousRanges) {
+        this.#tableRanges.set(candidateLayerId, candidate);
+      }
+      this.#familyFocus = previousFocus;
+      throw error;
+    }
+    if (runtimeChanged) {
+      this.#events.emit('tablechange', {
+        chart: this,
+        layerId,
+        state: cloneTableRuntimeState(runtime),
+        reason,
+      });
+    }
+    if (focusChanged) {
+      this.#events.emit('familyfocuschange', { chart: this, state: { ...focus }, reason });
+    }
+    for (const candidateLayerId of clearedLayers) {
+      this.#events.emit('tablerangechange', {
+        chart: this,
+        layerId: candidateLayerId,
+        range: null,
+        reason,
+      });
+    }
+    if (rangeChanged) {
+      this.#events.emit('tablerangechange', {
+        chart: this,
+        layerId,
+        range: cloneTableCellRange(selected),
+        reason,
+      });
+    }
+    return this;
+  }
+
   #resolvedTableView(layerId: string): TableViewData {
     const layer = this.#requireFamilyLayer(layerId, ['table']);
     const transformed = executeTransformsWithNamedLineage(
@@ -2180,6 +2635,7 @@ export class Chart {
   #emitTableEdit(
     layerId: string,
     row: number,
+    sourceRowIndex: number | null,
     field: string,
     previousValue: DataValue,
     newValue: DataValue,
@@ -2190,12 +2646,41 @@ export class Chart {
       chart: this,
       layerId,
       row,
+      sourceRowIndex,
       field,
       previousValue: cloneTableDataValue(previousValue),
       newValue: cloneTableDataValue(newValue),
       valid,
       reason,
     });
+  }
+
+  #emitTablePaste(layerId: string, result: TablePasteResult): void {
+    const cloned = cloneTablePasteResult(result);
+    this.#events.emit('tablepaste', { chart: this, layerId, ...cloned });
+  }
+
+  #emitTableBatchChange(
+    layerId: string,
+    reason: TableBatchChangeReason,
+    edits: readonly TableBatchChangeEdit[],
+  ): void {
+    this.#events.emit('tablebatchchange', {
+      chart: this,
+      layerId,
+      reason,
+      edits: edits.map(cloneTableBatchChangeEdit),
+    });
+  }
+
+  #tablePasteFailure(
+    layerId: string,
+    reason: TablePasteReason,
+    range: TableCellRange | null,
+  ): TablePasteResult {
+    const result = cloneTablePasteResult({ applied: false, reason, range, edits: [] });
+    this.#emitTablePaste(layerId, result);
+    return cloneTablePasteResult(result);
   }
 
   #emitTableDataChange(layerId: string, reason: ChartTableChangeEvent['reason']): void {
@@ -2232,6 +2717,7 @@ export class Chart {
     this.#spec = this.#tableSpecWithSourceRows(layerId, rows);
     try {
       this.render();
+      this.#reconcileTableRange(layerId, 'programmatic');
     } catch (error) {
       this.#spec = previousSpec;
       try {
@@ -2305,6 +2791,7 @@ export class Chart {
       this.#emitTableEdit(
         layerId,
         row,
+        sourceRow,
         field,
         previousValue,
         value,
@@ -2316,13 +2803,23 @@ export class Chart {
     const column = tableColumnEditingForValue(configuredColumn, previousValue);
     const validation = validateTableCellValue(column, value);
     if (!validation.valid) {
-      this.#emitTableEdit(layerId, row, field, previousValue, value, false, validation.reason);
+      this.#emitTableEdit(
+        layerId,
+        row,
+        sourceRow,
+        field,
+        previousValue,
+        value,
+        false,
+        validation.reason,
+      );
       return false;
     }
     if (sourceRow === null || source[sourceRow] === undefined) {
       this.#emitTableEdit(
         layerId,
         row,
+        sourceRow,
         field,
         previousValue,
         value,
@@ -2332,7 +2829,16 @@ export class Chart {
       return false;
     }
     if (tableDataValuesEqual(previousValue, value)) {
-      this.#emitTableEdit(layerId, row, field, previousValue, value, true, successReason);
+      this.#emitTableEdit(
+        layerId,
+        row,
+        sourceRow,
+        field,
+        previousValue,
+        value,
+        true,
+        successReason,
+      );
       return true;
     }
 
@@ -2349,7 +2855,7 @@ export class Chart {
     this.#replaceTableSourceRows(layerId, next);
     history.replace(next);
     this.#emitTableDataChange(layerId, 'programmatic');
-    this.#emitTableEdit(layerId, row, field, previousValue, value, true, successReason);
+    this.#emitTableEdit(layerId, row, sourceRow, field, previousValue, value, true, successReason);
     return true;
   }
 
@@ -2358,17 +2864,47 @@ export class Chart {
     transition: TableDataTransition,
     reason: 'undo' | 'redo' | 'reset',
   ): void {
-    this.#replaceTableSourceRows(layerId, transition.rows);
-    this.#emitTableDataChange(layerId, reason === 'reset' ? 'reset' : 'programmatic');
+    const view = this.#resolvedTableView(layerId);
+    const sourceToView = new Map<number, number>();
+    view.sourceIndices.forEach((sourceRowIndex, viewRow) => {
+      if (sourceRowIndex !== null && !sourceToView.has(sourceRowIndex)) {
+        sourceToView.set(sourceRowIndex, viewRow);
+      }
+    });
+    const edits: TableBatchChangeEdit[] = [];
     const rowCount = Math.max(transition.previous.length, transition.rows.length);
-    for (let row = 0; row < rowCount; row += 1) {
-      const previous = transition.previous[row] ?? {};
-      const next = transition.rows[row] ?? {};
+    for (let sourceRowIndex = 0; sourceRowIndex < rowCount; sourceRowIndex += 1) {
+      const previous = transition.previous[sourceRowIndex] ?? {};
+      const next = transition.rows[sourceRowIndex] ?? {};
       const fields = new Set([...Object.keys(previous), ...Object.keys(next)]);
       for (const field of fields) {
         if (tableDataValuesEqual(previous[field], next[field])) continue;
-        this.#emitTableEdit(layerId, row, field, previous[field], next[field], true, reason);
+        const column = view.fields.indexOf(field);
+        edits.push({
+          viewRow: sourceToView.get(sourceRowIndex) ?? null,
+          sourceRowIndex,
+          column: column < 0 ? null : column,
+          field,
+          previousValue: cloneTableDataValue(previous[field]),
+          newValue: cloneTableDataValue(next[field]),
+        });
       }
+    }
+    this.#replaceTableSourceRows(layerId, transition.rows);
+    this.#emitTableDataChange(layerId, reason === 'reset' ? 'reset' : 'programmatic');
+    this.#emitTableBatchChange(layerId, reason, edits);
+    if (transition.batch) return;
+    for (const edit of edits) {
+      this.#emitTableEdit(
+        layerId,
+        edit.viewRow ?? edit.sourceRowIndex,
+        edit.sourceRowIndex,
+        edit.field,
+        edit.previousValue,
+        edit.newValue,
+        true,
+        reason,
+      );
     }
   }
 
@@ -2601,13 +3137,22 @@ export class Chart {
     state: ChartFamilyFocusState,
     reason: ChartFamilyFocusChangeEvent['reason'],
   ): this {
-    if (JSON.stringify(this.#familyFocus) === JSON.stringify(state)) return this;
+    const clearedLayers = state.kind === 'table-cell' ? [] : [...this.#tableRanges.keys()];
+    if (JSON.stringify(this.#familyFocus) === JSON.stringify(state) && clearedLayers.length === 0) {
+      return this;
+    }
     const previous = this.#familyFocus;
+    const previousRanges = new Map(
+      [...this.#tableRanges].map(([layerId, range]) => [layerId, cloneTableCellRange(range)]),
+    );
     this.#familyFocus = { ...state };
+    if (state.kind !== 'table-cell') this.#tableRanges.clear();
     try {
       this.render();
     } catch (error) {
       this.#familyFocus = previous;
+      this.#tableRanges.clear();
+      for (const [layerId, range] of previousRanges) this.#tableRanges.set(layerId, range);
       throw error;
     }
     this.#events.emit('familyfocuschange', {
@@ -2615,6 +3160,14 @@ export class Chart {
       state: { ...state },
       reason,
     });
+    for (const layerId of clearedLayers) {
+      this.#events.emit('tablerangechange', {
+        chart: this,
+        layerId,
+        range: null,
+        reason,
+      });
+    }
     return this;
   }
 
@@ -2630,6 +3183,7 @@ export class Chart {
     this.#tableRuntime.set(layerId, cloneTableRuntimeState(state));
     try {
       this.render();
+      this.#reconcileTableRange(layerId, reason);
     } catch (error) {
       if (previous === undefined) this.#tableRuntime.delete(layerId);
       else this.#tableRuntime.set(layerId, previous);
@@ -2851,6 +3405,12 @@ export class Chart {
     const options: Record<string, import('../spec/types.js').JsonValue> = {};
     const table = this.#tableRuntime.get(layerId);
     if (table !== undefined) Object.assign(options, tableRuntimeOptions(table));
+    const tableRange = this.#tableRanges.get(layerId);
+    if (tableRange !== undefined) {
+      options.runtimeSelectedRange = cloneTableCellRange(
+        tableRange,
+      ) as unknown as import('../spec/types.js').JsonValue;
+    }
     const network = this.#networkRuntime.get(layerId);
     if (network !== undefined) Object.assign(options, networkRuntimeOptions(network));
     const flow = this.#flowRuntime.get(layerId);
@@ -3395,6 +3955,7 @@ export class Chart {
     this.#selection = [];
     this.#analyticSelection.clear();
     this.#tableRuntime.clear();
+    this.#tableRanges.clear();
     this.#networkRuntime.clear();
     this.#flowRuntime.clear();
     this.#navigatorRuntime.clear();
@@ -3432,6 +3993,12 @@ export class Chart {
         chart: this,
         layerId,
         state: this.getTableRuntimeState(layerId),
+        reason: 'spec',
+      });
+      this.#events.emit('tablerangechange', {
+        chart: this,
+        layerId,
+        range: null,
         reason: 'spec',
       });
     }
@@ -4299,6 +4866,7 @@ export class Chart {
     if (this.#destroyed) return;
     this.#destroyTableEditor();
     this.#tableDataHistory.clear();
+    this.#tableRanges.clear();
     const exitFullscreen = this.#isOwnFullscreen();
     this.#playing = false;
     this.#sceneTransition = null;
@@ -4795,6 +5363,8 @@ export class Chart {
       surface.addEventListener('click', this.#clickListener, { passive: true });
       surface.addEventListener('wheel', this.#wheelListener, { passive: false });
       surface.addEventListener('keydown', this.#keyDownListener);
+      surface.addEventListener('copy', this.#copyListener);
+      surface.addEventListener('paste', this.#pasteListener);
     }
     this.#syncSurfaceConfiguration();
   }
@@ -4807,8 +5377,8 @@ export class Chart {
     const selection = this.#result?.spec.interaction.selection;
     const markLabelAuthoring = this.#markLabelAuthoring();
     const annotationAuthoring = (this.#result?.scene.metadata.annotations?.entries.length ?? 0) > 0;
-    const familyKeyboard =
-      this.#familyEntries('pie-slice').length > 0 || this.#familyEntries('table-cell').length > 0;
+    const tableKeyboard = this.#familyEntries('table-cell').length > 0;
+    const familyKeyboard = this.#familyEntries('pie-slice').length > 0 || tableKeyboard;
     const familyPointer =
       this.#familyEntries('network-node').length > 0 ||
       this.#familyEntries('flow-node').length > 0 ||
@@ -4887,6 +5457,18 @@ export class Chart {
       }
       if (analyticKeyboard) shortcuts.push('S', 'Space');
       if (familyKeyboard) shortcuts.push('Home', 'End', 'PageUp', 'PageDown', 'Space');
+      if (tableKeyboard) {
+        shortcuts.push(
+          'Shift+ArrowUp',
+          'Shift+ArrowDown',
+          'Shift+ArrowLeft',
+          'Shift+ArrowRight',
+          'Control+C',
+          'Control+V',
+          'Meta+C',
+          'Meta+V',
+        );
+      }
       surface.setAttribute('aria-keyshortcuts', [...new Set(shortcuts)].join(' '));
     } else if (this.#surfaceAriaKeyShortcuts === null) surface.removeAttribute('aria-keyshortcuts');
     else surface.setAttribute('aria-keyshortcuts', this.#surfaceAriaKeyShortcuts);
@@ -4905,6 +5487,8 @@ export class Chart {
     surface.removeEventListener('click', this.#clickListener);
     surface.removeEventListener('wheel', this.#wheelListener);
     surface.removeEventListener('keydown', this.#keyDownListener);
+    surface.removeEventListener('copy', this.#copyListener);
+    surface.removeEventListener('paste', this.#pasteListener);
     surface.style.touchAction = this.#surfaceTouchAction ?? '';
     surface.style.cursor = this.#surfaceCursor ?? '';
     if (this.#surfaceTabIndex === null) surface.removeAttribute('tabindex');
@@ -6139,13 +6723,17 @@ export class Chart {
           'keyboard',
         );
       } else if (firstTable !== undefined) {
-        this.#setFamilyFocus(
+        this.#setTableRange(
+          firstTable.layerId,
           {
-            kind: 'table-cell',
-            layerId: firstTable.layerId,
-            row: firstTable.familyInteraction.row,
-            column: firstTable.familyInteraction.column,
-            field: firstTable.familyInteraction.field,
+            anchor: {
+              row: firstTable.familyInteraction.row,
+              column: firstTable.familyInteraction.column,
+            },
+            focus: {
+              row: firstTable.familyInteraction.row,
+              column: firstTable.familyInteraction.column,
+            },
           },
           'keyboard',
         );
@@ -6186,46 +6774,36 @@ export class Chart {
       event.key as Parameters<typeof moveTableCell>[1],
       { rows: first.rows, columns: first.columns, pageSize: Math.max(1, first.windowLimit) },
     );
-    let state = this.getTableRuntimeState(focus.layerId);
-    const frozenRows = this.#tableFrozenRows(focus.layerId);
-    const frozenColumns = this.#tableFrozenColumns(focus.layerId);
-    let stateChanged = false;
-    if (
-      next.row >= frozenRows &&
-      (next.row < state.windowOffset || next.row >= state.windowOffset + state.windowLimit)
-    ) {
-      const windowOffset =
-        next.row < state.windowOffset
-          ? next.row
-          : Math.max(0, next.row - Math.max(0, state.windowLimit - 1));
-      state = normalizeTableRuntimeState({ windowOffset }, state);
-      stateChanged = true;
+    const currentRange = this.#tableRanges.get(focus.layerId);
+    const anchor =
+      event.shiftKey && currentRange !== undefined
+        ? currentRange.anchor
+        : event.shiftKey
+          ? { row: focus.row, column: focus.column }
+          : next;
+    const range = { anchor, focus: next };
+    const view = this.#resolvedTableView(focus.layerId);
+    if (!this.#tableRangeIncludesCoveredMerge(focus.layerId, range, view)) {
+      this.#setTableRange(focus.layerId, range, 'keyboard');
     }
-    if (
-      next.column >= frozenColumns &&
-      (next.column < state.columnOffset || next.column >= state.columnOffset + state.columnLimit)
-    ) {
-      const columnOffset =
-        next.column < state.columnOffset
-          ? next.column
-          : Math.max(0, next.column - Math.max(0, state.columnLimit - 1));
-      state = normalizeTableRuntimeState({ columnOffset }, state);
-      stateChanged = true;
-    }
-    if (stateChanged) this.#setTableRuntimeState(focus.layerId, state, 'keyboard');
-    const refreshed = this.#familyEntries('table-cell').find(
-      (entry) =>
-        entry.layerId === focus.layerId &&
-        entry.familyInteraction.row === next.row &&
-        entry.familyInteraction.column === next.column,
-    );
-    const field = refreshed?.familyInteraction.field ?? focus.field;
-    this.#setFamilyFocus(
-      { kind: 'table-cell', layerId: focus.layerId, row: next.row, column: next.column, field },
-      'keyboard',
-    );
     event.preventDefault();
     return true;
+  }
+
+  #handleTableCopy(event: ClipboardEvent): void {
+    const focus = this.#familyFocus;
+    if (focus?.kind !== 'table-cell' || event.clipboardData === null) return;
+    const text = this.exportTableTSV(focus.layerId);
+    event.clipboardData.setData('text/plain', text);
+    event.preventDefault();
+  }
+
+  #handleTablePaste(event: ClipboardEvent): void {
+    const focus = this.#familyFocus;
+    if (focus?.kind !== 'table-cell' || event.clipboardData === null) return;
+    const text = event.clipboardData.getData('text/plain');
+    this.pasteTableTSV(focus.layerId, text);
+    event.preventDefault();
   }
 
   #handleKeyDown(event: KeyboardEvent): void {
@@ -6535,13 +7113,11 @@ export class Chart {
       return false;
     }
     if (interaction.kind === 'table-cell') {
-      this.#setFamilyFocus(
+      this.#setTableRange(
+        hit.layerId,
         {
-          kind: 'table-cell',
-          layerId: hit.layerId,
-          row: interaction.row,
-          column: interaction.column,
-          field: interaction.field,
+          anchor: { row: interaction.row, column: interaction.column },
+          focus: { row: interaction.row, column: interaction.column },
         },
         'pointer',
       );

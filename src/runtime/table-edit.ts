@@ -6,6 +6,24 @@ import { assertSafeKey, isPlainObject } from '../utils/object.js';
 
 export type TableDataMode = 'view' | 'source';
 export type TableCellTarget = number | { readonly key: DataValue };
+export interface TableCellPosition {
+  readonly row: number;
+  readonly column: number;
+}
+
+/** Renderer-neutral rectangular selection. Anchor is retained while focus moves. */
+export interface TableCellRange {
+  readonly anchor: TableCellPosition;
+  readonly focus: TableCellPosition;
+}
+
+export interface TableNormalizedRange {
+  readonly top: number;
+  readonly right: number;
+  readonly bottom: number;
+  readonly left: number;
+}
+
 export type TableEditCommit = 'enter' | 'blur' | 'enter-or-blur';
 export type TableEditorType =
   'text' | 'number' | 'integer' | 'date' | 'datetime' | 'boolean' | 'select';
@@ -30,6 +48,42 @@ export type TableEditChangeReason =
   | 'maximum-length'
   | 'pattern'
   | 'not-allowed';
+
+export type TablePasteReason =
+  | 'paste'
+  | 'no-selection'
+  | 'invalid-tsv'
+  | 'range-out-of-bounds'
+  | 'merged-cell-read-only'
+  | TableEditChangeReason;
+
+export interface TableBatchEdit {
+  readonly viewRow: number;
+  readonly sourceRowIndex: number;
+  readonly column: number;
+  readonly field: string;
+  readonly previousValue: DataValue;
+  readonly newValue: DataValue;
+}
+
+export type TableBatchChangeReason = 'paste' | 'undo' | 'redo' | 'reset';
+
+/** Source-stable edit payload for batch history transitions; view coordinates may be absent. */
+export interface TableBatchChangeEdit {
+  readonly viewRow: number | null;
+  readonly sourceRowIndex: number;
+  readonly column: number | null;
+  readonly field: string;
+  readonly previousValue: DataValue;
+  readonly newValue: DataValue;
+}
+
+export interface TablePasteResult {
+  readonly applied: boolean;
+  readonly reason: TablePasteReason;
+  readonly range: TableCellRange | null;
+  readonly edits: readonly TableBatchEdit[];
+}
 
 export interface TableEditorConfig {
   readonly type: TableEditorType;
@@ -80,6 +134,7 @@ export interface TableEditValidationResult {
 export interface TableDataTransition {
   readonly previous: readonly DataRow[];
   readonly rows: readonly DataRow[];
+  readonly batch: boolean;
 }
 
 interface TableCellPatch {
@@ -93,6 +148,7 @@ interface TableCellPatch {
 
 interface TableDataPatch {
   readonly cells: readonly TableCellPatch[];
+  readonly batch: boolean;
 }
 
 const editorTypes = new Set<TableEditorType>([
@@ -108,14 +164,54 @@ const editorTypes = new Set<TableEditorType>([
 const maximumTablePatternLength = 256;
 const maximumTablePatternQuantifiers = 24;
 const maximumTablePatternRepeat = 10_000;
+const maximumTablePasteLength = 1_000_000;
+const maximumTablePasteRows = 10_000;
+const maximumTablePasteColumns = 128;
+const maximumTablePasteCells = 100_000;
+
+export function cloneTableCellPosition(position: TableCellPosition): TableCellPosition {
+  return { row: position.row, column: position.column };
+}
+
+export function cloneTableCellRange(range: TableCellRange): TableCellRange {
+  return {
+    anchor: cloneTableCellPosition(range.anchor),
+    focus: cloneTableCellPosition(range.focus),
+  };
+}
+
+export function normalizeTableCellRange(range: TableCellRange): TableNormalizedRange {
+  return {
+    top: Math.min(range.anchor.row, range.focus.row),
+    right: Math.max(range.anchor.column, range.focus.column),
+    bottom: Math.max(range.anchor.row, range.focus.row),
+    left: Math.min(range.anchor.column, range.focus.column),
+  };
+}
+
+export function tableCellRangeEqual(
+  left: TableCellRange | null,
+  right: TableCellRange | null,
+): boolean {
+  return (
+    left === right ||
+    (left !== null &&
+      right !== null &&
+      left.anchor.row === right.anchor.row &&
+      left.anchor.column === right.anchor.column &&
+      left.focus.row === right.focus.row &&
+      left.focus.column === right.focus.column)
+  );
+}
 
 /**
  * Validate the bounded regular-expression subset accepted by table cells.
  *
  * Native regular expressions stay data-only, Unicode-aware, and useful for
  * anchored business identifiers. Backreferences, groups, alternation,
- * unbounded quantifiers, nested/repeated quantifiers, excessive repetition,
- * and controls are rejected before any authored pattern can reach RegExp.test().
+ * unbounded quantifiers, nested/repeated quantifiers, multiple variable-width
+ * quantifiers, excessive repetition, and controls are rejected before any
+ * authored pattern can reach RegExp.test().
  */
 export function isSafeTableValidationPattern(value: unknown): value is string {
   if (
@@ -138,6 +234,7 @@ export function isSafeTableValidationPattern(value: unknown): value is string {
   let previousClosedGroup = false;
   let previousQuantifier = false;
   let quantifiers = 0;
+  let variableQuantifiers = 0;
   for (let index = 0; index < value.length; index += 1) {
     const character = value[index]!;
     if (escaped) {
@@ -179,11 +276,13 @@ export function isSafeTableValidationPattern(value: unknown): value is string {
     }
 
     let quantifierEnd = index;
+    let minimumRepeat: number | undefined;
     let maximumRepeat: number | undefined;
     if (character === '{') {
       const match = /^\{(\d+)(?:,(\d*))?\}/u.exec(value.slice(index));
       if (match !== null) {
         quantifierEnd = index + match[0].length - 1;
+        minimumRepeat = Number(match[1]);
         maximumRepeat =
           match[2] === '' ? maximumTablePatternRepeat + 1 : Number(match[2] ?? match[1]);
       }
@@ -191,11 +290,13 @@ export function isSafeTableValidationPattern(value: unknown): value is string {
     const quantifier = character === '?' || quantifierEnd > index;
     if (quantifier) {
       quantifiers += 1;
+      if (character === '?' || minimumRepeat !== maximumRepeat) variableQuantifiers += 1;
       if (
         !previousQuantifiable ||
         previousClosedGroup ||
         previousQuantifier ||
         quantifiers > maximumTablePatternQuantifiers ||
+        variableQuantifiers > 1 ||
         (maximumRepeat !== undefined && maximumRepeat > maximumTablePatternRepeat)
       ) {
         return false;
@@ -274,6 +375,7 @@ export function tableDataValuesEqual(left: DataValue, right: DataValue): boolean
 function tableDataPatch(
   previous: readonly DataRow[],
   next: readonly DataRow[],
+  batch: boolean,
 ): TableDataPatch | null {
   if (previous.length !== next.length) return null;
   const cells: TableCellPatch[] = [];
@@ -297,7 +399,7 @@ function tableDataPatch(
       });
     }
   }
-  return { cells };
+  return { cells, batch };
 }
 
 function applyTableDataPatch(
@@ -320,13 +422,18 @@ function applyTableDataPatch(
 /** Bounded immutable cell-patch history; large source arrays are not retained per edit. */
 export class TableDataHistory {
   readonly #limit: number;
+  readonly #cellLimit: number;
   readonly #baseline: readonly DataRow[];
   #current: readonly DataRow[];
   #past: TableDataPatch[] = [];
   #future: TableDataPatch[] = [];
+  #pastCells = 0;
 
-  constructor(rows: readonly DataRow[], limit = 100) {
-    this.#limit = Math.max(1, Math.min(1_000, Math.floor(limit)));
+  constructor(rows: readonly DataRow[], limit = 100, cellLimit = maximumTablePasteCells) {
+    this.#limit = Number.isFinite(limit) ? Math.max(1, Math.min(1_000, Math.floor(limit))) : 100;
+    this.#cellLimit = Number.isFinite(cellLimit)
+      ? Math.max(1, Math.min(1_000_000, Math.floor(cellLimit)))
+      : maximumTablePasteCells;
     this.#baseline = cloneTableRows(rows);
     this.#current = cloneTableRows(rows);
   }
@@ -335,33 +442,50 @@ export class TableDataHistory {
     return cloneTableRows(this.#current);
   }
 
-  replace(rows: readonly DataRow[]): boolean {
+  #replace(rows: readonly DataRow[], batch: boolean | 'multiple'): boolean {
     const next = cloneTableRows(rows);
-    const patch = tableDataPatch(this.#current, next);
+    let patch = tableDataPatch(this.#current, next, batch === true);
     if (patch === null) {
       throw new RangeError('Table edit history cannot change the source row count.');
     }
     if (patch.cells.length === 0) return false;
+    if (patch.cells.length > this.#cellLimit) {
+      throw new RangeError(
+        `Table edit history transition is limited to ${this.#cellLimit} changed cells.`,
+      );
+    }
+    if (batch === 'multiple') patch = { ...patch, batch: patch.cells.length > 1 };
     this.#past.push(patch);
-    if (this.#past.length > this.#limit) this.#past.shift();
+    this.#pastCells += patch.cells.length;
+    while (
+      this.#past.length > 1 &&
+      (this.#past.length > this.#limit || this.#pastCells > this.#cellLimit)
+    ) {
+      this.#pastCells -= this.#past.shift()!.cells.length;
+    }
     this.#current = next;
     this.#future = [];
     return true;
   }
 
+  replace(rows: readonly DataRow[], batch = false): boolean {
+    return this.#replace(rows, batch);
+  }
+
   reset(): TableDataTransition | null {
     const previous = cloneTableRows(this.#current);
-    if (!this.replace(this.#baseline)) return null;
-    return { previous, rows: this.rows() };
+    if (!this.#replace(this.#baseline, 'multiple')) return null;
+    return { previous, rows: this.rows(), batch: this.#past.at(-1)?.batch === true };
   }
 
   undo(): TableDataTransition | null {
     const patch = this.#past.pop();
     if (patch === undefined) return null;
+    this.#pastCells -= patch.cells.length;
     const previous = cloneTableRows(this.#current);
     this.#future.push(patch);
     this.#current = applyTableDataPatch(this.#current, patch, 'undo');
-    return { previous: cloneTableRows(previous), rows: this.rows() };
+    return { previous: cloneTableRows(previous), rows: this.rows(), batch: patch.batch };
   }
 
   redo(): TableDataTransition | null {
@@ -369,8 +493,9 @@ export class TableDataHistory {
     if (patch === undefined) return null;
     const previous = cloneTableRows(this.#current);
     this.#past.push(patch);
+    this.#pastCells += patch.cells.length;
     this.#current = applyTableDataPatch(this.#current, patch, 'redo');
-    return { previous: cloneTableRows(previous), rows: this.rows() };
+    return { previous: cloneTableRows(previous), rows: this.rows(), batch: patch.batch };
   }
 }
 
@@ -592,6 +717,111 @@ export function parseTableEditorValue(
   }
 }
 
+/** Parse one clipboard cell through the same closed editor contract used by the overlay. */
+export function parseTableTSVEditorValue(column: TableColumnEditing, value: string): DataValue {
+  switch (column.editor.type) {
+    case 'number':
+    case 'integer':
+      return value.trim() === '' ? null : Number(value);
+    case 'boolean': {
+      const normalized = value.trim().toLowerCase();
+      if (normalized === '') return null;
+      if (normalized === 'true') return true;
+      if (normalized === 'false') return false;
+      return value;
+    }
+    case 'select': {
+      const matches = column.editor.options.filter((candidate) =>
+        tableDataValuesEqual(candidate, value),
+      );
+      if (matches.length === 1) return cloneTableDataValue(matches[0]);
+      const rendered = column.editor.options.filter((candidate) =>
+        Object.is(
+          candidate instanceof Date ? candidate.toISOString() : String(candidate ?? ''),
+          value,
+        ),
+      );
+      return rendered.length === 1 ? cloneTableDataValue(rendered[0]) : value;
+    }
+    default:
+      return value;
+  }
+}
+
+/** Parse a bounded rectangular TSV payload. Quoted tabs, lines, and doubled quotes are retained. */
+export function parseTableTSV(value: string): readonly (readonly string[])[] {
+  if (typeof value !== 'string' || value.length > maximumTablePasteLength) {
+    throw new RangeError(`Table TSV input is limited to ${maximumTablePasteLength} characters.`);
+  }
+  if (value === '') return [['']];
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = '';
+  let quoted = false;
+  let closedQuote = false;
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index]!;
+    if (quoted) {
+      if (character === '"') {
+        if (value[index + 1] === '"') {
+          cell += '"';
+          index += 1;
+        } else {
+          quoted = false;
+          closedQuote = true;
+        }
+      } else if (character === '\r' && value[index + 1] === '\n') {
+        cell += '\n';
+        index += 1;
+      } else {
+        cell += character;
+      }
+      continue;
+    }
+    if (character === '"') {
+      if (cell !== '' || closedQuote) {
+        throw new RangeError('Table TSV quotes must begin at the start of a cell.');
+      }
+      quoted = true;
+    } else if (character === '\t') {
+      row.push(cell);
+      cell = '';
+      closedQuote = false;
+    } else if (character === '\r' || character === '\n') {
+      row.push(cell);
+      rows.push(row);
+      row = [];
+      cell = '';
+      closedQuote = false;
+      if (character === '\r' && value[index + 1] === '\n') index += 1;
+      if (rows.length > maximumTablePasteRows) {
+        throw new RangeError(`Table TSV input is limited to ${maximumTablePasteRows} rows.`);
+      }
+    } else {
+      if (closedQuote) {
+        throw new RangeError('Table TSV quoted cells must end before a delimiter.');
+      }
+      cell += character;
+    }
+  }
+  if (quoted) throw new RangeError('Table TSV input contains an unterminated quoted cell.');
+  if (row.length > 0 || cell !== '' || !/[\r\n]$/u.test(value)) {
+    row.push(cell);
+    rows.push(row);
+  }
+  const columns = rows[0]?.length ?? 0;
+  if (
+    columns === 0 ||
+    rows.length > maximumTablePasteRows ||
+    columns > maximumTablePasteColumns ||
+    rows.length * columns > maximumTablePasteCells ||
+    rows.some((candidate) => candidate.length !== columns)
+  ) {
+    throw new RangeError('Table TSV input must be a bounded rectangular grid.');
+  }
+  return rows;
+}
+
 function portableValue(
   value: DataValue,
 ): string | number | boolean | null | readonly (string | number | boolean | null)[] {
@@ -617,10 +847,14 @@ function csvText(value: DataValue): string {
   return String(value);
 }
 
+function inertSpreadsheetText(value: DataValue): string {
+  const text = csvText(value);
+  return typeof value === 'string' && /^[\t\r\n ]*[=+\-@]/u.test(text) ? `'${text}` : text;
+}
+
 function csvCell(value: DataValue): string {
-  let text = csvText(value);
+  const text = inertSpreadsheetText(value);
   // Keep exports inert when opened by spreadsheet software.
-  if (typeof value === 'string' && /^[\t\r\n ]*[=+\-@]/u.test(text)) text = `'${text}`;
   return /[",\r\n]/u.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
@@ -629,4 +863,14 @@ export function tableCSV(rows: readonly DataRow[], fields?: readonly string[]): 
   const lines = [columns.map((field) => csvCell(field)).join(',')];
   for (const row of rows) lines.push(columns.map((field) => csvCell(row[field])).join(','));
   return lines.join('\r\n');
+}
+
+function tsvCell(value: DataValue): string {
+  const text = inertSpreadsheetText(value);
+  return /[\t"\r\n]/u.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+}
+
+/** Export a rectangular data slice as inert, spreadsheet-compatible TSV. */
+export function tableTSV(rows: readonly DataRow[], fields: readonly string[]): string {
+  return rows.map((row) => fields.map((field) => tsvCell(row[field])).join('\t')).join('\r\n');
 }

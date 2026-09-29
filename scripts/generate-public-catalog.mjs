@@ -4,6 +4,11 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { format, resolveConfig } from 'prettier';
 
+import {
+  evidenceFamiliesFromTraceability,
+  supplementalCapabilityTraceability,
+  validateCapabilityTraceability,
+} from './current-limitations-traceability.mjs';
 import { fieldsForSpec, quickOptions } from './manual-example-helpers.mjs';
 import { seriesSampleSpec } from './series-samples.mjs';
 import { spatialSampleSpecs } from './spatial-samples.mjs';
@@ -19,12 +24,19 @@ const limitationEvidencePath = path.join(
 const outputPath = path.join(root, 'catalog/graflume.catalog.json');
 const roadmapPath = path.join(root, 'docs/development/verified-feature-matrix.md');
 const packagePath = path.join(root, 'package.json');
+const spreadsheetAssetPath = path.join(root, 'cdn/graflume.spreadsheet.manifest.json');
 
 const complete = await import(pathToFileURL(path.join(root, 'dist/graflume.complete.js')));
 const spatial = await import(pathToFileURL(path.join(root, 'dist/graflume.spatial.js')));
 const features = JSON.parse(await readFile(featurePath, 'utf8'));
 const limitationEvidence = JSON.parse(await readFile(limitationEvidencePath, 'utf8'));
 const packageJson = JSON.parse(await readFile(packagePath, 'utf8'));
+const spreadsheetAssets = JSON.parse(await readFile(spreadsheetAssetPath, 'utf8'));
+const supplementalEvidence = evidenceFamiliesFromTraceability(supplementalCapabilityTraceability);
+await validateCapabilityTraceability(supplementalEvidence, { rootDir: root, expectedTotal: 1 });
+const supplementalEvidenceByFamily = new Map(
+  supplementalEvidence.map((family) => [family.id, family.traces]),
+);
 
 async function formatGenerated(source, filepath) {
   return format(source, {
@@ -110,13 +122,10 @@ function familySnapshot(id, renderer) {
     : `docs/assets/charts/${id}.svg`;
 }
 
-function implementationEvidenceFromTraces(completed) {
-  const sources = [
-    ...new Set(completed.traces.flatMap((trace) => trace.sources.map(({ path }) => path))),
-  ];
-  const tests = [
-    ...new Set(completed.traces.flatMap((trace) => trace.tests.map(({ path }) => path))),
-  ];
+function implementationEvidenceFromTraces(completed, supplemental = []) {
+  const traces = [...completed.traces, ...supplemental];
+  const sources = [...new Set(traces.flatMap((trace) => trace.sources.map(({ path }) => path)))];
+  const tests = [...new Set(traces.flatMap((trace) => trace.tests.map(({ path }) => path)))];
   assert.ok(sources.length > 0, `${completed.id} must expose source evidence`);
   assert.ok(tests.length > 0, `${completed.id} must expose test evidence`);
   return { sources, tests };
@@ -148,7 +157,10 @@ const families = allFamilyIds.map((id, order) => {
     supportedFeatures: feature.supported,
     currentLimitations: feature.p0,
     completedCurrentLimitations: completed.capabilities,
-    implementationEvidence: implementationEvidenceFromTraces(completed),
+    implementationEvidence: implementationEvidenceFromTraces(
+      completed,
+      supplementalEvidenceByFamily.get(id),
+    ),
     developmentDependencies: feature.dependencies,
   };
 });
@@ -656,6 +668,27 @@ const manifest = {
       default: 'cdn/graflume.global.js',
       complete: 'cdn/graflume.complete.global.js',
       spatial: 'cdn/graflume.spatial.global.js',
+      spreadsheet: spreadsheetAssets.entries.spreadsheet.path,
+      spreadsheetRuntime: spreadsheetAssets.entries.spreadsheetRuntime.path,
+      spreadsheetStyle: spreadsheetAssets.entries.spreadsheetStyle.path,
+    },
+    bundleIntegrity: {
+      spreadsheet: spreadsheetAssets.entries.spreadsheet.integrity,
+      spreadsheetRuntime: spreadsheetAssets.entries.spreadsheetRuntime.integrity,
+      spreadsheetStyle: spreadsheetAssets.entries.spreadsheetStyle.integrity,
+    },
+    spreadsheetSurface: {
+      entryPoint: 'graflume/spreadsheet',
+      snapshotFormat: 'graflume-spreadsheet-v1',
+      profiles: ['data-frame', 'workbook'],
+      manual: 'docs/spreadsheet.md',
+      capabilities: [
+        'stable-ID data-frame synchronization',
+        'stable-ID direct column-header rename with duplicate protection',
+        'bounded workbook snapshots',
+        'ordered host-defined top-level menu panels',
+        'non-wrapping worksheet-edge arrow navigation',
+      ],
     },
   },
   verifiedAt: features.verifiedAt,

@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Graflume spreadsheet browser test</title>
+    <link rel="icon" href="data:," />
+    <style>
+      :root {
+        --host-proof: rgb(12, 34, 56);
+      }
+      body {
+        margin: 0;
+        color: var(--host-proof);
+        font-family: monospace;
+      }
+      #host-proof {
+        position: absolute;
+        left: -10000px;
+      }
+      #spreadsheet {
+        width: 900px;
+        height: 620px;
+      }
+      .host-menu-content {
+        min-height: 100%;
+        box-sizing: border-box;
+        padding: 24px;
+        background: rgb(245, 248, 255);
+      }
+    </style>
+    <script src="../../dist/graflume.spreadsheet.global.js"></script>
+  </head>
+  <body>
+    <div id="host-proof">host</div>
+    <div id="spreadsheet"></div>
+    <script>
+      window.spreadsheetEvents = [];
+      window.spreadsheetBatches = [];
+      window.spreadsheetErrors = [];
+      window.spreadsheetErrorEvents = [];
+      window.spreadsheetMenuActions = [];
+      window.menuLifecycle = { mounts: 0, unmounts: 0, ownerDocumentIsHost: false };
+      window.spreadsheetReady = (async () => {
+        const handle = await Graflume.createSpreadsheet({
+          container: document.querySelector('#spreadsheet'),
+          runtimeUrl: '../../dist/graflume.spreadsheet.runtime.js',
+          styleUrl: '../../dist/graflume.spreadsheet.css',
+          profile: 'data-frame',
+          locale: 'en-US',
+          data: {
+            columns: [
+              { id: 'name', label: 'Name', readOnly: true },
+              { id: 'value', label: 'Value', kind: 'number' },
+              { id: 'result', label: 'Result', kind: 'number' },
+            ],
+            rows: [
+              { id: 'row-a', values: { name: 'Alpha', value: 2, result: 3 } },
+              { id: 'row-b', values: { name: 'Beta', value: 5, result: 7 } },
+              { id: 'row-c', values: { name: 'Gamma', value: 11, result: 13 } },
+            ],
+          },
+          onCommit: async (change) => {
+            if (window.mutateNextCommit) {
+              window.mutateNextCommit = false;
+              window.commitChangeWasFrozen =
+                Object.isFrozen(change) &&
+                Object.isFrozen(change.edits) &&
+                Object.isFrozen(change.columnRenames) &&
+                Object.isFrozen(change.edits[0]);
+              change.id = 'mutated-by-host';
+              if (change.edits[0]) change.edits[0].rowId = 'mutated-by-host';
+            }
+            if (window.commitDelay) {
+              const delay = window.commitDelay;
+              window.commitDelay = 0;
+              window.commitPending = true;
+              try {
+                await new Promise((resolve) => setTimeout(resolve, delay));
+              } finally {
+                window.commitPending = false;
+              }
+            }
+            if (window.rejectNextCommit) {
+              window.rejectNextCommit = false;
+              throw new Error('commit rejected by test');
+            }
+            window.spreadsheetEvents.push(change);
+          },
+          topLevelMenus: [
+            {
+              id: 'data-tools',
+              label: 'Data tools',
+              order: -100,
+              mount: (container, context) => {
+                window.menuLifecycle.mounts += 1;
+                window.menuLifecycle.ownerDocumentIsHost = container.ownerDocument === document;
+                const content = document.createElement('div');
+                content.className = 'host-menu-content';
+                content.innerHTML =
+                  '<h2>Data tools</h2><label>Expression <input aria-label="Expression"></label><button type="button">Close</button>';
+                content.querySelector('button').addEventListener('click', context.close);
+                container.append(content);
+              },
+              unmount: () => {
+                window.menuLifecycle.unmounts += 1;
+              },
+            },
+            {
+              id: 'member-import',
+              label: 'Member import',
+              disabled: true,
+              mount: () => {
+                throw new Error('disabled menu mounted');
+              },
+            },
+          ],
+        });
+        handle.on('error', (event) => {
+          window.spreadsheetErrors.push(event.error.message);
+          window.spreadsheetErrorEvents.push(event);
+        });
+        handle.on('batchchange', (event) => window.spreadsheetBatches.push(event));
+        handle.on('menuaction', (event) => window.spreadsheetMenuActions.push(event));
+        window.spreadsheetHandle = handle;
+        return handle;
+      })();
+    </script>
+  </body>
+</html>

@@ -6,9 +6,12 @@ import { createCompleteRegistry } from '../.tmp/src/complete.js';
 import { Chart } from '../.tmp/src/runtime/chart.js';
 import {
   TableDataHistory,
+  isSafeTableValidationPattern,
   parseTableEditorValue,
+  parseTableTSV,
   tableCSV,
   tableEditingConfig,
+  tableTSV,
   validateTableCellValue,
 } from '../.tmp/src/runtime/table-edit.js';
 
@@ -109,8 +112,9 @@ test('table source/view APIs preserve source identity across sort and replace ro
   detached[0].name = 'mutated-return-value';
   assert.equal(instance.getTableData('layer-0', 'source')[0].name, 'Alpha+');
   assert.deepEqual(
-    editEvents.map(({ row, field, previousValue, newValue, valid, reason }) => ({
+    editEvents.map(({ row, sourceRowIndex, field, previousValue, newValue, valid, reason }) => ({
       row,
+      sourceRowIndex,
       field,
       previousValue,
       newValue,
@@ -120,6 +124,7 @@ test('table source/view APIs preserve source identity across sort and replace ro
     [
       {
         row: 0,
+        sourceRowIndex: 1,
         field: 'amount',
         previousValue: 20,
         newValue: 25,
@@ -128,6 +133,7 @@ test('table source/view APIs preserve source identity across sort and replace ro
       },
       {
         row: 1,
+        sourceRowIndex: 0,
         field: 'name',
         previousValue: 'Alpha',
         newValue: 'Alpha+',
@@ -166,6 +172,8 @@ test('stable-key edits can address a source row outside the current runtime filt
   );
   assert.equal(events[0].row, 0, 'a filtered-out key reports its stable source row index');
   assert.equal(events[1].row, 0, 'a numeric target keeps current-view index semantics');
+  assert.equal(events[0].sourceRowIndex, 0);
+  assert.equal(events[1].sourceRowIndex, 1);
   instance.destroy();
 });
 
@@ -266,7 +274,9 @@ test('table edit history resets, undoes, redoes, and emits cell transitions', ()
     { id: 2, name: 'Beta', amount: 20, status: 'done' },
   ]);
   const reasons = [];
+  const batchReasons = [];
   instance.on('tableeditchange', ({ reason }) => reasons.push(reason));
+  instance.on('tablebatchchange', ({ reason }) => batchReasons.push(reason));
   assert.equal(instance.undoTableEdit('layer-0'), false);
   assert.equal(instance.setTableCellValue('layer-0', { key: 1 }, 'name', 'Changed'), true);
   assert.equal(instance.undoTableEdit('layer-0'), true);
@@ -278,6 +288,7 @@ test('table edit history resets, undoes, redoes, and emits cell transitions', ()
   assert.equal(instance.undoTableEdit('layer-0'), true);
   assert.equal(instance.getTableData('layer-0', 'source')[0].name, 'Changed');
   assert.deepEqual(reasons, ['programmatic', 'undo', 'redo', 'reset', 'undo']);
+  assert.deepEqual(batchReasons, ['undo', 'redo', 'reset', 'undo']);
   instance.destroy();
 });
 
@@ -305,6 +316,294 @@ test('table exports support source/view modes, portable dates, and inert spreads
     'status',
   ]);
   instance.destroy();
+});
+
+test('rectangular TSV paste is typed, atomic, source-addressable, and one undo transaction', () => {
+  const instance = createTableInstance([
+    { id: 1, name: 'Alpha', amount: 10, status: 'ready' },
+    { id: 2, name: 'Beta', amount: 20, status: 'done' },
+  ]);
+  const batches = [];
+  const changes = [];
+  const cells = [];
+  instance.on('tablepaste', (event) => batches.push(event));
+  instance.on('tablebatchchange', (event) => changes.push(event));
+  instance.on('tableeditchange', (event) => cells.push(event));
+
+  instance.setTableRange('layer-0', {
+    anchor: { row: 0, column: 1 },
+    focus: { row: 0, column: 1 },
+  });
+  const result = instance.pasteTableTSV('layer-0', 'Alpha pasted\t11\r\nBeta pasted\t22');
+  assert.equal(result.applied, true);
+  assert.equal(result.reason, 'paste');
+  assert.deepEqual(
+    result.edits.map(({ viewRow, sourceRowIndex, column, field, newValue }) => ({
+      viewRow,
+      sourceRowIndex,
+      column,
+      field,
+      newValue,
+    })),
+    [
+      { viewRow: 0, sourceRowIndex: 0, column: 1, field: 'name', newValue: 'Alpha pasted' },
+      { viewRow: 0, sourceRowIndex: 0, column: 2, field: 'amount', newValue: 11 },
+      { viewRow: 1, sourceRowIndex: 1, column: 1, field: 'name', newValue: 'Beta pasted' },
+      { viewRow: 1, sourceRowIndex: 1, column: 2, field: 'amount', newValue: 22 },
+    ],
+  );
+  assert.equal(batches.length, 1);
+  assert.equal(changes.length, 1);
+  assert.equal(changes[0].reason, 'paste');
+  assert.equal(cells.length, 0, 'one batch event prevents duplicate host mutations');
+  assert.equal(instance.exportTableTSV('layer-0'), 'Alpha pasted\t11\r\nBeta pasted\t22');
+  assert.equal(instance.undoTableEdit('layer-0'), true);
+  assert.deepEqual(
+    instance.getTableData('layer-0', 'source').map(({ name, amount }) => ({ name, amount })),
+    [
+      { name: 'Alpha', amount: 10 },
+      { name: 'Beta', amount: 20 },
+    ],
+  );
+  assert.equal(cells.length, 0, 'batch undo must not expand into cell events');
+  assert.equal(changes.length, 2);
+  assert.equal(changes[1].reason, 'undo');
+  assert.equal(instance.undoTableEdit('layer-0'), false);
+  assert.equal(instance.redoTableEdit('layer-0'), true);
+  assert.equal(changes.at(-1).reason, 'redo');
+  assert.equal(instance.resetTableData('layer-0'), true);
+  assert.equal(changes.at(-1).reason, 'reset');
+  assert.equal(cells.length, 0, 'batch redo and reset must stay atomic');
+  instance.destroy();
+});
+
+test('rectangular TSV paste validates every cell before mutation and reports one failed batch', () => {
+  const instance = createTableInstance([
+    { id: 1, name: 'Alpha', amount: 10, status: 'ready' },
+    { id: 2, name: 'Beta', amount: 20, status: 'done' },
+  ]);
+  const batches = [];
+  instance.on('tablepaste', (event) => batches.push(event));
+  instance.setTableRange('layer-0', {
+    anchor: { row: 0, column: 1 },
+    focus: { row: 0, column: 1 },
+  });
+
+  const result = instance.pasteTableTSV('layer-0', 'Changed\t12\r\nAlso changed\t-1');
+  assert.deepEqual(result, {
+    applied: false,
+    reason: 'minimum',
+    range: {
+      anchor: { row: 0, column: 1 },
+      focus: { row: 1, column: 2 },
+    },
+    edits: [],
+  });
+  assert.equal(batches.length, 1);
+  assert.equal(batches[0].applied, false);
+  assert.deepEqual(
+    instance.getTableData('layer-0', 'source').map(({ name, amount }) => ({ name, amount })),
+    [
+      { name: 'Alpha', amount: 10 },
+      { name: 'Beta', amount: 20 },
+    ],
+  );
+  assert.equal(instance.undoTableEdit('layer-0'), false);
+  instance.destroy();
+});
+
+test('covered merged cells reject focus, range export, and paste without partial mutation', () => {
+  const instance = createTableInstance(
+    [
+      { id: 1, name: 'Alpha', amount: 10, status: 'ready' },
+      { id: 2, name: 'Beta', amount: 20, status: 'done' },
+    ],
+    { merges: [{ row: 0, column: 'name', columnSpan: 2 }] },
+  );
+  assert.doesNotThrow(() => instance.focusTableCell('layer-0', 0, 1));
+  assert.throws(() => instance.focusTableCell('layer-0', 0, 2), /covered merged cell/u);
+  assert.throws(
+    () =>
+      instance.exportTableTSV('layer-0', {
+        anchor: { row: 0, column: 1 },
+        focus: { row: 0, column: 2 },
+      }),
+    /covered merged cell/u,
+  );
+  const result = instance.pasteTableTSV('layer-0', 'Changed\t12');
+  assert.equal(result.applied, false);
+  assert.equal(result.reason, 'merged-cell-read-only');
+  assert.deepEqual(instance.getTableData('layer-0', 'source')[0], {
+    id: 1,
+    name: 'Alpha',
+    amount: 10,
+    status: 'ready',
+  });
+  assert.equal(instance.undoTableEdit('layer-0'), false);
+  instance.destroy();
+});
+
+test('sorted and filtered paste resolves every destination from the pre-paste view', () => {
+  const instance = createTableInstance([
+    { id: 1, name: 'Alpha', amount: 10, status: 'ready' },
+    { id: 2, name: 'Beta', amount: 20, status: 'done' },
+    { id: 3, name: 'Gamma', amount: 30, status: 'ready' },
+  ]);
+  const batches = [];
+  instance.on('tablepaste', (event) => batches.push(event));
+  instance.setTableFilters('layer-0', [{ field: 'status', operator: 'equals', value: 'ready' }]);
+  instance.setTableSort('layer-0', [{ field: 'amount', direction: 'descending' }]);
+  instance.setTableRange('layer-0', {
+    anchor: { row: 0, column: 1 },
+    focus: { row: 0, column: 1 },
+  });
+
+  const result = instance.pasteTableTSV('layer-0', 'Gamma moved\t5\tdone\r\nAlpha moved\t40\tdone');
+  assert.equal(result.applied, true);
+  assert.deepEqual(
+    result.edits.map(({ viewRow, sourceRowIndex, field }) => ({
+      viewRow,
+      sourceRowIndex,
+      field,
+    })),
+    [
+      { viewRow: 0, sourceRowIndex: 2, field: 'name' },
+      { viewRow: 0, sourceRowIndex: 2, field: 'amount' },
+      { viewRow: 0, sourceRowIndex: 2, field: 'status' },
+      { viewRow: 1, sourceRowIndex: 0, field: 'name' },
+      { viewRow: 1, sourceRowIndex: 0, field: 'amount' },
+      { viewRow: 1, sourceRowIndex: 0, field: 'status' },
+    ],
+  );
+  assert.deepEqual(
+    instance.getTableData('layer-0', 'source').map(({ id, name, amount, status }) => ({
+      id,
+      name,
+      amount,
+      status,
+    })),
+    [
+      { id: 1, name: 'Alpha moved', amount: 40, status: 'done' },
+      { id: 2, name: 'Beta', amount: 20, status: 'done' },
+      { id: 3, name: 'Gamma moved', amount: 5, status: 'done' },
+    ],
+  );
+  assert.equal(batches.length, 1);
+  assert.equal(instance.getTableRange('layer-0'), null, 'the filter now removes every pasted row');
+  instance.destroy();
+});
+
+test('runtime filtering clamps or clears stale table ranges before export and paste', () => {
+  const instance = createTableInstance([
+    { id: 1, name: 'Alpha', amount: 10, status: 'ready' },
+    { id: 2, name: 'Beta', amount: 20, status: 'done' },
+  ]);
+  instance.setTableRange('layer-0', {
+    anchor: { row: 1, column: 1 },
+    focus: { row: 1, column: 2 },
+  });
+  instance.setTableFilters('layer-0', [{ field: 'status', operator: 'equals', value: 'ready' }]);
+  assert.deepEqual(instance.getTableRange('layer-0'), {
+    anchor: { row: 0, column: 1 },
+    focus: { row: 0, column: 2 },
+  });
+  assert.equal(instance.exportTableTSV('layer-0'), 'Alpha\t10');
+
+  instance.setTableFilters('layer-0', [{ field: 'status', operator: 'equals', value: 'missing' }]);
+  assert.equal(instance.getTableRange('layer-0'), null);
+  assert.equal(instance.exportTableTSV('layer-0'), '');
+  assert.equal(instance.pasteTableTSV('layer-0', 'Changed').reason, 'no-selection');
+  instance.destroy();
+});
+
+test('runtime-derived columns refresh focused field without changing valid range coordinates', () => {
+  const instance = createTableInstance(
+    [
+      { id: 1, name: 'Alpha', amount: 10, status: 'ready' },
+      { id: 2, name: 'Beta', amount: 20, status: 'done' },
+    ],
+    { columns: ['status', 'name', 'total'] },
+  );
+  instance.focusTableCell('layer-0', 0, 1);
+  assert.equal(instance.getFamilyFocus().field, 'name');
+  instance.setTableGroup('layer-0', {
+    fields: ['status'],
+    aggregates: [{ field: 'amount', op: 'sum', as: 'total' }],
+  });
+  assert.deepEqual(instance.getTableRange('layer-0'), {
+    anchor: { row: 0, column: 1 },
+    focus: { row: 0, column: 1 },
+  });
+  assert.equal(instance.getFamilyFocus().field, 'total');
+  instance.destroy();
+});
+
+test('table ranges follow the single family-focus owner across layers and pie focus', () => {
+  const registry = createCompleteRegistry();
+  registry.registerRenderer(silentRendererFactory);
+  const instance = new Chart(
+    { clientWidth: 720, clientHeight: 460 },
+    {
+      width: 720,
+      height: 460,
+      renderer: silentRendererFactory.name,
+      layers: [
+        {
+          id: 'first-table',
+          data: [{ id: 1, value: 10 }],
+          mark: { type: 'table', options: { columns: ['id', 'value'] } },
+          x: { field: 'id', type: 'nominal' },
+          y: 'value',
+        },
+        {
+          id: 'second-table',
+          data: [{ id: 2, value: 20 }],
+          mark: { type: 'table', options: { columns: ['id', 'value'] } },
+          x: { field: 'id', type: 'nominal' },
+          y: 'value',
+        },
+        {
+          id: 'pie',
+          data: [
+            { group: 'A', value: 1 },
+            { group: 'B', value: 2 },
+          ],
+          mark: 'pie',
+          x: 'group',
+          y: 'value',
+        },
+      ],
+    },
+    registry,
+    { autoResize: false },
+  );
+  const cleared = [];
+  instance.on('tablerangechange', ({ layerId, range }) => {
+    if (range === null) cleared.push(layerId);
+  });
+
+  instance.focusTableCell('first-table', 0, 0);
+  instance.focusTableCell('second-table', 0, 0);
+  assert.equal(instance.getTableRange('first-table'), null);
+  assert.notEqual(instance.getTableRange('second-table'), null);
+  const pieSlice = sceneNodes(instance.getScene().root).find(
+    ({ datum }) => datum?.familyInteraction?.kind === 'pie-slice',
+  );
+  instance.focusPieSlice('pie', pieSlice.datum.familyInteraction.id);
+  assert.equal(instance.getTableRange('second-table'), null);
+  assert.deepEqual(cleared, ['first-table', 'second-table']);
+  instance.destroy();
+});
+
+test('TSV helpers retain quoted cells, reject ragged grids, and keep formula text inert', () => {
+  assert.deepEqual(parseTableTSV(''), [['']], 'an empty clipboard is one blank cell');
+  assert.deepEqual(parseTableTSV('"a\tb"\t"line 1\r\nline 2"\r\nvalue\t2'), [
+    ['a\tb', 'line 1\nline 2'],
+    ['value', '2'],
+  ]);
+  assert.throws(() => parseTableTSV('a\tb\r\nc'), /rectangular/u);
+  assert.throws(() => parseTableTSV('"a"junk\tb'), /delimiter/u);
+  assert.equal(tableTSV([{ a: '=1+1', b: 'a\tb' }], ['a', 'b']), '\'=1+1\t"a\tb"');
 });
 
 test('portable editing helpers apply closed defaults and bounded immutable history', () => {
@@ -337,6 +636,11 @@ test('portable editing helpers apply closed defaults and bounded immutable histo
 });
 
 test('table validation patterns and temporal editors use closed portable contracts', () => {
+  assert.equal(isSafeTableValidationPattern('^[A-Z]{2}-\\d{4}$'), true);
+  assert.equal(isSafeTableValidationPattern('^[a-z]{1,24}$'), true);
+  assert.equal(isSafeTableValidationPattern('^a{0,4096}a{0,4096}a{0,4096}b$'), false);
+  assert.equal(isSafeTableValidationPattern('^a?a?b$'), false);
+
   const config = tableEditingConfig({
     columns: [
       {
@@ -399,7 +703,17 @@ test('table validation patterns and temporal editors use closed portable contrac
   assert.equal(parseTableEditorValue(date, '2026-08-27'), '2026-08-27');
   assert.equal(parseTableEditorValue(datetime, '2026-08-27T00:30'), '2026-08-27T00:30');
 
-  for (const unsafe of ['[', '^a+$', '^(a|b)$', '(a+)+$', '(?=a)a', '(a)\\1', 'a{1,10001}']) {
+  for (const unsafe of [
+    '[',
+    '^a+$',
+    '^(a|b)$',
+    '(a+)+$',
+    '(?=a)a',
+    '(a)\\1',
+    'a{1,10001}',
+    '^a{0,4096}a{0,4096}a{0,4096}b$',
+    '^a?a?b$',
+  ]) {
     assert.throws(
       () =>
         tableEditingConfig({
@@ -424,6 +738,40 @@ test('large table history retains bounded cell patches instead of per-edit row s
   assert.equal(history.undo(), null, 'the default patch history is capped at 100 edits');
   assert.equal(history.rows()[0].value, 20);
   assert.equal(history.rows().at(-1).value, rowCount - 1);
+
+  const cellBounded = new TableDataHistory(
+    [
+      { a: 0, b: 0 },
+      { a: 0, b: 0 },
+    ],
+    100,
+    3,
+  );
+  cellBounded.replace([
+    { a: 1, b: 1 },
+    { a: 0, b: 0 },
+  ]);
+  cellBounded.replace([
+    { a: 1, b: 1 },
+    { a: 2, b: 2 },
+  ]);
+  assert.notEqual(cellBounded.undo(), null);
+  assert.equal(cellBounded.undo(), null, 'the cumulative patch-cell budget evicts old batches');
+  assert.throws(
+    () =>
+      new TableDataHistory(
+        [
+          { a: 0, b: 0 },
+          { a: 0, b: 0 },
+        ],
+        100,
+        3,
+      ).replace([
+        { a: 1, b: 1 },
+        { a: 2, b: 2 },
+      ]),
+    /limited to 3 changed cells/u,
+  );
 
   const implementation = readFileSync(
     new URL('../src/runtime/table-edit.ts', import.meta.url),
@@ -548,6 +896,21 @@ class FakeKeyboardEvent extends Event {
   }
 }
 
+class FakeClipboardEvent extends Event {
+  constructor(type, text = '') {
+    super(type, { cancelable: true });
+    const values = new Map([['text/plain', text]]);
+    this.clipboardData = {
+      getData(format) {
+        return values.get(format) ?? '';
+      },
+      setData(format, value) {
+        values.set(format, value);
+      },
+    };
+  }
+}
+
 class FakeRenderer {
   name = 'table-overlay-test';
   capabilities = {
@@ -659,6 +1022,10 @@ test('active table cells open a native editor with Enter/double-click and commit
   );
 
   try {
+    const shortcuts = renderer.surfaceElement.getAttribute('aria-keyshortcuts');
+    assert.match(shortcuts, /Shift\+ArrowRight/u);
+    assert.match(shortcuts, /Control\+C/u);
+    assert.doesNotMatch(shortcuts, /Control\+Z/u);
     instance.focusTableCell('layer-0', 0, 1);
     const enter = new FakeKeyboardEvent('keydown', { key: 'Enter' });
     renderer.surfaceElement.dispatchEvent(enter);
@@ -709,6 +1076,98 @@ test('active table cells open a native editor with Enter/double-click and commit
       renderer.host.children.some(({ className }) => className === 'graflume-table-editor'),
       false,
     );
+  } finally {
+    instance.destroy();
+    environment.restore();
+  }
+});
+
+test('table keyboard range selection drives visible styling and clipboard copy/paste events', () => {
+  const environment = installFakeDOM();
+  const registry = createCompleteRegistry();
+  let renderer;
+  registry.registerRenderer({
+    name: 'table-range-test',
+    capabilities: new FakeRenderer().capabilities,
+    create() {
+      renderer = new FakeRenderer();
+      renderer.name = 'table-range-test';
+      return renderer;
+    },
+  });
+  const target = environment.document.createElement('main');
+  const instance = new Chart(
+    target,
+    {
+      renderer: 'table-range-test',
+      data: [
+        { id: 1, name: 'Alpha', amount: 10 },
+        { id: 2, name: 'Beta', amount: 20 },
+      ],
+      mark: {
+        type: 'table',
+        options: {
+          columns: [
+            { field: 'id' },
+            { field: 'name', editable: true, editor: { type: 'text' } },
+            { field: 'amount', editable: true, editor: { type: 'number' } },
+          ],
+          editing: { key: 'id' },
+        },
+      },
+      x: 'id',
+      y: 'amount',
+      interaction: { controls: false },
+    },
+    registry,
+    { width: 480, height: 320, autoResize: false },
+  );
+
+  try {
+    instance.focusTableCell('layer-0', 0, 1);
+    renderer.surfaceElement.dispatchEvent(
+      new FakeKeyboardEvent('keydown', { key: 'ArrowRight', shiftKey: true }),
+    );
+    renderer.surfaceElement.dispatchEvent(
+      new FakeKeyboardEvent('keydown', { key: 'ArrowDown', shiftKey: true }),
+    );
+    assert.deepEqual(instance.getTableRange('layer-0'), {
+      anchor: { row: 0, column: 1 },
+      focus: { row: 1, column: 2 },
+    });
+    const selected = sceneNodes(instance.getScene().root).filter(
+      ({ datum }) => datum?.datum?.selected === true,
+    );
+    assert.equal(selected.length, 4);
+    assert.ok(selected.every(({ stroke }) => typeof stroke === 'string'));
+
+    const copy = new FakeClipboardEvent('copy');
+    renderer.surfaceElement.dispatchEvent(copy);
+    assert.equal(copy.defaultPrevented, true);
+    assert.equal(copy.clipboardData.getData('text/plain'), 'Alpha\t10\r\nBeta\t20');
+
+    instance.focusTableCell('layer-0', 0, 1);
+    const paste = new FakeClipboardEvent('paste', 'Changed\t12\r\nChanged too\t22');
+    renderer.surfaceElement.dispatchEvent(paste);
+    assert.equal(paste.defaultPrevented, true);
+    assert.deepEqual(
+      instance.getTableData('layer-0', 'source').map(({ name, amount }) => ({ name, amount })),
+      [
+        { name: 'Changed', amount: 12 },
+        { name: 'Changed too', amount: 22 },
+      ],
+    );
+
+    instance.focusTableCell('layer-0', 0, 1);
+    const blankPaste = new FakeClipboardEvent('paste', '');
+    renderer.surfaceElement.dispatchEvent(blankPaste);
+    assert.equal(blankPaste.defaultPrevented, true);
+    assert.equal(instance.getTableData('layer-0', 'source')[0].name, '');
+
+    const blankCopy = new FakeClipboardEvent('copy', 'stale clipboard value');
+    renderer.surfaceElement.dispatchEvent(blankCopy);
+    assert.equal(blankCopy.defaultPrevented, true);
+    assert.equal(blankCopy.clipboardData.getData('text/plain'), '');
   } finally {
     instance.destroy();
     environment.restore();

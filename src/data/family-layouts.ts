@@ -674,7 +674,7 @@ function tableMergeCellKey(row: number, column: number): string {
   return `${row}:${column}`;
 }
 
-function resolveTableMerges(
+export function resolveTableMerges(
   rows: readonly Readonly<Record<string, unknown>>[],
   columns: readonly string[],
   frozenRows: number,

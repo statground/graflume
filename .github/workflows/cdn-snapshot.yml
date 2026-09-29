@@ -9,6 +9,7 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - 'rollup.config.mjs'
+      - 'rollup.spreadsheet.config.mjs'
       - 'tsconfig*.json'
       - 'scripts/**'
       - 'tests/**'
@@ -28,7 +29,7 @@ jobs:
   snapshot:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Check out repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -38,14 +39,23 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 22
+          node-version: 24
           registry-url: https://registry.npmjs.org
 
       - name: Install dependencies
         run: npm ci --ignore-scripts
 
+      - name: Install Chromium
+        run: ./node_modules/.bin/playwright-core install --with-deps chromium
+
       - name: Run checks and build
         run: npm run check
+
+      - name: Verify isolated spreadsheet in Chromium
+        run: npm run test:spreadsheet:browser
+
+      - name: Verify final generated spreadsheet boundary
+        run: npm run spreadsheet:boundary
 
       - name: Commit browser bundles and pin the examples
         shell: bash
@@ -62,6 +72,10 @@ jobs:
           node - "$VERSION" "$SOURCE_SHA" <<'NODE'
           const fs = require('node:fs');
           const [version, sourceCommit] = process.argv.slice(2);
+          const spreadsheet = JSON.parse(
+            fs.readFileSync('cdn/graflume.spreadsheet.manifest.json', 'utf8'),
+          );
+          const relative = (entry) => `./${entry.path.replace(/^cdn\//, '')}`;
           fs.writeFileSync(
             'cdn/manifest.json',
             `${JSON.stringify(
@@ -74,6 +88,10 @@ jobs:
                   default: './graflume.global.js',
                   complete: './graflume.complete.global.js',
                   spatial: './graflume.spatial.global.js',
+                  spreadsheet: relative(spreadsheet.entries.spreadsheet),
+                  spreadsheetRuntime: relative(spreadsheet.entries.spreadsheetRuntime),
+                  spreadsheetStyle: relative(spreadsheet.entries.spreadsheetStyle),
+                  spreadsheetManifest: './graflume.spreadsheet.manifest.json',
                 },
               },
               null,
@@ -85,7 +103,15 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
 
-          git add cdn/graflume.global.js cdn/graflume.complete.global.js cdn/graflume.spatial.global.js cdn/manifest.json
+          git add \
+            cdn/graflume.global.js \
+            cdn/graflume.complete.global.js \
+            cdn/graflume.spatial.global.js \
+            cdn/graflume.spreadsheet.global.js \
+            cdn/graflume.spreadsheet.runtime.js \
+            cdn/graflume.spreadsheet.css \
+            cdn/graflume.spreadsheet.manifest.json \
+            cdn/manifest.json
           if ! git diff --cached --quiet; then
             git commit -m 'Build Graflume CDN snapshots [skip ci]'
           fi
@@ -94,6 +120,9 @@ jobs:
           DEFAULT_SRI="sha384-$(openssl dgst -sha384 -binary cdn/graflume.global.js | openssl base64 -A)"
           COMPLETE_SRI="sha384-$(openssl dgst -sha384 -binary cdn/graflume.complete.global.js | openssl base64 -A)"
           SPATIAL_SRI="sha384-$(openssl dgst -sha384 -binary cdn/graflume.spatial.global.js | openssl base64 -A)"
+          SPREADSHEET_SRI="sha384-$(openssl dgst -sha384 -binary cdn/graflume.spreadsheet.global.js | openssl base64 -A)"
+          SPREADSHEET_RUNTIME_SRI="sha384-$(openssl dgst -sha384 -binary cdn/graflume.spreadsheet.runtime.js | openssl base64 -A)"
+          SPREADSHEET_STYLE_SRI="sha384-$(openssl dgst -sha384 -binary cdn/graflume.spreadsheet.css | openssl base64 -A)"
 
           node scripts/pin-cdn-examples.mjs "$BUNDLE_SHA" "$DEFAULT_SRI" "$COMPLETE_SRI" "$SPATIAL_SRI"
           git add \
@@ -137,18 +166,31 @@ jobs:
           verify_bundle 'graflume.global.js' "$DEFAULT_SRI" /tmp/graflume.default.cdn.js
           verify_bundle 'graflume.complete.global.js' "$COMPLETE_SRI" /tmp/graflume.complete.cdn.js
           verify_bundle 'graflume.spatial.global.js' "$SPATIAL_SRI" /tmp/graflume.spatial.cdn.js
+          verify_bundle 'graflume.spreadsheet.global.js' "$SPREADSHEET_SRI" /tmp/graflume.spreadsheet.cdn.js
+          verify_bundle 'graflume.spreadsheet.runtime.js' "$SPREADSHEET_RUNTIME_SRI" /tmp/graflume.spreadsheet-runtime.cdn.js
+          verify_bundle 'graflume.spreadsheet.css' "$SPREADSHEET_STYLE_SRI" /tmp/graflume.spreadsheet-style.cdn.css
 
           VERIFIED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           DEFAULT_URL="https://cdn.jsdelivr.net/gh/statground/graflume@${BUNDLE_SHA}/cdn/graflume.global.js"
           COMPLETE_URL="https://cdn.jsdelivr.net/gh/statground/graflume@${BUNDLE_SHA}/cdn/graflume.complete.global.js"
           SPATIAL_URL="https://cdn.jsdelivr.net/gh/statground/graflume@${BUNDLE_SHA}/cdn/graflume.spatial.global.js"
+          SPREADSHEET_URL="https://cdn.jsdelivr.net/gh/statground/graflume@${BUNDLE_SHA}/cdn/graflume.spreadsheet.global.js"
+          SPREADSHEET_RUNTIME_URL="https://cdn.jsdelivr.net/gh/statground/graflume@${BUNDLE_SHA}/cdn/graflume.spreadsheet.runtime.js"
+          SPREADSHEET_STYLE_URL="https://cdn.jsdelivr.net/gh/statground/graflume@${BUNDLE_SHA}/cdn/graflume.spreadsheet.css"
           DEFAULT_BYTES="$(wc -c < /tmp/graflume.default.cdn.js | tr -d ' ')"
           COMPLETE_BYTES="$(wc -c < /tmp/graflume.complete.cdn.js | tr -d ' ')"
           SPATIAL_BYTES="$(wc -c < /tmp/graflume.spatial.cdn.js | tr -d ' ')"
+          SPREADSHEET_BYTES="$(wc -c < /tmp/graflume.spreadsheet.cdn.js | tr -d ' ')"
+          SPREADSHEET_RUNTIME_BYTES="$(wc -c < /tmp/graflume.spreadsheet-runtime.cdn.js | tr -d ' ')"
+          SPREADSHEET_STYLE_BYTES="$(wc -c < /tmp/graflume.spreadsheet-style.cdn.css | tr -d ' ')"
           node - \
             "$SOURCE_SHA" "$BUNDLE_SHA" "$DEFAULT_URL" "$DEFAULT_SRI" "$DEFAULT_BYTES" \
             "$COMPLETE_URL" "$COMPLETE_SRI" "$COMPLETE_BYTES" \
-            "$SPATIAL_URL" "$SPATIAL_SRI" "$SPATIAL_BYTES" "$VERIFIED_AT" <<'NODE'
+            "$SPATIAL_URL" "$SPATIAL_SRI" "$SPATIAL_BYTES" \
+            "$SPREADSHEET_URL" "$SPREADSHEET_SRI" "$SPREADSHEET_BYTES" \
+            "$SPREADSHEET_RUNTIME_URL" "$SPREADSHEET_RUNTIME_SRI" "$SPREADSHEET_RUNTIME_BYTES" \
+            "$SPREADSHEET_STYLE_URL" "$SPREADSHEET_STYLE_SRI" "$SPREADSHEET_STYLE_BYTES" \
+            "$VERIFIED_AT" <<'NODE'
           const fs = require('node:fs');
           const [
             sourceCommit,
@@ -162,6 +204,15 @@ jobs:
             spatialUrl,
             spatialIntegrity,
             spatialByteLength,
+            spreadsheetUrl,
+            spreadsheetIntegrity,
+            spreadsheetByteLength,
+            spreadsheetRuntimeUrl,
+            spreadsheetRuntimeIntegrity,
+            spreadsheetRuntimeByteLength,
+            spreadsheetStyleUrl,
+            spreadsheetStyleIntegrity,
+            spreadsheetStyleByteLength,
             verifiedAt,
           ] = process.argv.slice(2);
           fs.writeFileSync(
@@ -182,6 +233,21 @@ jobs:
                   cdnUrl: spatialUrl,
                   integrity: spatialIntegrity,
                   byteLength: Number(spatialByteLength),
+                },
+                spreadsheet: {
+                  cdnUrl: spreadsheetUrl,
+                  integrity: spreadsheetIntegrity,
+                  byteLength: Number(spreadsheetByteLength),
+                  runtime: {
+                    cdnUrl: spreadsheetRuntimeUrl,
+                    integrity: spreadsheetRuntimeIntegrity,
+                    byteLength: Number(spreadsheetRuntimeByteLength),
+                  },
+                  style: {
+                    cdnUrl: spreadsheetStyleUrl,
+                    integrity: spreadsheetStyleIntegrity,
+                    byteLength: Number(spreadsheetStyleByteLength),
+                  },
                 },
                 verifiedAt,
               },

@@ -54,6 +54,13 @@
       "import": "./dist/graflume.spatial.js",
       "default": "./dist/graflume.spatial.js"
     },
+    "./spreadsheet": {
+      "types": "./dist/spreadsheet.d.ts",
+      "import": "./dist/graflume.spreadsheet.js",
+      "default": "./dist/graflume.spreadsheet.js"
+    },
+    "./spreadsheet/runtime": "./dist/graflume.spreadsheet.runtime.min.js",
+    "./spreadsheet/style": "./dist/graflume.spreadsheet.min.css",
     "./spatial-schema": {
       "default": "./schema/graflume.spatial.schema.json"
     }
@@ -63,10 +70,18 @@
     "dist",
     "geography",
     "schema",
+    "licenses",
     "README.md",
     "THIRD_PARTY_NOTICES.md"
   ],
-  "sideEffects": false,
+  "sideEffects": [
+    "./dist/graflume.spreadsheet.runtime.js",
+    "./dist/graflume.spreadsheet.runtime.min.js",
+    "./dist/*.css"
+  ],
+  "overrides": {
+    "nanoid": "5.1.16"
+  },
   "engines": {
     "node": ">=20.19.0"
   },
@@ -79,14 +94,16 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:compile": "node ./scripts/clean-tests.mjs && tsc -p tsconfig.test.json",
     "test": "npm run test:compile && node --test ./tests/*.test.mjs",
+    "test:spreadsheet:browser": "npm run build:spreadsheet && node --test ./tests/spreadsheet-browser.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "build:types": "tsc -p tsconfig.types.json",
     "build:bundle": "rollup -c",
+    "build:spreadsheet": "rollup -c rollup.spreadsheet.config.mjs && node ./scripts/build-spreadsheet-assets.mjs",
     "build:minify": "node ./scripts/minify.mjs",
     "build:static": "node ./scripts/copy-static.mjs",
     "build:size": "node ./scripts/check-bundle-size.mjs",
-    "build": "npm run clean && npm run build:types && npm run build:bundle && npm run build:minify && npm run build:static && npm run build:size && npm run build:verify",
+    "build": "npm run clean && npm run build:types && npm run build:bundle && npm run build:minify && npm run build:spreadsheet && npm run build:static && npm run build:size && npm run build:verify",
     "docs:guides": "npm run build:bundle && node ./scripts/generate-consolidated-family-guides.mjs && node ./scripts/generate-series-gallery.mjs",
     "docs:series-gallery:check": "node ./scripts/generate-series-gallery.mjs --check",
     "docs:snapshots": "npm run build:bundle && node ./scripts/render-chart-guide-snapshots.mjs && node ./scripts/render-additional-chart-snapshots.mjs && node ./scripts/render-series-chart-snapshots.mjs",
@@ -100,17 +117,217 @@
     "docs:links": "node ./scripts/check-doc-links.mjs",
     "geography:update": "node ./scripts/generate-natural-earth-world.mjs && node ./scripts/generate-natural-earth-admin1.mjs",
     "geography:check": "node ./scripts/check-natural-earth-admin1-assets.mjs",
-    "check": "npm run naming:check && npm run limitations:check && npm run geography:check && npm run typecheck && npm test && npm run build && npm run catalog:check && npm run docs:series-gallery:check && npm run docs:snapshots:check && npm run docs:theme-snapshots:check && npm run docs:links && npm run format:check && npm run package:check",
+    "check": "npm run naming:check && npm run spreadsheet:boundary && npm run limitations:check && npm run geography:check && npm run typecheck && npm test && npm run build && npm run spreadsheet:boundary && npm run catalog:check && npm run docs:series-gallery:check && npm run docs:snapshots:check && npm run docs:theme-snapshots:check && npm run docs:links && npm run format:check && npm run package:check",
     "build:verify": "node ./scripts/check-built-bundles.mjs",
     "naming:check": "node ./scripts/check-neutral-naming.mjs",
+    "spreadsheet:boundary": "node ./scripts/check-spreadsheet-boundary.mjs",
     "package:check": "npm pack --dry-run"
   },
   "devDependencies": {
+    "@rollup/plugin-commonjs": "29.0.3",
+    "@rollup/plugin-node-resolve": "16.0.3",
+    "@rollup/plugin-replace": "6.0.3",
     "@rollup/plugin-typescript": "^12.3.0",
+    "@univerjs/core": "0.25.1",
+    "@univerjs/preset-sheets-conditional-formatting": "0.25.1",
+    "@univerjs/preset-sheets-core": "0.25.1",
+    "@univerjs/preset-sheets-data-validation": "0.25.1",
+    "@univerjs/preset-sheets-filter": "0.25.1",
+    "@univerjs/preset-sheets-find-replace": "0.25.1",
+    "@univerjs/preset-sheets-hyper-link": "0.25.1",
+    "@univerjs/preset-sheets-note": "0.25.1",
+    "@univerjs/preset-sheets-sort": "0.25.1",
+    "@univerjs/preset-sheets-table": "0.25.1",
+    "@univerjs/sheets-table": "0.25.1",
+    "playwright-core": "1.63.0",
     "prettier": "^3.9.6",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
     "rollup": "^4.62.4",
+    "rxjs": "7.8.2",
     "terser": "^5.49.2",
     "tslib": "^2.8.1",
     "typescript": "^5.8.3"
+  },
+  "graflumeSpreadsheetBuild": {
+    "modules": {
+      "#grid-kernel": {
+        "sources": [
+          {
+            "package": "@univerjs/core",
+            "exports": {
+              "Univer": "GridKernel",
+              "Direction": "GridDirection",
+              "IUndoRedoService": "GridUndoHistoryToken"
+            }
+          },
+          {
+            "package": "@univerjs/core/facade",
+            "exports": {
+              "FUniver": "GridFacade"
+            }
+          }
+        ]
+      },
+      "#grid-preset-core": {
+        "sources": [
+          {
+            "package": "@univerjs/preset-sheets-core",
+            "exports": {
+              "UniverSheetsCorePreset": "gridCorePreset"
+            }
+          }
+        ]
+      },
+      "#grid-preset-filter": {
+        "sources": [
+          {
+            "package": "@univerjs/preset-sheets-filter",
+            "exports": {
+              "UniverSheetsFilterPreset": "gridFilterPreset"
+            }
+          }
+        ]
+      },
+      "#grid-preset-sort": {
+        "sources": [
+          {
+            "package": "@univerjs/preset-sheets-sort",
+            "exports": {
+              "UniverSheetsSortPreset": "gridSortPreset"
+            }
+          }
+        ]
+      },
+      "#grid-preset-validation": {
+        "sources": [
+          {
+            "package": "@univerjs/preset-sheets-data-validation",
+            "exports": {
+              "UniverSheetsDataValidationPreset": "gridValidationPreset"
+            }
+          }
+        ]
+      },
+      "#grid-preset-formatting": {
+        "sources": [
+          {
+            "package": "@univerjs/preset-sheets-conditional-formatting",
+            "exports": {
+              "UniverSheetsConditionalFormattingPreset": "gridFormattingPreset"
+            }
+          }
+        ]
+      },
+      "#grid-preset-find": {
+        "sources": [
+          {
+            "package": "@univerjs/preset-sheets-find-replace",
+            "exports": {
+              "UniverSheetsFindReplacePreset": "gridFindPreset"
+            }
+          }
+        ]
+      },
+      "#grid-preset-note": {
+        "sources": [
+          {
+            "package": "@univerjs/preset-sheets-note",
+            "exports": {
+              "UniverSheetsNotePreset": "gridNotePreset"
+            }
+          }
+        ]
+      },
+      "#grid-preset-link": {
+        "sources": [
+          {
+            "package": "@univerjs/preset-sheets-hyper-link",
+            "exports": {
+              "UniverSheetsHyperLinkPreset": "gridLinkPreset"
+            }
+          }
+        ]
+      },
+      "#grid-preset-table": {
+        "sources": [
+          {
+            "package": "@univerjs/preset-sheets-table",
+            "exports": {
+              "UniverSheetsTablePreset": "gridTablePreset"
+            }
+          },
+          {
+            "package": "@univerjs/sheets-table",
+            "exports": {
+              "TableManager": "GridTableManager"
+            }
+          }
+        ]
+      },
+      "#grid-locales": {
+        "localePackages": [
+          "@univerjs/preset-sheets-core",
+          "@univerjs/preset-sheets-filter",
+          "@univerjs/preset-sheets-sort",
+          "@univerjs/preset-sheets-data-validation",
+          "@univerjs/preset-sheets-conditional-formatting",
+          "@univerjs/preset-sheets-find-replace",
+          "@univerjs/preset-sheets-note",
+          "@univerjs/preset-sheets-hyper-link",
+          "@univerjs/preset-sheets-table"
+        ]
+      }
+    },
+    "styles": [
+      "@univerjs/preset-sheets-core/lib/index.css",
+      "@univerjs/preset-sheets-filter/lib/index.css",
+      "@univerjs/preset-sheets-sort/lib/index.css",
+      "@univerjs/preset-sheets-data-validation/lib/index.css",
+      "@univerjs/preset-sheets-conditional-formatting/lib/index.css",
+      "@univerjs/preset-sheets-find-replace/lib/index.css",
+      "@univerjs/preset-sheets-note/lib/index.css",
+      "@univerjs/preset-sheets-hyper-link/lib/index.css",
+      "@univerjs/preset-sheets-table/lib/index.css"
+    ],
+    "licenseOverrides": {
+      "@univerjs/telemetry": {
+        "license": "Apache-2.0"
+      },
+      "@univerjs/protocol": {
+        "license": "Apache-2.0",
+        "licenseSource": "https://github.com/dream-num/univer/blob/v0.25.1/LICENSE"
+      },
+      "franc-min": {
+        "license": "MIT",
+        "licenseSource": "https://registry.npmjs.org/franc-min/-/franc-min-6.2.0.tgz#readme.md",
+        "licenseEvidenceFile": "readme.md",
+        "notice": "Copyright Titus Wormer"
+      },
+      "ot-json1": {
+        "license": "ISC",
+        "licenseSource": "https://registry.npmjs.org/ot-json1/-/ot-json1-1.0.2.tgz#README.md",
+        "licenseEvidenceFile": "README.md",
+        "notice": "Copyright 2013-2018 Joseph Gentle"
+      },
+      "ot-text-unicode": {
+        "license": "ISC",
+        "licenseSource": "https://registry.npmjs.org/ot-text-unicode/-/ot-text-unicode-4.0.0.tgz#README.md",
+        "licenseEvidenceFile": "README.md",
+        "notice": "Package metadata declares ISC; the bundled README also carries the MIT notice Copyright 2011 ottypes library contributors."
+      },
+      "unicount": {
+        "license": "ISC",
+        "licenseSource": "https://registry.npmjs.org/unicount/-/unicount-1.1.0.tgz#README.md",
+        "licenseEvidenceFile": "README.md",
+        "notice": "Copyright 2019 Joseph Gentle"
+      },
+      "react-remove-scroll-bar": {
+        "license": "MIT",
+        "licenseSource": "https://registry.npmjs.org/react-remove-scroll-bar/-/react-remove-scroll-bar-2.3.8.tgz#README.md",
+        "licenseEvidenceFile": "README.md",
+        "notice": "Copyright Anton Korzunov"
+      }
+    }
   }
 }

@@ -2213,6 +2213,25 @@ export const compileAdvancedTableMark: MarkCompiler = (context) => {
     Number.isInteger(runtimeFocusedCell.column)
       ? runtimeFocusedCell.column
       : -1;
+  const runtimeSelectedRange = safeObject(context.layer.mark.options.runtimeSelectedRange);
+  const rangeAnchor = safeObject(runtimeSelectedRange?.anchor);
+  const rangeFocus = safeObject(runtimeSelectedRange?.focus);
+  const selectedTop =
+    typeof rangeAnchor?.row === 'number' && typeof rangeFocus?.row === 'number'
+      ? Math.min(rangeAnchor.row, rangeFocus.row)
+      : -1;
+  const selectedBottom =
+    typeof rangeAnchor?.row === 'number' && typeof rangeFocus?.row === 'number'
+      ? Math.max(rangeAnchor.row, rangeFocus.row)
+      : -1;
+  const selectedLeft =
+    typeof rangeAnchor?.column === 'number' && typeof rangeFocus?.column === 'number'
+      ? Math.min(rangeAnchor.column, rangeFocus.column)
+      : -1;
+  const selectedRight =
+    typeof rangeAnchor?.column === 'number' && typeof rangeFocus?.column === 'number'
+      ? Math.max(rangeAnchor.column, rangeFocus.column)
+      : -1;
   const authoredByField = new Map(visibleAuthoredColumns.map((column) => [column.field, column]));
   const defaultColumn = (field: string): TableColumnDefinition => ({
     field,
@@ -2379,6 +2398,11 @@ export const compileAdvancedTableMark: MarkCompiler = (context) => {
         });
         const value = portableValue(row[column]);
         const focused = absoluteRow === focusedRow && absoluteColumn === focusedColumn;
+        const selected =
+          absoluteRow >= selectedTop &&
+          absoluteRow <= selectedBottom &&
+          absoluteColumn >= selectedLeft &&
+          absoluteColumn <= selectedRight;
         const sourceRowIndex =
           typeof row.__sourceIndex === 'number' ? row.__sourceIndex : absoluteRow;
         const editable =
@@ -2442,7 +2466,7 @@ export const compileAdvancedTableMark: MarkCompiler = (context) => {
             }
           : {};
         const cellHasBorder =
-          focused || style.stroke !== undefined || style.lineWidth !== undefined;
+          focused || selected || style.stroke !== undefined || style.lineWidth !== undefined;
         nodes.push({
           type: 'rect',
           ...nodeBase(`${context.layer.id}:table-cell:${absoluteRow}:${absoluteColumn}`, {
@@ -2463,6 +2487,7 @@ export const compileAdvancedTableMark: MarkCompiler = (context) => {
                 frozenRow,
                 frozenColumn,
                 editable,
+                selected,
                 merged: merge !== undefined,
                 anchorRow: merge?.row ?? absoluteRow,
                 anchorColumn: merge?.column ?? absoluteColumn,
@@ -2531,9 +2556,12 @@ export const compileAdvancedTableMark: MarkCompiler = (context) => {
                 ? context.theme.colors.background
                 : context.theme.colors.surface),
           ...(cellHasBorder
-            ? { stroke: focused ? context.theme.colors.focus : (style.stroke ?? grid.color) }
+            ? {
+                stroke:
+                  focused || selected ? context.theme.colors.focus : (style.stroke ?? grid.color),
+              }
             : {}),
-          lineWidth: focused ? 2.5 : cellHasBorder ? (style.lineWidth ?? 0.7) : 0,
+          lineWidth: focused ? 2.5 : selected ? 1.35 : cellHasBorder ? (style.lineWidth ?? 0.7) : 0,
           cornerRadius: 0,
         });
         if (!cellHasBorder) {

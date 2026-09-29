@@ -4,6 +4,30 @@ All notable changes to Graflume will be recorded here.
 
 ## Unreleased
 
+- Add a lazy `createSpreadsheet()` surface with a neutral public facade, isolated iframe runtime
+  and styles, Korean/English UI, formula and table tools, stable-ID data-frame synchronization,
+  atomic batch commits, bounded snapshots, read-only and structural guards, commit-rejection
+  rollback, direct column-header renaming with stable IDs and blank/trim-duplicate protection, and
+  lifecycle APIs. Column renames use the same atomic host commit and reversible batch contract,
+  including zero-row frames and localized invalid-edit errors. Add host-defined top-level ribbon
+  menus whose parent-document
+  panels preserve application CSS and localization, including disabled/active/update/dispose
+  controls, finite native ordering, accessible keyboard navigation, isolated mount errors, and
+  snapshot-invariant state. Plain arrow-key navigation stops at physical worksheet edges instead
+  of wrapping to the opposite corner, while modified arrows and Enter/Tab retain their native
+  behavior.
+  Publish separately integrity-addressed CDN assets without changing the default, complete, or
+  Spatial dependency graphs; include rendered-dependency license/SBOM evidence, browser isolation
+  and cross-origin integrity tests, and strict size budgets.
+
+- Add renderer-neutral Table ranges with click selection and Shift+Arrow extension, selected-range
+  TSV export, and bounded rectangular TSV paste through public APIs plus native copy/paste events.
+  Pasted cells are typed and validated before one immutable source replacement and one undo entry;
+  `tablepaste` and `tablebatchchange` report stable source row indices without duplicate per-cell
+  edit events, including atomic paste-origin undo/redo and multi-cell reset. Empty cells remain
+  copyable/pasteable, cumulative history is cell-bounded, and malformed TSV, stale selections,
+  or covered merged cells fail closed. Spreadsheet-like formula text remains inert on export.
+
 - Preserve bounded embedded PNG/JPEG pixels in SVG imports as native Scene image nodes, with
   affine transforms, rectangular clips, snapshot restore, and Canvas raster export. Reject
   external/active/animated sources before decoding. Add `chart.whenReady()` and

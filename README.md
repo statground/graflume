@@ -69,9 +69,13 @@ dist/graflume.complete.min.js      complete-catalog minified bundle
 dist/graflume.spatial.js           opt-in spatial ESM
 dist/graflume.spatial.global.js    opt-in spatial browser global
 dist/graflume.spatial.min.js       opt-in spatial minified bundle
+dist/graflume.spreadsheet.min.js   lazy spreadsheet browser facade
+dist/graflume.spreadsheet.runtime.min.js lazy isolated spreadsheet runtime
+dist/graflume.spreadsheet.min.css  isolated spreadsheet stylesheet
 dist/index.d.ts                    default TypeScript declarations
 dist/complete.d.ts                 complete-catalog declarations
 dist/spatial.d.ts                  spatial declarations
+dist/spreadsheet.d.ts              spreadsheet facade declarations
 ```
 
 ## CDN usage
@@ -122,7 +126,13 @@ After an npm release, load an **exact version** from jsDelivr:
 
 The exact npm CDN URL becomes valid only after that package version is published.
 
-For pre-npm alpha testing, the repository maintains source-controlled default, complete, and spatial browser snapshots at `cdn/graflume.global.js`, `cdn/graflume.complete.global.js`, and `cdn/graflume.spatial.global.js`. The snapshot workflow builds all three entrypoints, commits the browser bundles, rewrites every downloadable example to exact Git commit URLs with independent SHA-384 Subresource Integrity, and verifies the jsDelivr responses byte for byte. Moving aliases such as `@main` and `@latest` are not used.
+For pre-npm alpha testing, the repository maintains source-controlled default, complete, spatial,
+and lazy spreadsheet browser snapshots under `cdn/`. The spreadsheet manifest records its three
+asset paths, byte lengths, and independent SHA-384 values. The snapshot workflow commits and
+verifies every browser asset against an exact Git commit; moving aliases such as `@main` and
+`@latest` are not used. See the [optional spreadsheet guide](docs/spreadsheet.md) for lazy loading,
+isolation, bounded data-frame synchronization, direct unique column-header renaming, ordered
+host-defined ribbon menus, and fallback requirements.
 
 ## Chart types and examples
 

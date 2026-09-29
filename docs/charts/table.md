@@ -12,6 +12,11 @@ This is the single manual for the `table` family. Its canonical Quick API is `ta
 
 All presets reuse the same validation, normalization, scale, compiler, renderer-neutral Scene, interaction, accessibility, and serialization contracts. Direction, curve, layout, glyph, depth, financial-body, and indicator choices stay in function-free fields or options instead of selecting a second rendering engine. The remaining manually maintained sections describe the canonical/default presentation unless a preset row above states a different behavior.
 
+Use the lazy [spreadsheet surface](../spreadsheet.md) when users need a formula bar, direct column
+header renaming with duplicate-name protection, workbook formatting, or host-defined ribbon menus.
+The Table chart remains the lighter renderer-neutral choice for bounded cell editing and chart-layer
+composition.
+
 ## Visual gallery
 
 Every image below is generated from the current compiled Scene rather than drawn by hand. Select a name to jump to its data fields and implementation.
@@ -371,7 +376,7 @@ mark: {
 
 Editors are `text`, `number`, `integer`, `date`, `datetime`, `boolean`, or `select`. A `date` edit accepts only a real `YYYY-MM-DD` calendar date. A `datetime` edit accepts `Date` values or strict ISO datetimes; an ISO datetime without an offset is interpreted as UTC, while a date-only string remains date-only. Locale-dependent strings such as `May 1, 2026` are never passed to `Date.parse`.
 
-Validation supports `required`, `min`, `max`, `minLength`, `maxLength`, `pattern`, and a bounded scalar `values` allowlist. `pattern` is a Unicode regular expression of at most 256 characters. The safe subset rejects invalid expressions, controls, backreferences, groups, alternation, unbounded quantifiers, nested/repeated quantifiers, excessive quantifier counts, and repetitions above 10,000. Pattern inputs are capped at 4,096 characters before matching. This keeps validation portable and fail-closed; use anchored patterns such as `^[A-Z]{2}-\d{4}$` for identifiers. Double-click or press Enter on an editable cell to open the overlay editor. Esc cancels; `commit` chooses Enter, blur, or both. Invalid edits do not mutate source data and emit a `tableeditchange` reason.
+Validation supports `required`, `min`, `max`, `minLength`, `maxLength`, `pattern`, and a bounded scalar `values` allowlist. `pattern` is a Unicode regular expression of at most 256 characters. The safe subset rejects invalid expressions, controls, backreferences, groups, alternation, unbounded quantifiers, nested/repeated quantifiers, more than one variable-width quantifier, excessive quantifier counts, and repetitions above 10,000. Exact-width repetitions such as `{2}` may be combined, while `?` and ranges such as `{1,24}` are variable-width. Pattern inputs are capped at 4,096 characters before matching. This keeps validation portable and fail-closed; use anchored patterns such as `^[A-Z]{2}-\d{4}$` for identifiers. Double-click or press Enter on an editable cell to open the overlay editor. Esc cancels; `commit` chooses Enter, blur, or both. Invalid edits do not mutate source data and emit a `tableeditchange` reason.
 
 ```js
 chart.setTableCellValue('layer-0', { key: 'team-a' }, 'score', 91);
@@ -384,14 +389,50 @@ const sourceRows = chart.getTableData('layer-0', 'source');
 const csv = chart.exportTableCSV('layer-0', 'view');
 const json = chart.exportTableJSON('layer-0', 'source');
 
-chart.on('tableeditchange', ({ row, field, newValue, valid, reason }) => {
-  console.log({ row, field, newValue, valid, reason });
+chart.on('tableeditchange', ({ row, sourceRowIndex, field, newValue, valid, reason }) => {
+  console.log({ row, sourceRowIndex, field, newValue, valid, reason });
 });
 ```
 
 Numeric edit targets are indices in the current filtered/sorted view. A `{ key }` target addresses the unique authored source row even when a runtime filter currently hides it; duplicate keys, group/pivot output, filtered-out rows from authored transforms, and one-to-many or many-to-one lineage fail closed. For an invisible key target, `tableeditchange.row` is the stable source index because no current view index exists.
 
 Compiled source cells expose `sourceRowIndex`, `editEnabled`, editor/validation metadata, and merged-anchor spans for hit testing and semantic integration. The runtime uses immutable source replacement with baseline/current copies and a bounded history of cell patches, rather than retaining a full row snapshot for every edit. Getters and exported rows are defensive copies.
+
+### Range selection and TSV paste
+
+A click selects one cell. Hold Shift while pressing an arrow key to extend a renderer-neutral rectangular range from its retained anchor. Hosts can set the same state directly, export only those cells as TSV, or paste a rectangular TSV block at an explicit position or the current range focus:
+
+```ts
+chart.setTableRange('layer-0', {
+  anchor: { row: 0, column: 1 },
+  focus: { row: 2, column: 3 },
+});
+
+const range = chart.getTableRange('layer-0');
+const tsv = chart.exportTableTSV('layer-0', range ?? undefined);
+const result = chart.pasteTableTSV('layer-0', 'Team A\t91\r\nTeam B\t87');
+
+chart.on('tablepaste', ({ applied, reason, range, edits }) => {
+  if (!applied) return;
+  // Persist one host transaction. Every edit has viewRow, sourceRowIndex,
+  // column, field, previousValue, and newValue.
+  persistTableBatch({ range, edits, reason });
+});
+
+chart.on('tablebatchchange', ({ reason, edits }) => {
+  // Use this event instead of tablepaste when the host also mirrors
+  // programmatic undo, redo, and reset as one source transaction.
+  syncSourceRows({ reason, edits });
+});
+```
+
+The chart surface handles ordinary browser `copy` and `paste` events while it owns table focus; it does not request operating-system clipboard permission. An empty clipboard is a real one-cell blank value, distinct from having no selection, so copying a blank cell clears stale clipboard text and pasting it can clear an optional editor. TSV input is bounded, rectangular, and text-only; malformed quoted cells fail closed. Every destination cell must have one editable source row and pass its configured editor type and validation before any row changes.
+
+A successful paste replaces the source once, emits one `tablepaste` result and one `tablebatchchange` with reason `paste`, and occupies one undo-history entry. Paste-origin undo/redo and multi-cell reset also emit one `tablebatchchange` and do not expand into per-cell `tableeditchange` events; ordinary single-cell edits and their history keep the existing cell event. A host should apply either the successful `tablepaste` event or the `paste` batch-change event, not both. Batch-change edits always include `sourceRowIndex` and `field`; `viewRow` and `column` are `null` when a later history transition cannot address that source cell in the current view. History retains at most 100 operations and 100,000 changed cells cumulatively.
+
+Invalid TSV, read-only columns, derived views, stale/out-of-bounds ranges, or any invalid value leave the complete source unchanged. A range that includes a covered merged cell is rejected instead of silently editing a value hidden by the merged anchor; a one-cell range on the merge anchor remains valid. Runtime filtering clamps a retained range to the remaining view or clears it when no rows remain. Selecting a table in another layer or focusing a non-table family clears the previous table range, matching the single family-focus owner.
+
+TSV export contains the selected cells without an added header row, quotes embedded tabs/newlines, and neutralizes leading spreadsheet formulas using the same inert-text policy as CSV export.
 
 ## Performance profiles
 

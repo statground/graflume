@@ -820,7 +820,10 @@ export type {
   ChartSelectionState,
   ChartScatterMatrixChangeEvent,
   ChartTableChangeEvent,
+  ChartTableBatchChangeEvent,
   ChartTableEditChangeEvent,
+  ChartTablePasteEvent,
+  ChartTableRangeChangeEvent,
   ChartAnalyticSelectionChangeEvent,
   ChartAnalyticSelectionChangeReason,
   ChartDomainViewChangeEvent,
@@ -851,11 +854,18 @@ export type {
   ChartViewState,
 } from './runtime/chart.js';
 export type {
+  TableBatchChangeEdit,
+  TableBatchChangeReason,
+  TableBatchEdit,
+  TableCellPosition,
+  TableCellRange,
   TableCellTarget,
   TableDataMode,
   TableEditChangeReason,
   TableEditCommit,
   TableEditorType,
+  TablePasteReason,
+  TablePasteResult,
 } from './runtime/table-edit.js';
 export type {
   AdaptiveCapabilityCategory,

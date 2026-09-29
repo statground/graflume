@@ -34,6 +34,12 @@ parse a shared source file and then remove every byte from it. `scripts/check-bu
 also checks the positive shared API surface and the negative entry-specific API surface in both
 ES modules and browser globals.
 
+The optional `graflume/spreadsheet` facade is a fourth, lazy boundary. Its separately supplied
+runtime and stylesheet execute only inside a same-origin iframe and are never imported by the
+default, complete, or Spatial graphs. Cross-origin runtime/style URLs require exact SHA-384
+integrity. The generated runtime inventory is derived from modules with rendered bytes and is
+checked against the exact lockfile and allowed OSS licenses.
+
 ## 2026-08-26 limitation-completion audit
 
 The import-graph audit found no Spatial implementation in the default or complete outputs and no
@@ -254,3 +260,40 @@ and its minified bytes are unchanged. Required APIs and existing chart families 
 The limits are the next whole KiB above measured output. The built-module import-graph checks
 still enforce separate default, complete, and Spatial entry points. Image payload budgets belong
 to each imported scene and do not replace these artifact limits.
+
+## 2026-09-09 Table range and TSV batch editing
+
+Table range selection, typed rectangular TSV paste/export, and one batch paste event use the
+existing Table runtime and editor-validation modules. No clipboard dependency, permission API,
+renderer-specific package, or hidden runtime chunk was added. The default and complete entries
+therefore grow together, while Spatial remains byte-identical and separately bounded.
+
+| Browser file               |    Raw minified | Gzip level 9, no timestamp | Raw budget |  Headroom |
+| -------------------------- | --------------: | -------------------------: | ---------: | --------: |
+| `graflume.min.js`          | 1,256,968 bytes |              368,777 bytes |   1228 KiB | 504 bytes |
+| `graflume.complete.min.js` | 1,455,368 bytes |              426,474 bytes |   1422 KiB | 760 bytes |
+| `graflume.spatial.min.js`  |   397,648 bytes |              124,594 bytes |    389 KiB | 688 bytes |
+
+Each ceiling is the next whole KiB above the measured raw artifact. The existing import-graph
+and public-export checks still verify that default, complete, and Spatial remain independent.
+
+## 2026-09-11 optional spreadsheet surface
+
+The spreadsheet facade is a lazy public export. Its separately loaded runtime and stylesheet stay
+outside the default, complete, and Spatial dependency graphs. Cross-origin loading requires the
+catalog's exact SHA-384 values, and the runtime executes in a same-origin `about:blank` iframe that
+isolates its document, styles, portals, and theme state from the host page.
+The facade also owns the bounded top-level-menu registry and parent-document panel lifecycle;
+only inert menu descriptors and action IDs cross the frame protocol, so host callbacks and DOM
+never enter the runtime bundle or serialized workbook.
+
+| Optional browser file                 | Raw minified bytes | Gzip level 9, no timestamp | Raw budget | Headroom |
+| ------------------------------------- | -----------------: | -------------------------: | ---------: | -------: |
+| `graflume.spreadsheet.min.js`         |             28,961 |                      8,621 |     29 KiB |      735 |
+| `graflume.spreadsheet.runtime.min.js` |         11,554,822 |                  2,845,312 | 11,285 KiB |    1,018 |
+| `graflume.spreadsheet.min.css`        |            100,654 |                     14,414 |     99 KiB |      722 |
+
+The runtime is intentionally large and is never part of a normal chart bundle or an ordinary
+runtime dependency install. It is built from exact development dependencies, published as an
+immutable optional CDN asset, and loaded only after a host explicitly calls `createSpreadsheet`.
+The size checker enforces independent raw and gzip ceilings for all three optional artifacts.

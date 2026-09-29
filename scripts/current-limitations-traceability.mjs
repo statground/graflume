@@ -1288,6 +1288,36 @@ export const capabilityTraceability = {
   ],
 };
 
+/**
+ * Evidence for supported capabilities added after the immutable 161-item completion boundary.
+ * These traces enrich the public catalog without changing the historical completion digest.
+ */
+export const supplementalCapabilityTraceability = {
+  table: [
+    compositeTrace(
+      'rectangular range selection and atomic TSV clipboard editing',
+      [
+        source('src/runtime/table-edit.ts', 'parseTableTSV'),
+        source('src/runtime/chart.ts', 'pasteTableTSV'),
+      ],
+      [
+        testCase(
+          'tests/table-edit-runtime.test.mjs',
+          'rectangular TSV paste is typed, atomic, source-addressable, and one undo transaction',
+        ),
+        testCase(
+          'tests/table-edit-runtime.test.mjs',
+          'sorted and filtered paste resolves every destination from the pre-paste view',
+        ),
+        testCase(
+          'tests/table-edit-runtime.test.mjs',
+          'table keyboard range selection drives visible styling and clipboard copy/paste events',
+        ),
+      ],
+    ),
+  ],
+};
+
 const sourcePathPattern = /^src\/.+\.ts$/u;
 const testPathPattern = /^tests\/.+\.test\.mjs$/u;
 const tokenPattern = /^[A-Za-z_$][A-Za-z0-9_$]*$/u;

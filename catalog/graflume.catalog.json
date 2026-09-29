@@ -9,7 +9,28 @@
     "bundles": {
       "default": "cdn/graflume.global.js",
       "complete": "cdn/graflume.complete.global.js",
-      "spatial": "cdn/graflume.spatial.global.js"
+      "spatial": "cdn/graflume.spatial.global.js",
+      "spreadsheet": "cdn/graflume.spreadsheet.global.js",
+      "spreadsheetRuntime": "cdn/graflume.spreadsheet.runtime.js",
+      "spreadsheetStyle": "cdn/graflume.spreadsheet.css"
+    },
+    "bundleIntegrity": {
+      "spreadsheet": "sha384-djzJyBX+cOxQBIDL1We2Us0cbs5L8WTLB28VvASSSNxHtRZsUkgm4w2ylVhdH0rj",
+      "spreadsheetRuntime": "sha384-mJ1WodbRDaoC2C57YF/adZu34wMgFax99LvNLim6PDXY45wVFf/qRxqFEEpC4aoY",
+      "spreadsheetStyle": "sha384-9+mCrn/FcPABGSypNq76TDXEir/UOsyZLreuMctbj5kLw/G2vvBSJmzuw7k8ccrL"
+    },
+    "spreadsheetSurface": {
+      "entryPoint": "graflume/spreadsheet",
+      "snapshotFormat": "graflume-spreadsheet-v1",
+      "profiles": ["data-frame", "workbook"],
+      "manual": "docs/spreadsheet.md",
+      "capabilities": [
+        "stable-ID data-frame synchronization",
+        "stable-ID direct column-header rename with duplicate protection",
+        "bounded workbook snapshots",
+        "ordered host-defined top-level menu panels",
+        "non-wrapping worksheet-edge arrow navigation"
+      ]
     }
   },
   "verifiedAt": "2026-08-26",
@@ -975,6 +996,7 @@
         "virtualization and frozen regions",
         "cell-level keyboard grid navigation",
         "typed editing and validation",
+        "rectangular range selection and atomic TSV clipboard editing",
         "immutable view/source data APIs",
         "bounded reset/undo/redo",
         "safe CSV/JSON export",
@@ -988,11 +1010,17 @@
         "formatter registry"
       ],
       "implementationEvidence": {
-        "sources": ["src/interaction/family-runtime.ts", "src/data/family-layouts.ts"],
+        "sources": [
+          "src/interaction/family-runtime.ts",
+          "src/data/family-layouts.ts",
+          "src/runtime/table-edit.ts",
+          "src/runtime/chart.ts"
+        ],
         "tests": [
           "tests/layout-advanced.test.mjs",
           "tests/chart-interaction-runtime.test.mjs",
-          "tests/family-layouts.test.mjs"
+          "tests/family-layouts.test.mjs",
+          "tests/table-edit-runtime.test.mjs"
         ]
       },
       "developmentDependencies": [
@@ -21171,6 +21199,7 @@
         "virtualization and frozen regions",
         "cell-level keyboard grid navigation",
         "typed editing and validation",
+        "rectangular range selection and atomic TSV clipboard editing",
         "immutable view/source data APIs",
         "bounded reset/undo/redo",
         "safe CSV/JSON export",

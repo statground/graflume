@@ -80,7 +80,15 @@
     "package": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "version", "chartSpecVersion", "spatialSpecVersion", "bundles"],
+      "required": [
+        "name",
+        "version",
+        "chartSpecVersion",
+        "spatialSpecVersion",
+        "bundles",
+        "bundleIntegrity",
+        "spreadsheetSurface"
+      ],
       "properties": {
         "name": { "$ref": "#/$defs/nonEmpty" },
         "version": { "$ref": "#/$defs/nonEmpty" },
@@ -89,14 +97,56 @@
         "bundles": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["default", "complete", "spatial"],
+          "required": [
+            "default",
+            "complete",
+            "spatial",
+            "spreadsheet",
+            "spreadsheetRuntime",
+            "spreadsheetStyle"
+          ],
           "properties": {
             "default": { "$ref": "#/$defs/nonEmpty" },
             "complete": { "$ref": "#/$defs/nonEmpty" },
-            "spatial": { "$ref": "#/$defs/nonEmpty" }
+            "spatial": { "$ref": "#/$defs/nonEmpty" },
+            "spreadsheet": { "$ref": "#/$defs/nonEmpty" },
+            "spreadsheetRuntime": { "$ref": "#/$defs/nonEmpty" },
+            "spreadsheetStyle": { "$ref": "#/$defs/nonEmpty" }
+          }
+        },
+        "bundleIntegrity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["spreadsheet", "spreadsheetRuntime", "spreadsheetStyle"],
+          "properties": {
+            "spreadsheet": { "$ref": "#/$defs/sha384Integrity" },
+            "spreadsheetRuntime": { "$ref": "#/$defs/sha384Integrity" },
+            "spreadsheetStyle": { "$ref": "#/$defs/sha384Integrity" }
+          }
+        },
+        "spreadsheetSurface": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["entryPoint", "snapshotFormat", "profiles", "manual", "capabilities"],
+          "properties": {
+            "entryPoint": { "const": "graflume/spreadsheet" },
+            "snapshotFormat": { "const": "graflume-spreadsheet-v1" },
+            "profiles": {
+              "type": "array",
+              "prefixItems": [{ "const": "data-frame" }, { "const": "workbook" }],
+              "items": false,
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "manual": { "const": "docs/spreadsheet.md" },
+            "capabilities": { "$ref": "#/$defs/stringList" }
           }
         }
       }
+    },
+    "sha384Integrity": {
+      "type": "string",
+      "pattern": "^sha384-[A-Za-z0-9+/]{64}$"
     },
     "totals": {
       "type": "object",

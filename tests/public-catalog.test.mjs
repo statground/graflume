@@ -9,7 +9,9 @@ import {
   orderedCapabilityDigest,
 } from '../scripts/close-current-limitations.mjs';
 import {
+  evidenceFamiliesFromTraceability,
   extractNodeTestNames,
+  supplementalCapabilityTraceability,
   validateCapabilityTraceability,
 } from '../scripts/current-limitations-traceability.mjs';
 import { fieldsForSpec, quickOptions } from '../scripts/manual-example-helpers.mjs';
@@ -39,6 +41,9 @@ const currentLimitationEvidence = JSON.parse(
 );
 const catalogSchema = JSON.parse(
   await readFile(new URL('../schema/graflume.catalog.schema.json', import.meta.url)),
+);
+const spreadsheetAssetManifest = JSON.parse(
+  await readFile(new URL('../cdn/graflume.spreadsheet.manifest.json', import.meta.url)),
 );
 const currentLimitationSchema = JSON.parse(
   await readFile(new URL('../schema/graflume.current-limitations.schema.json', import.meta.url)),
@@ -87,6 +92,18 @@ test('public catalog is derived from the exact runtime family, mode, theme and i
   assert.equal(manifest.totals.presetsAndModes, 176);
   assert.equal(manifest.totals.compatibilityIdentifiers, 120);
   assert.equal(manifest.totals.themes, 17);
+});
+
+test('optional spreadsheet catalog assets are tracked and integrity-addressed', async () => {
+  for (const key of ['spreadsheet', 'spreadsheetRuntime', 'spreadsheetStyle']) {
+    const entry = spreadsheetAssetManifest.entries[key];
+    assert.equal(manifest.package.bundles[key], entry.path);
+    assert.equal(manifest.package.bundleIntegrity[key], entry.integrity);
+    assert.match(entry.integrity, /^sha384-[A-Za-z0-9+/]{64}$/);
+    const bytes = await readFile(new URL(`../${entry.path}`, import.meta.url));
+    assert.equal(bytes.byteLength, entry.bytes);
+    assert.equal(`sha384-${createHash('sha384').update(bytes).digest('base64')}`, entry.integrity);
+  }
 });
 
 test('176 manual examples preserve exact mode order, APIs, runtimes, references, and claims', async () => {
@@ -335,6 +352,26 @@ test('catalog schema v2 requires closed manual example contracts', () => {
   assert.equal(catalogSchema.$id, 'urn:graflume:catalog:2');
   assert.equal(catalogSchema.properties.schemaVersion.const, 2);
   assert.ok(catalogSchema.required.includes('manualExamples'));
+  assert.ok(catalogSchema.$defs.package.required.includes('bundleIntegrity'));
+  assert.ok(catalogSchema.$defs.package.required.includes('spreadsheetSurface'));
+  assert.deepEqual(manifest.package.spreadsheetSurface, {
+    entryPoint: 'graflume/spreadsheet',
+    snapshotFormat: 'graflume-spreadsheet-v1',
+    profiles: ['data-frame', 'workbook'],
+    manual: 'docs/spreadsheet.md',
+    capabilities: [
+      'stable-ID data-frame synchronization',
+      'stable-ID direct column-header rename with duplicate protection',
+      'bounded workbook snapshots',
+      'ordered host-defined top-level menu panels',
+      'non-wrapping worksheet-edge arrow navigation',
+    ],
+  });
+  assert.deepEqual(catalogSchema.$defs.package.properties.bundles.required.slice(-3), [
+    'spreadsheet',
+    'spreadsheetRuntime',
+    'spreadsheetStyle',
+  ]);
   assert.equal(catalogSchema.properties.manualExamples.minItems, 176);
   assert.equal(catalogSchema.properties.manualExamples.maxItems, 176);
   assert.equal(catalogSchema.$defs.manualExample.additionalProperties, false);
@@ -405,6 +442,12 @@ test('verified feature matrix closes current limitations without promoting resea
 });
 
 test('all 161 completed current limitations have exact source and test evidence', async () => {
+  const supplementalEvidenceByFamily = new Map(
+    evidenceFamiliesFromTraceability(supplementalCapabilityTraceability).map((family) => [
+      family.id,
+      family.traces,
+    ]),
+  );
   const familyIds = features.families.map(({ id }) => id);
   assert.equal(currentLimitationEvidence.release, 'current-limitations-2026-08-26');
   assert.equal(currentLimitationEvidence.verifiedAt, '2026-08-26');
@@ -458,14 +501,24 @@ test('all 161 completed current limitations have exact source and test evidence'
         await access(new URL(`../${testEvidence.path}`, import.meta.url));
       }
     }
+    const implementationTraces = [
+      ...evidence.traces,
+      ...(supplementalEvidenceByFamily.get(evidence.id) ?? []),
+    ];
     assert.deepEqual(catalogFamily.implementationEvidence, {
       sources: [
-        ...new Set(evidence.traces.flatMap((trace) => trace.sources.map(({ path }) => path))),
+        ...new Set(implementationTraces.flatMap((trace) => trace.sources.map(({ path }) => path))),
       ],
-      tests: [...new Set(evidence.traces.flatMap((trace) => trace.tests.map(({ path }) => path)))],
+      tests: [
+        ...new Set(implementationTraces.flatMap((trace) => trace.tests.map(({ path }) => path))),
+      ],
     });
   }
   await validateCapabilityTraceability(currentLimitationEvidence.families);
+  await validateCapabilityTraceability(
+    evidenceFamiliesFromTraceability(supplementalCapabilityTraceability),
+    { expectedTotal: 1 },
+  );
   assert.deepEqual(
     currentLimitationEvidence,
     await buildCurrentLimitationEvidence(features, currentLimitationEvidence),

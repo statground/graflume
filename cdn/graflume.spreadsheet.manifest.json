@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "package": "graflume",
+  "version": "0.1.0-alpha.0",
+  "entries": {
+    "spreadsheet": {
+      "path": "cdn/graflume.spreadsheet.global.js",
+      "mediaType": "text/javascript",
+      "bytes": 28961,
+      "integrity": "sha384-djzJyBX+cOxQBIDL1We2Us0cbs5L8WTLB28VvASSSNxHtRZsUkgm4w2ylVhdH0rj"
+    },
+    "spreadsheetRuntime": {
+      "path": "cdn/graflume.spreadsheet.runtime.js",
+      "mediaType": "text/javascript",
+      "bytes": 11554822,
+      "integrity": "sha384-mJ1WodbRDaoC2C57YF/adZu34wMgFax99LvNLim6PDXY45wVFf/qRxqFEEpC4aoY"
+    },
+    "spreadsheetStyle": {
+      "path": "cdn/graflume.spreadsheet.css",
+      "mediaType": "text/css",
+      "bytes": 100654,
+      "integrity": "sha384-9+mCrn/FcPABGSypNq76TDXEir/UOsyZLreuMctbj5kLw/G2vvBSJmzuw7k8ccrL"
+    }
+  }
+}

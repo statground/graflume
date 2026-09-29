@@ -565,6 +565,7 @@
         "virtualization and frozen regions",
         "cell-level keyboard grid navigation",
         "typed editing and validation",
+        "rectangular range selection and atomic TSV clipboard editing",
         "immutable view/source data APIs",
         "bounded reset/undo/redo",
         "safe CSV/JSON export",
