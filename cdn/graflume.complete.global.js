@@ -80,25 +80,25 @@ var Graflume = (function (exports) {
         scenePixels: 16_000_000,
         sceneBytes: 8 * 1024 * 1024,
     });
-    function invalid$3() {
+    function invalid$4() {
         throw new GraflumeError('INVALID_SPEC', 'Embedded images require bounded PNG or JPEG data.');
     }
     /** Validate binary signatures and decoded dimensions before a browser decoder sees the bytes. */
     function embeddedImageInfo(uri) {
         if (typeof uri !== 'string' || uri.length > Math.ceil(embeddedImageLimits.bytes / 3) * 4 + 32)
-            invalid$3();
+            invalid$4();
         const match = /^data:(image\/(?:png|jpeg));base64,([A-Za-z0-9+/]*={0,2})$/.exec(uri);
         if (!match || !match[2] || match[2].length % 4 !== 0)
-            invalid$3();
+            invalid$4();
         let binary;
         try {
             binary = atob(match[2]);
         }
         catch {
-            return invalid$3();
+            return invalid$4();
         }
         if (binary.length > embeddedImageLimits.bytes)
-            invalid$3();
+            invalid$4();
         const byte = (i) => binary.charCodeAt(i);
         const u16 = (i) => byte(i) * 256 + byte(i + 1);
         const u32 = (i) => byte(i) * 0x1000000 + byte(i + 1) * 65536 + byte(i + 2) * 256 + byte(i + 3);
@@ -107,17 +107,17 @@ var Graflume = (function (exports) {
             if (binary.slice(0, 8) !== '\x89PNG\r\n\x1a\n' ||
                 u32(8) !== 13 ||
                 binary.slice(12, 16) !== 'IHDR')
-                invalid$3();
+                invalid$4();
             width = u32(16);
             height = u32(20);
             let offset = 8, chunks = 0, idat = false, ended = false;
             while (offset + 12 <= binary.length && ++chunks <= 10_000) {
                 const size = u32(offset), type = binary.slice(offset + 4, offset + 8);
                 if (size > binary.length - offset - 12 || (offset > 8 && type === 'IHDR'))
-                    invalid$3();
+                    invalid$4();
                 // Compressed ancillary payloads have no image-dimension bound.
                 if (['acTL', 'fcTL', 'fdAT', 'iCCP', 'zTXt', 'iTXt'].includes(type))
-                    invalid$3();
+                    invalid$4();
                 if (type === 'IDAT')
                     idat = true;
                 offset += size + 12;
@@ -127,15 +127,15 @@ var Graflume = (function (exports) {
                 }
             }
             if (!idat || !ended)
-                invalid$3();
+                invalid$4();
         }
         else {
             if (u16(0) !== 0xffd8)
-                invalid$3();
+                invalid$4();
             let offset = 2, segments = 0, orientation = 1;
             while (offset + 4 <= binary.length && ++segments <= 1024) {
                 if (byte(offset++) !== 0xff)
-                    invalid$3();
+                    invalid$4();
                 while (byte(offset) === 0xff)
                     offset++;
                 const marker = byte(offset++);
@@ -145,10 +145,10 @@ var Graflume = (function (exports) {
                     continue;
                 const size = u16(offset);
                 if (size < 2 || size > binary.length - offset)
-                    invalid$3();
+                    invalid$4();
                 if ([0xc0, 0xc1, 0xc2].includes(marker)) {
                     if (size < 8 || width)
-                        invalid$3();
+                        invalid$4();
                     height = u16(offset + 3);
                     width = u16(offset + 5);
                 }
@@ -186,7 +186,7 @@ var Graflume = (function (exports) {
             width > embeddedImageLimits.dimension ||
             height > embeddedImageLimits.dimension ||
             width * height > embeddedImageLimits.pixels)
-            invalid$3();
+            invalid$4();
         return { mime: match[1], width, height, bytes: binary.length };
     }
     function imageNodeBounds(node) {
@@ -213,10 +213,10 @@ var Graflume = (function (exports) {
             node.width <= 0 ||
             node.height <= 0 ||
             !/^(?:none|x(?:Min|Mid|Max)Y(?:Min|Mid|Max) (?:meet|slice))$/.test(node.preserveAspectRatio))
-            invalid$3();
+            invalid$4();
         const bounds = imageNodeBounds(node);
         if (!Object.values(bounds).every((value) => Number.isFinite(value) && Math.abs(value) <= 1e12))
-            invalid$3();
+            invalid$4();
         return embeddedImageInfo(node.dataURI);
     }
 
@@ -16872,19 +16872,19 @@ var Graflume = (function (exports) {
     }
 
     const domainViewVersion = 1;
-    function invalid$2(message, path = '$.interaction.domainNavigation') {
+    function invalid$3(message, path = '$.interaction.domainNavigation') {
         throw new GraflumeError('INVALID_SPEC', message, { path });
     }
     function assertPlainObject$1(value, label) {
         if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-            invalid$2(`${label} must be an object.`);
+            invalid$3(`${label} must be an object.`);
         }
     }
     function assertClosedKeys$1(value, allowed, label) {
         const allowedKeys = new Set(allowed);
         const unknown = Object.keys(value).filter((key) => !allowedKeys.has(key));
         if (unknown.length > 0)
-            invalid$2(`${label} contains unknown key "${unknown[0]}".`);
+            invalid$3(`${label} contains unknown key "${unknown[0]}".`);
     }
     function normalizedWindow(input) {
         assertPlainObject$1(input, 'Domain axis window');
@@ -16894,7 +16894,7 @@ var Graflume = (function (exports) {
             input.start < 0 ||
             input.end > 1 ||
             input.start >= input.end) {
-            invalid$2('Domain axis windows require finite 0 <= start < end <= 1 values.');
+            invalid$3('Domain axis windows require finite 0 <= start < end <= 1 values.');
         }
         return Object.freeze({ start: input.start, end: input.end });
     }
@@ -16902,13 +16902,13 @@ var Graflume = (function (exports) {
         assertPlainObject$1(input, 'Domain view state');
         assertClosedKeys$1(input, ['version', 'axes'], 'Domain view state');
         if (input.version !== domainViewVersion) {
-            invalid$2(`Domain view state.version must be ${domainViewVersion}.`);
+            invalid$3(`Domain view state.version must be ${domainViewVersion}.`);
         }
         assertPlainObject$1(input.axes, 'Domain view axes');
         const axes = {};
         for (const [axis, window] of Object.entries(input.axes)) {
             if (!isSafeAxisId(axis)) {
-                invalid$2(`Unknown domain view axis "${axis}".`);
+                invalid$3(`Unknown domain view axis "${axis}".`);
             }
             if (window !== undefined)
                 axes[axis] = normalizedWindow(window);
@@ -16939,11 +16939,11 @@ var Graflume = (function (exports) {
     }
     function zoomDomainAxisWindow(state, axis, factor, anchor, maxZoom) {
         if (!Number.isFinite(factor) || factor <= 0)
-            invalid$2('Domain zoom factor must be positive.');
+            invalid$3('Domain zoom factor must be positive.');
         if (!Number.isFinite(anchor))
-            invalid$2('Domain zoom anchor must be finite.');
+            invalid$3('Domain zoom anchor must be finite.');
         if (!Number.isFinite(maxZoom) || maxZoom < 1)
-            invalid$2('Domain maxZoom must be at least 1.');
+            invalid$3('Domain maxZoom must be at least 1.');
         const current = domainAxisWindow(state, axis);
         const width = current.end - current.start;
         const boundedAnchor = Math.max(current.start, Math.min(current.end, anchor));
@@ -16953,14 +16953,14 @@ var Graflume = (function (exports) {
     }
     function panDomainAxisWindow(state, axis, delta) {
         if (!Number.isFinite(delta))
-            invalid$2('Domain pan delta must be finite.');
+            invalid$3('Domain pan delta must be finite.');
         const current = domainAxisWindow(state, axis);
         return withWindow(state, axis, boundedWindow$1(current.start + delta, current.end - current.start));
     }
     function scaleFor$1(context, axis) {
         const scale = context.axes[axis];
         if (scale === undefined)
-            invalid$2(`Axis "${axis}" is not resolved.`, `$.axes.${axis}`);
+            invalid$3(`Axis "${axis}" is not resolved.`, `$.axes.${axis}`);
         if (scale.invert === undefined && scale.kind !== 'band' && scale.kind !== 'point') {
             throw new GraflumeError('INCOMPATIBLE_SCALE', `Axis "${axis}" cannot be navigated.`, {
                 path: `$.axes.${axis}`,
@@ -16970,7 +16970,7 @@ var Graflume = (function (exports) {
     }
     function rangeRatio(scale, pixel) {
         if (!Number.isFinite(pixel))
-            invalid$2('Domain navigation pixel must be finite.');
+            invalid$3('Domain navigation pixel must be finite.');
         const range = scale.range();
         const start = range[0];
         const end = range.at(-1);
@@ -16989,7 +16989,7 @@ var Graflume = (function (exports) {
     function panDomainByPixels(state, context, axis, deltaPixels) {
         const scale = scaleFor$1(context, axis);
         if (!Number.isFinite(deltaPixels))
-            invalid$2('Domain pan pixel delta must be finite.');
+            invalid$3('Domain pan pixel delta must be finite.');
         const range = scale.range();
         const start = range[0];
         const end = range.at(-1);
@@ -17040,19 +17040,19 @@ var Graflume = (function (exports) {
     const maximumAnalyticSelections = 64;
     const maximumLassoPoints = 512;
     const maximumCategoricalSelectionValues = 512;
-    function invalid$1(message) {
+    function invalid$2(message) {
         throw new GraflumeError('INVALID_SPEC', message, { path: '$.analyticSelection' });
     }
     function assertPlainObject(value, label) {
         if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-            invalid$1(`${label} must be an object.`);
+            invalid$2(`${label} must be an object.`);
         }
     }
     function assertClosedKeys(value, allowed, label) {
         const allowedKeys = new Set(allowed);
         const unknown = Object.keys(value).filter((key) => !allowedKeys.has(key));
         if (unknown.length > 0)
-            invalid$1(`${label} contains unknown key "${unknown[0]}".`);
+            invalid$2(`${label} contains unknown key "${unknown[0]}".`);
     }
     function canonicalNumber(value) {
         return Object.is(value, -0) ? 0 : value;
@@ -17063,11 +17063,11 @@ var Graflume = (function (exports) {
     function domainValue(value, label) {
         if (typeof value === 'number') {
             if (!Number.isFinite(value))
-                invalid$1(`${label} must be finite.`);
+                invalid$2(`${label} must be finite.`);
             return;
         }
         if (typeof value !== 'string' || value.length === 0 || value.length > 4096) {
-            invalid$1(`${label} must be a finite number or a non-empty bounded string.`);
+            invalid$2(`${label} must be a finite number or a non-empty bounded string.`);
         }
     }
     function orderedExtent(value) {
@@ -17079,7 +17079,7 @@ var Graflume = (function (exports) {
         if (Array.isArray(value)) {
             if (value.length !== 2 ||
                 value.some((entry) => typeof entry !== 'number' || !Number.isFinite(entry))) {
-                invalid$1(`${label} must contain exactly two finite numbers.`);
+                invalid$2(`${label} must contain exactly two finite numbers.`);
             }
             return orderedExtent(value);
         }
@@ -17088,14 +17088,14 @@ var Graflume = (function (exports) {
         if (!Array.isArray(value.values) ||
             value.values.length === 0 ||
             value.values.length > maximumCategoricalSelectionValues) {
-            invalid$1(`${label}.values must contain between 1 and ${maximumCategoricalSelectionValues} categorical identities.`);
+            invalid$2(`${label}.values must contain between 1 and ${maximumCategoricalSelectionValues} categorical identities.`);
         }
         const values = value.values.map((entry, index) => {
             domainValue(entry, `${label}.values[${index}]`);
             return typeof entry === 'number' ? canonicalNumber(entry) : entry;
         });
         if (new Set(values.map((entry) => `${typeof entry}:${String(entry)}`)).size !== values.length) {
-            invalid$1(`${label}.values must be unique.`);
+            invalid$2(`${label}.values must be unique.`);
         }
         return Object.freeze({ values: Object.freeze(values) });
     }
@@ -17126,22 +17126,22 @@ var Graflume = (function (exports) {
         assertClosedKeys(target, ['type', 'layerId', 'rowIndex', 'field', 'value', 'values'], 'Point target');
         const candidate = target;
         if (candidate.type !== 'datum')
-            invalid$1('Point target.type must be "datum".');
+            invalid$2('Point target.type must be "datum".');
         if (candidate.layerId !== undefined &&
             (typeof candidate.layerId !== 'string' ||
                 candidate.layerId.length === 0 ||
                 candidate.layerId.length > 4096)) {
-            invalid$1('Point target.layerId must be a non-empty bounded string.');
+            invalid$2('Point target.layerId must be a non-empty bounded string.');
         }
         if (candidate.rowIndex !== undefined) {
             const rows = Array.isArray(candidate.rowIndex) ? candidate.rowIndex : [candidate.rowIndex];
             if (rows.length === 0 ||
                 rows.length > 1000 ||
                 rows.some((row) => !Number.isInteger(row) || row < 0)) {
-                invalid$1('Point target.rowIndex must contain bounded non-negative integers.');
+                invalid$2('Point target.rowIndex must contain bounded non-negative integers.');
             }
             if (new Set(rows).size !== rows.length)
-                invalid$1('Point target.rowIndex must be unique.');
+                invalid$2('Point target.rowIndex must be unique.');
         }
         if (candidate.field !== undefined &&
             (typeof candidate.field !== 'string' ||
@@ -17150,48 +17150,48 @@ var Graflume = (function (exports) {
                 candidate.field === '__proto__' ||
                 candidate.field === 'prototype' ||
                 candidate.field === 'constructor')) {
-            invalid$1('Point target.field must be a safe non-empty bounded string.');
+            invalid$2('Point target.field must be a safe non-empty bounded string.');
         }
         const hasValue = Object.prototype.hasOwnProperty.call(candidate, 'value');
         const hasValues = Object.prototype.hasOwnProperty.call(candidate, 'values');
         if (candidate.field === undefined && (hasValue || hasValues)) {
-            invalid$1('Point target.field is required for value matching.');
+            invalid$2('Point target.field is required for value matching.');
         }
         if (candidate.field !== undefined && hasValue === hasValues) {
-            invalid$1('Point target field matching requires exactly one of value or values.');
+            invalid$2('Point target field matching requires exactly one of value or values.');
         }
         if (hasValues && (!Array.isArray(candidate.values) || candidate.values.length === 0)) {
-            invalid$1('Point target values must be a non-empty array.');
+            invalid$2('Point target values must be a non-empty array.');
         }
         const values = hasValues ? candidate.values : hasValue ? [candidate.value] : [];
         if (values.length > 200)
-            invalid$1('Point target values exceed the 200 item bound.');
+            invalid$2('Point target values exceed the 200 item bound.');
         for (const value of values) {
             if (value !== null &&
                 typeof value !== 'string' &&
                 typeof value !== 'boolean' &&
                 !(typeof value === 'number' && Number.isFinite(value))) {
-                invalid$1('Point target values must be JSON primitives with finite numbers.');
+                invalid$2('Point target values must be JSON primitives with finite numbers.');
             }
         }
         if (new Set(values.map((value) => JSON.stringify(canonicalPrimitive(value)))).size !==
             values.length) {
-            invalid$1('Point target values must be unique.');
+            invalid$2('Point target values must be unique.');
         }
         if (candidate.rowIndex === undefined && candidate.field === undefined) {
-            invalid$1('Point target requires rowIndex or field/value identity.');
+            invalid$2('Point target requires rowIndex or field/value identity.');
         }
     }
     function axisId(value, _orientation) {
         if (!isSafeAxisId(value))
-            invalid$1('Selection axis must use the safe named-axis grammar.');
+            invalid$2('Selection axis must use the safe named-axis grammar.');
     }
     function normalizeSelection(selection) {
         assertPlainObject(selection, 'Selection');
         if (selection.type === 'point') {
             assertClosedKeys(selection, ['type', 'xAxis', 'yAxis', 'x', 'y', 'target'], 'Point selection');
             if (selection.x === undefined && selection.y === undefined && selection.target === undefined) {
-                invalid$1('Point selection requires x, y, or target identity.');
+                invalid$2('Point selection requires x, y, or target identity.');
             }
             if (selection.x !== undefined)
                 domainValue(selection.x, 'Point x');
@@ -17242,10 +17242,10 @@ var Graflume = (function (exports) {
             axisId(selection.xAxis);
             axisId(selection.yAxis);
             if (!Array.isArray(selection.points) || selection.points.length < 3) {
-                invalid$1('Lasso selection requires at least three points.');
+                invalid$2('Lasso selection requires at least three points.');
             }
             if (selection.points.length > maximumLassoPoints) {
-                invalid$1(`Lasso selection exceeds the ${maximumLassoPoints} point bound.`);
+                invalid$2(`Lasso selection exceeds the ${maximumLassoPoints} point bound.`);
             }
             const points = selection.points.map((point, index) => {
                 assertPlainObject(point, `Lasso point ${index}`);
@@ -17254,7 +17254,7 @@ var Graflume = (function (exports) {
                     typeof point.y !== 'number' ||
                     !Number.isFinite(point.x) ||
                     !Number.isFinite(point.y)) {
-                    invalid$1(`Lasso point ${index} must contain finite x and y values.`);
+                    invalid$2(`Lasso point ${index} must contain finite x and y values.`);
                 }
                 return Object.freeze({ x: canonicalNumber(point.x), y: canonicalNumber(point.y) });
             });
@@ -17265,7 +17265,7 @@ var Graflume = (function (exports) {
                 points: Object.freeze(points),
             });
         }
-        invalid$1(`Unsupported analytic selection type: ${String(selection.type)}.`);
+        invalid$2(`Unsupported analytic selection type: ${String(selection.type)}.`);
     }
     function stableTarget(target) {
         if (target === undefined)
@@ -17313,18 +17313,18 @@ var Graflume = (function (exports) {
         assertPlainObject(input, 'Analytic selection state');
         assertClosedKeys(input, ['version', 'combine', 'selections'], 'Analytic selection state');
         if (input.version !== analyticSelectionVersion) {
-            invalid$1(`Analytic selection state.version must be ${analyticSelectionVersion}.`);
+            invalid$2(`Analytic selection state.version must be ${analyticSelectionVersion}.`);
         }
         if (input.combine !== 'union' && input.combine !== 'intersection') {
-            invalid$1('Analytic selection state.combine must be "union" or "intersection".');
+            invalid$2('Analytic selection state.combine must be "union" or "intersection".');
         }
         if (!Array.isArray(input.selections) || input.selections.length > maximumAnalyticSelections) {
-            invalid$1(`Analytic selection state must contain at most ${maximumAnalyticSelections} selections.`);
+            invalid$2(`Analytic selection state must contain at most ${maximumAnalyticSelections} selections.`);
         }
         const selections = input.selections.map(normalizeSelection);
         const keys = selections.map(analyticSelectionKey);
         if (new Set(keys).size !== keys.length)
-            invalid$1('Analytic selections must be unique.');
+            invalid$2('Analytic selections must be unique.');
         return Object.freeze({
             version: analyticSelectionVersion,
             combine: input.combine,
@@ -41018,13 +41018,44 @@ var Graflume = (function (exports) {
     const maximumTablePatternLength = 256;
     const maximumTablePatternQuantifiers = 24;
     const maximumTablePatternRepeat = 10_000;
+    const maximumTablePasteLength = 1_000_000;
+    const maximumTablePasteRows = 10_000;
+    const maximumTablePasteColumns = 128;
+    const maximumTablePasteCells = 100_000;
+    function cloneTableCellPosition(position) {
+        return { row: position.row, column: position.column };
+    }
+    function cloneTableCellRange(range) {
+        return {
+            anchor: cloneTableCellPosition(range.anchor),
+            focus: cloneTableCellPosition(range.focus),
+        };
+    }
+    function normalizeTableCellRange(range) {
+        return {
+            top: Math.min(range.anchor.row, range.focus.row),
+            right: Math.max(range.anchor.column, range.focus.column),
+            bottom: Math.max(range.anchor.row, range.focus.row),
+            left: Math.min(range.anchor.column, range.focus.column),
+        };
+    }
+    function tableCellRangeEqual(left, right) {
+        return (left === right ||
+            (left !== null &&
+                right !== null &&
+                left.anchor.row === right.anchor.row &&
+                left.anchor.column === right.anchor.column &&
+                left.focus.row === right.focus.row &&
+                left.focus.column === right.focus.column));
+    }
     /**
      * Validate the bounded regular-expression subset accepted by table cells.
      *
      * Native regular expressions stay data-only, Unicode-aware, and useful for
      * anchored business identifiers. Backreferences, groups, alternation,
-     * unbounded quantifiers, nested/repeated quantifiers, excessive repetition,
-     * and controls are rejected before any authored pattern can reach RegExp.test().
+     * unbounded quantifiers, nested/repeated quantifiers, multiple variable-width
+     * quantifiers, excessive repetition, and controls are rejected before any
+     * authored pattern can reach RegExp.test().
      */
     function isSafeTableValidationPattern(value) {
         if (typeof value !== 'string' ||
@@ -41045,6 +41076,7 @@ var Graflume = (function (exports) {
         let previousClosedGroup = false;
         let previousQuantifier = false;
         let quantifiers = 0;
+        let variableQuantifiers = 0;
         for (let index = 0; index < value.length; index += 1) {
             const character = value[index];
             if (escaped) {
@@ -41084,11 +41116,13 @@ var Graflume = (function (exports) {
                 return false;
             }
             let quantifierEnd = index;
+            let minimumRepeat;
             let maximumRepeat;
             if (character === '{') {
                 const match = /^\{(\d+)(?:,(\d*))?\}/u.exec(value.slice(index));
                 if (match !== null) {
                     quantifierEnd = index + match[0].length - 1;
+                    minimumRepeat = Number(match[1]);
                     maximumRepeat =
                         match[2] === '' ? maximumTablePatternRepeat + 1 : Number(match[2] ?? match[1]);
                 }
@@ -41096,10 +41130,13 @@ var Graflume = (function (exports) {
             const quantifier = character === '?' || quantifierEnd > index;
             if (quantifier) {
                 quantifiers += 1;
+                if (character === '?' || minimumRepeat !== maximumRepeat)
+                    variableQuantifiers += 1;
                 if (!previousQuantifiable ||
                     previousClosedGroup ||
                     previousQuantifier ||
                     quantifiers > maximumTablePatternQuantifiers ||
+                    variableQuantifiers > 1 ||
                     (maximumRepeat !== undefined && maximumRepeat > maximumTablePatternRepeat)) {
                     return false;
                 }
@@ -41157,7 +41194,7 @@ var Graflume = (function (exports) {
         }
         return Object.is(left, right);
     }
-    function tableDataPatch(previous, next) {
+    function tableDataPatch(previous, next, batch) {
         if (previous.length !== next.length)
             return null;
         const cells = [];
@@ -41181,7 +41218,7 @@ var Graflume = (function (exports) {
                 });
             }
         }
-        return { cells };
+        return { cells, batch };
     }
     function applyTableDataPatch(rows, patch, direction) {
         const output = cloneTableRows(rows);
@@ -41201,47 +41238,64 @@ var Graflume = (function (exports) {
     /** Bounded immutable cell-patch history; large source arrays are not retained per edit. */
     class TableDataHistory {
         #limit;
+        #cellLimit;
         #baseline;
         #current;
         #past = [];
         #future = [];
-        constructor(rows, limit = 100) {
-            this.#limit = Math.max(1, Math.min(1_000, Math.floor(limit)));
+        #pastCells = 0;
+        constructor(rows, limit = 100, cellLimit = maximumTablePasteCells) {
+            this.#limit = Number.isFinite(limit) ? Math.max(1, Math.min(1_000, Math.floor(limit))) : 100;
+            this.#cellLimit = Number.isFinite(cellLimit)
+                ? Math.max(1, Math.min(1_000_000, Math.floor(cellLimit)))
+                : maximumTablePasteCells;
             this.#baseline = cloneTableRows(rows);
             this.#current = cloneTableRows(rows);
         }
         rows() {
             return cloneTableRows(this.#current);
         }
-        replace(rows) {
+        #replace(rows, batch) {
             const next = cloneTableRows(rows);
-            const patch = tableDataPatch(this.#current, next);
+            let patch = tableDataPatch(this.#current, next, batch === true);
             if (patch === null) {
                 throw new RangeError('Table edit history cannot change the source row count.');
             }
             if (patch.cells.length === 0)
                 return false;
+            if (patch.cells.length > this.#cellLimit) {
+                throw new RangeError(`Table edit history transition is limited to ${this.#cellLimit} changed cells.`);
+            }
+            if (batch === 'multiple')
+                patch = { ...patch, batch: patch.cells.length > 1 };
             this.#past.push(patch);
-            if (this.#past.length > this.#limit)
-                this.#past.shift();
+            this.#pastCells += patch.cells.length;
+            while (this.#past.length > 1 &&
+                (this.#past.length > this.#limit || this.#pastCells > this.#cellLimit)) {
+                this.#pastCells -= this.#past.shift().cells.length;
+            }
             this.#current = next;
             this.#future = [];
             return true;
         }
+        replace(rows, batch = false) {
+            return this.#replace(rows, batch);
+        }
         reset() {
             const previous = cloneTableRows(this.#current);
-            if (!this.replace(this.#baseline))
+            if (!this.#replace(this.#baseline, 'multiple'))
                 return null;
-            return { previous, rows: this.rows() };
+            return { previous, rows: this.rows(), batch: this.#past.at(-1)?.batch === true };
         }
         undo() {
             const patch = this.#past.pop();
             if (patch === undefined)
                 return null;
+            this.#pastCells -= patch.cells.length;
             const previous = cloneTableRows(this.#current);
             this.#future.push(patch);
             this.#current = applyTableDataPatch(this.#current, patch, 'undo');
-            return { previous: cloneTableRows(previous), rows: this.rows() };
+            return { previous: cloneTableRows(previous), rows: this.rows(), batch: patch.batch };
         }
         redo() {
             const patch = this.#future.pop();
@@ -41249,8 +41303,9 @@ var Graflume = (function (exports) {
                 return null;
             const previous = cloneTableRows(this.#current);
             this.#past.push(patch);
+            this.#pastCells += patch.cells.length;
             this.#current = applyTableDataPatch(this.#current, patch, 'redo');
-            return { previous: cloneTableRows(previous), rows: this.rows() };
+            return { previous: cloneTableRows(previous), rows: this.rows(), batch: patch.batch };
         }
     }
     function editorConfig(value) {
@@ -41442,6 +41497,113 @@ var Graflume = (function (exports) {
                 return value;
         }
     }
+    /** Parse one clipboard cell through the same closed editor contract used by the overlay. */
+    function parseTableTSVEditorValue(column, value) {
+        switch (column.editor.type) {
+            case 'number':
+            case 'integer':
+                return value.trim() === '' ? null : Number(value);
+            case 'boolean': {
+                const normalized = value.trim().toLowerCase();
+                if (normalized === '')
+                    return null;
+                if (normalized === 'true')
+                    return true;
+                if (normalized === 'false')
+                    return false;
+                return value;
+            }
+            case 'select': {
+                const matches = column.editor.options.filter((candidate) => tableDataValuesEqual(candidate, value));
+                if (matches.length === 1)
+                    return cloneTableDataValue(matches[0]);
+                const rendered = column.editor.options.filter((candidate) => Object.is(candidate instanceof Date ? candidate.toISOString() : String(candidate ?? ''), value));
+                return rendered.length === 1 ? cloneTableDataValue(rendered[0]) : value;
+            }
+            default:
+                return value;
+        }
+    }
+    /** Parse a bounded rectangular TSV payload. Quoted tabs, lines, and doubled quotes are retained. */
+    function parseTableTSV(value) {
+        if (typeof value !== 'string' || value.length > maximumTablePasteLength) {
+            throw new RangeError(`Table TSV input is limited to ${maximumTablePasteLength} characters.`);
+        }
+        if (value === '')
+            return [['']];
+        const rows = [];
+        let row = [];
+        let cell = '';
+        let quoted = false;
+        let closedQuote = false;
+        for (let index = 0; index < value.length; index += 1) {
+            const character = value[index];
+            if (quoted) {
+                if (character === '"') {
+                    if (value[index + 1] === '"') {
+                        cell += '"';
+                        index += 1;
+                    }
+                    else {
+                        quoted = false;
+                        closedQuote = true;
+                    }
+                }
+                else if (character === '\r' && value[index + 1] === '\n') {
+                    cell += '\n';
+                    index += 1;
+                }
+                else {
+                    cell += character;
+                }
+                continue;
+            }
+            if (character === '"') {
+                if (cell !== '' || closedQuote) {
+                    throw new RangeError('Table TSV quotes must begin at the start of a cell.');
+                }
+                quoted = true;
+            }
+            else if (character === '\t') {
+                row.push(cell);
+                cell = '';
+                closedQuote = false;
+            }
+            else if (character === '\r' || character === '\n') {
+                row.push(cell);
+                rows.push(row);
+                row = [];
+                cell = '';
+                closedQuote = false;
+                if (character === '\r' && value[index + 1] === '\n')
+                    index += 1;
+                if (rows.length > maximumTablePasteRows) {
+                    throw new RangeError(`Table TSV input is limited to ${maximumTablePasteRows} rows.`);
+                }
+            }
+            else {
+                if (closedQuote) {
+                    throw new RangeError('Table TSV quoted cells must end before a delimiter.');
+                }
+                cell += character;
+            }
+        }
+        if (quoted)
+            throw new RangeError('Table TSV input contains an unterminated quoted cell.');
+        if (row.length > 0 || cell !== '' || !/[\r\n]$/u.test(value)) {
+            row.push(cell);
+            rows.push(row);
+        }
+        const columns = rows[0]?.length ?? 0;
+        if (columns === 0 ||
+            rows.length > maximumTablePasteRows ||
+            columns > maximumTablePasteColumns ||
+            rows.length * columns > maximumTablePasteCells ||
+            rows.some((candidate) => candidate.length !== columns)) {
+            throw new RangeError('Table TSV input must be a bounded rectangular grid.');
+        }
+        return rows;
+    }
     function portableValue$1(value) {
         if (value === undefined)
             return null;
@@ -41461,11 +41623,13 @@ var Graflume = (function (exports) {
             return JSON.stringify(value);
         return String(value);
     }
+    function inertSpreadsheetText(value) {
+        const text = csvText(value);
+        return typeof value === 'string' && /^[\t\r\n ]*[=+\-@]/u.test(text) ? `'${text}` : text;
+    }
     function csvCell(value) {
-        let text = csvText(value);
+        const text = inertSpreadsheetText(value);
         // Keep exports inert when opened by spreadsheet software.
-        if (typeof value === 'string' && /^[\t\r\n ]*[=+\-@]/u.test(text))
-            text = `'${text}`;
         return /[",\r\n]/u.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
     }
     function tableCSV(rows, fields) {
@@ -41474,6 +41638,14 @@ var Graflume = (function (exports) {
         for (const row of rows)
             lines.push(columns.map((field) => csvCell(row[field])).join(','));
         return lines.join('\r\n');
+    }
+    function tsvCell(value) {
+        const text = inertSpreadsheetText(value);
+        return /[\t"\r\n]/u.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+    }
+    /** Export a rectangular data slice as inert, spreadsheet-compatible TSV. */
+    function tableTSV(rows, fields) {
+        return rows.map((row) => fields.map((field) => tsvCell(row[field])).join('\t')).join('\r\n');
     }
 
     function optionNumber$1(options, name, fallback) {
@@ -43452,6 +43624,21 @@ var Graflume = (function (exports) {
             Number.isInteger(runtimeFocusedCell.column)
             ? runtimeFocusedCell.column
             : -1;
+        const runtimeSelectedRange = safeObject(context.layer.mark.options.runtimeSelectedRange);
+        const rangeAnchor = safeObject(runtimeSelectedRange?.anchor);
+        const rangeFocus = safeObject(runtimeSelectedRange?.focus);
+        const selectedTop = typeof rangeAnchor?.row === 'number' && typeof rangeFocus?.row === 'number'
+            ? Math.min(rangeAnchor.row, rangeFocus.row)
+            : -1;
+        const selectedBottom = typeof rangeAnchor?.row === 'number' && typeof rangeFocus?.row === 'number'
+            ? Math.max(rangeAnchor.row, rangeFocus.row)
+            : -1;
+        const selectedLeft = typeof rangeAnchor?.column === 'number' && typeof rangeFocus?.column === 'number'
+            ? Math.min(rangeAnchor.column, rangeFocus.column)
+            : -1;
+        const selectedRight = typeof rangeAnchor?.column === 'number' && typeof rangeFocus?.column === 'number'
+            ? Math.max(rangeAnchor.column, rangeFocus.column)
+            : -1;
         const authoredByField = new Map(visibleAuthoredColumns.map((column) => [column.field, column]));
         const defaultColumn = (field) => ({
             field,
@@ -43584,6 +43771,10 @@ var Graflume = (function (exports) {
                 });
                 const value = portableValue(row[column]);
                 const focused = absoluteRow === focusedRow && absoluteColumn === focusedColumn;
+                const selected = absoluteRow >= selectedTop &&
+                    absoluteRow <= selectedBottom &&
+                    absoluteColumn >= selectedLeft &&
+                    absoluteColumn <= selectedRight;
                 const sourceRowIndex = typeof row.__sourceIndex === 'number' ? row.__sourceIndex : absoluteRow;
                 const editable = editing.enabled &&
                     definition.editable &&
@@ -43632,7 +43823,7 @@ var Graflume = (function (exports) {
                             : { editValues: definition.validation.values }),
                     }
                     : {};
-                const cellHasBorder = focused || style.stroke !== undefined || style.lineWidth !== undefined;
+                const cellHasBorder = focused || selected || style.stroke !== undefined || style.lineWidth !== undefined;
                 nodes.push({
                     type: 'rect',
                     ...nodeBase(`${context.layer.id}:table-cell:${absoluteRow}:${absoluteColumn}`, {
@@ -43653,6 +43844,7 @@ var Graflume = (function (exports) {
                                 frozenRow,
                                 frozenColumn,
                                 editable,
+                                selected,
                                 merged: merge !== undefined,
                                 anchorRow: merge?.row ?? absoluteRow,
                                 anchorColumn: merge?.column ?? absoluteColumn,
@@ -43720,9 +43912,11 @@ var Graflume = (function (exports) {
                                 ? context.theme.colors.background
                                 : context.theme.colors.surface),
                     ...(cellHasBorder
-                        ? { stroke: focused ? context.theme.colors.focus : (style.stroke ?? grid.color) }
+                        ? {
+                            stroke: focused || selected ? context.theme.colors.focus : (style.stroke ?? grid.color),
+                        }
                         : {}),
-                    lineWidth: focused ? 2.5 : cellHasBorder ? (style.lineWidth ?? 0.7) : 0,
+                    lineWidth: focused ? 2.5 : selected ? 1.35 : cellHasBorder ? (style.lineWidth ?? 0.7) : 0,
                     cornerRadius: 0,
                 });
                 if (!cellHasBorder) {
@@ -46064,6 +46258,9 @@ var Graflume = (function (exports) {
                 });
             }
         });
+        const nodeGroups = [
+            ...new Set(result.nodes.flatMap(({ group }) => (group === null ? [] : [group]))),
+        ].sort();
         result.nodes.forEach((item, index) => {
             const center = toPlot(context, item);
             const radius = Math.max(5, item.radius * Math.min(plot.width, plot.height));
@@ -46075,7 +46272,9 @@ var Graflume = (function (exports) {
                     : []),
             ]);
             const sourceRow = sourceRows[0] ?? input.nodeRows.get(item.id) ?? 0;
-            const color = palette$1(context, index, result.nodes.length);
+            const color = item.group === null
+                ? palette$1(context, index, result.nodes.length)
+                : palette$1(context, nodeGroups.indexOf(item.group), nodeGroups.length);
             const tooltip = {
                 kind: 'network-node',
                 id: item.id,
@@ -55790,6 +55989,28 @@ var Graflume = (function (exports) {
             columnLimit: state.columnLimit,
         };
     }
+    function cloneTableBatchEdit(edit) {
+        return {
+            ...edit,
+            previousValue: cloneTableDataValue(edit.previousValue),
+            newValue: cloneTableDataValue(edit.newValue),
+        };
+    }
+    function cloneTableBatchChangeEdit(edit) {
+        return {
+            ...edit,
+            previousValue: cloneTableDataValue(edit.previousValue),
+            newValue: cloneTableDataValue(edit.newValue),
+        };
+    }
+    function cloneTablePasteResult(result) {
+        return {
+            applied: result.applied,
+            reason: result.reason,
+            range: result.range === null ? null : cloneTableCellRange(result.range),
+            edits: result.edits.map(cloneTableBatchEdit),
+        };
+    }
     function cloneNetworkRuntimeState(state) {
         return {
             positions: Object.fromEntries(Object.entries(state.positions).map(([id, position]) => [id, { ...position }])),
@@ -55950,6 +56171,7 @@ var Graflume = (function (exports) {
         #markLabelGesture = null;
         #tableRuntime = new Map();
         #tableDataHistory = new Map();
+        #tableRanges = new Map();
         #tableEditor = null;
         #preserveTableEditor = false;
         #networkRuntime = new Map();
@@ -56033,6 +56255,12 @@ var Graflume = (function (exports) {
         #keyDownListener = (event) => {
             if (event instanceof KeyboardEvent)
                 this.#handleKeyDown(event);
+        };
+        #copyListener = (event) => {
+            this.#handleTableCopy(event);
+        };
+        #pasteListener = (event) => {
+            this.#handleTablePaste(event);
         };
         #visibilityListener = () => {
             if (typeof document !== 'undefined' && document.hidden)
@@ -56291,51 +56519,47 @@ var Graflume = (function (exports) {
             return this.#setFamilyFocus({ kind: 'pie-slice', layerId, id }, 'programmatic');
         }
         focusTableCell(layerId, row, column) {
+            return this.#setTableRange(layerId, { anchor: { row, column }, focus: { row, column } }, 'programmatic');
+        }
+        getTableRange(layerId) {
             this.#assertAlive();
-            if (!Number.isInteger(row) || row < 0 || !Number.isInteger(column) || column < 0) {
-                throw new GraflumeError('INVALID_SPEC', 'Table cell row and column must be non-negative integers.');
-            }
-            const entries = this.#familyEntries('table-cell').filter((candidate) => candidate.layerId === layerId);
-            const first = entries[0]?.familyInteraction;
-            if (first === undefined ||
-                first.kind !== 'table-cell' ||
-                row >= first.rows ||
-                column >= first.columns) {
-                throw new GraflumeError('INVALID_SPEC', `Table cell (${row}, ${column}) is outside layer "${layerId}".`);
-            }
-            let state = this.getTableRuntimeState(layerId);
-            const frozenRows = this.#tableFrozenRows(layerId);
-            const frozenColumns = this.#tableFrozenColumns(layerId);
-            let nextState = state;
-            if (row >= frozenRows &&
-                (row < state.windowOffset || row >= state.windowOffset + state.windowLimit)) {
-                const offset = Math.max(0, row - Math.max(0, state.windowLimit - 1));
-                nextState = normalizeTableRuntimeState({ windowOffset: offset }, nextState);
-            }
-            if (column >= frozenColumns &&
-                (column < state.columnOffset || column >= state.columnOffset + state.columnLimit)) {
-                const offset = Math.max(0, column - Math.max(0, state.columnLimit - 1));
-                nextState = normalizeTableRuntimeState({ columnOffset: offset }, nextState);
-            }
-            if (nextState !== state) {
-                this.#setTableRuntimeState(layerId, nextState, 'programmatic', false);
-                state = nextState;
-            }
-            const field = this.#familyEntries('table-cell').find((candidate) => candidate.layerId === layerId &&
-                candidate.familyInteraction.row === row &&
-                candidate.familyInteraction.column === column)?.familyInteraction;
-            if (field === undefined || field.kind !== 'table-cell') {
-                throw new GraflumeError('INVALID_SPEC', `Table column ${column} was not found.`);
-            }
-            return this.#setFamilyFocus({ kind: 'table-cell', layerId, row, column, field: field.field }, 'programmatic');
+            this.#requireFamilyLayer(layerId, ['table']);
+            const range = this.#tableRanges.get(layerId);
+            return range === undefined ? null : cloneTableCellRange(range);
+        }
+        setTableRange(layerId, range) {
+            return this.#setTableRange(layerId, range, 'programmatic');
         }
         clearFamilyFocus() {
             this.#assertAlive();
-            if (this.#familyFocus === null)
+            if (this.#familyFocus === null && this.#tableRanges.size === 0)
                 return this;
+            const previousFocus = this.#familyFocus;
+            const previousRanges = new Map([...this.#tableRanges].map(([layerId, range]) => [layerId, cloneTableCellRange(range)]));
+            const hadFocus = this.#familyFocus !== null;
+            const tableLayers = [...this.#tableRanges.keys()];
             this.#familyFocus = null;
-            this.render();
-            this.#events.emit('familyfocuschange', { chart: this, state: null, reason: 'clear' });
+            this.#tableRanges.clear();
+            try {
+                this.render();
+            }
+            catch (error) {
+                this.#familyFocus = previousFocus;
+                for (const [layerId, range] of previousRanges)
+                    this.#tableRanges.set(layerId, range);
+                throw error;
+            }
+            if (hadFocus) {
+                this.#events.emit('familyfocuschange', { chart: this, state: null, reason: 'clear' });
+            }
+            for (const layerId of tableLayers) {
+                this.#events.emit('tablerangechange', {
+                    chart: this,
+                    layerId,
+                    range: null,
+                    reason: 'clear',
+                });
+            }
             return this;
         }
         getTableRuntimeState(layerId) {
@@ -56390,6 +56614,7 @@ var Graflume = (function (exports) {
             if (!this.#tableRuntime.delete(layerId))
                 return this;
             this.render();
+            this.#reconcileTableRange(layerId, 'reset');
             this.#events.emit('tablechange', {
                 chart: this,
                 layerId,
@@ -56481,6 +56706,122 @@ var Graflume = (function (exports) {
         }
         exportTableJSON(layerId, mode = 'view') {
             return tableJSON(this.getTableData(layerId, mode));
+        }
+        exportTableTSV(layerId, range) {
+            this.#assertAlive();
+            this.#requireFamilyLayer(layerId, ['table']);
+            const selected = range ?? this.#tableRanges.get(layerId);
+            if (selected === undefined)
+                return '';
+            const view = this.#resolvedTableView(layerId);
+            const resolved = this.#validatedTableRange(layerId, selected, view);
+            const bounds = normalizeTableCellRange(resolved);
+            const fields = view.fields.slice(bounds.left, bounds.right + 1);
+            const rows = view.rows.slice(bounds.top, bounds.bottom + 1);
+            return tableTSV(rows, fields);
+        }
+        pasteTableTSV(layerId, text, start) {
+            this.#assertAlive();
+            this.#requireFamilyLayer(layerId, ['table']);
+            const selected = this.#tableRanges.get(layerId);
+            const position = start ??
+                selected?.focus ??
+                (this.#familyFocus?.kind === 'table-cell' && this.#familyFocus.layerId === layerId
+                    ? { row: this.#familyFocus.row, column: this.#familyFocus.column }
+                    : undefined);
+            if (position === undefined)
+                return this.#tablePasteFailure(layerId, 'no-selection', null);
+            let cells;
+            try {
+                cells = parseTableTSV(text);
+            }
+            catch {
+                return this.#tablePasteFailure(layerId, 'invalid-tsv', {
+                    anchor: position,
+                    focus: position,
+                });
+            }
+            const view = this.#resolvedTableView(layerId);
+            const columnCount = cells[0]?.length ?? 0;
+            const range = {
+                anchor: { ...position },
+                focus: {
+                    row: position.row + cells.length - 1,
+                    column: position.column + columnCount - 1,
+                },
+            };
+            try {
+                this.#boundedTableRange(layerId, range, view);
+            }
+            catch {
+                return this.#tablePasteFailure(layerId, 'range-out-of-bounds', range);
+            }
+            if (this.#tableRangeIncludesCoveredMerge(layerId, range, view)) {
+                return this.#tablePasteFailure(layerId, 'merged-cell-read-only', range);
+            }
+            const editing = this.#tableEditing(layerId);
+            if (!editing.enabled)
+                return this.#tablePasteFailure(layerId, 'editing-disabled', range);
+            if (view.derived)
+                return this.#tablePasteFailure(layerId, 'derived-view-read-only', range);
+            const source = this.#tableSourceRows(layerId);
+            const editableSourceIndices = new Set(view.editableSourceIndices);
+            const edits = [];
+            for (let rowOffset = 0; rowOffset < cells.length; rowOffset += 1) {
+                const viewRow = position.row + rowOffset;
+                const sourceRowIndex = view.sourceIndices[viewRow] ?? null;
+                if (sourceRowIndex === null ||
+                    !editableSourceIndices.has(sourceRowIndex) ||
+                    source[sourceRowIndex] === undefined) {
+                    return this.#tablePasteFailure(layerId, 'source-row-unavailable', range);
+                }
+                const row = cells[rowOffset];
+                for (let columnOffset = 0; columnOffset < row.length; columnOffset += 1) {
+                    const column = position.column + columnOffset;
+                    const field = view.fields[column];
+                    const configured = editing.columns.get(field);
+                    if (configured === undefined || !configured.editable) {
+                        return this.#tablePasteFailure(layerId, 'field-not-editable', range);
+                    }
+                    const previousValue = source[sourceRowIndex][field];
+                    const columnEditing = tableColumnEditingForValue(configured, previousValue);
+                    const newValue = parseTableTSVEditorValue(columnEditing, row[columnOffset]);
+                    const validation = validateTableCellValue(columnEditing, newValue);
+                    if (!validation.valid) {
+                        return this.#tablePasteFailure(layerId, validation.reason, range);
+                    }
+                    if (!tableDataValuesEqual(previousValue, newValue)) {
+                        edits.push({
+                            viewRow,
+                            sourceRowIndex,
+                            column,
+                            field,
+                            previousValue: cloneTableDataValue(previousValue),
+                            newValue: cloneTableDataValue(newValue),
+                        });
+                    }
+                }
+            }
+            this.#setTableRange(layerId, range, 'programmatic');
+            if (edits.length > 0) {
+                const next = cloneTableRows(source);
+                for (const edit of edits) {
+                    next[edit.sourceRowIndex][edit.field] = cloneTableDataValue(edit.newValue);
+                }
+                const history = this.#tableDataHistory.get(layerId) ??
+                    (() => {
+                        const created = new TableDataHistory(source);
+                        this.#tableDataHistory.set(layerId, created);
+                        return created;
+                    })();
+                this.#replaceTableSourceRows(layerId, next);
+                history.replace(next, true);
+                this.#emitTableDataChange(layerId, 'programmatic');
+                this.#emitTableBatchChange(layerId, 'paste', edits);
+            }
+            const result = cloneTablePasteResult({ applied: true, reason: 'paste', range, edits });
+            this.#emitTablePaste(layerId, result);
+            return cloneTablePasteResult(result);
         }
         getNetworkRuntimeState(layerId) {
             this.#assertAlive();
@@ -56836,6 +57177,215 @@ var Graflume = (function (exports) {
         #tableEditing(layerId) {
             return tableEditingConfig(this.#layerOptions(layerId));
         }
+        #boundedTableRange(layerId, range, view = this.#resolvedTableView(layerId)) {
+            const candidate = range;
+            for (const [name, position] of [
+                ['anchor', candidate?.anchor],
+                ['focus', candidate?.focus],
+            ]) {
+                if (position === undefined ||
+                    !Number.isInteger(position.row) ||
+                    position.row < 0 ||
+                    position.row >= view.rows.length ||
+                    !Number.isInteger(position.column) ||
+                    position.column < 0 ||
+                    position.column >= view.fields.length) {
+                    throw new GraflumeError('INVALID_SPEC', position === undefined
+                        ? `Table range ${name} is missing in layer "${layerId}".`
+                        : `Table range ${name} (${position.row}, ${position.column}) is outside layer "${layerId}".`);
+                }
+            }
+            return cloneTableCellRange(range);
+        }
+        #resolvedTableMerges(layerId, view) {
+            const options = this.#layerOptions(layerId);
+            const authored = Array.isArray(options.merges)
+                ? options.merges
+                : [];
+            const repeated = Array.isArray(options.mergeRepeats)
+                ? options.mergeRepeats.map((entry) => typeof entry === 'string' ? { field: entry } : entry)
+                : [];
+            return resolveTableMerges(view.rows, view.fields, Math.min(this.#tableFrozenRows(layerId), view.rows.length), Math.min(this.#tableFrozenColumns(layerId), view.fields.length), authored, repeated);
+        }
+        #tableRangeIncludesCoveredMerge(layerId, range, view) {
+            const bounds = normalizeTableCellRange(range);
+            const intersects = (top, left, bottom, right) => bounds.top <= bottom && bounds.bottom >= top && bounds.left <= right && bounds.right >= left;
+            return this.#resolvedTableMerges(layerId, view).some((merge) => (merge.rowSpan > 1 &&
+                intersects(merge.row + 1, merge.column, merge.row + merge.rowSpan - 1, merge.column + merge.columnSpan - 1)) ||
+                (merge.columnSpan > 1 &&
+                    intersects(merge.row, merge.column + 1, merge.row, merge.column + merge.columnSpan - 1)));
+        }
+        #validatedTableRange(layerId, range, view = this.#resolvedTableView(layerId)) {
+            const bounded = this.#boundedTableRange(layerId, range, view);
+            if (this.#tableRangeIncludesCoveredMerge(layerId, bounded, view)) {
+                throw new GraflumeError('INVALID_SPEC', `Table range in layer "${layerId}" includes a covered merged cell.`);
+            }
+            return bounded;
+        }
+        #reconcileTableRange(layerId, reason) {
+            const previous = this.#tableRanges.get(layerId);
+            if (previous === undefined)
+                return;
+            const view = this.#resolvedTableView(layerId);
+            let next = view.rows.length === 0 || view.fields.length === 0
+                ? null
+                : {
+                    anchor: {
+                        row: Math.min(previous.anchor.row, view.rows.length - 1),
+                        column: Math.min(previous.anchor.column, view.fields.length - 1),
+                    },
+                    focus: {
+                        row: Math.min(previous.focus.row, view.rows.length - 1),
+                        column: Math.min(previous.focus.column, view.fields.length - 1),
+                    },
+                };
+            if (next !== null && this.#tableRangeIncludesCoveredMerge(layerId, next, view))
+                next = null;
+            const previousFocus = this.#familyFocus;
+            const nextFocus = previousFocus?.kind === 'table-cell' && previousFocus.layerId === layerId
+                ? next === null
+                    ? null
+                    : {
+                        kind: 'table-cell',
+                        layerId,
+                        row: next.focus.row,
+                        column: next.focus.column,
+                        field: view.fields[next.focus.column],
+                    }
+                : previousFocus;
+            const rangeChanged = !tableCellRangeEqual(previous, next);
+            const focusChanged = JSON.stringify(previousFocus) !== JSON.stringify(nextFocus);
+            if (!rangeChanged && !focusChanged)
+                return;
+            if (next === null) {
+                this.#tableRanges.delete(layerId);
+            }
+            else {
+                this.#tableRanges.set(layerId, cloneTableCellRange(next));
+            }
+            this.#familyFocus = nextFocus;
+            try {
+                this.render();
+            }
+            catch (error) {
+                this.#tableRanges.set(layerId, previous);
+                this.#familyFocus = previousFocus;
+                throw error;
+            }
+            if (rangeChanged) {
+                this.#events.emit('tablerangechange', {
+                    chart: this,
+                    layerId,
+                    range: next === null ? null : cloneTableCellRange(next),
+                    reason,
+                });
+            }
+            if (focusChanged) {
+                this.#events.emit('familyfocuschange', {
+                    chart: this,
+                    state: this.#familyFocus === null ? null : { ...this.#familyFocus },
+                    reason,
+                });
+            }
+        }
+        #setTableRange(layerId, range, reason) {
+            this.#assertAlive();
+            this.#requireFamilyLayer(layerId, ['table']);
+            const view = this.#resolvedTableView(layerId);
+            const selected = this.#validatedTableRange(layerId, range, view);
+            const previousRange = this.#tableRanges.get(layerId);
+            const previousRanges = new Map([...this.#tableRanges].map(([candidateLayerId, candidate]) => [
+                candidateLayerId,
+                cloneTableCellRange(candidate),
+            ]));
+            const clearedLayers = [...this.#tableRanges.keys()].filter((candidateLayerId) => candidateLayerId !== layerId);
+            const previousFocus = this.#familyFocus;
+            const previousRuntime = this.#tableRuntime.get(layerId);
+            let runtime = this.getTableRuntimeState(layerId);
+            const interaction = this.#familyEntries('table-cell').find((entry) => entry.layerId === layerId)?.familyInteraction;
+            const rowLimit = interaction?.kind === 'table-cell' ? interaction.windowLimit : runtime.windowLimit;
+            const columnLimit = interaction?.kind === 'table-cell' ? interaction.columnLimit : runtime.columnLimit;
+            const frozenRows = this.#tableFrozenRows(layerId);
+            const frozenColumns = this.#tableFrozenColumns(layerId);
+            if (selected.focus.row >= frozenRows &&
+                (selected.focus.row < runtime.windowOffset ||
+                    selected.focus.row >= runtime.windowOffset + rowLimit)) {
+                runtime = normalizeTableRuntimeState({
+                    windowOffset: selected.focus.row < runtime.windowOffset
+                        ? selected.focus.row
+                        : Math.max(0, selected.focus.row - Math.max(0, rowLimit - 1)),
+                }, runtime);
+            }
+            if (selected.focus.column >= frozenColumns &&
+                (selected.focus.column < runtime.columnOffset ||
+                    selected.focus.column >= runtime.columnOffset + columnLimit)) {
+                runtime = normalizeTableRuntimeState({
+                    columnOffset: selected.focus.column < runtime.columnOffset
+                        ? selected.focus.column
+                        : Math.max(0, selected.focus.column - Math.max(0, columnLimit - 1)),
+                }, runtime);
+            }
+            const runtimeChanged = JSON.stringify(runtime) !== JSON.stringify(this.getTableRuntimeState(layerId));
+            const focus = {
+                kind: 'table-cell',
+                layerId,
+                row: selected.focus.row,
+                column: selected.focus.column,
+                field: view.fields[selected.focus.column],
+            };
+            const focusChanged = JSON.stringify(previousFocus) !== JSON.stringify(focus);
+            const rangeChanged = !tableCellRangeEqual(previousRange ?? null, selected);
+            if (!runtimeChanged && !focusChanged && !rangeChanged && clearedLayers.length === 0)
+                return this;
+            if (runtimeChanged)
+                this.#tableRuntime.set(layerId, cloneTableRuntimeState(runtime));
+            this.#tableRanges.clear();
+            this.#tableRanges.set(layerId, cloneTableCellRange(selected));
+            this.#familyFocus = focus;
+            try {
+                this.render();
+            }
+            catch (error) {
+                if (previousRuntime === undefined)
+                    this.#tableRuntime.delete(layerId);
+                else
+                    this.#tableRuntime.set(layerId, previousRuntime);
+                this.#tableRanges.clear();
+                for (const [candidateLayerId, candidate] of previousRanges) {
+                    this.#tableRanges.set(candidateLayerId, candidate);
+                }
+                this.#familyFocus = previousFocus;
+                throw error;
+            }
+            if (runtimeChanged) {
+                this.#events.emit('tablechange', {
+                    chart: this,
+                    layerId,
+                    state: cloneTableRuntimeState(runtime),
+                    reason,
+                });
+            }
+            if (focusChanged) {
+                this.#events.emit('familyfocuschange', { chart: this, state: { ...focus }, reason });
+            }
+            for (const candidateLayerId of clearedLayers) {
+                this.#events.emit('tablerangechange', {
+                    chart: this,
+                    layerId: candidateLayerId,
+                    range: null,
+                    reason,
+                });
+            }
+            if (rangeChanged) {
+                this.#events.emit('tablerangechange', {
+                    chart: this,
+                    layerId,
+                    range: cloneTableCellRange(selected),
+                    reason,
+                });
+            }
+            return this;
+        }
         #resolvedTableView(layerId) {
             const layer = this.#requireFamilyLayer(layerId, ['table']);
             const transformed = executeTransformsWithNamedLineage(layer.data, layer.transform, `layer:${layer.id}`);
@@ -56862,17 +57412,35 @@ var Graflume = (function (exports) {
                     .map(([sourceIndex]) => sourceIndex),
             };
         }
-        #emitTableEdit(layerId, row, field, previousValue, newValue, valid, reason) {
+        #emitTableEdit(layerId, row, sourceRowIndex, field, previousValue, newValue, valid, reason) {
             this.#events.emit('tableeditchange', {
                 chart: this,
                 layerId,
                 row,
+                sourceRowIndex,
                 field,
                 previousValue: cloneTableDataValue(previousValue),
                 newValue: cloneTableDataValue(newValue),
                 valid,
                 reason,
             });
+        }
+        #emitTablePaste(layerId, result) {
+            const cloned = cloneTablePasteResult(result);
+            this.#events.emit('tablepaste', { chart: this, layerId, ...cloned });
+        }
+        #emitTableBatchChange(layerId, reason, edits) {
+            this.#events.emit('tablebatchchange', {
+                chart: this,
+                layerId,
+                reason,
+                edits: edits.map(cloneTableBatchChangeEdit),
+            });
+        }
+        #tablePasteFailure(layerId, reason, range) {
+            const result = cloneTablePasteResult({ applied: false, reason, range, edits: [] });
+            this.#emitTablePaste(layerId, result);
+            return cloneTablePasteResult(result);
         }
         #emitTableDataChange(layerId, reason) {
             this.#events.emit('tablechange', {
@@ -56908,6 +57476,7 @@ var Graflume = (function (exports) {
             this.#spec = this.#tableSpecWithSourceRows(layerId, rows);
             try {
                 this.render();
+                this.#reconcileTableRange(layerId, 'programmatic');
             }
             catch (error) {
                 this.#spec = previousSpec;
@@ -56977,21 +57546,21 @@ var Graflume = (function (exports) {
                 failure = 'source-row-unavailable';
             const previousValue = sourceRow === null ? undefined : source[sourceRow]?.[field];
             if (failure !== null || configuredColumn === undefined) {
-                this.#emitTableEdit(layerId, row, field, previousValue, value, false, failure ?? 'field-not-editable');
+                this.#emitTableEdit(layerId, row, sourceRow, field, previousValue, value, false, failure ?? 'field-not-editable');
                 return false;
             }
             const column = tableColumnEditingForValue(configuredColumn, previousValue);
             const validation = validateTableCellValue(column, value);
             if (!validation.valid) {
-                this.#emitTableEdit(layerId, row, field, previousValue, value, false, validation.reason);
+                this.#emitTableEdit(layerId, row, sourceRow, field, previousValue, value, false, validation.reason);
                 return false;
             }
             if (sourceRow === null || source[sourceRow] === undefined) {
-                this.#emitTableEdit(layerId, row, field, previousValue, value, false, 'source-row-unavailable');
+                this.#emitTableEdit(layerId, row, sourceRow, field, previousValue, value, false, 'source-row-unavailable');
                 return false;
             }
             if (tableDataValuesEqual(previousValue, value)) {
-                this.#emitTableEdit(layerId, row, field, previousValue, value, true, successReason);
+                this.#emitTableEdit(layerId, row, sourceRow, field, previousValue, value, true, successReason);
                 return true;
             }
             const next = source.map((candidate, index) => index === sourceRow ? { ...candidate, [field]: cloneTableDataValue(value) } : candidate);
@@ -57004,22 +57573,44 @@ var Graflume = (function (exports) {
             this.#replaceTableSourceRows(layerId, next);
             history.replace(next);
             this.#emitTableDataChange(layerId, 'programmatic');
-            this.#emitTableEdit(layerId, row, field, previousValue, value, true, successReason);
+            this.#emitTableEdit(layerId, row, sourceRow, field, previousValue, value, true, successReason);
             return true;
         }
         #applyTableDataTransition(layerId, transition, reason) {
-            this.#replaceTableSourceRows(layerId, transition.rows);
-            this.#emitTableDataChange(layerId, reason === 'reset' ? 'reset' : 'programmatic');
+            const view = this.#resolvedTableView(layerId);
+            const sourceToView = new Map();
+            view.sourceIndices.forEach((sourceRowIndex, viewRow) => {
+                if (sourceRowIndex !== null && !sourceToView.has(sourceRowIndex)) {
+                    sourceToView.set(sourceRowIndex, viewRow);
+                }
+            });
+            const edits = [];
             const rowCount = Math.max(transition.previous.length, transition.rows.length);
-            for (let row = 0; row < rowCount; row += 1) {
-                const previous = transition.previous[row] ?? {};
-                const next = transition.rows[row] ?? {};
+            for (let sourceRowIndex = 0; sourceRowIndex < rowCount; sourceRowIndex += 1) {
+                const previous = transition.previous[sourceRowIndex] ?? {};
+                const next = transition.rows[sourceRowIndex] ?? {};
                 const fields = new Set([...Object.keys(previous), ...Object.keys(next)]);
                 for (const field of fields) {
                     if (tableDataValuesEqual(previous[field], next[field]))
                         continue;
-                    this.#emitTableEdit(layerId, row, field, previous[field], next[field], true, reason);
+                    const column = view.fields.indexOf(field);
+                    edits.push({
+                        viewRow: sourceToView.get(sourceRowIndex) ?? null,
+                        sourceRowIndex,
+                        column: column < 0 ? null : column,
+                        field,
+                        previousValue: cloneTableDataValue(previous[field]),
+                        newValue: cloneTableDataValue(next[field]),
+                    });
                 }
+            }
+            this.#replaceTableSourceRows(layerId, transition.rows);
+            this.#emitTableDataChange(layerId, reason === 'reset' ? 'reset' : 'programmatic');
+            this.#emitTableBatchChange(layerId, reason, edits);
+            if (transition.batch)
+                return;
+            for (const edit of edits) {
+                this.#emitTableEdit(layerId, edit.viewRow ?? edit.sourceRowIndex, edit.sourceRowIndex, edit.field, edit.previousValue, edit.newValue, true, reason);
             }
         }
         #openTableCellEditor(entry) {
@@ -57227,15 +57818,23 @@ var Graflume = (function (exports) {
             return entry;
         }
         #setFamilyFocus(state, reason) {
-            if (JSON.stringify(this.#familyFocus) === JSON.stringify(state))
+            const clearedLayers = state.kind === 'table-cell' ? [] : [...this.#tableRanges.keys()];
+            if (JSON.stringify(this.#familyFocus) === JSON.stringify(state) && clearedLayers.length === 0) {
                 return this;
+            }
             const previous = this.#familyFocus;
+            const previousRanges = new Map([...this.#tableRanges].map(([layerId, range]) => [layerId, cloneTableCellRange(range)]));
             this.#familyFocus = { ...state };
+            if (state.kind !== 'table-cell')
+                this.#tableRanges.clear();
             try {
                 this.render();
             }
             catch (error) {
                 this.#familyFocus = previous;
+                this.#tableRanges.clear();
+                for (const [layerId, range] of previousRanges)
+                    this.#tableRanges.set(layerId, range);
                 throw error;
             }
             this.#events.emit('familyfocuschange', {
@@ -57243,6 +57842,14 @@ var Graflume = (function (exports) {
                 state: { ...state },
                 reason,
             });
+            for (const layerId of clearedLayers) {
+                this.#events.emit('tablerangechange', {
+                    chart: this,
+                    layerId,
+                    range: null,
+                    reason,
+                });
+            }
             return this;
         }
         #setTableRuntimeState(layerId, state, reason, emit = true) {
@@ -57252,6 +57859,7 @@ var Graflume = (function (exports) {
             this.#tableRuntime.set(layerId, cloneTableRuntimeState(state));
             try {
                 this.render();
+                this.#reconcileTableRange(layerId, reason);
             }
             catch (error) {
                 if (previous === undefined)
@@ -57454,6 +58062,10 @@ var Graflume = (function (exports) {
             const table = this.#tableRuntime.get(layerId);
             if (table !== undefined)
                 Object.assign(options, tableRuntimeOptions(table));
+            const tableRange = this.#tableRanges.get(layerId);
+            if (tableRange !== undefined) {
+                options.runtimeSelectedRange = cloneTableCellRange(tableRange);
+            }
             const network = this.#networkRuntime.get(layerId);
             if (network !== undefined)
                 Object.assign(options, networkRuntimeOptions(network));
@@ -57967,6 +58579,7 @@ var Graflume = (function (exports) {
             this.#selection = [];
             this.#analyticSelection.clear();
             this.#tableRuntime.clear();
+            this.#tableRanges.clear();
             this.#networkRuntime.clear();
             this.#flowRuntime.clear();
             this.#navigatorRuntime.clear();
@@ -58002,6 +58615,12 @@ var Graflume = (function (exports) {
                     chart: this,
                     layerId,
                     state: this.getTableRuntimeState(layerId),
+                    reason: 'spec',
+                });
+                this.#events.emit('tablerangechange', {
+                    chart: this,
+                    layerId,
+                    range: null,
                     reason: 'spec',
                 });
             }
@@ -58732,6 +59351,7 @@ var Graflume = (function (exports) {
                 return;
             this.#destroyTableEditor();
             this.#tableDataHistory.clear();
+            this.#tableRanges.clear();
             const exitFullscreen = this.#isOwnFullscreen();
             this.#playing = false;
             this.#sceneTransition = null;
@@ -59176,6 +59796,8 @@ var Graflume = (function (exports) {
                 surface.addEventListener('click', this.#clickListener, { passive: true });
                 surface.addEventListener('wheel', this.#wheelListener, { passive: false });
                 surface.addEventListener('keydown', this.#keyDownListener);
+                surface.addEventListener('copy', this.#copyListener);
+                surface.addEventListener('paste', this.#pasteListener);
             }
             this.#syncSurfaceConfiguration();
         }
@@ -59188,7 +59810,8 @@ var Graflume = (function (exports) {
             const selection = this.#result?.spec.interaction.selection;
             const markLabelAuthoring = this.#markLabelAuthoring();
             const annotationAuthoring = (this.#result?.scene.metadata.annotations?.entries.length ?? 0) > 0;
-            const familyKeyboard = this.#familyEntries('pie-slice').length > 0 || this.#familyEntries('table-cell').length > 0;
+            const tableKeyboard = this.#familyEntries('table-cell').length > 0;
+            const familyKeyboard = this.#familyEntries('pie-slice').length > 0 || tableKeyboard;
             const familyPointer = this.#familyEntries('network-node').length > 0 ||
                 this.#familyEntries('flow-node').length > 0 ||
                 this.#familyEntries('navigator-window').length > 0 ||
@@ -59258,6 +59881,9 @@ var Graflume = (function (exports) {
                     shortcuts.push('S', 'Space');
                 if (familyKeyboard)
                     shortcuts.push('Home', 'End', 'PageUp', 'PageDown', 'Space');
+                if (tableKeyboard) {
+                    shortcuts.push('Shift+ArrowUp', 'Shift+ArrowDown', 'Shift+ArrowLeft', 'Shift+ArrowRight', 'Control+C', 'Control+V', 'Meta+C', 'Meta+V');
+                }
                 surface.setAttribute('aria-keyshortcuts', [...new Set(shortcuts)].join(' '));
             }
             else if (this.#surfaceAriaKeyShortcuts === null)
@@ -59279,6 +59905,8 @@ var Graflume = (function (exports) {
             surface.removeEventListener('click', this.#clickListener);
             surface.removeEventListener('wheel', this.#wheelListener);
             surface.removeEventListener('keydown', this.#keyDownListener);
+            surface.removeEventListener('copy', this.#copyListener);
+            surface.removeEventListener('paste', this.#pasteListener);
             surface.style.touchAction = this.#surfaceTouchAction ?? '';
             surface.style.cursor = this.#surfaceCursor ?? '';
             if (this.#surfaceTabIndex === null)
@@ -60398,12 +61026,15 @@ var Graflume = (function (exports) {
                     }, 'keyboard');
                 }
                 else if (firstTable !== undefined) {
-                    this.#setFamilyFocus({
-                        kind: 'table-cell',
-                        layerId: firstTable.layerId,
-                        row: firstTable.familyInteraction.row,
-                        column: firstTable.familyInteraction.column,
-                        field: firstTable.familyInteraction.field,
+                    this.#setTableRange(firstTable.layerId, {
+                        anchor: {
+                            row: firstTable.familyInteraction.row,
+                            column: firstTable.familyInteraction.column,
+                        },
+                        focus: {
+                            row: firstTable.familyInteraction.row,
+                            column: firstTable.familyInteraction.column,
+                        },
                     }, 'keyboard');
                 }
                 event.preventDefault();
@@ -60432,35 +61063,35 @@ var Graflume = (function (exports) {
             if (first === undefined || first.kind !== 'table-cell')
                 return false;
             const next = moveTableCell({ row: focus.row, column: focus.column }, event.key, { rows: first.rows, columns: first.columns, pageSize: Math.max(1, first.windowLimit) });
-            let state = this.getTableRuntimeState(focus.layerId);
-            const frozenRows = this.#tableFrozenRows(focus.layerId);
-            const frozenColumns = this.#tableFrozenColumns(focus.layerId);
-            let stateChanged = false;
-            if (next.row >= frozenRows &&
-                (next.row < state.windowOffset || next.row >= state.windowOffset + state.windowLimit)) {
-                const windowOffset = next.row < state.windowOffset
-                    ? next.row
-                    : Math.max(0, next.row - Math.max(0, state.windowLimit - 1));
-                state = normalizeTableRuntimeState({ windowOffset }, state);
-                stateChanged = true;
+            const currentRange = this.#tableRanges.get(focus.layerId);
+            const anchor = event.shiftKey && currentRange !== undefined
+                ? currentRange.anchor
+                : event.shiftKey
+                    ? { row: focus.row, column: focus.column }
+                    : next;
+            const range = { anchor, focus: next };
+            const view = this.#resolvedTableView(focus.layerId);
+            if (!this.#tableRangeIncludesCoveredMerge(focus.layerId, range, view)) {
+                this.#setTableRange(focus.layerId, range, 'keyboard');
             }
-            if (next.column >= frozenColumns &&
-                (next.column < state.columnOffset || next.column >= state.columnOffset + state.columnLimit)) {
-                const columnOffset = next.column < state.columnOffset
-                    ? next.column
-                    : Math.max(0, next.column - Math.max(0, state.columnLimit - 1));
-                state = normalizeTableRuntimeState({ columnOffset }, state);
-                stateChanged = true;
-            }
-            if (stateChanged)
-                this.#setTableRuntimeState(focus.layerId, state, 'keyboard');
-            const refreshed = this.#familyEntries('table-cell').find((entry) => entry.layerId === focus.layerId &&
-                entry.familyInteraction.row === next.row &&
-                entry.familyInteraction.column === next.column);
-            const field = refreshed?.familyInteraction.field ?? focus.field;
-            this.#setFamilyFocus({ kind: 'table-cell', layerId: focus.layerId, row: next.row, column: next.column, field }, 'keyboard');
             event.preventDefault();
             return true;
+        }
+        #handleTableCopy(event) {
+            const focus = this.#familyFocus;
+            if (focus?.kind !== 'table-cell' || event.clipboardData === null)
+                return;
+            const text = this.exportTableTSV(focus.layerId);
+            event.clipboardData.setData('text/plain', text);
+            event.preventDefault();
+        }
+        #handleTablePaste(event) {
+            const focus = this.#familyFocus;
+            if (focus?.kind !== 'table-cell' || event.clipboardData === null)
+                return;
+            const text = event.clipboardData.getData('text/plain');
+            this.pasteTableTSV(focus.layerId, text);
+            event.preventDefault();
         }
         #handleKeyDown(event) {
             if (this.#handleAnalyticSelectionKeyDown(event))
@@ -60760,12 +61391,9 @@ var Graflume = (function (exports) {
                 return false;
             }
             if (interaction.kind === 'table-cell') {
-                this.#setFamilyFocus({
-                    kind: 'table-cell',
-                    layerId: hit.layerId,
-                    row: interaction.row,
-                    column: interaction.column,
-                    field: interaction.field,
+                this.#setTableRange(hit.layerId, {
+                    anchor: { row: interaction.row, column: interaction.column },
+                    focus: { row: interaction.row, column: interaction.column },
                 }, 'pointer');
                 if (event.detail >= 2) {
                     const refreshed = this.#familyEntries('table-cell').find((entry) => entry.layerId === hit.layerId &&
@@ -64073,6 +64701,367 @@ void main() {
         tiledMap: tiledMapCapability,
     };
 
+    /** Synthetic graph structures, independent of the network rendering/layout modes. */
+    const networkTopologyCatalog = Object.freeze([
+        ['collapse', 'Collapse', 3, 200, 'Peripheral sources converge on one sink.', true],
+        ['line', 'Line', 3, 200, 'A single open path arranged on three sides of a rectangle.', true],
+        ['star', 'Star', 3, 200, 'One central source fans out to peripheral sinks.', true],
+        [
+            'pseudo-loop',
+            'Pseudo Loop',
+            3,
+            200,
+            'An open rectangular path and a direct source-to-sink shortcut.',
+            true,
+        ],
+        [
+            'diamond',
+            'Diamond',
+            4,
+            200,
+            'Source and sink surround a linked belt of relay nodes.',
+            true,
+        ],
+        [
+            'rhombus',
+            'Rhombus',
+            4,
+            200,
+            'Independent parallel relay paths join a source and sink.',
+            true,
+        ],
+        ['ring', 'Ring', 3, 200, 'A closed cycle arranged on a circle.', false],
+        ['wheel', 'Wheel', 4, 200, 'A circular rim with one hub connected to every rim node.', false],
+        [
+            'balanced-tree',
+            'Balanced tree',
+            3,
+            200,
+            'A breadth-first binary tree with layered positions.',
+            true,
+        ],
+        [
+            'grid',
+            'Grid',
+            3,
+            200,
+            'A near-square lattice with horizontal and vertical neighbors.',
+            false,
+        ],
+        [
+            'complete',
+            'Complete',
+            3,
+            64,
+            'Every pair is connected once; directed edges follow node order.',
+            false,
+        ],
+        [
+            'bipartite',
+            'Bipartite',
+            3,
+            128,
+            'Every node in the left partition connects to every node on the right.',
+            true,
+        ],
+        ['small-world', 'Small world', 5, 200, 'A ring lattice with seeded shortcut edges.', false],
+        [
+            'random',
+            'Random',
+            3,
+            90,
+            'A seeded independent-edge graph; isolated nodes are retained.',
+            false,
+        ],
+    ].map(([id, label, minNodes, maxNodes, description, directed]) => Object.freeze({ id, label, minNodes, maxNodes, description, directed })));
+    function invalid$1(message) {
+        throw new GraflumeError('INVALID_DATA', message);
+    }
+    /** Generate bounded, deterministic, JSON-portable synthetic network data. */
+    function generateNetworkTopology(options) {
+        if (options === null || typeof options !== 'object')
+            invalid$1('Topology options are required.');
+        const descriptor = networkTopologyCatalog.find(({ id }) => id === options.topology);
+        if (descriptor === undefined)
+            invalid$1(`Unknown network topology "${String(options.topology)}".`);
+        const count = options.nodeCount === undefined ? Math.max(8, descriptor.minNodes) : options.nodeCount;
+        if (!Number.isInteger(count) || count < descriptor.minNodes || count > descriptor.maxNodes) {
+            invalid$1(`${descriptor.label} nodeCount must be an integer in [${descriptor.minNodes}, ${descriptor.maxNodes}].`);
+        }
+        if (options.directed !== undefined && typeof options.directed !== 'boolean') {
+            invalid$1('Topology directed must be a boolean.');
+        }
+        const directed = options.directed ?? descriptor.directed;
+        const seed = options.seed === undefined ? 1 : options.seed;
+        if (!Number.isInteger(seed) || seed < 0 || seed > 0xffff_ffff) {
+            invalid$1('Topology seed must be an unsigned 32-bit integer.');
+        }
+        const probability = options.edgeProbability === undefined ? 0.2 : options.edgeProbability;
+        if (typeof probability !== 'number' ||
+            !Number.isFinite(probability) ||
+            probability < 0 ||
+            probability > 1) {
+            invalid$1('Topology edgeProbability must be in [0, 1].');
+        }
+        let state = seed >>> 0;
+        const random = () => {
+            state = (Math.imul(state, 1_664_525) + 1_013_904_223) >>> 0;
+            return state / 0x1_0000_0000;
+        };
+        const positions = Array.from({ length: count }, () => ({ x: 0.5, y: 0.5 }));
+        const pairs = [];
+        const pairSet = new Set();
+        const connect = (source, target) => {
+            const key = `${Math.min(source, target)}:${Math.max(source, target)}`;
+            if (source === target || pairSet.has(key))
+                return;
+            pairSet.add(key);
+            pairs.push([source, target]);
+        };
+        const spread = (index, size) => size <= 1 ? 0.5 : 0.12 + (index / (size - 1)) * 0.76;
+        const circle = (start) => {
+            const size = count - start;
+            for (let index = start; index < count; index += 1) {
+                const angle = ((index - start) / size) * Math.PI * 2 - Math.PI / 2;
+                positions[index] = { x: 0.5 + Math.cos(angle) * 0.38, y: 0.5 + Math.sin(angle) * 0.38 };
+            }
+        };
+        const rectanglePath = () => {
+            // Keep each elbow as an actual node so path edges cannot cut across the motif.
+            const segments = [0, 0, 0];
+            for (let index = 0; index < count - 1; index += 1)
+                segments[index % 3] += 1;
+            positions[0] = { x: 0.18, y: 0.12 };
+            let node = 1;
+            for (let side = 0; side < 3; side += 1) {
+                for (let step = 1; step <= segments[side]; step += 1) {
+                    const t = step / segments[side];
+                    positions[node++] =
+                        side === 0
+                            ? { x: 0.18, y: 0.12 + t * 0.76 }
+                            : side === 1
+                                ? { x: 0.18 + t * 0.64, y: 0.88 }
+                                : { x: 0.82, y: 0.88 - t * 0.76 };
+                }
+            }
+        };
+        switch (options.topology) {
+            case 'collapse':
+            case 'star': {
+                if (count <= 4) {
+                    const corners = options.topology === 'collapse'
+                        ? [
+                            { x: 0.8, y: 0.8 },
+                            { x: 0.2, y: 0.2 },
+                            { x: 0.2, y: 0.8 },
+                            { x: 0.8, y: 0.2 },
+                        ]
+                        : [
+                            { x: 0.2, y: 0.2 },
+                            { x: 0.2, y: 0.8 },
+                            { x: 0.8, y: 0.8 },
+                            { x: 0.8, y: 0.2 },
+                        ];
+                    corners.slice(0, count).forEach((point, index) => {
+                        positions[index] = point;
+                    });
+                    for (let index = 1; index < count; index += 1) {
+                        if (options.topology === 'collapse')
+                            connect(index, 0);
+                        else
+                            connect(0, index);
+                    }
+                    break;
+                }
+                const leftCount = Math.ceil((count - 1) / 2);
+                for (let index = 1; index < count; index += 1) {
+                    const left = index <= leftCount;
+                    positions[index] = {
+                        x: left ? 0.12 : 0.88,
+                        y: spread(left ? index - 1 : index - leftCount - 1, left ? leftCount : count - leftCount - 1),
+                    };
+                    if (options.topology === 'collapse')
+                        connect(index, 0);
+                    else
+                        connect(0, index);
+                }
+                break;
+            }
+            case 'line':
+            case 'pseudo-loop':
+                rectanglePath();
+                for (let index = 1; index < count; index += 1)
+                    connect(index - 1, index);
+                if (options.topology === 'pseudo-loop')
+                    connect(0, count - 1);
+                break;
+            case 'diamond':
+            case 'rhombus':
+                positions[0] = { x: 0.5, y: 0.1 };
+                positions[count - 1] = { x: 0.5, y: 0.9 };
+                for (let index = 1; index < count - 1; index += 1) {
+                    positions[index] = { x: spread(index - 1, count - 2), y: 0.5 };
+                    connect(0, index);
+                    connect(index, count - 1);
+                    if (options.topology === 'diamond' && index > 1)
+                        connect(index - 1, index);
+                }
+                break;
+            case 'ring':
+            case 'wheel':
+            case 'small-world': {
+                const start = options.topology === 'wheel' ? 1 : 0;
+                circle(start);
+                for (let index = start; index < count; index += 1) {
+                    connect(index, index + 1 < count ? index + 1 : start);
+                    if (start === 1)
+                        connect(0, index);
+                    if (options.topology === 'small-world')
+                        connect(index, (index + 2) % count);
+                }
+                if (options.topology === 'small-world') {
+                    for (let source = 0; source < count; source += 1) {
+                        if (random() < probability)
+                            connect(source, Math.floor(random() * count));
+                    }
+                }
+                break;
+            }
+            case 'balanced-tree': {
+                const depth = Math.floor(Math.log2(count));
+                for (let index = 0; index < count; index += 1) {
+                    const level = Math.floor(Math.log2(index + 1));
+                    const first = 2 ** level - 1;
+                    const width = 2 ** level;
+                    positions[index] = {
+                        x: 0.12 + ((index - first + 0.5) / width) * 0.76,
+                        y: 0.12 + (level / depth) * 0.76,
+                    };
+                    if (index > 0)
+                        connect(Math.floor((index - 1) / 2), index);
+                }
+                break;
+            }
+            case 'grid': {
+                const columns = Math.ceil(Math.sqrt(count));
+                const rows = Math.ceil(count / columns);
+                for (let index = 0; index < count; index += 1) {
+                    const column = index % columns;
+                    positions[index] = {
+                        x: spread(column, columns),
+                        y: spread(Math.floor(index / columns), rows),
+                    };
+                    if (column > 0)
+                        connect(index - 1, index);
+                    if (index >= columns)
+                        connect(index - columns, index);
+                }
+                break;
+            }
+            case 'bipartite': {
+                const leftCount = Math.ceil(count / 2);
+                for (let index = 0; index < count; index += 1) {
+                    const left = index < leftCount;
+                    positions[index] = {
+                        x: left ? 0.15 : 0.85,
+                        y: spread(left ? index : index - leftCount, left ? leftCount : count - leftCount),
+                    };
+                }
+                for (let source = 0; source < leftCount; source += 1) {
+                    for (let target = leftCount; target < count; target += 1)
+                        connect(source, target);
+                }
+                break;
+            }
+            case 'complete':
+            case 'random':
+                circle(0);
+                for (let source = 0; source < count; source += 1) {
+                    for (let target = source + 1; target < count; target += 1) {
+                        if (options.topology === 'complete' || random() < probability)
+                            connect(source, target);
+                    }
+                }
+                break;
+        }
+        const incoming = new Uint32Array(count);
+        const outgoing = new Uint32Array(count);
+        const edges = pairs.map(([source, target], index) => {
+            outgoing[source] += 1;
+            incoming[target] += 1;
+            if (!directed) {
+                incoming[source] += 1;
+                outgoing[target] += 1;
+            }
+            return {
+                id: `e${index + 1}`,
+                source: `n${source + 1}`,
+                target: `n${target + 1}`,
+                weight: 1,
+                directed,
+            };
+        });
+        const nodes = positions.map(({ x, y }, index) => {
+            const role = incoming[index] === 0 && outgoing[index] === 0
+                ? 'isolated'
+                : incoming[index] === 0
+                    ? 'source'
+                    : outgoing[index] === 0
+                        ? 'sink'
+                        : 'relay';
+            return { id: `n${index + 1}`, label: `N${index + 1}`, role, group: role, x, y, pinned: true };
+        });
+        const data = [
+            ...nodes.map((node) => ({
+                node: node.id,
+                source: null,
+                target: null,
+                label: node.label,
+                role: node.role,
+                nodeX: node.x,
+                nodeY: node.y,
+                pinned: true,
+                value: 1,
+                topology: options.topology,
+                synthetic: true,
+            })),
+            ...edges.map((edge) => ({
+                id: edge.id,
+                source: edge.source,
+                target: edge.target,
+                value: edge.weight,
+                directed,
+                topology: options.topology,
+                synthetic: true,
+            })),
+        ];
+        return {
+            topology: options.topology,
+            nodeCount: nodes.length,
+            edgeCount: edges.length,
+            nodes,
+            edges,
+            data,
+            mark: {
+                type: 'graph',
+                fields: {
+                    source: 'source',
+                    target: 'target',
+                    node: 'node',
+                    label: 'label',
+                    group: 'role',
+                    nodeX: 'nodeX',
+                    nodeY: 'nodeY',
+                    pinned: 'pinned',
+                    edgeId: 'id',
+                    weight: 'value',
+                    directed: 'directed',
+                },
+                options: { layout: 'force', routing: 'straight', directed },
+            },
+        };
+    }
+
     const transformWorkerProtocolVersion = 1;
     const DEFAULT_MAX_QUEUE_BATCHES = 8;
     const DEFAULT_MAX_ROWS = 100_000;
@@ -67012,6 +68001,7 @@ void main() {
     exports.gaugeDelta = gaugeDelta;
     exports.gaugeModel = gaugeModel;
     exports.gaugeNumber = gaugeNumber;
+    exports.generateNetworkTopology = generateNetworkTopology;
     exports.geo = geo;
     exports.geoHeatmap = geoHeatmap;
     exports.geodesicPath = geodesicPath;
@@ -67098,6 +68088,7 @@ void main() {
     exports.network = network;
     exports.networkGraph = networkGraph;
     exports.networkRuntimeOptions = networkRuntimeOptions;
+    exports.networkTopologyCatalog = networkTopologyCatalog;
     exports.nextPieSlice = nextPieSlice;
     exports.normalizeAdaptiveOptions = normalizeAdaptiveOptions;
     exports.normalizeAnalyticSelectionState = normalizeAnalyticSelectionState;
@@ -67178,6 +68169,7 @@ void main() {
     exports.resolveAdaptiveProfile = resolveAdaptiveProfile;
     exports.resolveScatterRendererDispatch = resolveScatterRendererDispatch;
     exports.resolveSeriesType = resolveSeriesType;
+    exports.resolveTableMerges = resolveTableMerges;
     exports.resolveTechnicalIndicatorCapability = resolveTechnicalIndicatorCapability;
     exports.resolveTechnicalIndicatorPresentation = resolveTechnicalIndicatorPresentation;
     exports.restore = restore;

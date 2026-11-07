@@ -1,11 +1,15 @@
 {
   "package": "graflume",
   "version": "0.1.0-alpha.0",
-  "sourceCommit": "272a21a94628bdfd4fcddc20a6d13b643542e019",
+  "sourceCommit": "4387084462817073651e020886595cf26bac0417",
   "entry": "./graflume.global.js",
   "entries": {
     "default": "./graflume.global.js",
     "complete": "./graflume.complete.global.js",
-    "spatial": "./graflume.spatial.global.js"
+    "spatial": "./graflume.spatial.global.js",
+    "spreadsheet": "./graflume.spreadsheet.global.js",
+    "spreadsheetRuntime": "./graflume.spreadsheet.runtime.js",
+    "spreadsheetStyle": "./graflume.spreadsheet.css",
+    "spreadsheetManifest": "./graflume.spreadsheet.manifest.json"
   }
 }
