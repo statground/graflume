@@ -4,6 +4,14 @@ All notable changes to Graflume will be recorded here.
 
 ## Unreleased
 
+- Add `generateNetworkTopology()` and `networkTopologyCatalog` with 14 deterministic synthetic
+  network structures: Collapse, Line, Star, Pseudo Loop, Diamond, Rhombus, Ring, Wheel,
+  Balanced tree, Grid, Complete, Bipartite, Small world, and seeded Random. Preserve explicit
+  node counts, isolated nodes, pinned motif geometry, source/relay/sink roles, and standard
+  JSON-portable graph rows without adding ChartSpec or snapshot fields. Pseudo Loop retains
+  two directed source-to-sink paths. Explicit node groups now share theme-aware graph colors.
+  Bound dense presets separately and include compiled snapshots and runnable regression tests.
+
 - Add a lazy `createSpreadsheet()` surface with a neutral public facade, isolated iframe runtime
   and styles, Korean/English UI, formula and table tools, stable-ID data-frame synchronization,
   atomic batch commits, bounded snapshots, read-only and structural guards, commit-rejection

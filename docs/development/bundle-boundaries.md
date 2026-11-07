@@ -297,3 +297,26 @@ The runtime is intentionally large and is never part of a normal chart bundle or
 runtime dependency install. It is built from exact development dependencies, published as an
 immutable optional CDN asset, and loaded only after a host explicitly calls `createSpreadsheet`.
 The size checker enforces independent raw and gzip ceilings for all three optional artifacts.
+
+## 2026-11-07 synthetic network topology generators
+
+The default and complete entry points export the same bounded, renderer-independent
+`generateNetworkTopology()` helper and 14-entry `networkTopologyCatalog`. They add
+5,511 / 5,635 raw minified bytes over the preceding measured core entries. Explicit
+node role groups reuse the complete graph compiler; no ChartSpec/schema fields,
+required lazy chunks, chart-family catalog counts, or Spatial imports are added.
+The built-module checks verify the generator and catalog in both modules and browser
+globals and verify their absence from the independent Spatial entry.
+
+| Browser file               | Raw minified | Gzip level 9 | Raw budget | Headroom |
+| -------------------------- | -----------: | -----------: | ---------: | -------: |
+| `graflume.min.js`          |    1,262,430 |      370,448 |  1,233 KiB |      162 |
+| `graflume.complete.min.js` |    1,460,954 |      427,762 |  1,427 KiB |      294 |
+| `graflume.spatial.min.js`  |      397,648 |      124,022 |    389 KiB |      688 |
+
+Each new core ceiling is the next whole KiB after the clean build. Dense generation
+is separately bounded: Complete permits 64 nodes/2,016 edges, Random permits 90
+nodes/4,005 edges, and Bipartite permits 128 nodes/4,096 edges. Sparse structures
+permit up to 200 nodes. On the local Node 20 validation host, the existing compiler
+built the largest Complete/Random/Bipartite Scenes in approximately 0.34/1.38/1.36
+seconds; these are single-host compile measurements, not browser latency guarantees.

@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 
-import { fullVariantCatalog } from '../dist/graflume.complete.js';
+import {
+  fullVariantCatalog,
+  generateNetworkTopology,
+  networkTopologyCatalog,
+} from '../dist/graflume.complete.js';
 import { seriesSampleSpec } from './series-samples.mjs';
 import {
   applySnapshotTheme,
@@ -501,6 +505,27 @@ const snapshots = [
 const graphSnapshot = snapshots.find((snapshot) => snapshot.filename === 'graph.svg');
 assert.ok(graphSnapshot, 'graph representative exists');
 snapshots.push({ ...graphSnapshot, filename: 'network.svg' });
+
+for (const descriptor of networkTopologyCatalog) {
+  const graph = generateNetworkTopology({ topology: descriptor.id, nodeCount: 8, seed: 17 });
+  snapshots.push({
+    filename: `network-topology-${descriptor.id}.svg`,
+    minimum: { circle: 8 },
+    spec: {
+      data: graph.data,
+      title: {
+        text: `Synthetic topology: ${descriptor.label}`,
+        subtitle: `${graph.nodeCount} nodes · ${graph.edgeCount} edges · generated example data`,
+      },
+      x: encoding('source', 'nominal', 'Source', false),
+      y: encoding('value', 'quantitative', 'Weight', false),
+      mark: graph.mark,
+      accessibility: {
+        label: `Synthetic ${descriptor.label} network with ${graph.nodeCount} nodes and ${graph.edgeCount} edges. ${descriptor.description}`,
+      },
+    },
+  });
+}
 
 const expanded2dSnapshotIds = new Set([
   'distribution',

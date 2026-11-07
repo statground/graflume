@@ -99,6 +99,15 @@ export type {
   WordTokenOptions,
   WordTreeNode,
 } from './data/structured-analytics.js';
+export { generateNetworkTopology, networkTopologyCatalog } from './data/network-topology.js';
+export type {
+  NetworkTopology,
+  NetworkTopologyDescriptor,
+  NetworkTopologyNode,
+  NetworkTopologyOptions,
+  NetworkTopologyResult,
+  NetworkTopologyRole,
+} from './data/network-topology.js';
 export { layoutNetwork, moveNetworkNode, selectNetworkNodes } from './data/network-analytics.js';
 export type {
   NetworkEdgeInput,

@@ -475,6 +475,125 @@ network('#chart', data, {
 
 Declare source and target fields and an optional weight. `network()` accepts `mark.options.mode` values `node-link`, `arc`, and `connections`. Missing required values skip only the affected row. Input order remains stable unless the selected layout documents a deterministic sort.
 
+## Synthetic topology generators
+
+`generateNetworkTopology()` supplies example graph **data**, independently of the
+existing node-link, arc, and connection rendering modes. The catalog contains the
+six reference motifs and eight additional structures. These are synthetic examples,
+not inferred relationships or observed measurements.
+
+```js
+import { generateNetworkTopology, network, networkTopologyCatalog } from 'graflume/complete';
+
+const graph = generateNetworkTopology({
+  topology: 'diamond',
+  nodeCount: 8,
+  directed: true,
+  seed: 17,
+});
+
+const chart = network('#chart', graph.data, {
+  x: { field: 'source', type: 'nominal' },
+  y: { field: 'value', type: 'quantitative' },
+  axes: { x: false, y: false },
+  mark: graph.mark,
+  title: {
+    text: 'Synthetic diamond',
+    subtitle: `${graph.nodeCount} nodes, ${graph.edgeCount} edges`,
+  },
+  accessibility: {
+    label: 'Synthetic diamond with one source, six relays, and one sink',
+    table: 'visible',
+    navigation: true,
+  },
+  interaction: {
+    tooltip: {
+      fields: [
+        { field: 'label', label: 'Node' },
+        { field: 'group', label: 'Role' },
+        { field: 'source', label: 'From' },
+        { field: 'target', label: 'To' },
+      ],
+      trigger: 'mark',
+    },
+  },
+});
+
+// Hosts can build selectors from the public bounds and descriptions.
+console.log(networkTopologyCatalog);
+// Existing ChartSpec / Scene snapshot persistence remains available.
+const portableSpec = JSON.stringify(chart.getSpec());
+```
+
+The result is `{ topology, nodeCount, edgeCount, nodes, edges, data, mark }`.
+`nodes` and `edges` also work directly with `layoutNetwork()`. `data` contains explicit
+node rows followed by edge rows, so a zero-edge random sample still renders every
+node. Every row carries `synthetic: true` and the topology ID; every edge has unit
+weight. IDs (`n1`, `n2`, … and `e1`, `e2`, …) remain separate from readable node
+labels. Keep `graph.mark` with `graph.data` to preserve field mappings, pinned
+normalized coordinates, straight edge routing, and role groups. Explicit groups
+share theme-aware node colors. Source, relay, sink, and isolated roles follow actual
+edge incidence; undirected connected nodes have the relay role.
+
+### Reference motifs
+
+The illustrated sizes 3, 4, 6, 8, and 10 are supported within each row's bounds.
+Diamond and Rhombus require at least four nodes and have no three-node preset.
+All six motifs default to directed edges.
+
+| ID                                             | Nodes | Structure                                                                                                                       | Compiled example                                                 |
+| ---------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| <a id="topology-collapse"></a>`collapse`       | 3–200 | Peripheral sources converge on one sink; corner geometry for 3–4 nodes and a two-sided fan for larger graphs.                   | [Collapse](../assets/charts/network-topology-collapse.svg)       |
+| <a id="topology-line"></a>`line`               | 3–200 | One open path, bent into an L at three nodes and a U for larger graphs; each elbow is a node.                                   | [Line](../assets/charts/network-topology-line.svg)               |
+| <a id="topology-star"></a>`star`               | 3–200 | One central source fans out to peripheral sinks; reverses Collapse's direction.                                                 | [Star](../assets/charts/network-topology-star.svg)               |
+| <a id="topology-pseudo-loop"></a>`pseudo-loop` | 3–200 | Line's long source-to-sink path plus a direct source-to-sink shortcut; the rectangular silhouette is an acyclic directed graph. | [Pseudo Loop](../assets/charts/network-topology-pseudo-loop.svg) |
+| <a id="topology-diamond"></a>`diamond`         | 4–200 | One source above and one sink below a horizontal relay belt; adjacent relays are also connected from left to right.             | [Diamond](../assets/charts/network-topology-diamond.svg)         |
+| <a id="topology-rhombus"></a>`rhombus`         | 4–200 | Independent two-edge source–relay–sink branches; shares Diamond's positions without relay-to-relay links.                       | [Rhombus](../assets/charts/network-topology-rhombus.svg)         |
+
+### Additional structures
+
+`directed` defaults are listed explicitly. Set it to `true` or `false` to override
+them. A directed Complete or Random graph orients each selected pair from the lower
+node index to the higher index; it does not create two opposing edges. Pseudo Loop
+and Ring share cycle-shaped geometry but retain different direction semantics.
+
+| ID                                                 | Nodes | Directed by default | Structure                                                                                                       | Compiled example                                                     |
+| -------------------------------------------------- | ----- | ------------------- | --------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| <a id="topology-ring"></a>`ring`                   | 3–200 | No                  | Circular cycle; directed mode follows the circle and includes a return edge.                                    | [Ring](../assets/charts/network-topology-ring.svg)                   |
+| <a id="topology-wheel"></a>`wheel`                 | 4–200 | No                  | Circular rim with a hub connected to every rim node; directed spokes leave the hub.                             | [Wheel](../assets/charts/network-topology-wheel.svg)                 |
+| <a id="topology-balanced-tree"></a>`balanced-tree` | 3–200 | Yes                 | Breadth-first binary tree with a fixed root and layered children.                                               | [Balanced tree](../assets/charts/network-topology-balanced-tree.svg) |
+| <a id="topology-grid"></a>`grid`                   | 3–200 | No                  | Near-square horizontal/vertical lattice; a partial last row is retained.                                        | [Grid](../assets/charts/network-topology-grid.svg)                   |
+| <a id="topology-complete"></a>`complete`           | 3–64  | No                  | Every unordered node pair has exactly one edge.                                                                 | [Complete](../assets/charts/network-topology-complete.svg)           |
+| <a id="topology-bipartite"></a>`bipartite`         | 3–128 | Yes                 | Full left-to-right partition connections; odd counts put the extra node on the left.                            | [Bipartite](../assets/charts/network-topology-bipartite.svg)         |
+| <a id="topology-small-world"></a>`small-world`     | 5–200 | No                  | Circular nearest/next-nearest neighbor lattice with seeded shortcuts; no rewiring or promised graph statistics. | [Small world](../assets/charts/network-topology-small-world.svg)     |
+| <a id="topology-random"></a>`random`               | 3–90  | No                  | Independent per-pair seeded edge selection, including isolated nodes and empty samples.                         | [Random](../assets/charts/network-topology-random.svg)               |
+
+### Validation and portability
+
+`nodeCount` defaults to 8 and must be an integer within the selected catalog bounds.
+`seed` defaults to 1 and must be an unsigned 32-bit integer. `edgeProbability`
+defaults to 0.2 and must be finite in `[0, 1]`; it controls per-pair selection for
+Random and per-node shortcut attempts for Small world. Seed and probability do not
+change the other structures. Same options reproduce the same IDs, edge order,
+roles, and positions. Unsupported IDs, invalid booleans, non-integer sizes/seeds,
+and out-of-range probabilities fail with `GraflumeError` instead of silently clamping.
+There are no self-loops or parallel/reverse duplicate pairs.
+
+This adds a generator and public TypeScript types; ChartSpec 0.1, its JSON schema,
+and completed-chart snapshot versions are unchanged. Generated values are finite
+and JSON-portable. The usual missing-value rules still apply to author-edited rows;
+no edge is fabricated to make isolated nodes visible. Canvas/SVG compilation,
+inspection/export, drag/pin/lasso, keyboard navigation, and accessible data tables
+use the existing graph pipeline. Generator positions start pinned; explicit host
+changes or unpinning can use the normal network interactions. Persisted Scene
+snapshots restore their saved geometry without rerunning this generator.
+
+Generation is bounded by 200 nodes for sparse structures, 64 for Complete, 128 for
+Bipartite, and 90 for Random; the densest preset produces at most 4,096 edges.
+Dense graph compilation, crossings, labels, and accessible tables still have a
+cost. Choose smaller counts for comparison grids and keep large examples focused
+on one chart. No data is collected or network request made by the generator.
+
 ## Rendering and portability
 
 Every preset normalizes into the same ChartSpec, validation, scale, compiler, renderer-neutral Scene, interaction, and accessibility pipeline. Mode differences use function-free `mark.fields` and `mark.options`; they do not create a second engine or a second top-level family.
@@ -507,6 +626,7 @@ Directed/multiedge/self-loop/compound/port modeling, four layouts,
 drag/pin/collapse/lasso, and edge routing are documented in the
 [structure and relationship analytics guide](../relationship-analytics.md#network-graph).
 
+- Generator regression: [`tests/network-topology.test.mjs`](../../tests/network-topology.test.mjs)
 - Snapshot: [`docs/assets/charts/network.svg`](../assets/charts/network.svg)
 - Runtime catalogs: [`src/catalog`](../../src/catalog)
 - Catalog tests: [`tests`](../../tests)

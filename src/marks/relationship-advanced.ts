@@ -1017,6 +1017,9 @@ export const compileAdvancedGraphMark: MarkCompiler = (context) => {
       });
     }
   });
+  const nodeGroups = [
+    ...new Set(result.nodes.flatMap(({ group }) => (group === null ? [] : [group]))),
+  ].sort();
   result.nodes.forEach((item, index) => {
     const center = toPlot(context, item);
     const radius = Math.max(5, item.radius * Math.min(plot.width, plot.height));
@@ -1032,7 +1035,10 @@ export const compileAdvancedGraphMark: MarkCompiler = (context) => {
       ),
     ]);
     const sourceRow = sourceRows[0] ?? input.nodeRows.get(item.id) ?? 0;
-    const color = palette(context, index, result.nodes.length);
+    const color =
+      item.group === null
+        ? palette(context, index, result.nodes.length)
+        : palette(context, nodeGroups.indexOf(item.group), nodeGroups.length);
     const tooltip: DataRow = {
       kind: 'network-node',
       id: item.id,

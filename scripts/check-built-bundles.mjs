@@ -42,6 +42,7 @@ const sharedFoundationApis = [
   'TransformDataflow',
   'createMapTileManager',
   'layoutWeightedWordCloud',
+  'generateNetworkTopology',
   'quickScatter',
   'resolveScatterRendererDispatch',
 ];
@@ -89,6 +90,18 @@ for (const api of sharedFoundationApis) {
   assert.equal(typeof defaultModule[api], 'function', `default ${api}`);
   assert.equal(typeof completeModule[api], 'function', `complete ${api}`);
 }
+assert.equal(defaultModule.networkTopologyCatalog.length, 14);
+assert.deepEqual(completeModule.networkTopologyCatalog, defaultModule.networkTopologyCatalog);
+assert.equal(
+  completeModule.generateNetworkTopology({ topology: 'random', nodeCount: 3, edgeProbability: 0 })
+    .nodeCount,
+  3,
+);
+assertEntryDoesNotExpose(
+  spatialModule,
+  ['generateNetworkTopology', 'networkTopologyCatalog'],
+  'spatial',
+);
 assert.equal(defaultModule.automaticScatterWebGLThreshold, 5_000);
 assert.equal(completeModule.automaticScatterWebGLThreshold, 5_000);
 assertEntryDoesNotExpose(defaultModule, additionalApis, 'default');
@@ -260,6 +273,17 @@ for (const api of sharedFoundationApis) {
   assert.equal(typeof defaultGlobal[api], 'function', `default global ${api}`);
   assert.equal(typeof completeGlobal[api], 'function', `complete global ${api}`);
 }
+assert.equal(defaultGlobal.networkTopologyCatalog.length, 14);
+assert.equal(completeGlobal.networkTopologyCatalog.length, 14);
+assert.equal(
+  completeGlobal.generateNetworkTopology({ topology: 'diamond', nodeCount: 8 }).edgeCount,
+  17,
+);
+assertEntryDoesNotExpose(
+  spatialGlobal,
+  ['generateNetworkTopology', 'networkTopologyCatalog'],
+  'spatial global',
+);
 assert.equal(defaultGlobal.automaticScatterWebGLThreshold, 5_000);
 assert.equal(completeGlobal.automaticScatterWebGLThreshold, 5_000);
 assertEntryDoesNotExpose(defaultGlobal, additionalApis, 'default global');

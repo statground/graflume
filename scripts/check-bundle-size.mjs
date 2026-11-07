@@ -2,12 +2,12 @@ import { readFile, stat } from 'node:fs/promises';
 import { gzipSync } from 'node:zlib';
 
 const budgets = [
-  // 2026-09-09 measured after renderer-neutral Table ranges and atomic TSV paste:
-  // 1,256,919 / 1,455,319 / 397,648 raw minified bytes.
+  // 2026-11-07 measured after bounded synthetic network topology generators:
+  // 1,262,430 / 1,460,954 / 397,648 raw minified bytes.
   // Each ceiling is the next whole KiB, leaving less than one KiB of headroom.
   // See docs/development/bundle-boundaries.md for the import-graph audit.
-  ['graflume.min.js', 1_228 * 1024],
-  ['graflume.complete.min.js', 1_422 * 1024],
+  ['graflume.min.js', 1_233 * 1024],
+  ['graflume.complete.min.js', 1_427 * 1024],
   ['graflume.spatial.min.js', 389 * 1024],
   // 2026-09-11 measured optional, lazy-only spreadsheet assets after host-defined
   // top-level panels and direct column renaming. These ceilings are independent

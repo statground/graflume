@@ -229,6 +229,23 @@ restored snapshots retain their previously saved geometry without another layout
 | `arc-diagram`   | [Arc diagram](./network.md#variant-arc-diagram)     | `arcDiagram()`   | `arc-diagram`   | `arc-diagram` |
 | `network-graph` | [Network graph](./network.md#variant-network-graph) | `networkGraph()` | `network-graph` | `graph`       |
 
+### Synthetic network data presets
+
+`generateNetworkTopology()` supplies data to the existing `network()` / `graph()`
+API. These 14 structures are data generators, separate from the rendering-mode
+catalog and chart-family counts. The canonical [network contract](./network.md#synthetic-topology-generators)
+documents bounds, direction, roles, portability, and deterministic seeds.
+
+| Data preset   | Canonical contract                               | Data preset     | Canonical contract                                   |
+| ------------- | ------------------------------------------------ | --------------- | ---------------------------------------------------- |
+| `collapse`    | [Collapse](./network.md#topology-collapse)       | `ring`          | [Ring](./network.md#topology-ring)                   |
+| `line`        | [Line](./network.md#topology-line)               | `wheel`         | [Wheel](./network.md#topology-wheel)                 |
+| `star`        | [Star](./network.md#topology-star)               | `balanced-tree` | [Balanced tree](./network.md#topology-balanced-tree) |
+| `pseudo-loop` | [Pseudo Loop](./network.md#topology-pseudo-loop) | `grid`          | [Grid](./network.md#topology-grid)                   |
+| `diamond`     | [Diamond](./network.md#topology-diamond)         | `complete`      | [Complete](./network.md#topology-complete)           |
+| `rhombus`     | [Rhombus](./network.md#topology-rhombus)         | `bipartite`     | [Bipartite](./network.md#topology-bipartite)         |
+| `small-world` | [Small world](./network.md#topology-small-world) | `random`        | [Random](./network.md#topology-random)               |
+
 ## [Chord diagram](./chord.md#integrated-presets)
 
 | Identifier         | Compatible name                                         | Quick API           | Mode               | Portable mark |
