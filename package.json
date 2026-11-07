@@ -117,7 +117,7 @@
     "docs:links": "node ./scripts/check-doc-links.mjs",
     "geography:update": "node ./scripts/generate-natural-earth-world.mjs && node ./scripts/generate-natural-earth-admin1.mjs",
     "geography:check": "node ./scripts/check-natural-earth-admin1-assets.mjs",
-    "check": "npm run naming:check && npm run spreadsheet:boundary && npm run limitations:check && npm run geography:check && npm run typecheck && npm test && npm run build && npm run spreadsheet:boundary && npm run catalog:check && npm run docs:series-gallery:check && npm run docs:snapshots:check && npm run docs:theme-snapshots:check && npm run docs:links && npm run format:check && npm run package:check",
+    "check": "npm run naming:check && npm run limitations:check && npm run geography:check && npm run typecheck && npm test && npm run build && npm run spreadsheet:boundary && npm run catalog:check && npm run docs:series-gallery:check && npm run docs:snapshots:check && npm run docs:theme-snapshots:check && npm run docs:links && npm run format:check && npm run package:check",
     "build:verify": "node ./scripts/check-built-bundles.mjs",
     "naming:check": "node ./scripts/check-neutral-naming.mjs",
     "spreadsheet:boundary": "node ./scripts/check-spreadsheet-boundary.mjs",
